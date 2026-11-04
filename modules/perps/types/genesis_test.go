@@ -32,10 +32,11 @@ func e18(value uint64) uint256.Int {
 func validGenesis() types.GenesisState {
 	gs := *types.DefaultGenesis()
 	gs.Markets = []types.Market{btcMarket(), paxMarket()}
-	gs.MarketStates = []types.MarketState{{MarketID: 0, IndexPrice: e18(60_000), MarkPrice: e18(60_000), Fresh: true}}
+	gs.MarketStates = []types.MarketState{{MarketID: 0, IndexPrice: e18(60_000), MarkPrice: e18(60_000), Fresh: true,
+		LongOpenInterest: word(16_500_000_000_000_000), ShortOpenInterest: word(16_500_000_000_000_000)}}
 	gs.Accounts = []types.Account{
 		{Address: holderA, Collateral: word(250_000_000), DeficitUsd: e18(3), OpenOrderCount: 2, PositionCount: 1, MarginRatioBucket: 140, Created: true},
-		{Address: holderB, Collateral: word(100_000_000), DeficitUsd: e18(2), Created: true},
+		{Address: holderB, Collateral: word(100_000_000), DeficitUsd: e18(2), PositionCount: 1, Created: true},
 	}
 	gs.Orders = []types.Order{
 		{
@@ -59,7 +60,11 @@ func validGenesis() types.GenesisState {
 		ReferencePrice: e18(60_000), CostBasisUsd: e18(990), EntryPrice: e18(60_000), Leverage: e18(10),
 		RankScore: e18(5), OpenedAt: 1_800_000_000,
 	}}
-	gs.AccountMarketPositions = []types.AccountMarketPositionEntry{{Account: holderA, MarketID: 0, PositionID: word(7)}}
+	short := gs.Positions[0]
+	short.ID, short.Account, short.IsLong = word(4), holderB, false
+	gs.Positions = append(gs.Positions, short)
+	gs.AccountMarketPositions = []types.AccountMarketPositionEntry{{Account: holderA, MarketID: 0, PositionID: word(7)},
+		{Account: holderB, MarketID: 0, PositionID: word(4)}}
 	gs.LiquidationCooldowns = []types.LiquidationCooldown{{PositionID: word(7), LastSliceTime: 1_800_000_050,
 		SliceBasis: word(16_500_000_000_000_000)}}
 	gs.AttachedTpSls = []types.AttachedTpSl{{PositionID: word(7), StopLossOrderID: word(3)}}
@@ -85,9 +90,9 @@ func TestGenesisValidateRejects(t *testing.T) {
 		reason string
 	}{
 		{"invalid params", func(gs *types.GenesisState) { gs.Params.CollateralToken = common.Address{} },
-			"LXP_PERPS_INVALID_GENESIS: LXP_PERPS_INVALID_PARAMS: zero collateral token"},
+			"zero collateral token: LXP_PERPS_INVALID_PARAMS: LXP_PERPS_INVALID_GENESIS"},
 		{"invalid market", func(gs *types.GenesisState) { gs.Markets[1].MaxLeverage = 0 },
-			"LXP_PERPS_INVALID_GENESIS: LXP_PERPS_INVALID_PARAMS: market 11 max leverage must be in [1, 1000]"},
+			"market 11 max leverage must be in [1, 1000]: LXP_PERPS_INVALID_PARAMS: LXP_PERPS_INVALID_GENESIS"},
 		{"duplicate market", func(gs *types.GenesisState) { gs.Markets[1] = gs.Markets[0] },
 			"duplicate market 0"},
 		{"market state of unknown market", func(gs *types.GenesisState) { gs.MarketStates[0].MarketID = 5 },

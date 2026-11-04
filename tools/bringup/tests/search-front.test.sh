@@ -35,7 +35,7 @@ fixture_env=(
 	X_WEBSEARCH_USDC_PRICE=1000
 	X_WEBSEARCH_USDL_ASSET_ID=0404040404040404040404040404040404040404040404040404040404040404
 	X_WEBSEARCH_USDL_PRICE=1000000000000000
-	X_WEBSEARCH_GATEWAY_ENDPOINT=https://api-mainnet-beta.paxeer.network/rpc
+	X_WEBSEARCH_GATEWAY_ENDPOINT=https://layerx-gateway.layerx-testnet.svc.cluster.local/rpc
 	X_WEBSEARCH_RECEIPT_KEY_ID=abcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
 	X_WEBSEARCH_RECEIPT_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_SEQUENCER_ID=0505050505050505050505050505050505050505050505050505050505050505
@@ -125,6 +125,42 @@ for entry in rendered["gateway"]["receipt_keys"]:
 PY
 }
 check config_receipt_key_ids_are_hex32 config_receipt_key_ids_are_hex32
+
+config_gateway_uses_hosted_service() {
+	python3 - "$repo_root/services/platform/hosted/gateway/deployment.yaml" "$work/x-websearch.json" <<'PYTEST'
+import json, re, sys
+from urllib.parse import urlsplit
+
+deployment = open(sys.argv[1]).read()
+rendered = json.load(open(sys.argv[2]))
+endpoint = urlsplit(rendered["gateway"]["endpoint"])
+assert re.search(r"kind: Service\s+metadata: \{name: layerx-gateway, namespace: layerx-testnet\}", deployment)
+assert "port: 443, targetPort: https" in deployment
+assert endpoint.scheme == "https"
+assert endpoint.hostname == "layerx-gateway.layerx-testnet.svc.cluster.local"
+assert endpoint.path == "/rpc"
+PYTEST
+}
+check config_gateway_uses_hosted_service config_gateway_uses_hosted_service
+
+config_refuses_unconfigured_gateway() {
+	local status=0
+	env "${fixture_env[@]}" X_WEBSEARCH_GATEWAY_ENDPOINT= "$front" config >"$work/no-gateway.out" 2>"$work/no-gateway.err" || status=$?
+	[ "$status" -eq 1 ] && [ ! -s "$work/no-gateway.out" ] &&
+		grep -Fxq 'search-front: unset X_WEBSEARCH_GATEWAY_ENDPOINT' "$work/no-gateway.err"
+}
+check config_refuses_unconfigured_gateway config_refuses_unconfigured_gateway
+
+xweb_refuses_unconfigured_gateway() {
+	local mode status
+	for mode in prices register; do
+		status=0
+		env -u XWEB_GATEWAY_ENDPOINT "$repo_root/tools/bringup/xweb-config.sh" "$mode" >"$work/xweb-$mode.out" 2>"$work/xweb-$mode.err" || status=$?
+		[ "$status" -eq 2 ] && [ ! -s "$work/xweb-$mode.out" ] &&
+			grep -Fxq 'xweb-config: hosted gateway endpoint is not configured (XWEB_GATEWAY_ENDPOINT)' "$work/xweb-$mode.err" || return 1
+	done
+}
+check xweb_refuses_unconfigured_gateway xweb_refuses_unconfigured_gateway
 
 status=0
 env "${fixture_env[@]}" X_WEBSEARCH_EVM_ENDPOINT= env -u X_WEBSEARCH_PAX_PRICE "$front" config >/dev/null 2>"$work/missing.err" || status=$?

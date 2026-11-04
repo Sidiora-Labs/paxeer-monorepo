@@ -1,11 +1,13 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use bincode::Options;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::types::{
-    Balance, DailyStats, Order, Position, TraderStats, User,
-};
+use crate::core::types::{Balance, DailyStats, Order, Position, TraderStats, User};
 use crate::error::PerfDbError;
 use crate::relational::checkpoint::Checkpoint;
 use crate::state::market_state::MarketSnapshot;
@@ -99,90 +101,217 @@ impl From<MarketSnapshot> for SnapshotMarketState {
     }
 }
 
-/// Write a snapshot to disk as `snapshot_{block}.bin` in the given directory.
-pub fn write_snapshot(
+const SNAPSHOT_MAGIC: &[u8; 8] = b"PDBSNAP1";
+static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+/// An owned tier name is used on disk; the relational engine currently requires
+/// static names, resolved explicitly by the caller when restoring the table.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotReferralTier {
+    pub tier: String,
+    pub min_referrals: u32,
+    pub min_volume: i128,
+    pub reward_bps: u32,
+    pub fee_discount_bps: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelationalSnapshot {
+    pub version: u32,
+    pub sequence: u64,
+    pub next_alert_id: u64,
+    pub alerts: Vec<crate::relational::alerts::Alert>,
+    pub api_keys: Vec<crate::relational::api_keys::ApiKey>,
+    pub competitions: Vec<crate::relational::competitions::Competition>,
+    pub competition_entries: Vec<crate::relational::competitions::CompetitionEntry>,
+    pub referral_tiers: Vec<SnapshotReferralTier>,
+}
+
+/// Versioned extension without changing the legacy engine's struct literals or
+/// silently treating an old snapshot as containing relational state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompleteStateSnapshot {
+    pub version: u32,
+    pub state: StateSnapshot,
+    pub relational: Option<RelationalSnapshot>,
+}
+
+pub fn write_snapshot(dir: &Path, snapshot: &StateSnapshot) -> Result<PathBuf, PerfDbError> {
+    write_complete_snapshot(
+        dir,
+        &CompleteStateSnapshot {
+            version: 1,
+            state: snapshot.clone(),
+            relational: None,
+        },
+    )
+}
+
+pub fn write_complete_snapshot(
     dir: &Path,
-    snapshot: &StateSnapshot,
+    snapshot: &CompleteStateSnapshot,
 ) -> Result<PathBuf, PerfDbError> {
-    fs::create_dir_all(dir).map_err(|e| PerfDbError::Io {
-        context: format!("create snapshot dir: {}", dir.display()),
-        source: e,
-    })?;
-
-    let filename = format!("snapshot_{:012}.bin", snapshot.checkpoint.last_block);
-    let path = dir.join(&filename);
-
-    let data = bincode::serialize(snapshot).map_err(|e| PerfDbError::Serialization {
-        context: "snapshot serialize".into(),
-        detail: e.to_string(),
-    })?;
-
-    fs::write(&path, &data).map_err(|e| PerfDbError::Io {
-        context: format!("write snapshot: {}", path.display()),
-        source: e,
-    })?;
-
-    tracing::info!(
-        block = snapshot.checkpoint.last_block,
-        size_bytes = data.len(),
-        path = %path.display(),
-        "snapshot written"
-    );
-
+    if snapshot.version != 1 || snapshot.relational.as_ref().is_some_and(|r| r.version != 1) {
+        return Err(PerfDbError::InvalidArgument(
+            "unsupported snapshot version".into(),
+        ));
+    }
+    let path = dir.join(format!(
+        "snapshot_{:012}.bin",
+        snapshot.state.checkpoint.last_block
+    ));
+    let data = encode_image(snapshot)?;
+    atomic_publish(&path, &data)?;
     Ok(path)
 }
 
-/// Load the latest snapshot from a directory. Returns `None` if no snapshots exist.
-pub fn load_latest_snapshot(dir: &Path) -> Result<Option<StateSnapshot>, PerfDbError> {
-    if !dir.exists() {
-        return Ok(None);
-    }
-
-    let mut snapshots = list_snapshots(dir)?;
-    if snapshots.is_empty() {
-        return Ok(None);
-    }
-
-    snapshots.sort_by(|a, b| b.0.cmp(&a.0));
-
-    let (block, path) = &snapshots[0];
-    tracing::info!(block, path = %path.display(), "loading snapshot");
-
-    let data = fs::read(path).map_err(|e| PerfDbError::Io {
-        context: format!("read snapshot: {}", path.display()),
-        source: e,
+pub(crate) fn encode_image<T: Serialize>(value: &T) -> Result<Vec<u8>, PerfDbError> {
+    let payload = bincode::serialize(value).map_err(|e| PerfDbError::Serialization {
+        context: "snapshot serialize".into(),
+        detail: e.to_string(),
     })?;
-
-    let snapshot: StateSnapshot =
-        bincode::deserialize(&data).map_err(|e| PerfDbError::Serialization {
-            context: "snapshot deserialize".into(),
-            detail: e.to_string(),
-        })?;
-
-    Ok(Some(snapshot))
+    let mut data = Vec::with_capacity(20 + payload.len());
+    data.extend_from_slice(SNAPSHOT_MAGIC);
+    data.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+    data.extend_from_slice(&crc32fast::hash(&payload).to_le_bytes());
+    data.extend_from_slice(&payload);
+    Ok(data)
 }
 
-/// Load a specific snapshot by block number. Returns `None` if not found.
-pub fn load_snapshot(dir: &Path, block: u64) -> Result<Option<StateSnapshot>, PerfDbError> {
-    let filename = format!("snapshot_{:012}.bin", block);
-    let path = dir.join(&filename);
+pub(crate) fn decode_image<T: serde::de::DeserializeOwned>(data: &[u8]) -> Result<T, PerfDbError> {
+    if data.len() < 20
+        || &data[..8] != SNAPSHOT_MAGIC
+        || u64::from_le_bytes(data[8..16].try_into().unwrap()) != (data.len() - 20) as u64
+        || u32::from_le_bytes(data[16..20].try_into().unwrap()) != crc32fast::hash(&data[20..])
+    {
+        return Err(PerfDbError::Corruption(
+            "snapshot header, length or checksum mismatch".into(),
+        ));
+    }
+    bincode::DefaultOptions::new()
+        .with_fixint_encoding()
+        .reject_trailing_bytes()
+        .with_limit(data.len() as u64)
+        .deserialize(&data[20..])
+        .map_err(|e| PerfDbError::Corruption(format!("snapshot decode: {e}")))
+}
 
+pub(crate) fn atomic_publish(path: &Path, data: &[u8]) -> Result<(), PerfDbError> {
+    use super::wal::{io_error, sync_directory};
+    let dir = path
+        .parent()
+        .ok_or_else(|| PerfDbError::InvalidArgument("snapshot has no parent".into()))?;
+    super::wal::create_storage_dir(dir)?;
+    let (temp, mut file) = loop {
+        let id = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let temp = dir.join(format!(".snapshot-{}-{id}.tmp", std::process::id()));
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&temp) {
+            Ok(file) => break (temp, file),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(io_error("create temporary snapshot", e)),
+        }
+    };
+    let result = (|| {
+        file.write_all(data)
+            .map_err(|e| io_error("write temporary snapshot", e))?;
+        file.sync_all()
+            .map_err(|e| io_error("sync temporary snapshot", e))?;
+        fs::rename(&temp, path).map_err(|e| io_error("publish snapshot", e))?;
+        sync_directory(dir)
+    })();
+    if result.is_err() && temp.exists() {
+        fs::remove_file(&temp).map_err(|e| io_error("remove temporary snapshot", e))?;
+    }
+    result
+}
+
+fn read_snapshot(path: &Path, block: u64) -> Result<CompleteStateSnapshot, PerfDbError> {
+    let data = fs::read(path).map_err(|e| super::wal::io_error("read snapshot", e))?;
+    let image: CompleteStateSnapshot = if data.starts_with(SNAPSHOT_MAGIC) {
+        decode_image(&data)?
+    } else {
+        let state = bincode::DefaultOptions::new()
+            .with_fixint_encoding()
+            .reject_trailing_bytes()
+            .with_limit(data.len() as u64)
+            .deserialize(&data)
+            .map_err(|e| PerfDbError::Corruption(format!("legacy snapshot decode: {e}")))?;
+        CompleteStateSnapshot {
+            version: 1,
+            state,
+            relational: None,
+        }
+    };
+    if image.version != 1 || image.relational.as_ref().is_some_and(|r| r.version != 1) {
+        return Err(PerfDbError::Serialization {
+            context: "snapshot version".into(),
+            detail: "unsupported snapshot version".into(),
+        });
+    }
+    if image.state.checkpoint.last_block != block {
+        return Err(PerfDbError::Corruption(
+            "snapshot version or checkpoint does not match filename".into(),
+        ));
+    }
+    Ok(image)
+}
+
+pub fn load_latest_complete_snapshot(
+    dir: &Path,
+) -> Result<Option<CompleteStateSnapshot>, PerfDbError> {
+    let mut snapshots = list_snapshots(dir)?;
+    snapshots.sort_by(|a, b| b.0.cmp(&a.0));
+    let mut rejected_block = None;
+    for (block, path) in snapshots {
+        match read_snapshot(&path, block) {
+            Ok(snapshot) => {
+                if let Some(through) = rejected_block {
+                    let wal_dir = dir
+                        .parent()
+                        .ok_or_else(|| PerfDbError::Corruption("missing snapshot parent".into()))?
+                        .join("wal");
+                    super::wal::verify_snapshot_coverage(&wal_dir, block, through)?;
+                }
+                return Ok(Some(snapshot));
+            }
+            Err(PerfDbError::Corruption(detail)) => {
+                tracing::warn!(block, detail, "rejecting invalid recovery snapshot");
+                rejected_block.get_or_insert(block);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    if rejected_block.is_some() {
+        return Err(PerfDbError::Corruption(
+            "no usable recovery snapshot".into(),
+        ));
+    }
+    Ok(None)
+}
+
+pub fn load_latest_snapshot(dir: &Path) -> Result<Option<StateSnapshot>, PerfDbError> {
+    match load_latest_complete_snapshot(dir)? {
+        Some(image) if image.relational.is_some() => Err(PerfDbError::InvalidArgument(
+            "relational snapshot requires engine restoration through load_latest_complete_snapshot"
+                .into(),
+        )),
+        image => Ok(image.map(|image| image.state)),
+    }
+}
+
+pub fn load_snapshot(dir: &Path, block: u64) -> Result<Option<StateSnapshot>, PerfDbError> {
+    let path = dir.join(format!("snapshot_{block:012}.bin"));
     if !path.exists() {
         return Ok(None);
     }
-
-    let data = fs::read(&path).map_err(|e| PerfDbError::Io {
-        context: format!("read snapshot: {}", path.display()),
-        source: e,
-    })?;
-
-    let snapshot: StateSnapshot =
-        bincode::deserialize(&data).map_err(|e| PerfDbError::Serialization {
-            context: "snapshot deserialize".into(),
-            detail: e.to_string(),
-        })?;
-
-    Ok(Some(snapshot))
+    Ok(Some(read_snapshot(&path, block)?.state))
 }
 
 /// List all snapshot files in a directory as (block_number, path) pairs.

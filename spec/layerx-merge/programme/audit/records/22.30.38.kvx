@@ -1,0 +1,1203 @@
+# Pre-upgrade launchpad security audit; static review of the source revision below.
+
+[audit.22.30.38]
+task = "22.30.38"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 124
+findings = 33
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["payout-dispatch-crash", "recovery-delete-grant", "policy-write-read-shape"]
+review_basis = "Full member reads against package requirements, brief and all 240 produced/94 consumed registry rows; relevant real paths include gateway runtime mounts, SQL owner views/grants, DTOs, shared auth/secrets and queue epoch consumers. Static audit evidence does not claim source execution or external qualification."
+interface_notes = "Generic lexical caller matches such as version, package, application, conflict, PORT and HOSTNAME were checked in context; they alone do not establish a foreign service/environment dependency. Actual gateway mounts override incomplete registry caller lists. Credential revoked_at column UPDATE is granted, so no credential-revocation privilege defect is asserted."
+requirements_notes = "22998.1 evidence for this task is its bounded audit-record gate; this record does not claim historical source targets, provider/browser/device runs or final capacity passed. The qualified Go1.26.4 supply-chain baseline supersedes old Go1.25 prose."
+
+[file.001]
+path = "apps/launchpad/pnpm-workspace.yaml"
+lines = 4
+verdict = "clean"
+note = "Workspace globs resolve web/mobile and relocated SDK packages."
+
+[file.002]
+path = "apps/launchpad/qualification/accessibility/corpus.json"
+lines = 349
+verdict = "issues"
+note = "Route inventory source still points at removed client tree; pending observation remains explicit."
+
+[file.003]
+path = "apps/launchpad/qualification/accessibility/journeys.ts"
+lines = 1
+verdict = "clean"
+note = "Accessibility journeys cover focus, keyboard, announcements and financial semantics without claiming browser evidence."
+
+[file.004]
+path = "apps/launchpad/qualification/account-ui/README.md"
+lines = 13
+verdict = "issues"
+note = "Documentation commands use removed client roots; see finding."
+
+[file.005]
+path = "apps/launchpad/qualification/account-ui/account-journeys.test.tsx"
+lines = 247
+verdict = "clean"
+note = "Real session/service journeys check durable revisions, privacy and account invalidation."
+
+[file.006]
+path = "apps/launchpad/qualification/account-ui/disclosure.test.tsx"
+lines = 61
+verdict = "clean"
+note = "Disclosure fixtures assert selected-field privacy and visibly unavailable values."
+
+[file.007]
+path = "apps/launchpad/qualification/account-ui/phase4-browser.mjs"
+lines = 83
+verdict = "clean"
+note = "Browser capture binds replies, durable revisions, offline watchlist acknowledgment and cross-device receipts."
+
+[file.008]
+path = "apps/launchpad/qualification/account-ui/phase4-native.py"
+lines = 256
+verdict = "clean"
+note = "Native capture requires actual Appium observations and source/account-bound acknowledgments."
+
+[file.009]
+path = "apps/launchpad/qualification/account-ui/rewards-failure.test.tsx"
+lines = 47
+verdict = "clean"
+note = "Rewards failure tests assert rejected reads and incomplete enumeration remain visibly unavailable."
+
+[file.010]
+path = "apps/launchpad/qualification/account-ui/run-check.py"
+lines = 7
+verdict = "clean"
+note = "Disclosure runner captures subprocess exits and uses owned test configuration."
+
+[file.011]
+path = "apps/launchpad/qualification/account-ui/run-phase2.py"
+lines = 11
+verdict = "clean"
+note = "Phase-two runner requires real supplied session/service inputs rather than fabricated success."
+
+[file.012]
+path = "apps/launchpad/qualification/account-ui/run-phase4.py"
+lines = 286
+verdict = "clean"
+note = "Phase-four runner coordinates source-bound browser/native observations and rejects incomplete evidence."
+
+[file.013]
+path = "apps/launchpad/qualification/account-ui/tsconfig.json"
+lines = 58
+verdict = "clean"
+note = "TypeScript config resolves current account sources and generated contract types."
+
+[file.014]
+path = "apps/launchpad/qualification/bootstrap/checks.json"
+lines = 16
+verdict = "clean"
+note = "Bootstrap check inventory keeps bounded commands separate from actual release qualification."
+
+[file.015]
+path = "apps/launchpad/qualification/bootstrap/frontend.py"
+lines = 69
+verdict = "clean"
+note = "Bootstrap inspector reads actual imports and reports missing dependencies rather than claiming qualification."
+
+[file.016]
+path = "apps/launchpad/qualification/bootstrap/inventory.json"
+lines = 451
+verdict = "generated"
+note = "Generated historical bootstrap snapshot retains its original layout and explicit qualified=false; not a current deployment assertion."
+
+[file.017]
+path = "apps/launchpad/qualification/foundations/inventory.cjs"
+lines = 78
+verdict = "clean"
+note = "Inventory resolves current package exports and derives hashed navigation routes from actual source."
+
+[file.018]
+path = "apps/launchpad/qualification/foundations/journeys.test.tsx"
+lines = 162
+verdict = "clean"
+note = "Foundation journeys exercise implemented navigation and shell behavior with explicit fixture scope."
+
+[file.019]
+path = "apps/launchpad/qualification/foundations/primitives.test.tsx"
+lines = 121
+verdict = "clean"
+note = "Primitive cases assert real UI primitives, keyboard behavior and bounded lists."
+
+[file.020]
+path = "apps/launchpad/qualification/foundations/release-harness.mjs"
+lines = 255
+verdict = "clean"
+note = "Release harness binds candidates and staging reports while preserving external capacity gates."
+
+[file.021]
+path = "apps/launchpad/qualification/foundations/run-staging-journeys.mjs"
+lines = 87
+verdict = "clean"
+note = "Staging capture collects actual browser timings and outcomes with bounded lifecycle."
+
+[file.022]
+path = "apps/launchpad/qualification/foundations/shell-types.json"
+lines = 1
+verdict = "clean"
+note = "Shell type inventory records navigation shape without a retired network interface."
+
+[file.023]
+path = "apps/launchpad/qualification/foundations/tsconfig.json"
+lines = 6
+verdict = "clean"
+note = "Foundation TypeScript config targets current web sources and package declarations."
+
+[file.024]
+path = "apps/launchpad/qualification/image-dependencies/fixture/next.config.js"
+lines = 11
+verdict = "clean"
+note = "Fixture constrains initial remote origin/path, bytes, pixels and sandbox headers; qualifier records bypasses."
+
+[file.025]
+path = "apps/launchpad/qualification/image-dependencies/fixture/package.json"
+lines = 8
+verdict = "clean"
+note = "Fixture package pins the intended Next dependency without production deployment authority."
+
+[file.026]
+path = "apps/launchpad/qualification/image-dependencies/fixture/pages/index.js"
+lines = 1
+verdict = "clean"
+note = "Fixture page exercises actual Next optimization without claiming a product deployment."
+
+[file.027]
+path = "apps/launchpad/qualification/image-dependencies/fixture/pnpm-workspace.yaml"
+lines = 2
+verdict = "clean"
+note = "Fixture workspace isolates dependency qualification resolution."
+
+[file.028]
+path = "apps/launchpad/qualification/image-dependencies/invalid/provenance.json"
+lines = 20
+verdict = "clean"
+note = "Malformed-image provenance identifies regression asset sources and intended rejection."
+
+[file.029]
+path = "apps/launchpad/qualification/image-dependencies/qualify.cjs"
+lines = 101
+verdict = "issues"
+note = "Qualifier accepts redirect and pixel fallback boundary escapes as passing limitations; see findings."
+
+[file.030]
+path = "apps/launchpad/qualification/image-dependencies/standalone-probe.cjs"
+lines = 61
+verdict = "clean"
+note = "Standalone decoder probe bounds malformed native subprocess execution."
+
+[file.031]
+path = "apps/launchpad/qualification/market-ui/README.md"
+lines = 8
+verdict = "issues"
+note = "Market documentation retains removed paths and superseded phase-one integration framing."
+
+[file.032]
+path = "apps/launchpad/qualification/market-ui/phase2-dom.test.tsx"
+lines = 72
+verdict = "clean"
+note = "Market DOM journey requires supplied contract categories and actual service inputs."
+
+[file.033]
+path = "apps/launchpad/qualification/market-ui/phase2-service-journey.ts"
+lines = 59
+verdict = "clean"
+note = "Service journey invokes SdkClient and MarketSession against supplied endpoints and tests ordering/live semantics."
+
+[file.034]
+path = "apps/launchpad/qualification/market-ui/phase4-browser.mjs"
+lines = 294
+verdict = "clean"
+note = "Market browser captures real route behavior, network samples and resource evidence."
+
+[file.035]
+path = "apps/launchpad/qualification/market-ui/phase4-observer.mjs"
+lines = 95
+verdict = "clean"
+note = "Market observer derives scenario/capacity observations and preserves external evidence requirements."
+
+[file.036]
+path = "apps/launchpad/qualification/market-ui/phase4-policy.json"
+lines = 32
+verdict = "clean"
+note = "Policy pins bounded scenario/capacity requirements without asserting a completed external run."
+
+[file.037]
+path = "apps/launchpad/qualification/market-ui/tsconfig.phase2.json"
+lines = 6
+verdict = "clean"
+note = "Market TypeScript config resolves current source and generated SDK contracts."
+
+[file.038]
+path = "apps/launchpad/qualification/mobile/check-native-projects.py"
+lines = 155
+verdict = "clean"
+note = "Native-project checker verifies project wiring and source identity before qualification."
+
+[file.039]
+path = "apps/launchpad/qualification/mobile/corpus.test.mjs"
+lines = 19
+verdict = "clean"
+note = "Mobile corpus verifies screen/journey coverage without claiming physical device execution."
+
+[file.040]
+path = "apps/launchpad/qualification/mobile/evidence-manifest.schema.json"
+lines = 501
+verdict = "issues"
+note = "Legacy schema root cannot accept the v4 release shape in its own definitions; see finding."
+
+[file.041]
+path = "apps/launchpad/qualification/mobile/journeys.ts"
+lines = 10
+verdict = "clean"
+note = "Mobile journeys enumerate owned screens and account/execution states without fabricated device evidence."
+
+[file.042]
+path = "apps/launchpad/qualification/mobile/release-benchmarks.ts"
+lines = 5
+verdict = "clean"
+note = "Release benchmarks define measured budgets and scenario attribution without fallback success."
+
+[file.043]
+path = "apps/launchpad/qualification/mobile/release_harness.py"
+lines = 760
+verdict = "clean"
+note = "Mobile validator binds source, signing identities, physical traces and complete platform artifacts; schema drift recorded separately."
+
+[file.044]
+path = "apps/launchpad/qualification/mobile/screen-scope.json"
+lines = 21
+verdict = "clean"
+note = "Screen scope records owned navigation and explicit external evidence requirements."
+
+[file.045]
+path = "apps/launchpad/qualification/mobile/test_native_projects.py"
+lines = 32
+verdict = "clean"
+note = "Project checker tests reject missing source/project bindings."
+
+[file.046]
+path = "apps/launchpad/qualification/mobile/test_release_harness.py"
+lines = 61
+verdict = "clean"
+note = "Release tests reject source/artifact substitution and incomplete platform evidence without claiming real device qualification."
+
+[file.047]
+path = "apps/launchpad/qualification/responsive/corpus.json"
+lines = 41
+verdict = "clean"
+note = "Responsive corpus records sizes/orientations and pending observation honestly."
+
+[file.048]
+path = "apps/launchpad/qualification/responsive/journeys.ts"
+lines = 1
+verdict = "clean"
+note = "Responsive journeys enumerate overflow, interaction and layout constraints with explicit evidence scope."
+
+[file.049]
+path = "apps/launchpad/web/src/lib/utils.ts"
+lines = 6
+verdict = "clean"
+note = "Utility uses existing clsx/tailwind merge semantics without network or persisted state."
+
+[file.050]
+path = "sdk/launchpad/shared/queue/queue.go"
+lines = 110
+verdict = "clean"
+note = "Queue constructors bound concurrency; EpochGuard checks pinned SQL authority on caller transactions; natsdriver covers epoch consumer tests."
+
+[file.051]
+path = "sdk/launchpad/shared/queue/queue_test.go"
+lines = 137
+verdict = "clean"
+note = "Queue tests cover concurrency and Redis URL shape, not a production queue-drain claim."
+
+[file.052]
+path = "services/launchpad/security/control/README.md"
+lines = 158
+verdict = "issues"
+note = "Control README has moved command path and superseded payment/adapter claims."
+
+[file.053]
+path = "services/launchpad/security/control/automation.go"
+lines = 280
+verdict = "issues"
+note = "Policy writer admits identifiers/instruments that public campaign cannot encode; see finding."
+
+[file.054]
+path = "services/launchpad/security/control/cap-admission.ts"
+lines = 163
+verdict = "clean"
+note = "Cap admission checks capability shape/expiry and fails unavailable on stale data."
+
+[file.055]
+path = "services/launchpad/security/control/chain.go"
+lines = 233
+verdict = "clean"
+note = "Chain verifier binds chain125, trusted custody/manifest, asset units, canonical receipt and obligation effects."
+
+[file.056]
+path = "services/launchpad/security/control/chain_reported_hash_test.go"
+lines = 110
+verdict = "clean"
+note = "Hash regression rejects mismatched provider transaction/receipt claims before settlement."
+
+[file.057]
+path = "services/launchpad/security/control/check.py"
+lines = 36
+verdict = "clean"
+note = "Control driver bounds owned SQL/IPC Anvil qualification and preserves readonly dependencies."
+
+[file.058]
+path = "services/launchpad/security/control/control_test.go"
+lines = 755
+verdict = "clean"
+note = "Control tests exercise authorization, approvals and durable bookkeeping; broader workflow-role proof is separately missing."
+
+[file.059]
+path = "services/launchpad/security/control/fixtures_test.go"
+lines = 200
+verdict = "clean"
+note = "Fixtures isolate private chain mutation to owned IPC and do not claim mainnet authority."
+
+[file.060]
+path = "services/launchpad/security/control/http.go"
+lines = 359
+verdict = "clean"
+note = "HTTP routes resolve credentials and reject unknown/duplicate fields; policy write/read defect is recorded on writer."
+
+[file.061]
+path = "services/launchpad/security/control/http_models.go"
+lines = 104
+verdict = "clean"
+note = "Request models preserve expectedRevision presence and public/internal envelope separation."
+
+[file.062]
+path = "services/launchpad/security/control/incident.go"
+lines = 128
+verdict = "issues"
+note = "Detection persists quarantine/outbox; recovery DELETE conflicts with production grants."
+
+[file.063]
+path = "services/launchpad/security/control/operator.go"
+lines = 254
+verdict = "issues"
+note = "Transition enqueues durable jobs but replay executor/result producer is missing."
+
+[file.064]
+path = "services/launchpad/security/control/phase4-browser.cjs"
+lines = 122
+verdict = "clean"
+note = "Browser cap probe binds canonical payload hashes and real route behavior without fabricated success."
+
+[file.065]
+path = "services/launchpad/security/control/providers.go"
+lines = 438
+verdict = "issues"
+note = "Provider adapters bound HTTPS and validate identity; registry contract pages are missing."
+
+[file.066]
+path = "services/launchpad/security/control/qualification_phase2.py"
+lines = 87
+verdict = "clean"
+note = "Phase-two qualifier binds private SQL/chain scenarios and retains external prerequisites."
+
+[file.067]
+path = "services/launchpad/security/control/qualification_phase4.py"
+lines = 595
+verdict = "clean"
+note = "Phase-four qualifier requires independent candidate/capacity evidence and preserves final shared-load gate."
+
+[file.068]
+path = "services/launchpad/security/control/ready_test.go"
+lines = 181
+verdict = "clean"
+note = "Readiness tests use narrowed roles/views, but do not cover workflow recovery DELETE."
+
+[file.069]
+path = "services/launchpad/security/control/rewards.go"
+lines = 387
+verdict = "clean"
+note = "Rewards reserve exact raw amounts and require award/settlement authority; dispatch crash issue is in worker."
+
+[file.070]
+path = "services/launchpad/security/control/store.go"
+lines = 284
+verdict = "clean"
+note = "Store mutations bind identity, scope, quarantine and append-only audit transactionally."
+
+[file.071]
+path = "services/launchpad/security/control/views.go"
+lines = 162
+verdict = "clean"
+note = "Public views enforce UUID/address/asset shapes and expose delegation unavailability; incompatible writer recorded separately."
+
+[file.072]
+path = "services/launchpad/security/control/workers.go"
+lines = 316
+verdict = "issues"
+note = "Worker crash boundary and fixed-prefix scheduling defects require durable recovery changes."
+
+[file.073]
+path = "services/launchpad/security/control/workflows.go"
+lines = 246
+verdict = "clean"
+note = "Workflow adapters bind payload hashes, approvals, executor evidence and frozen state mappings."
+
+[file.074]
+path = "services/launchpad/security/control/workflows_test.go"
+lines = 513
+verdict = "issues"
+note = "Workflow environment uses legacy identity and setup privileges instead of production role path."
+
+[file.075]
+path = "services/launchpad/security/policy/admission.go"
+lines = 143
+verdict = "clean"
+note = "Admission uses Redis time, distributed budgets and bounded local leases with fail-closed outages."
+
+[file.076]
+path = "services/launchpad/security/policy/admission_test.go"
+lines = 46
+verdict = "clean"
+note = "Admission cases cover shared principals and concurrency without claiming final capacity acceptance."
+
+[file.077]
+path = "services/launchpad/security/policy/attack_profile.go"
+lines = 132
+verdict = "clean"
+note = "Frozen attack profiles bind classes, rates and release evidence expectations."
+
+[file.078]
+path = "services/launchpad/security/policy/attack_profile_test.go"
+lines = 68
+verdict = "clean"
+note = "Attack tests reject malformed observations and omitted coverage."
+
+[file.079]
+path = "services/launchpad/security/policy/audit.go"
+lines = 49
+verdict = "clean"
+note = "Audited mutation couples data and outbox transactionally and denies absent sink."
+
+[file.080]
+path = "services/launchpad/security/policy/audit_test.go"
+lines = 56
+verdict = "clean"
+note = "Audit tests assert rollback and fail-closed behavior through private SQL fixture."
+
+[file.081]
+path = "services/launchpad/security/policy/boundaries.go"
+lines = 49
+verdict = "clean"
+note = "Boundary inventory requires explicit transport, authentication and data authority."
+
+[file.082]
+path = "services/launchpad/security/policy/boundaries_test.go"
+lines = 23
+verdict = "clean"
+note = "Boundary tests reject undeclared crossings and inappropriate public exposure."
+
+[file.083]
+path = "services/launchpad/security/policy/credentials.go"
+lines = 76
+verdict = "issues"
+note = "Database isolation check overlooks column-level foreign writes; see finding."
+
+[file.084]
+path = "services/launchpad/security/policy/credentials_test.go"
+lines = 78
+verdict = "clean"
+note = "Credential tests cover scope/subject/prefix and role basics, leaving effective column grants unproven."
+
+[file.085]
+path = "services/launchpad/security/policy/deadletter.go"
+lines = 139
+verdict = "clean"
+note = "Dead letters expose bounded metadata and require verified scope/MFA/journaling for redrive."
+
+[file.086]
+path = "services/launchpad/security/policy/deadletter_test.go"
+lines = 102
+verdict = "clean"
+note = "Dead-letter tests cover authorization, redaction and idempotent durable redrive requests."
+
+[file.087]
+path = "services/launchpad/security/policy/egress.go"
+lines = 29
+verdict = "clean"
+note = "Public egress validates schemes, address ranges, DNS and redirects with bounded TLS/timeouts."
+
+[file.088]
+path = "services/launchpad/security/policy/egress_test.go"
+lines = 50
+verdict = "clean"
+note = "Egress tests reject metadata/private targets and redirect escapes."
+
+[file.089]
+path = "services/launchpad/security/policy/export.go"
+lines = 107
+verdict = "issues"
+note = "Retained signed audit export has no production scheduler/importer; see finding."
+
+[file.090]
+path = "services/launchpad/security/policy/export_test.go"
+lines = 13
+verdict = "issues"
+note = "Retained export tests exercise only absent-provider failure, not successful retained readback/retry."
+
+[file.091]
+path = "services/launchpad/security/policy/fixtures_test.go"
+lines = 121
+verdict = "clean"
+note = "Private fixture setup confines SQL/Redis authorities and reports absent dependencies as failures."
+
+[file.092]
+path = "services/launchpad/security/policy/operator.go"
+lines = 132
+verdict = "clean"
+note = "Workload verifier binds digest, pinned mTLS peer, canonical assertion and current SQL operator session."
+
+[file.093]
+path = "services/launchpad/security/policy/operator_test.go"
+lines = 247
+verdict = "clean"
+note = "Operator tests exercise signed/mTLS assertions and session revocation with private authorities."
+
+[file.094]
+path = "services/launchpad/security/policy/parsing.go"
+lines = 98
+verdict = "issues"
+note = "Parsing bounds byte/header/query sizes; active-body elapsed time remains unlimited in server helper."
+
+[file.095]
+path = "services/launchpad/security/policy/parsing_test.go"
+lines = 116
+verdict = "clean"
+note = "Parsing tests cover Unicode, unknown/trailing fields, nesting and array bounds."
+
+[file.096]
+path = "services/launchpad/security/policy/policy.go"
+lines = 460
+verdict = "issues"
+note = "Duplicate detection is case-sensitive before case-insensitive Go field matching; see finding."
+
+[file.097]
+path = "services/launchpad/security/policy/policy_test.go"
+lines = 332
+verdict = "clean"
+note = "Policy tests cover audience, role, MFA, budget and parser denials within fixture scope."
+
+[file.098]
+path = "services/launchpad/security/policy/redis_fault_test.go"
+lines = 154
+verdict = "clean"
+note = "Redis interruption test exercises actual dependency failure and recovery without local success fallback."
+
+[file.099]
+path = "services/launchpad/security/policy/release_harness.py"
+lines = 575
+verdict = "issues"
+note = "Runtime scenario facts are generally detached from hashed raw capture contents; see finding."
+
+[file.100]
+path = "services/launchpad/security/policy/rotation.go"
+lines = 60
+verdict = "clean"
+note = "Rotation preserves secret version/audience/lifetime and freshness through shared VersionSource callbacks."
+
+[file.101]
+path = "services/launchpad/security/policy/rotation_test.go"
+lines = 125
+verdict = "clean"
+note = "Rotation tests cover mounted changes, overlap, retirement and revocation with bounded freshness."
+
+[file.102]
+path = "services/launchpad/security/policy/telemetry.go"
+lines = 103
+verdict = "clean"
+note = "Telemetry removes protected headers and bounds nonsensitive audit correlation metadata."
+
+[file.103]
+path = "services/launchpad/security/policy/telemetry_test.go"
+lines = 109
+verdict = "clean"
+note = "Telemetry tests check redaction and bounded capture rather than logging credentials."
+
+[file.104]
+path = "services/launchpad/security/policy/test_release_harness.py"
+lines = 78
+verdict = "clean"
+note = "Harness tests cover identity/lane constraints; native derivation gap is recorded on runtime scenario validator."
+
+[file.105]
+path = "services/launchpad/security/policy/threats.go"
+lines = 33
+verdict = "clean"
+note = "Threat inventory binds route classes to authentication, limits and mitigation ownership."
+
+[file.106]
+path = "services/launchpad/security/policy/threats_test.go"
+lines = 23
+verdict = "clean"
+note = "Threat tests reject missing classification/ownership without accepting unknown routes."
+
+[file.107]
+path = "services/launchpad/security/supplychain/README.md"
+lines = 13
+verdict = "issues"
+note = "Supply-chain README has obsolete publication/dependency claims and test command path."
+
+[file.108]
+path = "services/launchpad/security/supplychain/build.py"
+lines = 21
+verdict = "clean"
+note = "Build driver requires immutable inputs, reviewed context and source/reproducibility settings."
+
+[file.109]
+path = "services/launchpad/security/supplychain/check_phase2.py"
+lines = 682
+verdict = "clean"
+note = "Supply-chain orchestrator checks real tooling/authority and records unqualified failure explicitly."
+
+[file.110]
+path = "services/launchpad/security/supplychain/ci_tools.py"
+lines = 157
+verdict = "clean"
+note = "CI tooling validates current qualified Go1.26.4/Node24.16.0/pnpm baseline and immutable actions."
+
+[file.111]
+path = "services/launchpad/security/supplychain/confinement.py"
+lines = 69
+verdict = "clean"
+note = "Confinement requires nonroot, readonly, dropped capabilities, seccomp and bounded resources/egress."
+
+[file.112]
+path = "services/launchpad/security/supplychain/container_target.py"
+lines = 3
+verdict = "clean"
+note = "Container allowlist excludes unqualified native media targets and checks exact service/binary pairs."
+
+[file.113]
+path = "services/launchpad/security/supplychain/controller.py"
+lines = 382
+verdict = "clean"
+note = "Controller binds independent source/image/signature authorities and persists resumable verified attachment promotion."
+
+[file.114]
+path = "services/launchpad/security/supplychain/phase2.schema.json"
+lines = 497
+verdict = "clean"
+note = "Phase-two schema constrains evidence and immutable bindings without permissive fallback."
+
+[file.115]
+path = "services/launchpad/security/supplychain/policy.py"
+lines = 97
+verdict = "clean"
+note = "Policy verifies exact signed bytes, independent identities, six checks and bounded exception authority."
+
+[file.116]
+path = "services/launchpad/security/supplychain/provenance.py"
+lines = 150
+verdict = "clean"
+note = "Provenance binds source/workflow/builder/repository/run/ref and artifact identity."
+
+[file.117]
+path = "services/launchpad/security/supplychain/reproduce.py"
+lines = 141
+verdict = "clean"
+note = "Reproduction compares two actual clean build outputs and rejects mismatched immutable artifacts."
+
+[file.118]
+path = "services/launchpad/security/supplychain/sbom.py"
+lines = 80
+verdict = "clean"
+note = "SBOM validation checks normalized package/version/license inventory and keeps unknown licenses explicit."
+
+[file.119]
+path = "services/launchpad/security/supplychain/scanner.py"
+lines = 108
+verdict = "clean"
+note = "Scanner validates findings, reachability and exception authority; outages cannot become clean evidence."
+
+[file.120]
+path = "services/launchpad/security/supplychain/test_go_checksums.py"
+lines = 91
+verdict = "clean"
+note = "Checksum tests enforce source-specific sums and reject unreviewed dependency drift."
+
+[file.121]
+path = "services/launchpad/security/supplychain/test_go_work_shape.py"
+lines = 55
+verdict = "clean"
+note = "Workspace-shape tests enforce intended Go roots and reject missing/duplicate module authority."
+
+[file.122]
+path = "services/launchpad/security/supplychain/test_phase2.py"
+lines = 447
+verdict = "clean"
+note = "Phase-two cases reject wrong source/signature/config and cover bounded controller recovery."
+
+[file.123]
+path = "services/launchpad/security/supplychain/test_policy.py"
+lines = 257
+verdict = "clean"
+note = "Policy cases reject malformed SBOM, stale evidence, omitted checks and unauthorized exceptions."
+
+[file.124]
+path = "services/launchpad/security/supplychain/test_workspace_gates.py"
+lines = 105
+verdict = "clean"
+note = "Workspace-gate tests match current CI split and immutable actions rather than obsolete README publication claim."
+
+[finding.payout-dispatch-crash]
+file = "services/launchpad/security/control/workers.go"
+line = 69
+class = "restart-recovery"
+severity = "high"
+observed = "SettlementWorker.Process commits payout_attempt.Submitted=true and State=unknown before PayoutProvider.Submit. A crash between commit and Submit leaves Lookup returning absent; later calls skip submission because Submitted remains true and rewrite the obligation as unknown."
+expected = "Accepted payout obligations must resume after process loss without disappearing between durable intent and external submission, retaining one provider idempotency key and independent receipt verification."
+proposal = "In services/launchpad/security/control/workers.go distinguish dispatch intent from confirmed provider acceptance and safely retry the same idempotency key when authoritative lookup reports absence. Prove actual-provider restart behavior at intent commit, send and response boundaries."
+owner_domain = 4
+interface = "4.go-security-control-settlement-worker-process"
+
+[finding.recovery-delete-grant]
+file = "services/launchpad/security/control/incident.go"
+line = 83
+class = "interface-mismatch"
+severity = "high"
+observed = "RecoverIncident deletes the quarantine row from pnl.objects. The control_runtime entry in launchpad/spec/production-system/integration/migrations/grants.json permits SELECT, INSERT and UPDATE(body), but no DELETE on objects, so valid approved recovery rolls back under the production credential."
+expected = "Store.RecoverIncident must clear only the current verified quarantine and restore service operations through the narrowed production credential after rotation and independent integrity approval."
+proposal = "In services/launchpad/security/control/incident.go and its owned integration migration use a narrowly guarded recovery operation or a recovered marker recognized by Store authorization. Preserve history/newer quarantines and qualify with exact control_runtime grants instead of broad DELETE."
+owner_domain = 4
+interface = "4.go-security-control-store-recover-incident"
+
+[finding.policy-write-read-shape]
+file = "services/launchpad/security/control/automation.go"
+line = 137
+class = "interface-mismatch"
+severity = "high"
+observed = "CreatePolicy accepts key-shaped IDs and instruments such as bot1 and pool1; HTTP POST policies adds no UUID/address validation. PublicCampaign in views.go requires UUID policy/account IDs and EVM destination instruments, so persisted successful writes can fail campaign and recommendation reads."
+expected = "Every successful policy creation must round-trip through the public campaign DTO, including campaignId, accountId and assetAllowlist with their frozen encodings."
+proposal = "Align services/launchpad/security/control/automation.go validation with PublicCampaign and generated contracts, or persist an explicit identifier mapping. Prove authenticated POST-to-GET behavior and reject malformed identifiers before committing any policy."
+owner_domain = 4
+interface = "4.go-security-control-public-campaign"
+
+[finding.incident-drain-fairness]
+file = "services/launchpad/security/control/workers.go"
+line = 172
+class = "runtime-risk"
+severity = "medium"
+observed = "IncidentWorker.Drain repeatedly selects the first 100 contained incidents ordered by id, including completed outboxes. Completed incidents remain contained until separate approved recovery; 100 old incidents exclude every later revocation and already-completed entries still call the external provider."
+expected = "Newly detected compromised identities must reach durable revocation/cache invalidation independently of how long older investigations remain open."
+proposal = "In services/launchpad/security/control/workers.go select unfinished outbox work, persist retry scheduling and fairly paginate claims. Prove more-than-100 incident handling with completed/failing old entries and real revocation acknowledgments for later identities."
+owner_domain = 4
+interface = "4.go-security-control-incident-worker-drain"
+
+[finding.settlement-drain-fairness]
+file = "services/launchpad/security/control/workers.go"
+line = 266
+class = "runtime-risk"
+severity = "medium"
+observed = "SettlementWorker.Drain selects the first 100 pending/unknown objects ordered by id without a cursor. A persistent prefix of 100 uncertain obligations prevents later valid payouts from receiving processing on every subsequent drain."
+expected = "Provider uncertainty must remain visible without preventing unrelated later obligations from reaching their own lookup and settlement lifecycle."
+proposal = "Add durable fair scheduling or cursor-based claims with per-obligation backoff in services/launchpad/security/control/workers.go. Verify a queue larger than 100 with permanently uncertain early keys and observable provider processing for later payable obligations."
+owner_domain = 4
+interface = "4.go-security-control-settlement-worker-drain"
+
+[finding.replay-executor-missing]
+file = "services/launchpad/security/control/operator.go"
+line = 90
+class = "wiring-gap"
+severity = "medium"
+observed = "Transition enqueues job records and reports executing, but DurableJobResults requires executor_result records. Runtime starts only reconciliation, incident and settlement loops; executor_result producers found under launchpad services are tests, and jobs carry a payloadHash without a payload lookup key."
+expected = "Approved replay needs an owning durable processor that loads the exact approved payload, checkpoints work and publishes independently verifiable completion across restarts."
+proposal = "Wire services/launchpad/security/control/providers.go and operator.go to the real projection executor, persist an unambiguous payload reference and completion identity, and qualify actual replay execution/retry before advertising executing jobs as an available product workflow."
+owner_domain = 4
+interface = "4.go-security-control-durable-job-results-verify"
+
+[finding.workflow-production-role-proof]
+file = "services/launchpad/security/control/workflows_test.go"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "phase2EnvironmentFor installs its schema using fixtureDSN and constructs legacy NewPostgresIdentity with the same schema. Recovery tests do not use NewPostgresIdentityV2 and production control_runtime/identity_runtime grants, hiding the quarantine DELETE permission failure."
+expected = "Incident detection, credential revocation and recovery must be qualified through the same narrowed credentials and owner-view paths NewRuntime uses in the gateway."
+proposal = "Extend services/launchpad/security/control/workflows_test.go with distinct setup/runtime credentials, applied 470000/470001 views and production grants. Drive authenticated detection through verified recovery/restart and assert unrelated writes remain denied."
+owner_domain = 4
+
+[finding.audit-export-not-scheduled]
+file = "services/launchpad/security/policy/export.go"
+line = 36
+class = "wiring-gap"
+severity = "medium"
+observed = "AuditExporter.Export implements retained signed daily objects but has no production caller or scheduler. The security/policy Go package has no production service importer in launchpad; inserting audit_outbox records alone does not execute this retained export path."
+expected = "The audit lifecycle needs an owning runtime to export committed rows to independently configured immutable storage, observe failures and resume missed days after restart."
+proposal = "Integrate AuditExporter into the owning launchpad security runtime with least-privilege credentials, completed-day scheduling, durable progress and failure alerts. Wire startup catch-up and verify manifests against actual committed producer records."
+owner_domain = 4
+interface = "4.go-security-policy-audit-exporter-export"
+
+[finding.mutation-case-alias]
+file = "services/launchpad/security/policy/policy.go"
+line = 187
+class = "security"
+severity = "medium"
+observed = "DecodeMutation uses case-sensitive seen[s] keys, admitting role and Role as distinct. Go encoding/json then matches struct fields case-insensitively, so both overwrite the same destination field despite the declared duplicate rejection."
+expected = "Mutation decoding must reject ambiguous representations of one destination field before authorization or mutation, including nested case aliases."
+proposal = "In services/launchpad/security/policy/policy.go use destination-aware canonical matching or require exact canonical field names. Add nested case-alias and escaped-key cases proving denial before any mutation callback executes."
+owner_domain = 4
+interface = "4.go-security-policy-decode-mutation"
+
+[finding.column-grants-not-checked]
+file = "services/launchpad/security/policy/credentials.go"
+line = 64
+class = "security"
+severity = "medium"
+observed = "ValidateDatabaseRole tests foreign schemas only with has_table_privilege for INSERT/UPDATE/DELETE/TRUNCATE. Column-specific INSERT/UPDATE does not imply table-level grants, so effective foreign column write authority can pass this isolation check."
+expected = "An isolated runtime credential must lack effective writes in another domain, including column privileges and inherited role authority."
+proposal = "In services/launchpad/security/policy/credentials.go inspect effective column INSERT/UPDATE rights as well as table rights and ownership. Prove direct/inherited column-grant denial with real PostgreSQL roles while retaining permitted owner-view reads."
+owner_domain = 4
+interface = "4.go-security-policy-validate-database-role"
+
+[finding.active-body-deadline]
+file = "services/launchpad/security/policy/parsing.go"
+line = 96
+class = "runtime-risk"
+severity = "medium"
+observed = "ProductionServer configures ReadHeaderTimeout and IdleTimeout but leaves ReadTimeout/WriteTimeout zero. Bounded ReadAll in mutation decoders can hold an active slow body indefinitely; byte limits do not bound elapsed handler occupancy."
+expected = "The production HTTP helper must bound active mutation request/body occupancy as well as headers, total bytes and idle keep-alive time, with explicit stream treatment."
+proposal = "Configure mutation body/request deadlines and bounded response time in services/launchpad/security/policy/parsing.go. Add a native slow-body connection case proving resources are released while intentionally long-lived streams retain supported behavior."
+owner_domain = 4
+interface = "4.go-security-policy-production-server"
+
+[finding.retained-export-positive-proof]
+file = "services/launchpad/security/policy/export_test.go"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "The export test file only exercises TestAuditExportMissingProviderCannotSucceed on an empty exporter. No successful PostgreSQL-to-retained-storage case verifies rows, manifest signature, ObjectLock retention, partial upload or restart/retry."
+expected = "Immutable audit export success must be proven against the actual supported storage API and committed records, including readback and recoverable failure boundaries."
+proposal = "Add real retained-storage/PostgreSQL qualification in services/launchpad/security/policy/export_test.go: export a completed day, verify bytes/signature/retention on readback, interrupt upload boundaries and retry without losing or duplicating journal coverage."
+owner_domain = 4
+
+[finding.scenario-facts-detached]
+file = "services/launchpad/security/policy/release_harness.py"
+line = 323
+class = "test-gap"
+severity = "medium"
+observed = "runtime_scenarios hashes raw_artifacts, but scenario_facts generally trusts row facts for authorization, queues, Redis, SSRF, rotation and role outcomes without deriving them from those files. Apart from telemetry canary scanning, raw bytes need not contain the asserted observations to receive observed_assertions_passed."
+expected = "Release qualification must establish actual producer/transport/consumer outcomes and durable state rather than attach authored passing facts to unrelated hash-valid files."
+proposal = "In services/launchpad/security/policy/release_harness.py derive assertions from owning native captures with request/candidate/run identity and durable records. Add negative cases where raw outcomes contradict otherwise passing facts and require qualification failure."
+owner_domain = 4
+
+[finding.image-redirect-boundary]
+file = "apps/launchpad/qualification/image-dependencies/qualify.cjs"
+line = 96
+class = "security"
+severity = "medium"
+observed = "The Next HTTP redirect escape case expects 200 when /allowed/redirect-denied redirects to /denied/png, although direct /denied/png must return 400. The configured remotePatterns path boundary is not enforced at the eventual resource."
+expected = "Remote image admission must enforce approved destinations and paths at every redirect and final fetch before reporting the input safe to serve."
+proposal = "In apps/launchpad/web image fetching enforce each redirect/final destination or disable redirects for untrusted inputs. Update apps/launchpad/qualification/image-dependencies/qualify.cjs to require denied-target rejection and prove that target is never fetched."
+owner_domain = 4
+
+[finding.image-pixel-fallback]
+file = "apps/launchpad/qualification/image-dependencies/qualify.cjs"
+line = 98
+class = "runtime-risk"
+severity = "medium"
+observed = "The pixel failure case accepts 200 and exact original 5000x5000 bytes after the native 16777216-pixel bound rejects optimization. The recorded limitation means configured decode safety does not stop the oversized original reaching clients."
+expected = "The approved decoded-dimension bound must apply to served originals as well as transformed variants, exposing unavailable state for rejected images."
+proposal = "Validate decoded dimensions before any original fallback in the owning apps/launchpad/web image path. Change apps/launchpad/qualification/image-dependencies/qualify.cjs to require bounded rejection and prove oversized originals cannot reach browser/native consumers."
+owner_domain = 4
+
+[finding.mobile-v4-schema-root]
+file = "apps/launchpad/qualification/mobile/evidence-manifest.schema.json"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The root requires artifactDigest/platform/signed/physicalDevice/journeys and forbids other fields. releaseManifestV4 exists only under $defs without a root reference, while release_harness.validate_release consumes schemaVersion=4 release-set bundles; the advertised root rejects current releases."
+expected = "The machine-readable evidence contract and actual release validator must agree on the versioned source/signing/per-platform release-set shape."
+proposal = "Make v4 the root of apps/launchpad/qualification/mobile/evidence-manifest.schema.json or publish explicitly named versioned schemas. Validate an actual source-bound current release manifest through both schema and harness and require matching acceptance."
+owner_domain = 4
+
+[finding.accessibility-source-path]
+file = "apps/launchpad/qualification/accessibility/corpus.json"
+line = 2
+class = "config-drift"
+severity = "medium"
+observed = "The corpus source is client/apps/web/src/app/**/page.tsx, but that removed client tree is now apps/launchpad/web/src/app. An operator regenerating route coverage cannot resolve the named source."
+expected = "Accessibility inventory must name the actual route tree and retain pending status until browser and manual assistive-technology observations exist."
+proposal = "Update the owning generator and apps/launchpad/qualification/accessibility/corpus.json to the current apps/launchpad route tree; compare current page coverage and preserve pending browser/manual AT evidence instead of turning inventory coverage into a qualification pass."
+owner_domain = 4
+
+[finding.registry-contract-pages-missing]
+file = "services/launchpad/security/control/providers.go"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The registry contract targets contracts/services.md and contracts/clients.md do not exist. Consumed rows also name absent contracts/operations.md, contracts/launchpad.md and contracts/explorer-frontend-config.md, so these declared contracts cannot be consulted at their registered paths."
+expected = "Each declared producer/consumer contract must resolve to an authoritative page describing current wire shape, authentication, errors and recovery guarantees."
+proposal = "Restore or retarget affected spec/layerx-merge/interfaces.kvx rows to real owning contract pages under contracts/launchpad and current shared documentation. Preserve row identity and document control/provider lifecycle instead of leaving dangling contract anchors."
+owner_domain = 17
+interface = "4.go-security-control-new-runtime"
+
+[finding.agents-running]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The guide sends eth_sendRawTransaction to /rpc at line 512 and configures separate sequencer anchors at lines 67-71 and checkpoint/settlement verification defaults at 701-702, retaining the pre-merge endpoint/finality model."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/site/docs/agents/running.md with api1 through api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network root JSON-RPC and committed-block finality. Remove retired sequencer/interface setup and distinguish hosted px_ methods using their current gateway contract."
+owner_domain = 17
+
+[finding.wiki-running]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The guide sends eth_sendRawTransaction to /rpc at line 512 and configures separate sequencer anchors at lines 67-71 and checkpoint/settlement verification defaults at 701-702, retaining the pre-merge endpoint/finality model."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/wiki/RunningAnAgent.md with api1 through api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network root JSON-RPC and committed-block finality. Remove retired sequencer/interface setup and distinguish hosted px_ methods using their current gateway contract."
+owner_domain = 17
+
+[finding.root-network-model]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 describe two execution domains and a separate layerxd settling checkpoints, lines 145-146 build retired daemons/tools, and line 181 calls the merge draft with a separately running kernel."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite README.md network/build sections around merged paxd kernel execution and chain125 committed blocks. Replace retired daemon targets with supported commands and link root public JSON-RPC plus hosted gateway contracts."
+owner_domain = 17
+
+[finding.paxeer-network-model]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-20 describe Paxeer as a separate custody/checkpoint layer for ordinary LayerX activity, preserving a separate sequencer, execution domain and 402LXP-only balance writer model."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/paxeer-network.md around the single merged chain, kernel execution in committed blocks and tenant namespaces. Retain chain125 and virtual-chain details only where supported by current normative contracts."
+owner_domain = 17
+
+[finding.site-index-model]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-14 and 24-26 describe LayerX execution and periodic checkpoints with separate Paxeer custody/settlement; line 20 presents old C-header/module layout as current public architecture."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/site/docs/index.md architecture and onboarding around one merged BFT chain and current source paths. Link root node endpoints and distinguish hosted px_ services rather than presenting periodic checkpoint settlement as the normal execution lifecycle."
+owner_domain = 17
+
+[finding.quickstart-rpc-model]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 167-168 and 214-215 send public clients to /rpc and /rpc/ws, repeated at lines 302, 497, 518 and 596. Those retired public node paths do not match root JSON-RPC."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Replace retired endpoints in docs/site/docs/overview/quickstart.md with the current root node contract and supported transport. Separate hosted px_ workflows by actual gateway contract and rewrite receipt/finality examples for committed chain blocks."
+owner_domain = 17
+
+[finding.overview-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes ordinary execution in LayerX and periodic Paxeer settlement at line 18, lists layerxd as a current daemon at line 98 and retains the old top-level service layout in the following rows."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md from the corrected merged overview: one paxd chain125, committed-block finality, actual source paths and root public JSON-RPC. Remove retired daemon and separate sequencer/checkpoint operating instructions."
+owner_domain = 17
+
+[finding.overview-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes ordinary execution in LayerX and periodic Paxeer settlement at line 18, lists layerxd as a current daemon at line 98 and retains the old top-level service layout in the following rows."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md from the corrected merged overview: one paxd chain125, committed-block finality, actual source paths and root public JSON-RPC. Remove retired daemon and separate sequencer/checkpoint operating instructions."
+owner_domain = 17
+
+[finding.overview-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes ordinary execution in LayerX and periodic Paxeer settlement at line 18, lists layerxd as a current daemon at line 98 and retains the old top-level service layout in the following rows."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md from the corrected merged overview: one paxd chain125, committed-block finality, actual source paths and root public JSON-RPC. Remove retired daemon and separate sequencer/checkpoint operating instructions."
+owner_domain = 17
+
+[finding.overview-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes ordinary execution in LayerX and periodic Paxeer settlement at line 18, lists layerxd as a current daemon at line 98 and retains the old top-level service layout in the following rows."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md from the corrected merged overview: one paxd chain125, committed-block finality, actual source paths and root public JSON-RPC. Remove retired daemon and separate sequencer/checkpoint operating instructions."
+owner_domain = 17
+
+[finding.overview-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes ordinary execution in LayerX and periodic Paxeer settlement at line 18, lists layerxd as a current daemon at line 98 and retains the old top-level service layout in the following rows."
+expected = "The merged network is one paxd BFT chain125 with committed-block finality, root node JSON-RPC and explicit hosted contracts. Operator instructions must match the implemented network and source layout."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md from the corrected merged overview: one paxd chain125, committed-block finality, actual source paths and root public JSON-RPC. Remove retired daemon and separate sequencer/checkpoint operating instructions."
+owner_domain = 17
+
+[finding.control-readme-behavior]
+file = "services/launchpad/security/control/README.md"
+line = 110
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 invokes the missing root security/control/check.py. Lines 110-112 say this package never submits payments although SettlementWorker calls PayoutProvider.Submit; lines 130-145 describe implemented runtime/provider adapters as wholly absent."
+expected = "Control operators must locate the owned qualifier and distinguish implemented dispatch/reconciliation/revocation wiring from remaining independent provider and production qualification requirements."
+proposal = "Update services/launchpad/security/control/README.md to use its current checker path and document NewRuntime, SettlementWorker and RevocationProvider accurately, including uncertainty/recovery restrictions and remaining production authority gates."
+owner_domain = 4
+
+[finding.supplychain-readme-ci]
+file = "services/launchpad/security/supplychain/README.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "Line 9 claims CI removes privileged publication and build depends on all four check jobs. Current .github/workflows/offchain-images.yml images depends on plan with push enabled; workspace-gate tests expect that split. Line 13 names missing root security/supplychain tests."
+expected = "Operators need the actual publication/check dependency and authority boundary, plus runnable repository-root qualification paths instead of an obsolete publication prohibition."
+proposal = "Rewrite services/launchpad/security/supplychain/README.md to match offchain-images job dependencies and publication authority. Correct the test path to services/launchpad/security/supplychain while preserving the qualified tool baseline and independent admission constraints."
+owner_domain = 4
+
+[finding.account-readme-path]
+file = "apps/launchpad/qualification/account-ui/README.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 5 and 7 invoke client/qualification/account-ui and client/apps/web, but those roots moved to apps/launchpad/qualification/account-ui and apps/launchpad/web; the documented commands cannot resolve."
+expected = "An operator following account qualification from repository root must reach the actual owned checker, configuration and dependency binary without reconstructing moved paths."
+proposal = "Update apps/launchpad/qualification/account-ui/README.md to current apps/launchpad roots and reconcile commands with run-check.py. Keep synthetic disclosure checks distinct from actual service/browser/native qualification."
+owner_domain = 4
+
+[finding.market-readme-path-status]
+file = "apps/launchpad/qualification/market-ui/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 starts from removed client/apps/web and the final paragraph presents phase-one integration as pending without describing the phase2 service journey and phase4 browser/observer qualification already present beside this page."
+expected = "Market instructions must use current app paths and distinguish implemented later qualification routes from outstanding actual release/capacity evidence."
+proposal = "Update apps/launchpad/qualification/market-ui/README.md to apps/launchpad/web and document phase-two/phase-four runners and required real inputs. Reconcile old integration claims with current route owners while preserving outstanding capacity/release prerequisites."
+owner_domain = 4
+
+[doc.001]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Read all 868 lines; lines 67-71, 512 and 701-702 retain retired sequencer configuration, /rpc and pre-merge verification levels. Site/wiki copies share the drift."
+
+[doc.002]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Read all 868 lines; lines 67-71, 512 and 701-702 retain retired sequencer configuration, /rpc and pre-merge verification levels. Site/wiki copies share the drift."
+
+[doc.003]
+path = "contracts/launchpad/README.md"
+status = "accurate"
+notes = "Read all 295 lines. AMM USDL units, creation fees and administrator/token governance distinctions are product-specific. Its AMM router is not the retired network RPC router; no new contract execution evidence is claimed."
+
+[doc.004]
+path = "README.md"
+status = "stale"
+notes = "Read all 201 lines; lines 44-47, 145-146 and 181 advertise the retired daemon and separate execution/settlement model."
+
+[doc.005]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read all 97 lines; lines 3-20 retain separate checkpoint/custody execution framing. Namespace-oriented virtual-chain guidance needs the merged context."
+
+[doc.006]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Read all 107 lines; lines 11-26 retain separate LayerX execution/checkpoint settlement and obsolete source layout."
+
+[doc.007]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read all 670 lines; lines 20, 167-168, 214-215, 302, 497, 518 and 596-597 retain unified /rpc transport and old client framing."
+
+[doc.008]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Read all 144 lines; lines 18 and 98-105 retain separate checkpoint settlement, retired layerxd and old service directories. Translate the corrected merged source model."
+
+[doc.009]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Read all 144 lines; lines 18 and 98-105 retain separate checkpoint settlement, retired layerxd and old service directories. Translate the corrected merged source model."
+
+[doc.010]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Read all 144 lines; lines 18 and 98-105 retain separate checkpoint settlement, retired layerxd and old service directories. Translate the corrected merged source model."
+
+[doc.011]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Read all 144 lines; lines 18 and 98-105 retain separate checkpoint settlement, retired layerxd and old service directories. Translate the corrected merged source model."
+
+[doc.012]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Read all 144 lines; lines 18 and 98-105 retain separate checkpoint settlement, retired layerxd and old service directories. Translate the corrected merged source model."
+
+[doc.013]
+path = "services/launchpad/security/control/README.md"
+status = "stale"
+notes = "Read in full; line 5 has a removed checker path, lines 110-112 deny implemented payment submission and lines 130-145 need current adapter/runtime status."
+
+[doc.014]
+path = "services/launchpad/security/supplychain/README.md"
+status = "stale"
+notes = "Read in full; line 9 contradicts current publication/dependencies and line 13 uses removed root security path. Go1.26.4 is the intentional qualified baseline, not pin drift."
+
+[doc.015]
+path = "apps/launchpad/qualification/account-ui/README.md"
+status = "stale"
+notes = "Read in full; lines 5 and 7 retain removed client paths. Keep explicit fixture and no-production-evidence caveats when rewriting commands."
+
+[doc.016]
+path = "apps/launchpad/qualification/market-ui/README.md"
+status = "stale"
+notes = "Read in full; line 3 retains removed client/apps/web and line 8 has superseded phase-one-only framing. Document existing later runners without claiming they qualified release capacity."
+
+[doc.017]
+path = "contracts/services.md"
+status = "missing"
+notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+
+[doc.018]
+path = "contracts/clients.md"
+status = "missing"
+notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+
+[doc.019]
+path = "contracts/operations.md"
+status = "missing"
+notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+
+[doc.020]
+path = "contracts/launchpad.md"
+status = "missing"
+notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."
+
+[doc.021]
+path = "contracts/explorer-frontend-config.md"
+status = "missing"
+notes = "Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."

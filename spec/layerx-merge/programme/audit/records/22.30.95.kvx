@@ -1,0 +1,1128 @@
+# Pre-upgrade audit: agent runtime, receipt lookup, recovery and native setup.
+
+[audit.22.30.95]
+task = "22.30.95"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 87
+findings = 50
+docs_reviewed = 12
+upgrade_ready = false
+blocking = ["6","8","9","10"]
+
+[file.1]
+path = "docker/human-service/entrypoint.sh"
+lines = 244
+verdict = "issues"
+note = "Reviewed every role, protected-material checks, clock launcher, KMS variables and identity tenant binding; journal seeding and retired trust material need the findings below."
+
+[file.2]
+path = "services/agent/crates/layerx-agentd/src/cache.rs"
+lines = 277
+verdict = "issues"
+note = "Reviewed verified-value constructors, tenant admission, replacement accounting and fresh/stale revalidation; payload evidence binding and retained-memory bounds need repair."
+
+[file.3]
+path = "services/agent/crates/layerx-agentd/src/degraded.rs"
+lines = 349
+verdict = "issues"
+note = "Reviewed all health modes, read caps, staleness reporting and operation admission; the trusted high-water regression behavior needs repair."
+
+[file.4]
+path = "services/agent/crates/layerx-agentd/src/finality.rs"
+lines = 616
+verdict = "issues"
+note = "Reviewed receipt key windows, canonical CometBFT vote bytes, weighted quorum, durable augmentation and wait callers; inclusion binding and registry declarations need repair."
+
+[file.5]
+path = "services/agent/crates/layerx-agentd/src/idempotency.rs"
+lines = 610
+verdict = "clean"
+note = "Reviewed height retention, digest and exact-byte conflict handling, durable pending-before-callback ordering, shared locks, restoration and unreconciled pending outcomes."
+
+[file.6]
+path = "services/agent/crates/layerx-agentd/src/node_rpc.rs"
+lines = 452
+verdict = "clean"
+note = "Reviewed environment decoding, chain-id handshake, root endpoint validation through SequencerEndpoint, TLS roots, deadlines, response bounds and typed JSON-RPC refusals."
+
+[file.7]
+path = "services/agent/crates/layerx-agentd/src/obs/health.rs"
+lines = 141
+verdict = "clean"
+note = "Reviewed deterministic health inputs, degraded/readiness blocker mapping and write guard refusal before invoking the operation."
+
+[file.8]
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+lines = 346
+verdict = "issues"
+note = "Reviewed finite metric labels, tenant admission, bounded cardinality and numeric aggregation; stale registry metric names need repair."
+
+[file.9]
+path = "services/agent/crates/layerx-agentd/src/obs/mod.rs"
+lines = 27
+verdict = "clean"
+note = "Reviewed redaction delegation and module exports; public rendering uses the common audit surface/data-class policy."
+
+[file.10]
+path = "services/agent/crates/layerx-agentd/src/obs/trace.rs"
+lines = 134
+verdict = "clean"
+note = "Reviewed bounded spans and attributes, fixed stages/outcomes and correlation propagation; capacity errors do not fabricate completed spans."
+
+[file.11]
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs"
+lines = 416
+verdict = "issues"
+note = "Reviewed all fixture decoding, maintained-transition refusals, submission and restart assertions; the test replaces the producer bytes before recovery."
+
+[file.12]
+path = "services/agent/crates/layerx-agentd/src/registry_source.rs"
+lines = 244
+verdict = "issues"
+note = "Reviewed exact JSON configuration/response fields, protected material, mTLS, bounded reads, source status and program/version/hash/head bindings; contract links are missing."
+
+[file.13]
+path = "services/agent/crates/layerx-agentd/src/session_keys.rs"
+lines = 488
+verdict = "clean"
+note = "Reviewed secp256k1 seed/address validation, sealed identity scope, protected file ownership, atomic publication/fsync and durable revocation markers including retained-key access."
+
+[file.14]
+path = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+lines = 369
+verdict = "clean"
+note = "Reviewed auth grant/revoke receipt identity checks, tenant/session binding, durable grant records, invalidation reports and use of guarded EVM session keys."
+
+[file.15]
+path = "services/agent/crates/layerx-agentd/src/shutdown.rs"
+lines = 247
+verdict = "issues"
+note = "Reviewed admission closure, every in-flight stage, outbox status agreement and audit draining; the reused audit keys lose earlier shutdown records."
+
+[file.16]
+path = "services/agent/crates/layerx-agentd/src/sign.rs"
+lines = 435
+verdict = "issues"
+note = "Reviewed external signing, exact type-2 verification, provisioned scope/expiry/revocation and remaining kernel constructors; key formats and recovery bytes do not agree."
+
+[file.17]
+path = "services/agent/crates/layerx-agentd/tests/admission.rs"
+lines = 292
+verdict = "clean"
+note = "Reviewed bounded read/write queues, reservation release, core backpressure and fail-closed availability; tests exercise refused work without invoking the boundary."
+
+[file.18]
+path = "services/agent/crates/layerx-agentd/tests/approval.rs"
+lines = 344
+verdict = "issues"
+note = "Reviewed decision binding and concurrent winner assertions; manually constructed call/disclosure fixtures do not represent the real preparation producer."
+
+[file.19]
+path = "services/agent/crates/layerx-agentd/tests/approval_ops.rs"
+lines = 346
+verdict = "issues"
+note = "Reviewed expiry, decision keys, submit grants and durable operation paths; fixture call/disclosure binding needs the real producer."
+
+[file.20]
+path = "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs"
+lines = 268
+verdict = "issues"
+note = "Reviewed barrier-controlled grant/rejection races and persistent decision order; the common fixture independently invents its disclosure."
+
+[file.21]
+path = "services/agent/crates/layerx-agentd/tests/approval_semantics.rs"
+lines = 324
+verdict = "issues"
+note = "Reviewed approve/reject/expiry state transitions, reservations and restart assertions; the manually paired disclosure disagrees with its encoded transfer."
+
+[file.22]
+path = "services/agent/crates/layerx-agentd/tests/audit_coverage.rs"
+lines = 196
+verdict = "clean"
+note = "Reviewed required audit event coverage, receipt evidence metadata, chain verification and redacted reconstruction."
+
+[file.23]
+path = "services/agent/crates/layerx-agentd/tests/audit_export.rs"
+lines = 434
+verdict = "clean"
+note = "Reviewed scoped log range export, immutable digest/chain checks, redaction, tenant separation and offline review refusal cases."
+
+[file.24]
+path = "services/agent/crates/layerx-agentd/tests/audit_record_v3.rs"
+lines = 296
+verdict = "clean"
+note = "Reviewed record-version decoding, timestamp/sequence distinction, receipt-key and outcome fields, malformed records and reconstruction consistency."
+
+[file.25]
+path = "services/agent/crates/layerx-agentd/tests/availability.rs"
+lines = 297
+verdict = "clean"
+note = "Reviewed unavailable/halted/data-gap observations and write/read boundaries; checks preserve typed refusal and avoid fabricated successful node work."
+
+[file.26]
+path = "services/agent/crates/layerx-agentd/tests/balance_pending.rs"
+lines = 262
+verdict = "clean"
+note = "Reviewed pending balance holds, same-principal authority scope, exact call parameters and conservative behavior before authenticated settlement."
+
+[file.27]
+path = "services/agent/crates/layerx-agentd/tests/budget_create.rs"
+lines = 304
+verdict = "clean"
+note = "Reviewed real LayerXPay create call construction, budget identity/disclosure binding and refusal of malformed or mismatched requests."
+
+[file.28]
+path = "services/agent/crates/layerx-agentd/tests/budget_reconcile.rs"
+lines = 246
+verdict = "clean"
+note = "Reviewed local/protocol reconciliation arithmetic, divergence handling and write readiness when evidence is absent or inconsistent."
+
+[file.29]
+path = "services/agent/crates/layerx-agentd/tests/budget_reconcile_layerxpay.rs"
+lines = 262
+verdict = "clean"
+note = "Reviewed canonical getBudget ABI responses, actor/height binding, consumed/remaining arithmetic and invalid/missing response refusals."
+
+[file.30]
+path = "services/agent/crates/layerx-agentd/tests/cache.rs"
+lines = 193
+verdict = "clean"
+note = "Reviewed signed receipt fixtures, rung ceilings, stale revalidation and separate tenant quotas; these assertions do not cover the constructor binding defect recorded on cache.rs."
+
+[file.31]
+path = "services/agent/crates/layerx-agentd/tests/checkpoint.rs"
+lines = 213
+verdict = "clean"
+note = "Reviewed committed-header decoding, consensus validator and signature validation and invalid proof/height refusals."
+
+[file.32]
+path = "services/agent/crates/layerx-agentd/tests/checkpoint_commit.rs"
+lines = 252
+verdict = "clean"
+note = "Reviewed canonical CometBFT header/vote hashing, validator power thresholds and tampered commit/header/validator refusal cases."
+
+[file.33]
+path = "services/agent/crates/layerx-agentd/tests/deadlines.rs"
+lines = 225
+verdict = "clean"
+note = "Reviewed absolute deadlines, disconnect and cancellation outcomes, arithmetic errors and preservation of submitted/unknown side effects."
+
+[file.34]
+path = "services/agent/crates/layerx-agentd/tests/degraded.rs"
+lines = 324
+verdict = "clean"
+note = "Reviewed degraded read metadata, write closure, rung caps and recovery modes; its single regression observation does not cover the repeated-observation defect recorded on degraded.rs."
+
+[file.35]
+path = "services/agent/crates/layerx-agentd/tests/delivery.rs"
+lines = 434
+verdict = "clean"
+note = "Reviewed durable cursor/ack sequencing, retry order, restart recovery, exact redelivery identity and tenant-scoped delivery records."
+
+[file.36]
+path = "services/agent/crates/layerx-agentd/tests/evm_signing.rs"
+lines = 295
+verdict = "issues"
+note = "Reviewed canonical type-2 bytes, recovered senders, mutation refusal and self-sign scope; positive session fixtures use a different key family from provisioning."
+
+[file.37]
+path = "services/agent/crates/layerx-agentd/tests/export.rs"
+lines = 439
+verdict = "issues"
+note = "Reviewed signed receipt, transaction and inclusion fixtures, consensus commits and export mutation refusals; its account-state proof fixture uses the wrong app-root model."
+
+[file.38]
+path = "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs"
+lines = 230
+verdict = "clean"
+note = "Reviewed selector cardinality, request/response scope, artifact frame size and invalid trust source refusals; placeholder proof bytes are used only for structural bounds."
+
+[file.39]
+path = "services/agent/crates/layerx-agentd/tests/export_v2.rs"
+lines = 208
+verdict = "clean"
+note = "Reviewed serialization and offline verification, tenant-scoped retained bundles, invalid trust windows and transaction/receipt mutation refusal paths."
+
+[file.40]
+path = "services/agent/crates/layerx-agentd/tests/fee_projection_program_state.rs"
+lines = 308
+verdict = "clean"
+note = "Reviewed fee projection from authenticated program state, full call parameters, maximum fee arithmetic and unsupported-state refusals."
+
+[file.41]
+path = "services/agent/crates/layerx-agentd/tests/finality.rs"
+lines = 292
+verdict = "clean"
+note = "Reviewed durable receipt augmentation, byte identity, rung monotonicity and commit/refusal cases; the same-height inclusion defect is recorded on finality.rs."
+
+[file.42]
+path = "services/agent/crates/layerx-agentd/tests/finality_rungs.rs"
+lines = 373
+verdict = "issues"
+note = "Reviewed receipt key pinning and weighted quorum tests; the successful committed fixture has no authenticated transaction inclusion."
+
+[file.43]
+path = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs"
+lines = 343
+verdict = "issues"
+note = "Reviewed readiness, key availability and write gate transitions; the key response fixture has the obsolete array/hex-height shape."
+
+[file.44]
+path = "services/agent/crates/layerx-agentd/tests/history_served_contract.rs"
+lines = 511
+verdict = "clean"
+note = "Reviewed served history pagination, canonical field/encoding mapping, scoped principal routing and malformed/foreign response refusals."
+
+[file.45]
+path = "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs"
+lines = 503
+verdict = "issues"
+note = "Reviewed node-backed budget creation and exact-byte recovery; receipt-key objects are current, but successful receipt views omit paymentDenom."
+
+[file.46]
+path = "services/agent/crates/layerx-agentd/tests/human_peer_rungs.rs"
+lines = 367
+verdict = "clean"
+note = "Reviewed peer wire rung encoding, status/receipt metadata and refusal of malformed, truncated or incompatible peer responses."
+
+[file.47]
+path = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"
+lines = 403
+verdict = "clean"
+note = "Reviewed real Human projection selection and tenant/principal ownership, freshness, unsupported facts and refused fabricated responses."
+
+[file.48]
+path = "services/agent/crates/layerx-agentd/tests/idempotency_height.rs"
+lines = 229
+verdict = "clean"
+note = "Reviewed height-based expiry, equality bounds, durable reopen/replay and refusal of conflicting request bodies without duplicate execution."
+
+[file.49]
+path = "services/agent/crates/layerx-agentd/tests/managed_agent_evm_tx.rs"
+lines = 212
+verdict = "clean"
+note = "Reviewed managed-agent ABI selectors, type-2 transaction fields, sender binding and unsupported native operation refusals."
+
+[file.50]
+path = "services/agent/crates/layerx-agentd/tests/migration.rs"
+lines = 273
+verdict = "clean"
+note = "Reviewed supported store schemas, restart/recovery outcomes, shutdown-stage evidence and failure-preserving migration behavior."
+
+[file.51]
+path = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+lines = 328
+verdict = "issues"
+note = "Reviewed native route request construction, indexed key selection and peer/RPC decoding; both key and receipt fixtures have stale producer shapes."
+
+[file.52]
+path = "services/agent/crates/layerx-agentd/tests/node_rpc.rs"
+lines = 223
+verdict = "issues"
+note = "Reviewed actual local HTTP method/parameter transport, chain-id checks and deadline handling; the empty key success expectation contradicts the decoder."
+
+[file.53]
+path = "services/agent/crates/layerx-agentd/tests/observability.rs"
+lines = 252
+verdict = "clean"
+note = "Reviewed health/readiness, bounded tenant metrics, finite labels, trace capacities and redaction through public observability consumers."
+
+[file.54]
+path = "services/agent/crates/layerx-agentd/tests/operator.rs"
+lines = 234
+verdict = "clean"
+note = "Reviewed operator role checks, command descriptors, tenant scope and typed outcomes for inspect/retry/resolve operations."
+
+[file.55]
+path = "services/agent/crates/layerx-agentd/tests/outbox.rs"
+lines = 325
+verdict = "clean"
+note = "Reviewed type-2 hash identity, durable-before-transmit ordering, restart, legal state transitions and authenticated receipt outcomes."
+
+[file.56]
+path = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs"
+lines = 340
+verdict = "issues"
+note = "Reviewed evidence version rejection, inventory and tenant recovery; the later success scenario seeds the same rejected legacy evidence."
+
+[file.57]
+path = "services/agent/crates/layerx-agentd/tests/outbox_tx_hash.rs"
+lines = 347
+verdict = "clean"
+note = "Reviewed exact transaction-hash keys, altered-byte refusal, durable retransmission and recovery holds for unresolved submissions."
+
+[file.58]
+path = "services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs"
+lines = 273
+verdict = "clean"
+note = "Reviewed pending nonce/base fee/chain id preparation, supported precompile calldata and signing-hash/disclosure identity."
+
+[file.59]
+path = "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs"
+lines = 230
+verdict = "issues"
+note = "Reviewed expiry during signing, reservation release and terminal/unknown retention; its prepared authorization still uses the retired activity envelope."
+
+[file.60]
+path = "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"
+lines = 293
+verdict = "clean"
+note = "Reviewed published programs ABI selectors/offsets, resources, actor-scoped eth_call and failure behavior through the real operation constructor."
+
+[file.61]
+path = "services/agent/crates/layerx-agentd/tests/proof_agentd_env.rs"
+lines = 373
+verdict = "clean"
+note = "Reviewed the actual Python environment producer, OS exec transport and Rust decoder, required values, chain agreement and retired-variable refusal."
+
+[file.62]
+path = "services/agent/crates/layerx-agentd/tests/proof_agentd_startup.rs"
+lines = 335
+verdict = "issues"
+note = "Reviewed protected configuration producer/consumer and repeated refusal paths; the test excludes the running loader and has no successful node-key startup."
+
+[file.63]
+path = "services/agent/crates/layerx-agentd/tests/proof_bundle_v2.rs"
+lines = 515
+verdict = "clean"
+note = "Reviewed signed receipt/log/transaction inclusions, CometBFT commits, ICS23 storage witnesses and root/key/value tampering refusals."
+
+[file.64]
+path = "services/agent/crates/layerx-agentd/tests/proof_layerx_agentd_metrics.rs"
+lines = 243
+verdict = "clean"
+note = "Reviewed actual metric environment producer/consumer, tenant limits, finite-label decoding and invalid/nonfinite input refusals."
+
+[file.65]
+path = "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs"
+lines = 373
+verdict = "issues"
+note = "Reviewed policy, cumulative use, network/version and revoked-key refusal coverage; positive authority fixtures retain the retired handshake lifecycle."
+
+[file.66]
+path = "services/agent/crates/layerx-agentd/tests/quota.rs"
+lines = 341
+verdict = "clean"
+note = "Reviewed per-tenant durable quotas, reservation atomicity, rejection before mutation and bounded resource accounting."
+
+[file.67]
+path = "services/agent/crates/layerx-agentd/tests/ratelimit.rs"
+lines = 293
+verdict = "clean"
+note = "Reviewed finite token buckets, authenticated logical time, time regression, shared rate scope and state persistence."
+
+[file.68]
+path = "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs"
+lines = 294
+verdict = "clean"
+note = "Reviewed exact JSON-RPC read shapes, account/principal arguments, committed read selection and refusal/error mapping."
+
+[file.69]
+path = "services/agent/crates/layerx-agentd/tests/receipts.rs"
+lines = 339
+verdict = "clean"
+note = "Reviewed receipt persistence and serve metadata, evidence version handling, identity binding and malformed record refusal."
+
+[file.70]
+path = "services/agent/crates/layerx-agentd/tests/recovery.rs"
+lines = 331
+verdict = "issues"
+note = "Reviewed every durable outbox stage, budget holds, shutdown flushing and reopened resolution; the successful RPC receipt fixture omits the current payment asset field."
+
+[file.71]
+path = "services/agent/crates/layerx-agentd/tests/revocation.rs"
+lines = 452
+verdict = "clean"
+note = "Reviewed session revocation, held preparations, authority checks and durable invalidation before any later submission/signing."
+
+[file.72]
+path = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+lines = 371
+verdict = "clean"
+note = "Reviewed every generated operation's decode/dispatch policy, major-version exchange, wire rungs and malformed/retired request refusals."
+
+[file.73]
+path = "services/agent/crates/layerx-agentd/tests/session_grants_layerxauth.rs"
+lines = 407
+verdict = "clean"
+note = "Reviewed real auth grant/revoke ABI and receipt events, scope/address binding, revocation persistence and changed-event refusals."
+
+[file.74]
+path = "services/agent/crates/layerx-agentd/tests/session_keys_evm.rs"
+lines = 223
+verdict = "clean"
+note = "Reviewed persisted encrypted secp256k1 key loading, derived session address, exact signing bytes and revoke-before-reuse behavior."
+
+[file.75]
+path = "services/agent/crates/layerx-agentd/tests/signing.rs"
+lines = 276
+verdict = "issues"
+note = "Reviewed external package and signature verification, provisioning refusals and self-sign audit; positive session fixtures bypass the EVM registry grant."
+
+[file.76]
+path = "services/agent/crates/layerx-agentd/tests/store.rs"
+lines = 249
+verdict = "clean"
+note = "Reviewed tenant key isolation, atomic persistent writes, schema/corruption refusal and core/local storage-class separation."
+
+[file.77]
+path = "services/agent/crates/layerx-agentd/tests/subscription_ops_cursor.rs"
+lines = 333
+verdict = "clean"
+note = "Reviewed durable scoped cursor/ack handling, resume sequencing, out-of-order and foreign-tenant refusal paths."
+
+[file.78]
+path = "services/agent/crates/layerx-agentd/tests/tenant_isolation.rs"
+lines = 272
+verdict = "clean"
+note = "Reviewed tenant-owned configuration and object lookups, principal binding and cross-tenant denial without exposing foreign state."
+
+[file.79]
+path = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+lines = 297
+verdict = "issues"
+note = "Reviewed acknowledgement loss, same-byte resend, backoff and consumed nonce handling across restart; the shared positive receipt view has the old field set."
+
+[file.80]
+path = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+lines = 565
+verdict = "issues"
+note = "Reviewed receipt/key RPC transport, unknown resolution, node cache semantics and nonce-consumed refusal; the local fixtures disagree with both current response schemas."
+
+[file.81]
+path = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+lines = 507
+verdict = "issues"
+note = "Reviewed millisecond expiry equality, signing authorization and no-mutation/hold release behavior; the fixture still authorizes a legacy kernel preparation."
+
+[file.82]
+path = "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs"
+lines = 333
+verdict = "clean"
+note = "Reviewed live session permits for subscription mutations, expiry/revocation ordering and tenant-scoped durable stream state."
+
+[file.83]
+path = "services/agent/crates/layerx-agentd/tests/w8_capability.rs"
+lines = 466
+verdict = "clean"
+note = "Reviewed canonical capability narrowing, parent/child ceilings, rate/amount scope, revocation and persistent reservation outcomes."
+
+[file.84]
+path = "services/agent/crates/layerx-agentd/tests/webhook.rs"
+lines = 490
+verdict = "clean"
+note = "Reviewed actual delivery body signing, finite retry/dead-letter behavior, receiver deduplication and source/tenant identity bindings."
+
+[file.85]
+path = "services/agent/crates/layerx-identity-binding/Cargo.toml"
+lines = 16
+verdict = "clean"
+note = "Reviewed crate dependencies and workspace inheritance against the Unix socket binding client and its cryptographic/JSON types."
+
+[file.86]
+path = "services/agent/crates/layerx-identity-binding/src/lib.rs"
+lines = 296
+verdict = "clean"
+note = "Reviewed canonical protected socket ancestry, owner/mode/inode validation, peer credentials, deadlines/frame bounds and exact tenant/principal response binding."
+
+[file.87]
+path = "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"
+lines = 468
+verdict = "issues"
+note = "Reviewed all native setup constructors, mutated disclosures, real provider signing and restart; two scenarios convert missing production behavior into passing tests."
+
+[finding.1]
+file = "docker/human-service/entrypoint.sh"
+line = 205
+class = "retired-reference"
+severity = "medium"
+observed = "The security role waits for /run/human-material/trust-history, validates it and copies it to the private directory at line 240 before starting the security provider. A deployment without this retired material waits indefinitely."
+expected = "Requirement 8358.1 removes handover and trust-history copies from the human-service entrypoint; merged-network startup must use the current committed-node evidence configuration."
+proposal = "Remove the trust-history prerequisite and copy from docker/human-service/entrypoint.sh together with the owning security provider deployment configuration; provision the merged-network receipt and consensus authority instead and prove startup without the retired file."
+owner_domain = 16
+interface = "16.cli-dock-human-service-entrypoint"
+
+[finding.2]
+file = "docker/human-service/entrypoint.sh"
+line = 139
+class = "restart-recovery"
+severity = "medium"
+observed = "The agent role installs every material journal file over the private journal on every start. It neither distinguishes first initialization from restart nor compares the seed with newer durable records already present."
+expected = "A restart must preserve the latest acknowledged submissions, reservations and audit journal rather than replacing them with older bootstrap material."
+proposal = "Make docker/human-service/entrypoint.sh initialize the agent journal only once using an explicit durable bootstrap marker, preserve existing journal records, and refuse conflicting seed data; prove a restart after the journal has advanced."
+owner_domain = 16
+interface = "16.cli-dock-human-service-entrypoint"
+
+[finding.3]
+file = "services/agent/crates/layerx-agentd/src/cache.rs"
+line = 31
+class = "security"
+severity = "medium"
+observed = "CacheValue::from_receipt, from_inclusion and from_checkpoint accept arbitrary core_bytes independently of the verified evidence, then attach that evidence's level and identifier. revalidate and Controller::serve_cached can return unrelated bytes carrying a verified claim."
+expected = "The cache's declared verified-value boundary must bind the served canonical payload to authenticated evidence, including when serving degraded reads."
+proposal = "Change services/agent/crates/layerx-agentd/src/cache.rs to derive the cached payload from the verified object or validate its authenticated digest before construction, then add byte-substitution refusals through revalidate and degraded serving."
+owner_domain = 9
+interface = "9.rs-agentd-cache-cachevalue-j43"
+
+[finding.4]
+file = "services/agent/crates/layerx-agentd/src/cache.rs"
+line = 171
+class = "runtime-risk"
+severity = "medium"
+observed = "EvidenceCache::insert charges only core_bytes toward maximum_bytes_per_tenant while retaining an unbounded Vec key. revalidate also allocates a new metrics entry for every missing TenantId, outside the entry and byte quotas."
+expected = "Tenant cache limits must bound actual retained memory and tenant metadata; misses and oversized keys must not bypass admission."
+proposal = "Bound key length, charge key and value storage, and require bounded tenant admission in services/agent/crates/layerx-agentd/src/cache.rs; exercise oversized keys and many distinct miss-only tenants."
+owner_domain = 9
+interface = "9.rs-agentd-cache-evidencecache-j43"
+
+[finding.5]
+file = "services/agent/crates/layerx-agentd/src/degraded.rs"
+line = 303
+class = "runtime-risk"
+severity = "medium"
+observed = "enter marks a Ready observation Behind when its height or rung regresses, but then replaces controller.reference and maximum_rung with the regressed observation. An identical second Ready observation becomes Healthy and admits writes without catching up."
+expected = "A node that has regressed below the last trusted reference must remain write-blocked until it recovers that reference and the required finality."
+proposal = "Preserve a trusted high-water reference separately from the current observed reference in services/agent/crates/layerx-agentd/src/degraded.rs; prove repeated regressed observations remain Behind and only actual catch-up restores write readiness."
+owner_domain = 9
+interface = "9.rs-agentd-degraded-enter-j43"
+
+[finding.6]
+file = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 326
+class = "security"
+severity = "high"
+observed = "augment_verified and SubmissionProgress::observe_block associate a receipt with a verified commit using only block number. Neither checks that receipt.tx_hash is included in the committed block or binds receipt evidence to an authenticated block root; a different block at the same height can promote the receipt to Committed."
+expected = "A Committed submission must round-trip its exact transaction and receipt through inclusion evidence authenticated by the consensus commit, not merely share a height with that commit."
+proposal = "Require authenticated transaction or receipt inclusion tied to the committed CometBFT header in services/agent/crates/layerx-agentd/src/finality.rs before promotion; reject empty-block, foreign-transaction and same-height conflicting-block evidence and retain that binding across restart."
+owner_domain = 9
+interface = "9.rs-agentd-finality-augment-verified-j43"
+
+[finding.7]
+file = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 511
+class = "interface-mismatch"
+severity = "medium"
+observed = "The registry still declares InclusionBundle and wait_for_level with stable callers, but finality.rs exports neither: its public wait operation is wait_for_rung and its evidence types are VerifiedReceipt and VerifiedBlock."
+expected = "Registry row 9.rs-agentd-finality-wait-for-level-j43 and the related inclusion row must describe the current rung API and its actual callers after requirement 9017's finality migration."
+proposal = "Update the finality declarations and callers in spec/layerx-merge/interfaces.kvx to the public services/agent/crates/layerx-agentd/src/finality.rs rung API, retire removed names explicitly, and add a consumer compile proof for the published signatures."
+owner_domain = 9
+interface = "9.rs-agentd-finality-wait-for-level-j43"
+
+[finding.8]
+file = "services/agent/crates/layerx-agentd/src/shutdown.rs"
+line = 205
+class = "restart-recovery"
+severity = "high"
+observed = "graceful writes pending audit records to shutdown-audit:<index> with enumerate starting at zero on each shutdown. Store::put_local replaces an existing key, so a second lifecycle shutdown overwrites the prior durable audit entries even after reopening the store."
+expected = "The declared durable audit drain must preserve every shutdown batch across repeated shutdown and recovery cycles."
+proposal = "Append shutdown records to the canonical audit log or allocate durable monotonic identifiers in services/agent/crates/layerx-agentd/src/shutdown.rs; prove two shutdown/reopen cycles retain both batches in order without overwriting either."
+owner_domain = 9
+interface = "9.rs-agentd-shutdown-graceful-j43"
+
+[finding.9]
+file = "services/agent/crates/layerx-agentd/src/sign.rs"
+line = 120
+class = "interface-mismatch"
+severity = "high"
+observed = "ProvisionedSessionKey::new compares the issued session_public_key with an Ed25519 LocalSigner key. self_sign then signs an EIP-1559 call with that seed as secp256k1. SessionKeyRegistry::load instead accepts a padded EVM address and returns ProvisionedEvmSessionKey; a real provisioned EVM grant cannot enter this signer."
+expected = "Requirement 9011.1 requires the provisioned secp256k1 session key to produce the 65-byte signature whose recovered address is the granted session EVM address, with durable revocation checks intact."
+proposal = "Unify services/agent/crates/layerx-agentd/src/sign.rs with the secp256k1 provisioning and guarded secret access in src/session_keys.rs; validate the issued EVM address and exact grant scope and test provision, persist, reopen, self-sign and revoke through those real types."
+owner_domain = 9
+interface = "9.rs-agentd-sign-self-sign"
+
+[finding.10]
+file = "services/agent/crates/layerx-agentd/src/sign.rs"
+line = 393
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_kernel_before_submit still creates the submit-capable VerifiedSubmission from a signed kernel activity. Live native Human paths call it. Outbox::enqueue_with_origin can retain those bytes, but Outbox::restore and transmission decoding require signed EIP-1559 bytes, so the producer's wrapper does not survive the consumer's recovery path."
+expected = "Requirements 22058.1 and 22063.1 require every submit variant to assemble and verify the signed type-2 call and remove kernel attach/verify and envelope paths."
+proposal = "Remove the kernel submission constructors from services/agent/crates/layerx-agentd/src/sign.rs and migrate their human_runtime.rs callers to retained EVM preparations and verify_before_submit; prove the exact produced bytes queue, transmit and restore unchanged."
+owner_domain = 9
+interface = "9.rs-agentd-sign-verify-before-submit"
+
+[finding.11]
+file = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 11
+class = "interface-mismatch"
+severity = "low"
+observed = "MetricKind exports Rung and MetricLabel exports Submitted, Receipted and Committed, while registry row 9.met-agentd-verificationlevel still advertises VerificationLevel with SequencerSigned, BatchIncluded, StateProven, CheckpointFinalised and SettlementAnchored."
+expected = "The published observability declaration must agree with the finite merged-network rung names emitted by the real metrics producer."
+proposal = "Refresh the metric rows and obsolete label declarations in spec/layerx-merge/interfaces.kvx from services/agent/crates/layerx-agentd/src/obs/metrics.rs; keep operator metric consumers on submitted, receipted and committed and prove their actual exported label names."
+owner_domain = 9
+interface = "9.met-agentd-verificationlevel"
+
+[finding.12]
+file = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs"
+line = 105
+class = "test-gap"
+severity = "medium"
+observed = "ready_node publishes a bare receipt-key array with hexadecimal-string heights, and empty_node_config publishes []. The production decoder now requires an exact object with a nonempty keys array and numeric firstHeight/lastHeight."
+expected = "Requirement 22105.1 requires every receipt-key fixture to use the actual node object shape, and readiness must refuse an empty published key set."
+proposal = "Rewrite the local server answers in services/agent/crates/layerx-agentd/tests/handshake_gate.rs from rpc/sequencer_receipt.go's ReceiptKeysResult contract; assert successful readiness with numeric windows and typed refusal for {keys: []} through the real NodeRpc."
+owner_domain = 9
+interface = "9.rs-agentd-boot-gate"
+
+[finding.13]
+file = "services/agent/crates/layerx-agentd/tests/node_rpc.rs"
+line = 102
+class = "test-gap"
+severity = "medium"
+observed = "The successful node RPC scenario answers px_getReceiptKeys with [] and asserts node.receipt_keys() is an empty successful vector. decode_receipt_keys rejects this bare array and also rejects an empty keys list."
+expected = "The successful fixture must match ReceiptKeysResult {keys: [...]} with numeric heights; an empty object-shaped key set must exercise a refusal under requirement 22105.1."
+proposal = "Change services/agent/crates/layerx-agentd/tests/node_rpc.rs to serve a real nonempty node key response for the success scenario and separately assert the empty-key failure; retain the real transport, method and parameter assertions."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.14]
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+line = 130
+class = "test-gap"
+severity = "medium"
+observed = "published_keys returns a bare array and encodes firstHeight and lastHeight as 0x strings. Every receipt lookup exchange and the indexed key selection depend on this pre-migration shape."
+expected = "The fixture consumed by NodeRpc and SequencerEndpoint must match the node's keys object and unsigned JSON integer heights required by 22105.1."
+proposal = "Update services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs to use ReceiptKeysResult-shaped answers, preserve key ordering and index checks, and exercise the actual parser with empty and out-of-window refusal cases."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.15]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 306
+class = "test-gap"
+severity = "medium"
+observed = "published_key sends px_getReceiptKeys as a bare array with hexadecimal-string firstHeight and lastHeight in both startup/reconnect scenarios. The real decoder accepts only an object with numeric heights."
+expected = "Requirement 22105.1 makes the node receipt-key response the sole fixture shape, including recovery and unknown receipt lookup."
+proposal = "Serve {keys: [...]} with integer windows from published_key in services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs, then retain the reconnect, key-window and unknown-resolution assertions against the unchanged real consumer."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.16]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+line = 240
+class = "test-gap"
+severity = "medium"
+observed = "signed_receipt supplies a successful receipt view without paymentDenom. The shared support and human budget fixtures also include signingKey outside the exact node view. SequencerEndpoint::executed requires paymentDenom and checks its digest against the signed receipt asset, so these success expectations do not reach their intended consumer behavior."
+expected = "Requirement 22082.1 requires paymentDenom on every decoded receipt view and binds the signed asset to that denomination; fixtures must carry the exact producer field set."
+proposal = "Repair services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs and its owning receipt fixture producer to emit the current node fields and encode the signed asset as the digest of paymentDenom; preserve the success/recovery assertions and add missing-denomination and changed-denomination refusals."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.17]
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+line = 116
+class = "test-gap"
+severity = "medium"
+observed = "signed_receipt supplies a successful receipt view without paymentDenom. The shared support and human budget fixtures also include signingKey outside the exact node view. SequencerEndpoint::executed requires paymentDenom and checks its digest against the signed receipt asset, so these success expectations do not reach their intended consumer behavior."
+expected = "Requirement 22082.1 requires paymentDenom on every decoded receipt view and binds the signed asset to that denomination; fixtures must carry the exact producer field set."
+proposal = "Repair services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs and its owning receipt fixture producer to emit the current node fields and encode the signed asset as the digest of paymentDenom; preserve the success/recovery assertions and add missing-denomination and changed-denomination refusals."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.18]
+file = "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs"
+line = 196
+class = "test-gap"
+severity = "medium"
+observed = "signed_receipt supplies a successful receipt view without paymentDenom. The shared support and human budget fixtures also include signingKey outside the exact node view. SequencerEndpoint::executed requires paymentDenom and checks its digest against the signed receipt asset, so these success expectations do not reach their intended consumer behavior."
+expected = "Requirement 22082.1 requires paymentDenom on every decoded receipt view and binds the signed asset to that denomination; fixtures must carry the exact producer field set."
+proposal = "Repair services/agent/crates/layerx-agentd/tests/human_node_budgets.rs and its owning receipt fixture producer to emit the current node fields and encode the signed asset as the digest of paymentDenom; preserve the success/recovery assertions and add missing-denomination and changed-denomination refusals."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.19]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+line = 47
+class = "test-gap"
+severity = "medium"
+observed = "the shared support::sequencer_receipt supplies a successful receipt view without paymentDenom. The shared support and human budget fixtures also include signingKey outside the exact node view. SequencerEndpoint::executed requires paymentDenom and checks its digest against the signed receipt asset, so these success expectations do not reach their intended consumer behavior."
+expected = "Requirement 22082.1 requires paymentDenom on every decoded receipt view and binds the signed asset to that denomination; fixtures must carry the exact producer field set."
+proposal = "Repair services/agent/crates/layerx-agentd/tests/unknown.rs and its owning receipt fixture producer to emit the current node fields and encode the signed asset as the digest of paymentDenom; preserve the success/recovery assertions and add missing-denomination and changed-denomination refusals."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.20]
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs"
+line = 167
+class = "test-gap"
+severity = "medium"
+observed = "the shared support::sequencer_receipt supplies a successful receipt view without paymentDenom. The shared support and human budget fixtures also include signingKey outside the exact node view. SequencerEndpoint::executed requires paymentDenom and checks its digest against the signed receipt asset, so these success expectations do not reach their intended consumer behavior."
+expected = "Requirement 22082.1 requires paymentDenom on every decoded receipt view and binds the signed asset to that denomination; fixtures must carry the exact producer field set."
+proposal = "Repair services/agent/crates/layerx-agentd/tests/recovery.rs and its owning receipt fixture producer to emit the current node fields and encode the signed asset as the digest of paymentDenom; preserve the success/recovery assertions and add missing-denomination and changed-denomination refusals."
+owner_domain = 9
+interface = "9.rs-agentd-node-rpc-noderpc-j43"
+
+[finding.21]
+file = "services/agent/crates/layerx-agentd/tests/evm_signing.rs"
+line = 102
+class = "test-gap"
+severity = "medium"
+observed = "issued builds session_public_key with an Ed25519 LocalSigner while prepared derives its actor from a secp256k1 key using the same seed. The self-sign success tests bypass SessionKeyRegistry's padded EVM address grant and its durable revocation marker."
+expected = "The public self-sign path in requirement 9011 must be exercised from the real provisioned EVM session grant, preserving its address and revocation state across restart."
+proposal = "Replace the independent key setup in services/agent/crates/layerx-agentd/tests/evm_signing.rs with SessionKeyRegistry provision/load using the actual auth grant; assert recovered sender, exact scope and refusal after durable revocation and reopen."
+owner_domain = 9
+interface = "9.rs-agentd-sign-self-sign"
+
+[finding.22]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+line = 106
+class = "test-gap"
+severity = "medium"
+observed = "issued builds session_public_key with an Ed25519 LocalSigner while prepared derives its actor from a secp256k1 key using the same seed. The self-sign success tests bypass SessionKeyRegistry's padded EVM address grant and its durable revocation marker."
+expected = "The public self-sign path in requirement 9011 must be exercised from the real provisioned EVM session grant, preserving its address and revocation state across restart."
+proposal = "Replace the independent key setup in services/agent/crates/layerx-agentd/tests/signing.rs with SessionKeyRegistry provision/load using the actual auth grant; assert recovered sender, exact scope and refusal after durable revocation and reopen."
+owner_domain = 9
+interface = "9.rs-agentd-sign-self-sign"
+
+[finding.23]
+file = "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs"
+line = 97
+class = "retired-reference"
+severity = "medium"
+observed = "prepared constructs a CorePreparationState and calls legacy prepare_activity to obtain an activity envelope, then drives expiry/signing authorization with that legacy Prepared value."
+expected = "Requirements 22061.1 and 22063.1 require test authorizations to come from a ledger payment call with bound disclosure and require the daemon's legacy preparation path to be removed."
+proposal = "Migrate services/agent/crates/layerx-agentd/tests/prepare_expiry.rs to the real ledger EIP-1559 preparation and disclosure binder; retain all equality, expiry, sequence, reservation and no-mutation assertions using the current retained preparation lifecycle."
+owner_domain = 9
+
+[finding.24]
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+line = 108
+class = "retired-reference"
+severity = "medium"
+observed = "prepared constructs a CorePreparationState and calls legacy prepare_activity to obtain an activity envelope, then drives expiry/signing authorization with that legacy Prepared value."
+expected = "Requirements 22061.1 and 22063.1 require test authorizations to come from a ledger payment call with bound disclosure and require the daemon's legacy preparation path to be removed."
+proposal = "Migrate services/agent/crates/layerx-agentd/tests/w7_core_time.rs to the real ledger EIP-1559 preparation and disclosure binder; retain all equality, expiry, sequence, reservation and no-mutation assertions using the current retained preparation lifecycle."
+owner_domain = 9
+
+[finding.25]
+file = "services/agent/crates/layerx-agentd/tests/approval.rs"
+line = 26
+class = "test-gap"
+severity = "medium"
+observed = "prepared manually pairs an ERC20 transfer to [3; 20] with an independently written LXP disclosure and activity type 7. Some fixtures declare no counterparties or amounts despite the encoded transfer, so approval/restart assertions do not demonstrate a producer-bound disclosure."
+expected = "The approved disclosure must describe the actual prepared call, including target, asset, recipient, amount, fee and expiry; brief check 7 requires fixtures from the real producer shape."
+proposal = "Build preparations in services/agent/crates/layerx-agentd/tests/approval.rs through the ledger preparation and call disclosure producer, adapt those real fields to the API, and retain the decision/concurrency/restart tests with changed-call and changed-disclosure refusals."
+owner_domain = 9
+interface = "9.rs-agent-api-write-prepared"
+
+[finding.26]
+file = "services/agent/crates/layerx-agentd/tests/approval_ops.rs"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "prepared manually pairs an ERC20 transfer to [3; 20] with an independently written LXP disclosure and activity type 7. Some fixtures declare no counterparties or amounts despite the encoded transfer, so approval/restart assertions do not demonstrate a producer-bound disclosure."
+expected = "The approved disclosure must describe the actual prepared call, including target, asset, recipient, amount, fee and expiry; brief check 7 requires fixtures from the real producer shape."
+proposal = "Build preparations in services/agent/crates/layerx-agentd/tests/approval_ops.rs through the ledger preparation and call disclosure producer, adapt those real fields to the API, and retain the decision/concurrency/restart tests with changed-call and changed-disclosure refusals."
+owner_domain = 9
+interface = "9.rs-agent-api-write-prepared"
+
+[finding.27]
+file = "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs"
+line = 51
+class = "test-gap"
+severity = "medium"
+observed = "prepared manually pairs an ERC20 transfer to [3; 20] with an independently written LXP disclosure and activity type 7. Some fixtures declare no counterparties or amounts despite the encoded transfer, so approval/restart assertions do not demonstrate a producer-bound disclosure."
+expected = "The approved disclosure must describe the actual prepared call, including target, asset, recipient, amount, fee and expiry; brief check 7 requires fixtures from the real producer shape."
+proposal = "Build preparations in services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs through the ledger preparation and call disclosure producer, adapt those real fields to the API, and retain the decision/concurrency/restart tests with changed-call and changed-disclosure refusals."
+owner_domain = 9
+interface = "9.rs-agent-api-write-prepared"
+
+[finding.28]
+file = "services/agent/crates/layerx-agentd/tests/approval_semantics.rs"
+line = 55
+class = "test-gap"
+severity = "medium"
+observed = "prepared manually pairs an ERC20 transfer to [3; 20] with an independently written LXP disclosure and activity type 7. Some fixtures declare no counterparties or amounts despite the encoded transfer, so approval/restart assertions do not demonstrate a producer-bound disclosure."
+expected = "The approved disclosure must describe the actual prepared call, including target, asset, recipient, amount, fee and expiry; brief check 7 requires fixtures from the real producer shape."
+proposal = "Build preparations in services/agent/crates/layerx-agentd/tests/approval_semantics.rs through the ledger preparation and call disclosure producer, adapt those real fields to the API, and retain the decision/concurrency/restart tests with changed-call and changed-disclosure refusals."
+owner_domain = 9
+interface = "9.rs-agent-api-write-prepared"
+
+[finding.29]
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs"
+line = 313
+class = "test-gap"
+severity = "medium"
+observed = "startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence expects evidence_inventory to accept the legacy evidence seeded by seed_startup_recovery. The earlier legacy_receipt_evidence_is_refused_after_restart test seeds the same support receipt format and expects EvidenceVersion."
+expected = "Recovery success must consume a current retained receipt proof; obsolete evidence must consistently refuse writes instead of being accepted in a second success scenario."
+proposal = "Replace the startup seed in services/agent/crates/layerx-agentd/tests/outbox_recover.rs with a current transaction receipt and committed budget proof, retain the legacy rejection scenario, and prove the evidenced tenant resumes while the unevidenced tenant keeps its hold."
+owner_domain = 9
+interface = "9.rs-agentd-human-runtime-recover-tenant-budget-j43"
+
+[finding.30]
+file = "services/agent/crates/layerx-agentd/tests/proof_agentd_startup.rs"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The proof explicitly excludes main.rs::config, which reads a different configuration path, and asserts that Gate::new rejects receipt_key_source=px_getReceiptKeys. It proves protected-file library parsing but no successful running-node startup with governed receipt keys."
+expected = "Requirement 21128.1 requires the real startup producer, the configuration key read on both sides and the actual consumer path, with successful restart and a refusal."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/proof_agentd_startup.rs through the loader used by main.rs and the current node readiness/receipt-key consumer; reconcile the library loader wiring and prove successful restart plus a malformed producer refusal."
+owner_domain = 9
+interface = "9.rs-agentd-config-startupconfig"
+
+[finding.31]
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs"
+line = 211
+class = "test-gap"
+severity = "medium"
+observed = "actual_submission verifies the daemon kernel activity, discards that submit-capable object and returns activity_submission_index_tests::transaction_submission instead. prove_terminal_recovery substitutes a different transaction receipt, so the daemon fixture's own bytes never traverse outbox recovery."
+expected = "Brief fact 7 and requirement 22998.1 require evidence on the real producer-to-consumer path without replacing an incompatible producer output to obtain a passing scenario."
+proposal = "Rewrite services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs around the current type-2 native call producer and its matching node receipt; carry the exact signed bytes and transaction hash unchanged through enqueue, restart and recovery."
+owner_domain = 9
+interface = "9.rs-agentd-sign-verify-before-submit"
+
+[finding.32]
+file = "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs"
+line = 26
+class = "retired-reference"
+severity = "medium"
+observed = "The positive authority scenarios are built from TestAuthorityPolicy handshake_signing_seed, handshake_batch, epoch and revocation_handover key records. They exercise the former protected sequencer authority/handshake path rather than keys emitted by the merged node."
+expected = "Requirements 22045.1 and 9017 require readiness and receipt authority from the node's governed receipt keys and committed-chain evidence, without the retired kernel handshake dependency."
+proposal = "Move the positive authority and rotation scenarios in services/agent/crates/layerx-agentd/tests/protocol_evidence.rs to real node key responses and authenticated committed evidence; preserve the network, version, key-window and attacker-key refusal coverage."
+owner_domain = 9
+interface = "9.rs-agentd-boot-handshake-gate"
+
+[finding.33]
+file = "services/agent/crates/layerx-agentd/tests/finality_rungs.rs"
+line = 155
+class = "test-gap"
+severity = "medium"
+observed = "The block fixture supplies an empty transactions list with arbitrary roots, yet the positive observe_block and wait tests expect Committed after attaching that block to the signed receipt at height 7."
+expected = "A positive finality fixture must prove that the exact receipt transaction is included under the consensus-authenticated block header; unrelated or empty blocks must refuse promotion."
+proposal = "Replace the block/commit fixture in services/agent/crates/layerx-agentd/tests/finality_rungs.rs with an actual transaction and authenticated inclusion witness, and convert the current empty-block case into a refusal while preserving weighted-quorum tests."
+owner_domain = 9
+interface = "9.rs-agentd-finality-augment-verified-j43"
+
+[finding.34]
+file = "services/agent/crates/layerx-agentd/tests/export.rs"
+line = 265
+class = "test-gap"
+severity = "medium"
+observed = "Fixture::new sets the CometBFT header app_hash directly to an Ethereum account trie root and state_artifact supplies an RLP account proof; the positive state export test expects this to verify as Committed."
+expected = "Requirements 92511.1 and 92513.1 require EVM storage witnesses to traverse the module store and app root using ICS23, with balance and nonce read at the committed height rather than an Ethereum account trie under app_hash."
+proposal = "Replace the state fixture in services/agent/crates/layerx-agentd/tests/export.rs and its daemon export consumer with the same ICS23 store/app witness path used by src/read/proof_bundle.rs; preserve invalid root, key, value and foreign-account refusals."
+owner_domain = 9
+
+[finding.35]
+file = "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"
+line = 308
+class = "test-gap"
+severity = "medium"
+observed = "The native creation loop records construct_signing_call errors with qualification_finding and continues; it only asserts that calls is nonempty. One supported creation can therefore conceal unsupported required creation kinds while the test passes."
+expected = "Requirement 22998.1 forbids weakening a failed inventory target, and the creation proof must qualify every declared native setup operation before and after provider restart."
+proposal = "Make services/human/crates/layerx-human-kms/tests/provider/native_setup.rs require successful binding and signing for every declared creation kind, assert exact coverage of that set, and keep both restart passes; unsupported production shapes should fail with the specific operation."
+owner_domain = 10
+interface = "10.fmt-lxkp-op-evm"
+
+[finding.36]
+file = "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"
+line = 439
+class = "test-gap"
+severity = "medium"
+observed = "The malformed recovery-body scenario accepts a provider success response after zeroing DID, root or threshold fields: it logs qualification_finding and verifies the signature instead of asserting refusal."
+expected = "The test named native_setup_refuses_wrong_accounts_limits_and_payload_shapes must fail when malformed recovery policy bodies are signed, preserving the non-weakening criterion of 22998.1."
+proposal = "Make services/human/crates/layerx-human-kms/tests/provider/native_setup.rs assert the typed refusal for every zeroed recovery field, and repair the owning provider/call validation so all those assertions pass without accepting the unexpected signature."
+owner_domain = 10
+interface = "10.fmt-lxkp-op-evm"
+
+[finding.37]
+file = "docs/site/docs/agents/agentd.md"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "The page says create_protocol_budget never returns Ok; lines 165-196 also say reconcile never succeeds and restart accounting always leaves protocol_consumed None. Current budget_create, budget_reconcile_layerxpay and recovery code implement successful protocol budget creation and reconciliation."
+expected = "The agent operating guide must describe committed LayerXPay budget creation, verified reconciliation and the resulting restart write-admission behavior."
+proposal = "Rewrite the budget and restart-accounting sections of docs/site/docs/agents/agentd.md against the real budget/create.rs, budget/reconcile.rs and Human recovery path; show success and refusal conditions and align the mirrored page."
+owner_domain = 9
+
+[finding.38]
+file = "docs/site/docs/agents/agentd.md"
+line = 520
+class = "doc-drift"
+severity = "medium"
+observed = "The configuration table advertises expected_protocol_version and sequencer_authority_source even though config::load rejects these retired settings. Lines 470-479 also describe BATCH_INCLUDED and separate checkpoint/settlement augmentation instead of the submitted/receipted/committed finality contract."
+expected = "The merged-network guide must publish accepted startup keys and the current consensus-backed finality rungs, with no retired sequencer or settlement ladder."
+proposal = "Update docs/site/docs/agents/agentd.md to expected_chain_id and receipt_key_source with their real loader names, explain governed node receipt keys and committed finality, and replace the obsolete proof-level examples throughout the page."
+owner_domain = 9
+
+[finding.39]
+file = "docs/wiki/Agentd.md"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "The page says create_protocol_budget never returns Ok; lines 165-196 also say reconcile never succeeds and restart accounting always leaves protocol_consumed None. Current budget_create, budget_reconcile_layerxpay and recovery code implement successful protocol budget creation and reconciliation."
+expected = "The agent operating guide must describe committed LayerXPay budget creation, verified reconciliation and the resulting restart write-admission behavior."
+proposal = "Rewrite the budget and restart-accounting sections of docs/wiki/Agentd.md against the real budget/create.rs, budget/reconcile.rs and Human recovery path; show success and refusal conditions and align the mirrored page."
+owner_domain = 9
+
+[finding.40]
+file = "docs/wiki/Agentd.md"
+line = 520
+class = "doc-drift"
+severity = "medium"
+observed = "The configuration table advertises expected_protocol_version and sequencer_authority_source even though config::load rejects these retired settings. Lines 470-479 also describe BATCH_INCLUDED and separate checkpoint/settlement augmentation instead of the submitted/receipted/committed finality contract."
+expected = "The merged-network guide must publish accepted startup keys and the current consensus-backed finality rungs, with no retired sequencer or settlement ladder."
+proposal = "Update docs/wiki/Agentd.md to expected_chain_id and receipt_key_source with their real loader names, explain governed node receipt keys and committed finality, and replace the obsolete proof-level examples throughout the page."
+owner_domain = 9
+
+[finding.41]
+file = "docs/site/docs/agents/running.md"
+line = 96
+class = "doc-drift"
+severity = "medium"
+observed = "The guide describes node_endpoint as an absolute path; line 512 sends raw transactions to /rpc, and the table at lines 697-702 publishes retired expected_protocol_version and sequencer_authority_source settings."
+expected = "The current agent connects to a node JSON-RPC URL at its root path and accepts the merged chain-id and receipt-key configuration, while retired settings are refused under 8358.1."
+proposal = "Rewrite endpoint, transaction submission and configuration examples in docs/site/docs/agents/running.md around the actual loader and root RPC endpoint for chain 125; remove retired keys and align the site/wiki instructions with proof_agentd_env and proof_agentd_startup."
+owner_domain = 9
+
+[finding.42]
+file = "docs/wiki/RunningAnAgent.md"
+line = 96
+class = "doc-drift"
+severity = "medium"
+observed = "The guide describes node_endpoint as an absolute path; line 512 sends raw transactions to /rpc, and the table at lines 697-702 publishes retired expected_protocol_version and sequencer_authority_source settings."
+expected = "The current agent connects to a node JSON-RPC URL at its root path and accepts the merged chain-id and receipt-key configuration, while retired settings are refused under 8358.1."
+proposal = "Rewrite endpoint, transaction submission and configuration examples in docs/wiki/RunningAnAgent.md around the actual loader and root RPC endpoint for chain 125; remove retired keys and align the site/wiki instructions with proof_agentd_env and proof_agentd_startup."
+owner_domain = 9
+
+[finding.43]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page introduces a separate in-cluster sequencer and layerxd --serve, then documents independent network 402 genesis, LNI, checkpoint/settlement services and the old hosted node topology as current deployment instructions."
+expected = "Brief network facts 1-3 define one paxd BFT network, EVM chain 125, committed-block finality and root node JSON-RPC; retired layerxd/LNI and separate sequencer infrastructure cannot be current operating instructions."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md around the merged paxd node and tenant domains, current root RPC and consensus readiness; move any retained pre-merge deployment material into clearly dated historical documentation and replace executable startup commands."
+owner_domain = 8
+
+[finding.44]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page introduces a separate in-cluster sequencer and layerxd --serve, then documents independent network 402 genesis, LNI, checkpoint/settlement services and the old hosted node topology as current deployment instructions."
+expected = "Brief network facts 1-3 define one paxd BFT network, EVM chain 125, committed-block finality and root node JSON-RPC; retired layerxd/LNI and separate sequencer infrastructure cannot be current operating instructions."
+proposal = "Rewrite docs/wiki/HostedNode.md around the merged paxd node and tenant domains, current root RPC and consensus readiness; move any retained pre-merge deployment material into clearly dated historical documentation and replace executable startup commands."
+owner_domain = 8
+
+[finding.45]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalogue is titled Router routes and lists kernel sequencer/batches at line 31, separate LayerX settlement at line 35 and independent checkpoint authority at line 41. Its route table retains kernel /v1/activities and /rpc/evm/ws as advertised service surfaces."
+expected = "Brief facts 1-3 retire the router, separate LayerX interface and unified /rpc paths; the published catalogue must distinguish the node's root JSON-RPC from the hosted gateway's declared px_ methods."
+proposal = "Update tools/paxeer-x/route-catalogue.json and tools/docs/gen-system-docs.sh inputs to the merged service topology, then regenerate docs/system/routes.md with current route discovery, root RPC transport and explicit retired-surface removals."
+owner_domain = 8
+
+[finding.46]
+file = "docs/site/docs/overview/quickstart.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart advertises public POST /rpc and later /rpc/ws, lx_sendActivity and kernel activity signing. Funding at lines 300-303 directs a signed credit activity to the public /rpc URL, while cluster sections retain a separate network 402 and batched/settled finality."
+expected = "A new integrator must follow the merged chain-125 type-2 transaction and committed receipt flow using public root JSON-RPC, with hosted gateway methods distinguished from node namespaces."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around the current account and custody call producers, eth_sendRawTransaction and committed receipt verification; replace executable /rpc and kernel-envelope examples and label any retained private legacy walkthrough as historical."
+owner_domain = 8
+
+[finding.47]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The ingress setup takes LAYERX_WEBHOOKS_NETWORK_ID from router.LAYERX_GATEWAY_NETWORK_ID; its credential table at lines 97-98 and config table near line 540 prescribe static sequencer public-key/id and first/last batch material for receipt authority."
+expected = "Brief facts 1-3 remove the router and separate sequencer authority, while receipt consumers must follow governed height-bound node keys and the committed-chain evidence lifecycle."
+proposal = "Rewrite receipt-source configuration and authority rotation/recovery instructions in docs/site/docs/platform/webhooks.md against the merged node/gateway contract, remove router interpolation and batch-era key provisioning, and document successful restart with current receipt keys."
+owner_domain = 8
+
+[finding.48]
+file = "docs/wiki/HostedWebhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The ingress setup takes LAYERX_WEBHOOKS_NETWORK_ID from router.LAYERX_GATEWAY_NETWORK_ID; its credential table at lines 97-98 and config table near line 540 prescribe static sequencer public-key/id and first/last batch material for receipt authority."
+expected = "Brief facts 1-3 remove the router and separate sequencer authority, while receipt consumers must follow governed height-bound node keys and the committed-chain evidence lifecycle."
+proposal = "Rewrite receipt-source configuration and authority rotation/recovery instructions in docs/wiki/HostedWebhooks.md against the merged node/gateway contract, remove router interpolation and batch-era key provisioning, and document successful restart with current receipt keys."
+owner_domain = 8
+
+[finding.49]
+file = "services/agent/crates/layerx-agentd/src/sign.rs"
+line = 349
+class = "interface-mismatch"
+severity = "medium"
+observed = "Registry rows for attach_external_signature, external, self_sign and verify_before_submit still declare legacy Prepared, 64-byte signatures and 32-byte signer public keys; the current EVM functions take SigningPreparation, 65-byte signatures and a 20-byte recovered sender."
+expected = "The exported signing API declarations and consumer compile contracts must describe the actual EIP-1559 types and byte widths after the signature migration."
+proposal = "Update the signing declarations and caller references in spec/layerx-merge/interfaces.kvx from services/agent/crates/layerx-agentd/src/sign.rs, publish the current typed signatures and prove downstream external-sign/verify consumers compile against them."
+owner_domain = 9
+interface = "9.rs-agentd-sign-attach-external-signature"
+
+[finding.50]
+file = "services/agent/crates/layerx-agentd/src/registry_source.rs"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The slice's registry-source configuration and Rust API rows point to contracts/agent-config.md#agentd-env and contracts/agent-rust-api.md#agentd, but neither contract page exists in this checkout. Operators cannot resolve the declared TLS, protected-file and response contract from those registry links."
+expected = "The declared registry-source interface must have an existing authoritative contract page describing configuration, authenticated transport and exact response binding."
+proposal = "Publish the current RegistrySourceProvider contract under the maintained agent documentation and repair the contract links in spec/layerx-merge/interfaces.kvx; document field units, mTLS identities, protected bearer material, head bindings and typed refusals from src/registry_source.rs."
+owner_domain = 9
+interface = "9.fmt-registry-source-config"
+
+[doc.1]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Lines 41, 165-212 describe unavailable budget creation/reconciliation that now have real success paths; lines 470-525 retain the old finality ladder and retired startup keys. Both drifts have findings."
+
+[doc.2]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "The wiki mirrors the stale budget/restart claims and retired configuration/finality descriptions of the site guide; both need a coordinated rewrite."
+
+[doc.3]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Lines 96-98 treat node_endpoint as a path, line 512 uses /rpc and lines 697-702 list rejected settings; current node URL, chain-id and governed-key startup need to replace them."
+
+[doc.4]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "The wiki repeats the site's path-valued endpoint, /rpc submission and retired configuration table; the producer environment proof provides the current keys."
+
+[doc.5]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Generated route catalogue still presents a router, kernel sequencer/batches, LayerX settlement and independent checkpoint authority as active services; update catalogue inputs and regenerate."
+
+[doc.6]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "The operational walkthrough starts a separate layerxd sequencer, network 402 and LNI/checkpoint topology as the current hosted node; it conflicts with the merged paxd chain-125 model."
+
+[doc.7]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+notes = "The wiki duplicates the retired hosted node topology and executable layerxd/network-402 instructions; it must track the rewritten site deployment guide."
+
+[doc.8]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "accurate"
+notes = "Describes the retained internal KMS and durable event-source boundaries, protected credentials, principal-scoped requests, error codes and readiness; explicitly identifies missing Human workload wiring rather than claiming it exists."
+
+[doc.9]
+path = "docs/wiki/HostedInternal.md"
+status = "accurate"
+notes = "Read with the site mirror differences; the retained KMS/event-source API, protected transport, principal binding and explicit deployment limitations agree with the described implementation."
+
+[doc.10]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Public /rpc and /rpc/ws, lx_sendActivity, kernel activity funding and separate network-402/batched/settled examples lead new users to the retired transaction path."
+
+[doc.11]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Current role/TLS/delivery sections coexist with router network interpolation and static sequencer/batch key provisioning at lines 77 and 97; receipt authority instructions need the merged lifecycle."
+
+[doc.12]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "The wiki repeats router-derived network configuration and batch-era sequencer key material; its added dashboard link does not resolve that authority drift."
+

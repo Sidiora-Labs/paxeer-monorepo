@@ -1,0 +1,19 @@
+[repair.22.31.90]
+audit = "22.30.46"
+finding = "35"
+requirement = "22998.1"
+implementation = "responses.go emits version 1 event_groups alongside the unchanged legacy events map; the decoder prefers the structured events and rejects unsupported versions. Event order, repeated types and keys, empty events, attribute bytes and index flags cross JSON without compaction."
+proving_tests = ["TestRepair_90_SubscriptionDottedNames", "TestRepair_90_EventEncodingCompatibility", "TestRepair_90_RejectUnsupportedEventFormat"]
+proof_path = "eventbus.PublishEventNewBlockHeader -> core.Environment.Subscribe -> JSON-RPC WebsocketManager -> JSON-RPC WSClient -> libs/json.Unmarshal -> ResultEvent.UnmarshalJSON"
+baseline = "Not run: the explicit task gate order prohibits testing before implementation and a separate verify invocation. No pre-change test failure is claimed."
+qualification = "The runner's hf-build/hf-done ledger and final task evidence record identify the exact candidate revision, command, exit code and private log."
+wiring_requests = []
+compatibility = "Older producers retain best-effort legacy decoding. Older consumers retain the legacy map; lossless consumption requires the updated ResultEvent decoder or support for event_groups version 1."
+
+[gotcha.22.31.90]
+observed = "Splitting compact event names cannot resolve type/key dot collisions or reconstruct repeated event grouping; converting byte values to JSON strings also loses non-UTF-8 bytes."
+repair = "Carry structured ABCI events with base64 attribute bytes in an explicitly versioned extension."
+
+[gotcha.22.31.90.header]
+observed = "The first verification at 64d14222607881caf3149c717b66180eee450d02 failed the new subscription test's exact payload assertion because a zero header's nil hex-byte hashes decode as empty slices. Event metadata equality passed."
+repair = "Supply a populated header with nonempty hashes and retain the exact payload and event equality assertions."

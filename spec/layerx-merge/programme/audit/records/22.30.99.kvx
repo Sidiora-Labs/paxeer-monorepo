@@ -1,0 +1,1447 @@
+# Pre-upgrade audit: authored Rust SDK, agent qualification and shared tooling.
+# Source and producer/consumer inspection only; runtime qualification is not claimed by file verdicts.
+# Historical decoding and tests that explicitly refuse retired inputs are distinguished from live retired routes.
+
+[audit.22.30.99]
+task = "22.30.99"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 119
+findings = 62
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["wallet-account-address","wallet-public-balance","wallet-cli-balance","node-summary-receipt","committed-finality","not-ready-envelope","unsigned-preparation","retired-disclosure-codec","signature-length","program-request-constructor","retired-program-http","program-abi-five","pay2-nonce-snapshot","boundary-report-mismatch"]
+
+[file.f001]
+path = "services/agent/COMPATIBILITY.md"
+lines = 17
+verdict = "issues"
+note = "Compatibility table and approval-version prose reviewed; contract-major guidance disagrees with the current major-2 surface."
+
+[file.f002]
+path = "services/agent/Cargo.toml"
+lines = 31
+verdict = "clean"
+note = "Workspace membership, shared dependency pins, lint policy and build profiles reviewed; layerx-wire remains legitimate under decision 910."
+
+[file.f003]
+path = "services/agent/README.md"
+lines = 90
+verdict = "issues"
+note = "All build, boundary and integration instructions reviewed; running topology and qualification prerequisites still describe retired components."
+
+[file.f004]
+path = "services/agent/clippy.toml"
+lines = 2
+verdict = "clean"
+note = "Both Clippy configuration entries reviewed against the workspace policy; no interface or deployment setting is introduced."
+
+[file.f005]
+path = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs"
+lines = 351
+verdict = "clean"
+note = "All receipt-store v2 migration, tenant partition, recovery and corruption cases reviewed; persisted encoding and reopened-store assertions agree."
+
+[file.f006]
+path = "services/agent/crates/layerx-sdk/Cargo.toml"
+lines = 34
+verdict = "clean"
+note = "SDK dependency features, public binary target and lint inheritance reviewed against the workspace and imported types."
+
+[file.f007]
+path = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+lines = 1499
+verdict = "issues"
+note = "Complete request/response, native preparation, credential, retry and proof-bundle paths reviewed; not-ready statuses and unsigned preparations do not round-trip."
+
+[file.f008]
+path = "services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs"
+lines = 350
+verdict = "issues"
+note = "Complete input framing, credential loading, route selection, action dispatch and receipt verification reviewed; balance dispatch inherits the account/address mismatch."
+
+[file.f009]
+path = "services/agent/crates/layerx-sdk/src/lib.rs"
+lines = 467
+verdict = "clean"
+note = "Complete typed Client, Call, external signer, deployment and availability APIs reviewed against agent-api owners; no local protocol-state authority is introduced."
+
+[file.f010]
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+lines = 692
+verdict = "issues"
+note = "Complete secret wrappers, operation catalogue, receipt verification and stream cursor logic reviewed; stream identity retention grows without a bound."
+
+[file.f011]
+path = "services/agent/crates/layerx-sdk/src/program_http.rs"
+lines = 2636
+verdict = "issues"
+note = "Complete HTTP dispatch, Programs codecs, signature bindings, simulation, lifecycle and tests reviewed; live routes, ABI support and discovery trust disagree."
+
+[file.f012]
+path = "services/agent/crates/layerx-sdk/src/programs.rs"
+lines = 682
+verdict = "issues"
+note = "Complete public Programs request/evidence types and verification entry points reviewed; new constructors and the HTTP consumer bind different calldata/idempotency shapes."
+
+[file.f013]
+path = "services/agent/crates/layerx-sdk/src/receipt_generated.rs"
+lines = 55
+verdict = "generated"
+note = "Generated receipt failure-code mapping; reviewed as generated output of the receipt schema, not an independently authored implementation."
+
+[file.f014]
+path = "services/agent/crates/layerx-sdk/src/rpc.rs"
+lines = 1597
+verdict = "issues"
+note = "Complete RPC, EVM validation, wallet account mapping, routing, status bridge and inline tests reviewed; balance identifiers and default endpoint route disagree."
+
+[file.f015]
+path = "services/agent/crates/layerx-sdk/src/rpc_budget.rs"
+lines = 611
+verdict = "clean"
+note = "Complete budget creation, funding, listing, signed authorization and decimal response decoding reviewed against agent-api budget carriers."
+
+[file.f016]
+path = "services/agent/crates/layerx-sdk/src/rpc_export.rs"
+lines = 227
+verdict = "clean"
+note = "Complete offline export request, bounded artifact decode, rung matching and digest binding reviewed against the export owner contract."
+
+[file.f017]
+path = "services/agent/crates/layerx-sdk/src/rpc_history.rs"
+lines = 233
+verdict = "clean"
+note = "Complete history request/cursor, exact-field decoding, tenant selection and height freshness checks reviewed against agent-api read types."
+
+[file.f018]
+path = "services/agent/crates/layerx-sdk/src/rpc_projection.rs"
+lines = 222
+verdict = "clean"
+note = "Complete fee projection selectors, decimal amount parsing, freshness and verification-status binding reviewed against the owner response types."
+
+[file.f019]
+path = "services/agent/crates/layerx-sdk/src/rpc_sign.rs"
+lines = 183
+verdict = "issues"
+note = "Complete sign/submit request encoding and observation decoding reviewed; externally attached signature length conflicts with the current API type."
+
+[file.f020]
+path = "services/agent/crates/layerx-sdk/src/rpc_verification.rs"
+lines = 350
+verdict = "issues"
+note = "Complete receipt wait, key selection, commitment inclusion and deadline logic reviewed; node receipt and committed-block authority paths are incompatible."
+
+[file.f021]
+path = "services/agent/crates/layerx-sdk/src/wallet.rs"
+lines = 592
+verdict = "issues"
+note = "Complete EVM payment, preparation, wallet reads and bounded waits reviewed; wallet balance, verified receipt and ambient-clock paths require repair."
+
+[file.f022]
+path = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs"
+lines = 1498
+verdict = "issues"
+note = "Complete process probe and native/approval/restart cases reviewed; bootstrap credentials and prepared transaction fixtures disagree with current owners."
+
+[file.f023]
+path = "services/agent/crates/layerx-sdk/tests/native_capabilities.rs"
+lines = 219
+verdict = "clean"
+note = "All native capability create/attenuate/revoke encodings, scope bounds and canonical request assertions reviewed against native capability types."
+
+[file.f024]
+path = "services/agent/crates/layerx-sdk/tests/native_programs.rs"
+lines = 231
+verdict = "issues"
+note = "All native call constructor and HTTP binding cases reviewed; the separate fixtures never prove the public constructor through its consumer."
+
+[file.f025]
+path = "services/agent/crates/layerx-sdk/tests/offline_export.rs"
+lines = 293
+verdict = "clean"
+note = "All offline export round-trip, malformed evidence, signature, rung and optionality cases reviewed against the offline exporter/verifier."
+
+[file.f026]
+path = "services/agent/crates/layerx-sdk/tests/platform_conformance.rs"
+lines = 2
+verdict = "clean"
+note = "Both source-inclusion declarations reviewed; they select the shared real platform conformance suite without replacing its checks."
+
+[file.f027]
+path = "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs"
+lines = 982
+verdict = "issues"
+note = "Complete bridge and real-node proof reviewed; refusal assertions expose the known summary-receipt/balance gap but do not qualify successful wallet verification."
+
+[file.f028]
+path = "services/agent/crates/layerx-sdk/tests/proof_sdk.rs"
+lines = 935
+verdict = "issues"
+note = "Complete funded real-node/reopen proof reviewed; retained refusal regressions document a real gap rather than prove usable wallet receipt completion."
+
+[file.f029]
+path = "services/agent/crates/layerx-sdk/tests/rpc_node.rs"
+lines = 359
+verdict = "issues"
+note = "All direct-node root-path, EVM quantity, transaction and explicit gateway-route cases reviewed; the gateway route expectation is stale."
+
+[file.f030]
+path = "services/agent/crates/layerx-sdk/tests/sdk.rs"
+lines = 451
+verdict = "clean"
+note = "All SDK availability, typed calls, signer secrecy, stream duplicate/gap and receipt checks reviewed against public owner types."
+
+[file.f031]
+path = "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"
+lines = 436
+verdict = "issues"
+note = "All wallet call, prepared payment and local HTTP fixture cases reviewed; default /rpc fixtures preserve a retired route expectation."
+
+[file.f032]
+path = "services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs"
+lines = 361
+verdict = "issues"
+note = "All binary framing, timeout, request isolation and wallet fixture cases reviewed; fixture URLs preserve a retired unified /rpc expectation."
+
+[file.f033]
+path = "services/agent/deny.toml"
+lines = 44
+verdict = "clean"
+note = "Complete dependency license, advisory, source and banned dependency policy reviewed against workspace dependency use."
+
+[file.f034]
+path = "services/agent/fuzz/Cargo.toml"
+lines = 88
+verdict = "clean"
+note = "All registered fuzz targets and feature/dependency declarations reviewed; signed EIP-1559 targets replace the retired LNI framing target."
+
+[file.f035]
+path = "services/agent/fuzz/fuzz_targets/codec.rs"
+lines = 49
+verdict = "clean"
+note = "Complete fuzz decoding/round-trip adapter reviewed; signed EIP-1559 decoding and reassembly use the live transaction codec."
+
+[file.f036]
+path = "services/agent/fuzz/fuzz_targets/contract_request.rs"
+lines = 118
+verdict = "clean"
+note = "Complete contract request fuzz exercise reviewed; bounded key, preparation, capability, budget and tracking constructors use real contract types."
+
+[file.f037]
+path = "services/agent/fuzz/fuzz_targets/envelope_decode.rs"
+lines = 14
+verdict = "clean"
+note = "Complete target reviewed; bounded inputs feed the signed EIP-1559 envelope round-trip codec."
+
+[file.f038]
+path = "services/agent/fuzz/fuzz_targets/harness.rs"
+lines = 18
+verdict = "clean"
+note = "Complete selector harness reviewed; bounded input dispatches real payload, receipt, primitive and proof decoders."
+
+[file.f039]
+path = "services/agent/fuzz/fuzz_targets/payload_decode.rs"
+lines = 41
+verdict = "issues"
+note = "Complete payload fuzz target reviewed; shared registry coverage omits current activities and Programs."
+
+[file.f040]
+path = "services/agent/fuzz/fuzz_targets/policy_loader.rs"
+lines = 8
+verdict = "clean"
+note = "Complete policy-loader target reviewed; untrusted input reaches the real policy parser."
+
+[file.f041]
+path = "services/agent/fuzz/fuzz_targets/primitive_decode.rs"
+lines = 102
+verdict = "clean"
+note = "Complete primitive fuzz exercise reviewed; amount, identifier, key and canonical integer constructors are exercised with bounded input."
+
+[file.f042]
+path = "services/agent/fuzz/fuzz_targets/proof_decode.rs"
+lines = 18
+verdict = "clean"
+note = "Complete proof target reviewed; real Merkle, batch header and evidence decoders receive bounded input."
+
+[file.f043]
+path = "services/agent/fuzz/fuzz_targets/receipt_decode.rs"
+lines = 15
+verdict = "clean"
+note = "Complete receipt target reviewed; bounded bytes reach the canonical receipt decoder without a synthetic success fallback."
+
+[file.f044]
+path = "services/agent/fuzz/fuzz_targets/roundtrip.rs"
+lines = 14
+verdict = "clean"
+note = "Complete round-trip target reviewed; transaction and receipt selectors re-encode through real codecs."
+
+[file.f045]
+path = "services/agent/fuzz/fuzz_targets/support.rs"
+lines = 53
+verdict = "issues"
+note = "Complete input normalization and registry builder reviewed; the registry has only eight modules and incomplete Asset activity coverage."
+
+[file.f046]
+path = "services/agent/fuzz/fuzz_targets/tenant_key.rs"
+lines = 47
+verdict = "clean"
+note = "Complete tenant-key target reviewed; real tenant validation and persisted key round-trip are exercised without cross-tenant normalization."
+
+[file.f047]
+path = "services/agent/fuzz/tests/codec.rs"
+lines = 87
+verdict = "clean"
+note = "Complete corpus regression tests reviewed; signed transaction fixtures round-trip and retired framing is rejected."
+
+[file.f048]
+path = "services/agent/nondeterminism-allowlist.toml"
+lines = 6
+verdict = "issues"
+note = "Entire nondeterminism exception policy reviewed; its single process exception conflicts with ambient clocks in SDK library code."
+
+[file.f049]
+path = "services/agent/qualification/pay2/Cargo.toml"
+lines = 39
+verdict = "issues"
+note = "Complete standalone PAY2 manifest reviewed; the funded scenario has no Cargo test target although packaging tests compile separately."
+
+[file.f050]
+path = "services/agent/qualification/pay2/build.rs"
+lines = 20
+verdict = "issues"
+note = "Complete PAY2 build script reviewed; reading the scenario source only does not compile or execute it."
+
+[file.f051]
+path = "services/agent/qualification/pay2/pay2e_test.rs"
+lines = 1071
+verdict = "issues"
+note = "Complete PAY2 funded scenario reviewed; nonce reads still require the removed identity snapshot structure and old verification fields."
+
+[file.f052]
+path = "services/agent/qualification/pay2/required.rs"
+lines = 15
+verdict = "clean"
+note = "Complete Required implementations reviewed; failures preserve context while redacting error contents."
+
+[file.f053]
+path = "services/agent/qualification/pay2/tests/build_inputs.rs"
+lines = 82
+verdict = "issues"
+note = "Complete PAY2 input/lockfile tests reviewed; readable scenario text is credited without a compiled execution target."
+
+[file.f054]
+path = "services/agent/schema/agent-api/golden/agent-http-refusal.json"
+lines = 1
+verdict = "clean"
+note = "Complete refusal golden reviewed; typed error, retriability, request id and absent protocol result agree with the declared envelope."
+
+[file.f055]
+path = "services/agent/schema/agent-api/golden/agent-http-request.json"
+lines = 1
+verdict = "clean"
+note = "Complete authenticated mutation golden reviewed; canonical integer spellings, operation, credential and idempotency fields agree."
+
+[file.f056]
+path = "services/agent/schema/agent-api/golden/agent-http-success-absent.json"
+lines = 1
+verdict = "clean"
+note = "Complete absent golden reviewed; producer declares no known submission and no invented achieved rung; SDK decoder defect is recorded separately."
+
+[file.f057]
+path = "services/agent/schema/agent-api/golden/agent-http-success-pending.json"
+lines = 1
+verdict = "clean"
+note = "Complete pending golden reviewed; submitted is strictly below requested receipted and the producer shape matches the declared contract."
+
+[file.f058]
+path = "services/agent/schema/agent-api/golden/agent-http-success.json"
+lines = 1
+verdict = "clean"
+note = "Complete achieved-success golden reviewed; exact envelope and committed rung match the current contract."
+
+[file.f059]
+path = "services/agent/tests/boundary/Cargo.toml"
+lines = 20
+verdict = "clean"
+note = "Complete boundary manifest reviewed; entry point and client/test dependencies point to the live node harness."
+
+[file.f060]
+path = "services/agent/tests/boundary/cases.rs"
+lines = 39
+verdict = "clean"
+note = "Complete boundary case producer reviewed; committed block identity and explicit absent/malformed RPC checks are real; qualification consumer wording differs."
+
+[file.f061]
+path = "services/agent/tests/boundary/gaps.rs"
+lines = 38
+verdict = "clean"
+note = "Complete pending-read boundary cases reviewed; the real node is queried for all declared pending read operations."
+
+[file.f062]
+path = "services/agent/tests/boundary/src/cases.rs"
+lines = 1
+verdict = "clean"
+note = "Single include declaration reviewed; it includes the actual parent cases.rs implementation."
+
+[file.f063]
+path = "services/agent/tests/boundary/src/gaps.rs"
+lines = 1
+verdict = "clean"
+note = "Single include declaration reviewed; it includes the actual parent gaps.rs implementation."
+
+[file.f064]
+path = "services/agent/tests/boundary/src/main.rs"
+lines = 124
+verdict = "clean"
+note = "Complete boundary CLI reviewed; real node URL validation, explicit modes and refusal of missing production input agree with the current harness."
+
+[file.f065]
+path = "services/agent/tests/boundary/src/production.rs"
+lines = 261
+verdict = "clean"
+note = "Complete production-required workflow reviewed; authenticated node probes, duplicate/recovery and peer-refusal modes have explicit required inputs."
+
+[file.f066]
+path = "services/agent/tests/boundary/tests/modes.rs"
+lines = 77
+verdict = "clean"
+note = "Complete CLI mode tests reviewed; retired LNI variables are rejection cases, not active configuration."
+
+[file.f067]
+path = "services/agent/tests/boundary/tests/proof_agent_boundary_conformance.rs"
+lines = 435
+verdict = "clean"
+note = "Complete process conformance proof reviewed; actual node startup, committed state, restart and retired-variable refusal are exercised."
+
+[file.f068]
+path = "services/agent/tests/isolation/Cargo.toml"
+lines = 23
+verdict = "clean"
+note = "Complete isolation manifest reviewed; workspace dependencies and the shared suite entry point resolve to actual agent owners."
+
+[file.f069]
+path = "services/agent/tests/isolation/src/main.rs"
+lines = 381
+verdict = "issues"
+note = "Complete isolation and deletion suite reviewed; owner/error helper checks are relabelled as seven surfaces without traversing those surfaces."
+
+[file.f070]
+path = "services/agent/tests/limits/exactly_once.rs"
+lines = 1181
+verdict = "issues"
+note = "Complete exactly-once suite reviewed; durable local stores are reopened, but the reported economic effect and receipt are locally fabricated."
+
+[file.f071]
+path = "services/agent/tests/mcp/injection.rs"
+lines = 192
+verdict = "clean"
+note = "Complete MCP injection suite reviewed; untrusted descriptions and tool arguments are checked against real bound authority constructors."
+
+[file.f072]
+path = "services/agent/tests/parity/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Complete parity manifest reviewed; dependencies and executable target match the harness implementation."
+
+[file.f073]
+path = "services/agent/tests/parity/python.py"
+lines = 106
+verdict = "issues"
+note = "Complete Python parity transport and validators reviewed; legacy verification names and generated submission types disagree with current bindings."
+
+[file.f074]
+path = "services/agent/tests/parity/src/main.rs"
+lines = 826
+verdict = "issues"
+note = "Complete parity node handshake, local idempotency and language orchestration reviewed; expected observations are served by a synthetic daemon."
+
+[file.f075]
+path = "services/agent/tests/parity/tests/arguments.rs"
+lines = 213
+verdict = "clean"
+note = "Complete parity argument/scenario validation tests reviewed; retired binary names are negative inputs and parsing coverage is distinct from real path proof."
+
+[file.f076]
+path = "services/agent/tests/parity/typescript.mjs"
+lines = 76
+verdict = "issues"
+note = "Complete TypeScript parity transport and validators reviewed; StateProven and batch/checkpoint freshness fields are retired."
+
+[file.f077]
+path = "services/agent/tests/policy/adversarial.rs"
+lines = 239
+verdict = "issues"
+note = "Complete twelve-dimension adversarial corpus reviewed; its intended control already denies, preventing independent constraint evidence."
+
+[file.f078]
+path = "services/agent/tests/qualify/Cargo.toml"
+lines = 14
+verdict = "clean"
+note = "Complete qualification manifest reviewed; gate modules are included from the executable and depend on the actual workspace owners."
+
+[file.f079]
+path = "services/agent/tests/qualify/boundary.rs"
+lines = 161
+verdict = "issues"
+note = "Complete boundary qualification gate reviewed; strict success matching rejects the live producer's report wording."
+
+[file.f080]
+path = "services/agent/tests/qualify/exactly_once.rs"
+lines = 44
+verdict = "clean"
+note = "Complete exactly-once gate wrapper reviewed; it invokes the shared suite and validates its report; limits of that suite are recorded on its source."
+
+[file.f081]
+path = "services/agent/tests/qualify/fabrication.rs"
+lines = 165
+verdict = "issues"
+note = "Complete fabrication gate reviewed; generated language probes still use retired verification and freshness APIs."
+
+[file.f082]
+path = "services/agent/tests/qualify/faults.rs"
+lines = 107
+verdict = "clean"
+note = "Complete fault gate reviewed; current argument validation and child process failures remain explicit; no silent pass on missing runtime input."
+
+[file.f083]
+path = "services/agent/tests/qualify/fuzz.rs"
+lines = 277
+verdict = "issues"
+note = "Complete fuzz/corpus/sanitizer gate reviewed; unsafe-policy prerequisites and the boundary checker root are contradictory."
+
+[file.f084]
+path = "services/agent/tests/qualify/hostile_node.rs"
+lines = 90
+verdict = "issues"
+note = "Complete hostile-node harness reviewed; certificate rejection is credited unconditionally and other labels do not traverse actual receipt authority checks."
+
+[file.f085]
+path = "services/agent/tests/qualify/src/main.rs"
+lines = 100
+verdict = "clean"
+note = "Complete gate CLI reviewed; bounded argument dispatch and retired wire-gate refusal match the declared CLI modes."
+
+[file.f086]
+path = "services/agent/tests/qualify/tests/boundary_gate.rs"
+lines = 127
+verdict = "clean"
+note = "Complete boundary URL/retired fixture tests reviewed; invalid node arguments and deleted LNI artifacts are checked without reintroducing them."
+
+[file.f087]
+path = "services/agent/tests/qualify/tests/gates.rs"
+lines = 23
+verdict = "clean"
+note = "Complete retired wire-gate regression reviewed; the command fails explicitly instead of substituting another gate."
+
+[file.f088]
+path = "services/agent/tests/qualify/tests/real_node_script.rs"
+lines = 67
+verdict = "issues"
+note = "Complete real-node script source test reviewed; it expects a hyphenated function while the actual shell declares an underscored function."
+
+[file.f089]
+path = "services/agent/tests/retired/test_boundary_node_retired.py"
+lines = 31
+verdict = "clean"
+note = "Complete retired-node regression reviewed; removed C fixtures/private daemon names are checked as forbidden artifacts."
+
+[file.f090]
+path = "services/agent/tests/support/monotonic_clock.rs"
+lines = 3
+verdict = "clean"
+note = "Complete monotonic-clock adapter reviewed; it reuses the approved test clock boundary."
+
+[file.f091]
+path = "services/agent/tests/support/rustc.rs"
+lines = 46
+verdict = "clean"
+note = "Complete compiler helper reviewed; pinned rustc invocation resolves through explicit environment and reports failures."
+
+[file.f092]
+path = "services/agent/tests/support/wall_clock.rs"
+lines = 3
+verdict = "clean"
+note = "Complete wall-clock adapter reviewed; it reuses the test-only clock boundary."
+
+[file.f093]
+path = "services/agent/tools/audit-verify/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Complete audit verification manifest reviewed; dependency and command target match the audit-chain consumer."
+
+[file.f094]
+path = "services/agent/tools/audit-verify/src/main.rs"
+lines = 46
+verdict = "clean"
+note = "Complete audit-chain CLI reviewed; exact arguments, chain verification and tail digest reporting agree with the store verifier."
+
+[file.f095]
+path = "services/agent/tools/boundary-check/Cargo.toml"
+lines = 16
+verdict = "clean"
+note = "Complete boundary-check manifest reviewed; standalone package target and lint policy match its source scanner."
+
+[file.f096]
+path = "services/agent/tools/boundary-check/src/main.rs"
+lines = 202
+verdict = "clean"
+note = "Complete boundary scanner reviewed; current clock policy would reject library/test clocks elsewhere in this slice."
+
+[file.f097]
+path = "services/agent/tools/boundary-check/tests/fixtures.rs"
+lines = 172
+verdict = "clean"
+note = "Complete scanner fixture tests reviewed; forbidden layouts, private paths, unsafe declarations and explicit exceptions exercise the actual scanner."
+
+[file.f098]
+path = "services/agent/tools/boundary-check/tests/lni_retired.rs"
+lines = 129
+verdict = "clean"
+note = "Complete retired-LNI scanner cases reviewed; source references are negative test inputs and the live workspace must stay free of them."
+
+[file.f099]
+path = "services/agent/tools/boundary-check/tests/workspace.rs"
+lines = 57
+verdict = "clean"
+note = "Complete workspace retirement and empty unsafe-allowlist assertions reviewed; they correctly demand no live LNI artifacts or unsafe exceptions."
+
+[file.f100]
+path = "services/agent/tools/dependency-policy.sh"
+lines = 61
+verdict = "clean"
+note = "Complete dependency audit script reviewed; tool pinning and policy invocation use the repository lock/dependency policies."
+
+[file.f101]
+path = "services/agent/tools/doc-check/Cargo.toml"
+lines = 8
+verdict = "clean"
+note = "Complete documentation checker manifest reviewed; target and package settings match the standalone checker."
+
+[file.f102]
+path = "services/agent/tools/doc-check/src/main.rs"
+lines = 232
+verdict = "clean"
+note = "Complete compatibility/offline-contract doc checker reviewed; exact schema tuple and fail-closed published guarantees are required."
+
+[file.f103]
+path = "services/agent/tools/generate-operation.py"
+lines = 70
+verdict = "clean"
+note = "Complete operation generator reviewed; bounded schema input and existing additive operation migration are explicit."
+
+[file.f104]
+path = "services/agent/tools/policy-harness/Cargo.toml"
+lines = 20
+verdict = "clean"
+note = "Complete policy harness manifest reviewed; corpus inclusion and policy-owner dependencies point to actual implementations."
+
+[file.f105]
+path = "services/agent/tools/policy-harness/src/main.rs"
+lines = 106
+verdict = "issues"
+note = "Complete policy evaluation harness reviewed; every case lacks protocol budget evidence and coverage is taken from corpus labels."
+
+[file.f106]
+path = "services/agent/tools/run-real-node-tests.sh"
+lines = 105
+verdict = "clean"
+note = "Complete real-node provisioning/test script reviewed; it builds native admission fixtures and paxd, rejects missing prerequisites and retains private temporary state."
+
+[file.f107]
+path = "services/agent/tools/run-sanitizers.sh"
+lines = 23
+verdict = "clean"
+note = "Complete sanitizer launcher reviewed; pinned compiler/stdlib instrumentation and target-specific sanitizer commands fail explicitly."
+
+[file.f108]
+path = "services/agent/tools/sdk-gen/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Complete SDK generator manifest reviewed; executable target and dependency declarations match schema generation."
+
+[file.f109]
+path = "services/agent/tools/sdk-gen/src/main.rs"
+lines = 1018
+verdict = "issues"
+note = "Complete SDK model validation and generated language output reviewed; lifecycle schema validation still requires retired REST ingress paths."
+
+[file.f110]
+path = "services/agent/tools/sdk-gen/tests/golden.rs"
+lines = 285
+verdict = "clean"
+note = "Complete generation/golden tests reviewed; fresh generated output, type checking, canonical envelope goldens and refusal shapes are compared."
+
+[file.f111]
+path = "services/agent/tools/sdk-gen/tests/major_two.rs"
+lines = 133
+verdict = "clean"
+note = "Complete major-2 generation tests reviewed; exact rung enums, address20 and signature65 types are required in generated languages."
+
+[file.f112]
+path = "services/agent/tools/sdk-gen/tests/rung_members.rs"
+lines = 107
+verdict = "clean"
+note = "Complete generated rung-member tests reviewed; live enum members and retired names are checked through executable language consumers."
+
+[file.f113]
+path = "services/agent/tools/sdk-gen/tests/rung_states.rs"
+lines = 162
+verdict = "clean"
+note = "Complete generated submission/rung-state tests reviewed; exact state vocabulary and error behavior match current contract output."
+
+[file.f114]
+path = "services/agent/tools/secret-check/Cargo.toml"
+lines = 16
+verdict = "clean"
+note = "Complete secret-check manifest reviewed; standalone command and lint policy match the scanner."
+
+[file.f115]
+path = "services/agent/tools/secret-check/src/main.rs"
+lines = 306
+verdict = "clean"
+note = "Complete secret scanner reviewed; bounded source traversal and output/redaction rules fail on unapproved logging constructs."
+
+[file.f116]
+path = "services/agent/tools/secret-check/tests/fixtures.rs"
+lines = 103
+verdict = "clean"
+note = "Complete secret scanner fixtures reviewed; direct secret output, approved redaction and command outcomes exercise the scanner."
+
+[file.f117]
+path = "services/agent/tools/test_run_real_node_script.py"
+lines = 34
+verdict = "clean"
+note = "Complete Python script-retirement test reviewed; it asserts current setup behavior and rejects native daemon dependencies."
+
+[file.f118]
+path = "services/agent/tools/test_run_real_node_tests_env.py"
+lines = 149
+verdict = "clean"
+note = "Complete hermetic provisioning environment tests reviewed; root/prerequisite errors, native fixtures and paxd path propagation are explicit."
+
+[file.f119]
+path = "services/agent/unsafe-allowlist.toml"
+lines = 1
+verdict = "clean"
+note = "Entire unsafe policy reviewed; an empty versioned exception list matches the current no-unsafe workspace requirement."
+
+[finding.wallet-account-address]
+file = "services/agent/crates/layerx-sdk/src/rpc.rs"
+line = 658
+class = "interface-mismatch"
+severity = "high"
+observed = "RpcWallet::balance derives a 32-byte wallet_account and passes encode_hex(account), a 64-character unprefixed string, into RpcClient::get_balance. identity_sequence_params validates a 0x-prefixed 20-byte address, so every valid DID/asset balance request fails InvalidRequest before eth_getBalance."
+expected = "The declared wallet balance interface must resolve the requested asset account and return the balance that the live node produces; EVM native balances and 32-byte ledger asset identifiers have different meanings."
+proposal = "Repair services/agent/crates/layerx-sdk/src/rpc.rs and wallet.rs by mapping the owner to its EVM address and selecting the actual asset balance read, with a funded native/token producer-to-wallet round-trip and reopen check."
+owner_domain = 9
+interface = "9.rs-sdk-wallet-balance-j70"
+
+[finding.wallet-public-balance]
+file = "services/agent/crates/layerx-sdk/src/wallet.rs"
+line = 67
+class = "interface-mismatch"
+severity = "high"
+observed = "Wallet::balance delegates every DID/asset query to RpcWallet::balance, whose derived 32-byte identifier is rejected by the 20-byte eth_getBalance address validator; this exported wallet operation cannot return a balance."
+expected = "Wallet::balance must expose the requested asset balance through the same live node address/asset mapping used by payment preparation and execution."
+proposal = "Repair the public wallet adapter in services/agent/crates/layerx-sdk/src/wallet.rs together with the RPC account mapping; prove its observable result against a funded native and token account after node reopen."
+owner_domain = 9
+interface = "9.rs-sdk-wallet-balance-j70"
+
+[finding.wallet-cli-balance]
+file = "services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs"
+line = 300
+class = "interface-mismatch"
+severity = "high"
+observed = "The layerx-wallet-rpc balance action accepts a DID and asset, then invokes RpcWallet::balance; that path always sends a derived 32-byte account into a 20-byte EVM address validator and refuses the valid request locally."
+expected = "The published balance command must return the same asset balance as the SDK and actual node for a valid provisioned wallet."
+proposal = "Repair the balance action and shared account mapping in services/agent/crates/layerx-sdk; execute the real CLI against a funded node and assert native/token values rather than a local refusal."
+owner_domain = 9
+interface = "9.cli-layerx-wallet-rpc"
+
+[finding.default-unified-route]
+file = "services/agent/crates/layerx-sdk/src/rpc.rs"
+line = 780
+class = "retired-reference"
+severity = "medium"
+observed = "RpcClient::connect and connect_with_ca_der append /rpc and document it as the gateway route. connect_node preserves the root URL, but the default public constructor still selects the retired unified endpoint."
+expected = "The merged network serves node JSON-RPC at the node root and has no unified /rpc router; gateway methods must use the actual hosted contract."
+proposal = "Replace the retired default route behavior and its documentation in services/agent/crates/layerx-sdk/src/rpc.rs with explicit live node/hosted transports; preserve endpoint validation and prove root-path requests."
+owner_domain = 9
+
+[finding.node-summary-receipt]
+file = "services/agent/crates/layerx-sdk/src/rpc_verification.rs"
+line = 207
+class = "interface-mismatch"
+severity = "high"
+observed = "receipt_at_commitment calls verify_sequencer_signature with a bare public key, selecting ReceiptKeys::HistoricalKernel. layerx-proof rejects module_id 0 in that branch, whereas rpc/sequencer_receipt.go produces protocol-2 layout-1 EVM summary receipts with that module. A successful transaction therefore cannot become a verified SDK wallet result."
+expected = "The live pax_sequencerReceipt bytes must round-trip through the declared SDK wait interface under pinned authority, preserving transaction/effect/asset and protocol bindings."
+proposal = "Implement the node summary verification path in services/agent/crates/layerx-sdk/src/rpc_verification.rs using the node protocol and height-ranged keys; bind the actual EVM transaction effects and retain all malformed/foreign-asset refusal checks."
+owner_domain = 9
+interface = "9.rs-sdk-rpcclient-wait-for-j70"
+
+[finding.receipt-key-range]
+file = "services/agent/crates/layerx-sdk/src/rpc_verification.rs"
+line = 209
+class = "security"
+severity = "medium"
+observed = "receipt_at_commitment discards SequencerAuthorization identity and first/last authorized heights by passing only public_key() to receipt verification. Historical module receipts can thus pass the signature check without the supplied authorization's height range being checked."
+expected = "Requirements 9334.1 and 9334.2 require acceptance only when the receipt key is pinned for its height, and refusal outside that range."
+proposal = "Use ReceiptKeys::HeightRanges or equivalent fully bound authority in services/agent/crates/layerx-sdk/src/rpc_verification.rs; exercise the same real receipt inside and outside the key's range and after rotation."
+owner_domain = 9
+
+[finding.committed-finality]
+file = "services/agent/crates/layerx-sdk/src/rpc_verification.rs"
+line = 103
+class = "interface-mismatch"
+severity = "high"
+observed = "wait_for_authority always refuses Commitment::Finalised as MissingFinalityTrust and requests lx_getProof with a signed kernel batch for Batched. The merged node reports submitted/receipted/committed and committed blocks are final; there is no live lx_getProof transport."
+expected = "The public wait operation must resolve the merged committed rung using the node's actual receipt and committed block authority, without a separate checkpoint/finality service."
+proposal = "Replace the obsolete commitment proof branch in services/agent/crates/layerx-sdk/src/rpc_verification.rs and its wallet adapters with submitted/receipted/committed semantics and real committed-block verification across a node restart."
+owner_domain = 9
+interface = "9.rs-sdk-rpcclient-wait-for-j70"
+
+[finding.not-ready-envelope]
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 1059
+class = "interface-mismatch"
+severity = "high"
+observed = "decode_response accepts verification_status only as achieved or unverified. agent_rpc.rs::verification_json emits pending {state,requested,achieved} and absent {state,requested}; both canonical success goldens therefore decode as None and become an unknown response."
+expected = "The published envelope and requirement 8299.1 preserve not-ready results, enforce achieved below requested for pending, and never promote absent or pending to achieved."
+proposal = "Extend the typed status decoding and result propagation in services/agent/crates/layerx-sdk/src/agent_envelope.rs for the two declared shapes; prove actual daemon receipt lookup responses through the transport and retain exact-field/order rejection."
+owner_domain = 9
+interface = "9.rs-sdk-agent-envelope-decode-response"
+
+[finding.unsigned-preparation]
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 528
+class = "interface-mismatch"
+severity = "high"
+observed = "prepare_native, prepare_native_effect_body and prepare_native_send call decode_raw_call on preparation canonical_bytes; that helper runs decode_signed and recover_sender. The native owner preview in human_runtime.rs returns prepared.call.encode_unsigned() before external signing, so the consumer rejects the preparation it is supposed to sign."
+expected = "Preparation must carry the canonical unsigned EIP-1559 call and signing hash, with actor authority authenticated independently; a signature is attached only at the sign/submit stage."
+proposal = "Repair native preparation validation in services/agent/crates/layerx-sdk/src/agent_envelope.rs to decode the unsigned call and bind its digest, actor, purpose and policy to the real owner response; exercise preview, prepare, external sign and submit end to end."
+owner_domain = 9
+interface = "9.rs-sdk-agent-envelope-decode-native-preparation"
+
+[finding.retired-disclosure-codec]
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 579
+class = "interface-mismatch"
+severity = "high"
+observed = "disclose_native_preparation feeds request.canonical_bytes into layerx_crypto::disclosure::bind, the activity-envelope disclosure codec, while the native preparation producer supplies an unsigned EIP-1559 call. It cannot validate the same call's disclosure and audit digest."
+expected = "The EVM preparation/disclosure path must use the call disclosure binding required by the migrated signing boundary, retaining exact actor, payload, fee and purpose checks."
+proposal = "Use the actual unsigned-call disclosure adapter bind_call in services/agent/crates/layerx-sdk/src/agent_envelope.rs and prove the daemon-produced disclosure and canonical digest before the external signer accepts it."
+owner_domain = 9
+interface = "9.rs-sdk-agent-envelope-agentenvelopetransport"
+
+[finding.signature-length]
+file = "services/agent/crates/layerx-sdk/src/rpc_sign.rs"
+line = 114
+class = "interface-mismatch"
+severity = "high"
+observed = "RpcClient::sign requires &[u8;64], but layerx-agent-api/src/write.rs defines SignatureBytes as exactly 65 bytes. agent_rpc_wire.rs::SignRequestWire also demands 64 before constructing SignatureBytes, so neither 64-byte nor 65-byte input can traverse the full current sign path."
+expected = "The current EVM signature contract is 65 bytes, including recovery information, consistently across authored Rust, daemon wire decoding and generated SDKs."
+proposal = "Align services/agent/crates/layerx-sdk/src/rpc_sign.rs and the owning daemon SignRequestWire on SignatureBytes/65-byte signatures; prove external signer output through sign and submit with the actual API carrier."
+owner_domain = 9
+interface = "9.rs-sdk-agent-envelope-agentenvelopetransport"
+
+[finding.program-request-constructor]
+file = "services/agent/crates/layerx-sdk/src/programs.rs"
+line = 139
+class = "interface-mismatch"
+severity = "high"
+observed = "NativeProgramCallRequest::new accepts transaction.data == call.encode(), gas_limit*max_fee_per_gas as fee_limit, and transaction_hash as idempotency_key. wire_native_call reconstructs with from_signed_transaction, which requires selector 54bd2b48 and ABI words plus a domain-separated idempotency digest; equality cannot hold. ProgramCallRequest::new similarly binds raw canonical payload rather than the transport ABI."
+expected = "The public constructors and actual Programs transport must accept the same signed precompile transaction, fee semantics and idempotency derivation."
+proposal = "Unify request construction and validation in services/agent/crates/layerx-sdk/src/programs.rs and program_http.rs around the real 0x101D ABI transaction; drive each public constructor through its live consumer and assert retained transaction and idempotency identities."
+owner_domain = 9
+interface = "9.rs-sdk-programs-nativeprogramcallrequest-j44"
+
+[finding.retired-program-http]
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+line = 419
+class = "interface-mismatch"
+severity = "high"
+observed = "HttpProgramTransport posts calls to /v1/programs/call and lifecycle writes to /v1/programs/deploy, upgrade and wind-down, and also reads retired Programs REST routes. The hosted gateway production route explicitly refuses these paths; retired component.programs-ingress specifies their removal."
+expected = "The merged Programs write transport sends the signed ABI transaction to 0x101D via eth_sendRawTransaction; discovery and reads must use a currently served verified node contract."
+proposal = "Replace the retired REST dispatch in services/agent/crates/layerx-sdk/src/program_http.rs with the live node transaction and read paths, preserving credentials where required and all receipt bindings; prove real deploy/call/retry/recovery."
+owner_domain = 9
+interface = "9.rs-sdk-program-http-httpprogramtransport"
+
+[finding.program-abi-five]
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+line = 1545
+class = "interface-mismatch"
+severity = "high"
+observed = "guest_abi accepts every supported ABI up to the generated MAX_VERSION, including 5, but decode_execution restricts guest_abi_version to 1..4 and module_version to 1..4, and verify_execution_profile refuses every profile above 4. A supported ABI5 program can be discovered/constructed but not consumed as a verified execution."
+expected = "Supported host/guest registration and receipt profiles must agree; requirement 181562.1 includes a real ABI5 reward receipt that remains executed after reopen."
+proposal = "Extend the authored Rust execution decoder and profile verifier in services/agent/crates/layerx-sdk/src/program_http.rs using the actual ABI5 producer layout and authority ordering; exercise the real reward/receipt/reopen path without relaxing signature, terminal or capacity checks."
+owner_domain = 9
+interface = "9.rs-sdk-programs-programexecutionevidence-j44"
+
+[finding.discovery-lifecycle-binding]
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+line = 1160
+class = "security"
+severity = "medium"
+observed = "decode_discovery parses active, deprecated and tombstoned, but discovery_digest always adds material.push(1), independent of the parsed lifecycle. A signature over the active digest can therefore verify after the response lifecycle is changed; ABI1/2 discovery also bypasses verify_discovery_signature entirely while returning VerifiedProgramDiscovery."
+expected = "A verified discovery result must authenticate the actual lifecycle and every exposed trust-bearing registry field under the supported profile, rather than authenticate a constant lifecycle value."
+proposal = "Repair discovery proof binding in services/agent/crates/layerx-sdk/src/program_http.rs with the owning registry producer: encode the actual lifecycle, require appropriate authority on each supported profile, and prove lifecycle transitions and tamper refusal."
+owner_domain = 9
+
+[finding.unbounded-stream-identities]
+file = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 596
+class = "runtime-risk"
+severity = "medium"
+observed = "ResumableStream::accept extends a BTreeSet<String> with every accepted event id and never removes an entry. A long-running subscription retains its entire history in memory even though cursors already require strictly increasing log positions."
+expected = "A resumable subscription must retain bounded replay state and continue operating over an indefinite event history, with the caller's durable cursor as the recovery boundary."
+proposal = "Define a bounded replay/identity policy in services/agent/crates/layerx-sdk/src/production.rs consistent with producer cursor guarantees; prove duplicate refusal, bounded memory and resume from the persisted cursor."
+owner_domain = 9
+
+[finding.wallet-ambient-clock]
+file = "services/agent/crates/layerx-sdk/src/wallet.rs"
+line = 202
+class = "config-drift"
+severity = "medium"
+observed = "Wallet::wait_for reads std::time::Instant::now at several points despite the SDK RPC layer already carrying an injected Clock. The boundary scanner rejects Instant::now in every non-allowlisted crate file, and the sole clock exception names agentd/src/main.rs."
+expected = "Library deadlines must use the explicit clock boundary and qualify under the repository nondeterminism policy rather than introducing an ambient library clock."
+proposal = "Use the injected clock/deadline facilities in services/agent/crates/layerx-sdk/src/wallet.rs and preserve bounded polling and timeout behavior; leave the narrow process exception policy intact."
+owner_domain = 9
+
+[finding.clock-policy-drift]
+file = "services/agent/nondeterminism-allowlist.toml"
+line = 5
+class = "config-drift"
+severity = "medium"
+observed = "The nondeterminism policy says no library crate reads ambient time and allows only agentd/src/main.rs, while sdk/src/wallet.rs reads Instant::now and several SDK tests call SystemTime::now/Instant::now directly. boundary-check scans all Rust files under crates, including tests."
+expected = "The clock policy, scanner scope and permitted test clock adapters must agree so that legitimate library/test code qualifies without broad clock exceptions."
+proposal = "Move SDK library deadlines to explicit clocks and test timestamps to the existing tests/support clock adapters; reconcile the actual scanner inputs with services/agent/nondeterminism-allowlist.toml without widening the process exception."
+owner_domain = 9
+
+[finding.bootstrap-probe-credentials]
+file = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs"
+line = 1233
+class = "test-gap"
+severity = "medium"
+observed = "operation_case treats AgentRegister and SessionOpen as anonymous bootstrap operations and omits their credential. The current agent_envelope BOOTSTRAP_OPERATIONS is empty, and encode_envelope requires credentials for every operation, so those cases fail locally before reaching the provisioned owner."
+expected = "The process probe must send the same authenticated operation envelope as current clients and establish owner dispatch through the real daemon."
+proposal = "Repair services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs to use provisioned authenticated registration/session inputs and assert the exact owner result for each operation."
+owner_domain = 9
+
+[finding.signed-prepare-fixture]
+file = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "envelope_signed_transaction_decodes_as_eip1559_and_binds_the_sender signs a transaction before treating it as preparation canonical_bytes. The live native preview emits an unsigned transaction, so this test validates the helper's third shape while missing the actual preparation refusal."
+expected = "Preparation qualification must begin with the real producer's unsigned call, then verify disclosure and external signing before transaction submission."
+proposal = "Replace the preparation fixture path in services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs with the provisioned owner preview/prepare/sign sequence and retain signed-envelope validation as a separate post-sign assertion."
+owner_domain = 9
+
+[finding.program-constructor-test-gap]
+file = "services/agent/crates/layerx-sdk/tests/native_programs.rs"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "native_request_binds_real_signed_fixture constructs a signed EIP-1559 transaction with raw NativeProgramCall bytes, while program_http_decodes_signed_program_calls_as_eip1559 uses a separate ABI calldata fixture and from_signed_transaction. The public new request never traverses wire_native_call."
+expected = "The same public constructor result must be sent through the actual transport and accepted by the node's precompile ABI, with identical fee and idempotency bindings."
+proposal = "Repair services/agent/crates/layerx-sdk/tests/native_programs.rs to carry one actual ABI transaction from public construction through the real node transport and receipt consumer, retaining malformed payload and fee mismatch checks."
+owner_domain = 9
+
+[finding.proof-sdk-positive-gap]
+file = "services/agent/crates/layerx-sdk/tests/proof_sdk.rs"
+line = 21
+class = "test-gap"
+severity = "medium"
+observed = "The real-node proof explicitly expects Wallet::create/wait_for and bridge wait to refuse the node's version-2 receipt while checking that the successful EVM mutation is visible. This accurately records a gap but leaves successful SDK receipt completion unqualified."
+expected = "The upgrade requires a positive funded transaction-to-verified-wallet result after node reopen, as well as retained negative signature/protocol/asset checks."
+proposal = "After repairing the receipt consumer, extend services/agent/crates/layerx-sdk/tests/proof_sdk.rs with successful verified wallet/create/wait assertions on the same real node; preserve separate mismatch/refusal regressions."
+owner_domain = 9
+
+[finding.bridge-proof-positive-gap]
+file = "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The bridge proof retains cases for summary-receipt and wallet balance refusals instead of proving a successful balance and fully verified wait through the running binary; its local gateway fixture also expects POST /rpc."
+expected = "The declared CLI bridge path must agree with current node root routing and return usable wallet results verified from actual producer evidence."
+proposal = "Extend services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs with the repaired native/token balance and summary-receipt success path through the real binary and reopened node, retaining explicit negative evidence cases."
+owner_domain = 9
+
+[finding.rpc-route-fixture]
+file = "services/agent/crates/layerx-sdk/tests/rpc_node.rs"
+line = 51
+class = "test-gap"
+severity = "medium"
+observed = "The HTTP fixtures in this file construct or assert a /rpc endpoint for the default RPC client. That preserves the retired unified route rather than proving that the ordinary live node call uses the root endpoint."
+expected = "The merged network's default node RPC path is the root; any hosted method must be qualified against its actual served contract and route."
+proposal = "Update services/agent/crates/layerx-sdk/tests/rpc_node.rs alongside the transport repair to assert the live root request and actual method response; keep malformed endpoint, framing and timeout refusal coverage."
+owner_domain = 9
+
+[finding.wallet-route-fixture]
+file = "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"
+line = 67
+class = "test-gap"
+severity = "medium"
+observed = "The HTTP fixtures in this file construct or assert a /rpc endpoint for the default RPC client. That preserves the retired unified route rather than proving that the ordinary live node call uses the root endpoint."
+expected = "The merged network's default node RPC path is the root; any hosted method must be qualified against its actual served contract and route."
+proposal = "Update services/agent/crates/layerx-sdk/tests/wallet_calls.rs alongside the transport repair to assert the live root request and actual method response; keep malformed endpoint, framing and timeout refusal coverage."
+owner_domain = 9
+
+[finding.binary-route-fixture]
+file = "services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs"
+line = 96
+class = "test-gap"
+severity = "medium"
+observed = "The HTTP fixtures in this file construct or assert a /rpc endpoint for the default RPC client. That preserves the retired unified route rather than proving that the ordinary live node call uses the root endpoint."
+expected = "The merged network's default node RPC path is the root; any hosted method must be qualified against its actual served contract and route."
+proposal = "Update services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs alongside the transport repair to assert the live root request and actual method response; keep malformed endpoint, framing and timeout refusal coverage."
+owner_domain = 9
+
+[finding.fuzz-module-registry]
+file = "services/agent/fuzz/fuzz_targets/support.rs"
+line = 36
+class = "test-gap"
+severity = "medium"
+observed = "support::registry hardcodes only eight modules, Asset ordinals 1..8 and Budget ordinals 1..7, and omits Programs. Current Asset operations include later ordinals, so valid modern payloads cannot reach successful payload decode/round-trip coverage."
+expected = "The payload fuzzer must admit all current registered activities and reject invalid ones using the same registration data as production."
+proposal = "Build the fuzz registry in services/agent/fuzz/fuzz_targets/support.rs from current production registration definitions and add genuine corpus seeds for later Asset and Programs operations."
+owner_domain = 9
+
+[finding.payload-fuzz-coverage]
+file = "services/agent/fuzz/fuzz_targets/payload_decode.rs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The payload fuzz target delegates admissibility to support::registry, which omits Programs and later Asset activities. Valid inputs from those live producers are rejected before their payload codec can be exercised."
+expected = "Payload fuzzing must reach real decoders for every supported module/activity rather than provide only rejection coverage for current valid operations."
+proposal = "Repair shared production registry coverage used by services/agent/fuzz/fuzz_targets/payload_decode.rs and seed each supported payload family with canonical producer output."
+owner_domain = 9
+
+[finding.pay2-target-missing]
+file = "services/agent/qualification/pay2/Cargo.toml"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "The PAY2 package has only tests/build_inputs.rs as an implicit test target; pay2e_test.rs is at the package root, with no [[test]] declaration or module inclusion. Cargo never compiles or executes the funded qualification scenario."
+expected = "The funded PAY2 qualification must be an executable test target whose real producer/transport/consumer and recovery assertions run."
+proposal = "Register pay2e_test.rs as the intended integration target in services/agent/qualification/pay2/Cargo.toml and repair it to current public APIs before qualification; retain its economic and restart assertions."
+owner_domain = 9
+
+[finding.pay2-build-text-only]
+file = "services/agent/qualification/pay2/build.rs"
+line = 17
+class = "test-gap"
+severity = "medium"
+observed = "build.rs calls fs::read_to_string for required.rs and pay2e_test.rs and only emits rerun-if-changed. Reading the scenario source does not type-check its current SDK calls or execute any funded path."
+expected = "The qualification package build must include the actual PAY2 scenario as Rust code, and its declared test gate must execute it."
+proposal = "Make services/agent/qualification/pay2/build.rs track inputs of a registered scenario target and keep input existence checks separate from executable qualification evidence."
+owner_domain = 9
+
+[finding.pay2-nonce-snapshot]
+file = "services/agent/qualification/pay2/pay2e_test.rs"
+line = 61
+class = "interface-mismatch"
+severity = "high"
+observed = "PAY2 calls get_identity_sequence with a DID and reads snapshot.state_root, observed_head_sequence and next_sequence. RpcClient::get_identity_sequence now validates a 0x20-byte EVM address and returns u64 from eth_getTransactionCount; the consumer neither type-checks nor supplies the accepted identifier."
+expected = "The PAY2 sequence consumer and declared get_identity_sequence interface must agree on address, u64 nonce and separately sourced committed block authority."
+proposal = "Repair services/agent/qualification/pay2/pay2e_test.rs to resolve the EVM sender and consume the current nonce type, obtain authenticated block/freshness data through the actual owner interface, and compile/run the funded test after registering its target."
+owner_domain = 9
+interface = "9.rs-sdk-rpcclient-get-identity-sequence-j70"
+
+[finding.pay2-input-test-gap]
+file = "services/agent/qualification/pay2/tests/build_inputs.rs"
+line = 72
+class = "test-gap"
+severity = "medium"
+observed = "pay2_build_reads_no_deleted_sources asserts that the scenario text is nonempty and matches the build input list. It can pass while pay2e_test.rs has incompatible SDK types and no Cargo test target."
+expected = "The PAY2 regression must prove the funded scenario is registered and compiles as an executable qualification target; readable text alone proves only packaging."
+proposal = "Keep the packaging assertions in services/agent/qualification/pay2/tests/build_inputs.rs and add target-registration evidence plus execution of the real funded scenario in its declared qualification workflow."
+owner_domain = 9
+
+[finding.isolation-surface-gap]
+file = "services/agent/tests/isolation/src/main.rs"
+line = 75
+class = "test-gap"
+severity = "medium"
+observed = "agent_isolation_suite loops over seven Surface enum values but invokes the same require_owner and normalize_error helpers for each. It never calls the Rust/TypeScript/Python SDK, MCP, subscription or export transport for those purported cross-surface checks."
+expected = "Tenant isolation must be proven at each exposed surface, including transport authentication, response shape, and object lookup behavior."
+proposal = "Extend services/agent/tests/isolation/src/main.rs with provisioned tenant objects and real requests through each owner route/client, including absent/foreign object equivalence and persisted deletion/retention after reopen."
+owner_domain = 9
+
+[finding.exactly-once-effect-gap]
+file = "services/agent/tests/limits/exactly_once.rs"
+line = 205
+class = "test-gap"
+severity = "medium"
+observed = "The suite's economic_effects counter is an Arc<AtomicUsize> incremented by a local closure, and authoritative_receipt constructs signed receipt material locally. Reopening local outbox/idempotency stores does not restart a node or prove one committed economic effect; the budget limiter also remains in memory."
+expected = "Exactly-once recovery evidence must count the actual committed economic effect for retained signed bytes across producer/consumer restart, with budget reservations recovered consistently."
+proposal = "Extend services/agent/tests/limits/exactly_once.rs to submit the same signed transaction through the real daemon/node, restart the relevant stores/processes, and assert actual receipt, balance and budget effects exactly once."
+owner_domain = 9
+
+[finding.parity-synthetic-owner]
+file = "services/agent/tests/parity/src/main.rs"
+line = 742
+class = "test-gap"
+severity = "medium"
+observed = "The parity harness clones the expected observations into serve_daemon and serves those strings through a local UnixListener. The real node is used for a handshake/read, but language clients do not consume the actual daemon operation envelopes or economic/recovery results."
+expected = "The declared SDK parity path must compare actual owner-produced results through each supported transport, including idempotency and restart behavior."
+proposal = "Replace expected-observation serving in services/agent/tests/parity/src/main.rs with a provisioned real daemon and current envelope transports; derive comparison evidence from actual node-backed operations and reopened state."
+owner_domain = 9
+
+[finding.python-parity-shape]
+file = "services/agent/tests/parity/python.py"
+line = 59
+class = "test-gap"
+severity = "medium"
+observed = "The Python parity validator constructs VerificationLevel.STATE_PROVEN and requires the literal StateProven, while current generated bindings expose Rung submitted/receipted/committed. It also imports legacy SubmissionUnknown/SubmissionFailed carriers removed by the current generation."
+expected = "Python parity must execute the generated major-2 API and current rung/freshness/submission shapes accepted from the real owner."
+proposal = "Repair services/agent/tests/parity/python.py to use the current generated rung and submission carriers and actual envelope decoding; assert committed results and pending/refusal preservation without recreating legacy shapes."
+owner_domain = 9
+
+[finding.typescript-parity-shape]
+file = "services/agent/tests/parity/typescript.mjs"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "The TypeScript parity validator uses VerificationLevel.StateProven and freshness.latestBatch/latestCheckpoint/valueSequence, then compares the literal StateProven. Current generated output and parity scenarios use current rungs and block/value-height freshness."
+expected = "TypeScript parity must consume the exact current generated major-2 result rather than an obsolete hand-constructed read structure."
+proposal = "Repair services/agent/tests/parity/typescript.mjs to decode actual owner envelopes with current Rung and freshness types and assert matching committed/not-ready semantics through the live transport."
+owner_domain = 9
+
+[finding.policy-control-denies]
+file = "services/agent/tests/policy/adversarial.rs"
+line = 228
+class = "test-gap"
+severity = "medium"
+observed = "The adversarial corpus labels intended-control with expected Outcome::Deny and no blocked dimensions. All evaluations receive no protocol-budget evidence, so a fail-closed prerequisite can deny the control and adversaries without proving any individual constraint."
+expected = "An adversarial constraint test needs an admitted control with current authoritative budget/session evidence, then one changed dimension producing its exact refusal."
+proposal = "Repair services/agent/tests/policy/adversarial.rs with a provisioned valid control and independently varied constraints; require the precise DecisionReason and preserved policy version for each denied case."
+owner_domain = 9
+
+[finding.policy-harness-evidence-gap]
+file = "services/agent/tools/policy-harness/src/main.rs"
+line = 32
+class = "test-gap"
+severity = "medium"
+observed = "agent_policy_harness always creates EvaluationInput::without_protocol_budget and accumulates blocked_constraints directly from corpus labels before evaluation. The reported constraint coverage can therefore be complete even if every denial comes from missing evidence."
+expected = "Coverage must be established by observed policy decisions on valid authoritative inputs and the exact rule/constraint that refused each adversarial change."
+proposal = "Repair services/agent/tools/policy-harness/src/main.rs to obtain current budget evidence through the real owner path, verify an allowed control, and count only dimensions demonstrated by matching observed refusal reasons."
+owner_domain = 9
+
+[finding.boundary-report-mismatch]
+file = "services/agent/tests/qualify/boundary.rs"
+line = 146
+class = "interface-mismatch"
+severity = "high"
+observed = "The qualification consumer requires 'agent boundary conformance suite passed: node JSON-RPC, committed block '. tests/boundary/cases.rs emits 'node JSON-RPC endpoint, committed block '. The production-required gate rejects the successful real producer report."
+expected = "The declared boundary qualification CLI must accept the exact successful report emitted by its live harness while still requiring committed-block and pending-read evidence."
+proposal = "Repair the strict report agreement in services/agent/tests/qualify/boundary.rs and the owning harness using a shared report format/decoder, retaining all required success and failure assertions."
+owner_domain = 9
+interface = "9.cli-agent-qualification-gates-boundary"
+
+[finding.fabrication-generated-shape]
+file = "services/agent/tests/qualify/fabrication.rs"
+line = 94
+class = "test-gap"
+severity = "medium"
+observed = "The generated-language fabrication probes still reference VerificationLevel.StateProven/Unverified and the old batch/checkpoint freshness structure, although the current SDK contract exposes Rung and block/value-height freshness. The probe does not exercise the current consumer contract."
+expected = "Fabrication refusal qualification must invoke the current generated APIs with valid current shapes and real malformed authority/evidence."
+proposal = "Repair services/agent/tests/qualify/fabrication.rs to exercise the generated major-2 rung/read interfaces against owner-produced evidence and reject tampered signatures, values and block bindings."
+owner_domain = 9
+
+[finding.unsafe-policy-contradiction]
+file = "services/agent/tests/qualify/fuzz.rs"
+line = 217
+class = "config-drift"
+severity = "medium"
+observed = "unsafe_exception_count returns an error when the allowlist has zero exceptions, but services/agent/unsafe-allowlist.toml contains only version=1 and the workspace regression requires exactly that empty policy. A compliant workspace can never pass this prerequisite."
+expected = "The sanitizer qualification must accept the declared no-unsafe-exceptions policy and reject unjustified unsafe usage rather than require an exception."
+proposal = "Repair services/agent/tests/qualify/fuzz.rs to validate the actual versioned allowlist policy and scanner result, including the valid empty list; retain strict refusal of unapproved unsafe code."
+owner_domain = 9
+
+[finding.boundary-checker-root]
+file = "services/agent/tests/qualify/fuzz.rs"
+line = 252
+class = "wiring-gap"
+severity = "medium"
+observed = "The sanitizer gate runs boundary-check from the repository root with the argument agent. The actual tree is services/agent, so the scanner looks for allowlists and crates under a nonexistent repository/agent directory."
+expected = "The invoked boundary checker must receive the real services/agent root and inspect the same workspace governed by the qualification gate."
+proposal = "Pass the canonical services/agent path in services/agent/tests/qualify/fuzz.rs and prove the actual scanner runs against that tree, preserving its failure exit and log."
+owner_domain = 9
+
+[finding.hostile-certificate-unchecked]
+file = "services/agent/tests/qualify/hostile_node.rs"
+line = 88
+class = "test-gap"
+severity = "medium"
+observed = "agent_hostile_node_harness inserts SubthresholdCertificate into the rejected set unconditionally. Its ResignedReceipt case only changes a byte string passed to a generic Merkle check; neither case exercises receipt signatures, authority rotation or the certificate verifier it claims to cover."
+expected = "Each reported hostile attack must actually run its owner verification path and demonstrate the expected refusal with preserved trust bindings."
+proposal = "Repair services/agent/tests/qualify/hostile_node.rs to obtain actual producer receipt/authority material, mutate each relevant attack independently and record coverage only after the real verification consumer rejects it."
+owner_domain = 9
+
+[finding.real-node-script-function]
+file = "services/agent/tests/qualify/tests/real_node_script.rs"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "The source regression splits on run-real-node-tests() and requires a final run-real-node-tests invocation. tools/run-real-node-tests.sh declares and calls run_real_node_tests, so this regression fails before checking the actual provisioning order."
+expected = "The regression must inspect the current producer script's real function and continue enforcing no retired daemon, exact modes and prerequisite/build ordering."
+proposal = "Repair services/agent/tests/qualify/tests/real_node_script.rs to use the actual shell function spelling while preserving every substantive setup, retirement and ordering assertion."
+owner_domain = 9
+
+[finding.generator-retired-lifecycle]
+file = "services/agent/tools/sdk-gen/src/main.rs"
+line = 355
+class = "retired-reference"
+severity = "medium"
+observed = "validate_lifecycle_schema requires POST /v1/programs/deploy, upgrade and wind-down with application/octet-stream. Those are the removed Programs ingress routes, so the generator enforces a stale transport declaration instead of the current EVM path."
+expected = "Generated SDK metadata must describe the current signed EIP-1559 precompile transport and submitted/receipted/committed contract, not retired REST writes."
+proposal = "Update lifecycle schema validation and generation in services/agent/tools/sdk-gen/src/main.rs with the owning canonical schema and regenerate bindings; prove the generated request through the live 0x101D transport."
+owner_domain = 9
+
+[finding.agent-readme-topology]
+file = "services/agent/README.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace README describes layerxd as the running kernel, LNI as the sole boundary, the removed checkpoint verifier and stable ABI allowlist, and old credit/custody preparation prerequisites."
+expected = "The merged agent stack connects to one paxd network through current EVM/node RPC and current native preparation, without LNI, layerxd or separate checkpoint publication."
+proposal = "Rewrite services/agent/README.md topology, crate roles and test prerequisites against current Makefile/run-real-node-tests.sh behavior and root node RPC; replace links to removed LNI and verifier artifacts."
+owner_domain = 9
+
+[finding.agent-compatibility-major]
+file = "services/agent/COMPATIBILITY.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The compatibility table declares contract 2, but approval guidance calls it an additive contract 1.1 feature and tells clients to negotiate contract 1.0. The page does not explain the major-2 EVM signature/rung contract."
+expected = "Published compatibility guidance must describe a consistent current contract major and the live node transport rather than mix pre-migration minor negotiation with major 2."
+proposal = "Rewrite services/agent/COMPATIBILITY.md approval/version guidance and link its matrix to the canonical schema and actual current migration gates, preserving explicit unavailable-feature behavior."
+owner_domain = 9
+
+[finding.root-readme-topology]
+file = "README.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+observed = "The root README presents two execution domains and a separate layerxd daemon settling checkpoints; later merge-draft/build instructions retain pre-merge daemon terminology."
+expected = "The current network is one paxd BFT chain, chain id 125, with committed blocks final and root node RPC; integrators must use native EVM/precompile paths."
+proposal = "Rewrite README.md lines 45-48 and merge/build guidance around the merged paxd network, current root RPC hosts and transaction/committed receipt flows; remove separate layerxd/checkpoint deployment instructions."
+owner_domain = 9
+
+[finding.overview-1]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes a canonical Activity/global-sequence interaction model and separate LayerX settlement without a Paxeer transaction; its examples continue through DID sequence/state-root activity and old component paths."
+expected = "Each published language must explain current EVM chain 125 transactions, native precompiles, submitted/receipted/committed results, tenant domains and root node RPC consistently with the merged network."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md lines 13-68 and the component/developer links from the current merged-network source, then review the translation for current native transaction, program deployment and finality terminology."
+owner_domain = 9
+
+[finding.overview-2]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes a canonical Activity/global-sequence interaction model and separate LayerX settlement without a Paxeer transaction; its examples continue through DID sequence/state-root activity and old component paths."
+expected = "Each published language must explain current EVM chain 125 transactions, native precompiles, submitted/receipted/committed results, tenant domains and root node RPC consistently with the merged network."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md lines 13-68 and the component/developer links from the current merged-network source, then review the translation for current native transaction, program deployment and finality terminology."
+owner_domain = 9
+
+[finding.overview-3]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes a canonical Activity/global-sequence interaction model and separate LayerX settlement without a Paxeer transaction; its examples continue through DID sequence/state-root activity and old component paths."
+expected = "Each published language must explain current EVM chain 125 transactions, native precompiles, submitted/receipted/committed results, tenant domains and root node RPC consistently with the merged network."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md lines 13-68 and the component/developer links from the current merged-network source, then review the translation for current native transaction, program deployment and finality terminology."
+owner_domain = 9
+
+[finding.overview-4]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes a canonical Activity/global-sequence interaction model and separate LayerX settlement without a Paxeer transaction; its examples continue through DID sequence/state-root activity and old component paths."
+expected = "Each published language must explain current EVM chain 125 transactions, native precompiles, submitted/receipted/committed results, tenant domains and root node RPC consistently with the merged network."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md lines 13-68 and the component/developer links from the current merged-network source, then review the translation for current native transaction, program deployment and finality terminology."
+owner_domain = 9
+
+[finding.overview-5]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes a canonical Activity/global-sequence interaction model and separate LayerX settlement without a Paxeer transaction; its examples continue through DID sequence/state-root activity and old component paths."
+expected = "Each published language must explain current EVM chain 125 transactions, native precompiles, submitted/receipted/committed results, tenant domains and root node RPC consistently with the merged network."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md lines 13-68 and the component/developer links from the current merged-network source, then review the translation for current native transaction, program deployment and finality terminology."
+owner_domain = 9
+
+[finding.overview-6]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes a canonical Activity/global-sequence interaction model and separate LayerX settlement without a Paxeer transaction; its examples continue through DID sequence/state-root activity and old component paths."
+expected = "Each published language must explain current EVM chain 125 transactions, native precompiles, submitted/receipted/committed results, tenant domains and root node RPC consistently with the merged network."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md lines 13-68 and the component/developer links from the current merged-network source, then review the translation for current native transaction, program deployment and finality terminology."
+owner_domain = 9
+
+[finding.overview-7]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes a canonical Activity/global-sequence interaction model and separate LayerX settlement without a Paxeer transaction; its examples continue through DID sequence/state-root activity and old component paths."
+expected = "Each published language must explain current EVM chain 125 transactions, native precompiles, submitted/receipted/committed results, tenant domains and root node RPC consistently with the merged network."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md lines 13-68 and the component/developer links from the current merged-network source, then review the translation for current native transaction, program deployment and finality terminology."
+owner_domain = 9
+
+[finding.translated-readme-8]
+file = "docs/readme/README.pt-BR.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes a separate layerxd/checkpoint execution domain and an SDK-to-agentd-to-LNI-to-layerxd/guarantor architecture with lx_* reads and pre-move component paths."
+expected = "Translated onboarding and architecture must match one paxd network, current services paths, current root node RPC and native EVM transactions without a separate LayerX router or settlement service."
+proposal = "Rewrite docs/readme/README.pt-BR.md lines 39-43, 86-96 and 144-239 from the current merged architecture and working commands, replacing LNI/guarantor/layerxd flows and checking every translated link."
+owner_domain = 9
+
+[finding.translated-readme-9]
+file = "docs/readme/README.fr.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes a separate layerxd/checkpoint execution domain and an SDK-to-agentd-to-LNI-to-layerxd/guarantor architecture with lx_* reads and pre-move component paths."
+expected = "Translated onboarding and architecture must match one paxd network, current services paths, current root node RPC and native EVM transactions without a separate LayerX router or settlement service."
+proposal = "Rewrite docs/readme/README.fr.md lines 39-43, 86-96 and 144-239 from the current merged architecture and working commands, replacing LNI/guarantor/layerxd flows and checking every translated link."
+owner_domain = 9
+
+[finding.translated-readme-10]
+file = "docs/readme/README.ja.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes a separate layerxd/checkpoint execution domain and an SDK-to-agentd-to-LNI-to-layerxd/guarantor architecture with lx_* reads and pre-move component paths."
+expected = "Translated onboarding and architecture must match one paxd network, current services paths, current root node RPC and native EVM transactions without a separate LayerX router or settlement service."
+proposal = "Rewrite docs/readme/README.ja.md lines 39-43, 86-96 and 144-239 from the current merged architecture and working commands, replacing LNI/guarantor/layerxd flows and checking every translated link."
+owner_domain = 9
+
+[finding.translated-readme-11]
+file = "docs/readme/README.ru.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes a separate layerxd/checkpoint execution domain and an SDK-to-agentd-to-LNI-to-layerxd/guarantor architecture with lx_* reads and pre-move component paths."
+expected = "Translated onboarding and architecture must match one paxd network, current services paths, current root node RPC and native EVM transactions without a separate LayerX router or settlement service."
+proposal = "Rewrite docs/readme/README.ru.md lines 39-43, 86-96 and 144-239 from the current merged architecture and working commands, replacing LNI/guarantor/layerxd flows and checking every translated link."
+owner_domain = 9
+
+[finding.rust-api-contract-snapshot]
+file = "spec/layerx-merge/contracts/agent-rust-api.md"
+line = 4824
+class = "doc-drift"
+severity = "medium"
+observed = "The generated SDK table still declares BOOTSTRAP_OPERATIONS as AgentRegister and SessionOpen, while the current source constant is empty; the get_identity_sequence declaration also retains the old IdentitySequenceSnapshot result consumed by stale PAY2 code."
+expected = "Generated interface documentation must expose current credential requirements and the actual address-to-u64 EVM nonce signature, with source registry status agreeing with the current implementation."
+proposal = "Refresh the owning SDK interface rows in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/agent-rust-api.md from the current declarations, marking retired historical signatures explicitly."
+owner_domain = 9
+
+[finding.cli-contract-topology]
+file = "spec/layerx-merge/contracts/agent-cli.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The generated CLI contract retains LNI-oriented boundary/parity descriptions and historical interface notes while its current requirements and implementations use live node JSON-RPC, committed blocks and major-2 generated SDKs."
+expected = "Published CLI contracts must identify current input endpoints, report grammar and real qualification scope so operators can distinguish a live node gate from historical LNI metadata."
+proposal = "Refresh the current CLI interface rows and regenerate spec/layerx-merge/contracts/agent-cli.md after aligning boundary report and parity implementations; clearly identify retired historical requirements."
+owner_domain = 9
+
+[doc.d01]
+path = "services/agent/README.md"
+status = "stale"
+notes = "Lines 4-11 and 24-25 describe layerxd/LNI and checkpoint verification; lines 47-52 name the removed ABI allowlist and lines 59-77 describe obsolete daemon/credit/custody test setup. Rewrite against the current node script."
+
+[doc.d02]
+path = "services/agent/COMPATIBILITY.md"
+status = "stale"
+notes = "Lines 10 and 12-14 disagree on contract major 2 versus 1.1/1.0. Reconcile approval compatibility and node-interface wording with the canonical major-2 schema."
+
+[doc.d03]
+path = "README.md"
+status = "stale"
+notes = "Lines 45-48 present separate execution domains/layerxd checkpoint settlement; merge/build guidance around lines 78 and 183 still describes a draft or separate daemon. Rewrite for one paxd and committed finality."
+
+[doc.d04]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Lines 13-19 describe separate Activity/settlement; lines 23-68 use old DID/sequence/state-root activity/deployment examples; lines 97 onward retain old component links. Rewrite the translated overview for current EVM/precompile and committed-block behavior."
+
+[doc.d05]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Lines 13-19 describe separate Activity/settlement; lines 23-68 use old DID/sequence/state-root activity/deployment examples; lines 97 onward retain old component links. Rewrite the translated overview for current EVM/precompile and committed-block behavior."
+
+[doc.d06]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Lines 13-19 describe separate Activity/settlement; lines 23-68 use old DID/sequence/state-root activity/deployment examples; lines 97 onward retain old component links. Rewrite the translated overview for current EVM/precompile and committed-block behavior."
+
+[doc.d07]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Lines 13-19 describe separate Activity/settlement; lines 23-68 use old DID/sequence/state-root activity/deployment examples; lines 97 onward retain old component links. Rewrite the translated overview for current EVM/precompile and committed-block behavior."
+
+[doc.d08]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Lines 13-19 describe separate Activity/settlement; lines 23-68 use old DID/sequence/state-root activity/deployment examples; lines 97 onward retain old component links. Rewrite the translated overview for current EVM/precompile and committed-block behavior."
+
+[doc.d09]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Lines 13-19 describe separate Activity/settlement; lines 23-68 use old DID/sequence/state-root activity/deployment examples; lines 97 onward retain old component links. Rewrite the translated overview for current EVM/precompile and committed-block behavior."
+
+[doc.d10]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Lines 13-19 describe separate Activity/settlement; lines 23-68 use old DID/sequence/state-root activity/deployment examples; lines 97 onward retain old component links. Rewrite the translated overview for current EVM/precompile and committed-block behavior."
+
+[doc.d11]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Lines 39-43 split layerxd/checkpoint execution; lines 86-96 use pre-move paths; architecture/examples at lines 144-239 retain LNI, guarantor anchors and lx_* reads. Rewrite and recheck all current command/link targets."
+
+[doc.d12]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 39-43 split layerxd/checkpoint execution; lines 86-96 use pre-move paths; architecture/examples at lines 144-239 retain LNI, guarantor anchors and lx_* reads. Rewrite and recheck all current command/link targets."
+
+[doc.d13]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Lines 39-43 split layerxd/checkpoint execution; lines 86-96 use pre-move paths; architecture/examples at lines 144-239 retain LNI, guarantor anchors and lx_* reads. Rewrite and recheck all current command/link targets."
+
+[doc.d14]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Lines 39-43 split layerxd/checkpoint execution; lines 86-96 use pre-move paths; architecture/examples at lines 144-239 retain LNI, guarantor anchors and lx_* reads. Rewrite and recheck all current command/link targets."
+
+[doc.d15]
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "stale"
+notes = "Reviewed the SDK interface section beginning at line 4815 and referenced owner rows. Line 4824 advertises obsolete anonymous bootstrap operations, and the get_identity_sequence signature retains the removed snapshot type. Regenerate from corrected registry declarations."
+
+[doc.d16]
+path = "spec/layerx-merge/contracts/agent-cli.md"
+status = "stale"
+notes = "Reviewed command declarations, frozen criteria and invocation notes. Boundary/parity descriptions retain LNI-era language alongside current JSON-RPC requirements; regenerate current declarations and identify historical criteria without presenting them as live topology."
+
+[doc.d17]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "The audit's one-network, root-RPC, retired-component, real-path and record-format rules are consistent with the reviewed current specification; applied as the audit baseline."
+
+

@@ -1,0 +1,929 @@
+# Pre-upgrade source audit. Findings are repair proposals; no runtime or deployment gate is claimed.
+# The audited source revision is recorded below; qualification evidence is retained by the bounded gate runner.
+
+[audit.22.30.112]
+task = "22.30.112"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 65
+findings = 42
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["portable_json_budget", "ucp_currency_units", "gateway_rotation", "mirror_verify_shape", "solana_mutable_deployment"]
+
+[file.01]
+path = "services/interop/crates/layerx-fiat/Cargo.toml"
+lines = 20
+verdict = "clean"
+note = "Workspace and crypto dependencies match the fiat adapter imports and feature use."
+
+[file.02]
+path = "services/interop/crates/layerx-fiat/record_sequenced_journeys.py"
+lines = 32
+verdict = "clean"
+note = "Read the recording metadata refresher, including submitted-rung refusal and source digest preservation; it does not itself execute payments."
+
+[file.03]
+path = "services/interop/crates/layerx-fiat/src/lib.rs"
+lines = 811
+verdict = "clean"
+note = "Read all provider evidence canonicalization, intent binding, gateway state transitions and signed settlement checks; integration coverage limitations are recorded on the suites."
+
+[file.04]
+path = "services/interop/crates/layerx-fiat/tests/adapter.rs"
+lines = 1018
+verdict = "issues"
+note = "Read all fixture encoding, provider verifier, payment plane and refusal assertions; production-path gap is recorded."
+
+[file.05]
+path = "services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs"
+lines = 479
+verdict = "issues"
+note = "Read all recorded journey derivation and re-signing, rung checks and expected outcomes; positive fixture provenance gap is recorded."
+
+[file.06]
+path = "services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs"
+lines = 614
+verdict = "issues"
+note = "Read the complete settlement and retry scenarios; locally reconstructed payment evidence leaves the real durable producer path unproven."
+
+[file.07]
+path = "services/interop/crates/layerx-mirror-signer/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Signer crypto, zeroization, Unix socket and JSON dependencies match the implementation."
+
+[file.08]
+path = "services/interop/crates/layerx-mirror-signer/src/lib.rs"
+lines = 853
+verdict = "issues"
+note = "Read all option parsing, bridge domain policy, key loading, framing and signing; key-file confidentiality and role identity separation require repair."
+
+[file.09]
+path = "services/interop/crates/layerx-mirror-signer/src/main.rs"
+lines = 68
+verdict = "clean"
+note = "Read both signer entry paths and listener startup/error propagation; no independent interface disagreement found."
+
+[file.10]
+path = "services/interop/crates/layerx-mirror-signer/tests/bridge.rs"
+lines = 460
+verdict = "clean"
+note = "Read bridge request framing, domain refusal, signature verification and file-permission coverage; security gaps are located in the shared loader."
+
+[file.11]
+path = "services/interop/crates/layerx-mirror-signer/tests/round_trip.rs"
+lines = 240
+verdict = "clean"
+note = "Read real Unix-socket signer round trips for Ethereum and Solana, handle refusal and listener behavior; signatures use the actual service and client."
+
+[file.12]
+path = "services/interop/crates/layerx-portable/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Portable library and test crypto/serialization dependencies match current v2 and independent verifier code."
+
+[file.13]
+path = "services/interop/crates/layerx-portable/FORMAT.md"
+lines = 158
+verdict = "issues"
+note = "Read the complete format and external-evidence guide; v1 migration ambiguity and unauthenticated provenance claims require rewrite."
+
+[file.14]
+path = "services/interop/crates/layerx-portable/src/external.rs"
+lines = 352
+verdict = "clean"
+note = "Read all presentation bounds, closed evidence kinds, descriptor binding and typed verification/digest construction; the generic verifier does not itself authenticate provenance."
+
+[file.15]
+path = "services/interop/crates/layerx-portable/src/lib.rs"
+lines = 30
+verdict = "clean"
+note = "Read exports and aliases; current portable and external evidence APIs are wired through these modules."
+
+[file.16]
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+lines = 551
+verdict = "issues"
+note = "Read every v2 encoder, decoder, signature, height, transaction hash and field check; total JSON output budget does not round-trip."
+
+[file.17]
+path = "services/interop/crates/layerx-portable/tests/external_verification.rs"
+lines = 440
+verdict = "issues"
+note = "Read all generic presentation and descriptor tests; the production cryptographic adapter integration is missing from this suite."
+
+[file.18]
+path = "services/interop/crates/layerx-portable/tests/independent_verifier.rs"
+lines = 373
+verdict = "clean"
+note = "Read Rust verifier comparisons and independent Python subprocess invocation with real recorded receipts and transaction bindings; no claimed independence defect found."
+
+[file.19]
+path = "services/interop/crates/layerx-portable/tests/proof_portable_receipt.rs"
+lines = 296
+verdict = "clean"
+note = "Read the real producer receipt to portable export/import and consumer verification assertions, tamper cases and raw transaction checks."
+
+[file.20]
+path = "services/interop/crates/layerx-portable/tests/python_portable_verifier.py"
+lines = 237
+verdict = "clean"
+note = "Read the entire standalone Python decoder and independent Ed25519/hash verification, canonical quantity/hex checks and input bounds."
+
+[file.21]
+path = "services/interop/crates/layerx-portable/tests/receipt_vectors.rs"
+lines = 191
+verdict = "clean"
+note = "Read v2 golden vectors, malformed shape, legacy rejection, key mismatch and canonical encoding cases; v1 appears only as explicit negative coverage."
+
+[file.22]
+path = "services/interop/crates/layerx-portable/tests/retired_crates.rs"
+lines = 79
+verdict = "clean"
+note = "Read retired crate/workspace guards; names of retired crates are intentional assertions of absence rather than live dependencies."
+
+[file.23]
+path = "services/interop/crates/layerx-portable/tests/sequencer_vectors.rs"
+lines = 381
+verdict = "clean"
+note = "Read unchanged producer receipt vector import, rung refusal, key windows and raw transaction bindings; no re-signed positive evidence gap found here."
+
+[file.24]
+path = "services/interop/crates/layerx-ucp/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "UCP dependency declarations match the public adapter, wire receipt and merchant profile implementation."
+
+[file.25]
+path = "services/interop/crates/layerx-ucp/src/lib.rs"
+lines = 1020
+verdict = "issues"
+note = "Read complete capability negotiation, merchant profile, status/idempotency lifecycle and signed payment binding; minor-unit to atomic-unit conversion is absent."
+
+[file.26]
+path = "services/interop/crates/layerx-ucp/tests/conformance_vectors.rs"
+lines = 778
+verdict = "issues"
+note = "Read every conformance dispatch and receipt constructor; local producer substitution is recorded as a path coverage gap."
+
+[file.27]
+path = "services/interop/crates/layerx-ucp/tests/e2e_client_seller.rs"
+lines = 537
+verdict = "issues"
+note = "Read complete client/seller capability, payment and order scenarios; in-memory model does not establish durable production completion."
+
+[file.28]
+path = "services/interop/crates/layerx-ucp/tests/merchant_profile.rs"
+lines = 526
+verdict = "issues"
+note = "Read full merchant handler selection, negotiation, refusal and order scenarios; real native payment producer coverage is missing."
+
+[file.29]
+path = "services/interop/crates/layerx-ucp/tests/pinned_spec.rs"
+lines = 47
+verdict = "clean"
+note = "Read pinned upstream document, schema and provenance checks; names and digest inputs match the advertised UCP snapshot."
+
+[file.30]
+path = "services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs"
+lines = 429
+verdict = "issues"
+note = "Read complete sequenced vector derivation and comparisons; the positive payment reference is rewritten and re-signed."
+
+[file.31]
+path = "services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs"
+lines = 508
+verdict = "issues"
+note = "Read all pending/refused/receipted checkout and retry assertions; modified fixture receipts do not establish real execution or recovery."
+
+[file.32]
+path = "services/interop/crates/layerx-visa-tap/Cargo.toml"
+lines = 21
+verdict = "clean"
+note = "Visa TAP crypto and time dependencies match the credential parser, signature algorithms and replay protection types."
+
+[file.33]
+path = "services/interop/crates/layerx-visa-tap/src/lib.rs"
+lines = 1032
+verdict = "clean"
+note = "Read complete credential grammar, RSA/Ed25519 verification, target canonicalization, agent binding, intent compilation contract and receipt checks; suite integration gap is separate."
+
+[file.34]
+path = "services/interop/crates/layerx-visa-tap/tests/conformance.rs"
+lines = 734
+verdict = "clean"
+note = "Read all canonical target and real credential cryptographic conformance cases, malformed headers, expiry and signature refusal; focused vectors do not claim durable integration."
+
+[file.35]
+path = "services/interop/crates/layerx-visa-tap/tests/middleware.rs"
+lines = 526
+verdict = "issues"
+note = "Read all middleware authorization and commerce scenarios; mock intent authority and registry leave production path agreement unproven."
+
+[file.36]
+path = "services/interop/crates/layerx-visa-tap/tests/pinned_spec.rs"
+lines = 36
+verdict = "clean"
+note = "Read upstream Visa provenance and pinned document checks; hashes refer to the vendored specification snapshot."
+
+[file.37]
+path = "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs"
+lines = 237
+verdict = "clean"
+note = "Read the complete native sequencer result binding cases, topic extraction, rung checks and tamper refusals; no unsupported claim that positive topics differ from the recorded native transaction."
+
+[file.38]
+path = "services/interop/deploy/gateway/README.md"
+lines = 216
+verdict = "issues"
+note = "Read complete gateway deployment variables, manifest and trust guidance; current suite claims and authority/sequencer wording are stale."
+
+[file.39]
+path = "services/interop/deploy/gateway/config.example.json"
+lines = 141
+verdict = "issues"
+note = "Read complete adapter/transport pins, AP2, Visa, fiat and UCP handler examples; derived UCP and fiat suite counts drift from the renderer."
+
+[file.40]
+path = "services/interop/deploy/gateway/module-registry.example.json"
+lines = 1
+verdict = "clean"
+note = "Read the one-line empty module registry example; it declares no phantom modules or payment ordinals."
+
+[file.41]
+path = "services/interop/deploy/gateway/render.py"
+lines = 1425
+verdict = "issues"
+note = "Read complete environment validation, manifest derivation, root binding, receipt-key parsing, output modes and internal checks; rotation and duplicate-id policy defects are recorded."
+
+[file.42]
+path = "services/interop/deploy/gateway/tests/test_completion_gate.py"
+lines = 107
+verdict = "clean"
+note = "Read actual renderer refusal tests for beta manifest completion and unchanged-output behavior; no additional mismatch found."
+
+[file.43]
+path = "services/interop/deploy/gateway/tests/test_env_template.py"
+lines = 22
+verdict = "clean"
+note = "Read the environment template coverage check, including documented commented variables; it checks production configuration names without changing them."
+
+[file.44]
+path = "services/interop/deploy/gateway/tests/test_render_receipt_keys.py"
+lines = 112
+verdict = "clean"
+note = "Read every overlap and retired-single-key CLI case; valid windows deliberately reuse one public key, leaving real distinct-key rotation defect in renderer."
+
+[file.45]
+path = "services/interop/deploy/gateway/visa-trust.example.json"
+lines = 21
+verdict = "clean"
+note = "Read explicit Visa agent and merchant target trust examples; example identities are not presented as external authenticated production agents."
+
+[file.46]
+path = "services/interop/deploy/mirror/config.example.json"
+lines = 137
+verdict = "issues"
+note = "Read complete mirror runtime, quorum, signer, receipt-key and archive configuration example; Paxeer root URL drift is recorded."
+
+[file.47]
+path = "services/interop/deploy/mirror/deploy-ethereum-mirror.sh"
+lines = 92
+verdict = "clean"
+note = "Read entire Ethereum deployment script, pinned bytecode identity, publisher extraction, receipt checks and deployment record generation; no analogous immutable-program mismatch found."
+
+[file.48]
+path = "services/interop/deploy/mirror/deploy-solana-mirror.sh"
+lines = 117
+verdict = "issues"
+note = "Read entire Solana deploy, program identity and rooted-slot record path; it leaves an upgrade authority that the consumer refuses."
+
+[file.49]
+path = "services/interop/deploy/mirror/ethereum-deployment.json"
+lines = 6
+verdict = "clean"
+note = "Read Ethereum deployment record schema, identity constraints and implementation reference; it is an operator contract rather than a live-chain certification."
+
+[file.50]
+path = "services/interop/deploy/mirror/ethereum-testnets-2026-08-31.json"
+lines = 56
+verdict = "generated"
+note = "Generated historical Ethereum testnet deployment evidence dated 2026-08-31; recorded chain and artifact identities are not a certification of current chain state."
+
+[file.51]
+path = "services/interop/deploy/mirror/render-config.py"
+lines = 361
+verdict = "issues"
+note = "Read all mirror rendering inputs, quorum policies, keys, signer identities, deployment record validation and output behavior; receipt-key validation differs from its consumers."
+
+[file.52]
+path = "services/interop/deploy/mirror/signer-protocol.md"
+lines = 11
+verdict = "clean"
+note = "Read complete signer framing and algorithm tags; Unix-socket access policy and remote mutual-TLS requirement agree with the client/service contract."
+
+[file.53]
+path = "services/interop/deploy/mirror/solana-deployment.json"
+lines = 7
+verdict = "clean"
+note = "Read Solana deployment record requirements, including finalized upgrade authority and program ELF identity; script disagreement is recorded on producer."
+
+[file.54]
+path = "services/interop/deploy/mirror/solana-devnet-2026-08-31.json"
+lines = 29
+verdict = "generated"
+note = "Generated historical Solana devnet deployment evidence dated 2026-08-31; null upgrade authority is historical evidence, not proof of a fresh script deployment."
+
+[file.55]
+path = "services/interop/deploy/mirror/tests/render-config-check.sh"
+lines = 220
+verdict = "issues"
+note = "Read full renderer acceptance/refusal shell coverage including identity, permissions and quorum arguments; Paxeer /rpc fixtures are retired."
+
+[file.56]
+path = "services/interop/deploy/mirror/tests/test_render_check_arguments.py"
+lines = 255
+verdict = "issues"
+note = "Read complete real renderer subprocess coverage for explicit arguments, key windows and overlapping ranges; the Paxeer endpoint template uses a retired path."
+
+[file.57]
+path = "services/interop/deploy/mirror/verify-config.example.json"
+lines = 50
+verdict = "issues"
+note = "Read complete verifier example and both foreign archive source shapes; top-level single-key fields are incompatible with its strict loader."
+
+[file.58]
+path = "services/interop/deploy/x-websearch/attestor-1.toml"
+lines = 30
+verdict = "clean"
+note = "Read full first attestor configuration: loopback sidecar, peer topology, signer/key references and EVM request observation fields agree with the sidecar contract."
+
+[file.59]
+path = "services/interop/deploy/x-websearch/attestor-2.toml"
+lines = 30
+verdict = "clean"
+note = "Read full second attestor configuration: distinct listen/peer addresses and per-attestor key references; no missing field or retired node endpoint found."
+
+[file.60]
+path = "services/interop/deploy/x-websearch/attestor-3.toml"
+lines = 30
+verdict = "clean"
+note = "Read full third attestor configuration and peer consistency; service and signer references match the common attestor schema."
+
+[file.61]
+path = "services/interop/deploy/x-websearch/attestor-4.toml"
+lines = 30
+verdict = "clean"
+note = "Read full fourth attestor configuration and peer consistency; local addresses describe the sidecar deployment, not a retired LayerX RPC interface."
+
+[file.62]
+path = "services/interop/deploy/x-websearch/config.example.json"
+lines = 56
+verdict = "clean"
+note = "Read full sidecar placeholder example with current receipt_keys and chain configuration; it intentionally refuses deployment until populated."
+
+[file.63]
+path = "services/interop/deploy/x-websearch/tests/dry-run-check.sh"
+lines = 1630
+verdict = "issues"
+note = "Read the entire dry-run embedded front server, signing, EVM deployment, sidecars and callback flow; legacy config and synthetic lifecycle proof gaps are recorded."
+
+[file.64]
+path = "services/interop/deploy/x-websearch/tests/packaging-check.sh"
+lines = 329
+verdict = "issues"
+note = "Read full image, key injection, compose and production config-loader checks; stage-count and placeholder-field assumptions drift from current producers."
+
+[file.65]
+path = "services/interop/deploy/x-websearch/tests/test_config_example.py"
+lines = 22
+verdict = "clean"
+note = "Read example configuration assertions for receipt_keys and absence of legacy sequencer fields; assertions agree with the current example and loader."
+
+[finding.portable_json_budget]
+file = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 240
+class = "interface-mismatch"
+severity = "high"
+observed = "PortableReceiptV2::export accepts a signed receipt up to 1,048,576 bytes and export_with_transaction permits another 1,048,576 bytes. Both fields become hex strings. to_json validates individual fields but does not enforce MAX_JSON_BYTES; from_json rejects every JSON body above 1,500,000 bytes. A valid large receipt, or receipt plus transaction, can therefore be exported and serialized successfully but cannot be imported again."
+expected = "The portable proof emitted by the exporter must be accepted by its bounded importer. The sequencer receipt layout permits enough effects to cross this JSON threshold; successful export must preserve a usable portable proof."
+proposal = "In services/interop/crates/layerx-portable/src/receipt.rs enforce one shared encoded-wire budget before export and serialization succeed, retaining the importer bound. Add boundary coverage using a real producer receipt with many effects and a bound raw transaction, then import and independently verify the emitted bytes."
+owner_domain = 11
+interface = "11.rs-portable-portable-receipt-v2-to-json"
+
+[finding.ucp_currency_units]
+file = "services/interop/crates/layerx-ucp/src/lib.rs"
+line = 609
+class = "interface-mismatch"
+severity = "high"
+observed = "CheckoutSubmission documents total_minor as ISO-4217 minor units, but complete_checkout copies it into UcpPaymentIntent.amount and verify_sequencer_payment hashes the same number into PaymentExact atomic amount data. UcpServicePlane in layerx-interop-service/src/server.rs:1888-1900 compares transfer.amount directly with intent.amount. Currency and token atomic scale are never reconciled. A USD total_minor of 1000 with a six-decimal dollar asset accepts 1000 atomic units or refuses the correctly scaled 10000000."
+expected = "A merchant checkout total must debit the equivalent asset amount and verify that same amount in the native payment receipt. Currency, merchant asset and atomic scale must be deployment-owned bindings rather than an implicit one-to-one unit assumption."
+proposal = "Add a merchant-owned currency/asset/scale binding to the UCP service configuration and perform checked conversion in the checkout adapter before constructing the payment intent. Verify receipts against that converted amount and cover a real checkout with a non-unit scale through relay, receipt verification and order completion."
+owner_domain = 11
+interface = "11.rs-ucp-ucp-adapter-complete-checkout"
+
+[finding.gateway_rotation]
+file = "services/interop/deploy/gateway/render.py"
+line = 906
+class = "interface-mismatch"
+severity = "high"
+observed = "render.py accepts a list of receipt-key windows but refuses deployment when their publicKey values contain more than one distinct key. The live service validate_x402_binding in layerx-interop-service/src/config.rs:682-718 accepts all distinct receipt public keys and compares them with the supported signer set. A normal old/new signing-key rotation therefore cannot be rendered."
+expected = "Deployment rendering must preserve the same authorized key windows and signer identities that the live service consumes, including historical and current public keys during rotation and recovery."
+proposal = "Change services/interop/deploy/gateway/render.py to derive every did:layerx signer from the validated receipt-key list and emit the complete set. Prove the rendered manifest starts the real service before and after rotation and still verifies receipts from both permitted height windows after restart."
+owner_domain = 11
+interface = "11.cli-deploy-gateway-render"
+
+[finding.mirror_verify_shape]
+file = "services/interop/deploy/mirror/verify-config.example.json"
+line = 3
+class = "interface-mismatch"
+severity = "high"
+observed = "verify-config.example.json supplies sequencer_id_hex, sequencer_public_key_hex, first_batch_number and last_batch_number at the top level and omits receipt_keys. The real layerx-mirror-verify Config in layerx-mirror/src/bin/layerx-mirror-verify.rs:22-27 uses deny_unknown_fields and requires receipt_keys, so this published verifier configuration is rejected before any archive can be verified."
+expected = "The declared verifier example and its registry format must deserialize through the actual verifier and carry the same receipt-key windows as the publisher and archived receipt verification path."
+proposal = "Replace the obsolete single-key fields in services/interop/deploy/mirror/verify-config.example.json with the actual receipt_keys shape and update its registry contract. Load the example through the real verifier configuration path and verify an archive produced under the corresponding publisher key window."
+owner_domain = 11
+interface = "11.fmt-deploy-mirror-verify-config-example"
+
+[finding.solana_mutable_deployment]
+file = "services/interop/deploy/mirror/deploy-solana-mirror.sh"
+line = 61
+class = "interface-mismatch"
+severity = "high"
+observed = "deploy-solana-mirror.sh deploys with the publisher as upgrade authority and lines 85-86 require that authority to remain the publisher. It writes a successful deployment record without finalization. The actual mirror Solana client validates program data on read and publish and returns ProgramMutable when the authority option byte is nonzero (layerx-mirror/src/solana.rs:1184-1191). solana-deployment.json itself requires finalization before readiness."
+expected = "A completed mirror deployment must satisfy the immutable-program identity policy used by both publisher and archive reader, with rooted program data matching the declared ELF digest and no remaining upgrade authority."
+proposal = "Give services/interop/deploy/mirror/deploy-solana-mirror.sh an explicit authorized finalization stage, then re-fetch rooted program data and verify the deployed ELF identity and absent upgrade authority before producing a ready deployment record. Exercise deployment through the real publisher and reader identity checks."
+owner_domain = 11
+interface = "11.cli-deploy-mirror-deploy-solana-mirror"
+
+[finding.signer_secret_readability]
+file = "services/interop/crates/layerx-mirror-signer/src/lib.rs"
+line = 778
+class = "security"
+severity = "medium"
+observed = "key_file_bytes follows symlinks with fs::metadata, rejects group/other write bits only, and then opens the path separately with fs::read. A world-readable 0644 private key is accepted, and the check and read do not bind the same opened file."
+expected = "Signer private material must not be readable by unrelated users, and file ownership, type and permission checks must apply to the file actually opened for signing."
+proposal = "In services/interop/crates/layerx-mirror-signer/src/lib.rs open key files with an explicit symlink policy and validate metadata on that descriptor. Refuse world-readable private keys, define any trusted-group read policy explicitly, and cover permission and file-replacement cases using real filesystem files."
+owner_domain = 11
+
+[finding.signer_role_alias]
+file = "services/interop/crates/layerx-mirror-signer/src/lib.rs"
+line = 549
+class = "security"
+severity = "medium"
+observed = "load_bridge forbids mixing attestation and transaction domains on one handle but only checks uniqueness of the handle string. It loads each key independently and does not compare derived identities. The same private key can be registered under separate handles for attestation and fee-paying, bypassing the stated attestor-key separation."
+expected = "The bridge signer guarantee that an attestor key never pays fees must hold for cryptographic identities across all handles, not just for a domain list attached to one handle."
+proposal = "In services/interop/crates/layerx-mirror-signer/src/lib.rs compare the loaded public identities across policies and refuse any identity shared between attestation and transaction roles. Cover distinct handles that refer to the same key bytes as well as correctly separated real keys."
+owner_domain = 11
+interface = "11.rs-msigner-signer-service-load-bridge"
+
+[finding.gateway_duplicate_key_id]
+file = "services/interop/deploy/gateway/render.py"
+line = 873
+class = "config-drift"
+severity = "medium"
+observed = "receipt_keys rejects overlapping windows but accepts the same keyId in disjoint windows. layerx-proof/src/receipt.rs:807-818 refuses a receipt whenever more than one trusted entry matches its context key id, regardless of whether their height ranges overlap. The renderer can approve key configuration unusable by the receipt verifier."
+expected = "Receipt key identifiers must be unique across the configured list in addition to having valid non-overlapping windows, consistently with the actual proof consumer."
+proposal = "Reject repeated keyId values in services/interop/deploy/gateway/render.py before writing configuration, and exercise a rendered list through the real proof verifier with receipts for both permitted windows. Preserve the existing signature and range checks."
+owner_domain = 11
+interface = "11.cli-deploy-gateway-render"
+
+[finding.mirror_key_policy_drift]
+file = "services/interop/deploy/mirror/render-config.py"
+line = 175
+class = "config-drift"
+severity = "medium"
+observed = "checkpoint_policy accepts repeated keyId values in disjoint windows and rejects firstHeight zero. The gateway renderer accepts height zero, while the receipt proof consumer rejects duplicate ids regardless of disjoint ranges. These tools do not share one receipt-key validation policy."
+expected = "Deployment tools consuming the same ReceiptKeys input must agree on valid identity uniqueness and inclusive uint64 height windows, including a window starting at zero."
+proposal = "Align services/interop/deploy/mirror/render-config.py with the actual ReceiptKeys consumer: require unique ids and accept the supported zero boundary without weakening signature or range checks. Use one canonical key file through both renderers and a real receipt verification path."
+owner_domain = 11
+interface = "11.cli-deploy-mirror-render-config"
+
+[finding.gateway_example_pins]
+file = "services/interop/deploy/gateway/config.example.json"
+line = 29
+class = "config-drift"
+severity = "medium"
+observed = "config.example.json advertises 26 UCP vectors and 26 fiat vectors. render.py:1196 and 1198 pins the current derived suite counts to 29 and 31 respectively. The shipped manifest example does not represent the suite identities the checkout renderer declares."
+expected = "The published example must describe current derived adapter conformance identities and must not present obsolete vector counts as the active deployment manifest."
+proposal = "Regenerate services/interop/deploy/gateway/config.example.json from the current renderer using explicit example trust inputs, and compare every derived suite count and digest with the renderer output so later conformance additions cannot leave the operator example behind."
+owner_domain = 11
+interface = "11.fmt-deploy-gateway-config-example"
+
+[finding.mirror_example_rpc]
+file = "services/interop/deploy/mirror/config.example.json"
+line = 10
+class = "retired-reference"
+severity = "medium"
+observed = "The Paxeer endpoint examples use https://paxeer-a.example/rpc and equivalent b/c URLs. These preserve the retired unified Paxeer RPC path in deployment inputs or acceptance fixtures."
+expected = "The merged Paxeer JSON-RPC endpoint is the root URL. Foreign Ethereum and Solana providers retain their own endpoint paths; Paxeer fixtures must reflect its actual transport."
+proposal = "Update the Paxeer URLs in services/interop/deploy/mirror/config.example.json to root endpoints and assert their path when rendering. Keep foreign-provider URLs provider-specific and verify a rendered Paxeer endpoint against the real node root JSON-RPC surface."
+owner_domain = 11
+
+[finding.mirror_shell_rpc]
+file = "services/interop/deploy/mirror/tests/render-config-check.sh"
+line = 90
+class = "retired-reference"
+severity = "medium"
+observed = "The rendering check passes Paxeer endpoint URLs ending in /rpc at lines 90-91 and 181-182. These preserve the retired unified Paxeer RPC path in deployment inputs or acceptance fixtures."
+expected = "The merged Paxeer JSON-RPC endpoint is the root URL. Foreign Ethereum and Solana providers retain their own endpoint paths; Paxeer fixtures must reflect its actual transport."
+proposal = "Update the Paxeer URLs in services/interop/deploy/mirror/tests/render-config-check.sh to root endpoints and assert their path when rendering. Keep foreign-provider URLs provider-specific and verify a rendered Paxeer endpoint against the real node root JSON-RPC surface."
+owner_domain = 11
+
+[finding.mirror_python_rpc]
+file = "services/interop/deploy/mirror/tests/test_render_check_arguments.py"
+line = 133
+class = "retired-reference"
+severity = "medium"
+observed = "The shared endpoint template appends /rpc to Paxeer URLs as well as foreign-chain URLs. These preserve the retired unified Paxeer RPC path in deployment inputs or acceptance fixtures."
+expected = "The merged Paxeer JSON-RPC endpoint is the root URL. Foreign Ethereum and Solana providers retain their own endpoint paths; Paxeer fixtures must reflect its actual transport."
+proposal = "Update the Paxeer URLs in services/interop/deploy/mirror/tests/test_render_check_arguments.py to root endpoints and assert their path when rendering. Keep foreign-provider URLs provider-specific and verify a rendered Paxeer endpoint against the real node root JSON-RPC surface."
+owner_domain = 11
+
+[finding.xweb_dry_run_config]
+file = "services/interop/deploy/x-websearch/tests/dry-run-check.sh"
+line = 1384
+class = "test-gap"
+severity = "medium"
+observed = "The dry-run settings generator emits gateway.sequencer_id and gateway.sequencer_public_key and no receipt_keys. x-websearch/src/config.rs:839-846 explicitly rejects these legacy fields as Unknown and then requires a receipt_keys array. This harness cannot start the current sidecar with the shape it generates."
+expected = "The dry-run must give the real sidecar the same current receipt-key configuration that a deployment provides, and settle against the keys and height windows actually emitted by the receipt producer."
+proposal = "Update services/interop/deploy/x-websearch/tests/dry-run-check.sh to pass real receipt-key windows through its generated settings and the production loader. Drive a payment with the real relay and verify the resulting sidecar response under those keys."
+owner_domain = 11
+interface = "11.cli-deploy-x-websearch-tests-dry-run-check"
+
+[finding.xweb_synthetic_lifecycle]
+file = "services/interop/deploy/x-websearch/tests/dry-run-check.sh"
+line = 714
+class = "test-gap"
+severity = "medium"
+observed = "The dry-run writes request state with anvil_setStorageAt and delivers callbacks by impersonating the precompile address at line 863; its Front server also synthesizes gateway views. This tests sidecar and callback handling around a substituted producer rather than the real getRequest/fulfil lifecycle or recovery after restart."
+expected = "The declared xweb request, attestation, fulfil and callback interfaces must agree on the actual module/precompile path, including persisted pending work, idempotent redelivery and recovery."
+proposal = "Add a real paxd-backed scenario owned by services/interop/deploy/x-websearch/tests/dry-run-check.sh that issues a request through precompile 0x1019, observes it with the sidecar, restarts during pending work, fulfils it through the actual module and checks exactly one consumer callback. Keep focused callback checks as additional coverage."
+owner_domain = 11
+interface = "6.pc-0x1019-fulfil"
+
+[finding.xweb_packaging_stages]
+file = "services/interop/deploy/x-websearch/tests/packaging-check.sh"
+line = 82
+class = "test-gap"
+severity = "medium"
+observed = "packaging-check.sh requires exactly two FROM statements, while docker/x-websearch/Dockerfile contains build, fly and final runtime stages. Source inspection establishes a contradictory packaging assertion before its real loader checks; no packaging command was executed for this audit."
+expected = "The packaging check must enforce the supported image targets, pinned bases and runtime security properties of the actual image layout without assuming an obsolete stage count."
+proposal = "Update services/interop/deploy/x-websearch/tests/packaging-check.sh to validate the named build and fly targets and final runtime stage explicitly, retaining base pinning, non-root execution and secret-exclusion checks for each deployable target."
+owner_domain = 11
+interface = "11.cli-deploy-x-websearch-tests-packaging-check"
+
+[finding.xweb_packaging_fields]
+file = "services/interop/deploy/x-websearch/tests/packaging-check.sh"
+line = 297
+class = "test-gap"
+severity = "medium"
+observed = "The packaging placeholder walk still dereferences /gateway/sequencer_id, /gateway/sequencer_public_key and /kernel_network_id. The current example replaces the trust pair with receipt_keys and omits kernel_network_id. The strict loader rejects the legacy trust fields, so the walk does not represent current deployment refusal order."
+expected = "The example configuration refusal checks must operate on actual current fields and preserve the production loader errors for malformed or placeholder key windows."
+proposal = "Update services/interop/deploy/x-websearch/tests/packaging-check.sh to traverse gateway.receipt_keys entries and current required fields from a real valid configuration. Assert the actual loader refusals for each placeholder without inserting retired fields or weakening the loader."
+owner_domain = 11
+interface = "11.cli-deploy-x-websearch-tests-packaging-check"
+
+[finding.fiat_unit_path]
+file = "services/interop/crates/layerx-fiat/tests/adapter.rs"
+line = 401
+class = "test-gap"
+severity = "medium"
+observed = "SandboxVerifier returns preselected provider facts without verifying the presented signature, SandboxPlane returns a selected outcome without executing the intent, and the suite constructs signed receipt bytes locally. These adapter assertions do not establish provider evidence to durable settlement agreement."
+expected = "Fiat journey coverage must include real signed provider evidence, the actual configured provider verifier and payment execution, with the observable receipt-backed result retained across restart and idempotent retry."
+proposal = "Extend services/interop/crates/layerx-fiat/tests/adapter.rs with a production provider verifier and real settlement path, keeping existing focused adapter assertions. Restart the durable journey owner between execution and retry and assert the same evidence and settlement result."
+owner_domain = 11
+interface = "11.rs-fiat-fiat-adapter-apply"
+
+[finding.fiat_resigned_vectors]
+file = "services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs"
+line = 178
+class = "test-gap"
+severity = "medium"
+observed = "resigned_payment replaces the recorded payment log topics, signs the modified receipt with test_signing_seed and retains the original recorded transaction hash. The resulting evidence is valid under the test key but the original producer did not execute that modified payment reference."
+expected = "A recorded fiat payment claimed as producer evidence must originate from the raw transaction that carries its exact payment reference and receipt log, rather than a re-signed mutation under an unchanged activity identity."
+proposal = "Record genuine fiat journey PaymentExact transactions carrying the adapter idempotency reference and consume the producer bytes unchanged in services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs. Retain re-signed mutations only as explicitly negative authenticity or binding checks."
+owner_domain = 11
+interface = "11.rs-fiat-fiat-adapter-apply"
+
+[finding.fiat_settlement_path]
+file = "services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs"
+line = 178
+class = "test-gap"
+severity = "medium"
+observed = "signed_payment rewrites a recorded receipt activity and payment log and re-signs it locally. The settlement scenarios supply those constructed outcomes rather than executing each intent through the real sequencer and durable settlement owner."
+expected = "Submitted, receipted and committed fiat outcomes and retries must be proven with the corresponding real transaction, producer receipt and durable journey state, including recovery of work interrupted after submission."
+proposal = "Extend services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs to submit each intent through the actual payment path, observe the producer receipt unchanged, restart the settlement owner at pending and receipted boundaries, and assert no duplicate payment or unsupported completion."
+owner_domain = 11
+interface = "11.rs-fiat-fiat-adapter-apply"
+
+[finding.portable_external_path]
+file = "services/interop/crates/layerx-portable/tests/external_verification.rs"
+line = 76
+class = "test-gap"
+severity = "medium"
+observed = "MockMandateVerifier treats payload length and its first byte as signature and expiry checks. The suite verifies generic descriptor and digest binding but does not exercise verify_external_evidence with a production cryptographic mandate adapter."
+expected = "External mandate verification provenance must be supported by a real protocol adapter verifying authentic presentation bytes and rejecting tampering, not inferred from generic binding tests alone."
+proposal = "Add a production AP2 portable-verifier integration to services/interop/crates/layerx-portable/tests/external_verification.rs with real signed mandate bytes and production trust inputs. Assert the returned binding and signature refusal for tampering while retaining the useful generic binding cases."
+owner_domain = 11
+interface = "11.rs-portable-external-evidence-verifier"
+
+[finding.ucp_conformance_producer]
+file = "services/interop/crates/layerx-ucp/tests/conformance_vectors.rs"
+line = 431
+class = "test-gap"
+severity = "medium"
+observed = "unsigned_receipt and signed_receipt hand-encode and sign the payment receipt used by the conformance flow. The assertions do not prove a real merchant checkout through the service transport and durable order lifecycle."
+expected = "UCP completion must be proven from negotiated merchant checkout and correctly scaled native transaction through the actual relay, receipt consumer and order update, surviving restart without a second debit or duplicate order."
+proposal = "Extend services/interop/crates/layerx-ucp/tests/conformance_vectors.rs with a real service checkout and producer-emitted payment receipt, including a non-unit asset scale. Restart the durable consumer after submission and before order completion, retry the same checkout, and assert one payment and the same completed order."
+owner_domain = 11
+interface = "11.rs-ucp-ucp-adapter-complete-checkout"
+
+[finding.ucp_e2e_durability]
+file = "services/interop/crates/layerx-ucp/tests/e2e_client_seller.rs"
+line = 310
+class = "test-gap"
+severity = "medium"
+observed = "checkout_payment constructs signed payment evidence locally and the seller scenario uses an in-memory seller/order model. The assertions do not prove a real merchant checkout through the service transport and durable order lifecycle."
+expected = "UCP completion must be proven from negotiated merchant checkout and correctly scaled native transaction through the actual relay, receipt consumer and order update, surviving restart without a second debit or duplicate order."
+proposal = "Extend services/interop/crates/layerx-ucp/tests/e2e_client_seller.rs with a real service checkout and producer-emitted payment receipt, including a non-unit asset scale. Restart the durable consumer after submission and before order completion, retry the same checkout, and assert one payment and the same completed order."
+owner_domain = 11
+interface = "11.rs-ucp-ucp-adapter-complete-checkout"
+
+[finding.ucp_merchant_producer]
+file = "services/interop/crates/layerx-ucp/tests/merchant_profile.rs"
+line = 175
+class = "test-gap"
+severity = "medium"
+observed = "checkout_payment derives locally re-signed payment evidence for the merchant profile scenarios instead of obtaining it from real native payment execution. The assertions do not prove a real merchant checkout through the service transport and durable order lifecycle."
+expected = "UCP completion must be proven from negotiated merchant checkout and correctly scaled native transaction through the actual relay, receipt consumer and order update, surviving restart without a second debit or duplicate order."
+proposal = "Extend services/interop/crates/layerx-ucp/tests/merchant_profile.rs with a real service checkout and producer-emitted payment receipt, including a non-unit asset scale. Restart the durable consumer after submission and before order completion, retry the same checkout, and assert one payment and the same completed order."
+owner_domain = 11
+interface = "11.rs-ucp-ucp-adapter-complete-checkout"
+
+[finding.ucp_checkout_producer]
+file = "services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs"
+line = 124
+class = "test-gap"
+severity = "medium"
+observed = "checkout_payment rewrites and re-signs recorded payment bytes and computes the accepted digest from the modified receipt; total_minor is taken directly from the atomic payment fixture. The assertions do not prove a real merchant checkout through the service transport and durable order lifecycle."
+expected = "UCP completion must be proven from negotiated merchant checkout and correctly scaled native transaction through the actual relay, receipt consumer and order update, surviving restart without a second debit or duplicate order."
+proposal = "Extend services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs with a real service checkout and producer-emitted payment receipt, including a non-unit asset scale. Restart the durable consumer after submission and before order completion, retry the same checkout, and assert one payment and the same completed order."
+owner_domain = 11
+interface = "11.rs-ucp-ucp-adapter-complete-checkout"
+
+[finding.ucp_vector_resigning]
+file = "services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs"
+line = 245
+class = "test-gap"
+severity = "medium"
+observed = "assert_payment_derivation explicitly asserts that the recorded transaction reference differs from the gateway key, replaces it in expected logs and the signed receipt, and signs again with testReceiptKeySeed. The unchanged source raw transaction therefore did not produce the payment reference the checkout accepts."
+expected = "A positive checkout conformance vector must preserve the exact transaction, log topics, receipt bytes and signature emitted together by the real payment producer for that checkout idempotency reference."
+proposal = "Regenerate the UCP vectors with real PaymentExact transactions containing their checkout gateway keys, then make services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs compare producer bytes unchanged. Retain mutated topic/reference cases only as negative consumer-binding coverage."
+owner_domain = 11
+interface = "11.rs-ucp-ucp-adapter-complete-checkout"
+
+[finding.visa_intent_path]
+file = "services/interop/crates/layerx-visa-tap/tests/middleware.rs"
+line = 85
+class = "test-gap"
+severity = "medium"
+observed = "MockIntentAuthority builds an activity byte string from request values instead of invoking the production intent compiler; the middleware scenarios use an in-memory trusted-agent registry and locally signed receipt evidence. They cannot establish that the authenticated Visa principal authorizes the same transaction the native producer executes."
+expected = "The Visa credential, trusted-agent binding, canonical commerce intent and payment receipt must agree along the production middleware and native execution path, including durable retry and replay refusal after restart."
+proposal = "Add a real configured agent registry and production intent compiler scenario to services/interop/crates/layerx-visa-tap/tests/middleware.rs, submit its transaction through the actual service relay, restart the durable binding owner and assert replay refusal plus the same receipt-bound commerce outcome."
+owner_domain = 11
+interface = "11.rs-visa-tap-verifier-verify"
+
+[finding.portable_format_versions]
+file = "services/interop/crates/layerx-portable/FORMAT.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "FORMAT.md opens with v1 base64url fields, batch authorization and verification instructions, then calls v2 the current format at line 66. The live PortableReceiptV2 implementation accepts v2 hex and rejects v1; the leading instructions are not labelled as a retired format."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Rewrite services/interop/crates/layerx-portable/FORMAT.md around the current v2 fields, receipt-key windows and transaction binding. Put any v1 description in an explicitly retired migration appendix and show current importer refusals."
+owner_domain = 11
+
+[finding.portable_digest_claim]
+file = "services/interop/crates/layerx-portable/FORMAT.md"
+line = 153
+class = "doc-drift"
+severity = "medium"
+observed = "FORMAT.md says the evidence digest alone is sufficient for non-repudiation and lets an external system trust verification provenance without rerunning verification. VerifiedExternalEvidence carries a hash and typed output, but no authenticated verifier attestation; a digest alone proves neither who verified the presentation nor its signature validity."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Describe the digest as a content and descriptor binding in services/interop/crates/layerx-portable/FORMAT.md. Require actual verification or a separately authenticated verifier attestation plus retained audit evidence before claiming externally trusted verification provenance or non-repudiation."
+owner_domain = 11
+
+[finding.gateway_readme_manifest]
+file = "services/interop/deploy/gateway/README.md"
+line = 69
+class = "doc-drift"
+severity = "medium"
+observed = "The README says all eight derived conformance suites in config.example.json are the real current checkout output, although its UCP and fiat counts differ from the renderer. Lines 52-58 also retain receipt-authority secrets and a separate sequencer startup comparison as current deployment guidance."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Update services/interop/deploy/gateway/README.md after regenerating the manifest example. Describe the live service receipt-key file, complete signer set, merged node relay and actual startup checks, removing retired authority and independent sequencer deployment instructions."
+owner_domain = 11
+
+[finding.page_01]
+file = "docs/site/docs/interop/index.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview separates LayerX execution and its balance writer from Paxeer custody and describes batch-oriented boundaries as the current network."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Rewrite the interop overview around adapters on the merged Paxeer chain, committed receipts and the current archive-only role of mirrors; retain the rule that adapters never manufacture settlement."
+owner_domain = 11
+
+[finding.page_02]
+file = "docs/wiki/Interop.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki routes readers to layerx-interop-gateway/src/server.rs for current routes and middleware, including line 29; runtime HTTP implementation lives in layerx-interop-service/src/server.rs."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Update docs/wiki/Interop.md to the live service entry points and current route and trust configuration, and verify source links and examples against those declarations."
+owner_domain = 11
+
+[finding.page_03]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operator runbook starts a separate LayerX daemon alongside Paxeer and gives layerxd --custody-profile instructions around line 54."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md for paxd owning the kernel and block commitment, root node RPC, and the real current service bring-up and recovery sequence; label retained old cluster recipes historical."
+owner_domain = 16
+
+[finding.page_04]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki beta-cluster runbook likewise treats a LayerX daemon and independently deployed custody profile as the running architecture, including layerxd instructions around line 40."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Synchronize docs/wiki/BetaCluster.md with the merged paxd operator procedure, actual root RPC and committed-receipt readiness checks; remove executable instructions for retired daemon deployments."
+owner_domain = 16
+
+[finding.page_05]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network landing page calls Paxeer the settlement and custody layer for a separate LayerX network; lines 5-9 place ordinary activity off-chain and describe periodic checkpoints and separate release and trust boundaries."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Rewrite docs/paxeer-network.md to state one Paxeer BFT chain, kernel-owned block execution and receipt finality at commit. Correct the layout and balance-writer descriptions without changing the already accurate tenant-domain explanation."
+owner_domain = 16
+
+[finding.page_06]
+file = "docs/site/docs/concepts/receipts.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "The receipt concept page presents executed, batched and checkpoint-finalised progression as the current finality model and line 46 directs portable verification through AuthorizedBatch."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Update docs/site/docs/concepts/receipts.md to distinguish signed receipt authenticity from block commitment on the merged chain, describe current receipt-key windows and remove retired batch authorization APIs from active examples."
+owner_domain = 11
+
+[finding.page_07]
+file = "docs/site/docs/platform/registry.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The registry page instructs operators to deploy and trust a distinct layerx-receipt-authority service, separate authorization credentials and replica-id ConfigMaps; lines 179-186 prescribe those dependencies as current."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Rewrite docs/site/docs/platform/registry.md against the merged node program-state and committed-receipt interfaces and their current trust and restart procedure. Label old authority deployment and credentials as retired instead of operator prerequisites."
+owner_domain = 16
+
+[finding.page_08]
+file = "docs/site/docs/interop/portable-receipts.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Most of the portable receipt guide specifies v1 base64url fields and AuthorizedBatch verification even though current code exports v2 hex fields, receipt-key windows and receipted verification. Its old coverage narrative also omits the real current independent Python verification path."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Rewrite docs/site/docs/interop/portable-receipts.md from the actual v2 export/import and independent verifier paths, showing precise encoding, key trust, raw-transaction binding and the distinction between signed authenticity and committed finality."
+owner_domain = 11
+
+[finding.page_09]
+file = "docs/site/docs/interop/ramps.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The ramp guide describes separate LayerX balances and Paxeer custody and historical beta platform state as the current deployment boundary. The useful distinction between verified provider evidence and receipt-backed execution does not require that split."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Update docs/site/docs/interop/ramps.md for fiat evidence and settlement on the merged chain, name the actual durable journey and service interfaces, and retain explicit refusal to claim payment without receipt-backed evidence."
+owner_domain = 11
+
+[finding.page_10]
+file = "docs/site/docs/interop/ucp.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The UCP page directs payment verification through layerx_proof::receipt::verify and AuthorizedBatch. The adapter now consumes receipt keys and SequencerEvidence and verifies signed native payment logs."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Update docs/site/docs/interop/ucp.md with the live checkout inputs, receipt-key windows, payment log binding and order lifecycle. Explain the merchant currency-to-atomic-asset conversion contract and recovery rather than the retired batch verifier API."
+owner_domain = 11
+
+[finding.page_11]
+file = "docs/site/docs/interop/visa-tap.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The Visa TAP guide says settlement uses receipt::verify and AuthorizedBatch, whereas the current adapter verifies sequencer payment evidence and trusted agent/intent bindings."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Update docs/site/docs/interop/visa-tap.md to the actual credential, canonical intent, receipt-key and signed payment evidence interfaces, with durable replay handling and precise receipt authenticity versus committed completion claims."
+owner_domain = 11
+
+[finding.page_12]
+file = "docs/site/docs/protocol/xweb.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The xweb protocol guide says the gateway executes lx_sendActivity and recovers via lx_getActivityStatus or lx_getReceipt; line 24 retains single sequencer trust and kernel network configuration, and line 172 describes a separate sequencer batching observations."
+expected = "Integrator and operator guidance must describe one Paxeer network with the current receipt and deployment interfaces, distinguish authenticity from committed finality, and label historical pre-merge material explicitly."
+proposal = "Rewrite docs/site/docs/protocol/xweb.md against the current receipt_keys configuration, typed transaction relay and merged request/fulfil precompile lifecycle. Preserve the explicit web_read retirement statement and document real restart and idempotent callback behavior."
+owner_domain = 11
+
+[doc.01]
+path = "docs/site/docs/interop/index.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 3: The overview separates LayerX execution and its balance writer from Paxeer custody and describes batch-oriented boundaries as the current network."
+
+[doc.02]
+path = "docs/wiki/Interop.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 12: The wiki routes readers to layerx-interop-gateway/src/server.rs for current routes and middleware, including line 29; runtime HTTP implementation lives in layerx-interop-service/src/server.rs."
+
+[doc.03]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 3: The operator runbook starts a separate LayerX daemon alongside Paxeer and gives layerxd --custody-profile instructions around line 54."
+
+[doc.04]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 3: The wiki beta-cluster runbook likewise treats a LayerX daemon and independently deployed custody profile as the running architecture, including layerxd instructions around line 40."
+
+[doc.05]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Read the complete page. Drift at line 3: The network landing page calls Paxeer the settlement and custody layer for a separate LayerX network; lines 5-9 place ordinary activity off-chain and describe periodic checkpoints and separate release and trust boundaries."
+
+[doc.06]
+path = "docs/site/docs/concepts/receipts.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 23: The receipt concept page presents executed, batched and checkpoint-finalised progression as the current finality model and line 46 directs portable verification through AuthorizedBatch."
+
+[doc.07]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 7: The registry page instructs operators to deploy and trust a distinct layerx-receipt-authority service, separate authorization credentials and replica-id ConfigMaps; lines 179-186 prescribe those dependencies as current."
+
+[doc.08]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "misleading"
+notes = "Read the complete page. Drift at line 3: Most of the portable receipt guide specifies v1 base64url fields and AuthorizedBatch verification even though current code exports v2 hex fields, receipt-key windows and receipted verification. Its old coverage narrative also omits the real current independent Python verification path."
+
+[doc.09]
+path = "docs/site/docs/interop/ramps.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 9: The ramp guide describes separate LayerX balances and Paxeer custody and historical beta platform state as the current deployment boundary. The useful distinction between verified provider evidence and receipt-backed execution does not require that split."
+
+[doc.10]
+path = "docs/site/docs/interop/ucp.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 18: The UCP page directs payment verification through layerx_proof::receipt::verify and AuthorizedBatch. The adapter now consumes receipt keys and SequencerEvidence and verifies signed native payment logs."
+
+[doc.11]
+path = "docs/site/docs/interop/visa-tap.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 21: The Visa TAP guide says settlement uses receipt::verify and AuthorizedBatch, whereas the current adapter verifies sequencer payment evidence and trusted agent/intent bindings."
+
+[doc.12]
+path = "docs/site/docs/protocol/xweb.md"
+status = "stale"
+notes = "Read the complete page. Drift at line 44: The xweb protocol guide says the gateway executes lx_sendActivity and recovers via lx_getActivityStatus or lx_getReceipt; line 24 retains single sequencer trust and kernel network configuration, and line 172 describes a separate sequencer batching observations."
+
+[doc.13]
+path = "services/interop/crates/layerx-portable/FORMAT.md"
+status = "stale"
+notes = "Read all 158 lines. Leading v1/base64/AuthorizedBatch instructions conflict with current v2; the evidence digest alone does not authenticate verifier provenance."
+
+[doc.14]
+path = "services/interop/deploy/gateway/README.md"
+status = "stale"
+notes = "Read all 216 lines. Current suite claims differ from the example and separate authority/sequencer guidance remains; see gateway_readme_manifest."
+
+[doc.15]
+path = "services/interop/deploy/mirror/signer-protocol.md"
+status = "accurate"
+notes = "Read all 11 lines. Four-byte bounded request framing, reply algorithm tags, secp256k1/Ed25519 use, Unix permissions and remote mTLS policy agree with the actual signer transport."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/interop-ucp.md"
+status = "accurate"
+notes = "Read the declared UCP interface and override excerpt, lines 1-170, rather than the entire generated historical contract. Historical AuthorizedBatch signatures require the active receipt-key and sequencer-evidence override when interpreting current code."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/interop-deploy.md"
+status = "accurate"
+notes = "Read deployment contract lines 1-90 and relevant receipt-key acceptance rows. Historical single-key CLI signatures must be interpreted with the active receipt-key overrides; this is not a current operator runbook."

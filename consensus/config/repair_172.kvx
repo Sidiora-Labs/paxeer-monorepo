@@ -1,0 +1,11 @@
+[repair.22.31.172]
+audit = "22.30.45"
+finding = "autobahn-key-in-wrong-table"
+change = "Move autobahn-config-file into the root TOML options before every table."
+proof = ["TestRepair_172_AutobahnPathRoundTrip", "TestRepair_172_SequencerAutobahnConflict"]
+path = "WriteConfigFile -> config.toml -> Viper ReadInConfig/Unmarshal -> commands.ParseConfig -> Config.ValidateBasic"
+baseline = "Not run: ordered gate instructions require complete implementation before testing and verification only through hf-done; no baseline failures claimed."
+wiring_requests = []
+build_command = "go build ./consensus/config/..."
+verify_command = "go test -count=1 ./consensus/config/"
+revision_and_gate_evidence = "/out/run/gates.jsonl; hf-build and hf-done record the exact candidate revision, command, exit code and private log path."

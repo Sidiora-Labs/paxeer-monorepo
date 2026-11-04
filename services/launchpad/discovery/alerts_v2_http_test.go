@@ -167,7 +167,7 @@ func TestPostgresV2AlertCreateAndDelete(t *testing.T) {
 			t.Fatalf("invalid create envelope: %+v (%v)", response, err)
 		}
 		want := AlertRule{
-			ID: alert.AlertId, OwnerAccountID: owner, PoolAddress: pool, Metric: "price", Direction: direction,
+			ID: alert.AlertId, OwnerAccountID: owner, PoolAddress: pool, Metric: "price", Direction: direction, Price: &input.Threshold,
 			Threshold:  string(input.Threshold.Numerator) + "/" + string(input.Threshold.Denominator),
 			Hysteresis: "0", Cooldown: 300 * time.Second, Channels: []string{"inapp"}, Revision: 1,
 		}

@@ -17,6 +17,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/assert"
@@ -124,7 +125,22 @@ func TestStakingGasGolden(t *testing.T) {
 				})
 			}
 			assert.Equal(t, charged[0], charged[1], "merge changed dynamic gas")
-			assert.Equal(t, outputs[0], outputs[1], "merge changed staking result")
+			if row.method == staking.RedelegationsMethod {
+				// The merge corrects sharesDst from integer token balance to
+				// decimal shares, including the producer's full precision.
+				beforeValues, err := method.Outputs.Unpack(outputs[0])
+				require.NoError(t, err)
+				before := abi.ConvertType(beforeValues[0], new(staking.RedelegationsResponse)).(*staking.RedelegationsResponse)
+				require.Len(t, before.Redelegations, 1)
+				require.Len(t, before.Redelegations[0].Entries, 1)
+				require.Equal(t, "10", before.Redelegations[0].Entries[0].SharesDst)
+				before.Redelegations[0].Entries[0].SharesDst = "10.000000000000000000"
+				expected, err := method.Outputs.Pack(*before)
+				require.NoError(t, err)
+				assert.Equal(t, expected, outputs[1], "merge must change only sharesDst units")
+			} else {
+				assert.Equal(t, outputs[0], outputs[1], "merge changed staking result")
+			}
 		})
 	}
 	for name := range contractABI.Methods {

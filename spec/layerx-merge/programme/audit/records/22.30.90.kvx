@@ -1,0 +1,641 @@
+[audit.22.30.90]
+task = "22.30.90"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 45
+findings = 28
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["native-send-owner", "proof-rung", "event-cursor", "event-replay-identity", "approval-replay-bounds"]
+note = "All 45 members were read in full; generated tables receive generated verdicts. Package interface arrays contain 400 produced and 400 consumed identifiers although totals are 1568/1501 and include broad Human rows outside these members. Findings identify concrete traced slice disagreements; this is not qualification of all external services. Of 80 historical requirement IDs only 1065.1 remains a req block in active spec; frozen contracts supply context, not acceptance qualification. No runtime service build, node probe or service test is part of this audit gate."
+
+[file.1]
+path = "services/agent/crates/layerx-agent-api/Cargo.toml"
+lines = 15
+verdict = "clean"
+note = "Reviewed manifest dependencies and build-script ownership; no runtime endpoint or configuration is introduced."
+
+[file.2]
+path = "services/agent/crates/layerx-agent-api/build.rs"
+lines = 411
+verdict = "clean"
+note = "Reviewed all generator parsing/emission against schema inputs; no separate runtime route or retired component is invoked."
+
+[file.3]
+path = "services/agent/crates/layerx-agent-api/src/error.rs"
+lines = 242
+verdict = "clean"
+note = "Reviewed error classes, terminal/retry mapping and rung status conversion; malformed values retain explicit refusals."
+
+[file.4]
+path = "services/agent/crates/layerx-agent-api/src/generated.rs"
+lines = 141
+verdict = "generated"
+note = "Generated schema identifier/name tables from build.rs; generator and schema own changes instead of hand edits."
+
+[file.5]
+path = "services/agent/crates/layerx-agent-api/src/identity.rs"
+lines = 1793
+verdict = "issues"
+note = "Reviewed every identity/preparation/consent/submission/tracking/budget carrier and inverse encoding; native-send consent disagreement is recorded."
+
+[file.6]
+path = "services/agent/crates/layerx-agent-api/src/lib.rs"
+lines = 138
+verdict = "clean"
+note = "Reviewed public reexports and shared amount/timestamp/selector types against current consumers."
+
+[file.7]
+path = "services/agent/crates/layerx-agent-api/src/operation_generated.rs"
+lines = 207
+verdict = "generated"
+note = "Generated operation constants from the authoritative catalogue; generator ownership retained for this output."
+
+[file.8]
+path = "services/agent/crates/layerx-agent-api/src/read.rs"
+lines = 1233
+verdict = "issues"
+note = "Reviewed all read/proof/export carriers, strict codecs and freshness fields; stronger-proof rejection is recorded."
+
+[file.9]
+path = "services/agent/crates/layerx-agent-api/src/stream.rs"
+lines = 306
+verdict = "clean"
+note = "Reviewed triple cursors, filters and event validation, including refusal of Submitted verified receipt evidence."
+
+[file.10]
+path = "services/agent/crates/layerx-agent-api/tests/approval.rs"
+lines = 108
+verdict = "clean"
+note = "Reviewed approval carrier tests, digest consistency and explicit-set semantics against the structural boundary."
+
+[file.11]
+path = "services/agent/crates/layerx-agent-api/tests/errors.rs"
+lines = 141
+verdict = "clean"
+note = "Reviewed protocol error-code round trips, retriability, reasons and malformed-code refusals."
+
+[file.12]
+path = "services/agent/crates/layerx-agent-api/tests/identity.rs"
+lines = 101
+verdict = "clean"
+note = "Reviewed identifier/authority constructor and canonical validation cases; no live retired endpoint is asserted."
+
+[file.13]
+path = "services/agent/crates/layerx-agent-api/tests/identity_rungs.rs"
+lines = 134
+verdict = "clean"
+note = "Reviewed committed budget mappings and errors; stream test is an enum carrier check, not EventDelivery admission proof."
+
+[file.14]
+path = "services/agent/crates/layerx-agent-api/tests/proof_agent_api.rs"
+lines = 373
+verdict = "issues"
+note = "Reviewed full structural codec proof and explicit authentication limit; independent committed-evidence coverage gap is recorded."
+
+[file.15]
+path = "services/agent/crates/layerx-agent-api/tests/read.rs"
+lines = 491
+verdict = "clean"
+note = "Reviewed selectors, histories, rung status and field validation; no erroneous stronger-evidence equality is asserted here."
+
+[file.16]
+path = "services/agent/crates/layerx-agent-api/tests/read_heights.rs"
+lines = 352
+verdict = "issues"
+note = "Reviewed every height/freshness test; stronger-receipt rejection assertion is recorded."
+
+[file.17]
+path = "services/agent/crates/layerx-agent-api/tests/rung.rs"
+lines = 52
+verdict = "clean"
+note = "Reviewed all public three-rung names/order/status tests and negative retired-vocabulary cases."
+
+[file.18]
+path = "services/agent/crates/layerx-agent-api/tests/schema.rs"
+lines = 421
+verdict = "clean"
+note = "Reviewed schema record/operation and exact-field assertions; shared native-send disagreement is recorded on identity.rs."
+
+[file.19]
+path = "services/agent/crates/layerx-agent-api/tests/schema_retired.rs"
+lines = 96
+verdict = "clean"
+note = "Reviewed retired schema/operation refusal assertions; retired strings are negative fixtures, not operational instructions."
+
+[file.20]
+path = "services/agent/crates/layerx-agent-api/tests/schema_rungs.rs"
+lines = 150
+verdict = "clean"
+note = "Reviewed current rung schema mappings and absence of old public level vocabulary; no authentication claim is made by structural checks."
+
+[file.21]
+path = "services/agent/crates/layerx-agent-api/tests/stream.rs"
+lines = 133
+verdict = "clean"
+note = "Reviewed subscription/event identity, filters and cursor tests against stream.rs admission rules."
+
+[file.22]
+path = "services/agent/crates/layerx-agent-api/tests/write.rs"
+lines = 199
+verdict = "clean"
+note = "Reviewed preparation/submission/tracking/approval carrier tests; no separate kernel transport is invoked."
+
+[file.23]
+path = "services/agent/crates/layerx-agentd/src/events/deliver.rs"
+lines = 862
+verdict = "issues"
+note = "Reviewed all queue, seam, stop, retry and acknowledgement logic; cursor, replay identity and pause defects are recorded."
+
+[file.24]
+path = "services/agent/crates/layerx-agentd/src/events/gap.rs"
+lines = 694
+verdict = "clean"
+note = "Reviewed gap detection, explicit refusals, retained recovery and reset boundaries against ingestion/subscription consumers."
+
+[file.25]
+path = "services/agent/crates/layerx-agentd/src/events/ingest.rs"
+lines = 1183
+verdict = "clean"
+note = "Reviewed complete node log ingestion, indexes, reconciliation and journal recovery. Evidence promotion is valid producer behaviour; its delivery identity disagreement is recorded in deliver.rs."
+
+[file.26]
+path = "services/agent/crates/layerx-agentd/src/events/mod.rs"
+lines = 136
+verdict = "clean"
+note = "Reviewed event module wiring/reexports and continuity/stop ownership; no unregistered alternate route found here."
+
+[file.27]
+path = "services/agent/crates/layerx-agentd/src/events/outbound.rs"
+lines = 907
+verdict = "issues"
+note = "Reviewed authenticated frames/acks, retries, cancellation and Unix dispatch; peer credential and connect deadline findings are recorded."
+
+[file.28]
+path = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+lines = 1700
+verdict = "issues"
+note = "Reviewed full durable lifecycle, scope, pause/resume, acknowledgement and decode; outstanding-window and upgrade-recovery findings are recorded."
+
+[file.29]
+path = "services/agent/crates/layerx-agentd/src/policy/approval.rs"
+lines = 2233
+verdict = "issues"
+note = "Reviewed complete hold/decision/reservation persistence and restore; cardinality disagreement and time-unit confusion are recorded."
+
+[file.30]
+path = "services/agent/crates/layerx-agentd/src/policy/dry_run.rs"
+lines = 228
+verdict = "clean"
+note = "Reviewed source checks, multi-effect aggregation and explicit denial/refusal semantics; simulation does not claim committed state."
+
+[file.31]
+path = "services/agent/crates/layerx-agentd/src/policy/eval.rs"
+lines = 1286
+verdict = "clean"
+note = "Reviewed all selectors, ceilings/rates, cost bounds and approval evaluation; no further producer shape disagreement found."
+
+[file.32]
+path = "services/agent/crates/layerx-agentd/src/policy/mod.rs"
+lines = 164
+verdict = "clean"
+note = "Reviewed public policy types, snapshots, evaluation and activation wiring; durable history issue belongs to version.rs."
+
+[file.33]
+path = "services/agent/crates/layerx-agentd/src/policy/native_program.rs"
+lines = 906
+verdict = "clean"
+note = "Reviewed complete native envelope/disclosure decoding, operation binding and bounded multi-effect evaluation."
+
+[file.34]
+path = "services/agent/crates/layerx-agentd/src/policy/operation.rs"
+lines = 245
+verdict = "clean"
+note = "Reviewed tenant source loading, deterministic request IDs and snapshot binding; restart-history issue is recorded in version.rs."
+
+[file.35]
+path = "services/agent/crates/layerx-agentd/src/policy/version.rs"
+lines = 425
+verdict = "issues"
+note = "Reviewed every parser, activation validator and version/audit operation; volatile reconstruction history is recorded."
+
+[file.36]
+path = "services/agent/crates/layerx-agentd/src/session_control.rs"
+lines = 4247
+verdict = "issues"
+note = "Reviewed all permit boundaries, cancellation and persistent MCP lifecycle/recovery; accumulated-history scan risk is recorded."
+
+[file.37]
+path = "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"
+lines = 105
+verdict = "clean"
+note = "Reviewed real HTTP/native-read server and consumer-owned restart harness wiring. Historical type names do not instruct a separate layerxd deployment."
+
+[file.38]
+path = "services/human/crates/layerx-human-service/src/agents/create.rs"
+lines = 1898
+verdict = "clean"
+note = "Reviewed complete creation/onboarding/rotation context, canonical lifecycle binding, verifier pins, idempotency and recovery; shared consent/approval disagreements are recorded on their owning members."
+
+[file.39]
+path = "services/human/crates/layerx-human-service/src/server/production_owner_tests.rs"
+lines = 94
+verdict = "clean"
+note = "Reviewed actual signed rotation evidence, authority membership and truncation/foreign-record refusals; internal numeric verification values are a bridge, not public rung names."
+
+[file.40]
+path = "services/human/crates/layerx-human-service/tests/approvals.rs"
+lines = 481
+verdict = "issues"
+note = "Reviewed complete inbox/decision/scope tests; textual preparation does not prove durable EVM producer agreement."
+
+[file.41]
+path = "services/human/crates/layerx-human-service/tests/decide.rs"
+lines = 725
+verdict = "issues"
+note = "Reviewed complete decision, timeout/idempotency and release tests; local maps and preparation fixtures leave production recovery/transport gaps."
+
+[file.42]
+path = "services/human/crates/layerx-human-service/tests/native_lifecycle.rs"
+lines = 148
+verdict = "clean"
+note = "Reviewed native lifecycle fixtures and actor/authority/payload/replay refusals against compiled lifecycle bytes."
+
+[file.43]
+path = "tests/agent/sdk/python/test_ai_market.py"
+lines = 1116
+verdict = "clean"
+note = "Reviewed complete AI-market request/finalization/approval and type-2 assertions; old helper data used for explicit unavailable/refusal paths is not a live deployment instruction."
+
+[file.44]
+path = "tests/agent/sdk/python/test_integration.py"
+lines = 332
+verdict = "issues"
+note = "Reviewed authentication, ambiguity, packaging and backend tests; positive retired rung/activity fixtures disagree with current production."
+
+[file.45]
+path = "tests/agent/sdk/python/test_stub_surface.py"
+lines = 25
+verdict = "clean"
+note = "Reviewed stub-source surface and exports; packaging declarations do not claim runtime qualification."
+
+[finding.native-send-owner]
+file = "services/agent/crates/layerx-agent-api/src/identity.rs"
+line = 416
+class = "interface-mismatch"
+severity = "high"
+observed = "NativeSendPurposeV1::validate_fields derives owner_did from the current 32-byte owner_public_key and fixes protocol_version to 3. Canonical/wire formats retain hex32 keys and hex64 signatures. services/agent/schema/agent-api/v1.kvx:900-901 instead declares EIP-1559 type 2 and an actual 20-byte owner address, despite its incompatible field list. human_runtime.rs:6275 constructs and validates this record on the live EVM preparation path. A stable owner DID with a rotated primary key also fails the derived-DID equality."
+expected = "Native-send consent must authenticate the actual current owner and bind the prepared type-2 transaction on chain 125 with one agreed representation across Human, daemon, SDK and custody. Stable principal identity must survive legitimate primary-key rotation."
+proposal = "In services/agent/schema/agent-api/v1.kvx and layerx-agent-api/src/identity.rs define a versioned consent contract distinguishing stable owner DID, consent verification key and recovered 20-byte EVM sender. Update agent_rpc_wire.rs, human_runtime.rs and Human/custody consumers together; retain explicit legacy refusal and prove a rotated-owner Send through transport, signing and restart."
+owner_domain = 9
+interface = "9.rs-agent-api-nativesendpurposev1-validate-j70"
+
+[finding.proof-rung]
+file = "services/agent/crates/layerx-agent-api/src/read.rs"
+line = 407
+class = "interface-mismatch"
+severity = "high"
+observed = "ProofBundle::check_response requires achieved_rung == selector.required_rung(). Activity and Receipt selectors return Receipted, so a valid Committed bundle fails even when the caller requested Committed. The daemon agent_rpc_adapters.rs and SDK agent_envelope.rs call this shared check."
+expected = "services/agent/schema/agent-api/v1.kvx:487 requires at least Receipted for Activity/Receipt and Committed for AccountState. Stronger authenticated evidence must satisfy both the selector minimum and the requested rung."
+proposal = "In layerx-agent-api/src/read.rs compare achieved_rung against both selector minimum and requested_rung while retaining field-set and verification-level agreement. Prove a real committed transaction receipt through daemon RPC and SDK for Activity and Receipt selectors, plus downgrade refusals."
+owner_domain = 9
+interface = "9.rs-agent-api-proofbundle-check-response-j70"
+
+[finding.proof-rung-test]
+file = "services/agent/crates/layerx-agent-api/tests/read_heights.rs"
+line = 224
+class = "test-gap"
+severity = "medium"
+observed = "proof_bundle_mirror_requires_receipted_or_committed_rungs asserts success only when achieved == expected. This positively requires rejecting Committed evidence for Activity and Receipt, preserving the read.rs minimum-versus-equality defect."
+expected = "The schema minimum permits Committed evidence for Activity and Receipt requests at Receipted or Committed. Insufficient and internally inconsistent evidence must remain refused."
+proposal = "Replace the equality expectation in layerx-agent-api/tests/read_heights.rs with explicit committed success cases for both selectors and retain all lower-rung and inconsistent-field negative cases. Add the real producer-to-RPC regression with independently verified committed evidence."
+owner_domain = 9
+
+[finding.event-cursor]
+file = "services/agent/crates/layerx-agentd/src/events/deliver.rs"
+line = 244
+class = "interface-mismatch"
+severity = "high"
+observed = "DeliveryEngine::open_inner interprets acknowledged_cursor.block_height as a local durable sequence. next_source_item:624-648 publishes sequence+1 as block_height and zeros tx_index/log_index although ingest retains the Ethereum log position. A node cursor therefore selects the wrong local rows and restart resumes from a fabricated position."
+expected = "The public cursor is the ordered block_height/tx_index/log_index triple identifying node events; ingestion, delivery, acknowledgement and restart must retain that position separately from internal ordinals."
+proposal = "In events/deliver.rs carry the retained node log cursor into EventDelivery and select resume/backfill boundaries using that cursor. Keep journal ordinals separate. Prove two logs per transaction and two transactions per block through delivery, acknowledgement, process reopen and live backfill seam."
+owner_domain = 9
+interface = "9.rs-agentd-deliveryengine-open-j70"
+
+[finding.event-replay-identity]
+file = "services/agent/crates/layerx-agentd/src/events/deliver.rs"
+line = 796
+class = "interface-mismatch"
+severity = "high"
+observed = "event_identity hashes local sequence and canonical_bytes. ingest.rs:1074-1094 promotes a receipted log by replacing bytes when blockHash becomes known, and durable_event overlays that committed representation. Delivery effects followed by promotion and reopen before acknowledgement change the deduplication_id for the same transaction log."
+expected = "At-least-once delivery requires a stable consumer deduplication key across evidence promotion and process restart, even when block hashes or stronger evidence become available."
+proposal = "In events/deliver.rs derive identity from immutable tenant/chain and transaction-log identity retained by events/ingest.rs, with an explicit rule for logs lacking transaction hashes. Prove send-without-ack, receipt promotion, process reopen and replay preserve one identity and one consumer effect."
+owner_domain = 9
+interface = "9.rs-agentd-events-deliver-deliveryengine"
+
+[finding.outbound-peer]
+file = "services/agent/crates/layerx-agentd/src/events/outbound.rs"
+line = 629
+class = "security"
+severity = "medium"
+observed = "peer_identity obtains uid/gid from /proc/self/fd metadata for the client socket inode. authenticate_peer treats local ownership as connected receiver identity, so a valid receiver under another UID is refused and the reported peer is not the remote process. Separate HMAC checks do not correct peer attribution."
+expected = "The expected_peer setting must be checked against operating-system credentials of the connected Unix peer before frames or delivery receipts are trusted."
+proposal = "Replace peer_identity in events/outbound.rs with Linux SO_PEERCRED or the supported platform peer-credential API. Keep HMAC binding, reject unavailable credentials explicitly and exercise real cross-UID and wrong-UID receiver processes."
+owner_domain = 9
+interface = "9.rs-agentd-events-outbound-peer-identity-j43"
+
+[finding.outbound-connect-deadline]
+file = "services/agent/crates/layerx-agentd/src/events/outbound.rs"
+line = 544
+class = "runtime-risk"
+severity = "medium"
+observed = "exchange calls blocking UnixStream::connect before setting nonblocking mode and constructing WaitBudget. A full Unix listener backlog can block delivery before endpoint.deadline or cancellation_poll applies, retaining the worker beyond its configured bound."
+expected = "The endpoint deadline and cancellation must bound connection establishment as well as frame writes and acknowledgement reads."
+proposal = "In events/outbound.rs establish a nonblocking Unix connection under the same end-to-end wait budget, poll completion and cancellation, and map timeout to the existing retry state. Exercise a real saturated listener backlog and revocation during connection establishment."
+owner_domain = 9
+
+[finding.approval-replay-bounds]
+file = "services/agent/crates/layerx-agentd/src/policy/approval.rs"
+line = 1220
+class = "interface-mismatch"
+severity = "high"
+observed = "encode_legacy_hold writes u32 counts for budget_reservations, counterparties and amounts without MAX_DISCLOSURE_ITEMS checks. validate_reservation has no 64-item ceiling, while decode_reservations:1489 and decode_legacy_hold:1399/1408 reject counts above 64. A successful small hold covering 65 limits fits MAX_HOLD_RECORD_BYTES but cannot reopen, preventing approval restoration and retaining reservations."
+expected = "Every successfully published durable approval must be accepted by its restart decoder. Cardinalities must be checked consistently before publication or leaving budget reserved."
+proposal = "In policy/approval.rs share validated cardinality limits between admission, encoder and decoder and reject oversized holds before durable publication with reservation rollback. Preserve decoder safety checks; prove 64-item success/reopen and 65-item named refusal without leaked reservations using the real persistent registry."
+owner_domain = 9
+interface = "9.rs-agentd-policy-approval-hold-reserved-at-j43"
+
+[finding.approval-time-units]
+file = "services/agent/crates/layerx-agentd/src/policy/approval.rs"
+line = 758
+class = "runtime-risk"
+severity = "medium"
+observed = "hold_inner compares expires_at_sequence with prepared.expiry.0 although Prepared.expiry is TimestampSeconds. Public hold/hold_reserved retain this path and ApprovalService calls hold_reserved; hold_reserved_at already accepts a distinct protocol-time presentation."
+expected = "A block-sequence approval window and an unsigned transaction Unix expiry use different units. Admission and release must check each against its corresponding current source."
+proposal = "Route ApprovalService and remaining callers through the timed entry in policy/approval.rs, introduce distinct sequence/time argument types and explicitly retire ambiguous legacy entries. Prove realistic chain heights and Unix seconds, including time expiry without a sequence change."
+owner_domain = 9
+interface = "9.rs-agentd-policy-approval-hold-reserved-j43"
+
+[finding.paused-delivery]
+file = "services/agent/crates/layerx-agentd/src/events/deliver.rs"
+line = 737
+class = "runtime-risk"
+severity = "medium"
+observed = "delivery_attempt and eligible_sequences check stops and continuity but never subscription.paused. outbound::exchange can send a buffered frame and receive acceptance; only finish_delivery reaches SubscriptionStore::mark_delivered_inner:524 and returns Paused. Receiver effects can occur without recorded delivery, followed by retries."
+expected = "A paused subscription must stop dispatching new frames, including buffered frames, and resume from an unambiguous durable boundary."
+proposal = "In events/deliver.rs and events/outbound.rs check current durable paused state at dequeue and immediately before dispatch, coordinated with pause transitions. Define in-flight acknowledgement semantics and prove pause after buffering, no receiver effect while paused and one delivery after resume."
+owner_domain = 9
+
+[finding.unacknowledged-window]
+file = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+line = 539
+class = "runtime-risk"
+severity = "medium"
+observed = "mark_delivered_inner inserts each cursor in delivered_unacknowledged and encode_record serializes the entire set per delivery. No outstanding window is enforced; DeliveryEngine capacity bounds only its queue. A receiver accepting frames without acknowledging grows durable state and repeated write work indefinitely."
+expected = "Subscription quotas must bound delivered-but-unacknowledged history while preserving ordered acknowledgement checks and restart replay."
+proposal = "Add a configured per-subscription outstanding-delivery window in events/subscription.rs and propagate backpressure through delivery/outbound before further effects. Resume after acknowledgement and prove the limit, durable reopen and ordered replay with a real slow-ack receiver."
+owner_domain = 9
+
+[finding.subscription-upgrade-recovery]
+file = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+line = 1400
+class = "restart-recovery"
+severity = "medium"
+observed = "decode_record returns CursorResetRequired for PREVIOUS_RECORD_MAGIC or LEGACY_RECORD_MAGIC. load_records:281 propagates the first such error from open/open_shared, preventing all subscriptions in the tenant from loading. This API exposes no identified per-subscription migration/reset operation."
+expected = "Refusing incompatible cursor encodings is appropriate, but upgrade recovery must identify affected subscriptions and provide an explicit operator action with an auditable replay boundary."
+proposal = "Provide a backed-up migration or authenticated reset operation owned by events/subscription.rs, with subscription identity in the refusal and documented replay consequences. Exercise a mixed old/current tenant store through refusal, operator recovery and reopen without silently discarding records."
+owner_domain = 9
+
+[finding.policy-history-durability]
+file = "services/agent/crates/layerx-agentd/src/policy/version.rs"
+line = 94
+class = "restart-recovery"
+severity = "medium"
+observed = "PolicyRegistry retains versions and decision audit entries only in BTreeMaps; initial resets generation to 1 and record_decision overwrites by request_id. operation::load_tenant_registries reloads current source files at boot. Historical sources and decisions advertised as retained for reconstruction disappear on restart."
+expected = "Decisions explaining approval or refusal must remain attributable to the exact tenant policy generation and source after restart, under an explicit bounded retention lifecycle."
+proposal = "In policy/version.rs and policy/operation.rs persist tenant activation/source digests and decision references before publishing them, reconstruct generation on boot and define retention quotas. Prove a decision under one version followed by activation, reopen and reconstruction of the original decision."
+owner_domain = 9
+
+[finding.mcp-history-scan]
+file = "services/agent/crates/layerx-agentd/src/session_control.rs"
+line = 4004
+class = "runtime-risk"
+severity = "medium"
+observed = "mcp_transition_updates scans all retained MCP invocations under every tenant Idempotency namespace during store transitions and restores tenant session registries. mcp_store_evidence_for_tool also scans all invocation IDs. No terminal-record retention or indexed lookup bounds accumulated history, so session/store work grows with lifetime invocation count."
+expected = "Durable MCP evidence must retain unknown/effect-started outcomes while bounding lookup and transition work for long-lived tenants, including timely session revocation."
+proposal = "In session_control.rs index invocations by session/generation and idempotency/tool, define bounded retention or archival for terminal records and pin unresolved effects. Prove revocation and lookup with accumulated history, archive/reopen and unresolved invocations intact."
+owner_domain = 9
+
+[finding.proof-corpus-gap]
+file = "services/agent/crates/layerx-agent-api/tests/proof_agent_api.rs"
+line = 21
+class = "test-gap"
+severity = "medium"
+observed = "This structural proof explicitly preserves vector-v5-portable.json blockHeader/receiptInclusion/commit/validatorSet JSON fragments as opaque CanonicalBytes via recorded_evidence. It does not execute independent EVM inclusion or Comet commit verification on those fields and cannot establish that committed producer evidence is consumable."
+expected = "The committed-proof interface needs a real producer-to-transport-to-independent-verifier regression with encoded node evidence, in addition to useful strict structural codec checks."
+proposal = "Extend the producer-owned corpus and layerx-agent-api/tests/proof_agent_api.rs with actual encoded EVM receipt inclusion, Comet header/commit and validator-set bytes from one landing block. Exercise daemon/SDK decoding, independent verification and reopen, retaining all malformed-field refusals."
+owner_domain = 9
+
+[finding.python-retired-contract]
+file = "tests/agent/sdk/python/test_integration.py"
+line = 126
+class = "test-gap"
+severity = "medium"
+observed = "The HTTP test sends/asserts requested_verification_level=sequencer-signed through a local echo handler. canonical_program_call encodes a protocol-1 tagged kernel activity and the ambiguity test:167 expects SHA256(LXP/v1/activity-id NUL || signed) rather than a type-2 transaction hash. Fixtures bypass the current producer and three-rung decoder."
+expected = "Python integration must use submitted/receipted/committed and EIP-1559 on chain 125, retaining exact signed raw bytes and Keccak transaction hash after ambiguous submission."
+proposal = "In tests/agent/sdk/python/test_integration.py replace positive legacy fixtures with production SDK type-2 preparation and the real daemon read/submission path. Preserve negative tests for retired vocabulary/kernel frames and prove ambiguous send retains bytes and txHash across recovery."
+owner_domain = 9
+
+[finding.human-approval-fixture]
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+line = 41
+class = "test-gap"
+severity = "medium"
+observed = "prepared builds unsigned_canonical_bytes from agent-generated-held-movement text and uses an unrelated repeated-byte signing preimage. The in-memory registry accepts the digest, but durable restoration validates an unsigned EIP-1559 call and sender. Inbox tests do not exercise that production shape or process recovery."
+expected = "Human approval projections must consume real daemon holds containing valid bound unsigned type-2 transactions and preserve identical identity/status through durable reopen."
+proposal = "In layerx-human-service/tests/approvals.rs obtain Prepared from the real daemon owner, persist a hold, use authenticated Human-agent transport and reopen before listing/deciding. Assert exact disclosure and reservation state while preserving all foreign-scope refusals."
+owner_domain = 10
+
+[finding.human-decision-fixture]
+file = "services/human/crates/layerx-human-service/tests/decide.rs"
+line = 275
+class = "test-gap"
+severity = "medium"
+observed = "The decision harness supplies textual movement bytes and a repeated-byte preimage, uses in-memory released/seen maps and a fixed verified_budget_after projection. Local decision logic does not prove durable type-2 holds, authenticated transport and real budget/release owners agree after restart."
+expected = "Confirmed approval must release the producer-held transaction at most once and report budget evidence from the actual owner, including lost replies and restart."
+proposal = "In layerx-human-service/tests/decide.rs prepare a real bound type-2 call and persist reservations/approval. Exercise Human decisions over actual agent transport, reopen both owners after a lost reply and assert one release and actual reconciled budget evidence, preserving refusal assertions."
+owner_domain = 10
+
+[finding.readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 present paxd and the separate layerxd C17 kernel as two running domains and describe kernel receipts/checkpoint settlement. The architecture section around 140-218 routes agents through LNI to layerxd. Pre-merge architecture is presented as current."
+expected = "The finished network is one BFT paxd chain with integrated kernel, EVM chain id 125 and finality at block commit. Integrators must not deploy a separate sequencer or layerxd."
+proposal = "Rewrite the introduction and diagram in docs/readme/README.pt-BR.md to show merged paxd and root JSON-RPC, current services/agent and services/human paths and committed-block finality. Remove operational instructions for retired LNI/kernel sequencing and checkpoint anchoring."
+owner_domain = 9
+
+[finding.readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 present paxd and the separate layerxd C17 kernel as two running domains and describe kernel receipts/checkpoint settlement. The architecture section around 140-218 routes agents through LNI to layerxd. Pre-merge architecture is presented as current."
+expected = "The finished network is one BFT paxd chain with integrated kernel, EVM chain id 125 and finality at block commit. Integrators must not deploy a separate sequencer or layerxd."
+proposal = "Rewrite the introduction and diagram in docs/readme/README.fr.md to show merged paxd and root JSON-RPC, current services/agent and services/human paths and committed-block finality. Remove operational instructions for retired LNI/kernel sequencing and checkpoint anchoring."
+owner_domain = 9
+
+[finding.readme-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 present paxd and the separate layerxd C17 kernel as two running domains and describe kernel receipts/checkpoint settlement. The architecture section around 140-218 routes agents through LNI to layerxd. Pre-merge architecture is presented as current."
+expected = "The finished network is one BFT paxd chain with integrated kernel, EVM chain id 125 and finality at block commit. Integrators must not deploy a separate sequencer or layerxd."
+proposal = "Rewrite the introduction and diagram in docs/readme/README.ja.md to show merged paxd and root JSON-RPC, current services/agent and services/human paths and committed-block finality. Remove operational instructions for retired LNI/kernel sequencing and checkpoint anchoring."
+owner_domain = 9
+
+[finding.readme-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 present paxd and the separate layerxd C17 kernel as two running domains and describe kernel receipts/checkpoint settlement. The architecture section around 140-218 routes agents through LNI to layerxd. Pre-merge architecture is presented as current."
+expected = "The finished network is one BFT paxd chain with integrated kernel, EVM chain id 125 and finality at block commit. Integrators must not deploy a separate sequencer or layerxd."
+proposal = "Rewrite the introduction and diagram in docs/readme/README.ru.md to show merged paxd and root JSON-RPC, current services/agent and services/human paths and committed-block finality. Remove operational instructions for retired LNI/kernel sequencing and checkpoint anchoring."
+owner_domain = 9
+
+[finding.readme-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 present paxd and the separate layerxd C17 kernel as two running domains and describe kernel receipts/checkpoint settlement. The architecture section around 140-218 routes agents through LNI to layerxd. Pre-merge architecture is presented as current."
+expected = "The finished network is one BFT paxd chain with integrated kernel, EVM chain id 125 and finality at block commit. Integrators must not deploy a separate sequencer or layerxd."
+proposal = "Rewrite the introduction and diagram in docs/readme/README.zh-CN.md to show merged paxd and root JSON-RPC, current services/agent and services/human paths and committed-block finality. Remove operational instructions for retired LNI/kernel sequencing and checkpoint anchoring."
+owner_domain = 9
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 present paxd and the separate layerxd C17 kernel as two running domains and describe kernel receipts/checkpoint settlement. The architecture section around 140-218 routes agents through LNI to layerxd. Pre-merge architecture is presented as current."
+expected = "The finished network is one BFT paxd chain with integrated kernel, EVM chain id 125 and finality at block commit. Integrators must not deploy a separate sequencer or layerxd."
+proposal = "Rewrite the introduction and diagram in docs/readme/README.de.md to show merged paxd and root JSON-RPC, current services/agent and services/human paths and committed-block finality. Remove operational instructions for retired LNI/kernel sequencing and checkpoint anchoring."
+owner_domain = 9
+
+[finding.readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-41 present paxd and the separate layerxd C17 kernel as two running domains and describe kernel receipts/checkpoint settlement. The architecture section around 140-218 routes agents through LNI to layerxd. Pre-merge architecture is presented as current."
+expected = "The finished network is one BFT paxd chain with integrated kernel, EVM chain id 125 and finality at block commit. Integrators must not deploy a separate sequencer or layerxd."
+proposal = "Rewrite the introduction and diagram in docs/readme/README.es.md to show merged paxd and root JSON-RPC, current services/agent and services/human paths and committed-block finality. Remove operational instructions for retired LNI/kernel sequencing and checkpoint anchoring."
+owner_domain = 9
+
+[finding.agentd-doc-site]
+file = "docs/site/docs/agents/agentd.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and lines 12-15 describe signed batch evidence, a layerx-sequencer-authority-v1 file and a real sequencer handshake. The later verification table retains the old multi-level vocabulary. Library-era sequencing is described as the current daemon model."
+expected = "Agent operation must follow the merged BFT node, submitted/receipted/committed and actual native preparation, approval, budget and recovery ownership."
+proposal = "Rewrite docs/site/docs/agents/agentd.md from current services/agent wiring: show pinned committed-node evidence, three public rungs, native EVM submission and durable approval/budget recovery. Replace separate-sequencer setup, verification tables and stale source citations."
+owner_domain = 9
+
+[finding.agentd-doc-wiki]
+file = "docs/wiki/Agentd.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and lines 12-15 describe signed batch evidence, a layerx-sequencer-authority-v1 file and a real sequencer handshake. The later verification table retains the old multi-level vocabulary. Library-era sequencing is described as the current daemon model."
+expected = "Agent operation must follow the merged BFT node, submitted/receipted/committed and actual native preparation, approval, budget and recovery ownership."
+proposal = "Rewrite docs/wiki/Agentd.md from current services/agent wiring: show pinned committed-node evidence, three public rungs, native EVM submission and durable approval/budget recovery. Replace separate-sequencer setup, verification tables and stale source citations."
+owner_domain = 9
+
+[finding.running-doc]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The guide directs eth_sendRawTransaction to /rpc at 512. Lines 67-87 teach sequencer trust-anchor profiles, line 482 requires VerificationLevel.SequencerSigned and configuration rows 701-702 list retired verification vocabulary and a separate sequencer authority source as current."
+expected = "Node JSON-RPC uses the root path on declared mainnet-beta hosts, chain id 125 and current three-rung verification. Operator guidance must match merged daemon configuration."
+proposal = "Update docs/site/docs/agents/running.md endpoints, evidence setup and configuration table together from current daemon/node declarations. Show root-path EVM submission, current rungs and committed evidence pins, plus explicit migration for old profiles."
+owner_domain = 9
+
+[doc.1]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "accurate"
+notes = "Relevant event-source journaling and Human approval projection sections agree with this slice. The page explicitly distinguishes unqualified deployment paths; no separate kernel deployment or /rpc endpoint is instructed. Wider hosted-stack qualification is not claimed."
+
+[doc.2]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Wrong /rpc endpoint at 512, old SequencerSigned advice at 482 and obsolete verification/configuration rows at 701-702; rewrite examples and migration guidance together."
+
+[doc.3]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Opening lines 3-15 retain sequencer-handshake and authority-file guidance; later verification table uses retired multi-level vocabulary. Rewrite for merged node evidence and current owner wiring."
+
+[doc.4]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+
+[doc.5]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+
+[doc.6]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+
+[doc.7]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+
+[doc.8]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+
+[doc.9]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+
+[doc.10]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+
+[doc.11]
+path = "docs/wiki/HostedInternal.md"
+status = "accurate"
+notes = "Relevant event-source journaling and Human approval projection sections agree with this slice. The page explicitly distinguishes unqualified deployment paths; no separate kernel deployment or /rpc endpoint is instructed. Wider hosted-stack qualification is not claimed."
+
+[doc.12]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "Opening lines 3-15 retain sequencer-handshake and authority-file guidance; later verification table uses retired multi-level vocabulary. Rewrite for merged node evidence and current owner wiring."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "accurate"
+notes = "Relevant API/daemon contract sections reviewed, including current EIP-1559 AI-market amendment. The historical revision pin 2a1033aa2 is explicit; tables do not establish live proof authentication or native-send consent agreement."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/agent-human-peer.md"
+status = "accurate"
+notes = "Relevant pinned Human-agent opcode sections reviewed, including account/identity, native-send and approval boundaries. Revision pin is explicit; opcode names alone do not establish current payload/recovery agreement."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Relevant service rules and Human-service context reviewed: chain writes use signed EVM transactions and unavailable evidence is refused. Historical citations are pinned to 2a1033aa2; wider catalogue qualification is not claimed."
