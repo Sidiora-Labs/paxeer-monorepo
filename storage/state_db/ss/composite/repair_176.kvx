@@ -1,0 +1,14 @@
+[repair.22.31.176]
+audit = "22.30.45"
+baseline = "Not run: the task's ordered gate instructions prohibit verification before full implementation and require verification exclusively through hf-done; no pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the verified candidate revision, exact commands, exit codes and private log locations."
+
+[finding.flatkv-module-key-collision]
+test = "TestRepair_176_FlatKVModuleKeyCollision"
+proof = "Real FlatKV ApplyChangeSets/Commit/Exporter feeds composite Import and disk reopen; opaque colliding 21/53-byte keys preserve module/key/value across bank, staking and auth alongside optimized and legacy EVM data, with split disabled, unified EVM and separate EVM sub-DBs."
+
+[finding.split-recovery-incomplete-wal]
+test = "TestRepair_176_SplitRecoveryIncompleteWAL"
+initial_height_test = "TestRepair_176_InitialHeightRecovery"
+proof = "Real FlatKV Commit emits WAL entries used to seed disk-backed Cosmos/EVM divergence in either direction; startup refuses empty, leading-truncated, tail-truncated and internally incomplete WALs with state-sync errors; complete retained history recovers all versions and survives another reopen, including a block without EVM changes, while synchronized stores accept empty WALs."

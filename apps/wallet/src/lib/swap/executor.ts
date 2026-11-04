@@ -144,24 +144,42 @@ async function executeSidioraSwap(
 
 // ── Sidiora token-to-token multihop ────────────────────────────────────────────
 
+type SidioraMultihopArguments = [
+  tokenIn: string,
+  tokenOut: string,
+  amountIn: bigint,
+  minAmountOut: bigint,
+  deadline: bigint,
+];
+
+type SidioraMultihopReturn = [amountOut: bigint, intermediateUsdl: bigint];
+
+export function prepareSidioraMultihop(
+  runner: ethers.ContractRunner,
+  quote: SwapQuote,
+  params: SwapParams
+) {
+  const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, runner);
+  const method: ethers.ContractMethod<SidioraMultihopArguments, SidioraMultihopReturn> =
+    router.getFunction('swapTokenForToken');
+  const args: SidioraMultihopArguments = [
+    quote.tokenIn.address,
+    quote.tokenOut.address,
+    BigInt(quote.amountIn),
+    (BigInt(quote.amountOut) * BigInt(10000 - params.slippageBps)) / 10000n,
+    BigInt(Math.floor(Date.now() / 1000) + (params.deadline ?? 300)),
+  ];
+  return { router, method, args };
+}
+
 async function executeSidioraMultihop(
   signer: ethers.Signer,
   quote: SwapQuote,
   params: SwapParams
 ): Promise<SwapResult> {
-  const dl = BigInt(Math.floor(Date.now() / 1000) + (params.deadline ?? 300));
-  const amountIn = BigInt(quote.amountIn);
-  const slipBps = params.slippageBps;
+  const { method, args } = prepareSidioraMultihop(signer, quote, params);
   await sidioraApproveRouter(quote.tokenIn.address, signer);
-  const minOut = (BigInt(quote.amountOut) * BigInt(10000 - slipBps)) / 10000n;
-  const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
-  const tx = await router.swapTokenToToken(
-    quote.tokenIn.address,
-    quote.tokenOut.address,
-    amountIn,
-    minOut,
-    dl
-  );
+  const tx = await method.send(...args);
   return awaitSwapReceipt(tx);
 }
 

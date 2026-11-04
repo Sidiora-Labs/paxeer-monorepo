@@ -33,7 +33,7 @@ func syncCommand(ctx *cli.Context) error {
 		}
 	}
 
-	destinations := ctx.StringSlice("dest")
+	destinations := ctx.StringSlice(dstFlag.Name)
 	if len(destinations) == 0 {
 		return fmt.Errorf("no destinations provided")
 	}
@@ -71,7 +71,7 @@ func syncCommand(ctx *cli.Context) error {
 	}
 
 	return newSyncEngine(
-		context.Background(),
+		ctx.Context,
 		logger,
 		sources,
 		destinations,
@@ -159,11 +159,20 @@ func newSyncEngine(
 
 // run the sync engine. This method blocks until the context is cancelled or an unrecoverable error occurs.
 func (s *syncEngine) run() error {
-	go s.syncLoop()
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		s.syncLoop()
+	}()
+	defer func() {
+		s.cancel()
+		<-loopDone
+	}()
 
 	// Create a channel to listen for OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	// Wait for signal
 	select {
@@ -225,7 +234,7 @@ func (s *syncEngine) sync() {
 
 	s.logger.Info("Pruning remote data", "max_age_seconds", s.maxAgeSeconds)
 
-	command := fmt.Sprintf("%s prune --max-age %d", s.remoteLittBinary, s.maxAgeSeconds)
+	command := s.pruneCommand()
 	sshSession, err := util.NewSSHSession(
 		s.logger,
 		s.user,
@@ -265,4 +274,17 @@ func (s *syncEngine) sync() {
 // Stop stops the sync engine by cancelling the context.
 func (s *syncEngine) Stop() {
 	s.cancel()
+}
+
+// pruneCommand preserves each path as one shell argument on the remote host.
+func (s *syncEngine) pruneCommand() string {
+	command := fmt.Sprintf("%s prune --max-age %d", quoteRemoteArgument(s.remoteLittBinary), s.maxAgeSeconds)
+	for _, destination := range s.destinations {
+		command += " --" + srcFlag.Name + " " + quoteRemoteArgument(destination)
+	}
+	return command
+}
+
+func quoteRemoteArgument(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }

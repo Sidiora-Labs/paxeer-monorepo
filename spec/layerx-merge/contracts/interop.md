@@ -14,16 +14,16 @@ The context and decision tables reproduce the rules linked by interface identifi
 | <code>interface.11.http-relayer-v1-release-j48</code> | <code>http_route</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs</code> (planned) | <code>GET /v1/release/{chainId}/{paxeerTxHash}/{nonce} -&gt; 200 bundle {chainId, vault, paxeerTxHash, paxeerNonce, recipient, asset, amount, digest, signatures, status} &#124; 404 while unobserved</code> |
 | <code>interface.11.rs-relayer-attestation-view-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs</code> (planned) | <code>pub struct AttestationView { items, signatures, thresholds }</code> |
 | <code>interface.11.rs-relayer-deposit-answer-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs</code> (planned) | <code>pub fn deposit_answer(view: &amp;AttestationView, chain_id: u64, tx_hash: &amp;[u8; 32], log_index: u64) -&gt; Option&lt;serde_json::Value&gt;</code> |
-| <code>interface.11.rs-relayer-paxeer-endpoint-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/transport.rs</code> (planned) | <code>pub struct PaxeerEndpoint { url, request_timeout, trust_anchor, local_emulator }</code> |
-| <code>interface.11.rs-relayer-paxeer-transport-call-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/transport.rs</code> (planned) | <code>pub fn call(&amp;self, method: &amp;str, params: &amp;Value) -&gt; Result&lt;Value, TransportFault&gt;</code> |
+| <code>interface.11.rs-relayer-paxeer-endpoint-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/transport.rs</code> (planned) | <code>pub struct PaxeerEndpoint { url: String, request_timeout: Duration, trust_anchor_der: Option&lt;Vec&lt;u8&gt;&gt;, expected_chain_id: u64 }</code> |
+| <code>interface.11.rs-relayer-paxeer-transport-call-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/transport.rs</code> (planned) | <code>pub fn call(endpoint: &amp;PaxeerEndpoint, method: &amp;str, params: &amp;Value) -&gt; Result&lt;Value, TransportFault&gt;</code> |
 | <code>interface.11.rs-relayer-paxeer-transport-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/transport.rs</code> (planned) | <code>pub struct PaxeerTransport</code> |
 | <code>interface.11.rs-relayer-relayer-attestation-view-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/relayer.rs</code> (planned) | <code>pub fn attestation_view(&amp;self) -&gt; AttestationView</code> |
 | <code>interface.11.rs-relayer-release-answer-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs</code> (planned) | <code>pub fn release_answer(view: &amp;AttestationView, chain_id: u64, paxeer_tx_hash: &amp;[u8; 32], nonce: u64) -&gt; Option&lt;serde_json::Value&gt;</code> |
-| <code>interface.11.rs-relayer-sequencer-receipt-decode-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/receipt.rs</code> (planned) | <code>pub fn decode(value: &amp;serde_json::Value) -&gt; Result&lt;SequencerReceipt, RpcFault&gt;</code> |
+| <code>interface.11.rs-relayer-sequencer-receipt-decode-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/receipt.rs</code> (planned) | <code>pub fn decode(value: &amp;serde_json::Value) -&gt; Result&lt;SequencerReceipt, ReceiptError&gt;</code> |
 | <code>interface.11.rs-relayer-sequencer-receipt-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/receipt.rs</code> (planned) | <code>pub struct SequencerReceipt { rung, tx_hash, nonce, view, block }</code> |
-| <code>interface.11.rs-relayer-sequencer-receipt-verify-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/receipt.rs</code> (planned) | <code>pub fn verify(&amp;self, keys: &amp;[SequencerAuthorization]) -&gt; Result&lt;(), RpcFault&gt;</code> |
+| <code>interface.11.rs-relayer-sequencer-receipt-verify-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/receipt.rs</code> (planned) | <code>pub fn verify(&amp;self, keys: &amp;[SequencerAuthorization]) -&gt; Result&lt;(), ReceiptError&gt;</code> |
 | <code>interface.11.rs-relayer-serve-attestations-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs</code> (planned) | <code>pub fn serve(listener: TcpListener, view: Arc&lt;RwLock&lt;AttestationView&gt;&gt;, origins: Vec&lt;String&gt;) -&gt; std::io::Result&lt;()&gt;</code> |
-| <code>interface.11.rs-relayer-transport-fault-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/transport.rs</code> (planned) | <code>pub enum TransportFault { ChainMismatch, InsecureTransport, InvalidTrustAnchor, Timeout, Malformed }</code> |
+| <code>interface.11.rs-relayer-transport-fault-j48</code> | <code>rust_pub_item</code> | <code>new</code> | <code>services/interop/crates/layerx-bridge-relayer/src/transport.rs</code> (planned) | <code>pub enum TransportFault { UnsupportedUrl, InsecureTransport, InvalidTrustAnchor, Authentication { detail: String }, Connect { detail: String }, Transport { detail: String }, Http { status: u16 }, ResponseTooLarge, AmbiguousFraming, MalformedResponse, Rpc { code: i64, message: String }, ChainMismatch { expected: u64, actual: u64 }, InconsistentObservation, UnexpectedValue { detail: String } }</code> |
 
 | Interface | Field | Value |
 |---|---|---|
@@ -1132,3 +1132,36 @@ No interface block names this anchor; the citing criteria and rules below define
 | <code>capability.11.35.1</code> | reqs | 11381.1<br>11381.2 |
 | <code>capability.11.35.2</code> | title | Serve /program-attestations from the program exchange of the EVM relay |
 | <code>capability.11.35.2</code> | reqs | 11382.1<br>11382.2 |
+
+## Bridge relayer contract corrections (task 22.31.160)
+
+The corrected rows supersede the frozen signatures for these interfaces.
+`local_emulator: bool` is an argument of `PaxeerEndpoint::new`, not a public
+stored field. The constructor is
+`new(url: impl Into<String>, request_timeout: Duration, trust_anchor_der: Option<Vec<u8>>, expected_chain_id: u64, local_emulator: bool) -> Result<PaxeerEndpoint, TransportFault>`.
+It preserves pinned TLS authentication and permits plaintext only for an
+explicit loopback emulator. Calls revalidate the endpoint and its chain id.
+`PaxeerTransport::call` is an associated function; `PaxeerEndpoint::call` is a
+separate convenience instance method with the same authentication checks.
+
+```rust
+use layerx_bridge_relayer::transport::{PaxeerEndpoint, PaxeerTransport, TransportFault};
+use serde_json::{json, Value};
+use std::time::Duration;
+
+fn published_transport(url: String) -> Result<Value, TransportFault> {
+    let endpoint = PaxeerEndpoint::new(url, Duration::from_secs(5), None, 125, true)?;
+    PaxeerTransport::call(&endpoint, "eth_blockNumber", &json!([]))
+}
+```
+
+Receipt decoding and verification both return `ReceiptError`. Its exact
+variants are `Malformed`, `Verification(VerificationFailure)`,
+`Mismatch(&'static str)` and `Logs(SequencerLogRefusal)`. Consumers can distinguish
+malformed JSON or receipt shape, cryptographic or authorization refusal, a
+signed-view field mismatch and a signed-log refusal without converting them
+to `RpcFault`. Structured transport failures retain their fields, as published
+in the corrected enum row above; there are no `Timeout` or `Malformed` variants.
+
+The finding-to-test mapping, unchanged-tree baseline limitation and owning
+domain wiring requests are in [the task repair record](interop-bridge-relayer.md#task-2231160-repair-record).

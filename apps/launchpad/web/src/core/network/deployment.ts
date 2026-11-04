@@ -18,6 +18,10 @@ export const CORE_DEPLOYMENT = Object.freeze({
   "treasury": "0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723",
   "launchpadPrecompile": "0x0000000000000000000000000000000000001017",
   "roleIdentity": {
+    "usdl": {
+      "kind": "direct",
+      "runtimeHash": "0xa5d84d5e9db89e88646654510a9445271bdd67c3b0e84c64e923c6b82589aaaf"
+    },
     "router": {
       "kind": "surface",
       "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"

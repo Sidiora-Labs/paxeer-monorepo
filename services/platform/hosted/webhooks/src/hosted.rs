@@ -66,8 +66,7 @@ struct StoredEndpoint {
 
 impl StoredEndpoint {
     fn accepts(&self, event: &ProtocolEvent) -> bool {
-        (self.kinds.is_empty() || self.kinds.contains(&event.kind()))
-            && event.verification().at_least(self.minimum_verification)
+        subscription_accepts(&self.kinds, self.minimum_verification, event)
     }
 
     fn promote(&mut self, now: u64) {
@@ -851,17 +850,16 @@ impl HostedService {
             .validate_destination(&destination)
             .map_err(|_| WebhookError::InvalidRequest)?;
         let endpoint = EndpointId::generate()?;
-        let key_scope = format!("register:{}:{idempotency}", principal_digest(principal));
-        let key = self.kms.create_key(&key_scope)?;
+        let key_scope = kms_idempotency_scope("register", principal, None, idempotency)?;
+        let legacy_scope = format!("register:{}:{idempotency}", principal_digest(principal));
         let mut kinds = kinds.to_vec();
         kinds.sort_unstable();
         kinds.dedup();
         self.transact(principal, |shard| {
-            if let Some(existing) = shard
-                .endpoints
-                .values()
-                .find(|value| value.registration_scope == key_scope)
-            {
+            if let Some(existing) = shard.endpoints.values_mut().find(|value| {
+                value.registration_scope == key_scope || value.registration_scope == legacy_scope
+            }) {
+                existing.registration_scope.clone_from(&key_scope);
                 return Ok(HostedRegistration::from_key(
                     &existing.id,
                     &existing.key,
@@ -874,6 +872,7 @@ impl HostedService {
             if shard.endpoints.values().any(|value| value.url == url) {
                 return Err(WebhookError::EventConflict);
             }
+            let key = self.kms.create_key(&key_scope)?;
             shard.endpoints.insert(
                 endpoint.as_str().to_owned(),
                 StoredEndpoint {
@@ -927,12 +926,12 @@ impl HostedService {
             return Err(WebhookError::InvalidRequest);
         }
         self.endpoint(principal, endpoint, now)?;
-        let scope = format!(
+        let scope = kms_idempotency_scope("rotate", principal, Some(endpoint), idempotency)?;
+        let legacy_scope = format!(
             "rotate:{}:{}:{idempotency}",
             principal_digest(principal),
             endpoint.as_str()
         );
-        let key = self.kms.create_key(&scope)?;
         let activates = now.saturating_add(self.key_overlap_seconds);
         self.transact(principal, |shard| {
             let record = shard
@@ -940,7 +939,10 @@ impl HostedService {
                 .get_mut(endpoint.as_str())
                 .ok_or(WebhookError::UnknownEndpoint)?;
             record.promote(now);
-            if record.pending_key_scope.as_deref() == Some(scope.as_str()) {
+            if record.pending_key_scope.as_deref() == Some(scope.as_str())
+                || record.pending_key_scope.as_deref() == Some(legacy_scope.as_str())
+            {
+                record.pending_key_scope = Some(scope.clone());
                 let pending = record.pending_key.as_ref().unwrap_or(&record.key);
                 return Ok(HostedRegistration::from_key(
                     endpoint,
@@ -951,6 +953,7 @@ impl HostedService {
             if record.pending_key.is_some() {
                 return Err(WebhookError::EventConflict);
             }
+            let key = self.kms.create_key(&scope)?;
             record.pending_key = Some(key.clone());
             record.pending_key_scope = Some(scope.clone());
             record.pending_key_activates_at = activates;
@@ -2046,3 +2049,41 @@ redis.call('HINCRBY', KEYS[1], 'revision', 1)
 redis.call('SADD', KEYS[2], ARGV[3])
 return 1
 ";
+
+/// Derives the bounded KMS key from a public idempotency token and its full scope.
+pub fn kms_idempotency_scope(
+    operation: &str,
+    principal: &Principal,
+    endpoint: Option<&EndpointId>,
+    public_key: &str,
+) -> Result<String, WebhookError> {
+    if !valid_token(public_key, 128)
+        || !matches!(
+            (operation, endpoint),
+            ("register", None) | ("rotate", Some(_))
+        )
+    {
+        return Err(WebhookError::InvalidRequest);
+    }
+    let mut hash = Sha256::new();
+    hash.update(b"LayerX/webhooks/kms-idempotency/v1\0");
+    for field in [
+        operation,
+        principal.as_str(),
+        endpoint.map_or("", EndpointId::as_str),
+        public_key,
+    ] {
+        hash.update((field.len() as u64).to_be_bytes());
+        hash.update(field.as_bytes());
+    }
+    Ok(hex_encode(&hash.finalize()))
+}
+
+/// Applies the delivery subscription's family and minimum evidence requirements.
+pub fn subscription_accepts(
+    kinds: &[EventKind],
+    minimum: Verification,
+    event: &ProtocolEvent,
+) -> bool {
+    (kinds.is_empty() || kinds.contains(&event.kind())) && event.verification().at_least(minimum)
+}

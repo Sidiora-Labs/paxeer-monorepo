@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
+	"github.com/jackc/pgx/v5"
 )
 
 // MultihopEvent is a decoded native Router MultihopSwap event (emitted by
@@ -47,7 +48,17 @@ func NewMultihopConsumer(st *store.Store, logger *slog.Logger) *MultihopConsumer
 // ProcessEvent records a cross-token swap, idempotently. Ports
 // MultihopConsumer.processEvent.
 func (c *MultihopConsumer) ProcessEvent(ctx context.Context, ev MultihopEvent) error {
-	if err := c.store.InsertCrossTokenSwap(ctx, store.CrossTokenSwapRow{
+	if err := c.store.InsertCrossTokenSwap(ctx, multihopRow(ev)); err != nil {
+		return err
+	}
+	c.logger.Info("cross-token swap recorded in stats",
+		slog.String("txHash", ev.TxHash), slog.String("sender", ev.Sender),
+		slog.String("tokenIn", ev.TokenIn), slog.String("tokenOut", ev.TokenOut))
+	return nil
+}
+
+func multihopRow(ev MultihopEvent) store.CrossTokenSwapRow {
+	return store.CrossTokenSwapRow{
 		ID:               fmt.Sprintf("%s-%d", ev.TxHash, ev.LogIndex),
 		Sender:           ev.Sender,
 		TokenIn:          ev.TokenIn,
@@ -61,11 +72,33 @@ func (c *MultihopConsumer) ProcessEvent(ctx context.Context, ev MultihopEvent) e
 		FeeOut:           ev.FeeOut,
 		BlockTimestamp:   ev.BlockTimestamp,
 		TxHash:           ev.TxHash,
-	}); err != nil {
-		return err
 	}
-	c.logger.Info("cross-token swap recorded in stats",
-		slog.String("txHash", ev.TxHash), slog.String("sender", ev.Sender),
-		slog.String("tokenIn", ev.TokenIn), slog.String("tokenOut", ev.TokenOut))
-	return nil
+}
+
+// ProjectCanonicalTx records a source-bound route. Its txHash-logIndex row is
+// also the durable replay checkpoint; no checkpoint can precede the history.
+func (c *MultihopConsumer) ProjectCanonicalTx(ctx context.Context, tx pgx.Tx, ev MultihopEvent) (bool, error) {
+	if c == nil || c.store == nil || tx == nil {
+		return false, ErrLegacyBridgeIntegrity
+	}
+	want := multihopRow(ev)
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "stats:multihop:"+want.ID); err != nil {
+		return false, err
+	}
+	var existed bool
+	if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM stats.cross_token_swaps WHERE id=$1)", want.ID).Scan(&existed); err != nil {
+		return false, err
+	}
+	if err := c.store.WithTx(tx).InsertCrossTokenSwap(ctx, want); err != nil {
+		return false, err
+	}
+	var got store.CrossTokenSwapRow
+	err := tx.QueryRow(ctx, `SELECT id,sender,token_in,token_out,pool_in,pool_out,amount_in,intermediate_usdl,amount_out,fee_in,fee_out,block_timestamp,tx_hash FROM stats.cross_token_swaps WHERE id=$1`, want.ID).Scan(&got.ID, &got.Sender, &got.TokenIn, &got.TokenOut, &got.PoolIn, &got.PoolOut, &got.AmountIn, &got.IntermediateUsdl, &got.AmountOut, &got.FeeIn, &got.FeeOut, &got.BlockTimestamp, &got.TxHash)
+	if err != nil {
+		return false, err
+	}
+	if got != want {
+		return false, ErrLegacyBridgeIntegrity
+	}
+	return !existed, nil
 }

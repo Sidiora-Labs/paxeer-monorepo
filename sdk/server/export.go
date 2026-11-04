@@ -106,28 +106,14 @@ func ExportCmd(appExporter types.AppExporter, defaultNodeHome string) *cobra.Com
 					return err
 				}
 
+				consensusParams := tmtypes.DefaultConsensusParams().UpdateConsensusParams(exported.ConsensusParams)
 				genesisDocNoAppHash := GenesisDocNoAppState{
-					GenesisTime:   doc.GenesisTime,
-					ChainID:       doc.ChainID,
-					AppHash:       doc.AppHash,
-					InitialHeight: exported.Height,
-					ConsensusParams: &tmtypes.ConsensusParams{
-						Block: tmtypes.BlockParams{
-							MaxBytes:      exported.ConsensusParams.Block.MaxBytes,
-							MaxGas:        exported.ConsensusParams.Block.MaxGas,
-							MinTxsInBlock: exported.ConsensusParams.Block.MinTxsInBlock,
-							MaxGasWanted:  exported.ConsensusParams.Block.MaxGasWanted,
-						},
-						Evidence: tmtypes.EvidenceParams{
-							MaxAgeNumBlocks: exported.ConsensusParams.Evidence.MaxAgeNumBlocks,
-							MaxAgeDuration:  exported.ConsensusParams.Evidence.MaxAgeDuration,
-							MaxBytes:        exported.ConsensusParams.Evidence.MaxBytes,
-						},
-						Validator: tmtypes.ValidatorParams{
-							PubKeyTypes: exported.ConsensusParams.Validator.PubKeyTypes,
-						},
-					},
-					Validators: exported.Validators,
+					GenesisTime:     doc.GenesisTime,
+					ChainID:         doc.ChainID,
+					AppHash:         doc.AppHash,
+					InitialHeight:   exported.Height,
+					ConsensusParams: &consensusParams,
+					Validators:      exported.Validators,
 				}
 
 				// NOTE: Tendermint uses a custom JSON decoder for GenesisDoc
@@ -155,22 +141,8 @@ func ExportCmd(appExporter types.AppExporter, defaultNodeHome string) *cobra.Com
 			doc.AppState = exported.AppState
 			doc.Validators = exported.Validators
 			doc.InitialHeight = exported.Height
-			doc.ConsensusParams = &tmtypes.ConsensusParams{
-				Block: tmtypes.BlockParams{
-					MaxBytes:      exported.ConsensusParams.Block.MaxBytes,
-					MaxGas:        exported.ConsensusParams.Block.MaxGas,
-					MinTxsInBlock: exported.ConsensusParams.Block.MinTxsInBlock,
-					MaxGasWanted:  exported.ConsensusParams.Block.MaxGasWanted,
-				},
-				Evidence: tmtypes.EvidenceParams{
-					MaxAgeNumBlocks: exported.ConsensusParams.Evidence.MaxAgeNumBlocks,
-					MaxAgeDuration:  exported.ConsensusParams.Evidence.MaxAgeDuration,
-					MaxBytes:        exported.ConsensusParams.Evidence.MaxBytes,
-				},
-				Validator: tmtypes.ValidatorParams{
-					PubKeyTypes: exported.ConsensusParams.Validator.PubKeyTypes,
-				},
-			}
+			consensusParams := tmtypes.DefaultConsensusParams().UpdateConsensusParams(exported.ConsensusParams)
+			doc.ConsensusParams = &consensusParams
 
 			// NOTE: Tendermint uses a custom JSON decoder for GenesisDoc
 			// (except for stuff inside AppState). Inside AppState, we're free

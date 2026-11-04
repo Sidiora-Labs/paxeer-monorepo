@@ -1,0 +1,8 @@
+[repair.22.31.119]
+finding = "composite-rewind"
+proof = ["TestRepair_119_MigrationBoundaryRollback", "TestRepair_119_MigrationBoundaryReload", "TestRepair_119_PendingRecovery"]
+change = "Rebuild the router and pending stores and clear cached migration/hash state after successful rollback or writable load."
+baseline = "No unchanged-tree verification run: the task's ordered gate instructions prohibit verification before implementation and direct hf-done to run the sole verification."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the verified candidate revision, command, exit code and private log location."
+qualification_repair = "Initial verification exposed unavailable proto.CommitInfo.Hash calls in the new tests; hash assertions now use the existing mergeStateSyncCommitHash adapter to the SDK commit-info consumer."

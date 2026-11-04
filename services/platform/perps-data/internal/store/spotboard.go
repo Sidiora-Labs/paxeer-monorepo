@@ -147,6 +147,45 @@ func FoldSpotBoard(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	if len(accounts.list) == 0 {
 		return nil
 	}
+	return foldSpotBoardAccounts(ctx, tx, accounts.list, block, false)
+}
+
+func rebuildSpotBoard(ctx context.Context, tx *sql.Tx, block int64) error {
+	rows, err := tx.QueryContext(ctx, `SELECT account FROM perps.spot_account_legs
+UNION SELECT account FROM perps.spot_leaderboard
+UNION SELECT "user" FROM perps.spot_swaps WHERE kind IN ('market_order', 'simple_swap')
+UNION SELECT o.account FROM perps.spot_orders o JOIN perps.spot_order_events e
+ ON o.order_id = e.order_id AND e.kind = o.kind || '_executed'`)
+	if err != nil {
+		return fmt.Errorf("store: spot recovery accounts: %w", err)
+	}
+	var accounts []common.Address
+	for rows.Next() {
+		var a []byte
+		if err := rows.Scan(&a); err != nil {
+			rows.Close()
+			return err
+		}
+		accounts = append(accounts, common.BytesToAddress(a))
+	}
+	err = rows.Err()
+	if closeErr := rows.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
+	var last sql.NullInt64
+	if err := tx.QueryRowContext(ctx, `SELECT max(block) FROM (
+ SELECT block FROM perps.spot_swaps WHERE kind IN ('market_order', 'simple_swap') AND block <= $1
+ UNION ALL SELECT block FROM perps.spot_order_events WHERE kind IN ('limit_executed', 'stop_limit_executed', 'stop_loss_executed') AND block <= $1
+) trades`, block).Scan(&last); err != nil {
+		return fmt.Errorf("store: spot recovery block: %w", err)
+	}
+	return foldSpotBoardAccounts(ctx, tx, accounts, last.Int64, true)
+}
+
+func foldSpotBoardAccounts(ctx context.Context, tx *sql.Tx, accounts []common.Address, block int64, recovery bool) error {
 	winRates := map[common.Address]*big.Rat{}
 	stored, err := tx.QueryContext(ctx, `SELECT account, value::text FROM perps.spot_leaderboard WHERE kind = 'win-rate'`)
 	if err != nil {
@@ -173,8 +212,20 @@ func FoldSpotBoard(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	if err != nil {
 		return err
 	}
-	for _, account := range accounts.list {
-		total, refusal, err := foldSpotAccount(ctx, tx, account, block)
+	for _, account := range accounts {
+		updated := block
+		if recovery {
+			var last sql.NullInt64
+			if err := tx.QueryRowContext(ctx, `SELECT max(block) FROM (
+ SELECT block FROM perps.spot_swaps WHERE "user" = $1 AND kind IN ('market_order', 'simple_swap') AND block <= $2
+ UNION ALL SELECT e.block FROM perps.spot_order_events e JOIN perps.spot_orders o
+ ON e.order_id = o.order_id AND e.kind = o.kind || '_executed' WHERE o.account = $1 AND e.block <= $2
+) trades`, account.Bytes(), block).Scan(&last); err != nil {
+				return fmt.Errorf("store: spot recovery activity: %w", err)
+			}
+			updated = last.Int64
+		}
+		total, refusal, err := foldSpotAccount(ctx, tx, account, updated)
 		if err != nil {
 			return fmt.Errorf("store: fold spot account %s: %w", account.Hex(), err)
 		}
@@ -191,7 +242,7 @@ func FoldSpotBoard(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 		_, err = tx.ExecContext(ctx, `INSERT INTO perps.spot_account_legs (account, realized_usd, volume_usd, trades, updated_block)
 VALUES ($1, $2, $3, $4, $5) ON CONFLICT (account) DO UPDATE SET
 realized_usd = EXCLUDED.realized_usd, volume_usd = EXCLUDED.volume_usd,
-trades = EXCLUDED.trades, updated_block = EXCLUDED.updated_block`, account.Bytes(), total.realized.String(), total.volume.String(), total.trades, block)
+trades = EXCLUDED.trades, updated_block = EXCLUDED.updated_block`, account.Bytes(), total.realized.String(), total.volume.String(), total.trades, updated)
 		if err != nil {
 			return fmt.Errorf("store: write spot account: %w", err)
 		}

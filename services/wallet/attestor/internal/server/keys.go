@@ -95,25 +95,40 @@ type DescribeRequest struct {
 	KeyID     string `json:"key_id"`
 }
 
+type RefreshDescription struct {
+	ExistingKey     bool     `json:"existing_key"`
+	CeremonyID      string   `json:"ceremony_id"`
+	ImportSessionID string   `json:"import_session_id"`
+	SessionID       string   `json:"session_id"`
+	KeyID           string   `json:"key_id"`
+	BaseEpoch       uint64   `json:"base_epoch"`
+	Curve           string   `json:"curve"`
+	PublicKey       string   `json:"public_key"`
+	Participants    []string `json:"participants"`
+	Decision        string   `json:"decision"`
+	AuditSequence   uint64   `json:"audit_sequence"`
+}
+
 type DescribeResponse struct {
-	CeremonyID            string   `json:"ceremony_id,omitempty"`
-	ImportSessionID       string   `json:"import_session_id,omitempty"`
-	ImportDigest          string   `json:"import_digest,omitempty"`
-	VerificationSessionID string   `json:"verification_session_id,omitempty"`
-	VerificationState     string   `json:"verification_state,omitempty"`
-	RefreshSessionID      string   `json:"refresh_session_id,omitempty"`
-	RefreshState          string   `json:"refresh_state,omitempty"`
-	NodeID                string   `json:"node_id"`
-	KeyID                 string   `json:"key_id"`
-	Curve                 string   `json:"curve"`
-	PublicKey             string   `json:"public_key"`
-	Address               string   `json:"address,omitempty"`
-	DID                   string   `json:"did,omitempty"`
-	Owner                 string   `json:"owner"`
-	Account               string   `json:"account"`
-	Epoch                 uint64   `json:"epoch"`
-	Participants          []string `json:"participants"`
-	AuditSequence         uint64   `json:"audit_sequence"`
+	Refresh               *RefreshDescription `json:"refresh,omitempty"`
+	CeremonyID            string              `json:"ceremony_id,omitempty"`
+	ImportSessionID       string              `json:"import_session_id,omitempty"`
+	ImportDigest          string              `json:"import_digest,omitempty"`
+	VerificationSessionID string              `json:"verification_session_id,omitempty"`
+	VerificationState     string              `json:"verification_state,omitempty"`
+	RefreshSessionID      string              `json:"refresh_session_id,omitempty"`
+	RefreshState          string              `json:"refresh_state,omitempty"`
+	NodeID                string              `json:"node_id"`
+	KeyID                 string              `json:"key_id"`
+	Curve                 string              `json:"curve"`
+	PublicKey             string              `json:"public_key"`
+	Address               string              `json:"address,omitempty"`
+	DID                   string              `json:"did,omitempty"`
+	Owner                 string              `json:"owner"`
+	Account               string              `json:"account"`
+	Epoch                 uint64              `json:"epoch"`
+	Participants          []string            `json:"participants"`
+	AuditSequence         uint64              `json:"audit_sequence"`
 }
 
 type KeyResponse struct {
@@ -1168,6 +1183,13 @@ func (s *Server) doDescribe(body []byte) (DescribeResponse, *Error) {
 		return DescribeResponse{}, newError(CodeStoreFailed, "%v", err)
 	}
 	if state, err := s.opts.Store.CeremonyRefresh(req.KeyID); err == nil {
+		response.Refresh = &RefreshDescription{
+			ExistingKey: state.ExistingKey, CeremonyID: state.CeremonyID,
+			ImportSessionID: state.ImportSessionID, SessionID: state.SessionID,
+			KeyID: state.KeyID, BaseEpoch: state.BaseEpoch, Curve: state.Curve,
+			PublicKey: hex.EncodeToString(state.PublicKey), Participants: append([]string(nil), state.Participants...),
+			Decision: state.Decision, AuditSequence: state.AuditSequence,
+		}
 		response.RefreshSessionID = state.SessionID
 		response.RefreshState = state.State
 		if state.Decision == "abort" {

@@ -1,0 +1,16 @@
+[repair.22.31.120]
+audit = "22.30.55"
+finding = "p2p-params-height"
+tests = ["TestRepair_120_ParamsHeightRestoration", "TestRepair_120_ParamsWrongHeightRefused", "TestRepair_120_ParamsWrongHashRefused"]
+repair = "Preserve ParamsResponse.Height through the reactor delivery channel, refuse a response for another height, and verify H+1 parameters against the H+1 trusted header."
+proof = "Real FilePV signatures, state and block stores, reactor producers, P2P transport, light-client verification, State restoration and persisted consumer state; the wrong-height response is emitted by the real producer for a separate request and has the same hash as the requested height."
+baseline = "Not run: the task's explicit gate order and one-verification budget prohibit the conflicting older baseline step; no pre-change failure is claimed."
+wiring_requests = []
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence location."
+
+[qualification.initial]
+revision = "335993c1d6b3b844d9f74476dbf4c104a84c8d95"
+command = "cg spec done 22.31.120 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "New regression test failed to compile because of an unused utils import; no tests executed. Removed that import before the build and verification rerun."

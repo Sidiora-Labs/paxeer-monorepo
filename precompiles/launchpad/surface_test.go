@@ -288,8 +288,8 @@ func assertSurfaceRuntime(t *testing.T, db *state.DBImpl, address common.Address
 func TestSurfaceRuntimeForwards(t *testing.T) {
 	s := newSurfaceHarness(t)
 	require.Equal(t, launchpadkeeper.SurfaceRuntime, launchpad.SurfaceRuntime)
-	require.Len(t, launchpad.SurfaceRuntime, 41)
-	require.Equal(t, "0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3",
+	require.Len(t, launchpad.SurfaceRuntime, 51)
+	require.Equal(t, "0x3415600957600080fd5b363d3d373360601b36523d3d601436013d3d6110175af13d600060003e602e573d6000fd5b3d6000f3",
 		hexutil.Encode(launchpad.SurfaceRuntime))
 
 	require.Len(t, launchpadkeeper.Generation2Surfaces, 9)

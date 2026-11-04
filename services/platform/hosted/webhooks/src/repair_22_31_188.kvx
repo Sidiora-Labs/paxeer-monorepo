@@ -1,0 +1,46 @@
+[repair.22.31.188]
+audit = "spec/layerx-merge/programme/audit/records/22.30.71.kvx"
+base = "a2c1b83e1c3e7ecd65fa771738df55e7e34f56fd"
+qualification = "Runner hf-build and hf-done evidence identifies the candidate revision, command, exit and private log; no gate is claimed before it runs."
+baseline = "Not run: the task's ordered gate instructions forbid verification before the complete implementation and forbid a manual verify_cmd run. No pre-change failure is claimed."
+scope = "Only webhooks src and the declared integration test were edited; pre-existing runner bookkeeping was preserved."
+
+[finding.1]
+test = "finding_1_complete_authority_response_and_strict_refusals"
+repair = "Strict complete authority DTO validates receipt equality, configured network and wire, signed header protocol network, activity and maintained evidence. Legacy compatibility verifier is separate from the production node path."
+proof_limit = "Recorded maintained producer evidence exercises the real response decoder and cryptographic verifier; a running authority HTTP producer is not part of this gate."
+
+[finding.2]
+test = "finding_2_fixed_kms_scope_preserves_full_public_key_and_isolation"
+repair = "Domain-separated length-prefixed SHA256 scopes accept all valid 128-byte public tokens without changing KMS or transport limits; repeats retain operation, tenant and endpoint isolation. Successful legacy scopes migrate without minting replacement keys."
+proof_limit = "The production scope codec is exercised with 64 and 128 bytes; full registration/rotation against a running KMS needs the owning-domain harness below."
+
+[finding.4]
+test = "finding_4_authenticated_capture_service_restart_and_durable_handoff"
+repair = "Producer-role mTLS and bearer ingress admits portable captures to durable per-tenant outboxes; the running service drains into hosted Redis before marking rows published. Endpoint ownership gates public grant/revoke/resume routes."
+proof_limit = "Actual webhook binary restart, authenticated capture, offline handoff retention, real Redis handoff and replay deduplication are exercised. Endpoint provisioning and public identity introspection need the external service harness."
+
+[finding.5]
+tests = ["finding_5_business_effect_and_ledger_survive_disk_failure_and_restart", "finding_5_process_death_before_and_after_atomic_commit"]
+repair = "Receiver business state is written through ConsumerTransaction and commits with applied event IDs, saved results and sequence. External effects are not claimed atomic."
+
+[finding.17]
+tests = ["finding_17_committed_membership_binds_key_value_proof_and_market", "finding_17_real_keeper_membership_vectors_remain_interoperable"]
+repair = "Consensus-authenticated app hash verifies strict ICS23 IAVL and multistore membership of the native program head; the authenticated manifest binds exact shared-state bytes. Real read selectors bind market and state metadata."
+
+[finding.34]
+test = "finding_34_governed_node_receipt_committed_block_and_foreign_chain_refusal"
+repair = "Production source verification fetches merged-node receipts, Comet commit/block and governed receipt keys at the receipt height. Consensus, membership, transaction root, sequence chain, receipt signature and chain identity establish BlockCommitted; subscription filtering preserves minimum evidence."
+proof_limit = "Real node-produced receipt bytes and cryptographic certificate/codec/store paths are exercised; the full node RPC transport needs the owning-domain harness."
+
+[wiring.indexer]
+request = "services/platform/hosted/indexer/src/ai_market.rs; owner indexer: send finalized captures through CaptureDocument::from_capture to the producer-role private ingress per subscribed principal and acknowledge the producer outbox only after HTTP admission succeeds."
+
+[wiring.authority]
+request = "services/platform/hosted/authority/src/main.rs and authority integration harness; owner authority: share the complete explicit response contract and drive the actual HTTP activity route through AuthorityReceiptVerifier, including maintained evidence."
+
+[wiring.kms]
+request = "services/platform/hosted/internal/tests and hosted deployment integration harness; owner platform-internal: exercise actual register and rotate routes with 64-byte and 128-byte public tokens across webhook and KMS restart."
+
+[wiring.node]
+request = "rpc and hosted deployment integration harness; owner node/platform: run the live node/Comet transport against governed receipt keys, foreign-chain refusal and restart; mount chain pins, node credentials, market policy and durable outbox configuration."
