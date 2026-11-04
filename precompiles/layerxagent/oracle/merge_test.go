@@ -62,7 +62,7 @@ func TestOracleMergeConstructorCaps(t *testing.T) {
 	require.NoError(t, err)
 	versions, found := set[address]
 	require.True(t, found)
-	served, ok := versions[precompiles.MergeUpgrade].(*agentcommon.Precompile)
+	served, ok := versions[precompiles.MergeUpgrade].(*oracle.Precompile)
 	require.True(t, ok)
 	require.Same(t, served, versions[app.LatestUpgrade])
 	require.Equal(t, address, served.Address())

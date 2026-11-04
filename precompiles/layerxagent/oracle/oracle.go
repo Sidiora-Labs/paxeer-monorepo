@@ -71,7 +71,7 @@ func Aggregate(feeds []Feed, maxFeeds int) (*big.Int, *big.Int, error) {
 		return nil, nil, fmt.Errorf("%w: no feeds with non-zero confidence", agentcommon.ErrOracleNoConfidentFeeds)
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return kept[i].Price.Cmp(kept[j].Price) < 0 })
-	threshold := new(big.Int).Quo(total, big.NewInt(2))
+	threshold := new(big.Int).Rsh(new(big.Int).Add(total, big.NewInt(1)), 1)
 	cumulative := new(big.Int)
 	for _, feed := range kept {
 		cumulative.Add(cumulative, feed.Confidence)
@@ -86,25 +86,27 @@ type replayKey struct{}
 type replayBinding struct {
 	validator sdk.ValAddress
 	publicKey [32]byte
+	activity  lxphost.Activity
 }
 
 func WithOracleReplay(ctx sdk.Context, host *lxphost.Host, storeKey sdk.StoreKey, validator sdk.ValAddress, activity lxphost.Activity, authority lxphost.KernelAuthority) sdk.Context {
 	ctx = layerxexchangekeeper.WithOracleReplay(ctx, host, storeKey, validator, activity, authority)
-	return ctx.WithValue(replayKey{}, replayBinding{bytes.Clone(validator), authority.VerifiedKey})
+	return ctx.WithValue(replayKey{}, replayBinding{bytes.Clone(validator), authority.VerifiedKey, activity})
 }
 
 type OraclePrecompile struct {
 	abi           abi.ABI
-	exchange      *layerxexchangekeeper.Keeper
+	oracle        *Keeper
 	evm           *evmkeeper.Keeper
 	maxFeeds      int
 	maxConfidence *big.Int
+	transport     []byte
 }
 
 var _ pcommon.PrecompileExecutor = (*OraclePrecompile)(nil)
 
-func NewPrecompile(exchange *layerxexchangekeeper.Keeper, evm *evmkeeper.Keeper, upgrade *upgradekeeper.Keeper, planName string, maxFeeds int, maxConfidence *big.Int) (*agentcommon.Precompile, error) {
-	if exchange == nil || evm == nil {
+func NewPrecompile(oracle *Keeper, evm *evmkeeper.Keeper, upgrade *upgradekeeper.Keeper, planName string, maxFeeds int, maxConfidence *big.Int) (*Precompile, error) {
+	if oracle == nil || oracle.host == nil || evm == nil {
 		return nil, fmt.Errorf("%w: oracle keepers are unavailable", agentcommon.ErrNoContext)
 	}
 	if upgrade == nil || planName == "" {
@@ -120,8 +122,8 @@ func NewPrecompile(exchange *layerxexchangekeeper.Keeper, evm *evmkeeper.Keeper,
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", agentcommon.ErrABIDecode, err)
 	}
-	p := &OraclePrecompile{a, exchange, evm, maxFeeds, new(big.Int).Set(maxConfidence)}
-	return agentcommon.NewPrecompile(a, p, common.HexToAddress(OracleAddress), PrecompileName, upgrade, planName), nil
+	p := &OraclePrecompile{abi: a, oracle: oracle, evm: evm, maxFeeds: maxFeeds, maxConfidence: new(big.Int).Set(maxConfidence)}
+	return &Precompile{agentcommon.NewPrecompile(a, p, common.HexToAddress(OracleAddress), PrecompileName, upgrade, planName), p, upgrade, planName}, nil
 }
 
 func (p *OraclePrecompile) RequiredGas(input []byte, method *abi.Method) uint64 {
@@ -210,15 +212,23 @@ func (p *OraclePrecompile) submitPrice(ctx sdk.Context, method *abi.Method, call
 	if !bound {
 		return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
 	}
-	replay, ok := ctx.Value(replayKey{}).(replayBinding)
-	if !ok || len(replay.validator) == 0 {
-		return nil, fmt.Errorf("%w: oracle replay context is unavailable", agentcommon.ErrNoContext)
+	var activity lxphost.Activity
+	if p.transport != nil {
+		var err error
+		activity, err = decodeSubmitTransport(p.transport)
+		if err != nil {
+			return nil, err
+		}
+	} else if replay, ok := ctx.Value(replayKey{}).(replayBinding); ok {
+		digest := sha256.Sum256(callerKey[:])
+		if replay.publicKey != callerKey || !bytes.Equal(replay.validator, digest[:20]) {
+			return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
+		}
+		activity = replay.activity
+	} else {
+		return nil, fmt.Errorf("%w: submitPrice requires the signed LXO1 transport", agentcommon.ErrABIDecode)
 	}
-	if callerKey != replay.publicKey {
-		return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
-	}
-	digest := sha256.Sum256(callerKey[:])
-	if !bytes.Equal(replay.validator, digest[:20]) {
+	if activity.AuthorityKey != callerKey || !bytes.Equal(activity.ActorDID, oracleDID(callerKey)) {
 		return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
 	}
 	price, ok := args[1].(*big.Int)
@@ -235,7 +245,7 @@ func (p *OraclePrecompile) submitPrice(ctx sdk.Context, method *abi.Method, call
 	if confidence.Sign() < 0 || confidence.Cmp(p.maxConfidence) > 0 || !confidence.IsUint64() {
 		return nil, fmt.Errorf("%w: invalid confidence", agentcommon.ErrOracleConfidence)
 	}
-	if err := p.exchange.SubmitOracleObservation(ctx, replay.validator, feed, sdk.NewIntFromBigInt(price), confidence.Uint64()); err != nil {
+	if err := p.oracle.SubmitOracleObservation(ctx, activity, feed, sdk.NewIntFromBigInt(price), confidence.Uint64()); err != nil {
 		if errors.Is(err, lxphost.Code(-729)) {
 			return nil, fmt.Errorf("%w: caller is not a validator oracle signer", agentcommon.ErrOracleNotSigner)
 		}
@@ -249,11 +259,7 @@ func (p *OraclePrecompile) getValidatorPrice(ctx sdk.Context, method *abi.Method
 	if !ok {
 		return nil, fmt.Errorf("%w: argument decode failed", agentcommon.ErrABIDecode)
 	}
-	replay, ok := ctx.Value(replayKey{}).(replayBinding)
-	if !ok || len(replay.validator) == 0 {
-		return nil, fmt.Errorf("%w: oracle replay context is unavailable", agentcommon.ErrNoContext)
-	}
-	committed, found, err := p.exchange.CommittedOraclePrice(ctx, replay.validator, feed)
+	committed, found, err := p.oracle.CommittedOraclePrice(ctx, feed)
 	if err != nil {
 		return nil, err
 	}
