@@ -50,20 +50,20 @@ static int registration_contract(void)
         next->abi_version != LX_PROGRAMS_ACCOUNT_ABI_VERSION ||
         strcmp(next->name, "programs") != 0 ||
         next->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 3U)
+            sizeof(expected_types) / sizeof(expected_types[0]) + 2U)
         return 1;
     if (sandbox == NULL || sandbox->module_id != LXP_MODULE_PROGRAMS ||
         sandbox->abi_version != LX_PROGRAMS_SANDBOX_ABI_VERSION ||
         strcmp(sandbox->name, "programs") != 0 ||
         sandbox->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 4U ||
+            sizeof(expected_types) / sizeof(expected_types[0]) + 3U ||
         sandbox->activity_types[sandbox->activity_type_count - 1U] !=
             LX_PROGRAMS_SANDBOX)
         return 1;
     if (destroy == NULL || destroy->module_id != LXP_MODULE_PROGRAMS ||
         destroy->abi_version != LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION ||
         destroy->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 5U ||
+            sizeof(expected_types) / sizeof(expected_types[0]) + 4U ||
         destroy->activity_types[destroy->activity_type_count - 1U] !=
             LX_PROGRAMS_SANDBOX_DESTROY)
         return 1;
@@ -72,12 +72,10 @@ static int registration_contract(void)
             next->activity_types[i] != expected_types[i] ||
             sandbox->activity_types[i] != expected_types[i])
             return 1;
-    if (next->activity_types[next->activity_type_count - 3U] !=
+    if (next->activity_types[next->activity_type_count - 2U] !=
             LX_PROGRAMS_ACCOUNT ||
-        next->activity_types[next->activity_type_count - 2U] !=
-            LX_PROGRAMS_WIND_DOWN ||
         next->activity_types[next->activity_type_count - 1U] !=
-            LX_PROGRAMS_FEE_GOVERNANCE)
+            LX_PROGRAMS_WIND_DOWN)
         return 1;
     if (lxp_state_store_init(&store, 0U) != LXP_OK ||
         lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) !=
