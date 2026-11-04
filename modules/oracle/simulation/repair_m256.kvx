@@ -1,0 +1,38 @@
+[task.22.33.256]
+audit_record = "22.30.13"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+qualified_revision = "Recorded by hf-done in the private gate ledger for this candidate; this file makes no independent qualification claim."
+baseline = "No pre-change test result exists: repair_m256_test.go was absent at task start; the ordered gate rules prohibit running verify before implementation or by hand. No baseline failure is claimed."
+build = "hf-build: go build ./modules/oracle/simulation/..."
+verify = "hf-done: cg spec done 22.33.256 -f layerx-merge --root $TASK_ROOT"
+evidence = "Private runner gate ledger and /tmp/repair-m256.log; exact candidate revision, command, exit and log are emitted by hf-done."
+
+[finding.017]
+test = "TestRepairM_256_DecoderPersistedSchemas"
+repair = "Decode real keeper values as OracleExchangeRate and PriceSnapshot, retain height-only and timestamp-only differences, and cover every active store prefix including the memory spam counter."
+
+[finding.018]
+test = "TestRepairM_256_RandomizedGenesis"
+repair = "Generate a slash-window multiple with checked arithmetic, preserve the default positive lookback, validate genesis before installation, and reject incoherent explicit overrides without overwriting existing genesis."
+
+[finding.016]
+test = "TestRepairM_256_AggregateVoteDelivery"
+repair = "Remove the unwritten prevote map, generate current target rates, require an available authorized feeder signer, deliver through real weighted operations, codec, BaseApp, auth ante and oracle message server, then check tally rates, freshness and successful vote counters."
+
+[finding.019]
+test = "TestRepairM_256_ParameterProgression; TestRepairM_256_IntentionalParameterRejections"
+repair = "Generate timing changes from current keeper parameters with subset/order-safe period/window combinations; transport proposals through JSON into the real governance handler, prove valid progression and separately prove intentional zero-field rejection. The context-free legacy pool emits only independent scalar changes."
+wiring_request = "modules/oracle/module.go (oracle domain 3): register simulation.ParamChangeProposalContent(am.keeper) as weighted governance proposal content in AppModule.ProposalContents; RandomizedParams has no context and cannot safely generate timing changes."
+
+[gotcha.task_gate_order]
+observed = "The task step requesting baseline verification conflicts with its ordered implementation-first and helper-only gate rules; no pre-change verification was run."
+resolution = "Follow the explicit ordered gates and report only evidence actually produced."
+
+[gotcha.parameter_handler]
+observed = "The SDK parameter-change handler validates individual fields, not Oracle Params cross-field divisibility; all generated timing subsets must therefore preserve divisibility themselves."
+resolution = "Choose the new period from old-window divisors and the new window from common multiples of old and new periods, and verify through the real handler."
+
+[gotcha.deferred_fee_fixture]
+observed = "The initial vote-delivery proof reached the real fee ante handler but the shared oracle test fixture constructs its bank keeper without a deferred-fee cache."
+resolution = "Mount the node's dedicated deferred-cache memory store and instantiate NewBaseKeeperWithDeferredCache inside the scoped test, retaining all real fee, signature, delivery and tally checks."
+first_evidence = "ea62a16ee6c0efcc3966a72459a57ee3970aa8c0; cg spec done 22.33.256 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
