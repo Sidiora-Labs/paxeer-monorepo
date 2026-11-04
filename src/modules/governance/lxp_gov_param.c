@@ -70,6 +70,15 @@ lxp_result lxp_gov_param_propose(
         !governance_authorized ||
         !ordered_governance_activity)
         return LXP_ERR_AUTH_SCOPE;
+    if (proposal->cohort_count > LXP_MAX_GOV_COHORT_MEMBERS ||
+        proposal->parameter_key_length == 0U ||
+        proposal->parameter_key_length > LXP_MAX_PARAMETER_KEY_BYTES)
+        return LXP_ERR_PARAMETER_BOUNDS;
+    for (i = 0U; i < proposal->cohort_count; ++i)
+        if (!id_nonzero(proposal->cohort[i]) ||
+            (i != 0U && memcmp(proposal->cohort[i - 1U],
+                               proposal->cohort[i], 32U) >= 0))
+            return LXP_ERR_UNSORTED_SEQUENCE;
     key = (lxp_byte_span){proposal->parameter_key,
                          proposal->parameter_key_length};
     entry = entry_for_const(table, key);
@@ -94,9 +103,6 @@ lxp_result lxp_gov_param_propose(
                    proposal->proposal_id, 32U) == 0 ||
             table->proposals[i].ordered_sequence == proposal->ordered_sequence)
             return LXP_ERR_PARAMETER_BOUNDS;
-    for (i = 1U; i < proposal->cohort_count; ++i)
-        if (memcmp(proposal->cohort[i - 1U], proposal->cohort[i], 32U) >= 0)
-            return LXP_ERR_UNSORTED_SEQUENCE;
     table->proposals[table->proposal_count++] = *proposal;
     return LXP_OK;
 }
