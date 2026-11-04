@@ -144,6 +144,7 @@ type CommittedSource struct {
 	cacheOrder      []common.Hash
 	accepted        map[uint64]common.Hash
 	polling         bool
+	recoveryNext    int
 	metrics         sourceMetrics
 	acceptedOrder   []uint64
 	acceptedVersion uint64
