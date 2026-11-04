@@ -3,6 +3,7 @@ pub mod attestor;
 mod config;
 mod evm;
 mod evm_types;
+pub mod export;
 mod send;
 mod server;
 mod store;
