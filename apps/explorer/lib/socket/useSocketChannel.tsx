@@ -1,6 +1,7 @@
 import type { Channel } from 'phoenix';
 import { useEffect, useRef, useState } from 'react';
 
+import type { ChannelSubscription, RegisteredChannel } from './context';
 import { useSocket } from './context';
 
 interface Params {
@@ -21,6 +22,8 @@ export default function useSocketChannel({ topic, params, isDisabled, onJoin, on
 
   const onJoinRef = useRef(onJoin);
   onJoinRef.current = onJoin;
+  const onSocketErrorRef = useRef(onSocketError);
+  onSocketErrorRef.current = onSocketError;
 
   useEffect(() => {
     const cleanUpRefs = () => {
@@ -39,48 +42,56 @@ export default function useSocketChannel({ topic, params, isDisabled, onJoin, on
   }, [ onSocketClose, onSocketError, socket, isDisabled ]);
 
   useEffect(() => {
-    if (isDisabled && channel) {
-      channel.leave();
-      setChannel(undefined);
-    }
-  }, [ channel, isDisabled ]);
-
-  useEffect(() => {
     if (!socket || isDisabled || !topic || !channelRegistry) {
       return;
     }
 
-    let ch: Channel;
-    if (channelRegistry.current[topic]) {
-      ch = channelRegistry.current[topic].channel;
-      channelRegistry.current[topic].subscribers++;
-      onJoinRef.current?.(ch, '');
-    } else {
-      ch = socket.channel(topic);
-      channelRegistry.current[topic] = { channel: ch, subscribers: 1 };
+    const currentRegistry = channelRegistry.current;
+    const existing = currentRegistry[topic];
+    const entry: RegisteredChannel = existing?.socket === socket ? existing : {
+      socket,
+      channel: socket.channel(topic),
+      subscribers: 0,
+      listeners: new Set(),
+    };
+    const ch = entry.channel;
+    const listener: ChannelSubscription = {
+      onJoin: (message) => onJoinRef.current?.(ch, message),
+      onError: () => onSocketErrorRef.current?.(),
+    };
+
+    entry.subscribers++;
+    entry.listeners.add(listener);
+
+    if (entry !== existing) {
+      currentRegistry[topic] = entry;
       ch.join()
-        .receive('ok', (message) => onJoinRef.current?.(ch, message))
+        .receive('ok', (message) => {
+          entry.listeners.forEach((subscriber) => subscriber.onJoin(message));
+        })
         .receive('error', () => {
-          onSocketError?.();
+          entry.listeners.forEach((subscriber) => subscriber.onError());
         });
+    } else if (ch.state === 'joined') {
+      listener.onJoin('');
     }
 
     setChannel(ch);
 
-    const currentRegistry = channelRegistry.current;
-
     return () => {
-      if (currentRegistry[topic]) {
-        currentRegistry[topic].subscribers > 0 && currentRegistry[topic].subscribers--;
-        if (currentRegistry[topic].subscribers === 0) {
-          ch.leave();
+      entry.listeners.delete(listener);
+      entry.subscribers--;
+
+      if (entry.subscribers === 0) {
+        ch.leave();
+        if (currentRegistry[topic] === entry) {
           delete currentRegistry[topic];
         }
       }
 
       setChannel(undefined);
     };
-  }, [ socket, topic, params, isDisabled, onSocketError, channelRegistry ]);
+  }, [ socket, topic, params, isDisabled, channelRegistry ]);
 
-  return channel;
+  return isDisabled ? undefined : channel;
 }

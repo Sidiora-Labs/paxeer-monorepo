@@ -47,6 +47,36 @@ upstream Cosmos types are not a substitute for this fork's declarations.
 Module message/query schemas and generated bindings live beside their owners
 under [`sdk/x/`](../sdk/x) and [`sdk/proto/`](../sdk/proto).
 
+### Store ranges and bulk keys
+
+[`store.KVStore`](../sdk/store/reexport.go) aliases the fork's
+[`store/types.KVStore`](../sdk/store/types/store.go). Keys and values are byte
+slices, and a missing key returns nil. `Set` requires a nonempty key and a
+nonnil value; use `Delete` for deletion. Returned bytes are read-only.
+`Iterator(start, end)` and `ReverseIterator(start, end)` both take the lower
+bound first and select **[start,end)**; reverse iteration changes traversal
+direction, not the meaning or order of the bounds. Nil bounds are unbounded.
+Equal or reversed bounds select no entries. Callers must close every iterator,
+including an invalid one, and check `Error()` after traversal. Normal exhaustion
+is not an iterator error. Do not write within an active iterator's domain,
+except through the explicitly write-safe cache wrapper.
+
+[`store.First` and `store.Last`](../sdk/store/firstlast.go) consume these
+iterators, returning `(kv.Pair, bool)` with the least or greatest key and its
+value. Both close their iterator before returning, including on an empty range;
+an empty result is the zero pair and false. They do not substitute `Get(start)`
+for an empty range. The helpers have no error result; use the iterator API when
+the consumer needs backend error reporting.
+
+`GetAllKeyStrsInRange(start, end)` returns keys in the same namespace accepted
+by that store's `Get` and `Delete`. A prefix wrapper translates relative bounds
+to parent bounds and strips its prefix from enumerated keys; nested prefixes
+remain private. `DeleteAll` uses the same half-open range, and nil end stops at
+the prefix boundary. A `CacheWrap` buffers deletion until `Write()`; writing that
+cache changes only the selected namespace, including when sibling namespaces
+share the parent DB. Bulk operations retain their owning wrapper's gas and
+trace behavior; they do not grant callers a migration exemption.
+
 ### Historical stores and recovery
 
 [`SetupPaxDB`](../node/paxdb.go) installs
@@ -75,6 +105,14 @@ that legacy IAVL snapshots/restore are unsupported. Its unversioned
 `CacheMultiStore()` branches working state. These legacy wrappers do not provide
 PaxDB's historical-state guarantees. Preserve the configured persistent stores
 and snapshot data across restarts; an in-memory cache is not recovery evidence.
+
+Legacy `RollbackToVersion` rejects positive targets with
+`*rootmulti.RollbackUnsupportedError`, which unwraps to
+`ErrVersionedStateUnsupported`, before changing data or commit metadata.
+Nonpositive targets are invalid. Legacy DB commit adapters do not compute an
+authenticated application hash; use the live PaxDB backend for committed-root
+proofs and supported historical recovery. Reopening a legacy DB recovers its
+latest persisted values and metadata, not older versions of those values.
 
 [`prefix.Store`](../sdk/store/prefix/store.go) accepts keys relative to its
 prefix. Iterators and `GetAllKeyStrsInRange` strip that prefix from returned
@@ -181,6 +219,26 @@ Module-specific declarations remain in their owners' `errors.go`, including
 [bank](../sdk/x/bank/types/errors.go), [staking](../sdk/x/staking/types/errors.go)
 and [store](../sdk/store/types/errors.go). Compare both codespace and code;
 numeric values alone do not identify an error across modules.
+
+The registration signature is `Register(codespace string, code uint32,
+description string) *Error`; duplicate identities panic. Producers wrap a
+registered sentinel with `Wrap` or `Wrapf`. `QueryResult` and `ResponseDeliverTx`
+encode that identity into ABCI `codespace`, `code` and `log` fields. ABCI
+protobuf transport preserves the fields, and clients reconstruct the registered
+identity with `ABCIError(codespace, code, log)` before comparing the sentinel.
+Unknown identities reconstruct as unknown errors, not a registered success.
+
+## Crypto
+
+The fork's [`crypto/types`](../sdk/crypto/types/types.go) defines `PrivKey` and
+`PubKey`, including `Sign([]byte)` and `VerifySignature([]byte, []byte)`.
+Concrete [secp256k1](../sdk/crypto/keys/secp256k1) and
+[ed25519](../sdk/crypto/keys/ed25519) implementations own their key and signature
+encodings. Register their protobuf implementations with the application codec
+before transporting public keys in `Any`. The
+[`keyring`](../sdk/crypto/keyring/keyring.go) selects supported signing
+algorithms and storage backends; `NewInMemory` is ephemeral, and selecting a
+hardware backend does not establish that a device is available.
 
 ## Bank gateway
 
@@ -294,3 +352,20 @@ name, aggregating matching data points. Tests should compare before/after values
 for the real operation because collection is cumulative and the provider is
 shared. `InstallLegacySink(t)` captures legacy emissions and `Keys()` returns
 their sorted names; test cleanup replaces that sink with a blackhole sink.
+
+## Audit reconciliation
+
+Audit 22.30.165 described this contract as missing at its reviewed revision.
+The anchors `#go-api`, `#cli`, `#errors` and `#error-codes` above now describe the
+fork's API and transport; store ranges, bulk namespaces, historical state and
+genesis completion have explicit lifecycle sections. Legacy store behavior is
+separate from the PaxDB store installed by `paxd`. In particular, unsupported
+history, rollback, snapshots and proofs must not be advertised as successful
+recovery. The non-debug error encoder described above still exposes error text;
+this page makes no redaction claim.
+
+This page does not certify upgrade readiness or close other findings in that
+audit. Registry retirement of removed legacy metrics and documentation in other
+domains require their owners' changes. The bounded repair record and proving
+tests for the store findings are in
+[`sdk/store/repair_m636.kvx`](../sdk/store/repair_m636.kvx).

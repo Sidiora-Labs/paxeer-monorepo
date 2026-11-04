@@ -103,15 +103,29 @@ defmodule Explorer.Repo.Migrations.HotTablesStorageParameters do
      ]}
   ]
 
+  # Lock contention aborts the whole migration transaction. Retry the migration
+  # after the busy transaction finishes; no earlier table changes are committed.
   def up do
-    Enum.each(@heap_parameters ++ @toast_parameters, fn {table, parameters} ->
-      execute("ALTER TABLE #{table} SET (#{set_clause(parameters)})")
+    apply_parameters(fn table, parameters ->
+      "ALTER TABLE #{table} SET (#{set_clause(parameters)})"
     end)
   end
 
   def down do
-    Enum.each(@heap_parameters ++ @toast_parameters, fn {table, parameters} ->
-      execute("ALTER TABLE #{table} RESET (#{reset_clause(parameters)})")
+    apply_parameters(fn table, parameters ->
+      "ALTER TABLE #{table} RESET (#{reset_clause(parameters)})"
+    end)
+  end
+
+  defp apply_parameters(statement) do
+    execute(fn ->
+      repo().checkout(fn ->
+        repo().query!("SET LOCAL lock_timeout = '5s'")
+
+        Enum.each(@heap_parameters ++ @toast_parameters, fn {table, parameters} ->
+          repo().query!(statement.(table, parameters))
+        end)
+      end)
     end)
   end
 
