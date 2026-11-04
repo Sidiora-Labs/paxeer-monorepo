@@ -82,21 +82,13 @@ func TestGenesisFetcher_S3_EmptyHashPreservesBehavior(t *testing.T) {
 	body := []byte(`{"chain_id":"custom-devnet-1","app_state":{}}`)
 	fetcher, _, homeDir := genesisFetchFixture(t, body)
 
-	// No expectedGenesisHash in params — the current controller's wire shape.
-	if _, err := fetcher.Handler()(context.Background(), map[string]any{}); err != nil {
-		t.Fatalf("empty expected hash should download unverified, got: %v", err)
+	if _, err := fetcher.Handler()(context.Background(), map[string]any{}); err == nil {
+		t.Fatal("missing authenticated digest must fail")
+	}
+	if exists(filepath.Join(homeDir, "config", "genesis.json")) || markerExists(homeDir, genesisMarkerFile) {
+		t.Fatal("unverified content was published")
 	}
 
-	got, err := os.ReadFile(filepath.Join(homeDir, "config", "genesis.json"))
-	if err != nil {
-		t.Fatalf("reading genesis.json: %v", err)
-	}
-	if string(got) != string(body) {
-		t.Errorf("genesis bytes = %q, want %q", got, body)
-	}
-	if !markerExists(homeDir, genesisMarkerFile) {
-		t.Error("expected completion marker on unverified download")
-	}
 }
 
 func TestGenesisFetcher_EmbeddedChain(t *testing.T) {
@@ -154,7 +146,7 @@ func TestGenesisFetcher_UnknownChainFallsBackToS3(t *testing.T) {
 	fetcher := NewGenesisFetcher(homeDir, "custom-devnet-1", "my-genesis-bucket", "us-east-2", mockFactory)
 	handler := fetcher.Handler()
 
-	_, err := handler(context.Background(), map[string]any{})
+	_, err := handler(context.Background(), map[string]any{"expectedGenesisHash": fmt.Sprintf("%064d", 0)})
 	if !called {
 		t.Fatal("expected S3 fallback for unknown chain")
 	}

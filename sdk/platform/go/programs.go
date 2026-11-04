@@ -2048,6 +2048,21 @@ func (programs *Programs) Submit(ctx context.Context, call ProgramCall, key Idem
 	return ProgramSubmission{State: ProgramSubmissionPrepared, Transaction: &tx, IdempotencyKey: key.String()}, nil
 }
 
+func (programs *Programs) Broadcast(ctx context.Context, signedTransaction []byte) (ProgramSubmission, error) {
+	if len(signedTransaction) == 0 || len(signedTransaction) > MaximumProgramCalldataBytes || signedTransaction[0] != 2 {
+		return ProgramSubmission{}, lifecycleInvalid()
+	}
+	expected := receiptKeccak256(signedTransaction)
+	var hash string
+	if err := programs.rpc(ctx, "eth_sendRawTransaction", []any{portableHex(signedTransaction)}, &hash); err != nil {
+		return ProgramSubmission{}, err
+	}
+	if !receiptHexEquals(hash, expected[:]) {
+		return ProgramSubmission{}, verificationFailure()
+	}
+	return ProgramSubmission{State: ProgramSubmissionPending, TransactionHash: expected}, nil
+}
+
 func (programs *Programs) Receipt(ctx context.Context, key IdempotencyKey, expectedTransaction [32]byte) (ProgramSubmission, error) {
 	if !canonicalProgramKey(key) || expectedTransaction == ([32]byte{}) {
 		return ProgramSubmission{}, newSDKError(ErrorInvalidArgument, RetryNever)
@@ -2107,6 +2122,22 @@ func (programs *Programs) Activity(ctx context.Context, transaction [32]byte) (P
 		state = ProgramSubmissionRefused
 	}
 	return ProgramSubmission{State: state, TransactionHash: transaction, SequencerReceipt: &verified}, nil
+}
+
+func (programs *Programs) ActivityCommitted(ctx context.Context, transaction [32]byte, evidence PortableCommittedEvidence, trust CommittedTrust) (ProgramSubmission, error) {
+	submission, err := programs.Activity(ctx, transaction)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	if submission.SequencerReceipt == nil {
+		return ProgramSubmission{}, newSDKError(ErrorUnknownOutcome, RetryUnknownOutcome)
+	}
+	committed, err := VerifyCommittedReceipt(*submission.SequencerReceipt, evidence.BlockHeader, evidence.ReceiptInclusion, evidence.Commit, evidence.ValidatorSet, trust)
+	if err != nil {
+		return ProgramSubmission{}, err
+	}
+	submission.SequencerReceipt = &committed.SequencerReceiptVerification
+	return submission, nil
 }
 
 func (programs *Programs) raw(ctx context.Context, operation string, requiresKey bool, request any, options CallOptions) (json.RawMessage, error) {
@@ -2634,7 +2665,7 @@ func NewProgramRPCTransport(endpoint string, client *http.Client) (*ProgramRPCTr
 
 func (transport *ProgramRPCTransport) Call(ctx context.Context, call TransportCall) (json.RawMessage, error) {
 	switch call.Operation {
-	case "eth_call", "eth_getTransactionCount", "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_getTransactionByHash", "eth_getRawTransactionByHash", "pax_sequencerReceipt":
+	case "eth_sendRawTransaction", "eth_call", "eth_getTransactionCount", "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_getTransactionByHash", "eth_getRawTransactionByHash", "pax_sequencerReceipt":
 	default:
 		return nil, lifecycleInvalid()
 	}
