@@ -14,22 +14,12 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
-NAMES = ("paxd", "attestor", "layerxd", "layerx-genesis-build",
-         "layerx-module-registry")
-GO_PATHS = ("chain.mk", "go.mod", "go.sum", "admin", "consensus", "custodyproof",
-            "daemon", "engine", "interchain", "layerxproof", "modules", "node",
-            "precompiles", "ratelimiter", "rpc", "sdk", "storage", "sync",
-            "types", "utils", "wasm", "wasm-runtime", "tools/chain")
-NATIVE_PATHS = ("Makefile", "src", "include", "cmd", "programs", "agent",
-                "rust-toolchain.toml", "contracts/config/checkpoint-settlement.json")
-PATHS = {name: GO_PATHS if name == "paxd" else
-         GO_PATHS + ("services/wallet/attestor",) if name == "attestor" else NATIVE_PATHS
-         for name in NAMES}
-LIBRARIES = (
-    "wasm-runtime/internal/api/libwasmvm.x86_64.so",
-    "wasm/x/wasm/artifacts/v152/api/libwasmvm152.x86_64.so",
-    "wasm/x/wasm/artifacts/v155/api/libwasmvm155.x86_64.so",
-)
+PLAN = json.loads((ROOT / "tools/bringup/runtime-bundle.json").read_text())
+NAMES = tuple(PLAN["names"])
+GO_PATHS = tuple(PLAN["go_paths"])
+PATHS = {name: GO_PATHS if name != "attestor" else
+         GO_PATHS + ("services/wallet/attestor",) for name in NAMES}
+LIBRARIES = tuple(PLAN["libraries"])
 HEX = re.compile(r"[0-9a-f]{40}\Z")
 
 
@@ -142,7 +132,7 @@ def rust_toolchain(revision):
 
 def validate(manifest, directory, selected_revision=None):
     private_directory(directory)
-    require(manifest.get("version") == 1, "unsupported manifest version")
+    require(manifest.get("version") == PLAN["version"] and manifest.get("bundle") == PLAN["bundle"], "unsupported manifest version")
     revision = manifest.get("source_revision", "")
     require(HEX.fullmatch(revision) is not None, "invalid source revision")
     require(manifest.get("source_tree") == git("rev-parse", revision + "^{tree}"), "source tree mismatch")
@@ -205,11 +195,10 @@ def build(destination):
     stage = Path(tempfile.mkdtemp(prefix=".foundation-build-", dir=destination.parent))
     commands = [
         ["make", "-f", "chain.mk", "build"],
-        ["make", "-j5", "-B", "LXP_REVISION=" + revision, "PAXEER_GO=" + tool,
-         "PAXEER_GO_JOBS=5", "PROGRAMS_CARGO=" + rust_paths["cargo"], "layerxd", "layerx-genesis-build", "layerx-module-registry"],
         [tool, "build", "-trimpath", "-ldflags=-s -w", "-o", str(stage / "attestor"), "./cmd/attestor"],
+        [tool, "build", "-trimpath", "-ldflags=-s -w", "-o", str(stage / "bringup-inspect"), "./tools/bringup/cmd/bringup-inspect"],
     ]
-    manifest = {"version": 1, "source_revision": revision, "source_tree": tree,
+    manifest = {"version": PLAN["version"], "bundle": PLAN["bundle"], "source_revision": revision, "source_tree": tree,
                 "artifacts": {}, "runtime_libraries": [],
                 "build": {"exit_code": None, "commands": commands, "go_version": version,
                           "source_checkout": str(ROOT), "git_directory": str(ROOT / ".git"),
@@ -220,22 +209,21 @@ def build(destination):
             print("BUILD " + json.dumps(argv), flush=True)
             env = dict(environment)
             cwd = ROOT
-            if index == 2:
+            if index == 1:
                 env.update(CGO_ENABLED="0", GOOS="linux")
                 cwd = ROOT / "services/wallet/attestor"
             command(argv, cwd=cwd, env=env)
         require(clean_identity() == (revision, tree), "source changed during build")
         for name in NAMES:
-            if name != "attestor":
-                source = ROOT / "build" / ("paxd" if name == "paxd" else "bin/" + name)
+            if name == "paxd":
+                source = ROOT / "build/paxd"
                 require(source.is_file() and not source.is_symlink() and os.access(source, os.X_OK), "missing built executable")
                 shutil.copyfile(source, stage / name)
             os.chmod(stage / name, 0o500)
             record = {"path": str(destination / name), "sha256": sha256(stage / name),
                       "source_revision": revision, "source_tree": tree,
                       "source_paths": list(PATHS[name]), "source_binding": source_binding(revision, PATHS[name])}
-            if name in ("paxd", "attestor"):
-                record["go_build_metadata"] = go_metadata(stage / name, revision, tool)
+            record["go_build_metadata"] = go_metadata(stage / name, revision, tool)
             manifest["artifacts"][name] = record
         for relative in LIBRARIES:
             source = ROOT / relative
@@ -281,9 +269,9 @@ def verify(manifest_path, evidence):
         manifest = json.loads(manifest_path.read_text())
         revision = clean_identity()[0]
         result.update(source_revision=revision, artifact_manifest=str(manifest_path))
-        case("complete-five-real-executables", lambda: validate(manifest, manifest_path.parent, revision))
+        case("complete-merged-runtime-executables", lambda: validate(manifest, manifest_path.parent, revision))
         tool, _ = go_tool()
-        for name in ("paxd", "attestor"):
+        for name in NAMES:
             case(name + "-embedded-source", lambda name=name: go_metadata(Path(manifest["artifacts"][name]["path"]), manifest["source_revision"], tool))
         with tempfile.TemporaryDirectory(prefix="foundation-negative-", dir=evidence) as temporary:
             root = Path(temporary)
@@ -296,7 +284,7 @@ def verify(manifest_path, evidence):
                 record["path"] = str(clone / Path(record["path"]).name)
             check = lambda value=copied: validate(value, clone, revision)
             case("actual-bundle-copy", check)
-            target = clone / "layerx-module-registry"
+            target = clone / "paxd"
             os.chmod(target, 0o700)
             with target.open("r+b") as stream:
                 byte = stream.read(1)
@@ -347,13 +335,11 @@ def verify(manifest_path, evidence):
 def verify_sources():
     require(len(NAMES) == len(set(NAMES)) and set(PATHS) == set(NAMES),
             "artifact source declarations mismatch")
-    makefile = (ROOT / "Makefile").read_text()
+    require(PLAN["version"] == 2 and PLAN["bundle"] == "merged-runtime" and
+            NAMES == ("paxd", "attestor", "bringup-inspect"), "merged runtime declaration required")
     for name in NAMES:
         require(bool(PATHS[name]), "missing artifact source paths: " + name)
         source_binding(git("rev-parse", "HEAD"), PATHS[name])
-        if name not in ("paxd", "attestor"):
-            require(re.search(r"^" + re.escape(name) + r":", makefile, re.M) is not None,
-                    "missing artifact build target: " + name)
     require(re.search(r"^build:", (ROOT / "chain.mk").read_text(), re.M) is not None,
             "missing chain build target")
     require((ROOT / "services/wallet/attestor/cmd/attestor/main.go").is_file(),
@@ -366,6 +352,7 @@ def main():
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--build", action="store_true")
     modes.add_argument("--verify", action="store_true")
+    parser.add_argument("--bundle", choices=("merged-runtime",), default="merged-runtime")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--manifest", type=Path, default=os.environ.get("PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST"))
     parser.add_argument("--evidence", type=Path, default=os.environ.get("PAXEER_X_EVIDENCE_DIR"))
