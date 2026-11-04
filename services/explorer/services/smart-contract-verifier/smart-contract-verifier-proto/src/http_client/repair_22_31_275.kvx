@@ -1,0 +1,10 @@
+[repair.22.31.275]
+finding = "verifier-base-path"
+tests = ["repair_22_31_275_launcher_health_and_probe", "repair_22_31_275_production_root_round_trip", "repair_22_31_275_production_verifier_round_trip"]
+baseline = "Not run: the task's explicit ordered gates prohibit verification before implementation; no baseline failure is claimed."
+previous_attempt = "Candidate ed9799995b2aafe75727420de6b215bf8f47adc9 failed production_root_round_trip and production_verifier_round_trip because SMART_CONTRACT_VERIFIER_SERVER_BIN was absent; launcher_health_and_probe passed. This is the supplied prior qualification, not an unchanged-tree baseline."
+wiring_request = "None: launcher mounting is retained, and the proto crate drives an in-process loopback HTTP peer without changing an out-of-scope manifest."
+transport_proof = "The root and /verifier round trips start a loopback Actix server using the production launcher router, production health service and committed compiler-version/verification response transcripts; the production HTTP client sends typed requests and decodes responses for both trailing-slash forms. The server checks the complete verification request and query removal; counters prove both routes execute twice."
+continuation = "Replace the prior external-binary peer with a loopback server as ruled for attempt 3; retain every existing test and assertion. No environment variables, external binaries or live endpoints are required."
+gotcha = "The production HealthService accepts its declared gRPC service name and rejects solidity as unknown; the launcher test now exercises both outcomes without weakening the serving assertion."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; closure requires hf-done exit zero."

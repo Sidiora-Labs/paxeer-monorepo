@@ -100,8 +100,13 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 	suite.Require().Equal(coinSentFromBToC, balance)
 
 	// check that balance on chain B is empty
-	balance = suite.chainB.GetSimApp().BankKeeper.GetBalance(suite.chainB.GetContext(), suite.chainB.SenderAccount.GetAddress(), coinSentFromBToC.Denom)
-	suite.Require().Zero(balance.Amount.Int64())
+	balance = suite.chainB.GetSimApp().BankKeeper.GetBalance(suite.chainB.GetContext(), suite.chainB.SenderAccount.GetAddress(), coinSentFromAToB.Denom)
+	suite.Require().True(balance.Amount.IsZero())
+
+	// B escrows its A-origin voucher, not the native coin or C's voucher.
+	escrowAddress := types.GetEscrowAddress(pathBtoC.EndpointA.ChannelConfig.PortID, pathBtoC.EndpointA.ChannelID)
+	balance = suite.chainB.GetSimApp().BankKeeper.GetBalance(suite.chainB.GetContext(), escrowAddress, coinSentFromAToB.Denom)
+	suite.Require().True(balance.Amount.Equal(amount))
 
 	// send from chainC back to chainB
 	msg = types.NewMsgTransfer(pathBtoC.EndpointB.ChannelConfig.PortID, pathBtoC.EndpointB.ChannelID, coinSentFromBToC, suite.chainC.SenderAccount.GetAddress().String(), suite.chainB.SenderAccount.GetAddress().String(), timeoutHeight, 0)
@@ -116,17 +121,17 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 
 	balance = suite.chainB.GetSimApp().BankKeeper.GetBalance(suite.chainB.GetContext(), suite.chainB.SenderAccount.GetAddress(), coinSentFromAToB.Denom)
 
-	// check that the balance on chainA returned back to the original state
+	// check that B recovered its original voucher balance
 	suite.Require().Equal(coinSentFromAToB, balance)
 
 	// check that module account escrow address is empty
-	escrowAddress := types.GetEscrowAddress(packet.GetDestPort(), packet.GetDestChannel())
-	balance = suite.chainB.GetSimApp().BankKeeper.GetBalance(suite.chainB.GetContext(), escrowAddress, sdk.DefaultBondDenom)
-	suite.Require().Equal(sdk.NewCoin(sdk.DefaultBondDenom, sdk.ZeroInt()), balance)
+	suite.Require().Equal(escrowAddress, types.GetEscrowAddress(packet.GetDestPort(), packet.GetDestChannel()))
+	balance = suite.chainB.GetSimApp().BankKeeper.GetBalance(suite.chainB.GetContext(), escrowAddress, coinSentFromAToB.Denom)
+	suite.Require().True(balance.Amount.IsZero())
 
-	// check that balance on chain B is empty
-	balance = suite.chainC.GetSimApp().BankKeeper.GetBalance(suite.chainC.GetContext(), suite.chainC.SenderAccount.GetAddress(), voucherDenomTrace.IBCDenom())
-	suite.Require().Zero(balance.Amount.Int64())
+	// check that C burned the voucher it actually held
+	balance = suite.chainC.GetSimApp().BankKeeper.GetBalance(suite.chainC.GetContext(), suite.chainC.SenderAccount.GetAddress(), coinSentFromBToC.Denom)
+	suite.Require().True(balance.Amount.IsZero())
 }
 
 func TestTransferTestSuite(t *testing.T) {

@@ -1,0 +1,38 @@
+[task.22.33.1250]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+inspected_revision = "0fc2ddbe29baad8cb85e22d8b9492d748c989f42"
+readme_owner_task = "22.31.470"
+repair = "Consume the README correction delivered by documentation owner 22.31.470 under decision 2525, preserving README.md unchanged. Prove one paxd BFT network, embedded block-proposing kernel, chain 125, api1 through api14 root JSON-RPC, signed transaction submission and committed receipt flow, paxd build/start guidance, and retired custody/checkpoint refusal compatibility surfaces. No expected README fact is missing on inspection."
+source_proof = "The six offline pytest tests read the actual README and production sources. They check runtime and finality prose against node host and consensus wiring; parse the curl example with shlex and JSON and validate root host URLs against node root dispatch; trace transaction acceptance/forwarding, durable release before receipt publication, receipt rungs and committed coverage; check retirement and historical-read upgrade guards; parse Makefile target dependencies and documented build/start arguments against the node binary target; and validate this finding-to-test mapping."
+review_only = "These are source assertions for documentation drift, not execution of Go/C/Rust components, node startup, transaction execution, WAL recovery, retirement reverts, live RPC availability or BFT consensus. No interface or restart-recovery finding is repaired here. README contains shell examples but no shell script, unit, manifest or build file is changed; examples are parsed in process without bash or another external binary. The gate needs only Python/pytest and committed repository text, without credentials, environment variables, endpoints, native artifacts or devices."
+baseline = "No earlier scoped changes or gate ledger existed; gate.json recorded zero builds and verifies. Git status/diff showed only runner-prepared .cgignore and feature-spec bookkeeping. The ordered implementation-first and exclusive hf-done rules prohibit the older step 5 request for a manual unchanged-tree verification; no baseline was executed and no baseline failure is claimed. README already contains the owning task's correction."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1250.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl provide the exact verified candidate revision, command, exit code and log path. Build and verify must pass on that same revision. Finalize this record before gates: placing a content-derived candidate hash inside its own source would change it. The runner retains qualification evidence and commits; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.readme-retired-runtime]
+audit = "22.30.61"
+file = "README.md"
+line = 46
+class = "doc-drift"
+severity = "medium"
+owner_domain = "chain-modules (6); root documentation owned by programme task 22.31.470"
+closure = "The corrected runtime and compatibility boundaries are present in README.md as 22.31.470 left it; source assertions prove the expected facts without editing the owning domain's file. Qualification is established only by the bounded hf-done result."
+tests = ["test_readme_retired_runtime_one_embedded_network_and_commit_finality", "test_readme_retired_runtime_chain_125_root_rpc_hosts_and_request", "test_readme_retired_runtime_transaction_to_committed_receipt_path", "test_readme_retired_runtime_compatibility_surfaces_refuse", "test_readme_retired_runtime_paxd_build_and_start_replace_daemon", "test_readme_retired_runtime_record_maps_finding_and_evidence"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After implementation, apply the existing .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two scoped files."
+
+[gotcha.1]
+observed = "The baseline-run clause conflicts with the explicit implementation-first order and prohibition on running verify_cmd by hand."
+resolution = "Follow the ordered gates and state that no baseline tests ran or failed."
+
+[gotcha.2]
+observed = "Codify brief/survey reports unrelated task and change information, and broad combined reads exceeded output limits; guessed Python configuration paths are absent."
+resolution = "Use actual Git status/diff, the exact task block, bounded named source reads and the private gate ledger. Keep task-specific notes here because root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.3]
+observed = "README is outside this task's paths and historical compatibility views remain available until their separate store-deletion upgrade."
+resolution = "Consume the owning task's README without edits, check explicit retirement/refusal and archive-only boundaries, and request any missing README fact from programme/documentation task 22.31.470 rather than weakening assertions. No missing fact was identified."
