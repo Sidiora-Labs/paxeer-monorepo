@@ -110,6 +110,11 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 			n.printLogTail(stderr)
 		}
 	}()
+	if *vector == vectorV6Name {
+		if err := n.configureV6Genesis(); err != nil {
+			return err
+		}
+	}
 	standby, err := n.prepareStandby()
 	if err != nil {
 		return err

@@ -73,7 +73,7 @@ func repairM1092Recorder(t *testing.T, programs bool) *repairM1092Runtime {
 	return repairM1092PrepareRecorder(t, programs)()
 }
 
-func repairM1092PrepareRecorder(t *testing.T, programs bool) func() *repairM1092Runtime {
+func repairM1092PrepareRecorder(t *testing.T, programs bool, configure ...func(sdk.Context, *app.App, *ecdsa.PrivateKey)) func() *repairM1092Runtime {
 	t.Helper()
 	oldOCC := app.EnableOCC
 	app.EnableOCC = false
@@ -126,6 +126,9 @@ func repairM1092PrepareRecorder(t *testing.T, programs bool) func() *repairM1092
 	}))
 	if programs {
 		repairM1092SeedPrograms(t, wrapper.Ctx, a, payer)
+	}
+	for _, seed := range configure {
+		seed(wrapper.Ctx, a, payer)
 	}
 	params, block := *app.DefaultConsensusParams, *app.DefaultConsensusParams.Block
 	block.MaxGasWanted = block.MaxGas
