@@ -183877,7 +183877,7 @@ do_13 = "Attempt 6 (continue): the gates passed; the attempt was refused only be
 
 [task.22.31.267]
 title = "Repair audit record 22.30.135 findings in services/explorer/services/sig-provider/sig-provider/src/sources: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197221,7 +197221,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1453]
 title = "Repair audit record 22.30.83 medium findings in services/platform/hosted/node (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.353", "22.31.354", "22.31.355", "22.31.356", "22.31.357"]
@@ -251833,7 +251833,7 @@ do_11 = "Attempt 3 (continue): attempt 2 launched before the ruling of attempt 1
 
 [task.22.33.1390]
 title = "Repair audit record 22.30.77 medium findings in sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk (part 2 of 2): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.343", "22.31.344", "22.31.345"]
@@ -276500,7 +276500,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1349]
 title = "Repair audit record 22.30.73 medium findings in sdk/crypto/keys/secp256k1/internal/secp256k1 (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.134", "22.31.135", "22.31.136", "22.31.137"]
@@ -318852,7 +318852,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.458]
 title = "Remove the committed Python bytecode caches and ignore __pycache__ at the repository root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -319991,7 +319991,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1387]
 title = "Repair audit record 22.30.76 medium findings in services/platform/hosted/tests (part 2 of 2): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.141", "22.31.142", "22.31.143"]
