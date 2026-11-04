@@ -1,0 +1,82 @@
+[repair.22.33.314]
+status = "Implemented; qualification evidence is owned by the private hf-build/hf-done ledger."
+implementation = "Reconcile overview joins and unknown accepted markets, bound history to 100 rows with exclusive backend cursors and immediate inactive-page collection, stop refreshing accepted frozen archives, and preserve token supply strings through the socket and pending REST state."
+baseline = "No unchanged-tree verify ran: the explicit ordered implementation-first and hf-build/hf-done-only instructions prohibit the conflicting do_12 baseline step. No pre-change execution result is claimed."
+coverage = "The declared Vitest entry executes the four repaired existing suites plus production pages over loopback HTTP and real Phoenix WebSocket connections. Committed API fixtures and an in-memory paged history store are peers; no Elixir runtime execution is claimed."
+qualification = "The runner retains the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; no task source is edited after the final passing hf-done."
+
+[finding.address-fixture-shape]
+test = "addressFixtureShapeReachesLoadedDetailOverHttp; all Address.spec.tsx layout cases await renderLoadedAddress"
+proof = "Address, independent counters, tabs and list fixtures have explicit paths; the page must show the producer creator transaction and populated transaction count before layout assertions; unexpected paths fail."
+
+[finding.feed-overview-rejoin]
+test = "feedOverviewRestoresAfterStopAndReopenWithoutEvents; feedOverviewRejoinRecoversMissedSubmission; unknownAcceptedMarketReconcilesThroughRest"
+proof = "Stop the consumer, change its committed REST snapshot while disconnected, reopen it and join without sending another event; also reconcile an accepted unknown market through REST. Join reconciliation cancels an in-flight stale snapshot before invalidation."
+
+[finding.history-unbounded-session]
+test = "longSessionBoundsHistoryAndPreservesExclusiveCursorContinuity"
+proof = "Four live batches keep the query and DOM at 100 rows; actual pagination follows both exclusive block/index values through every displaced row and original snapshot without gaps or duplicates, collecting inactive query pages."
+
+[finding.history-buffer-test-drift]
+test = "keepsAtMostAPageOfSubmissionsWhileTheHistoryIsHeld; longSessionBoundsHistoryAndPreservesExclusiveCursorContinuity"
+proof = "The held buffer retains its newest 50 socket submissions plus the three initial history rows in order, with uniqueness and no discarded buffered rows ever rendered; displaced rows remain reachable by backend cursor."
+
+[finding.receipt-refresh-retired-url]
+test = "archiveReceiptVisibilityDoesNotRefreshFrozenEvidence; frozenArchiveRemainsStableWithoutPollingOrVisibilityRefresh"
+proof = "Match the exact /api/v2/paxeer-x/archive/receipts/:id path and assert the archive response body and a single request after hidden/visible transitions and the former poll interval."
+
+[finding.archive-receipt-live-refresh]
+test = "frozenArchiveRemainsStableWithoutPollingOrVisibilityRefresh; invalidArchiveEvidenceIsRefusedOverHttp; PaxeerXReceipt.spec.tsx invalid-response cases"
+proof = "A frozen checkpoint_finalised archive stays complete with its recorded status and no anchoring promise; unsupported, unfrozen and wrong-id responses never produce a details card."
+
+[finding.token-supply-test-fixture]
+test = "tokenSupplyStringsCrossPhoenixLosslesslyIncludingBufferedZero; Token.pw.tsx decimal string supplies preserve precision and zero"
+proof = "The Node gate sends the same decimal-string transcript over Phoenix, checks exact cached strings and displayed values against BigNumber of the original strings; visual cases retain existing screenshots and add precise tooltip coverage. The browser suite is supplied but is not run by the Node-only gate."
+
+[finding.token-supply-wire-type]
+test = "tokenSupplyStringsCrossPhoenixLosslesslyIncludingBufferedZero"
+proof = "The typed transcript must compile against SocketMessage.TokenTotalSupply; actual socket strings exceed 2^53 and include zero before a delayed REST answer and after it, asserting exact cache and rendered values. Buffered values survive placeholders and are consumed once."
+
+[wiring.producer-runtime]
+request = "Domain 14 explorer backend: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/{notifier.ex,views/api/v2/address_view.ex,views/api/v2/paxeer_x/archive_view.ex} require an owning Elixir runtime gate for producer execution; this task uses committed producer-shape fixtures and source conformance because its declared Node-only gate cannot execute Elixir."
+
+[notes]
+gotcha = "Vitest 4 test(function) registers a TODO; named test functions are registered as test(function.name, function) so assertions execute."
+
+[notes.formatting]
+formatter = "Explorer ESLint --fix --fix-type layout formatted only touched TypeScript files; its diagnostic exit is not a task gate. Named-function registrations trigger expect-expect/valid-title, and the formatter reports conflicting spacing fixes at vi.hoisted; no rule is disabled. Required qualification remains hf-build and hf-done."
+gotcha = "One formatting cleanup script initially used repository-relative paths from the explorer directory and changed nothing; rerun it from the repository root."
+
+[wiring.playwright-supply]
+request = "Domain 14 explorer frontend: apps/explorer/playwright/fixtures/socketServer.ts must change the total_supply overload from number to the notifier decimal-string payload; this out-of-scope helper is not edited. Scoped visual tests send the actual string JSON frame through the existing WebSocket connection."
+
+[repair.playwright-supply]
+revision = "3b9c9b65a16f190548e01c306c8b637dea2937f0"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The out-of-scope Playwright sendMessage total_supply overload still required numbers; preserve string assertions by writing the real Phoenix frame directly through the existing socket."
+
+[repair.fixture-lifecycle]
+revision = "fca4ec101b2d08e5752a4b37ee48c3cf59f23bd1"
+command = "cg spec done 22.33.314 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 38 cases executed: 21 passed and 17 failed; six strict address cases lacked their real gas-statistics fixture, and the offline receipt case left React Query's global online manager offline, pausing the four invalid-response cases and all seven loopback cases."
+repair = "Add the committed stats producer fixture at its exact route and reset the real query online manager between cases, preserving all assertions, online/offline checks and the real network transports."
+
+[qualification.previous-attempt-budget-accounting]
+observed = "The wrapper counts each additional gate invocation as a repair: build-2 uses one; the required build-3 after the verify-1 repair uses the second before verify-2 can run. The user-ordered build-then-verify pair cannot fit that invocation accounting. No gate is bypassed, no budget is changed and no unexecuted result is claimed."
+
+[qualification.continuation]
+observed = "The resumed tree already contains the stats fixture and online-manager lifecycle repair described above, without qualification evidence for that repair. The continuation starts with an empty gate ledger, one build and one verify available, and two repair invocations remaining; only hf-build and hf-done will qualify this candidate."
+scope = "Pre-existing .cgignore and spec/layerx-merge/spec.kvx changes are runner bookkeeping and remain untouched; gotchas and out-of-path wiring requests are recorded here because the explicit task scope prohibits editing the root and spec ledgers."
+gotcha = "The resumed sandbox has no explorer node_modules, so the initial formatter invocation found no executable and changed nothing. Install the frozen dependencies with scripts disabled before formatting; no build or test runs during that setup."
+
+[repair.pagination-control-scope]
+revision = "35f266c99aff4db5632104156eceb0a1072a2c6a"
+command = "cg spec done 22.33.314 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The continuation executes all 38 cases with 37 passing; long-session cursor traversal reaches two real Next page buttons because ScanTableCard renders header and footer controls, so the unscoped action is ambiguous."
+repair = "Assert that the footer pagination exists and use its real Next page button, preserving all bounded rendering, exact cursor, reachability, uniqueness and cache-collection assertions."

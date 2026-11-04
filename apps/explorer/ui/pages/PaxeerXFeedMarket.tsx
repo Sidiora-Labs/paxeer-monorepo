@@ -20,6 +20,8 @@ import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import { ScanTableCard } from 'ui/shared/scan';
 import SocketAlert from 'ui/shared/SocketAlert';
 
+export const FEED_HISTORY_WINDOW_LIMIT = 2 * FEED_HISTORY_BUFFER_LIMIT;
+
 // Newest first, the order the endpoint pages in.
 const byNewest = (a: MarketUpdate, b: MarketUpdate) => b.block_number - a.block_number || b.index - a.index;
 
@@ -42,9 +44,17 @@ function handleFlush(prevData: MarketUpdatesResponse | undefined, updates: Array
     return prevData;
   }
 
-  const items = [ ...fresh, ...prevData.items ].sort(byNewest);
+  const combined = [ ...fresh, ...prevData.items ].sort(byNewest);
+  const items = combined.slice(0, FEED_HISTORY_WINDOW_LIMIT);
+  const last = items[items.length - 1];
+  // The backend cursor is exclusive. Continue immediately after the last visible row so
+  // displaced rows, including the initial snapshot, remain reachable without retaining them.
+  const nextPageParams = combined.length > items.length ? {
+    block_number: last.block_number,
+    index: last.index,
+  } : prevData.next_page_params;
 
-  return { ...prevData, items };
+  return { ...prevData, items, next_page_params: nextPageParams };
 }
 
 const PaxeerXFeedMarket = () => {
@@ -75,7 +85,7 @@ const PaxeerXFeedMarket = () => {
   const { data, isError, isPending, pagination } = useQueryWithPages({
     resourceName: 'general:paxeer_x_feed_market_updates',
     pathParams: { id },
-    options: { refetchInterval },
+    options: { refetchInterval: isFirstPage ? refetchInterval : false, gcTime: 0 },
   });
 
   const handleUpdatesFlush = React.useCallback((updates: Array<MarketUpdate>) => {
