@@ -1,0 +1,10 @@
+{
+  "name": "pnl-reward-schema-proof",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite-socket": "0.2.18",
+    "solc": "0.8.27"
+  }
+}
