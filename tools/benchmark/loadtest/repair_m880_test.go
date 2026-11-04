@@ -36,6 +36,8 @@ type m880EthPeer struct {
 	sent    []common.Hash
 }
 
+func (p *m880EthPeer) Version() string { return "125" }
+
 func (p *m880EthPeer) GetTransactionCount(context.Context, common.Address, string) hexutil.Uint64 {
 	return 0
 }
@@ -77,6 +79,9 @@ func m880Peer(t *testing.T) (*m880EthPeer, *ethclient.Client, string) {
 	if err := server.RegisterName("eth", peer); err != nil {
 		t.Fatal(err)
 	}
+	if err := server.RegisterName("net", peer); err != nil {
+		t.Fatal(err)
+	}
 	httpServer := httptest.NewServer(server)
 	t.Cleanup(httpServer.Close)
 	t.Cleanup(server.Stop)
@@ -105,10 +110,12 @@ func m880CheckReceiptQueries(t *testing.T, peer *m880EthPeer, endpoint string, w
 	peer.mu.Lock()
 	peer.queries = nil
 	peer.mu.Unlock()
-	runEvmQueries(Config{
+	if err := runEvmQueries(Config{
 		EvmRpcEndpoints: endpoint, EVMAddresses: &EVMAddresses{},
 		PostTxEvmQueries: PostTxEvmQueries{Receipt: len(want)},
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	peer.mu.Lock()
 	defer peer.mu.Unlock()
 	counts := make(map[common.Hash]int)
@@ -134,11 +141,11 @@ func TestRepairM_880_F042ConcurrentProducersAndReceiptQueries(t *testing.T) {
 		client.EvmTxClients = append(client.EvmTxClients, m880EvmClient(ethClient))
 	}
 
-	done := make(chan struct{})
-	defer close(done)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	queue := make(chan SignedTx, workers*perWorker)
 	counts := map[string]*int64{EVM: new(int64)}
-	var running, internal sync.WaitGroup
+	var running sync.WaitGroup
 	readerDone := make(chan struct{})
 	readerReady := make(chan struct{})
 	readerStopped := make(chan struct{})
@@ -173,8 +180,8 @@ func TestRepairM_880_F042ConcurrentProducersAndReceiptQueries(t *testing.T) {
 		running.Add(1)
 		go func(index int) {
 			defer running.Done()
-			// Exactly perWorker real signatures, then stop at the limiter until shutdown.
-			client.BuildTxs(queue, index, &internal, done, rate.NewLimiter(0, perWorker), counts)
+			// Produce exactly perWorker real signatures under the limiter.
+			client.BuildTxs(ctx, queue, index, rate.NewLimiter(0, perWorker), counts)
 		}(i)
 	}
 	go func() { running.Wait(); close(producerStopped) }()
@@ -191,11 +198,31 @@ func TestRepairM_880_F042ConcurrentProducersAndReceiptQueries(t *testing.T) {
 				t.Fatal(err)
 			}
 			produced[tx.EvmTx.Hash()] = tx.EvmTx
+			sender, err := ethtypes.Sender(ethtypes.NewLondonSigner(big.NewInt(125)), tx.EvmTx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			owner := -1
+			for index, evm := range client.EvmTxClients {
+				if evm.accountAddress == sender {
+					owner = index
+					break
+				}
+			}
+			if owner < 0 {
+				t.Fatal("no owner for produced transaction")
+			}
+			toSend := make(chan SignedTx, 1)
+			toSend <- tx
+			close(toSend)
+			if err := client.SendTxs(ctx, toSend, owner, map[string]*int64{EVM: new(int64)}, semaphore.NewWeighted(1)); err != nil {
+				t.Fatal(err)
+			}
 		case <-timeout.C:
 			t.Fatal("real producers did not fill their quotas")
 		}
 	}
-	// Query while the producers and snapshot reader are still alive.
+	// Query the accepted submissions while the snapshot reader remains active.
 	peer.mu.Lock()
 	peer.txs = produced
 	peer.mu.Unlock()
@@ -222,7 +249,6 @@ func TestRepairM_880_F042ConcurrentProducersAndReceiptQueries(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Error("producers did not stop")
 		}
-		internal.Wait()
 		if count := atomic.LoadInt64(counts[EVM]); count != workers*perWorker {
 			t.Errorf("production counter = %d, want %d", count, workers*perWorker)
 		}
@@ -241,9 +267,10 @@ func TestRepairM_880_F042BoundedIndependentSnapshot(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		peer.txs[tx.Hash()] = tx
+		if err := client.SendEvmTx(tx, func() { store.Add(tx.Hash()) }); err != nil {
+			t.Fatal(err)
+		}
 		emitted = append(emitted, tx.Hash())
-		store.Add(tx.Hash())
 		first := len(emitted) - capacity
 		if first < 0 {
 			first = 0
@@ -274,7 +301,9 @@ func TestRepairM_880_F042BoundedIndependentSnapshot(t *testing.T) {
 		peer.mu.Lock()
 		before := len(peer.queries)
 		peer.mu.Unlock()
-		runEvmQueries(Config{EvmRpcEndpoints: endpoint, EVMAddresses: &EVMAddresses{}, PostTxEvmQueries: PostTxEvmQueries{Receipt: 3}})
+		if err := runEvmQueries(Config{EvmRpcEndpoints: endpoint, EVMAddresses: &EVMAddresses{}, PostTxEvmQueries: PostTxEvmQueries{Receipt: 3}}); err == nil || !strings.Contains(err.Error(), "receipt") {
+			t.Fatalf("missing receipt observations: %v", err)
+		}
 		peer.mu.Lock()
 		defer peer.mu.Unlock()
 		if len(peer.queries) != before {
@@ -331,11 +360,10 @@ func m880SendClosedQueue(t *testing.T, client *LoadTestClient, queue chan Signed
 	t.Helper()
 	close(queue)
 	sem := semaphore.NewWeighted(1)
-	var wg sync.WaitGroup
 	result := make(chan any, 1)
 	go func() {
 		defer func() { result <- recover() }()
-		client.SendTxs(queue, 0, make(chan struct{}), counts, sem, &wg)
+		client.SendTxs(context.Background(), queue, 0, counts, sem)
 	}()
 	select {
 	case failure := <-result:
@@ -345,7 +373,6 @@ func m880SendClosedQueue(t *testing.T, client *LoadTestClient, queue chan Signed
 	case <-time.After(5 * time.Second):
 		t.Fatal("closed queue consumer did not exit")
 	}
-	wg.Wait()
 	if !sem.TryAcquire(1) {
 		t.Fatal("consumer leaked semaphore permit")
 	}
