@@ -4,6 +4,7 @@ use self::record::{number, Record};
 use super::super::PROTOCOL_VERSION;
 use super::{digest, hex, json, refusal, unavailable, Config, PrincipalPolicy, Response};
 use layerx_client::px::{PxAccountJoin, PxEndpoint};
+use layerx_client::rpc::account::{balance, ReadContext, Requested, Rung};
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_crypto::evm_transaction::transaction_hash as keccak256;
 use serde_json::{json as value, Value};
@@ -136,18 +137,21 @@ impl Session {
     }
 
     fn balance(&self, id: [u8; 32], asset: [u8; 32]) -> Result<u128, ()> {
-        let balances = self.network.balances(&hex::encode(&id)).map_err(|_| ())?;
-        if balances.account.layerx_account != Some(id) {
+        let account = self.network.account(&hex::encode(&id)).map_err(|_| ())?;
+        if account.account.layerx_account != Some(id) {
             return Err(());
         }
-        let mut rows = balances.balances.iter().filter(|row| row.asset_id == asset);
-        let row = rows.next().ok_or(())?;
-        if rows.next().is_some() {
-            return Err(());
-        }
-        let layerx = row.layerx.as_ref().ok_or(())?;
-        let amount = layerx.get("amount").and_then(Value::as_str).ok_or(())?;
-        amount.parse().map_err(|_| ())
+        balance(
+            &self.sequencer,
+            id,
+            asset,
+            ReadContext {
+                committed_height: self.committed_height,
+                requested: Requested::new(Rung::Committed).map_err(|_| ())?,
+            },
+        )
+        .map(|amount| amount.value())
+        .map_err(|_| ())
     }
 
     pub(super) fn unchanged(&self) -> Result<(), ()> {
