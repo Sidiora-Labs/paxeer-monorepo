@@ -1,0 +1,9 @@
+[repair.22.33.1299]
+finding = "config-duration-contract"
+implementation = "ReadConfig rejects filter_timeout below 2ns and rpc_stats_interval below 1ns with the exact key in bounds and conversion errors; ConfigTemplate documents both minimums."
+tests = ["TestRepairM_1299_InvalidDurations", "TestRepairM_1299_DurationRoundTrip", "TestRepairM_1299_DefaultsAndDocumentation", "TestReadConfigTickerDurationErrors"]
+proof = "Production ConfigTemplate renders typed Config values to TOML, Viper transports them into ReadConfig, and accepted durations drive the same time.NewTicker operations used by runtime consumers."
+baseline = "No unchanged-tree baseline was run because the explicit implementation-first order and hf-done-only verification rule prohibit do_5's baseline run. Attempt 1 failed to compile in sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli before any repair test executed; task 22.31.463 repaired those callers."
+continuation = "Attempt 2 retains the existing implementation and tests on input revision 13531a9e95bc34a9b21e00a3e375a215261f2bd6; no current-attempt gate ledger existed before qualification."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done gate ledger records the exact candidate revision, command, exit and private log; the final response copies its last evidence line."
