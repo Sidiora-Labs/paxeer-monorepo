@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/example/kvstore"
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/eventbus"
 	tmpubsub "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/pubsub"
@@ -237,6 +238,44 @@ func TestEventBusPublishEventTxDuplicateKeys(t *testing.T) {
 		})
 
 	}
+}
+
+func TestEventBusPublishEventTxReservedKeys(t *testing.T) {
+	t.Run("reserved metadata", TestRepairM_1115_ReservedKeys)
+	t.Run("duplicate application attributes", TestRepairM_1115_DuplicateApplicationKeys)
+}
+
+// executeEventBusApplicationTx executes and commits a real in-memory application
+// transaction. Extra events are adversarial application input at the bus boundary,
+// alongside the unmodified events emitted by the kvstore execution.
+func executeEventBusApplicationTx(t *testing.T, extraEvents ...abci.Event) types.EventDataTx {
+	t.Helper()
+	app := kvstore.NewApplication()
+	t.Cleanup(func() { require.NoError(t, app.Close()) })
+	tx := types.Tx("sender=foo")
+	response, err := app.FinalizeBlock(t.Context(), &abci.RequestFinalizeBlock{
+		Txs: [][]byte{tx},
+	})
+	require.NoError(t, err)
+	require.Len(t, response.TxResults, 1)
+	require.Equal(t, abci.CodeTypeOK, response.TxResults[0].Code)
+	require.NotEmpty(t, response.TxResults[0].Events)
+	_, err = app.Commit(t.Context())
+	require.NoError(t, err)
+	stored, err := app.Query(t.Context(), &abci.RequestQuery{Path: "/store", Data: []byte("sender")})
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), stored.Value)
+	info, err := app.Info(t.Context(), &abci.RequestInfo{})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), info.LastBlockHeight)
+
+	result := *response.TxResults[0]
+	result.Events = append(result.Events, extraEvents...)
+	return types.EventDataTx{TxResultV2: abci.TxResultV2{
+		Height: info.LastBlockHeight,
+		Tx:     tx,
+		Result: result,
+	}}
 }
 
 func TestEventBusPublishEventNewBlockHeader(t *testing.T) {
