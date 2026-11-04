@@ -1,0 +1,27 @@
+[repair.22.33.353]
+mode = "BUILD"
+record = "spec/layerx-merge/programme/audit/records/22.30.139.kvx"
+baseline = "No baseline gate ran: the ordered instructions forbid testing until implementation is complete and forbid invoking verify_cmd by hand; the declared test file did not exist in the starting tree. No pre-change failure is claimed."
+proof = "Production ActivityController -> real generated HumanApiClient -> loopback HTTP -> committed activity producer transcripts and a principal-bound in-memory export store -> production ActivityFilterResults in desktop/mobile markup; evidence.get -> generated EvidenceMaterial decoder -> production resolver and mounted ActivityEvidenceLink."
+peer = "The in-memory export peer commits a principal/key/payload row before deliberately losing its HTTP response, enforces immutable payload identity, and replays the original stored artefact. It needs no external service, subprocess, credential, device or inherited environment."
+evidence = "Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done; this record makes no advance claim of qualification."
+
+[finding.activity-filter-response-race]
+tests = ["activity_filter_response_race_pagination_and_rendered_results", "activity_filter_response_race_refresh_and_obsolete_failures", "activity_filter_response_race_account_and_unmount_invalidation"]
+repair = "Refresh increments a generation; pagination captures it and checks success, failure and finally. Account storage changes and effect cleanup invalidate account and request generations. Both shell feeds and their echo render the accepted page together."
+
+[finding.activity-export-payload-key]
+tests = ["activity_export_payload_key_response_loss_filter_change_and_reconciliation", "activity_export_payload_key_kind_and_principal_isolation"]
+repair = "Retain frozen principal/kind/filter/key attempts independently of current filters; distinct payloads get new keys. The original operation remains available for explicit reconciliation using its original body, and retries check the authenticated account before sending."
+
+[finding.activity-evidence-dead-route]
+tests = ["activity_evidence_dead_route_material_to_registered_native_url", "activity_evidence_dead_route_rendered_link_and_no_destination"]
+repair = "Resolve evidence.get and match its identity/class before navigation. For the declared portable v2 receipt media type, derive a chain-125 transaction hash from rawTransaction and use explorerLinkPath's registered native /tx route on a validated explorer origin. Opaque receipts, checkpoints without an archive contract and missing origins offer no link. Navigation does not assert independent cryptographic verification."
+
+[wiring.requests]
+explorer_origin = "apps/web deployment configuration (web/explorer domain): expose the existing PAXEER_X_EXPLORER_BASE_URL as the public origin NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL; until configured the evidence UI correctly offers no destination."
+export_download = "services/human/crates/layerx-human-service/src/server/production_components.rs:cache_activity_export (human domain): reconcile its /v1/evidence/evd_<digest> download_path with the declared export-download contract consumed by safeExportArtefact; no producer change is authorized in this task."
+
+[gotchas]
+material = "EvidenceMaterial carries opaque bytes, not an explorer identifier; use only a declared material format with a genuine native destination, never substitute evd_ IDs into receipt/checkpoint routes."
+response_loss = "An export service may have committed before fetch rejects; retry identity must survive filter changes and remain bound to the original principal."

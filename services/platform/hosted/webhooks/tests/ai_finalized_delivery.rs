@@ -1542,3 +1542,6 @@ fn public_process_refuses_private_producer_route_and_role_mismatch() {
     let leaf = role_leaf(&scratch.0, "producer", PRODUCER_ROLE, "clientAuth");
     assert!(ProducerGrant::from_certificate(&leaf).is_ok());
 }
+
+#[path = "repair_22_33_1329.rs"]
+mod repair_22_33_1329;

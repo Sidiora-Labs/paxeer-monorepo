@@ -67,6 +67,41 @@ function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
 
 let nextId = 0;
 
+async function responseBody(response: Response, method: string): Promise<string> {
+  const reader = response.body?.getReader();
+  if (reader === undefined) throw new GatewayUnavailableError(`${method} answered no body`);
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (chunk.value.byteLength > MAX_RESPONSE_BYTES - length) {
+        await reader.cancel();
+        throw new GatewayUnavailableError(`${method} answer too large`);
+      }
+      length += chunk.value.byteLength;
+      chunks.push(chunk.value);
+    }
+  } catch (error) {
+    if (error instanceof GatewayUnavailableError) throw error;
+    throw new GatewayUnavailableError(`${method} body did not answer`);
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(length);
+  let position = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, position);
+    position += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new GatewayUnavailableError(`${method} answered malformed UTF-8`);
+  }
+}
+
 async function rpc(method: string, params: readonly unknown[]): Promise<unknown> {
   nextId += 1;
   const id = String(nextId);
@@ -86,12 +121,10 @@ async function rpc(method: string, params: readonly unknown[]): Promise<unknown>
     throw new GatewayUnavailableError(`${method} did not answer`);
   }
   if (!response.ok) {
+    await response.body?.cancel();
     throw new GatewayUnavailableError(`${method} answered HTTP ${String(response.status)}`);
   }
-  const body = await response.text();
-  if (body.length > MAX_RESPONSE_BYTES) {
-    throw new GatewayUnavailableError(`${method} answer too large`);
-  }
+  const body = await responseBody(response, method);
   let document: unknown;
   try {
     document = JSON.parse(body);
@@ -213,14 +246,14 @@ export async function ethTransactionReceipt(hash: string): Promise<GatewayReceip
 }
 
 export async function ethGetLogs(
-  filter: Readonly<{ address: string; topics: readonly (string | null)[]; fromBlock: bigint }>,
+  filter: Readonly<{ address: string; topics: readonly (string | null)[]; fromBlock: bigint; toBlock?: bigint }>,
 ): Promise<readonly GatewayLog[]> {
   const result = await rpc("eth_getLogs", [
     {
       address: filter.address,
       topics: filter.topics,
       fromBlock: `0x${filter.fromBlock.toString(16)}`,
-      toBlock: "latest",
+      toBlock: filter.toBlock === undefined ? "latest" : `0x${filter.toBlock.toString(16)}`,
     },
   ]);
   if (!Array.isArray(result)) {

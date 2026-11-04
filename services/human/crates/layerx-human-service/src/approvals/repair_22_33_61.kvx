@@ -1,0 +1,27 @@
+[repair.22.33.61]
+acceptance = "22998.1"
+verify_cmd = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_61"
+evidence = "The runner records the exact candidate revision, command, exit code and private log after hf-done; no qualification is claimed here."
+baseline = "The supplied attempt-1 record reports build failure in observed_balances_denom.rs before this task's verification (gotcha 2974); no task test failure was observed. This checkout contains no prior implementation or task test. No extra baseline gate was run under the ordered hf-build/hf-done-only instructions."
+
+[finding.inbox-submitted-budget-refused]
+test = "inbox_submitted_budget_refused_real_producer_transport_consumer"
+proof = "Production signed EVM call/disclosure codecs, reserve_and_hold_at, ApprovalEvents::emit and decode_agent_stream feed Inbox::consume and real notification storage; Submitted context remains visible with an Unverified label, exact held facts and cursor checks, and authenticated Decisions::approve refuses before release."
+
+[finding.renderer-submitted-budget-refused]
+test = "renderer_submitted_budget_refused_real_producer_transport_consumer"
+committed_test = "committed_budget_keeps_exact_disclosure_presentation_and_authentication"
+proof = "The production EVM preparation binder feeds DisclosureRenderer with budget context from the real limiter; Submitted and Receipted reads render unverified, Committed keeps exact text and facts, changed disclosure fields/digests and missing evidence refuse, and committed context cannot replace authentication."
+
+[wiring.human-runtime]
+request = "Human domain 10: services/human/crates/layerx-human-service/src/server/agent_runtime.rs::verified_budget_after must carry Submitted/Receipted wire reads without its Committed-only decoder restriction while retaining exact hold/digest/asset/sequence binding; this path is outside task scope."
+
+[wiring.agent-timed-service]
+request = "Agent domain 9: services/agent/crates/layerx-agentd/src/approval/mod.rs::ApprovalService must pass explicit time to timed approval registry reads/decisions; its sequence-only get calls a registry path requiring time. The proof uses the real registry's emitted ticket as the in-process peer carrier."
+
+[wiring.legacy-rung-test]
+request = "Human domain 10: services/human/crates/layerx-human-service/tests/approval_rungs.rs::approval_budget_read_below_committed_renders_unverified still asserts an UnverifiedBudget error instead of an explicitly unverified rendering; reconcile with requirement 10007.1 in its owning task without weakening evidence or authority checks. This out-of-scope target was not run."
+
+[qualification.repair]
+observed = "Candidate a90aef07f36ed19f66a5c4a45d3a2b920fad5eb0 built successfully; hf-done exited 1 (/out/logs/verify-1.log) because the new fixture supplied a disclosure audit digest where the renderer now re-encodes calls and checks the producer's canonical byte digest."
+repair = "Use the held producer canonical_digest for both inbox and renderer and assert it equals SHA256(disclosure.reencode()); all digest mismatch, semantic tampering, missing evidence, ordering and authority assertions remain enforced."

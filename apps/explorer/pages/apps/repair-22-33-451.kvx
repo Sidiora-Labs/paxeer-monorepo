@@ -1,0 +1,20 @@
+[repair.22.33.451]
+finding = "marketplace-preview-relative-url"
+test = "repair-22-33-451.spec.ts: marketplacePreviewLoadsGeneratedCatalogueFromTrustedOrigin"
+path = "Configured catalogue -> generated asset path -> real node-fetch over loopback -> getServerSideProps -> Open Graph metadata generator."
+change = "Resolve the generated catalogue asset path against config.app.origin, independently of request Host and forwarded headers."
+baseline = "Not run: the explicit bounded gate order forbids verification before implementation. Before the repair, node-fetch rejects the relative asset path and the proving test's selected-app metadata assertion would fail."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, command, exit code and private log in the hf-build and hf-done ledger."
+
+[gotcha.node-fetch-url-type]
+observed = "The explorer node-fetch RequestInfo declaration rejects a URL object with TS2345."
+repair = "Serialize the resolved URL with .href before passing it to node-fetch."
+
+[qualification.setup-timeout]
+revision = "c460ae7410cb6ace6b11b721365ad02d159cdc74"
+command = "cg spec done 22.33.451 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The page module import exceeded the setup hook's 10000ms limit before the three tests executed."
+repair = "Initialize the loopback configuration and import production modules during suite collection; leave hook and test timeout limits unchanged."

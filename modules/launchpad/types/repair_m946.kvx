@@ -1,0 +1,14 @@
+[repair.22.33.946]
+audit = "22.30.24"
+finding = "f10"
+status = "implemented"
+proving_tests = ["TestRepairM_946_GenesisValidationCodes", "TestRepairM_946_RegisteredProducerCodes", "TestRepairM_946_OpticalHookCode", "TestRepairM_946_NativeUpdateParamsRefusal"]
+change = "Preserve registered genesis, custody and opticalFlags errors with SDK Wrap/Wrapf. Require launchpad codes 24, 42, 38, 41, 59, 43 and native handler refusal 23 through real ABCI protobuf transport and client decoder; independently require exact EVM selectors."
+baseline_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+baseline = "No baseline command ran: explicit gate order prohibits tests before implementation and direct verify execution; the base has no TestRepairM_946_* tests."
+observed_before_change = "Source inspection: GenesisState.Validate, custody and opticalFlags use fmt.Errorf wrappers; ABCIInfo follows Cause only. Native UpdateParams already uses SDK Wrap. No pre-change test failure is claimed."
+continued_baseline_revision = "7a748fa41a62a54da021bbc5c00adbf49be6dcd7"
+continued_baseline = "The supplied attempt-1 gate result fails TestRepairM_946_RegisteredProducerCodes and TestRepairM_946_OpticalHookCode before the custody and hook wrapper changes; TestRepairM_946_NativeUpdateParamsRefusal passes. Preserve that evidence without repeating the failed unchanged gate."
+wrapper_repair = "Attempt 2 expands scope to modules/launchpad: repair QuoteLedger.key, subLedgerAmount, quoteBalance, callQuote, receive, MoveQuote and opticalFlags directly in the owning launchpad domain."
+wiring_requests = []
+evidence = "The runner gate ledger records the candidate revision, command, exit code and private log location. No qualification or finding closure is claimed before hf-done passes."

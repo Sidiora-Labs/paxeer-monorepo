@@ -182,8 +182,9 @@ export class SequencerReceiptClient {
     }
     const signedReceipt = receiptBytes(result.receipt);
     for (const key of this.#receiptKeys) {
+      let verified;
       try {
-        await verifySequencerReceipt(signedReceipt, raw, [key]);
+        verified = await verifySequencerReceipt(signedReceipt, raw, [key]);
       } catch {
         continue;
       }
@@ -192,7 +193,8 @@ export class SequencerReceiptClient {
         verificationLevel: "receipted",
         rawTransaction: receiptHex(raw),
         signedReceipt: receiptHex(signedReceipt),
-        receiptDigest: receiptHex(keccak256(signedReceipt)),
+        receiptDigest: receiptHex(verified.receiptDigest),
+        receiptJson: structuredClone(result),
         receiptKey: {
           keyId: receiptHex(key.keyId),
           publicKey: receiptHex(key.publicKey),

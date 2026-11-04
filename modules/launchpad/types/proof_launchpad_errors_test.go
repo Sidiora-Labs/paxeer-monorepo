@@ -6,12 +6,8 @@
 // math.go CalculateDynamicFee also accepted negative words or panicked on nil
 // words; malformed native FeeInputs must refuse InvalidParams before saturation.
 //
-// Findings outside touches: types/genesis.go GenesisState.Validate and keeper/
-// custody.go QuoteLedger.key, MoveQuote, quoteBalance and callQuote, and keeper/
-// fees.go opticalFlags use fmt wrapping. Their local sentinel/contract identity
-// survives, but ABCIInfo currently emits undefined/1 rather than launchpad's
-// registered code. The proof asserts that current behaviour explicitly; the
-// expected eventual behaviour is preservation of the registered code.
+// Registered producer errors must retain their launchpad codes through ABCI.
+// EVM custom selectors are asserted separately from the ABCI transport.
 //
 // The error registry has no persistent state. Every iteration calls the real
 // producer and transport again. Stateful keeper producers use real application
@@ -260,9 +256,16 @@ func TestProofLaunchpadErrorsKeeper(t *testing.T) {
 		app.EvmKeeper.SetState(ctx, config, common.BigToHash(big.NewInt(4)), common.BigToHash(big.NewInt(10)))
 	}
 
+	proofLaunchpadProducerCodes(t, k, ctx)
+	proofLaunchpadHookCode(t, k, ctx)
+	proofLaunchpadUpdateParamsRefusal(t, k, ctx)
+}
+
+func proofLaunchpadProducerCodes(t *testing.T, k *keeper.Keeper, ctx sdk.Context) {
+	t.Helper()
+	who := common.HexToAddress(holder)
+	other := common.HexToAddress(operator)
 	for i := 0; i < 2; i++ {
-		// These runtime producers are outside touches: keep their observed
-		// ABCI limitation explicit while proving local contract matching.
 		badGenesis := types.DefaultGenesis()
 		badGenesis.AirdropEpochs = []types.AirdropEpochAmount{{}}
 		_, invalidConfig := k.GetQuoteLedger(ctx, keeper.QuoteLedger{})
@@ -270,25 +273,55 @@ func TestProofLaunchpadErrorsKeeper(t *testing.T) {
 		cc, _ := ctx.CacheContext()
 		_, transferFailed := k.PayQuote(cc, k.ModuleCaller(), keeper.TreasuryHeldLedger(), who, sdk.OneInt())
 		for _, tc := range []struct {
+			name     string
 			produced error
 			sentinel *sdkerrors.Error
+			code     uint32
+			selector string
 		}{
-			{badGenesis.Validate(), types.ErrInvalidGenesis},
-			{invalidConfig, types.ErrInvalidConfiguration},
-			{k.MoveQuote(ctx, keeper.HeldQuoteLedger(who), keeper.HeldQuoteLedger(other), sdk.OneInt()), types.ErrInsufficientBalance},
-			{invalidBalance, types.ErrInvalidBalance},
-			{transferFailed, types.ErrTransferFailed},
+			{"GenesisStateValidate", badGenesis.Validate(), types.ErrInvalidGenesis, 24, ""},
+			{"GetQuoteLedger", invalidConfig, types.ErrInvalidConfiguration, 42, "0xc52a9bd3"},
+			{"MoveQuote", k.MoveQuote(ctx, keeper.HeldQuoteLedger(who), keeper.HeldQuoteLedger(other), sdk.OneInt()), types.ErrInsufficientBalance, 38, "0xf4d678b8"},
+			{"PullQuote", invalidBalance, types.ErrInvalidBalance, 41, "0xc52e3eff"},
+			{"PayQuote", transferFailed, types.ErrTransferFailed, 59, "0x90b8ec18"},
 		} {
-			require.ErrorIs(t, tc.produced, tc.sentinel)
-			remote := proofLaunchpadTransport(t, tc.produced, "undefined", 1)
-			require.NotErrorIs(t, remote, tc.sentinel)
-			_, found := types.ContractErrorOf(tc.produced)
-			require.Equal(t, tc.sentinel != types.ErrInvalidGenesis, found)
+			t.Run(tc.name, func(t *testing.T) {
+				proofLaunchpadRegisteredProducer(t, tc.produced, tc.sentinel, tc.code, tc.selector)
+			})
 		}
 	}
+}
 
+func proofLaunchpadRegisteredProducer(t *testing.T, produced error, sentinel *sdkerrors.Error, code uint32, selector string) {
+	t.Helper()
+	require.ErrorIs(t, produced, sentinel)
+	t.Run("EVMSelector", func(t *testing.T) {
+		contract, found := types.ContractErrorOf(produced)
+		require.Equal(t, selector != "", found)
+		if found {
+			data, err := contract.Revert()
+			require.NoError(t, err)
+			require.Equal(t, selector, hexutil.Encode(data))
+		}
+	})
+	t.Run("ABCI", func(t *testing.T) {
+		remote := proofLaunchpadTransport(t, produced, "launchpad", code)
+		require.ErrorIs(t, remote, sentinel)
+		contract, found := types.ContractErrorOf(remote)
+		require.Equal(t, selector != "", found)
+		if found {
+			data, err := contract.Revert()
+			require.NoError(t, err)
+			require.Equal(t, selector, hexutil.Encode(data))
+		}
+	})
+}
+
+func proofLaunchpadHookCode(t *testing.T, k *keeper.Keeper, ctx sdk.Context) {
+	t.Helper()
 	// RecordFee decodes getFlags through ModuleCaller and the real EVM. The
 	// imported pool names an EOA as optical, whose staticcall returns no word.
+	who := common.HexToAddress(holder)
 	hookCtx := launchpadtest.WithStore(ctx, sdk.NewKVStoreKey(types.StoreKey))
 	hookGenesis := types.DefaultGenesis()
 	market := poolMarket()
@@ -302,12 +335,34 @@ func TestProofLaunchpadErrorsKeeper(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		cc, _ := hookCtx.CacheContext()
 		_, _, _, err := k.RecordFee(cc, k.ModuleCaller(), market.Denom, sdk.OneInt())
-		require.ErrorIs(t, err, types.ErrInvalidHookResponse)
-		proofLaunchpadTransport(t, err, "undefined", 1)
-		contract, found := types.ContractErrorOf(err)
-		require.True(t, found)
-		data, packErr := contract.Revert()
-		require.NoError(t, packErr)
-		require.Equal(t, "0x1e048e1d", hexutil.Encode(data))
+		proofLaunchpadRegisteredProducer(t, err, types.ErrInvalidHookResponse, 43, "0x1e048e1d")
+	}
+}
+
+func proofLaunchpadUpdateParamsRefusal(t *testing.T, k *keeper.Keeper, ctx sdk.Context) {
+	t.Helper()
+	before := k.GetParams(ctx)
+	params := before
+	params.BaseFeeBps++
+	assignment := types.RoleAssignment{Contract: k.Generation2().SidioraFactory.Hex(), Account: holder, Role: poolRole}
+	msg := &types.MsgUpdateParams{Authority: account(2), Params: params, RoleGrants: []types.RoleAssignment{assignment}}
+	require.NotEqual(t, k.Authority(), msg.Authority)
+	require.NoError(t, msg.ValidateBasic())
+	wire, err := msg.Marshal()
+	require.NoError(t, err)
+	var decoded types.MsgUpdateParams
+	require.NoError(t, decoded.Unmarshal(wire))
+	server := keeper.NewMsgServerImpl(k)
+	for i := 0; i < 2; i++ {
+		events := len(ctx.EventManager().Events())
+		logs := len(ctx.EVMEventManager().Events())
+		hadRole := k.HasRole(ctx, common.HexToAddress(assignment.Contract), common.HexToHash(assignment.Role), common.HexToAddress(assignment.Account))
+		response, refusal := server.UpdateParams(sdk.WrapSDKContext(ctx), &decoded)
+		require.Nil(t, response)
+		require.Equal(t, before, k.GetParams(ctx))
+		require.Equal(t, hadRole, k.HasRole(ctx, common.HexToAddress(assignment.Contract), common.HexToHash(assignment.Role), common.HexToAddress(assignment.Account)))
+		require.Len(t, ctx.EventManager().Events(), events)
+		require.Len(t, ctx.EVMEventManager().Events(), logs)
+		proofLaunchpadRegisteredProducer(t, refusal, types.ErrUnauthorized, 23, "0x82b42900")
 	}
 }

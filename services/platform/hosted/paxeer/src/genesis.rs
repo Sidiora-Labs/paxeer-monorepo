@@ -1,4 +1,4 @@
-use super::{refusal, transport, NodeEndpoint, NodeFailure, Response, NODE_IO_TIMEOUT};
+use super::{refusal, transport, NodeEndpoint, NodeFailure, Response};
 use serde_json::{value::RawValue, Value};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -163,8 +163,7 @@ fn chunked_genesis(node: &NodeEndpoint, deadline: Instant) -> Result<Vec<u8>, No
     Err(NodeFailure::Invalid)
 }
 
-fn fetch(node: &NodeEndpoint) -> Result<Vec<u8>, NodeFailure> {
-    let deadline = Instant::now() + NODE_IO_TIMEOUT;
+fn fetch(node: &NodeEndpoint, deadline: Instant) -> Result<Vec<u8>, NodeFailure> {
     let bytes = request(node, "/genesis", deadline)?;
     let genesis = if let CometReply::Error(reply) = document(&bytes)? {
         if reply.get("code").and_then(Value::as_i64) != Some(-32603)
@@ -191,8 +190,8 @@ fn fetch(node: &NodeEndpoint) -> Result<Vec<u8>, NodeFailure> {
     Ok(genesis)
 }
 
-pub(super) fn response(node: &NodeEndpoint) -> Response {
-    match fetch(node).and_then(|body| {
+pub(super) fn response(node: &NodeEndpoint, deadline: Instant) -> Response {
+    match fetch(node, deadline).and_then(|body| {
         let suite = rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256
             .tls13()
             .ok_or(NodeFailure::Invalid)?;

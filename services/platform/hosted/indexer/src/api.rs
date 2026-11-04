@@ -482,6 +482,12 @@ pub fn readiness_document(
     for &source in &readiness.sources {
         let observation = store.source_observation(source)?;
         let cursor = store.cursor(if source == "comet" { "paxeer" } else { source })?;
+        // AI cursors live in the committed projection tables, not the EVM chain-links table.
+        let indexed_position = if source == "ai" {
+            observation.as_ref().and_then(|o| o.indexed_position)
+        } else {
+            cursor.as_ref().map(|c| c.position)
+        };
         let success = observation.as_ref().and_then(|o| o.last_success_at);
         let failures = observation.as_ref().map_or(0, |o| o.consecutive_failures);
         let (state, rank) = match success {
@@ -492,10 +498,7 @@ pub fn readiness_document(
             Some(at) if current.saturating_sub(at) > readiness.stall_after_secs => ("stalled", 2),
             Some(_) if failures >= FAILING_AFTER => ("failing", 1),
             Some(_) if failures > 0 => ("retrying", 1),
-            Some(_)
-                if observation.as_ref().and_then(|o| o.source_head)
-                    != cursor.as_ref().map(|c| c.position) =>
-            {
+            Some(_) if observation.as_ref().and_then(|o| o.source_head) != indexed_position => {
                 ("catching_up", 1)
             }
             Some(_) => ("ready", 0),
@@ -511,8 +514,12 @@ pub fn readiness_document(
             last_error_at: observation.as_ref().and_then(|o| o.last_error_at),
             consecutive_failures: failures,
             source_head: observation.as_ref().and_then(|o| o.source_head),
-            indexed_cursor: cursor.as_ref().map(|c| c.position),
-            finalized_cursor: cursor.as_ref().and_then(|c| c.finalized_position),
+            indexed_cursor: indexed_position,
+            finalized_cursor: if source == "ai" {
+                indexed_position
+            } else {
+                cursor.as_ref().and_then(|c| c.finalized_position)
+            },
         });
     }
     let status = ["ready", "degraded", "unavailable"][worst];

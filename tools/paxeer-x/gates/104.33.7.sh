@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# paxeer-x-services: private-profile
+# paxeer-x-services: platform-gateway human-explorer-index platform-program-registry sequencer platform-receipt-authority
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 exec python3 - <<'GATE'
 import hashlib,json,os,pathlib,re,ssl,stat,subprocess,sys,urllib.error,urllib.parse,urllib.request
 root=pathlib.Path.cwd();tests=0
-sources=['services/platform/hosted/gateway/Cargo.toml','services/platform/hosted/gateway/src/main.rs','services/platform/hosted/gateway/src/native_call.rs','services/platform/hosted/gateway/src/lib.rs','apps/web/src/explorer/client.ts','apps/web/src/explorer/model.ts','apps/web/src/explorer/program-contract.test.ts','services/human/crates/layerx-explorer-index/src/programs.rs','tools/paxeer-x/gates/104.33.7.sh']
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(root / "tools/paxeer-x/gates"))
+from hosted_profile import load as load_profile
+sources=['services/platform/hosted/gateway/Cargo.toml','services/platform/hosted/gateway/src/main.rs','services/platform/hosted/gateway/src/native_call.rs','services/platform/hosted/gateway/src/lib.rs','apps/web/src/explorer/client.ts','apps/web/src/explorer/model.ts','apps/web/src/explorer/program-contract.test.ts','services/human/crates/layerx-explorer-index/src/programs.rs','tools/paxeer-x/gates/104.33.7.sh','tools/paxeer-x/gates/hosted_profile.py','tools/paxeer-x/gates/compiler_manifest.py']
 def require(value,reason):
     if not value:raise RuntimeError(reason)
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -43,11 +46,12 @@ try:
     require({'rust','typescript','python','go','java','swift','csharp'}<=set(plan['languages']),'all seven SDK languages required')
     for row in plan['sdk_outputs']+plan['consumer_sources']:
         require(sha(pathlib.Path(row['path']))==row['sha256'],'binding source/artifact changed')
-    required=['LAYERX_PROGRAM_GATEWAY_URL','LAYERX_GATEWAY_CA_FILE','LAYERX_GATEWAY_KEY_ID','LAYERX_GATEWAY_KEY_SECRET','LAYERX_PROGRAM_CALL_ACTIVITY_FILE','LAYERX_PROGRAM_ID','LAYERX_PROGRAM_IDEMPOTENCY_KEY','LAYERX_RECEIPT_VERIFY_BIN']
-    require(all(os.environ.get(name) for name in required),'genuine disposable hosted Programs fixture required')
-    origin=urllib.parse.urlsplit(os.environ['LAYERX_PROGRAM_GATEWAY_URL']);require(origin.scheme=='https' and origin.hostname in {'localhost','127.0.0.1','::1'} and origin.path in {'','/'} and not origin.username and not origin.password and not origin.query and not origin.fragment,'disposable loopback HTTPS fixture required')
-    program=os.environ['LAYERX_PROGRAM_ID'];key=os.environ['LAYERX_PROGRAM_IDEMPOTENCY_KEY'];require(re.fullmatch('[0-9a-f]{64}',program) and re.fullmatch('[0-9a-f]{64}',key),'canonical program/idempotency required')
-    credentials=os.environ['LAYERX_GATEWAY_KEY_ID']+':'+os.environ['LAYERX_GATEWAY_KEY_SECRET'];context=ssl.create_default_context(cafile=os.environ['LAYERX_GATEWAY_CA_FILE'])
+    profile_path=os.environ.get('PAXEER_X_HOSTED_PROGRAM_PROFILE')
+    require(profile_path,'protected connected hosted Programs profile required')
+    inputs=load_profile(profile_path,revision,root)
+    origin=urllib.parse.urlsplit(inputs['LAYERX_PROGRAM_GATEWAY_URL'])
+    program=inputs['LAYERX_PROGRAM_ID'];key=inputs['LAYERX_PROGRAM_IDEMPOTENCY_KEY']
+    credentials=inputs['LAYERX_GATEWAY_KEY_ID']+':'+inputs['LAYERX_GATEWAY_KEY_SECRET'];context=ssl.create_default_context(cafile=inputs['LAYERX_GATEWAY_CA_FILE'])
     def request(method,path,body,content='application/json',idempotency=None):
         headers={'Authorization':'LayerX-Key '+credentials,'Content-Type':content}
         if idempotency is not None:headers['Idempotency-Key']=idempotency
@@ -59,7 +63,7 @@ try:
     selector=json.dumps({'program_id':program,'requested_verification_level':'sequencer-signed'}).encode();route='/v1/programs/registry/'+program
     status,discovery=request('GET',route,selector);require(status==200 and discovery['value']['program_id']==program,'actual discovery failed');tests+=1
     status,interface=request('GET',route+'/interface',selector);require(status==200 and interface['value']['program_id']==program and interface['value']['code_hash']==discovery['value']['code_hash'],'actual code-bound interface failed');require(hashlib.sha256(bytes.fromhex(interface['value']['interface'])).hexdigest()==interface['value']['interface_digest'],'interface digest mismatch');tests+=1
-    activity=private(os.environ['LAYERX_PROGRAM_CALL_ACTIVITY_FILE']).read_bytes();require(0<len(activity)<=1048576,'signed activity bound')
+    activity=private(inputs['LAYERX_PROGRAM_CALL_ACTIVITY_FILE']).read_bytes();require(0<len(activity)<=1048576,'signed activity bound')
     status,simulation=request('POST','/v1/programs/simulate',activity,'application/octet-stream');require(status==200 and simulation['value']['committed'] is False,'actual noncommitting simulation failed');tests+=1
     status,missing=request('POST','/v1/programs/call',activity,'application/octet-stream');require(status==400,'missing idempotency must refuse');tests+=1
     status,called=request('POST','/v1/programs/call',activity,'application/octet-stream',key);require(status in {200,202},'actual call failed')
@@ -67,7 +71,7 @@ try:
     if value['state']!='executed':raise RuntimeError('genuine call outcome pending; no fabricated receipt qualification')
     receipt=bytes.fromhex(value['receipt']);require(receipt,'genuine verified call receipt missing')
     evidence=pathlib.Path(os.environ['PAXEER_X_EVIDENCE_DIR']);receipt_path=evidence/'104.33.7-call-receipt.bin';receipt_path.write_bytes(receipt);receipt_path.chmod(0o600)
-    checked=subprocess.run([os.environ['LAYERX_RECEIPT_VERIFY_BIN'],str(receipt_path)],capture_output=True,timeout=60);require(checked.returncode==0,'independent real receipt verification failed');tests+=1
+    checked=subprocess.run([inputs['LAYERX_RECEIPT_VERIFY_BIN'],str(receipt_path)],capture_output=True,timeout=60);require(checked.returncode==0,'independent real receipt verification failed');tests+=1
     replay_status,replay=request('POST','/v1/programs/call',activity,'application/octet-stream',key);replayed=replay.get('value',replay.get('result',replay));require(replay_status==200 and replayed.get('receipt')==value['receipt'],'exact idempotent receipt replay failed');tests+=1
     altered=bytearray(activity);altered[-1]^=1
     status,_=request('POST','/v1/programs/call',bytes(altered),'application/octet-stream',key);require(status in {400,403,409},'tampered signed activity must refuse');tests+=1

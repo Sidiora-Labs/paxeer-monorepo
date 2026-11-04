@@ -5,6 +5,7 @@ exec python3 - "$root" "$@" <<'PY'
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -101,6 +102,22 @@ def identity():
     }
 
 
+def restore_deadline(built):
+    global DEADLINE
+    recorded = built["deadline_epoch"]
+    require(
+        type(recorded) in (int, float) and math.isfinite(recorded) and recorded > 0,
+        "finite original task deadline required",
+    )
+    explicit = os.environ.get("PAXEER_X_TASK_DEADLINE_EPOCH")
+    require(
+        explicit is None or float(explicit) == recorded,
+        "original task deadline changed",
+    )
+    DEADLINE = recorded
+    remaining(1)
+
+
 def remaining(bound):
     value = min(bound, DEADLINE - time.time())
     if value <= 0:
@@ -149,6 +166,8 @@ def checked(row):
 
 
 def build(directory):
+    require(math.isfinite(DEADLINE) and DEADLINE > 0, "finite task deadline required")
+    remaining(1)
     require(
         not (directory / "build-manifest.json").exists(), "task build already recorded"
     )
@@ -255,9 +274,10 @@ def qualify(directory):
         "genuine successful focused build manifest required",
     )
     require(
-        built["identity"] == identity() and built["deadline_epoch"] == DEADLINE,
+        built["identity"] == identity(),
         "compiled revision/tree/dependency bytes or original deadline changed",
     )
+    restore_deadline(built)
     binary = checked(built["artifact"])
     inventory = command(
         [binary, "--list", "--format", "terse"], directory / "inventory.log", bound=30

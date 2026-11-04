@@ -1,0 +1,99 @@
+[task]
+id = "22.33.848"
+mode = "BUILD"
+audit = "22.30.181"
+base_revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+implementation = "Require private compiler-produced current-source manifests before the three existing binary corpora; correct exact service bindings; replace the removed interface C target with the retained native Rust interface transport; move multiasset qualification to the real merged paxd fixture with native funding and committed proofs; transport the connected hosted profile as protected evidence."
+baseline = "Not run: the explicit implementation-first order and exclusive hf-done verification rule prohibit the conflicting unchanged-tree verification instruction. No baseline failures or passes are claimed. Initial git status/diff contained only runner-prepared .cgignore and spec bookkeeping; no scoped prior edits existed, gate.json recorded zero builds/verifies and /out/run/gates.jsonl was absent."
+scope = ["tools/paxeer-x/gates", "tools/qualification/audit_repairs/repair_22_33_848.kvx", "tools/qualification/audit_repairs/test_repair_22_33_848.py"]
+build_cmd = "bash -n tools/paxeer-x/gates/104.17.4.sh tools/paxeer-x/gates/104.24.1.sh tools/paxeer-x/gates/104.24.2.sh tools/paxeer-x/gates/104.25.1.sh tools/paxeer-x/gates/104.25.2.sh tools/paxeer-x/gates/104.30.3.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_848.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger identify the exact verified content-derived candidate revision, command, exit and log. Build and verify must pass on that same candidate. This record is finalized before qualification: embedding its own candidate hash would change that hash. The runner publishes; no manual commit or push is performed."
+qualification_limits = "The declared pytest gate needs no environment variables, external credentials, native artifacts, live endpoint or compiler toolchain. It parses the eight shell scripts using the required bash -n parser, parses embedded Python, Cargo manifests, Programs ABI and this KVX, and executes production evidence writer/readers, profile transport, refusal checks, case inventory and balance decoding. Native corpus execution, publisher recovery, paxd execution and cryptographic proofs are source-reviewed only; the bounded gate does not certify those operational runs."
+
+[finding.f014]
+file = "tools/paxeer-x/gates/104.17.4.sh"
+tests = ["test_f014_manifest_precedes_gateway_inventory_and_preserves_corpus", "test_compiler_producer_and_consumer_bind_revision_complete_closure_log_and_executables", "test_compiler_consumer_refuses_absent_failed_and_empty_compiler_transcripts", "test_compiler_consumer_refuses_stale_revision_or_incomplete_source_before_io", "test_private_evidence_roundtrip_reopen_and_refusals"]
+source_proof = "The manifest guard runs before executable discovery/execution; compiler_manifest.py invokes the exact locked Cargo command, captures actual compiler-artifact and successful build-finished events, requires the full exact target multiplicity, records native executable SHA256s and a private transcript digest, and compares current HEAD/tree and the entire tracked source closure including links and gitlinks. The existing gateway/lib/bin and Redis key-store corpora and count/skip assertions remain."
+review_only = "No gateway/Rust/Redis corpus or compiler is executed by this pytest gate. Successful real compilation and executable provenance require the private compiler_manifest.py producer output, never a hand-authored success manifest."
+
+[finding.f015]
+file = "tools/paxeer-x/gates/104.24.1.sh"
+tests = ["test_f015_manifest_binds_entire_selected_migration_corpus_before_discovery", "test_compiler_producer_and_consumer_bind_revision_complete_closure_log_and_executables", "test_compiler_consumer_refuses_absent_failed_and_empty_compiler_transcripts", "test_compiler_consumer_refuses_stale_revision_or_incomplete_source_before_io"]
+source_proof = "Every selected migration binary, including both layerx_migrate test targets, must exactly match current-source private compiler outputs before --list. Existing connected mapping/funding markers, six testnet cases, zero skipped/filtered summaries and unified-history restart recovery are retained."
+review_only = "Actual migration process execution, source testnet state and history persistence are reviewed through the retained production runner; they are not executed in this source qualification."
+
+[finding.f016]
+file = "tools/paxeer-x/gates/104.24.2.sh"
+tests = ["test_f016_manifest_precedes_exact_connected_case_without_relaxing_counts", "test_compiler_producer_and_consumer_bind_revision_complete_closure_log_and_executables", "test_compiler_consumer_refuses_absent_failed_and_empty_compiler_transcripts"]
+source_proof = "The selected unique migration_v2_connected native target must match the compiler transcript, source revision/closure and executable digest before execution; the exact case name, complete marker, one-test and zero-skipped/filtered requirements remain."
+review_only = "Real connected migration/funding execution is not run by the source gate; it still requires the actual compiled target and genuine inputs in the operational gate."
+
+[finding.f043]
+file = "tools/paxeer-x/gates/104.25.1.sh"
+tests = ["test_f043_current_mirror_bindings_preserve_both_archive_recovery_lanes"]
+source_proof = "The real candidate.catalogue parser supplies mirror-publisher and its actual mirror-signer dependency; the header binds exactly those ids. Both Ethereum/Solana stall, independent progress, restore, reorg and recovery requirements remain, as do the real contiguous-spool restart and checkpoint-refusal cases. Unknown service bindings remain refused by verify-task.sh."
+review_only = "No publisher, archive lane or native restart corpus executes here; the unchanged live_evidence and native runtime recovery checks are reviewed, not represented as runtime recovery evidence."
+
+[finding.f044]
+file = "tools/paxeer-x/gates/104.25.2.sh"
+tests = ["test_f044_binds_real_mirror_and_retained_verifier_consumers"]
+source_proof = "The header uses real catalogue ids for mirror publisher/signer, platform gateway, explorer and human explorer index. The actual Cargo-declared layerx-mirror-verify binary, native altered-byte refusal test and independent receipt/state/tamper/explorer plus six SDK conformance inputs remain wired to the existing verification script."
+review_only = "Native verifier, browser and language SDK execution are not run by this Python-only source gate."
+
+[finding.f017]
+file = "tools/paxeer-x/gates/104.30.3.sh"
+tests = ["test_f017_retained_native_interface_transport_preserves_positive_and_refusal_criteria"]
+source_proof = "The missing test_interface_protocol.c prerequisite is replaced with the compiled current interface_protocol Rust consumer. Its exact cases retain ABI domain/legacy vectors, capability/export/upgrade rules, malformed-bound refusal and the node-produced transaction/result/interface proof transport. The native input producer and exact nine-fixture inventory remain, as do all other native consumers, six derivation cases, source and artifact digest checks."
+review_only = "The Python test inspects the real committed producer transcript include and production verifier calls; it does not execute Rust/C or cryptographic proofs. The separately missing occupancy target is an inherited external interface finding recorded below, not removed to obtain qualification."
+
+[finding.f018]
+file = "tools/paxeer-x/gates/104.30.5.sh"
+tests = ["test_f018_native_profile2_uses_paxd_funding_committed_proofs_and_real_restart", "test_f018_inventory_and_account_conservation_reject_missing_duplicate_and_wrong_asset"]
+source_proof = "The gate invokes profile2_native.py, which builds paxd and the retained registry winddown corpus, uses the real merged PaxdFixture/WinddownSession/Node, requires the exact eleven historical multiasset cases, owner profile-2 registration for two assets, positive native transfer funding, per-account deltas, native typed refusals and verified committed receipt comparisons. Restart stops and starts the same private paxd home and compares observed state and earlier committed proofs. Daemon, bridge-credit and custody fixture prerequisites are removed."
+review_only = "No paxd process, bank state, signed receipt or node restart is executed by this source gate. The replacement private profile case producer is an explicit wiring request; this source repair does not fabricate that profile or claim operational multiasset qualification."
+
+[finding.f062]
+file = "tools/paxeer-x/gates/104.33.7.sh"
+tests = ["test_f062_services_and_protected_profile_keep_all_connected_acceptance_cases", "test_f062_real_profile_producer_private_transport_consumer_and_reopen", "test_f062_profile_consumer_refuses_external_plaintext_inline_secret_and_wrong_identity", "test_private_evidence_roundtrip_reopen_and_refusals"]
+source_proof = "The real catalogue binds the gateway, explorer index, program registry, sequencer and receipt authority producers. hosted_profile.publish writes a protected revision-bound document that hosted_profile.load reopens, validates and consumes; the secret is itself a protected file rather than an inline environment value. Tests drive that actual producer -> private file -> consumer path and close/reopen it, and exercise stale revision, permissions, symlink, hardlink, duplicate-key, external URL, plaintext URL and wrong identity refusals. Discovery, code-bound interface, simulation, idempotency, signed call, receipt verification, exact replay, tamper refusal and language-binding assertions remain."
+review_only = "Opaque local file inputs in the profile transport test are inert committed fixture/source bytes; no TLS, authentication, signed activity or receipt success is substituted or claimed. The connected native corpus and loopback HTTPS operational profile remain separate operational evidence."
+
+[wiring.profile2]
+path = "tools/qualification/paxeer-x/programs_accounts_winddown.py"
+owner_domain = "16 / tools-ops, with domain 1 chain fixture owner"
+request = "Produce a private paxeer-x.merged-winddown-fixture.v2 document with cases[104.30.5] containing the exact profile2_native.REQUIRED cases and their closed steps/observations, per-account expected_deltas and committed_proofs against a funded private paxd seed; replace the removed services/platform/hosted/agent-boundary/tests/real_node.rs profile-2 producer in domain 9 rather than restoring a daemon consumer."
+
+[wiring.hosted_profile]
+path = "tools/paxeer-x/candidate.py"
+owner_domain = "16 / tools-ops and domain 9 hosted fixture owner"
+request = "Have the private hosted Programs fixture producer call gates/hosted_profile.publish and supply PAXEER_X_HOSTED_PROGRAM_PROFILE with the current revision and protected CA, secret, activity and retained verifier paths; include both gate helper sources in its existing artifact source manifest."
+
+[wiring.compiler_manifests]
+path = "tools/paxeer-x/build"
+owner_domain = "16 / tools-ops"
+request = "For each of 104.17.4, 104.24.1 and 104.24.2, invoke gates/compiler_manifest.py <gate> --evidence <private-directory> on the published source and pass its printed manifest as PAXEER_X_COMPILER_MANIFEST alongside the existing selected executable inputs."
+
+[qualification.inherited_native_target]
+revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+command = "source inspection only; no native gate run"
+exit = "not run"
+log = "private session source-inspection output"
+observed = "104.30.3.sh also references test_occupancy_batch but tests/programs/test_occupancy_batch.c is absent in the inherited tree."
+assumption = "The Programs native corpus owner must map this separate missing target in another scoped task; this task preserves the check and does not run or claim that native gate."
+
+[gotcha.baseline]
+observed = "The older unchanged-tree test step contradicts the explicit implementation-first and hf-done-only order."
+resolution = "Follow the explicit order and record no unexecuted baseline result."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and feature qualification/spec files are outside the direct task scope."
+resolution = "Record task gotchas and external wiring here and preserve all runner-prepared out-of-scope edits."
+
+[gotcha.source_closure]
+observed = "The repository contains tracked symbolic links and gitlinks; treating every tracked path as a regular file rejects the real source tree."
+resolution = "Bind symlink text and indexed gitlink commits as well as every regular-file digest, retaining clean source and stage-zero requirements."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; after complete implementation apply .editorconfig LF, final newline and trailing-whitespace conventions to touched files only."
