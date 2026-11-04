@@ -1,0 +1,10 @@
+[repair.22.31.158]
+finding = "store-independent-writer-loss"
+proof = "services/human/crates/layerx-human-service/tests/repair_22_31_158.rs"
+tests = ["store_independent_writer_loss_recovery", "store_independent_writer_loss_process_recovery", "store_independent_writer_loss_all_open_modes"]
+rule = "Every open mode acquires the same nonblocking exclusive provider.lock before migration or snapshot access and retains it until the store is dropped; competing opens return StoreError::Io with WouldBlock."
+recovery = "Independent owners write distinct rows after explicit ownership handoff; reopening verifies both rows, evidence exports and chained audit links. A subprocess exits while holding ownership and the parent reopens successfully."
+baseline = "Not run: the declared test did not exist on the unchanged tree and the gate order forbids verification before complete implementation."
+wiring_requests = []
+evidence = "The runner records the verified candidate revision, exact command, exit code and private log; the final task receipt copies that evidence."
+qualification_repair = "The first recovery gate saw contention while subprocess fixtures overlapped; fixture lifetimes are serialized to avoid a fork inheriting another test's live flock until exec, while all contention and recovery assertions remain intact."
