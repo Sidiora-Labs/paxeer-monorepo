@@ -82,6 +82,86 @@ describe('eth_subscribe (WebSocket)', function () {
             await ws.unsubscribe(subId);
         });
 
+        it('recovers committed heads and logs after restarting the WebSocket client', async function () {
+            this.timeout(120 * 1000);
+            async function bounded<T>(operation: Promise<T>, label: string): Promise<T> {
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                try {
+                    return await Promise.race([
+                        operation,
+                        new Promise<never>((_, reject) => {
+                            timer = setTimeout(() => reject(new Error(`${label} timed out`)), 10_000);
+                        }),
+                    ]);
+                } finally {
+                    if (timer) clearTimeout(timer);
+                }
+            }
+            const { address, token } = await deployLogToken(emitter);
+            const filter = { address, topics: [TRANSFER_TOPIC] };
+            const oldHeadId = await bounded(ws.subscribe(['newHeads']), 'initial head subscription');
+            const oldLogId = await bounded(ws.subscribe(['logs', filter]), 'initial log subscription');
+            const before = await (await token.mint(emitter.address, 3n)).wait();
+            expect(before, 'pre-disconnect transaction committed').to.not.equal(null);
+            const [beforeLog] = await ws.waitFor(oldLogId, 1, 30_000);
+            const [beforeHead] = await ws.waitFor(oldHeadId, 1, 30_000);
+            assertNewHeadMatchesBlock(beforeHead, await pax.send('eth_getBlockByNumber', [beforeHead.number, false]));
+            expect(beforeLog.transactionHash).to.equal(before!.hash);
+            ws.close();
+
+            const offline = await (await token.transfer(ethers.Wallet.createRandom().address, 1n)).wait();
+            expect(offline, 'transaction committed while disconnected').to.not.equal(null);
+            expect(offline!.blockNumber >= before!.blockNumber).to.equal(true);
+            ws = await WsClient.open(Endpoints.pax.evmWs, 10_000);
+            for (const oldId of [oldHeadId, oldLogId]) {
+                let staleError: any;
+                try {
+                    await bounded(ws.unsubscribe(oldId), 'stale subscription rejection');
+                } catch (error) {
+                    staleError = error;
+                }
+                expect(staleError, 'old subscription is connection-local').to.not.equal(undefined);
+                expect(staleError.message).to.match(/subscription not found/i);
+            }
+
+            const headId = await bounded(ws.subscribe(['newHeads']), 'fresh head subscription');
+            const logId = await bounded(ws.subscribe(['logs', filter]), 'fresh log subscription');
+            expect(headId).to.match(SUBSCRIPTION_ID);
+            expect(logId).to.match(SUBSCRIPTION_ID);
+            expect(headId).to.not.equal(oldHeadId);
+            expect(logId).to.not.equal(oldLogId);
+            try {
+                const after = await (await token.transfer(ethers.Wallet.createRandom().address, 1n)).wait();
+                expect(after, 'post-reconnect transaction committed').to.not.equal(null);
+                const [pushedLog] = await ws.waitFor(logId, 1, 30_000);
+                const [head] = await ws.waitFor(headId, 1, 30_000);
+                assertNewHeadSchema(head);
+                const canonicalHead = await pax.send('eth_getBlockByNumber', [head.number, false]);
+                expect(canonicalHead).to.not.equal(null);
+                assertNewHeadMatchesBlock(head, canonicalHead);
+                expect(BigInt(head.number) >= BigInt(offline!.blockNumber)).to.equal(true);
+                const catchUp = await pax.send('eth_getLogs', [{
+                    ...filter,
+                    fromBlock: ethers.toQuantity(before!.blockNumber),
+                    toBlock: ethers.toQuantity(after!.blockNumber),
+                }]);
+                expect(catchUp.map((log: any) => log.transactionHash), 'HTTP recovers every committed event across the gap')
+                    .to.deep.equal([before!.hash, offline!.hash, after!.hash]);
+                expect(pushedLog.transactionHash, 'fresh stream delivers the new transaction').to.equal(after!.hash);
+                expect(pushedLog).to.deep.equal(catchUp[2]);
+                expect(beforeLog).to.deep.equal(catchUp[0]);
+                for (const log of catchUp) {
+                    expectLogShape(log, 'recovered committed log');
+                    const block = await pax.send('eth_getBlockByNumber', [log.blockNumber, false]);
+                    expect(block.hash, 'recovered log belongs to its committed block').to.equal(log.blockHash);
+                    expect(block.transactions).to.include(log.transactionHash);
+                }
+            } finally {
+                await bounded(ws.unsubscribe(headId), 'fresh head unsubscribe');
+                await bounded(ws.unsubscribe(logId), 'fresh log unsubscribe');
+            }
+        });
+
         it('rejects a repeat unsubscribe of an already-removed id', async () => {
             const subId = await ws.subscribe(['newHeads']);
             await ws.waitFor(subId, 1);
