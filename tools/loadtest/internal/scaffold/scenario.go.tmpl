@@ -1,0 +1,55 @@
+package scenarios
+
+import (
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/paxeer-network/pax-load/config"
+	"github.com/paxeer-network/pax-load/generator/bindings"
+	"github.com/paxeer-network/pax-load/types"
+)
+
+const {{.Name}} = "{{.Lower}}"
+
+// {{.Name}}Scenario implements the TxGenerator interface for {{.Name}} contract operations
+type {{.Name}}Scenario struct {
+	*ContractScenarioBase[bindings.{{.Name}}]
+	contract *bindings.{{.Name}}
+}
+
+// New{{.Name}}Scenario creates a new {{.Name}} scenario
+func New{{.Name}}Scenario(cfg config.Scenario) TxGenerator {
+	scenario := &{{.Name}}Scenario{}
+	scenario.ContractScenarioBase = NewContractScenarioBase[bindings.{{.Name}}](scenario, cfg)
+	return scenario
+}
+
+// Name returns the name of the scenario.
+func (s *{{.Name}}Scenario) Name() string {
+	return {{.Name}}
+}
+
+// DeployContract implements ContractDeployer interface - deploys {{.Name}} with specific constructor args
+func (s *{{.Name}}Scenario) DeployContract(opts *bind.TransactOpts, client *ethclient.Client) (common.Address, *ethtypes.Transaction, error) {
+	// TODO(deploy): supply the actual contract constructor arguments.
+	address, tx, _, err := bindings.Deploy{{.Name}}(opts, client /* TODO: constructor arguments */)
+	return address, tx, err
+}
+
+// GetBindFunc implements ContractDeployer interface - returns the binding function
+func (s *{{.Name}}Scenario) GetBindFunc() ContractBindFunc[bindings.{{.Name}}] {
+	return bindings.New{{.Name}}
+}
+
+// SetContract implements ContractDeployer interface - stores the contract instance
+func (s *{{.Name}}Scenario) SetContract(contract *bindings.{{.Name}}) {
+	s.contract = contract
+}
+
+// CreateContractTransaction implements ContractDeployer interface - creates {{.Name}} transaction
+func (s *{{.Name}}Scenario) CreateContractTransaction(auth *bind.TransactOpts, scenario *types.TxScenario) (*ethtypes.Transaction, error) {
+	// TODO(transaction): implement the actual contract operation.
+	panic("unimplemented - add contract interaction logic here")
+}
