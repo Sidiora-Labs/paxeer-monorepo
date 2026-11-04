@@ -144593,7 +144593,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.75]
 title = "Repair audit record 22.30.11 medium findings in apps/perps/src/core/wallet/embedded (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.4", "22.31.5", "22.31.6"]
@@ -163628,7 +163628,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.72]
 title = "Repair audit record 22.30.109 medium findings in services/interop/crates/layerx-migrate/src (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.162", "22.31.163"]
@@ -163770,7 +163770,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.68]
 title = "Repair audit record 22.30.108 medium findings in services/interop/crates/layerx-bridge-relayer/tests (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.160", "22.31.161"]
@@ -163810,7 +163810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.67]
 title = "Repair audit record 22.30.108 medium findings in services/interop/crates/layerx-interop-gateway/src (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.160", "22.31.161"]
@@ -163879,7 +163879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.65]
 title = "Repair audit record 22.30.108 medium findings in services/interop/crates/layerx-bridge-relayer/src/solana (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.160", "22.31.161"]
@@ -164269,7 +164269,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.53]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-intents/fuzz/fuzz_targets (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156"]
@@ -164303,7 +164303,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.52]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-test-support/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156"]
@@ -164405,7 +164405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.49]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-service/src/onboarding (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156"]
@@ -164510,7 +164510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.46]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-security-provider/src (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156"]
@@ -167024,7 +167024,7 @@ do_11 = "Attempt 3 (continue): the two replay tests panic at the helper on line 
 
 [task.22.9.39]
 title = "Serve Human peer operation 48 for the EVM actor form of a durable approval"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290113,7 +290113,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.421]
 title = "Repair audit record 22.30.172 findings in tests/integration/contracts: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
