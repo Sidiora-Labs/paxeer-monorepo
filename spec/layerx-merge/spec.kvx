@@ -242486,7 +242486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.164]
 title = "Pre-upgrade audit of cosmos-fork: sdk/tasks (15 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244054,7 +244054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.115]
 title = "Pre-upgrade audit of wallet: sdk/wallet (129 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244118,7 +244118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.113]
 title = "Pre-upgrade audit of interop: services/interop/crates/x-websearch (46 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244150,7 +244150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.112]
 title = "Pre-upgrade audit of interop: services/interop/crates/layerx-ucp (65 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244182,7 +244182,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.111]
 title = "Pre-upgrade audit of interop: services/interop/crates/layerx-mirror (43 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244214,7 +244214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.110]
 title = "Pre-upgrade audit of interop: services/interop/crates/layerx-interop-service (82 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244246,7 +244246,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.109]
 title = "Pre-upgrade audit of interop: services/interop/crates/layerx-gas-station (45 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244278,7 +244278,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.108]
 title = "Pre-upgrade audit of interop: services/interop/crates/layerx-bridge-relayer (57 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244342,7 +244342,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.106]
 title = "Pre-upgrade audit of human: services/human/crates/layerx-intents (92 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244438,7 +244438,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.103]
 title = "Pre-upgrade audit of human: services/human/crates/layerx-human-service/src/journeys (43 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244470,7 +244470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.102]
 title = "Pre-upgrade audit of human: services/human/crates/layerx-human-kms (360 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244502,7 +244502,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.101]
 title = "Pre-upgrade audit of agent: services/agent/sdk/typescript (94 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244566,7 +244566,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.99]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-sdk (119 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244598,7 +244598,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.98]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-proof (83 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244630,7 +244630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.97]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-mcp (48 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244662,7 +244662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.96]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-client (110 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244726,7 +244726,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.94]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-agentd/tests/human_node_preparation.rs (68 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244758,7 +244758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.93]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-agentd/src/human.rs (19 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244854,7 +244854,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.90]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-agent-api (45 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244886,7 +244886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.89]
 title = "Pre-upgrade audit of platform: tools/platform/cli (68 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244918,7 +244918,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.88]
 title = "Pre-upgrade audit of platform: services/platform/ramps (124 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -244950,7 +244950,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.87]
 title = "Pre-upgrade audit of platform: services/platform/perps-data (92 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245014,7 +245014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.85]
 title = "Pre-upgrade audit of platform: services/platform/hosted/registry (68 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245046,7 +245046,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.84]
 title = "Pre-upgrade audit of platform: sdk/client (85 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245142,7 +245142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.81]
 title = "Pre-upgrade audit of platform: services/platform/hosted/gateway/src (25 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245174,7 +245174,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.80]
 title = "Pre-upgrade audit of platform: services/platform/hosted/ai-artifacts (44 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245206,7 +245206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.79]
 title = "Pre-upgrade audit of platform: services/agent/crates/layerx-sdk (135 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245238,7 +245238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.78]
 title = "Pre-upgrade audit of platform: sdk/platform/swift (71 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245366,7 +245366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.74]
 title = "Pre-upgrade audit of platform: sdk/ics23 (62 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245462,7 +245462,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.71]
 title = "Pre-upgrade audit of platform: sdk/chainflow/python (157 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245494,7 +245494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.70]
 title = "Pre-upgrade audit of platform: sdk/chainflow/go (142 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245526,7 +245526,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.69]
 title = "Pre-upgrade audit of rpc-api: sdk/proto (159 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245622,7 +245622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.66]
 title = "Pre-upgrade audit of chain-modules: wasm/x (125 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245686,7 +245686,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.64]
 title = "Pre-upgrade audit of chain-modules: precompiles/wasmd (170 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245718,7 +245718,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.63]
 title = "Pre-upgrade audit of chain-modules: precompiles/layerxcustody (148 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245750,7 +245750,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.62]
 title = "Pre-upgrade audit of chain-modules: precompiles/ibc (172 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245814,7 +245814,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.60]
 title = "Pre-upgrade audit of chain-modules: modules/evm (240 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246006,7 +246006,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.54]
 title = "Pre-upgrade audit of node-runtime: storage/db_engine/pebbledb (148 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -246294,7 +246294,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.45]
 title = "Pre-upgrade audit of node-runtime: consensus/libs (170 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
