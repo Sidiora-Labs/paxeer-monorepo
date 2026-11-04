@@ -1,0 +1,8 @@
+[repair.22.31.461]
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+workspace_go = "1.27.0"
+repair = "Raise the shared workspace to the notifications dependency floor and remove notifications/go.work; retain every member go.mod version."
+members = ["./api", "./discovery", "./notifications", "./indexer", "./pnl-tracker", "./ranking-algo", "./stats-workers", "./trading-charts", "../../deploy/launchpad/production/recovery/phase2/broker", "./gateway", "./livestream", "./metadata", "./social", "./user", "../../sdk/launchpad/protocol", "../../sdk/launchpad/shared", "./security", "./security/control", "../../tools/launchpad/production/load/eventdriver"]
+test = "TestRepair461SharedWorkspace"
+proof = "Read the shared workspace and every listed member go.mod, compare Go versions, and reject a nested go.work in any member; the declared verify command also builds social, trading-charts and pnl-tracker in the shared workspace."
+qualification = "The runner-owned hf-build/hf-done ledger records the verified candidate revision, command, exit code and private evidence location; no gate is claimed before execution."
