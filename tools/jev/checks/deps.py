@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import tomllib
@@ -9,13 +10,19 @@ from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
 from tools.jev.checks import register
-from tools.jev.client import Evaluation, JevClient, choice, score
+from tools.jev.client import Evaluation, JevClient, JevConfigError, choice, score
 from tools.jev.report import Finding, Report, git_revision, route_for
 
 
 CHECK_NAME = "deps"
 REPO_ROOT = Path(__file__).resolve().parents[3]
-WORKSPACES = ("agent", "human", "services/platform", "programs", "interop")
+WORKSPACES = (
+    "services/agent",
+    "services/human",
+    "services/platform",
+    "programs",
+    "services/interop",
+)
 MANIFEST = "Cargo.toml"
 LOCK_FILE = "Cargo.lock"
 PRODUCTION = "production"
@@ -131,6 +138,7 @@ class DependencyIndex:
     scans: dict[str, WorkspaceDeps] = field(default_factory=dict)
 
     def workspace(self, workspace: str) -> WorkspaceDeps:
+        workspace = normalize_workspace(workspace)
         cached = self.scans.get(workspace)
         if cached is None:
             cached = scan_workspace(self.repo_root / workspace)
@@ -248,6 +256,7 @@ def span_version(span: object) -> str:
 
 
 def diagnostic_from(document: object, workspace: str) -> Diagnostic | None:
+    workspace = normalize_workspace(workspace)
     if not isinstance(document, dict) or document.get("type") != "diagnostic":
         return None
     fields = document.get("fields")
@@ -438,19 +447,132 @@ def findings_for(advisory: Advisory, evaluation: Evaluation) -> list[Finding]:
     return findings
 
 
+def normalize_workspace(workspace: str) -> str:
+    normalized = Path(workspace).as_posix().rstrip("/")
+    if normalized in ("agent", "human", "interop"):
+        return f"services/{normalized}"
+    return normalized
+
+
+def validate_cargo_deny(workspace: str, returncode: int, text: str) -> str:
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def fail(reason: str) -> None:
+        raise JevConfigError(
+            f"cargo-deny scan {normalize_workspace(workspace)}: {reason}; "
+            f"exit={returncode if type(returncode) is int else 'invalid'}, stderr_sha256={digest}"
+        )
+
+    if type(returncode) is not int or returncode not in (0, 1):
+        fail("tool did not complete a supported scan")
+    documents: list[dict[str, object]] = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            document = json.loads(line)
+        except json.JSONDecodeError:
+            fail("malformed JSON output")
+        if not isinstance(document, dict):
+            fail("output record is not an object")
+        documents.append(document)
+    summaries = [item for item in documents if item.get("type") == "summary"]
+    if len(summaries) != 1 or documents[-1] is not summaries[0]:
+        fail("missing or misplaced completion summary")
+    fields = summaries[0].get("fields")
+    if not isinstance(fields, dict):
+        fail("invalid completion summary")
+    errors = 0
+    for check in ("advisories", "bans", "sources"):
+        counts = fields.get(check)
+        if not isinstance(counts, dict):
+            fail(f"missing {check} completion counts")
+        for kind in ("errors", "warnings", "notes", "helps"):
+            count = counts.get(kind)
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                fail(f"invalid {check} completion counts")
+        errors += counts["errors"]
+    if bool(errors) != bool(returncode):
+        fail("exit status contradicts completion counts")
+    for item in documents[:-1]:
+        diagnostic_fields = item.get("fields")
+        if (
+            item.get("type") != "diagnostic"
+            or not isinstance(diagnostic_fields, dict)
+            or not isinstance(diagnostic_fields.get("code"), str)
+            or diagnostic_fields.get("severity") not in ("error", "warning", "note", "help")
+        ):
+            fail("non-diagnostic scan output")
+        if "advisory" in diagnostic_fields:
+            advisory_diagnostic = diagnostic_from(item, workspace)
+            if advisory_diagnostic is None or not advisory_diagnostic.crate:
+                fail("malformed advisory diagnostic")
+    diagnostics = parse_diagnostics(text, workspace)
+    if returncode and not diagnostics:
+        fail("failed scan carries no advisory diagnostics")
+    if errors and not any(
+        item.get("fields", {}).get("severity") == "error" for item in documents[:-1]
+    ):
+        fail("completion errors carry no error diagnostic")
+    if not errors and any(
+        item.get("fields", {}).get("severity") == "error" for item in documents[:-1]
+    ):
+        fail("error diagnostics contradict completion counts")
+    advisory_counts = fields["advisories"]
+    if (advisory_counts["errors"] or advisory_counts["warnings"]) and not diagnostics:
+        fail("completion counts carry no advisory diagnostics")
+    return text
+
+
 def run_cargo_deny(directory: Path) -> str:
     if not (directory / MANIFEST).is_file():
-        return ""
-    completed = subprocess.run(
-        DENY_COMMAND,
-        cwd=directory,
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-        timeout=DENY_TIMEOUT_SECONDS,
-    )
-    return completed.stderr
+        raise JevConfigError(f"selected workspace manifest {directory / MANIFEST} is missing")
+    try:
+        completed = subprocess.run(
+            DENY_COMMAND,
+            cwd=directory,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=DENY_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise JevConfigError(
+            f"cargo-deny scan could not complete ({type(error).__name__})"
+        ) from None
+    return validate_cargo_deny(directory.as_posix(), completed.returncode, completed.stderr)
+
+
+def read_scan_capture(path: Path, workspace: str) -> str:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    try:
+        capture = json.loads(text)
+    except json.JSONDecodeError:
+        capture = None
+    if isinstance(capture, dict) and "returncode" in capture:
+        if not isinstance(capture.get("stderr"), str):
+            raise JevConfigError("cargo-deny capture has no stderr text")
+        return validate_cargo_deny(workspace, capture["returncode"], capture["stderr"])
+    # Older captures contain JSONL stderr only. Their final summary supplies status.
+    returncode = 0
+    lines = [line for line in text.splitlines() if line.strip()]
+    if lines:
+        try:
+            summary = json.loads(lines[-1])
+        except json.JSONDecodeError:
+            summary = None
+        fields = summary.get("fields") if isinstance(summary, dict) else None
+        if isinstance(fields, dict):
+            returncode = int(
+                any(
+                    isinstance(counts, dict)
+                    and type(counts.get("errors")) is int
+                    and counts["errors"] > 0
+                    for counts in fields.values()
+                )
+            )
+    return validate_cargo_deny(workspace, returncode, text)
 
 
 def input_pair(raw: str) -> tuple[Path, str]:
@@ -466,13 +588,27 @@ def selected_workspaces(names: Sequence[str] | None) -> tuple[str, ...]:
     return tuple(names)
 
 
+def selected_workspace_directories(
+    repo_root: Path,
+    names: Sequence[str] | None,
+) -> list[tuple[str, Path]]:
+    directories = []
+    for workspace in selected_workspaces(names):
+        directory = repo_root / workspace
+        if not (directory / MANIFEST).is_file():
+            raise JevConfigError(f"selected workspace manifest {directory / MANIFEST} is missing")
+        directories.append((workspace, directory))
+    return directories
+
+
 def collect_sources(args: argparse.Namespace, repo_root: Path) -> list[tuple[str, str]]:
     sources: list[tuple[str, str]] = []
     for path, workspace in args.input or ():
-        sources.append((workspace, path.read_text(encoding="utf-8", errors="replace")))
+        workspace = normalize_workspace(workspace)
+        sources.append((workspace, read_scan_capture(path, workspace)))
     if args.run:
-        for workspace in selected_workspaces(args.workspace):
-            sources.append((workspace, run_cargo_deny(repo_root / workspace)))
+        for workspace, directory in selected_workspace_directories(repo_root, args.workspace):
+            sources.append((workspace, run_cargo_deny(directory)))
     return sources
 
 
@@ -491,16 +627,26 @@ class DepsCheck:
 
     def run(self, args: argparse.Namespace, client: JevClient) -> Report:
         repo_root = args.repo_root.resolve()
-        diagnostics: list[Diagnostic] = []
-        for workspace, text in collect_sources(args, repo_root):
-            diagnostics.extend(parse_diagnostics(text, workspace))
-        index = DependencyIndex(repo_root=repo_root)
-        advisories = group_advisories(diagnostics, index)
+        sources = collect_sources(args, repo_root)
         report = Report(
             check=CHECK_NAME,
             revision=git_revision(repo_root),
             model=client.model,
         )
+        return self.evaluate_sources(sources, repo_root, client, report)
+
+    def evaluate_sources(
+        self,
+        sources: Sequence[tuple[str, str]],
+        repo_root: Path,
+        client: JevClient,
+        report: Report,
+    ) -> Report:
+        diagnostics: list[Diagnostic] = []
+        for workspace, text in sources:
+            diagnostics.extend(parse_diagnostics(text, workspace))
+        index = DependencyIndex(repo_root=repo_root)
+        advisories = group_advisories(diagnostics, index)
         questions = advisory_questions()
         for advisory in advisories:
             evaluation = client.evaluate(advisory_state(advisory), questions)

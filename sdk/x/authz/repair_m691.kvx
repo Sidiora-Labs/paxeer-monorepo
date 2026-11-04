@@ -1,0 +1,47 @@
+[meta]
+task = "22.33.691"
+audit = "22.30.168"
+acceptance = "22998.1"
+mode = "BUILD"
+scope = "sdk/x/authz"
+qualification = "Evidence is recorded by hf-build/hf-done in the private runner ledger; no gate result is claimed before execution."
+baseline = "Not run: the explicit gate order forbids verification before full implementation and permits only hf-done after hf-build; no pre-change failure is claimed."
+
+[finding.expired-grant-acceptance]
+test = "TestRepairM_691_ExpiredGrantAcceptance"
+repair = "Reject expiration <= chain block time in Grant and SaveGrant/NewGrant with authz code 3 before any write or event; preserve existing grants and prove durable state after reopen."
+
+[finding.expiration-cases-disabled]
+test = "TestRepairM_691_ExpirationCases"
+repair = "Restore NewGrant before/equal/after assertions and real message-server boundary checks; equal-time clean lookup cannot execute the grant."
+
+[finding.authz-genesis-validation]
+test = "TestRepairM_691_GenesisValidationRestart"
+repair = "Validate addresses, typed payloads, message types and duplicate tuples before writes; preserve imported expiration, including expired records, without minting events; prove codec/export/import/close/reopen and invalid input rejection."
+
+[finding.past-time-success-test]
+test = "TestRepairM_691_PastTimeStructuralValidation"
+repair = "State that construction and ValidateBasic are structural; execute expired messages against fixed chain time and assert authz error code, no events and byte-identical grants."
+
+[finding.authz-concepts-policy]
+test = "TestRepairM_691_ConceptsDenyOnly"
+repair = "Document exclusive policies and acceptance traversal gas; prove deny-only authorization survives store reopen and real MsgExec delegation and retains its policy."
+
+[finding.authz-message-expiration-doc]
+test = "TestRepairM_691_MessageExpirationDoc"
+repair = "Document strict expiration.After(ctx.BlockTime()), authz code 3 and absence of storage/events; prove the documented server outcome."
+
+[finding.authz-client-network-doc]
+test = "TestRepairM_691_ClientNetworkDoc"
+repair = "Use generated valid Paxeer accounts and uhpx, enumerate the three real CLI query commands and assert complete examples against actual generated-client/SDK-router/keeper responses."
+
+[wiring]
+requests = "None: all proposal changes and proofs are within sdk/x/authz; no external domain interface change is needed."
+
+[gotcha.1]
+observed = "The baseline verification instruction conflicts with the explicit implementation/build/done order and bounded gate count."
+resolution = "Follow the explicit ordered gates; record no invented baseline result."
+
+[gotcha.2]
+observed = "Changing the expiration boundary also changes keeper tests that previously created expired or equal-time grants successfully."
+resolution = "Assert the typed error for expired grants and use future expiration for valid execution fixtures."

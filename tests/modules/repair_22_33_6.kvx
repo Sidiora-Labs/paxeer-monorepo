@@ -1,0 +1,14 @@
+[task]
+id = "22.33.6"
+finding = "22.30.1.12"
+repair = "Order decoding rejects zero order and market identifiers, order lookup binds both decoded identifiers to the requested key, book iteration binds both identifiers to the iterated key, and market lookup binds its decoded identifier to the requested key; rejected lookups leave caller outputs unchanged."
+proving_tests = ["test_restored_order_identity_refusal", "test_restored_market_identity_refusal"]
+test_path = "tests/modules/test_spot_book.c"
+proof = "Real market creation and order placement dispatch through the registered production module and canonical ledger. Tests copy or corrupt those produced records through the kernel KV transport, serialize snapshots, destroy the state store and account registry, recreate the kernel and load and verify snapshots before exercising lookup, cancellation, crossing placement and market halt. Refusals retain the complete state root, global sequence, balances, escrow and stored records and emit no effects. Matching zero identifiers in key and value independently prove decoder refusal. Canonical records recover, cancel with exact refunds and remain deleted after another reopen."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and prohibit invoking verify_cmd by hand. No prior hf-build/hf-done ledger existed at session entry; no pre-change test failures are claimed."
+evidence = "The private /out/run/gates.jsonl ledger records the verified candidate revision, exact command, exit and private log for hf-build and hf-done; the final response copies the last gate evidence."
+wiring_requests = []
+
+[gotcha.1]
+symptom = "The task's audit steps request an unchanged-tree verify while its explicit gate order prohibits pre-implementation tests and manual verify runs."
+resolution = "Follow the explicit gate order, disclose the absent baseline and use only hf-build followed by hf-done. The strict scope prohibits edits to the root gotcha ledger or spec task record, so this in-scope repair record carries the finding closure and gotcha."
