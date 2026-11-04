@@ -76,6 +76,7 @@ class LayerXMountOptions:
     authority: SellerPaymentAuthority | None = None
     signatures: LocalSignatureVerifier | None = None
     now: Callable[[], int] | None = None
+    offer_purpose_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -105,7 +106,7 @@ def create_layerx_mount(options: LayerXMountOptions) -> LayerXMount:
 
 
 def create_integration(options: LayerXMountOptions) -> LayerXMount:
-    config = read_declared_config(options.environment)
+    config = read_declared_config(options.environment, purpose_hash=options.offer_purpose_hash)
     signatures = options.signatures if options.signatures is not None else LayerXSignatureVerifier()
     seller: SellerMiddleware[LayerXResource] = SellerMiddleware(
         payment_required=config.payment_required,
