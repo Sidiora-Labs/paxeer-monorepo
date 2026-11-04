@@ -20,10 +20,39 @@ impl ChainProofVerifier {
         header: &ChainHeader,
         commit: &Commit,
     ) -> Result<VerifiedChainHead, ChainProofError> {
+        let header_hash = self.verify_header_commit(header, commit)?;
+        let hash =
+            |bytes: &[u8]| <[u8; 32]>::try_from(bytes).map_err(|_| ChainProofError::NonCanonical);
+        Ok(VerifiedChainHead {
+            chain_id: self.chain_id.clone(),
+            header_hash,
+            height: header.height,
+            time_ms: header
+                .time
+                .seconds
+                .checked_mul(1_000)
+                .and_then(|ms| ms.checked_add(i64::from(header.time.nanos / 1_000_000)))
+                .ok_or(ChainProofError::NonCanonical)?,
+            app_hash: hash(&header.app_hash)?,
+            data_hash: hash(&header.data_hash)?,
+            last_results_hash: hash(&header.last_results_hash)?,
+            next_validators_hash: hash(&header.next_validators_hash)?,
+        })
+    }
+
+    /// Authenticate a consensus header, including bootstrap headers that have
+    /// no predecessor results. State-proof consumers use `verify_head`, which
+    /// additionally requires the commitments represented by VerifiedChainHead.
+    pub fn verify_header_commit(
+        &self,
+        header: &ChainHeader,
+        commit: &Commit,
+    ) -> Result<[u8; 32], ChainProofError> {
+        let header_hash = header.hash()?;
         if header.chain_id != self.chain_id
             || header.validators_hash != self.validators.hash()
             || commit.height != header.height
-            || commit.block_id.hash != header.hash()?
+            || commit.block_id.hash != header_hash
             || commit.round < 0
             || commit.block_id.part_set_header.total == 0
             || commit.block_id.part_set_header.hash.len() != 32
@@ -77,22 +106,6 @@ impl ChainProofVerifier {
             return Err(ChainProofError::InsufficientPower);
         }
 
-        let hash =
-            |bytes: &[u8]| <[u8; 32]>::try_from(bytes).map_err(|_| ChainProofError::NonCanonical);
-        Ok(VerifiedChainHead {
-            chain_id: self.chain_id.clone(),
-            header_hash: header.hash()?,
-            height: header.height,
-            time_ms: header
-                .time
-                .seconds
-                .checked_mul(1_000)
-                .and_then(|ms| ms.checked_add(i64::from(header.time.nanos / 1_000_000)))
-                .ok_or(ChainProofError::NonCanonical)?,
-            app_hash: hash(&header.app_hash)?,
-            data_hash: hash(&header.data_hash)?,
-            last_results_hash: hash(&header.last_results_hash)?,
-            next_validators_hash: hash(&header.next_validators_hash)?,
-        })
+        Ok(header_hash)
     }
 }
