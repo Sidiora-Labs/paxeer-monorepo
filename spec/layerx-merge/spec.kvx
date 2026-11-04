@@ -149333,6 +149333,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the example's install fails because its manifest asks the public registry for the integration package at version 0.1.0, which is never published; the package is the sibling directory sdk/integrations/next. Point the example's dependency at that directory (a file reference to the parent package), with the example directory now in touches; the build and verify commands now build the integration package first and then install the example. Finish on one commit."
+do_9 = "Attempt 3 (continue): the example's package.json is inside this task's paths (sdk/integrations/next/example is listed), so the dependency on the unpublished package is repaired here: point it at the parent package with a file reference (file:..), so the install the build command runs resolves the freshly built parent instead of the registry; keep the mounted-route proof and finish on one commit after the verify passes."
 
 [task.22.33.612]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/test (part 1 of 1): test-gap"
@@ -149467,6 +149468,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue): the dependency and lockfile repair built; verification found no test because the gateway's vitest configuration includes only test/**/*.test.ts and the proof sat under src/db. Move the proof to services/wallet/gateway/test/db/repair-22-31-447.test.ts (now in touches and in the verify command), keep its assertions, and finish on one commit."
+do_6 = "Attempt 3 (continue): the build and both tests passed, but the commit changed services/wallet/pnpm-workspace.yaml, which is outside this task; the PGlite development dependencies belong in services/wallet/gateway/package.json alone, and pnpm resolves them for test/db from there without any workspace entry. Revert every change to the root workspace file, keep the gateway manifest, the lockfile and the moved proof, re-run the build and the verify command, and finish on one commit."
 
 [task.22.31.444]
 title = "Make apps/perps declare the wallet SDK and wallet gateway modules it imports so one install of the perps application type-checks without a hand-made install of sibling packages"
@@ -152216,7 +152218,7 @@ title = "Repair audit record 22.30.138 medium findings in apps/web/e2e (part 1 o
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.268"]
+requires = ["22.31.268", "22.31.456"]
 reqs = ["22998.1"]
 capabilities = ["22.33.337"]
 interfaces = []
@@ -152253,6 +152255,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (requalify): the build passed and the verification loader error was repaired after the repair budget was spent; re-run the build and the verify on the final tree and finish on one commit."
 do_16 = "Attempt 3 (continue): both attempts fail the same way: the e2e suite imports a module that imports a Next.js runtime entry (next/link through src/kit/explorer.tsx, next/navigation through the onboarding journey), which the Node ESM resolver cannot load under node --test (gotcha 2978). Move the behaviour under test into pure modules (the kit's data and formatting helpers and the explorer selectors), import only those and the copy catalog in e2e/repair-22-33-337.test.ts as the committed suites do, keep the component wiring in the component, and finish on one commit."
+do_17 = "Attempt 3: the build failed inside sdk/wallet/src/receipt.ts (the optional signal shape apps/web's exact-optional type-check refuses); that producer defect is repaired by task 22.31.456, which this task now requires. The scoped changes stand and are verified when the next attempt runs."
 
 [task.22.33.332]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/web3/providers (part 1 of 1): runtime-risk"
@@ -210946,6 +210949,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): the collect step still accepts a gentx whose commission is omitted, so the missing-basic-fields case fails. Validate the commission rates as present and well-formed in the collect validation path (the same place the other basic fields are checked), make the error name the missing field, keep the other cases and finish on one commit after the verify passes."
 
 [task.22.33.652]
 title = "Repair audit record 22.30.165 medium findings in sdk/x/genutil/client/testutil (part 1 of 1): test-gap"
@@ -211195,6 +211199,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): the tests do not compile because they call an infinite gas meter constructor the fork's store types package does not export under that name. Use the constructor the fork's own store types package exports (read the package, do not add a dependency), rebuild the tests, run the verify, and finish on one commit."
 
 [task.22.33.645]
 title = "Repair audit record 22.30.165 medium findings in sdk/types (part 1 of 2): config-drift, runtime-risk, test-gap"
@@ -281058,6 +281063,7 @@ do_14 = "Attempt 2: tests/programs/test_registration.c references the retired fe
 do_15 = "Attempt 3 (continue): audit_create_occupancy fails because lxp_programs_finalize_occupancy_batch_selected does not return LXP_OK for the fixture arguments under the current kernel (the ABI-5 registration of 1.23.7 is on main now). Print the returned status in the assertion, then align the fixture call (protocol version, selection bounds, sequence) with the current finalize contract the kernel enforces; the kernel is not changed to accept the fixture (gotcha 2968)."
 do_16 = "Attempt 4 (continue): all five audit cases pass and the programs-core-test target still fails on the inherited original_lifecycle case, which the verify runs and which therefore belongs to this task (gotcha 2971): print its diagnostic, find which step of the lifecycle the repairs changed (activation, execution, funding or retirement ordering), and fix the kernel path or update the case to the repaired behaviour with the reason recorded. The native node maintenance wiring stays a recorded wiring request to the node domain."
 do_17 = "Attempt 5 (continue): the build, the original lifecycle and all five audit cases pass, then the suite dies with a segmentation fault inside the programs_monetary_law case, so the whole verify fails. Run that case alone first (the programs-core test binary with its case filter), find the invalid access the repair introduced (an uninitialised or freed maintenance or storage-environment pointer reached from the monetary-law path is the likely class), fix it in the module source, re-run the full make -s programs-core-test target, and finish on one commit. The native node maintenance wiring stays a recorded wiring request in the record; it is not a reason to leave the suite crashing."
+do_18 = "Attempt 6 (continue): the stack overflow is fixed and every audit case passes; the suite now fails in the real mixed program authority case because the program leg's call reaches the programs runtime and comes back refused (result code -736 is the runtime's program-refused code, protocol 3, sequence 4). Surface the refusal detail the runtime attaches to that result in the test's failure line, then fix the cause on the fixture side: the program leg must present the authority the migrated binding expects (the ABI-5 bound authority that the recovery case already proves), with the same principal and shared-key layout the runtime checks. Do not weaken the kernel-law assertions; re-run the verify and finish on one commit."
 
 [task.22.31.19]
 title = "Repair audit record 22.30.17 findings in precompiles/spot/abi: interface-mismatch"
@@ -326483,7 +326489,7 @@ do_6 = "Prove each repair with a test module sdk/integrations/fastapi/tests/test
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["sdk/integrations/fastapi/tests"]
+touches = ["sdk/integrations/fastapi/tests", "sdk/integrations/fastapi/layerx_fastapi"]
 tests = ["sdk/integrations/fastapi/tests/test_repair_22_33_616.py"]
 planned_paths = ["sdk/integrations/fastapi/tests/test_repair_22_33_616.py"]
 build_cmd = "python3 -m py_compile sdk/integrations/fastapi/tests/test_package_surface.py sdk/integrations/fastapi/tests/test_seller_receipts.py"
@@ -326500,6 +326506,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): five of seven cases pass; both HTTP proofs fail because the mounted offer is not the one the recorded receipt was issued for, so the server answers verification-failure. Mount the offer with the parameters the recorded receipt carries (its purpose, amount and requirements come from the committed conformance vector), keep the refusal cases, re-run the verify command and finish on one commit; the mismatch is a fixture choice, not a wiring request."
+do_10 = "Attempt 3 (continue): both mounted cases fail at payment verification because the recorded receipt was signed for a fixed offer purpose while the mount derives the purpose from the resource URL and offers no way to configure it. That is this integration's own surface, now in scope: give the mount options an explicit offer purpose (default unchanged, derived from the URL), advertise the configured purpose in the 402 challenge and verify receipts against it, bind the recorded vector's purpose in the two cases, and add one case that a receipt for another purpose is still refused. Finish on one commit after the verify passes."
 
 [task.22.33.615]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample (part 1 of 1): security"

@@ -24491,3 +24491,59 @@ symbol = "test_repair_22_31_427.py"
 observed = "Attempt 1: the verify command passed on an earlier revision and the final revision carries a later commit with no verify record."
 assumption = "Unverified final revision, not a known defect."
 severity = "low"
+
+[finding.22.31.447.2]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 2: the gates passed and the attempt was refused only because the root workspace manifest of services/wallet changed outside the task's paths."
+assumption = "An out-of-scope manifest edit that the dependency move does not need."
+severity = "low"
+
+[finding.22.31.24.5]
+task = "22.31.24"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 5: all audit cases pass; the real mixed program authority case fails with the runtime's program-refused result at sequence 4."
+assumption = "The fixture's program leg carries an authority the migrated binding refuses."
+severity = "medium"
+
+[finding.22.33.337.3]
+task = "22.33.337"
+file = "apps/web/e2e/repair-22-33-337.test.ts"
+symbol = "repair-22-33-337.test.ts"
+observed = "The web application's type-check fails in the wallet SDK before the task's tests run."
+assumption = "A producer-to-consumer type break repaired by 22.31.456, not a defect of this task."
+severity = "low"
+
+[finding.22.33.616.2]
+task = "22.33.616"
+file = "sdk/integrations/fastapi/tests/test_repair_22_33_616.py"
+symbol = "test_repair_22_33_616.py"
+observed = "Attempt 2: five cases pass; the two mounted cases are refused with verification-failure because the receipt's signed purpose differs from the URL-derived purpose the mount requires."
+assumption = "The mount cannot be bound to a configured offer purpose."
+severity = "medium"
+
+[finding.22.33.619.2]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 2: the install of the example fails with a registry 404 for the unpublished parent package; the attempt believed the manifest was out of scope."
+assumption = "The example manifest is in scope and must reference the parent package by path."
+severity = "low"
+
+[finding.22.33.646.1]
+task = "22.33.646"
+file = "sdk/types/repair_m646_test.go"
+symbol = "repair_m646_test.go"
+observed = "Attempt 1: the verify fails to compile the new tests on an unresolved gas meter constructor."
+assumption = "A name taken from a newer upstream than the fork."
+severity = "low"
+
+[finding.22.33.653.1]
+task = "22.33.653"
+file = "sdk/x/genutil/repair_m653_test.go"
+symbol = "repair_m653_test.go"
+observed = "Attempt 1: the missing-basic-fields case fails because a gentx without a commission is accepted."
+assumption = "The commission is not among the basic fields the collect validation checks."
+severity = "low"
