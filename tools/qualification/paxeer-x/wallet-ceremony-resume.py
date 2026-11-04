@@ -25,6 +25,8 @@ import uuid
 ROOT = Path(__file__).resolve().parents[3]
 PROCESSES = []
 STATE = None
+ARTIFACT_BINDINGS = {}
+QUALIFIED_REVISION = None
 
 
 def require(value, message):
@@ -61,7 +63,49 @@ def stop(process):
         process.wait(timeout=10)
 
 
+def artifact_binding(name, artifact, revision, declared):
+    require(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision),
+            'qualified source revision required')
+    require(artifact['source_revision'] == revision
+            and declared == {'source_revision': revision, 'sha256': artifact['sha256']},
+            'artifact differs from qualified source revision: ' + name)
+    binary = Path(artifact['path'])
+    info = binary.lstat()
+    require(binary.is_absolute() and binary.resolve(strict=True) == binary
+            and binary.is_file() and not binary.is_symlink() and info.st_uid == os.geteuid()
+            and info.st_nlink == 1 and not info.st_mode & 0o022 and os.access(binary, os.X_OK),
+            'protected prebuilt executable required: ' + name)
+    digest = hashlib.sha256(binary.read_bytes()).hexdigest()
+    require(digest == artifact['sha256'], 'artifact digest mismatch: ' + name)
+    return {'path': str(binary), 'source_revision': revision, 'sha256': digest}
+
+
+def bind_artifacts(config, manifest, revision):
+    require(config['source_revision'] == manifest['source_revision'] == revision,
+            'ceremony manifest differs from current qualified revision')
+    require(set(manifest) == {'source_revision', 'files', 'artifacts'}
+            and set(manifest['artifacts']) == set(config['artifacts']),
+            'complete revision-bound source/artifact manifest required')
+    result = {}
+    for name, artifact in config['artifacts'].items():
+        binding = artifact_binding(name, artifact, revision, manifest['artifacts'][name])
+        require(binding['path'] not in result, 'duplicate executable provenance')
+        result[binding['path']] = binding
+    return result
+
+
+def admitted_argv(argv, bindings, revision):
+    require(isinstance(argv, list) and argv and isinstance(argv[0], str), 'explicit executable argv required')
+    binding = bindings.get(argv[0])
+    require(binding is not None and binding['source_revision'] == revision,
+            'unbound executable launch refused')
+    artifact_binding('launch', binding, revision,
+                     {'source_revision': revision, 'sha256': binding['sha256']})
+    return argv
+
+
 def start(argv, env, name, identity=None):
+    admitted_argv(argv, ARTIFACT_BINDINGS, QUALIFIED_REVISION)
     with open(STATE / (name + '.log'), 'ab', buffering=0) as log:
         process = subprocess.Popen(argv, cwd=STATE if identity else ROOT, env=env, stdout=log, stderr=log,
                                    start_new_session=True, **(identity or {}))
@@ -274,7 +318,7 @@ class OperatorHandler(http.server.BaseHTTPRequestHandler):
 
 
 def main():
-    global STATE
+    global STATE, ARTIFACT_BINDINGS, QUALIFIED_REVISION
     supplied = os.environ.get('WALLET_CEREMONY_FIXTURE_BUNDLE')
     require(supplied, 'prerequisite: protected approved WALLET_CEREMONY_FIXTURE_BUNDLE')
     bundle = Path(supplied).resolve()
@@ -284,21 +328,20 @@ def main():
             'fixture bundle must not contain .env files')
     config = json.loads(private_file(bundle / 'wallet-ceremony-fixture.json').read_text())
     require(config.get('version') == 1 and config.get('isolated') is True, 'approved isolated fixture version 1 required')
-    source_manifest = json.loads((bundle / config['source_manifest']).read_text())
+    source_manifest = json.loads(private_file(bundle / config['source_manifest']).read_text())
+    QUALIFIED_REVISION = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    require(not subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=ROOT),
+            'clean qualified ceremony source required')
+    ARTIFACT_BINDINGS = bind_artifacts(config, source_manifest, QUALIFIED_REVISION)
     expected = set()
     for module in ('attestor', 'ceremony'):
         directory = ROOT / 'services/wallet' / module
         expected.update(str(path.relative_to(ROOT)) for path in directory.rglob('*.go'))
         expected.update('services/wallet/' + module + '/' + name for name in ('go.mod', 'go.sum'))
-    require(set(source_manifest) == expected, 'complete attestor and ceremony source manifest required')
-    for relative, digest in source_manifest.items():
+    require(set(source_manifest['files']) == expected, 'complete attestor and ceremony source manifest required')
+    for relative, digest in source_manifest['files'].items():
         require(hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() == digest,
                 'source and supplied prebuilt artifact revision differ')
-    for name, artifact in config['artifacts'].items():
-        binary = Path(artifact['path'])
-        require(binary.is_file() and os.access(binary, os.X_OK), 'prebuilt executable missing: ' + name)
-        require(hashlib.sha256(binary.read_bytes()).hexdigest() == artifact['sha256'], 'artifact digest mismatch: ' + name)
-        require(re.fullmatch('[0-9a-f]{40}', artifact['source_revision']), 'artifact source provenance required')
     STATE = Path(tempfile.mkdtemp(prefix='wallet-ceremony-resume-', dir=os.environ.get('WALLET_CEREMONY_EVIDENCE_ROOT')))
     STATE.chmod(0o700)
     copied = STATE / 'fixture'
@@ -476,8 +519,8 @@ def main():
         require(faults.failure is None, faults.failure or 'fault proxy integrity failure')
         return process
     def query(sql):
-        output = subprocess.run([config['artifacts']['psql']['path'], '-X', '-A', '-t', '-v', 'ON_ERROR_STOP=1',
-                                 ceremony_env['CEREMONY_DATABASE_URL'], '-c', sql], env=base_env,
+        output = subprocess.run(admitted_argv([config['artifacts']['psql']['path'], '-X', '-A', '-t', '-v', 'ON_ERROR_STOP=1',
+                                 ceremony_env['CEREMONY_DATABASE_URL'], '-c', sql], ARTIFACT_BINDINGS, QUALIFIED_REVISION), env=base_env,
                                 check=True, capture_output=True, text=True, timeout=20)
         return output.stdout.strip()
     wallet_id = str(uuid.UUID(config['wallet_id']))
@@ -669,7 +712,8 @@ def main():
         proxy.shutdown()
     for peer in peers:
         peer.shutdown()
-    result = {'status': 'passed', 'cases': ['missing-rehearsal-config-refusal', 'shared-live-custody-refusal', 'shared-live-journal-refusal',
+    result = {'status': 'passed', 'source_revision': QUALIFIED_REVISION,
+              'executed_artifacts': list(ARTIFACT_BINDINGS.values()), 'cases': ['missing-rehearsal-config-refusal', 'shared-live-custody-refusal', 'shared-live-journal-refusal',
               'rehearsal-pin-substitution-refusal', 'isolated-rehearsal-custody', 'counts-only-rehearsal', 'rehearsal-every-stage-matched', 'changed-original-identity-refusal', 'partial-import', 'exact-import-retry',
               'import-conflict-refusals', 'lost-reply', 'node-restart', 'failed-verification-recovery', 'precommit-process-death',
               'atomic-migration', 'original-address-did-match', 'cached-evidence-replay', 'one-shot-refusal',
