@@ -30,7 +30,7 @@ import './TxInfo.spec';
 function signatureFixtureBindsCanonicalReceiptTransactionAndGovernedKey() {
   const fixture = readFileSync(join(__dirname, 'fixtures/vector-v4-committed.json'));
   expect(createHash('sha256').update(new Uint8Array(fixture)).digest('hex'))
-    .toBe('fc3fe1494c91ff8720a8d8fced398ea6c483c7aa70e3b655212e2b68de75eaab');
+    .toBe('5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b');
   const receipt = Buffer.from(answer.receipt.slice(2), 'hex');
   const publicKey = Buffer.from(answer.receipt_key.public_key.slice(2), 'hex');
   const signature = Buffer.from(answer.signature.slice(2), 'hex');

@@ -24,6 +24,19 @@ committed evidence fields only for the committed bundle. The committed pin is
 limited to height 10, matching the daemon source authorization. Verification uses
 the pins and predecessor from V1/V4, independently of the key claimed in the bundle.
 
+The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
+Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
+`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
+`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
+
+Run `python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py` from the
+repository root to copy the retained sequencer producer's V1–V3 cases byte for
+byte, then refresh V4, V5 and the Go SDK's fixed external checkpoint at
+`sdk/platform/go/testdata/repair_m1384/checkpoint.json`. The checkpoint is captured
+from the producer's `execution_commit`, with its source digest recorded separately
+from the portable bundle. Verification reads the fixed checkpoint without deriving
+trust from the document being verified.
+
 V4 pairs `settlement.execution_header` with `settlement.execution_commit` and
 `settlement.header` with `settlement.commit`. Its refusal replaces only the
 successor commit with `settlement.commit_at_most_two_thirds`. Transaction and
