@@ -35,6 +35,13 @@ settle() {
 	return 1
 }
 
+save_image() {
+	cp -p "$1" "$2.tmp"
+	sync "$2.tmp"
+	mv "$2.tmp" "$2"
+	sync -f /etc/layerx
+}
+
 registry_login() {
 	if [[ "$REGISTRY_TOKEN_FILE" != /* || ! -f "$REGISTRY_TOKEN_FILE" || ! -r "$REGISTRY_TOKEN_FILE" || ! -s "$REGISTRY_TOKEN_FILE" ]]; then
 		echo "registry login refused: REGISTRY_TOKEN_FILE must name a readable, non-empty regular file" >&2
@@ -51,20 +58,20 @@ registry_login || {
 docker pull "$image"
 mkdir -p /etc/layerx
 if [ -f "$file" ]; then
-	cp -p "$file" "$file.prev"
+	save_image "$file" "$file.prev"
 fi
 printf '%s\n' "$image" >"$file.tmp"
+sync "$file.tmp"
 mv "$file.tmp" "$file"
-systemctl restart "$unit"
-if settle; then
+sync -f /etc/layerx
+if systemctl restart "$unit" && settle; then
 	echo "pass $role $image $unit $health"
 	exit 0
 fi
 echo "fail $role $image $unit $health" >&2
 if [ -f "$file.prev" ]; then
-	mv "$file.prev" "$file"
-	systemctl restart "$unit"
-	if settle; then
+	save_image "$file.prev" "$file"
+	if systemctl restart "$unit" && settle; then
 		echo "restored $role $(cat "$file")" >&2
 	else
 		echo "restore of $role $(cat "$file") is unhealthy too" >&2
