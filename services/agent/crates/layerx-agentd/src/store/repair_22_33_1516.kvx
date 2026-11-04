@@ -1,0 +1,12 @@
+[repair.22.33.1516]
+audit = "22.30.91"
+acceptance = "22998.1"
+revision_source = "The final hf-done JSON records the verified candidate revision, exact command, exit code and private evidence location. No unexecuted gate is claimed here."
+baseline = "No previous gate ledger or repair test existed. The ordered implementation-first and wrapper-only gate rules prohibit the additional unchanged-tree verification requested in step 7; baseline failures were not measured."
+qualification_repair = "First hf-done at 6409802fb8503363d482784c03fe957ec9216411 failed (exit 1, /out/logs/verify-1.log): eight cases passed, but writable open wrapped unsafe-snapshot I/O refusal as a migration error; validate snapshot safety before migration so direct store I/O refusals remain consistent, without changing any test assertion."
+migration_private_file_modes = "migration_private_file_modes_permissive_umask_preserves_produced_bytes_on_reopen; migration_private_file_modes_refuses_substituted_temporary_paths"
+store_independent_writer_loss = "store_independent_writer_loss_exclusive_opener_includes_migration_and_recovery; store_independent_writer_loss_simultaneous_openers_accept_exactly_one_writer; store_independent_writer_loss_simultaneous_shared_updates_all_survive_restart"
+store_private_file_modes = "store_private_file_modes_permissive_umask_and_replacements_recover; store_private_file_modes_refuses_unsafe_roots_and_snapshots; store_private_file_modes_refuses_substituted_temporary_paths_and_rolls_back; store_private_file_modes_refuses_root_replacement_and_permission_changes"
+security_proof = "The private-mode cases check a control file created with default 0666 permissions to establish a permissive umask; hf-build and hf-done are invoked with shell umask 000. They exercise real Store persistence, migration and restart without subprocesses or external services."
+ownership = "Writable open retains an exclusive kernel lock on the owned directory inode before migration or snapshot reads. Read-only opens use protected snapshots without acquiring writer ownership. Atomic writes use unique create_new, no-follow 0600 files through the held directory descriptor."
+wiring_requests = "None: all three proposals are implemented within the declared store paths."

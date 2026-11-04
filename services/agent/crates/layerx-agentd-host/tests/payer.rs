@@ -363,3 +363,12 @@ fn web_payment_reports_the_pay_exact_log_amount() -> Result {
     );
     Ok(())
 }
+
+
+#[path = "support/payer_audit.rs"]
+mod payer_audit;
+
+#[test]
+fn payer_equal_denom_fixture_accepts_independent_receipt_and_rejects_either_change() {
+    payer_audit::payer_equal_denom_fixture();
+}
