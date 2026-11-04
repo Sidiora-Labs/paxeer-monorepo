@@ -18,9 +18,19 @@ from reset_state import (MAX_STATE, Store, StoreError, canonical, decode,
 from data_directory import GENESIS_FILES
 
 GENESIS = tuple(sorted(GENESIS_FILES))
+NATIVE_CORE_VERSION = 2
 PUBLIC_FIELDS = ('LAYERX_NODE_NETWORK_ID', 'LAYERX_NODE_CHAIN_ID',
                  'LAYERX_NODE_EVM_CHAIN_ID', 'LAYERX_NODE_SEQUENCER_ID',
                  'LAYERX_NODE_SEQUENCER_PUBLIC_KEY')
+NODE_FIELDS = frozenset(PUBLIC_FIELDS) | {
+    'LAYERX_NODE_RPC_URL', 'LAYERX_NODE_CONSENSUS_RPC_URL',
+}
+CORE_FIELDS = frozenset({
+    'LAYERX_CORE_SEQUENCER_ID', 'LAYERX_CORE_TREASURY_ASSET',
+    'LAYERX_CORE_TREASURY_SIGNER_SOCKET', 'LAYERX_CORE_SEQUENCER_ENDPOINT',
+    'LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER', 'LAYERX_CORE_CHAIN_RPC_URL',
+    'LAYERX_CORE_FUNDING_SENDER_KEY_FILE',
+})
 MAX_ARTIFACT = 64 * 1024 * 1024
 
 
@@ -95,7 +105,7 @@ class Broker:
         if (not isinstance(request, dict) or set(request) != common
                 or request.get('operation') != 'core'):
             raise StoreError('invalid_request')
-        if type(request['version']) is not int or request['version'] != 2:
+        if type(request['version']) is not int or request['version'] != NATIVE_CORE_VERSION:
             raise StoreError('unsupported_version')
         expected = request['expected_generation']
         if expected is not None and (type(expected) is not int or not 1 <= expected <= 0x7fffffffffffffff):
@@ -175,6 +185,8 @@ class Broker:
             node_environment = artifact(proof, 'node.env', 65536)
             stack.callback(os.close, node_environment)
             node = environment(contents(node_environment, 65536))
+            if set(node) != NODE_FIELDS:
+                raise StoreError('unsafe_environment')
             public = {key: node[key] for key in PUBLIC_FIELDS}
             if (not public['LAYERX_NODE_NETWORK_ID'].isdecimal()
                     or int(public['LAYERX_NODE_NETWORK_ID']) != state['network']
@@ -188,7 +200,7 @@ class Broker:
             stack.callback(os.close, current)
             if (os.fstat(current).st_dev, os.fstat(current).st_ino) != (os.fstat(data).st_dev, os.fstat(data).st_ino):
                 raise StoreError('generation_changed')
-            result = {'version': 2, 'generation': generation, 'reset_id': reset_id,
+            result = {'version': NATIVE_CORE_VERSION, 'generation': generation, 'reset_id': reset_id,
                       'artifacts': list(files), 'public': public}
             retained = []
             try:
