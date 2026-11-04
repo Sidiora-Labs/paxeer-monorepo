@@ -1,0 +1,14 @@
+[repair.22.33.971]
+audit = "22.30.30"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+mode = "BUILD"
+baseline = "No unchanged-tree verification was run: the explicit task Order requires complete implementation before testing and hf-done as the sole initial verify. No pre-change failures are claimed."
+qualification = "hf-build then hf-done; the runner records the exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl and the final evidence line."
+
+[finding.generator-machine-path]
+proof = ["test_generator_machine_path_uses_repository_contracts_root", "test_generator_machine_path_real_artifact_signature_assertions"]
+change = "The existing signature-hash regression uses the same repository-derived CONTRACTS_ROOT as its neighbors; its Keccak vectors and malformed topic, selector and duplicate-contract assertions are retained verbatim."
+path = "Committed Solidity compiler artifact and complete build input -> current-source byte comparison and production export_optical_registry provenance validation -> Hardhat identity envelope and reviewed JSON on disk -> real export and canonical JSON consumer -> original signature regression in two relocated checkouts."
+fixture = "Reuse catalog/testdata/repair-m924 without changes: its pinned authentic OpticalRegistry compiler ABI, bytecode and compiler/source identities remain intact; only Hardhat identity headers and the corresponding artifact digest are added in temporary storage. No compiler, subprocess, environment variable, credentials or endpoint is needed by the gate."
+limitation = "The original 24-contract catalog references ignored contracts/launchpad/artifacts absent from this checkout; that pre-existing artifact provisioning issue is already recorded in catalog/repair_m924.kvx and is not repaired here. The gate proves the original signature regression against the committed authentic current OpticalRegistry recording."
+wiring = "No proposal step requires an out-of-scope source edit."
