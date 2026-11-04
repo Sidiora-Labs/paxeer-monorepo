@@ -12,7 +12,7 @@
  * Filtering happens upstream — this widget just renders what it receives.
  */
 
-import { formatBalance } from '@/lib/format';
+import { holdingBalance } from './holdingBalance';
 import { PAX_ICON_URL } from '@/lib/constants';
 import { BentoTokenTall, BentoTokenCompact, BentoTokenWide } from './BentoTokenCard';
 
@@ -66,7 +66,7 @@ export function HoldingsGrid({
           key={h.contract_address}
           symbol={h.symbol || '???'}
           name={h.name || 'Unknown'}
-          balance={hidden ? placeholder : formatBalance(h.balance_raw || '0', h.decimals || 18, 4)}
+          balance={hidden ? placeholder : holdingBalance(h)}
           valueUsd={hidden ? null : h.value_usd != null ? Number(h.value_usd) : null}
           iconUrl={h.icon_url || null}
           onClick={() => onTokenDetail?.(h.contract_address || '', h.symbol || '???')}
@@ -87,17 +87,9 @@ export function HoldingsGrid({
         <BentoTokenWide
           symbol={holdings[2].symbol || '???'}
           name={holdings[2].name || 'Unknown'}
-          balance={
-            hidden
-              ? placeholder
-              : formatBalance(holdings[2].balance_raw || '0', holdings[2].decimals || 18, 4)
-          }
+          balance={hidden ? placeholder : holdingBalance(holdings[2])}
           valueUsd={
-            hidden
-              ? null
-              : holdings[2].value_usd != null
-                ? Number(holdings[2].value_usd)
-                : null
+            hidden ? null : holdings[2].value_usd != null ? Number(holdings[2].value_usd) : null
           }
           iconUrl={holdings[2].icon_url || null}
           onClick={() =>
@@ -111,7 +103,7 @@ export function HoldingsGrid({
           key={h.contract_address}
           symbol={h.symbol || '???'}
           name={h.name || 'Unknown'}
-          balance={hidden ? placeholder : formatBalance(h.balance_raw || '0', h.decimals || 18, 4)}
+          balance={hidden ? placeholder : holdingBalance(h)}
           valueUsd={hidden ? null : h.value_usd != null ? Number(h.value_usd) : null}
           iconUrl={h.icon_url || null}
           onClick={() => onTokenDetail?.(h.contract_address || '', h.symbol || '???')}
