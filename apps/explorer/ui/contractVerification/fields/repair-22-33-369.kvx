@@ -1,0 +1,12 @@
+[repair.22.33.369]
+finding = "22.30.140/constructor-length"
+tests = ["constructorLengthAcceptsFourAbiWords", "constructorLengthAcceptsDynamicAbiArguments", "constructorLengthAcceptsEmptyArgumentsWithAutodetectionDisabled", "constructorLengthRejectsMalformedHexBeforeSubmission", "constructorLengthUsesBackendPayloadBound"]
+test_file = "apps/explorer/ui/contractVerification/fields/repair-22-33-369.spec.ts"
+proof = "ABI encoder -> rendered production constructor field -> React Hook Form -> prepareRequestBody JSON or multipart payload -> ABI decoder; manual mode disables the real autodetection checkbox."
+payload_limit_source = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/smart_contracts_api_v2_router.ex:35: length: 20_000_000"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids invoking verify_cmd manually. No pre-change test result is claimed."
+formatting = "ESLint --fix applied to both touched TypeScript files; its vitest/valid-title and vitest/expect-expect rules reject the function-name test registration explicitly required by the task. The required named tests and their assertions remain intact; lint is not a declared gate."
+regression = "The original required field with maxLength 255 rejects four ABI words, dynamic arguments, empty arguments and the backend payload boundary; malformed even-length inputs also lack validation."
+repair_cycle = "First verification at 229b25fc6263197bcf0475e8897979566b69d15d failed before exercising constructor validation because the fixture read the field before the checkbox state-machine transition rendered it; the fixture now awaits the real transition and field without changing any acceptance assertions. Evidence: /out/logs/verify-1.log, exit 1."
+wiring_requests = []
+evidence = "The runner records the candidate revision, exact command, exit code and private log from hf-build and hf-done; this record makes no claim before those gates run."
