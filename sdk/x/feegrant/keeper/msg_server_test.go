@@ -1,6 +1,8 @@
 package keeper_test
 
 import (
+	"time"
+
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/feegrant"
@@ -85,6 +87,10 @@ func (suite *KeeperTestSuite) TestGrantAllowance() {
 						SpendLimit: suite.atom,
 						Expiration: &oneYear,
 					},
+					Period:           time.Hour,
+					PeriodSpendLimit: suite.atom,
+					PeriodCanSpend:   suite.atom,
+					PeriodReset:      suite.sdkCtx.BlockTime().Add(time.Hour),
 				})
 				suite.Require().NoError(err)
 				return &feegrant.MsgGrantAllowance{
@@ -104,6 +110,10 @@ func (suite *KeeperTestSuite) TestGrantAllowance() {
 						SpendLimit: suite.atom,
 						Expiration: &oneYear,
 					},
+					Period:           time.Hour,
+					PeriodSpendLimit: suite.atom,
+					PeriodCanSpend:   suite.atom,
+					PeriodReset:      suite.sdkCtx.BlockTime().Add(time.Hour),
 				})
 				suite.Require().NoError(err)
 				return &feegrant.MsgGrantAllowance{
@@ -184,6 +194,10 @@ func (suite *KeeperTestSuite) TestRevokeAllowance() {
 						SpendLimit: suite.atom,
 						Expiration: &oneYear,
 					},
+					Period:           time.Hour,
+					PeriodSpendLimit: suite.atom,
+					PeriodCanSpend:   suite.atom,
+					PeriodReset:      suite.sdkCtx.BlockTime().Add(time.Hour),
 				})
 				suite.Require().NoError(err)
 				req := &feegrant.MsgGrantAllowance{
