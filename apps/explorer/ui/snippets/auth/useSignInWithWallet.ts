@@ -15,6 +15,8 @@ import useWalletReown from 'lib/web3/wallet/useWalletReown';
 import { toaster } from 'toolkit/chakra/toaster';
 import { YEAR } from 'toolkit/utils/consts';
 
+import useWalletSignInSession from './useWalletSignInSession';
+
 function composeMessage(address: string, nonceBlockscout: string, nonceRewards: string) {
   const urlObj = window.location.hostname === 'localhost' && config.apis.rewards ?
     new URL(config.apis.rewards.endpoint) :
@@ -36,7 +38,7 @@ function composeMessage(address: string, nonceBlockscout: string, nonceRewards: 
 }
 
 interface Props {
-  onSuccess?: ({ address, profile, rewardsToken }: { address: string; profile: UserInfo; rewardsToken?: string }) => void;
+  onSuccess?: (result: { address: string; profile: UserInfo; rewardsToken?: string; rewardsAuthFailed: boolean }) => void;
   onError?: () => void;
   source?: mixpanel.EventPayload<mixpanel.EventTypes.WALLET_CONNECT>['Source'];
   isAuth?: boolean;
@@ -52,6 +54,7 @@ function useSignInWithWallet({ onSuccess, onError, source = 'Login', isAuth, log
   const web3Wallet = useWalletReown({ source });
   const { signMessageAsync } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
+  const authenticate = useWalletSignInSession({ isAuth, fetchProtectedResource });
 
   const getSiweMessage = React.useCallback(async(address: string) => {
     try {
@@ -96,43 +99,18 @@ function useSignInWithWallet({ onSuccess, onError, source = 'Login', isAuth, log
     }
   }, [ apiFetch, loginToRewards ]);
 
-  const authFetchFactory = React.useCallback((message: string, signature: string) => (recaptchaToken?: string) => {
-    const authResource = isAuth ? 'general:auth_link_address' : 'general:auth_siwe_verify';
-    return apiFetch<typeof authResource, UserInfo, unknown>(authResource, {
-      fetchParams: {
-        method: 'POST',
-        body: { message, signature, recaptcha_response: recaptchaToken },
-        headers: {
-          ...(recaptchaToken && { 'recaptcha-v2-response': recaptchaToken }),
-        },
-      },
-    });
-  }, [ apiFetch, isAuth ]);
-
   const proceedToAuth = React.useCallback(async(address: string) => {
     try {
       await switchChainAsync({ chainId: Number(config.chain.id) });
       const siweMessage = await getSiweMessage(address);
       const signature = await signMessageAsync({ message: siweMessage.message });
 
-      const authResponse = await fetchProtectedResource(authFetchFactory(siweMessage.message, signature));
-
-      const rewardsLoginResponse = siweMessage.type === 'shared' ?
-        await apiFetch('rewards:login', {
-          fetchParams: {
-            method: 'POST',
-            body: {
-              nonce: siweMessage.authNonce,
-              message: siweMessage.message,
-              signature,
-            },
-          },
-        }) as rewards.AuthLoginResponse : undefined;
-
-      if (!('name' in authResponse)) {
-        throw Error('Something went wrong');
-      }
-      onSuccess?.({ address, profile: authResponse, rewardsToken: rewardsLoginResponse?.token });
+      const result = await authenticate({
+        message: siweMessage.message,
+        signature,
+        authNonce: siweMessage.type === 'shared' ? siweMessage.authNonce : undefined,
+      });
+      onSuccess?.({ address, ...result });
     } catch (error) {
       const errorObj = getErrorObj(error);
       const apiErrorMessage = getErrorObjPayload<{ message: string }>(error)?.message;
@@ -145,7 +123,7 @@ function useSignInWithWallet({ onSuccess, onError, source = 'Login', isAuth, log
     } finally {
       setIsPending(false);
     }
-  }, [ switchChainAsync, getSiweMessage, signMessageAsync, fetchProtectedResource, authFetchFactory, apiFetch, onSuccess, onError ]);
+  }, [ switchChainAsync, getSiweMessage, signMessageAsync, authenticate, onSuccess, onError ]);
 
   const start = React.useCallback(() => {
     setIsPending(true);

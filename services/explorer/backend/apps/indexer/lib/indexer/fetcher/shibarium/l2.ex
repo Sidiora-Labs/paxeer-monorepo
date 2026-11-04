@@ -253,31 +253,42 @@ defmodule Indexer.Fetcher.Shibarium.L2 do
     |> List.flatten()
   end
 
+  @doc false
   def reorg_handle(reorg_block) do
-    {deleted_count, _} =
-      Repo.delete_all(from(sb in Bridge, where: sb.l2_block_number >= ^reorg_block and is_nil(sb.l1_transaction_hash)))
+    {:ok, {deleted_count, updated_count}} =
+      Repo.transaction(fn ->
+        {deleted_count, _} =
+          Repo.delete_all(
+            from(sb in Bridge,
+              where: sb.l2_block_number >= ^reorg_block and sb.l1_transaction_hash == ^@empty_hash
+            )
+          )
 
-    {updated_count1, _} =
-      Repo.update_all(
-        from(sb in Bridge,
-          where:
-            sb.l2_block_number >= ^reorg_block and not is_nil(sb.l1_transaction_hash) and
-              sb.operation_type == :withdrawal
-        ),
-        set: [timestamp: nil]
-      )
+        Repo.update_all(
+          from(sb in Bridge,
+            where:
+              sb.l2_block_number >= ^reorg_block and sb.l1_transaction_hash != ^@empty_hash and
+                sb.operation_type == :withdrawal
+          ),
+          set: [timestamp: nil]
+        )
 
-    {updated_count2, _} =
-      Repo.update_all(
-        from(sb in Bridge, where: sb.l2_block_number >= ^reorg_block and not is_nil(sb.l1_transaction_hash)),
-        set: [l2_transaction_hash: nil, l2_block_number: nil]
-      )
+        {updated_count, _} =
+          Repo.update_all(
+            from(sb in Bridge,
+              where: sb.l2_block_number >= ^reorg_block and sb.l1_transaction_hash != ^@empty_hash
+            ),
+            set: [l2_transaction_hash: @empty_hash, l2_block_number: nil]
+          )
 
-    updated_count = max(updated_count1, updated_count2)
+        if deleted_count > 0 or updated_count > 0 do
+          recalculate_cached_count()
+        end
+
+        {deleted_count, updated_count}
+      end)
 
     if deleted_count > 0 or updated_count > 0 do
-      recalculate_cached_count()
-
       Logger.warning(
         "As L2 reorg was detected, some rows with l2_block_number >= #{reorg_block} were affected (removed or updated) in the shibarium_bridge table. Number of removed rows: #{deleted_count}. Number of updated rows: >= #{updated_count}."
       )

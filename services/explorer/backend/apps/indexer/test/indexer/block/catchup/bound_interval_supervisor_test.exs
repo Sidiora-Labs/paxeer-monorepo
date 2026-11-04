@@ -1,3 +1,5 @@
+Code.require_file("test_config.exs", __DIR__)
+
 defmodule Indexer.Block.Catchup.BoundIntervalSupervisorTest do
   # `async: false` due to use of named GenServer
   use EthereumJSONRPC.Case, async: false
@@ -626,26 +628,6 @@ defmodule Indexer.Block.Catchup.BoundIntervalSupervisorTest do
   end
 
   defp set_celo_core_contracts_env_var do
-    Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts,
-      contracts: %{
-        "addresses" => %{
-          "Accounts" => [],
-          "Election" => [],
-          "EpochRewards" => [],
-          "FeeHandler" => [],
-          "GasPriceMinimum" => [],
-          "GoldToken" => [],
-          "Governance" => [],
-          "LockedGold" => [],
-          "Reserve" => [],
-          "StableToken" => [],
-          "Validators" => []
-        }
-      }
-    )
-
-    on_exit(fn ->
-      Application.put_env(:explorer, Explorer.Chain.Cache.CeloCoreContracts, contracts: %{})
-    end)
+    Indexer.Block.Catchup.TestConfig.setup_celo_core_contracts()
   end
 end

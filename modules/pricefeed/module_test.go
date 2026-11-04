@@ -7,15 +7,18 @@ import (
 	"testing"
 	"time"
 
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	minttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
 	pricefeedtestutil "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	cryptocodec "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	stakingkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/keeper"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	"github.com/stretchr/testify/require"
@@ -54,47 +57,95 @@ func attributes(event sdk.Event) map[string]string {
 	return out
 }
 
+func newQuorumModule(t *testing.T) (pricefeed.AppModule, keeper.Keeper, sdk.StoreKey, sdk.Context, []sdk.ValAddress) {
+	t.Helper()
+	powers := []int64{6, 2, 1}
+	operators := make([]sdk.ValAddress, len(powers))
+	validators := make([]*tmtypes.Validator, len(powers))
+	for i := range powers {
+		pubkey := ed25519.GenPrivKeyFromSecret([]byte{'q', 'u', 'o', 'r', 'u', 'm', byte(i)}).PubKey()
+		operators[i] = sdk.ValAddress(pubkey.Address())
+		tmPubkey, err := cryptocodec.ToTmPubKeyInterface(pubkey)
+		require.NoError(t, err)
+		validators[i] = tmtypes.NewValidator(tmPubkey, 1)
+	}
+	delegator := sdk.AccAddress(operators[0])
+	testApp := app.SetupWithGenesisValSet(t, tmtypes.NewValidatorSet(validators),
+		[]authtypes.GenesisAccount{authtypes.NewBaseAccount(delegator, nil, 0, 0)})
+	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(10).
+		WithBlockTime(time.UnixMilli(moduleNowMs).UTC())
+	key := sdk.NewKVStoreKey(types.StoreKey)
+	k := keeper.NewKeeper(key, testApp.StakingKeeper, testApp.AccountKeeper, &testApp.EvmKeeper)
+	ctx = pricefeedtestutil.WithPriceFeedStore(ctx, key)
+	require.Len(t, testApp.StakingKeeper.GetBondedValidatorsByPower(ctx), len(powers))
+	server := stakingkeeper.NewMsgServerImpl(testApp.StakingKeeper)
+	for i, power := range powers {
+		validator, found := testApp.StakingKeeper.GetValidator(ctx, operators[i])
+		require.True(t, found)
+		require.Equal(t, int64(1), validator.GetConsensusPower(sdk.DefaultPowerReduction))
+		if power > 1 {
+			bond := sdk.NewCoin(testApp.StakingKeeper.BondDenom(ctx), sdk.DefaultPowerReduction.MulRaw(power-1))
+			require.NoError(t, testApp.BankKeeper.MintCoins(ctx, minttypes.ModuleName, sdk.NewCoins(bond)))
+			require.NoError(t, testApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName,
+				delegator, sdk.NewCoins(bond)))
+			_, err := server.Delegate(sdk.WrapSDKContext(ctx), &stakingtypes.MsgDelegate{
+				DelegatorAddress: delegator.String(), ValidatorAddress: operators[i].String(), Amount: bond,
+			})
+			require.NoError(t, err)
+		}
+	}
+	_, err := testApp.StakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx)
+	require.NoError(t, err)
+	bonded := testApp.StakingKeeper.GetBondedValidatorsByPower(ctx)
+	require.Len(t, bonded, len(powers))
+	var total int64
+	for i, validator := range bonded {
+		require.Equal(t, operators[i], validator.GetOperator())
+		require.Equal(t, powers[i], validator.GetConsensusPower(sdk.DefaultPowerReduction))
+		total += validator.GetConsensusPower(sdk.DefaultPowerReduction)
+	}
+	require.Equal(t, int64(9), total)
+	return pricefeed.NewAppModule(k), k, key, ctx.WithEventManager(sdk.NewEventManager()), operators
+}
+
+func submitModulePrices(t *testing.T, k keeper.Keeper, ctx sdk.Context, operators []sdk.ValAddress) {
+	t.Helper()
+	server := keeper.NewMsgServerImpl(k)
+	for _, operator := range operators {
+		pubkey := secp256k1.GenPrivKeyFromSecret(append([]byte("module-feed-"), operator...)).PubKey()
+		feeder, _, err := k.RegisterFeedKey(ctx, operator, pubkey.Bytes())
+		require.NoError(t, err)
+		response, err := server.SubmitPrices(sdk.WrapSDKContext(ctx), &types.MsgSubmitPrices{
+			Feeder: feeder.String(),
+			Observations: []types.Observation{{
+				MarketId: 0, Sequence: 1, IndexPrice: "64250000000000000000000",
+				MarkPrice: "64254000000000000000000", SourceTimestampMs: uint64(moduleNowMs - 1_000),
+			}},
+		})
+		require.NoError(t, err)
+		require.Equal(t, &types.MsgSubmitPricesResponse{Accepted: 1}, response)
+		record, found := k.GetObservation(ctx, 0, operator)
+		require.True(t, found)
+		require.Equal(t, types.ObservationRecord{
+			Sequence: 1, IndexPrice: sdk.NewIntWithDecimal(64250, 18),
+			MarkPrice: sdk.NewIntWithDecimal(64254, 18), SourceTimestampMs: uint64(moduleNowMs - 1_000),
+			Height: ctx.BlockHeight(),
+		}, record)
+	}
+	require.Len(t, eventsOf(ctx, types.EventTypeObservation), len(operators))
+	require.Empty(t, eventsOf(ctx, types.EventTypeObservationRefused))
+}
+
 func TestAppModule(t *testing.T) {
-	testApp, am, k, key, ctx := newModule(t, 10)
+	am, k, key, ctx, operators := newQuorumModule(t)
 	require.Equal(t, "pricefeed", am.Name())
 	require.Equal(t, uint64(1), am.ConsensusVersion())
 
 	params := types.DefaultParams(types.DefaultAuthority())
 	require.NoError(t, k.SetParams(ctx, params))
 
-	pubkey := ed25519.GenPrivKeyFromSecret([]byte("pricefeed-module-validator")).PubKey()
-	operator := sdk.ValAddress(pubkey.Address())
-	bond := sdk.NewCoin(testApp.StakingKeeper.BondDenom(ctx), testApp.StakingKeeper.TokensFromConsensusPower(ctx, 1))
-	require.NoError(t, testApp.BankKeeper.MintCoins(ctx, minttypes.ModuleName, sdk.NewCoins(bond)))
-	require.NoError(t, testApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName,
-		sdk.AccAddress(operator), sdk.NewCoins(bond)))
-	commission := testApp.StakingKeeper.MinCommissionRate(ctx)
-	msg, err := stakingtypes.NewMsgCreateValidator(operator, pubkey, bond, stakingtypes.Description{},
-		stakingtypes.NewCommissionRates(commission, commission, sdk.ZeroDec()), sdk.OneInt())
-	require.NoError(t, err)
-	_, err = stakingkeeper.NewMsgServerImpl(testApp.StakingKeeper).CreateValidator(sdk.WrapSDKContext(ctx), msg)
-	require.NoError(t, err)
-	_, err = testApp.StakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx)
-	require.NoError(t, err)
-	ctx = ctx.WithEventManager(sdk.NewEventManager())
-
-	var operators []sdk.ValAddress
-	for _, validator := range testApp.StakingKeeper.GetBondedValidatorsByPower(ctx) {
-		operators = append(operators, validator.GetOperator())
-	}
-	require.NotEmpty(t, operators)
-
-	index, ok := sdk.NewIntFromString("64250000000000000000000")
-	require.True(t, ok)
-	mark := index.Add(sdk.NewIntWithDecimal(4, 18))
 	const sourceMs = uint64(moduleNowMs - 1_000)
-	for _, operator := range operators {
-		encoded, err := json.Marshal(types.ObservationRecord{
-			Sequence: 1, IndexPrice: index, MarkPrice: mark, SourceTimestampMs: sourceMs, Height: 10,
-		})
-		require.NoError(t, err)
-		ctx.KVStore(key).Set(types.ObservationKey(0, operator), encoded)
-	}
+	submitModulePrices(t, k, ctx, operators)
 
 	am.MidBlock(ctx, 10)
 
@@ -113,7 +164,7 @@ func TestAppModule(t *testing.T) {
 	}
 
 	sources := strconv.Itoa(len(operators))
-	required := strconv.Itoa(len(operators)/2 + 1)
+	required := strconv.FormatUint(uint64(k.GetParams(ctx).MinSources), 10)
 	written := eventsOf(ctx, types.EventTypeAggregate)
 	require.Len(t, written, 1)
 	require.Equal(t, map[string]string{

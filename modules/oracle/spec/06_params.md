@@ -27,7 +27,7 @@ in [`utils/period.go`](../utils/period.go); the nominal two-day window is a
 block count, not an elapsed-time guarantee. `MinValidPerWindow` is a decimal
 ratio, not an integer. With its default of zero, no validator's valid-vote
 ratio falls below the penalty threshold. The default slash fraction is also zero.
-The removed `rewarddistributionwindow` parameter is not part of the current set.
+The removed `reward_distribution_window` (`rewarddistributionwindow` in historical documentation) is not part of the current set. Proto field number **8 is reserved** and must never be reused; `lookback_duration` remains field 9.
 
 [`Tally`](../tally.go) uses half of `RewardBand` on each side of the weighted
 median, widening that spread to the ballot's standard deviation if larger.
@@ -41,3 +41,9 @@ alone does not guarantee that price history is available.
 
 See [Oracle MidBlock](MidBlock.md) for the tally schedule, phase order, and when
 updated prices become visible.
+
+## Validation and Governance Examples
+
+`Params.Validate` requires `VotePeriod > 0`, `VoteThreshold > 0.33`, `SlashWindow >= VotePeriod`, and `SlashWindow % VotePeriod == 0`. `RewardBand`, `SlashFraction` and `MinValidPerWindow` must lie in `[0, 1]`, and whitelist names must be nonempty. Parameter-store validators also cap `VoteThreshold` at 1 and `LookbackDuration` at `math.MaxInt64`. The store permits a zero lookback duration, which leaves no valid positive TWAP query; every TWAP request must have `0 < lookback_seconds <= LookbackDuration`.
+
+For illustration only, governance could use `VotePeriod = 4`, `SlashWindow = 200`, `MinValidPerWindow = 0.75`, `SlashFraction = 0.01`, and `LookbackDuration = 600`, leaving the other defaults unchanged. This is not a default or a recommendation; the slash window is divisible by the vote period and these values enable penalties. A slash window of 201 with vote period 4 is invalid.

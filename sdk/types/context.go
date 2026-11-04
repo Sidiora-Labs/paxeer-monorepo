@@ -4,6 +4,7 @@ import (
 	"context"
 	fmt "fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
@@ -566,12 +567,21 @@ func (c Context) TransientStore(key StoreKey) KVStore {
 }
 
 // CacheContext returns a new Context with the multi-store cached and a new
-// EventManager. The cached context is written to the context when writeCache
-// is called.
+// EventManager and EVMEventManager. Discarding the child discards its state and
+// events. writeCache commits state and the child's EVM logs exactly once, after
+// the store write succeeds. Callers must not merge those logs again. Standard
+// events retain their explicit caller-managed merge contract. Do not use the
+// cached context after committing or replace its EVMEventManager before commit.
 func (c Context) CacheContext() (cc Context, writeCache func()) {
 	cms := c.MultiStore().CacheMultiStore()
-	cc = c.WithMultiStore(cms).WithEventManager(NewEventManager())
-	return cc, cms.Write
+	cc = c.WithMultiStore(cms).WithEventManager(NewEventManager()).WithEvmEventManager(NewEVMEventManager())
+	var once sync.Once
+	return cc, func() {
+		once.Do(func() {
+			cms.Write()
+			c.EVMEventManager().EmitEvents(cc.EVMEventManager().Events())
+		})
+	}
 }
 
 // ContextKey defines a type alias for a stdlib Context key.

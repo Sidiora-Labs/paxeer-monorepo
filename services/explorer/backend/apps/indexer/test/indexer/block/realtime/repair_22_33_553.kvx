@@ -1,0 +1,19 @@
+[repair.22.33.553]
+mode = "BUILD"
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+005 = "Indexer.Repair2233553Test: 005: chain 125 batches survive a real fetcher restart without gaps or duplicate imports; also executed by Indexer.Block.Realtime.PaxeerBatchTest in batch_test.exs."
+006 = "Indexer.Repair2233553Test: 006: shared configured HTTP origin serves Paxeer blocks receipts balances and supported debug tracing."
+007 = "Indexer.Repair2233553Test: 007: early registered cleanup restores absent nil and configured keys after an assertion failure during import."
+producer = "fixtures/chain_125_batch.json records five consecutive Paxeer chain-125 blocks, the unmodified EVM transaction and receipt, callTracer result and historical balances from api2.mainnet-beta.paxeer.network; the gate replays them on loopback through EthereumJSONRPC.HTTP.HTTPoison and PaxeerX into the real realtime fetcher and Chain.import."
+baseline = "Not run: the explicit task order forbids testing before full implementation and running verify_cmd by hand; the initial gate ledger has zero builds and zero verify runs. The audit itself is static and records no failing runtime tests."
+qualification = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; no gate result is claimed in advance."
+wiring = "Domain 14: services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/http_websocket.ex still replaces the paired configured HTTP transport with its historical Infura endpoint; consume WebSocket.Case.Geth.setup().json_rpc_named_arguments for that external test profile."
+gotcha = "Block persistence has no receipts_root column; the proof checks recorded block identity, parent, base fee, transaction and receipt gas/status through actual schema fields."
+
+[qualification.first_attempt]
+revision = "5f5f9621735fe98f2f68349894c949bcbb8b025c"
+command = "cg spec done 22.33.553 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "005 and 006 passed; 007 reused its first import across prior-value scenarios, and the second idempotent import returned no newly inserted transactions."
+repair = "Give absent, nil and configured scenarios separate ExUnit transactions; retain every import, restoration and failure assertion."

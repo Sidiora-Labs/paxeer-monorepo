@@ -40,6 +40,18 @@ authTest('customization +@dark-mode', async({ render, page, mockEnvs, mockApiRes
 
   const component = await render(<HeroBanner/>);
 
+  const isDark = await page.locator('html').evaluate((element) => element.classList.contains('dark'));
+  const hero = component.locator('[data-label="hero"]');
+  await expect(hero).toHaveCSS('border-top-width', '3px');
+  await expect(hero).toHaveCSS('border-top-style', isDark ? 'dashed' : 'solid');
+  await expect(hero).toHaveCSS('border-top-color', isDark ? 'rgb(255, 255, 0)' : 'rgb(0, 128, 0)');
+  await expect(component.locator('[data-label="hero-title"]')).toHaveCSS('color', isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 191, 255)');
+  if (isDark) {
+    await expect(hero).toHaveCSS('background-image', `url("${ IMAGE_URL }")`);
+  } else {
+    await expect(hero).toHaveCSS('background-color', 'rgb(255, 182, 193)');
+  }
+
   await expect(component).toHaveScreenshot({
     mask: [ page.locator(pwConfig.adsBannerSelector) ],
     maskColor: pwConfig.maskColor,

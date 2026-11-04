@@ -79,7 +79,8 @@ func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config clien
 	return nil
 }
 
-// RegisterRESTRoutes registers the REST routes for the oracle module.
+// RegisterRESTRoutes registers the deprecated REST compatibility routes, whose
+// queries use the typed oracle service registered by RegisterServices.
 func (AppModuleBasic) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Router) {
 	rest.RegisterRoutes(clientCtx, rtr)
 }
@@ -138,7 +139,8 @@ func (am AppModule) Route() sdk.Route {
 // QuerierRoute returns the oracle module's querier route name.
 func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 
-// LegacyQuerierHandler returns the oracle module sdk.Querier.
+// LegacyQuerierHandler is retired. REST queries use the typed oracle QueryClient
+// rather than the unimplemented custom/oracle query route.
 func (am AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier {
 	return nil
 }

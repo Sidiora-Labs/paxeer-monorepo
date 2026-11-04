@@ -217,3 +217,44 @@ func TestMsgSetMarketRefusesIdentityChange(t *testing.T) {
 		require.Empty(t, ctx.EventManager().Events())
 	})
 }
+
+func TestMsgSetMarketTierPolicyExecution(t *testing.T) {
+	e := openPerpsGovernanceProof(t, t.TempDir())
+	require.NoError(t, e.feed.SetParams(e.ctx, pricefeedtypes.DefaultParams(pricefeedtypes.DefaultAuthority())))
+	require.NoError(t, keeper.SeedV6120(e.ctx, *e.k))
+	market, err := e.k.GetMarket(e.ctx, 0)
+	require.NoError(t, err)
+	for _, class := range []types.TierClass{types.TierClassA, types.TierClassB, types.TierClassC, types.TierClassD, types.TierClassE, types.TierClassF} {
+		market.TierClass = class
+		if class == types.TierClassE {
+			market.OiCapUsd = sdk.ZeroInt()
+		} else {
+			market.OiCapUsd = sdk.NewIntWithDecimal(500_000_000, types.USDDecimals)
+		}
+		e.ctx = e.ctx.WithEventManager(sdk.NewEventManager())
+		result, err := e.deliver(t, &types.MsgSetMarket{Authority: e.k.Authority(), Market: market})
+		require.NoError(t, err)
+		consumePerpsGovernanceResult(t, result, &types.MsgSetMarketResponse{}, sdk.NewEvent("perps_market_set",
+			sdk.NewAttribute("market_id", "0"), sdk.NewAttribute("enabled", "true")))
+		stored, err := e.k.GetMarket(e.ctx, 0)
+		require.NoError(t, err)
+		require.Equal(t, market, stored)
+		tiers, err := types.TiersFor(stored)
+		require.NoError(t, err)
+		require.NoError(t, types.ValidateTiers(tiers))
+		require.EqualValues(t, types.VenueMaxLeverage, stored.MaxLeverage)
+		require.Equal(t, stored.MaxLeverage, tiers[0].MaxLeverage)
+
+		for _, leverage := range []uint64{500, 1001} {
+			changed := stored
+			changed.MaxLeverage = leverage
+			e.ctx = e.ctx.WithEventManager(sdk.NewEventManager())
+			before := storeContents(t, e.ctx.KVStore(e.key))
+			result, err := e.deliver(t, &types.MsgSetMarket{Authority: e.k.Authority(), Market: changed})
+			requireRefused(t, err, types.ErrInvalidParams, types.ErrInvalidParams.ABCICode())
+			require.Nil(t, result)
+			require.Equal(t, before, storeContents(t, e.ctx.KVStore(e.key)))
+			require.Empty(t, e.ctx.EventManager().Events())
+		}
+	}
+}

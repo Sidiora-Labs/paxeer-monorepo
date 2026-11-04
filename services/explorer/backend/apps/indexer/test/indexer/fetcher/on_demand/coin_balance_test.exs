@@ -1,3 +1,5 @@
+Code.require_file("test_environment.exs", __DIR__)
+
 defmodule Indexer.Fetcher.OnDemand.CoinBalanceTest do
   # MUST be `async: false` so that {:shared, pid} is set for connection to allow CoinBalanceFetcher's self-send to have
   # connection allowed immediately.
@@ -31,6 +33,7 @@ defmodule Indexer.Fetcher.OnDemand.CoinBalanceTest do
     configuration = Application.get_env(:indexer, Indexer.Fetcher.OnDemand.CoinBalance.Supervisor)
     Application.put_env(:indexer, Indexer.Fetcher.OnDemand.CoinBalance.Supervisor, disabled?: false)
 
+    Indexer.Fetcher.OnDemand.TestEnvironment.preserve(:explorer, AverageBlockTime)
     Application.put_env(:explorer, AverageBlockTime, enabled: true, cache_period: 1_800_000)
 
     Indexer.Fetcher.OnDemand.CoinBalance.Supervisor.Case.start_supervised!(
@@ -39,7 +42,6 @@ defmodule Indexer.Fetcher.OnDemand.CoinBalanceTest do
 
     on_exit(fn ->
       Application.put_env(:indexer, Indexer.Fetcher.OnDemand.CoinBalance.Supervisor, configuration)
-      Application.put_env(:explorer, AverageBlockTime, enabled: false, cache_period: 1_800_000)
     end)
 
     %{json_rpc_named_arguments: mocked_json_rpc_named_arguments}

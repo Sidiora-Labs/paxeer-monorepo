@@ -1,0 +1,9 @@
+[repair.22.33.635]
+audit = "22.30.165"
+finding = "cache-iterator-error"
+proposal = "Return underlying parent or cache iterator errors independently of position; retain invalid-position panics in Key, Value and Next."
+tests = ["TestRepairM_635_Empty", "TestRepairM_635_Exhausted", "TestRepairM_635_FailingBackend", "TestRepairM_635_StoreBackendError"]
+proof = "Real MemDB, dbadapter and nested cache stores cover empty ranges, tombstones, merging, bounds and exhaustion in both directions; a closed real GoLevelDB produces ErrClosed propagated through both merge inputs and nested cache stores, while valid positions remain readable and invalid operations panic."
+baseline = "Not run: the explicit task gate order requires complete implementation before qualification and forbids manual verify_cmd execution; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The bounded hf-build/hf-done ledger records the verified candidate revision, command, exit code and private log location; the final response copies the last gate evidence."
