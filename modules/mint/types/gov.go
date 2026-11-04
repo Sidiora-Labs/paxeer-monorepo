@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
@@ -29,6 +30,12 @@ func (p *UpdateMinterProposal) ProposalType() string {
 }
 
 func (p *UpdateMinterProposal) ValidateBasic() error {
+	if err := govtypes.ValidateAbstract(p); err != nil {
+		return err
+	}
+	if p.Minter == nil {
+		return sdkerrors.Wrap(govtypes.ErrInvalidProposalContent, "minter cannot be nil")
+	}
 	return ValidateMinter(*p.Minter)
 }
 

@@ -1,0 +1,12 @@
+[repair.22.33.332]
+finding = "wallet_init_silent_failure"
+proof = "repair-22-33-332.spec.ts:walletInitializationExceptionIsRetainedAndRetryable"
+regression = "repair-22-33-332.spec.ts:disabledWalletConfigurationPreservesReadOnlyProvider"
+implementation = "Retain the original initialization exception, report a fixed message through the UI and configured Rollbar, and keep wallet-dependent children and theme hooks unmounted until initialization succeeds; retries use the real SDK."
+baseline = "Not run: the ordered bounded-gate instructions require the entire implementation before qualification and prohibit running verify_cmd by hand."
+previous_attempt = "Candidate 1fa2bf028e27d1bda5a4798c26cd7085771282c0 stopped before compilation: pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json reported that the project uses npm; no regression tests executed."
+reopen_proof = "walletInitializationExceptionIsRetainedAndRetryable also unmounts and reopens the real provider, retaining the retry exception and keeping wallet actions unavailable."
+qualification_repair = "The first build exposed missing required children props in the three React.createElement calls; pass children explicitly without weakening the production Props type or test assertions."
+evidence = "The runner records the verified candidate revision, exact command, exit code and private log in its gate ledger."
+wiring_requests = []
+formatter = "ESLint applied layout formatting; its legacy Vitest lint rules reject the task-required test(namedFunction) registrations (valid-title and expect-expect); neither registrations nor checks were weakened."

@@ -30,4 +30,5 @@ type EVMKeeper interface {
 // height and the current done record, including when replaying older blocks.
 type UpgradeKeeper interface {
 	IsUpgradeActiveAtHeight(ctx sdk.Context, name string, height int64) bool
+	GetDoneHeight(ctx sdk.Context, name string) int64
 }

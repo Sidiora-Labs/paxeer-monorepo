@@ -58,9 +58,12 @@ static lxp_result execute_release(lxp_module_ctx *ctx,
                memcmp(request->authority->principal, record.owner, 32U) != 0) {
         return LXP_ERR_UNAUTHORIZED_DEBIT;
     }
-    status = lx_escrow_remaining(&record, request->escrow_account, &remaining);
+    status = lx_escrow_prepare(ctx, &record, request->escrow_account);
+    if (status == LXP_OK)
+        status = lx_escrow_remaining(&record, request->escrow_account, &remaining);
     if (status != LXP_OK) return status;
     (void)memset(&settlement, 0, sizeof(settlement));
+    settlement.record = &record;
     settlement.from = request->escrow_account;
     settlement.to = request->owner_account;
     settlement.asset = request->asset;
@@ -101,22 +104,41 @@ lxp_result lx_escrow_timeout_execute(lxp_module_ctx *ctx,
     return execute_release(ctx, request, true, receipt);
 }
 
-typedef struct sweep_state {
-    uint64_t timestamp;
+typedef struct sweep_chunk {
+    struct sweep_chunk *next;
     size_t count;
     lx_escrow_record records[LX_ESCROW_SWEEP_CAPACITY];
     lxp_u128 moved[LX_ESCROW_SWEEP_CAPACITY];
+} sweep_chunk;
+
+typedef struct sweep_state {
+    lxp_module_ctx *ctx;
+    uint64_t timestamp;
+    size_t count;
+    sweep_chunk *first;
+    sweep_chunk *last;
 } sweep_state;
 
 static lxp_result sweep_collect(const lx_escrow_record *record, void *user)
 {
-    sweep_state *state = (sweep_state *)user;
+    sweep_state *state = user;
+    lxp_result status;
+    void *memory;
     if (!lx_escrow_active_state(record->state) || record->expiry == 0U ||
         state->timestamp < record->expiry)
         return LXP_OK;
-    if (state->count == (size_t)LX_ESCROW_SWEEP_CAPACITY)
-        return LXP_ERR_ARENA_EXHAUSTED;
-    state->records[state->count++] = *record;
+    if (state->last == NULL ||
+        state->last->count == (size_t)LX_ESCROW_SWEEP_CAPACITY) {
+        status = lxp_ctx_arena_alloc(state->ctx, sizeof(sweep_chunk),
+                                     _Alignof(sweep_chunk), &memory);
+        if (status != LXP_OK) return status;
+        (void)memset(memory, 0, sizeof(sweep_chunk));
+        if (state->last == NULL) state->first = memory;
+        else state->last->next = memory;
+        state->last = memory;
+    }
+    state->last->records[state->last->count++] = *record;
+    ++state->count;
     return LXP_OK;
 }
 
@@ -128,7 +150,7 @@ static lxp_result sweep_asset_index(lxp_transfer_asset_state *assets,
     for (i = 0U; i < *asset_count; ++i)
         if (memcmp(assets[i].asset_id, asset->asset_id, 32U) == 0)
             return LXP_OK;
-    if (*asset_count == (size_t)LX_ESCROW_SWEEP_CAPACITY)
+    if (*asset_count == (size_t)LXP_MAX_TRANSFER_SET_LEGS)
         return LXP_ERR_ARENA_EXHAUSTED;
     return lx_asset_transfer_state(asset, &assets[(*asset_count)++]);
 }
@@ -139,53 +161,60 @@ static lxp_result sweep_settle(lxp_module_ctx *ctx,
                                lxp_receipt *receipt, bool *applied)
 {
     lxp_transfer_set set;
-    lxp_transfer_source_authority authorities[LX_ESCROW_SWEEP_CAPACITY];
-    lxp_transfer_asset_state assets[LX_ESCROW_SWEEP_CAPACITY];
+    lxp_transfer_source_authority authorities[LXP_MAX_TRANSFER_SET_LEGS];
+    lxp_transfer_asset_state assets[LXP_MAX_TRANSFER_SET_LEGS];
     size_t asset_count = 0U;
     size_t authority_count = 0U;
+    sweep_chunk *chunk;
     size_t i;
     lxp_result status;
     (void)memset(&set, 0, sizeof(set));
     (void)memset(authorities, 0, sizeof(authorities));
     (void)memset(assets, 0, sizeof(assets));
     *applied = false;
-    for (i = 0U; i < sweep->count; ++i) {
-        const lx_escrow_record *record = &sweep->records[i];
-        lx_account *escrow_account;
-        lx_account *owner_account;
-        const lx_asset_record *asset;
-        lxp_u128 remaining;
-        size_t j;
-        status = lx_escrow_resolve_account(runtime, record->escrow_account,
-                                           &escrow_account);
-        if (status == LXP_OK)
-            status = lx_escrow_resolve_account(runtime, record->owner,
-                                               &owner_account);
-        if (status != LXP_OK) return LXP_ERR_ESCROW_STATE;
-        for (j = 0U; j < authority_count; ++j)
-            if (memcmp(authorities[j].authorized_from,
-                       escrow_account->id, 32U) == 0)
-                return LXP_FATAL_INVARIANT;
-        status = lx_escrow_resolve_asset(ctx, record->asset_id, &asset);
-        if (status != LXP_OK) return status;
-        status = sweep_asset_index(assets, &asset_count, asset);
-        if (status != LXP_OK) return status;
-        status = lx_escrow_remaining(record, escrow_account, &remaining);
-        if (status != LXP_OK) return status;
-        sweep->moved[i] = remaining;
-        if (lxp_u128_is_zero(remaining)) continue;
-        if (escrow_account->next_sequence == UINT64_MAX)
-            return LXP_ERR_OVERFLOW;
-        set.legs[set.leg_count].from = escrow_account;
-        set.legs[set.leg_count].to = owner_account;
-        (void)memcpy(set.legs[set.leg_count].asset_id, record->asset_id, 32U);
-        set.legs[set.leg_count].amount = remaining;
-        set.legs[set.leg_count].reason = LXP_REASON_ESCROW_RELEASE;
-        ++set.leg_count;
-        (void)memcpy(authorities[authority_count].authorized_from,
-                     escrow_account->id, 32U);
-        authorities[authority_count].debit_authority_kind = LXP_AUTH_ESCROW;
-        ++authority_count;
+    for (chunk = sweep->first; chunk != NULL; chunk = chunk->next) {
+        for (i = 0U; i < chunk->count; ++i) {
+            const lx_escrow_record *record = &chunk->records[i];
+            lx_account *escrow_account;
+            lx_account *owner_account;
+            const lx_asset_record *asset;
+            lxp_u128 remaining;
+            size_t j;
+            status = lx_escrow_resolve_account(runtime, record->escrow_account,
+                                               &escrow_account);
+            if (status == LXP_OK)
+                status = lx_escrow_resolve_account(runtime, record->owner,
+                                                   &owner_account);
+            if (status != LXP_OK) return LXP_ERR_ESCROW_STATE;
+            for (j = 0U; j < authority_count; ++j)
+                if (memcmp(authorities[j].authorized_from,
+                           escrow_account->id, 32U) == 0)
+                    return LXP_FATAL_INVARIANT;
+            status = lx_escrow_resolve_asset(ctx, record->asset_id, &asset);
+            if (status != LXP_OK) return status;
+            status = sweep_asset_index(assets, &asset_count, asset);
+            if (status != LXP_OK) return status;
+            status = lx_escrow_prepare(ctx, record, escrow_account);
+            if (status == LXP_OK)
+                status = lx_escrow_remaining(record, escrow_account, &remaining);
+            if (status != LXP_OK) return status;
+            chunk->moved[i] = remaining;
+            if (lxp_u128_is_zero(remaining)) continue;
+            if (set.leg_count == (size_t)LXP_MAX_TRANSFER_SET_LEGS)
+                return LXP_ERR_ARENA_EXHAUSTED;
+            if (escrow_account->next_sequence == UINT64_MAX)
+                return LXP_ERR_OVERFLOW;
+            set.legs[set.leg_count].from = escrow_account;
+            set.legs[set.leg_count].to = owner_account;
+            (void)memcpy(set.legs[set.leg_count].asset_id, record->asset_id, 32U);
+            set.legs[set.leg_count].amount = remaining;
+            set.legs[set.leg_count].reason = LXP_REASON_ESCROW_RELEASE;
+            ++set.leg_count;
+            (void)memcpy(authorities[authority_count].authorized_from,
+                         escrow_account->id, 32U);
+            authorities[authority_count].debit_authority_kind = LXP_AUTH_ESCROW;
+            ++authority_count;
+        }
     }
     if (set.leg_count == 0U) {
         (void)memset(receipt, 0, sizeof(*receipt));
@@ -214,6 +243,7 @@ lxp_result lx_escrow_epoch_begin(lxp_module_ctx *ctx, uint64_t epoch,
 {
     lx_escrow_runtime *runtime;
     sweep_state sweep;
+    sweep_chunk *chunk;
     lxp_receipt receipt;
     size_t i;
     lxp_result release;
@@ -228,6 +258,7 @@ lxp_result lx_escrow_epoch_begin(lxp_module_ctx *ctx, uint64_t epoch,
     if (runtime == NULL) return LXP_ERR_NON_CANONICAL;
     (void)memset(&sweep, 0, sizeof(sweep));
     (void)memset(&receipt, 0, sizeof(receipt));
+    sweep.ctx = ctx;
     sweep.timestamp = timestamp;
     status = lx_escrow_state_iter(ctx, sweep_collect, &sweep);
     if (status != LXP_OK) return status;
@@ -240,42 +271,53 @@ lxp_result lx_escrow_epoch_begin(lxp_module_ctx *ctx, uint64_t epoch,
     release = lxp_module_staged_release(ctx, sweep.count * 2U);
     if (status != LXP_OK) return status;
     if (release != LXP_OK) return release;
-    for (i = 0U; i < sweep.count; ++i) {
-        lx_escrow_record record = sweep.records[i];
-        lx_escrow_economic_result result;
-        uint8_t idempotency[32];
-        uint8_t body[LX_ESCROW_EVENT_BYTES];
-        record.state = LX_ESCROW_STATE_TIMED_OUT;
-        record.locked_amount = (lxp_u128){ 0U, 0U };
-        status = lx_escrow_timeout_key(&record, idempotency);
-        if (status == LXP_OK) status = lx_escrow_state_write(ctx, &record);
-        if (status != LXP_OK) return status;
-        (void)memset(&result, 0, sizeof(result));
-        (void)memcpy(result.escrow_id, record.escrow_id, 32U);
-        result.ordinal = 5U;
-        result.state_after = record.state;
-        result.captured_after = record.captured_amount;
-        result.locked_after = record.locked_amount;
-        (void)memcpy(result.asset_id, record.asset_id, 32U);
-        (void)memcpy(result.from, record.escrow_account, 32U);
-        (void)memcpy(result.to, record.owner, 32U);
-        result.amount = sweep.moved[i];
-        if (applied)
-            (void)memcpy(result.transfer_set_root, receipt.transfer_set_root,
-                         32U);
-        result.global_sequence = lxp_ctx_global_sequence(ctx);
-        result.timestamp = timestamp;
-        result.context_bound = true;
-        status = lx_escrow_context_digest(record.escrow_id, 5U, NULL,
-                                          (lxp_u128){ 0U, 0U }, record.owner,
-                                          0U, result.context_digest);
-        if (status == LXP_OK)
-            status = lx_escrow_receipt_record(ctx, idempotency, &result);
-        if (status == LXP_OK)
-            status = lx_escrow_event_body(&record, 5U, body);
-        if (status == LXP_OK)
-            status = lxp_ctx_emit_event(ctx, 5U, body, sizeof(body));
-        if (status != LXP_OK) return status;
+    for (chunk = sweep.first; chunk != NULL; chunk = chunk->next) {
+        for (i = 0U; i < chunk->count; ++i) {
+            lx_escrow_record record = chunk->records[i];
+            lx_account *custody;
+            lx_escrow_economic_result result;
+            uint8_t idempotency[32];
+            uint8_t body[LX_ESCROW_EVENT_BYTES];
+            record.state = LX_ESCROW_STATE_TIMED_OUT;
+            record.locked_amount = (lxp_u128){ 0U, 0U };
+            status = lx_escrow_resolve_account(runtime, record.escrow_account,
+                                               &custody);
+            if (status == LXP_OK)
+                status = lx_escrow_prepare(ctx, &record, custody);
+            if (status != LXP_OK) {
+                lxp_module_ctx_rollback(ctx);
+                return status;
+            }
+            status = lx_escrow_timeout_key(&record, idempotency);
+            if (status == LXP_OK) status = lx_escrow_state_write(ctx, &record);
+            if (status != LXP_OK) return status;
+            (void)memset(&result, 0, sizeof(result));
+            (void)memcpy(result.escrow_id, record.escrow_id, 32U);
+            result.ordinal = 5U;
+            result.state_after = record.state;
+            result.captured_after = record.captured_amount;
+            result.locked_after = record.locked_amount;
+            (void)memcpy(result.asset_id, record.asset_id, 32U);
+            (void)memcpy(result.from, record.escrow_account, 32U);
+            (void)memcpy(result.to, record.owner, 32U);
+            result.amount = chunk->moved[i];
+            if (applied)
+                (void)memcpy(result.transfer_set_root, receipt.transfer_set_root,
+                             32U);
+            result.global_sequence = lxp_ctx_global_sequence(ctx);
+            result.timestamp = timestamp;
+            result.context_bound = true;
+            status = lx_escrow_context_digest(record.escrow_id, 5U, NULL,
+                                              (lxp_u128){ 0U, 0U }, record.owner,
+                                              0U, result.context_digest);
+            if (status == LXP_OK)
+                status = lx_escrow_receipt_record(ctx, idempotency, &result);
+            if (status == LXP_OK)
+                status = lx_escrow_event_body(&record, 5U, body);
+            if (status == LXP_OK)
+                status = lxp_ctx_emit_event(ctx, 5U, body, sizeof(body));
+            if (status != LXP_OK) return status;
+        }
     }
     return LXP_OK;
 }
@@ -342,4 +384,64 @@ lxp_result lx_escrow_batch_maintenance(lxp_module_ctx *ctx, bool *complete)
     if (status == LXP_OK) status = lx_escrow_event_body(&scan.record, 5U, event);
     if (status == LXP_OK) status = lxp_ctx_emit_event(ctx, 5U, event, sizeof(event));
     return status;
+}
+
+lxp_result lx_escrow_recover_excess_execute(
+    lxp_module_ctx *ctx, const lx_escrow_release_request *request,
+    lxp_receipt *receipt)
+{
+    lx_escrow_record record;
+    lx_escrow_settlement settlement = {0};
+    lxp_u128 balance;
+    uint8_t digest[32];
+    bool replayed;
+    lxp_result status;
+    lxp_result release;
+    if (ctx == NULL || request == NULL || receipt == NULL ||
+        request->escrow_id == NULL || request->escrow_account == NULL ||
+        request->owner_account == NULL || request->asset == NULL ||
+        request->authority == NULL ||
+        lxp_ct_is_zero(request->idempotency_key, 32U))
+        return LXP_ERR_NON_CANONICAL;
+    status = lx_escrow_lookup(ctx, request->escrow_id, &record);
+    if (status != LXP_OK) return status;
+    if (request->authority->kind != LXP_AUTHORITY_OWNER ||
+        memcmp(request->authority->principal, record.owner, 32U) != 0 ||
+        memcmp(request->owner_account->id, record.owner, 32U) != 0)
+        return LXP_ERR_UNAUTHORIZED_DEBIT;
+    if (memcmp(request->escrow_account->id, record.escrow_account, 32U) != 0 ||
+        memcmp(request->asset->asset_id, record.asset_id, 32U) != 0)
+        return LXP_ERR_CONTEXT_MISMATCH;
+    /* A distinct context keeps recovery replays separate from hold release. */
+    status = lx_escrow_context_digest(record.escrow_id, 4U, request->authority,
+        (lxp_u128){0U, 0U}, record.owner, UINT32_MAX, digest);
+    if (status == LXP_OK)
+        status = lx_escrow_receipt_replay_bound(ctx, request->idempotency_key,
+            record.escrow_id, 4U, digest, false, receipt, &replayed);
+    if (status != LXP_OK || replayed) return status;
+    if (!lx_escrow_active_state(record.state) &&
+        !lx_escrow_terminal_state(record.state)) return LXP_ERR_ESCROW_STATE;
+    status = lx_escrow_binding_check(ctx, &record);
+    if (status == LXP_OK)
+        status = lxp_state_balance_get(request->escrow_account,
+                                       record.asset_id, &balance);
+    if (status == LXP_OK)
+        status = lxp_u128_sub(balance, record.locked_amount, &settlement.amount);
+    if (status != LXP_OK) return status;
+    if (lxp_u128_is_zero(settlement.amount)) return LXP_ERR_ESCROW_STATE;
+    settlement.record = &record;
+    settlement.recover_excess = true;
+    settlement.from = request->escrow_account;
+    settlement.to = request->owner_account;
+    settlement.asset = request->asset;
+    settlement.reason = LXP_REASON_ESCROW_RELEASE;
+    status = lxp_module_staged_reserve(ctx, 2U);
+    if (status != LXP_OK) return status;
+    status = lx_escrow_settle(ctx, &request->context, &settlement,
+                              LXP_AUTH_ESCROW, receipt);
+    release = lxp_module_staged_release(ctx, 2U);
+    if (status != LXP_OK) return status;
+    if (release != LXP_OK) return release;
+    return lx_escrow_commit_bound_result(ctx, &record,
+        request->idempotency_key, &settlement, 4U, digest, receipt);
 }

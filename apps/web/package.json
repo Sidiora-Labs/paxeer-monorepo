@@ -26,16 +26,12 @@
   },
   "dependencies": {
     "@layerx/ui": "file:packages/layerx-ui",
-    "@noble/curves": "^1.9.1",
-    "@noble/hashes": "^1.8.0",
+    "@paxeer/wallet": "file:../../sdk/wallet",
     "@sidiora/layerx-sdk": "file:../../services/agent/sdk/typescript",
-    "@supabase/supabase-js": "^2.45.4",
     "next": "16.4.1",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "@paxeer/wallet": "file:../../sdk/wallet",
-    "viem": "2.56.9"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@emnapi/wasi-threads": "1.2.3",
@@ -50,7 +46,8 @@
     "tailwindcss": "4.3.3",
     "tsup": "9.0.0",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.67.0"
+    "typescript-eslint": "8.67.0",
+    "viem": "2.56.9"
   },
   "overrides": {
     "brace-expansion": "^5.0.12",

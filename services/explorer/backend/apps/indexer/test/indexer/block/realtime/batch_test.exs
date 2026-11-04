@@ -372,3 +372,16 @@ defmodule Indexer.Block.Realtime.BatchTest do
       (value |> Integer.to_string(16) |> String.downcase() |> String.pad_leading(length, "0"))
   end
 end
+
+Code.require_file("paxeer_batch_case.exs", __DIR__)
+
+defmodule Indexer.Block.Realtime.PaxeerBatchTest do
+  use Explorer.DataCase, async: false
+  use Indexer.Block.Realtime.PaxeerBatchCase
+
+  @moduletag capture_log: true
+
+  test "chain 125 recorded transactions import in batches and remain complete after fetcher restart", context do
+    assert_batch_recovery(context)
+  end
+end
