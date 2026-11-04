@@ -21,7 +21,7 @@ import {
   type LayerXAgentIntegration,
 } from "./integration.js";
 import type { ToolDefinition, ToolJson, ToolJsonObject } from "./tools.js";
-import type { AgentWebhookResponse, WebhookHeaderSource } from "./webhooks.js";
+import { acquireLedgerCoordination, type AgentWebhookResponse, type WebhookHeaderSource } from "./webhooks.js";
 
 export const MCP_PROTOCOL_VERSION = "2025-06-18" as const;
 
@@ -147,7 +147,6 @@ interface VerifiedEventLedger {
 
 export class FileVerifiedEventQueue implements VerifiedEventBuffer {
   readonly #path: string;
-  readonly #lockPath: string;
   readonly #capacity: number;
 
   public constructor(path: string, capacity = MAXIMUM_BUFFERED_EVENTS) {
@@ -156,7 +155,6 @@ export class FileVerifiedEventQueue implements VerifiedEventBuffer {
       throw new AgentIntegrationError("invalid-declared-key");
     }
     this.#path = resolve(path);
-    this.#lockPath = `${this.#path}.lock`;
     this.#capacity = capacity;
   }
 
@@ -200,19 +198,15 @@ export class FileVerifiedEventQueue implements VerifiedEventBuffer {
   async #withLock<Result>(body: () => Promise<Result>): Promise<Result> {
     await mkdir(dirname(this.#path), { recursive: true, mode: 0o700 });
     await chmod(dirname(this.#path), 0o700);
-    const lock = await acquireMcpFileLock(this.#lockPath);
+    const lock = await acquireLedgerCoordination(this.#path);
     try {
       return await body();
     } catch (error) {
       if (error instanceof AgentIntegrationError) throw error;
       throw new AgentIntegrationError("service-refused");
     } finally {
-      await lock.close();
-      try {
-        await unlink(this.#lockPath);
-      } catch (error) {
-        if (!isNodeFileError(error, "ENOENT")) throw new AgentIntegrationError("service-refused");
-      }
+      try { if (lock.isTransaction) lock.exec("ROLLBACK"); }
+      finally { lock.close(); }
     }
   }
 
@@ -632,18 +626,6 @@ function decodeBase64(value: string): Uint8Array {
 
 function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-async function acquireMcpFileLock(path: string): Promise<Awaited<ReturnType<typeof open>>> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    try {
-      return await open(path, "wx", 0o600);
-    } catch (error) {
-      if (!isNodeFileError(error, "EEXIST")) throw new AgentIntegrationError("service-refused");
-      await new Promise<void>((resolveWait) => setTimeout(resolveWait, Math.min(10 + attempt * 5, 250)));
-    }
-  }
-  throw new AgentIntegrationError("service-refused");
 }
 
 async function readBoundedRegularFile(path: string, maximum: number): Promise<Uint8Array> {

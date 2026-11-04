@@ -1,0 +1,59 @@
+[task]
+id = "22.33.1224"
+mode = "BUILD"
+audit = "22.30.58"
+requirement = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+source_revision = "0646a807604ac1af09c5d2448e09bca3a4d9edc6"
+scope = ["tools/qualification/audit_repairs/repair_22_33_1224.kvx", "tools/qualification/audit_repairs/test_repair_22_33_1224.py"]
+repair = "Consume the root README rewrite owned by 22.31.470 per decision 2525, and add an independent offline regression proof for readme-retired-topology without editing README.md."
+
+[finding.readme-retired-topology]
+audit = "22.30.58"
+file = "README.md"
+original_line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The audited README described a separate layerxd daemon, settlement through layerxAnchor and make layerxd build guidance."
+expected = "One paxd BFT chain embeds its block-proposing kernel; chain ID is 125 and receipts become final at block commit. Current linked-node builds and operator commands replace split-daemon deployment guidance."
+implementation = "Task 22.31.470 already supplied the README rewrite in the inherited source revision; this task checks architecture and diagrams, root JSON-RPC hosts and chain probe, transaction-to-committed-receipt ordering, retired custody/checkpoint refusal surfaces, and linked paxd builds and navigation."
+tests = ["test_readme_retired_topology_merged_network_and_finality", "test_readme_retired_topology_root_rpc_and_chain_probe", "test_readme_retired_topology_transaction_to_committed_receipt", "test_readme_retired_topology_executors_are_refusal_surfaces", "test_readme_retired_topology_linked_node_build_and_commands"]
+
+[proof]
+source_facts = "Read the actual README and production sources directly: node/app.go and modules/lxphost/host.go establish embedded host linkage; node/sequencer/consensus_source.go connects the proposer; rpc/send.go accepts or forwards transactions; node/sequencer/accepter.go acknowledges the WAL before publishing receipts; rpc/sequencer_receipt.go defines receipt rungs and committed block coverage; rpc/rpcstack.go serves root RPC. Precompile retirement guards match the documented refusal surfaces. Parse documented shell examples with shlex, their JSON-RPC request with json, URLs with urlsplit, Makefile dependencies and chain.mk build recipes, and this KVX record with tomllib. Resolve README repository links."
+producer_transport_consumer = "The documented signed transaction enters root node JSON-RPC, reaches the integrated sequencer and embedded kernel, produces durably acknowledged execution evidence, and is consumed as final only after BFT block commitment. Assertions check the real README flow and its referenced production wiring; no substitute README, fabricated receipt, mock or external endpoint is used."
+review_only = "This documentation gate does not execute native Go/C/Rust builds, node startup, transactions, cryptographic verification, WAL recovery, consensus or live RPC availability. Those runtime properties require their owning qualification; source checks prove documentation consistency only. No stateful component or interface changes, so restart or interface-driving tests are not applicable to this doc-drift finding. No shell script, unit file or manifest is repaired, and no bash or build-toolchain subprocess is required."
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 17
+owner_task = "22.31.470"
+request = "Domain 17 / task 22.31.470 owns README.md: supply the merged paxd/kernel architecture, chain 125 root JSON-RPC range, committed transaction/receipt flow, retired executors and current linked-node commands; the inherited rewrite supplies these facts."
+status = "satisfied_by_inherited_rewrite"
+missing_facts = []
+
+[qualification]
+initial_state = "Git status/diff showed only pre-existing runner changes in .cgignore and spec/layerx-merge/spec.kvx; both scoped artifacts were absent. /out/run/gate.json showed zero builds and verification runs with two repair cycles available; /out/run/gates.jsonl did not exist."
+baseline = "No pre-change verification was run and no baseline test failure is claimed. The explicit implementation-first order and exclusive hf-done gate supersede the older do_5 instruction to run verify on the unchanged tree; the task test did not exist at baseline."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1224.py"
+done_cmd = "cg spec done 22.33.1224 -f layerx-merge --root /work/paxeer-monorepo"
+verified_revision_source = "/out/run/gates.jsonl: final verify row revision (content-derived candidate including these two scoped files)"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl supply the exact verified revision, command, exit and log path. The passing build and verify must name the same candidate revision. This record is finalized before gates because embedding its own candidate hash would change the hash. No qualification result is claimed in advance; the runner retains evidence and publishes the task."
+format = "No Python or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions after implementation."
+
+[gotcha.output_limits]
+observed = "Combined broad context reads exceeded output limits."
+resolution = "Use bounded README ranges and task/finding/source sections; task-local notes remain here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.baseline_order]
+observed = "The inherited baseline-test step contradicts the explicit implementation-first gate order."
+resolution = "Implement the entire scoped proof first and run verification only through hf-done; record that baseline behavior was not measured."
+
+[repair_cycle.1]
+revision = "59488363bf5609fcc76d4649f5d9c1c5d9c1fd72"
+command = "cg spec done 22.33.1224 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The section parser interpreted the fenced curl example's expected-result shell comment as a Markdown heading; the code-block count assertion failed while the other five tests passed."
+repair = "Track Markdown fence boundaries when reading sections so shell comments stay inside their code block; keep every assertion and required fact intact."

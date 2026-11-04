@@ -3,10 +3,10 @@ package layerxauth_test
 import (
 	"bytes"
 	"crypto/ed25519"
-	"crypto/sha256"
 	"encoding/binary"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
@@ -230,113 +230,111 @@ func (f *grantFixture) feeSessionBody(key [32]byte, revocationSequence uint64) [
 }
 
 func TestPrecompileGrantSessionSuccessor(t *testing.T) {
-	f := newGrantFixture(t)
-	var policyKey, policy [32]byte
-	copy(policyKey[:], "native-fee-authority-version")
-	policy[31] = 2
-	f.ctx.KVStore(f.hostKey).Set(append([]byte{1, 0, 7}, policyKey[:]...), policy[:])
-	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
-	for i := 0; i < 7; i++ {
-		fee = binary.BigEndian.AppendUint64(fee, 1)
+	for _, count := range []int{1, 2} {
+		name := "period exhausted"
+		if count == 2 {
+			name = "total exhausted"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := newGrantFixture(t)
+			payload, fee := repairM1503FeesAndProgram(t, f)
+			evm, db := f.evm()
+			body := repairM1503Body(f, f.key, 41, fee)
+			predecessor := grantCall(t, f, evm, "grantSession", body, uint64(100), [32]byte{0x33})[0].([32]byte)
+			live, reason, err := f.keeper.IsLive(db.Ctx(), predecessor, 90, f.timestamp)
+			require.NoError(t, err)
+			require.True(t, live)
+			require.Empty(t, reason)
+			issued, err := f.host.ReadGrant(db.Ctx(), predecessor)
+			require.NoError(t, err)
+			require.True(t, issued.FeeBudget.Present)
+			require.True(t, issued.FeeBudget.SpentTotal.IsZero())
+			predecessorSummary := grantCall(t, f, evm, "sessionKey", predecessor)[0].([]byte)
+			grantLogs(t, f, db, predecessor, body, "SessionGranted", predecessorSummary)
+			ctx := db.Ctx()
+			var charged lxphost.AuthorityGrant
+			for i := 0; i < count; i++ {
+				ctx = ctx.WithBlockTime(time.UnixMilli(int64(f.timestamp) + int64(i)*1000).UTC())
+				charged = repairM1503Charge(t, f, ctx, predecessor, payload, fee)
+				before := hostSnapshot(t, ctx, f.hostKey)
+				refused, err := repairM1503Execute(t, f, ctx, 0x00090003, payload, fee, predecessor)
+				require.ErrorIs(t, err, lxphost.Code(-211))
+				require.Empty(t, refused.Encoded)
+				require.Equal(t, before, hostSnapshot(t, ctx, f.hostKey))
+			}
+			sequence, err := lxphost.NextSequence(ctx, f.hostKey)
+			require.NoError(t, err)
+			revoke, err := f.keeper.RevokeGrant(ctx, f.actor, predecessor, 1, sequence, [32]byte{0x35})
+			require.NoError(t, err)
+			require.Equal(t, sequence, revoke.GlobalSequence)
+			grant, err := f.host.ReadGrant(ctx, predecessor)
+			require.NoError(t, err)
+			require.True(t, grant.Revoked)
+			require.Equal(t, revoke.GlobalSequence, grant.RevokedAtSequence)
+			require.Equal(t, charged.FeeBudget, grant.FeeBudget)
+			revocationSequence, err := f.keeper.RevocationSequence(ctx, f.actor.DIDKey)
+			require.NoError(t, err)
+			require.Equal(t, revoke.GlobalSequence, revocationSequence)
+			require.Equal(t, sdk.NewIntFromUint64(uint64(count)*fee), grant.FeeBudget.SpentTotal)
+			require.Equal(t, sdk.NewIntFromUint64(fee), grant.FeeBudget.SpentThisPeriod)
+			require.Equal(t, uint64(ctx.BlockTime().UnixMilli()), grant.FeeBudget.PeriodStart)
+			repairM1503Reopen(t, f, ctx)
+			persisted, err := f.host.ReadGrant(f.ctx, predecessor)
+			require.NoError(t, err)
+			require.Equal(t, grant, persisted)
+			private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{75}, ed25519.SeedSize))
+			var key [32]byte
+			copy(key[:], private.Public().(ed25519.PublicKey))
+			successorBody := repairM1503Body(f, key, revocationSequence, fee)
+			id, err := codec.DomainHash(codec.DomainAuthorityHash, successorBody)
+			require.NoError(t, err)
+			commitment := repairM1503Commitment(persisted)
+			evm, db = f.evm()
+			t.Run("wrong expected commitment", func(t *testing.T) {
+				before := hostSnapshot(t, db.Ctx(), f.hostKey)
+				wrong := commitment
+				wrong[0] ^= 1
+				input, err := f.precompile.GetABI().Pack("grantSessionSuccessor", successorBody, uint64(120), [32]byte{0x34}, predecessor, wrong)
+				require.NoError(t, err)
+				snapshot := db.Snapshot()
+				data, err := f.precompile.Run(evm, f.caller, f.precompile.Address(), input, nil, false, false, nil)
+				require.ErrorIs(t, err, vm.ErrExecutionReverted)
+				assertLxpRevert(t, data, "LXP_AUTH_SCOPE")
+				require.ErrorIs(t, db.GetPrecompileError(), types.ErrAuthScope)
+				db.RevertToSnapshot(snapshot)
+				require.Equal(t, before, hostSnapshot(t, db.Ctx(), f.hostKey))
+				require.Empty(t, db.GetAllLogs())
+			})
+			values := grantCall(t, f, evm, "grantSessionSuccessor", successorBody, uint64(120), [32]byte{0x34}, predecessor, commitment)
+			require.Equal(t, []interface{}{id}, values)
+			summary := grantCall(t, f, evm, "sessionKey", id)[0].([]byte)
+			require.Len(t, summary, 209)
+			require.Equal(t, key[:], summary[133:165])
+			require.Equal(t, uint64(120), binary.BigEndian.Uint64(summary[165:173]))
+			require.Equal(t, revocationSequence, binary.BigEndian.Uint64(summary[201:209]))
+			grantLogs(t, f, db, id, successorBody, "SessionGranted", summary)
+			successor, err := f.host.ReadGrant(db.Ctx(), id)
+			require.NoError(t, err)
+			require.False(t, successor.Revoked)
+			require.Equal(t, grant.FeeBudget, successor.FeeBudget)
+			sequence, err = f.host.ReadLastSequence(db.Ctx(), f.actor.DID)
+			require.NoError(t, err)
+			require.Greater(t, sequence, revoke.GlobalSequence)
+			live, reason, err = f.keeper.IsLive(db.Ctx(), id, sequence, uint64(ctx.BlockTime().UnixMilli()))
+			require.NoError(t, err)
+			require.True(t, live)
+			require.Empty(t, reason)
+			live, reason, err = f.keeper.IsLive(db.Ctx(), predecessor, sequence, uint64(ctx.BlockTime().UnixMilli()))
+			require.NoError(t, err)
+			require.False(t, live)
+			require.Equal(t, "LXP_AUTH_REVOKED", reason)
+			repairM1503Reopen(t, f, db.Ctx())
+			recovered, err := f.host.ReadGrant(f.ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, successor, recovered)
+			repairM1503AssertExhausted(t, f, id, fee, count == 2)
+		})
 	}
-	fee = append(fee, f.asset[:]...)
-	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
-		fee = binary.BigEndian.AppendUint64(fee, value)
-	}
-	fee = append(fee, bytes.Repeat([]byte{0xa5}, 32)...)
-	fee = append(fee, make([]byte, 16)...)
-	require.Len(t, fee, 217)
-	f.ctx.KVStore(f.hostKey).Set(append([]byte{1, 0, 9}, []byte("progfee/active/v1")...), fee)
-	evm, db := f.evm()
-	body := f.feeSessionBody(f.key, 41)
-	predecessor := grantCall(t, f, evm, "grantSession", body, uint64(100), [32]byte{0x33})[0].([32]byte)
-	live, reason, err := f.keeper.IsLive(db.Ctx(), predecessor, 42, f.timestamp)
-	require.NoError(t, err)
-	require.True(t, live)
-	require.Empty(t, reason)
-	issued, err := f.host.ReadGrant(db.Ctx(), predecessor)
-	require.NoError(t, err)
-	require.True(t, issued.FeeBudget.Present)
-	predecessorSummary := grantCall(t, f, evm, "sessionKey", predecessor)[0].([]byte)
-	grantLogs(t, f, db, predecessor, body, "SessionGranted", predecessorSummary)
-
-	counterRecord := append([]byte(nil), predecessor[:]...)
-	for _, spent := range []uint64{17, 7} {
-		counterRecord = binary.BigEndian.AppendUint64(counterRecord, 0)
-		counterRecord = binary.BigEndian.AppendUint64(counterRecord, spent)
-	}
-	counterRecord = binary.BigEndian.AppendUint64(counterRecord, f.timestamp)
-	db.Ctx().KVStore(f.hostKey).Set(append([]byte{1, 0, 7, 8}, predecessor[:]...), counterRecord)
-
-	revoke, err := f.keeper.RevokeGrant(db.Ctx(), f.actor, predecessor, 1, 43, [32]byte{0x35})
-	require.NoError(t, err)
-	require.Equal(t, uint64(43), revoke.GlobalSequence)
-	grant, err := f.host.ReadGrant(db.Ctx(), predecessor)
-	require.NoError(t, err)
-	require.True(t, grant.Revoked)
-	require.Equal(t, revoke.GlobalSequence, grant.RevokedAtSequence)
-	revocationSequence, err := f.keeper.RevocationSequence(db.Ctx(), f.actor.DIDKey)
-	require.NoError(t, err)
-	require.Equal(t, revoke.GlobalSequence, revocationSequence)
-	require.Equal(t, "17", grant.FeeBudget.SpentTotal.String())
-	require.Equal(t, "7", grant.FeeBudget.SpentThisPeriod.String())
-	require.Equal(t, f.timestamp, grant.FeeBudget.PeriodStart)
-
-	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{75}, ed25519.SeedSize))
-	var key [32]byte
-	copy(key[:], private.Public().(ed25519.PublicKey))
-	successorBody := f.feeSessionBody(key, revocationSequence)
-	id, err := codec.DomainHash(codec.DomainAuthorityHash, successorBody)
-	require.NoError(t, err)
-	preimage := append([]byte("LXP/session-fee-replacement/v1\x00"), grant.GrantID[:]...)
-	preimage = binary.BigEndian.AppendUint64(preimage, grant.RevokedAtSequence)
-	preimage = append(preimage, grant.GrantID[:]...)
-	for _, amount := range []sdk.Int{grant.FeeBudget.SpentTotal, grant.FeeBudget.SpentThisPeriod} {
-		var encoded [16]byte
-		amount.BigInt().FillBytes(encoded[:])
-		preimage = append(preimage, encoded[:]...)
-	}
-	preimage = binary.BigEndian.AppendUint64(preimage, grant.FeeBudget.PeriodStart)
-	commitment := sha256.Sum256(preimage)
-	t.Run("wrong expected commitment", func(t *testing.T) {
-		before := hostSnapshot(t, db.Ctx(), f.hostKey)
-		wrong := commitment
-		wrong[0] ^= 1
-		input, err := f.precompile.GetABI().Pack("grantSessionSuccessor", successorBody, uint64(120), [32]byte{0x34}, predecessor, wrong)
-		require.NoError(t, err)
-		snapshot := db.Snapshot()
-		data, err := f.precompile.Run(evm, f.caller, f.precompile.Address(), input, nil, false, false, nil)
-		require.ErrorIs(t, err, vm.ErrExecutionReverted)
-		assertLxpRevert(t, data, "LXP_AUTH_SCOPE")
-		require.ErrorIs(t, db.GetPrecompileError(), types.ErrAuthScope)
-		db.RevertToSnapshot(snapshot)
-		require.Equal(t, before, hostSnapshot(t, db.Ctx(), f.hostKey))
-		require.Len(t, db.GetAllLogs(), 5)
-	})
-	t.Run("replaces revoked fee-bearing session", func(t *testing.T) {
-		values := grantCall(t, f, evm, "grantSessionSuccessor", successorBody, uint64(120), [32]byte{0x34}, predecessor, commitment)
-		require.Equal(t, []interface{}{id}, values)
-		summary := grantCall(t, f, evm, "sessionKey", id)[0].([]byte)
-		require.Len(t, summary, 209)
-		require.Equal(t, key[:], summary[133:165])
-		require.Equal(t, uint64(120), binary.BigEndian.Uint64(summary[165:173]))
-		require.Equal(t, revocationSequence, binary.BigEndian.Uint64(summary[201:209]))
-		successor, err := f.host.ReadGrant(db.Ctx(), id)
-		require.NoError(t, err)
-		require.False(t, successor.Revoked)
-		require.Equal(t, grant.FeeBudget, successor.FeeBudget)
-		sequence, err := f.host.ReadLastSequence(db.Ctx(), f.actor.DID)
-		require.NoError(t, err)
-		require.Greater(t, sequence, revoke.GlobalSequence)
-		live, reason, err := f.keeper.IsLive(db.Ctx(), id, sequence, f.timestamp)
-		require.NoError(t, err)
-		require.True(t, live)
-		require.Empty(t, reason)
-		live, reason, err = f.keeper.IsLive(db.Ctx(), predecessor, sequence, f.timestamp)
-		require.NoError(t, err)
-		require.False(t, live)
-		require.Equal(t, "LXP_AUTH_REVOKED", reason)
-	})
 }
 
 func TestPrecompileGrantCapability(t *testing.T) {

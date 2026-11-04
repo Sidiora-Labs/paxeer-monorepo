@@ -1,0 +1,53 @@
+# Source-fact closure of audit 22.30.57; README ownership remains 22.31.470.
+
+[repair]
+task = "22.33.1213"
+audit = "22.30.57"
+requested_base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+inspected_head_revision = "62afe6571dc02a121e0afa4dd6dc7b0ce49dc65f"
+decision = "2525"
+implementation = "Consume the README rewrite from 22.31.470 and add focused regression proofs and this finding-to-test record. Neither README.md nor any production interface or deployment is changed by this task."
+
+[finding.readme-network-model]
+file = "README.md"
+audit_line = 44
+class = "doc-drift"
+severity = "medium"
+owner_task = "22.31.470"
+owner_domain = "15 / fm-programme"
+disposition = "The owning task's README already states every expected source fact; this task supplies its independent focused proof. Qualification is established only by the matching-revision gate ledger."
+tests = ["test_readme_describes_one_block_proposing_paxd_network", "test_readme_links_root_rpc_contract_and_chain_125_probe", "test_readme_transaction_receipt_flow_requires_block_commit", "test_readme_precompile_availability_separates_retired_executors", "test_readme_local_run_guidance_uses_merged_paxd_lifecycle"]
+wiring_requests = []
+out_of_path_step = "README.md rewrite belongs to domain 15 / fm-programme, task 22.31.470; it is already present, so no additional wiring is requested. Any missing README fact discovered by qualification remains a wiring request to that owner, never a local README edit."
+
+[proof]
+source_facts = "Read the actual README and its linked root-path RPC contract. Assert one BFT paxd network and embedded block-proposing kernel, chain 125/0x7d, api1 through api14 HTTPS root endpoints, parsed JSON-RPC chain probe, signed transaction submission, WAL-before-release ordering, submitted/receipted/committed rungs, block coverage and committed receipt/state reads. Assert the topology and transaction diagrams, active merge precompile table, retired 0x1012-0x1014 refusals and historical-only anchor views, retired checkpoint settlement, and parsed paxd build/start guidance with linked native prerequisites. Check corresponding production host, consensus source, RPC dispatch/send/receipt, precompile retirement, upgrade and build source facts."
+review_only = "Native execution, live RPC availability, transaction signing, WAL restart/recovery, persistence, BFT finality, upgrade execution and node startup are not executed by this offline documentation gate. Production source checks substantiate documented producer/transport/consumer connections but do not simulate or certify runtime behavior. This finding changes no stateful component or interface; restart and interface-driving tests are therefore inapplicable. No shell script, unit file or manifest is repaired."
+historical_guidance = "No layerxd instructions remain. Checkpoint codec/witness references and historical anchor reads are explicitly archive-only and add no settlement step to current block finality; there is no separate checkpoint deployment."
+
+[baseline]
+inspection = "Initial git status/diff showed only runner-prepared .cgignore and spec/layerx-merge/spec.kvx bookkeeping, left untouched. Neither scoped artifact existed and /out/run/gates.jsonl recorded no earlier gate run."
+test_run = "No pre-change verification was run and no pre-existing test failure is claimed. The task's explicit implementation-first order and exclusive hf-done gate supersede the older do_5 baseline request; the new module tests the unchanged production README as inherited from 22.31.470."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1213.py"
+done_cmd = "cg spec done 22.33.1213 -f layerx-merge --root /work/paxeer-monorepo"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact content-derived verified revision is the revision field in the final hf-done JSON and private /out/run/gates.jsonl entry for this task; it must match the hf-build revision."
+evidence = "The private gate ledger and final hf-done JSON record revision, command, exit and log path. Finalize this record before gates: embedding its own candidate hash or post-gate results changes the candidate. No gate is claimed until it runs, and no manual commit or push is performed."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two scoped files."
+
+[gotcha.context]
+observed = "Codify's cached brief/survey reports unrelated tasks and a stale change inventory; broad combined reads overflow output limits. Guessed per-precompile retirement.go paths do not exist."
+resolution = "Use actual git status/diff and the gate ledger, bounded finding/task reads and the existing layerxverify.go, layerxcustody.go and layerxanchor.go production files. Keep task notes here because GOTCHA.kvx is outside scope."
+
+[gotcha.markdown_fences]
+observed = "The first verification exposed a task-local parser bug: a heading regex treated the fenced curl example's '# Expected result' comment as a Markdown heading and truncated the quick-start section. Five tests passed and the chain-probe test failed before parsing its shell block."
+resolution = "Respect Markdown code-fence state when locating section boundaries; retain every source-fact assertion and rerun hf-build before hf-done on the repaired candidate."
+revision = "fc9b584b08153d7812896eb3216d9a71bd0848b7"
+command = "cg spec done 22.33.1213 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

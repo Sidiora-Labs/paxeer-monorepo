@@ -1,0 +1,36 @@
+[task.22.33.287]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+initial_revision = "11b956309d08f4066faeefc5369d8be48f516fa9"
+repair = "Consume the root README rewrite owned by 22.31.470 and qualify audit 22.30.133/root-readme-topology with focused offline source assertions. README.md is outside this task's scope and is unchanged. Every required fact is present; no missing-fact wiring request remains."
+source_proof = "The module reads README.md directly: one integrated chain-125 BFT paxd network and topology, api1 through api14 HTTPS root JSON-RPC and the parsed curl/JSON chain probe, separate hosted OpenRPC and native px registrations, signed transaction submission and WAL-backed receipt publication through committed MsgSequenceBatch coverage, retired custody/checkpoint executors and historical settlement formats, and supported native-linked paxd build/start and release guidance. It checks the corresponding production node host, consensus source, RPC routing, send/receipt path, retirement gates, Makefile recipes, chain.mk output and command registration without executing a native toolchain. It also parses this record and the original audit to bind the finding and every proving test."
+review_only = "Native Go/C/Rust builds, node startup, EVM execution, signature verification, durable WAL recovery, actual public RPC availability and BFT commitment are not executed by this gate. Producer, transport and consumer links are source assertions for documentation drift, not runtime certification. No interface or restart-recovery behavior changes, and no such runtime proof is claimed. No shell script, unit, manifest or build file changes; only documentation facts and the cited build recipes are inspected. Tests require no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order and hf-build then hf-done gate restriction prohibit the older step requesting a manual unchanged-tree verify. No baseline failures or passes are claimed. Initial Git status/diff showed only pre-existing .cgignore and spec task bookkeeping, neither scoped file existed, and /out/run/gates.jsonl did not exist. Preserve those existing changes."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_287.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl record the exact verified content-derived candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own candidate hash would change that hash. The runner retains the evidence and publishes the commit; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.root-readme-topology]
+audit = "22.30.133"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+expected = "The product documentation must describe one BFT Paxeer network with an integrated kernel, chain ID 125 and finality at committed receipt, without presenting the retired daemon as a live service."
+tests = ["test_root_readme_topology_is_one_integrated_chain_125_network", "test_root_readme_public_rpc_hosts_and_chain_probe_use_the_root", "test_root_readme_distinguishes_hosted_and_node_px_contracts", "test_root_readme_transaction_and_committed_receipt_follow_node_sources", "test_root_readme_retires_custody_checkpoint_and_separate_daemon_guidance", "test_root_readme_build_and_release_target_the_merged_paxd", "test_root_readme_repair_record_maps_the_finding_and_proof_limits"]
+
+[wiring.root_readme]
+path = "README.md"
+owner_domain = 16
+owner_task = "22.31.470"
+request = "README.md — documentation domain 16, task 22.31.470: provide merged paxd topology, chain 125 root RPC, transaction/committed receipt flows, supported build/release commands and explicit retirement of separate daemon and custody/checkpoint settlement guidance."
+status = "satisfied"
+resolution = "Decision 2525 assigns all README edits to 22.31.470; its existing README contains every expected fact, asserted by this task without editing the shared file."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; apply the repository .editorconfig UTF-8, LF, final newline and trailing whitespace rules after the complete implementation."
+
+[gotcha.1]
+observed = "Combined context reads exceed output limits, and cg brief reports unrelated cached work while cg files omits paths outside the task's graph scope."
+resolution = "Use bounded source sections, actual Git status/diff and the private gate ledger. Record this task-local note here because GOTCHA.kvx and spec files are outside scope."

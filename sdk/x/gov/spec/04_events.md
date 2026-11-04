@@ -47,7 +47,9 @@ and the extended deadline. Successful content handlers may also emit events;
 | message          | sender              | {proposerAddress} |
 
 `voting_period_start` is present only if the initial deposit activates voting.
-It contains the proposal ID, not a timestamp. The submission keeper emits
+It contains the proposal ID, not a timestamp. The deposit transfer also emits
+bank events, including another `message.sender` with the same proposer; the
+governance sender event is the one paired with `module=governance`. The submission keeper emits
 `proposal_id` in one `submit_proposal` event; the message server emits
 `proposal_type` and the optional voting-start attribute in another. The type is
 `Content.ProposalType()`, for example `Text`.
@@ -108,4 +110,11 @@ The [governance module](../module.go) registers the protobuf message service.
 The weighted legacy action is `weighted_vote`, as defined by
 `TypeMsgVoteWeighted` in [types/msgs.go](../types/msgs.go). BaseApp's action event
 and the handler's module/sender event are separate `message` events. Event
-consumers should match the value emitted by the dispatch path they use.
+consumers should index both values when reading retained history across dispatch
+paths. The CLI command is named `weighted-vote`, the legacy action is
+`weighted_vote`, and the protobuf action is
+`/cosmos.gov.v1beta1.MsgVoteWeighted`; these are three distinct names.
+`message.sender` is the account signing this message, including validator votes,
+which use the validator's account address rather than its operator address.
+Submission's `proposal_id`, `proposal_type`, and optional `voting_period_start`
+may span separate events, so collect all events for the same message index.

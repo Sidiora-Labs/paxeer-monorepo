@@ -1,0 +1,45 @@
+[repair.22.33.680]
+audit = "22.30.167"
+acceptance = "22998.1"
+base_revision = "4b4896072f927b28618921285b3e3ae758bc467e"
+evidence = "Exact candidate revision, commands, exit codes and private logs are recorded by hf-build and hf-done in the runner gate ledger."
+baseline = "Not executed: the explicit gate order prohibits verification before complete implementation and prohibits running verify_cmd by hand; no pre-change failure is claimed."
+wiring = "None: both proposals are implemented entirely within sdk/x/feegrant/client/testutil."
+
+[continuation]
+source_attempt = 2
+source_revision = "590d3061d74b6ab5ad623199518f4b7d0a2e04df"
+current_attempt = 3
+prerequisite = "22.31.463 repaired the auth, staking and tokenfactory tx.NewFactoryCLI callers on the current base; retain the existing feegrant implementation and qualify it through the declared gates."
+observed = "The previous attempt could not compile dependencies because auth, staking and tokenfactory CLI callers did not handle the error returned by tx.NewFactoryCLI; no focused test execution was claimed."
+auth_wiring = "sdk/x/auth/client/cli: owning auth domain handled both tx.NewFactoryCLI return values in 22.31.463."
+staking_wiring = "sdk/x/staking/client/cli: owning staking domain handled both tx.NewFactoryCLI return values in 22.31.463."
+tokenfactory_wiring = "modules/tokenfactory/client/cli: owning tokenfactory domain handled both tx.NewFactoryCLI return values in 22.31.463."
+
+[finding.feegrant-test-config]
+test = "TestRepairM_680_TestConfig"
+repair = "Pass testing.T to network.DefaultConfig; retain all existing grant, query, revoke and fee-consumption assertions."
+proof = "Check the tagged integration entry point and exercise the real default network genesis and allowance codecs; TestRepairM_680_FeeGrantCLIFixtures also drives the configured transaction codec through real keeper handlers and queries."
+
+[finding.feegrant-cli-fixtures]
+test = "TestRepairM_680_FeeGrantCLIFixtures"
+repair = "Create valid fixture addresses in the validator keyring with its configured signing algorithm; compare queried identities against tc.resp and the actual granter/grantee."
+proof = "Generate real keyring identities, produce grant/revoke transactions with the CLI, decode JSON and binary transactions into real message handlers, query through the production gRPC router and codec, and assert identities, duplicate/missing grants, filtered authorization, fee consumption and revocation."
+
+[qualification.repair1]
+observed = "The first hf-done run compiled the focused tests and found three calls to codec methods MarshalJSON/UnmarshalJSON that are not part of sdk/codec.Codec."
+repair = "Use the real codec interface methods MarshalAsJSON/UnmarshalAsJSON, preserving every assertion and the producer/transport/consumer path."
+
+[continuation.attempt4]
+source_attempt = 3
+source_revision = "a1d5ee135a12c04c60f20c1dce623ce006d8bb3f"
+base_revision = "357234853ae90e2dbfd210d59cb4085eaf01ed95"
+implementation = "Retain the inherited configuration, keyring fixtures, identity assertions and real CLI/codec/keeper proofs; qualify on the current base through hf-build followed by hf-done."
+
+[qualification.attempt4-repair1]
+revision = "47112871bf8b6b5866760fab9d076c9e9be4473e"
+command = "cg spec done 22.33.680 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TestRepairM_680_TestConfig passed; TestRepairM_680_FeeGrantCLIFixtures panicked while constructing the real account keeper with a zero-value parameter subspace."
+repair = "Mount real persistent and transient parameter stores and construct the auth parameter subspace with paramtypes.NewSubspace; retain every assertion."

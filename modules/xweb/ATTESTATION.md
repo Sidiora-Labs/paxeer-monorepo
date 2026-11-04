@@ -7,8 +7,8 @@ struct hashing. Every integer is big-endian and fixed width; the domain is the
 ASCII string with no length prefix and no terminator. This is Solidity
 `abi.encodePacked` of the listed types.
 [`types.Preimage` / `types.Digest`](types/attestation.go) build these bytes,
-[`types/attestation_test.go`](types/attestation_test.go) recomputes the vectors
-below, and [`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
+[`types/attestation_test.go`](types/attestation_test.go) recomputes the compatibility
+corpus, and [`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
 carries the shared signing vectors.
 
 The same layout serves both origins on one network. The kernel runs inside
@@ -126,14 +126,14 @@ the manifest itself.
 
 ## Vectors
 
-These are frozen compatibility vectors, not deployment settings. In particular,
-`713714` is the historical origin-1 test chain id, and origin-2 network id `1`
-is a fixture value. Live signing uses the chain state and governed configuration
-described above. The bytes, digests and signatures below remain unchanged.
+Origin-1 vectors below are regenerated for Paxeer chain `125`; origin-2
+network id `1` is a fixture value. Live signing uses chain state and governed
+configuration. The generator is
+[`generate_repair_476.py`](../evm/config/generate_repair_476.py).
 
 Vector `evm-fetch` (origin 1):
 
-- networkId `713714`
+- networkId `125`
 - requester `0x00000000000000000000000000000000000000000000000000000000000a11ce`
 - requestId `7`, kind `1`
 - payload `https://paxeer.app/`, payloadHash
@@ -142,9 +142,9 @@ Vector `evm-fetch` (origin 1):
 - response `Paxeer X Network`, responseHash
   `0xe75d956cdf14f4a1e94d2ca208572632a4b4a0cc5323a2de37e86f08c9f0acfd`
 - fullLength `16`
-- digest `0x21e2a70f243f13f7e2b72d14cc842c5f6b1779b532144b01c1d61d47b886a0be`
-- signer `0x767eb87feba9e1851bd2f5d6fc931d2476b1db90`, signature
-  `0x1e95bb99402e2ae4b06e98eb3ce29a00973ce759afeac27c3d0253ebba3211a7555a8954e3d0d46bce57952e7648f08acbb3f84f2a1741056974a3e96c7961611b`
+- digest `0x215a1830bba1f455bdfbf11d33ea5344e5ea85925d4f3aa2187ef6128aaf3ba0`
+- signer `0x9c4ca69112e7f6ee6b77a8c39dc6039556e1ec37`, signature
+  `0x3bfc74e9ca2a7f4f3b669d567449538d369ae2a05c34c42b6c46e99ce7395fda4e5e78d7b68843fb7c46dd174b027610d5283c276b99700c76264106611cab801c`
 
 Vector `program-search` (origin 2):
 
@@ -163,7 +163,7 @@ Vector `program-search` (origin 2):
 
 Vector `evm-api-single` (origin 1):
 
-- networkId `713714`
+- networkId `125`
 - requester `0x00000000000000000000000000000000000000000000000000000000000a11ce`
 - requestId `9`, kind `3`
 - payload: the `post-single-credential` api vector, payloadHash
@@ -172,9 +172,16 @@ Vector `evm-api-single` (origin 1):
 - response `["3.114"]`, responseHash
   `0x2c85cb58c805de4b2edb12efa1506788e69c5d32749f03c9e9d402b09013e9ec`
 - fullLength `9`
-- digest `0x18ef556323e81c5d30bff202abbf20910cc82809cf280e08279e658441ac865e`
+- digest `0x7a1dbe443684ec50ef70a3ad2dbb5b2bc531fe845588667a5fbcdc285f72e24b`
 - signer `0xe35182c595c7db5baf6237c02cf6f8177831f384`, signature
-  `0x9144452b00ca7e3d2ff7909a87bc504d45409126175bee22aacf06eb64e8470e0ad0adf0f3c1b1c2ebb9887ae5fb5b293bdb0cbea5462f9bc54500064f7bbd9f1c`
+  `0x628dbe17c026484d3232ed68434e5b3b5a69aad2468822fb3cb59920f469b0a167f0f8376c7921a19e7a0644b7244c1f206f5fcade8cd095e65f5f32e9da9ff31b`
 
-The full preimage bytes of each vector are in
-[`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json).
+The shared
+[`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
+still contains the historical origin-1 compatibility corpus. Its legacy
+digests and signatures below identify those archived bytes; they are not
+chain-125 signing examples. Updating that corpus and its cross-language
+consumers requires a separate scope.
+
+- `evm-fetch`: digest `0x21e2a70f243f13f7e2b72d14cc842c5f6b1779b532144b01c1d61d47b886a0be`, signature `0x1e95bb99402e2ae4b06e98eb3ce29a00973ce759afeac27c3d0253ebba3211a7555a8954e3d0d46bce57952e7648f08acbb3f84f2a1741056974a3e96c7961611b`.
+- `evm-api-single`: digest `0x18ef556323e81c5d30bff202abbf20910cc82809cf280e08279e658441ac865e`, signature `0x9144452b00ca7e3d2ff7909a87bc504d45409126175bee22aacf06eb64e8470e0ad0adf0f3c1b1c2ebb9887ae5fb5b293bdb0cbea5462f9bc54500064f7bbd9f1c`.

@@ -1,0 +1,62 @@
+[task]
+id = "22.33.1303"
+mode = "BUILD"
+base = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+scope = "modules/layerxpay/keeper; precompiles/layerxpay/escrow.go; spec/layerx-merge/contracts/pay.md"
+baseline = "Working tree inspection found only runner-owned .cgignore and task in_progress changes, no repair code and no earlier gate ledger. No unchanged-tree verify ran: mandatory Order requires complete implementation followed by hf-build and hf-done, forbids running verify_cmd by hand and bounds gate runs. No baseline failure is claimed."
+
+[finding.declaration-authority]
+test = "TestRepairM_1303_DeclarationAuthority"
+repair = "Contract declares CallerAuthority with DID/key/kernel authority fields; real binding, identity, family wrapper, Submit and stored hold prove the boundary without changing runtime authority."
+
+[finding.budget-time-view]
+test = "TestRepairM_1303_BudgetTimeView"
+repair = "Detached projection mirrors kernel period advance, configured limit fallback, reset/capped carry and inclusive expiry; exact period/expiry milliseconds, skipped periods, exhausted periods, balance cap, unchanged host/pay bytes and a matching real spend are asserted."
+
+[finding.escrow-corruption-panic]
+test = "TestRepairM_1303_EscrowRecovery; TestRepairM_1303_EscrowPublicReads"
+repair = "Keeper escrow reads return typed ErrEscrowCorruptState errors and distinct absence; precompile escrow handlers and service dispute readers propagate errors. Both keeper imports validate canonical owned keys, full wire lengths/versions, hold key/body identity and result/hold asset links before any writes. Real mutated exports fail atomically, including checksummed chunks; valid imports, database reopen and ABI public reads are proven."
+boundary = "Keeper.GetEscrow, EscrowRemaining and GetEscrowResult now return three values directly with no panic path. All production consumers and keeper tests are updated in scope; out-of-scope test callers need the third return as wiring work below."
+
+[finding.declaration-submit]
+test = "TestRepairM_1303_DeclarationSubmit"
+repair = "Contract declares common.Address/method inputs, method lookup, binding resolution, sequence/timestamp and bound-principal boundary; real wrapper, host receipt/result, typed refusals and reopened reads prove it."
+
+[finding.declaration-gate]
+test = "TestRepairM_1303_DeclarationGate"
+repair = "Contract declares two-argument CheckWrite and method-derived family identity; real EscrowCapture caller proves disabled-family, pause and kernel gate refusals without writes, and exit/read gate behavior."
+
+[finding.declaration-query]
+test = "TestRepairM_1303_DeclarationQuery"
+repair = "Contract declares Querier receiver and registration plus nil-request InvalidArgument; protobuf query-router transport and QueryServer consumer prove stored Params and read-only behavior."
+
+[finding.declaration-keeper]
+test = "TestRepairM_1303_DeclarationKeeper"
+repair = "Contract declares EVMBinding and CustodyReader read signatures; real binding/custody producers and agent stream consumers prove pointer, native and factory asset/amount mapping."
+
+[finding.declaration-constructor]
+test = "TestRepairM_1303_DeclarationConstructor"
+repair = "Contract declares implemented dependency interfaces and (Keeper,error), preserving missing-dependency refusals and optional custody behavior with real host, EVM and custody peers."
+
+[wiring]
+authority = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-authorityfor-j24 must declare CallerAuthority and fields as documented in contracts/pay.md#authority."
+submit = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-submit-j24 must declare common.Address caller and method string plus identity resolution as documented in contracts/pay.md#pay-keeper."
+gate = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-checkwrite-j24 must declare CheckWrite(ctx,method) and method-derived family as documented in contracts/pay.md#pause."
+query = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-queryserver-j24 must declare Querier.Params and nil-request InvalidArgument as documented in contracts/pay.md#queries."
+keeper = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-j24 must declare EVMBinding/CustodyReader field and read contracts as documented in contracts/pay.md#pay-keeper."
+constructor = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-newkeeper-j24 must declare implemented dependency interfaces and (Keeper,error) as documented in contracts/pay.md#pay-keeper."
+genesis_preflight = "Owning domain 2: modules/layerxpay/module.go AppModuleBasic.ValidateGenesis must call keeper.ValidateOwnedGenesis so application preflight matches the keeper's no-write refusal."
+escrow_test_consumers = "Owning domain 2: modules/layerxpay/integration/genesis_test.go, modules/layerxpay/types/proof_views_test.go and precompiles/layerxpay escrow/service/conformance/served tests must consume and assert the new third error return from Keeper.GetEscrow, EscrowRemaining and GetEscrowResult; no two-result panic compatibility remains."
+
+[gotcha]
+source_compatibility = "All production escrow readers are inside scope, so the direct keeper signatures can return errors; out-of-scope two-result callers are tests and are named as wiring requests instead of being edited."
+index_search = "The local graph search did not cover all escrow callers; a repository source search located the out-of-scope two-result consumers before choosing the compatible boundary."
+baseline_order = "The baseline instruction contradicts the explicit implementation-first gate order; no manual or extra baseline gate is claimed."
+
+[evidence]
+record = "Exact final revision, command, exit and private evidence location are supplied by the last hf-done line and /out/run/gates.jsonl. No passing gate is claimed before execution; runner publication is external, with no manual commit or push."
+
+[continuation.3]
+base = "4b4896072f927b28618921285b3e3ae758bc467e"
+previous = "Attempt 2 could not compile the test binary because out-of-scope CLI consumers used the old tx.NewFactoryCLI return; no individual TestRepairM_1303_ failure was observed. Task 22.31.463 repaired those consumers on this base."
+review = "Retained the inherited implementation, all assertions and the eight finding-to-test mappings; the current runner ledger had no build or verify entries. Qualification uses only hf-build followed by hf-done, with no extra unchanged-tree verification."

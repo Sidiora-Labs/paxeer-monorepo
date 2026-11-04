@@ -17,7 +17,7 @@ from phase2_feeder import PostgresObserver, feed_real_transactions, owned_comman
 from phase2_http import HTTP, HTTPFailure
 from phase2_latency import latency_measurements
 from phase2_receivers import connect_receiver
-from phase2_types import Artifacts, Bindings, ROOT, bound_document, canonical, digest, source_digest, validate_v2
+from phase2_types import Artifacts, Bindings, ContractAuthority, ROOT, bound_document, canonical, digest, source_digest, validate_v2
 from scheduler import Sample, summarize
 from workload import MIX, VERSION, ledger
 
@@ -59,21 +59,27 @@ def subscription_topics(pools, index):
 OPERATIONS = dict(chart="IF_CANDLES", portfolio="IF_PORTFOLIO", search="IF_SEARCH", quotes="IF_QUOTE", writes="IF_WATCHLIST_PUT", market="IF_POOL_DETAIL", rankings="IF_RANKINGS", identity_profile="IF_PROFILE_GET", metadata_media="IF_METADATA_GET", notifications_social="IF_NOTIFICATIONS", capabilities="IF_DEPLOYMENT")
 
 
-def resolve_routes(routes):
+def resolve_routes(routes, authority):
     if set(routes) != set(MIX):
         raise ValueError("exact shared traffic categories required")
-    document = json.loads((ROOT / "launchpad/spec/production-system/integration/contracts/v2/openapi.json").read_text())
+    if not isinstance(authority, ContractAuthority):
+        raise ValueError("source-bound OpenAPI authority required")
+    document = authority.openapi
     resolved = {}
     for category, identifier in OPERATIONS.items():
         matches = [(path, method, operation) for path, path_item in document["paths"].items() for method, operation in path_item.items() if isinstance(operation, dict) and operation.get("operationId") == identifier]
         if len(matches) != 1:
             raise ValueError("exact current operation identity required")
         template, method, operation = matches[0]
+        if method not in ("get", "post", "put", "patch", "delete"):
+            raise ValueError("exact current HTTP method required")
         route = dict(routes[category])
         if route.get("method") != method.upper() or route.get("template") != template or "expected_statuses" in route:
             raise ValueError("route differs from current frozen operation")
         response = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[1]
         body = operation.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema", {}).get("$ref")
+        if response not in authority.definitions["$defs"] or (body and body.rsplit("/", 1)[1] not in authority.definitions["$defs"]):
+            raise ValueError("operation schemas differ from reviewed definitions")
         route.update(response_schema=response, request_schema=body.rsplit("/", 1)[1] if body else None, authenticated=bool(operation.get("security")))
         resolved[category] = route
     return resolved
@@ -122,7 +128,7 @@ async def mixed_http(config, http, accounts, signer, output, start_ns):
     max_inflight = config.get("http_max_inflight", 128)
     if type(max_inflight) is not int or not 1 <= max_inflight <= 4096:
         raise ValueError("existing bounded scheduler admission required")
-    routes = resolve_routes(config["routes"])
+    routes = resolve_routes(config["routes"], http.authority)
     counts = {key: 0 for key in ("scheduled", "attempted", "received", "timeout", "missed", "error")}
     categories = {key: 0 for key in MIX}
     latency_bins, scheduler_bins = {}, {}
@@ -149,10 +155,10 @@ async def mixed_http(config, http, accounts, signer, output, start_ns):
             if route.get("signature") == "metadata_v2":
                 headers.update(await metadata_headers(signer, account, route["method"], path, body, config["metadata_audience"]))
             if route.get("request_schema"):
-                validate_v2(route["request_schema"], body)
+                validate_v2(route["request_schema"], body, http.authority)
             value = await asyncio.wait_for(http.call(route["method"], path, body, bearer=account.access_token if route["authenticated"] else None, headers=headers, expected=(200,), schema=route["response_schema"]), 5)
             if category == "quotes":
-                validate_v2("QuoteResponse", value)
+                validate_v2("QuoteResponse", value, http.authority)
                 if value["quality"] != "complete":
                     raise ValueError("real healthy quote unavailable")
             sample.status = "received"
@@ -236,6 +242,7 @@ async def browser_measure(config, account, output):
 
 async def run(config, artifacts):
     bindings = Bindings(**config["bindings"])
+    contracts = ContractAuthority(config, bindings)
     if bindings.generator != source_digest() or config["host_index"] not in range(4) or config["host_id"] != config["generator_hosts"][config["host_index"]] or len(set(config["generator_hosts"])) != 4:
         raise ValueError("source-bound current external generator host required")
     reports = [bound_document(r["path"], r["sha256"], maximum_bytes=67108864) for r in config["calibration_reports"]]
@@ -244,7 +251,7 @@ async def run(config, artifacts):
         raise ValueError("four-host measured calibration failed")
     if {r["host_id"] for r in reports} != set(config["generator_hosts"]):
         raise ValueError("calibration host inventory differs")
-    http = HTTP(config["api_origin"], config["application_origin"], ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
+    http = HTTP(config["api_origin"], config["application_origin"], authority=contracts, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
     observer = PostgresObserver(**config["postgres"], pools=config["pools"])
     artifacts.json("candidate-bindings.json", dataclasses.asdict(bindings))
     artifacts.json("workload-ledger.json", ledger())

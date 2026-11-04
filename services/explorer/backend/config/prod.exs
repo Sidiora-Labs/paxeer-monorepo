@@ -1,5 +1,8 @@
 import Config
 
+# This is build-time configuration written into the release's sys.config.
+# Explorer.Repo ssl_opts belong exclusively to apps/explorer/config/runtime/prod.exs.
+
 # Do not print debug messages in production
 config :logger, level: :info
 
