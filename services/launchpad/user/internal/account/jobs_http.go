@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -140,30 +141,60 @@ func (h HTTP) jobGet(w http.ResponseWriter, r *http.Request, kind string) {
 			v.DomainResults = append(v.DomainResults, d)
 		}
 	}
-	if kind == "export" && j.State == "ready" && expires != nil && expires.After(h.Store.now()) && h.Runtime != nil {
-		var metadata exportMetadata
-		if e = json.Unmarshal(payload, &metadata); e != nil {
-			WriteError(w, e, id)
-			return
-		}
-		if len(metadata.Authorization) > 0 {
-			raw, e := Open(h.Runtime.ExportKey, metadata.Authorization, []byte(j.ID.String()))
-			if e != nil {
-				WriteError(w, e, id)
-				return
-			}
-			token := string(raw)
-			v.DownloadAuthorization = &token
-			url := strings.TrimRight(h.Runtime.DownloadBaseURL, "/") + "/v2/me/exports/" + j.ID.String() + "/download"
-			if SafeLink(url) != nil {
-				WriteError(w, ErrInvalid, id)
-				return
-			}
-			v.DownloadURL = &url
-		}
+	if kind == "export" {
+		h.respondExportStatus(w, r, j, expires, payload)
+		return
 	}
 	h.respond(w, id, map[string]any{"job": v, "downloadUrl": v.DownloadURL}, "0", nil)
 }
+func (h HTTP) respondExportStatus(w http.ResponseWriter, r *http.Request, j Job, expires *time.Time, payload []byte) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	v, e := h.exportStatusProjection(j, expires, payload)
+	if e != nil {
+		WriteError(w, e, requestID(r))
+		return
+	}
+	h.respond(w, requestID(r), map[string]any{"job": v, "downloadUrl": v.DownloadURL}, "0", nil)
+}
+
+func (h HTTP) exportStatusProjection(j Job, expires *time.Time, payload []byte) (WireJob, error) {
+	v := wireJob(j)
+	if expires != nil {
+		at := expires.UTC().Format("2006-01-02T15:04:05.000Z")
+		v.ExpiresAt = &at
+	}
+	if j.Kind != "export" || j.State != "ready" || expires == nil || !expires.After(h.Store.now()) || h.Runtime == nil {
+		return v, nil
+	}
+	var metadata exportMetadata
+	if e := json.Unmarshal(payload, &metadata); e != nil {
+		return v, e
+	}
+	if len(metadata.Authorization) == 0 {
+		return v, nil
+	}
+	raw, e := Open(h.Runtime.ExportKey, metadata.Authorization, []byte(j.ID.String()))
+	if e != nil {
+		return v, e
+	}
+	token := string(raw)
+	if !validExportAuthorization(token) {
+		return v, ErrDenied
+	}
+	base, e := url.Parse(strings.TrimRight(h.Runtime.DownloadBaseURL, "/"))
+	if e != nil || SafeLink(h.Runtime.DownloadBaseURL) != nil || base.RawQuery != "" || base.Fragment != "" {
+		return v, ErrInvalid
+	}
+	base.Path += "/v2/me/exports/" + j.ID.String() + "/download"
+	base.RawPath = ""
+	base.RawQuery = url.Values{"authorization": {token}}.Encode()
+	downloadURL := base.String()
+	v.DownloadAuthorization = &token
+	v.DownloadURL = &downloadURL
+	return v, nil
+}
+
 func (h HTTP) exportGet(w http.ResponseWriter, r *http.Request) { h.jobGet(w, r, "export") }
 func (h HTTP) deletionGet(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("X-Recovery-Receipt") != "" {
@@ -233,16 +264,61 @@ func (h HTTP) deletionPost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	_, _ = w.Write(result)
 }
+
+// An explicit URL capability survives generated SDK decoding. Header clients
+// retain the same authorization contract; ambiguous credentials are refused.
+func exportDownloadAuthorization(r *http.Request) (string, error) {
+	query, e := url.ParseQuery(r.URL.RawQuery)
+	if e != nil {
+		return "", ErrDenied
+	}
+	for name, values := range query {
+		if name != "authorization" || len(values) != 1 || values[0] == "" {
+			return "", ErrDenied
+		}
+	}
+	headers := r.Header.Values("X-Export-Authorization")
+	if len(headers) > 1 {
+		return "", ErrDenied
+	}
+	header := strings.TrimPrefix(r.Header.Get("X-Export-Authorization"), "Bearer ")
+	token := query.Get("authorization")
+	if token != "" && header != "" && token != header {
+		return "", ErrDenied
+	}
+	if token == "" {
+		token = header
+	}
+	if !validExportAuthorization(token) {
+		return "", ErrDenied
+	}
+	return token, nil
+}
+
+func validExportAuthorization(token string) bool {
+	if len(token) != 64 {
+		return false
+	}
+	for _, c := range token {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 func (h HTTP) DownloadHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
 		p, e := authenticated(r)
 		if e != nil {
 			WriteError(w, e, requestID(r))
 			return
 		}
 		job, e := uuid.Parse(r.PathValue("jobId"))
-		token := strings.TrimPrefix(r.Header.Get("X-Export-Authorization"), "Bearer ")
-		if e != nil || len(token) != 64 || h.Runtime == nil || h.Runtime.Objects == nil {
+		token, authorizationErr := exportDownloadAuthorization(r)
+		if e != nil || authorizationErr != nil || len(token) != 64 || h.Runtime == nil || h.Runtime.Objects == nil {
 			WriteError(w, ErrDenied, requestID(r))
 			return
 		}
