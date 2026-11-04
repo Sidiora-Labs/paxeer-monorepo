@@ -8397,6 +8397,24 @@ value = "A repair whose build can be narrowed to its own targets drops the requi
 basis = "Gotcha 3048: 22.31.495 and 22.31.497 blocked each other and sixteen attempts behind them."
 affects = ["22.31.495", "22.31.497"]
 
+[decision.2548]
+title = "The system reserve and withdrawals accounts are live kernel accounts admitted by lx_account_open"
+value = "lx_account_open refuses module-value names unconditionally and system names under CREDIT authority, and admits system names under GENESIS and GOVERNANCE authority; the retired-custody premise of audit findings 22.30.5.27 and 22.30.5.28 is withdrawn, and no repair removes or refuses an account the genesis manifest requires."
+basis = "Gotcha 3051: genesis requires the fees, reserve and withdrawals accounts, the bridge withdraw path targets the withdrawals account, and the refusal broke four kernel test fixtures and three repair attempts."
+affects = ["22.31.505", "22.33.1236", "22.33.891", "22.33.892", "22.33.1138"]
+
+[decision.2549]
+title = "Launchpad module go directives stay within the toolchain the service images pin"
+value = "No module under services/launchpad or sdk/launchpad declares a go directive above the toolchain pinned in deploy/launchpad/Dockerfile.svc, deploy/launchpad/Dockerfile.native and services/launchpad/security/supplychain/ci_tools.py (go1.26.4); a module that takes another through a replace directive regenerates its go.mod and go.sum whenever the replaced module changes its requirements, and the Dockerfile download-and-verify step is the gate of such a change; a toolchain bump changes both Dockerfiles, the GOVERSION assertion and ci_tools.py in one task of its own."
+basis = "Gotcha 3053: the image build is the consumer of the module graph and it refused six of fifteen images after 22.31.453."
+affects = ["22.31.507", "22.31.453"]
+
+[decision.2550]
+title = "A workflow provisions every tool its tests execute"
+value = "A GitHub workflow job whose tests execute an external tool (pnpm for the ceremony test support) installs that tool at the version the repository already pins for the same package (pnpm 9.15.9 for services/wallet, as platform.yml does) before the test step; a test never skips because the tool is missing."
+basis = "Gotcha 3052: the Ceremony job has failed on every main revision for want of pnpm."
+affects = ["22.31.506"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37287,6 +37305,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.507]
+title = "Bring the launchpad go directives under the pinned image toolchain and regenerate the six module graphs the image build rejects"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api", "services/launchpad/notifications", "services/launchpad/indexer", "services/launchpad/ranking-algo", "services/launchpad/stats-workers", "services/launchpad/social", "services/launchpad/user", "tools/qualification/audit_repairs/repair_22_31_507.kvx"]
+tests = ["tools/qualification/audit_repairs/repair_22_31_507.kvx"]
+verification_contract = "for d in services/launchpad/api services/launchpad/indexer services/launchpad/ranking-algo services/launchpad/stats-* services/launchpad/social services/launchpad/user; do (cd $d && sha256sum go.mod go.sum > /tmp/module-graph.sha256 && GOTOOLCHAIN=go1.26.4 GOWORK=off GOFLAGS=-mod=readonly go mod download && GOTOOLCHAIN=go1.26.4 GOWORK=off go mod verify && GOTOOLCHAIN=go1.26.4 GOWORK=off GOFLAGS=-mod=readonly go build ./... && sha256sum -c /tmp/module-graph.sha256) || exit 1; done && for d in services/launchpad/api services/launchpad/notifications; do grep -q -E '^go 1[.]2[0-6]' $d/go.mod || exit 1; done"
+do_1 = "do_1 Gotcha 3053, decision 2549. Bring services/launchpad/api/go.mod and services/launchpad/notifications/go.mod back to a go directive the pinned toolchain go1.26.4 accepts (1.25.0 like every other launchpad module unless a requirement in their graphs needs more, then the lowest that works and never above 1.26); keep every dependency floor that 22.31.453 and 22.33.958 raised."
+symbols = []
+
+[capability.22.31.506]
+title = "Make the Wallet Go tests workflow pass: pnpm for the ceremony suite and the two failing attestor server cases"
+reqs = ["22998.1"]
+touches = [".github/workflows/wallet-go-test.yml", "services/wallet/attestor", "tools/qualification/audit_repairs/test_repair_22_31_506.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_506.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_506.py && cd services/wallet/attestor && go test -count=3 -run 'TestSnapshotFollowsAddShare$|TestDescribeReturnsPublicMaterialToTheOperator$' ./internal/server"
+do_1 = "do_1 Gotcha 3052, decision 2550. In .github/workflows/wallet-go-test.yml give the Ceremony job, before its Test ceremony step, an actions/setup-node step pinned to the commit the repository already uses (820762786026740c76f36085b0efc47a31fe5020, v6) with node-version 22, and a step that runs npm install --global pnpm@9.15.9 so pnpm is on the path for services/wallet/ceremony/internal/testsupport/postgres.go, which runs pnpm install --frozen-lockfile and pnpm exec tsx in the wallet package found above the test directory. Keep every action pin and the persist-credentials setting of both jobs."
+symbols = []
+
+[capability.22.31.505]
+title = "Restore the GENESIS and GOVERNANCE admission of the system reserve and withdrawals accounts in lx_account_open"
+reqs = ["22998.1"]
+touches = ["src/ledger/lx_account_registry.c", "tests/ledger/test_account_id.c", "tests/ledger/repair_22_31_505.kvx"]
+tests = ["tests/ledger/test_account_id.c"]
+verification_contract = "make -s test-ledger-accounts test-asset-withdraw"
+do_1 = "do_1 Gotcha 3051, decision 2548. In src/ledger/lx_account_registry.c lx_account_open (the block at lines 595-598) restore the admission rule that held before 22.33.1138: refuse LX_ACCOUNT_MODULE_VALUE unconditionally, and for the system kinds (including LX_ACCOUNT_SYSTEM_PAXEER_RESERVE and LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS) rely on the existing check at line 607 that refuses LX_ACCOUNT_OPEN_CREDIT and admits GENESIS and GOVERNANCE, so an already installed system account is found through the index lookup again."
+symbols = []
 
 [capability.22.31.504]
 title = "Repair the two gateway unit tests broken on main: the route-count assertion and the dropped description sentences"
@@ -151196,7 +151241,7 @@ do_10 = "Attempt 3 (continue): the explorer type-check fails with fifteen errors
 
 [task.22.33.516]
 title = "Repair audit record 22.30.152 medium findings in apps/explorer (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.402", "22.31.403", "22.31.404", "22.31.474"]
@@ -173774,7 +173819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.504]
 title = "Repair the two gateway unit tests broken on main: the route-count assertion and the dropped description sentences"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179296,7 +179341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.593]
 title = "Repair audit record 22.30.161 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services (part 1 of 1): config-drift, restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.281", "22.31.282"]
@@ -198179,6 +198224,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.31.507]
+title = "Bring the launchpad go directives under the pinned image toolchain and regenerate the six module graphs the image build rejects"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.507"]
+interfaces = []
+do_1 = "do_1 Gotcha 3053, decision 2549. Bring services/launchpad/api/go.mod and services/launchpad/notifications/go.mod back to a go directive the pinned toolchain go1.26.4 accepts (1.25.0 like every other launchpad module unless a requirement in their graphs needs more, then the lowest that works and never above 1.26); keep every dependency floor that 22.31.453 and 22.33.958 raised."
+do_2 = "do_2 Regenerate the module graphs of services/launchpad/api, indexer, ranking-algo, the stats module, social and user so that, under GOTOOLCHAIN=go1.26.4 GOWORK=off GOFLAGS=-mod=readonly, go mod download, go mod verify and go build leave go.mod and go.sum byte-identical, exactly as deploy/launchpad/Dockerfile.svc checks; the replace targets sdk/launchpad/shared and sdk/launchpad/protocol moved their requirements in 22.31.453. Lower no dependency floor and change no source file."
+do_3 = "do_3 Record in tools/qualification/audit_repairs/repair_22_31_507.kvx gotcha 3053, decision 2549, the six images that failed (launchpad-core-api, launchpad-core-indexer, launchpad-core-ranking-algo, the launchpad core stats image, launchpad-media-social, launchpad-media-user), the first red run (2026-11-04 01:51Z) and the first run of Publish off-chain images on main that this repair must turn green. Run the build and the verify once at the final revision."
+symbols = []
+touches = ["services/launchpad/api", "services/launchpad/notifications", "services/launchpad/indexer", "services/launchpad/ranking-algo", "services/launchpad/stats-workers", "services/launchpad/social", "services/launchpad/user", "tools/qualification/audit_repairs/repair_22_31_507.kvx"]
+tests = ["tools/qualification/audit_repairs/repair_22_31_507.kvx"]
+planned_paths = ["services/launchpad", "tools/qualification/audit_repairs"]
+build_cmd = "cd services/launchpad/api && GOTOOLCHAIN=go1.26.4 GOWORK=off go build ./..."
+verify_cmd = "for d in services/launchpad/api services/launchpad/indexer services/launchpad/ranking-algo services/launchpad/stats-* services/launchpad/social services/launchpad/user; do (cd $d && sha256sum go.mod go.sum > /tmp/module-graph.sha256 && GOTOOLCHAIN=go1.26.4 GOWORK=off GOFLAGS=-mod=readonly go mod download && GOTOOLCHAIN=go1.26.4 GOWORK=off go mod verify && GOTOOLCHAIN=go1.26.4 GOWORK=off GOFLAGS=-mod=readonly go build ./... && sha256sum -c /tmp/module-graph.sha256) || exit 1; done && for d in services/launchpad/api services/launchpad/notifications; do grep -q -E '^go 1[.]2[0-6]' $d/go.mod || exit 1; done"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.506]
+title = "Make the Wallet Go tests workflow pass: pnpm for the ceremony suite and the two failing attestor server cases"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.506"]
+interfaces = []
+do_1 = "do_1 Gotcha 3052, decision 2550. In .github/workflows/wallet-go-test.yml give the Ceremony job, before its Test ceremony step, an actions/setup-node step pinned to the commit the repository already uses (820762786026740c76f36085b0efc47a31fe5020, v6) with node-version 22, and a step that runs npm install --global pnpm@9.15.9 so pnpm is on the path for services/wallet/ceremony/internal/testsupport/postgres.go, which runs pnpm install --frozen-lockfile and pnpm exec tsx in the wallet package found above the test directory. Keep every action pin and the persist-credentials setting of both jobs."
+do_2 = "do_2 In services/wallet/attestor repair the two cases of internal/server/server_test.go that fail on the workflow host: TestSnapshotFollowsAddShare (line 843: node-1 holds 1 snapshot after keys.addshare, want 2) and TestDescribeReturnsPublicMaterialToTheOperator (line 968: the refreshed generated-evm fields differ from the expected public material). Reproduce them with go test -count=3 on ./internal/server; where a case waits for a snapshot or a refresh with a fixed delay, wait on the completion the server itself signals; where the expectation is wrong, fix it against what the real server returns and say in the record why the server is right. Change no production behaviour without naming the defect in the record."
+do_3 = "do_3 Write tools/qualification/audit_repairs/test_repair_22_31_506.py asserting on the workflow file that the Ceremony job installs Node and pnpm 9.15.9 before its go test step and that both jobs keep pinned action commits, and services/wallet/attestor/repair_22_31_506.kvx naming gotcha 3052, decision 2550, the two cases, the cause of each and the first run of Wallet Go tests on main that this repair must turn green. Run the build and the verify once at the final revision."
+symbols = []
+touches = [".github/workflows/wallet-go-test.yml", "services/wallet/attestor", "tools/qualification/audit_repairs/test_repair_22_31_506.py"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_506.py"]
+planned_paths = [".github/workflows", "services/wallet/attestor", "tools/qualification/audit_repairs"]
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_506.py && cd services/wallet/attestor && go vet ./internal/server/..."
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_506.py && cd services/wallet/attestor && go test -count=3 -run 'TestSnapshotFollowsAddShare$|TestDescribeReturnsPublicMaterialToTheOperator$' ./internal/server"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.31.500]
 title = "Make the load-test deploy-ten operation store the shipped cw20 artefact and check it from its implementation"
@@ -278108,6 +278213,36 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.31.505]
+title = "Restore the GENESIS and GOVERNANCE admission of the system reserve and withdrawals accounts in lx_account_open"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.505"]
+interfaces = []
+do_1 = "do_1 Gotcha 3051, decision 2548. In src/ledger/lx_account_registry.c lx_account_open (the block at lines 595-598) restore the admission rule that held before 22.33.1138: refuse LX_ACCOUNT_MODULE_VALUE unconditionally, and for the system kinds (including LX_ACCOUNT_SYSTEM_PAXEER_RESERVE and LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS) rely on the existing check at line 607 that refuses LX_ACCOUNT_OPEN_CREDIT and admits GENESIS and GOVERNANCE, so an already installed system account is found through the index lookup again."
+do_2 = "do_2 In tests/ledger/test_account_id.c turn retired_namespace_admission into the admission contract: for system:paxeer-reserve, system:paxeer-reserve:pax, system:paxeer-reserve:sid, system:paxeer-reserve:usdc, system:paxeer-reserve:usdl and system:paxeer-withdrawals CREDIT authority is refused with LXP_ERR_UNAUTHORIZED_DEBIT and leaves registry and log unchanged, while GENESIS and GOVERNANCE authority create the account and lx_account_lookup finds it afterwards; keep a module-value name refused under all three authorities and keep every other case of the suite."
+do_3 = "do_3 Prove the consumers: make -s test-asset-withdraw (open_ledger in tests/modules/test_asset_withdraw.c opens both accounts under GENESIS authority) and make -s test-ledger-accounts are the gate; also run make -s test-asset-registry and make -s build/tests/test_reserve_reconcile followed by ./build/tests/test_reserve_reconcile and record their results in tests/ledger/repair_22_31_505.kvx together with gotcha 3051, decision 2548, the withdrawn premise of audit findings 22.30.5.27 and 22.30.5.28 and the tasks that wait for this repair (22.33.1236, 22.33.891, 22.33.892). Run the build and the verify once at the final revision."
+symbols = []
+touches = ["src/ledger/lx_account_registry.c", "tests/ledger/test_account_id.c", "tests/ledger/repair_22_31_505.kvx"]
+tests = ["tests/ledger/test_account_id.c"]
+planned_paths = ["src/ledger", "tests/ledger"]
+build_cmd = "make -s all"
+verify_cmd = "make -s test-ledger-accounts test-asset-withdraw"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.502]
 title = "Repair the genesis historical import hash audit of the kernel suite"
 status = "done"
@@ -279697,7 +279832,7 @@ title = "Repair audit record 22.30.6 medium findings in tests/modules (part 1 of
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.127"]
+requires = ["22.31.127", "22.31.505"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1236"]
 interfaces = []
@@ -279735,6 +279870,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_15 = "Attempt 2 (continue): the verify now builds and runs the seven module test binaries the task changed (gotcha 3019). Run build and verify at the same revision; fix inside the paths what fails."
 do_16 = "Attempt 3 (continue): lxp_kernel_bind_module_runtime for the asset module is refused at tests/modules/test_asset_withdraw_activity.c line 143 and native_fixture_init fails at tests/modules/test_asset_reserve.c line 47. Bind the asset runtime the way the passing module tests in tests/modules do (the registered runtime table and version the kernel expects), then the conservation case at line 183 follows. All seven targets must pass."
 do_17 = "Attempt 4 (continue): the asset runtime binding is fixed and the build passes; the verify fails in tests/modules/test_asset_withdraw.c open_ledger at line 65: lx_asset_account_open of system:paxeer-withdrawals with LX_ACCOUNT_OPEN_GENESIS returns LXP_ERR_UNAUTHORIZED_DEBIT (-207) after the agent account was opened with LX_ACCOUNT_OPEN_CREDIT first. tests/modules/test_asset_reserve.c (lines 55-66) opens the same four accounts and passes with the order reserve (genesis), agent (credit), other (credit), withdrawals (genesis). Open the system accounts in the order the production registry accepts, as that passing test does, and if the registry rule itself is the reason (a genesis-authority open after a credit-authority open), name the rule and its source line in the task record rather than loosening the registry. Then the remaining cases of the seven binaries must pass; run build and verify once at the final revision."
+do_18 = "Attempt 5 (after 22.31.505): the batch-446 instruction to reorder the opens in tests/modules/test_asset_withdraw.c is withdrawn; open_ledger fails because lx_account_open refuses the system withdrawals and reserve accounts under GENESIS authority since 22.33.1138 (gotcha 3051), not because of the order. Keep the fixture as written, wait for 22.31.505, then run the seven binaries once on the current tree before any repair."
 
 [task.22.33.1235]
 title = "Repair audit record 22.30.6 medium findings in src/modules/perps (part 1 of 1): wiring-gap"
@@ -281163,7 +281299,7 @@ title = "Repair audit record 22.30.184 medium findings in tests (part 2 of 2): r
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.331", "22.31.332"]
+requires = ["22.31.331", "22.31.332", "22.31.505"]
 reqs = ["22998.1"]
 capabilities = ["22.33.892"]
 interfaces = []
@@ -281195,13 +281331,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 2 (continue): attempt 1 verified with the whole python suite of the repository, an aggregate gate (gotcha 3045), which stopped at No module named pytest before any case ran; the four C test binaries of the paths were never executed. The gates are narrowed: the build installs pytest when it is missing and builds the four test binaries of the paths; the verify runs those binaries and tests/test_lxgb_producers.py. Complete the record's remaining findings inside the paths (the native bank and xweb coverage the attempt left outstanding), run build and verify once at the final revision, and list every finding with its proving case in the task record."
+do_12 = "Attempt 3 (after 22.31.505): attempt 2 spent both repair cycles and its last tree was never re-verified (build_on_verified unmet). kernel_ledger_conservation_recovery failed at line 193 (supply binding version and total units before and after) and historical_reserve_import_contract failed at line 250 (reserve_submit returned nonzero); tests/test_reserve_reconcile.c opens system:paxeer-reserve and system:paxeer-withdrawals under GENESIS authority, which lx_account_open refused (gotcha 3051). Wait for 22.31.505; then run build and verify once on the attempt-2 tree before any repair, and repair inside the paths only what still fails."
 
 [task.22.33.891]
 title = "Repair audit record 22.30.184 medium findings in tests (part 1 of 2): retired-reference, runtime-risk, test-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.331", "22.31.332"]
+requires = ["22.31.331", "22.31.332", "22.31.505"]
 reqs = ["22998.1"]
 capabilities = ["22.33.891"]
 interfaces = []
@@ -281237,6 +281374,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): attempt 1 verified with the whole python suite of the repository, an aggregate gate (gotcha 3045), and never executed the seven C test binaries it changed; the six failures were the stale repository cases of gotcha 3043 outside the paths. The gates are narrowed: the build installs pytest when it is missing and builds the seven test binaries of the paths; the verify runs those binaries and tests/test_beta_withdrawal_genesis.py. Complete the record's remaining findings inside the paths (the C-suite execution and the native bank and withdrawal wiring the attempt left outstanding), run build and verify once at the final revision, and list every finding with its proving case in the task record."
+do_16 = "Attempt 3 (after 22.31.505): attempt 2 failed only in tests/test_bridge_withdraw.c (historical-withdrawal-recovery and historical-withdrawal-malformed-recipient), where the fixture opens system:paxeer-withdrawals under GENESIS authority and lx_account_open refused it (gotcha 3051). Wait for 22.31.505, which restores the admission; then run the gates once on the attempt-2 tree before any repair and repair inside the paths only what still fails. The recorded requests for the bank and bridgeOut wiring stay recorded."
 
 [task.22.33.833]
 title = "Repair audit record 22.30.18 medium findings in services/platform/perps-data (part 1 of 1): test-gap"
