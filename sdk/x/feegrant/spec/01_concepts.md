@@ -4,75 +4,117 @@ order: 1
 
 # Concepts
 
+The `feegrant` module lets one account pay the transaction fees of another account
+on the Paxeer X network. The chain application wires its keeper into transaction
+fee deduction in [node/app.go](../../../../node/app.go).
+
 ## Grant
 
-`Grant` is stored in the KVStore to record a grant with full context. Every grant will contain `granter`, `grantee` and what kind of `allowance` is granted. `granter` is an account address who is giving permission to `grantee` (the beneficiary account address) to pay for some or all of `grantee`'s transaction fees. `allowance` defines what kind of fee allowance (`BasicAllowance` or `PeriodicAllowance`, see below) is granted to `grantee`. `allowance` accepts an interface which implements `FeeAllowanceI`, encoded as `Any` type. There can be only one existing fee grant allowed for a `grantee` and `granter`, self grants are not allowed.
+A `Grant` records the `granter`, `grantee`, and an `allowance` packed in a protobuf
+`Any`. The granter authorizes use of its balance for the grantee's fees.
+Transaction messages still require their normal signers. A grant does not
+transfer or reserve coins, so the granter must have sufficient funds when fees
+are paid.
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/691032b8be0f7539ec99f8882caecefc51f33d1f/proto/cosmos/feegrant/v1beta1/feegrant.proto#L75-L81
+There is one grant per granter/grantee pair. `MsgGrantAllowance` rejects an
+existing pair, and self-grants are invalid. The granter signs grant and revocation
+messages. See [Messages](03_messages.md) and the local
+[message validation](../msgs.go) and [message server](../keeper/msg_server.go).
 
-`FeeAllowanceI` looks like:
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/691032b8be0f7539ec99f8882caecefc51f33d1f/x/feegrant/fees.go#L9-L32
+The [protobuf definitions](../../../proto/cosmos/feegrant/v1beta1/feegrant.proto)
+and [FeeAllowanceI interface](../fees.go) define the stored types. `Accept` checks
+the requested fee, block time, and transaction messages, and returns a removal
+flag and an error. The [keeper](../keeper/keeper.go) saves accepted allowance
+updates or removes a consumed allowance.
 
 ## Fee Allowance types
 
-There are two types of fee allowances present at the moment:
+The [interface registry](../codec.go) registers three implementations:
 
-- `BasicAllowance`
-- `PeriodicAllowance`
+- `BasicAllowance`: an optional total spending limit and expiration.
+- `PeriodicAllowance`: a per-period limit together with basic allowance limits.
+- `AllowedMsgAllowance`: a message-type filter around another allowance.
 
 ## BasicAllowance
 
-`BasicAllowance` is permission for `grantee` to use fee from a `granter`'s account. If any of the `spend_limit` or `expiration` reaches its limit, the grant will be removed from the state.
+[BasicAllowance](../basic_fee.go) authorizes fees from the granter's account:
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/691032b8be0f7539ec99f8882caecefc51f33d1f/proto/cosmos/feegrant/v1beta1/feegrant.proto#L13-L26
+- `spend_limit` is the remaining allowance in each denomination. An omitted limit
+  is unrestricted by amount. When a limit is present, the requested fee must fit
+  within it; an excess returns `ErrFeeLimitExceeded`.
+- `expiration` is optional. Use after that timestamp returns `ErrFeeLimitExpired`.
+  The check is strictly after the timestamp, using the current block time.
+- With both fields omitted, the allowance has no amount or time restriction.
+  The granter can revoke it with `MsgRevokeAllowance`.
 
-- `spend_limit` is the limit of coins that are allowed to be used from the `granter` account. If it is empty, it assumes there's no spend limit, `grantee` can use any number of available tokens from `granter` account address before the expiration.
-
-- `expiration` specifies an optional time when this allowance expires. If the value is left empty, there is no expiry for the grant.
-
-- When a grant is created with empty values for `spend_limit` and `expiration`, it is still a valid grant. It won't restrict the `grantee` to use any number of tokens from `granter` and it won't have any expiration. The only way to restrict the `grantee` is by revoking the grant.
+An accepted fee is subtracted from a configured spending limit. The keeper removes
+an allowance when that limit is fully consumed. Expiration is checked on attempted
+use; it is not a periodic cleanup process.
 
 ## PeriodicAllowance
 
-`PeriodicAllowance` is a repeating fee allowance for the mentioned period, we can mention when the grant can expire as well as when a period can reset. We can also define the maximum number of coins that can be used in a mentioned period of time.
+[PeriodicAllowance](../periodic_fee.go) adds a repeating budget:
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/691032b8be0f7539ec99f8882caecefc51f33d1f/proto/cosmos/feegrant/v1beta1/feegrant.proto#L28-L73
+- `basic` is an embedded `BasicAllowance` value, containing the optional lifetime
+  spending limit and expiration. It is not an optional pointer in the Go type.
+- `period` is the duration between budget resets.
+- `period_spend_limit` is the maximum budget for a period.
+- `period_can_spend` is the remaining budget for the current period.
+- `period_reset` is the next reset timestamp.
 
-- `basic` is the instance of `BasicAllowance` which is optional for periodic fee allowance. If empty, the grant will have no `expiration` and no `spend_limit`.
+On use at or after `period_reset`, the budget resets to `period_spend_limit`,
+capped by any remaining lifetime limit. The next reset advances by one period;
+if that timestamp is already past, it becomes the current block time plus one
+period. Unused budget does not accumulate across periods.
 
-- `period` is the specific period of time, after each period passes, `period_spend_limit` will be reset.
+Fees reduce both the period budget and any lifetime limit. Exhausting only the
+period budget leaves the grant available for its next reset; exhausting the
+lifetime limit removes it. The CLI requires a positive `--period` in seconds and
+`--period-limit` coins when creating a periodic allowance.
 
-- `period_spend_limit` specifies the maximum number of coins that can be spent in the period.
+## AllowedMsgAllowance
 
-- `period_can_spend` is the number of coins left to be spent before the period_reset time.
+[AllowedMsgAllowance](../filtered_fee.go) wraps an allowance in `allowance` (`Any`)
+and restricts use to the message type URLs in `allowed_messages`. Every message
+in the transaction must be allowed. For example, allowing
+`/cosmos.gov.v1beta1.MsgVote` does not also allow
+`/cosmos.gov.v1beta1.MsgVoteWeighted`.
 
-- `period_reset` keeps track of when a next period reset should happen.
+The wrapper requires a non-empty list and a valid embedded allowance. A message
+outside the list returns `ErrMessageNotAllowed`; accepted messages are then
+checked against the embedded allowance's amount and time limits. The
+[feegrant CLI](../client/cli/tx.go) wraps the selected basic or periodic allowance
+when `--allowed-messages` is supplied, for example:
+
+```text
+--allowed-messages "/cosmos.gov.v1beta1.MsgSubmitProposal,/cosmos.gov.v1beta1.MsgVote"
+```
 
 ## FeeAccount flag
 
-`feegrant` module introduces a `FeeAccount` flag for CLI for the sake of executing transactions with fee granter. When this flag is set, `clientCtx` will append the granter account address for transactions generated through CLI.
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/d97e7907f176777ed8a464006d360bb3e1a223e4/client/cmd.go#L224-L235
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/d97e7907f176777ed8a464006d360bb3e1a223e4/client/tx/tx.go#L120
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/d97e7907f176777ed8a464006d360bb3e1a223e4/x/auth/tx/builder.go#L268-L277
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/d97e7907f176777ed8a464006d360bb3e1a223e4/proto/cosmos/tx/v1beta1/tx.proto#L160-L181
-
-Example cmd:
-
-```go
-./simd tx gov submit-proposal --title="Test Proposal" --description="My awesome proposal" --type="Text" --from validator-key --fee-account=cosmos1xh44hxt7spr67hqaa7nyx5gnutrz5fraw6grxn --chain-id=testnet --fees="10uhpx"
-```
+This fork's transaction flag is `--fee-account <granter-address>`, defined as
+`FlagFeeAccount` in [client flags](../../../client/flags/flags.go). The
+[client context](../../../client/cmd.go) reads that address, and the
+[transaction builder](../../../client/tx/tx.go) sets the protobuf transaction's
+`auth_info.fee.granter`. The grantee signs the transaction and supplies the fee
+and gas settings as usual.
 
 ## Granted Fee Deductions
 
-Fees are deducted from grants in the `x/auth` ante handler. To learn more about how ante handlers work, read the [Auth Module AnteHandlers Guide](../../auth/spec/03_antehandlers.md).
+The [DeductFeeDecorator](../../auth/ante/fee.go) reads the transaction's fee payer
+and fee granter. When a granter is set and differs from the fee payer, it calls
+`UseGrantedFees` with the fee payer as the grantee and checks all transaction
+messages against the grant. If accepted,
+it deducts the fee coins from the granter and transfers them to the fee collector.
+A missing grant or insufficient allowance rejects fee authorization.
+
+See the [Auth Module AnteHandlers Guide](../../auth/spec/03_antehandlers.md) for
+the transaction ante stage and [Events](04_events.md) for allowance-use events.
 
 ## Gas
 
-In order to prevent DoS attacks, using a filtered `x/feegrant` incurs gas. The SDK must assure that the `grantee`'s transactions all conform to the filter set by the `granter`. The SDK does this by iterating over the allowed messages in the filter and charging 10 gas per filtered message. The SDK will then iterate over the messages being sent by the `grantee` to ensure the messages adhere to the filter, also charging 10 gas per message. The SDK will stop iterating and fail the transaction if it finds a message that does not conform to the filter.
-
-**WARNING**: The gas is charged against the granted allowance. Ensure your messages conform to the filter, if any, before sending transactions using your allowance.
+The message filter charges `gasCostPerIteration` (10 gas) for each configured
+allowed type and for each transaction message inspected. It stops at the first
+disallowed message. These charges count toward the transaction's gas use. The
+allowance's coin budget is reduced by the fee supplied to `UseGrantedFees`. Choose
+a filter and transaction gas limit that cover the messages being submitted.

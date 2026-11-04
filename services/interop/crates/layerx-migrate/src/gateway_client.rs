@@ -1,3 +1,4 @@
+use crate::deadline::Deadline;
 use crate::ramp_v2::{SourceSettlementRequestV2, SourceSettlementResponseV2};
 use crate::{MigrationError, SourceEvidence};
 use base64::engine::general_purpose::STANDARD;
@@ -10,11 +11,10 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use zeroize::Zeroizing;
 
 const MAX_HEADER: usize = 32 * 1024;
@@ -134,27 +134,15 @@ impl GatewayClient {
         let body = serde_json::to_vec(&json!({"order_digest": order_digest, "chain": chain,
             "source_evidence": STANDARD.encode(evidence.canonical())}))
         .map_err(|_| MigrationError::Configuration)?;
-        let addresses = (self.host.as_str(), self.port)
-            .to_socket_addrs()
-            .map_err(|_| MigrationError::RpcUnavailable)?;
-        let mut connected = None;
-        for address in addresses.take(8) {
-            if let Ok(stream) = TcpStream::connect_timeout(&address, self.connect_timeout) {
-                connected = Some(stream);
-                break;
-            }
-        }
-        let tcp = connected.ok_or(MigrationError::RpcUnavailable)?;
-        tcp.set_read_timeout(Some(self.request_timeout))
-            .map_err(|_| MigrationError::RpcUnavailable)?;
-        tcp.set_write_timeout(Some(self.request_timeout))
+        let deadline = Deadline::new(self.request_timeout);
+        let tcp = deadline
+            .connect(&self.host, self.port, self.connect_timeout)
             .map_err(|_| MigrationError::RpcUnavailable)?;
         let server =
             ServerName::try_from(self.host.clone()).map_err(|_| MigrationError::Configuration)?;
         let connection = ClientConnection::new(Arc::clone(&self.tls), server)
             .map_err(|_| MigrationError::RpcUnavailable)?;
         let mut stream = StreamOwned::new(connection, tcp);
-        let deadline = Instant::now() + self.request_timeout;
         write!(stream,
             "POST /v2/migration/assets HTTP/1.1\r\nHost: {}:{}\r\nAuthorization: {}\r\nIdempotency-Key: {}\r\nX-LayerX-Trace-Id: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             self.host, self.port, self.authorization.as_str(), idempotency, trace.as_str(), body.len())
@@ -293,12 +281,12 @@ fn private(path: &Path, maximum: usize) -> Result<Vec<u8>, MigrationError> {
 fn response(
     stream: &mut impl Read,
     maximum: usize,
-    deadline: Instant,
+    deadline: Deadline,
 ) -> Result<(u16, Vec<u8>), MigrationError> {
     let mut bytes = Vec::new();
     let mut buffer = [0_u8; 4096];
     let end = loop {
-        if Instant::now() >= deadline {
+        if deadline.remaining().is_err() {
             return Err(MigrationError::GatewaySubmissionUnknown);
         }
         let count = stream
@@ -388,7 +376,7 @@ fn response(
         } else if let Some(decoded) = chunked(&body)? {
             return Ok((status, decoded));
         }
-        if Instant::now() >= deadline {
+        if deadline.remaining().is_err() {
             return Err(MigrationError::GatewaySubmissionUnknown);
         }
         let count = stream

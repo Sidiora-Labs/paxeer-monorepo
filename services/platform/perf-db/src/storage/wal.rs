@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crc32fast::Hasher as Crc32Hasher;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::core::types::IndexedEvent;
 use crate::error::PerfDbError;
@@ -94,6 +94,14 @@ impl Default for WalConfig {
 /// the checksum covers exactly the payload. There is no separate type byte.
 const ENTRY_HEADER_SIZE: usize = 8;
 const MAX_ENTRY_SIZE: usize = 128 * 1024 * 1024;
+
+/// Exclusive end of an applied frame. Unlike a block height, this also orders
+/// multiple events from the same block and survives segment rotation/pruning.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct WalPosition {
+    pub segment: u64,
+    pub offset: u64,
+}
 
 pub struct WalWriter {
     config: WalConfig,
@@ -247,6 +255,13 @@ impl WalWriter {
         self.segment_bytes
     }
 
+    pub fn position(&self) -> WalPosition {
+        WalPosition {
+            segment: self.current_segment,
+            offset: self.segment_bytes,
+        }
+    }
+
     fn rotate(&mut self) -> Result<(), PerfDbError> {
         self.sync()?;
 
@@ -283,6 +298,13 @@ pub fn replay(
     scan_wal(dir.as_ref(), callback).map(|(count, _)| count)
 }
 
+pub fn replay_positioned(
+    dir: impl AsRef<Path>,
+    callback: impl FnMut(WalEntry, WalPosition) -> Result<(), PerfDbError>,
+) -> Result<u64, PerfDbError> {
+    scan_wal_positioned(dir.as_ref(), callback).map(|(count, _)| count)
+}
+
 fn decode_record<T: DeserializeOwned>(payload: &[u8]) -> Result<T, bincode::Error> {
     use bincode::Options;
     bincode::DefaultOptions::new()
@@ -295,6 +317,13 @@ fn decode_record<T: DeserializeOwned>(payload: &[u8]) -> Result<T, bincode::Erro
 fn scan_wal<T: DeserializeOwned>(
     dir: &Path,
     mut callback: impl FnMut(T) -> Result<(), PerfDbError>,
+) -> Result<(u64, Option<(u64, u64)>), PerfDbError> {
+    scan_wal_positioned(dir, |entry, _| callback(entry))
+}
+
+fn scan_wal_positioned<T: DeserializeOwned>(
+    dir: &Path,
+    mut callback: impl FnMut(T, WalPosition) -> Result<(), PerfDbError>,
 ) -> Result<(u64, Option<(u64, u64)>), PerfDbError> {
     let mut segments = list_segments(dir)?;
     segments.sort_unstable();
@@ -341,9 +370,9 @@ fn scan_wal<T: DeserializeOwned>(
                 }
             };
             if let Some((entry, len)) = record {
-                callback(entry)?;
-                count += 1;
                 offset += ENTRY_HEADER_SIZE as u64 + len as u64;
+                callback(entry, WalPosition { segment, offset })?;
+                count += 1;
                 continue;
             }
             if index + 1 != segments.len()
@@ -543,7 +572,7 @@ fn segment_path(dir: &Path, id: u64) -> PathBuf {
     dir.join(format!("wal_{:08}.bin", id))
 }
 
-fn list_segments(dir: &Path) -> Result<Vec<u64>, PerfDbError> {
+pub(crate) fn list_segments(dir: &Path) -> Result<Vec<u64>, PerfDbError> {
     if !dir.exists() {
         return Ok(Vec::new());
     }

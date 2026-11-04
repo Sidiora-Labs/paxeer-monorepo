@@ -22,20 +22,16 @@ static void path(const lxp_state_proof *proof)
     printf("]}");
 }
 
-static void emit(const lxp_kernel *kernel, const char *name, uint16_t module,
-                 const uint8_t *key, size_t key_length, bool *first)
+static void emit_witness(const lxp_state_witness *proof, const uint8_t root[32],
+                         const char *name, bool *first)
 {
-    lxp_state_witness *proof = malloc(sizeof(*proof));
     lxp_state_witness *decoded = malloc(sizeof(*decoded));
     uint8_t *wire = malloc(LXP_STATE_WITNESS_MAX_BYTES);
-    uint8_t root[32], leaf[32], lengths[8];
+    uint8_t leaf[32], lengths[8];
     size_t length = 0U, tag_length = 0U;
     lxp_hash_context hash;
     const uint8_t *tag = lxp_domain_tag(LXP_DOMAIN_STATE_LEAF, &tag_length);
-    assert(proof != NULL && decoded != NULL && wire != NULL && tag != NULL);
-    assert(lxp_state_root(kernel, root) == LXP_OK);
-    assert(lxp_state_proof_build(kernel, module,
-        (lxp_byte_span){key, key_length}, proof) == LXP_OK);
+    assert(decoded != NULL && wire != NULL && tag != NULL);
     assert(lxp_state_proof_verify(proof, root) == LXP_OK);
     assert(lxp_state_proof_encode(proof, wire,
         LXP_STATE_WITNESS_MAX_BYTES, &length) == LXP_OK);
@@ -52,14 +48,14 @@ static void emit(const lxp_kernel *kernel, const char *name, uint16_t module,
     assert(lxp_hash_update(&hash, proof->value, proof->value_length) == LXP_OK);
     assert(lxp_hash_final(&hash, leaf) == LXP_OK);
     printf("%s{\"name\":\"%s\",\"module\":%u,\"key\":",
-           *first ? "" : ",", name, module);
+           *first ? "" : ",", name, proof->module_id);
     hex(proof->key, proof->key_length);
     printf(",\"value\":");
     hex(proof->value, proof->value_length);
     printf(",\"leaf\":");
     hex(leaf, sizeof(leaf));
     printf(",\"root\":");
-    hex(root, sizeof(root));
+    hex(root, 32U);
     printf(",\"proof\":");
     hex(wire, length);
     printf(",\"account\":");
@@ -72,13 +68,25 @@ static void emit(const lxp_kernel *kernel, const char *name, uint16_t module,
     *first = false;
     free(wire);
     free(decoded);
+}
+
+static void emit(const lxp_kernel *kernel, const char *name, uint16_t module,
+                 const uint8_t *key, size_t key_length, bool *first)
+{
+    lxp_state_witness *proof = malloc(sizeof(*proof));
+    uint8_t root[32];
+    assert(proof != NULL);
+    assert(lxp_state_root(kernel, root) == LXP_OK);
+    assert(lxp_state_proof_build(kernel, module,
+        (lxp_byte_span){key, key_length}, proof) == LXP_OK);
+    emit_witness(proof, root, name, first);
     free(proof);
 }
 
 int main(void)
 {
     int32_t status = LXP_OK;
-    lxphost_node *node = lxphost_node_new(0U, &status);
+    lxphost_node *node = lxphost_node_new(0U, LX_PROGRAMS_GUEST_ABI_V5_VERSION, &status);
     lxp_module_ctx *ctx = calloc(1U, sizeof(*ctx));
     uint8_t balance_key[32] = {0xa5U};
     uint8_t asset[32] = {1U};

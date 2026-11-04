@@ -27,6 +27,7 @@ const LIMIT: u64 = 16 * 1024 * 1024;
 const MAX_RECORDS: u64 = 4096;
 const SETUP_LIFETIME: u64 = 300;
 const REMASK: u64 = 60;
+const EVM_RECEIPT_MODULE: u16 = 12;
 
 #[path = "recovery.rs"]
 mod recovery;
@@ -92,13 +93,17 @@ impl RecoveryReceipt {
         let head = verifier
             .verify_head(&header, &commit)
             .map_err(|_| Error::Refused)?;
-        self.transaction_evidence()?.verify(
-            &verifier,
-            &head,
-            &header,
-            &receipt,
-            decoded.protocol().ok_or(Error::Refused)?,
-        )
+        let evidence = self.transaction_evidence()?;
+        let protocol = decoded.protocol().ok_or(Error::Refused)?;
+        evidence.verify(&verifier, &head, &header, &receipt, protocol)?;
+        if protocol.module_id() != EVM_RECEIPT_MODULE
+            || protocol.result_code() != 0
+            || evidence.result_code != 0
+            || protocol.operation() != 2
+        {
+            return Err(Error::Refused);
+        }
+        evidence.verify_recovery_policy(protocol)
     }
 }
 fn read_trust_root(path: &Path) -> Result<TrustRoot> {
