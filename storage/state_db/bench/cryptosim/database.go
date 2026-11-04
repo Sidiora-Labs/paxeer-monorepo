@@ -2,6 +2,7 @@ package cryptosim
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
@@ -33,7 +34,7 @@ type Database struct {
 	batch *SyncMap[string, []byte]
 
 	// A method that flushes the executors.
-	flushFunc func()
+	flushFunc func() error
 
 	// The metrics for the benchmark.
 	metrics *CryptosimMetrics
@@ -128,7 +129,9 @@ func (d *Database) FinalizeBlock(
 
 	// Wait for all transactions in the current block to be executed.
 	if d.flushFunc != nil {
-		d.flushFunc()
+		if err := d.flushFunc(); err != nil {
+			return fmt.Errorf("failed to flush executors: %w", err)
+		}
 	}
 
 	if d.transactionsInCurrentBlock == 0 {
@@ -225,17 +228,12 @@ func (d *Database) commitPendingBlocks() error {
 func (d *Database) Close(nextAccountID int64, nextErc20ContractID int64) error {
 	fmt.Printf("Committing final batch.\n")
 
+	var finalErr error
 	if err := d.FinalizeBlock(nextAccountID, nextErc20ContractID, true); err != nil {
-		return fmt.Errorf("failed to commit batch: %w", err)
+		finalErr = fmt.Errorf("failed to commit batch: %w", err)
 	}
 
-	fmt.Printf("Closing database.\n")
-	err := d.db.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close database: %w", err)
-	}
-
-	return nil
+	return errors.Join(finalErr, d.CloseWithoutFinalizing())
 }
 
 // Close the database and release any resources without finalizing the last batch.
@@ -250,6 +248,6 @@ func (d *Database) CloseWithoutFinalizing() error {
 }
 
 // Set the function that flushes the executors. This setter is required to break a circular dependency.
-func (d *Database) SetFlushFunc(flushFunc func()) {
+func (d *Database) SetFlushFunc(flushFunc func() error) {
 	d.flushFunc = flushFunc
 }
