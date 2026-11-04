@@ -105,9 +105,10 @@ type Entry interface {
 
 // Open records the opening of the pending block.
 type Open struct {
-	Height     uint64
-	OpenTimeMs uint64
-	BaseFee    *uint256.Int
+	Height          uint64
+	OpenTimeMs      uint64
+	BaseFee         *uint256.Int
+	ProposerAddress []byte
 }
 
 // Accept records one executed transaction and its canonical signed receipt.
@@ -156,7 +157,14 @@ func (e *Open) appendPayload(dst []byte) ([]byte, error) {
 	dst = binary.BigEndian.AppendUint64(dst, e.Height)
 	dst = binary.BigEndian.AppendUint64(dst, e.OpenTimeMs)
 	fee := e.BaseFee.Bytes32()
-	return append(dst, fee[:]...), nil
+	dst = append(dst, fee[:]...)
+	if len(e.ProposerAddress) != 0 {
+		if len(e.ProposerAddress) != 20 {
+			return nil, fmt.Errorf("%w: OPEN proposer must be 20 bytes", ErrMalformed)
+		}
+		dst = append(dst, e.ProposerAddress...)
+	}
+	return dst, nil
 }
 
 func (e *Accept) appendPayload(dst []byte) ([]byte, error) {
@@ -230,7 +238,11 @@ func DecodeEntry(b []byte) (Entry, error) {
 	var e Entry
 	switch kind {
 	case KindOpen:
-		e = &Open{Height: d.u64(), OpenTimeMs: d.u64(), BaseFee: new(uint256.Int).SetBytes32(d.fixed(32))}
+		o := &Open{Height: d.u64(), OpenTimeMs: d.u64(), BaseFee: new(uint256.Int).SetBytes32(d.fixed(32))}
+		if !d.failed && len(d.b) != 0 {
+			o.ProposerAddress = append([]byte(nil), d.fixed(20)...)
+		}
+		e = o
 	case KindAccept:
 		a := &Accept{Seq: d.u64(), Height: d.u64(), Tx: d.bytes(), Receipt: d.bytes()}
 		if !d.failed && len(d.b) != 0 {
