@@ -217,6 +217,14 @@ export async function performAssertionCeremony(ceremony: string): Promise<string
   ) {
     throw new CeremonyCancelled();
   }
+  return serializeAssertionCredential(credential, response);
+}
+
+export function serializeAssertionCredential(
+  credential: Pick<PublicKeyCredential, "rawId">,
+  response: Pick<AuthenticatorAssertionResponse,
+    "clientDataJSON" | "authenticatorData" | "signature" | "userHandle">,
+): string {
   const userHandle = response.userHandle;
   return encodeCredential({
     id: toBase64Url(credential.rawId),

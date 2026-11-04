@@ -98,8 +98,9 @@ required = ["approval_id:ApprovalId","held_digest:string","decision:ProgramAppro
 binding = "confirms is the server's existing principal-bound step_up_digest for approval.program.approve or approval.program.reject, the exact approval destination, canonical body containing held_digest, and the selected prospective idempotency key. It is never the held digest itself. This read creates no decision or release and consumes no mutation idempotency record."
 
 [type.ProgramApprovalDecisionRequest]
-required = ["held_digest:string","step_up_evidence:EvidenceId"]
+required = ["held_digest:string","step_up_evidence:StepUpChallengeId"]
 binding = "Both approve and reject disclose the exact immutable held digest, decision and idempotency key under authenticated owner-bound approval step-up. A wrong digest, missing authority or changed disclosure refuses before release."
+reference = "step_up_evidence is the original completed StepUpEvidence.challenge_id, unchanged, never an evidence export identifier."
 
 [type.ProgramApprovalDecision]
 required = ["approval_id:ApprovalId","held_digest:string","state:ProgramApprovalState","state_copy_key:CopyKey","money_moved:boolean","moved_copy_key:CopyKey","evidence:EvidenceRef[]"]
