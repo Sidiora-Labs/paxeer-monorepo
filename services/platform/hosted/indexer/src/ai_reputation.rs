@@ -8,7 +8,7 @@
 
 use std::path::Path;
 
-use crate::ai_market::{verify_block_commit, BlockCommitProof, FinalityAuthority};
+use crate::ai_market::{verify_program_state, BlockCommitProof, FinalityAuthority};
 use layerx_committed_proof::ProofError;
 use layerx_programs_ai_market::{
     errors::{
@@ -404,8 +404,21 @@ impl ReputationProjector {
         if read.proof.chain != self.chain || read.proof.program != self.program {
             return Err(ReputationError::Refused(WRONG_DOMAIN));
         }
-        let verified =
-            verify_block_commit(&read.commit, &self.authority).map_err(ReputationError::Commit)?;
+        let mut buffer = vec![0; MAX_STATE_BYTES];
+        let mut capture = StateCapture::new(&mut buffer);
+        for chunk in read.chunks {
+            capture.accept(&read.proof, chunk)?;
+        }
+        let (state_bytes, facts) = capture.finish()?;
+        let authenticated = verify_program_state(
+            &read.commit,
+            &self.authority,
+            self.chain,
+            self.program,
+            state_bytes,
+        )
+        .map_err(ReputationError::Commit)?;
+        let verified = authenticated.commit();
         if verified.chain_id != self.authority.chain_id {
             return Err(ReputationError::Refused(WRONG_DOMAIN));
         }
@@ -416,14 +429,8 @@ impl ReputationProjector {
             return Err(ReputationError::Refused(F07_BINDING_MISMATCH));
         }
         let checkpoint_id = verified.store_proof_digest;
-        let mut buffer = vec![0; MAX_STATE_BYTES];
-        let mut capture = StateCapture::new(&mut buffer);
-        for chunk in read.chunks {
-            capture.accept(&read.proof, chunk)?;
-        }
-        let (state_bytes, facts) = capture.finish()?;
         let binding = bind_snapshot(
-            state_bytes,
+            authenticated.state(),
             &facts,
             &FinalityEvidence {
                 native_state_root: read.proof.native_state_root,
@@ -436,7 +443,7 @@ impl ReputationProjector {
             read.publication_time_ms,
         )?;
         binding.require_finalized()?;
-        let shared = decode_shared_state(state_bytes)?;
+        let shared = decode_shared_state(authenticated.state())?;
         let section = reputation_region(shared.section(Section::ReputationAdmission)?);
         let state = decode_section(section)?;
         if state.market != binding.market {

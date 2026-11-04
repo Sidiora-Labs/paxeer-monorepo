@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,19 +27,18 @@ type MirrorPolicy struct {
 	Minimum    int
 }
 type MirrorVerification struct {
-	Level             string
-	BatchNumber       uint64
-	HeaderDigest      [32]byte
-	EvidenceDigest    [32]byte
-	SourceID          string
-	Target            string
-	CanonicalPosition string
-	Provenance        string
-	LatestBatch       *uint64
-	BatchLag          string
-	FailoverCount     int
-	AgreeingSources   int
-	CheckpointLevel   string
+	Level              string
+	CommittedHeight    uint64
+	CommittedBlockHash [32]byte
+	EvidenceDigest     *[32]byte
+	SourceID           string
+	Target             string
+	CanonicalPosition  string
+	Provenance         string
+	LatestBatch        *uint64
+	BatchLag           string
+	FailoverCount      int
+	AgreeingSources    int
 }
 type MirrorVerificationError struct{ Code MirrorErrorCode }
 
@@ -51,14 +52,16 @@ type MirrorVerifier struct {
 	executableDigest    [32]byte
 	configurationDigest [32]byte
 	timeout             time.Duration
+	endpoint            string
+	client              *http.Client
 }
 
 const (
+	maxMirrorReceiptIndex       = 1_048_576
 	maxMirrorRequestBytes       = 40 * 1024 * 1024
 	maxMirrorResponseBytes      = 1024 * 1024
-	maxMirrorEvidenceBytes      = (maxMirrorRequestBytes - 64*1024) / 2
 	maxMirrorExecutableBytes    = 512 * 1024 * 1024
-	maxMirrorConfigurationBytes = 16 * 1024 * 1024
+	maxMirrorConfigurationBytes = 1024 * 1024
 )
 
 type boundedMirrorOutput struct {
@@ -93,7 +96,69 @@ func NewMirrorVerifier(executable, configuration string, timeout time.Duration) 
 	if err != nil {
 		return nil, MirrorVerificationError{MirrorConfiguration}
 	}
-	return &MirrorVerifier{executablePath, configurationPath, executableDigest, configurationDigest, timeout}, nil
+	return &MirrorVerifier{executable: executablePath, configuration: configurationPath, executableDigest: executableDigest, configurationDigest: configurationDigest, timeout: timeout}, nil
+}
+
+// NewMirrorHTTPVerifier connects to an independently trusted mirror verification
+// service using the same request and report protocol as layerx-mirror-verify.
+func NewMirrorHTTPVerifier(endpoint string, client *http.Client, timeout time.Duration) (*MirrorVerifier, error) {
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" ||
+		(parsed.Scheme != "https" && (parsed.Scheme != "http" || !loopbackHost(parsed.Hostname()))) ||
+		timeout < 100*time.Millisecond || timeout > 120*time.Second {
+		return nil, MirrorVerificationError{MirrorConfiguration}
+	}
+	if client == nil {
+		client = &http.Client{}
+	}
+	bounded := *client
+	bounded.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+	return &MirrorVerifier{endpoint: endpoint, client: &bounded, timeout: timeout}, nil
+}
+
+func (v *MirrorVerifier) exchange(ctx context.Context, request []byte) ([]byte, error) {
+	if v.client != nil {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, v.endpoint, bytes.NewReader(request))
+		if err != nil {
+			return nil, MirrorVerificationError{MirrorConfiguration}
+		}
+		req.Header.Set("Content-Type", "application/json")
+		response, err := v.client.Do(req)
+		if err != nil {
+			return nil, MirrorVerificationError{MirrorUnavailable}
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return nil, MirrorVerificationError{MirrorUnavailable}
+		}
+		body, err := io.ReadAll(io.LimitReader(response.Body, maxMirrorResponseBytes+1))
+		if err != nil {
+			return nil, MirrorVerificationError{MirrorUnavailable}
+		}
+		if len(body) > maxMirrorResponseBytes {
+			return nil, MirrorVerificationError{MirrorBounds}
+		}
+		return body, nil
+	}
+	if !v.trustedInputsUnchanged() {
+		return nil, MirrorVerificationError{MirrorConfiguration}
+	}
+	command := exec.CommandContext(ctx, v.executable, v.configuration)
+	command.Stdin = bytes.NewReader(request)
+	var stdout boundedMirrorOutput
+	stdout.Grow(4096)
+	command.Stdout = &stdout
+	runErr := command.Run()
+	if !v.trustedInputsUnchanged() {
+		return nil, MirrorVerificationError{MirrorConfiguration}
+	}
+	if runErr != nil || ctx.Err() != nil {
+		return nil, MirrorVerificationError{MirrorUnavailable}
+	}
+	if stdout.exceeded {
+		return nil, MirrorVerificationError{MirrorBounds}
+	}
+	return stdout.Bytes(), nil
 }
 
 func trustedMirrorFile(path string, executable bool, maximum int64) (string, [32]byte, error) {
@@ -172,21 +237,21 @@ func (v *MirrorVerifier) trustedInputsUnchanged() bool {
 	_, configurationDigest, configurationErr := trustedMirrorFile(v.configuration, false, maxMirrorConfigurationBytes)
 	return executableErr == nil && configurationErr == nil && executableDigest == v.executableDigest && configurationDigest == v.configurationDigest
 }
-func (v *MirrorVerifier) VerifyReceipt(ctx context.Context, batch uint64, policy MirrorPolicy, receipt []byte) (MirrorVerification, error) {
-	if len(receipt) > maxMirrorEvidenceBytes {
+func (v *MirrorVerifier) VerifyReceipt(ctx context.Context, coordinate CommittedCoordinate, policy MirrorPolicy, index uint32) (MirrorVerification, error) {
+	if index >= maxMirrorReceiptIndex {
 		return MirrorVerification{}, MirrorVerificationError{MirrorBounds}
 	}
-	return v.verify(ctx, batch, policy, map[string]any{"kind": "receipt", "canonical_hex": hex.EncodeToString(receipt)})
+	return v.verify(ctx, coordinate, policy, map[string]any{"kind": "receipt", "index": index})
 }
-func (v *MirrorVerifier) VerifyState(ctx context.Context, batch uint64, policy MirrorPolicy, state, proof []byte) (MirrorVerification, error) {
-	if len(state) > maxMirrorEvidenceBytes || len(proof) > maxMirrorEvidenceBytes-len(state) {
-		return MirrorVerification{}, MirrorVerificationError{MirrorBounds}
-	}
-	return v.verify(ctx, batch, policy, map[string]any{"kind": "state", "canonical_hex": hex.EncodeToString(state), "proof_hex": hex.EncodeToString(proof)})
+
+func (v *MirrorVerifier) VerifyCommitted(ctx context.Context, coordinate CommittedCoordinate, policy MirrorPolicy) (MirrorVerification, error) {
+	return v.verify(ctx, coordinate, policy, map[string]any{"kind": "committed"})
 }
-func (v *MirrorVerifier) verify(parent context.Context, batch uint64, policy MirrorPolicy, evidence map[string]any) (MirrorVerification, error) {
+
+func (v *MirrorVerifier) verify(parent context.Context, coordinate CommittedCoordinate, policy MirrorPolicy, evidence map[string]any) (MirrorVerification, error) {
 	var zero MirrorVerification
-	if batch == 0 || len(policy.Candidates) == 0 || len(policy.Candidates) > MirrorMaxSources {
+	batch := coordinate.Height
+	if coordinate.BlockHash == ([32]byte{}) || batch == 0 || len(policy.Candidates) == 0 || len(policy.Candidates) > MirrorMaxSources {
 		return zero, MirrorVerificationError{MirrorConfiguration}
 	}
 	candidates := make([]map[string]any, 0, len(policy.Candidates))
@@ -224,44 +289,29 @@ func (v *MirrorVerifier) verify(parent context.Context, batch uint64, policy Mir
 	}
 	ctx, cancel := context.WithTimeout(parent, v.timeout)
 	defer cancel()
-	if !v.trustedInputsUnchanged() {
-		return zero, MirrorVerificationError{MirrorConfiguration}
-	}
-	command := exec.CommandContext(ctx, v.executable, v.configuration)
-	command.Stdin = bytes.NewReader(request)
-	var stdout boundedMirrorOutput
-	stdout.Grow(4096)
-	command.Stdout = &stdout
-	runErr := command.Run()
-	if !v.trustedInputsUnchanged() {
-		return zero, MirrorVerificationError{MirrorConfiguration}
-	}
-	if runErr != nil || ctx.Err() != nil {
-		return zero, MirrorVerificationError{MirrorUnavailable}
-	}
-	if stdout.exceeded {
-		return zero, MirrorVerificationError{MirrorBounds}
+	body, err := v.exchange(ctx, request)
+	if err != nil {
+		return zero, err
 	}
 	var response struct {
 		Ok           bool   `json:"ok"`
 		Error        string `json:"error"`
 		Verification struct {
-			Level             string  `json:"level"`
-			BatchNumber       string  `json:"batchNumber"`
-			HeaderDigest      string  `json:"headerDigest"`
-			EvidenceDigest    string  `json:"evidenceDigest"`
-			SourceID          string  `json:"sourceId"`
-			Target            string  `json:"target"`
-			CanonicalPosition string  `json:"canonicalPosition"`
-			Provenance        string  `json:"provenance"`
-			LatestBatch       *string `json:"latestBatch"`
-			BatchLag          string  `json:"batchLag"`
-			FailoverCount     int     `json:"failoverCount"`
-			AgreeingSources   int     `json:"agreeingSources"`
-			CheckpointLevel   string  `json:"checkpointLevel"`
+			Level              string  `json:"level"`
+			CommittedHeight    string  `json:"committedHeight"`
+			CommittedBlockHash string  `json:"committedBlockHash"`
+			EvidenceDigest     *string `json:"evidenceDigest"`
+			SourceID           string  `json:"sourceId"`
+			Target             string  `json:"target"`
+			CanonicalPosition  string  `json:"canonicalPosition"`
+			Provenance         string  `json:"provenance"`
+			LatestBatch        *string `json:"latestBatch"`
+			BatchLag           string  `json:"batchLag"`
+			FailoverCount      int     `json:"failoverCount"`
+			AgreeingSources    int     `json:"agreeingSources"`
 		} `json:"verification"`
 	}
-	if err := json.Unmarshal(stdout.Bytes(), &response); err != nil {
+	if err := json.Unmarshal(body, &response); err != nil {
 		return zero, MirrorVerificationError{MirrorMalformed}
 	}
 	if !response.Ok {
@@ -271,16 +321,16 @@ func (v *MirrorVerifier) verify(parent context.Context, batch uint64, policy Mir
 		}
 		return zero, MirrorVerificationError{code}
 	}
-	verifiedBatch, err := canonicalUint64(response.Verification.BatchNumber)
+	verifiedBatch, err := canonicalUint64(response.Verification.CommittedHeight)
 	if err != nil {
 		return zero, err
 	}
-	header, err := fixedDigest(response.Verification.HeaderDigest)
+	header, err := fixedDigest(response.Verification.CommittedBlockHash)
 	if err != nil {
 		return zero, err
 	}
-	if verifiedBatch != batch ||
-		response.Verification.Level == "" ||
+	if verifiedBatch != batch || header != coordinate.BlockHash ||
+		response.Verification.Level != "Committed" ||
 		len(response.Verification.Level) > 64 ||
 		response.Verification.SourceID == "" ||
 		len(response.Verification.SourceID) > 64 ||
@@ -295,13 +345,19 @@ func (v *MirrorVerifier) verify(parent context.Context, batch uint64, policy Mir
 		response.Verification.FailoverCount >= len(policy.Candidates) ||
 		response.Verification.AgreeingSources < 1 ||
 		response.Verification.AgreeingSources > len(policy.Candidates) ||
-		(policy.Kind == MirrorAgreement && response.Verification.AgreeingSources < policy.Minimum) ||
-		response.Verification.CheckpointLevel != "unavailable" {
+		(policy.Kind == MirrorAgreement && response.Verification.AgreeingSources < policy.Minimum) {
 		return zero, MirrorVerificationError{MirrorMalformed}
 	}
-	evidenceDigest, err := fixedDigest(response.Verification.EvidenceDigest)
-	if err != nil {
-		return zero, err
+	var evidenceDigest *[32]byte
+	if response.Verification.EvidenceDigest != nil {
+		value, err := fixedDigest(*response.Verification.EvidenceDigest)
+		if err != nil {
+			return zero, err
+		}
+		evidenceDigest = &value
+	}
+	if (evidence["kind"] == "receipt") != (evidenceDigest != nil) {
+		return zero, MirrorVerificationError{MirrorMalformed}
 	}
 	var latest *uint64
 	if response.Verification.LatestBatch != nil {
@@ -311,7 +367,7 @@ func (v *MirrorVerifier) verify(parent context.Context, batch uint64, policy Mir
 		}
 		latest = &value
 	}
-	return MirrorVerification{response.Verification.Level, verifiedBatch, header, evidenceDigest, response.Verification.SourceID, response.Verification.Target, response.Verification.CanonicalPosition, response.Verification.Provenance, latest, response.Verification.BatchLag, response.Verification.FailoverCount, response.Verification.AgreeingSources, response.Verification.CheckpointLevel}, nil
+	return MirrorVerification{response.Verification.Level, verifiedBatch, header, evidenceDigest, response.Verification.SourceID, response.Verification.Target, response.Verification.CanonicalPosition, response.Verification.Provenance, latest, response.Verification.BatchLag, response.Verification.FailoverCount, response.Verification.AgreeingSources}, nil
 }
 
 func validMirrorError(code MirrorErrorCode) bool {

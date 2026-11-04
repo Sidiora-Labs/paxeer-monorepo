@@ -117,6 +117,9 @@ fn execute() -> Result<Value, &'static str> {
         return Err("bounds");
     }
     let request: Request = serde_json::from_slice(&request_bytes).map_err(|_| "malformed")?;
+    if matches!(request.evidence, EvidenceRequest::Receipt { index } if index >= 1_048_576) {
+        return Err("bounds");
+    }
     if config.receipt_keys.is_empty() {
         return Err("configuration");
     }
@@ -147,26 +150,24 @@ fn execute() -> Result<Value, &'static str> {
             }
             layerx_mirror::source::MirrorSourceError::Missing => "missing",
             layerx_mirror::source::MirrorSourceError::RateLimited { .. } => "rate-limited",
-            layerx_mirror::source::MirrorSourceError::RpcDivergent => "rpc-divergent",
-            _ => "source-unavailable",
+            layerx_mirror::source::MirrorSourceError::RpcDivergent => "divergent",
+            _ => "unavailable",
         })?;
-    let evidence_checker =
-        MirrorVerifier::from_committed_source(archive).map_err(|_| "verification")?;
-    let committed = evidence_checker.committed().map_err(|_| "verification")?;
+    let evidence_checker = MirrorVerifier::from_committed_source(archive).map_err(|_| "proof")?;
+    let committed = evidence_checker.committed().map_err(|_| "proof")?;
     match request.evidence {
         EvidenceRequest::Receipt { index } => {
             let verified = evidence_checker
                 .committed_receipt(index, &keys)
-                .map_err(|_| "verification")?;
-            let observation = verified.observation().ok_or("verification")?;
-            let unsigned = layerx_wire::receipt::encode_unsigned(verified.value())
-                .map_err(|_| "verification")?;
-            let digest =
-                layerx_wire::hash::receipt_digest(&unsigned).map_err(|_| "verification")?;
+                .map_err(|_| "proof")?;
+            let observation = verified.observation().ok_or("proof")?;
+            let unsigned =
+                layerx_wire::receipt::encode_unsigned(verified.value()).map_err(|_| "proof")?;
+            let digest = layerx_wire::hash::receipt_digest(&unsigned).map_err(|_| "proof")?;
             Ok(report(observation, committed, Some(digest)))
         }
         EvidenceRequest::Committed => {
-            let observation = evidence_checker.observation().ok_or("verification")?;
+            let observation = evidence_checker.observation().ok_or("proof")?;
             Ok(report(observation, committed, None))
         }
     }
@@ -195,7 +196,7 @@ fn configured_sources(config: Config) -> Result<MirrorSources, &'static str> {
                     publisher: fixed_hex(&publisher_hex)?,
                 },
             )
-            .map_err(|_| "source-unavailable")?,
+            .map_err(|_| "unavailable")?,
             SourceConfig::Solana {
                 id,
                 rpc,
@@ -217,7 +218,7 @@ fn configured_sources(config: Config) -> Result<MirrorSources, &'static str> {
                     publisher: fixed_hex(&publisher_hex)?,
                 },
             )
-            .map_err(|_| "source-unavailable")?,
+            .map_err(|_| "unavailable")?,
         });
     }
     let sources =
