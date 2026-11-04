@@ -1,0 +1,43 @@
+[task.22.33.1415]
+audit = "22.30.79"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+mode = "BUILD"
+paths = ["services/platform/tools/dependency-policy.sh", "tools/qualification/audit_repairs/test_repair_22_33_1415.py", "tools/qualification/audit_repairs/repair_22_33_1415.kvx"]
+repair = "Add layerx-paxeer-client to the existing package-wide boundary ban without changing ramp reachability or its additional constraints. Replace license-token flattening with a recursive-descent evaluator embedded in the production shell script: parentheses, WITH, AND, OR precedence; Cargo legacy slash alternatives; complete syntax consumption even for a satisfied OR branch; fail-closed invalid expressions. Preserve the license allowlist and LLVM-exception as an exception operand."
+source_proof = "The tests read the real script, apply its exact package-wide ban to a standalone metadata fixture with no ramp dependency graph, and inspect the jq package selection, metadata-file transport, diagnostic and exit guard. They check preservation of all previous bans, exact name matching and ramp transitive traversal/constraints. License tests compile and execute the actual embedded production Python in-process, write committed table cases to a TSV file and call its real file consumer, proving grouped alternatives, precedence, WITH, malformed input rejection, missing licenses, per-package refusal and diagnostics. Source assertions connect cargo metadata and explicit file input to jq's external-package TSV projection, the Python consumer and its SystemExit status under shell set -e."
+review_only = "The declared hf-build performs the sole bash -n shell syntax parse. Cargo metadata production, jq execution, the whole shell process, unsafe-source scanning and platform-lint orchestration are not executed by pytest: their wiring and guarded commands are source assertions, not runtime certification. The SPDX consumer itself runs in-process with Python's standard library and pytest, without environment variables, credentials, live endpoints, external binaries, a subprocess toolchain, native artifacts or devices. Neither finding is a restart-recovery or interface-mismatch finding."
+baseline = "No pre-change verification was run: the test module did not exist and the explicit task order requires complete implementation before hf-build then hf-done, forbidding a manual verify_cmd run. No baseline test failures are claimed. Initial gate.json reported builds_used=0 and verify_runs_used=0; /out/run/gates.jsonl was absent. Initial .cgignore and spec status changes were runner-prepared and preserved."
+build_cmd = "bash -n services/platform/tools/dependency-policy.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1415.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verification_evidence = "The final hf-done row in the private ledger records the exact verified candidate revision, command, exit code and log path; build and verification must use the same candidate revision. The final response copies that evidence. This scoped record is finalized before qualification because embedding its own content-derived revision would change that revision. Closure is conditional on hf-done passing; no gate pass is claimed in advance."
+wiring_requests = []
+
+[finding.039]
+audit = "22.30.79"
+file = "services/platform/tools/dependency-policy.sh"
+class = "wiring-gap"
+severity = "medium"
+owner_domain = 8
+repair = "The package-wide boundary ban includes the exact retired client name even without a ramp root; the additional ramp dependency traversal remains intact."
+tests = ["test_039_standalone_retired_client_is_in_the_package_wide_ban", "test_039_existing_package_bans_remain", "test_039_boundary_ban_is_exact", "test_039_ramp_transitive_constraints_remain_guarded"]
+
+[finding.033]
+audit = "22.30.79"
+file = "services/platform/tools/dependency-policy.sh"
+class = "runtime-risk"
+severity = "medium"
+owner_domain = 8
+repair = "The production consumer permits (MIT OR GPL-3.0-only) AND Apache-2.0, preserves group and operator precedence and rejects a choice unless every mandatory license and exception is allowlisted; malformed alternatives cannot be hidden by a satisfied branch."
+tests = ["test_033_metadata_license_transport_and_failure_propagation", "test_033_grouped_spdx_choices_use_the_production_consumer", "test_033_malformed_alternatives_fail_closed", "test_033_missing_license_fails_closed", "test_033_every_external_package_must_have_an_allowed_choice"]
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. After completing implementation, normalize only touched files to the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first, wrapper-only gate order."
+resolution = "Use the explicit gate order and record that no pre-change verification or baseline failure is claimed. GOTCHA.kvx and spec files are outside scope; task notes stay here."
+
+[gotcha.2]
+observed = "Broad combined reads of the large repository ledgers exceeded the output budget, and cg brief returned stale unrelated task/change context."
+resolution = "Use actual Git status/diff, the exact task and finding sections, focused source reads and the private gate ledger."

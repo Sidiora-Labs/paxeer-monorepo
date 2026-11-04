@@ -19,12 +19,8 @@ shows the required arguments followed by optional arguments in brackets:
 ```text
 tools/paxeer-x/gov/render.sh --out DIR --paxd build/paxd \
   --height H --release-url URL --release-sha256 HEX --deposit COINS --pax-usd PRICE \
-  --pax-asset-id HEX64 --sid-asset-id HEX64 \
-  --market-pax-sid HEX64 --market-btc-usd HEX64 --market-eth-usd HEX64 \
-  --custody-network-id N --kernel-network-id N --deposit-authority HEX64 \
-  --sequencer-id HEX64 --sequencer-pubkey HEX64 \
-  [--perp-margin pax|sid] [--rate-update-height H] [--sid-pointer 0xADDR] \
-  [--first-batch N] [--last-batch N] [--bridge-config FILE]... [--bridge-manifest FILE] \
+  --kernel-network-id N [--rate-update-height H] \
+  [--bridge-config FILE]... [--bridge-manifest FILE] \
   [--from BECH32] [--chain-id ID]
 ```
 
@@ -34,17 +30,8 @@ distinct from EVM chain ID `125` (`0x7d`). `--from` defaults to the governance
 module address, which is also fixed in the xweb message's `authority` field;
 overriding `--from` does not change that message authority.
 
-The current parser still requires `--pax-asset-id`, `--sid-asset-id`, the three
-`--market-*` arguments, `--custody-network-id`, `--deposit-authority`,
-`--sequencer-id` and `--sequencer-pubkey`. They are legacy inputs and do not add
-market, custody or anchor proposals. In particular, the two sequencer values
-must be nonzero, 64-character lowercase hex strings without `0x`, and the custody
-network ID must be positive. The retained `--kernel-network-id` is a positive
-uint32 used by the xweb proposal; use `125` for mainnet-beta.
-
-The legacy optional arguments `--perp-margin` (default `pax`), `--sid-pointer`,
-`--first-batch` (default `0`) and `--last-batch` (default `18446744073709551615`)
-also produce no additional proposal. Batch bounds must be ordered uint64 values.
+`--kernel-network-id` is a positive uint32 used by the xweb proposal; use `125`
+for mainnet-beta.
 
 ## Outputs
 
@@ -55,9 +42,8 @@ also produce no additional proposal. Batch bounds must be ordered uint64 values.
 | `03-xweb-fee.json` | `LayerXProposal` containing `xweb.MsgSetParams`: fee worth 0.001 USD in `uhpx` at `--pax-usd`, payload cap `8192`, callback gas cap `500000`, timeout `3600` blocks, supplied `kernel_network_id`, and `program_fee_denoms` = `uhpx`, `usid`, `uusdc`, `uusdl` | `tx gov submit-proposal layerx-proposal` |
 | `bridge/<name>/` | For each `--bridge-config`, bridge message bodies in `bodies/` and proposal content in `proposals/04-proposal-open-chain.json`; `proposals/05-proposal-sidiora-cap.json` is emitted for Solana | `tx gov submit-proposal layerxbridge-proposal` for each emitted proposal |
 
-Only the three numbered top-level templates in [`templates/`](templates/) are
-rendered. The retired exchange-market, custody and anchor-authorization proposals
-are no longer emitted.
+The three numbered top-level outputs come from [`templates/`](templates/).
+Optional bridge outputs come from the bridge proposal generator.
 
 Each successfully dry-run proposal gets a `<file>.tx.json` beside it. The script
 also requires exactly one message in that transaction. Bridge bodies are inputs
@@ -74,16 +60,20 @@ to their enclosing proposals and do not each get a transaction sidecar.
   `0.001 / price * 1000000` uhpx, rounded half up; values rounding below one uhpx
   are rejected.
 - Repeat `--bridge-config` for multiple bridge chain configurations. `<name>`
-  comes from each configuration's `name` field. `--bridge-manifest` defaults to
+  comes from each configuration's `name` field and must begin with an ASCII
+  alphanumeric, followed only by ASCII alphanumerics, hyphens or underscores.
+  Paths and traversal names are refused. `--bridge-manifest` defaults to
   `services/bridge/deploy/attestors.json`. See the
   [bridge proposal generator](../../../services/bridge/deploy/proposals/) for
   its message types and validation. Bridge configurations register remote chains;
   Paxeer sub-chains are tenant domains in the database.
-- Use a fresh output directory. Top-level files from previous runs are not
-  cleaned, and an aborted render may leave partial files. Offline generation
+- Give the renderer exclusive access to its output directory. It replaces only
+  known generated files and preserves unrelated operator files. An aborted
+  render may leave partial files or staging directories. Offline generation
   checks transaction construction; it does not execute proposals or submit them.
 - [`test.sh`](test.sh) builds `paxd` unless `PAXD` is supplied, renders fixed
-  inputs and checks the retained proposals and unsigned transactions. Its
+  inputs, checks the retained proposals and unsigned transactions, and verifies
+  refusal of traversal names without touching an outside sentinel. Its
   transaction dry runs are offline; build dependencies must be available.
 
 For the holder-list artifact consumed by the upgrade, see the

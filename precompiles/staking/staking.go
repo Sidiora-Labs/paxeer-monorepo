@@ -553,11 +553,7 @@ func (p PrecompileExecutor) createValidator(ctx sdk.Context, method *abi.Method,
 	if err != nil {
 		return nil, 0, errors.New("invalid public key hex format")
 	}
-	// Keep the historical v630 boundary for replay below the applied merge height.
-	if pcommon.MergePlanActive(ctx, p.evmKeeper) && len(pubKeyBytes) != ed25519.PubKeySize {
-		return nil, 0, errors.New("invalid public key length: expected 32 bytes")
-	}
-
+	// Keep the historical v614-v630 boundary for replay below the applied merge height.
 	if pcommon.MergePlanActive(ctx, p.evmKeeper) && len(pubKeyBytes) != ed25519.PubKeySize {
 		return nil, 0, fmt.Errorf("invalid public key length: expected %d bytes, got %d", ed25519.PubKeySize, len(pubKeyBytes))
 	}

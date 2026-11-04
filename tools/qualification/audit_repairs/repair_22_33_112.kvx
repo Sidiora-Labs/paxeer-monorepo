@@ -1,0 +1,62 @@
+[repair]
+task = "22.33.112"
+audit = "22.30.112"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+acceptance = "22998.1"
+mode = "BUILD"
+qualification = "hf-build syntax gate followed by hf-done source-fact gate; exact candidate revision, command, exit and private evidence path are supplied by the bounded runner ledger, not inferred from HEAD."
+
+[baseline]
+status = "not_run"
+reason = "The ordered user instructions prohibit testing before implementation and prohibit running verify_cmd by hand before hf-done; the task-specific baseline pytest file did not exist in the unchanged tree. No baseline failure is claimed."
+observed = "Read-only source inspection confirmed the four recorded defects: injected anvil lifecycle, retired generated trust fields, a two-stage assertion against build/fly/runtime, and retired placeholder pointers. No earlier gate ledger existed; gate.json had zero build and verify runs."
+
+[finding.xweb_synthetic_lifecycle]
+test = "test_xweb_synthetic_lifecycle_native_request_restart_and_callback_guards"
+repair = "dry-run-check.sh --paxd BUNDLE.json executes the owned native scenario in paxd-check.py: signed consumer deployment and ask through 0x1019, real pending watcher journals and attestations, stop/reopen paxd and all sidecars against retained stores, identical recovered request and attestation state, actual submitter fulfil, native result and bounded consumer answer, duplicate signed fulfil refusal and exactly one Answered log after redelivery/reopen. Focused anvil callbacks and replay remain additional coverage."
+proven = "The pytest parses the real native scenario AST and ABI, asserts reachable producer/relay/view/callback commands, ordered process stop/reopen, retained-state equality and callback-count guards, and checks watcher journal field/path agreement with the production Rust source."
+review_only = "The bounded Python gate does not execute paxd, Solidity, the Rust sidecar or the native restart; native journals, signatures, callback gas and runtime recovery remain assertions in the runnable scenario requiring the provisioned native bundle. Source qualification is not live lifecycle certification."
+
+[finding.xweb_dry_run_config]
+test = "test_xweb_dry_run_config_uses_native_genesis_windows_and_production_loader_fields"
+additional_test = "test_xweb_dry_run_config_real_relay_and_paid_response_reopen_guards; test_recorded_native_payment_crosses_production_relay"
+repair = "Both settings paths now emit gateway.receipt_keys. The focused harness reads real native-bootstrap genesis public windows; the paxd scenario reads its own genesis and requires px_getReceiptKeys equality before starting the actual loader. A fresh signed payExact transaction goes through production PaymentRpc.send, the native receipt verifier and sidecar payment handler; returned receipt, height, transaction and response digest must match under those same windows, including replay after reopening the payment store."
+proven = "Pytest executes the actual config writers and list conversion on committed native genesis, crosses the production SDK receipt-key decoder, checks its refusal of reversed windows, compares required loader fields, and checks guarded real payment and reopen commands. A real production PaymentRpc client sends the byte-identical recorded transaction through loopback HTTP and consumes the native producer receipt/key transcript unchanged; the digest assertion uses that same recorded rpc/sequencer_receipt_vectors_test.go payment receipt."
+review_only = "Actual loader execution, funded payExact settlement, Ed25519 receipt authentication and sidecar response recovery require the native runtime scenario; the bounded gate has no native toolchain, executable or credential dependency."
+
+[finding.xweb_packaging_stages]
+test = "test_xweb_packaging_stages_guards_match_build_fly_and_default_runtime"
+repair = "Validate named build and fly targets and final unnamed runtime explicitly; keep every-FROM version/digest pinning, release binary and runtime dependencies, runtime USER 65532:65532, and secret exclusion for both deployable targets. Validate the real Fly init privilege drop for both socat and x-websearch, since volume setup intentionally starts as root. Preserve systemd, compose and node-image checks."
+proven = "Pytest parses Docker FROM stages and guarded has_line commands, executes their exact line comparisons against actual Dockerfile/entrypoint content, checks the real privilege-drop commands and secret patterns, parses the systemd consumer and node image copy. hf-build owns bash -n for both shell files."
+review_only = "No Docker image is built, pulled or run by the bounded gate; Fly process identities and installed runtime packages are checked as source facts."
+
+[finding.xweb_packaging_fields]
+test = "test_xweb_packaging_fields_walk_actual_receipt_key_arrays_and_loader_refusals"
+repair = "Traverse every receipt_keys entry with list-aware JSON pointers. Start each placeholder refusal from the real valid config, preserve exact exit 2 and stderr equality, and distinguish invalid string heights from textual placeholders and zero chain_id. Fill every current example field and prove note refusal followed by the actual missing-receiver-key boundary without adding retired fields."
+proven = "Pytest executes actual pointer and case-generation functions for the real example/valid configs and multiple key entries, proves complete placeholder coverage and round-trip replacements, checks strict subprocess loader commands and refusals against the real Rust integer/key-window parser."
+review_only = "Production binary refusal execution is retained in packaging-check.sh but is not claimed by a Python-only source gate."
+
+[wiring.native_fixture]
+request = "services/platform/hosted/node and tools/qualification/paxeer-x/fixtures/xweb_fixture.py — native-chain/platform domain: provide a disposable current-bootstrap home without consensus peers, genesis-pinned receipt-key file, funded actor and ledger USDC account, matching funded registered sidecar keys, built paxd/x-websearch and compiled XWebConsumer creation bytecode as the --paxd bundle; the existing xweb fixture still imports removed paxeer/evm.py and retired LAYERX_PAXEER bootstrap variables."
+
+[wiring.native_gate]
+request = ".github/workflows/xweb-test.yml — CI/native-chain domain: run dry-run-check.sh --paxd BUNDLE.json with the provisioned native fixture and retain its runtime evidence; this task changes neither the workflow nor native bootstrap/producer artifacts."
+
+[bundle_contract]
+command = "bash services/interop/deploy/x-websearch/tests/dry-run-check.sh --paxd BUNDLE.json"
+fields = "home, paxd, sidecar, receipt_key, actor_key, consumer_bytecode, endpoint, gateway_endpoint, chain_id, assets, sidecars; sidecars entries contain attestor_key, receiver_key, submitter_key. All paths are absolute, endpoint URLs are loopback, native home is copied into a private temporary directory, and supplied keys match its isolated genesis."
+
+[scope]
+paths = "services/interop/deploy/x-websearch/tests; tools/qualification/audit_repairs/repair_22_33_112.kvx; tools/qualification/audit_repairs/test_repair_22_33_112.py"
+publication = "Runner owns commit/push and exact qualified revision evidence; this task does not edit spec files or the repository gotcha ledger."
+
+[inherited.node_packaging]
+observed = "Read-only inspection found the existing node-image checks still expect literal CARGO_BUILD_JOBS=4 and a one-line RUN build, whereas docker/layerx/Dockerfile now uses an ARG expansion and a continued build command; this unrelated drift was not executed or changed."
+request = "docker/layerx/Dockerfile and services/interop/deploy/x-websearch/tests/packaging-check.sh node-image section — image/native-chain domain: reconcile the existing node-image assertions in a separately scoped repair."
+
+[qualification.repair1]
+revision = "073bcfdccbc2552e3a88bf6a9210bf33f4c4912b"
+command = "cg spec done 22.33.112 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The unchanged native producer receipt assertion caught the new helper retaining signature-present flag 1; match the production gateway digest by replacing the complete 69-byte signature option with unsigned flag 0. The assertion and producer bytes are unchanged."

@@ -1,5 +1,6 @@
 use super::types::{Files, Success};
 use crate::MatchType;
+use bytes::Bytes;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -53,13 +54,7 @@ impl Files {
             .0
             .get(METADATA_FILE_NAME)
             .ok_or_else(|| anyhow::anyhow!("file {} not found", METADATA_FILE_NAME))?;
-        let metadata = {
-            let mut metadata: Metadata =
-                serde_json::from_str(metadata_content).map_err(anyhow::Error::msg)?;
-            let raw_metadata: serde_json::Value = serde_json::from_str(metadata_content)?;
-            metadata.raw_settings = format!("{}", raw_metadata["settings"]);
-            metadata
-        };
+        let metadata = Metadata::from_value(serde_json::from_str(metadata_content)?)?;
 
         let source_files: BTreeMap<String, String> = self
             .0
@@ -80,18 +75,48 @@ impl TryFrom<(Files, MatchType)> for Success {
     fn try_from((files, match_type): (Files, MatchType)) -> Result<Self, Self::Error> {
         let (metadata, source_files) = files.extract_metadata_and_source_files()?;
 
-        let compiler_version = metadata.compiler.version;
-        let (file_name, contract_name) = metadata
+        metadata.into_success(source_files, None, match_type)
+    }
+}
+
+impl Metadata {
+    pub(super) fn from_value(value: serde_json::Value) -> Result<Self, anyhow::Error> {
+        let mut metadata: Self = serde_json::from_value(value.clone())?;
+        metadata.raw_settings = serde_json::to_string(&value["settings"])?;
+        Ok(metadata)
+    }
+
+    pub(super) fn into_success(
+        self,
+        source_files: BTreeMap<String, String>,
+        constructor_arguments: Option<Bytes>,
+        match_type: MatchType,
+    ) -> Result<Success, anyhow::Error> {
+        let mut compiler_settings: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&self.raw_settings)?;
+        compiler_settings.remove("compilationTarget");
+        let mut libraries: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+        for (name, address) in &self.settings.libraries {
+            let (file, library) = name.rsplit_once(':').unwrap_or(("", name.as_str()));
+            libraries
+                .entry(file.to_string())
+                .or_default()
+                .insert(library.to_string(), address.clone());
+        }
+        compiler_settings.insert("libraries".into(), serde_json::to_value(libraries)?);
+
+        let compiler_version = self.compiler.version;
+        let (file_name, contract_name) = self
             .settings
             .compilation_target
             .into_iter()
             .next()
             .ok_or_else(|| anyhow::Error::msg("compilation target not found"))?;
-        let evm_version = metadata.settings.evm_version;
-        let optimization = metadata.settings.optimizer.enabled;
-        let optimization_runs = metadata.settings.optimizer.runs;
-        let contract_libraries: BTreeMap<String, String> = metadata.settings.libraries;
-        let abi = serde_json::to_string(&metadata.output.abi)?;
+        let evm_version = self.settings.evm_version;
+        let optimization = self.settings.optimizer.enabled;
+        let optimization_runs = self.settings.optimizer.runs;
+        let contract_libraries: BTreeMap<String, String> = self.settings.libraries;
+        let abi = serde_json::to_string(&self.output.abi)?;
 
         Ok(Success {
             file_name,
@@ -99,13 +124,13 @@ impl TryFrom<(Files, MatchType)> for Success {
             compiler_version,
             evm_version,
             // TODO: extract args
-            constructor_arguments: None,
+            constructor_arguments,
             contract_libraries,
             optimization,
             optimization_runs,
             abi,
             sources: source_files,
-            compiler_settings: metadata.raw_settings,
+            compiler_settings: serde_json::to_string(&compiler_settings)?,
             match_type,
         })
     }
@@ -198,7 +223,7 @@ mod tests {
                 optimization_runs: Some(200),
                 abi: r#"[{"inputs":[],"name":"retrieve","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]"#.into(),
                 sources: BTreeMap::from([("source.sol".into(), "content".into())]),
-                compiler_settings: "{\"compilationTarget\":{\"example.sol\":\"Example\"},\"evmVersion\":\"london\",\"libraries\":{\"SafeMath\":\"0xFBe36e5cAD207d5fDee40E6568bb276a351f6713\"},\"optimizer\":{\"enabled\":false,\"runs\":200}}".to_string(),
+                compiler_settings: "{\"evmVersion\":\"london\",\"libraries\":{\"\":{\"SafeMath\":\"0xFBe36e5cAD207d5fDee40E6568bb276a351f6713\"}},\"optimizer\":{\"enabled\":false,\"runs\":200}}".to_string(),
                 match_type,
             }
         );

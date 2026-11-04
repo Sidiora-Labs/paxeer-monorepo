@@ -1,0 +1,36 @@
+[repair.22.33.1351]
+task = "22.33.1351"
+audit = "22.30.74"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+finding_ids = ["image-build-context"]
+strategy = "Retire the executable targets with the proposal's explicit inherited-tooling explanation."
+changed_source = "sdk/contrib/images/Makefile"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1351.py"
+verified_revision_source = "The successful verify row's revision in /out/run/gates.jsonl; hf-build and hf-done must name the same immutable candidate, which includes this record."
+private_evidence = "The final hf-done JSON provides the exact candidate revision, command, exit code and private log location; the runner retains and publishes the qualification receipt separately."
+
+[finding.image-build-context]
+proving_test = "tools/qualification/audit_repairs/test_repair_22_33_1351.py::test_image_build_context_retired"
+cases = ["all", "simd-env", "simd-dlv", "simd-rmi"]
+repair = "Every former entry point prints why the inherited images cannot build here, directs users to the root paxd build, and exits nonzero without building or removing images."
+source_proof = "The test parses every Makefile line, checks the default target and .PHONY names, rejects prerequisites and other executable make syntax, and checks that each recipe consists exclusively of literal stderr diagnostics followed by an unconditional nonzero exit."
+path_proof = "The default and explicit image target consumers now reach only the retirement diagnostic and failure; the Docker producer and its invalid sdk-root context are no longer invoked."
+review_only = "Both retained Dockerfiles describe upstream simd images, not supported paxd images. No Docker, Go, make, shell subprocess, image build, image runtime or main-line inventory sweep is qualified by this source-only gate. No shell script changed, and the gate needs only Python and pytest."
+wiring_requests = []
+wiring_basis = "The retirement alternative requires no out-of-path implementation. The existing root chain.mk paxd build is guidance, not a newly introduced image build."
+
+[baseline]
+gate_ledger = "No earlier hf-build/hf-done ledger existed at session start; the repair test module was absent."
+unchanged_verify = "Not run: the ordered implementation-first and hf-done-only gate instructions prohibit the conflicting do_5 request for an extra unchanged-tree verify. No pre-change test failure is claimed."
+source_observation = "The original Makefile ran docker build against sdk/ for both images and docker rmi with unconditional success for simd-rmi; the new source assertions reject those commands. This is inspection, not baseline execution evidence."
+
+[format]
+policy = "No formatter is configured for Python, Makefile or KVX in these paths; apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules, preserving Makefile recipe tabs."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline request conflicts with the explicit implementation-first order and exclusive hf-done verification gate."
+resolution = "Follow the ordered gates and report the baseline as unrun; keep this note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Broad ledger and audit context reads exceeded output limits; Codify brief also showed unrelated stale task context."
+resolution = "Use the exact task block, finding, source files, Git diff and private gate ledger for task decisions; no neighboring source or bookkeeping is edited."

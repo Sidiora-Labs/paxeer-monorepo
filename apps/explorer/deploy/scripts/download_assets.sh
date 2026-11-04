@@ -31,10 +31,13 @@ ASSETS_ENVS=(
 )
 
 # Create the assets directory if it doesn't exist
-mkdir -p "$ASSETS_DIR"
+if ! mkdir -p "$ASSETS_DIR"; then
+    echo "🛑 Error: unable to create assets directory $ASSETS_DIR." >&2
+    exit 1
+fi
 
-# Track failed downloads
-FAILED_DOWNLOADS=0
+# Collect every configured asset whose preparation failed.
+FAILED_ASSETS=()
 
 # Function to determine the target file name based on the environment variable
 get_target_filename() {
@@ -82,28 +85,36 @@ download_and_save_asset() {
     # Check if the environment variable is set
     if [ -z "${!env_var}" ]; then
         echo "   [.] $env_var: Variable is not set. Skipping download."
-        return 1
+        return 0
     fi
 
     # Check if the URL starts with "file://"
     if [[ "$url" == file://* ]]; then
         # Copy the local file to the destination
-        cp "${url#file://}" "$destination"
+        if ! cp "${url#file://}" "$destination"; then
+            echo "   [-] $env_var: Failed to copy to $destination." >&2
+            return 1
+        fi
     else
         # Check if the value is a URL
         if [[ "$url" == http* ]]; then
             # Download the asset using curl with built-in retries
             if ! curl -f -s --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 3 --retry-max-time 180 -o "$destination" "$url"; then
                 echo "   [-] $env_var: Failed to download from $url after 3 retry attempts (timeout or connection error)"
-                FAILED_DOWNLOADS=$((FAILED_DOWNLOADS + 1))
                 return 1
             fi
         else
             # Convert single-quoted JSON-like content to valid JSON
-            json_content=$(echo "${!env_var}" | sed "s/'/\"/g")
+            if ! json_content=$(printf '%s\n' "${!env_var}" | sed "s/'/\"/g"); then
+                echo "   [-] $env_var: Failed to prepare $destination." >&2
+                return 1
+            fi
 
             # Save the JSON content to a file
-            echo "$json_content" > "$destination"
+            if ! printf '%s\n' "$json_content" > "$destination"; then
+                echo "   [-] $env_var: Failed to write $destination." >&2
+                return 1
+            fi
         fi
     fi
 
@@ -113,26 +124,22 @@ download_and_save_asset() {
         local source_name="raw input"
     fi
 
-    # Check if the download was successful
-    if [ $? -eq 0 ]; then
-        echo "   [+] $env_var: Successfully saved file from $source_name to $destination."
-        return 0
-    else
-        echo "   [-] $env_var: Failed to save file from $source_name."
-        return 1
-    fi
+    echo "   [+] $env_var: Successfully saved file from $source_name to $destination."
+    return 0
 }
 
 # Iterate through the list and download assets
 for env_var in "${ASSETS_ENVS[@]}"; do
     url="${!env_var}"
-    filename=$(get_target_filename "$env_var")
-    download_and_save_asset "$env_var" "$url" "$filename"
+    if ! filename=$(get_target_filename "$env_var") ||
+       ! download_and_save_asset "$env_var" "$url" "$filename"; then
+        FAILED_ASSETS+=("$env_var")
+    fi
 done
 
 # Check if any downloads failed and exit with error code
-if [ $FAILED_DOWNLOADS -gt 0 ]; then
-    echo "🛑 Error: $FAILED_DOWNLOADS asset download(s) failed. The application cannot start."
+if [ "${#FAILED_ASSETS[@]}" -gt 0 ]; then
+    echo "🛑 Error: ${#FAILED_ASSETS[@]} asset preparation(s) failed: ${FAILED_ASSETS[*]}. The application cannot start." >&2
     exit 1
 fi
 

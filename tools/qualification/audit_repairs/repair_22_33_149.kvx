@@ -1,0 +1,46 @@
+[task.22.33.149]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Resolve mounted PWA assets and registration through production caching exports; seed the SID announcement through the same transactional push store as the running producer, refusing malformed input and storage failures and accepting only matching duplicate announcements."
+source_proof = "The Python module checks guarded release shell commands and failure propagation, production PWA and Next mount agreement, real manifest producer declarations and committed PNG headers/dimensions, mount stripping and path containment, registration checker expressions against the real registration consumer, generated worker filename, shared push-store loading, parser-before-mutation ordering, read/validate/mutate/write transaction ordering, queue and cross-process ownership lock source, corruption quarantine preserving bytes, atomic publication and duplicate/conflict branches preserving delivery state. These are source facts, not a translated or simulated store. bash -n is executed once by hf-build, not by pytest."
+review_only = "JavaScript and TypeScript execution, concurrent seeder/process operation, Vite module loading, browser installation/registration, fsync/crash durability and stop/reopen recovery are not executed by this Python-only source gate. Review establishes that the seeder calls the existing production writer rather than a second persistence implementation; the source tests assert the serialized update and duplicate-read paths, but do not claim runtime concurrency or recovery evidence. This task is not a restart-recovery finding. Existing store quarantine renames a corrupt primary while retaining its original bytes; seeding never replaces it with an empty campaign list. The full release script's existing CSP, scanner and Playwright gates are not run."
+baseline = "No pre-change verification was run: the explicit implementation-first order and prohibition on manually running verify_cmd supersede step 6's unchanged-tree baseline request. No baseline failures are claimed. Initial status/diff showed only runner-prepared .cgignore and spec task in_progress bookkeeping; both were preserved. The runner configuration recorded zero build/verify runs, two repair cycles available and no existing /out/run/gates.jsonl."
+build_cmd = "bash -n apps/wallet/scripts/release-check.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_149.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger record the exact verified content-derived candidate revision, command, exit and private log for acceptance 22998.1. Build and verification must pass on the same candidate revision. This record is finalized before the gates; embedding its own candidate hash would change that hash. The runner commits the result; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.release-basepath]
+audit = "22.30.116"
+file = "apps/wallet/scripts/release-check.sh"
+class = "test-gap"
+severity = "medium"
+change = "Export the PWA mount in caching.ts and derive the worker and shell URLs from it. Guard two focused checks in release-check.sh; load the actual PWA exports with the existing Vite loader, strip the mount before reading public icons, retain required manifest fields/icon combinations/dimensions, and inspect the registration import/call/scope and worker producer filename instead of requiring the obsolete /sw.js export."
+tests = ["test_release_basepath_guarded_commands_and_failure_propagation", "test_release_basepath_uses_production_exports_and_build_loader", "test_release_basepath_manifest_producer_and_committed_png_assets", "test_release_basepath_asset_resolution_and_validation_guards", "test_release_basepath_registration_checks_actual_producer_and_consumer"]
+
+[finding.campaign-overwrite]
+audit = "22.30.116"
+file = "apps/wallet/scripts/seed-sid-campaign.js"
+class = "runtime-risk"
+severity = "medium"
+change = "Load the production pushStore and parseCampaign, using its canonical PUSH_DATA_DIR/default and filesystem lock identity. Validate before addCampaign. Only the store's exact duplicate rejection can enter the idempotency path; reread and compare announcement fields, reject conflicting content, preserve server-managed delivery/claim/recipient fields, and propagate every other error to nonzero CLI exit. Remove all direct filesystem campaign reads/writes and empty-list fallbacks."
+tests = ["test_campaign_overwrite_uses_same_production_transactional_store", "test_campaign_overwrite_validates_before_any_mutation", "test_campaign_overwrite_failure_cannot_replace_corrupt_state", "test_campaign_overwrite_concurrent_updates_share_queue_and_file_lock", "test_campaign_overwrite_repeated_seed_preserves_delivery_state_and_conflicts_refuse"]
+
+[format]
+policy = "Use apps/wallet/.prettierrc for touched JS/TS/MJS. No shell, Python or KVX formatter is configured for these files; preserve repository UTF-8/LF/final-newline/trailing-whitespace conventions."
+
+[gotcha.1]
+observed = "The baseline clause and shell-parsing clause conflict with the explicit implementation-first and no-subprocess verification constraints."
+resolution = "No baseline execution is invented; hf-build alone executes bash -n and pytest checks the actual guarded commands without shell or Node subprocesses."
+
+[gotcha.2]
+observed = "Large root gotcha/audit ledger reads exceed tool output limits; guessed gate locations and lib/push paths do not exist."
+resolution = "Read task-specific ledger sections, command-discovered /out/run/bin wrappers, /out/run/gate.json and src/server/push-store.ts; record observations here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.3]
+observed = "apply_patch refuses simultaneous delete/add operations targeting the same existing file."
+resolution = "Rewrite that scoped file in place; the refused patch made no changes."
+
+[gotcha.4]
+observed = "The configured Prettier option jsxBracketSameLine is deprecated and npx reports an inherited verify-deps-before-run npm setting."
+resolution = "Use the existing formatting configuration unchanged; these are advisory formatter warnings, not gate failures. Only the changed caching declarations are range-formatted to preserve unrelated source."

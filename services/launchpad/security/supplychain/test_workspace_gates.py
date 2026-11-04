@@ -1,5 +1,7 @@
+import os
 import re
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -103,3 +105,51 @@ def test_test_module_target_runs_only_the_named_module():
     assert shlex.split(test_lines[0]) == [
         'cd', 'discovery', '&&', 'go', 'test', '-count=1', './...', '-run', '^TestX$',
     ]
+
+
+def test_package_discovery_error_fails_workspace_build(tmp_path):
+    root = Path(__file__).resolve().parents[4]
+    launchpad = root / 'services/launchpad'
+    fixture = Path(__file__).parent / 'fixtures/package_discovery'
+    module = tmp_path / 'discovery'
+    module.mkdir()
+    for source in fixture.iterdir():
+        shutil.copyfile(source, module / source.name.removesuffix('.fixture'))
+    shutil.copyfile(launchpad / 'Makefile', tmp_path / 'Makefile')
+    env = dict(os.environ, GOWORK='off', GOTOOLCHAIN='local', GOFLAGS='')
+
+    discovery = subprocess.run(
+        ['go', 'list', './...'], cwd=module, env=env,
+        check=False, capture_output=True, text=True,
+    )
+    assert discovery.returncode != 0
+    assert discovery.stdout == ''
+    assert 'found packages' in discovery.stderr
+
+    result = subprocess.run(
+        ['make', 'build', 'MODULES=discovery'], cwd=tmp_path, env=env,
+        check=False, capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    assert 'found packages' in result.stderr
+    assert 'package discovery failed for discovery' in result.stderr
+    assert '>> skip discovery' not in result.stdout
+    assert '>> build discovery' not in result.stdout
+
+
+def test_successful_empty_discovery_still_skips_workspace_build(tmp_path):
+    root = Path(__file__).resolve().parents[4]
+    fixture = Path(__file__).parent / 'fixtures/package_discovery/go.mod.fixture'
+    module = tmp_path / 'discovery'
+    module.mkdir()
+    shutil.copyfile(fixture, module / 'go.mod')
+    shutil.copyfile(root / 'services/launchpad/Makefile', tmp_path / 'Makefile')
+    env = dict(os.environ, GOWORK='off', GOTOOLCHAIN='local', GOFLAGS='')
+
+    result = subprocess.run(
+        ['make', 'build', 'MODULES=discovery'], cwd=tmp_path, env=env,
+        check=False, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '>> skip discovery (no packages)' in result.stdout
+    assert '>> build discovery' not in result.stdout
