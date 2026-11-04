@@ -172,6 +172,9 @@ fn sign(request: &Request<'_>, config: &Config, network: u32) -> Result<Option<[
         .ok_or(Error::Refused)?
         .try_into()
         .map_err(|_| Error::Refused)?;
+    if sender != request.from {
+        return Err(Error::Refused);
+    }
     let disclosure = bind_call(&call, sender).map_err(|_| Error::Refused)?;
     if wire::disclosure(&disclosure)? != request.disclosure {
         return Err(Error::Refused);
