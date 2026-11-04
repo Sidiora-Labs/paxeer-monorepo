@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::AdmissionEvidence;
-use layerx_programs_runtime::CapabilitySet;
+use layerx_programs_runtime::{
+    abi_policy::{capability_encoding, CapabilityEncoding},
+    CapabilitySet,
+};
 pub use layerx_proof::inclusion::SequencerAuthorization as ReceiptKey;
 use layerx_proof::inclusion::VerifiedBatchHeader;
 use layerx_proof::receipt::VerifiedReceipt;
@@ -970,12 +973,9 @@ fn call_capabilities(call: &[u8]) -> Result<CapabilitySet, ReplayError> {
         return Err(ReplayError::Authority);
     }
     let encoded = call.get(start..end).ok_or(ReplayError::Authority)?;
-    let capabilities = if abi == 1 {
-        CapabilitySet::decode_canonical(encoded)
-    } else if matches!(abi, 2 | 3 | 4) {
-        CapabilitySet::decode_v2_canonical(encoded)
-    } else {
-        return Err(ReplayError::Authority);
+    let capabilities = match capability_encoding(abi).map_err(|_| ReplayError::Authority)? {
+        CapabilityEncoding::V1 => CapabilitySet::decode_canonical(encoded),
+        CapabilityEncoding::V2 => CapabilitySet::decode_v2_canonical(encoded),
     }
     .map_err(|_| ReplayError::Authority)?;
     CapabilitySet::new(capabilities).map_err(|_| ReplayError::Authority)
