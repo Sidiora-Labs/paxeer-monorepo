@@ -40,7 +40,7 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
         to: bytes("000000000000000000000000000000000000101d")?
             .try_into()
             .map_err(|_| "invalid precompile address")?,
-        data: payload.clone(),
+        data: layerx_crypto::disclosure::call::encode_program_call(&native, 1000),
     }
     .sign(&[0x42; 32])?;
     let registry = ModuleRegistry::new(&[ModuleRegistration::new(
@@ -53,7 +53,16 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
         .map_err(|_| "binding failed")?;
     assert_eq!(bound.signed_activity(), signed);
     assert_eq!(bound.bound_activity_id(), transaction_hash(&signed));
-    assert_eq!(bound.bound_idempotency_key(), transaction_hash(&signed));
+    let mut digest = sha2::Sha256::new();
+    use sha2::Digest as _;
+    digest.update(b"layerxprograms/idempotency/v1");
+    digest.update(transaction_hash(&signed));
+    digest.update(0_u32.to_be_bytes());
+    digest.update([0x54, 0xbd, 0x2b, 0x48]);
+    assert_eq!(
+        bound.bound_idempotency_key(),
+        <[u8; 32]>::from(digest.finalize())
+    );
     assert!(NativeProgramCallRequest::new(&registry, native, 1000, &legacy).is_err());
     assert!(NativeProgramCallRequest::new(&registry, native, 999, &signed).is_err());
     assert!(NativeProgramCallRequest::new(
@@ -228,4 +237,13 @@ fn program_http_decodes_signed_program_calls_as_eip1559() -> Result<(), Box<dyn 
     assert_eq!(idempotency_key, request.bound_idempotency_key());
     assert_eq!(retained_signed_activity.as_deref(), Some(raw.as_slice()));
     Ok(())
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn public_native_constructor_reaches_transport_receipt_and_recovery() {
+    audit::program_constructors_share_live_abi_submit_retry_and_recovery();
 }

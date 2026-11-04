@@ -1,0 +1,71 @@
+[task.22.33.801]
+audit = "22.30.178"
+source_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+mode = "BUILD"
+implementation = "Repair findings 7-10 in the existing localnode scripts, with a Python standard-library coordinator and a shared shell context. The mounted repository supplies the helpers; no image, native build manifest or external service is changed."
+
+[baseline]
+working_tree = "Only runner-prepared .cgignore and spec task-status changes existed. Neither scoped repair file existed; gate.json recorded zero builds and verifications and /out/run/gates.jsonl was absent. Existing setup changes are preserved."
+verification = "Not run before implementation; no pre-change failed tests are claimed. The explicit implementation-first order and hf-done-only verification prohibition take precedence over the contradictory baseline instruction in step 8."
+
+[finding.7]
+file = "docker/localnode/scripts/deploy.sh"
+class = "runtime-risk"
+resolution = "Node zero exclusively creates a fresh run directory outside chain.mk clean's build/generated tree. Late nodes join matching metadata without deleting progress. Per-node init and launch results and failure records use atomic replacement; aggregate genesis/config inputs are published only after all init results. A single absolute startup deadline bounds joins, stages, genesis and cluster readiness. Every wait checks shared failures, and a failed or interrupted stage terminates its process group. Duplicate coordinators, duplicate node claims and run-ID reuse fail closed."
+tests = ["test_finding7_real_coordinator_late_join_and_reopen", "test_finding7_atomic_publication_and_failure_transport", "test_finding7_missing_coordinator_has_bounded_deadline", "test_finding7_run_and_context_mismatch_refused", "test_shell_sources_parse"]
+
+[finding.8]
+file = "docker/localnode/scripts/step0_build.sh"
+class = "wiring-gap"
+resolution = "Strict Bash propagates clean/build/version failures and an EXIT trap publishes the explicit build failure. Clean must remove the old executable; both build modes are checked. A regular, nonsymlink executable must answer version before an atomic run-owned executable snapshot and build.complete publication. The coordinator serializes builds across runs and releases only its own lock. Explicit SKIP_BUILD validates and snapshots the selected prebuilt executable and does not claim a fresh compilation."
+tests = ["test_finding8_build_guard_commands_and_atomic_snapshot", "test_shell_sources_parse"]
+
+[finding.9]
+file = "docker/localnode/scripts/step1_configure_init.sh"
+class = "security"
+resolution = "Require LOCALNODE_DISPOSABLE=1 and a fresh safe run ID; force the development chain pax. Each node uses a newly allocated mode-0700 temporary private home, never an operator's existing home. Shared export directories are mode 0700 and stay empty: operator private-key export and downstream export copying are removed. Local benchmark seeds go into the temporary private directory and are removed with the keyring on normal exit or handled failure. The known development passphrase is confined to these explicitly disposable identities."
+tests = ["test_finding9_disposable_context_required", "test_finding9_private_home_checked_cleanup", "test_finding9_no_plaintext_export_and_real_consumers_use_private_home", "test_shell_sources_parse"]
+cleanup = "Before any shared deployment: stop all local nodes; discard their disposable identities, old container homes and volumes; remove historical build/generated/exported_keys, ~/exported_keys and ~/test_accounts; check test ! -e on each historical path in every old container and verify no /tmp/pax-localnode-* directory remains. SIGKILL or host loss can bypass finally cleanup, so check and remove those directories explicitly. Never reuse these local credentials for a shared deployment; use the owning deployment's managed-key workflow. No cleanup command is executed against operator data by this task."
+
+[finding.10]
+file = "docker/localnode/scripts/step5_start_pax.sh"
+class = "wiring-gap"
+resolution = "The start wrapper execs a supervisor that owns paxd, checks process survival and loopback /status chain identity pax, catching_up=false and positive height before atomically publishing launch.<node>.complete. Readiness acquisition is deadline-bounded; health is checked continuously after launch. Process exit, chain mismatch, lost readiness, interruption or another node's failure revokes the marker, publishes failure, terminates the daemon and exits to deploy. Deploy waits for every node's marker and checks its supervisor before announcing cluster success."
+tests = ["test_finding10_readiness_drives_chain_and_sync_consumer", "test_finding10_supervision_revokes_launch_and_notifies_deploy", "test_finding10_live_peer_health_loss_revokes_success", "test_finding10_not_ready_is_bounded_and_early_exit_is_failure", "test_finding10_shell_supervisor_and_rpc_config_are_wired", "test_shell_sources_parse"]
+
+[proof]
+executed_by_verify = "Pytest parses every touched shell with bash -n; checks guarded clean/build/version/snapshot ordering, failure publication and producer/consumer script paths; imports the actual production runtime and exercises exclusive coordination, late joins, actual init-result publication and reopened consumer recovery, atomic replacement under concurrent reads, shared failure transport, deadline refusal, build-lock exclusivity and missing-executable refusal, private-directory permissions and cleanup on success/failure. Actual loopback HTTP servers drive the production status parser and health monitor through ready, catching-up, zero-height, wrong-chain, early-exit, deadline and health-loss cases; the real deploy consumer reads and rejects the supervisor's persisted results. The RPC TOML and repair KVX are parsed, and every finding maps to declared tests."
+review_only = "No native paxd or benchmark-ops binary is built or launched; no make, Go, Rust, Docker, jq or shell deployment stage executes. Successful native compilation, version output, genesis/key CLI compatibility, process-group termination of a native daemon and complete multi-container startup remain source-review facts. Bash subprocesses perform syntax parsing only, as explicitly required. Loopback peers are protocol fixtures, not native daemon replacements. Reopening the actual filesystem consumer proves persisted coordination state, not recovery of a native chain database."
+path_scope = "step2_genesis.sh, step3_add_validator_to_genesis.sh and step4_config_override.sh change only as necessary to consume the run-specific shared directory and private home, remove the old export consumer, preserve empty single-node peers under strict error handling and keep snapshot paths absolute."
+
+[wiring.compose]
+request = "docker/docker-compose.yml | owning domain 16 (tools/ops): pass explicit LOCALNODE_DISPOSABLE=1 and the same freshly generated LOCALNODE_RUN_ID to every node; restrict published local RPC/API ports to host loopback before using these disposable credentials."
+
+[wiring.launcher]
+request = "chain.mk | owning domain 16 (tools/ops): generate and export a fresh per-invocation LOCALNODE_RUN_ID, convey explicit disposable-local consent to Compose, and document that restarting a deployment requires a fresh run ID."
+
+[evidence]
+build_command = "hf-build -> bash -n docker/localnode/scripts/deploy.sh docker/localnode/scripts/step0_build.sh docker/localnode/scripts/step1_configure_init.sh docker/localnode/scripts/step5_start_pax.sh"
+verify_command = "hf-done -> cg spec done 22.33.801 -f layerx-merge --root /work/paxeer-monorepo -> python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_801.py"
+ledger = "/out/run/gates.jsonl"
+revision_binding = "The final hf-done JSON and private ledger bind this record and its tests to the exact content-derived verified revision, command, exit code and private log. Build and verify must refer to that same candidate. Embedding this record's own candidate hash would change the hash; the runner retains the exact evidence and publishes the task. No manual commit or push."
+stop = "Passing hf-done, two spent repair cycles or the externally enforced wall clock; no aggregate or manual verification runs."
+
+[format]
+policy = "No shell, Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions to touched files after full implementation."
+
+[gotcha.1]
+observed = "The historical baseline-test instruction contradicts the explicit implementation-first and exclusive hf-done order."
+resolution = "Follow the explicit order and claim no baseline test result; keep notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "chain.mk clean deletes build/generated, so putting run coordination underneath that legacy tree would erase its own state."
+resolution = "Use build/localnode-runs/<fresh-id> and pass that exact path to every producer and consumer; serialize the shared build output."
+
+[gotcha.3]
+observed = "Private-home and absolute run-path plumbing also affects the existing genesis, validator and config consumers; strict pipe handling makes grep's empty single-node peer result fail."
+resolution = "Update only those transport paths and the removed export consumer; select peers with awk, which permits a legitimately empty peer list."
+
+[gotcha.4]
+observed = "Broad initial reads exceeded output limits, and neighbouring example repair files with guessed task IDs were absent."
+resolution = "Use bounded reads of the exact task, findings and available source paths; no missing example is required for implementation."

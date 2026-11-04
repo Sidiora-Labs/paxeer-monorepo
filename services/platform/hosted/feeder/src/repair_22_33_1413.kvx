@@ -1,0 +1,12 @@
+[repair.22.33.1413]
+audit = "22.30.79"
+acceptance = "22998.1"
+evidence = "The bounded hf-build and hf-done records identify the verified candidate revision, command, exit code and private log; the runner retains those records."
+baseline = "No pre-change verification was run: the task's explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand. No baseline failure is claimed."
+wiring_requests = ["services/platform/hosted/paxeer/Cargo.toml and services/platform/Cargo.toml: domain 8 (fm-platform) must reconcile the missing paxeer member manifest with the workspace membership before the declared feeder gates can run."]
+resolved_wiring = "22.31.465 restored services/platform/hosted/paxeer/Cargo.toml; the manifest is present at base cfe99ca0f6e389c490375eed57c49af7d14b30b8, so the historical wiring request is resolved."
+prior_qualification = "Previous attempt candidate 1b4f39caf56d2521b723366f367a3eec4d911a2e failed cargo build --locked --manifest-path services/platform/hosted/feeder/Cargo.toml --tests while loading the missing services/platform/hosted/paxeer/Cargo.toml; no tests ran and no successful verification is claimed."
+
+[finding.030]
+tests = ["finding_030_ascii_hex_pairs_are_validated_explicitly", "finding_030_non_ascii_hex_returns_errors_without_panicking", "finding_030_rpc_sender_binding_rejects_unicode_and_continues"]
+repair = "The production hex codec decodes ASCII byte pairs with explicit hexadecimal validation and returns errors for Unicode instead of slicing UTF-8 strings. A loopback JSON-RPC peer verifies real sender-binding requests, serves malformed ABI words through the production transport and decoder, and proves subsequent valid bindings succeed."
