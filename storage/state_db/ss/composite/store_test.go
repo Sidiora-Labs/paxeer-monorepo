@@ -1,6 +1,7 @@
 package composite
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -11,12 +12,16 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
+	commonerrors "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/errors"
 	commonevm "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv"
+	flatconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/ktype"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/vtype"
+	sctypes "github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/ss/evm"
 	"github.com/stretchr/testify/require"
 )
@@ -1515,4 +1520,162 @@ func TestCompositeIteration_SeparateDBs_EVMSplit(t *testing.T) {
 	iter.Next()
 	require.True(t, iter.Valid())
 	require.Equal(t, v1Key, iter.Key())
+}
+
+// Full snapshot evidence uses bytes emitted by FlatKV, including opaque keys
+// that collide exactly with every optimized EVM family.
+func repairM1094FlatKVSnapshot(t *testing.T, evmNodes int) (int64, []types.SnapshotNode, []types.SnapshotNode) {
+	t.Helper()
+	cfg := flatconfig.DefaultTestConfig(t)
+	producer, err := flatkv.NewCommitStore(t.Context(), cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, producer.Close()) })
+	_, err = producer.LoadVersion(0, false)
+	require.NoError(t, err)
+	var changesets []*proto.NamedChangeSet
+	var expected []types.SnapshotNode
+	for _, module := range []string{"bank", "staking", "auth"} {
+		cs := &proto.NamedChangeSet{Name: module}
+		for _, length := range []int{21, 53} {
+			for _, prefix := range []byte{0x03, 0x07, 0x08, 0x0a} {
+				key := bytes.Repeat([]byte{0xab}, length)
+				key[0] = prefix
+				value := append([]byte{0x00, 0xff, byte(length), prefix}, []byte(module)...)
+				cs.Changeset.Pairs = append(cs.Changeset.Pairs, &proto.KVPair{Key: key, Value: value})
+				expected = append(expected, types.SnapshotNode{StoreKey: module, Key: key, Value: value})
+			}
+		}
+		changesets = append(changesets, cs)
+	}
+	evmCS := &proto.NamedChangeSet{Name: "evm"}
+	for i := 0; i < evmNodes; i++ {
+		key := []byte(fmt.Sprintf("\x15snapshot/%06d", i))
+		value := []byte{0x00, byte(i), 0xff}
+		evmCS.Changeset.Pairs = append(evmCS.Changeset.Pairs, &proto.KVPair{Key: key, Value: value})
+		expected = append(expected, types.SnapshotNode{StoreKey: "evm", Key: key, Value: value})
+	}
+	changesets = append(changesets, evmCS)
+	require.NoError(t, producer.ApplyChangeSets(changesets))
+	version, err := producer.Commit()
+	require.NoError(t, err)
+	for _, node := range expected {
+		value, found := producer.Get(node.StoreKey, node.Key)
+		require.True(t, found)
+		require.Equal(t, node.Value, value)
+	}
+	exporter, err := producer.Exporter(version)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, exporter.Close()) })
+	header, err := exporter.Next()
+	require.NoError(t, err)
+	require.Equal(t, commonevm.FlatKVStoreKey, header)
+	var exported []types.SnapshotNode
+	for {
+		item, err := exporter.Next()
+		if err != nil {
+			require.ErrorIs(t, err, commonerrors.ErrorExportDone)
+			break
+		}
+		node, ok := item.(*sctypes.SnapshotNode)
+		require.True(t, ok, "unexpected export item %T", item)
+		exported = append(exported, types.SnapshotNode{StoreKey: commonevm.FlatKVStoreKey, Key: bytes.Clone(node.Key), Value: bytes.Clone(node.Value)})
+	}
+	require.Len(t, exported, len(expected))
+	require.NoError(t, exporter.Close())
+	return version, exported, expected
+}
+
+func repairM1094FlatKVRoundTrip(t *testing.T) {
+	t.Helper()
+	version, exported, expected := repairM1094FlatKVSnapshot(t, 4)
+	for _, mode := range []struct{ split, separate bool }{{false, false}, {true, false}, {true, true}} {
+		t.Run(fmt.Sprintf("split=%t/separate=%t", mode.split, mode.separate), func(t *testing.T) {
+			dir := t.TempDir()
+			cfg := repairM1094Config(dir, mode.separate)
+			cfg.EVMSplit = mode.split
+			store, err := NewCompositeStateStore(cfg, dir)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, store.Close()) })
+			transport := make(chan types.SnapshotNode, len(exported))
+			for _, node := range exported {
+				transport <- node
+			}
+			close(transport)
+			require.NoError(t, store.Import(version, transport))
+			require.NoError(t, store.SetLatestVersion(version))
+			require.NoError(t, store.SetEarliestVersion(version, false))
+			require.NoError(t, store.Close())
+			store, err = NewCompositeStateStore(cfg, dir)
+			require.NoError(t, err)
+			require.Equal(t, version, store.GetLatestVersion())
+			for _, node := range expected {
+				value, err := store.Get(node.StoreKey, version, node.Key)
+				require.NoError(t, err)
+				require.Equal(t, node.Value, value, "module=%s key=%x", node.StoreKey, node.Key)
+				if node.StoreKey != "evm" {
+					value, err := store.Get("evm", version, node.Key)
+					require.NoError(t, err)
+					require.Nil(t, value, "opaque key leaked out of %s", node.StoreKey)
+				}
+			}
+			for _, module := range []string{"bank", "staking", "auth", "evm"} {
+				var want []repairM1094Row
+				for _, node := range expected {
+					if node.StoreKey == module {
+						want = append(want, repairM1094Row{string(node.Key), string(node.Value), version})
+					}
+				}
+				require.ElementsMatch(t, want, repairM1094Raw(t, store, module))
+			}
+		})
+	}
+}
+
+func repairM1094FlatKVImportFailure(t *testing.T) {
+	t.Helper()
+	// More than both routing buffers combined, sent over an unbuffered transport.
+	version, exported, _ := repairM1094FlatKVSnapshot(t, 600)
+	for _, separate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("separate=%t", separate), func(t *testing.T) {
+			dir := t.TempDir()
+			cfg := repairM1094Config(dir, separate)
+			store, err := NewCompositeStateStore(cfg, dir)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, store.Close()) })
+			require.NoError(t, store.evmStore.Close())
+			transport := make(chan types.SnapshotNode)
+			producerDone := make(chan int, 1)
+			stopProducer := make(chan struct{})
+			defer close(stopProducer)
+			go func() {
+				defer close(transport)
+				count := 0
+				defer func() { producerDone <- count }()
+				for _, node := range exported {
+					select {
+					case transport <- node:
+						count++
+					case <-stopProducer:
+						return
+					}
+				}
+			}()
+			result := make(chan error, 1)
+			go func() { result <- store.Import(version, transport) }()
+			select {
+			case err := <-result:
+				require.ErrorContains(t, err, "EVMStateStore")
+				require.ErrorContains(t, err, "closed")
+			case <-time.After(5 * time.Second):
+				t.Fatal("real EVM importer refusal blocked snapshot routing")
+			}
+			select {
+			case count := <-producerDone:
+				require.Equal(t, len(exported), count, "router must drain the producer after backend refusal")
+			case <-time.After(5 * time.Second):
+				t.Fatal("snapshot producer remained blocked after import returned")
+			}
+			require.NoError(t, store.Close())
+		})
+	}
 }
