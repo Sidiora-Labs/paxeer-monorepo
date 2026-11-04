@@ -1,0 +1,38 @@
+[repair.22.33.157]
+audit = "22.30.117"
+status = "partial: findings 6 and 7 remain open"
+baseline = "Not run: the explicit task order prohibits testing before full implementation and permits verification only through hf-done after hf-build; no baseline failure is claimed."
+evidence = "Only the runner hf-build/hf-done ledger identifies the tested candidate revision, exact command, exit code and private log. A passing focused gate does not prove the two unresolved committed-execution findings closed."
+
+[finding.12]
+repair = "Count references before waiting for a keyed mutex, and remove the map entry only after its last holder or waiter releases."
+tests = ["TestRepairM_157_RejectedKeyLocksAreReclaimed", "TestRepairM_157_SameKeyHoldersAndWaitersShareLock"]
+
+[finding.11]
+repair = "Serve applies a configurable APIReadTimeout, defaulting to 15 seconds, independently of ProtocolTimeout and without an execution write deadline."
+tests = ["TestRepairM_157_BodyReadDeadlineAndProtocolBudget"]
+
+[finding.8]
+repair = "A real three-of-five EVM signature consumes the entire daily cap. Changed nonce, recipient and both are refused under the original and fresh credentials by two different signing quorums before expiry, after actual transport expiry and after every member stops and reopens; durable spend and request totals remain unchanged."
+tests = ["TestRepairM_157_ChangedTransactionRetainsSessionIdentity"]
+
+[finding.6]
+status = "open"
+proving_test = "None: existing acceptKernelSend still injects Apply/Announce directly and cannot establish committed execution."
+observed = "The production server has no committed-receipt ingestion interface; internal/policy/lx/repair_242.kvx already records the missing server and store wiring."
+wiring = "services/wallet/attestor/internal/store (owning domain 12): expose atomic committed-transaction/cursor, debit identity, original timestamp and pending-replication persistence alongside the ledger, as requested by repair_242.kvx."
+
+[finding.7]
+status = "open"
+proving_test = "None: the existing quorum completion test delegates to the same direct ledger-injection helper."
+observed = "The real node kernel host in modules/lxphost/host.go links native libraries, which the declared Go-only repair gate expressly prohibits requiring; no committed-send node fixture or production receipt consumer is provided."
+wiring = "modules/lxphost (owning domain 1): provide a committed native-send submission/receipt transcript or in-process interface usable by the attestor gate without native artifacts; the server must then implement authenticated receipt consumption before either finding can be closed."
+
+[gotcha.scope]
+observed = "The requested unchanged-tree baseline conflicts with the explicit implementation-first gate order, and GOTCHA.kvx/spec edits are outside the allowed scope."
+action = "Follow the explicit gate order and retain this scoped record; do not claim a baseline run, modify the root ledgers, or fabricate committed receipts."
+
+[gotcha.qualification]
+observed = "The first focused run passed every same-session invariant but failed an extra final request-count assertion placed after distinct fresh-session policy refusals; Policy.Evaluate deliberately records such requests before checking daily caps."
+action = "Assert unchanged request and spend totals immediately after the reused-session cases, then separately assert exact per-member counts for fresh refused sessions and unchanged spend."
+evidence = "e0f10a53cc50f82b3fec6a6339e0fdd0f8e22a67; cg spec done 22.33.157 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"

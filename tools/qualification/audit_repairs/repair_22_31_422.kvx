@@ -1,0 +1,29 @@
+[task.22.31.422]
+audit = "22.30.172"
+finding = "mint-output-flags"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+repair = "Use --output json for every minter query. Guard all eight minter pipelines and the bank total pipeline with pipefail, jq -e and command substitution followed by conditional printf: publish a captured value only when both the query and jq succeed. Keep raw jq output, bank monochrome output, the uhpx supply selector, the sleep, environment bindings and every existing denom/date/amount/height/supply assertion."
+proofs = ["test_mint_output_flags_preserves_entire_scenario", "test_mint_output_flags_guards_query_and_jq", "test_mint_output_flags_registered_producer_transport_and_fields", "test_mint_output_flags_real_consumer_accepts_integer_strings", "test_mint_output_flags_real_consumer_rejects_failed_capture", "test_mint_output_flags_real_consumer_rejects_wrong_value", "test_mint_output_flags_record_names_proofs_and_limits"]
+source_proof = "The production Python runner loads the repaired YAML. Tests check all nine guarded pipelines with an exact shell grammar and shlex, require --output json and jq -er, and preserve every original verifier, binding, input order and sleep. Producer/transport source checks bind the registered minter command and string output flag to the gRPC keeper's direct QueryMinterResponse, all eight protobuf and generated Go fields, PrintProto JSON serialization and the codec's original field names and emitted zero defaults. No shell script is changed or introduced; shell command strings are checked without a subprocess."
+consumer_proof = "Execute the existing Python TestRunner.verify_result on the unchanged YAML verifiers with explicit consumer unit inputs, including decimal integer strings and a zero height. Independently reject an empty captured value and an incorrect value for every binding, including a one-unit change at the full 22-digit supply precision. Consumer unit inputs are not represented as producer-emitted transcripts or an end-to-end CLI exchange. No alternative runner, query command, jq interpreter or fake executable is implemented."
+review_only = "Go CLI/keeper execution, Bash pipeline execution, jq parsing/extraction, Docker transport and live-chain mint/supply execution are not executed by this Python-only gate. Their actual producer-to-consumer runtime exchange remains unproven: executing the repaired shell and Go sides requires external binaries/native artifacts prohibited by the task. The gate proves the interface declarations and guarded source facts, plus the real Python consumer's verifier behavior, rather than claiming a runtime end-to-end result."
+baseline = "No pre-change verification was run: the explicit order requires complete implementation before testing, hf-build before hf-done and forbids running verify_cmd by hand. No pre-change failed test is claimed. Initial status contained only runner-prepared .cgignore and spec task-start bookkeeping, with no repair implementation or prior gate ledger; those setup changes are preserved untouched."
+evidence = "The final hf-done JSON and runner private gate ledger name the exact verified candidate revision, command, exit and log location. The runner publishes the task; no commit or push is performed here, and no source changes after verification to insert its own candidate revision."
+candidate_hygiene = "Use PYTHONDONTWRITEBYTECODE=1 for hf-build and hf-done so importing the production Python consumer does not create compiled files in the candidate; the declared gate commands and all assertions remain unchanged."
+wiring_requests = []
+
+[gotcha.1]
+symptom = "The requested pre-change verify conflicts with the explicit implementation-first gate order and single-run budget."
+resolution = "Follow the explicit order and record no baseline result; root GOTCHA.kvx and spec qualification files are outside the permitted scope, so task-specific observations live here."
+
+[gotcha.2]
+symptom = "Both integration runners discard command exit statuses, so pipefail alone can leave valid-looking captured stdout after a failed CLI invocation."
+resolution = "Capture the whole pipefail-protected query/jq pipeline and print only on success; jq -e rejects missing/null results, and every unchanged consumer assertion rejects empty capture. No out-of-path runner change is required."
+
+[gotcha.3]
+symptom = "Full Go producer, shell transport and jq execution would require external binaries, while this task explicitly limits qualification to a Python-only gate without them."
+resolution = "Check the real interface and guard declarations and execute the real Python verifier in-process; explicitly retain runtime exchange as unproven, without a replacement implementation or invented producer recording."
+
+[gotcha.4]
+symptom = "Exploratory source searches initially used absent x/mint, proto and docker/localnode/scripts/step0_genesis.sh paths, and large combined read output was truncated."
+resolution = "Read modules/mint, api/mint/v1beta1 and sdk/client directly, retrieve relevant bounded sections and keep gate output intact. No files were changed by those reads."

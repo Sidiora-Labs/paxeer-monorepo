@@ -19,7 +19,7 @@ import { enrichRecord } from '@/lib/bridge/enrich';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { foreignTxUrl, paxeerTxUrl } from '@/lib/bridge/explorer';
 import { historyStatusOf, phaseOf, stepOf } from '@/lib/bridge/phase';
-import { settlementPatch } from '@/lib/bridge/settlement';
+import { settlementBroadcastPatch, settlementPatch } from '@/lib/bridge/settlement';
 import {
   listTransfers,
   updateTransfer,
@@ -36,6 +36,8 @@ import {
   buildVerifiedRelease,
   decodeTransferLive,
   readTransferLive,
+  resolveWithdrawalVault,
+  settledRefusal,
 } from './transfer-actions';
 
 function sourceChainIdOf(transfer: BridgeTransfer): number | undefined {
@@ -47,7 +49,12 @@ function sourceChainIdOf(transfer: BridgeTransfer): number | undefined {
 async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]> {
   let changed = false;
   const next: BridgeTransfer[] = [];
-  for (const transfer of list) {
+  for (const stored of list) {
+    const transfer = await resolveWithdrawalVault(stored);
+    if (transfer !== stored) {
+      updateTransfer(transfer.id, { vault: transfer.vault });
+      changed = true;
+    }
     const needsLogIndex = transfer.direction === 'in' && transfer.logIndex === undefined;
     const needsNonce = transfer.direction === 'out' && transfer.bridgeOutNonce === undefined;
     const chainId = sourceChainIdOf(transfer);
@@ -86,12 +93,14 @@ export function transferListOptions(address: BridgeTransfer['account'] | undefin
 }
 
 export function transferLiveOptions(transfer: BridgeTransfer) {
-  const settledLocally =
-    (transfer.direction === 'in' && (transfer.claimTxHash !== undefined || transfer.claimedAt !== undefined)) ||
-    (transfer.direction === 'out' && transfer.releaseTxHash !== undefined);
   return queryOptions({
-    queryKey: [ 'transfer-live', transfer.id, settledLocally ],
-    queryFn: () => readTransferLive(transfer),
+    queryKey: [ 'transfer-live', transfer.id, transfer.claimTxHash, transfer.releaseTxHash ],
+    queryFn: async() => {
+      const live = await readTransferLive(transfer);
+      const patch = settlementPatch(transfer, live, Date.now());
+      if (patch) updateTransfer(transfer.id, patch);
+      return live;
+    },
     select: decodeTransferLive,
   });
 }
@@ -154,49 +163,44 @@ function TransferRow({
   const walletChainId = useChainId();
   const { switchChain } = useSwitchChain();
   const settle = useWriteContract();
-  const [ settleHash, setSettleHash ] = useState(transfer.claimTxHash ?? transfer.releaseTxHash);
-
-  const settledLocally =
-    (transfer.direction === 'in' && (transfer.claimTxHash !== undefined || transfer.claimedAt !== undefined)) ||
-    (transfer.direction === 'out' && transfer.releaseTxHash !== undefined);
-
   const liveQuery = useQuery({
     ...transferLiveOptions(transfer),
-    enabled: !settledLocally,
     refetchInterval: 15_000,
   });
   const live = liveQuery.data;
-  const nullified = useDepositNullified(settledLocally ? undefined : transfer);
-  const credited = settledLocally || nullified.data === true || live?.credited === true;
+  const nullified = useDepositNullified(transfer);
+  const credited = nullified.data === true || live?.credited === true;
+  const released = live?.released === true;
 
   const depositAttestation = useQuery(depositAttestationOptions(transfer, credited));
-  const releaseAttestation = useQuery(releaseAttestationOptions(transfer, settledLocally));
+  const releaseAttestation = useQuery(releaseAttestationOptions(transfer, released));
   const attestation = transfer.direction === 'in' ? depositAttestation.data : releaseAttestation.data;
   const attestationReady = attestation?.status === 'ready' && attestation.signatures.length > 0;
 
-  const phase = phaseOf({ ...transfer, claimTxHash: credited ? (transfer.claimTxHash ?? settleHash) : transfer.claimTxHash }, live, attestationReady);
+  const phase = phaseOf(transfer, live ? { ...live, credited } : undefined, attestationReady);
 
   // Persist a claim the chain already knows about (claimed from elsewhere).
   useEffect(() => {
-    const patch = settlementPatch(transfer, { credited }, Date.now());
+    const patch = settlementPatch(transfer, live ? { ...live, credited } : undefined, Date.now());
     if (patch) {
       updateTransfer(transfer.id, patch);
       onChanged();
     }
-  }, [ credited, onChanged, transfer ]);
+  }, [ credited, live, onChanged, transfer ]);
 
   const settleChainId = transfer.direction === 'in' ? paxeer.id : chain?.viemChain?.id;
   const onSettleChain = settleChainId !== undefined && walletChainId === settleChainId;
 
   const runSettle = async() => {
     try {
+      const refusal = settledRefusal(transfer, await readTransferLive(transfer));
+      if (refusal) throw new Error(refusal);
       if (transfer.direction === 'in') {
         if (!depositAttestation.data) throw new Error('The attestation is not available yet.');
         const { request } = await buildVerifiedClaim(transfer, depositAttestation.data);
         settle.writeContract(request, {
           onSuccess: (hash) => {
-            setSettleHash(hash);
-            updateTransfer(transfer.id, { claimTxHash: hash, claimedAt: Date.now() });
+            updateTransfer(transfer.id, settlementBroadcastPatch(transfer, hash, Date.now()));
             toast.success('Claim submitted', { description: 'The bridged balance lands once the Paxeer transaction confirms.' });
             onChanged();
           },
@@ -207,8 +211,7 @@ function TransferRow({
         const { request } = await buildVerifiedRelease(transfer, releaseAttestation.data);
         settle.writeContract(request, {
           onSuccess: (hash) => {
-            setSettleHash(hash);
-            updateTransfer(transfer.id, { releaseTxHash: hash, releasedAt: Date.now() });
+            updateTransfer(transfer.id, settlementBroadcastPatch(transfer, hash, Date.now()));
             toast.success('Release submitted', { description: `The vault pays out on ${ chain?.label ?? 'the foreign chain' } once it confirms.` });
             onChanged();
           },
@@ -258,11 +261,17 @@ function TransferRow({
           <Spinner className="size-3"/> Waiting for the attestor threshold…
         </p>
       ) : null}
-      {phase === 'ready' ? (
+      {phase === 'settling' ? (
+        <p className="px-1 text-[11px] text-muted-foreground">Settlement broadcast. Waiting for a committed receipt and the bridge nullifier. You can retry if the transaction was dropped or replaced.</p>
+      ) : null}
+      {live?.settlementStatus === 'reverted' || live?.settlementStatus === 'dropped' ? (
+        <p className="px-1 text-[11px] text-destructive">The settlement attempt {live.settlementStatus}. Retry to submit another attempt.</p>
+      ) : null}
+      {(phase === 'ready' || phase === 'settling') && attestationReady ? (
         onSettleChain ? (
           <Button size="sm" className="self-start" disabled={settle.isPending} onClick={() => void runSettle()}>
             {settle.isPending ? <Spinner/> : null}
-            {transfer.direction === 'in' ? 'Claim on Paxeer' : `Release on ${ chain?.label ?? 'destination' }`}
+            {transfer.claimTxHash || transfer.releaseTxHash ? 'Retry settlement' : transfer.direction === 'in' ? 'Claim on Paxeer' : `Release on ${ chain?.label ?? 'destination' }`}
           </Button>
         ) : (
           <Button
@@ -297,16 +306,13 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
   const liveQueries = useQueries({
     queries: transfers.map((transfer) => ({
       ...transferLiveOptions(transfer),
-      enabled: false,
+      refetchInterval: 15_000,
     })),
   });
 
   const records = transferHistoryRecords(transfers, liveQueries.map((query) => query.data));
 
-  const pending = transfers.filter(
-    (t) =>
-      !((t.direction === 'in' && (t.claimTxHash || t.claimedAt !== undefined)) || (t.direction === 'out' && t.releaseTxHash)),
-  );
+  const pending = transfers.filter((transfer, index) => phaseOf(transfer, liveQueries[index]?.data, false) !== 'settled');
 
   return (
     <section id="transfers" aria-label="Your bridge transfers" className="flex w-full flex-col gap-4">
