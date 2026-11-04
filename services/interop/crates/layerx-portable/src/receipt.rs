@@ -193,6 +193,7 @@ impl PortableReceiptV2 {
             inclusion_height: encode_quantity(inclusion_height),
             raw_transaction: None,
         };
+        portable.encode_json()?;
         portable.verify_v2(std::slice::from_ref(receipt_key))?;
         Ok(portable)
     }
@@ -213,6 +214,7 @@ impl PortableReceiptV2 {
         }
         let mut portable = Self::export(signed_receipt, receipt_key, inclusion_height)?;
         portable.raw_transaction = Some(encode_hex(raw_transaction));
+        portable.encode_json()?;
         portable.verify_v2(std::slice::from_ref(receipt_key))?;
         Ok(portable)
     }
@@ -239,7 +241,15 @@ impl PortableReceiptV2 {
     /// Returns a field or encoding refusal.
     pub fn to_json(&self) -> Result<Vec<u8>, PortableReceiptError> {
         self.decode_fields()?;
-        serde_json::to_vec(self).map_err(|_| PortableReceiptError::JsonShape)
+        self.encode_json()
+    }
+
+    fn encode_json(&self) -> Result<Vec<u8>, PortableReceiptError> {
+        let bytes = serde_json::to_vec(self).map_err(|_| PortableReceiptError::JsonShape)?;
+        if bytes.len() > MAX_JSON_BYTES {
+            return Err(PortableReceiptError::JsonBounds);
+        }
+        Ok(bytes)
     }
 
     /// Verifies the signed receipt offline against the pinned `ReceiptKeys`

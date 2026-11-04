@@ -1,0 +1,9 @@
+[repair.22.31.289]
+audit = "22.30.165"
+finding = "cache-unbounded-end"
+proposal = "Use the same nil-aware key-domain predicate for SDK iteration and both cache enumeration implementations; retain cached tombstone merging."
+tests = ["TestRepair_289_RangeMerge", "TestRepair_289_DeleteAll", "TestRepair_289_PrefixDeleteAll"]
+proof = "Real SDK and engine caches over dbadapter and tm-db MemDB prove pending inserts, overwrites, deletions, restored keys, nil and finite bounds, high byte keys, nested Write isolation, range deletion and prefix translation; SDK enumeration agrees with forward and reverse iterators."
+baseline = "Not run: the explicit gate order requires complete implementation before qualification and forbids invoking verify_cmd manually; no pre-change test failure is claimed. The engine nil-end guard was already present in the starting tree."
+wiring_requests = []
+evidence = "The bounded hf-build/hf-done ledger records the verified candidate revision, command, exit code and private log location; the final task response copies the last gate evidence."

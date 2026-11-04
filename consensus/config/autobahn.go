@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -117,6 +118,9 @@ func (fc *AutobahnFileConfig) ConsensusPersistentStateDir() (utils.Option[string
 func (fc *AutobahnFileConfig) Validate() error {
 	if len(fc.Validators) == 0 {
 		return errors.New("validators must not be empty")
+	}
+	if len(fc.Validators) > atypes.MaxCommitteeSize {
+		return fmt.Errorf("validators has %d entries, maximum supported by consensus transport is %d", len(fc.Validators), atypes.MaxCommitteeSize)
 	}
 	if fc.MaxTxsPerBlock == 0 {
 		return errors.New("max_txs_per_block must be > 0")

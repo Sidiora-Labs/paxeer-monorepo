@@ -18,6 +18,11 @@ import (
 // Immutable slice.
 type ImSlice[T any] struct{ s []T }
 
+// MaxCommitteeSize bounds the signatures in ordinary and timeout evidence so
+// that a certified proposal can be reproposed within the 10 KiB Consensus RPC.
+// It is also below the protocol's 100-element collection limits.
+const MaxCommitteeSize = 16
+
 func (s ImSlice[T]) Len() int         { return len(s.s) }
 func (s ImSlice[T]) At(i int) T       { return s.s[i] }
 func (s ImSlice[T]) All() iter.Seq[T] { return slices.Values(s.s) }
@@ -178,6 +183,9 @@ func NewCommittee(chainID string, weights map[PublicKey]uint64, firstBlock Globa
 	}
 	if totalWeight == 0 {
 		return nil, errors.New("total weight is 0")
+	}
+	if len(weights) > MaxCommitteeSize {
+		return nil, fmt.Errorf("committee has %d replicas, maximum supported by consensus transport is %d", len(weights), MaxCommitteeSize)
 	}
 	replicas := slices.SortedFunc(maps.Keys(weights), func(a, b PublicKey) int { return a.Compare(b) })
 	return &Committee{
