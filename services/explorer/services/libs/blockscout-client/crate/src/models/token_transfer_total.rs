@@ -40,7 +40,15 @@ impl<'de> Deserialize<'de> for TokenTransferTotal {
             .as_object()
             .ok_or_else(|| serde::de::Error::custom("transfer total must be an object"))?;
         if object.contains_key("token_id") {
+            if !object.contains_key("token_instance") {
+                return Err(serde::de::Error::missing_field("token_instance"));
+            }
             if object.contains_key("value") || object.contains_key("decimals") {
+                for field in ["value", "decimals"] {
+                    if !object.contains_key(field) {
+                        return Err(serde::de::Error::missing_field(field));
+                    }
+                }
                 serde_json::from_value(value)
                     .map(Self::TotalErc1155)
                     .map_err(serde::de::Error::custom)

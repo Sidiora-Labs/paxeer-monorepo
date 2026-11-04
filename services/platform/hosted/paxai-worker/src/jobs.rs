@@ -666,6 +666,7 @@ impl JobService {
                 state: JobState::Running,
                 fence,
                 lease_until_ms,
+                late: false,
                 changed_ms: now_ms,
                 ..job.state
             };
@@ -1211,6 +1212,39 @@ impl JobService {
         } else {
             Readiness::NotReady
         }
+    }
+
+    /// Persist the expired fence in the job itself before cancellation or reconciliation.
+    pub fn fence_expired(&self, key: JobKey, fence: u64, now_ms: u64) -> Result<(), ServiceError> {
+        self.store.update(key, |job, _| {
+            let state =
+                (job.state.fence == fence && fence != 0 && job.state.lease_until_ms <= now_ms)
+                    .then_some(StateRecord {
+                        late: true,
+                        ..job.state
+                    });
+            Ok((
+                Change {
+                    state,
+                    ..Change::default()
+                },
+                (),
+            ))
+        })
+    }
+
+    /// Finalized settlement or an elapsed chain deadline releases retention eligibility.
+    /// Unfinished and unknown executions are always preserved by the store.
+    pub fn purge_settled(
+        &self,
+        now_ms: u64,
+        height: u64,
+        settled: &[TaskId],
+    ) -> Result<usize, ServiceError> {
+        self.store.purge_where(now_ms, height, |job| {
+            Ok(height >= job.record.admission.task_deadline
+                || settled.contains(&job.record.admission.task))
+        })
     }
 
     /// Retention purge; see [`JobStore::purge`].

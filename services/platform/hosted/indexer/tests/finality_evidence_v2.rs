@@ -228,3 +228,12 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     });
     commit
 }
+
+#[path = "support/repair_22_33_1446.rs"]
+mod repair_paths;
+
+#[test]
+fn binding_consumes_authenticated_store_proof_and_refuses_wrong_keys(
+) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(repair_paths::binding_consumes_authenticated_store_proof_and_refuses_wrong_keys()?)
+}

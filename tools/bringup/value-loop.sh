@@ -291,7 +291,8 @@ PY
 }
 
 send_transfer() {
-	local activity="" send_command=write-send
+	local activity=""
+	local send_command=write-send
 	local value_loop_lock
 	exec {value_loop_lock}>"$state/send.lock"
 	flock -n "$value_loop_lock" || failed "activity another value loop holds the journal lock"
@@ -315,7 +316,7 @@ send_transfer() {
 
 main() {
 	local argument file role seed public did id
-	local answer activity committed_height batch deadline inclusion_height
+	local answer activity committed_height block deadline inclusion_height
 	local symbol=PAX explicit_asset=0
 	for argument in "$@"; do
 		case "$argument" in
@@ -344,7 +345,7 @@ main() {
 	trap 'rm -f "$SSL_CERT_FILE"' EXIT
 	handshake_committed >/dev/null || precondition kernel-node "committed RPC handshake refused"
 
-	asset=$(printf 'layerx-asset:125:%s' "$symbol" | sha256sum | cut -d' ' -f1)
+	asset=$(printf 'layerx-asset:%s:%s' "$network_id" "$symbol" | sha256sum | cut -d' ' -f1)
 	if [ "$symbol" = PAX ]; then
 		[ "$(tr -d ' \r\n' <"$genesis/asset-id")" = "$asset" ] || failed "asset PAX genesis id differs from $asset"
 	fi
@@ -376,14 +377,14 @@ main() {
 	fi
 
 	activity=$(send_transfer) || failed "activity transfer recovery failed"
-	echo "activity id=$activity"
+	echo "transaction hash=0x$activity chain_id=$network_id"
 	deadline=$(($(date +%s) + 120))
 	while :; do
-		answer=$("${BRINGUP_INSPECT_BIN:-bringup-inspect}" committed-transaction "$rpc" "0x$activity" "$SSL_CERT_FILE" 2>/dev/null) && break
-		[ "$(date +%s)" -lt "$deadline" ] || failed "activity id=$activity committed=never"
+		answer=$("${BRINGUP_INSPECT_BIN:-bringup-inspect}" committed-transaction "$rpc" "0x$activity" "$SSL_CERT_FILE" "$network_id" <"$state/send.bin" 2>/dev/null) && break
+		[ "$(date +%s)" -lt "$deadline" ] || failed "transaction hash=0x$activity committed=never"
 		sleep 1
 	done
-	batch=$(jq -er '.block' <<<"$answer") || failed "committed block unreadable"
+	block=$(jq -er '.block' <<<"$answer") || failed "committed block unreadable"
 	inclusion_height=$(jq -er '.height' <<<"$answer") || failed "committed height unreadable"
 
 	for role in sender recipient; do
@@ -394,9 +395,9 @@ main() {
 		echo "balance $role $(jq -c '{balance, achieved, global_sequence}' <<<"$answer")"
 	done
 
-	committed_height=$(handshake_committed) || failed "batch id=$batch committed_height=unreadable"
+	committed_height=$(handshake_committed) || failed "block hash=$block committed_height=unreadable"
 	[ "$committed_height" -ge "$((inclusion_height))" ] || failed "committed handshake precedes inclusion"
-	echo "batch id=$batch committed_height=$committed_height"
+	echo "block hash=$block committed_height=$committed_height"
 }
 
 if [ "${BASH_SOURCE[0]:-$0}" = "$0" ]; then

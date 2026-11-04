@@ -78,7 +78,7 @@ defmodule BlockScoutWeb.Account.API.V2.TagsController do
         else: GetAddressTags.get_public_tags(transaction.from_address_hash, api?: true).common_tags
 
     public_tags_to =
-      if is_nil(transaction),
+      if is_nil(transaction) or is_nil(transaction.to_address_hash),
         do: [],
         else: GetAddressTags.get_public_tags(transaction.to_address_hash, api?: true).common_tags
 

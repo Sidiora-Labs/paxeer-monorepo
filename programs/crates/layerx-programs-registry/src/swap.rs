@@ -150,15 +150,19 @@ impl Pool {
         if next_shares > SHARE_CEILING {
             return Err(PoolRefusal::Ceiling);
         }
-        self.reserve_a = self
+        let reserve_a = self
             .reserve_a
             .checked_add(amount_a)
             .ok_or(PoolRefusal::Overflow)?;
-        self.reserve_b = self
+        let reserve_b = self
             .reserve_b
             .checked_add(amount_b)
             .ok_or(PoolRefusal::Overflow)?;
-        self.shares = next_shares;
+        *self = Self {
+            reserve_a,
+            reserve_b,
+            shares: next_shares,
+        };
         Ok((amount_a, amount_b))
     }
 
@@ -185,18 +189,23 @@ impl Pool {
         if amount_a < minimum_a || amount_b < minimum_b {
             return Err(PoolRefusal::Slippage);
         }
-        self.reserve_a = self
+        let reserve_a = self
             .reserve_a
             .checked_sub(amount_a)
             .ok_or(PoolRefusal::Overflow)?;
-        self.reserve_b = self
+        let reserve_b = self
             .reserve_b
             .checked_sub(amount_b)
             .ok_or(PoolRefusal::Overflow)?;
-        self.shares = self
+        let shares = self
             .shares
             .checked_sub(shares)
             .ok_or(PoolRefusal::Overflow)?;
+        *self = Self {
+            reserve_a,
+            reserve_b,
+            shares,
+        };
         Ok((amount_a, amount_b))
     }
 

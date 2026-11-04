@@ -1,0 +1,11 @@
+[repair.22.33.192]
+audit = "22.30.12"
+test_file = "apps/perps/tests/repair-22-33-192.test.ts"
+f008 = "f008AggregateTvlIncludesCollateralAbsentFromRecentEvents; f008MissingDailyHistoryNeverInventsAPercentage"
+f009 = "f009MarkAndIndexTooltipsMatchTheirPlottedSeries"
+f010 = "f010LongAndShortOiTooltipsMatchTheirPlottedSeries"
+source = "Existing protocolSnapshots aggregate query, using tvlUsd at 18 decimals; no event-window reconstruction."
+history = "A daily percentage requires a positive baseline at exactly latest snapshot time minus 24 hours; missing, malformed or empty history is explicitly unavailable."
+wiring_requests = []
+baseline = "Not run: the explicit gate order forbids testing before implementation and running verify_cmd by hand; no unchanged-tree failure is claimed."
+evidence = "The runner records the verified candidate revision, command, exit and private log in the hf-build/hf-done ledger; these are reported verbatim at task completion."

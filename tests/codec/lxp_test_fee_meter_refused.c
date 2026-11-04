@@ -31,6 +31,11 @@ typedef struct fee_fixture {
     lxp_authority_resolved authority;
     lxp_fee_params fees;
     lxp_receipt receipt;
+    lx_account *account_prestate;
+    size_t account_prestate_count;
+    lx_account *from;
+    lx_account *to;
+    lx_account *treasury;
 } fee_fixture;
 
 static const uint8_t fee_seed[32] = {1U};
@@ -108,6 +113,10 @@ static int fee_fixture_prepare(fee_fixture *f)
                             send.to, 1U, LX_ACCOUNT_OPEN_CREDIT, NULL, &to) == LXP_OK);
     LXP_CASE_CHECK(lxp_ledger_bootstrap_balance(from, send.asset, (lxp_u128){0U, 10U}, 0U) == LXP_OK);
     LXP_CASE_CHECK(lxp_ledger_bootstrap_balance(to, send.asset, (lxp_u128){0U, 0U}, 0U) == LXP_OK);
+    f->from = from;
+    f->to = to;
+    LXP_CASE_CHECK(lxp_state_store_bind_accounts(&f->state, &f->accounts) == LXP_OK);
+    LXP_CASE_CHECK(lxp_state_store_require_account_root(&f->state) == LXP_OK);
     from->has_authority_key = true;
     (void)memcpy(from->authority_key, f->public_key, 32U);
     (void)memcpy(f->asset.asset_id, send.asset, 32U);
@@ -226,6 +235,7 @@ static int fee_fixture_open(fee_fixture *f)
         LX_ACCOUNT_OPEN_GENESIS, NULL, &treasury) == LXP_OK);
     LXP_CASE_CHECK(lxp_ledger_bootstrap_balance(treasury, f->asset.asset_id,
         (lxp_u128){0U, 0U}, 0U) == LXP_OK);
+    f->treasury = treasury;
     LXP_CASE_CHECK(lxp_programs_bind_fee_transaction(&f->kernel) == LXP_OK);
     f->fees.base_fee = (lxp_u128){0U, 3U};
     f->fees.per_encoded_byte.lo = 1U;
@@ -237,6 +247,11 @@ static int fee_fixture_open(fee_fixture *f)
     LXP_CASE_CHECK(fee_activity_sign(f) == 0);
     LXP_CASE_CHECK(lxp_state_root(&f->kernel,
                                   f->kernel.current_state_root) == LXP_OK);
+    f->account_prestate_count = f->accounts.count;
+    f->account_prestate = malloc(f->accounts.count * sizeof(*f->account_prestate));
+    LXP_CASE_CHECK(f->account_prestate != NULL);
+    (void)memcpy(f->account_prestate, f->accounts.accounts,
+                  f->accounts.count * sizeof(*f->account_prestate));
     return 0;
 }
 
@@ -246,6 +261,7 @@ static int fee_fixture_close(fee_fixture *f)
         free(f->kernel.blobs[--f->kernel.blob_count].bytes);
     LXP_CASE_CHECK(lxp_state_store_destroy(&f->state) == LXP_OK);
     lx_account_registry_release(&f->accounts);
+    free(f->account_prestate);
     free(f);
     return 0;
 }
@@ -259,12 +275,54 @@ static int fee_state_unchanged(fee_fixture *f,
     LXP_CASE_CHECK(memcmp(f->kernel.current_state_root,
                          expected_root, 32U) == 0);
     LXP_CASE_CHECK(f->state.next_sequence == 1U);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
     LXP_CASE_CHECK(!f->journal.open && f->journal.count == 0U);
     LXP_CASE_CHECK(f->identities.count == 1U);
     LXP_CASE_CHECK(f->identities.identities[0].next_sequence == 0U);
-    for (size_t i = 0U; i < f->accounts.count; ++i)
+    LXP_CASE_CHECK(f->accounts.count == f->account_prestate_count);
+    for (size_t i = 0U; i < f->accounts.count; ++i) {
+        const lx_account *before = &f->account_prestate[i];
+        const lx_account *after = &f->accounts.accounts[i];
         LXP_CASE_CHECK(f->accounts.accounts[i].next_sequence == 0U);
+        LXP_CASE_CHECK(after->next_sequence == before->next_sequence);
+        LXP_CASE_CHECK(lxp_u128_cmp(after->balance, before->balance) == 0);
+        LXP_CASE_CHECK(after->has_asset == before->has_asset);
+        LXP_CASE_CHECK(memcmp(after->id, before->id, 32U) == 0);
+        LXP_CASE_CHECK(memcmp(after->asset_id, before->asset_id, 32U) == 0);
+    }
+    return 0;
+}
+
+static int fee_receipt_round_trip(fee_fixture *f)
+{
+    lxp_byte_span wire;
+    lxp_receipt *decoded = malloc(sizeof(*decoded));
+    size_t mark = lxp_arena_mark(&f->arena);
+    lxp_result verified;
+    LXP_CASE_CHECK(decoded != NULL);
+    verified = lxp_receipt_verify(&f->receipt, f->public_key, &f->arena);
+    if (verified != LXP_OK)
+        fprintf(stderr, "kernel receipt verification refused: %d (arena mark %zu)\n",
+                (int)verified, mark);
+    LXP_CASE_CHECK(verified == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_encode(&f->receipt, true, &f->arena, &wire) == LXP_OK);
+    /* Preserve the production wire bytes, releasing the codec writer's unused
+     * maximum-size reservation before allocating verifier scratch space. */
+    LXP_CASE_CHECK(lxp_arena_reset(&f->arena, mark + wire.length) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_decode(wire.bytes, wire.length, true, decoded) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(decoded->sequencer_signature,
+                          f->receipt.sequencer_signature, 64U) == 0);
+    verified = lxp_receipt_verify(decoded, f->public_key, &f->arena);
+    if (verified != LXP_OK)
+        fprintf(stderr, "transport receipt verification refused: %d (arena mark %zu)\n",
+                (int)verified, lxp_arena_mark(&f->arena));
+    LXP_CASE_CHECK(verified == LXP_OK);
+    LXP_CASE_CHECK(decoded->result_code == f->receipt.result_code);
+    LXP_CASE_CHECK(decoded->global_sequence == f->receipt.global_sequence);
+    LXP_CASE_CHECK(lxp_u128_cmp(decoded->fee_charged, f->receipt.fee_charged) == 0);
+    LXP_CASE_CHECK(memcmp(decoded->resulting_state_root,
+                          f->receipt.resulting_state_root, 32U) == 0);
+    LXP_CASE_CHECK(lxp_arena_reset(&f->arena, mark) == LXP_OK);
+    free(decoded);
     return 0;
 }
 
@@ -300,13 +358,28 @@ static int execute_refuses_host_fee_meter(void)
     LXP_CASE_CHECK(lxp_fee_compute(&f->fees, f->activity.activity_type,
         f->execution.fee_meter, &expected_fee) == LXP_OK);
     LXP_CASE_CHECK(expected_fee.hi == 0U && expected_fee.lo == 3U);
+    LXP_CASE_CHECK(f->execution.sequencer_private_key == fee_seed);
     LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
         &f->execution, &f->receipt) == LXP_OK);
     LXP_CASE_CHECK(f->receipt.result_code == LXP_OK);
     LXP_CASE_CHECK(lxp_u128_cmp(f->receipt.fee_charged, expected_fee) == 0);
     LXP_CASE_CHECK(f->state.next_sequence == 2U);
-    LXP_CASE_CHECK(f->state.idempotency_count == 1U);
     LXP_CASE_CHECK(f->identities.identities[0].next_sequence == 1U);
+    LXP_CASE_CHECK(f->from->balance.hi == 0U && f->from->balance.lo == 6U);
+    LXP_CASE_CHECK(f->to->balance.hi == 0U && f->to->balance.lo == 1U);
+    LXP_CASE_CHECK(f->treasury->balance.hi == 0U && f->treasury->balance.lo == 3U);
+    LXP_CASE_CHECK(f->from->next_sequence == 1U && f->to->next_sequence == 0U);
+    LXP_CASE_CHECK(f->treasury->next_sequence == 1U);
+    LXP_CASE_CHECK(f->receipt.global_sequence == 1U && f->receipt.effects.count == 1U);
+    LXP_CASE_CHECK(f->receipt.operation == 5U);
+    LXP_CASE_CHECK(f->receipt.amount.hi == 0U && f->receipt.amount.lo == 1U);
+    LXP_CASE_CHECK(memcmp(f->receipt.from, f->from->id, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(f->receipt.to, f->to->id, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(f->receipt.previous_state_root, root, 32U) == 0);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, root) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(f->receipt.resulting_state_root, root, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(f->kernel.current_state_root, root, 32U) == 0);
+    LXP_CASE_CHECK(fee_receipt_round_trip(f) == 0);
     free(untouched);
     LXP_CASE_CHECK(fee_fixture_close(f) == 0);
     (void)puts("execute_refuses_host_fee_meter passed");
@@ -324,7 +397,8 @@ static int prepare_refuses_host_fee_meter(void)
     uint8_t root[32];
     lxp_u128 expected_fee;
     size_t arena_mark;
-    LXP_CASE_CHECK(f != NULL && manifest != NULL);
+    lxp_receipt *untouched = malloc(sizeof(*untouched));
+    LXP_CASE_CHECK(f != NULL && manifest != NULL && untouched != NULL);
     LXP_CASE_CHECK(fee_fixture_open(f) == 0);
     (void)memcpy(manifest->signer_public_key, f->public_key, 32U);
     metering.version = 1U;
@@ -353,11 +427,14 @@ static int prepare_refuses_host_fee_meter(void)
     LXP_CASE_CHECK(lxp_kernel_batch_snapshot_begin_level(snapshot) == LXP_OK);
     LXP_CASE_CHECK(lxp_kernel_batch_snapshot_boundary(snapshot, &before) == LXP_OK);
     arena_mark = lxp_arena_mark(&f->arena);
+    (void)memset(&f->receipt, 0xa5, sizeof(f->receipt));
+    (void)memcpy(untouched, &f->receipt, sizeof(*untouched));
     for (size_t i = 0U; i < sizeof(host_meters) / sizeof(host_meters[0]); ++i) {
         f->execution.fee_meter = host_meters[i];
         LXP_CASE_CHECK(lxp_kernel_prepare_activity(snapshot, &f->activity,
             &f->execution, &f->arena, &prepared) == LXP_ERR_CONTEXT_MISMATCH);
         LXP_CASE_CHECK(prepared == NULL);
+        LXP_CASE_CHECK(memcmp(&f->receipt, untouched, sizeof(*untouched)) == 0);
         LXP_CASE_CHECK(lxp_arena_mark(&f->arena) == arena_mark);
         LXP_CASE_CHECK(fee_state_unchanged(f, root) == 0);
         LXP_CASE_CHECK(lxp_kernel_batch_snapshot_boundary(snapshot, &after) == LXP_OK);
@@ -375,6 +452,7 @@ static int prepare_refuses_host_fee_meter(void)
         &f->execution, &f->arena, &prepared) == LXP_OK);
     LXP_CASE_CHECK(prepared != NULL);
     LXP_CASE_CHECK(fee_state_unchanged(f, root) == 0);
+    LXP_CASE_CHECK(f->execution.sequencer_private_key == fee_seed);
     LXP_CASE_CHECK(lxp_kernel_snapshot_apply_prepared(snapshot, &f->activity,
         &f->execution, prepared, &f->receipt, NULL) == LXP_OK);
     LXP_CASE_CHECK(f->receipt.result_code == LXP_ERR_TRUNCATED);
@@ -382,10 +460,12 @@ static int prepare_refuses_host_fee_meter(void)
     LXP_CASE_CHECK(f->receipt.program_outcome.present);
     LXP_CASE_CHECK(lxp_u128_cmp(f->receipt.program_outcome.fee_units,
                                 expected_fee) == 0);
+    LXP_CASE_CHECK(fee_receipt_round_trip(f) == 0);
     LXP_CASE_CHECK(fee_state_unchanged(f, root) == 0);
     lxp_prepared_transition_destroy(prepared);
     lxp_kernel_batch_snapshot_destroy(snapshot);
     free(manifest);
+    free(untouched);
     LXP_CASE_CHECK(fee_fixture_close(f) == 0);
     (void)puts("prepare_refuses_host_fee_meter passed");
     return 0;

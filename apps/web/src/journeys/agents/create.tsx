@@ -135,18 +135,17 @@ function BoundAgentCreateJourney() {
   const [submitting, setSubmitting] = useState(false);
   const [errorSentence, setErrorSentence] = useState<string | undefined>(undefined);
   const [outcomeUnknown, setOutcomeUnknown] = useState(false);
-  const submittedDraft = useRef<CreationDraft | undefined>(undefined);
+  const [reopening, setReopening] = useState(true);
   const submitPending = useRef(false);
 
   const submit = async () => {
     const budget = feeLimits.budget;
-    if (budget === undefined || submitPending.current) return;
+    if (budget === undefined || submitPending.current || reopening || outcomeUnknown) return;
     submitPending.current = true;
     const request = Object.freeze({
       ...draft,
       nativeFeeBudget: Object.freeze({ ...budget }),
     });
-    submittedDraft.current = request;
     setSubmitting(true);
     setErrorSentence(undefined);
     try {
@@ -213,16 +212,18 @@ function BoundAgentCreateJourney() {
   };
 
   const lookupUnknownOutcome = useCallback(async (): Promise<"pending" | "resolved"> => {
-    const request = submittedDraft.current;
-    if (request === undefined || submitPending.current) return "pending";
+    if (submitPending.current) return "pending";
     submitPending.current = true;
     try {
-      setProgress(journeyProgress(await agents.create(request)));
+      const recovered = await agents.recoverPending();
+      if (recovered?.kind === "journey") setProgress(journeyProgress(recovered.value));
+      setReopening(false);
       setOutcomeUnknown(false);
       setErrorSentence(undefined);
       return "resolved";
     } catch (error) {
       if (!mutationOutcomeUnknown(error)) {
+        setReopening(false);
         setOutcomeUnknown(false);
         setErrorSentence(apiErrorSentence(error));
         return "resolved";
@@ -237,7 +238,7 @@ function BoundAgentCreateJourney() {
     setOutcomeUnknown(false);
   }, []);
 
-  if (outcomeUnknown) {
+  if (reopening || outcomeUnknown) {
     return (
       <StillCheckingSurface
         lookupOutcome={lookupUnknownOutcome}

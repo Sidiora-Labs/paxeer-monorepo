@@ -17,6 +17,8 @@ import {
 } from "@/core/perps/config";
 import { useMarkPriceHistory } from "@/hooks/perps/useAnalytics";
 
+import type { MarkPriceRecord } from "@/types/perps";
+
 interface MarkPriceChartProps {
   marketId: number | undefined;
   isMobile: boolean;
@@ -35,7 +37,24 @@ function parse18(val: string | null | undefined): number {
 
 export function MarkPriceChart({ marketId, isMobile }: MarkPriceChartProps) {
   const { data, isLoading } = useMarkPriceHistory(marketId);
+  return (
+    <MarkPriceChartContent
+      data={data}
+      isLoading={isLoading}
+      isMobile={isMobile}
+    />
+  );
+}
 
+export function MarkPriceChartContent({
+  data,
+  isLoading,
+  isMobile,
+}: {
+  data: MarkPriceRecord[] | undefined;
+  isLoading: boolean;
+  isMobile: boolean;
+}) {
   if (isLoading || !data) {
     return (
       <div className="rounded-card bg-surface-1 p-5 shadow-04 transition-colors ease-data duration-200">
@@ -76,7 +95,10 @@ export function MarkPriceChart({ marketId, isMobile }: MarkPriceChartProps) {
       </h3>
       <div style={{ width: "100%", height: isMobile ? 200 : 300 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <LineChart
+            data={chartData}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          >
             <XAxis
               dataKey="date"
               tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
@@ -101,7 +123,7 @@ export function MarkPriceChart({ marketId, isMobile }: MarkPriceChartProps) {
               labelStyle={{ color: "hsl(var(--muted-foreground))" }}
               formatter={(value: number, name: string) => [
                 ANALYTICS_AXIS_FORMATTERS.compactUsd(value),
-                name === "markPrice" ? "Mark Price" : "Index Price",
+                name,
               ]}
             />
             <Legend />

@@ -7,14 +7,6 @@
 // observation reads and decodes again, including after closing the producer host
 // and reopening its committed store. Malformed records must produce a zero value
 // and LXP_NON_CANONICAL; keeper views must refuse them, never return cached data.
-//
-// Known out-of-scope conflict: src/modules/escrow/lx_escrow_module.c,
-// module_execute, keeps the settlement's lxp_receipt local and emits only a
-// state event. The expected behaviour is for the outer receipt's transfer root
-// to bind the same transfer as the stored economic result. Currently the outer
-// receipt's root is zero while DecodeEscrowResult observes a nonzero root. The
-// escrow_result case asserts that current behaviour and verifies that repeated
-// decoder and keeper observations preserve the stored result's transfer root.
 package types_test
 
 import (
@@ -31,13 +23,18 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	custodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
+	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	paykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	sdkcodec "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -49,17 +46,22 @@ type proofViewsActor struct {
 	public   [32]byte
 	did      []byte
 	id, main [32]byte
+	address  common.Address
 }
 
 type proofViewsHarness struct {
-	ctx         sdk.Context
-	cms         sdk.CommitMultiStore
-	db          dbm.DB
-	key, payKey *sdk.KVStoreKey
-	evmKey      *sdk.KVStoreKey
-	host        *lxphost.Host
-	views       paykeeper.Keeper
-	sequence    uint64
+	ctx          sdk.Context
+	cms          sdk.CommitMultiStore
+	db           dbm.DB
+	key, payKey  *sdk.KVStoreKey
+	evmKey       *sdk.KVStoreKey
+	custodyKey   *sdk.KVStoreKey
+	transientKey *sdk.TransientStoreKey
+	evm          *evmkeeper.Keeper
+	custody      *custodykeeper.Keeper
+	host         *lxphost.Host
+	views        paykeeper.Keeper
+	sequence     uint64
 }
 
 func (h *proofViewsHarness) open(t *testing.T) {
@@ -68,6 +70,14 @@ func (h *proofViewsHarness) open(t *testing.T) {
 	h.cms.MountStoreWithDB(h.key, sdk.StoreTypeIAVL, h.db)
 	h.cms.MountStoreWithDB(h.payKey, sdk.StoreTypeIAVL, h.db)
 	h.cms.MountStoreWithDB(h.evmKey, sdk.StoreTypeIAVL, h.db)
+	if h.custodyKey == nil {
+		h.custodyKey = sdk.NewKVStoreKey(custodytypes.StoreKey)
+	}
+	h.cms.MountStoreWithDB(h.custodyKey, sdk.StoreTypeIAVL, h.db)
+	if h.transientKey == nil {
+		h.transientKey = sdk.NewTransientStoreKey(evmtypes.TransientStoreKey)
+	}
+	h.cms.MountStoreWithDB(h.transientKey, sdk.StoreTypeTransient, nil)
 	require.NoError(t, h.cms.LoadLatestVersion())
 	h.ctx = sdk.NewContext(h.cms, tmproto.Header{ChainID: "hyperpax_125-1", Height: 1, Time: time.UnixMilli(int64(proofViewsTime))}, false)
 	var err error
@@ -80,12 +90,31 @@ func (h *proofViewsHarness) open(t *testing.T) {
 		bankkeeper.BaseKeeper{}, nil, nil, transferkeeper.Keeper{}, nil, nil, nil)
 	_, bound := bindings.GetLayerXDid(h.ctx, [20]byte{})
 	require.False(t, bound)
-	h.views, err = paykeeper.NewKeeper(nil, h.payKey, h.key, h.host, bindings, nil, "proof-views")
+	h.evm = bindings
+	cdc := sdkcodec.NewProtoCodec(codectypes.NewInterfaceRegistry())
+	h.custody = custodykeeper.NewKeeper(cdc, h.custodyKey, nil, nil, nil, nil)
+	h.views, err = paykeeper.NewKeeper(cdc, h.payKey, h.key, h.host, bindings, h.custody, "proof-views")
 	require.NoError(t, err)
 }
 
 func (h *proofViewsHarness) execute(t *testing.T, a proofViewsActor, kind uint32, payload []byte, id [32]byte, bound bool) lxphost.Receipt {
 	t.Helper()
+	if kind>>16 == uint32(types.EscrowModuleID) {
+		method := ""
+		for name, activity := range types.MethodActivity {
+			if activity.Type == kind {
+				method = name
+				break
+			}
+		}
+		require.NotEmpty(t, method)
+		receipt, err := h.views.Submit(h.ctx, a.address, method, payload, id)
+		require.NoError(t, err)
+		require.Zero(t, receipt.ResultCode)
+		require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
+		h.sequence = receipt.GlobalSequence
+		return receipt
+	}
 	sequence, err := h.host.ReadIdentitySequence(h.ctx, a.did)
 	require.NoError(t, err)
 	activity := lxphost.Activity{ProtocolVersion: 3, Type: kind, ActorDID: a.did, AuthorityKey: a.public,
@@ -111,7 +140,13 @@ func (h *proofViewsHarness) actor(t *testing.T, seed byte) proofViewsActor {
 	a := proofViewsActor{private: ed25519.NewKeyFromSeed(bytes.Repeat([]byte{seed}, 32))}
 	copy(a.public[:], a.private.Public().(ed25519.PublicKey))
 	a.did = []byte(evmtypes.LayerXDid(a.public))
-	var err error
+	a.address = common.BytesToAddress([]byte{seed})
+	message, err := evmtypes.LayerXBindMessage(h.evm.ChainID(h.ctx), a.address, 0)
+	require.NoError(t, err)
+	var signature [64]byte
+	copy(signature[:], ed25519.Sign(a.private, message))
+	_, err = h.evm.BindLayerX(h.ctx, a.address, a.public, signature)
+	require.NoError(t, err)
 	a.id, err = lxphost.DIDID(a.did)
 	require.NoError(t, err)
 	_, a.main, err = lxphost.MainAccountID(a.public)
@@ -159,7 +194,7 @@ func proofViewsKey(module uint16, prefix string, id [32]byte) []byte {
 // proofViewsObserve calls both public entry points on each fresh store read.
 // Truncations exercise the exported refusal contract; corrupting the actual
 // stored header additionally exercises the keeper consumer's refusal path.
-func proofViewsObserve[T any](t *testing.T, h *proofViewsHarness, key []byte, wire func() []byte, decode func([]byte) (T, error), view func() (T, bool), check func(T)) {
+func proofViewsObserve[T any](t *testing.T, h *proofViewsHarness, key []byte, wire func() []byte, decode func([]byte) (T, error), view func() (T, bool, error), check func(T)) {
 	t.Helper()
 	before := bytes.Clone(h.ctx.KVStore(h.key).Get(key))
 	require.NotEmpty(t, before, "missing kernel producer record at %x", key)
@@ -169,7 +204,8 @@ func proofViewsObserve[T any](t *testing.T, h *proofViewsHarness, key []byte, wi
 		got, err := decode(data)
 		require.NoError(t, err)
 		check(got)
-		observed, found := view()
+		observed, found, err := view()
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, got, observed)
 		check(observed)
@@ -186,14 +222,22 @@ func proofViewsObserve[T any](t *testing.T, h *proofViewsHarness, key []byte, wi
 		require.Equal(t, zero, got)
 	}
 	h.ctx.KVStore(h.key).Set(key, before[:len(before)-1])
-	require.Panics(t, func() { view() }, "keeper must refuse a malformed stored producer result")
+	corrupt, found, err := view()
+	require.ErrorContains(t, err, "LXP_NON_CANONICAL", "keeper must refuse a malformed stored producer result")
+	require.False(t, found)
+	require.Equal(t, zero, corrupt)
 	h.ctx.KVStore(h.key).Set(key, before)
-	restored, found := view()
+	restored, found, err := view()
+	require.NoError(t, err)
 	require.True(t, found)
 	check(restored)
 }
 
 func TestProofViews(t *testing.T) {
+	proofViewsRun(t, nil)
+}
+
+func proofViewsRun(t *testing.T, inspect func(*proofViewsHarness)) {
 	h := &proofViewsHarness{db: dbm.NewMemDB(), key: sdk.NewKVStoreKey("lxphost"), payKey: sdk.NewKVStoreKey(types.StoreKey), evmKey: sdk.NewKVStoreKey(evmtypes.StoreKey)}
 	h.open(t)
 	t.Cleanup(func() { h.host.Close(); require.NoError(t, h.db.Close()) })
@@ -205,6 +249,7 @@ func TestProofViews(t *testing.T) {
 		flag[31] = 1
 		h.ctx.KVStore(h.key).Set(key, flag)
 	}
+	h.views.SetParams(h.ctx, types.Params{EscrowEnabled: true, BudgetEnabled: true, StreamEnabled: true, ServiceEnabled: true})
 	salt := [32]byte{0x31}
 	asset := sha256.Sum256(append(append([]byte("LX:ASSET:v1"), buyer.id[:]...), salt[:]...))
 	h.mainAccount(t, buyer, asset)
@@ -331,6 +376,9 @@ func TestProofViews(t *testing.T) {
 	escrowContext, err := codec.DomainHash(codec.DomainContextHash, escrowContextInput)
 	require.NoError(t, err)
 
+	if inspect != nil {
+		inspect(h)
+	}
 	// Recreate the store and host before any consumer observation.
 	h.cms.Commit(true)
 	h.host.Close()
@@ -371,18 +419,18 @@ func TestProofViews(t *testing.T) {
 	})
 	t.Run("escrow", func(t *testing.T) {
 		key := proofViewsKey(2, "hold:", escrowID)
-		proofViewsObserve(t, h, key, read(key), types.DecodeEscrowRecord, func() (types.EscrowRecord, bool) { return h.views.GetEscrow(h.ctx, escrowID) }, func(r types.EscrowRecord) {
+		proofViewsObserve(t, h, key, read(key), types.DecodeEscrowRecord, func() (types.EscrowRecord, bool, error) { return h.views.GetEscrow(h.ctx, escrowID) }, func(r types.EscrowRecord) {
 			require.Equal(t, types.EscrowRecord{EscrowID: escrowID, Owner: buyer.main, EscrowAccount: escrowAccount, Beneficiary: provider.main, Arbiter: buyer.main,
 				AssetID: asset, LockedAmount: codec.U128{Lo: 50}, State: 1, ExpiryMs: proofViewsTime + 1000000, DisputeWindowMs: 30000, TermsHash: terms}, r)
 		})
 	})
 	t.Run("escrow_result", func(t *testing.T) {
 		key := proofViewsKey(2, "result:", escrowID)
-		require.Zero(t, escrowEconomicReceipt.TransferSetRoot, "current module_execute omits the outer receipt's economic binding")
+		require.NotEqual(t, [32]byte{}, escrowEconomicReceipt.TransferSetRoot)
 		stored, err := types.DecodeEscrowResult(read(key)())
 		require.NoError(t, err)
-		require.NotEqual(t, [32]byte{}, stored.TransferSetRoot, "the real settlement still commits its transfer root in the stored result")
-		proofViewsObserve(t, h, key, read(key), types.DecodeEscrowResult, func() (types.EscrowResult, bool) { return h.views.GetEscrowResult(h.ctx, escrowID) }, func(r types.EscrowResult) {
+		require.Equal(t, escrowEconomicReceipt.TransferSetRoot, stored.TransferSetRoot)
+		proofViewsObserve(t, h, key, read(key), types.DecodeEscrowResult, func() (types.EscrowResult, bool, error) { return h.views.GetEscrowResult(h.ctx, escrowID) }, func(r types.EscrowResult) {
 			require.Equal(t, escrowID, r.EscrowID)
 			require.Equal(t, uint16(1), r.Ordinal)
 			require.Equal(t, uint8(1), r.StateAfter)
@@ -393,16 +441,63 @@ func TestProofViews(t *testing.T) {
 			require.Equal(t, escrowAccount, r.To)
 			require.Equal(t, escrowReceipt.GlobalSequence, r.GlobalSequence)
 			require.Equal(t, proofViewsTime, r.TimestampMs)
-			require.Equal(t, stored.TransferSetRoot, r.TransferSetRoot)
+			require.Equal(t, escrowEconomicReceipt.TransferSetRoot, r.TransferSetRoot)
 			require.Equal(t, codec.U128{}, r.CapturedAfter)
 			require.Equal(t, codec.U128{}, r.SecondaryAmount)
 			require.True(t, r.ContextBound)
 			require.Equal(t, escrowContext, r.ContextDigest)
 		})
 	})
+	t.Run("escrow_replay_after_reopen", func(t *testing.T) {
+		before, err := h.host.ReadBalance(h.ctx, buyer.main, asset)
+		require.NoError(t, err)
+		require.Equal(t, "350", before.String())
+		captureKey := [32]byte{0xe1}
+		payload := types.EncodeEscrowCapture(escrowID, codec.U128{Lo: 20}, captureKey)
+		receipt := h.execute(t, provider, types.ActivityEscrowPartialCapture, payload, [32]byte{0xe2}, true)
+		economic, found, err := h.views.GetEscrowResult(h.ctx, captureKey)
+		require.NoError(t, err)
+		require.True(t, found)
+		outer, err := codec.DecodeReceipt(receipt.Encoded)
+		require.NoError(t, err)
+		require.NotEqual(t, [32]byte{}, outer.TransferSetRoot)
+		require.Equal(t, outer.TransferSetRoot, economic.TransferSetRoot)
+		require.Equal(t, codec.U128{Lo: 20}, economic.Amount)
+		require.Equal(t, codec.U128{Lo: 30}, economic.LockedAfter)
+		require.Equal(t, codec.U128{Lo: 20}, economic.CapturedAfter)
+		require.Equal(t, escrowAccount, economic.From)
+		require.Equal(t, provider.main, economic.To)
+		require.Equal(t, codec.U128{}, economic.SecondaryAmount)
+		for round := 0; round < 2; round++ {
+			h.cms.Commit(true)
+			h.host.Close()
+			h.open(t)
+			replay := h.execute(t, provider, types.ActivityEscrowPartialCapture, payload, [32]byte{byte(0xe3 + round)}, true)
+			replayOuter, err := codec.DecodeReceipt(replay.Encoded)
+			require.NoError(t, err)
+			require.Equal(t, outer.TransferSetRoot, replayOuter.TransferSetRoot)
+			durable, found, err := h.views.GetEscrowReceipt(h.ctx, replay.GlobalSequence)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, replay.Encoded, durable.CanonicalBytes())
+			for read := 0; read < 2; read++ {
+				result, found, err := h.views.GetEscrowResult(h.ctx, captureKey)
+				require.NoError(t, err)
+				require.True(t, found)
+				require.Equal(t, economic, result)
+				for account, want := range map[[32]byte]string{buyer.main: "350", provider.main: "20", escrowAccount: "30"} {
+					balance, err := h.host.ReadBalance(h.ctx, account, asset)
+					require.NoError(t, err)
+					require.Equal(t, want, balance.String())
+				}
+			}
+		}
+	})
 	t.Run("agreement", func(t *testing.T) {
 		key := proofViewsKey(5, "agree::1", agreementID)
-		proofViewsObserve(t, h, key, read(key), types.DecodeServiceAgreement, func() (types.ServiceAgreement, bool) { return h.views.GetAgreement(h.ctx, agreementID) }, func(r types.ServiceAgreement) {
+		proofViewsObserve(t, h, key, read(key), types.DecodeServiceAgreement, func() (types.ServiceAgreement, bool, error) {
+			return h.views.ServiceViews().GetAgreement(h.ctx, agreementID)
+		}, func(r types.ServiceAgreement) {
 			require.Equal(t, types.ServiceAgreement{AgreementID: agreementID, OfferID: offerID, Provider: provider.main, Buyer: buyer.main, TermsHash: terms, EscrowID: escrowID,
 				DeliveryDeadlineMs: proofViewsTime + 100000, AcceptanceWindowEndMs: proofViewsTime + 120000, DisputeWindowEndMs: proofViewsTime + 150000,
 				DefaultOutcome: 1, State: 6, AcceptedSequence: accepted.GlobalSequence, RejectionReason: 7, ContestedHashes: [][32]byte{spec},
@@ -411,14 +506,18 @@ func TestProofViews(t *testing.T) {
 	})
 	t.Run("commitment", func(t *testing.T) {
 		key := proofViewsKey(5, "commit:1", commitmentID)
-		proofViewsObserve(t, h, key, read(key), types.DecodeServiceCommitment, func() (types.ServiceCommitment, bool) { return h.views.GetCommitment(h.ctx, commitmentID) }, func(r types.ServiceCommitment) {
+		proofViewsObserve(t, h, key, read(key), types.DecodeServiceCommitment, func() (types.ServiceCommitment, bool, error) {
+			return h.views.ServiceViews().GetCommitment(h.ctx, commitmentID)
+		}, func(r types.ServiceCommitment) {
 			require.Equal(t, types.ServiceCommitment{CommitmentID: commitmentID, ActivityID: committedReceipt.ActivityID, Provider: provider.main, AgreementID: agreementID,
 				TaskHash: [32]byte{36}, DeadlineMs: proofViewsTime + 90000, ResourceBound: 1000, EscrowID: escrowID, GlobalSequence: committed.GlobalSequence}, r)
 		})
 	})
 	t.Run("execution", func(t *testing.T) {
 		key := proofViewsKey(5, "execut:1", attestationID)
-		proofViewsObserve(t, h, key, read(key), types.DecodeServiceExecution, func() (types.ServiceExecution, bool) { return h.views.GetExecution(h.ctx, attestationID) }, func(r types.ServiceExecution) {
+		proofViewsObserve(t, h, key, read(key), types.DecodeServiceExecution, func() (types.ServiceExecution, bool, error) {
+			return h.views.ServiceViews().GetExecution(h.ctx, attestationID)
+		}, func(r types.ServiceExecution) {
 			require.Equal(t, attestationID, r.AttestationID)
 			require.Equal(t, attestationKey, r.ActivityID)
 			require.Equal(t, agreementID, r.AgreementID)
@@ -440,25 +539,30 @@ func TestProofViews(t *testing.T) {
 			}
 			return data
 		}
-		proofViewsObserve(t, h, key, wire, types.DecodeServiceDelivery, func() (types.ServiceDelivery, bool) { return h.views.GetDelivery(h.ctx, deliveryID) }, func(r types.ServiceDelivery) {
+		proofViewsObserve(t, h, key, wire, types.DecodeServiceDelivery, func() (types.ServiceDelivery, bool, error) {
+			return h.views.ServiceViews().GetDelivery(h.ctx, deliveryID)
+		}, func(r types.ServiceDelivery) {
 			require.Equal(t, types.ServiceDelivery{AgreementID: agreementID, Provider: provider.main, Deliverables: items, GlobalSequence: delivered.GlobalSequence}, r)
 		})
 		itemKey := append(proofViewsKey(5, "delitm:1", deliveryID), byte(0))
 		item := read(itemKey)()
 		h.ctx.KVStore(h.key).Delete(itemKey)
-		require.Panics(t, func() { h.views.GetDelivery(h.ctx, deliveryID) })
+		missing, found, err := h.views.ServiceViews().GetDelivery(h.ctx, deliveryID)
+		require.ErrorIs(t, err, paykeeper.ErrServiceCorruptState)
+		require.False(t, found)
+		require.Equal(t, types.ServiceDelivery{}, missing)
 		h.ctx.KVStore(h.key).Set(itemKey, item)
 	})
 	t.Run("dispute", func(t *testing.T) {
 		key := proofViewsKey(5, "disput:1", disputeID)
-		proofViewsObserve(t, h, key, read(key), types.DecodeServiceDispute, func() (types.ServiceDispute, bool) { return h.views.GetDispute(h.ctx, disputeID) }, func(r types.ServiceDispute) {
+		proofViewsObserve(t, h, key, read(key), types.DecodeServiceDispute, func() (types.ServiceDispute, bool, error) { return h.views.ServiceViews().GetDispute(h.ctx, disputeID) }, func(r types.ServiceDispute) {
 			require.Equal(t, types.ServiceDispute{DisputeID: disputeID, ActivityID: disputedReceipt.ActivityID, AgreementID: agreementID, Raiser: buyer.main,
 				EvidenceHashes: [][32]byte{{51}, {52}}, GlobalSequence: disputed.GlobalSequence}, r)
 		})
 	})
 	t.Run("offer", func(t *testing.T) {
 		key := proofViewsKey(5, "offer::1", offerID)
-		proofViewsObserve(t, h, key, read(key), types.DecodeServiceOffer, func() (types.ServiceOffer, bool) { return h.views.GetOffer(h.ctx, offerID) }, func(r types.ServiceOffer) {
+		proofViewsObserve(t, h, key, read(key), types.DecodeServiceOffer, func() (types.ServiceOffer, bool, error) { return h.views.ServiceViews().GetOffer(h.ctx, offerID) }, func(r types.ServiceOffer) {
 			require.Equal(t, offerID, r.OfferID)
 			require.Equal(t, provider.main, r.OfferingAgent)
 			require.Equal(t, asset, r.AssetID)
@@ -469,7 +573,9 @@ func TestProofViews(t *testing.T) {
 	})
 	t.Run("progress", func(t *testing.T) {
 		key := proofViewsKey(5, "progrs:1", reportID)
-		proofViewsObserve(t, h, key, read(key), types.DecodeServiceProgress, func() (types.ServiceProgress, bool) { return h.views.GetProgress(h.ctx, reportID) }, func(r types.ServiceProgress) {
+		proofViewsObserve(t, h, key, read(key), types.DecodeServiceProgress, func() (types.ServiceProgress, bool, error) {
+			return h.views.ServiceViews().GetProgress(h.ctx, reportID)
+		}, func(r types.ServiceProgress) {
 			require.Equal(t, reportID, r.ReportID)
 			require.Equal(t, commitmentID, r.CommitmentID)
 			require.Equal(t, agreementID, r.AgreementID)
@@ -482,19 +588,26 @@ func TestProofViews(t *testing.T) {
 		_, found, err := h.views.GetBudget(h.ctx, unknown)
 		require.NoError(t, err)
 		require.False(t, found)
-		_, found = h.views.GetEscrow(h.ctx, unknown)
+		_, found, err = h.views.GetEscrow(h.ctx, unknown)
+		require.NoError(t, err)
 		require.False(t, found)
-		_, found = h.views.GetEscrowResult(h.ctx, unknown)
+		_, found, err = h.views.GetEscrowResult(h.ctx, unknown)
+		require.NoError(t, err)
 		require.False(t, found)
-		_, found = h.views.GetAgreement(h.ctx, unknown)
+		_, found, err = h.views.ServiceViews().GetAgreement(h.ctx, unknown)
+		require.NoError(t, err)
 		require.False(t, found)
-		_, found = h.views.GetCommitment(h.ctx, unknown)
+		_, found, err = h.views.ServiceViews().GetCommitment(h.ctx, unknown)
+		require.NoError(t, err)
 		require.False(t, found)
-		_, found = h.views.GetExecution(h.ctx, unknown)
+		_, found, err = h.views.ServiceViews().GetExecution(h.ctx, unknown)
+		require.NoError(t, err)
 		require.False(t, found)
-		_, found = h.views.GetDelivery(h.ctx, unknown)
+		_, found, err = h.views.ServiceViews().GetDelivery(h.ctx, unknown)
+		require.NoError(t, err)
 		require.False(t, found)
-		_, found = h.views.GetDispute(h.ctx, unknown)
+		_, found, err = h.views.ServiceViews().GetDispute(h.ctx, unknown)
+		require.NoError(t, err)
 		require.False(t, found)
 	})
 }

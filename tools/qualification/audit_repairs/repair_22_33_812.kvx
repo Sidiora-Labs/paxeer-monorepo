@@ -1,0 +1,50 @@
+[task]
+id = "22.33.812"
+audit = "22.30.178"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Correct provider geography; separate root node and hosted gateway RPC URLs and attribute every result; propagate gofmt status before stdout inspection with stderr retained by the existing target logger; inspect files individually and retain grep/allowlist errors as incomplete scans."
+source_proof = "Parse every changed shell script with bash -n; run the entire embedded deployment validator in-process over TOML fixtures; assert RPC owner-to-URL-to-command routing and drive its real response decoder; assert the gofmt invocation/status/logging chain and replay a malformed-input failure transcript through the real result consumer and target runner; execute the real scanner on clean, secret-bearing, allowlisted, invalid-allowlist and unreadable input files."
+review_only = "Provider location identities are reviewed against https://fly.io/docs/reference/regions/ (gru is Sao Paulo, Brazil; jnb is Johannesburg, South Africa). No live Fly inventory, deployed node/gateway, Rust gateway build or Go formatter runs. RPC source routing and fixture response decoding do not claim live HTTP or native gateway execution. The malformed Go fixture and parse-error transcript exercise the production result consumer and logger, not the Go parser itself. These stateless CLI repairs have no restart-recovery finding."
+runtime = "The explicitly required shell parsing and real shell-consumer checks use the system bash, Python and normal POSIX/GNU command runtime already used by the scripts; no Go/Node/Rust toolchain, credential, externally supplied environment variable, live service, device, installed fixture binary or replacement formatter is required. Temporary environment settings and files are created by the tests."
+baseline_tests_run = false
+baseline = "Initial git status/diff contained only runner-prepared .cgignore and spec bookkeeping, with no scoped repair; gate.json reported builds_used=0 and verify_runs_used=0, and gates.jsonl was absent. No pre-change test failures are claimed. The explicit implementation-first order and hf-done-only verification supersede the conflicting older baseline instruction in step 8."
+build_cmd = "bash -n scripts/wallet/check-deploy.sh scripts/wallet/check-live.sh scripts/wallet/gate-lint.sh scripts/wallet/scan-secrets.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_812.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private /out/run/gates.jsonl bind this record and its proving tests to the exact content-derived candidate revision, command, exit code and log; embedding that candidate hash in its own tree would change it."
+qualification = "Only hf-build followed by hf-done qualifies the unchanged candidate; no result is claimed before those gates run. The runner owns task completion bookkeeping, commits and publication."
+wiring_requests = ["tools/ci/tests/test_wallet_check_live.py — owning domain 16 (CLI/scripts and CI): migrate the old single CHECK_LIVE_ENDPOINT_BASE fixture to separate CHECK_LIVE_NODE_RPC_URL and CHECK_LIVE_HOSTED_RPC_URL contracts and include owner/url fields in expected result lines; keep all existing account/consensus/refusal assertions."]
+format = "No shell, Python or KVX formatter is configured for these paths; preserve existing language indentation and apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules only to touched files."
+
+[finding.57]
+file = "scripts/wallet/check-live.sh"
+class = "retired-reference"
+resolution = "Endpoint mode requires CHECK_LIVE_NODE_RPC_URL and CHECK_LIVE_HOSTED_RPC_URL. eth_chainId goes to the configured node root; px_resolveAccount, px_getNetwork and px_getAccount go to the hosted gateway root. The caller uses each URL exactly, without appending /rpc. Each pass/fail includes its owner and URL, including RPC refusals, invalid JSON and transport errors. Existing response-shape assertions are preserved."
+tests = ["test_wallet_shell_syntax", "test_57_rpc_owner_routing_source", "test_57_real_response_consumer_reports_owner"]
+
+[finding.58]
+file = "scripts/wallet/check-deploy.sh"
+class = "test-gap"
+resolution = "Move gru from north-america to south-america and jnb from asia-pacific to africa. Preserve all other inventory members and the two-group/known-regions diversity rule. Prove that North America plus Brazil and Asia-Pacific plus South Africa pass; five locations on one of the original groups and unknown locations still fail."
+tests = ["test_wallet_shell_syntax", "test_58_deployment_diversity_real_validator", "test_58_provider_location_inventory"]
+
+[finding.59]
+file = "scripts/wallet/gate-lint.sh"
+class = "test-gap"
+resolution = "Capture the formatter's exit immediately and pass it to gofmt_result, which propagates failure before considering stdout. Preserve formatter stderr for the existing 2>&1/tee target logger. Verify clean, unformatted, parse-error-with-empty-stdout and error-with-output consumers and a malformed-input transcript failing the actual target runner with exit 2 and diagnostic retained."
+tests = ["test_wallet_shell_syntax", "test_59_gofmt_producer_checks_status_and_logs_stderr", "test_59_real_gofmt_result_consumer", "test_59_malformed_go_transcript_fails_real_target_gate"]
+
+[finding.60]
+file = "scripts/wallet/scan-secrets.sh"
+class = "security"
+resolution = "Scan each selected path with grep; distinguish 0 (match), 1 (no match) and all errors. Retain stderr and aggregate affected paths, continue collecting findings and exit 2 for any incomplete scan before returning a clean/findings result. Invalid allowlist regex errors also fail closed. Prove real unreadability under an unprivileged child even when the test runner is root, with and without readable secret-bearing peers."
+tests = ["test_wallet_shell_syntax", "test_60_scanner_distinguishes_clean_findings_and_allowlist_errors", "test_60_unreadable_file_fails_even_with_other_matches", "test_60_error_guards_source"]
+
+[gotcha.baseline]
+observed = "The task contains an older request to verify before implementation while its explicit gate order allows verification only through hf-done after implementation and hf-build."
+resolution = "Follow the explicit gate order, record that baseline tests did not run and make no baseline result claim; keep this note in scope because GOTCHA.kvx and spec files are excluded."
+
+[gotcha.runtime]
+observed = "The generic no-external-binary wording conflicts with the task's explicit requirement to parse shell scripts with bash -n and prove guarded shell commands."
+resolution = "Use the scripts' normal shell runtime for required parsing and production consumers, with source checks and transcript inputs instead of requiring any build toolchain; document the exact review-only limits."

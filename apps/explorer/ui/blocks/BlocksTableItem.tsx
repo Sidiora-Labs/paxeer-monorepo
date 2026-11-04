@@ -5,10 +5,9 @@ import React from 'react';
 import type { Block } from 'types/api/block';
 import type { ClusterChainConfig } from 'types/multichain';
 
-import { route } from 'nextjs-routes';
+import { route } from 'nextjs/routes';
 
 import config from 'configs/app';
-import getBlockTotalReward from 'lib/block/getBlockTotalReward';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
@@ -24,18 +23,22 @@ import Utilization from 'ui/shared/Utilization/Utilization';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import SimpleValue from 'ui/shared/value/SimpleValue';
 
+import { getBlockTotalReward, getBlockNativeValueProps } from './blockValues';
+
 interface Props {
   data: Block;
   isLoading?: boolean;
   animation?: string;
   enableTimeIncrement?: boolean;
   chainData?: ClusterChainConfig;
+  appConfig?: typeof config;
 }
 
-const isRollup = config.features.rollup.isEnabled;
-
-const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chainData }: Props) => {
-  const totalReward = getBlockTotalReward(data);
+const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chainData, appConfig: appConfigProp }: Props) => {
+  const appConfig = appConfigProp ?? chainData?.app_config ?? config;
+  const currency = appConfig.chain.currency;
+  const isRollup = appConfig.features.rollup.isEnabled;
+  const totalReward = getBlockTotalReward(data, currency);
   const burntFees = BigNumber(data.burnt_fees || 0);
   const txFees = BigNumber(data.transaction_fees || 0);
 
@@ -60,6 +63,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
                 isLoading={ isLoading }
                 number={ data.height }
                 hash={ data.type !== 'block' ? data.hash : undefined }
+                chain={ chainData }
                 noIcon
                 fontWeight={ 600 }
               />
@@ -80,11 +84,12 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           { data.size?.toLocaleString() || 'N/A' }
         </Skeleton>
       </TableCell>
-      { !config.UI.views.block.hiddenFields?.miner && (
+      { !appConfig.UI.views.block.hiddenFields?.miner && (
         <TableCell >
           <AddressEntity
             address={ data.miner }
             isLoading={ isLoading }
+            chain={ chainData }
             truncation="constant"
           />
         </TableCell>
@@ -95,7 +100,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
             <Link href={ route({
               pathname: '/block/[height_or_hash]',
               query: { height_or_hash: String(data.height), tab: 'txs' },
-            }) }>
+            }, { chain: chainData }) }>
               { data.transactions_count }
             </Link>
           </Skeleton>
@@ -112,14 +117,15 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           />
         </Flex>
       </TableCell>
-      { !isRollup && !config.UI.views.block.hiddenFields?.total_reward && (
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward && (
         <TableCell >
           <SimpleValue value={ totalReward } loading={ isLoading }/>
         </TableCell>
       ) }
-      { !isRollup && !config.UI.views.block.hiddenFields?.burnt_fees && (
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees && (
         <TableCell >
           <NativeCoinValue
+            { ...getBlockNativeValueProps(currency, data.burnt_fees) }
             amount={ data.burnt_fees }
             noSymbol
             startElement={ <IconSvg name="flame" mr={ 2 } boxSize={ 5 } color="text.secondary" isLoading={ isLoading }/> }
@@ -131,9 +137,10 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           </Tooltip>
         </TableCell>
       ) }
-      { !isRollup && !config.UI.views.block.hiddenFields?.base_fee && data.base_fee_per_gas && (
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.base_fee && data.base_fee_per_gas && (
         <TableCell isNumeric>
           <NativeCoinValue
+            { ...getBlockNativeValueProps(currency, data.base_fee_per_gas, 'wei', 4) }
             amount={ data.base_fee_per_gas }
             loading={ isLoading }
             gweiThreshold={ 4 }

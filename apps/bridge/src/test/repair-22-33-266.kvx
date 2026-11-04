@@ -1,0 +1,56 @@
+[repair.22.33.266]
+audit = "22.30.131"
+manifest-typecheck-assertion = "manifestTypegenPrecedesTypecheck; existing declaresTestAndTypecheckScripts retains Next typegen then tsc, in order, and is registered with an executable callback"
+attestation-proof-producer = "attestationWireFixturesSurviveListenerReopening; exported HTTP clients consume committed signed wire fixtures across listener reopening; Rust handler producer wiring remains requested below"
+component-test-injected-vault = "componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges; actual card submission is persisted and enriched by transferListOptions before successful release verification and signed-field refusals; no withdrawal vault or nonce is inserted by the test"
+ledger-test-vault = "ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification; actual withdrawalRecord is saved, reopened, enriched and verified, including legacy rows with no vault and disabled registry refusal"
+lib-proof-service-double = "libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks; committed HTTP bundles reach actual submitted/reloaded withdrawal, signature verification and release builder; Rust handler producer wiring remains requested below"
+settlement-proof-producer = "settlementSubmissionReopensThroughBroadcastRevertAndConfirmation; actual card submission and reopened storage reach receipt/state consumers through pending, dropped, reverted, receipt-without-nullifier and confirmed cases; chain-emitted receipt wiring remains requested below"
+solana-proof-program-double = "solanaRecipientFixtureReopensThroughRpcAndHook; persisted layout fixture from the Rust identity vector crosses reopened HTTP listener and real hook, blocker and submission producer; program execution wiring remains requested below"
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate budget prohibit step 11's unchanged-tree verify. No baseline execution or failing-before result is claimed. Static mismatch: manifest assertion expected tsc alone while package.json requires next typegen then tsc."
+evidence = "The runner records exact candidate revision, command, exit and private log in /out/run/gates.jsonl; no unrun gate is claimed."
+
+[wiring.relayer]
+request = "Interop relayer owning domain: services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs and tests/attestation_api.rs must export persisted-journal/reopened-handler HTTP transcripts with accepted and refused requests, for consumption without a Rust/native subprocess in the bridge TypeScript gate; the committed ready JSON fixtures prove client conformance only."
+
+[wiring.chain]
+request = "Paxeer EVM/precompile and bridge contract owning domains: provide a committed producer-emitted BridgeOut receipt and corresponding release/nullifier transcript from the actual chain implementation; apps/bridge/src/test/release-path.ts explicitly uses ABI peer fixtures and does not claim chain execution."
+
+[wiring.solana]
+request = "Solana custody contract owning domain: contracts/bridge/solana/tests/core.rs must export register_recipient-produced PDA bytes and an RPC snapshot after reopening; the committed recipient-vector.json is explicitly a layout fixture, not an execution capture."
+
+[qualification.layout-props]
+revision = "9abe01e43b83b219c15eab55d5faf34f069fad66"
+command = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Out-of-scope src/app/layout.tsx:36 cannot resolve the generated Next.js LayoutProps type; this is already recorded by prerequisite 22.31.376 and is not repaired or investigated here."
+assumption = "The owning application domain must provide its generated route types to the declared tsc gate; no ambient replacement is added under tests."
+
+[repair.transport-setup]
+observed = "Build 1 also found that wagmi's inferred transport object names only Paxeer despite its runtime foreign-chain entries."
+resolution = "Assign real HTTP transports for both configured RPC chains using Object.assign, without a cast, replacement client or widened type."
+
+[repair.refusal-coverage]
+observed = "The shared library proof retained the missing-release response but omitted the original missing-deposit response assertion."
+resolution = "Assert both absent identities return null through the exported query options, and require exactly four additional HTTP requests for both malformed bundles and both absent identities."
+
+[repair.hook-module-state]
+observed = "The release harness resets module state before the Solana hook proof, while a static testing-library import retains the previous React renderer."
+resolution = "Load testing-library's pure renderer alongside the production hook from the current module graph; unmount the hook explicitly before closing each RPC listener."
+
+[repair.multicall-and-persisted-identity]
+observed = "The production viem client batches contract reads with Multicall3 aggregate3, and ledger enrichment canonicalizes the persisted withdrawal identity from pending to its receipt nonce."
+resolution = "Decode and ABI-encode aggregate3 over the existing loopback contract fixtures, assert the persisted row equals the query result under its canonical receipt identity, and pass that persisted row to release consumers."
+
+[repair.listener-reopen-budget]
+observed = "The attestation proof performs accepted and refused HTTP requests across two listener sessions and exceeded Vitest's default timeout in the preceding attempt."
+resolution = "Give both registrations of attestationWireFixturesSurviveListenerReopening a 15000ms timeout, retaining every transport, signature, identity and refusal assertion."
+
+[repair.reopened-connections]
+revision = "0a96a760285ec2a58cdc961ddaf0901307876ffb"
+command = "cg spec done 22.33.266 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five proofs passed; attestation and settlement reopening failed because pooled HTTP sockets outlived the stopped loopback listener."
+resolution = "Send Connection: close on loopback responses so exported clients establish fresh connections after reopening, preserving every request and refusal assertion without retries or fallbacks."

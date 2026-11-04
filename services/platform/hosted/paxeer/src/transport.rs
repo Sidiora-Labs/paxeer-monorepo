@@ -3,18 +3,43 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
-struct DeadlineStream {
+pub(super) struct DeadlineStream {
     stream: TcpStream,
     deadline: Instant,
 }
 
 impl DeadlineStream {
+    pub(super) fn new(stream: TcpStream, deadline: Instant) -> Self {
+        Self { stream, deadline }
+    }
+
+    pub(super) fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
+        self.stream.shutdown(how)
+    }
+
+    pub(super) fn shorten_deadline(&mut self, deadline: Instant) {
+        self.deadline = self.deadline.min(deadline);
+    }
+
     fn remaining(&self) -> io::Result<Duration> {
         self.deadline
             .checked_duration_since(Instant::now())
             .filter(|remaining| !remaining.is_zero())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "Comet response deadline"))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "request deadline exceeded"))
     }
+}
+
+pub(super) fn connect(
+    node: &NodeEndpoint,
+    deadline: Instant,
+) -> Result<DeadlineStream, NodeFailure> {
+    let remaining = deadline
+        .checked_duration_since(Instant::now())
+        .filter(|remaining| !remaining.is_zero())
+        .ok_or(NodeFailure::Unreachable)?;
+    let stream = TcpStream::connect_timeout(&node.address, CONNECT_TIMEOUT.min(remaining))
+        .map_err(|_| NodeFailure::Unreachable)?;
+    Ok(DeadlineStream::new(stream, deadline))
 }
 
 impl Read for DeadlineStream {
@@ -43,13 +68,7 @@ pub(super) fn request(
     maximum: usize,
     deadline: Instant,
 ) -> Result<Vec<u8>, NodeFailure> {
-    let remaining = deadline
-        .checked_duration_since(Instant::now())
-        .filter(|remaining| !remaining.is_zero())
-        .ok_or(NodeFailure::Unreachable)?;
-    let stream = TcpStream::connect_timeout(&node.address, CONNECT_TIMEOUT.min(remaining))
-        .map_err(|_| NodeFailure::Unreachable)?;
-    let mut stream = DeadlineStream { stream, deadline };
+    let mut stream = connect(node, deadline)?;
     let method = if body.is_some() { "POST" } else { "GET" };
     let body = body.unwrap_or_default();
     write!(stream, "{method} {path} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", node.address, body.len())

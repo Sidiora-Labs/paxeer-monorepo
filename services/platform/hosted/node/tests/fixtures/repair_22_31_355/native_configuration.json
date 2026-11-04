@@ -17,7 +17,7 @@
       "value": "L6AZP8LJ64P2tMoPNHZeRvoScKs0GwGlkNBF/fjhQ4qNeAQrMkI4TOMbggib6tuFyjldIodo39OJ0J74SLA/Jg=="
     }
   },
-  "image": "ghcr.io/sidiora-labs/layerx-kernel:0.1.0",
+  "image": "ghcr.io/sidiora-labs/kernel:0.1.0",
   "commands": {
     "init": [
       "paxd",

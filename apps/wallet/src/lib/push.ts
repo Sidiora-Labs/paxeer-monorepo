@@ -1,8 +1,10 @@
-import { reportBackgroundFailure } from '@/platform/status/background-failures';
-
 // ── Native Push Notification Helpers ─────────────────────────────────────────
 // Manages Web Push subscriptions without any third-party service.
 // To send push from your backend, use the subscription object with web-push lib.
+
+import { pushUnsubscribeMessage } from '@/app/api/push/subscribe/unsubscribe-intent';
+import { reportBackgroundFailure } from '@/platform/status/background-failures';
+import { pushDeletionRepository, retainPushDeletion } from './push-deletions';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 const PUSH_API_BASE = '/wallet/api/push';
@@ -58,60 +60,67 @@ export async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegis
 // ── Push Subscription ───────────────────────────────────────────────────────
 
 export async function subscribeToPush(): Promise<PushSubscription | null> {
-  if (!isPushSupported()) return null;
+  return serializePushDeletion(async () => {
+    if (!isPushSupported()) return null;
+    const recoveringDeletion = pushDeletionRepository.read().length > 0;
+    if (!(await reconcilePushDeletions()) || recoveringDeletion) return null;
 
-  const registration = await getServiceWorkerRegistration();
-  if (!registration) return null;
+    const registration = await getServiceWorkerRegistration();
+    if (!registration) return null;
 
-  // Check existing subscription
-  const existing = await registration.pushManager.getSubscription();
-  if (existing) return confirmPushRegistration(existing);
+    // Check existing subscription
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) return confirmPushRegistrationNow(existing);
 
-  if (!VAPID_PUBLIC_KEY) {
-    console.warn('[Push] No VAPID public key configured');
-    return null;
-  }
+    if (!VAPID_PUBLIC_KEY) {
+      console.warn('[Push] No VAPID public key configured');
+      return null;
+    }
 
-  try {
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-    });
+    try {
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
+      });
 
-    // Send subscription to backend
-    return await confirmPushRegistration(subscription);
-  } catch (err) {
-    if (err instanceof PushRegistrationError) throw err;
-    const failure: PushRegistrationResult = {
-      ok: false,
-      code: 'BROWSER_UNAVAILABLE',
-      retryable: true,
-    };
-    reportPushRegistrationFailure(failure);
-    throw new PushRegistrationError(failure);
-  }
+      // Send subscription to backend
+      return await confirmPushRegistrationNow(subscription);
+    } catch (err) {
+      if (err instanceof PushRegistrationError) throw err;
+      const failure: PushRegistrationResult = {
+        ok: false,
+        code: 'BROWSER_UNAVAILABLE',
+        retryable: true,
+      };
+      reportPushRegistrationFailure(failure);
+      throw new PushRegistrationError(failure);
+    }
+  });
 }
 
 export async function unsubscribeFromPush(): Promise<boolean> {
-  const registration = await getServiceWorkerRegistration();
-  if (!registration) return false;
-
-  const subscription = await registration.pushManager.getSubscription();
-  if (!subscription) return true;
-
-  try {
-    const success = await subscription.unsubscribe();
-    if (success) {
-      await removeSubscriptionFromServer(subscription);
+  return serializePushDeletion(async () => {
+    try {
+      const registration = await getServiceWorkerRegistration();
+      if (!registration) return false;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        const wallet = pushWallet;
+        if (!wallet) throw new Error('Push deletion requires the owning wallet');
+        retainPushDeletion({ endpoint: subscription.endpoint, walletAddress: wallet.address });
+        acknowledgedEndpoint = null;
+        acknowledgedWallet = null;
+      }
+      return await reconcilePushDeletions();
+    } catch (error) {
+      reportPushDeletionFailure(error);
+      return false;
     }
-    return success;
-  } catch (err) {
-    console.error('[Push] Unsubscribe failed:', err);
-    return false;
-  }
+  });
 }
 
 export async function getCurrentSubscription(): Promise<PushSubscription | null> {
+  await retryPendingPushDeletions();
   const registration = await getServiceWorkerRegistration();
   if (!registration) return null;
   const subscription = await registration.pushManager.getSubscription();
@@ -168,12 +177,15 @@ export function setWalletAddressForPush(
   acknowledgedEndpoint = null;
   acknowledgedWallet = null;
   pushWallet = { address, signMessage };
+  if (typeof window !== 'undefined') window.addEventListener('online', recoverPushDeletions);
+  recoverPushDeletions();
 }
 
 export function clearWalletAddressForPush(): void {
   pushWallet = null;
   acknowledgedEndpoint = null;
   acknowledgedWallet = null;
+  if (typeof window !== 'undefined') window.removeEventListener('online', recoverPushDeletions);
 }
 
 export interface PushSubscriptionRecord {
@@ -242,6 +254,18 @@ function subscriptionRecord(subscription: PushSubscription): PushSubscriptionRec
 export async function sendSubscriptionToServer(
   subscription: PushSubscriptionRecord
 ): Promise<PushRegistrationResult> {
+  return serializePushDeletion(async () => {
+    const recoveringDeletion = pushDeletionRepository.read().length > 0;
+    if (!(await reconcilePushDeletions()) || recoveringDeletion) {
+      return pushRegistrationUnavailable();
+    }
+    return sendPushRegistration(subscription);
+  });
+}
+
+async function sendPushRegistration(
+  subscription: PushSubscriptionRecord
+): Promise<PushRegistrationResult> {
   const wallet = pushWallet;
   const fail = (
     code: Extract<PushRegistrationResult, { ok: false }>['code'],
@@ -305,15 +329,103 @@ export async function confirmPushRegistration<T extends PushSubscriptionRecord |
   return subscription;
 }
 
-async function removeSubscriptionFromServer(subscription: PushSubscription): Promise<void> {
+async function confirmPushRegistrationNow<T extends PushSubscriptionRecord | PushSubscription>(
+  subscription: T
+): Promise<T> {
+  const result = await sendPushRegistration(normalizePushSubscription(subscription));
+  if (!result.ok) throw new PushRegistrationError(result);
+  return subscription;
+}
+
+function pushRegistrationUnavailable(): PushRegistrationResult {
+  const result = { ok: false, code: 'BROWSER_UNAVAILABLE', retryable: true } as const;
+  reportPushRegistrationFailure(result);
+  return result;
+}
+
+function reportPushDeletionFailure(error: unknown): void {
+  console.warn('[Push] Pending subscription deletion:', error);
+  reportBackgroundFailure({
+    domain: 'platform',
+    kind: 'unavailable',
+    code: 'PUSH_DELETION_PENDING',
+    message: 'Notification removal is pending. Reconnect the owning wallet to retry.',
+    retryable: true,
+  });
+}
+
+let deletionWork: Promise<unknown> = Promise.resolve();
+
+function serializePushDeletion<T>(operation: () => Promise<T>): Promise<T> {
+  const work = deletionWork.then(operation);
+  deletionWork = work.catch(reportPushDeletionFailure);
+  return work;
+}
+
+function recoverPushDeletions(): void {
+  void retryPendingPushDeletions().catch(reportPushDeletionFailure);
+}
+
+export function retryPendingPushDeletions(): Promise<boolean> {
+  return serializePushDeletion(reconcilePushDeletions);
+}
+
+async function reconcilePushDeletions(): Promise<boolean> {
+  const pending = pushDeletionRepository.read();
+  for (const intent of pending) {
+    const wallet = pushWallet;
+    if (!wallet || wallet.address.toLowerCase() !== intent.walletAddress) continue;
+    try {
+      const registration = await getServiceWorkerRegistration();
+      if (!registration) throw new Error('Push service worker unavailable');
+      const subscription = await registration.pushManager.getSubscription();
+      if (pushWallet !== wallet) continue;
+      if (subscription?.endpoint === intent.endpoint && !(await subscription.unsubscribe())) {
+        throw new Error('Browser refused push subscription removal');
+      }
+      if (pushWallet !== wallet) continue;
+      await removeSubscriptionFromServer(intent.endpoint, wallet);
+      if (pushWallet !== wallet) continue;
+      pushDeletionRepository.update((current) =>
+        current.filter((item) => item.endpoint !== intent.endpoint)
+      );
+    } catch (error) {
+      reportPushDeletionFailure(error);
+    }
+  }
+  return pushDeletionRepository.read().length === 0;
+}
+
+async function removeSubscriptionFromServer(
+  endpoint: string,
+  wallet: NonNullable<typeof pushWallet>
+): Promise<void> {
+  const issuedAt = Math.floor(Date.now() / 1_000);
+  const signature = await wallet.signMessage(
+    pushUnsubscribeMessage(endpoint, wallet.address, issuedAt)
+  );
+  if (pushWallet !== wallet) throw new Error('Push deletion wallet changed while signing');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
-    await fetch(`${PUSH_API_BASE}/subscribe`, {
+    const response = await fetch(`${PUSH_API_BASE}/subscribe`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint: subscription.endpoint }),
+      body: JSON.stringify({ endpoint, walletAddress: wallet.address, issuedAt, signature }),
+      signal: controller.signal,
     });
-  } catch (err) {
-    console.warn('[Push] Failed to remove subscription from server:', err);
+    if (!response.ok) throw new Error(`Push deletion refused (${response.status})`);
+    const acknowledgement: unknown = await response.json();
+    if (
+      typeof acknowledgement !== 'object' ||
+      acknowledgement === null ||
+      !('ok' in acknowledgement) ||
+      acknowledgement.ok !== true
+    ) {
+      throw new Error('Push deletion was not acknowledged');
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -321,13 +433,15 @@ async function removeSubscriptionFromServer(subscription: PushSubscription): Pro
 export async function heartbeat(
   subscription?: PushSubscriptionRecord
 ): Promise<PushRegistrationResult> {
-  if (subscription) return sendSubscriptionToServer(subscription);
-  const registration = await getServiceWorkerRegistration();
-  const current = await registration?.pushManager.getSubscription();
-  if (!current) {
-    const result = { ok: false, code: 'BROWSER_UNAVAILABLE', retryable: true } as const;
-    reportPushRegistrationFailure(result);
-    return result;
-  }
-  return sendSubscriptionToServer(subscriptionRecord(current));
+  return serializePushDeletion(async () => {
+    const recoveringDeletion = pushDeletionRepository.read().length > 0;
+    if (!(await reconcilePushDeletions()) || recoveringDeletion) {
+      return pushRegistrationUnavailable();
+    }
+    if (subscription) return sendPushRegistration(subscription);
+    const registration = await getServiceWorkerRegistration();
+    const current = await registration?.pushManager.getSubscription();
+    if (!current) return pushRegistrationUnavailable();
+    return sendPushRegistration(subscriptionRecord(current));
+  });
 }

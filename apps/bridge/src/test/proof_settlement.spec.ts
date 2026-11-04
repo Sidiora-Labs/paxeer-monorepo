@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 /**
  * Proves: import.ts/settlement.ts/transfer-actions.ts -> exported modules/phase.ts -> enrichRecord/viem/DepositStatus/TransferHistory
  * Covers matchDepositLog, nonceFromBridgeOutLogs, phaseOf, settlementPatch, releaseCheckOf,
@@ -10,6 +12,8 @@
  * changing the input. Receipt inputs use the production ABIs; matcher results, ledger patches,
  * phases and wallet requests passed to consumers are produced by the real modules, never doubles.
  */
+import { settlementSubmissionReopensThroughBroadcastRevertAndConfirmation } from './repair-22-33-266.proofs';
+
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -314,3 +318,5 @@ test(proofSettlementWithdrawalReachesWalletAndStatusConsumers.name, proofSettlem
 test(proofSettlementRefusesMalformedAndUnrelatedReceiptResults.name, proofSettlementRefusesMalformedAndUnrelatedReceiptResults);
 test(proofSettlementStatusConsumersObserveEveryPhaseAfresh.name, proofSettlementStatusConsumersObserveEveryPhaseAfresh);
 test(proofSettlementLiveConsumerRefusesMalformedProducerResults.name, proofSettlementLiveConsumerRefusesMalformedProducerResults);
+
+test(settlementSubmissionReopensThroughBroadcastRevertAndConfirmation.name, settlementSubmissionReopensThroughBroadcastRevertAndConfirmation);

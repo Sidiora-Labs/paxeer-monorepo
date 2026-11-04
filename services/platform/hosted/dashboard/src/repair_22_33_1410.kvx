@@ -1,0 +1,49 @@
+[repair.22.33.1410]
+audit = "spec/layerx-merge/programme/audit/records/22.30.79.kvx"
+base = "8c4a3e7e0bd8b236f61b0f9e0dd18f3cfc360fce"
+qualification = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; no unexecuted gate is claimed."
+baseline = "Not run: the explicit task order forbids any test before complete implementation and forbids manual verify_cmd execution; no pre-change test failure is claimed."
+scope = "Only dashboard src and the declared integration test changed; existing runner bookkeeping was preserved."
+
+[finding.027]
+tests = ["finding_027_busy_principal_cannot_hide_retained_audit_and_pages_are_bounded", "finding_027_cursor_pages_do_not_repeat_and_refuse_foreign_or_nonprogressing_entries", "missing_producer_wiring_is_an_error_instead_of_empty_history"]
+repair = "Requests use the principal-scoped audit stream with at most 64 entries per page, exclusive strictly decreasing validated stream cursors, and at most four pages for 200 requested records; a missing version marker or foreign binding refuses the page."
+proof = "Real gateway_audit_event commitments traverse the TLS RESP fixture into the production Store; 2,000 newer foreign records cannot hide 140 retained records and exact cursors, counts, ordering and tenant binding are asserted."
+proof_limit = "The out-of-scope gateway producer does not yet maintain this index; the test's in-memory peer implements the requested contract, not the upstream production mutation."
+
+[finding.026]
+tests = ["finding_026_receipt_lookup_survives_more_than_200_later_events", "finding_026_activity_index_preserves_principal_and_receipt_evidence_checks", "missing_producer_wiring_is_an_error_instead_of_empty_history"]
+repair = "Dashboard::receipt delegates to ReceiptReader's canonical principal/activity lookup independently of recent-event snapshots; the reader validates the real ProtocolEvent codec, principal, payment kind and matching verified activity/settlement receipt evidence."
+proof = "Unmodified successful native-node receipt transcripts pass real gateway verification and settled_payment production, then their serialized events cross TLS RESP into the production receipt reader; the old activity remains visible after 250 later events carrying another activity."
+proof_limit = "The out-of-scope webhook producer does not yet maintain this index; tests exercise the production receipt reader shared by Dashboard::receipt against a committed in-memory peer contract."
+
+[wiring.gateway]
+request = "services/platform/hosted/gateway/src/store.rs; owner domain 8 (fm-platform/gateway): atomically mirror audit entries with their original stream IDs and payload into gateway:principal:<sha256(principal)>:audit; backfill retained entries and initialize :version to 1 only after a complete backfill, including empty principals; maintain retention atomically."
+
+[wiring.webhooks]
+request = "services/platform/hosted/webhooks/src/hosted.rs; owner domain 8 (fm-platform/webhooks): atomically maintain webhooks:principal:<sha256(principal)>:activities as activity-id -> serde_json ProtocolEvent bytes for receipt-backed settled payments, backfill retained evidence, initialize :version to 1 after completion including empty principals, and prune only with its durable evidence."
+
+[gotcha.gate_order]
+observed = "The embedded pre-change verification step conflicts with the task's explicit implementation/build/hf-done order."
+action = "Followed the explicit order without an unauthorized baseline test or edits to out-of-scope GOTCHA.kvx/spec files."
+
+[gotcha.graph_search]
+observed = "The scoped cg grep calls returned zero indexed candidates for the known source files."
+action = "Read the named sources directly and used rg for the missing graph search coverage."
+
+[gotcha.fixture_guard]
+observed = "The initial build failed with E0308 when generic checked() and an immediate mutable borrow inferred IndexData instead of MutexGuard."
+action = "Bound the guard to a local variable before passing it to the peer reply function; the runner ledger retains the failed build revision and private log."
+
+[gotcha.fixture_order]
+observed = "The first verification passed four cases but the busy-principal fixture appended records in descending order because rev() reversed the side-effecting map iterator."
+action = "Append records chronologically, then reverse only the collected expected results; preserved every assertion and the production strict cursor checks."
+revision = "24cfe7aeb91f710215db06278dd45ad0667361c7"
+command = "cg spec done 22.33.1410 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[qualification.requalification]
+implementation = "Continued attempt 3 without discarding its implementation or assertions; the chronological fixture-order repair is present before qualification."
+commands = "hf-build followed by hf-done on the same candidate; the runner private ledger supplies the verified revision and exact command, exit and log."
+recording = "The committed native receipt recording is replayed through verify_activity_operation and settled_payment at test runtime; no live producer, external toolchain or credential is required."

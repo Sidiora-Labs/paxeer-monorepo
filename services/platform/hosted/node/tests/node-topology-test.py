@@ -44,6 +44,22 @@ class NodeTopologyTest(unittest.TestCase):
         self.node = next(workload for workload in self.topology.workloads
                          if workload['ns'] == NAMESPACE and workload['name'] == 'layerx-node')
 
+    def test_tracked_paxeer_boundary_and_observer_listeners(self):
+        self.assertIn('paxeer/deployment.yaml', MANIFESTS)
+        paxeer = next(workload for workload in self.topology.workloads
+                      if workload['ns'] == NAMESPACE and workload['name'] == 'paxeer')
+        for name, target, listener in (('paxeer-boundary', 'https', '9443'),
+                                       ('paxeer-observer-boundary', 'observer-https', '9444')):
+            with self.subTest(service=name):
+                service = self.topology.services[(NAMESPACE, name)]
+                self.assertEqual(service['selector'], {'app': 'paxeer'})
+                self.assertEqual(service['ports'][0]['port'], '9443')
+                self.assertEqual(service['ports'][0]['targetPort'], target)
+                self.assertEqual(paxeer['ports'][target], (listener, 'TCP'))
+                self.assertTrue(self.topology.ingress_admits(paxeer, listener, 'TCP', self.node)[0])
+                self.assertTrue(self.topology.egress_admits(
+                    self.node, NAMESPACE, paxeer['labels'], listener, 'TCP', paxeer['ports'])[0])
+
     def test_configured_node_edges_and_both_policies(self):
         rows = node_rows(self.topology)
         self.assertTrue(rows)

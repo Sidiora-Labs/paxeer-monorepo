@@ -19,12 +19,57 @@ export type PaxeerXArchiveAnchorsResponse = {
   } | null;
 };
 
-export type PaxeerXArchiveReceiptsItem = {
+type PaxeerXArchiveReceiptCommon = {
   id: string;
   account: string | null;
   frozen: true;
-  block_number: number;
+  payload_hash: string | null;
 };
+
+export type PaxeerXArchiveEvmReceipt = PaxeerXArchiveReceiptCommon & {
+  origin: 'evm';
+  block_number: number;
+  transaction_hash: string;
+  timestamp: string | null;
+  verification_status: PaxeerXArchiveVerificationStatus;
+  verification: PaxeerXArchiveVerificationStatus;
+  provenance: {
+    evm: {
+      transaction_hash: string;
+      log_index: number;
+      block_hash: string;
+      block_number: number;
+    };
+  };
+};
+
+export type PaxeerXArchiveKernelReceipt = PaxeerXArchiveReceiptCommon & {
+  origin: 'kernel';
+  block_number: null;
+  transaction_hash: null;
+  timestamp: null;
+  verification_status: 'batch_included';
+  verification: 'sequencer_verified';
+  provenance: {
+    kernel: {
+      batch_number: string;
+      batch_id: string;
+      sequence: string;
+      activity_id: string;
+      result_code: number;
+      receipt_sha256: string;
+      canonical_sha256: string;
+      batch_raw_sha256: string;
+      state_root: string;
+      proof: {
+        header_hex: string;
+        signature_hex: string;
+      };
+    };
+  };
+};
+
+export type PaxeerXArchiveReceiptsItem = PaxeerXArchiveEvmReceipt | PaxeerXArchiveKernelReceipt;
 
 export type PaxeerXArchiveReceiptsResponse = {
   items: Array<PaxeerXArchiveReceiptsItem>;
@@ -45,12 +90,4 @@ export const PAXEER_X_ARCHIVE_VERIFICATION_STATUSES = [
 
 export type PaxeerXArchiveVerificationStatus = typeof PAXEER_X_ARCHIVE_VERIFICATION_STATUSES[number];
 
-// One receipt carries, on top of the list item, the rung it has reached on the kernel's own
-// verification lattice and the log that recorded it. `payload_hash` is an optional column of the
-// receipt log, while the emitting transaction and the timestamp of its block are not.
-export type PaxeerXArchiveReceipt = PaxeerXArchiveReceiptsItem & {
-  verification_status: PaxeerXArchiveVerificationStatus;
-  payload_hash: string | null;
-  transaction_hash: string;
-  timestamp: string;
-};
+export type PaxeerXArchiveReceipt = PaxeerXArchiveReceiptsItem;

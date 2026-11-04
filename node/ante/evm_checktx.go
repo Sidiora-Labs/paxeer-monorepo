@@ -34,6 +34,10 @@ import (
 
 var logger = paxlog.NewLogger("app", "ante")
 
+// EvmCheckTxAnte admits root or registered active tenant transactions, recovers
+// the signature and associates the sender, then checks fees and buys gas before
+// checking the pending nonce. Associate transactions take a read-only early path.
+// Keep modules/evm/AGENTS.md's Ante Handler Pipeline in sync with this ordering.
 func EvmCheckTxAnte(
 	ctx sdk.Context,
 	tx sdk.Tx,

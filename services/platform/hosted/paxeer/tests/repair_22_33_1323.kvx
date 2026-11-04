@@ -1,0 +1,145 @@
+[repair.22.33.1323]
+audit = "spec/layerx-merge/programme/audit/records/22.30.70.kvx"
+base_revision = "cfe99ca0f6e389c490375eed57c49af7d14b30b8"
+status = "implemented in-process genesis migration and native profile proofs; not qualified; eight-finding closure is not claimed"
+continuation = "Decision 2524 and 22.31.465 restore the manifest and existing Rust handlers; the previous attempt's missing-manifest blocker is resolved. Its unchanged findings and wiring requests below are historical observations, not current missing-manifest claims."
+implementation = "genesis.rs calls support/genesis_transport.rs in process, compiling the unchanged production main.rs, genesis.rs and transport.rs. Loopback HTTP peers serve the committed genesis fixture. The qualifier retains direct/wrapped and HTTP-chunked identity, SHA256, consumer headers, ordered genesis chunks, malformed envelopes and metadata/base64, direct and aggregate 32 MiB limits, truncation, 30-second deadline, endpoint rejection, route restrictions and unreachable-node refusal. It no longer launches Python, OpenSSL or the boundary executable."
+profile_proof = "repair_m1323_test.go drives the actual native WriteProfile/RunDeployment/OpenDeployment/WriteManifest consumer and OS pipe, closes and reopens the deployment and compares canonical manifest bytes; all seven retired deployment phases plus bootstrap/check-profile/status are refused by the real handler. These Go proofs are implemented, not executed by the corrected Rust-only gate."
+remaining = "comet.py, deployment_profile.py, genesis.py, gov-scripts-test.sh, real_chain.py and real_chain.rs retain their existing assertions pending maintained-owner adoption. Do not claim that in-process qualification of the restored transport alone migrates the node owner or executes the Go/Bash producers."
+baseline = "Unmeasured: explicit ordered gates prohibit verification before implementation and prohibit running verify_cmd manually. The prior attempt failed before compilation because the manifest was absent; no pre-change test failure or success is inferred."
+qualification = "Only hf-build then hf-done are authorized. The private gate ledger and final response record candidate revision, exact command, exit and log; no successful gate or closure is declared here. The corrected Rust target now executes ten TestRepairM_1323_ functions against unchanged production code. NativeProfileConsumer checks the committed maintained deployment-profile artifact against the real restored NodeEndpoint parser. It must accept the maintained node root origin to enable this migration; the existing parser only permits literal loopback addresses. Do not widen that production security boundary outside scope, relax the test, or claim all eight findings closed."
+
+[continuation.relay-retirement-19]
+status = "open"
+test = "No merged-node EVM proof and custody-refusal target is available in this Rust crate; existing comet.py assertions remain intact."
+wiring = "rpc/ and consensus/internal/rpc/core/ — RPC/consensus domains 7/1: expose the maintained in-process committed-EVM proof producer/consumer and custody refusal to the declared qualification owner; preserve exact envelopes and negative cases."
+
+[continuation.relay-retirement-20]
+status = "implemented native proof; Rust-only qualification and old Python target migration remain open"
+test = "TestRepairM_1323_NativeDeploymentProfile in repair_m1323_test.go"
+wiring = "services/platform/hosted/paxeer/profile.go and spec/layerx-merge/spec.kvx — platform/tooling domains 8/16: provide an approved in-process qualification interface for the real Go deployment handler; the corrected Rust-only gate cannot execute it without a prohibited subprocess or native artifact."
+
+[continuation.relay-retirement-21]
+status = "in-process assertions ported; maintained node-owner adoption and old Python harness migration remain open"
+test = "genesis_through_real_tls_boundary in genesis.rs, calling byte_identity, ordered_chunks, route_refusals, malformed_responses, invalid_chunk_metadata, size_bound, truncation_and_chunk_bounds, deadline and unreachable_and_endpoint_refusals"
+wiring = "services/platform/hosted/node/tests/ and consensus/internal/rpc/core/ — native-node/consensus domains 5/1: adopt the in-process genesis assertions at the maintained node interface; the current scope can reuse restored handlers but cannot move files to those owners."
+
+[continuation.relay-retirement-22]
+status = "retired binary environment binding and subprocess launcher removed; not qualified"
+test = "genesis_through_real_tls_boundary in genesis.rs now calls the production handler and transport in process"
+wiring = "services/platform/hosted/node/tests/ — native-node domain 5: own the migrated genesis qualification and its transport helper."
+
+[continuation.relay-retirement-23]
+status = "open"
+test = "Existing gov-scripts-test.sh retains arithmetic, exact and late deadlines, expedited behavior and fixture execution refusals; no fake Rust arithmetic duplicate is introduced."
+wiring = "services/platform/hosted/node/gov-lib.sh, services/platform/hosted/node/gov-upgrade.sh and services/platform/hosted/node/gov-consensus-params.sh — native-node domain 5: adopt the real commands and provide their in-process gate interface; these maintained paths remain absent and running Bash from the Rust gate is forbidden."
+
+[continuation.relay-retirement-24]
+status = "open"
+test = "Existing real_chain.py real transaction, wrong-chain, node-loss and transport assertions are retained; the Go retired-interface refusal is not a replacement for a real node transaction."
+wiring = "rpc/, services/platform/hosted/node/native_runtime.py and services/platform/hosted/node/tests/ — RPC/native-node domains 7/5: expose the maintained transaction and node-loss qualification in process to the declared gate without paxd/cast/OpenSSL subprocess prerequisites."
+
+[continuation.deployment-test-old-interface]
+status = "implemented real retirement refusal; old optional historical branch migration and Rust-only qualification remain open"
+test = "TestRepairM_1323_RetiredDeploymentInterface in repair_m1323_test.go"
+wiring = "services/platform/hosted/paxeer/profile.go and spec/layerx-merge/spec.kvx — platform/tooling domains 8/16: reconcile the conditional historical seven-phase proposal with predecessor 22.33.1319's explicit removal of historical support; the actual historical runner, authority-artifact consumer and submitter interface remain deleted."
+
+[continuation.relay-retirement-25]
+status = "open"
+test = "Existing real_chain.rs re-entry refusal remains intact until a real maintained qualification entrypoint is callable; its subprocess proof cannot run inside this gate."
+wiring = "services/platform/hosted/node/tests/ — native-node domain 5: adopt transaction qualification and pre-launch re-entry refusal, and separate historical settlement qualification before removing the old launcher bindings."
+
+[gotcha.continuation_gate_interfaces]
+observed = "Restoring the Cargo manifest resolves the prior build blocker but supplies neither a Rust interface to the native Go deployment handler nor maintained governance commands; testing replacements in Rust would not exercise production."
+resolution = "Implement available in-process production transport and Go handler proofs, retain unported assertions, record owner wiring and do not invent a passing eight-finding target."
+
+[previous_attempt.22.33.1323] 
+audit = "spec/layerx-merge/programme/audit/records/22.30.70.kvx"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+status = "blocked; findings remain open; no repair or qualification is claimed"
+scope = "services/platform/hosted/paxeer/tests"
+observed = "The base tracks neither services/platform/hosted/paxeer/Cargo.toml nor deploy-contracts.sh; repair_m1319.kvx explicitly records their retirement. The declared Rust build and verification require the removed manifest, whose restoration is outside this task's scope and contradicts that retirement."
+decision = "Preserve all existing tests and assertions until their production owners and gate are available; do not resurrect the relay, copy production implementations into tests, substitute source-text assertions for behavioral proof, or claim unexecuted proving tests."
+baseline = "Unmeasured: the ordered instructions forbid testing before implementation or running verify_cmd by hand; no prior gate ledger or implementation was present. The initial .cgignore and spec.kvx modifications were left untouched."
+evidence = "The bounded hf-build ledger in /out/run/gates.jsonl and its private log identify the exact candidate revision, command and exit; the final response copies the gate's evidence JSON. No successful verification is claimed."
+
+[finding.relay-retirement-19]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/comet.py"
+proof = "Unavailable: the corrected Rust proving target has no crate; existing proved-EVM, exact-envelope and negative transport assertions remain intact."
+wiring = "rpc/ and consensus/internal/rpc/core/ — RPC/consensus domains 7/1: provide maintained in-process transport qualification for committed EVM proofs and retired custody refusal before porting comet.py; preserve negative cases rather than assuming relay error codes apply to the node."
+
+[finding.relay-retirement-20]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/deployment_profile.py"
+proof = "Unavailable: this historical suite calls removed deploy-contracts.sh; it cannot exercise the production Go deployment-profile codec through the required Rust gate without an owner-approved gate correction."
+wiring = "services/platform/hosted/paxeer/profile.go and services/platform/hosted/paxeer/repair_m1319_test.go — platform domain 8: route merged deployment-profile qualification to the maintained Go handoff and explicitly decide historical profile support; do not restore the deleted checkpoint deployer."
+
+[finding.relay-retirement-21]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/genesis.py"
+proof = "Unavailable: the existing suite qualifies a removed relay binary and its custom genesis transport; a fake replacement listener would not prove the maintained node interface. All byte-identity, metadata, size, deadline and malformed-response assertions remain intact."
+wiring = "consensus/internal/rpc/core/ and services/platform/hosted/node/tests/ — consensus/native-node domains 1/5: expose supported in-process node genesis transport qualification and map every preserved byte-identity, chunk, size, deadline and negative case to its actual node contract."
+
+[finding.relay-retirement-22]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/genesis.rs"
+proof = "Unavailable: removing the launcher without a callable maintained genesis qualification would delete coverage; retaining CARGO_BIN_EXE_layerx-paxeer-boundary cannot compile without the retired crate and binary."
+wiring = "services/platform/Cargo.toml and spec/layerx-merge/spec.kvx — platform/tooling domains 8/16: remove the retired workspace member and select a gate at the maintained genesis owner before replacing the launcher; this task cannot edit either file."
+
+[finding.relay-retirement-23]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/gov-scripts-test.sh"
+proof = "Unavailable: gov-lib.sh, gov-upgrade.sh and gov-consensus-params.sh still exist only under the retired owner; their proposed node-owner paths do not exist. Changing test paths now would point at missing production commands."
+wiring = "services/platform/hosted/node/gov-lib.sh, services/platform/hosted/node/gov-upgrade.sh and services/platform/hosted/node/gov-consensus-params.sh — native-node domain 5: adopt the retained operator commands before moving their fixture qualification; preserve arithmetic, exact deadlines, late refusal, expedited behavior and fixture execution refusal."
+
+[finding.relay-retirement-24]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/real_chain.py"
+proof = "Unavailable: the existing qualification launches paxd, openssl, cast and the removed relay; those subprocess prerequisites are forbidden in the corrected gate. Removing them without a maintained real handler would discard its real transaction, identity and node-loss coverage."
+wiring = "rpc/, services/platform/hosted/node/native_runtime.py and services/platform/hosted/node/tests/ — RPC/native-node domains 7/5: supply in-process production-handler qualification with committed transactions, wrong-chain refusal, node loss and recovery before migrating real_chain.py; keep historical settlement outside merged qualification."
+
+[finding.deployment-test-old-interface]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/real_chain.py"
+proof = "Unavailable: the actual historical seven-phase runner and its deployment-input consumer were deleted by the earlier retirement. Hand-building a seven-phase journal or authority artifact would not drive both sides of the production interface."
+wiring = "services/platform/hosted/paxeer/repair_m1319.kvx and spec/layerx-merge/spec.kvx — platform/tooling domains 8/16: reconcile this conditional historical-migration proposal with the recorded decision not to retain historical deployment support; if historical support is required, name its owner, real artifact producer and real runner before qualifying seven phases."
+
+[finding.relay-retirement-25]
+status = "open"
+path = "services/platform/hosted/paxeer/tests/real_chain.rs"
+proof = "Unavailable: the launcher binds the retired binary and settlement-domain subprocess; preserving real-node qualification and re-entry refusal requires a maintained callable target, not deleting or skipping these tests."
+wiring = "services/platform/hosted/node/tests/ and services/platform/Cargo.toml — native-node/platform domains 5/8: adopt the real-node and pre-launch re-entry refusal qualifications at the maintained owner, separate historical settlement coverage, and remove obsolete workspace wiring."
+
+[gotcha.gate_owner]
+observed = "The task's corrected Cargo gate still names a manifest deliberately deleted by its predecessor; no Rust proving test in this scope can become runnable through that command."
+resolution = "Record the missing external interface and bounded gate evidence; do not create an out-of-scope manifest or replace the declared gate with an undeclared Go or Python test."
+
+[gotcha.record_scope]
+observed = "Workflow instructions ask for root GOTCHA.kvx and feature qualification/spec edits, but this task explicitly forbids all edits outside tests and all spec edits."
+resolution = "Keep findings and wiring requests in this scoped record; leave all eight findings open and let the runner retain the exact private gate evidence."
+
+[qualification.first_pass]
+revision = "e07d5642358c386d4133e747a8a9121c4d4ff43a"
+command = "cg spec done 22.33.1323 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The first build passed; verification failed before test execution because the declared repair_22_33_1323 integration target was absent."
+assumption = "Repair by declaring the actual production transport and native-profile consumer tests; run hf-build and hf-done again on the same repaired candidate."
+
+[wiring.native_profile_transport]
+request = "services/platform/hosted/paxeer/src/main.rs and services/platform/hosted/paxeer/profile.go — platform/native-node domains 8/5: supply an explicit maintained node transport consumer for the native deployment profile's cluster root RPC origin; the restored transport accepts only literal loopback endpoints. Preserve endpoint security policy and do not silently remap the configured production origin in the proof."
+
+[gotcha.native_profile_consumer]
+observed = "The real native deployment profile names a cluster DNS root RPC origin, while the restored Rust NodeEndpoint parser accepts only literal loopback addresses; the production Go codec has no in-process Rust binding."
+resolution = "Add a real production consumer assertion to the corrected Rust target and retain the Go producer/consumer proof separately; leave any incompatible result visible rather than substitute loopback configuration or a fake codec."
+
+[continuation.attempt_5]
+base_revision = "74914a18d53214bd1de98ce76358a3d601430d64"
+implementation = "Update the three genesis response calls to pass Instant::now() + NODE_IO_TIMEOUT and the three route calls to pass Instant::now() + CLIENT_IO_TIMEOUT, matching the current production deadline interface and the runtime clock convention used by the boundary tests; production source and all assertions remain unchanged."
+profile = "The current committed native deployment profile now supplies http://127.0.0.1:8545/; the earlier cluster-origin incompatibility observation is historical and the existing NativeProfileConsumer assertion is retained unchanged."
+evidence = "Run only hf-build then hf-done on the final candidate; the private /out/run/gates.jsonl ledger and final response carry exact revision, command, exit and log. No qualification result is inferred before those gates run."
+
+[gotcha.current_deadline_interface]
+observed = "The carried-forward helper omitted the explicit Instant deadline now required by genesis::response and route, causing six E0061 errors in each integration target that includes it."
+resolution = "Thread the production node and client deadline budgets into all six test call sites without extending either bound or editing production source."

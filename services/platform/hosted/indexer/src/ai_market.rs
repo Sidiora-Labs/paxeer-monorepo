@@ -77,6 +77,10 @@ const EVENT_BODY_BYTES: usize = 2 + 2 + 32 * 3 + 8 + 8 + 32;
 const TOKEN_SNAPSHOT_HEX: core::ops::Range<usize> = 2 * (2 + 64)..2 * (2 + 96);
 const TOKEN_GENERATION_HEX: core::ops::Range<usize> = 2 * (2 + 128 + 2 + 8)..2 * (2 + 128 + 14);
 const MINUTE_MS: u64 = 60_000;
+/// Maximum number of principals whose live query quotas can occupy memory.
+pub const QUERY_PRINCIPALS_MAX: usize = 4_096;
+/// Idle buckets live at least this long, and at least until all tokens have refilled.
+pub const QUERY_IDLE_MS: u64 = 300_000;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS ai_stream (
@@ -113,6 +117,14 @@ CREATE TABLE IF NOT EXISTS ai_snapshot (
     publication_time_ms INTEGER,
     observed_at_ms INTEGER NOT NULL,
     UNIQUE (market, observed_sequence)
+);
+CREATE TABLE IF NOT EXISTS ai_archive (
+    state_digest BLOB PRIMARY KEY,
+    state BLOB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_snapshot_archive (
+    snapshot_id BLOB PRIMARY KEY REFERENCES ai_snapshot(snapshot_id),
+    state_digest BLOB NOT NULL REFERENCES ai_archive(state_digest)
 );
 CREATE TABLE IF NOT EXISTS ai_participant (
     snapshot_id BLOB NOT NULL REFERENCES ai_snapshot(snapshot_id) ON DELETE CASCADE,
@@ -172,6 +184,8 @@ pub enum ViewError {
     AuthorityStale {
         lag: u64,
     },
+    AuthorityRegression,
+
     Store(String),
 }
 
@@ -199,6 +213,7 @@ impl ViewError {
             Self::Quarantined => "quarantined",
             Self::RollbackRefused => "rollback-refused",
             Self::AuthorityStale { .. } => "authority-stale",
+            Self::AuthorityRegression => "authority-regression",
             Self::Store(_) => "projection-store",
         }
     }
@@ -246,9 +261,11 @@ pub enum ProjectionState {
     ObservedUnverified = 1,
     EvidenceVerifiedUnfinalized = 2,
     FinalizedPublishable = 3,
-    /// Finalized, content moved out of the recent cache; binding and rows retained.
+    /// Finalized content durably archived by digest; binding and rows retained.
     Archived = 4,
     Quarantined = 5,
+    /// Finalized binding whose content was evicted before durable archives were supported.
+    Pruned = 6,
 }
 
 impl ProjectionState {
@@ -259,12 +276,16 @@ impl ProjectionState {
             3 => Self::FinalizedPublishable,
             4 => Self::Archived,
             5 => Self::Quarantined,
+            6 => Self::Pruned,
             _ => return Err(ViewError::IntegrityFailure),
         })
     }
     #[must_use]
     pub const fn finalized(self) -> bool {
-        matches!(self, Self::FinalizedPublishable | Self::Archived)
+        matches!(
+            self,
+            Self::FinalizedPublishable | Self::Archived | Self::Pruned
+        )
     }
 }
 
@@ -793,6 +814,7 @@ struct Bucket {
 pub struct QueryLimiter {
     config: Option<RateConfig>,
     buckets: Mutex<HashMap<Digest32, Bucket>>,
+    max_principals: usize,
 }
 
 /// Admission for one in-flight query; releases its concurrency slot when dropped.
@@ -815,11 +837,27 @@ impl QueryLimiter {
     /// `None` or a zero rate means the endpoint is disabled.
     #[must_use]
     pub fn new(config: Option<RateConfig>) -> Self {
+        Self::with_capacity(config, QUERY_PRINCIPALS_MAX)
+    }
+
+    /// A smaller operational capacity may be configured; it never exceeds the hard bound.
+    #[must_use]
+    pub fn with_capacity(config: Option<RateConfig>, max_principals: usize) -> Self {
         Self {
             config: config.filter(|c| c.per_minute > 0 && c.burst > 0 && c.concurrent > 0),
             buckets: Mutex::new(HashMap::new()),
+            max_principals: max_principals.min(QUERY_PRINCIPALS_MAX),
         }
     }
+
+    /// Number of retained principal quotas, including outstanding permits.
+    pub fn retained_principals(&self) -> ViewResult<usize> {
+        self.buckets
+            .lock()
+            .map(|b| b.len())
+            .map_err(|_| ViewError::Store("limiter poisoned".to_owned()))
+    }
+
     /// # Errors
     /// `EndpointDisabled` without a rate configuration, `RateLimited` when the principal's
     /// bucket or concurrency bound is exhausted.
@@ -830,6 +868,15 @@ impl QueryLimiter {
             .buckets
             .lock()
             .map_err(|_| ViewError::Store("limiter poisoned".to_owned()))?;
+        // Expiry cannot create tokens: an idle bucket is removed only once a fresh
+        // bucket would have exactly the quota it would have after normal refill.
+        let idle_ms = QUERY_IDLE_MS.max(capacity.div_ceil(u64::from(config.per_minute)));
+        buckets.retain(|_, bucket| {
+            bucket.active != 0 || now_ms.saturating_sub(bucket.last_ms) < idle_ms
+        });
+        if !buckets.contains_key(&viewer.visibility) && buckets.len() >= self.max_principals {
+            return Err(ViewError::CapacityExceeded);
+        }
         let bucket = buckets.entry(viewer.visibility).or_insert(Bucket {
             scaled_tokens: capacity,
             last_ms: now_ms,
@@ -1224,11 +1271,50 @@ fn make_room(
         let Some(victim) = victim else {
             return Err(ViewError::CapacityExceeded);
         };
-        tx.execute(
-            "UPDATE ai_snapshot SET state = NULL, projection = 4 WHERE snapshot_id = ?1",
-            params![victim],
-        )?;
+        archive_body(tx, &digest(&victim)?)?;
     }
+}
+
+// The locator and body are acknowledged in the same FULL-synchronous transaction as
+// cache eviction. A digest collision or an incomplete copy refuses the eviction.
+fn archive_body(tx: &Transaction<'_>, snapshot_id: &Digest32) -> ViewResult<()> {
+    let record = load_record(tx, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+    let state = load_state(tx, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+    if codec::state_digest(&state)? != record.state_digest {
+        return Err(ViewError::IntegrityFailure);
+    }
+    tx.execute(
+        "INSERT OR IGNORE INTO ai_archive(state_digest, state) VALUES (?1, ?2)",
+        params![record.state_digest.as_bytes().as_slice(), &state],
+    )?;
+    let durable: Vec<u8> = tx.query_row(
+        "SELECT state FROM ai_archive WHERE state_digest = ?1",
+        params![record.state_digest.as_bytes().as_slice()],
+        |r| r.get(0),
+    )?;
+    if durable != state {
+        return Err(ViewError::IntegrityFailure);
+    }
+    tx.execute(
+        "INSERT OR IGNORE INTO ai_snapshot_archive(snapshot_id, state_digest) VALUES (?1, ?2)",
+        params![
+            snapshot_id.as_bytes().as_slice(),
+            record.state_digest.as_bytes().as_slice()
+        ],
+    )?;
+    let locator: Vec<u8> = tx.query_row(
+        "SELECT state_digest FROM ai_snapshot_archive WHERE snapshot_id = ?1",
+        params![snapshot_id.as_bytes().as_slice()],
+        |r| r.get(0),
+    )?;
+    if locator != record.state_digest.as_bytes() {
+        return Err(ViewError::IntegrityFailure);
+    }
+    tx.execute(
+        "UPDATE ai_snapshot SET state = NULL, projection = 4 WHERE snapshot_id = ?1",
+        params![snapshot_id.as_bytes().as_slice()],
+    )?;
+    Ok(())
 }
 
 fn insert_rows(
@@ -1318,6 +1404,9 @@ impl ProjectionStore {
         connection.pragma_update(None, "synchronous", "FULL")?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         connection.execute_batch(SCHEMA)?;
+        // Earlier versions labelled discarded bodies archived without an acknowledgement.
+        connection.execute("UPDATE ai_snapshot SET projection = 6 WHERE projection = 4 AND state IS NULL \
+            AND NOT EXISTS (SELECT 1 FROM ai_snapshot_archive a WHERE a.snapshot_id = ai_snapshot.snapshot_id)", [])?;
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -1615,7 +1704,7 @@ impl ProjectionStore {
         let m = market.as_bytes().as_slice();
         let removed = tx.execute(
             "DELETE FROM ai_snapshot WHERE market = ?1 AND observed_sequence > ?2 \
-             AND projection NOT IN (3, 4)",
+             AND projection NOT IN (3, 4, 6)",
             params![m, signed(to_sequence)?],
         )?;
         let head: Option<(i64, Vec<u8>)> = tx
@@ -1788,14 +1877,16 @@ impl ProjectionStore {
         Ok(out)
     }
 
-    /// Operator action: moves a finalized, unleased, non-latest snapshot body to the external
-    /// digest-verified archive. Binding, rows and outbox rows remain.
+    /// Moves a finalized, unleased, non-latest body to the durable digest-addressed archive
+    /// in this database. Binding, rows and outbox rows remain.
     ///
     /// # Errors
     /// `ProjectionUnavailable` for an unknown or unfinalized snapshot or the latest pointer,
     /// `CapacityExceeded` while a cursor lease pins it.
     pub fn archive(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
-        let conn = self.lock()?;
+        let mut conn = self.lock()?;
+        let tx = conn.transaction()?;
+        let conn = &tx;
         let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         let latest = load_stream(&conn, &record.market)?.and_then(|s| s.finalized_snapshot);
         if record.projection != ProjectionState::FinalizedPublishable
@@ -1811,21 +1902,68 @@ impl ProjectionStore {
         if leased != 0 {
             return Err(ViewError::CapacityExceeded);
         }
-        conn.execute(
-            "UPDATE ai_snapshot SET state = NULL, projection = 4 WHERE snapshot_id = ?1",
-            params![snapshot_id.as_bytes().as_slice()],
-        )?;
+        archive_body(&tx, snapshot_id)?;
+        tx.commit()?;
         Ok(())
     }
 
-    /// Restores archived content after verifying it against the retained state digest and
-    /// committed binding. Nothing else is ever substituted for missing content.
-    ///
-    /// # Errors
-    /// `IntegrityFailure` for any digest, binding or row difference (alerted),
-    /// `ProjectionUnavailable` for a snapshot that is not archived.
+    /// Recover a digest-addressed archived body after reopening the database.
+    pub fn recover_archived(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
+        self.restore_content(snapshot_id, None, now_ms)
+    }
+
+    /// Restores supplied archived content only after checking its retained digest,
+    /// binding and rows. Operational recovery normally uses `recover_archived`.
     pub fn restore_archived(&self, snapshot_id: &Digest32, state: &[u8]) -> ViewResult<()> {
-        let conn = self.lock()?;
+        self.restore_content(snapshot_id, Some(state), 0)
+    }
+
+    fn restore_content(
+        &self,
+        snapshot_id: &Digest32,
+        supplied: Option<&[u8]>,
+        now_ms: u64,
+    ) -> ViewResult<()> {
+        let mut conn = self.lock()?;
+        let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+        let tx = conn.transaction()?;
+        let archived;
+        let state = match supplied {
+            Some(state) => state,
+            None => {
+                archived = tx.query_row(
+                    "SELECT a.state FROM ai_archive a JOIN ai_snapshot_archive l USING(state_digest) WHERE l.snapshot_id = ?1",
+                    params![snapshot_id.as_bytes().as_slice()], |r| r.get::<_, Vec<u8>>(0)).optional()?
+                    .ok_or(ViewError::ProjectionUnavailable)?;
+                &archived
+            }
+        };
+        match Self::restore_body(&tx, snapshot_id, state, now_ms) {
+            Ok(()) => {
+                tx.commit()?;
+                Ok(())
+            }
+            Err(error) => {
+                drop(tx);
+                if error == ViewError::IntegrityFailure {
+                    record_alert(
+                        &conn,
+                        record.market.as_bytes(),
+                        snapshot_id.as_bytes(),
+                        &error,
+                    )?;
+                }
+                Err(error)
+            }
+        }
+    }
+
+    fn restore_body(
+        conn: &Transaction<'_>,
+        snapshot_id: &Digest32,
+        state: &[u8],
+        now_ms: u64,
+    ) -> ViewResult<()> {
         let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         if record.projection != ProjectionState::Archived {
             return Err(ViewError::ProjectionUnavailable);
@@ -1845,14 +1983,9 @@ impl ProjectionStore {
                 ViewError::Store(_) => error,
                 _ => ViewError::IntegrityFailure,
             };
-            record_alert(
-                &conn,
-                record.market.as_bytes(),
-                snapshot_id.as_bytes(),
-                &error,
-            )?;
             return Err(error);
         }
+        make_room(conn, &record.market, state.len(), now_ms)?;
         conn.execute(
             "UPDATE ai_snapshot SET state = ?2, projection = 3 WHERE snapshot_id = ?1",
             params![snapshot_id.as_bytes().as_slice(), state],
@@ -1912,12 +2045,19 @@ impl ProjectionStore {
     ) -> ViewResult<MarketView> {
         let conn = self.lock()?;
         let (record, _, binding) = Self::resolve(&conn, market, selector)?;
-        let freshness = verified_authority_height.map_or(Freshness::Unknown, |height| match height
-            .saturating_sub(record.execution_height)
-        {
-            lag if lag > AUTHORITY_FRESHNESS_HEIGHTS => Freshness::Stale { lag },
-            _ => Freshness::Current,
-        });
+        let freshness = match verified_authority_height {
+            None => Freshness::Unknown,
+            Some(height) => {
+                let lag = height
+                    .checked_sub(record.execution_height)
+                    .ok_or(ViewError::AuthorityRegression)?;
+                if lag > AUTHORITY_FRESHNESS_HEIGHTS {
+                    Freshness::Stale { lag }
+                } else {
+                    Freshness::Current
+                }
+            }
+        };
         Ok(MarketView {
             snapshot_id: record.snapshot_id,
             binding,
@@ -1946,7 +2086,9 @@ impl ProjectionStore {
             .and_then(|s| s.finalized_snapshot)
             .ok_or(ViewError::FinalityUnavailable)?;
         let record = load_record(&conn, &id)?.ok_or(ViewError::FinalityUnavailable)?;
-        let lag = verified_authority_height.saturating_sub(record.execution_height);
+        let lag = verified_authority_height
+            .checked_sub(record.execution_height)
+            .ok_or(ViewError::AuthorityRegression)?;
         if lag > AUTHORITY_FRESHNESS_HEIGHTS {
             return Err(ViewError::AuthorityStale { lag });
         }

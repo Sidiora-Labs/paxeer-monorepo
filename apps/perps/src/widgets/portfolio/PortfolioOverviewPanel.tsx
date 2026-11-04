@@ -105,6 +105,8 @@ export function PortfolioOverviewPanel(props: PortfolioOverviewPanelProps) {
           dailyPnl={dailyPnl}
           totalVaultUsd={displayValue}
           isLoading={dailyPnlLoading}
+          historyCapped={dailyPnlHistoryCapped}
+          skippedDays={dailyPnlSkippedDays}
         />
       </div>
 
@@ -149,7 +151,7 @@ function TotalValueCard(props: TotalValueCardProps) {
     onTogglePrivacy, onRefresh, onConnect, onDeposit, onWithdraw,
   } = props;
 
-  const mask = (s: string) => (privacy ? "••••••" : s);
+  const mask = (s: string) => privacy ? <HiddenBalance /> : s;
 
   // Top 3 non-zero balances to show as a compact strip under the number.
   const topBalances = useMemo(
@@ -184,12 +186,11 @@ function TotalValueCard(props: TotalValueCardProps) {
               <span
                 className={cn(
                   "inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-1.5 py-0.5",
-                  pnl >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400",
+                  privacy ? "bg-surface-0 text-muted-foreground" : pnl >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400",
                 )}
               >
-                {pnl >= 0 ? "+" : ""}
-                {mask(fmtUsd(pnl))}
-                <span className="opacity-70">({pnlPct.toFixed(2)}%)</span>
+                {mask(`${pnl >= 0 ? "+" : ""}${fmtUsd(pnl)}`)}
+                <span className="opacity-70">{mask(`(${pnlPct.toFixed(2)}%)`)}</span>
               </span>
               <span className="text-muted-foreground">unrealised</span>
             </div>
@@ -223,9 +224,9 @@ function TotalValueCard(props: TotalValueCardProps) {
             >
               <img src={coinLogoUrl(b.symbol)} alt="" className="h-4 w-4 rounded-full" />
               <span className="text-[11px] font-mono text-foreground tabular-nums">
-                {(Number(b.vaultBalance) / 10 ** b.decimals).toLocaleString("en-US", {
+                {mask((Number(b.vaultBalance) / 10 ** b.decimals).toLocaleString("en-US", {
                   maximumFractionDigits: b.decimals > 6 ? 4 : 2,
-                })}
+                }))}
               </span>
               <span className="text-[10px] text-muted-foreground">{b.symbol}</span>
             </div>
@@ -238,9 +239,10 @@ function TotalValueCard(props: TotalValueCardProps) {
         <MiniStat label="Open positions" value={openPositions.toLocaleString()} />
         <MiniStat
           label="Realized PnL"
-          value={isConnected && hasVault ? mask(fmtUsd(realizedPnl)) : "—"}
+          value={isConnected && hasVault ? fmtUsd(realizedPnl) : "—"}
+          hideValue={privacy && isConnected && hasVault}
           tone={realizedPnl >= 0 ? "positive" : "negative"}
-          active={isConnected && hasVault && realizedPnl !== 0}
+          active={!privacy && isConnected && hasVault && realizedPnl !== 0}
         />
         <MiniStat
           label="Trades"
@@ -277,16 +279,22 @@ function TotalValueCard(props: TotalValueCardProps) {
   );
 }
 
+function HiddenBalance() {
+  return <span role="img" aria-label="Balance hidden"><span aria-hidden="true">••••••</span></span>;
+}
+
 function MiniStat({
   label,
   value,
   tone,
   active,
+  hideValue,
 }: {
   label: string;
   value: string;
   tone?: "positive" | "negative";
   active?: boolean;
+    hideValue?: boolean;
 }) {
   const colorClass = !active
     ? "text-foreground"
@@ -301,7 +309,7 @@ function MiniStat({
         {label}
       </div>
       <div className={cn("mt-1 text-base font-mono font-semibold tabular-nums", colorClass)}>
-        {value}
+        {hideValue ? <HiddenBalance /> : value}
       </div>
     </div>
   );

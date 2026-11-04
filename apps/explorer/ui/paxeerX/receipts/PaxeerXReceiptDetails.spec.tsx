@@ -3,8 +3,10 @@
 import React from 'react';
 
 import type { PaxeerXArchiveReceipt } from 'types/api/paxeerXArchive';
+import { PAXEER_X_ARCHIVE_VERIFICATION_STATUSES } from 'types/api/paxeerXArchive';
 
 import dayjs from 'lib/date/dayjs';
+import { PAXEER_X_KERNEL_RECEIPTS_ITEM, PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
 import { describe, expect, it } from 'vitest';
 import { screen } from 'vitest/lib';
 
@@ -14,7 +16,8 @@ import PaxeerXReceiptDetails from './PaxeerXReceiptDetails';
 // The payload the single-receipt endpoint renders, field for field: the list item fields plus the
 // rung of the kernel verification lattice, the payload hash, the emitting transaction and the
 // timestamp of the block that holds it.
-const receipt: PaxeerXArchiveReceipt = {
+const receipt = {
+  ...PAXEER_X_RECEIPTS_ITEM,
   id: '0x0000000000000000000000000000000000000000000000000000000000000007',
   account: '0x0000000000000000000000000000000000000000000000000000000000000009',
   frozen: true,
@@ -23,7 +26,14 @@ const receipt: PaxeerXArchiveReceipt = {
   payload_hash: '0x3ed9d81e7c1001bdda1caa1dc62c0acbbe3d2c671cdc20dc1e65efdaa4186967',
   transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99',
   timestamp: '2023-05-22T18:00:36.000000Z',
-};
+  provenance: {
+    evm: {
+      ...PAXEER_X_RECEIPTS_ITEM.provenance.evm,
+      transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99',
+      block_number: 70,
+    },
+  },
+} satisfies PaxeerXArchiveReceipt;
 
 const rowValues = (container: HTMLElement) => {
   const card = container.querySelector('[data-receipt-details-card]') as HTMLElement;
@@ -80,12 +90,12 @@ describe('PaxeerXReceiptDetails', () => {
       settlement_anchored: 'Settlement anchored',
     } as const;
 
-    for (const [ status, label ] of Object.entries(labels)) {
+    for (const status of PAXEER_X_ARCHIVE_VERIFICATION_STATUSES) {
       const { unmount } = render(
-        <PaxeerXReceiptDetails data={{ ...receipt, verification_status: status as PaxeerXArchiveReceipt['verification_status'] }}/>,
+        <PaxeerXReceiptDetails data={{ ...receipt, verification_status: status, verification: status }}/>,
       );
 
-      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getByText(labels[status])).toBeTruthy();
 
       unmount();
     }
@@ -121,7 +131,7 @@ describe('PaxeerXReceiptDetails', () => {
   });
 
   it('puts a dash in place of the transaction, block and timestamp the endpoint returns as null', () => {
-    const data = { ...receipt, transaction_hash: null, block_number: null, timestamp: null } as unknown as PaxeerXArchiveReceipt;
+    const data: PaxeerXArchiveReceipt = PAXEER_X_KERNEL_RECEIPTS_ITEM;
     const { container } = render(<PaxeerXReceiptDetails data={ data }/>);
 
     const values = rowValues(container);
@@ -144,8 +154,8 @@ describe('PaxeerXReceiptDetails', () => {
   });
 
   it('reports a block alone as missing while the transaction and timestamp stay linked', () => {
-    const data = { ...receipt, block_number: null } as unknown as PaxeerXArchiveReceipt;
-    const { container } = render(<PaxeerXReceiptDetails data={ data }/>);
+    const data = { ...receipt, block_number: null };
+    const { container } = render(Reflect.apply(PaxeerXReceiptDetails, undefined, [ { data } ]));
 
     const values = rowValues(container);
 

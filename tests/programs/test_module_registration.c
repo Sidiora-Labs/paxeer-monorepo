@@ -8,20 +8,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Task 22.33.764, audit 22.30.173:
+ * registration-catalogue: retained_registration_main / registration_contract.
+ * composed-registration-fixture: module_registration_protocol (protocols 2/3).
+ * Wiring request: Makefile, domain 16 (tools-ops), run both registration suites
+ * from the declared verify targets; neither suite is currently a dependency.
+ * Baseline verify not run: the bounded gate order requires implementation first.
+ */
+
 static lxp_result module_registration_execute(lxp_kernel *, const lxp_activity *,
     lxp_kernel_execution *, lxp_receipt *);
 static lxp_result module_registration_identity(lxp_identity_store *, const uint8_t *, size_t, const uint8_t *, lxp_identity **);
 static const lxp_byte_span *module_registration_events(const lxp_kernel_prepared_batch *);
-static int module_registration_state(lxp_kernel *, const uint8_t *,
+static int module_registration_state(const lxp_kernel *, const uint8_t *,
     const lxp_sequencer_authorization *, const lxp_batch_header *,
     const lxp_byte_span *, lxp_byte_span, const uint8_t *);
+static lxp_result module_registration_batch(lxp_kernel *, const lxp_activity *,
+    const lxp_kernel_execution *);
 static lxp_byte_span observed_events;
 static size_t observed_batches;
 static size_t observed_failures;
 static size_t observed_resources;
+static bool post_upgrade_batch_regression;
 
 #define main retained_registration_main
+#define write_u64 registration_write_u64
 #include "test_registration.c"
+#undef write_u64
 #undef main
 #define main retained_call_activity_main
 #define lxp_identity_register module_registration_identity
@@ -102,8 +115,18 @@ static lxp_result module_registration_execute(lxp_kernel *kernel,
         }
         if (lxp_arena_reset(execution->arena, mark) != LXP_OK) status = LXP_FATAL_INVARIANT;
     }
+    if (status == LXP_OK &&
+        registration_retired_dispatch_rejected(kernel, execution->epoch) != 0)
+        status = LXP_FATAL_INVARIANT;
+    if (status == LXP_OK && post_upgrade_batch_regression &&
+        (activity->activity_type == LX_PROGRAMS_DEPLOY ||
+         activity->activity_type == LX_PROGRAMS_UPGRADE))
+        status = module_registration_batch(kernel, &signed_activity, execution);
     if (status == LXP_OK)
         status = lxp_kernel_execute_activity(kernel, &signed_activity, execution, receipt);
+    if (status == LXP_OK &&
+        registration_retired_dispatch_rejected(kernel, execution->epoch) != 0)
+        status = LXP_FATAL_INVARIANT;
     if (status == LXP_OK && receipt->program_outcome.present && receipt->result_code != LXP_OK) {
         if (kernel->module_kv_count != kv_count || kernel->blob_count != blob_count ||
             kernel->blob_total_bytes != blob_bytes || receipt->effects.count != 0U ||
@@ -130,7 +153,7 @@ static lxp_result module_registration_execute(lxp_kernel *kernel,
     return status;
 }
 
-static int module_registration_state(lxp_kernel *kernel, const uint8_t *payload,
+static int module_registration_state(const lxp_kernel *kernel, const uint8_t *payload,
     const lxp_sequencer_authorization *authorization, const lxp_batch_header *header,
     const lxp_byte_span *receipts, lxp_byte_span header_bytes, const uint8_t *signature)
 {
@@ -166,6 +189,101 @@ static int module_registration_state(lxp_kernel *kernel, const uint8_t *payload,
     return 0;
 }
 
+static lxp_result module_registration_batch(lxp_kernel *kernel,
+    const lxp_activity *activity, const lxp_kernel_execution *execution)
+{
+    lxp_kernel_prepared_batch *prepared = NULL;
+    lxp_kernel_execution batch_execution = *execution;
+    lxp_sequencer_authorization authorization = {0};
+    lxp_batch_header header = {0}, decoded_header;
+    lxp_batch_maintenance maintenance;
+    lxp_batch_roots roots;
+    lxp_byte_span canonical_activity, receipts[2], events[2], header_bytes;
+    lxp_arena arena;
+    uint8_t digest[32], signature[64];
+    uint8_t *storage = malloc(2U * LXP_MAX_ACTIVITY_BYTES);
+    EVP_PKEY *key = NULL;
+    EVP_MD_CTX *context = NULL;
+    size_t signature_length = sizeof(signature), count = 1U;
+    lxp_result status = LXP_FATAL_INVARIANT;
+    if (storage == NULL) return LXP_ERR_ARENA_EXHAUSTED;
+    batch_execution.sequencer_private_key = executed_sequencer_seed;
+    if (lxp_arena_init(&arena, storage, 2U * LXP_MAX_ACTIVITY_BYTES) != LXP_OK ||
+        lxp_kernel_prepare_serial_activity_batch(kernel, activity,
+            &batch_execution, &prepared) != LXP_OK ||
+        lxp_kernel_prepared_batch_count(prepared) != 1U)
+        goto cleanup;
+    if (activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+        if (lxp_kernel_prepare_batch_maintenance(prepared, activity,
+                &batch_execution) != LXP_OK)
+            goto cleanup;
+        receipts[1] = lxp_kernel_prepared_batch_maintenance(prepared);
+        if (lxp_batch_maintenance_decode(receipts[1].bytes, receipts[1].length,
+                                         &maintenance) != LXP_OK)
+            goto cleanup;
+        events[1] = maintenance.effects;
+        count = 2U;
+    }
+    const lxp_receipt *receipt = lxp_kernel_prepared_batch_receipts(prepared);
+    const lxp_kernel *settled = lxp_kernel_prepared_batch_settled_kernel(prepared);
+    const lxp_byte_span *batch_events = module_registration_events(prepared);
+    if (receipt == NULL || settled == NULL || batch_events == NULL ||
+        receipt->result_code != LXP_OK ||
+        lxp_activity_encode(activity, &arena, &canonical_activity) != LXP_OK ||
+        lxp_receipt_encode(receipt, true, &arena, &receipts[0]) != LXP_OK)
+        goto cleanup;
+    events[0] = batch_events[0];
+    if (lxp_batch_roots_compute(&(lxp_batch_root_inputs){&canonical_activity, 1U,
+            receipts, count, events, count, NULL, 0U, NULL, 0U},
+            &arena, &roots) != LXP_OK ||
+        executed_public_key(executed_sequencer_seed, authorization.public_key) != 0)
+        goto cleanup;
+    (void)memcpy(authorization.sequencer_id, authorization.public_key, 32U);
+    authorization.authorized = 1U;
+    authorization.first_batch_number = execution->batch_number;
+    authorization.last_batch_number = execution->batch_number;
+    header.protocol_version = activity->protocol_version;
+    header.network_id = execution->network_id;
+    header.epoch = execution->epoch;
+    header.batch_number = execution->batch_number;
+    header.first_sequence = execution->global_sequence;
+    header.last_sequence = settled->state->next_sequence - 1U;
+    header.timestamp_ms = execution->batch_timestamp_ms;
+    (void)memcpy(header.sequencer_id, authorization.sequencer_id, 32U);
+    (void)memcpy(header.previous_state_root, kernel->current_state_root, 32U);
+    (void)memcpy(header.resulting_state_root,
+                 lxp_kernel_prepared_batch_final_root(prepared), 32U);
+    (void)memcpy(header.activity_merkle_root, roots.activity_merkle_root, 32U);
+    (void)memcpy(header.receipt_merkle_root, roots.receipt_merkle_root, 32U);
+    (void)memcpy(header.event_merkle_root, roots.event_merkle_root, 32U);
+    (void)memcpy(header.data_availability_root, roots.data_availability_root, 32U);
+    (void)memcpy(header.oracle_root, roots.oracle_root, 32U);
+    if (lxp_batch_header_hash(&header, &arena, digest) != LXP_OK ||
+        lxp_batch_header_encode(&header, &arena, &header_bytes) != LXP_OK ||
+        lxp_batch_header_decode(header_bytes.bytes, header_bytes.length,
+                                &decoded_header) != LXP_OK)
+        goto cleanup;
+    key = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL,
+                                       executed_sequencer_seed, 32U);
+    context = EVP_MD_CTX_new();
+    if (key == NULL || context == NULL ||
+        EVP_DigestSignInit(context, NULL, NULL, NULL, key) != 1 ||
+        EVP_DigestSign(context, signature, &signature_length,
+                       digest, sizeof(digest)) != 1 ||
+        signature_length != sizeof(signature) ||
+        module_registration_state(settled, activity->payload.bytes,
+            &authorization, &decoded_header, receipts, header_bytes, signature) != 0)
+        goto cleanup;
+    status = LXP_OK;
+cleanup:
+    EVP_MD_CTX_free(context);
+    EVP_PKEY_free(key);
+    lxp_kernel_prepared_batch_destroy(prepared);
+    observed_events = (lxp_byte_span){NULL, 0U};
+    free(storage);
+    return status;
+}
+
 static int module_registration_protocol(uint16_t protocol)
 {
     observed_failures = 0U;
@@ -177,7 +295,12 @@ static int module_registration_protocol(uint16_t protocol)
     post_upgrade_batch_regression = true;
     if (deploy_and_upgrade_artifacts_case(protocol, false) != 0 || observed_batches != 4U)
         return 1;
+    if (observed_failures != 2U || observed_resources != 2U) return 1;
     post_upgrade_batch_regression = false;
+    (void)printf("PROGRAM_MODULE_REGISTRATION_CASE finding=composed-registration-fixture "
+                 "test=module_registration_protocol protocol=%u batches=%zu "
+                 "failures=%zu resources=%zu\n", (unsigned)protocol,
+                 observed_batches, observed_failures, observed_resources);
     return 0;
 }
 

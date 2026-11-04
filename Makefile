@@ -1232,34 +1232,83 @@ test-wave-8: test-service-offer test-service-commit test-service-attest \
 
 
 $(BUILD_DIR)/tests/lxp_test_codec_primitives: \
-		tests/codec/lxp_test_codec_primitives.c $(LIBRARY)
+		tests/codec/lxp_test_codec_primitives.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives
+# Task 22.33.1034 audit 22.30.4 proof record:
+# 001: binding_authority_substitutes_receiver_signature,
+#      native_receive_verifies_receiver_signature, receive_environment_copies_binding,
+#      binding_receive_retired_ordinals_refused.
+# 017: bridge_credit_symbols_absent; 004: budget_pull_type_refused,
+#      budget_delegate_spend_unchanged; 016: codec_malformed_envelope_admission.
+# 005: lxp_codec_vector_run; 006: builder_header_without_custody.
+# 007: fee_schedule_golden_bytes, fee_per_activity_golden_table.
+# 008: execute_refuses_host_fee_meter, prepare_refuses_host_fee_meter.
+# Prior attempt revision 3b9662dce1cc1e6a55ccc10007979f1f37511383:
+# make -s test-codec test-codec-limits test-codec-vectors test-codec-version
+# exited 2 at prepare_refuses_host_fee_meter's decoded receipt verification.
+# Wiring request: modules/layerxpay (pay domain) owns native payment producer
+# coverage; the C binding tests exercise the retained SEND consumer contract.
+CODEC_AUDIT_TESTS := $(addprefix $(BUILD_DIR)/tests/, \
+	lxp_test_binding_authority_receive lxp_test_bridge_credit_absent \
+	lxp_test_budget_pull_retired lxp_test_custody_builder_header \
+	lxp_test_fee_golden lxp_test_fee_meter_refused)
+
+$(CODEC_AUDIT_TESTS): $(BUILD_DIR)/tests/%: tests/codec/%.c \
+		tests/codec/lxp_kernel_case.h $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+
+test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives $(CODEC_AUDIT_TESTS)
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_primitives
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_binding_authority_receive \
+		binding_authority_substitutes_receiver_signature \
+		native_receive_verifies_receiver_signature receive_environment_copies_binding \
+		binding_receive_retired_ordinals_refused
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_bridge_credit_absent \
+		"$(abspath $(LIBRARY))" bridge_credit_symbols_absent deposit_nullifier_kept
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_budget_pull_retired \
+		budget_pull_type_refused budget_delegate_spend_unchanged
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_custody_builder_header \
+		builder_header_without_custody
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_golden \
+		fee_schedule_golden_bytes fee_per_activity_golden_table
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_meter_refused \
+		execute_refuses_host_fee_meter prepare_refuses_host_fee_meter
 
 $(BUILD_DIR)/tests/lxp_test_codec_composite: \
-		tests/codec/lxp_test_codec_composite.c $(LIBRARY)
+		tests/codec/lxp_test_codec_composite.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-limits: $(BUILD_DIR)/tests/lxp_test_codec_composite
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_composite
 
 $(BUILD_DIR)/tests/lxp_test_codec_strict: \
-		tests/codec/lxp_test_codec_strict.c $(LIBRARY)
+		tests/codec/lxp_test_codec_strict.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-version: $(BUILD_DIR)/tests/lxp_test_codec_strict
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_strict
 
 $(BUILD_DIR)/tests/lxp_test_codec_vectors: \
 		tests/codec/lxp_test_codec_vectors.c $(LIBRARY) \
-		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv
+		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv \
+		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-vectors: $(BUILD_DIR)/tests/lxp_test_codec_vectors
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_vectors
@@ -2929,25 +2978,29 @@ $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
 paxai-host-boundary: paxai-host-boundary-build
 
 paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
+	@rm -f $(PAXAI_HOST_BOUNDARY_DIR)/manifest
 	@printf '%s\n' '$(PAXAI_CHAIN_DOMAIN)' | LC_ALL=C grep -Eq '^[0-9a-f]{64}$$'
-	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-ai-market
+	@command -v wasm-opt >/dev/null 2>&1 || { printf '%s\n' 'paxai-host-boundary: wasm-opt is required' >&2; exit 1; }
+	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --config 'profile.release.opt-level="z"' --target wasm32-unknown-unknown -p layerx-programs-ai-market
 	@mkdir -p $(PAXAI_HOST_BOUNDARY_DIR)
-	cp $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
+	wasm-opt -Oz --strip-debug --strip-producers $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm -o $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
+	@test "$$(wc -c < $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)" -le 524184 || { printf '%s\n' 'paxai-host-boundary: guest exceeds 524184 bytes (524288 minus 104-byte deployment envelope)' >&2; exit 1; }
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/paxai_host_boundary $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm < /dev/null
 	printf '%s\n%s\n%s\n' '$(abspath $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)' '$(abspath $(BUILD_DIR)/tests/paxai_host_boundary)' '$(PAXAI_CHAIN_DOMAIN)' > $(PAXAI_HOST_BOUNDARY_DIR)/manifest
 
 $(BUILD_DIR)/tests/lxp_test_blob_admission: tests/programs/test_blob_admission.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LAYERXD_SOURCES) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
 PAXAI_FUNDED_SCRIPT ?=
 
 $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps: tests/programs/test_paxai_native_gaps.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LAYERXD_SOURCES) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
@@ -3170,20 +3223,6 @@ test-owner-rotation: $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit
 
 test: test-owner-rotation
-
-ARCHIVE_CODEC_SOURCES := cmd/layerx-archive-codec/main.c
-ARCHIVE_CODEC_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(ARCHIVE_CODEC_SOURCES))
--include $(ARCHIVE_CODEC_OBJECTS:.o=.d)
-
-.PHONY: layerx-archive-codec
-layerx-archive-codec: $(BUILD_DIR)/bin/layerx-archive-codec
-
-$(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
 include tools/paxeer-x/build/6.6.mk

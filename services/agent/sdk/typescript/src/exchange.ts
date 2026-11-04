@@ -583,26 +583,29 @@ function exchangeCall(name: string, types: readonly PrecompileAbiType[], values:
   return { to: LAYERX_EXCHANGE_PRECOMPILE, data: encodeAbiCall(name, types, values), value };
 }
 
-/** `placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)`. */
-export function exchangePlaceOrderCall(order: {
-  readonly marketId: string;
-  readonly accountId: string;
-  readonly side: number;
-  readonly price: bigint;
-  readonly quantity: bigint;
-  readonly timeInForce: number;
-}): PrecompileCall {
+export type ExchangePlaceOrder = Readonly<{
+  marketId: string;
+  side: number;
+  price: bigint;
+  quantity: bigint;
+  timeInForce: number;
+}> & (Readonly<{ accountId: string }> | Readonly<{ accountId?: never }>);
+
+/** Encodes the published account-bearing or legacy placeOrder overload. */
+export function exchangePlaceOrderCall(order: ExchangePlaceOrder): PrecompileCall {
   if (
     !Number.isInteger(order.side) || order.side < 0 || order.side > 255 ||
     !Number.isInteger(order.timeInForce) || order.timeInForce < 0 || order.timeInForce > 255
   ) {
     throw new PrecompileAbiError("invalid_value", "order uint8");
   }
-  return exchangeCall(
-    "placeOrder",
-    ["bytes32", "bytes32", "uint8", "uint256", "uint256", "uint8"],
-    [order.marketId, order.accountId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)],
-  );
+  if ("accountId" in order) {
+    if (typeof order.accountId !== "string") throw new PrecompileAbiError("invalid_value", "order accountId");
+    return exchangeCall("placeOrder", ["bytes32", "bytes32", "uint8", "uint256", "uint256", "uint8"],
+      [order.marketId, order.accountId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)]);
+  }
+  return exchangeCall("placeOrder", ["bytes32", "uint8", "uint256", "uint256", "uint8"],
+    [order.marketId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)]);
 }
 
 /** `cancelOrder(bytes32)`. */

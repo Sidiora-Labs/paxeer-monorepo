@@ -2,6 +2,8 @@
 
 #include "lxp_kernel_case.h"
 
+#include <stdlib.h>
+
 #include "layerx/lxp_codec.h"
 #include "layerx/lxp_module.h"
 
@@ -18,6 +20,38 @@ extern lxp_result lx_web_request_record_decode(
 #pragma weak lx_web_module_iface
 #pragma weak lx_web_committed_read
 #pragma weak lx_web_request_record_decode
+
+static const char *retirement_library_path;
+
+static FILE *retirement_archive_symbols(void)
+{
+    static const char prefix[] = "nm -g --defined-only -- ";
+    size_t length = strlen(retirement_library_path);
+    char *command;
+    char *cursor;
+    FILE *symbols;
+
+    if (length == 0U || length > (SIZE_MAX - sizeof(prefix) - 3U) / 4U)
+        return NULL;
+    command = malloc(sizeof(prefix) + 4U * length + 3U);
+    if (command == NULL) return NULL;
+    memcpy(command, prefix, sizeof(prefix) - 1U);
+    cursor = command + sizeof(prefix) - 1U;
+    *cursor++ = '\'';
+    for (size_t i = 0U; i < length; ++i) {
+        if (retirement_library_path[i] == '\'') {
+            memcpy(cursor, "'\\''", 4U);
+            cursor += 4U;
+        } else {
+            *cursor++ = retirement_library_path[i];
+        }
+    }
+    *cursor++ = '\'';
+    *cursor = '\0';
+    symbols = popen(command, "r");
+    free(command);
+    return symbols;
+}
 
 static int web_symbols_absent(void)
 {
@@ -37,7 +71,7 @@ static int web_symbols_absent(void)
     LXP_CASE_CHECK(lx_web_committed_read == NULL);
     LXP_CASE_CHECK(lx_web_request_record_decode == NULL);
 
-    symbols = popen("nm -g --defined-only build/liblayerx.a", "r");
+    symbols = retirement_archive_symbols();
     LXP_CASE_CHECK(symbols != NULL);
     while (fgets(line, (int)sizeof(line), symbols) != NULL) {
         size_t length = strlen(line);
@@ -67,6 +101,13 @@ static int web_symbols_absent(void)
 
 int main(int argc, char **argv)
 {
+    if (argc < 4 || strcmp(argv[1], "--library") != 0 || argv[2][0] == '\0') {
+        fprintf(stderr, "usage: %s --library <linked archive> <case>...\n", argv[0]);
+        return 2;
+    }
+    retirement_library_path = argv[2];
+    argc -= 2;
+    argv += 2;
     const lxp_kernel_case cases[] = {
         { "web_symbols_absent", web_symbols_absent }
     };

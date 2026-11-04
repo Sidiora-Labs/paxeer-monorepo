@@ -39,6 +39,7 @@ where
                     IndexError::Source(_) => "source_unavailable",
                     IndexError::Decode(_) => "source_decode_failed",
                     IndexError::Store(_) => "store_unavailable",
+                    IndexError::NameResultLimit => "names_result_limit_exceeded",
                     IndexError::Config(_) => "source_configuration_invalid",
                     IndexError::Integrity(_) => "source_integrity_failed",
                     IndexError::ReorgBeyondFinality { .. } => "reorg_beyond_finality",
@@ -102,7 +103,7 @@ fn backfill(args: &[String]) -> Result<(), IndexError> {
     let plan = Backfill::new(&node, settings.cutover, settings.range_blocks);
     plan.next_height(&store)?;
     let mut paxscan = PaxscanDatabase::connect(&settings.paxscan_url, &settings.paxscan_tls)?;
-    let cutover = plan.run(&store, |from, to| paxscan.range(from, to))?;
+    let cutover = plan.run(&store, |from, to| paxscan.range_verified(from, to, &node))?;
     eprintln!(
         "layerx-indexer backfill reached the cutover {cutover}; live ingestion resumes at {}",
         cutover + 1
@@ -172,8 +173,29 @@ fn run() -> Result<(), IndexError> {
         readiness.sources.push("paxeer");
         store.start_source("paxeer")?;
         follow("paxeer", Arc::clone(&store), config.poll, move |store| {
-            ingester.observe_comet(store)?;
-            ingester.step(store)
+            ingester.daemon_step(store)
+        });
+    }
+    if let Some(path) = std::env::var_os("LAYERX_INDEXER_AI_CONFIG") {
+        let (mut runtime, endpoint) =
+            layerx_indexer::ai_runtime::RuntimeConfig::read(std::path::Path::new(&path))?
+                .open(&config.database)?;
+        readiness.sources.push("ai");
+        store.start_source("ai")?;
+        let observations = Arc::clone(&store);
+        let poll = config.poll;
+        thread::spawn(move || loop {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|n| u64::try_from(n.as_millis()).ok());
+            let result = now_ms
+                .ok_or_else(|| IndexError::Source("AI publication clock unavailable".to_owned()))
+                .and_then(|now| runtime.daemon_poll(&observations, &endpoint, now));
+            if let Err(error) = result {
+                eprintln!("layerx-indexer AI capture refused: {error}");
+            }
+            thread::sleep(poll);
         });
     }
     eprintln!(

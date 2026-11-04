@@ -1,0 +1,34 @@
+[meta]
+task = "22.33.886"
+audit = "22.30.183"
+criterion = "22998.1"
+mode = "BUILD"
+
+[finding.f041]
+class = "retired-reference"
+repair = "Use the recorded daemon committed corpus for SDK, interop, explorer and x402 copies, retaining strict structural and type equality and all six recorded V3 refusals."
+tests = ["test_f041_committed_copies_match_recorded_producer", "test_f041_real_rpc_transport_feeds_copy_checker", "test_f041_copy_drift_is_refused", "test_f041_refusal_coverage_cannot_be_removed", "test_f041_missing_commitment_is_still_refused", "test_f041_strict_copy_equality", "test_f041_x402_refusal_cannot_be_removed_or_accepted", "test_f041_retained_transport_drift_is_refused"]
+producer = "daemon/committed-fixture/vectors/vector-v4-committed.json"
+transport = "Production layerx_sdk.x402_rpc.PaymentRpc over loopback HTTP JSON-RPC with recorded receipt, key, header and validator payloads."
+consumer = "tests/conformance/check_receipt_vector_copies.py::check_receipt_vector_copies"
+
+[baseline]
+source = "Inherited attempt-6 test module and supplied gate evidence; no baseline rerun in continuation 7."
+prior_failures = ["test_f041_committed_copies_match_recorded_producer", "test_f041_real_rpc_transport_feeds_copy_checker", "test_f041_retained_transport_drift_is_refused[vector-v3-receipt-refusals.json-location2-:V3-tampered-log.logs[0].data]"]
+observed = "The inherited continuation-6 baseline had 48 passing and three failing cases due to the stale SDK V3 copy; after regeneration, the first gate exposed the retired /rpc endpoint, which the inherited transport test corrected to the production root path."
+previous_revision = "eda30482091ce10a54920c7b2614047b5b58d5ad"
+previous_result = "51 tests passed, but qualification was rejected for .cgignore and repair-record scope drift; this continuation restores .cgignore and supplies the now-declared repair record."
+
+[qualification]
+build_cmd = "python3 -m py_compile tests/conformance/check_receipt_vector_copies.py"
+verify_cmd = "python3 -m pytest -q tests/conformance/test_repair_22_33_886.py"
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; completion requires both gates to pass at the same revision."
+
+[wiring.sdk]
+request = "SDK conformance owns sdk/platform/go/conformance_vectors_test.go: align its V3 source-equality check with daemon/committed-fixture/vectors/vector-v3-receipt-refusals.json."
+
+[wiring.interop_relayer]
+request = "Interop owns services/interop/crates/layerx-bridge-relayer/tests/fixtures/sequencer_receipts.json: migrate the retained consumer to the recorded committed corpus."
+
+[wiring.interop_gas_station]
+request = "Interop owns services/interop/crates/layerx-gas-station/tests/fixtures/sequencer_receipts.json: migrate the retained consumer to the recorded committed corpus."

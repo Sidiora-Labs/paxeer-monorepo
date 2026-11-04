@@ -1,6 +1,6 @@
 // Layer 2 — RPC endpoint list + viem fallback transport factory.
 //
-// Defaults are the fourteen numbered mainnet nodes and the aggregate
+// Defaults are api1 through api14 and the api-mainnet-beta aggregate
 // endpoint, all serving chain-125 JSON-RPC at the root path. viem's
 // `fallback()` ranks these endpoints and rotates between healthy nodes.
 // The aggregate endpoint is the public alias; inclusion in this configured

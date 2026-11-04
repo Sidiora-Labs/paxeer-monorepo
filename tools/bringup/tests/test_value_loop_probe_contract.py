@@ -58,7 +58,8 @@ def test_probe_calls_use_rpc():
     assert "latest_sealed_batch" not in script
     assert "handshake_sealed" not in script
     assert "committed_height=$(handshake_committed)" in script
-    assert 'echo "batch id=$batch committed_height=$committed_height"' in script
+    assert 'echo "block hash=$block committed_height=$committed_height"' in script
+    assert '"$SSL_CERT_FILE" "$network_id" <"$state/send.bin"' in script
 
     session = re.search(r"fn rpc_session\(.*?\n\}", probe, re.DOTALL)
     assert session

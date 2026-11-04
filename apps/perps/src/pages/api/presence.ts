@@ -1,14 +1,29 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { randomBytes } from "node:crypto";
+import { isIP } from "node:net";
 
 const TTL_MS = 15_000;
 const HISTORY_SLOTS = 12;
 const HISTORY_INTERVAL_MS = 60_000;
 const MAX_SESSIONS = 50_000;
+const IDENTITY_TTL_MS = 5 * 60_000;
+const REGISTRATION_WINDOW_MS = 60_000;
+const MAX_CLIENT_IDENTITIES = 5;
+const MAX_CLIENTS = 5_000;
+const SESSION_COOKIE = "pax-presence-id";
 
 interface Session {
+  client: string;
   market: string;
   expiresAt: number;
+  identityExpiresAt: number;
   joinedAt: number;
+}
+
+interface ClientBudget {
+  identities: Set<string>;
+  registrations: number;
+  windowStart: number;
 }
 
 interface HistorySlot {
@@ -28,8 +43,9 @@ interface PresenceSnapshot {
 }
 
 type GlobalBag = typeof globalThis & {
-  __paxPresence?: {
+  __paxPresenceV2?: {
     sessions: Map<string, Session>;
+    clients: Map<string, ClientBudget>;
     history: HistorySlot[];
     lastHistoryAt: number;
   };
@@ -37,14 +53,44 @@ type GlobalBag = typeof globalThis & {
 
 function getStore() {
   const g = globalThis as GlobalBag;
-  if (!g.__paxPresence) {
-    g.__paxPresence = {
+  if (!g.__paxPresenceV2) {
+    g.__paxPresenceV2 = {
       sessions: new Map(),
+      clients: new Map(),
       history: [],
       lastHistoryAt: 0,
     };
   }
-  return g.__paxPresence;
+  return g.__paxPresenceV2;
+}
+
+function normalizedIp(raw: string | undefined): string | undefined {
+  if (!raw || raw.length > 45 || raw.includes("%") || !isIP(raw)) return undefined;
+  if (isIP(raw) === 4) return raw;
+  const canonical = new URL(`http://[${raw}]/`).hostname.slice(1, -1);
+  const mapped = /^::ffff:([a-f0-9]+):([a-f0-9]+)$/.exec(canonical);
+  if (!mapped) return canonical;
+  const high = parseInt(mapped[1], 16);
+  const low = parseInt(mapped[2], 16);
+  return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
+}
+
+// Only configured socket peers may supply X-Real-IP; ingress must overwrite it.
+const TRUSTED_PROXY_IPS = new Set(
+  process.env.PRESENCE_TRUSTED_PROXY_IPS
+    ? process.env.PRESENCE_TRUSTED_PROXY_IPS.split(",").map((raw) => {
+      const ip = normalizedIp(raw.trim());
+      if (!ip) throw new Error("PRESENCE_TRUSTED_PROXY_IPS must contain only IP addresses");
+      return ip;
+    })
+    : [],
+);
+
+function clientIp(req: NextApiRequest): string | undefined {
+  const peer = normalizedIp(req.socket.remoteAddress);
+  if (!peer || !TRUSTED_PROXY_IPS.has(peer)) return peer;
+  const verified = req.headers["x-real-ip"];
+  return typeof verified === "string" ? normalizedIp(verified) : undefined;
 }
 
 function normalizeMarket(raw: unknown): string {
@@ -57,9 +103,17 @@ function normalizeMarket(raw: unknown): string {
 }
 
 function purge(now: number) {
-  const { sessions } = getStore();
+  const { sessions, clients } = getStore();
   for (const [id, s] of sessions) {
-    if (s.expiresAt <= now) sessions.delete(id);
+    if (s.identityExpiresAt <= now) {
+      sessions.delete(id);
+      clients.get(s.client)?.identities.delete(id);
+    }
+  }
+  for (const [client, budget] of clients) {
+    if (!budget.identities.size && now - budget.windowStart >= REGISTRATION_WINDOW_MS) {
+      clients.delete(client);
+    }
   }
 }
 
@@ -88,7 +142,7 @@ function computeSnapshot(now: number): PresenceSnapshot {
   const store = getStore();
   const { total, byMarket } = snapshotCounts(now);
 
-  const past5m = store.history.find((slot) => now - slot.at >= 5 * 60_000);
+  const past5m = store.history.findLast((slot) => slot.at <= now - 5 * 60_000);
 
   const entries = Object.entries(byMarket).filter(([m]) => m !== "__home__");
 
@@ -132,32 +186,45 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === "POST") {
     const body = (typeof req.body === "string" ? safeJson(req.body) : req.body) ?? {};
-    const sessionId = typeof body.sessionId === "string" ? body.sessionId.slice(0, 64) : null;
     const market = normalizeMarket(body.market);
-
-    if (!sessionId || !/^[A-Za-z0-9_-]{8,64}$/.test(sessionId)) {
-      return res.status(400).json({ error: "invalid sessionId" });
-    }
-
+    const client = clientIp(req);
+    if (!client) return res.status(400).json({ error: "Invalid client address" });
     const store = getStore();
-    if (!store.sessions.has(sessionId) && store.sessions.size >= MAX_SESSIONS) {
-      let oldest: string | null = null;
-      let oldestAt = Infinity;
-      for (const [id, s] of store.sessions) {
-        if (s.expiresAt < oldestAt) {
-          oldestAt = s.expiresAt;
-          oldest = id;
-        }
-      }
-      if (oldest) store.sessions.delete(oldest);
+    const cookieId = req.cookies[SESSION_COOKIE];
+    let existing = cookieId ? store.sessions.get(cookieId) : undefined;
+    if (existing && existing.client !== client) {
+      return res.status(403).json({ error: "Session belongs to another client" });
     }
-
-    const existing = store.sessions.get(sessionId);
-    store.sessions.set(sessionId, {
-      market,
-      expiresAt: now + TTL_MS,
-      joinedAt: existing?.joinedAt ?? now,
-    });
+    if (!existing) {
+      let budget = store.clients.get(client);
+      if (budget && now - budget.windowStart >= REGISTRATION_WINDOW_MS) {
+        budget.registrations = 0;
+        budget.windowStart = now;
+      }
+      if (
+        (budget && (budget.identities.size >= MAX_CLIENT_IDENTITIES || budget.registrations >= MAX_CLIENT_IDENTITIES)) ||
+        (!budget && store.clients.size >= MAX_CLIENTS) ||
+        store.sessions.size >= MAX_SESSIONS
+      ) {
+        res.setHeader("Retry-After", String(Math.ceil(IDENTITY_TTL_MS / 1000)));
+        return res.status(429).json({ error: "Presence registration limit reached" });
+      }
+      if (!budget) {
+        budget = { identities: new Set(), registrations: 0, windowStart: now };
+        store.clients.set(client, budget);
+      }
+      const sessionId = randomBytes(32).toString("base64url");
+      existing = { client, market, expiresAt: now + TTL_MS, identityExpiresAt: now + IDENTITY_TTL_MS, joinedAt: now };
+      budget.registrations += 1;
+      budget.identities.add(sessionId);
+      store.sessions.set(sessionId, existing);
+      res.setHeader(
+        "Set-Cookie",
+        `${SESSION_COOKIE}=${sessionId}; Path=/api/presence; Max-Age=${IDENTITY_TTL_MS / 1000}; HttpOnly; SameSite=Strict${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
+      );
+    }
+    existing.market = market;
+    existing.expiresAt = now + TTL_MS;
 
     maybeRecordHistory(now);
     return res.status(200).json({ ok: true });
