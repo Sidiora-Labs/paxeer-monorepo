@@ -1,0 +1,33 @@
+[repair.22.33.188]
+mode = "BUILD"
+audit = "22.30.12"
+acceptance = "22998.1"
+status = "implementation_complete"
+baseline_revision = "13d941baae20489831996ea7db5fde01ad1e253d"
+baseline = "Not executed: the explicit implementation-first order and hf-build/hf-done-only gate limits supersede the contradictory unchanged-tree verify step. No baseline failure is claimed. Inspection found client message-only redaction, no edge sanitizer, and partial prior documentation repairs."
+evidence = "The final hf-done ledger entry supplies the exact verified candidate revision, command, exit code and private log; no unexecuted gate is claimed."
+continuation = "Preserved attempt 1's implementation and three proving tests. Its verification reported three passes but qualification was held for build_on_verified; this attempt runs the bounded build and done gates on the preserved repair and corrected task record."
+
+[finding.f044]
+test = "apps/perps/tests/repair-22-33-188.test.ts:f044DocumentedStatsMatchWireAndConsumer"
+repair = "Document the actual records.Stats/PerpStats JSON, settled hourly fractional rates and nullability, numeric compatibility copy, USD notional aliases in parseSidPaxStats, and the separation from optional external reference estimates. Add the matching producer type documentation without changing its wire behavior."
+path = "Documented REST/socket bodies from the gateway symbol fixture -> JSON decode -> real parseSidPaxStats -> real fundingRowFigure; compare all documented wire keys with the production Go record declarations."
+wiring_request = "None; producer declaration and consumer guide are in scope."
+
+[finding.f001]
+test = "apps/perps/tests/repair-22-33-188.test.ts:f001ClientSanitizesEntireSentryEvent"
+repair = "Apply the shared structured sanitizer to the entire client event, including keys, nested request and breadcrumb data, contexts, tags and extra; redact prefixed/bare keys, complete wallet identifiers, credentials and seed phrases while retaining benign diagnostics and AbortError suppression."
+path = "Production client configuration -> real Sentry captureEvent/normalization/beforeSend -> real SDK HTTP envelope transport -> loopback receiver assertions."
+wiring_request = "None; shared sanitizer and client configuration are in scope."
+
+[finding.f002]
+test = "apps/perps/tests/repair-22-33-188.test.ts:f002EdgeUsesSharedSentrySanitizer"
+repair = "Wire the identical structured beforeSend sanitizer into the edge configuration and exercise the same nested secret-bearing event and cancellation behavior."
+path = "Production edge configuration -> real Sentry SDK event pipeline -> shared sanitizer -> real HTTP envelope transport -> loopback receiver; the Node gate loads the production configuration using the SDK's Node export."
+wiring_request = "None; edge configuration and shared sanitizer are in scope."
+
+[gotchas]
+baseline_order = "The baseline-run clause conflicts with the explicit ordered gate budget; keep baseline evidence honest and use only the declared bounded gates after implementation."
+client_lifecycle = "Sentry.close disables but does not detach a client; detach the closed client between production configurations, as the existing consent regression does."
+search = "Some repository directory names and observability globs do not exist; discover actual files before targeted reads."
+documentation = "The audited line numbers predate prior guide repairs; preserve those correct sections and add the missing complete stats examples and wire-to-adapter mapping."

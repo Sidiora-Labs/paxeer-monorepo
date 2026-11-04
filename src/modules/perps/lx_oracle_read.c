@@ -1,4 +1,5 @@
 #include "layerx/lx_oracle.h"
+#include "lx_perps_internal.h"
 
 #include "layerx/lx_perps.h"
 #include "layerx/lxp_hash.h"
@@ -100,6 +101,7 @@ lxp_result lx_oracle_committed_read(lxp_module_ctx *ctx,
 {
     uint8_t key[LX_PERPS_MARKET_KEY_BYTES];
     lx_perps_market market;
+    bool oracle_halted;
     const uint8_t *bytes;
     size_t length;
     lxp_result status;
@@ -112,7 +114,9 @@ lxp_result lx_oracle_committed_read(lxp_module_ctx *ctx,
     if (status != LXP_OK) return status;
     status = lx_perps_market_decode(bytes, length, &market);
     if (status != LXP_OK) return status;
-    if (market.halted) return LXP_ERR_MARKET_HALTED;
+    status = lx_perps_oracle_halt_read(ctx, market_id, &oracle_halted);
+    if (status != LXP_OK) return status;
+    if (market.halted || oracle_halted) return LXP_ERR_MARKET_HALTED;
     committed_key(key, committed_oracle_prefix,
                   sizeof(committed_oracle_prefix) - 1U, market_id);
     status = committed_entry(ctx, key, sizeof(key), &bytes, &length);

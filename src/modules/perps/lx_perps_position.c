@@ -164,7 +164,8 @@ lxp_result lx_perps_position_open_execute(
     return LXP_OK;
 }
 
-/* Adds margin toward a larger position. The size and entry notional grow
+/* Adds margin, including a protective top-up with zero size delta.
+ * The size and entry notional grow
  * only through fills (lx_perps_position_apply_fill), so a caller-supplied
  * notional is refused. */
 lxp_result lx_perps_position_increase_execute(
@@ -174,7 +175,7 @@ lxp_result lx_perps_position_increase_execute(
     lx_perps_position *position;
     lxp_result status;
     if (ctx == NULL || request == NULL || request->store == NULL ||
-        receipt == NULL || lxp_u128_is_zero(request->size_delta) ||
+        receipt == NULL ||
         !lxp_u128_is_zero(request->notional_delta))
         return LXP_ERR_NON_CANONICAL;
     status = lx_perps_position_lookup(request->store,
