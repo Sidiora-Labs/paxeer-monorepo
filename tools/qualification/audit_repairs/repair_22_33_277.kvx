@@ -1,0 +1,40 @@
+[task]
+id = "22.33.277"
+audit = "22.30.132"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace both in-memory Paxeer HTTP facades with disposable persisted paxd validator homes. Submit generated envelopes through the production module governance CLI, vote and require the final proposal outcome. Retain anvil state with historical states and the Solana ledger. Stop and reopen both real nodes, re-query governance, rerun checklist.sh, retry the archived original attestor-signed release inputs and assert recipient/custody balances, asset outstanding amounts and consumed nullifiers. Preserve all existing test functions and decoder refusal checks. Solana also proves the missing registration proposal fails in governance without side effects and the unauthorized registration envelope is refused by the real CLI decoder before the original authorized registration-then-cap proposal passes."
+runtime_proof = "The Python gate executes the actual ReleaseJournal against real temporary files: save committed RPC fixture bytes, stop the component, reload its module and reopen its files, compare recovered bytes and expected states, refuse overwrite, missing releases, malformed JSON and invalid nonces. Execute the actual TOML editor against the committed localnode config, parse the result and require all unrelated values unchanged. Parse embedded Python and check committed Solana asset bytes against their recorded custody amounts and the production outstanding-field layout. No fixture is claimed to be a newly generated proposal or a signed release."
+source_proof = "Check ordered guarded commands from the real Go producer through generated envelope files, the production governance CLI, proposal vote/outcome and module handler/Msg service; check actual consumer types and canonical pair ordering. Check persisted node starts, graceful stop/wait, reopen without init/reset or governance replay, the unchanged proxy endpoints, post-restart checklist, immutable signed input save/read, release retransmission, named nullifier refusal and unchanged readback assertions. Check every configured key exists in the current production TOML templates and bridge genesis is validated rather than seeded."
+native_recovery_evidence = "Review only: paxd/Go compilation, chain genesis acceptance, governance execution, anvil historical-state recovery, validator ledger recovery, live checklist execution and post-restart duplicate rejection are not executed by this Python-only gate. The scripts now invoke those real paths, but passing source and journal tests is not evidence of a successful live chain restart rehearsal. The journal reopen test proves saved input durability, not native node state recovery."
+build_evidence = "hf-build owns the declared exact command: bash -n services/bridge/deploy/tests/evm-dry-run-check.sh services/bridge/deploy/tests/solana-dry-run-check.sh. Bash parses the first script and treats the second filename as a positional argument; no separate bash invocation is added to the Python-only gate. Solana and the sourced helper have source/command checks and embedded Python parsing here; full Bash syntax qualification of those two files remains a limitation of the prescribed build command."
+baseline = "Not run: the unchanged-tree request in step 7 conflicts with the explicit order prohibiting testing before complete implementation and prohibiting verify_cmd by hand. The initial gate ledger was absent, builds_used and verify_runs_used were zero, and neither repair artifact existed; no baseline failing tests are claimed. Preserve the runner-prepared .cgignore and task-start spec diff."
+evidence = "The final hf-done JSON and private gate ledger identify the exact content-derived candidate revision, command, exit and log. This record is finalized before qualification so the build and verify candidate remain identical. No source edits follow a passing hf-done; the runner commits the result."
+format = "No Shell, Python or KVX formatter is configured for these paths. Follow existing whitespace conventions and .editorconfig. Format embedded Go with gofmt after the entire implementation is complete; this does not compile or test Go."
+wiring_requests = []
+
+[finding.evm-recovery-proof]
+file = "services/bridge/deploy/tests/evm-dry-run-check.sh"
+tests = ["test_evm_recovery_proof", "test_generated_envelopes_reach_real_governance_consumer", "test_paxd_reopens_database_without_initialization_or_governance_replay", "test_recovery_journal_stops_and_reopens_component"]
+closure = "Source proof of persisted real node restart and original signed release retry; runtime proof of journal reopen only; native recovery remains review-only as stated above."
+
+[finding.solana-governance-bypass]
+file = "services/bridge/deploy/tests/solana-dry-run-check.sh"
+tests = ["test_solana_governance_bypass", "test_generated_envelopes_reach_real_governance_consumer", "test_configuration_keys_match_current_production_templates"]
+closure = "Generated 04 and 05 envelopes reach the real module governance route; no direct keeper seeding remains; 05 is decoded as RegisterSidioraPair then SetCap, with missing and unauthorized refusal paths checked. Live governance semantics are review-only."
+
+[finding.solana-recovery-proof]
+file = "services/bridge/deploy/tests/solana-dry-run-check.sh"
+tests = ["test_solana_recovery_proof", "test_paxd_reopens_database_without_initialization_or_governance_replay", "test_recovery_journal_stops_and_reopens_component", "test_committed_solana_asset_readback_covers_outstanding_amounts"]
+closure = "Source proof of retained ledger and paxd home, real process stop/reopen, deployment checklist readback and original attestation retry with unchanged balances, outstanding amounts and consumed nullifiers; journal recovery executes in process, native recovery remains review-only."
+
+[gotcha.baseline]
+observed = "The baseline test instruction contradicts the task's explicit gate order."
+resolution = "Follow the explicit order; record no baseline result and do not edit out-of-scope GOTCHA.kvx or spec files."
+
+[gotcha.output]
+observed = "Whole-repository workflow, survey and audit output exceeded response limits."
+resolution = "Read the exact task, findings, relevant gotcha entries and source segments separately with bounded output."
+
+[gotcha.bash]
+observed = "The prescribed bash -n command receives two filenames but Bash parses only the first as a script."
+resolution = "Keep the authorized command unchanged and state its exact coverage without claiming the second script or sourced helper received a Bash syntax gate."

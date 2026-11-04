@@ -1,8 +1,6 @@
+import "./support/source-loader.mjs";
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { once } from "node:events";
 import { readFileSync } from "node:fs";
-import { createServer } from "node:http";
 import test from "node:test";
 import { keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
@@ -12,72 +10,13 @@ import {
   receiptKeysFromEnvironment,
 } from "../support/runtime.mjs";
 
-const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
-const bytes = (value) => Buffer.from(value.slice(2), "hex");
-const sha256 = (value) => createHash("sha256").update(value).digest();
+import { bytes, hex, nodeReceipt, portableReceipt, recordedNode } from "./support/node-receipts.mjs";
 
-function uint(value, width) {
-  assert(value >= 0n && value < 1n << BigInt(width * 8));
-  return Buffer.from(value.toString(16).padStart(width * 2, "0"), "hex");
-}
-
-function bounded(value) {
-  return Buffer.concat([uint(BigInt(value.length), 4), value]);
-}
-
-function signedReceipt() {
-  const pair = generateKeyPairSync("ed25519");
-  const keyId = Buffer.alloc(32, 0x55);
-  const publicKey = pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32);
-  const vectors = JSON.parse(readFileSync(new URL(
-    "../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url,
-  ), "utf8"));
-  const raw = bytes(vectors.cases[0].rawTransaction);
-  const txHash = hex(keccak256(raw));
-  const zero = Buffer.alloc(32);
-  const prefix = Buffer.concat([
-    uint(2n, 2), uint(0x5201n, 2), uint(2n, 2), bounded(bytes(txHash)), uint(1n, 8),
-    bounded(zero), bounded(sha256(raw)), bounded(sha256(Buffer.alloc(0))), uint(0n, 4), uint(0n, 4),
-    uint(0n, 16), bounded(uint(7n, 32)), uint(12n, 2), uint(1n, 4), uint(0n, 4), Buffer.of(2),
-    bounded(zero), uint(0n, 16), bounded(zero), uint(0n, 16), uint(0n, 16), uint(0n, 8),
-    bounded(zero), uint(0n, 16), uint(0n, 16), bounded(zero), bounded(zero), bounded(keyId), uint(1n, 8),
-  ]);
-  const digest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)]));
-  const receipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, digest, pair.privateKey))]);
-  return {
-    raw, txHash, receipt,
-    key: { keyId: Uint8Array.from(keyId), publicKey: Uint8Array.from(publicKey), first_height: 1n, last_height: 10n },
-  };
-}
-
-async function receiptListener(t, result) {
-  const requests = [];
-  const service = { result, error: undefined, status: 200, requests };
-  const server = createServer(async (request, response) => {
-    try {
-      const chunks = [];
-      for await (const chunk of request) chunks.push(chunk);
-      requests.push({ method: request.method, path: request.url, message: JSON.parse(Buffer.concat(chunks).toString("utf8")) });
-      const message = requests.at(-1).message;
-      response.writeHead(service.status, { "content-type": "application/json" });
-      response.end(JSON.stringify({
-        jsonrpc: "2.0", id: message.id,
-        ...(service.error === undefined ? { result: service.result } : { error: service.error }),
-      }));
-    } catch (error) {
-      response.writeHead(500);
-      response.end(String(error));
-    }
-  });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  service.rpcUrl = `http://127.0.0.1:${server.address().port}/rpc`;
-  service.close = () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  t.after(async () => {
-    if (server.listening) await service.close();
-  });
+const signedReceipt = nodeReceipt;
+const receiptListener = (t, result) => recordedNode(t).then((service) => {
+  service.result = result;
   return service;
-}
+});
 
 function hasState(state) {
   return (error) => {
@@ -88,32 +27,31 @@ function hasState(state) {
 }
 
 async function sequencerReceiptClientReturnsVerifiedReceipt(t) {
-  const { raw, txHash, receipt, key } = signedReceipt();
-  const service = await receiptListener(t, { txHash, rung: "receipted", receipt: hex(receipt) });
+  const vector = signedReceipt();
+  const { raw, txHash, receipt, key } = vector;
+  const service = await receiptListener(t, structuredClone(vector.receiptJson));
   const client = new SequencerReceiptClient(service.rpcUrl, [key]);
   const proof = await client.resolve(raw);
-  assert.deepEqual(proof, {
-    format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
-    rawTransaction: hex(raw), signedReceipt: hex(receipt), receiptDigest: hex(keccak256(receipt)),
-    receiptKey: { keyId: hex(key.keyId), publicKey: hex(key.publicKey), firstHeight: "0x1", lastHeight: "0xa" },
-  });
+  assert.deepEqual(proof, portableReceipt(vector));
   const verified = await verifySequencerReceipt(bytes(proof.signedReceipt), bytes(proof.rawTransaction), [key]);
-  assert.equal(verified.height, 7n);
-  assert.deepEqual(service.requests, [{ method: "POST", path: "/rpc", message: {
+  assert.equal(verified.height, 1000n);
+  assert.equal(hex(verified.receiptDigest), vector.receiptDigest);
+  assert.equal(verified.receipt.effects[0].kind, 1);
+  assert.deepEqual(service.requests, [{ method: "POST", path: "/", message: {
     jsonrpc: "2.0", id: 1, method: "pax_sequencerReceipt", params: [txHash],
   } }]);
   assert.deepEqual(await client.resolve(hex(raw)), proof);
   for (const pin of [
     { ...key, keyId: new Uint8Array(32).fill(1) },
     { ...key, publicKey: new Uint8Array(32).fill(2) },
-    { ...key, first_height: 8n },
-    { ...key, last_height: 6n },
+    { ...key, first_height: 1001n },
+    { ...key, first_height: 999n, last_height: 999n },
   ]) {
     await assert.rejects(new SequencerReceiptClient(service.rpcUrl, [pin]).resolve(raw), hasState("refused"));
   }
   assert.deepEqual((await new SequencerReceiptClient(service.rpcUrl,
-    [{ ...key, first_height: 7n, last_height: 7n }]).resolve(raw)).receiptKey,
-  { ...proof.receiptKey, firstHeight: "0x7", lastHeight: "0x7" });
+    [{ ...key, first_height: 1000n, last_height: 1000n }]).resolve(raw)).receiptKey,
+  { ...proof.receiptKey, firstHeight: "0x3e8", lastHeight: "0x3e8" });
   assert.deepEqual(await new SequencerReceiptClient(service.rpcUrl,
     [{ ...key, publicKey: new Uint8Array(32).fill(2) }, key]).resolve(raw), proof);
   const mutable = { ...key, keyId: Buffer.from(key.keyId), publicKey: Buffer.from(key.publicKey) };
@@ -127,11 +65,13 @@ async function sequencerReceiptClientReturnsVerifiedReceipt(t) {
   await assert.rejects(client.resolve(raw), hasState("refused"));
   const wrongRaw = Buffer.from(raw);
   wrongRaw[wrongRaw.length - 1] ^= 1;
-  service.result = { txHash: hex(keccak256(wrongRaw)), rung: "receipted", receipt: hex(receipt) };
-  await assert.rejects(client.resolve(wrongRaw), hasState("refused"));
+  const alteredVector = { ...vector, txHash: hex(keccak256(wrongRaw)) };
+  const alteredService = await recordedNode(t, alteredVector);
+  alteredService.result = { ...vector.receiptJson, txHash: alteredVector.txHash };
+  await assert.rejects(new SequencerReceiptClient(alteredService.rpcUrl, [key]).resolve(wrongRaw), hasState("refused"));
   service.result = { txHash: `0x${"00".repeat(32)}`, rung: "receipted", receipt: hex(receipt) };
   await assert.rejects(client.resolve(raw), hasState("unknown"));
-  service.result = { txHash, rung: "committed", receipt: hex(receipt) };
+  service.result = { ...vector.receiptJson, rung: "committed", blockNumber: "0x3e8", blockHash: `0x${"aa".repeat(32)}` };
   assert.equal((await client.resolve(raw)).verificationLevel, "receipted");
 }
 
@@ -163,7 +103,7 @@ function receiptKeysFromEnvironmentRefusesInvertedRange(t) {
   const entry = { keyId: hex(key.keyId), publicKey: hex(key.publicKey), firstHeight: "10", lastHeight: "9" };
   process.env[name] = JSON.stringify([entry]);
   assert.throws(() => receiptKeysFromEnvironment(name), /invalid_receipt_key_range/u);
-  process.env[name] = JSON.stringify([{ ...entry, firstHeight: "0x1", lastHeight: "0xa" }]);
+  process.env[name] = JSON.stringify([{ ...entry, firstHeight: "0x3e8", lastHeight: "0x7cf" }]);
   assert.deepEqual(receiptKeysFromEnvironment(name), [key]);
   process.env[name] = JSON.stringify([{ ...entry, firstHeight: 7, lastHeight: 7 }]);
   assert.equal(receiptKeysFromEnvironment(name)[0].first_height, 7n);
@@ -180,9 +120,23 @@ function receiptKeysFromEnvironmentRefusesInvertedRange(t) {
     else process.env.LAYERX_EXAMPLE_ENDPOINT = previousEndpoint;
   });
   process.env.LAYERX_EXAMPLE_ENDPOINT = "http://127.0.0.1:1234/";
-  assert.equal(applyEndpointOverride("beta", { rpcUrl: "https://example.com/rpc" }).rpcUrl, "http://127.0.0.1:1234/rpc");
+  assert.equal(applyEndpointOverride("beta", { rpcUrl: "https://example.com" }).rpcUrl, "http://127.0.0.1:1234/");
 }
 
 test(sequencerReceiptClientReturnsVerifiedReceipt);
 test(sequencerReceiptClientReportsSubmittedAsPending);
 test(receiptKeysFromEnvironmentRefusesInvertedRange);
+
+async function runtimeProofMatchesCrossSdkPortableFixture(t) {
+  const vector = nodeReceipt();
+  const service = await recordedNode(t, vector);
+  const proof = await new SequencerReceiptClient(service.rpcUrl, [vector.key]).resolve(vector.raw);
+  const shared = JSON.parse(readFileSync(new URL(
+    "../../../../sdk/platform/conformance/fixtures/vector-v5-portable.json", import.meta.url,
+  ), "utf8")).bundles[0];
+  assert.deepEqual(JSON.parse(JSON.stringify(proof)), shared);
+  assert.notEqual(proof.receiptDigest, hex(keccak256(vector.receipt)));
+  assert.deepEqual(proof.receiptJson, vector.receiptJson);
+}
+
+test(runtimeProofMatchesCrossSdkPortableFixture);

@@ -59,84 +59,88 @@ function readLockfile(): Record<string, LockDependency> {
   return parsed.object;
 }
 
-function assertMinimumResolution(name: string, minimum: string): void {
-  const entries = Object.entries(readLockfile()).filter(([ selector ]) => selector.startsWith(`${ name }@`));
-  expect(entries.length, `${ name } must remain covered`).toBeGreaterThan(0);
-  for (const [ selector, entry ] of entries) {
-    expect(gte(entry.version, minimum), `${ selector } resolves to ${ entry.version }`).toBe(true);
-  }
-}
-
 function assertReplacement(name: string, replacement: string, version: string, requiringPackages: ReadonlyArray<string>): void {
   const lock = readLockfile();
   const entries = Object.entries(lock).filter(([ selector ]) => selector.startsWith(`${ name }@`));
   expect(entries.length).toBeGreaterThan(0);
-  for (const [ selector, entry ] of entries) {
-    expect(entry.version, selector).toBe(version);
+  for (const [ , entry ] of entries) {
+    expect(entry.version).toBe(version);
     const tarball = v.parse(v.string(), entry.resolved);
-    expect(decodeURIComponent(new URL(tarball).pathname), selector).toBe(
+    expect(decodeURIComponent(new URL(tarball).pathname)).toBe(
       `/${ replacement }/-/${ name }-${ version }.tgz`,
     );
-    expect(entry.integrity, selector).toMatch(/^sha512-/);
+    expect(entry.integrity).toMatch(/^sha512-/);
   }
-  for (const [ selector, entry ] of Object.entries(lock)) {
+  for (const entry of Object.values(lock)) {
     if (entry.resolved) {
-      expect(new URL(entry.resolved).pathname.startsWith(`/${ name }/`), selector).toBe(false);
+      expect(new URL(entry.resolved).pathname.startsWith(`/${ name }/`)).toBe(false);
     }
     for (const dependencies of [ entry.dependencies, entry.optionalDependencies ]) {
       const requested = dependencies?.[name];
       if (requested) {
         const resolved = lock[`${ name }@${ requested }`];
-        expect(resolved, `${ selector } requests ${ name }@${ requested }`).toBeDefined();
-        expect(resolved.version, selector).toBe(version);
+        expect(resolved).toBeDefined();
+        expect(resolved.version).toBe(version);
       }
     }
   }
   for (const requiring of requiringPackages) {
     const consumers = Object.entries(lock).filter(([ selector ]) => selector.startsWith(`${ requiring }@`));
-    expect(consumers.length, requiring).toBeGreaterThan(0);
-    for (const [ selector, entry ] of consumers) {
-      expect(entry.dependencies, selector).toHaveProperty(name);
+    expect(consumers.length).toBeGreaterThan(0);
+    for (const [ , entry ] of consumers) {
+      expect(entry.dependencies).toHaveProperty(name);
     }
     const requireConsumer = createRequire(requireInstalled.resolve(requiring));
     const manifest = v.parse(v.object({ name: v.string(), version: v.string() }),
       requireConsumer(`${ name }/package.json`));
-    expect(manifest.name, requiring).toBe(replacement);
-    expect(manifest.version, requiring).toBe(version);
+    expect(manifest.name).toBe(replacement);
+    expect(manifest.version).toBe(version);
   }
 }
 
-function testExplorerBigintBufferAdvisory(): void {
+test('testExplorerBigintBufferAdvisory', function testExplorerBigintBufferAdvisory() {
   const repair = ADVISORY_REPAIRS.bigintBuffer;
   expect(repair.firstPatchedVersion).toBeNull();
   assertReplacement('bigint-buffer', repair.replacement, repair.version, repair.requiringPackages);
   for (const [ selector, entry ] of Object.entries(readLockfile())) {
     if (selector.startsWith('bigint-buffer@')) {
-      expect(satisfies(entry.version, repair.vulnerableRange), selector).toBe(false);
+      expect(satisfies(entry.version, repair.vulnerableRange)).toBe(false);
     }
   }
-}
+});
 
-function testExplorerGlobAdvisory(): void {
-  assertMinimumResolution('glob', ADVISORY_REPAIRS.glob.firstPatchedVersion);
-}
+test('testExplorerGlobAdvisory', function testExplorerGlobAdvisory() {
+  const name = 'glob';
+  const minimum = ADVISORY_REPAIRS.glob.firstPatchedVersion;
+  const entries = Object.entries(readLockfile()).filter(([ selector ]) => selector.startsWith(`${ name }@`));
+  expect(entries.length).toBeGreaterThan(0);
+  for (const [ , entry ] of entries) {
+    expect(gte(entry.version, minimum)).toBe(true);
+  }
+});
 
-function testExplorerOracledbAdvisory(): void {
-  assertMinimumResolution('@opentelemetry/instrumentation-oracledb', ADVISORY_REPAIRS.oracledb.firstPatchedVersion);
-}
+test('testExplorerOracledbAdvisory', function testExplorerOracledbAdvisory() {
+  const name = '@opentelemetry/instrumentation-oracledb';
+  const minimum = ADVISORY_REPAIRS.oracledb.firstPatchedVersion;
+  const entries = Object.entries(readLockfile()).filter(([ selector ]) => selector.startsWith(`${ name }@`));
+  expect(entries.length).toBeGreaterThan(0);
+  for (const [ , entry ] of entries) {
+    expect(gte(entry.version, minimum)).toBe(true);
+  }
+});
 
-function testExplorerDeepmergeAdvisory(): void {
+test('testExplorerDeepmergeAdvisory', function testExplorerDeepmergeAdvisory() {
   const repair = ADVISORY_REPAIRS.deepmerge;
   expect(repair.firstPatchedVersion).toBeNull();
   assertReplacement('deepmerge', repair.replacement, repair.version, repair.requiringPackages);
   for (const [ selector, entry ] of Object.entries(readLockfile())) {
     if (selector.startsWith('deepmerge@')) {
-      expect(satisfies(entry.version, repair.vulnerableRange), selector).toBe(false);
+      expect(satisfies(entry.version, repair.vulnerableRange)).toBe(false);
     }
   }
-}
+});
 
-function testExplorerBigintBufferReplacementBehavior(): void {
+test('testExplorerBigintBufferReplacementBehavior', function testExplorerBigintBufferReplacementBehavior() {
   const requireConsumer = createRequire(requireInstalled.resolve('@solana/buffer-layout-utils'));
   const converter = v.parse(v.object({
     toBigIntLE: v.function(),
@@ -157,9 +161,9 @@ function testExplorerBigintBufferReplacementBehavior(): void {
   expect(converter.toBigIntLE(largeBuffer)).toBe(largeValue);
   expect(largeBuffer).toEqual(Buffer.alloc(1024, 0xff));
   expect(littleEndian).toEqual(Buffer.from('efcdab8967452301', 'hex'));
-}
+});
 
-function testExplorerDeepmergeReplacementBehavior(): void {
+test('testExplorerDeepmergeReplacementBehavior', function testExplorerDeepmergeReplacementBehavior() {
   for (const requiring of ADVISORY_REPAIRS.deepmerge.requiringPackages) {
     const requireConsumer = createRequire(requireInstalled.resolve(requiring));
     const merge = v.parse(v.function(), requireConsumer('deepmerge'));
@@ -177,11 +181,4 @@ function testExplorerDeepmergeReplacementBehavior(): void {
     expect(merge({ values: [ 1 ] }, { values: [ 2 ] }, { arrayMerge: (_left: unknown, right: unknown) => right }))
       .toEqual({ values: [ 2 ] });
   }
-}
-
-test(testExplorerBigintBufferAdvisory, testExplorerBigintBufferAdvisory);
-test(testExplorerGlobAdvisory, testExplorerGlobAdvisory);
-test(testExplorerOracledbAdvisory, testExplorerOracledbAdvisory);
-test(testExplorerDeepmergeAdvisory, testExplorerDeepmergeAdvisory);
-test(testExplorerBigintBufferReplacementBehavior, testExplorerBigintBufferReplacementBehavior);
-test(testExplorerDeepmergeReplacementBehavior, testExplorerDeepmergeReplacementBehavior);
+});

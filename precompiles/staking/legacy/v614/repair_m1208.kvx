@@ -1,0 +1,37 @@
+[repair.22.33.1208]
+audit = "22.30.57"
+finding = "historical-key-v614"
+tracks = "validator-key-length"
+implementation = "precompiles/staking/staking.go validates exactly ed25519.PubKeySize decoded bytes before payment and keeper execution once the merge plan is active; the v614 production snapshot is unchanged."
+tests = ["TestRepairM_1208_KeyLengthRefusal", "TestRepairM_1208_BeforePayment", "TestRepairM_1208_ValidKey", "TestRepairM_1208_HistoricalReplay"]
+fixture = "Standalone production auth, bank, staking, distribution, upgrade and EVM keepers share a real in-memory multistore and production protobuf codec; signed ABI transactions are serialized, decoded and executed by the EVM. The fixture does not initialize the node application."
+historical_heights = "Let H614 and H620 be the recorded done heights of v6.1.4 and v6.2.0: tracing selects frozen v614 for H614 <= h < H620 (or until the next applied version). All frozen snapshots retain their original behavior, including malformed-key panics. The active body retains the old boundary while v7.0 has not been applied or h is below its recorded done height Hmerge; scheduling alone does not activate the repair. It refuses invalid decoded key lengths at h >= Hmerge after application. No network-specific Hmerge is invented."
+baseline = "No baseline gate was run: the task's explicit ordered qualification instructions forbid verification before implementation and prohibit running verify_cmd by hand. No pre-change test failure is claimed."
+wiring = "None: use the existing common.MergePlanActive and staking.GetVersioned paths without modifying another domain."
+evidence = "The private hf-build/hf-done ledger records the candidate revision, exact commands, exit codes and log paths; the final response copies its last evidence line."
+continuation = "Attempt 3 retains the standalone real-keeper proof after 22.31.463 repaired the external CLI callers. Track the validator-key-length guard now published by 22.33.1201; assert its full error including the decoded length. No frozen implementation is modified."
+
+[gotcha.duplicate_active_guard]
+observed = "The continued patch placed an equivalent guard ahead of the published 22.33.1201 guard, hiding its received-length diagnostic and conflicting with that task's exact error assertions."
+resolution = "Keep the published single guard and its full diagnostic; this task's exact refusal assertions include the received length."
+
+[qualification.1]
+revision = "bb29040f6ff27f81ad190327340ea3031c14edc4"
+command = "cg spec done 22.33.1208 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler details /out/logs/repair-m1208-1.log"
+observed = "Node-based fixture imports pre-existing auth/staking/tokenfactory CLI callers that expect one return from the now two-return tx.NewFactoryCLI; replace only this task's fixture with standalone real in-memory keepers."
+wiring = "SDK and chain-modules owners: adapt sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli callers to the current sdk/client/tx.NewFactoryCLI interface in their own tasks."
+
+[qualification.2]
+revision = "0ebaa61e77875c7eb25f3324127cdfeb09a8653e"
+command = "cg spec done 22.33.1208 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler details /out/logs/repair-m1208-qualification.log"
+observed = "The standalone real-keeper fixture still encounters the recorded auth/staking CLI NewFactoryCLI return-count mismatch before tests execute; hf-build passed at this revision."
+assumption = "The existing SDK-owner wiring request must land before this focused proof can qualify; those CLI files are outside this task's scope."
+
+[continuation.4]
+implementation = "Resolved the integration conflict on the current main base, retaining the applied-merge-height guard and the received-length diagnostic from validator-key-length in one check; all other published staking changes and frozen snapshots remain intact."
+qualification = "Requalify the retained real-keeper tests through hf-build and hf-done; the private ledger identifies the verified candidate revision."
+wiring = "Chain-modules owner (domain 6): reconcile precompiles/staking/legacy/v620/repair_m1209_test.go and precompiles/staking/legacy/v630/repair_m1210_test.go exact error assertions with the detailed validator-key-length diagnostic already required by precompiles/staking/repair_m1201_test.go; these out-of-scope suites currently assert the duplicate guard's shorter error."

@@ -1,0 +1,43 @@
+[task.22.33.857]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace the separate kernel generation prerequisite with an independently authenticated committed paxd TrustRoot. Pin its configured SHA256 and chain id, validate LXTR framing and validator identities, publish a private immutable content-addressed generation atomically and point the existing registry configuration field at those exact bytes. Supply the chain receipt service identity independently through the deployment environment; preserve all unrelated TLS, token, quota and isolation behavior."
+source_proof = "Pytest imports the production chain-trust.py installed by the Dockerfile and drives real local files through authenticated selection, canonical validation, atomic publication and reopen. It consumes the committed LXTR corpus at programs/fuzz/corpus/trust-root/one-validator.hex; malformed cases mutate that corpus only as negative inputs. It asserts exact bytes, owner-private modes, immutable selection after source replacement, stable inodes on reopen, serialized concurrent publication and named rejections. Source checks bind the shell guarded command and export, container COPY, deployment environment and service mount to Config, persisted_chain_trust, TrustRoot::decode, from_chain_trust and committed-header verification."
+review_only = "The sole build command bash -n docker/platform-registry/init.sh proves shell syntax. Pytest checks shell source and argument vectors without starting privileged init or invoking a subprocess toolchain. Native Rust decoding, signature and membership verification, production paxd execution, TLS endpoints, owner configuration authenticity, container startup and power-loss durability are not executed by this gate. The configured digest must come through an independent trusted deployment channel; the helper authenticates bytes to that pin, and the existing native consumer authenticates deployment proofs against committed state. Reopen proves local snapshot retention, not a stopped native registry service."
+baseline = "Not run: the explicit implementation-first order and exclusive hf-done gate supersede the older instruction to run standalone verification on the unchanged tree. No baseline failures are claimed. Initial status and diff showed only runner-prepared .cgignore and spec status changes, zero scoped edits and no /out/run/gates.jsonl; gate.json recorded zero builds and verification runs."
+build_cmd = "bash -n docker/platform-registry/init.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_857.py"
+evidence = "Exact verified content-derived revision, command, exit and private log path are recorded by hf-done in /out/run/gates.jsonl and copied into the final evidence line. This record is finalized before gates: embedding its own candidate hash would change that hash. The runner publishes the candidate; no manual commit or push."
+
+[finding.registry-trust-bootstrap]
+audit = "22.30.182"
+file = "docker/platform-registry/init.sh"
+class = "retired-reference"
+severity = "medium"
+owner_domain = 8
+expected = "The merged registry must authenticate deployments against committed paxd state and must not require a separately operated kernel sequencer service."
+tests = ["test_registry_trust_bootstrap_pins_real_root_and_reopens", "test_registry_trust_bootstrap_concurrent_atomic_publication", "test_registry_trust_bootstrap_refuses_unbound_or_malformed_material", "test_registry_trust_bootstrap_refuses_unsafe_or_conflicting_store", "test_registry_trust_bootstrap_guards_producer_transport_consumer", "test_registry_trust_bootstrap_deployment_contract_and_record"]
+
+[wiring.chain-material]
+path = "services/platform/hosted/human/material.py"
+owner_domain = "8 / platform"
+request = "Domain 8 platform: provision TrustRoot::canonical_bytes from an authenticated committed paxd checkpoint at /data/chain/trust-root (private root-owned regular file), and distribute its SHA256 and chain id independently through trusted deployment configuration instead of the retired kernel registry generation."
+
+[wiring.deployment]
+path = "tools/bringup/check-live.sh"
+owner_domain = "16 / tools-ops"
+request = "Domain 16 tools-ops: replace the kernel-material replica-id/trust-history stage inventory and old --validate-kernel-material probes with the committed trust-root prerequisite and configured checkpoint pin; configure root chain RPC, chain-backed state and receipt service endpoints and the nonzero receipt service replica identity as documented in docker/platform-registry/registry.env.example."
+
+[gotcha.1]
+observed = "The legacy baseline instruction conflicts with the explicit ordered gate limits; GOTCHA.kvx and spec records are outside the authorized scope."
+resolution = "Record task notes here, run no standalone baseline and qualify only with hf-build followed by hf-done."
+
+[gotcha.2]
+observed = "Large combined repository reads and the generated gotcha ledger exceeded output limits; cg brief reports graph inventory rather than git working-tree status."
+resolution = "Use bounded reads of the exact task and trust interfaces, preserve initial git changes and use git status/diff for scope inspection."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final newline and trailing-whitespace rules only after implementation is complete."
+
+[gotcha.3]
+observed = "First hf-done at 4c900231423ece33c2f4c88ee811f6d1255a449a exited 1 (/out/logs/verify-1.log): the public-generation test setup omitted that case from the branch which prepares and changes a retained generation directory; 27 other cases passed."
+resolution = "Include public-generation in the retained-generation setup branch so chmod 0755 actually executes; preserve the existing rejection assertion and production validation unchanged, then rerun hf-build and hf-done on the repaired candidate."

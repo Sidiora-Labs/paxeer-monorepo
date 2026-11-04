@@ -937,7 +937,6 @@ dependencies = [
  "ed25519-dalek",
  "layerx-program-sdk",
  "sha2",
- "spin",
 ]
 
 [[package]]

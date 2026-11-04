@@ -5,7 +5,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.LongSupplier;
 
-/** Process-local delivery ledger for a single application session. */
+/**
+ * Process-local delivery ledger for a single application session.
+ * Completed claims are retained for this store's lifetime; capacity exhaustion refuses new deliveries.
+ */
 public final class InMemoryEventDeliveryStore implements EventDeliveryStore {
     private static final class Entry {
         private final String payloadDigest;
@@ -42,6 +45,9 @@ public final class InMemoryEventDeliveryStore implements EventDeliveryStore {
             return Claim.CLAIMED;
         }
         if (entries.size() >= capacity) evict();
+        if (entries.size() >= capacity) {
+            throw MobileIntegrationException.of(MobileIntegrationException.Code.DELIVERY_STORE_FAILURE);
+        }
         entries.put(deliveryId, new Entry(payloadDigest, leaseUntilMs));
         return Claim.CLAIMED;
     }
@@ -68,14 +74,7 @@ public final class InMemoryEventDeliveryStore implements EventDeliveryStore {
         Iterator<Map.Entry<String, Entry>> iterator = entries.entrySet().iterator();
         while (iterator.hasNext()) {
             Entry entry = iterator.next().getValue();
-            if (entry.completed || entry.leaseUntilMs <= now) iterator.remove();
-        }
-        if (entries.size() >= capacity) {
-            Iterator<String> oldest = entries.keySet().iterator();
-            if (oldest.hasNext()) {
-                oldest.next();
-                oldest.remove();
-            }
+            if (!entry.completed && entry.leaseUntilMs <= now) iterator.remove();
         }
     }
 }

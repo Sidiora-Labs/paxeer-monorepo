@@ -206,7 +206,7 @@ impl TestRpc {
                 .unwrap_or_else(|e| panic!("address: {e}"));
             addresses.push(address);
             endpoints.push(RpcEndpointConfig {
-                url: format!("https://{address}/rpc"),
+                url: format!("https://{address}/"),
                 ca_certificate_der: ca_path.clone(),
                 bearer_token_file: token_path.clone(),
                 independent_backend: format!("committed-test-{index}"),
@@ -229,7 +229,7 @@ impl TestRpc {
                         assert!(head.len() <= 32 * 1024);
                     }
                     let head = String::from_utf8(head).unwrap_or_else(|e| panic!("HTTP: {e}"));
-                    assert!(head.starts_with("POST /rpc HTTP/1.1\r\n"));
+                    assert!(head.starts_with("POST / HTTP/1.1\r\n"));
                     assert!(head.lines().any(|line| line == format!("Authorization: Bearer {TOKEN}")));
                     let length: usize = head.lines().find_map(|line| line.strip_prefix("Content-Length: "))
                         .unwrap_or_else(|| panic!("content length")).parse().unwrap_or_else(|e| panic!("length: {e}"));

@@ -56,7 +56,7 @@ async fn health(#[future] api_client: ApiClient) {
     let success = health.try_as_success().cloned().unwrap_or_else(|| {
         panic!("failed to get health: {:?}", &health.entity);
     });
-    assert_eq!(success.healthy, Some(true));
+    assert_eq!(success.healthy, true);
     let metadata = serde_json::to_value(success.metadata.expect("metadata is None"))
         .expect("Failed to serialize typed health metadata");
     assert!(metadata.get("latest_block").is_none());
@@ -69,10 +69,35 @@ async fn health(#[future] api_client: ApiClient) {
         assert!(number.chars().all(|c| c.is_ascii_digit()));
         assert_eq!(number, "23116935");
     }
-    let health_v1 = health_api.health_v1().await.expect("Failed to get health");
-    let success = health_v1.try_as_success().cloned().unwrap_or_else(|| {
-        panic!("failed to get health: {:?}", &health_v1.entity);
-    });
+
+    assert!(matches!(
+        health_api.health_v1().await,
+        Err(blockscout_client::apis::Error::UnsupportedCapability(
+            "upstream /api/v1/health is not mounted; use health() at /api/health"
+        ))
+    ));
+}
+
+#[test]
+fn legacy_upstream_health_v1_2025_02_19() {
+    let recording: serde_json::Value = serde_json::from_str(include_str!(
+        "recorded/eth_blockscout_com/_api_v1_health.json"
+    ))
+    .expect("historical upstream recording");
+    assert_eq!(
+        recording["metadata"]["compatibility_version"],
+        "upstream-v1-2025-02-19"
+    );
+    assert_eq!(recording["metadata"]["merged_explorer_supported"], false);
+    assert_eq!(recording["request"]["method"], "GET");
+    assert_eq!(recording["request"]["urlPath"], "/api/v1/health");
+    assert_eq!(recording["response"]["status"], 200);
+    let success: blockscout_client::models::V1HealthCheckResponse = serde_json::from_str(
+        recording["response"]["body"]
+            .as_str()
+            .expect("historical body"),
+    )
+    .expect("historical v1 model");
     assert_eq!(success.healthy, Some(true));
     assert_eq!(
         success
@@ -82,6 +107,142 @@ async fn health(#[future] api_client: ApiClient) {
             .expect("latest_block_number is None"),
         "21879216"
     );
+}
+
+// Replay committed response bytes; assert every request at the HTTP boundary.
+async fn recording_peer(
+    requests: Vec<(String, &'static str)>,
+) -> (ApiClient, tokio::task::JoinHandle<()>) {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        tokio::time::timeout(Duration::from_secs(10), async move {
+            for (target, recording) in requests {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut headers = Vec::new();
+                while !headers.ends_with(b"\r\n\r\n") {
+                    assert!(headers.len() < 8192, "oversized HTTP request");
+                    headers.push(stream.read_u8().await.unwrap());
+                }
+                let request = std::str::from_utf8(&headers).unwrap();
+                assert_eq!(
+                    request.lines().next().unwrap(),
+                    format!("GET {target} HTTP/1.1")
+                );
+                let envelope: serde_json::Value = serde_json::from_str(recording).unwrap();
+                let body = envelope["response"]["body"].as_str().unwrap();
+                let status = envelope["response"]["status"].as_u64().unwrap();
+                let content_type = envelope["response"]["headers"]["Content-Type"]
+                    .as_str()
+                    .unwrap();
+                let response = format!(
+                    "HTTP/1.1 {status} OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+                stream.shutdown().await.unwrap();
+            }
+        })
+        .await
+        .expect("recording peer timed out");
+    });
+    let http = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let client = ApiClient::new(
+        Configuration::builder()
+            .base_path(origin)
+            .client(reqwest_middleware::ClientBuilder::new(http).build())
+            .build(),
+    );
+    (client, server)
+}
+
+#[tokio::test]
+async fn supported_health_http_and_legacy_refusal() {
+    let (client, server) = recording_peer(vec![(
+        "/api/health".to_owned(),
+        include_str!("recorded/eth_blockscout_com/_api_health.json"),
+    )])
+    .await;
+    // Refusal happens before transport: the peer's only request must be /api/health.
+    assert!(matches!(
+        client.health_api().health_v1().await,
+        Err(blockscout_client::apis::Error::UnsupportedCapability(
+            "upstream /api/v1/health is not mounted; use health() at /api/health"
+        ))
+    ));
+    let response = client.health_api().health().await.unwrap();
+    server.await.unwrap();
+    assert_eq!(response.status.as_u16(), 200);
+    let typed = response.try_parse_as_success_model().unwrap();
+    assert_eq!(typed.healthy, true);
+    let metadata = serde_json::to_value(typed.metadata.unwrap()).unwrap();
+    assert_eq!(metadata["blocks"]["healthy"], true);
+    for source in ["db", "cache", "node"] {
+        assert_eq!(
+            metadata["blocks"]["latest_block"][source]["number"],
+            "23116935"
+        );
+    }
+}
+
+#[tokio::test]
+async fn nft_full_width_cursor_survives_real_client_http() {
+    use blockscout_client::apis::tokens_api::GetNftInstancesParams;
+
+    const LAST_ID: &str =
+        "115785665443821794889628784622978168165342723005226866880138161782244014770980";
+    const RECORDING: &str = include_str!(
+        "recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401_instances.json"
+    );
+    let path = format!("/api/v2/tokens/{DEFAULT_TOKEN_HASH}/instances");
+    // The second replay checks cursor forwarding only; it is not a captured next page.
+    let (client, server) = recording_peer(vec![
+        (path.clone(), RECORDING),
+        (format!("{path}?unique_token={LAST_ID}"), RECORDING),
+    ])
+    .await;
+    let first = client
+        .tokens_api()
+        .get_nft_instances(
+            GetNftInstancesParams::builder()
+                .address_hash(DEFAULT_TOKEN_HASH.to_owned())
+                .build(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status.as_u16(), 200);
+    let typed = first.try_parse_as_success_model().unwrap();
+    assert_eq!(typed.items.last().unwrap().id, LAST_ID);
+    let cursor = first
+        .next_page_cursor()
+        .unwrap()
+        .expect("nonterminal cursor");
+    assert_eq!(
+        cursor.query_pairs().collect::<Vec<_>>(),
+        vec![("unique_token", LAST_ID)]
+    );
+    let forwarded = client
+        .tokens_api()
+        .get_nft_instances(
+            GetNftInstancesParams::builder()
+                .address_hash(DEFAULT_TOKEN_HASH.to_owned())
+                .cursor(cursor)
+                .build(),
+        )
+        .await
+        .unwrap();
+    server.await.unwrap();
+    assert_eq!(forwarded.status.as_u16(), 200);
+    assert_eq!(forwarded.content, first.content);
 }
 
 #[rstest]

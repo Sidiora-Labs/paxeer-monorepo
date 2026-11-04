@@ -18,12 +18,12 @@
  */
 // @vitest-environment jsdom
 
-import { createServer } from 'node:http';
-import { once } from 'node:events';
+import { libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks } from './repair-22-33-266.proofs';
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type FunctionComponentElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { BaseError, ContractFunctionRevertedError, encodeErrorResult, encodeFunctionData, keccak256, zeroAddress } from 'viem';
+import { BaseError, ContractFunctionRevertedError, encodeErrorResult, encodeFunctionData, keccak256 } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { expect, test, vi } from 'vitest';
 import { WagmiProvider } from 'wagmi';
@@ -32,22 +32,19 @@ import Home from '@/app/page';
 import { bridgeCardAmount, recordBridgeSubmission } from '@/components/bridge/bridge-card';
 import { HowItWorks } from '@/components/bridge/how-it-works';
 import { notifyWalletError, walletNetworks } from '@/components/bridge/site-header';
-import { assertClaimMatches, assertReleaseMatches, buildVerifiedClaim, buildVerifiedRelease } from '@/components/bridge/transfer-actions';
-import { depositAttestationOptions, releaseAttestationOptions, transferHistoryRecords, transferListOptions, TransfersPanel } from '@/components/bridge/transfers-panel';
+import { transferHistoryRecords, transferListOptions, TransfersPanel } from '@/components/bridge/transfers-panel';
 import { ThemeProvider } from '@/components/theme-provider';
 import { TransferHistory } from '@/components/trading/transfer-history';
 import { toast } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { parseAmount } from '@/lib/bridge/amount';
-import { AttestationApiError, attestationPollInterval, depositAttestationPath, releaseAttestationPath } from '@/lib/bridge/attestation-api';
 import { BRIDGE_CHAINS, bridgeChainByKey, buildBridgeChains, paxeer, walletBridgeChains } from '@/lib/bridge/chains';
 import { bridgeConfig, readConfig } from '@/lib/bridge/config';
 import { LAYERX_BRIDGE_ADDRESS, layerxBridgeAbi } from '@/lib/bridge/contracts';
-import { inboundDigest, outboundDigest, paxeerRecipient, verifyThresholdSignatures } from '@/lib/bridge/digests';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { paxeerAddressUrl } from '@/lib/bridge/explorer';
 import { planDeposit } from '@/lib/bridge/submission';
-import { listTransfers, updateTransfer, type BridgeTransfer } from '@/lib/bridge/transfers';
+import { listTransfers, updateTransfer } from '@/lib/bridge/transfers';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 import { useDepositAttestation, useReleaseAttestation } from '@/lib/bridge/use-bridge-state';
 
@@ -233,85 +230,7 @@ async function proofLibLedgerReopensAndRereadsProducerState() {
 }
 
 async function proofLibHttpAttestationsReachSettlementConsumersWithoutCaching() {
-  const input = await signedSubmission();
-  const depositRequest = { chainId: input.foreign.chainId, txHash: input.hash, logIndex: 7n };
-  const releaseRequest = { chainId: input.foreign.chainId, paxeerTxHash: input.hash, paxeerNonce: 9n };
-  const recipient32 = paxeerRecipient(wallet.address);
-  const depositDigest = inboundDigest({ ...depositRequest, vault, recipient32, asset: zeroAddress, amount: input.amount });
-  const releaseDigest = outboundDigest({ ...releaseRequest, vault, recipient: wallet.address, asset: zeroAddress, amount: input.amount });
-  const common = { chainId: String(input.foreign.chainId), vault, asset: zeroAddress, amount: String(input.amount), status: 'ready' };
-  const deposit = { ...common, txHash: input.hash, logIndex: '7', recipient: recipient32, digest: depositDigest,
-    signatures: [ await attestor.sign({ hash: depositDigest }) ] };
-  const release = { ...common, paxeerTxHash: input.hash, paxeerNonce: '9', recipient: wallet.address, digest: releaseDigest,
-    signatures: [ await attestor.sign({ hash: releaseDigest }) ] };
-  const paths = [ depositAttestationPath(depositRequest), releaseAttestationPath(releaseRequest) ];
-  const requests: string[] = [];
-  let corrupt = false;
-  const server = createServer((request, response) => {
-    requests.push(request.url ?? '');
-    const body = request.url === paths[0] ? deposit : request.url === paths[1] ? release : null;
-    response.writeHead(body === null ? 404 : 200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify(corrupt && body ? { ...body, amount: '-1' } : body));
-  });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('attestation-api.ts loopback producer failed to listen.');
-  const base = `http://127.0.0.1:${ address.port }`;
-  const { depositRecord, withdrawalRecord } = await import('@/lib/bridge/submitted');
-  const depositTransfer = { ...depositRecord({ ...input, vault, recipient: wallet.address }), logIndex: '7' };
-  const releaseTransfer: BridgeTransfer = { ...withdrawalRecord({ ...input, destination: wallet.address }), vault, bridgeOutNonce: '9' };
-  try {
-    for (let observation = 0; observation < 2; observation++) {
-      const client = newClient();
-      try {
-        const receivedDeposit = await client.fetchQuery(depositAttestationOptions(depositTransfer, false, base));
-        const receivedRelease = await client.fetchQuery(releaseAttestationOptions(releaseTransfer, false, base));
-        expect(requests).toHaveLength((observation + 1) * 2);
-        expect(requests.slice(-2)).toEqual(paths);
-        if (!receivedDeposit || !receivedRelease) throw new Error('attestation-api.ts did not deliver both signed producer results.');
-        const { recipient, ...depositFields } = deposit;
-        expect(receivedDeposit).toEqual({ ...depositFields, recipient32: recipient });
-        expect(receivedRelease).toEqual(release);
-        expect(() => assertClaimMatches(depositTransfer, receivedDeposit)).not.toThrow();
-        expect(() => assertReleaseMatches(releaseTransfer, receivedRelease)).not.toThrow();
-        for (const received of [ receivedDeposit, receivedRelease ]) {
-          expect(attestationPollInterval(received, 12000)).toBe(false);
-          expect(await verifyThresholdSignatures({ ...received, attestors: [ attestor.address ], threshold: 1 }))
-            .toEqual({ ok: true, signers: [ attestor.address ] });
-          const outsider = privateKeyToAccount(generatePrivateKey());
-          expect(await verifyThresholdSignatures({ ...received, signatures: [ await outsider.sign({ hash: received.digest }) ],
-            attestors: [ attestor.address ], threshold: 1 })).toEqual({ ok: false, reason: 'Signature 1 is not from a registered attestor.' });
-          for (const threshold of [ NaN, -1, 0.5, Infinity ]) {
-            expect(await verifyThresholdSignatures({ ...received, attestors: [ attestor.address ], threshold }))
-              .toEqual({ ok: false, reason: 'vault threshold is not a non-negative safe integer' });
-          }
-        }
-        await expect(buildVerifiedClaim(depositTransfer, { ...receivedDeposit, status: 'finalizing' }))
-          .rejects.toThrow('The deposit attestation is not ready.');
-        await expect(buildVerifiedRelease(releaseTransfer, { ...receivedRelease, status: 'finalizing' }))
-          .rejects.toThrow('The release attestation is not ready.');
-        expect(() => assertClaimMatches({ ...depositTransfer, amount: '1' }, receivedDeposit)).toThrow('does not match this deposit');
-        expect(() => assertReleaseMatches({ ...releaseTransfer, amount: '1' }, receivedRelease)).toThrow('does not match this withdrawal');
-      } finally {
-        client.clear();
-      }
-    }
-    corrupt = true;
-    const client = newClient();
-    try {
-      await expect(client.fetchQuery(depositAttestationOptions(depositTransfer, false, base))).rejects.toThrow(AttestationApiError);
-      await expect(client.fetchQuery(releaseAttestationOptions(releaseTransfer, false, base))).rejects.toThrow(AttestationApiError);
-      expect(requests).toHaveLength(6);
-      const missing = { ...depositTransfer, logIndex: '8' };
-      expect(await client.fetchQuery(depositAttestationOptions(missing, false, base))).toBeNull();
-      expect(requests).toHaveLength(7);
-    } finally {
-      client.clear();
-    }
-  } finally {
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
+  await libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks();
 }
 
 test(proofLibRegistryExplorerAndErrorsReachRealConsumersTwice.name, proofLibRegistryExplorerAndErrorsReachRealConsumersTwice);

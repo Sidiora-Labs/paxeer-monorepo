@@ -1,0 +1,27 @@
+[repair.22.31.482]
+gotcha = "2999"
+requirement = "22998.1"
+install_root = "apps/wallet"
+packages_moved = ["@ethereumjs/block@10.1.3", "@ethereumjs/common@10.1.3", "@ethereumjs/tx@10.1.3", "@ethereumjs/util@10.1.3", "@ethereumjs/vm@10.1.3", "solc@0.8.27"]
+files_removed = ["apps/wallet/src/lib/swap/package.json", "apps/wallet/src/lib/swap/npm-shrinkwrap.json"]
+implementation = "The wallet devDependencies and pnpm lock own the fixture dependencies. The EVM log callback explicitly types its address/topics/data tuple without changing execution. Prettier is not added to the application."
+tests = ["apps/wallet/src/lib/swap/repair-22-33-482.test.ts", "apps/wallet/src/lib/swap/repair-22-33-121.test.ts"]
+baseline = "No pre-change gate run: the declared order requires the complete implementation before qualification."
+
+[qualification]
+revision = "The candidate revision in the final hf-done JSON evidence line and the matching build/verify rows of /out/run/gates.jsonl."
+outputs = "The private gate ledger records the exact revision, command, exit and log for each run; the final response copies the last gate evidence line. No passing result is claimed before these commands execute."
+build_command = "pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+verify_command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/wallet exec vitest run src/lib/swap/repair-22-33-482.test.ts src/lib/swap/repair-22-33-121.test.ts"
+done_command = "cg spec done 22.31.482 -f layerx-merge --root /work/paxeer-monorepo"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+ledger = "/out/run/gates.jsonl"
+
+[gotcha.vitest_registration]
+observed = "The existing 22.31.236 repair record documents that Vitest 4 treats test(function) as a TODO with no assertions executed."
+resolution = "Keep named test functions and register each with test(function.name, function) so all declared criteria execute."
+
+[gotcha.formatter_directory]
+observed = "pnpm --dir apps/wallet dlx left Prettier resolving file arguments from the repository root, so only the unchanged root package.json was found."
+resolution = "Run the formatter with apps/wallet as the explicit working directory and only task-scoped paths."

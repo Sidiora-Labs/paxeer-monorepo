@@ -1,0 +1,9 @@
+[repair.22.33.362]
+finding = "receipt-retired-batch-ui"
+proof = "apps/web/e2e/repair-22-33-362.test.ts: receipt_retired_batch_ui_native_committed_position, receipt_retired_batch_ui_explicit_historical_archive, receipt_native_position_validation_and_availability"
+behavior = "Current views read the native transaction API by transaction hash and display block_number and position from that response. Historical receipt digests are looked up only in the explicitly selected archive=1 view, which labels frozen provenance and never treats archive coordinates as current commitment."
+bytes = "Canonical bytes are not available from the declared native API or frozen archive; provenance hashes are shown only as historical evidence, never as receipt bytes."
+baseline = "No unchanged-tree gate was run: the task's ordered gate instructions require complete implementation before hf-build then hf-done, and prohibit a manual verify run. The former page calls receiptRecord, which always throws canonical-receipt-bytes unavailable, so it cannot satisfy either ready-page regression assertion. No baseline failure is claimed as executed evidence."
+wiring_request = "apps/web/src/explorer/client.ts (web explorer domain): consolidate the route-owned native transaction reader into the shared native client when that path is in scope; any future receipt-digest-to-current-transaction mapping or authentic canonical byte source must be explicitly declared before adding it."
+gotcha = "A route receipt digest is not a native transaction hash mapping. Current navigation uses native transaction hashes; frozen receipt identities require explicit archive selection."
+qualification = "Exact candidate revision, command, exit and private log are recorded by the hf-build/hf-done ledger; task completion requires hf-done success."

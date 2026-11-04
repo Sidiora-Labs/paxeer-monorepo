@@ -165,6 +165,10 @@ pub enum Commitment {
 }
 
 impl Commitment {
+    #[allow(non_upper_case_globals)]
+    pub const Receipted: Self = Self::Executed;
+    #[allow(non_upper_case_globals)]
+    pub const Committed: Self = Self::Finalised;
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -627,6 +631,10 @@ pub struct RpcClient {
     subscription_tls: Option<std::sync::Arc<rustls::ClientConfig>>,
     next_id: AtomicU64,
     pub(crate) clock: Option<std::sync::Arc<dyn layerx_types::clock::Clock>>,
+    pub(crate) node_commit: Option<(
+        crate::rpc_verification::node_commit::NodeCommitAuthority,
+        crate::rpc_verification::node_commit::NodeCommitCoverage,
+    )>,
 }
 
 macro_rules! read_methods {
@@ -655,9 +663,60 @@ impl RpcWallet<'_> {
     /// # Errors
     /// Rejects invalid DIDs and preserves RPC errors. The returned read is unverified.
     pub fn balance(&self, did: &str, asset: [u8; 32]) -> Result<Value, RpcError> {
-        let account = wallet_account(did, asset, self.native_asset)?;
-        self.rpc.get_balance(&encode_hex(&account))
+        let owner = wallet_owner_key(did)?;
+        if asset == self.native_asset {
+            let mut data = layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX.to_vec();
+            data.extend_from_slice(&owner);
+            let word = self
+                .rpc
+                .precompile_read(layerx_client::sequencer::ADDR_PRECOMPILE, &data)?;
+            if word.len() != 32 || word[..12] != [0; 12] || word[12..] == [0; 20] {
+                return Err(RpcError::InvalidResponse);
+            }
+            return self
+                .rpc
+                .get_balance(&format!("0x{}", encode_hex(&word[12..])));
+        }
+        if asset == [0; 32] {
+            return Err(RpcError::InvalidRequest);
+        }
+        let mut ledger = [0; 20];
+        ledger[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+        let mut data =
+            layerx_crypto::disclosure::call::ledger_selector("accountId(bytes32,bytes32)").to_vec();
+        data.extend_from_slice(&owner);
+        data.extend_from_slice(&asset);
+        let account = self.rpc.precompile_read(ledger, &data)?;
+        if account.len() != 32 || account == [0; 32] {
+            return Err(RpcError::InvalidResponse);
+        }
+        let mut data =
+            layerx_crypto::disclosure::call::ledger_selector("balanceOf(bytes32,bytes32)").to_vec();
+        data.extend_from_slice(&account);
+        data.extend_from_slice(&asset);
+        let balance = self.rpc.precompile_read(ledger, &data)?;
+        if balance.len() != 32 || balance[..16] != [0; 16] {
+            return Err(RpcError::InvalidResponse);
+        }
+        let amount = u128::from_be_bytes(
+            balance[16..]
+                .try_into()
+                .map_err(|_| RpcError::InvalidResponse)?,
+        );
+        Ok(json!(format!("0x{amount:x}")))
     }
+}
+
+fn wallet_owner_key(did: &str) -> Result<[u8; 32], RpcError> {
+    layerx_types::ids::Did::new(did.as_bytes()).map_err(|_| RpcError::InvalidRequest)?;
+    let key = did
+        .strip_prefix("did:layerx:")
+        .ok_or(RpcError::InvalidRequest)?;
+    let key = decode_hex::<32>(key).map_err(|_| RpcError::InvalidRequest)?;
+    if key == [0; 32] {
+        return Err(RpcError::InvalidRequest);
+    }
+    Ok(key)
 }
 
 /// # Errors
@@ -697,6 +756,7 @@ impl RpcClient {
         }
     }
 
+    /// Connects to node JSON-RPC at the supplied URL, preserving its exact path.
     /// # Errors
     /// Rejects insecure non-loopback endpoints and embedded credentials.
     pub fn connect(
@@ -710,17 +770,25 @@ impl RpcClient {
     }
 
     /// Connects directly to a node's JSON-RPC URL, preserving its exact path.
-    /// Gateway connections continue to use [`Self::connect`] and its `/rpc` route.
+    /// Equivalent to [`Self::connect`].
     /// # Errors
     /// Rejects insecure non-loopback endpoints and embedded credentials.
     pub fn connect_node(
         endpoint: &str,
         credential: Option<LayerXKeyCredential>,
     ) -> Result<Self, RpcError> {
-        let mut client = Self::connect(endpoint, credential)?;
-        client.endpoint =
-            crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
-        Ok(client)
+        Self::connect(endpoint, credential)
+    }
+
+    /// Connects to an explicitly configured hosted JSON-RPC contract URL.
+    /// The caller supplies the hosted service's published path; no router suffix is added.
+    /// # Errors
+    /// Preserves the same endpoint and TLS validation as node connections.
+    pub fn connect_hosted(
+        endpoint: &str,
+        credential: Option<LayerXKeyCredential>,
+    ) -> Result<Self, RpcError> {
+        Self::connect(endpoint, credential)
     }
 
     /// Connects directly to a node using one explicitly trusted DER root.
@@ -731,13 +799,10 @@ impl RpcClient {
         credential: Option<LayerXKeyCredential>,
         ca_der: &[u8],
     ) -> Result<Self, RpcError> {
-        let mut client = Self::connect_with_ca_der(endpoint, credential, ca_der)?;
-        client.endpoint =
-            crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
-        Ok(client)
+        Self::connect_with_ca_der(endpoint, credential, ca_der)
     }
 
-    /// Connects with one explicitly trusted DER root certificate.
+    /// Connects at the supplied URL with one explicitly trusted DER root certificate.
     /// # Errors
     /// Rejects an empty or oversized trust root and invalid endpoints.
     pub fn connect_with_ca_der(
@@ -774,15 +839,8 @@ impl RpcClient {
         roots: ureq::tls::RootCerts,
         subscription_tls: Option<std::sync::Arc<rustls::ClientConfig>>,
     ) -> Result<Self, RpcError> {
-        let mut endpoint =
+        let endpoint =
             crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
-        let base = endpoint.path().trim_end_matches('/');
-        let path = if base.ends_with("/rpc") {
-            base.to_owned()
-        } else {
-            format!("{base}/rpc")
-        };
-        endpoint.set_path(&path);
         let agent = ureq::Agent::config_builder()
             .timeout_global(Some(Duration::from_secs(30)))
             .http_status_as_error(false)
@@ -802,6 +860,7 @@ impl RpcClient {
             subscription_tls,
             next_id: AtomicU64::new(1),
             clock: None,
+            node_commit: None,
         })
     }
 
@@ -870,6 +929,32 @@ impl RpcClient {
     ) -> Result<FaucetGrant, RpcError> {
         let params = faucet_selector(did, signer_public_key)?;
         self.call("lx_requestFunds", &params)?.try_into()
+    }
+
+    pub(crate) fn precompile_read(&self, to: [u8; 20], data: &[u8]) -> Result<Vec<u8>, RpcError> {
+        let result = self.call(
+            "eth_call",
+            &json!([{
+            "to": format!("0x{}", encode_hex(&to)), "data": format!("0x{}", encode_hex(data))
+        }, "pending"]),
+        )?;
+        let text = result
+            .as_str()
+            .and_then(|s| s.strip_prefix("0x"))
+            .ok_or(RpcError::InvalidResponse)?;
+        if text.len() % 2 != 0 || text.len() > 2 * MAX_TRANSACTION_CALLDATA_BYTES {
+            return Err(RpcError::InvalidResponse);
+        }
+        text.as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                u8::from_str_radix(
+                    std::str::from_utf8(pair).map_err(|_| RpcError::InvalidResponse)?,
+                    16,
+                )
+                .map_err(|_| RpcError::InvalidResponse)
+            })
+            .collect()
     }
 
     /// Reads the address's pending transaction count.

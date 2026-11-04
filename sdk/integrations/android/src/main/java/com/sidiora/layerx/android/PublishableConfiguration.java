@@ -218,8 +218,23 @@ public final class PublishableConfiguration {
 
     static boolean isLoopback(String host) {
         String normalized = host.toLowerCase(Locale.ROOT);
-        return normalized.equals("localhost") || normalized.equals("::1") || normalized.equals("[::1]")
-            || normalized.startsWith("127.");
+        if (normalized.equals("localhost") || normalized.equals("::1") || normalized.equals("[::1]")) {
+            return true;
+        }
+        String[] octets = normalized.split("\\.", -1);
+        if (octets.length != 4 || !octets[0].equals("127")) return false;
+        for (String octet : octets) {
+            if (octet.isEmpty() || octet.length() > 3
+                    || (octet.length() > 1 && octet.charAt(0) == '0')) return false;
+            int value = 0;
+            for (int index = 0; index < octet.length(); index++) {
+                char digit = octet.charAt(index);
+                if (digit < '0' || digit > '9') return false;
+                value = value * 10 + (digit - '0');
+            }
+            if (value > 255) return false;
+        }
+        return true;
     }
 
     private static byte[] publicKey(String value) {

@@ -30,11 +30,11 @@
 #   outbound preimage, verified by the native secp256k1 program in the same
 #   transaction, asserts the recipient's balances and each nullifier PDA, and
 #   proves a second release of the same Paxeer burn is refused as replayed;
-#   opens Solana on a Paxeer side made of the real layerxbridge keeper and
-#   precompile, which executes the governance bodies services/bridge/deploy/proposals
-#   generates for the deployment and registers Sidiora the way the chain's
-#   upgrade handler does, and runs services/bridge/deploy/checklist.sh against both,
-#   asserting every check passes with the wrapped SOL asset checked first.
+#   opens Solana on a persisted disposable paxd through the generated
+#   governance proposals, proving missing and unauthorized Sidiora registration
+#   refusals before registering the pair and setting its cap; runs checklist.sh;
+#   restarts paxd and the validator from their homes, reruns the checklist and
+#   retries the original attestor-signed releases against recovered nullifiers.
 #
 # Every read the checklist and the dry run's own assertions make passes through
 # a recording proxy on the loopback interface. The recording is written in the
@@ -106,7 +106,7 @@ esac
 
 tools=(jq curl cast go python3 base64 od sha256sum)
 [ "$mode" = replay ] \
-    || tools=(solana solana-test-validator solana-keygen cargo-build-sbf spl-token cargo "${tools[@]}")
+    || tools=(paxd solana solana-test-validator solana-keygen cargo-build-sbf spl-token cargo "${tools[@]}")
 for tool in "${tools[@]}"; do
     command -v "$tool" > /dev/null 2>&1 || fail "$tool is required for the dry run and is not on the PATH"
 done
@@ -146,6 +146,9 @@ stop() {
     local target=$1 pid kept=()
     kill "$target" 2> /dev/null || true
     wait "$target" 2> /dev/null || true
+    if kill -0 "$target" 2> /dev/null; then
+        fail "the node process $target did not stop"
+    fi
     for pid in "${PIDS[@]}"; do
         [ "$pid" = "$target" ] || kept+=("$pid")
     done
@@ -472,6 +475,17 @@ assert_readback() {
         expect "$(jq -r --argjson i "$index" '.balances[$i].label' "$expectations")" \
             "$(jq -r --argjson i "$index" '.balances[$i].amount' "$expectations")" \
             "$(token_amount "$url" "$address" "$mint" "$owner")"
+        if [ "$owner" = "$(jq -r '.vault_authority' "$record")" ]; then
+            found=$(account "$url" "$(pda "$program" "$(hex_of asset)" "$(key_hex "$mint")")")
+            [ "$found" != none ] || fail "the recovered asset account is missing"
+            expect "owner of the asset account for $mint" "$program" "${found%% *}"
+            data=${found#* }
+            [ "${#data}" -eq 178 ] && [ "${data:0:20}" = "$(hex_of PXBRAST0)0001" ] \
+                || fail "the recovered asset account has an invalid layout"
+            expect "outstanding amount of $mint" \
+                "$(jq -r --argjson i "$index" '.balances[$i].amount' "$expectations")" \
+                "$(u64be "${data:162:16}")"
+        fi
     done
 }
 
@@ -832,27 +846,33 @@ address_labels: {}
 commitment: finalized
 YAML
 
-# solana-test-validator on the loopback interface, its genesis funding the
-# run's publisher, its ledger inside the run.
-HOME="$CLI_HOME" solana-test-validator --ledger "$WORK/ledger" --reset --quiet \
-    --bind-address 127.0.0.1 --rpc-port "$RPC_PORT" --faucet-port "$FAUCET_PORT" \
-    --mint "$PUBLISHER" --account "$SIDIORA_MINT" "$WORK/sidiora-mint.json" \
-    > "$WORK/validator.log" 2>&1 &
-VALIDATOR_PID=$!
-PIDS+=("$VALIDATOR_PID")
-for _ in $(seq 1 600); do
-    health=$(curl --silent --noproxy '*' --header 'Content-Type: application/json' \
-        --data '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' "$VALIDATOR_URL" 2> /dev/null || true)
-    [ "$(jq -r '.result // empty' <<< "$health" 2> /dev/null)" = ok ] && break
-    kill -0 "$VALIDATOR_PID" 2> /dev/null || {
-        sed -e 's/^/    /' "$WORK/validator.log" >&2
-        tail -n 40 "$WORK/ledger/validator.log" 2> /dev/null | sed -e 's/^/    /' >&2 || true
-        fail "solana-test-validator stopped before it answered"
-    }
-    sleep 0.2
-done
-[ "$(jq -r '.result // empty' <<< "${health:-}" 2> /dev/null)" = ok ] || fail "solana-test-validator did not become healthy"
-"${TX[@]}" settle "$VALIDATOR_URL" || fail "the local cluster finalized no slot"
+# The initial process creates this ledger; recovery reopens it without reset.
+start_validator() {
+    local genesis_args=()
+    if [ "${1:-}" = bootstrap ]; then
+        genesis_args=(--mint "$PUBLISHER" --account "$SIDIORA_MINT" "$WORK/sidiora-mint.json")
+    fi
+    solana-test-validator --ledger "$WORK/ledger" --quiet \
+        --bind-address 127.0.0.1 --rpc-port "$RPC_PORT" --faucet-port "$FAUCET_PORT" \
+        "${genesis_args[@]}" \
+        > "$WORK/validator.log" 2>&1 &
+    VALIDATOR_PID=$!
+    PIDS+=("$VALIDATOR_PID")
+    for _ in $(seq 1 600); do
+        health=$(curl --silent --noproxy '*' --header 'Content-Type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' "$VALIDATOR_URL" 2> /dev/null || true)
+        [ "$(jq -r '.result // empty' <<< "$health" 2> /dev/null)" = ok ] && break
+        kill -0 "$VALIDATOR_PID" 2> /dev/null || {
+            sed -e 's/^/    /' "$WORK/validator.log" >&2
+            tail -n 40 "$WORK/ledger/validator.log" 2> /dev/null | sed -e 's/^/    /' >&2 || true
+            fail "solana-test-validator stopped before it answered"
+        }
+        sleep 0.2
+    done
+    [ "$(jq -r '.result // empty' <<< "${health:-}" 2> /dev/null)" = ok ] || fail "solana-test-validator did not become healthy"
+    "${TX[@]}" settle "$VALIDATOR_URL" || fail "the local cluster finalized no slot"
+}
+start_validator bootstrap
 found=$(account "$VALIDATOR_URL" "$WRAPPED_SOL_MINT")
 expect "owner of the wrapped SOL mint" "$TOKEN_PROGRAM" "${found%% *}"
 found=$(account "$VALIDATOR_URL" "$SIDIORA_MINT")
@@ -1020,6 +1040,8 @@ release() {
           [$asset, false, true], [$mint, false, false], [$vault, false, false], [$vault_token, false, true],
           [$recipient_token, false, true], [$nullifier, false, true], [$instructions, false, false],
           [$token, false, false], [$system, false, false]]}]' > "$WORK/release.json"
+    python3 "$SCRIPT_DIR/recovery.py" save "$WORK/releases" "$paxeer_nonce" "$WORK/release.json" \
+        || fail "the original signed release was not persisted"
     send_instructions "the release of burn $paxeer_nonce" "$WORK/release.json" "$WORK/keys/publisher.json" > /dev/null
     jq --arg payer "$DEPOSITOR" '.[1].accounts[0][0] = $payer' "$WORK/release.json" > "$WORK/again.json"
     "${TX[@]}" send "$VALIDATOR_URL" "$WORK/again.json" "$WORK/keys/depositor.json" > /dev/null 2> "$WORK/again.log" \
@@ -1055,12 +1077,10 @@ jq -n --arg program "$PROGRAM_ID" --argjson receipts "$RECEIPTS" --argjson nulli
         {label: "Sidiora released to the recipient", account: $recipient_sid, mint: $sid, owner: $recipient, amount: $sid_paid}]}' \
     > "$EXPECTATIONS"
 
-# The Paxeer side: the real layerxbridge keeper executes the governance bodies
-# generated for this deployment and registers Sidiora for Solana the way the
-# chain's upgrade handler does, and its precompile answers the views.
+# Generate bodies for decoder checks and envelopes for the live governance route.
 BODIES="$WORK/bodies"
 (cd "$REPO_ROOT" && go run ./services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals -manifest "$MANIFEST" \
-    -authority "$GOVERNANCE_AUTHORITY" -vault "$VAULT_HANDLE" "$CONFIG" "$BODIES") > "$WORK/proposals.log" 2>&1 || {
+    -authority "$GOVERNANCE_AUTHORITY" -vault "$VAULT_HANDLE" -proposals "$WORK/proposals" "$CONFIG" "$BODIES") > "$WORK/proposals.log" 2>&1 || {
     sed -e 's/^/    /' "$WORK/proposals.log" >&2
     fail "the governance bodies were not generated"
 }
@@ -1070,26 +1090,14 @@ cat > "$GO_PACKAGE/paxeerside_test.go" << 'GO'
 package paxeerside
 
 import (
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"math/big"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
-	"sync"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/services/bridge/deploy/proposals"
-	bridgetestutil "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/testutil"
+	bridgecli "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxbridge"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/bridge/deploy/proposals"
 )
 
 // decode reads one generated body through the generator's own decoder, which
@@ -1112,127 +1120,73 @@ func decode[M any](t *testing.T, path string) M {
 }
 
 func TestPaxeerSide(t *testing.T) {
-	bodies, portFile := os.Getenv("PAXEER_SIDE_BODIES"), os.Getenv("PAXEER_SIDE_PORT_FILE")
-	if bodies == "" || portFile == "" {
-		t.Fatal("PAXEER_SIDE_BODIES and PAXEER_SIDE_PORT_FILE are required")
-	}
-	testApp := app.Setup(t, false, false, false)
-	k, ctx := bridgetestutil.NewKeeper(testApp, testApp.GetContextForDeliverTx([]byte{}))
-	k.InitGenesis(ctx, *types.DefaultGenesis())
-
+	bodies := os.Getenv("PAXEER_SIDE_BODIES")
 	register := decode[types.MsgRegisterChain](t, filepath.Join(bodies, "01-register-chain.json"))
-	if err := k.RegisterChain(ctx, register); err != nil {
-		t.Fatalf("01-register-chain.json: %v", err)
+	if register.Chain.ChainID != types.SidioraHomeChainID {
+		t.Fatal("not Solana")
 	}
-	attestors := decode[types.MsgSetAttestors](t, filepath.Join(bodies, "02-set-attestors.json"))
-	if err := k.SetAttestors(ctx, attestors); err != nil {
-		t.Fatalf("02-set-attestors.json: %v", err)
-	}
-	denom, err := k.EnsureSidioraDenom(ctx, register.Chain.ChainID)
-	if err != nil {
-		t.Fatalf("EnsureSidioraDenom(%d): %v", register.Chain.ChainID, err)
-	}
-	if denom != types.SidioraDenom() {
-		t.Fatalf("EnsureSidioraDenom(%d) registered %s", register.Chain.ChainID, denom)
-	}
-	caps, err := filepath.Glob(filepath.Join(bodies, "03-set-cap-*.json"))
-	if err != nil || len(caps) == 0 {
-		t.Fatalf("no cap bodies under %s", bodies)
-	}
-	sort.Strings(caps)
-	for _, path := range caps {
-		capBody := decode[types.MsgSetCap](t, path)
-		if err := k.SetCap(ctx, capBody); err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
-	}
-
-	precompile := layerxbridge.NewPrecompileWithKeeper(k)
-	executor := precompile.GetExecutor()
-	contract := precompile.GetABI()
-	var lock sync.Mutex
-	call := func(method string, params []json.RawMessage) (string, error) {
-		if method != "eth_call" {
-			return "", fmt.Errorf("%s is not served", method)
-		}
-		if len(params) == 0 {
-			return "", errors.New("eth_call without a call")
-		}
-		var target struct {
-			To   string `json:"to"`
-			Data string `json:"data"`
-		}
-		if err := json.Unmarshal(params[0], &target); err != nil {
-			return "", err
-		}
-		if !strings.EqualFold(target.To, precompile.Address().Hex()) {
-			return "", fmt.Errorf("%s is not the layerxBridge precompile", target.To)
-		}
-		input, err := hex.DecodeString(strings.TrimPrefix(target.Data, "0x"))
-		if err != nil || len(input) < 4 {
-			return "", fmt.Errorf("%s is not call data", target.Data)
-		}
-		abiMethod, err := contract.MethodById(input[:4])
+	for _, name := range []string{"04-proposal-open-chain.json", "05-proposal-sidiora-cap.json"} {
+		raw, err := os.ReadFile(filepath.Join(os.Getenv("PAXEER_SIDE_PROPOSALS"), name))
 		if err != nil {
-			return "", err
+			t.Fatal(err)
 		}
-		args, err := abiMethod.Inputs.Unpack(input[4:])
+		proposal, err := bridgecli.DecodeBridgeProposal(app.MakeEncodingConfig().Marshaler, raw)
 		if err != nil {
-			return "", err
+			t.Fatal(err)
 		}
-		lock.Lock()
-		defer lock.Unlock()
-		out, err := executor.Execute(ctx, abiMethod, common.Address{}, common.Address{}, args, new(big.Int), true, nil, nil)
-		if err != nil {
-			return "", err
-		}
-		return "0x" + hex.EncodeToString(out), nil
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var request struct {
-			ID     json.RawMessage   `json:"id"`
-			Method string            `json:"method"`
-			Params []json.RawMessage `json:"params"`
-		}
-		answer := map[string]interface{}{"jsonrpc": "2.0"}
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			answer["error"] = map[string]interface{}{"code": -32700, "message": err.Error()}
-		} else {
-			answer["id"] = request.ID
-			if result, err := call(request.Method, request.Params); err != nil {
-				answer["error"] = map[string]interface{}{"code": -32000, "message": err.Error()}
-			} else {
-				answer["result"] = result
+		if name == "05-proposal-sidiora-cap.json" {
+			messages, err := proposal.GetMessages()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(messages) != 2 {
+				t.Fatal("expected registration then cap")
+			}
+			if _, ok := messages[0].(*types.MsgRegisterSidioraPair); !ok {
+				t.Fatal("registration must be first")
+			}
+			if _, ok := messages[1].(*types.MsgSetCap); !ok {
+				t.Fatal("cap must follow registration")
 			}
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(answer)
-	})
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
 	}
-	port := fmt.Sprint(listener.Addr().(*net.TCPAddr).Port)
-	if err := os.WriteFile(portFile+".tmp", []byte(port), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Rename(portFile+".tmp", portFile); err != nil {
-		t.Fatal(err)
-	}
-	t.Fatal(http.Serve(listener, handler))
 }
 GO
 (cd "$REPO_ROOT" && go test -c -o "$WORK/paxeer-side.test" "./${GO_PACKAGE#"$REPO_ROOT"/}") > "$WORK/paxeer-build.log" 2>&1 || {
     sed -e 's/^/    /' "$WORK/paxeer-build.log" >&2
-    fail "the Paxeer side did not build"
+    fail "the Paxeer proposal decoder checks did not build"
 }
 rm -rf "$GO_PACKAGE"
-PAXEER_SIDE_BODIES="$BODIES" PAXEER_SIDE_PORT_FILE="$WORK/paxeer.port" \
-    "$WORK/paxeer-side.test" -test.run '^TestPaxeerSide$' -test.timeout 0 > "$WORK/paxeer.log" 2>&1 &
-PAXEER_PID=$!
-PIDS+=("$PAXEER_PID")
-wait_for_file "$WORK/paxeer.port" "$PAXEER_PID" "the Paxeer side" "$WORK/paxeer.log"
-PAXEER_URL="http://127.0.0.1:$(cat "$WORK/paxeer.port")"
+PAXEER_SIDE_BODIES="$BODIES" PAXEER_SIDE_PROPOSALS="$WORK/proposals" \
+    "$WORK/paxeer-side.test" -test.run '^TestPaxeerSide$' > "$WORK/paxeer-decoder.log" 2>&1 \
+    || fail "the Paxeer proposal decoder checks failed"
+. "$SCRIPT_DIR/persisted-paxeer.sh"
+prepare_paxeer
+submit_bridge_proposal "$WORK/proposals/04-proposal-open-chain.json" PROPOSAL_STATUS_PASSED
+
+paxeer_sidiora_cap() {
+    cast call --rpc-url "$PAXEER_URL" 0x0000000000000000000000000000000000001016 \
+        'getCap(uint64,address)(string,uint256,uint256,uint256)' "$CHAIN_ID" "$SIDIORA_ASSET_ID" \
+        | sed -e 's/ \[[^]]*\]//g' -e 's/^"\(.*\)"$/\1/'
+}
+missing_cap=$(printf '\n0\n0\n0')
+expect "Sidiora unregistered before the generated pair proposal" "$missing_cap" "$(paxeer_sidiora_cap)"
+jq '.messages |= map(select(."@type" | endswith(".MsgSetCap")))' \
+    "$WORK/proposals/05-proposal-sidiora-cap.json" > "$WORK/missing-registration.json"
+submit_bridge_proposal "$WORK/missing-registration.json" PROPOSAL_STATUS_FAILED
+grep -qF 'register the Sidiora pair before setting its cap' "$WORK/paxeer.log" \
+    || fail "missing registration failed for a different reason"
+expect "missing registration left Sidiora unregistered and uncapped" "$missing_cap" "$(paxeer_sidiora_cap)"
+jq --arg unauthorized "$PAXEER_SIGNER" '.messages[0].authority = $unauthorized' \
+    "$WORK/proposals/05-proposal-sidiora-cap.json" > "$WORK/unauthorized-registration.json"
+if paxeer_tx gov submit-proposal layerxbridge-proposal "$WORK/unauthorized-registration.json" \
+    --deposit "1$PAXEER_DENOM" > "$WORK/unauthorized.log" 2>&1; then
+    fail "governance accepted an unauthorized Sidiora registration"
+fi
+grep -qF 'not the governance module account' "$WORK/unauthorized.log" \
+    || fail "unauthorized registration was refused for a different reason"
+expect "unauthorized registration left Sidiora unregistered and uncapped" "$missing_cap" "$(paxeer_sidiora_cap)"
+submit_bridge_proposal "$WORK/proposals/05-proposal-sidiora-cap.json" PROPOSAL_STATUS_PASSED
 
 # Every read from here on passes through the recording proxy.
 jq -n --arg chain "$CHAIN" --arg validator "$VALIDATOR_URL" --arg paxeer "$PAXEER_URL" \
@@ -1246,11 +1200,35 @@ run_checklist "$WORK/chains" "$PROXY_URL/$CHAIN" "$PROXY_URL/paxeer" "$RECORD" "
 printf 'readback' > "$WORK/phase"
 assert_readback "$PROXY_URL/$CHAIN" "$RECORD" "$EXPECTATIONS"
 
+# Recover the same ledger and paxd home, then retry the original attestation.
+paxd query gov proposals --node "$PAXEER_NODE" --home "$PAXEER_HOME" --output json \
+    > "$WORK/governance-before.json" || fail "paxd governance snapshot failed"
+stop "$PAXEER_PID"
+stop "$VALIDATOR_PID"
+[ -d "$WORK/ledger" ] || fail "the validator ledger was lost"
+start_validator
+start_paxeer
+assert_paxeer_recovery "$WORK/governance-before.json" "$WORK/governance-after.json"
+printf '*' > "$WORK/phase"
+run_checklist "$WORK/chains" "$PROXY_URL/$CHAIN" "$PROXY_URL/paxeer" "$RECORD" "$MANIFEST" "$WORK/checklist-recovered.log"
+printf 'readback' > "$WORK/phase"
+assert_readback "$PROXY_URL/$CHAIN" "$RECORD" "$EXPECTATIONS"
+for nonce in 1 2; do
+    python3 "$SCRIPT_DIR/recovery.py" read "$WORK/releases" "$nonce" > "$WORK/retry.json" \
+        || fail "the original signed release could not be reopened"
+    status=0
+    "${TX[@]}" send "$VALIDATOR_URL" "$WORK/retry.json" "$WORK/keys/publisher.json" \
+        > "$WORK/recovered-send.log" 2> "$WORK/recovered-refusal.log" || status=$?
+    [ "$status" -ne 0 ] || fail "the recovered program paid burn $nonce twice"
+    grep -qE "\"Custom\": ?$REPLAYED_ERROR\b|custom program error: 0x$(printf '%x' "$REPLAYED_ERROR")\b" \
+        "$WORK/recovered-refusal.log" || fail "recovered release was refused for a reason other than its spent nullifier"
+    assert_readback "$PROXY_URL/$CHAIN" "$RECORD" "$EXPECTATIONS"
+done
+
 # The nodes stop here: everything after this reads the recording only.
 stop "$PROXY_PID"
 stop "$PAXEER_PID"
 stop "$VALIDATOR_PID"
-rm -rf "$WORK/ledger"
 
 jq -e 'select(has("error"))' "$WORK/exchange.jsonl" > /dev/null \
     && fail "the recorded exchange carries an error answer: $(jq -c 'select(has("error"))' "$WORK/exchange.jsonl" | head -n 1)"

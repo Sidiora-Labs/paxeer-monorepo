@@ -303,3 +303,22 @@ impl AuthorityGrant {
         Ok(grant)
     }
 }
+
+/// Produces the actual 0x101c call consumed by sender-bound approval and signing.
+pub fn authority_grant_call(
+    grant: &AuthorityGrant,
+    options: &crate::send::CallOptions,
+) -> Result<crate::send::DisclosedCall, crate::disclosure::DisclosureError> {
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101c_u16.to_be_bytes());
+    let call = crate::evm_transaction::Eip1559Call {
+        chain_id: options.chain_id,
+        nonce: options.nonce,
+        max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+        max_fee_per_gas: options.max_fee_per_gas,
+        gas_limit: options.gas_limit,
+        to,
+        data: crate::disclosure::call::encode_authority_grant_call(grant)?,
+    };
+    crate::send::DisclosedCall::from_call(call, options.from)
+}

@@ -54,7 +54,7 @@ pub fn verify_storage_witness(
         .map_err(|_| StorageWitnessError::AppHash)
 }
 
-fn existence(data: &[u8]) -> Result<ExistenceProof, StorageWitnessError> {
+pub(crate) fn existence(data: &[u8]) -> Result<ExistenceProof, StorageWitnessError> {
     let mut reader = ProtoReader::new(data);
     let field = reader
         .next_field()

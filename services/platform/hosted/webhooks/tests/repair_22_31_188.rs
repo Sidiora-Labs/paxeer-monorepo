@@ -511,18 +511,29 @@ fn finding_1_complete_authority_response_and_strict_refusals() {
             .as_str()
             .ok_or("header"),
     )));
-    let network = checked(layerx_wire::receipt::decode_batch_header(&bytes)).network_id();
-    authority["receipt"] = fixture["receipt_hex"].clone();
-    authority["protocol_network_id"] = json!(network);
-    let activity = checked(authority["activity_id"].as_str().ok_or("activity"));
-    let receipt = json!({"activity_id":activity,"receipt":fixture["receipt_hex"]});
-    let receipt = checked(serde_json::to_vec(&receipt));
     let pin = checked(layerx_platform_gateway::configured_sequencer(
         checked(fixture["sequencer_id"].as_str().ok_or("id")),
         checked(fixture["sequencer_public_key"].as_str().ok_or("key")),
         checked(fixture["first_batch"].as_str().ok_or("first")),
         checked(fixture["last_batch"].as_str().ok_or("last")),
     ));
+    let header_signature = checked(fixed_hex::<64>(checked(
+        authority["batch_evidence"]["header_signature"]
+            .as_str()
+            .ok_or("signature"),
+    )));
+    let verified_header = checked(layerx_proof::inclusion::verify_header(
+        &bytes,
+        &header_signature,
+        &pin,
+    ));
+    let network = verified_header.header().network_id();
+    authority["receipt"] = fixture["receipt_hex"].clone();
+    authority["protocol_network_id"] = json!(network);
+    let activity = checked(authority["activity_id"].as_str().ok_or("activity"));
+    let receipt = json!({"activity_id":activity,"receipt":fixture["receipt_hex"]});
+    let receipt = checked(serde_json::to_vec(&receipt));
+
     let identity = checked(native_tls::Identity::from_pkcs12(
         &checked(fs::read(scratch.0.join("client.p12"))),
         "repair-only",

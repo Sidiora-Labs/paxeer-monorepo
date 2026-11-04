@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 
 import type { Eip1193Requester } from "../src/account-derivation.js";
+import { exchangeOrderAbi } from "./support/exchange-abi.js";
 import {
   LAYERX_EXCHANGE_PRECOMPILE,
   PrecompileAbiError,
@@ -34,13 +35,14 @@ const selector = (signature: string): string =>
 const word = (value: bigint): string => value.toString(16).padStart(64, "0");
 
 function placeOrder_call_carries_the_account_id(): void {
-  const expected = selector("placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)") +
+  const expected = selector(exchangeOrderAbi(true).signature) +
     marketId.slice(2) + accountId.slice(2) + word(2n) + word(order.price) + word(order.quantity) + word(1n);
   assert.deepEqual(exchangePlaceOrderCall(order), { to: LAYERX_EXCHANGE_PRECOMPILE, data: expected, value: 0n });
-  assert.notEqual(expected.slice(0, 10), selector("placeOrder(bytes32,uint8,uint256,uint256,uint8)"));
+  assert.notEqual(expected.slice(0, 10), selector(exchangeOrderAbi(false).signature));
   assert.throws(() => exchangePlaceOrderCall({ ...order, accountId: "0x22" }), PrecompileAbiError);
 }
 
+// Unit transport coverage: an ordinary EVM observes request bytes, without proving exchange execution.
 async function exchange_wallet_requests_are_type_2_on_chain_125(): Promise<void> {
   const evm = spawn(process.env.ANVIL_BIN ?? "anvil", ["--port", "0", "--accounts", "1", "--chain-id", "125"], {
     stdio: ["ignore", "pipe", "pipe"],

@@ -71,7 +71,7 @@ impl VyperVerifier for VyperVerifierService {
         let result = vyper::multi_part::verify(&self.compilers, verification_request).await;
 
         let verify_response = match result {
-            Ok(value) => types::verification_result::process_verification_result(value)?,
+            Ok(value) => types::verification_result::process_verification_result(value, &[])?,
             Err(error) => types::verification_result::process_error(error)?,
         };
 
@@ -112,7 +112,7 @@ impl VyperVerifier for VyperVerifierService {
         let result = vyper::standard_json::verify(&self.compilers, verification_request).await;
 
         let verify_response = match result {
-            Ok(value) => types::verification_result::process_verification_result(value)?,
+            Ok(value) => types::verification_result::process_verification_result(value, &[])?,
             Err(error) => types::verification_result::process_error(error)?,
         };
 

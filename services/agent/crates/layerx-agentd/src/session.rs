@@ -876,6 +876,23 @@ fn session_key(request: &OpenRequest) -> Result<TenantKey, SessionError> {
     )?)
 }
 
+pub(crate) fn load_record(
+    store: &Store,
+    tenant: &TenantId,
+    session_id: SessionId,
+) -> Result<SessionRecord, SessionError> {
+    let key = TenantKey::new(tenant.clone(), ObjectKind::Session, session_id.0.to_vec())?;
+    let value = store.get(&key).ok_or(SessionError::NotFound)?;
+    if value.class() != crate::store::StorageClass::LocalOnly {
+        return Err(SessionError::IdentityMismatch);
+    }
+    let record = decode(value.bytes(), tenant.clone())?;
+    if record.request.session_id != session_id || &record.request.tenant != tenant {
+        return Err(SessionError::IdentityMismatch);
+    }
+    Ok(record)
+}
+
 pub(crate) fn persist_record(
     store: &mut Store,
     record: &SessionRecord,

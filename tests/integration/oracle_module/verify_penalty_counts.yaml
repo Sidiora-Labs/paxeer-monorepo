@@ -1,46 +1,76 @@
 - name: Test penalty counts for oracle process
   inputs:
-    # Get slashing window
-    - cmd: paxd q oracle params --output json | jq -r ".params.slash_window"
-      env: ORACLE_SLASH_WINDOW
-    # Get vote period
-    - cmd: paxd q oracle params --output json | jq -r ".params.vote_period"
-      env: VOTE_PERIOD
-    # Get current height
-    - cmd: paxd q block | jq -r ".block.header.height"
-      env: BLOCK_HEIGHT
-    # calculate progress in slash window
-    - cmd: expr $BLOCK_HEIGHT % $ORACLE_SLASH_WINDOW
-      env: WINDOW_PROGRESS
-    # get expected number of penalty counts
-    - cmd: expr \( $WINDOW_PROGRESS + 1 \)  / $VOTE_PERIOD
-      env: EXPECTED_COUNTS
-    # Get admin val addr
     - cmd: printf "12345678\n" | paxd keys show node_admin --bech val --output json | jq -r ".address"
       env: ADMIN_VAL_ADDR
-    # get vote penalty counts
-    - cmd: paxd q oracle vote-penalty-counter $ADMIN_VAL_ADDR --height $BLOCK_HEIGHT --output json | jq -r ".vote_penalty_counter"
+    - cmd: set -euo pipefail; paxd status | jq -er ".SyncInfo.latest_block_height | select(test(\"^[1-9][0-9]*$\"))"
+      env: START_HEIGHT
+    # Read both parameters from one historical snapshot.
+    - cmd: set -euo pipefail; paxd q oracle params --height "$START_HEIGHT" --output json | jq -ec .params
+      env: ORACLE_PARAMS
+    - cmd: set -euo pipefail; printf "%s\n" "$ORACLE_PARAMS" | jq -er ".slash_window | select(test(\"^[1-9][0-9]*$\"))"
+      env: ORACLE_SLASH_WINDOW
+    - cmd: set -euo pipefail; printf "%s\n" "$ORACLE_PARAMS" | jq -er ".vote_period | select(test(\"^[1-9][0-9]*$\"))"
+      env: VOTE_PERIOD
+    # MidBlock tallies at (height + 1) % vote_period == 0; EndBlock resets
+    # at (height + 1) % slash_window == 0. Select a tally that survives reset.
+    - cmd: |
+        set -euo pipefail
+        [[ "$ORACLE_SLASH_WINDOW" =~ ^[1-9][0-9]*$ ]] || exit 1
+        [[ "$VOTE_PERIOD" =~ ^[1-9][0-9]*$ ]] || exit 1
+        [[ "$START_HEIGHT" =~ ^[1-9][0-9]*$ ]] || exit 1
+        (( ORACLE_SLASH_WINDOW > VOTE_PERIOD )) || { echo "No nonempty persisted vote window" >&2; exit 1; }
+        (( ORACLE_SLASH_WINDOW % VOTE_PERIOD == 0 )) || exit 1
+        height=$(( ((START_HEIGHT + 1) / VOTE_PERIOD + 1) * VOTE_PERIOD - 1 ))
+        if (( (height + 1) % ORACLE_SLASH_WINDOW == 0 )); then
+          height=$((height + VOTE_PERIOD))
+        fi
+        printf "%s\n" "$height"
+      env: BLOCK_HEIGHT
+    - cmd: |
+        set -euo pipefail
+        for ((attempt = 0; attempt < 60; attempt++)); do
+          latest=$(paxd status | jq -er ".SyncInfo.latest_block_height | select(test(\"^[1-9][0-9]*$\"))")
+          if (( latest >= BLOCK_HEIGHT )); then
+            printf "%s\n" "$latest"
+            exit 0
+          fi
+          sleep 0.5
+        done
+        echo "Timed out waiting for a complete vote period at $BLOCK_HEIGHT" >&2
+        exit 1
+      env: OBSERVED_HEIGHT
+    # Reject parameter changes between selection and the pinned tally.
+    - cmd: set -euo pipefail; paxd q oracle params --height "$BLOCK_HEIGHT" --output json | jq -e --arg window "$ORACLE_SLASH_WINDOW" --arg period "$VOTE_PERIOD" ".params.slash_window == \$window and .params.vote_period == \$period"
+      env: PARAMETERS_MATCH
+    - cmd: printf "%s\n" "$(( (BLOCK_HEIGHT + 1) % ORACLE_SLASH_WINDOW ))"
+      env: WINDOW_PROGRESS
+    - cmd: set -euo pipefail; expected=$(( WINDOW_PROGRESS / VOTE_PERIOD )); (( expected > 0 )); printf "%s\n" "$expected"
+      env: EXPECTED_COUNTS
+    - cmd: set -euo pipefail; paxd q oracle vote-penalty-counter "$ADMIN_VAL_ADDR" --height "$BLOCK_HEIGHT" --output json | jq -ec .vote_penalty_counter
       env: PENALTY_JSON
-    # get success counts
-    - cmd: echo $PENALTY_JSON | jq -r ".success_count"
+    - cmd: set -euo pipefail; printf "%s\n" "$PENALTY_JSON" | jq -er ".success_count | select(test(\"^(0|[1-9][0-9]*)$\"))"
       env: SUCCESS_COUNT
-    # get abstain counts
-    - cmd: echo $PENALTY_JSON | jq -r ".abstain_count"
+    - cmd: set -euo pipefail; printf "%s\n" "$PENALTY_JSON" | jq -er ".abstain_count | select(test(\"^(0|[1-9][0-9]*)$\"))"
       env: ABSTAIN_COUNT
-    # get miss counts
-    - cmd: echo $PENALTY_JSON | jq -r ".miss_count"
+    - cmd: set -euo pipefail; printf "%s\n" "$PENALTY_JSON" | jq -er ".miss_count | select(test(\"^(0|[1-9][0-9]*)$\"))"
       env: MISS_COUNT
-    # calculate total
-    - cmd: expr $SUCCESS_COUNT + $ABSTAIN_COUNT + $MISS_COUNT
+    - cmd: printf "%s\n" "$(( SUCCESS_COUNT + ABSTAIN_COUNT + MISS_COUNT ))"
       env: TOTAL_COUNT
-    # calculate success rate
-    - cmd: expr $(expr $SUCCESS_COUNT \* 100 ) / $TOTAL_COUNT
+    - cmd: |
+        set -euo pipefail
+        (( TOTAL_COUNT > 0 )) || { echo "Empty vote observation window" >&2; exit 1; }
+        printf "%s\n" "$(( SUCCESS_COUNT * 100 / TOTAL_COUNT ))"
       env: SUCCESS_PERCENT
   verifiers:
-    # verify total counts GEQ expected: not asserting equal due to block movement between evaluation
     - type: eval
-      expr: TOTAL_COUNT == EXPECTED_COUNTS or TOTAL_COUNT == EXPECTED_COUNTS + 1
-    # with the price-feeder retired, success rate should remain very low
+      expr: OBSERVED_HEIGHT >= BLOCK_HEIGHT
+    - type: regex
+      result: PARAMETERS_MATCH
+      expr: ^true$
+    - type: eval
+      expr: TOTAL_COUNT > 0
+    - type: eval
+      expr: TOTAL_COUNT == EXPECTED_COUNTS
+    # With the price-feeder retired, success rate should remain very low.
     - type: eval
       expr: SUCCESS_PERCENT < 5
-
