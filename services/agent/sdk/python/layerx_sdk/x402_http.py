@@ -6,12 +6,12 @@ import json
 import re
 import sqlite3
 from collections.abc import Callable
-from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from .account_derivation import keccak256
 from .production import PlatformSdkError
 from .x402 import (
+    PaymentEvidence,
     ledger_payment_payer,
     payment_commitment,
     payment_payer,
@@ -196,14 +196,6 @@ def decode_header(value):
             ValueError("invalid-json-number")
         ),
     )
-
-
-@dataclass(frozen=True)
-class PaymentEvidence:
-    canonical_receipt: bytes
-    raw_transaction: bytes
-    finality: tuple | None = None
-    grant_binding: dict | None = None
 
 
 class FulfillmentStore:
@@ -605,12 +597,29 @@ class BuyerMiddleware:
 
 
 class ConfiguredReceiptAuthority:
-    def __init__(self, raw_transaction: bytes):
+    def __init__(self, raw_transaction: bytes, *, rpc=None, receipt_keys=(),
+                 commit_trust=None, committed_evidence=None):
         self.raw_transaction = raw_transaction
+        self.rpc = rpc
+        self.receipt_keys = receipt_keys
+        self.commit_trust = commit_trust
+        self.committed_evidence = committed_evidence
 
     def __call__(self, receipt, offer):
         validate_requirements(offer)
-        return PaymentEvidence(receipt, self.raw_transaction)
+        if self.rpc is None:
+            return PaymentEvidence(receipt, self.raw_transaction)
+        from .x402_rpc import rpc_payment_evidence
+        result = self.rpc.receipt("0x" + keccak256(self.raw_transaction).hex())
+        evidence = rpc_payment_evidence(
+            result, self.raw_transaction, self.receipt_keys,
+            commit_trust=self.commit_trust, committed_evidence=self.committed_evidence,
+        )
+        if evidence is None or evidence.canonical_receipt != receipt:
+            raise ValueError("receipt-mismatch")
+        if payment_commitment(offer.get("extra")) == "committed" and evidence.finality is None:
+            raise ValueError("missing-committed-evidence")
+        return evidence
 
 
 def grant_payment_header(required, accepted, receive_hex):
