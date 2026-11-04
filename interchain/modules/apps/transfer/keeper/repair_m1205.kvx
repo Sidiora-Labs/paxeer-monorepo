@@ -1,0 +1,53 @@
+[repair.22.33.1205]
+audit = "22.30.57"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+mode = "BUILD"
+scope = "interchain/modules/apps/transfer/keeper, interchain/modules/apps/transfer/types, interchain/proto/ibc/applications/transfer"
+continuation_base_revision = "4b4896072f927b28618921285b3e3ae758bc467e"
+continuation = "Attempt 4 preserves all eight paths from attempt 3, including the regenerated multi-segment DenomHash binding and explicit gRPC/HTTP refusals. The supplied attempt 3 outcome was a test-binary compilation failure in out-of-scope NewFactoryCLI callers, repaired by prerequisite 22.31.463 on this continuation base. This sandbox starts with no gates.jsonl; qualify the preserved implementation through hf-build and hf-done, and repair only task-scoped failures they report."
+baseline = "No pre-change TestRepairM_1205_* file or prior gate ledger exists; baseline failures are unmeasured. The explicit implementation-first order and hf-done-only verification prohibit the contradictory do_8 pre-change verify run."
+evidence = "The runner's /out/run/gates.jsonl records the candidate revision, command, exit code and private log for hf-build and hf-done; qualification is claimed only on their unchanged candidate."
+
+[finding.transfer-genesis-fixture]
+tests = ["TestRepairM_1205_GenesisRecovery", "TestRepairM_1205_GenesisRefusals"]
+proof = "Real MsgTransfer and proof-verified MsgRecvPacket transactions emit two-hop traces for native and slash-bearing factory denoms. AppModule JSON export passes public genesis validation; the actual producer commitment store is closed and reopened. A distinct empty consumer imports transfer and bank JSON, commits, closes and reopens; bank genesis, transfer genesis, hash queries and voucher balances must match. Malformed path and blank-base refusals are separate."
+
+[finding.transfer-query-fixture]
+tests = ["TestRepairM_1205_QueryTransport"]
+proof = "Packet-produced canonical traces cross a loopback gRPC server and the registered generated REST gateway; bare hash, ibc hash, full trace hash lookup, slash-bearing base denom and list envelopes are asserted. Invalid hashes, missing traces and malformed identifiers retain explicit refusal checks."
+
+gateway_repair = "Attempt 2 includes the module-owned query.proto and generated types: DenomHash now binds {trace=**}. Regenerated transport code accepts literal and percent-escaped multi-hop traces, including slash-bearing factory base denoms; TestRepairM_1205_QueryTransport asserts HTTP 200 and the exact hash envelope for both forms. No gateway wiring request remains."
+generation = "buf generate restricted to query.proto uses the repository's gocosmos options and protoc-gen-grpc-gateway@v1.16.0; both query.pb.go (including the HTTP descriptor) and query.pb.gw.go are regenerated."
+generation_gotcha = "The unversioned gateway generator lacks tool-only go.sum entries; invoke its explicit v1.16.0 version as buf.gen.yaml does, avoiding manifest changes."
+
+[finding.transfer-mbt-negative-outcomes]
+tests = ["TestRepairM_1205_ModelOutcomes", "TestRepairM_1205_AtomicRefusals"]
+proof = "Every committed model transcript checks the handler outcome independently of the exact modeled bank delta, including packet-validation refusals. The receive driver invokes the production IBCModule; separate real core RecvPacket transactions prove receive-disabled, blocked-after-mint and invalid-receiver refusals leave committed balances, supply and traces unchanged while an error acknowledgement commits."
+
+[finding.transfer-metric-registry]
+tests = ["TestRepairM_1205_MetricContract"]
+proof = "Real send, mint-receive, burn-send and unescrow-receive callbacks feed the production legacy telemetry sink and an OpenTelemetry manual reader. Legacy keys and source labels, gauge amounts and counter values, concurrent instrument names, types, values, denom classes and boolean source branches are asserted without changing live series."
+legacy_packet_receive = "Key [ibc, transfer, packet, receive]; denom label is unprefixedDenom on source=true, packet data.Denom on source=false."
+legacy_receive = "Key [ibc, transfer, receive]; labels source_port, source_channel, source=true|false (source is a label, never a key component)."
+legacy_send = "Key [ibc, transfer, send]; labels destination_port, destination_channel, source=true|false."
+otel = "Meter ibc_transfer_keeper: ibc_transfer_tx_msg and ibc_transfer_packet_receive are Int64Gauge instruments in {token} with denom_class; ibc_transfer_send and ibc_transfer_receive are Int64Counter instruments in {count} with destination/source port and channel plus boolean source."
+dashboard_check = "The committed dashboard JSON files under docker/monitornode and deploy/launchpad/production/observability contain no references to these legacy or OpenTelemetry series; no dashboard consumer rewrite is required in those files."
+wiring_registry = "Owner domain 15: update the five 15.met-ibc-interchain-modules-apps-transfer-keeper-ibc-{packet-receive,packet-receive-2,receive-true,receive-false,send}-j57 rows in spec/layerx-merge/interfaces.kvx with the exact legacy keys and labels above, preserving emitted live series."
+wiring_contract = "Owner domain 15: regenerate spec/layerx-merge/contracts/ibc.md from the corrected registry and describe the concurrent keeper/metrics.go OpenTelemetry instruments separately; check any externally managed dashboard consumers against those keys."
+
+[qualification.repair1]
+revision = "49a8f31e5d4521300a1b8b5a57b2ba41160237f8"
+command = "cg spec done 22.33.1205 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (compiler diagnostics: /tmp/repair-m1205.log)"
+observed = "The repository pins gRPC 1.57.1 (DialContext), its ProtoCodec exposes UnmarshalAsJSON, and TestChain.Codec is binary-only. Test transport calls were corrected to those concrete interfaces. Legacy metric assertions now read every real sink interval to avoid wall-clock bucket rollover and assert its actual Label representation."
+assumption = "Noncanonical historical channel names pass the shared host identifier validator; malformed-refusal coverage uses an actually invalid identifier containing a question mark, while successful traces come only from canonical channel producers."
+
+[qualification.external_gateway]
+resolution = "Historical attempt 1 failure; the explicit attempt 2 ruling expands scope to the owning proto and generated transport, so this task now implements and qualifies that repair."
+revision = "731b4b12e50337e17daa017068e368a9642adeaf"
+command = "cg spec done 22.33.1205 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log; detailed assertions: /tmp/repair-m1205.log"
+observed = "Five focused tests passed; QueryTransport failed at grpc_query_test.go:92 because the existing generated DenomHash gateway route returns HTTP 404 for the percent-escaped packet-produced multi-hop trace, while the gRPC DenomHash and REST DenomTrace calls succeed."
+assumption = "The owning domain must repair the out-of-scope protobuf HTTP binding and generated gateway; the assertion remains unchanged, and this recorded external-interface failure is not rerun or chased under the task's pre-existing-failure rule."
