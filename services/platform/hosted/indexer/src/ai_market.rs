@@ -35,6 +35,9 @@ use sha2::{Digest, Sha256};
 
 use crate::codec::hex0x;
 
+#[path = "ai_market_membership.rs"]
+mod membership;
+
 pub use layerx_programs_ai_market::queries::{
     parse_hex32, parse_limit, Availability, KindFilter, ParticipantKind, ParticipantRow,
     ScoreStatus, SnapshotBinding, DEFAULT_LIMIT,
@@ -369,6 +372,76 @@ pub fn verify_block_commit(
         block_hash,
         app_hash,
         store_proof_digest: Sha256::digest(proof.store_proof).into(),
+    })
+}
+
+/// Program bytes authenticated under a consensus-verified native app hash.
+/// Construction is restricted to the shared membership verifier.
+#[derive(Debug)]
+pub struct VerifiedProgramState<'a> {
+    commit: VerifiedCommit,
+    chain: ChainDomain,
+    program: ProgramId,
+    state_digest: StateDigest,
+    state: &'a [u8],
+}
+
+impl<'a> VerifiedProgramState<'a> {
+    #[must_use]
+    pub const fn commit(&self) -> &VerifiedCommit {
+        &self.commit
+    }
+    #[must_use]
+    pub const fn chain(&self) -> ChainDomain {
+        self.chain
+    }
+    #[must_use]
+    pub const fn program(&self) -> ProgramId {
+        self.program
+    }
+    #[must_use]
+    pub const fn state_digest(&self) -> StateDigest {
+        self.state_digest
+    }
+    #[must_use]
+    pub const fn state(&self) -> &'a [u8] {
+        self.state
+    }
+}
+
+/// Authenticates the namespace head, manifest and exact shared-state bytes.
+///
+/// # Errors
+/// Refuses malformed or unrelated membership proofs, a wrong consensus chain,
+/// a changed state body, or an embedded chain/program different from the read.
+pub fn verify_program_state<'a>(
+    proof: &BlockCommitProof<'_>,
+    authority: &FinalityAuthority,
+    chain: ChainDomain,
+    program: ProgramId,
+    state: &'a [u8],
+) -> Result<VerifiedProgramState<'a>, ProofError> {
+    if state.len() > MAX_STATE_BYTES {
+        return Err(ProofError::InvalidProof);
+    }
+    let commit = verify_block_commit(proof, authority)?;
+    if authority.chain_id.is_empty() || commit.chain_id != authority.chain_id {
+        return Err(ProofError::InvalidCommit);
+    }
+    membership::authenticate(
+        proof.store_proof,
+        commit.app_hash,
+        program.as_bytes(),
+        state,
+    )?;
+    let header =
+        queries::read_header(state, chain, program).map_err(|_| ProofError::InvalidProof)?;
+    Ok(VerifiedProgramState {
+        commit,
+        chain,
+        program,
+        state_digest: header.digest,
+        state,
     })
 }
 
@@ -1451,8 +1524,13 @@ impl ProjectionStore {
         if record.read != ReadVerification::SequencerSigned {
             return Err(ViewError::BindingMismatch);
         }
-        let verified =
-            verify_block_commit(proof, authority).map_err(|_| ViewError::FinalityUnavailable)?;
+        let authenticated =
+            verify_program_state(proof, authority, record.chain, record.program, &state)
+                .map_err(|_| ViewError::FinalityUnavailable)?;
+        let verified = authenticated.commit();
+        if authenticated.state_digest() != record.state_digest {
+            return Err(ViewError::IntegrityFailure);
+        }
         if verified.chain_id != authority.chain_id {
             let error = ViewError::WrongDomain;
             record_alert(
@@ -1470,8 +1548,12 @@ impl ProjectionStore {
             return Err(ViewError::BindingMismatch);
         }
         let finality = verified.finality_evidence(record.native_state_root)?;
-        let binding =
-            queries::bind_snapshot(&state, &record.facts(), &finality, publication_time_ms)?;
+        let binding = queries::bind_snapshot(
+            authenticated.state(),
+            &record.facts(),
+            &finality,
+            publication_time_ms,
+        )?;
         binding.require_finalized()?;
         if binding.snapshot_id()? != *snapshot_id {
             return Err(ViewError::IntegrityFailure);
