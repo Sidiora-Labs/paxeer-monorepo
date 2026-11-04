@@ -1,0 +1,25 @@
+[meta]
+task = "22.33.106"
+audit = "22.30.111"
+acceptance = "22998.1"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+baseline = "Not run: the explicit ordered gate contract forbids tests before full implementation and forbids hand-running verify_cmd; no prior gate ledger or repair test existed on entry, so no pre-change failure is claimed."
+qualification = "hf-build then hf-done on the unchanged candidate; the runner's final gate JSON records the verified revision, exact command, exit code and private evidence log without a post-build source edit."
+
+[finding.39]
+repair = "Complete the native committed-block README with a linked closed-schema verifier example, receipt and committed requests, chain 125, inclusive receipt-key windows, configured trust and unknown freshness, and operator-owned durable-state upgrade reconciliation."
+tests = ["finding_39_linked_example_uses_the_production_closed_schema", "finding_39_documented_requests_cross_native_source_codec_and_receipt_consumer", "finding_39_selectors_and_durable_upgrade_limits_remain_explicit"]
+proof = "The actual verifier private wire types parse the linked template and README requests in-process. The actual CommittedBlockSource acquires signed producer fixtures over loopback TLS quorum; production archive encoding, decoding, observation admission, receipt verification and report rendering prove the documented coordinates/digest and reject missing/wrong/out-of-window keys and damaged signatures."
+boundary = "Destination position is fixture context at the public codec boundary, not evidence of live destination deployment or Paxeer consensus inclusion. No migration tool or live qualification is claimed."
+wiring_request = "Domain 11 (interop): keep services/interop/deploy/mirror/verify-config.example.json and its deployment consumers aligned with the crate-local examples/verifier.json and the actual verifier closed schema; the out-of-scope deployment copy is not edited here."
+
+[constraints]
+scope = "Only layerx-mirror documentation, examples and repair tests change; the verifier rejects unknown fields on the committed selector and receives test-only module wiring to exercise its private real types without widening production visibility or duplicating schemas. No spec edits, commits or pushes are performed."
+gotcha = "The pre-existing README already described committed blocks at the base; its remaining gaps were the missing linked strict-schema template, complete request examples and durable state upgrade ownership. The requested pre-change verify conflicts with the explicit implementation-first gate order."
+
+[qualification_repair.1]
+revision = "b496980892c511f847ba946e7b04330b684cc3f5"
+command = "cg spec done 22.33.106 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Serde accepts extra fields on a unit enum variant despite deny_unknown_fields; represent the committed selector as an empty struct variant to enforce the documented closed schema while retaining the assertion."
