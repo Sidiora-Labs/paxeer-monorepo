@@ -100,7 +100,15 @@ Their declaration does not establish their availability on public Ethereum
 JSON-RPC hosts. Public Paxeer JSON-RPC uses the HTTPS root path, for example
 `https://api1.mainnet-beta.paxeer.network`, with EVM chain id `125`.
 
+The denom-trace response above is checked against a packet-produced voucher,
+the registered query service and the generated HTTP gateway in
+`TestRepairM_1206_QueryShape` in [the repair tests](../repair_m1206_test.go).
+
 ### Multiple hops
+
+Here A, B and C are external IBC chains with separate clients, channels and
+bank stores. Tenant namespaces inside Paxeer are not additional IBC chains
+and do not add denomination-trace hops.
 
 For transfers `A -> B -> C`, suppose B receives on `transfer/channel-0` and C
 receives on `transfer/channel-7`. C stores the trace
