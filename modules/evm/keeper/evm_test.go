@@ -1,8 +1,17 @@
 package keeper_test
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"math/big"
 	"testing"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts"
+	evmwasm "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/client/wasm"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/wasmbinding/bindings"
+	wasmvmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -191,27 +200,62 @@ func TestNegativeTransfer(t *testing.T) {
 }
 
 func TestHandleInternalEVMDelegateCall_AssociationError(t *testing.T) {
-	k := testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.NewContext(false, tmtypes.Header{}).WithBlockHeight(2)
-	testAddr, _ := testkeeper.MockAddressPair()
-	cwAddr, contractAddr := testkeeper.MockAddressPair()
-	castedAddr := common.BytesToAddress(cwAddr.Bytes())
+	proveRegisteredDelegateCall(t)
+}
 
-	k.SetCode(ctx, contractAddr, []byte("code"))
-	require.NoError(t, k.SetERC20CW20Pointer(ctx, string(castedAddr.Bytes()), contractAddr))
-
-	addr, _, exists := k.GetAnyPointerInfo(ctx, types.PointerReverseRegistryKey(contractAddr))
-	require.True(t, exists)
-	require.Equal(t, castedAddr.Bytes(), addr)
-
-	amt := sdk.NewCoins(sdk.NewCoin(k.GetBaseDenom(ctx), sdk.NewInt(2000)))
-	require.Nil(t, k.BankKeeper().MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(k.GetBaseDenom(ctx), sdk.NewInt(2000)))))
-	require.Nil(t, k.BankKeeper().SendCoinsFromModuleToAccount(ctx, types.ModuleName, testAddr, amt))
-	req := &types.MsgInternalEVMDelegateCall{
-		Sender:       testAddr.String(),
-		FromContract: string(contractAddr.Bytes()),
-		To:           castedAddr.Hex(),
+func proveRegisteredDelegateCall(t *testing.T) {
+	t.Helper()
+	a := app.Setup(t, false, false, false)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	k := &a.EvmKeeper
+	ctx := a.GetContextForDeliverTx(nil).WithBlockHeight(1)
+	sender, senderEVM := testkeeper.MockAddressPair()
+	pointee := common.HexToAddress("0x124200")
+	// Executable EVM fixture: return a single uint256 word containing 42.
+	k.SetCode(ctx, pointee, common.FromHex("0x602a60005260206000f3"))
+	register := func(target common.Address) sdk.AccAddress {
+		res, err := evmkeeper.NewMsgServerImpl(k).RegisterPointer(sdk.WrapSDKContext(ctx), &types.MsgRegisterPointer{
+			Sender: sender.String(), PointerType: types.PointerType_ERC20, ErcAddress: target.Hex(),
+		})
+		require.NoError(t, err)
+		pointer, err := sdk.AccAddressFromBech32(res.PointerAddress)
+		require.NoError(t, err)
+		return pointer
 	}
-	_, err := k.HandleInternalEVMDelegateCall(ctx, req)
-	require.Equal(t, err.Error(), types.NewAssociationMissingErr(testAddr.String()).Error())
+	pointer := register(pointee)
+	codeInfo := a.WasmKeeper.GetCodeInfo(ctx, k.GetStoredPointerCodeID(ctx, types.PointerType_ERC20))
+	require.NotNil(t, codeInfo)
+	parsedABI := artifacts.GetParsedABI("native")
+	calldata, err := parsedABI.Pack("totalSupply")
+	require.NoError(t, err)
+	payload, err := json.Marshal(bindings.DelegateCallEVM{To: pointee.Hex(), Data: base64.StdEncoding.EncodeToString(calldata)})
+	require.NoError(t, err)
+	encode := func(from sdk.AccAddress) *types.MsgInternalEVMDelegateCall {
+		msgs, err := evmwasm.EncodeDelegateCallEVM(payload, from, wasmvmtypes.MessageInfo{Sender: sender.String()}, *codeInfo)
+		require.NoError(t, err)
+		require.Len(t, msgs, 1)
+		// Cross the protobuf transport rather than handing the encoder's object directly to the handler.
+		wire, err := msgs[0].(*types.MsgInternalEVMDelegateCall).Marshal()
+		require.NoError(t, err)
+		req := new(types.MsgInternalEVMDelegateCall)
+		require.NoError(t, req.Unmarshal(wire))
+		require.Equal(t, from.String(), req.FromContract)
+		require.Equal(t, sender.String(), req.Sender)
+		require.Equal(t, codeInfo.CodeHash, req.CodeHash)
+		require.Equal(t, calldata, req.Data)
+		return req
+	}
+	req := encode(pointer)
+	_, err = k.HandleInternalEVMDelegateCall(ctx, req)
+	require.EqualError(t, err, types.NewAssociationMissingErr(sender.String()).Error())
+	k.SetAddressMapping(ctx, sender, senderEVM)
+	res, err := k.HandleInternalEVMDelegateCall(ctx, req)
+	require.NoError(t, err)
+	decoded, err := parsedABI.Unpack("totalSupply", res.Data)
+	require.NoError(t, err)
+	require.Len(t, decoded, 1)
+	require.Equal(t, big.NewInt(42), decoded[0])
+	otherPointer := register(common.HexToAddress("0x124201"))
+	_, err = k.HandleInternalEVMDelegateCall(ctx, encode(otherPointer))
+	require.EqualError(t, err, "only pointer contract can make delegatecalls")
 }
