@@ -2,7 +2,13 @@ name: Rust SDK CI
 
 on:
   push:
+    paths:
+      - 'sdk/chainflow/rust/**'
+      - '.github/workflows/chainflow-rust-sdk.yml'
   pull_request:
+    paths:
+      - 'sdk/chainflow/rust/**'
+      - '.github/workflows/chainflow-rust-sdk.yml'
 
 # Least privilege for a verification-only workflow: every job below only reads the checked-out
 # tree, so the run's GITHUB_TOKEN is narrowed to that regardless of the repository's default
@@ -18,6 +24,9 @@ jobs:
   # doctests collected — with their features on.
   verify:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/chainflow/rust
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable

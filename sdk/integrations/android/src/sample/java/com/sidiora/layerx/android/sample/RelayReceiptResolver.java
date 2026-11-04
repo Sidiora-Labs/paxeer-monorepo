@@ -126,10 +126,12 @@ public final class RelayReceiptResolver implements ReceiptGate.ReceiptResolver {
                 || uri.getQuery() != null || uri.getFragment() != null) {
             throw MobileIntegrationException.of(MobileIntegrationException.Code.INVALID_CONFIGURATION);
         }
-        String normalized = host.toLowerCase(Locale.ROOT);
-        boolean loopback = normalized.equals("localhost") || normalized.equals("::1")
-            || normalized.equals("[::1]") || normalized.startsWith("127.");
+        boolean loopback = isLoopbackHost(host);
         if (scheme.equals("https") || (scheme.equals("http") && loopback)) return uri;
         throw MobileIntegrationException.of(MobileIntegrationException.Code.INVALID_CONFIGURATION);
+    }
+
+    private static boolean isLoopbackHost(String host) {
+        return host.matches("(?i:localhost)|::1|\\[::1\\]|127(?:\\.(?:0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])){3}");
     }
 }
