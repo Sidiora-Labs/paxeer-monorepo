@@ -8301,6 +8301,12 @@ value = "In the agent MCP web tests a receipt signed under a key other than the 
 basis = "The production refusal contract is the specification; the tests observed it correctly and only their expected variants were wrong."
 affects = ["22.33.1553"]
 
+[decision.2532]
+title = "The maintained node manifest is the producer of the native deployment facts"
+value = "services/platform/hosted/node/deployment.yaml, as the 22.30.76 repair left it, defines the native deployment: one kernel container ghcr.io/sidiora-labs/kernel:0.1.0 (the image services/platform/hosted/tests/beta-images.sh builds from docker/kernel/Dockerfile), service ports rpc 8545 to target rpc, consensus 26657 to target consensus and health 9460 to target health, provisioning through the paths map (genesis.json, config.toml, app.toml, priv_validator_key.json, node_key.json, receipt.key, priv_validator_state.json, treasury-policy.json, receipt-keys.json) and the receipt key supplied as the provisioned file config/receipt.key, never as a command-line argument. Consumer tests and fixtures (the four 22.33.1319 deployment tests, the hosted node fixture naming layerx-kernel) follow the manifest; none of them re-states a literal the manifest can change."
+basis = "Two repairs encoded two shapes of the same document in parallel (gotcha 2998); the maintained manifest is the only artefact the deployment actually applies, so it is the single source and tests read from it."
+affects = ["22.31.465", "22.31.481", "22.33.1319"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37192,6 +37198,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.31.481]
+title = "Reconcile the four 22.33.1319 deployment tests with the maintained node manifest (decision 2532)"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/paxeer/repair_m1319_test.go", "services/platform/hosted/paxeer/repair_m1319.kvx", "services/platform/hosted/paxeer/repair-22-31-481.kvx", "services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json"]
+tests = []
+verification_contract = "go test -count=1 -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/"
+do_1 = "do_1 In services/platform/hosted/paxeer/repair_m1319_test.go make TestRepairM_1319_RelayWorkspaceRetirement, TestRepairM_1319_CustodyGenesisRetirement, TestRepairM_1319_DeploymentKeyArgv and TestRepairM_1319_NativeDeployment assert the native deployment as decision 2532 defines it: the single kernel container image ghcr.io/sidiora-labs/kernel:0.1.0; the five provisioning inputs genesis.json, config.toml, app.toml, priv_validator_key.json and receipt.key present in the provisioning paths map of the rendered manifest; no --private-key or other raw signing material in the node arguments and the receipt key provisioned as config/receipt.key (the --receipt-key-file assertion goes); the service ports rpc 8545 to rpc, consensus 26657 to consensus and health 9460 to health. Keep every assertion that proves the relay binary is gone and that exactly one maintained chain is deployed."
+symbols = []
+
 [capability.22.31.480]
 title = "Stop tracking the installed binaries under apps/perps/node_modules so dependency installs no longer change committed files"
 reqs = ["22998.1"]
@@ -37332,7 +37347,7 @@ title = "Restore the Paxeer boundary crate manifest so the platform workspace lo
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/paxeer"]
 tests = []
-verification_contract = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml > /dev/null && cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests && go test -count=1 -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/"
+verification_contract = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml > /dev/null && cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests && go vet ./services/platform/hosted/paxeer/"
 do_1 = "Repair 22.33.1319 deleted services/platform/hosted/paxeer/Cargo.toml (the crate layerx-platform-paxeer-boundary) while services/platform/Cargo.toml still lists hosted/paxeer as a member, so every cargo command through the platform workspace fails with failed to load manifest for workspace member hosted/paxeer and no platform Rust gate can run; the crate's sources (src/main.rs, comet.rs, genesis.rs, transport.rs) and Rust tests (tests/genesis.rs, real_chain.rs, tls_listen.rs) are still present, and the binary layerx-paxeer-boundary is still consumed by the Makefile public TLS test (lines 1892 to 1897), docker/paxeer/Dockerfile, services/platform/Makefile.inc line 175, services/platform/tests/support/tls_boundary.rs (decision 2325), tools/paxeer-x/gates/24.16.sh and services/platform/hosted/tests/beta-images.sh. Decision 2524 keeps the crate."
 symbols = []
 
@@ -49905,7 +49920,7 @@ title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprog
 reqs = ["22998.1"]
 touches = ["precompiles/layerxprograms"]
 tests = ["precompiles/layerxprograms/repair_m213_test.go"]
-verification_contract = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -v -run '^TestRepairM_213_' ./precompiles/layerxprograms/ > /tmp/repair-m213.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m213.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m213.log | head -n 200; grep -q -- '--- PASS: TestRepairM_213_' /tmp/repair-m213.log && test $s -eq 0"
+verification_contract = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -v -run '^TestRepairM_213_' ./precompiles/layerxprograms/ > /tmp/repair-m213.log 2>&1; s=$?; grep -a -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m213.log | tail -n 120; grep -a -E -B2 -A12 '^--- FAIL' /tmp/repair-m213.log | head -n 200; grep -a -q -- '--- PASS: TestRepairM_213_' /tmp/repair-m213.log && test $s -eq 0"
 do_1 = "Audit record 22.30.121 (spec/layerx-merge/programme/audit/records/22.30.121.kvx) holds 7 medium finding(s) in precompiles/layerxprograms that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: storage environment-response-coverage, simulation-test-response-oracle, public-proof-pins-defects, simulation-parity-common-defect, frozen-test-exists, retired-custody-denom-fallback, custody-fixture-dependency. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -173186,7 +173201,7 @@ touches = ["services/platform/hosted/paxeer"]
 tests = []
 planned_paths = ["services/platform/hosted/paxeer/Cargo.toml", "services/platform/hosted/paxeer/repair_m1319_test.go", "services/platform/hosted/paxeer/repair_m1319.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --tests && go vet ./services/platform/hosted/paxeer/"
-verify_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml > /dev/null && cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests && go test -count=1 -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/"
+verify_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml > /dev/null && cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests && go vet ./services/platform/hosted/paxeer/"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -173198,6 +173213,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (requalify): attempt 1 restored the manifest, both Rust builds passed under --locked with the lock unchanged, and the workspace metadata loaded; the four TestRepairM_1319_ failures (wrong native image, provisioning missing, signing-file interface, service port) are the manifest crossing of gotcha 2998 and not this task's work. Decision 2532 names the maintained node manifest the producer and 22.31.481 reconciles those four tests after this task lands; the verify no longer runs them. Rerun the gates on the current tree and stop."
 
 [task.22.31.462]
 title = "Make the agent daemon and the Human service share one wire contract for the budget-state verification rank so daemon-written budget state decodes in the Human service"
@@ -197193,6 +197209,37 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.31.481]
+title = "Reconcile the four 22.33.1319 deployment tests with the maintained node manifest (decision 2532)"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.465"]
+reqs = ["22998.1"]
+capabilities = ["22.31.481"]
+interfaces = []
+do_1 = "do_1 In services/platform/hosted/paxeer/repair_m1319_test.go make TestRepairM_1319_RelayWorkspaceRetirement, TestRepairM_1319_CustodyGenesisRetirement, TestRepairM_1319_DeploymentKeyArgv and TestRepairM_1319_NativeDeployment assert the native deployment as decision 2532 defines it: the single kernel container image ghcr.io/sidiora-labs/kernel:0.1.0; the five provisioning inputs genesis.json, config.toml, app.toml, priv_validator_key.json and receipt.key present in the provisioning paths map of the rendered manifest; no --private-key or other raw signing material in the node arguments and the receipt key provisioned as config/receipt.key (the --receipt-key-file assertion goes); the service ports rpc 8545 to rpc, consensus 26657 to consensus and health 9460 to health. Keep every assertion that proves the relay binary is gone and that exactly one maintained chain is deployed."
+do_2 = "do_2 Read the facts from the rendered manifest (RunDeployment manifest deployment-profile.json) rather than from new literals wherever the test can compare the rendered document with itself, so the next manifest change fails loudly in one place."
+do_3 = "do_3 Check services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json, which names ghcr.io/sidiora-labs/layerx-kernel:0.1.0: if an assertion in services/platform/hosted/node reads that image from the fixture, align the fixture with the manifest and prove the node tests still pass; otherwise record it as inert."
+do_4 = "do_4 Amend services/platform/hosted/paxeer/repair_m1319.kvx so the relay-retirement records state the manifest facts of decision 2532, and record in services/platform/hosted/paxeer/repair-22-31-481.kvx the four assertions changed, the fixture check of do_3 and the gates run."
+symbols = []
+touches = ["services/platform/hosted/paxeer/repair_m1319_test.go", "services/platform/hosted/paxeer/repair_m1319.kvx", "services/platform/hosted/paxeer/repair-22-31-481.kvx", "services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json"]
+tests = []
+planned_paths = ["services/platform/hosted/paxeer/repair_m1319_test.go", "services/platform/hosted/paxeer/repair_m1319.kvx", "services/platform/hosted/paxeer/repair-22-31-481.kvx", "services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json"]
+build_cmd = "go vet ./services/platform/hosted/paxeer/"
+verify_cmd = "go test -count=1 -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.476]
 title = "Default the EVM chain id to 125 and drop the foreign network mappings"
 status = "done"
@@ -206441,6 +206488,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_12 = "Attempt 2 (continue): the live-generation and inventory tests fail because receipt qualification rejects source log five of blocks 33963716 to 33963733: the Treasury code epoch at 0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723 is not among the recorded fixture epochs. Record the Treasury code epoch for that address at block 33963716 from the public node (eth_getCode at the api1.mainnet-beta.paxeer.network root endpoint) into the test fixtures, keep the qualification strict, and rerun; the public-bridge wiring request stays in the record."
 do_13 = "Attempt 3 (continue): TestRepairM_1000_LiveGeneration and InventoryDurableFrames fail with receipt qualification rejected: source log 5 Treasury code epoch at 0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723 while replaying batches 33963716 to 33963733 against a public node whose history is pruned. do_10 of this task forbids a live endpoint in the gate: record the batch logs and the Treasury code epoch as committed fixtures (recorded transcripts under the processor test directory), drive the real processor against them and assert the qualified receipts; the missing public history is not a blocker once the fixtures are committed."
+do_14 = "Attempt 4 (continue): TestRepairM_1000_LiveGeneration fails at repair_m1000_test.go line 273 with a missing committed producer response: the eth_call of decimals() (input 0x313ce567) to 0x0f92fdd087c96dd3413ef98646b94d0d986192fa at block hash 0x50f4e42d7247aa1665d1aaebc33039c8fc8e493727a864085ba77910dda56f6b, which the receipt qualification of batch 33963716..33963733 needs for the pool metadata of 0xCE20Da50F92D21d8BeE497910c782E9Aa25b6263. Capture that one response once from a node that still serves the block and add it to the committed producer responses the test replays (alongside testdata/repair_m1000_treasury.json), so the generation case runs entirely from committed data; the missing-response failure stays the behaviour when a response is absent. Rerun the processor suite and stop."
 
 [task.22.33.999]
 title = "Repair audit record 22.30.33 medium findings in services/launchpad/indexer/internal/config (part 1 of 1): config-drift"
@@ -280851,7 +280899,7 @@ touches = ["precompiles/layerxprograms"]
 tests = ["precompiles/layerxprograms/repair_m213_test.go"]
 planned_paths = ["precompiles/layerxprograms/repair_m213_test.go"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxprograms/..."
-verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -v -run '^TestRepairM_213_' ./precompiles/layerxprograms/ > /tmp/repair-m213.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m213.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m213.log | head -n 200; grep -q -- '--- PASS: TestRepairM_213_' /tmp/repair-m213.log && test $s -eq 0"
+verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -v -run '^TestRepairM_213_' ./precompiles/layerxprograms/ > /tmp/repair-m213.log 2>&1; s=$?; grep -a -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m213.log | tail -n 120; grep -a -E -B2 -A12 '^--- FAIL' /tmp/repair-m213.log | head -n 200; grep -a -q -- '--- PASS: TestRepairM_213_' /tmp/repair-m213.log && test $s -eq 0"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
@@ -280865,6 +280913,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
 do_16 = "Attempt 3 (continue): the simulation parity and response-oracle cases fail only on an empty byte argument decoded as an empty slice where the expectation holds nil; build the expectation through the same decoder or compare byte arguments by content. TestRepairM_213_StorageEnvironmentResponse fails because the storage-environment execute call refuses the hand-assembled lease-state record as LXP_ERR_NON_CANONICAL; produce the lease state through the production encoder (the v3 lease-state codec) instead of assembling bytes. Keep assertions strict."
+do_17 = "Attempt 4 (continue): attempt 3 passed six repair tests; TestRepairM_213_StorageEnvironmentResponse fails on the fixture-prefix length the attempt introduced and on the storage-environment execute call refusing the hand-assembled lease-state record as LXP_ERR_NON_CANONICAL. Fix the prefix length, produce the lease state through the production encoder as do_16 states, and rerun. The verify now greps the Go log with -a: the guest output contains bytes that made grep report a binary match and hide every result line."
 
 [task.22.33.212]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 1 of 2): interface-mismatch, retired-reference, test-gap"
