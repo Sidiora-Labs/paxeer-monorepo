@@ -2,11 +2,11 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
-	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/genutil/types"
 )
@@ -38,9 +38,9 @@ func QueryGenesisTxs(clientCtx client.Context, w http.ResponseWriter) {
 	}
 
 	genState := types.GetGenesisStateFromAppState(clientCtx.Codec, appState)
-	genTxs := make([]sdk.Tx, len(genState.GenTxs))
+	genTxs := make([]json.RawMessage, len(genState.GenTxs))
 	for i, tx := range genState.GenTxs {
-		err := clientCtx.LegacyAmino.UnmarshalAsJSON(tx, &genTxs[i])
+		genTx, err := clientCtx.TxConfig.TxJSONDecoder()(tx)
 		if err != nil {
 			rest.WriteErrorResponse(
 				w, http.StatusInternalServerError,
@@ -48,7 +48,19 @@ func QueryGenesisTxs(clientCtx client.Context, w http.ResponseWriter) {
 			)
 			return
 		}
+		genTxs[i], err = clientCtx.TxConfig.TxJSONEncoder()(genTx)
+		if err != nil {
+			rest.WriteErrorResponse(
+				w, http.StatusInternalServerError,
+				fmt.Sprintf("failed to encode genesis transaction: %s", err),
+			)
+			return
+		}
 	}
 
-	rest.PostProcessResponseBare(w, clientCtx, genTxs)
+	response, err := json.Marshal(genTxs)
+	if rest.CheckInternalServerError(w, err) {
+		return
+	}
+	rest.PostProcessResponseBare(w, clientCtx, response)
 }
