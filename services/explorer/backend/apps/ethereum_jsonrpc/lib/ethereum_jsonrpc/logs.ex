@@ -80,7 +80,7 @@ defmodule EthereumJSONRPC.Logs do
     integer_to_quantity(block_number)
   end
 
-  defp block_number_to_quantity_or_tag(tag) when tag in ~w(earliest latest pending safe) do
+  defp block_number_to_quantity_or_tag(tag) when tag in ~w(earliest latest pending safe finalized) do
     tag
   end
 
