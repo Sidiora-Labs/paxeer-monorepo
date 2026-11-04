@@ -5,6 +5,7 @@ import { Button, FormField, NoticeBar, UnavailableState } from '@/ui/primitives'
 import { cn } from '@/lib/utils';
 import { formatTokenAmount, shortAddress } from '@/utils/format';
 import { PreparedTransactionReview } from './funding-step';
+import { createSettlementIntent } from './prepared-transaction';
 import { parseDecimalAmount, useAcceptSubmission } from './use-bounty-mutations';
 import type { Bounty } from './bounties-contract';
 import type { BountySubmission, RewardAsset } from './use-bounty';
@@ -44,13 +45,14 @@ export function JudgePanel({ bounty, revision, submissions, asset, className }: 
     event.preventDefault();
     setAttempted(true);
     if (!target || awardError || awardRaw === null || revision === null || mutation.isPending) return;
-    mutation.mutate({ submissionId: target.submissionId, awardRaw: awardRaw.toString(), expectedBountyRevision: revision });
+    mutation.mutate({ submissionId: target.submissionId, winnerWallet: target.authorWallet, awardRaw: awardRaw.toString(), expectedBountyRevision: revision });
   }
 
   const budgetLabel = asset.decimals !== null ? `${formatTokenAmount(bounty.budgetRaw, asset.decimals, { compact: false })} ${asset.symbol}` : `${bounty.budgetRaw} units`;
 
   if (mutation.isSuccess) {
     const { submission, settlementRequest } = mutation.data.data;
+    const accepted = mutation.variables;
     const awarded = asset.decimals !== null ? `${formatTokenAmount(submission.awardRaw ?? '0', asset.decimals, { compact: false })} ${asset.symbol}` : `${submission.awardRaw} units`;
     return (
       <section aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-4 rounded-lg bg-surface-1 p-4', className)}>
@@ -60,6 +62,7 @@ export function JudgePanel({ bounty, revision, submissions, asset, className }: 
           <PreparedTransactionReview
             title="Send the reward"
             request={settlementRequest}
+            intent={createSettlementIntent(bounty, accepted)}
             recipient={{ label: 'Winner', address: submission.authorWallet }}
             amount={<span data-numeric className="tabular-nums">{awarded}</span>}
             actionLabel="Confirm in wallet"
