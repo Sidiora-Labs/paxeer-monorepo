@@ -1,0 +1,859 @@
+# Pre-upgrade bringup audit; source reviewed at the revision below. Repairs are proposals only.
+
+[audit.22.30.177]
+task = "22.30.177"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 35
+findings = 57
+docs_reviewed = 3
+upgrade_ready = false
+blocking = ["edge-manifest-roundtrip", "search-front-roundtrip", "xweb-config-roundtrip", "internal-probe-identity-location"]
+
+[file.1]
+path = "tools/bringup/build-foundation-artifacts.sh"
+lines = 4
+verdict = "issues"
+note = "Read all four lines; delegates the full artifact contract to the retired bundle producer."
+
+[file.2]
+path = "tools/bringup/ca.sh"
+lines = 1231
+verdict = "issues"
+note = "Reviewed roster, authority choice, box/Railway delivery, retained bundles, renewal and server enrollment."
+
+[file.3]
+path = "tools/bringup/check-live.sh"
+lines = 5029
+verdict = "issues"
+note = "Reviewed every subcommand, helper, decoder, transport, credentials and lifecycle claim against the merged network."
+
+[file.4]
+path = "tools/bringup/check-live.test.sh"
+lines = 3810
+verdict = "issues"
+note = "Reviewed the complete harness and all fixtures; edge, identity roster and platform paths disagree with current producers."
+
+[file.5]
+path = "tools/bringup/docs-names.sh"
+lines = 72
+verdict = "issues"
+note = "Reviewed spec extraction, name expansion, endpoint and documentation scan policy; topology policy is stale."
+
+[file.6]
+path = "tools/bringup/edge-sync.sh"
+lines = 172
+verdict = "issues"
+note = "Reviewed DNS/ACME hooks, manifest renewal, replication and secondary rerender; removed routes are not reconciled."
+
+[file.7]
+path = "tools/bringup/edge.sh"
+lines = 781
+verdict = "issues"
+note = "Reviewed all upstream modes, TLS rendering, manifests, snapshots, pool health and mutations; consumers and recovery disagree."
+
+[file.8]
+path = "tools/bringup/human-state-preserve.sh"
+lines = 570
+verdict = "clean"
+note = "Read all migration operations and worker code; historical paths are explicit conversion inputs. Manifest integrity, pidfd/process identity, retained quiescence and explicit resume protect the state being migrated."
+
+[file.9]
+path = "tools/bringup/install-archive.sh"
+lines = 211
+verdict = "issues"
+note = "Reviewed package/bootstrap integrity, node service, HTTP/TLS provisioning and final health; initial ACME failure is not resumable."
+
+[file.10]
+path = "tools/bringup/kernel-genesis.sh"
+lines = 546
+verdict = "issues"
+note = "Reviewed keys, rotation, plan/migrate, render, fixture regeneration and genesis reads; live workflow retains retired boundaries."
+
+[file.11]
+path = "tools/bringup/mint-secrets.sh"
+lines = 249
+verdict = "issues"
+note = "Reviewed random/key generation, certificate inventory, output modes and every token target; retired topology remains provisioned."
+
+[file.12]
+path = "tools/bringup/registry-artifacts.py"
+lines = 465
+verdict = "issues"
+note = "Reviewed source binding, artifact validation, quota/isolation lifecycle and cleanup; creation-to-journal crash gap leaks resources."
+
+[file.13]
+path = "tools/bringup/search-front.sh"
+lines = 313
+verdict = "issues"
+note = "Reviewed helper loading, discovered serving set, typed bounded readiness, pin rendering, template substitution and deploy output."
+
+[file.14]
+path = "tools/bringup/sync-fleet.sh"
+lines = 686
+verdict = "issues"
+note = "Reviewed host exclusions, bounded head reads, resync, staging, swap, reports and release verification; transfer recovery is incomplete."
+
+[file.15]
+path = "tools/bringup/sync-fleet.test.sh"
+lines = 757
+verdict = "issues"
+note = "Reviewed every harness case including resync, rollout and software upgrades; interruption and real service-state recovery are unproven."
+
+[file.16]
+path = "tools/bringup/tests/ca.test.sh"
+lines = 106
+verdict = "issues"
+note = "Reviewed all roster/SAN checks and real local issuer/refusal cases; obsolete count prevents their execution."
+
+[file.17]
+path = "tools/bringup/tests/edge.test.sh"
+lines = 145
+verdict = "issues"
+note = "Reviewed full renderer and upstream-mode assertions; fixture still makes the aggregate public RPC a router route."
+
+[file.18]
+path = "tools/bringup/tests/foundation-artifacts.py"
+lines = 394
+verdict = "issues"
+note = "Reviewed full build/source/provenance and private artifact qualification paths; bundle inventory retains retired runtime."
+
+[file.19]
+path = "tools/bringup/tests/kernel-genesis.test.sh"
+lines = 95
+verdict = "issues"
+note = "Reviewed actual render and signed-manifest checks; positive fixture supplies a key rejected by its producer."
+
+[file.20]
+path = "tools/bringup/tests/mint-secrets.test.sh"
+lines = 204
+verdict = "issues"
+note = "Reviewed all secret output, equality, separation, modes, certificate and key inventory checks; required targets remain pre-merge."
+
+[file.21]
+path = "tools/bringup/tests/paxeer-x-fixture-foundation.py"
+lines = 505
+verdict = "issues"
+note = "Reviewed full real-container fixture, provenance, chain setup, attestors, recovery and refusal qualification; retired chain initialization remains."
+
+[file.22]
+path = "tools/bringup/tests/paxeer-x-runtime-contract.py"
+lines = 4010
+verdict = "issues"
+note = "Reviewed every runtime contract and helper, including privilege, KMS, material handoff, rotation, CA and roster cases; provenance and service models diverge."
+
+[file.23]
+path = "tools/bringup/tests/registry-artifacts.py"
+lines = 249
+verdict = "issues"
+note = "Reviewed all real artifact, isolation and interruption cases; earliest owned-resource publication window is omitted."
+
+[file.24]
+path = "tools/bringup/tests/search-front.test.sh"
+lines = 152
+verdict = "issues"
+note = "Reviewed deploy, config, key-id and readiness assertions; transport and public node inputs retain the old topology."
+
+[file.25]
+path = "tools/bringup/tests/test_bringup_fixtures_retired.py"
+lines = 56
+verdict = "clean"
+note = "Read complete scanner and artifact-source guard. It executes real declared checks and preserves failure output; its scoped retirement assertions remain applicable and do not invent a producer shape."
+
+[file.26]
+path = "tools/bringup/tests/test_kernel_feeder_retired.py"
+lines = 30
+verdict = "clean"
+note = "Read complete removal guard and shell syntax checks; assertions correctly reject the retired oracle-feeder service and variables in actual kernel sources."
+
+[file.27]
+path = "tools/bringup/tests/test_kernel_genesis_retired.py"
+lines = 48
+verdict = "issues"
+note = "Reviewed complete scanner and issuer guard; it explicitly requires a retired standalone authority identity."
+
+[file.28]
+path = "tools/bringup/tests/test_no_checkpoint_authority.py"
+lines = 26
+verdict = "clean"
+note = "Read complete source scan and syntax guard. It rejects the retired Python entrypoint names without disabling any runtime gate or weakening a producer contract."
+
+[file.29]
+path = "tools/bringup/tests/test_spec_paths.py"
+lines = 32
+verdict = "clean"
+note = "Read complete subprocess guard. It requires the active spec usage and actual docs-name command success, correctly surfacing the production policy defect rather than supplying an obsolete fixture."
+
+[file.30]
+path = "tools/bringup/tests/test_value_loop_probe_contract.py"
+lines = 69
+verdict = "issues"
+note = "Reviewed complete invocation/handshake guard; its final assertions retain LNI alongside the new RPC contract."
+
+[file.31]
+path = "tools/bringup/tests/test_xweb_config.py"
+lines = 133
+verdict = "issues"
+note = "Reviewed full asset fixture, renderer execution and retirement guard; accepted JSON is never passed through the actual configuration loader."
+
+[file.32]
+path = "tools/bringup/tests/validator-firewall.test.sh"
+lines = 118
+verdict = "clean"
+note = "Read complete actual network-namespace/nftables qualification and syntax fallback. The test checks permitted peers, public denial, unrelated rules, bad input and apply rollback without a retired topology assertion."
+
+[file.33]
+path = "tools/bringup/upgrade-fleet.sh"
+lines = 208
+verdict = "issues"
+note = "Reviewed staging, per-unit journal halt selection, binary swap and resumability; disk hash and service activation are conflated."
+
+[file.34]
+path = "tools/bringup/validator-firewall.sh"
+lines = 312
+verdict = "clean"
+note = "Read full inventory normalization, nftables rendering, set validation, backup, apply and rollback. Live validator peer policy and private host-map handling agree with current node isolation requirements."
+
+[file.35]
+path = "tools/bringup/xweb-config.sh"
+lines = 606
+verdict = "issues"
+note = "Reviewed pricing reads, exact decimal arithmetic, both renderers, inventory ABI decoding and registration; rendered schemas cannot load and default transport remains retired."
+
+[finding.edge-manifest-roundtrip]
+file = "tools/bringup/check-live.sh"
+line = 1515
+class = "interface-mismatch"
+severity = "high"
+observed = "check_edge and check_ramp at line 3687 accept only four-field name/mode/app/port rows and only http or stream. edge.sh map_line at line 472 emits six fields including a host:port upstream, kind and SNI; RPC manifests add mode rpc. Every current rendered row is discarded before readiness checks."
+expected = "The registered edge CLI must emit a manifest that its live-check consumers can decode, including Railway, box, stream and aggregate node RPC routes."
+proposal = "In tools/bringup/check-live.sh consume the six-field manifest produced by tools/bringup/edge.sh, dispatch probes by kind and mode, and compare the actual upstream and TLS identity without requiring Fly app metadata. Prove edge.sh output through both live consumers."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-edge"
+
+[finding.search-front-roundtrip]
+file = "tools/bringup/check-live.sh"
+line = 1458
+class = "interface-mismatch"
+severity = "high"
+observed = "check_search_front extracts split_clients destinations and requires that set to equal every serving name. search-front.sh render at lines 220-234 deliberately emits exactly one primary or backup destination plus its eligibility map. A valid deployment with multiple serving nodes therefore fails missing-upstream checks."
+expected = "Live qualification must accept the renderer's declared single pinned backend and eligibility contract while refusing validator or unknown destinations."
+proposal = "Change tools/bringup/check-live.sh to validate the primary/backup pin, eligibility map and typed readiness contract produced by tools/bringup/search-front.sh, and feed real render output into its qualification path."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-search-front-sub-render"
+
+[finding.xweb-config-roundtrip]
+file = "tools/bringup/xweb-config.sh"
+line = 243
+class = "interface-mismatch"
+severity = "high"
+observed = "Both render modes emit gateway.sequencer_id and gateway.sequencer_public_key instead of gateway.receipt_keys; attestor rendering also emits a root kernel object at line 319. services/interop/crates/x-websearch/src/config.rs:839 explicitly refuses the legacy gateway keys and root.finish rejects unknown root fields."
+expected = "Rendered configurations must load through the real x-websearch Config::parse, including nonempty receipt_keys with key_id, public_key, first_height and last_height, and only supported root fields."
+proposal = "Update tools/bringup/xweb-config.sh serve and attestor renderers to the config.rs schema, obtain the complete receipt trust history from its declared producer, and qualify generated files through the actual loader with rotation and refusal cases."
+owner_domain = 16
+interface = "11.fmt-deploy-x-websearch-config-example"
+
+[finding.internal-probe-identity-location]
+file = "tools/bringup/check-live.sh"
+line = 2391
+class = "interface-mismatch"
+severity = "high"
+observed = "The internal readiness loop railway_ssh runs inside each internal role but reads /data/tls/human-event-client. ca.sh:175 issues that identity only to box:KERNEL_HOST. docker/platform-internal/files.tsv provisions only INTERNAL_TLS DER server material under /data/tls/internal-<role>, so the migrated consumer cannot present its required PEM client identity."
+expected = "The readiness producer, credential transport and caller must agree on the authorized client identity and the host where its files exist."
+proposal = "In tools/bringup/check-live.sh probe from the existing authorized kernel identity location over the real private route, or provision a dedicated least-privilege probe identity through ca.sh and the internal deployment manifests; do not copy the Human private key into every role."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-ca-sub-issue"
+
+[finding.docs-name-policy]
+file = "tools/bringup/docs-names.sh"
+line = 31
+class = "retired-reference"
+severity = "medium"
+observed = "The documentation gate requires sixteen numbered mainnet-beta names and a router, then demands https://<router>/rpc and rejects its root endpoint at lines 55-61. Its spec path was migrated, but its public-name policy still describes the pre-merge network."
+expected = "The finished public node set is api1 through api14.mainnet-beta.paxeer.network plus api-mainnet-beta.paxeer.network, serving JSON-RPC at the root without a router."
+proposal = "Replace the topology assertions in tools/bringup/docs-names.sh with the merged public-name declaration and root-path policy, retaining rejection of unpublished names and faucet configuration."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-docs-names"
+
+[finding.rpc-roster-sixteen]
+file = "tools/bringup/check-live.sh"
+line = 291
+class = "config-drift"
+severity = "medium"
+observed = "rpc_names expands api1..api16.mainnet-beta.paxeer.network. Fleet head, archive comparison and placement probes consequently require two public nodes outside the finished fourteen-node inventory."
+expected = "Public fleet checks must use the fourteen declared node names and the aggregate root endpoint, with validator exclusions derived from the host map."
+proposal = "Make tools/bringup/check-live.sh derive its RPC roster from the merged public inventory and update sixteen-node loop and count assumptions throughout the fleet consumers."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-rpc-nodes"
+
+[finding.wallet-deleted-spec]
+file = "tools/bringup/check-live.sh"
+line = 2522
+class = "wiring-gap"
+severity = "medium"
+observed = "check_wallet sets spec=spec/paxeer-x-bringup/spec.kvx even though usage advertises spec/layerx-merge/spec.kvx. Its sed lookup silently gets no wallet_endpoint from the deleted file and reports endpoint source=spec name=unset for a configured wallet."
+expected = "The wallet live check must read the active feature's public endpoint declaration and exercise the deployed wallet on the rollout service."
+proposal = "Point check_wallet in tools/bringup/check-live.sh at spec/layerx-merge/spec.kvx and its actual public-name section, and cover that code path using the repository declaration rather than an invented old spec."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-wallet"
+
+[finding.router-retired-protocol]
+file = "tools/bringup/check-live.sh"
+line = 2586
+class = "retired-reference"
+severity = "medium"
+observed = "check_router resolves a service named router and posts eth_chainId, px_getNetwork and lx_getAccount to the aggregate /rpc path. It then requires the wallet rpc_pool to list that router first; a healthy merged node and hosted gateway cannot satisfy this retired topology."
+expected = "Node methods run at the public root, hosted px_ methods follow the gateway OpenRPC contract, and the merged network has no lx_ namespace or separate router service."
+proposal = "Replace check_router in tools/bringup/check-live.sh with separately routed node and hosted gateway checks, use px_getAccount where account evidence is required, and validate the wallet pool against declared node endpoints."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-router"
+
+[finding.kernel-readiness-retired]
+file = "tools/bringup/check-live.sh"
+line = 2815
+class = "retired-reference"
+severity = "medium"
+observed = "The expected kernel roster requires layerxd, layerxd-authority, guarantor-1, guarantor-2, receipt-authority and relay-archive. check_kernel_node at lines 4583-4625 additionally requires receipt-authority HTTP status and layerxctl read-state over layerxd.lni.sock."
+expected = "Kernel readiness must describe the kernel embedded in paxd and committed block finality without a separate daemon, guarantors, LNI or receipt-authority service."
+proposal = "Rebuild tools/bringup/check-live.sh kernel roster and node readiness around the paxd process, committed-height RPC evidence and current mounted state, preserving real ownership and restart checks for retained services."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-kernel-node"
+
+[finding.relay-readiness-retired]
+file = "tools/bringup/check-live.sh"
+line = 3293
+class = "retired-reference"
+severity = "medium"
+observed = "check_relay enumerates layerx-relay-archive rollout images and calls the kernel Fly app using /data/tls/relay-archive and a separate native genesis.manifest. The package requirement 8351.1 already removes the relay template, but this still treats its retired runtime as a live dependency."
+expected = "Activity and receipt availability must be qualified from the merged chain and the current archive source, without the retired replica/relay archive protocol."
+proposal = "Replace the relay section of tools/bringup/check-live.sh with the current archive and committed receipt path, retaining an explicit configurable origin and a real delivery/read-back assertion."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-relay"
+
+[finding.interop-retired-account-calls]
+file = "tools/bringup/check-live.sh"
+line = 3582
+class = "retired-reference"
+severity = "medium"
+observed = "The interop live journey discovers balances with lx_getBalances, reads lx_getAccount and lx_getSequence, and defaults its RPC to the aggregate /rpc path. These methods are absent from the finished node and hosted px_ contract."
+expected = "Interop qualification must discover and submit through the declared hosted gateway and node interfaces with their actual account, nonce, receipt and finality shapes."
+proposal = "Migrate tools/bringup/check-live.sh check_interop to the current px_ account and balance APIs and chain transaction path, preserving a real transfer and committed result rather than only changing method labels."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-interop"
+
+[finding.search-retired-asset-call]
+file = "tools/bringup/check-live.sh"
+line = 4187
+class = "retired-reference"
+severity = "medium"
+observed = "check_search fetches asset decimals using lx_getAsset at $router/rpc while judging paid search offers. Even a working sidecar with valid pricing fails its currency check against the merged public interfaces."
+expected = "Paid search validation must read asset metadata through the published gateway asset contract and use the actual payer and offer encodings supported by x-websearch."
+proposal = "Update tools/bringup/check-live.sh check_search to the hosted px_ asset read and current payment headers, and compare a real emitted offer against that producer's decimals and asset identifier."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-search"
+
+[finding.registry-retired-events]
+file = "tools/bringup/check-live.sh"
+line = 4333
+class = "retired-reference"
+severity = "medium"
+observed = "check_registry still pages lx_getProgramEvents over $router/rpc and resolves services/platform/hosted/registry/fly.toml. Its event proof depends on the retired unified router namespace and pre-Railway app lookup."
+expected = "Registry publication must be checked through the deployed registry and the merged chain's declared program/event transport, including durable cursor progression."
+proposal = "Replace the registry event and service lookup paths in tools/bringup/check-live.sh with the current rollout entry and declared committed event API; retain real publication, pagination and observation checks."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-registry"
+
+[finding.indexer-retired-relay-config]
+file = "tools/bringup/check-live.sh"
+line = 3814
+class = "config-drift"
+severity = "medium"
+observed = "check_indexer requires LAYERX_INDEXER_RELAY_URL and RELAY_CA_DER alongside EVM and COMET, pins https://archive.paxeer.network as a relay, and posts history reads to the aggregate /rpc path. These assumptions retain the removed relay boundary despite the px_getHistory method-name migration."
+expected = "Indexer live qualification must follow current indexer configuration and committed history consumers, without requiring removed relay variables or the unified /rpc transport."
+proposal = "Align tools/bringup/check-live.sh check_indexer with services/platform/hosted/indexer/env-init.sh and the gateway history contract, reading only configured upstreams and proving backfill/live cursors on the real database."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-indexer"
+
+[finding.events-upstream-platform-drift]
+file = "tools/bringup/check-live.sh"
+line = 4906
+class = "config-drift"
+severity = "medium"
+observed = "check_events_upstream demands flyctl and reads internal/fly.toml, webhooks/fly.toml and wallet endpoint.toml to enumerate app secrets and producer files. The deployed internal and webhook roles have Railway rollout entries, so missing legacy manifests prevent observation of their actual wiring."
+expected = "Event producer checks must resolve the currently deployed services and inspect the credential and trigger configuration that their real entrypoints consume."
+proposal = "Migrate tools/bringup/check-live.sh check_events_upstream to deploy/rollout.kvx and Railway role instances, retain box access where a producer remains on a box, and prove each current producer-to-trigger handoff."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-events-upstream"
+
+[finding.gas-rpc-route-drift]
+file = "tools/bringup/check-live.sh"
+line = 2091
+class = "retired-reference"
+severity = "medium"
+observed = "check_gas defaults CHECK_LIVE_GAS_RPC to https://api-mainnet-beta.paxeer.network/rpc and requires that same path as the first configured pool URL at line 2108. The node methods it uses are valid, but the default and pool assertion reject the finished root endpoint."
+expected = "Gas sponsorship must use the declared node root RPC endpoints while preserving chain 125, token, quote, signature and committed transfer checks."
+proposal = "Change the gas defaults and pool comparison in tools/bringup/check-live.sh to the merged node endpoint inventory, and retain the complete actual quote-to-transaction receipt journey."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-gas"
+
+[finding.human-child-exit-swallowed]
+file = "tools/bringup/check-live.sh"
+line = 2765
+class = "runtime-risk"
+severity = "medium"
+observed = "check_human runs the wallet Human gate in process substitution followed by || true and counts only lines beginning fail. A child usage error, missing executable, timeout or crash with no such line contributes zero failures; later HTTP checks can still make the parent report success."
+expected = "A composed live gate must preserve every required child gate's exit status and reject missing or incomplete child evidence."
+proposal = "Capture both output and status of scripts/wallet/check-live.sh human in tools/bringup/check-live.sh, forward its check lines and add a failure on any nonzero exit or absent required evidence."
+owner_domain = 16
+interface = "16.cli-scr-wallet-check-live-sub-human"
+
+[finding.webhook-stale-delivery-evidence]
+file = "tools/bringup/check-live.sh"
+line = 4018
+class = "test-gap"
+severity = "medium"
+observed = "check_developers registers with the fixed Idempotency-Key check-live-developers and accepts the first delivered history row matching its endpoint. It triggers no fresh event and checks no observation time or correlation, so an earlier successful delivery can certify a currently broken producer or dispatcher."
+expected = "A live webhook journey must prove a fresh source event reaches the receiver during this check and survives the actual durable delivery path."
+proposal = "Give each tools/bringup/check-live.sh developers run a unique operation correlation, create an authorized current source event and match its event/delivery identity and receiver acknowledgment instead of accepting historical endpoint success."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-developers"
+
+[finding.region-probe-not-selected]
+file = "tools/bringup/check-live.sh"
+line = 2645
+class = "test-gap"
+severity = "medium"
+observed = "The router readiness loop labels output with each multiRegionConfig region but railway_ssh receives only the service and command. The region value never selects a replica, so every pass can come from the same healthy instance while another region is unavailable."
+expected = "A regional readiness claim must identify and probe an actual running instance in that region, with missing instances counted as failures."
+proposal = "Extend the Railway instance selection in tools/bringup/check-live.sh to bind each probe to a deployment replica and region, and print only claims backed by the selected instance response."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-router"
+
+[finding.ca-expired-renewal-refused]
+file = "tools/bringup/ca.sh"
+line = 541
+class = "restart-recovery"
+severity = "medium"
+observed = "cert_state uses openssl verify with normal time validation and labels any failure foreign. An expired certificate signed by the existing CA is therefore foreign, and ca_issue refuses it at lines 681-684 before the renewal-days logic can replace it."
+expected = "An expired identity that belongs to the established authority must be renewable without deleting material or creating a second authority; foreign identities must remain refused."
+proposal = "Separate issuer/chain identity checks from certificate validity in tools/bringup/ca.sh, retain an explicit expired state eligible for renewal, and prove expiration recovery while preserving refusal of genuinely foreign authorities."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-ca-sub-issue"
+
+[finding.ca-bundle-consistency-unchecked]
+file = "tools/bringup/ca.sh"
+line = 562
+class = "security"
+severity = "medium"
+observed = "inventory_box counts nonempty key.der, cert.der, ca.der, identity.p12 and password but validates only cert.pem. Railway inventory similarly counts variable names and verifies one certificate. Mismatched keys, DER certificates or PKCS#12 password/material can be reported present and reused without repair."
+expected = "Retained identity reuse must prove that all transported encodings refer to the same certificate, key and issuing authority and that the PKCS#12 bundle opens with its retained password."
+proposal = "Add protected remote bundle-consistency checks to tools/bringup/ca.sh inventory for box and Railway custody, classify inconsistent material explicitly, and refuse reuse without revealing key bytes or silently replacing established identities."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-ca-sub-inventory"
+
+[finding.ca-retired-authority-and-router]
+file = "tools/bringup/ca.sh"
+line = 167
+class = "retired-reference"
+severity = "medium"
+observed = "ca_services still issues receipt-authority as a kernel server and gateway-client to railway:router, with a separate redis-router server. The registry also declares GUARANTOR and RELAY_ARCHIVE rows that the current 31-row table and names file no longer produce."
+expected = "Operational identities and their registry rows must describe only the merged live service topology; removed identities must not remain required by consumers or tests."
+proposal = "Reconcile tools/bringup/ca.sh, tools/bringup/railway-names.env and spec/layerx-merge/interfaces.kvx against the merged deployment, remove retired authority/router issuance and migrate surviving hosted gateway credentials under their actual owner."
+owner_domain = 16
+interface = "16.cfg-bringup-railway-names-env-guarantor"
+
+[finding.edge-reload-durable-state]
+file = "tools/bringup/edge.sh"
+line = 447
+class = "restart-recovery"
+severity = "medium"
+observed = "apply restores its snapshot only when nginx -t fails. If nginx -s reload fails, the new manifest, sites and pool state remain on disk while the old worker configuration remains live; a restart can later activate the unacknowledged change."
+expected = "An edge mutation must either install and acknowledge one durable configuration generation or retain the previously serving generation across failure and restart."
+proposal = "Make tools/bringup/edge.sh apply handle reload failure with a recoverable configuration transaction and explicit generation state; qualify a refused reload followed by reopen without losing the last serving routes."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-edge"
+
+[finding.edge-concurrent-state-mutation]
+file = "tools/bringup/edge.sh"
+line = 717
+class = "runtime-risk"
+severity = "medium"
+observed = "rpc-health snapshots and rewrites shared edge state while add, remove, set and rerender do the same. Only the cron invocation uses rpc-health.lock; the mutating CLI paths take no shared lock. A failed concurrent mutation can restore a snapshot over another successful update."
+expected = "Every writer of the manifest, generated sites and health state must serialize the same configuration transaction and preserve independently accepted routes."
+proposal = "Use one stable mutation lock across all tools/bringup/edge.sh writers, keep it outside replaced state, and exercise concurrent pool-health and route updates through the real durable files."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-edge-sub-rpc-health"
+
+[finding.edge-secondary-stale-sites]
+file = "tools/bringup/edge-sync.sh"
+line = 163
+class = "restart-recovery"
+severity = "medium"
+observed = "rsync --delete receives the edge state directory but receives only individual currently existing rendered site paths from sites-available and sites-enabled. A primary removal leaves the old secondary site outside that source set; rerender walks only current manifest names and can leave the removed route enabled."
+expected = "Removing an edge route must revoke it on every secondary and after a restart while preserving unrelated nginx configuration."
+proposal = "In tools/bringup/edge-sync.sh reconcile secondary marker-owned sites against the transferred manifest, explicitly removing stale owned files and symlinks before validation and reload; prove add, sync, remove, sync and reopen."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-edge-sync"
+
+[finding.archive-tls-resume]
+file = "tools/bringup/install-archive.sh"
+line = 189
+class = "restart-recovery"
+severity = "medium"
+observed = "write_vhost http creates the enabled symlink before certbot runs. If ACME issuance fails or the process stops, the next invocation sees enabled already present and skips the whole TLS setup, retaining an HTTP-only redirect with no working HTTPS vhost."
+expected = "Archive provisioning must resume certificate issuance and TLS installation after an interrupted first run and establish the declared public node endpoint."
+proposal = "Replace the existence-only condition in tools/bringup/install-archive.sh with explicit certificate and rendered TLS-state reconciliation, preserving operator configuration and validating HTTPS after a failed ACME attempt."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-install-archive"
+
+[finding.archive-unpublished-names]
+file = "tools/bringup/install-archive.sh"
+line = 52
+class = "config-drift"
+severity = "medium"
+observed = "The public-rpc-name validator accepts api15 and api16.mainnet-beta.paxeer.network, and usage presents them as valid archive names even though the finished network declares only api1 through api14."
+expected = "Archive installation must select a node name from the current published inventory and agree with fleet and documentation name checks."
+proposal = "Source archive name validation in tools/bringup/install-archive.sh from the merged inventory shared with check-live and docs-names, refusing unpublished api15/api16 names."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-install-archive"
+
+[finding.genesis-retired-network-boundary]
+file = "tools/bringup/kernel-genesis.sh"
+line = 74
+class = "retired-reference"
+severity = "medium"
+observed = "The live genesis workflow reads retired custody precompile 0x1013 through a separate relay port 18545, writes LXGB metadata and replica-id, and waits for a separate bootstrap-generated node manifest. Rotation also carries checkpoint-authority key paths. These are pre-merge operational steps, not the one paxd chain initialization path."
+expected = "Kernel initialization and identity rotation must follow the merged chain genesis, committed finality and current asset/governance producers without restoring retired custody or daemon boundaries."
+proposal = "Replace the live tools/bringup/kernel-genesis.sh keys/genesis/plan/migrate workflow with the merged paxd initialization and retained identity procedure; keep any historical conversion explicit and offline and update the interface registry and operator guidance."
+owner_domain = 16
+interface = "6.pc-0x1013-nativeassetid"
+
+[finding.mint-retired-secret-targets]
+file = "tools/bringup/mint-secrets.sh"
+line = 169
+class = "retired-reference"
+severity = "medium"
+observed = "The mint emits LAYERX_KERNEL_REPLICA_TOKEN, separate gateway/webhooks authority tokens and registry receipt-authority authorization, then creates router.railway.env at line 187. The secret delivery plan provisions the retired sequencer/authority/router topology."
+expected = "Secrets must bind actual merged service identities and authorization boundaries; committed receipts must not require a separate receipt-authority or replica service."
+proposal = "Rebuild tools/bringup/mint-secrets.sh target and token maps from current rollout and box consumers, retire obsolete authority/replica outputs through an explicit migration, and preserve least-privilege distinct tokens for surviving roles."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-mint-secrets"
+
+[finding.registry-orphan-container-recovery]
+file = "tools/bringup/registry-artifacts.py"
+line = 315
+class = "restart-recovery"
+severity = "medium"
+observed = "run_job persists a planned container name with id=None before docker create, then persists the returned ID afterward. A process death between creation and that write leaves an owned container that cleanup ignores because id is absent, yet cleanup records containers_absent=true."
+expected = "An interrupted isolation owner must reconcile every resource it created and report cleanup success only after proving actual resource absence."
+proposal = "Label containers with the persisted lifecycle identity before creation in tools/bringup/registry-artifacts.py and reconcile planned names by that ownership proof after reopen, persisting the discovered ID before removal and checking final absence."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-registry-artifacts"
+
+[finding.search-default-node-drift]
+file = "tools/bringup/search-front.sh"
+line = 73
+class = "config-drift"
+severity = "medium"
+observed = "SEARCH_FRONT_PRIMARY defaults to api15.paxeer.network and backup to api1.paxeer.network; the accepted-name patterns allow api1..16 with optional domains. The mainnet-beta serving roster instead has fourteen names under mainnet-beta.paxeer.network, so defaults are not members of that discovered set."
+expected = "Default search primary and backup must be distinct serving nodes in the current public mainnet-beta inventory and must never point to validators."
+proposal = "Derive primary and backup defaults in tools/bringup/search-front.sh from the current serving inventory or require explicit current names, and validate both against that inventory before rendering readiness-gated routing."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-search-front-sub-render"
+
+[finding.resync-source-interruption]
+file = "tools/bringup/sync-fleet.sh"
+line = 353
+class = "restart-recovery"
+severity = "medium"
+observed = "resync_target stops the healthy source unit before rsync or a streamed tar copy, and restarts it only on the normal path at line 366. No signal/EXIT recovery or durable pending operation records that source stop; interruption during a copy leaves the source offline."
+expected = "Fleet resync must recover the originally running source after transfer failure, owner interruption and a later rerun while never restarting a source that was intentionally stopped beforehand."
+proposal = "Record the source unit's original state and resync phase in tools/bringup/sync-fleet.sh, arrange bounded cleanup on ordinary termination and durable reconciliation after process death, and prove restart recovery before admitting another destination."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-sync-fleet-sub-resync"
+
+[finding.fleet-unbounded-transports]
+file = "tools/bringup/sync-fleet.sh"
+line = 592
+class = "runtime-risk"
+severity = "medium"
+observed = "Release downloads use curl --retry without connect or total timeout. Mutating remote SSH, scp and the streamed tar copy also lack an enclosing deadline, although read probes are bounded. A hung network can hold rollout indefinitely, including while its resync source is stopped."
+expected = "Every operational transfer and remote mutation must have an explicit bounded lifetime and return an actionable failure that recovery can reconcile."
+proposal = "Add transfer-specific connection and total deadlines to tools/bringup/sync-fleet.sh release and mutation transports, propagate cancellation to children and pair timeout outcomes with the durable resync recovery procedure."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-sync-fleet-sub-release"
+
+[finding.upgrade-hash-only-recovery]
+file = "tools/bringup/upgrade-fleet.sh"
+line = 113
+class = "restart-recovery"
+severity = "medium"
+observed = "watch_units marks a unit current solely because the on-disk binary hash equals the release. If the owner stops after mv but before systemctl restart, a rerun skips the stopped or old-running service. Shared binaries also make another unit appear current without proving its running version."
+expected = "Upgrade recovery must prove each unit actually runs the target executable and returns to chain progress, independently of a shared on-disk path."
+proposal = "Persist per-unit upgrade phases in tools/bringup/upgrade-fleet.sh and reconcile the running executable, active state and committed-height progress on reopen; restart only units whose target generation has not been activated."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-upgrade-fleet"
+
+[finding.upgrade-active-state-not-enforced]
+file = "tools/bringup/upgrade-fleet.sh"
+line = 97
+class = "runtime-risk"
+severity = "medium"
+observed = "swap_unit treats a zero SSH exit as swapped regardless of the text from systemctl show -p ActiveState. systemctl show can succeed while printing failed or inactive, so the command reports success without an active upgraded node."
+expected = "An upgraded unit is successful only when the service is active on the new binary and demonstrates bounded network progress after its upgrade halt."
+proposal = "Make tools/bringup/upgrade-fleet.sh require active state and a bounded committed-height/readiness recovery check per unit, retaining failure evidence and stopping further swaps when recovery fails."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-upgrade-fleet"
+
+[finding.foundation-wrapper-retired-target]
+file = "tools/bringup/build-foundation-artifacts.sh"
+line = 4
+class = "wiring-gap"
+severity = "medium"
+observed = "The public build-foundation-artifacts wrapper delegates directly to tests/foundation-artifacts.py --build, whose required NAMES still includes layerxd and whose source manifest includes retired custodyproof and layerxproof trees. The wrapper therefore exposes a foundation bundle for the retired deployment."
+expected = "The bringup artifact command must build the actual merged chain and current hosted dependencies with source-bound evidence usable by its downstream consumers."
+proposal = "Retarget tools/bringup/build-foundation-artifacts.sh and its artifact producer to the merged runtime bundle and update its real qualification consumers together, preserving explicit output and provenance checks."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-build-foundation-artifacts"
+
+[finding.foundation-artifact-inventory]
+file = "tools/bringup/tests/foundation-artifacts.py"
+line = 18
+class = "retired-reference"
+severity = "medium"
+observed = "NAMES mandates layerxd, layerx-genesis-build and layerx-module-registry beside paxd and attestor; GO_PATHS includes custodyproof and layerxproof, and native input pins checkpoint-settlement.json. The inventory qualifies a separate daemon/native settlement bundle as mandatory infrastructure."
+expected = "Foundation artifacts must describe the merged paxd chain and current binaries; retired daemon and checkpoint-settlement products cannot define upgrade readiness."
+proposal = "Replace the artifact/source inventory in tools/bringup/tests/foundation-artifacts.py with the actual merged build outputs and their complete dependency closure, and qualify the real consumers without accepting legacy manifests."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-build-foundation-artifacts"
+
+[finding.foundation-fixture-retired-producers]
+file = "tools/bringup/tests/paxeer-x-fixture-foundation.py"
+line = 294
+class = "retired-reference"
+severity = "medium"
+observed = "The fixture invokes hosted/paxeer/custody-genesis.py and anchor-genesis.py, init-chain.sh, and bootstrap.sh with --layerxd /artifacts/layerxd, then asserts app_state.layerxcustody. It creates the retired custody/anchor and separate kernel deployment rather than the merged chain."
+expected = "A disposable foundation must run the real one-chain initialization and committed interfaces so downstream qualification cannot depend on removed producers."
+proposal = "Rework tools/bringup/tests/paxeer-x-fixture-foundation.py around the current paxd genesis and integrated kernel, preserve real artifact provenance and restart qualification, and replace retired custody/anchor fixtures with actual committed results."
+owner_domain = 16
+interface = "8.cli-paxeer-anchor-genesis-py-network-id"
+
+[finding.foundation-provenance-shape]
+file = "tools/bringup/tests/paxeer-x-runtime-contract.py"
+line = 1614
+class = "test-gap"
+severity = "medium"
+observed = "The registry-material and policy-graph qualification consumers require every foundation producer entry to have command at lines 1614 and 1843. Foundation.producer in paxeer-x-fixture-foundation.py:135 emits argv, exit_code and stdout/stderr digests, so genuine producer evidence is refused before either real handoff can run."
+expected = "The emitted foundation provenance must be accepted unchanged by every consuming qualification path, with the same structured invocation and digest requirements."
+proposal = "Define one provenance schema shared by the foundation producer and tools/bringup/tests/paxeer-x-runtime-contract.py consumers, retain structured argv and source/digest binding, and drive the real produced manifest through registry-material and policy-graph qualification."
+owner_domain = 16
+
+[finding.runtime-ca-roster-third-shape]
+file = "tools/bringup/tests/paxeer-x-runtime-contract.py"
+line = 3077
+class = "test-gap"
+severity = "medium"
+observed = "ca_roster pins guarantor and relay-archive entries absent from the actual ca.sh table and railway-names.env. The registry still advertises these removed rows, leaving three different identity inventories and causing the integrated roster qualification to reject the current producer."
+expected = "Independent CA expectations must validate the current approved identities, targets, SANs and authority choices without reinstating retired services."
+proposal = "Update the approved roster in tools/bringup/tests/paxeer-x-runtime-contract.py together with the registry to the merged deployment, preserving negative ownership and identity-isolation checks and comparing against real ca.sh issuance."
+owner_domain = 16
+interface = "16.cfg-bringup-railway-names-env-guarantor"
+
+[finding.runtime-retired-service-assertions]
+file = "tools/bringup/tests/paxeer-x-runtime-contract.py"
+line = 3741
+class = "retired-reference"
+severity = "medium"
+observed = "service_roster requires guarantor 1 and 2 and later process tests require a running layerxd role and layerxd.lni.sock. Authority cases also inject LAYERX_AUTHORITY_LNI_SOCKET and separate replica bearer state. These assertions preserve retired runtime boundaries as required behavior."
+expected = "Runtime contracts must qualify the integrated paxd kernel and current role lifecycle, including retained state and real restart failures, without a separate daemon or guarantor."
+proposal = "Migrate the relevant tools/bringup/tests/paxeer-x-runtime-contract.py cases to actual merged role producers and committed RPC transport, retaining privilege, isolation, identity and crash-recovery assertions."
+owner_domain = 16
+interface = "16.cli-dock-kernel-init"
+
+[finding.ca-test-obsolete-count]
+file = "tools/bringup/tests/ca.test.sh"
+line = 19
+class = "test-gap"
+severity = "medium"
+observed = "The services test requires exactly 33 rows. ca.sh ca_services now emits 31 rows after removing guarantor and relay-archive, and the current names file agrees with those 31; the assertion fails before the meaningful identity and refusal checks."
+expected = "The CA test must assert the approved current identity set and continue exercising real issuance and refusal behavior after intentional retirements."
+proposal = "Replace the obsolete count in tools/bringup/tests/ca.test.sh with the independently approved merged roster and retain exact membership, six-field, SAN and real CA checks; do not merely lower a bound to suppress drift."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-ca-sub-services"
+
+[finding.live-test-edge-third-shape]
+file = "tools/bringup/check-live.test.sh"
+line = 1546
+class = "test-gap"
+severity = "medium"
+observed = "The edge and ramp fixtures hand-write four-field manifest rows with Fly application names. They match the old check-live decoder but differ from the current edge.sh six-field host:port/kind/SNI producer, hiding the manifest round-trip failure."
+expected = "Edge live-check tests must consume manifests emitted by the real renderer and cover current upstream modes and a refused malformed or unregistered route."
+proposal = "Replace the hand-written edge/ramp manifest inputs in tools/bringup/check-live.test.sh with tools/bringup/edge.sh outputs and validate the real decoding and route-selection path."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-edge"
+
+[finding.live-test-ca-obsolete-roster]
+file = "tools/bringup/check-live.test.sh"
+line = 960
+class = "test-gap"
+severity = "medium"
+observed = "expected_ca_services still includes guarantor and relay-archive and demands that set from ca.sh services, although the actual issuer and names file removed both. The fixture consequently certifies a different identity roster from the producer."
+expected = "The live CA harness must use the approved merged identity inventory and prove surviving certificate targets and material encodings through actual issuance."
+proposal = "Reconcile tools/bringup/check-live.test.sh CA expectations with the independently approved live inventory, remove retired-role success assumptions and preserve all surviving authority and malformed-material refusals."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-ca-sub-services"
+
+[finding.live-test-internal-platform-shape]
+file = "tools/bringup/check-live.test.sh"
+line = 1944
+class = "test-gap"
+severity = "medium"
+observed = "The internal success case asserts one Fly kernel-machine call carrying the event-client path, with group probes supplied by a Fly stand-in. Production check_internal now railway_ssh runs inside separate role services, where that identity is not provisioned."
+expected = "Qualification must exercise the actual deployed service lookup, credential location and mTLS probe origin, and must fail when those locations disagree."
+proposal = "Rebuild the internal path in tools/bringup/check-live.test.sh using actual role deployment configuration and the real credential producer/transport, then require successful authorized readiness and refusal for absent credentials."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-check-live-sub-internal"
+
+[finding.genesis-test-rejected-guarantor-input]
+file = "tools/bringup/tests/kernel-genesis.test.sh"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "The fixture writes LAYERX_GENESIS_GUARANTORS and later requires its guarantor in the signed manifest. kernel-genesis.sh render_step:396-402 explicitly rejects that key as unexpected and emits a request with zero guarantors, so this positive test cannot reach its intended signature assertions."
+expected = "The genesis qualification must drive accepted current producer inputs and independently assert the merged genesis contract without a retired guarantor."
+proposal = "Replace the retired fixture schema in tools/bringup/tests/kernel-genesis.test.sh with actual merged initialization inputs and preserve signature, module, asset and malformed-input checks against the real output."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-kernel-genesis-sub-render"
+
+[finding.mint-test-retired-contract]
+file = "tools/bringup/tests/mint-secrets.test.sh"
+line = 60
+class = "retired-reference"
+severity = "medium"
+observed = "The expected outputs require router.railway.env, kernel replica tokens and separate receipt-authority authorizations, including equality checks across the retired router and authority consumers. This makes obsolete secret routing part of the success contract."
+expected = "Secret qualification must assert the current service identities and least-privilege token consumers through the real deployment files."
+proposal = "Migrate tools/bringup/tests/mint-secrets.test.sh to the merged secret delivery plan and actual entrypoint consumers, retaining distinct-token, file-mode, certificate and malformed-input protections."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-mint-secrets"
+
+[finding.xweb-test-missing-loader]
+file = "tools/bringup/tests/test_xweb_config.py"
+line = 115
+class = "test-gap"
+severity = "medium"
+observed = "The test parses rendered JSON and checks assets, peers and absence of lx_, but never loads it through x-websearch Config::parse. The old sequencer_id/public_key fields therefore pass this test despite the real loader explicitly rejecting them."
+expected = "Rendered serving and attestor configurations must be accepted by the actual consuming loader, including receipt key encodings, height ranges and supported root fields."
+proposal = "Extend tools/bringup/tests/test_xweb_config.py qualification through the built x-websearch configuration loader using real produced trust material, and assert a valid load plus refusal of an altered key history or unsupported field."
+owner_domain = 16
+interface = "11.fmt-deploy-x-websearch-config-example"
+
+[finding.edge-test-router-routing]
+file = "tools/bringup/tests/edge.test.sh"
+line = 32
+class = "retired-reference"
+severity = "medium"
+observed = "The edge fixture routes api-mainnet-beta.paxeer.network to router-beta.up.railway.app and asserts that route as the aggregate public API. It verifies the retired router service rather than a pool of current node root endpoints."
+expected = "The public aggregate RPC route must represent the merged node pool, while hosted services keep their separately declared origins."
+proposal = "Update tools/bringup/tests/edge.test.sh to render the current aggregate node pool and hosted service routes, preserving upstream TLS/SNI and forwarding-header checks and proving the manifest consumer path."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-edge"
+
+[finding.search-test-retired-endpoints]
+file = "tools/bringup/tests/search-front.test.sh"
+line = 38
+class = "retired-reference"
+severity = "medium"
+observed = "The fixture sets the gateway to api-mainnet-beta.paxeer.network/rpc, its EVM endpoint to api15.paxeer.network and expected pins to api15/api1 without the mainnet-beta domain. Correct receipt key identifier assertions coexist with obsolete transport and node inventory expectations."
+expected = "Search deployment qualification must use declared current gateway transport and serving node names while retaining strict receipt key and readiness validation."
+proposal = "Rebase tools/bringup/tests/search-front.test.sh inputs on the current published inventory and hosted gateway contract, keep its strict key-id assertions and exercise render output through the real live-check consumer."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-search-front-sub-render"
+
+[finding.fleet-test-missing-interruption-recovery]
+file = "tools/bringup/sync-fleet.test.sh"
+line = 477
+class = "test-gap"
+severity = "medium"
+observed = "The source-stop test checks only normal stop-copy-start ordering. No case interrupts the owner while the source is stopped, and the systemctl stand-in always answers active for state reads, hiding the source recovery and upgrade failed-state defects."
+expected = "Fleet qualification must prove bounded interruption and per-unit restart recovery using actual service state transitions, not just successful command ordering."
+proposal = "Add real disposable service lifecycle cases to tools/bringup/sync-fleet.test.sh or its declared integration target that stop the owner mid-copy and mid-swap, reopen it and assert source restoration and correct running versions."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-sync-fleet-sub-resync"
+
+[finding.registry-test-missing-create-window]
+file = "tools/bringup/tests/registry-artifacts.py"
+line = 223
+class = "test-gap"
+severity = "medium"
+observed = "test_99_interrupted_owner_reconciles_and_cleans waits until the container phase is executing before killing the owner. It never covers the earlier planned-to-created gap where lifecycle.json still has id=None, so the real orphan-container cleanup defect is untested."
+expected = "Crash recovery qualification must include interruption after resource creation but before durable identifier publication and prove all owned resources are absent on reopen."
+proposal = "Extend tools/bringup/tests/registry-artifacts.py with a real Docker lifecycle case that observes the created resource before ID publication, interrupts the owner, reopens cleanup and asserts no owned container, cgroup, mount or loop remains."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-registry-artifacts"
+
+[finding.retirement-test-retains-authority]
+file = "tools/bringup/tests/test_kernel_genesis_retired.py"
+line = 46
+class = "test-gap"
+severity = "medium"
+observed = "The retirement guard requires receipt-authority to remain in ca.sh services while rejecting guarantor and relay-archive. It protects a separate receipt-authority runtime as mandatory even though finality belongs to committed blocks on the merged chain."
+expected = "Retirement coverage must reject all removed runtime boundaries and require only currently approved identities and service owners."
+proposal = "Update tools/bringup/tests/test_kernel_genesis_retired.py to the merged identity inventory and committed-finality model, retaining actual scanner and issuer execution and explicit negative checks for retired services."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-ca-sub-services"
+
+[finding.value-loop-test-retains-lni]
+file = "tools/bringup/tests/test_value_loop_probe_contract.py"
+line = 67
+class = "retired-reference"
+severity = "medium"
+observed = "The probe migration test correctly requires --rpc, --trust-anchor and latest_committed_height, then explicitly requires a live LNI socket and layerxctl submit/read-state --socket calls. This certifies a hybrid of the new handshake and retired daemon transport."
+expected = "The whole value-loop journey must use the merged RPC and committed-height interfaces without a separate LNI socket or daemon submission path."
+proposal = "Replace the final LNI assertions in tools/bringup/tests/test_value_loop_probe_contract.py with actual merged transaction and committed read-back evidence while preserving RPC/trust-anchor preconditions and handshake checks."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-value-loop"
+
+[finding.webhooks-site-retired-deployment]
+file = "docs/site/docs/platform/webhooks.md"
+line = 69
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment table points to receipt authority on port 9445 and agent boundary on 9446; lines 77-78 derive network identity from router.LAYERX_GATEWAY_NETWORK_ID. Lines 97 and 268-305 document standalone sequencer/authority credentials and old layerx-testnet aliases as operational integration instructions."
+expected = "Webhook operators must configure the actual merged receipt source and committed-finality trust path, current hosted service origins and current credential ownership without a retired router or standalone authority."
+proposal = "Rewrite docs/site/docs/platform/webhooks.md deployment, credential, receipt-verification and networking sections against current producers and manifests, with a real fresh event-to-delivery example and explicit restart/redelivery behavior."
+owner_domain = 8
+
+[finding.webhooks-wiki-retired-deployment]
+file = "docs/wiki/HostedWebhooks.md"
+line = 70
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki duplicates the site's retired receipt-authority and agent-boundary ports at lines 70-71, router network variable at 78-79, sequencer credential row at 98 and old authority/testnet trust instructions at 269-306, so it gives a second stale deployment recipe."
+expected = "The wiki and site must describe the same current merged webhook deployment and committed receipt verification contract."
+proposal = "Rewrite docs/wiki/HostedWebhooks.md from the corrected current webhook documentation, preserving the wiki navigation while publishing only current origins, credential roles and real event-delivery lifecycle instructions."
+owner_domain = 8
+
+[finding.xweb-default-retired-route]
+file = "tools/bringup/xweb-config.sh"
+line = 96
+class = "retired-reference"
+severity = "medium"
+observed = "XWEB_GATEWAY_ENDPOINT defaults to https://api-mainnet-beta.paxeer.network/rpc and usage describes that endpoint as the router for both serving and attestor configurations. Asset discovery, registration and inventory inherit this default."
+expected = "Node root RPC and hosted px_ methods must use their declared current origins; there is no unified public router /rpc path."
+proposal = "Change tools/bringup/xweb-config.sh endpoint defaults and operator help to the deployed hosted gateway and node root contracts, and prove pricing, registration and configuration loading through those actual transports."
+owner_domain = 16
+interface = "16.env-bringup-bringup-xweb-config-xweb-gateway-endpoint"
+
+[doc.webhooks-site]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Read all 600 lines. Lines 69-78, 97 and 268-305 retain authority ports, router network configuration, standalone sequencer credentials and old testnet trust instructions; rewrite receipt and deployment guidance for committed finality."
+
+[doc.webhooks-wiki]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Read all 601 lines, including the navigation differences from the site. Lines 70-79, 98 and 269-306 duplicate its retired authority/router deployment instructions and need the same current receipt and credential rewrite."
+
+[doc.operations-contract]
+path = "contracts/operations.md"
+status = "missing"
+notes = "The package interface rows repeatedly cite #bringup-cli and #bringup-config, but contracts/operations.md does not exist at the reviewed revision. Restore a current operations contract or repoint these registry references to an existing authoritative page."
