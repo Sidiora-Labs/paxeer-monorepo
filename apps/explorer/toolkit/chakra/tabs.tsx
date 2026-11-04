@@ -1,12 +1,18 @@
 import { Tabs as ChakraTabs, chakra } from '@chakra-ui/react';
 import * as React from 'react';
 
-export interface TabsProps extends ChakraTabs.RootProps {}
+import { recipe as tabsRecipe } from '../theme/recipes/tabs.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
+
+type RecipeRootProps = WithRecipeProps<ChakraTabs.RootProps, typeof tabsRecipe>;
+const RecipeRoot = withRecipe(ChakraTabs.Root, tabsRecipe);
+
+export interface TabsProps extends RecipeRootProps {}
 
 export const TabsRoot = React.forwardRef<HTMLDivElement, TabsProps>(
   function TabsRoot(props, ref) {
     const { lazyMount = true, unmountOnExit = true, ...rest } = props;
-    return <ChakraTabs.Root ref={ ref } { ...rest } lazyMount={ lazyMount } unmountOnExit={ unmountOnExit }/>;
+    return <RecipeRoot ref={ ref } { ...rest } lazyMount={ lazyMount } unmountOnExit={ unmountOnExit }/>;
   },
 );
 

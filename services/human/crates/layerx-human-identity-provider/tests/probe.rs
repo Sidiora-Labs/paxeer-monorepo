@@ -1,9 +1,10 @@
-use layerx_client::runtime_clock::RuntimeClock;
+mod support;
+
 use std::error::Error;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::Output;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
@@ -22,13 +23,11 @@ fn policy() -> Policy {
 }
 
 fn probe(socket: &Path) -> Result<Output> {
-    Ok(
-        Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"))
-            .arg("probe")
-            .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", socket)
-            .env("LAYERX_HUMAN_IDENTITY_PROVIDER_DEADLINE_SECONDS", "5")
-            .output()?,
-    )
+    Ok(support::command()?
+        .arg("probe")
+        .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", socket)
+        .env("LAYERX_HUMAN_IDENTITY_PROVIDER_DEADLINE_SECONDS", "5")
+        .output()?)
 }
 
 #[test]
@@ -48,7 +47,7 @@ fn probe_reports_ready_only_while_the_identity_provider_serves() -> Result {
         State::open(&root, policy())?,
         rustix::process::geteuid().as_raw(),
         Duration::from_secs(5),
-        RuntimeClock::from_environment()?,
+        support::clock()?,
     )?;
     let shutdown = Arc::new(AtomicBool::new(false));
     let flag = Arc::clone(&shutdown);
@@ -68,12 +67,12 @@ fn probe_reports_ready_only_while_the_identity_provider_serves() -> Result {
 
 #[test]
 fn probe_refuses_an_incomplete_socket_configuration() -> Result {
-    let missing = Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"))
+    let missing = support::command()?
         .arg("probe")
         .env_remove("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET")
         .output()?;
     assert_eq!(missing.status.code(), Some(1));
-    let relative = Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"))
+    let relative = support::command()?
         .arg("probe")
         .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", "identity.sock")
         .output()?;

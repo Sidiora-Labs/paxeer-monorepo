@@ -1,7 +1,13 @@
 import { Switch as ChakraSwitch } from '@chakra-ui/react';
 import * as React from 'react';
 
-export interface SwitchProps extends ChakraSwitch.RootProps {
+import { recipe as switchRecipe } from '../theme/recipes/switch.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
+
+type RecipeRootProps = WithRecipeProps<ChakraSwitch.RootProps, typeof switchRecipe>;
+const RecipeRoot = withRecipe(ChakraSwitch.Root, switchRecipe);
+
+export interface SwitchProps extends RecipeRootProps {
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
   labelProps?: ChakraSwitch.LabelProps;
   rootRef?: React.Ref<HTMLLabelElement>;
@@ -15,7 +21,7 @@ export const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
       props;
 
     return (
-      <ChakraSwitch.Root ref={ rootRef } { ...rest }>
+      <RecipeRoot ref={ rootRef } { ...rest }>
         <ChakraSwitch.HiddenInput ref={ ref } { ...inputProps }/>
         <ChakraSwitch.Control>
           <ChakraSwitch.Thumb>
@@ -34,7 +40,7 @@ export const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
         { children != null && (
           <ChakraSwitch.Label { ...labelProps }>{ children }</ChakraSwitch.Label>
         ) }
-      </ChakraSwitch.Root>
+      </RecipeRoot>
     );
   },
 );

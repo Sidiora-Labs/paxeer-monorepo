@@ -2563,6 +2563,9 @@ mod tests {
                 "relative_to": {"height": "9", "hash": format!("0x{}", "04".repeat(32))},
             })
         );
+        let mut unprefixed = value.clone();
+        unprefixed["relative_to"]["hash"] = serde_json::json!("04".repeat(32));
+        assert!(Freshness::decode_json(&unprefixed.to_string()).is_err());
         assert_eq!(
             Freshness::decode_json(&value.to_string()).unwrap(),
             Freshness {

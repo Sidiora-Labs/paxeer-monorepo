@@ -215,7 +215,7 @@ func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
 		ReturnData: r.ReturnData,
 		LogData:    logData,
 		VMError:    r.VMError,
-	})
+	}, r.PaymentDenom)
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context, txHash commo
 	if send.Receipt == nil {
 		return &SequencerReceiptResult{Rung: RungSubmitted, TxHash: txHash, Nonce: hexutil.Uint64(send.Nonce)}, nil
 	}
-	view, decoded, err := decodeSequencerReceipt(send)
+	view, decoded, err := decodeSequencerReceipt(send, evmkeeper.BaseDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +503,7 @@ func addr32(word [32]byte, name string) (common.Address, error) {
 
 // decodeSequencerReceipt decodes send.Receipt and derives every JSON field from the decoded
 // receipt, checking the execution outputs of send against the digests the receipt binds.
-func decodeSequencerReceipt(send *SequencerSend) (*SequencerReceiptView, *codec.Receipt, error) {
+func decodeSequencerReceipt(send *SequencerSend, paymentDenom string) (*SequencerReceiptView, *codec.Receipt, error) {
 	decoded, err := codec.DecodeReceipt(send.Receipt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", ErrSequencerReceiptInvalid, err)
@@ -550,7 +550,7 @@ func decodeSequencerReceipt(send *SequencerSend) (*SequencerReceiptView, *codec.
 		Index:             hexutil.Uint(binary.BigEndian.Uint32(body[24:28])),
 		ContractAddress:   common.BytesToAddress(body[28:48]),
 		Sponsor:           common.BytesToAddress(body[48:68]),
-		PaymentDenom:      evmkeeper.BaseDenom,
+		PaymentDenom:      paymentDenom,
 		KeyID:             common.Hash(decoded.ContextHash),
 		Receipt:           decoded.CanonicalBytes(),
 	}
@@ -562,8 +562,11 @@ func decodeSequencerReceipt(send *SequencerSend) (*SequencerReceiptView, *codec.
 		return nil, nil, invalidReceipt("fee denom length %d in a %d-byte summary", denomLength, len(body))
 	}
 	view.FeeDenom = string(body[sequencerSummaryFixedBytes:])
+	if len(paymentDenom) == 0 || len(paymentDenom) > sequencerMaxFeeDenomBytes {
+		return nil, nil, mismatch("payment denom is %d bytes, want 1..%d", len(paymentDenom), sequencerMaxFeeDenomBytes)
+	}
 	if sha256.Sum256([]byte(view.PaymentDenom)) != decoded.Asset {
-		return nil, nil, invalidReceipt("asset is not the payment asset digest")
+		return nil, nil, mismatch("asset is not the payment asset digest")
 	}
 	fee := decoded.FeeCharged.Bytes()
 	view.FeeAmount = (*hexutil.Big)(new(big.Int).SetBytes(fee[:]))
