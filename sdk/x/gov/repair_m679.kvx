@@ -1,0 +1,56 @@
+[repair.22.33.679]
+audit = "22.30.167"
+acceptance = "22998.1"
+findings = ["gov-conversion-coverage", "gov-invariant-unregistered", "gov-lifecycle-doc", "gov-state-doc", "gov-message-doc", "gov-events-doc", "gov-params-doc", "gov-client-doc"]
+baseline = "Not run: the explicit ordered instructions require complete implementation before formatting/build/testing and hf-build before hf-done; they prohibit running verify_cmd by hand. No baseline failure is claimed."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log path; the final response copies its last gate evidence."
+wiring_requests = []
+
+[finding.gov-conversion-coverage]
+test = "TestRepairM_679_ConversionCoverage"
+proof = "Real message server and staking electorate: one delegator has 6/16 bonded power, votes before conversion, commits and closes the database, reopens before conversion and again before the regular tally, and determines the exact final tally without replacing the vote; passing, No and veto outcomes are checked, including terminal-state recovery. TestExpeditedProposalPassAndConvertToRegular also includes this disk-recovery case."
+
+[finding.gov-invariant-unregistered]
+test = "TestRepairM_679_InvariantRegistered"
+proof = "The production module manager registers AppModule's gov/module-account invariant in an in-memory route registry. Real bank transfers remove one escrow coin and restore it; the registered production invariant changes from healthy to broken and back."
+
+[finding.gov-lifecycle-doc]
+test = "TestRepairM_679_LifecycleDoc"
+proof = "Real upgrade proposal content travels through protobuf Any into the production upgrade handler and keeper: schedules a named height, remains pending before that height, writes upgrade info and halts at the height without its handler, cancels, and rejects past-height/time-based plans. Empty deposits and failed expedited veto conversion are covered by MessageDoc and ConversionCoverage."
+
+[finding.gov-state-doc]
+test = "TestRepairM_679_StateDoc"
+proof = "The real governance message server writes expedited proposals, weighted votes and deposits; the production codec decodes their actual KV bytes, enum values and timestamp/ID queue encoding."
+
+[finding.gov-message-doc]
+test = "TestRepairM_679_MessageDoc"
+proof = "A real Any-encoded submission accepts an empty deposit and uses the message's expedited selection; two accounts' cumulative contributions cross only the expedited minimum and activate the expected voting duration."
+
+[finding.gov-events-doc]
+test = "TestRepairM_679_EventsDoc"
+proof = "BaseApp dispatches real submit and weighted-vote messages over both legacy and protobuf service routes; emitted action, account, proposal ID/type, voting-start, deposit amount and weighted-option attributes match the documented consumers."
+
+[finding.gov-params-doc]
+test = "TestRepairM_679_ParamsDoc"
+proof = "Real parameter subspace updates validate complete merged values, reject invalid periods, deposit bounds and tally fractions without writes, and retain omitted fields on a valid update. Documented defaults are checked against production constructors; ClientDoc proves query serialization."
+
+[finding.gov-client-doc]
+test = "TestRepairM_679_ClientDoc"
+proof = "The actual offline CLI generates an expedited transaction; real BaseApp transaction delivery, handlers, codec, committed stores, local RPC, block store, transaction index and loopback gateway prove documented responses at fixture heights 2 and 3, including CLI recovery of removed votes/deposits and direct-store gateway absence."
+
+[notes]
+gotcha_5 = "Offline CLI fixtures still need an explicit production in-memory keyring; otherwise persistent command flags try to open a file keyring."
+gotcha_6 = "Submission bank transfers emit a sender-only message event in addition to the module=governance sender event; consumers must retain both and scope the governance identity by its module attribute."
+gotcha_4 = "Legacy rootmulti deliberately rejects versioned queries; the client fixture uses the production storev2 rootmulti for named-height CLI queries instead of substituting historical responses."
+gotcha_1 = "The audit's expected legacy weighted action spelling is not canonical: current TypeMsgVoteWeighted is weighted_vote; documentation and tests follow the producer."
+gotcha_2 = "The text-proposal CLI defines FlagIsExpedited but does not register it; documented expedited submission uses the supported proposal JSON file. No unrelated CLI behavior change is made."
+gotcha_3 = "Vote.Options is []WeightedVoteOption; comparisons use the same slice type as decoded production records."
+scope = "Only the allowed governance tree, BaseApp action comments and canonical governance protobuf comments are edited. No generated artifact regeneration is needed for comment-only source changes. Spec/GOTCHA ledgers remain outside task scope."
+
+[qualification.initial]
+revision = "a850848f5e8dbf7973f92a0fd2a983f6a273c25c"
+command = "cg spec done 22.33.679 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (full test output: /out/logs/repair-m679-initial.log)"
+observed = "EventsDoc found bank and governance sender events; ClientDoc required an explicit in-memory keyring."
+repair = "Assert the exact governance sender and both total senders; use the production in-memory keyring and DeliverTx index marking, and prove no-bonded-stake refunds in the client example."
