@@ -105,7 +105,7 @@ impl ListRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -291,7 +291,7 @@ impl ListMarketsRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -423,7 +423,15 @@ impl RetrieveRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::CoinDetail, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::CoinDetail, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -573,7 +581,7 @@ impl ListSimplePricesRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await

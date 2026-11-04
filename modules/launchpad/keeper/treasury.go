@@ -245,7 +245,7 @@ func (k *Keeper) TreasuryRecoverSurplus(ctx sdk.Context, caller NestedCaller, au
 
 func (k *Keeper) checkTreasuryPayout(authority string, to common.Address, amount sdk.Int) error {
 	if authority != k.authority {
-		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+		return types.ErrUnauthorized.Wrap(authority)
 	}
 	if to == (common.Address{}) {
 		return types.ErrZeroAddress

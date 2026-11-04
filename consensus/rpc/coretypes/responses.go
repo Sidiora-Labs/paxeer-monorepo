@@ -379,6 +379,15 @@ type resultEventJSON struct {
 	Query          string              `json:"query"`
 	Data           json.RawMessage     `json:"data"`
 	Events         map[string][]string `json:"events"`
+	EventGroups    *resultEventGroups  `json:"event_groups,omitempty"`
+}
+
+// resultEventGroups is the lossless subscription event format. Version 1 uses
+// ordered ABCI events, whose attribute keys and values are base64-encoded bytes.
+// The legacy events map remains on the wire for clients predating this format.
+type resultEventGroups struct {
+	Version int          `json:"version"`
+	Events  []abci.Event `json:"events"`
 }
 
 func (r ResultEvent) MarshalJSON() ([]byte, error) {
@@ -391,6 +400,7 @@ func (r ResultEvent) MarshalJSON() ([]byte, error) {
 		Query:          r.Query,
 		Data:           evt,
 		Events:         compactEvents(r.Events),
+		EventGroups:    &resultEventGroups{Version: 1, Events: r.Events},
 	})
 }
 
@@ -399,12 +409,20 @@ func (r *ResultEvent) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &res); err != nil {
 		return err
 	}
+	if res.EventGroups != nil && res.EventGroups.Version != 1 {
+		return fmt.Errorf("unsupported subscription event format version: %d", res.EventGroups.Version)
+	}
 	if err := jsontypes.Unmarshal(res.Data, &r.Data); err != nil {
 		return err
 	}
 	r.SubscriptionID = res.SubscriptionID
 	r.Query = res.Query
-	r.Events = decompactEvents(res.Events)
+	if res.EventGroups != nil {
+		r.Events = res.EventGroups.Events
+	} else {
+		// Old servers only send the compact map; its grouping is best effort.
+		r.Events = decompactEvents(res.Events)
+	}
 	return nil
 }
 

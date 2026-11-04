@@ -266,8 +266,8 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
     node->programs_runtime.resolve_occupancy_parameters =
         lxp_programs_fee_governance_resolve_runtime;
     node->programs_runtime.occupancy_parameter_context = &node->kernel;
-    node->kernel.module_runtime[LXP_MODULE_PROGRAMS] = &node->programs_runtime;
-    return LXP_OK;
+    return lxp_kernel_bind_module_runtime(&node->kernel, LXP_MODULE_PROGRAMS,
+                                          &node->programs_runtime);
 }
 
 static int32_t lxphost_envelope_write(

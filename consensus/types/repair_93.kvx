@@ -1,0 +1,8 @@
+[repair.22.31.93]
+finding = "legacy-tx-result"
+change = "LegacyResult and EventDataTx.ToLegacy preserve Code, Data, Info, Codespace and EvmTxInfo alongside the existing result fields."
+tests = ["TestRepair_93_FailedTransactionSubscription", "TestRepair_93_LegacyTxResultSubscription", "TestRepair_93_EmptyTransactionResultSubscription"]
+proof = "A real ABCI application finalizes and commits a failed transaction; populated ABCI results also pass their protobuf codec. EventBus publishes both through the real RPC Subscribe handler and WebSocket transport into the RPC client and ResultEvent decoder."
+baseline = "Not run: the task-specific gate order requires complete implementation before hf-build and hf-done, and forbids running verify_cmd by hand. No pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the qualified candidate revision, commands, exits and private log locations in its gate ledger."

@@ -1,0 +1,42 @@
+[repair.22.31.25]
+mode = "BUILD"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+scope = "modules/lxphost"
+baseline = "Not run: the explicit gate order forbids verification before complete implementation; no pre-change failing-test result is claimed."
+qualification = "The runner retains the candidate revision, exact command, exit code and private log in its hf-build/hf-done ledger; the final response copies the last gate evidence verbatim."
+
+[finding.migration-fee-binding]
+proof = "TestRepair_25_migration_fee_binding"
+change = "Bind the restored Programs runtime through lxp_kernel_bind_module_runtime, which installs the production fee transaction."
+path = "EncodeDeployPayload/EncodeUpgradePayload -> signed native Host.Execute -> real Programs migration runtime -> production fee transaction -> account store -> committed LevelDB close/reopen."
+asserts = "Actual payer debit and treasury credit equal the charged receipt; admission-only balance stays unchanged; trap charges zero; fee-credit overflow aborts all state; cache discard rolls back; committed program, accounting record and balances survive reopen; replay cannot charge again."
+bootstrap = "Native accounts and versioned fee, metering and activated migration-profile configuration initialize the real store; no fee transaction or CALL setup is installed by the test. The fee asset is funded by native register, open and mint activities."
+
+[finding.payment-reference-genesis]
+proof = "TestRepair_25_payment_reference_genesis"
+change = "Export and validate protocol-versioned successful-send receipts under host prefix 0x04, bound to their exact reference through the send context hash; preserve the retired generic-idempotency rejection."
+path = "EncodeSendPayload -> signed or verified-bound Host.Execute -> StoreAppModule.ExportGenesis -> ValidateGenesis -> StoreAppModule.InitGenesis -> committed LevelDB close/reopen -> native duplicate refusal at fresh identity and account sequences."
+asserts = "Receipt bytes, balances and sequences recover; same reference refuses without mutation; fresh reference at the same otherwise valid sequences succeeds; malformed, mismatched and future-sequence records refuse before writes."
+
+[wiring]
+requests = "None: both finding proposals are implemented within the authorized paths."
+
+[gotcha.gate_order]
+observed = "Task prose requests baseline verification but the controlling gate order forbids it and permits verification only through hf-done after hf-build."
+action = "Follow the explicit gate order; do not claim an unrun baseline."
+
+[gotcha.genesis_reference_shape]
+observed = "Prefix 0x04 contains authoritative send receipts as well as possible retired short legacy keys; exporting every prefix row would revive generic idempotency data."
+action = "Ignore retired non-reference key shapes on export, validate every full reference record and reject all non-send records during import."
+
+[qualification.first_verify]
+revision = "7283a5e6ab9777ce3416cd45692e198bde53ddab"
+command = "cg spec done 22.31.25 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Genesis recovery tests passed; migration admission refused the test authority's missing authority hash before dispatch."
+repair = "Initialize the migration authority with the production AuthorityHash codec; preserve every migration assertion."
+
+[gotcha.migration_authority]
+observed = "Migration admission requires a nonzero canonical authority hash even when the signed native activity and owner key are valid."
+action = "Construct the owner authority hash with lxphost.AuthorityHash before driving the native migration."
