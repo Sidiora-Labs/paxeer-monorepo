@@ -1,0 +1,34 @@
+[repair.22.33.131]
+audit = "22.30.114"
+criterion = "22998.1"
+base_revision = "d4778da7d47f2be6284ff02a288e9252843450eb"
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private evidence location in /out/run/gates.jsonl; the final evidence line copies the last gate result. No qualification is claimed before the bounded result."
+baseline = "Not run: the controlling ordered instructions prohibit testing before implementation and running verify_cmd by hand, conflicting with audit step 6. No pre-change execution or failure is claimed. Before the repair, the invalid-input test would fail because 5.01 and 49.99 reach onChange; the stacking test would fail because the backdrop is above the sheet."
+proof = "The tests mount production SlippageDrawer, SwapConfirmDialog and WhatsNewModal with real React state and the actual announcement repository. A real executor prepares and ABI-decodes transaction calldata without sending it. Tailwind compiles the actual modal markup in-process for computed stacking assertions. No mocks, external endpoint, credential, device or subprocess is required."
+
+[finding.40]
+tests = ["finding40_invalid_custom_input_never_reaches_confirmation", "finding40_canonical_boundaries_and_preset_values_are_executable", "finding40_drawer_confirmation_and_executor_preserve_basis_points"]
+repair = "Import canonical slippage bounds and validator; reject malformed, fractional-basis-point and out-of-range custom values before onChange; explain errors accessibly and disable Done until corrected. Preserve exact integer basis points through state, the real confirmation display and the executor's encoded final minimum."
+
+[finding.38]
+tests = ["finding38_first_launch_sheet_stacks_above_backdrop_and_close_recovers", "finding38_backdrop_and_get_started_dismiss_and_persist"]
+repair = "Isolate the existing modal stacking context; assign backdrop z-0 and sheet z-10. Verify first-launch content and real close, backdrop and Get Started events, then unmount and reopen against the persisted announcement version."
+
+[wiring.swap-approval]
+request = "Domain 12, apps/wallet/src/widgets/swap/SwapWidget.tsx and useSwapExecution.ts: retain the existing approval.slippageBps snapshot as the single value supplied to SwapConfirmDialog and execute; these paths already share it and are outside this task's edit scope."
+
+[gotcha.baseline-order]
+observed = "The requested baseline verification conflicts with the explicit implementation-first bounded gates; record the conflict without consuming an unauthorized verification run."
+
+[gotcha.tooling-paths]
+observed = "SwapWidget and SwapConfirmDialog live under widgets/swap; the shared renderer is account/test/render.tsx. Preparatory reads at older component and .ts paths failed without changing files."
+
+[gotcha.scope]
+observed = "Runner-owned .cgignore and spec status changes are preserved; the repair record stays within components/ui because editing spec files and the root gotcha ledger is forbidden by the task."
+
+[qualification.first-build]
+revision = "5ef01370e7f2a6bef1ba5267c0f2b63a5cde9498"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The test imported a different PostCSS version than Tailwind's plugin types; load Tailwind's own processor with its exact return type to retain the real CSS proof without casts or widened types."
