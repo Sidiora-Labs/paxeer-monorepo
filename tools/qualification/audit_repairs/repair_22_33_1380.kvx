@@ -1,0 +1,75 @@
+[repair]
+task = "22.33.1380"
+base_revision = "2a5922c56e84195a7fd33e76b9db7eb2cf9f9181"
+implementation = "Repair SDK build/install dependency roots and linker symbols, scope the post-generation Swagger check to its tracked output including staged changes, select the declared Markdown container image in both recipes, and replace the retired architecture overview with one-network transaction, receipt and root-endpoint guidance."
+baseline = "No pre-change verification ran: the explicit implementation-first gate order forbids tests before implementation and direct execution of verify_cmd. No baseline test failures are claimed. Initial status/diff contained only runner-prepared .cgignore and spec task-start changes; the repair files did not exist. /out/run/gate.json recorded zero build and verify runs, two repair cycles available, and no gates.jsonl existed. Preserve the runner changes."
+source_proof = "Seven offline pytest cases parse the actual Makefile's logical lines, assignments, prerequisites, commands and shell tokens; resolve root manifests and linker package variables in production Go source; substitute the simple image/name/CURDIR references in both container command branches; check the exact generation command and success/failure guard; and bind the overview's transaction/receipt methods and local links to checked-in production sources. The gate uses Python and pytest only, without environment variables, credentials, live endpoints, subprocesses, native artifacts or devices."
+review_only = "The source gate does not run Make expansion, Bash syntax validation, Go builds/installs, statik, git diff or Docker. Review establishes that git diff --quiet HEAD returns zero for synchronized tracked output and nonzero for changed tracked output, causing the checked success branch or exit 1 respectively; unrelated changes lie outside the pathspec. Actual generation with clean/changed output and the two supported make -C sdk build/install commands require their toolchains and are not claimed as executed. No shell script, unit file, runtime interface or persistent state changes, so bash -n on scripts, interface-driving and restart-recovery tests do not apply."
+wiring_requests = []
+scope = ["sdk/Makefile", "sdk/README.md", "tools/qualification/audit_repairs/repair_22_33_1380.kvx", "tools/qualification/audit_repairs/test_repair_22_33_1380.py"]
+
+[finding.sdk-make-module-root]
+audit = "22.30.75"
+file = "sdk/Makefile"
+line = 117
+class = "wiring-gap"
+severity = "medium"
+resolution = "Build/install require ../go.sum, whose ../go.mod rule runs module maintenance from the repository root. SDK version and DBBackend linker paths name the root-owned fork packages. Consensus metadata reads the committed TMVersionDefault source and links the actual consensus/version.TMVersion variable, replacing the absent upstream TMCoreSemVer. Supported working directory is sdk, as documented by make -C sdk commands."
+tests = ["test_sdk_make_module_root", "test_sdk_linker_flags_reach_declared_fork_variables"]
+
+[finding.swagger-clean-check]
+audit = "22.30.75"
+file = "sdk/Makefile"
+line = 167
+class = "test-gap"
+severity = "medium"
+resolution = "After the real statik generation command, a literal shell git diff --quiet HEAD -- client/docs/statik checks tracked generated output against HEAD, including staged differences. Its then branch reports synchronized output; its else branch reports drift on stderr and exits 1. Other working-tree changes do not affect this scoped check. The test asserts the complete producer command and guard tokens; actual clean/changed Git execution is review-only."
+tests = ["test_swagger_clean_check_source_contract"]
+
+[finding.markdown-container-image]
+audit = "22.30.75"
+file = "sdk/Makefile"
+line = 318
+class = "wiring-gap"
+severity = "medium"
+resolution = "Both lint and lint-fix use containerMarkdownLintImage. Parameterized source tests substitute the declared values and verify docker run image, container name, SDK mount, fix arguments and matching container reuse branch."
+tests = ["test_markdown_container_image"]
+
+[finding.sdk-overview-two-domains]
+audit = "22.30.75"
+file = "sdk/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+resolution = "The overview describes one BFT network, kernel embedded in paxd, chain ID 125, Go fork and language-client roles, signed EIP-1559 submission, pax_sequencerReceipt evidence and committed-block finality with independent receipt-key trust. Root HTTPS/WebSocket node endpoints replace the retired boundary; no standalone daemon instructions remain."
+tests = ["test_sdk_overview_one_network_native_path_and_endpoints"]
+
+[evidence]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1380.py"
+gate_cmd = "cg spec done 22.33.1380 -f layerx-merge --root /work/paxeer-monorepo"
+private_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The last hf-done JSON line and its private ledger entry name the exact candidate revision, command, exit code and log; successful build and verification must name the same candidate revision. This record does not claim qualification in advance."
+
+[gotcha.baseline_order]
+observed = "Step 8 requests baseline verification, but the explicit ordered instructions prohibit pre-implementation tests and manual verify_cmd execution."
+resolution = "Follow the exclusive hf-build then hf-done order and do not fabricate baseline failures."
+
+[gotcha.scope]
+observed = "Inherited instructions request GOTCHA.kvx and spec edits and publication, outside the explicit task scope."
+resolution = "Record gotchas here; leave out-of-scope files untouched and let hf-done and the runner own completion and publication."
+
+[gotcha.source_gate]
+observed = "The proposal requests executable Make and Git behavior proofs, while step 9 prohibits external binaries and subprocess toolchains and step 2 explicitly prescribes source facts for these files."
+resolution = "Assert production commands, branch guards, manifest roots, actual linker variables and simple reference expansion in-process, and explicitly reserve toolchain execution and full shell syntax for review without claiming runtime qualification."
+
+[gotcha.context_reads]
+observed = "Broad context output was truncated, and guessed tool and RPC source locations did not exist."
+resolution = "Use bounded targeted reads and discover actual source paths before reading; no failure is attributed to production code."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Follow the existing four-space Python style, tabbed Make recipes and .editorconfig whitespace/final-newline conventions; Markdown uses the existing prose/table style."
+
+[gotcha.shell_tokenizer]
+observed = "The first hf-done ran seven tests: six passed and the Swagger contract failed because shlex punctuation omitted redirection operators, splitting >& instead of recognizing the asserted token."
+resolution = "Include shell redirection punctuation in the tokenizer; retain the full source assertion and production guard unchanged. The failed candidate was e669a0f1985d5a442d9caf04e855f9ac1fc72962, command cg spec done 22.33.1380 -f layerx-merge --root /work/paxeer-monorepo, exit 1, private log /out/logs/verify-1.log. Rebuild and verify the repaired candidate through the bounded gates."

@@ -8,6 +8,35 @@ struct lxp_kernel;
 struct lxp_module_ctx;
 struct lxp_handover_evidence;
 
+#ifndef LXP_TEST_LIBRARY_PATH
+#error "Makefile must supply LXP_TEST_LIBRARY_PATH from $(abspath $(LIBRARY))"
+#endif
+
+static FILE *retired_archive_symbols(void)
+{
+    static const char prefix[] = "nm -P --defined-only --extern-only -- '";
+    static const char archive[] = LXP_TEST_LIBRARY_PATH;
+    char command[sizeof(prefix) + 4U * sizeof(archive) + 1U];
+    size_t used = sizeof(prefix) - 1U;
+
+    if (archive[0] == '\0') {
+        (void)fputs("LXP_TEST_LIBRARY_PATH must name the linked archive\n", stderr);
+        return NULL;
+    }
+    (void)memcpy(command, prefix, used);
+    for (size_t i = 0U; archive[i] != '\0'; ++i) {
+        if (archive[i] == '\'') {
+            (void)memcpy(command + used, "'\\''", 4U);
+            used += 4U;
+        } else {
+            command[used++] = archive[i];
+        }
+    }
+    command[used++] = '\'';
+    command[used] = '\0';
+    return popen(command, "r");
+}
+
 extern lxp_result lxp_handover_prepare(struct lxp_kernel *kernel,
     const lxp_activity *activity, uint64_t batch_number, lxp_arena *arena);
 extern lxp_result lxp_handover_stage(struct lxp_module_ctx *ctx,
@@ -50,7 +79,7 @@ static int handover_symbols_absent(void)
     LXP_CASE_CHECK(lxp_handover_history_resolve == NULL);
     LXP_CASE_CHECK(lxp_handover_genesis_authority == NULL);
 
-    symbols = popen("nm -P --defined-only --extern-only build/liblayerx.a", "r");
+    symbols = retired_archive_symbols();
     LXP_CASE_CHECK(symbols != NULL);
     while (fgets(line, sizeof(line), symbols) != NULL) {
         if (sscanf(line, "%255s %c", symbol, &kind) != 2) continue;

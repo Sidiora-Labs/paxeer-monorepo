@@ -30,8 +30,8 @@ defmodule BlockScoutWeb.Controller do
   """
   def ajax?(conn) do
     case get_req_header(conn, "x-requested-with") do
-      [value] -> value in ["XMLHttpRequest", "xmlhttprequest"]
-      [] -> false
+      [value] -> String.downcase(value) == "xmlhttprequest"
+      _ -> false
     end
   end
 
@@ -46,23 +46,17 @@ defmodule BlockScoutWeb.Controller do
     network_path = url_params[:path]
 
     if network_path do
-      if path =~ network_path do
+      network_path = "/" <> String.trim(network_path, "/")
+      path = "/" <> String.trim_leading(path, "/")
+      uri_path = URI.parse(path).path || "/"
+
+      if network_path == "/" or uri_path == network_path or String.starts_with?(uri_path, network_path <> "/") do
         path
       else
-        network_path = sanitize_network_path(network_path, path)
-
         network_path <> path
       end
     else
       path
-    end
-  end
-
-  defp sanitize_network_path(network_path, path) do
-    if String.starts_with?(path, "/") do
-      String.trim_trailing(network_path, "/")
-    else
-      network_path
     end
   end
 end

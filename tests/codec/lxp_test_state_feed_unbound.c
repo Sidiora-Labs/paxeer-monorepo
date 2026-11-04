@@ -6,7 +6,31 @@ static int unbound_fixture_reference_main(int argc, char **argv) __attribute__((
 #include "../../src/modules/programs/storage.h"
 
 #include "lxp_kernel_case.h"
-#include "layerx/lxp_history.h"
+#include "layerx/lxp_kernel_host.h"
+#include "layerx/lxp_storage.h"
+
+#include <unistd.h>
+
+struct lx_programs_state_feed_store;
+struct lxp_history;
+extern lxp_result lxp_programs_state_feed_store_open(
+    struct lx_programs_state_feed_store *, lxp_log *, lxp_log *,
+    struct lxp_history *, lxp_arena *, pthread_mutex_t *);
+extern lxp_result lxp_programs_state_feed_store_anchor(
+    struct lx_programs_state_feed_store *, uint64_t, const uint8_t[32]);
+extern void lxp_programs_bind_state_feed(void);
+extern void lxp_programs_state_feed_observe(void);
+extern void lxp_programs_state_feed_store_bind_maintenance(void);
+extern void lxp_programs_state_feed_store_page(void);
+extern void lxp_programs_state_feed_store_recover(void);
+
+#pragma weak lxp_programs_state_feed_store_open
+#pragma weak lxp_programs_state_feed_store_anchor
+#pragma weak lxp_programs_bind_state_feed
+#pragma weak lxp_programs_state_feed_observe
+#pragma weak lxp_programs_state_feed_store_bind_maintenance
+#pragma weak lxp_programs_state_feed_store_page
+#pragma weak lxp_programs_state_feed_store_recover
 
 typedef struct unbound_fixture {
     lxp_kernel kernel;
@@ -148,12 +172,14 @@ static int unbound_fixture_init(unbound_fixture *f)
     (void)memcpy(f->actor->authority_key, f->owner_key, 32U);
     LXP_CASE_CHECK(lxp_state_store_init(&f->state, 1U) == LXP_OK);
     LXP_CASE_CHECK(lxp_state_store_bind_accounts(&f->state, &f->accounts) == LXP_OK);
+    LXP_CASE_CHECK(lxp_state_store_require_account_root(&f->state) == LXP_OK);
     f->parameters = 1U;
     LXP_CASE_CHECK(lxp_kernel_create(&f->kernel, &f->state, &f->journal,
                                      &f->parameters, 0U) == LXP_OK);
+    LXP_CASE_CHECK(lxp_kernel_claim_writer(&f->kernel) == LXP_OK);
     LXP_CASE_CHECK(install_metering_v1(&f->kernel) == LXP_OK);
     LXP_CASE_CHECK(lxp_kernel_register_module(&f->kernel,
-                    programs_module_registration_v4()) == LXP_OK);
+                    programs_module_registration_v4_storage_retirement()) == LXP_OK);
     f->runtime.accounts = &f->accounts;
     f->runtime.assets = &f->asset;
     f->runtime.asset_count = 1U;
@@ -250,17 +276,6 @@ typedef struct unbound_publication {
     char directory[128];
 } unbound_publication;
 
-typedef struct unbound_feed_store {
-    lx_programs_state_feed_store store;
-    lxp_log feed_log;
-    lxp_log canonical_log;
-    lxp_history history;
-    pthread_mutex_t mutex;
-    lxp_arena arena;
-    uint8_t storage[2U * LXP_MAX_ACTIVITY_BYTES];
-    char directory[128];
-} unbound_feed_store;
-
 static lxp_result unbound_publish(void *context, const lxp_kernel *kernel,
                                   const lxp_activity *activity,
                                   const lxp_receipt *receipt)
@@ -268,12 +283,19 @@ static lxp_result unbound_publish(void *context, const lxp_kernel *kernel,
     unbound_publication *publication = context;
     lxp_byte_span encoded;
     lxp_result status;
+    lxp_receipt decoded;
     if (memcmp(kernel->current_state_root, receipt->resulting_state_root,
                32U) != 0 || activity->activity_type == 0U)
         return LXP_FATAL_INVARIANT;
     status = lxp_arena_reset(&publication->arena, 0U);
     if (status == LXP_OK)
         status = lxp_receipt_encode(receipt, true, &publication->arena, &encoded);
+    if (status == LXP_OK)
+        status = lxp_receipt_decode(encoded.bytes, encoded.length, true, &decoded);
+    if (status == LXP_OK && (decoded.global_sequence != receipt->global_sequence ||
+        decoded.result_code != receipt->result_code ||
+        memcmp(decoded.resulting_state_root, kernel->current_state_root, 32U) != 0))
+        status = LXP_ERR_CONTEXT_MISMATCH;
     if (status == LXP_OK && encoded.length > UINT32_MAX)
         status = LXP_ERR_LENGTH_LIMIT;
     if (status == LXP_OK)
@@ -303,37 +325,6 @@ static int unbound_publication_open(unbound_fixture *f,
     return 0;
 }
 
-static int unbound_feed_open(unbound_fixture *f, unbound_feed_store *feed)
-{
-    char path[192], database[192];
-    strcpy(feed->directory, "/tmp/lxp-unbound-feed-XXXXXX");
-    LXP_CASE_CHECK(mkdtemp(feed->directory) != NULL);
-    LXP_CASE_CHECK(pthread_mutex_init(&feed->mutex, NULL) == 0);
-    LXP_CASE_CHECK(lxp_arena_init(&feed->arena, feed->storage,
-                                 sizeof(feed->storage)) == LXP_OK);
-    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/feed.log",
-                           feed->directory) > 0);
-    LXP_CASE_CHECK(lxp_log_open_or_create(&feed->feed_log, path,
-                                         LXP_MAX_BATCH_BODY_BYTES) == LXP_OK);
-    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/canonical.log",
-                           feed->directory) > 0);
-    LXP_CASE_CHECK(lxp_log_open_or_create(&feed->canonical_log, path,
-                                         LXP_MAX_BATCH_BODY_BYTES) == LXP_OK);
-    LXP_CASE_CHECK(snprintf(database, sizeof(database), "%s/history.db",
-                           feed->directory) > 0);
-    LXP_CASE_CHECK(lxp_history_open(&feed->history, &feed->canonical_log,
-        database, "migrations/0007_history_index.sql") == LXP_OK);
-    LXP_CASE_CHECK(lxp_programs_state_feed_store_open(&feed->store,
-        &feed->feed_log, &feed->canonical_log, &feed->history, &feed->arena,
-        &feed->mutex) == LXP_OK);
-    LXP_CASE_CHECK(lxp_programs_state_feed_store_anchor(&feed->store,
-        f->state.next_sequence, f->kernel.current_state_root) == LXP_OK);
-    f->runtime.state_feed = &feed->store.feed;
-    LXP_CASE_CHECK(lxp_kernel_bind_module_runtime(&f->kernel,
-        LXP_MODULE_PROGRAMS, &f->runtime) == LXP_OK);
-    return 0;
-}
-
 static int unbound_remove_file(const char *directory, const char *name)
 {
     char path[192];
@@ -347,19 +338,6 @@ static int unbound_publication_close(unbound_publication *publication)
     LXP_CASE_CHECK(lxp_log_close(&publication->receipts) == LXP_OK);
     LXP_CASE_CHECK(unbound_remove_file(publication->directory, "receipts.log") == 0);
     LXP_CASE_CHECK(rmdir(publication->directory) == 0);
-    return 0;
-}
-
-static int unbound_feed_close(unbound_feed_store *feed)
-{
-    LXP_CASE_CHECK(lxp_history_close(&feed->history) == LXP_OK);
-    LXP_CASE_CHECK(lxp_log_close(&feed->feed_log) == LXP_OK);
-    LXP_CASE_CHECK(lxp_log_close(&feed->canonical_log) == LXP_OK);
-    LXP_CASE_CHECK(pthread_mutex_destroy(&feed->mutex) == 0);
-    LXP_CASE_CHECK(unbound_remove_file(feed->directory, "feed.log") == 0);
-    LXP_CASE_CHECK(unbound_remove_file(feed->directory, "canonical.log") == 0);
-    LXP_CASE_CHECK(unbound_remove_file(feed->directory, "history.db") == 0);
-    LXP_CASE_CHECK(rmdir(feed->directory) == 0);
     return 0;
 }
 
@@ -424,6 +402,7 @@ static int unbound_fixture_close(unbound_fixture *f)
     while (f->kernel.blob_count != 0U)
         free(f->kernel.blobs[--f->kernel.blob_count].bytes);
     LXP_CASE_CHECK(lxp_state_store_destroy(&f->state) == LXP_OK);
+    lx_account_registry_release(&f->accounts);
     free(f);
     return 0;
 }
@@ -436,7 +415,7 @@ static int programs_runtime_without_feed(void)
     uint8_t registration[74], account_id[32];
     LXP_CASE_CHECK(f != NULL && publication != NULL);
     LXP_CASE_CHECK(unbound_fixture_init(f) == 0);
-    LXP_CASE_CHECK(f->runtime.state_feed == NULL);
+    LXP_CASE_CHECK(f->kernel.module_runtime[LXP_MODULE_PROGRAMS] == &f->runtime);
     LXP_CASE_CHECK(f->kernel.observe_commit == NULL);
     LXP_CASE_CHECK(unbound_publication_open(f, publication) == 0);
     LXP_CASE_CHECK(unbound_deploy(f) == 0);
@@ -460,11 +439,149 @@ static int programs_runtime_without_feed(void)
         1U, account_id) == LXP_OK);
     LXP_CASE_CHECK(program_spend_account(&f->accounts, account_id) != NULL);
     LXP_CASE_CHECK(unbound_call(f, 3U) == 0);
-    LXP_CASE_CHECK(f->runtime.state_feed == NULL);
+    LXP_CASE_CHECK(f->kernel.module_runtime[LXP_MODULE_PROGRAMS] == &f->runtime);
     LXP_CASE_CHECK(publication->count == 3U);
     LXP_CASE_CHECK(unbound_publication_close(publication) == 0);
     free(publication);
     LXP_CASE_CHECK(unbound_fixture_close(f) == 0);
+    return 0;
+}
+
+typedef struct unbound_recovery {
+    size_t count;
+    uint64_t sequence;
+    uint8_t root[32];
+} unbound_recovery;
+
+static lxp_result unbound_recover_receipt(void *context,
+    const lxp_log_record_header *header, const uint8_t *body)
+{
+    unbound_recovery *recovery = context;
+    lxp_receipt receipt;
+    lxp_result status = lxp_receipt_decode(body, header->body_length, true, &receipt);
+    if (status != LXP_OK) return status;
+    if (header->record_kind != LXP_LOG_RECEIPT ||
+        header->global_sequence != recovery->sequence + 1U ||
+        receipt.global_sequence != header->global_sequence ||
+        receipt.result_code != LXP_OK ||
+        (recovery->count != 0U &&
+         memcmp(receipt.previous_state_root, recovery->root, 32U) != 0))
+        return LXP_ERR_CONTEXT_MISMATCH;
+    recovery->sequence = receipt.global_sequence;
+    memcpy(recovery->root, receipt.resulting_state_root, 32U);
+    ++recovery->count;
+    return LXP_OK;
+}
+
+static int unbound_publication_reopen(unbound_fixture *f,
+    unbound_publication *publication)
+{
+    char path[192];
+    uint64_t durable_offset = publication->receipts.durable_offset;
+    lxp_log_record_header header;
+    lxp_receipt recovered;
+    unbound_recovery recovery = {0};
+
+    LXP_CASE_CHECK(lxp_kernel_clear_commit_observer(&f->kernel, publication) == LXP_OK);
+    LXP_CASE_CHECK(lxp_log_close(&publication->receipts) == LXP_OK);
+    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/receipts.log", publication->directory) > 0);
+    LXP_CASE_CHECK(lxp_log_open(&publication->receipts, path) == LXP_OK);
+    LXP_CASE_CHECK(publication->receipts.durable_offset == durable_offset);
+    LXP_CASE_CHECK(lxp_log_recover_complete_records(&publication->receipts,
+        unbound_recover_receipt, &recovery) == LXP_OK);
+    LXP_CASE_CHECK(publication->receipts.write_offset == durable_offset);
+    LXP_CASE_CHECK(recovery.count == publication->count);
+    LXP_CASE_CHECK(recovery.sequence + 1U == f->state.next_sequence);
+    LXP_CASE_CHECK(memcmp(recovery.root, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(lxp_log_read(&publication->receipts, publication->last_offset,
+        &header, publication->storage, sizeof(publication->storage)) == LXP_OK);
+    LXP_CASE_CHECK(header.record_kind == LXP_LOG_RECEIPT);
+    LXP_CASE_CHECK(header.global_sequence + 1U == f->state.next_sequence);
+    LXP_CASE_CHECK(lxp_receipt_decode(publication->storage, header.body_length,
+        true, &recovered) == LXP_OK);
+    LXP_CASE_CHECK(recovered.result_code == LXP_OK);
+    LXP_CASE_CHECK(memcmp(recovered.resulting_state_root, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(lxp_kernel_set_commit_observer(&f->kernel, unbound_publish, publication) == LXP_OK);
+    return 0;
+}
+
+static int unbound_restart(unbound_fixture **fixture,
+    unbound_publication *publication)
+{
+    unbound_fixture *f = *fixture;
+    lxp_identity_store *identities = malloc(sizeof(*identities));
+    uint8_t *storage = malloc(2U * LXP_MAX_BATCH_BODY_BYTES);
+    lxp_snapshot_manifest_record manifest;
+    lxp_byte_span snapshot;
+    lxp_arena arena;
+    uint8_t canonical_root[32], receipt_root[32], actor_id[32], payee_id[32];
+    uint64_t next_sequence = f->state.next_sequence;
+    uint64_t identity_sequence = f->identity->next_sequence;
+    size_t blob_count = f->kernel.blob_count;
+    size_t kv_count = f->kernel.module_kv_count;
+    lxp_u128 actor_balance = f->actor->balance;
+    lxp_u128 payee_balance = f->payee->balance;
+    char path[192];
+
+    LXP_CASE_CHECK(identities != NULL && storage != NULL);
+    *identities = f->identities;
+    memcpy(receipt_root, f->kernel.current_state_root, 32U);
+    memcpy(actor_id, f->actor->id, 32U);
+    memcpy(payee_id, f->payee->id, 32U);
+    LXP_CASE_CHECK(lxp_arena_init(&arena, storage, 2U * LXP_MAX_BATCH_BODY_BYTES) == LXP_OK);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, canonical_root) == LXP_OK);
+    LXP_CASE_CHECK(lxp_snapshot_write(&f->kernel, next_sequence - 1U, &arena, &snapshot) == LXP_OK);
+    LXP_CASE_CHECK(lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length,
+        next_sequence - 1U, canonical_root, receipt_root, &manifest) == LXP_OK);
+    LXP_CASE_CHECK(lxp_snapshot_store_write(publication->directory, &manifest,
+        snapshot.bytes, snapshot.length) == LXP_OK);
+    LXP_CASE_CHECK(lxp_kernel_clear_commit_observer(&f->kernel, publication) == LXP_OK);
+    LXP_CASE_CHECK(lxp_log_close(&publication->receipts) == LXP_OK);
+    LXP_CASE_CHECK(unbound_fixture_close(f) == 0);
+    *fixture = NULL;
+    f = calloc(1U, sizeof(*f));
+    LXP_CASE_CHECK(f != NULL);
+    LXP_CASE_CHECK(unbound_fixture_init(f) == 0);
+    LXP_CASE_CHECK(lxp_arena_reset(&arena, 0U) == LXP_OK);
+    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/%020llu.lxs", publication->directory,
+        (unsigned long long)(next_sequence - 1U)) > 0);
+    LXP_CASE_CHECK(lxp_snapshot_store_read(path, &arena, &manifest, &snapshot) == LXP_OK);
+    LXP_CASE_CHECK(lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest,
+        &f->kernel) == LXP_OK);
+    f->identities = *identities;
+    LXP_CASE_CHECK(lxp_identity_resolve(&f->identities, unbound_did,
+        sizeof(unbound_did) - 1U, &f->identity) == LXP_OK);
+    f->actor = program_spend_account(&f->accounts, actor_id);
+    f->payee = program_spend_account(&f->accounts, payee_id);
+    LXP_CASE_CHECK(f->actor != NULL && f->payee != NULL);
+    LXP_CASE_CHECK(f->state.next_sequence == next_sequence);
+    LXP_CASE_CHECK(f->identity->next_sequence == identity_sequence);
+    LXP_CASE_CHECK(f->kernel.blob_count == blob_count && blob_count != 0U);
+    LXP_CASE_CHECK(f->kernel.module_kv_count == kv_count);
+    LXP_CASE_CHECK(lxp_u128_cmp(f->actor->balance, actor_balance) == 0);
+    LXP_CASE_CHECK(lxp_u128_cmp(f->payee->balance, payee_balance) == 0);
+    LXP_CASE_CHECK(lxp_snapshot_verify_root(&f->kernel, &manifest) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(f->kernel.current_state_root, receipt_root, 32U) == 0);
+    LXP_CASE_CHECK(unlink(path) == 0);
+    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/receipts.log", publication->directory) > 0);
+    LXP_CASE_CHECK(lxp_log_open(&publication->receipts, path) == LXP_OK);
+    LXP_CASE_CHECK(lxp_kernel_set_commit_observer(&f->kernel, unbound_publish, publication) == LXP_OK);
+    LXP_CASE_CHECK(unbound_publication_reopen(f, publication) == 0);
+    free(storage);
+    free(identities);
+    *fixture = f;
+    return 0;
+}
+
+static int retired_feed_symbols_absent(void)
+{
+    LXP_CASE_CHECK(lxp_programs_state_feed_store_open == NULL);
+    LXP_CASE_CHECK(lxp_programs_state_feed_store_anchor == NULL);
+    LXP_CASE_CHECK(lxp_programs_bind_state_feed == NULL);
+    LXP_CASE_CHECK(lxp_programs_state_feed_observe == NULL);
+    LXP_CASE_CHECK(lxp_programs_state_feed_store_bind_maintenance == NULL);
+    LXP_CASE_CHECK(lxp_programs_state_feed_store_page == NULL);
+    LXP_CASE_CHECK(lxp_programs_state_feed_store_recover == NULL);
     return 0;
 }
 
@@ -474,22 +591,17 @@ static int feed_does_not_change_roots(void)
     unbound_fixture *bound = calloc(1U, sizeof(*bound));
     unbound_publication *plain_log = calloc(1U, sizeof(*plain_log));
     unbound_publication *bound_log = calloc(1U, sizeof(*bound_log));
-    unbound_feed_store *feed = calloc(1U, sizeof(*feed));
     uint8_t prior_root[32];
-    uint64_t feed_offset, canonical_offset;
     LXP_CASE_CHECK(plain != NULL && bound != NULL && plain_log != NULL &&
-                   bound_log != NULL && feed != NULL);
+                   bound_log != NULL);
     LXP_CASE_CHECK(unbound_fixture_init(plain) == 0);
     LXP_CASE_CHECK(unbound_fixture_init(bound) == 0);
     LXP_CASE_CHECK(unbound_publication_open(plain, plain_log) == 0);
     LXP_CASE_CHECK(unbound_publication_open(bound, bound_log) == 0);
-    LXP_CASE_CHECK(unbound_feed_open(bound, feed) == 0);
-    LXP_CASE_CHECK(plain->runtime.state_feed == NULL);
-    LXP_CASE_CHECK(bound->runtime.state_feed == &feed->store.feed);
+    LXP_CASE_CHECK(plain->kernel.module_runtime[LXP_MODULE_PROGRAMS] == &plain->runtime);
+    LXP_CASE_CHECK(bound->kernel.module_runtime[LXP_MODULE_PROGRAMS] == &bound->runtime);
     LXP_CASE_CHECK(bound->kernel.observe_commit == unbound_publish);
     LXP_CASE_CHECK(bound->kernel.commit_observer_context == bound_log);
-    feed_offset = feed->feed_log.write_offset;
-    canonical_offset = feed->canonical_log.write_offset;
     LXP_CASE_CHECK(unbound_deploy(plain) == 0);
     LXP_CASE_CHECK(unbound_deploy(bound) == 0);
     LXP_CASE_CHECK(memcmp(plain->kernel.current_state_root,
@@ -498,6 +610,7 @@ static int feed_does_not_change_roots(void)
         lxp_log_record_header plain_header, bound_header;
         uint8_t plain_bytes[LXP_MAX_ACTIVITY_BYTES];
         uint8_t bound_bytes[LXP_MAX_ACTIVITY_BYTES];
+        if (call == 9U) LXP_CASE_CHECK(unbound_restart(&bound, bound_log) == 0);
         memcpy(prior_root, plain->kernel.current_state_root, 32U);
         LXP_CASE_CHECK(unbound_call(plain, call) == 0);
         LXP_CASE_CHECK(unbound_call(bound, call) == 0);
@@ -515,12 +628,13 @@ static int feed_does_not_change_roots(void)
         LXP_CASE_CHECK(memcmp(plain_bytes, bound_bytes, plain_header.body_length) == 0);
     }
     LXP_CASE_CHECK(plain_log->count == 17U && bound_log->count == 17U);
-    LXP_CASE_CHECK(feed->feed_log.write_offset == feed_offset);
-    LXP_CASE_CHECK(feed->canonical_log.write_offset == canonical_offset);
-    LXP_CASE_CHECK(unbound_feed_close(feed) == 0);
+    LXP_CASE_CHECK(plain->state.next_sequence == bound->state.next_sequence);
+    LXP_CASE_CHECK(plain->identity->next_sequence == bound->identity->next_sequence);
+    LXP_CASE_CHECK(lxp_u128_cmp(plain->actor->balance, bound->actor->balance) == 0);
+    LXP_CASE_CHECK(unbound_publication_reopen(plain, plain_log) == 0);
+    LXP_CASE_CHECK(unbound_publication_reopen(bound, bound_log) == 0);
     LXP_CASE_CHECK(unbound_publication_close(plain_log) == 0);
     LXP_CASE_CHECK(unbound_publication_close(bound_log) == 0);
-    free(feed);
     free(plain_log);
     free(bound_log);
     LXP_CASE_CHECK(unbound_fixture_close(plain) == 0);
@@ -532,7 +646,8 @@ int main(int argc, char **argv)
 {
     const lxp_kernel_case cases[] = {
         { "programs_runtime_without_feed", programs_runtime_without_feed },
-        { "feed_does_not_change_roots", feed_does_not_change_roots }
+        { "feed_does_not_change_roots", feed_does_not_change_roots },
+        { "retired_feed_symbols_absent", retired_feed_symbols_absent }
     };
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]), argc, argv);
 }
