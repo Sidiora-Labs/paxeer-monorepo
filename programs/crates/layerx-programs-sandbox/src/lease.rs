@@ -780,7 +780,24 @@ impl Lease {
         Ok(receipt)
     }
 
-    #[cfg(any(feature = "host-ffi", test))]
+    pub(crate) fn verify_native_activation(
+        &self,
+        activity_id: [u8; 32],
+        value: &[u8],
+    ) -> Result<(), LeaseRefusal> {
+        let activated = Self::decode_state(value)?;
+        let last = activated
+            .history
+            .last()
+            .ok_or(LeaseRefusal::InvalidStateEncoding)?;
+        let mut expected = self.clone();
+        expected.apply_host_activity(LeaseActivity::Activate, activity_id, last.batch_sequence)?;
+        if expected != activated {
+            return Err(LeaseRefusal::ActivityReceiptMismatch);
+        }
+        Ok(())
+    }
+
     pub(crate) fn apply_host_activity(
         &mut self,
         activity: LeaseActivity,

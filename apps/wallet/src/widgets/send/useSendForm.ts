@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { submittedTransfer, type TransferIdentity } from '@paxeer/wallet';
 import { useActiveNetwork } from '@/components/NetworkSwitcher';
 import { useWallet, useWalletActions, useWalletState } from '@/providers/WalletProvider';
-import { storePendingSend } from '@/lib/optimistic';
+import { storeScopedPendingSend } from '@/widgets/portfolio/pendingSends';
 import { saveRecentRecipient } from '@/lib/recentRecipients';
 import {
   putTransferRecord,
@@ -266,7 +266,9 @@ export function useSendForm(): UseSendFormResult {
         }
         setTransfer(identity);
         saveRecentRecipient(recipient);
-        storePendingSend({
+        storeScopedPendingSend({
+          sender,
+          chainId,
           tokenAddress: token.address,
           symbol: token.symbol,
           amount,

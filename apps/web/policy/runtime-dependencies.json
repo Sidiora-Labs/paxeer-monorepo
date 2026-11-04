@@ -1,8 +1,10 @@
 {
-  "maximumDirectRuntimeDependencies": 5,
+  "maximumDirectRuntimeDependencies": 7,
   "approved": {
     "@layerx/ui": "file:packages/layerx-ui",
-    "next": "16.3.5",
+    "@paxeer/wallet": "file:../../sdk/wallet",
+    "@sidiora/layerx-sdk": "file:../../services/agent/sdk/typescript",
+    "next": "16.4.1",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"

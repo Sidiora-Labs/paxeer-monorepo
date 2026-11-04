@@ -281,6 +281,8 @@ export interface SdkTelemetryEvent {
   readonly code?: SdkErrorCode;
 }
 
+export type SdkTelemetryDiagnostic = (failure: Readonly<{ event: SdkTelemetryEvent; error: unknown }>) => void;
+
 export type SdkTelemetry = (event: SdkTelemetryEvent) => void;
 
 const AGENT_IDEMPOTENT = new Set<AgentOperation>([
@@ -340,6 +342,7 @@ export class ProductionClient {
   public constructor(
     private readonly transport: ProductionTransport,
     private readonly telemetry?: SdkTelemetry,
+    private readonly telemetryDiagnostic?: SdkTelemetryDiagnostic,
   ) {}
 
   public agent<TRequest, TResponse>(
@@ -358,6 +361,16 @@ export class ProductionClient {
     return this.execute("human", operation, request, options);
   }
 
+  private observe(event: SdkTelemetryEvent): void {
+    try { this.telemetry?.(event); }
+    catch (error) {
+      try {
+        if (this.telemetryDiagnostic !== undefined) this.telemetryDiagnostic({ event, error });
+        else console.warn("SDK telemetry observer failed", { plane: event.plane, operation: event.operation, outcome: event.outcome });
+      } catch { /* Diagnostics cannot change a request's outcome either. */ }
+    }
+  }
+
   private async execute<TRequest, TResponse>(
     plane: PlatformPlane,
     operation: AgentOperation | HumanOperation,
@@ -374,13 +387,13 @@ export class ProductionClient {
         request,
         ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }),
       });
-      this.telemetry?.({ plane, operation, outcome: "completed" });
+      this.observe({ plane, operation, outcome: "completed" });
       return response;
     } catch (error) {
       const safe = error instanceof PlatformSdkError
         ? error
         : new PlatformSdkError({ code: "transport-failure", retry: "safe" });
-      this.telemetry?.({ plane, operation, outcome: "refused", code: safe.code });
+      this.observe({ plane, operation, outcome: "refused", code: safe.code });
       throw safe;
     }
   }
