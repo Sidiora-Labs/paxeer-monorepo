@@ -1,8 +1,6 @@
 package types
 
 import (
-	"fmt"
-
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -269,22 +267,22 @@ func (gs GenesisState) Validate() error {
 		return err
 	}
 	if len(gs.AirdropEpochs) != 0 {
-		return fmt.Errorf("%w: airdrop_epochs is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("airdrop_epochs is no longer supported")
 	}
 	if len(gs.AirdropClaims) != 0 {
-		return fmt.Errorf("%w: airdrop_claims is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("airdrop_claims is no longer supported")
 	}
 	if len(gs.ProtocolFees) != 0 {
-		return fmt.Errorf("%w: protocol_fees is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("protocol_fees is no longer supported")
 	}
 	if len(gs.AirdropBases) != 0 {
-		return fmt.Errorf("%w: airdrop_bases is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("airdrop_bases is no longer supported")
 	}
 	if len(gs.HoldingHistories) != 0 {
-		return fmt.Errorf("%w: holding_histories is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("holding_histories is no longer supported")
 	}
 	if len(gs.HoldingCheckpoints) != 0 {
-		return fmt.Errorf("%w: holding_checkpoints is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("holding_checkpoints is no longer supported")
 	}
 	denoms := map[string]Market{}
 	indexes := map[uint64]bool{}
@@ -293,14 +291,14 @@ func (gs GenesisState) Validate() error {
 			return err
 		}
 		if _, dup := denoms[market.Denom]; dup || indexes[market.Index] {
-			return fmt.Errorf("%w: duplicate market %s", ErrInvalidGenesis, market.Denom)
+			return ErrInvalidGenesis.Wrapf("duplicate market %s", market.Denom)
 		}
 		denoms[market.Denom] = market
 		indexes[market.Index] = true
 	}
 	for i := uint64(1); i <= uint64(len(gs.Markets)); i++ {
 		if !indexes[i] {
-			return fmt.Errorf("%w: market indexes must be 1..%d", ErrInvalidGenesis, len(gs.Markets))
+			return ErrInvalidGenesis.Wrapf("market indexes must be 1..%d", len(gs.Markets))
 		}
 	}
 	return gs.validateContracts()
@@ -326,7 +324,7 @@ func word(value string) bool {
 }
 
 func invalid(format string, args ...interface{}) error {
-	return fmt.Errorf("%w: %s", ErrInvalidGenesis, fmt.Sprintf(format, args...))
+	return ErrInvalidGenesis.Wrapf(format, args...)
 }
 
 // validateContracts checks the surfaces, role tables, fee rights,
