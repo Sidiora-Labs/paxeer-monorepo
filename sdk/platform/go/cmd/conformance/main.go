@@ -284,6 +284,7 @@ func runVectors(repo string) error {
 		return fmt.Errorf("vector-v4-committed: unexpected name or refusal count")
 	}
 	c := committed.Positive
+	trust := layerx.CommittedTrust{ChainID: c.BlockHeader.ChainID, Height: c.BlockHeader.Height, BlockHash: c.BlockHeader.Hash()}
 	receipt, err := verifyVectorReceipt(c.receiptVectorCase)
 	if err == nil {
 		err = matchVectorReceipt(c.receiptVectorCase, receipt, "receipted")
@@ -291,7 +292,7 @@ func runVectors(repo string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %s: %w", committed.Name, c.ID, err)
 	}
-	result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet)
+	result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, c.ReceiptInclusion, c.Commit, c.ValidatorSet, trust)
 	if err == nil {
 		err = matchVectorReceipt(c.receiptVectorCase, result.SequencerReceiptVerification, c.Expected.Rung)
 	}
@@ -301,7 +302,7 @@ func runVectors(repo string) error {
 	for _, refusal := range committed.Refusals {
 		inclusion := c.ReceiptInclusion
 		inclusion.NextCommit = refusal.NextCommit
-		result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet)
+		result, err := layerx.VerifyCommittedReceipt(receipt, c.BlockHeader, inclusion, c.Commit, c.ValidatorSet, trust)
 		if err := matchVectorRefusal(result.SequencerReceiptVerification, err, refusal.ExpectedCheck); err != nil {
 			return fmt.Errorf("%s: %s: %w", committed.Name, refusal.ID, err)
 		}
@@ -329,7 +330,7 @@ func runVectors(repo string) error {
 		if i == 1 {
 			keys, level = committedKeys, "committed"
 		}
-		result, err := layerx.VerifyPortableReceipt(encoded, keys)
+		result, err := layerx.VerifyPortableReceipt(encoded, keys, trust)
 		if err != nil {
 			return fmt.Errorf("%s: bundle %d: %w", portable.Name, i, err)
 		}

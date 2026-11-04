@@ -182,6 +182,7 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 		validators = append(validators, CometValidator{PublicKey: public, VotingPower: validator.Power})
 	}
 	header, commit := s.ExecutionHeader.decode(t), s.ExecutionCommit.decode(t)
+	trust := CommittedTrust{ChainID: header.ChainID, Height: header.Height, BlockHash: header.Hash()}
 	inclusion := ReceiptInclusion{
 		Transaction: s.TransactionProof.Data, TransactionProof: s.TransactionProof.Proof.decode(t),
 		Result:      ExecTxResult{Code: s.Result.Code, Data: s.Result.Data, GasWanted: s.Result.GasWanted, GasUsed: s.Result.GasUsed},
@@ -198,7 +199,7 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 	if !committedVerifyTransactionProof(inclusion.Transaction, inclusion.TransactionProof, header.DataHash) {
 		t.Fatal("recorded block transaction proof failed")
 	}
-	result, err := VerifyCommittedReceipt(receipt, header, inclusion, commit, validators)
+	result, err := VerifyCommittedReceipt(receipt, header, inclusion, commit, validators, trust)
 	if err != nil {
 		t.Fatalf("recorded V4 settlement: %v", err)
 	}
@@ -234,7 +235,7 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 			if committedVerifyTransactionProof(changed.Transaction, changed.TransactionProof, header.DataHash) {
 				t.Fatal("mutated block transaction retained inclusion")
 			}
-			result, err := VerifyCommittedReceipt(receipt, header, changed, commit, validators)
+			result, err := VerifyCommittedReceipt(receipt, header, changed, commit, validators, trust)
 			var verification *VerificationError
 			if !errors.As(err, &verification) || verification.Check != "committed-inclusion" || !errors.Is(err, ErrVerification) || result.Rung != "" {
 				t.Fatalf("expected committed-inclusion refusal, got rung %q, error %v", result.Rung, err)
