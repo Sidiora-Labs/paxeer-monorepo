@@ -1,0 +1,20 @@
+[repair.22.33.1248]
+audit = "22.30.61"
+acceptance = "22998.1"
+qualification = "Authoritative verified revision, command, exit code and private evidence log are emitted by hf-build/hf-done and retained in the runner ledger."
+baseline = "No unchanged-tree verify ran: the explicit gate order prohibits testing before complete implementation and prohibits running verify_cmd outside hf-done; no baseline failure is claimed."
+
+[finding.program-result-proof]
+proof = "TestRepairM_1248_ProgramResultProof"
+path = "Real program and origin-1 admission, signed fulfilment and bank payouts -> commit, close and disk reopen -> AppModule.RegisterServices protobuf gRPC -> generated QueryClient ProgramResult, Params, Attestors, Request and Result; preserve EVM, replay protection, invariant and genesis replay assertions."
+
+[finding.timeout-height-overflow]
+proof = "TestRepairM_1248_TimeoutParameters; TestRepairM_1248_TimeoutHeightBoundaries; TestRepairM_1248_PersistedInvalidTimeout"
+path = "Real governance handler and stored parameters -> checked keeper admission before bank escrow/nonce -> valid maximum-height request and refund; invalid timeout, negative height and overflow preserve state, balances and events."
+
+[wiring.shared-codec]
+request = "sdk/baseapp/grpcrouter.go, owning domain 15: retain the prerequisite generated SDK protobuf codec repair from 22.31.128; exercised here through registered transport, with no out-of-scope edits."
+
+[gotcha.baseline]
+observed = "The requested unchanged-tree verify conflicts with the explicit implementation-first hf-build/hf-done order and single verification budget."
+action = "Follow the explicit gate order and do not claim an unrun baseline."

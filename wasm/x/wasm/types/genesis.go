@@ -132,7 +132,7 @@ func ValidateGenesis(data GenesisState) error {
 // other checks on every chunk of the stream.
 func ValidateGenesisStream(genesisStateCh <-chan GenesisState) error {
 	passedParamsCheck := false
-	var paramCheckErr error
+	paramCheckErr := sdkerrors.Wrap(ErrEmpty, "missing params")
 	var otherErr error
 	for s := range genesisStateCh {
 		if otherErr != nil {
