@@ -1,0 +1,78 @@
+[repair.22.33.1265]
+audit = "22.30.62"
+acceptance = "22998.1"
+ibc-gas-real-transfer = "TestRepairM_1265_GasRealTransfer: retained no-op rows and positive Tendermint-backed transfer rows for constructed and served implementations below/at merge, including historical tracing; literal gas, escrow, sequence, packet payload, timeouts and independently hashed commitment."
+ibc-transfer-real-path = "TestRepairM_1265_TransferRealPath: both ABI methods, positive amounts and memo, real keeper/codec/store/handlers, signed solo-machine packet relay, receiver vouchers, success/error acknowledgement and timeout refunds, close/reopen before and after settlement, replay no-op."
+baseline = "No earlier gate ledger or in-scope repair existed; the task's ordered implementation-first hf-build/hf-done rules prohibit the unchanged-tree verify requested by step 6; no baseline failure is claimed."
+revision = "The authoritative verified candidate revision, exact command, exit code and private log are recorded by hf-done in the runner gate ledger."
+wiring_request = "spec/layerx-merge/spec.kvx (fm-chain-modules): incorporate these finding-to-test mappings and the runner's verified revision in the task record; spec edits are outside this task's authorized scope."
+
+[gotcha.task-order]
+observed = "The embedded unchanged-tree baseline instruction conflicts with the task's explicit ordered gate instructions."
+action = "Follow the ordered gates, preserve existing evidence, and do not claim a baseline run."
+
+[qualification.failure]
+revision = "bdf3f42d9df093b9b5dd0d01d7eeb0144aa72948"
+command = "cg spec done 22.33.1265 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler details: /tmp/repair-m1265.log"
+observed = "Pre-existing sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli callers expect one value from the two-value tx.NewFactoryCLI; package compilation fails before any repair test executes."
+assumption = "The owning SDK and tokenfactory domains must repair their callers; the in-scope implementation and initial positive gas literals remain unqualified, and this recorded failure must not be rerun here."
+
+[gotcha.factory-signature]
+observed = "The production-only IBC build passes while the test package's existing node imports expose unrelated CLI compilation failures."
+action = "Preserve the compiler log, request repairs from the SDK and tokenfactory owners, and do not expand this task's scope."
+
+[wiring.factory-signature]
+request = "sdk/x/auth/client/cli and sdk/x/staking/client/cli (SDK domain), modules/tokenfactory/client/cli (tokenfactory domain): handle both tx.NewFactoryCLI return values so the existing application test imports compile."
+
+[qualification.continuation]
+base = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+authorization = "Attempt 3 explicitly resumes the preserved attempt-2 implementation after 22.31.463; the prior prohibition on rerunning the recorded compiler failure is superseded for this continuation."
+baseline = "The previous verification failed during package compilation before any TestRepairM_1265_ test executed; no test assertion is claimed to have failed on the unchanged baseline."
+evidence = "The current hf-build and hf-done ledger records the exact candidate revision, command, exit and private log; no prior successful qualification is claimed."
+
+[gotcha.fixture-package-name]
+observed = "The node import declares package app; the preserved fixture used undefined node identifiers, exposed after the CLI caller repair allowed test-package compilation."
+action = "Use the existing app package name throughout the real IBC fixture; preserve every assertion."
+
+[qualification.current-continuation]
+base = "4b4896072f927b28618921285b3e3ae758bc467e"
+authorization = "Continue the preserved attempt-3 tree and rerun the bounded gates after the CLI caller repair."
+observed = "The first executable fixture run measured exact positive transfer charges of 48790 and 54497 in all eight constructed/served, tracing and merge-height cases per method; the prior unqualified literals had never been measured."
+repair = "Freeze those measured charges with exact equality and decode the real acknowledgement with its production protobuf JSON codec; retain every packet, balance, recovery, refund and replay assertion."
+evidence = "The authoritative candidate revision, command, exit and private log for the final unchanged tree are recorded by hf-done in the runner ledger."
+
+[qualification.solomachine-consensus-height]
+revision = "32e912e8807243c56710f6f114b0d74b7e6ab021"
+command = "cg spec done 22.33.1265 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; assertion details: /tmp/repair-m1265.log"
+observed = "The real solo-machine header update advances the client sequence to 0-2 while core UpdateClient persists its consensus state at header height 0-1; TimeoutPacket queries 0-2 and fails before refund."
+assumption = "The IBC client owning domain must reconcile the header consensus height and proof sequence; the timeout assertions remain intact and no consensus state is fabricated to bypass the failure."
+
+[wiring.solomachine-consensus-height]
+request = "interchain/modules/core/02-client/keeper/client.go and interchain/modules/light-clients/06-solomachine/types (IBC client domain): reconcile the authenticated header consensus height with the next proof sequence consumed by channel timeout verification."
+resolved_by = "Attempt 6 rules this a fixture gap: persist the real signed-header-authenticated consensus state at the timeout proof height inside precompiles/ibc; no out-of-path production repair is needed for this task."
+
+[gotcha.acknowledgement-json]
+observed = "encoding/json accepts the flat acknowledgement JSON without populating the protobuf oneof, leaving both result and error empty."
+action = "Decode acknowledgement bytes through the application's codec.Codec JSON interface with UnmarshalAsJSON, preserving the protobuf oneof."
+
+[qualification.attempt-5]
+base = "90c597177fcfcac6653ca7effb29d994ae45b128"
+authorization = "Continue the preserved attempt-4 implementation; repair its acknowledgement decoder and run the bounded gates with a reset repair budget."
+repair = "Use peer.app.AppCodec().UnmarshalAsJSON with the real acknowledgement bytes and protobuf message; the interface exposes the JSON decoder under that name in this revision."
+preserved_finding = "The solo-machine timeout consensus-height mismatch remains recorded above for its owning domain; every timeout, refund, recovery and replay assertion remains intact."
+evidence = "hf-done records the exact candidate revision, command, exit and private log in the runner gate ledger; no successful qualification is claimed before that result."
+
+[qualification.attempt-6]
+base = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+authorization = "Continue all four preserved attempt-5 paths; the timeout consensus-height mismatch is an in-scope fixture gap under the explicit continuation ruling."
+prior_failure = "The supplied attempt-5 evidence reports transfer/timeout and transferWithDefaultTimeout/timeout failing at consensus height 0-2; the four acknowledgement subtests passed. No unchanged-tree gate was rerun."
+repair = "After the production light client verifies the signed header, persist its authenticated consensus state at the proof sequence using the real client keeper, commit and reopen, and assert the recovered state and expired timestamp before relaying MsgTimeout through the production transfer module. Preserve escrow refund, packet deletion, restart and replay assertions."
+evidence = "The exact verified candidate revision, command, exit and private log are recorded by hf-done in the runner gate ledger; the in-scope record remains unchanged between the build and verification gates."
+
+[gotcha.timeout-proof-consensus]
+observed = "The solo-machine signed header is indexed at its old sequence while the next timeout proof uses its incremented sequence, so a fixture must also persist the authenticated consensus state at that proof height."
+action = "Read the consensus state from the real updated client, assert it matches the signed peer state, persist it through ClientKeeper, and commit/reopen before driving the real timeout handler."
