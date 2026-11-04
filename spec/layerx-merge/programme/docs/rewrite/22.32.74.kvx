@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.74"
+domain = 8
+owner_role = "fm-platform"
+pages = 1
+
+[page.1]
+path = "contracts/platform-sdk.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.77 [doc.14] (missing): Registry JVM interface rows point to contracts/platform-sdk.md fragments, but the contract page is absent at the audited revision. Restore the normative SDK contract or reconcile those links with maintained merged-network client contracts."

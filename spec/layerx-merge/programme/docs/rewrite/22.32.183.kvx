@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.183"
+domain = 17
+owner_role = "fm-programme"
+pages = 2
+
+[page.1]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "misleading"
+bytes = 43936
+source_1 = "record 22.30.155 [doc.14] (misleading): Line 207 calls the tokens topic suffix transaction_hash, but TokenTransfer subscribes by token contract address and notifier broadcasts by token_contract_address_hash; address payload casing also needs the recorded consumer repair."
+
+[page.2]
+path = "spec/layerx-merge/contracts/interop-committed-proof.md"
+status = "stale"
+bytes = 9424
+source_1 = "record 22.30.110 [doc.017] (stale): All 81 lines reviewed; API table at lines 15-16 omits current namespace and receipt_json/keyId types and marks implemented APIs planned."

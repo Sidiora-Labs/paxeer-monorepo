@@ -21,8 +21,8 @@ func validParamChangeRequest() GovParamChangeRequest {
 			// struct-valued param (object)
 			{Subspace: "baseapp", Key: "TimeoutParams", Value: []byte(`{"propose":"300000000","commit":"200000000"}`)},
 		},
-		InitialDeposit: "10000000usei",
-		Fees:           "8000usei",
+		InitialDeposit: "10000000uhpx",
+		Fees:           "8000uhpx",
 		Gas:            300_000,
 	}
 }
@@ -39,7 +39,7 @@ func TestBuildParamChangeMsg(t *testing.T) {
 		if msg.Proposer != addr.String() {
 			t.Errorf("proposer = %q, want %q", msg.Proposer, addr.String())
 		}
-		want, _ := sdk.ParseCoinsNormalized("10000000usei")
+		want, _ := sdk.ParseCoinsNormalized("10000000uhpx")
 		if !msg.InitialDeposit.IsEqual(want) {
 			t.Errorf("InitialDeposit = %v, want %v", msg.InitialDeposit, want)
 		}
@@ -80,11 +80,11 @@ func TestBuildParamChangeMsg(t *testing.T) {
 		}
 	})
 
-	t.Run("non-usei deposit rejected", func(t *testing.T) {
+	t.Run("non-uhpx deposit rejected", func(t *testing.T) {
 		req := validParamChangeRequest()
 		req.InitialDeposit = "10000000uatom"
 		if _, err := buildParamChangeMsg(cfg, req); err == nil {
-			t.Fatal("expected error for non-usei deposit")
+			t.Fatal("expected error for non-uhpx deposit")
 		} else if !strings.Contains(err.Error(), "not permitted") {
 			t.Errorf("err = %v, want denom-not-permitted", err)
 		}
@@ -102,8 +102,8 @@ func TestBuildParamChangeMsg(t *testing.T) {
 			{"empty subspace", func(r *GovParamChangeRequest) { r.Changes[0].Subspace = "" }},
 			{"empty key", func(r *GovParamChangeRequest) { r.Changes[0].Key = "" }},
 			{"empty value", func(r *GovParamChangeRequest) { r.Changes[0].Value = nil }},
-			{"non-usei deposit", func(r *GovParamChangeRequest) { r.InitialDeposit = "1uatom" }},
-			{"zero-coin deposit", func(r *GovParamChangeRequest) { r.InitialDeposit = "0usei" }},
+			{"non-uhpx deposit", func(r *GovParamChangeRequest) { r.InitialDeposit = "1uatom" }},
+			{"zero-coin deposit", func(r *GovParamChangeRequest) { r.InitialDeposit = "0uhpx" }},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {

@@ -129,8 +129,7 @@ func NewGenesisAssembler(homeDir, bucket, region, chainID string, s3Factory S3Cl
 func (a *GenesisAssembler) Handler() engine.TaskHandler {
 	return engine.TypedHandlerWithResult(func(ctx context.Context, cfg AssembleGenesisRequest) (*AssembleGenesisResult, error) {
 		if markerExists(a.homeDir, assembleMarkerFile) {
-			assembleLog.Debug("already completed, skipping")
-			return nil, nil
+			return a.recoverAssembly(cfg)
 		}
 
 		if cfg.AccountBalance == "" {
@@ -187,7 +186,7 @@ func (a *GenesisAssembler) Handler() engine.TaskHandler {
 			return nil, err
 		}
 
-		if err := writeMarker(a.homeDir, assembleMarkerFile); err != nil {
+		if err := a.persistAssembly(cfg, genesisHash); err != nil {
 			return nil, err
 		}
 
@@ -648,31 +647,19 @@ func (a *GenesisAssembler) uploadPeers(ctx context.Context, cfg AssembleGenesisR
 		if err != nil {
 			return seis3.ClassifyS3Error("assemble-and-upload-genesis", a.bucket, key, a.region, err)
 		}
-		data, err := io.ReadAll(output.Body)
+		data, err := io.ReadAll(io.LimitReader(output.Body, maxGentxBytes+1))
 		_ = output.Body.Close()
 		if err != nil {
 			return fmt.Errorf("assemble-genesis: reading identity for %s: %w", nodeName, err)
 		}
 
-		var identity struct {
-			NodeKey json.RawMessage `json:"node_key"`
-		}
-		if err := json.Unmarshal(data, &identity); err != nil {
-			return fmt.Errorf("assemble-genesis: parsing identity for %s: %w", nodeName, err)
-		}
-
-		var nodeKey struct {
-			ID string `json:"id"`
-		}
-		if err := json.Unmarshal(identity.NodeKey, &nodeKey); err != nil {
-			return fmt.Errorf("assemble-genesis: parsing node_key for %s: %w", nodeName, err)
-		}
-		if nodeKey.ID == "" {
-			return fmt.Errorf("assemble-genesis: empty node ID for %s", nodeName)
+		identity, err := decodePublicIdentity(data)
+		if err != nil {
+			return fmt.Errorf("assemble-genesis: invalid identity for %s: %w", nodeName, err)
 		}
 
 		dns := fmt.Sprintf("%s-0.%s.%s.svc.cluster.local", nodeName, nodeName, cfg.Namespace)
-		peers = append(peers, fmt.Sprintf("%s@%s:26656", nodeKey.ID, dns))
+		peers = append(peers, fmt.Sprintf("%s@%s:26656", identity.NodeKey.ID, dns))
 	}
 
 	peersJSON, err := json.Marshal(peers)
@@ -698,4 +685,59 @@ func (a *GenesisAssembler) uploadPeers(ctx context.Context, cfg AssembleGenesisR
 		return seis3.ClassifyS3Error("assemble-and-upload-genesis", a.bucket, peersKey, a.region, err)
 	}
 	return nil
+}
+
+type assemblyCompletion struct {
+	ChainID     string                `json:"chainId"`
+	Bucket      string                `json:"bucket"`
+	RequestHash string                `json:"requestHash"`
+	Result      AssembleGenesisResult `json:"result"`
+}
+
+func assemblyRequestHash(cfg AssembleGenesisRequest) (string, error) {
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func (a *GenesisAssembler) persistAssembly(cfg AssembleGenesisRequest, hash string) error {
+	if !canonicalGenesisHash(hash) {
+		return fmt.Errorf("assemble-genesis: invalid published digest")
+	}
+	requestHash, err := assemblyRequestHash(cfg)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(assemblyCompletion{ChainID: a.chainID, Bucket: a.bucket, RequestHash: requestHash, Result: AssembleGenesisResult{GenesisHash: hash}})
+	if err != nil {
+		return err
+	}
+	return durableJSONFile(a.homeDir, assembleMarkerFile, data)
+}
+
+func (a *GenesisAssembler) recoverAssembly(cfg AssembleGenesisRequest) (*AssembleGenesisResult, error) {
+	dir, err := openConfinedDir(a.homeDir, false)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	data, err := confinedRead(dir, assembleMarkerFile, 16384)
+	if err != nil {
+		return nil, err
+	}
+	var completion assemblyCompletion
+	if err := json.Unmarshal(data, &completion); err != nil {
+		return nil, fmt.Errorf("assemble-genesis: legacy or corrupt completion: %w", err)
+	}
+	hash, err := assemblyRequestHash(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if completion.ChainID != a.chainID || completion.Bucket != a.bucket || completion.RequestHash != hash || !canonicalGenesisHash(completion.Result.GenesisHash) {
+		return nil, fmt.Errorf("assemble-genesis: completion does not match this request")
+	}
+	return &completion.Result, nil
 }

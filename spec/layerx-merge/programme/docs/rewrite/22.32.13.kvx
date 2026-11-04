@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.13"
+domain = 3
+owner_role = "fm-markets"
+pages = 2
+
+[page.1]
+path = "modules/oracle/spec/06_params.md"
+status = "stale"
+bytes = 773
+source_1 = "record 22.30.13 [doc.019] (stale): Lines 8-19 name the wrong module, include removed rewarddistributionwindow and omit LookbackDuration and current defaults."
+
+[page.2]
+path = "modules/oracle/spec/MidBlock.md"
+status = "stale"
+bytes = 2238
+source_1 = "record 22.30.13 [doc.020] (stale): Lines 5-15 describe current MidBlock behavior as a future optimization over EndBlock; update implemented phase order and default vote period."

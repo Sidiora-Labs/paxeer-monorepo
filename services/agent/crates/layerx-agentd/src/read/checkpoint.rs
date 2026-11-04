@@ -231,6 +231,118 @@ impl ServedCheckpoint {
         Ok(checkpoint)
     }
 
+    /// Encodes the authenticated native header for the Programs chain verifier.
+    pub fn commitment_proof(
+        &self,
+    ) -> Result<layerx_programs::chain_proof::decode::CommitmentProof, CheckpointReadError> {
+        let verified = serve_checkpoint(
+            self.height,
+            &self.header.chain_id,
+            &self.header,
+            &self.commit,
+            &self.validators,
+        )?;
+        if verified != *self {
+            return Err(CheckpointReadError::CheckpointBlockMismatch);
+        }
+        let h = &self.header;
+        let mut version = Vec::new();
+        varint_field(&mut version, 1, h.version_block);
+        varint_field(&mut version, 2, h.version_app);
+        let mut header = Vec::new();
+        bytes_field(&mut header, 1, &version);
+        bytes_field(&mut header, 2, h.chain_id.as_bytes());
+        varint_field(&mut header, 3, h.height);
+        bytes_field(&mut header, 4, &h.time.encode());
+        bytes_field(
+            &mut header,
+            5,
+            &h.last_block_id
+                .map_or_else(|| vec![0x12, 0], BlockId::encode),
+        );
+        for (field, bytes) in [
+            (
+                6,
+                h.last_commit_hash
+                    .as_ref()
+                    .map_or(&[][..], |h| h.as_slice()),
+            ),
+            (7, h.data_hash.as_ref().map_or(&[][..], |h| h.as_slice())),
+            (8, h.validators_hash.as_slice()),
+            (9, h.next_validators_hash.as_slice()),
+            (10, h.consensus_hash.as_slice()),
+            (11, h.app_hash.as_slice()),
+            (
+                12,
+                h.last_results_hash
+                    .as_ref()
+                    .map_or(&[][..], |h| h.as_slice()),
+            ),
+            (
+                13,
+                h.evidence_hash.as_ref().map_or(&[][..], |h| h.as_slice()),
+            ),
+            (14, h.proposer_address.as_slice()),
+        ] {
+            bytes_field(&mut header, field, bytes);
+        }
+        let mut commit = Vec::new();
+        varint_field(&mut commit, 1, self.commit.height);
+        varint_field(&mut commit, 2, u64::from(self.commit.round));
+        bytes_field(&mut commit, 3, &self.commit.block_id.encode());
+        let mut validators = Vec::new();
+        let mut total = 0;
+        let mut proposer = Vec::new();
+        for validator in &self.validators {
+            let mut signature = Vec::new();
+            if let Some(vote) = self
+                .commit
+                .votes
+                .iter()
+                .find(|vote| vote.validator_address == validator.address)
+            {
+                varint_field(&mut signature, 1, 2);
+                bytes_field(&mut signature, 2, &vote.validator_address);
+                bytes_field(&mut signature, 3, &vote.timestamp.encode());
+                bytes_field(&mut signature, 4, &vote.signature);
+            } else {
+                varint_field(&mut signature, 1, 1);
+                bytes_field(
+                    &mut signature,
+                    3,
+                    &CommitTimestamp {
+                        seconds: -62_135_596_800,
+                        nanos: 0,
+                    }
+                    .encode(),
+                );
+            }
+            bytes_field(&mut commit, 4, &signature);
+            let mut encoded = Vec::new();
+            bytes_field(&mut encoded, 1, &validator.address);
+            let mut key = Vec::new();
+            bytes_field(&mut key, 1, &validator.public_key);
+            bytes_field(&mut encoded, 2, &key);
+            varint_field(&mut encoded, 3, validator.voting_power);
+            bytes_field(&mut validators, 1, &encoded);
+            if validator.address == h.proposer_address {
+                proposer = encoded;
+            }
+            total += validator.voting_power;
+        }
+        bytes_field(&mut validators, 2, &proposer);
+        varint_field(&mut validators, 3, total);
+        Ok(layerx_programs::chain_proof::decode::CommitmentProof {
+            signed_header: header,
+            commit,
+            validator_set: validators,
+            store_name: "lxphost".to_owned(),
+            key: Vec::new(),
+            value: None,
+            proof_ops: Vec::new(),
+        })
+    }
+
     pub(crate) fn from_comet_json(
         height: u64,
         expected_chain_id: &str,

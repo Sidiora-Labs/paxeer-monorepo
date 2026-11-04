@@ -4,8 +4,10 @@ import { PlatformSdkError, ProductionClient, SecretBytes } from "@sidiora/layerx
 import {
   LayerXApplicationStateError,
   loadApplicationConfig,
+  optionalEnvironment,
   receiptKeysFromEnvironment,
   requiredEnvironment,
+  secureUrl,
 } from "../support/runtime.mjs";
 
 const BuyerMiddleware = BuyerMiddlewareImplementation;
@@ -14,11 +16,28 @@ export function platform_ref_buyer() {
   return "buyer-middleware-metered-api-receipt-verified";
 }
 
+export function buyerHumanUrl(config) {
+  if (config.name !== "beta") return config.humanUrl;
+  const deployed = optionalEnvironment(config.humanUrlEnvironment);
+  if (deployed === undefined && optionalEnvironment("LAYERX_EXAMPLE_ENDPOINT") !== undefined) {
+    throw new LayerXApplicationStateError("refused", "buyer_requires_dedicated_human_url");
+  }
+  const human = secureUrl(deployed ?? config.humanUrl);
+  const node = secureUrl(config.rpcUrl);
+  if (human.protocol !== "https:" || human.pathname !== "/"
+    || human.origin === node.origin
+    || /^(?:api-mainnet-beta|api[0-9]+\.mainnet-beta)\.paxeer\.network\.?$/iu.test(human.hostname)) {
+    throw new LayerXApplicationStateError("refused", "buyer_requires_hosted_human_origin");
+  }
+  return human.origin;
+}
+
 export async function runBuyerAgent(config) {
   const token = new SecretBytes(new TextEncoder().encode(requiredEnvironment(config.tokenEnvironment)));
   try {
+    const humanUrl = buyerHumanUrl(config);
     const buyer = new BuyerMiddleware({
-      client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: config.humanUrl, bearerToken: token })),
+      client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: humanUrl, bearerToken: token })),
       source: requiredEnvironment(config.sourceEnvironment),
       supported: [{ scheme: config.scheme, network: config.network }],
       receiptKeys: receiptKeysFromEnvironment(config.receiptKeysEnvironment),

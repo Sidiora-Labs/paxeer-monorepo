@@ -1,7 +1,7 @@
 use super::*;
 use crate::outbox::{Outbox, SubmissionState};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use std::fmt::Debug;
 
 fn must<T, E: Debug>(value: Result<T, E>) -> T {

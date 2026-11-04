@@ -74,7 +74,22 @@ type ExecTxResult struct {
 	GasUsed   int64
 }
 
+// CommittedTrust must come from an independently trusted network checkpoint,
+// never from the portable receipt document being verified.
+type CommittedTrust struct {
+	ChainID   string
+	Height    int64
+	BlockHash [32]byte
+}
+
+type CommittedLightBlock struct {
+	Header     CommittedHeader
+	Commit     CometCommit
+	Validators []CometValidator
+}
+
 type ReceiptInclusion struct {
+	ValidatorHistory []CommittedLightBlock `json:",omitempty"`
 	Transaction      []byte
 	TransactionProof CommittedProof
 	Result           ExecTxResult
@@ -93,7 +108,7 @@ type Committed struct {
 	VotingPower int64
 }
 
-func VerifyCommittedReceipt(receiptVerification SequencerReceiptVerification, blockHeader CommittedHeader, receiptInclusion ReceiptInclusion, commit CometCommit, validatorSet []CometValidator) (Committed, error) {
+func VerifyCommittedReceipt(receiptVerification SequencerReceiptVerification, blockHeader CommittedHeader, receiptInclusion ReceiptInclusion, commit CometCommit, validatorSet []CometValidator, trust ...CommittedTrust) (Committed, error) {
 	fail := func(check ReceiptCheck) (Committed, error) { return Committed{}, receiptFailure(check) }
 	r := receiptVerification.Receipt
 	i := receiptInclusion
@@ -157,10 +172,46 @@ func VerifyCommittedReceipt(receiptVerification SequencerReceiptVerification, bl
 	if batchHeight != uint64(blockHeader.Height) || from == 0 || r.GlobalSequence < from || r.GlobalSequence > to {
 		return fail("committed-batch")
 	}
+	if len(trust) != 1 || !committedAnchored(blockHeader, i.ValidatorHistory, trust[0]) {
+		return fail("committed-trust-anchor")
+	}
+	if receiptVerification.TransportBlock != nil && (receiptVerification.TransportBlock.Height != uint64(blockHeader.Height) || receiptVerification.TransportBlock.BlockHash != hash) {
+		return fail("committed-coordinate")
+	}
 	result := receiptVerification
+	result.TransportBlock = &CommittedCoordinate{Height: uint64(blockHeader.Height), BlockHash: hash}
 	result.Rung = "committed"
 	result.Level = "committed"
 	return Committed{SequencerReceiptVerification: result, Height: uint64(blockHeader.Height), BlockHash: hash, VotingPower: power}, nil
+}
+
+func committedAnchored(target CommittedHeader, history []CommittedLightBlock, trust CommittedTrust) bool {
+	if trust.ChainID == "" || trust.Height <= 0 || trust.BlockHash == ([32]byte{}) || target.ChainID != trust.ChainID || target.Height < trust.Height || len(history) > 4096 || target.Height-trust.Height != int64(len(history)) {
+		return false
+	}
+	if len(history) == 0 {
+		return target.Hash() == trust.BlockHash
+	}
+	for n, block := range history {
+		header := block.Header
+		if header.ChainID != trust.ChainID || header.Height != trust.Height+int64(n) {
+			return false
+		}
+		if n == 0 && header.Hash() != trust.BlockHash {
+			return false
+		}
+		if _, ok := committedVerifyCommit(header, block.Commit, block.Validators); !ok {
+			return false
+		}
+		next := target
+		if n+1 < len(history) {
+			next = history[n+1].Header
+		}
+		if !next.Time.After(header.Time) || !committedBlockIDsEqual(next.LastBlockID, block.Commit.BlockID) || !bytes.Equal(header.NextValidatorsHash, next.ValidatorsHash) {
+			return false
+		}
+	}
+	return true
 }
 
 type committedProtoValue struct {

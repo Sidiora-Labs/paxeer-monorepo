@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.163"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 6
+
+[page.1]
+path = "deploy/launchpad/README.md"
+status = "stale"
+bytes = 1173
+source_1 = "record 22.30.170 [doc.013] (stale): The overview says nothing here hard-codes a registry or host and treats Railway host wiring as a future choice. railway-values.json already pins mainnet-beta RPC/public web origins and railway/ provides concrete deployment and variable contracts. See finding.deployment_overview_drift."
+
+[page.2]
+path = "deploy/launchpad/production/bootstrap/README.md"
+status = "stale"
+bytes = 3590
+source_1 = "record 22.30.170 [doc.014] (stale): Lines 19-22 and 56 invoke deploy/production/bootstrap; compose and scripts actually live under deploy/launchpad/production/bootstrap. See finding.bootstrap_command_paths."
+
+[page.3]
+path = "deploy/launchpad/production/observability/README.md"
+status = "stale"
+bytes = 6365
+source_1 = "record 22.30.170 [doc.015] (stale): Line 11 invokes deploy/production/observability/check.py; the checked-in checker lives under deploy/launchpad/production/observability. See finding.observability_command_paths."
+
+[page.4]
+path = "deploy/launchpad/production/recovery/README.md"
+status = "stale"
+bytes = 6755
+source_1 = "record 22.30.170 [doc.023] (stale): Line 8 invokes deploy/production/recovery/check.py; the checked-in checker lives under deploy/launchpad/production/recovery. See finding.recovery_command_paths."
+
+[page.5]
+path = "deploy/launchpad/production/recovery/phase2/runbook.md"
+status = "stale"
+bytes = 12176
+source_1 = "record 22.30.170 [doc.024] (stale): Line 48 invokes deploy/production/recovery/phase2/check.py; the phase3 checker actually lives under deploy/launchpad/production/recovery/phase2. See finding.recovery_v3_command_paths."
+
+[page.6]
+path = "deploy/launchpad/production/recovery/phase4/runbook.md"
+status = "stale"
+bytes = 8379
+source_1 = "record 22.30.170 [doc.025] (stale): Lines 9 and 33 invoke release collect/tests in deploy/production/recovery/phase4; that directory is now deploy/launchpad/production/recovery/phase4. See finding.recovery_release_command_paths."

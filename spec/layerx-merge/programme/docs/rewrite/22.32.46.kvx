@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.46"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 2
+
+[page.1]
+path = "consensus/test/e2e/README.md"
+status = "stale"
+bytes = 8355
+source_1 = "record 22.30.55 [doc.15] (stale): Read in full; accurately discloses the broken Docker image, but deterministic generation claims exceed random.go behavior. See e2e-determinism-doc; no Docker qualification was run."
+
+[page.2]
+path = "consensus/test/fuzz/README.md"
+status = "stale"
+bytes = 828
+source_1 = "record 22.30.55 [doc.16] (stale): Read in full; native fuzz commands omit the required gofuzz build tag while correctly marking upstream OSS-Fuzz tooling inapplicable. See fuzz-build-tag-doc."

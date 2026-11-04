@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/db/sqlcdb"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/social"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/pkg/types"
@@ -106,114 +106,140 @@ func (h *harness) seedPoolMessage(t *testing.T, id, pool, sender, content string
 
 // ── Pool chat ─────────────────────────────────────────────────────────────────
 
+type durableHarness struct {
+	store        *fanout.DurableStore
+	authenticate fanout.AuthenticateUpgrade
+	sessions     map[string]string
+	server       *httptest.Server
+}
+
+func newDurableHarness(t *testing.T, wallets []string, pools map[string]string) *durableHarness {
+	t.Helper()
+	store, authenticate, sessions := social.NewRepair68ChatFixture(t, wallets, pools)
+	r := chi.NewRouter()
+	social.New(social.Deps{Durable: store, AuthenticateChat: authenticate}).RegisterRoutes(r)
+	server := httptest.NewServer(r)
+	t.Cleanup(server.Close)
+	return &durableHarness{store: store, authenticate: authenticate, sessions: sessions, server: server}
+}
+func (h *durableHarness) ctx(t *testing.T, wallet string) context.Context {
+	t.Helper()
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("X-Fixture-Session", h.sessions[wallet])
+	principal, err := h.authenticate(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fanout.WithPrincipal(context.Background(), principal)
+}
+func (h *durableHarness) request(t *testing.T, method, path, wallet, revision string, body any, status int) []byte {
+	t.Helper()
+	var reader io.Reader
+	if body != nil {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reader = bytes.NewReader(raw)
+	}
+	req, err := http.NewRequest(method, h.server.URL+path, reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-Fixture-Session", h.sessions[wallet])
+	if revision != "" {
+		req.Header.Set("If-Match", revision)
+	}
+	resp, err := h.server.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != status {
+		t.Fatalf("%s %s: %d want %d: %s", method, path, resp.StatusCode, status, raw)
+	}
+	return raw
+}
 func TestPoolMessages(t *testing.T) {
-	h := newHarness(t)
-	pool := addr(1)
-	alice := addr(0xa11ce)
-	bob := addr(0xb0b)
-
-	h.seedPoolMessage(t, "0001", pool, alice, "first", 100)
-	h.seedPoolMessage(t, "0002", pool, alice, "second", 200)
-	h.seedPoolMessage(t, "0003", pool, bob, "third", 300)
-
+	pool, alice, bob, creator := addr(1), addr(0xa11ce), addr(0xb0b), addr(0xc0ffee)
+	h := newDurableHarness(t, []string{alice, bob, creator}, map[string]string{pool: creator})
+	for _, wallet := range []string{alice, bob, creator} {
+		if err := h.store.JoinPool(h.ctx(t, wallet), wallet, pool); err != nil {
+			t.Fatal(err)
+		}
+	}
+	messages := []fanout.DurableMessage{}
+	for i, in := range []struct{ sender, content string }{{alice, "first"}, {alice, "second"}, {bob, "third"}} {
+		m, err := h.store.Send(h.ctx(t, in.sender), fanout.SendInput{Actor: in.sender, Kind: "pool", Target: pool, ClientID: fmt.Sprint(i), Content: in.content})
+		if err != nil {
+			t.Fatal(err)
+		}
+		messages = append(messages, m)
+	}
+	path := "/pool/" + pool + "/messages"
+	decode := func(raw []byte) fanout.HistoryPage {
+		t.Helper()
+		var page fanout.HistoryPage
+		if err := json.Unmarshal(raw, &page); err != nil {
+			t.Fatal(err)
+		}
+		return page
+	}
+	var cursor string
 	t.Run("list oldest-first within page", func(t *testing.T) {
-		resp, out := h.do(t, http.MethodGet, "/pool/"+pool+"/messages?limit=2", "", nil)
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("status = %d (%s)", resp.StatusCode, out)
+		raw := h.request(t, "GET", path+"?limit=2", alice, "", nil, 200)
+		got := decode(raw)
+		if len(got.Messages) != 2 || got.Messages[0].ID != messages[0].ID || got.Messages[1].ID != messages[1].ID || got.Next == "" {
+			t.Fatalf("durable order/page: %+v", got)
 		}
-		var got types.MessagesResponse
-		if err := json.Unmarshal(out, &got); err != nil {
-			t.Fatalf("decode: %v", err)
+		var more struct {
+			HasMore bool `json:"has_more"`
 		}
-		if len(got.Messages) != 2 {
-			t.Fatalf("len = %d, want 2", len(got.Messages))
+		if err := json.Unmarshal(raw, &more); err != nil || !more.HasMore {
+			t.Fatalf("missing has_more: %s; %v", raw, err)
 		}
-		// Newest two (0002,0003) reversed to oldest-first => 0002 then 0003.
-		if got.Messages[0].ID != "0002" || got.Messages[1].ID != "0003" {
-			t.Errorf("order = %s,%s", got.Messages[0].ID, got.Messages[1].ID)
-		}
-		if !got.HasMore {
-			t.Error("expected has_more=true")
-		}
+		cursor = got.Next
 	})
-
-	t.Run("before cursor paginates", func(t *testing.T) {
-		_, out := h.do(t, http.MethodGet, "/pool/"+pool+"/messages?before=0003", "", nil)
-		var got types.MessagesResponse
-		_ = json.Unmarshal(out, &got)
-		for _, m := range got.Messages {
-			if m.ID >= "0003" {
-				t.Errorf("got id %s >= cursor", m.ID)
-			}
+	t.Run("signed cursor paginates", func(t *testing.T) {
+		got := decode(h.request(t, "GET", path+"?cursor="+cursor, alice, "", nil, 200))
+		if len(got.Messages) != 1 || got.Messages[0].ID != messages[2].ID {
+			t.Fatalf("cursor page: %+v", got)
 		}
+		h.request(t, "GET", path+"?before="+messages[2].ID, alice, "", nil, 400)
 	})
-
-	t.Run("invalid pool 400", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodGet, "/pool/not-an-addr/messages", "", nil)
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("status = %d, want 400", resp.StatusCode)
-		}
-	})
-
+	t.Run("invalid pool 400", func(t *testing.T) { h.request(t, "GET", "/pool/not-an-addr/messages", alice, "", nil, 400) })
 	t.Run("edit own message", func(t *testing.T) {
-		resp, out := h.do(t, http.MethodPatch, "/pool/"+pool+"/messages/0001", alice, types.EditRequest{Content: "edited"})
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("status = %d (%s)", resp.StatusCode, out)
+		h.request(t, "PATCH", path+"/"+messages[0].ID, alice, "1", types.EditRequest{Content: "edited"}, 200)
+		got := decode(h.request(t, "GET", path, alice, "", nil, 200))
+		if got.Messages[0].Content != "edited" || got.Messages[0].Revision != 2 || got.Messages[0].ID != messages[0].ID {
+			t.Fatalf("edit lost identity: %+v", got)
 		}
 	})
-
-	t.Run("edit foreign message 403", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodPatch, "/pool/"+pool+"/messages/0003", alice, types.EditRequest{Content: "x"})
-		if resp.StatusCode != http.StatusForbidden {
-			t.Errorf("status = %d, want 403", resp.StatusCode)
-		}
+	t.Run("edit foreign message refuses without revealing ownership", func(t *testing.T) {
+		h.request(t, "PATCH", path+"/"+messages[2].ID, alice, "1", types.EditRequest{Content: "x"}, 404)
 	})
-
 	t.Run("edit missing actor 401", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodPatch, "/pool/"+pool+"/messages/0001", "", types.EditRequest{Content: "x"})
-		if resp.StatusCode != http.StatusUnauthorized {
-			t.Errorf("status = %d, want 401", resp.StatusCode)
-		}
+		h.request(t, "PATCH", path+"/"+messages[0].ID, "", "1", types.EditRequest{Content: "x"}, 401)
 	})
-
 	t.Run("edit missing message 404", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodPatch, "/pool/"+pool+"/messages/zzzz", alice, types.EditRequest{Content: "x"})
-		if resp.StatusCode != http.StatusNotFound {
-			t.Errorf("status = %d, want 404", resp.StatusCode)
-		}
+		h.request(t, "PATCH", path+"/missing", alice, "1", types.EditRequest{Content: "x"}, 404)
 	})
-
 	t.Run("edit empty content 400", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodPatch, "/pool/"+pool+"/messages/0001", alice, types.EditRequest{Content: "   "})
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("status = %d, want 400", resp.StatusCode)
+		h.request(t, "PATCH", path+"/"+messages[0].ID, alice, "2", types.EditRequest{Content: "   "}, 400)
+	})
+	t.Run("creator cannot bypass durable sender authority", func(t *testing.T) {
+		h.request(t, "DELETE", path+"/"+messages[2].ID, creator, "1", nil, 404)
+		h.request(t, "DELETE", path+"/"+messages[2].ID, bob, "1", nil, 200)
+		got := decode(h.request(t, "GET", path, alice, "", nil, 200))
+		if len(got.Messages) != 3 || got.Messages[2].ID != messages[2].ID || !got.Messages[2].Deleted || got.Messages[2].Content != "" || got.Messages[2].Revision != 2 {
+			t.Fatalf("delete lost durable tombstone: %+v", got)
 		}
 	})
-
-	t.Run("delete by pool creator", func(t *testing.T) {
-		creator := addr(0xc0ffee)
-		internaltest.SeedPool(t, h.pool, pool, addr(2), creator, 1)
-		resp, out := h.do(t, http.MethodDelete, "/pool/"+pool+"/messages/0003", creator, nil)
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("status = %d (%s)", resp.StatusCode, out)
-		}
-		// Now deleted -> excluded from list.
-		_, lout := h.do(t, http.MethodGet, "/pool/"+pool+"/messages", "", nil)
-		var got types.MessagesResponse
-		_ = json.Unmarshal(lout, &got)
-		for _, m := range got.Messages {
-			if m.ID == "0003" {
-				t.Error("deleted message still listed")
-			}
-		}
-	})
-
-	t.Run("delete by non-owner non-creator 403", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodDelete, "/pool/"+pool+"/messages/0002", bob, nil)
-		if resp.StatusCode != http.StatusForbidden {
-			t.Errorf("status = %d, want 403", resp.StatusCode)
-		}
-	})
+	t.Run("delete by non-owner refuses", func(t *testing.T) { h.request(t, "DELETE", path+"/"+messages[1].ID, bob, "1", nil, 404) })
 }
 
 // ── Comments ──────────────────────────────────────────────────────────────────
@@ -359,69 +385,36 @@ func TestComments(t *testing.T) {
 // ── DMs (reads) ───────────────────────────────────────────────────────────────
 
 func TestDMReads(t *testing.T) {
-	h := newHarness(t)
-	alice := addr(0xaa)
-	bob := addr(0xbb)
-	carol := addr(0xcc)
-	convID := "dm:" + min2(alice, bob) + ":" + max2(alice, bob)
-	wa, wb := min2(alice, bob), max2(alice, bob)
-
-	ctx := context.Background()
-	if err := h.q.UpsertDmConversation(ctx, sqlcdb.UpsertDmConversationParams{
-		ID: convID, WalletA: wa, WalletB: wb, LastMessageAt: pgtype.Int8{Int64: 500, Valid: true},
-	}); err != nil {
-		t.Fatalf("seed conv: %v", err)
+	alice, bob, carol := addr(0xaa), addr(0xbb), addr(0xcc)
+	h := newDurableHarness(t, []string{alice, bob, carol}, nil)
+	message, err := h.store.Send(h.ctx(t, alice), fanout.SendInput{Actor: alice, Kind: "dm", Target: bob, ClientID: "dm-read-proof", Content: "hey"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := h.q.InsertDmMessage(ctx, sqlcdb.InsertDmMessageParams{
-		ID: "m1", ConversationID: convID, Sender: alice, Content: "hey", CreatedAt: 500,
-	}); err != nil {
-		t.Fatalf("seed dm: %v", err)
-	}
-
+	path := "/dm/conversations/" + message.ConversationID + "/messages"
 	t.Run("list conversations maps peer", func(t *testing.T) {
-		resp, out := h.do(t, http.MethodGet, "/dm/conversations", alice, nil)
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("status = %d (%s)", resp.StatusCode, out)
-		}
+		raw := h.request(t, "GET", "/dm/conversations", alice, "", nil, 200)
 		var got types.DmConversationsResponse
-		_ = json.Unmarshal(out, &got)
-		if len(got.Conversations) != 1 || got.Conversations[0].Peer != bob {
-			t.Fatalf("conversations = %+v (peer should be bob)", got.Conversations)
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatal(err)
+		}
+		if len(got.Conversations) != 1 || got.Conversations[0].Peer != bob || got.Conversations[0].ID != message.ConversationID || got.Conversations[0].LastMessageAt == nil {
+			t.Fatalf("durable conversations: %+v", got)
 		}
 	})
-
-	t.Run("list conversations requires actor", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodGet, "/dm/conversations", "", nil)
-		if resp.StatusCode != http.StatusUnauthorized {
-			t.Errorf("status = %d, want 401", resp.StatusCode)
-		}
-	})
-
+	t.Run("list conversations requires session", func(t *testing.T) { h.request(t, "GET", "/dm/conversations", "", "", nil, 401) })
 	t.Run("participant reads messages", func(t *testing.T) {
-		resp, out := h.do(t, http.MethodGet, "/dm/conversations/"+convID+"/messages", bob, nil)
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("status = %d", resp.StatusCode)
+		raw := h.request(t, "GET", path, bob, "", nil, 200)
+		var got fanout.HistoryPage
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatal(err)
 		}
-		var got types.DmMessagesResponse
-		_ = json.Unmarshal(out, &got)
-		if len(got.Messages) != 1 || got.Messages[0].Content != "hey" {
-			t.Fatalf("messages = %+v", got.Messages)
-		}
-	})
-
-	t.Run("non-participant 403", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodGet, "/dm/conversations/"+convID+"/messages", carol, nil)
-		if resp.StatusCode != http.StatusForbidden {
-			t.Errorf("status = %d, want 403", resp.StatusCode)
+		if len(got.Messages) != 1 || got.Messages[0].Content != "hey" || got.Messages[0].ID != message.ID {
+			t.Fatalf("durable messages: %+v", got)
 		}
 	})
-
-	t.Run("missing conversation 404", func(t *testing.T) {
-		resp, _ := h.do(t, http.MethodGet, "/dm/conversations/dm:x:y/messages", alice, nil)
-		if resp.StatusCode != http.StatusNotFound {
-			t.Errorf("status = %d, want 404", resp.StatusCode)
-		}
-	})
+	t.Run("non-participant has same refusal as missing conversation", func(t *testing.T) { h.request(t, "GET", path, carol, "", nil, 404) })
+	t.Run("missing conversation 404", func(t *testing.T) { h.request(t, "GET", "/dm/conversations/dm:x:y/messages", alice, "", nil, 404) })
 }
 
 // ── Followers ─────────────────────────────────────────────────────────────────

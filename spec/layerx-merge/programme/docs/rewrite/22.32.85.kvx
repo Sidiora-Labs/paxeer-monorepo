@@ -1,0 +1,39 @@
+[manifest]
+task = "22.32.85"
+domain = 9
+owner_role = "fm-agent"
+pages = 5
+
+[page.1]
+path = "contracts/agent-api.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.015] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.92 [doc.13] (missing): The agent interface registry points to this contract page, but the file does not exist in the audited tree."
+source_3 = "record 22.30.94 [doc.17] (missing): The registry contract link resolves to no file at the audited revision. Publish or repoint the owning agent contract as proposed in missing_agent_contract_pages."
+
+[page.2]
+path = "contracts/agent-config.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.92 [doc.16] (missing): The agent interface registry points to this contract page, but the file does not exist in the audited tree."
+source_2 = "record 22.30.94 [doc.16] (missing): The registry contract link resolves to no file at the audited revision. Publish or repoint the owning agent contract as proposed in missing_agent_contract_pages."
+
+[page.3]
+path = "contracts/agent-formats.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.92 [doc.14] (missing): The agent interface registry points to this contract page, but the file does not exist in the audited tree."
+
+[page.4]
+path = "contracts/agent-human-peer.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.94 [doc.15] (missing): The registry contract link resolves to no file at the audited revision. Publish or repoint the owning agent contract as proposed in missing_agent_contract_pages."
+
+[page.5]
+path = "contracts/agent-rust-api.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.92 [doc.15] (missing): The agent interface registry points to this contract page, but the file does not exist in the audited tree."
+source_2 = "record 22.30.98 [doc.013] (missing): Registry crypto/proof contract links point to this absent page (#crypto and #proof). The lookup found no replacement at that path; publish an owned current contract or redirect the registry links."

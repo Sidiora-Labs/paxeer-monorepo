@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait AddressesApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn AddressesApi>;
+
     /// GET /api/v2/addresses/{address_hash}
     ///
     ///
@@ -163,11 +166,15 @@ pub trait AddressesApi: Send + Sync {
 
 pub struct AddressesApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl AddressesApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -301,6 +308,13 @@ pub struct GetAddressWithdrawalsParams {
 
 #[async_trait]
 impl AddressesApi for AddressesApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn AddressesApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_address(
         &self,
         params: GetAddressParams,
@@ -377,7 +391,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -430,7 +447,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -592,7 +612,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -642,7 +665,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -700,7 +726,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -761,7 +790,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -885,7 +917,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -943,7 +978,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -1001,7 +1039,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -1052,7 +1093,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -1095,7 +1139,10 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -1199,18 +1246,25 @@ impl ResponseContent<GetAddressCoinBalanceHistorySuccess> {
     }
 }
 
+/// Daily balance history and the configured window emitted by AddressView.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DailyCoinBalanceHistory {
+    pub items: Vec<models::CoinBalanceHistoryByDaysEntry>,
+    pub days: u64,
+}
+
 /// struct for typed successes of method [`get_address_coin_balance_history_by_day`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetAddressCoinBalanceHistoryByDaySuccess {
-    Status200(Box<Vec<models::CoinBalanceHistoryByDaysEntry>>),
+    Status200(Box<DailyCoinBalanceHistory>),
 
     UnknownValue(serde_json::Value),
 }
 
 // changed
 impl ResponseContent<GetAddressCoinBalanceHistoryByDaySuccess> {
-    pub fn try_as_success(&self) -> Option<&Vec<models::CoinBalanceHistoryByDaysEntry>> {
+    pub fn try_as_success(&self) -> Option<&DailyCoinBalanceHistory> {
         match &self.entity {
             Some(GetAddressCoinBalanceHistoryByDaySuccess::Status200(data)) => Some(data),
             _ => None,
@@ -1219,7 +1273,7 @@ impl ResponseContent<GetAddressCoinBalanceHistoryByDaySuccess> {
 
     pub fn try_parse_as_success_model(
         &self,
-    ) -> Result<Vec<models::CoinBalanceHistoryByDaysEntry>, serde_json_path_to_error::Error> {
+    ) -> Result<DailyCoinBalanceHistory, serde_json_path_to_error::Error> {
         serde_json_path_to_error::from_str(&self.content)
     }
 }

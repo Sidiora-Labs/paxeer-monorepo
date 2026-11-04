@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.38"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 6
+
+[page.1]
+path = "consensus/spec/core/genesis.md"
+status = "stale"
+bytes = 3308
+source_1 = "record 22.30.47 [doc.038] (stale): Vendored upstream Tendermint protocol page genesis.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/core/state.md"
+status = "stale"
+bytes = 4185
+source_1 = "record 22.30.47 [doc.040] (stale): Read complete page; rewrite targets: state-finalize-apphash at line 50. Concrete owning-domain proposals are recorded above."
+
+[page.3]
+path = "consensus/spec/ivy-proofs/README.md"
+status = "stale"
+bytes = 1946
+source_1 = "record 22.30.47 [doc.041] (stale): Inherited Ivy research instructions use a legacy Docker harness; ivy-exit-status-lost records the lost checker status. No model checker was executed by this audit."
+
+[page.4]
+path = "consensus/spec/light-client/accountability/README.md"
+status = "stale"
+bytes = 23209
+source_1 = "record 22.30.47 [doc.043] (stale): Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.5]
+path = "consensus/spec/light-client/accountability/Synopsis.md"
+status = "stale"
+bytes = 3640
+source_1 = "record 22.30.47 [doc.044] (stale): Read the complete one-height, equal-weight TLA+ synopsis. Its ./run.sh entry assumes private ~/devl Apalache checkouts; accountability-local-harness records reproducibility drift."
+
+[page.6]
+path = "consensus/spec/light-client/attacks/isolate-attackers_001_draft.md"
+status = "stale"
+bytes = 11088
+source_1 = "record 22.30.47 [doc.046] (stale): Vendored upstream light-client research/specification artifact isolate-attackers_001_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."

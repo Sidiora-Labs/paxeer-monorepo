@@ -2,7 +2,7 @@
   "version": "layerx-beta-v1",
   "presets": [{
     "id": "beta-protocol",
-    "call_selectors": ["0xa9059cbb", "0x095ea7b3"],
+    "call_selectors": ["0x78ea11db", "0x8608d32b"],
     "amount_ceiling": 1000,
     "rate_maximum_uses": 10,
     "rate_window_sequences": 100,

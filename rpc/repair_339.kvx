@@ -1,0 +1,23 @@
+[repair.22.31.339]
+audit = "22.30.68"
+acceptance = "22998.1"
+verification = "hf-done records the exact candidate revision, command, exit and private log; no baseline gate was run because the ordered task instructions require implementation before the bounded gates."
+baseline_failures = "Not measured; no claim of pre-change test execution."
+
+[finding.tenant-raw-hash]
+proof = "TestRepair_339_TenantRawHash (committed and mempool HTTP/WS); TestRepair_339_TenantPendingRaw (real sequencer HTTP/WS before and after reconnect)."
+
+[finding.tenant-raw-number]
+proof = "TestRepair_339_TenantRawNumber (canonical committed indices HTTP/WS); TestRepair_339_TenantPendingRaw (canonical open-block indices HTTP/WS)."
+
+[finding.tenant-raw-blockhash]
+proof = "TestRepair_339_TenantRawBlockHash (mixed root and two tenant transactions at canonical shared indices over HTTP/WS)."
+
+[finding.tenant-ws-context]
+proof = "TestRepair_339_TenantWSContext (HTTP/WS blocks, counts, transactions, receipts, logs, polling filters, raw methods, shared account state and newHeads before and after reconnect); TestRepair_339_TenantPendingRaw (open-block views)."
+wiring = "No out-of-scope change is required: rpc/domain_ws_apis.go supplies scoped API wrappers, so core/deps/geth/rpc/client.go (geth domain) remains unchanged."
+
+[qualification.repair_1]
+observed = "The first gate passed the three committed raw tests; the new WS fixture lacked committed account-store versions, and the new pending fixture expected consensus index zero although MsgSequenceBatch reserves it."
+repair = "Commit the real executed keeper state through height two for account reads; assert exact consensus positions 1..4 while querying the unchanged EVM lookup positions 0..3."
+evidence = "905d38347ccc5a0abfb99aef5e9e35ba86f5183f; cg spec done 22.31.339 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"

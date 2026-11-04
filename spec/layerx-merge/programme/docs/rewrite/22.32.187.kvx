@@ -1,0 +1,13 @@
+[manifest]
+task = "22.32.187"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/programme/data/retired.kvx"
+status = "misleading"
+bytes = 17493
+source_1 = "record 22.30.10 [doc.9] (misleading): Retirement inventory reviewed for member references; historical deleted names remain valid inventory but replacement prose at lines 159 and 247 incorrectly directs clients through a router."
+source_2 = "record 22.30.11 [doc.18] (stale): Retirement dispositions consulted for anchor/custody, LNI, checkpoint evidence, wire/authority and wallet transitions. Finding retirement-router-wording records the historical router wording in the layerxctl-port replacement; the merged-network brief supplies the current direct node RPC contract."
+source_3 = "record 22.30.28 [doc.019] (stale): Read retirement declarations to distinguish historical fixture facts from runtime dependencies; component.lni and component.layerxctl-port still recommend the removed router."

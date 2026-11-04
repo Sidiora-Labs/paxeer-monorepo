@@ -1,0 +1,19 @@
+[manifest]
+task = "22.32.165"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "docs/README.md"
+status = "stale"
+bytes = 2560
+source_1 = "record 22.30.163 [doc.007] (stale): Line 21 advertises Node interface v1.7 as a current starting point, although that separate LayerX interface is retired."
+source_2 = "record 22.30.164 [doc.1] (stale): Navigation is mostly accurate, but line 22 presents the retired LNI interface without archive labeling; see docs-index-retired-lni."
+source_3 = "record 22.30.169 [doc.009] (stale): The protocol index advertises Activity envelope and the three rules, and the node-interface entry advertises LNI v1.7 as the current reading path. Those links frame the retired write transport as the active protocol."
+source_4 = "record 22.30.173 [doc.2] (stale): Lines 21-22 index Node interface v1.7 and Agent daemon contract without identifying the retired LNI topology; the page is otherwise navigational."
+source_5 = "record 22.30.176 [doc.2] (stale): Line 21 links wiki/LNI.md as Node interface v1.7. Replace this retired-interface entry with current root node JSON-RPC and hosted gateway contracts."
+source_6 = "record 22.30.181 [doc.012] (stale): f052 at line 21: The documentation index still presents wiki/LNI.md as the active Node interface v1.7, directing integrators to the retired separate-kernel transport."
+source_7 = "record 22.30.184 [doc.02] (stale): Read in full. Line 21 advertises retired LNI as a current node interface; replace current navigation with merged node and hosted gateway contracts."
+source_8 = "record 22.30.39 [doc.2] (stale): Line 21 presents retired LNI v1.7 as current node interface; replace or label historical and link merged public interfaces. Finding 24."
+source_9 = "record 22.30.67 [doc.1] (stale): The directory/site index is useful, but lines 17 and 21 promote the retired activity-envelope and LNI interface descriptions without historical labels; see docs-index-retired."

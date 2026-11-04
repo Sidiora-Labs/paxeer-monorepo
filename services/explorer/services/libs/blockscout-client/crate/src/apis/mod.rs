@@ -462,3 +462,6 @@ impl Api for MockApiClient {
         &self.withdrawals_api_mock
     }
 }
+
+pub mod feed;
+pub mod pagination;
