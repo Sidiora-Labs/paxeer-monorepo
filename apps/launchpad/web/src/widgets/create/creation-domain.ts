@@ -14,23 +14,23 @@ export function hash(value: string): string {
   if (typeof value !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(value)) throw new Error('invalid_hash');
   return value.toLowerCase();
 }
-export interface Deployment { revision: string; chainId: number; usdl: string; router: string; factory: string }
+export interface Deployment { revision: string; chainId: number; usdl: string; router: string; factory: string; usdlSpender: string }
 export interface Cost { protocolFeeRaw: string; protocolFeeAssetRef: string; gasEstimatePaxRaw: string; optionalInitialBuyRaw: string; manifestRevision: string; approvalSpender:string; factory:string }
 export function verifyCost(d: Deployment, read: { revision: string; decimals: number; feeRaw: string; gasRaw: string }, firstBuyRaw = '0'): Readonly<Cost> {
   if (d.chainId !== CHAIN_ID || !d.revision || read.revision !== d.revision) throw new Error('deployment_mismatch');
   address(d.router); address(d.factory);
   if (read.decimals !== 6 || raw(read.feeRaw) !== CREATION_FEE_RAW) throw new Error('configuration_blocked: creation requires 1.00 USDL (6 decimals)');
   raw(read.gasRaw); raw(firstBuyRaw);
-  return Object.freeze({protocolFeeRaw:'1000000', protocolFeeAssetRef:address(d.usdl),gasEstimatePaxRaw:read.gasRaw,optionalInitialBuyRaw:firstBuyRaw,manifestRevision:d.revision,approvalSpender:address(d.router),factory:address(d.factory)});
+  return Object.freeze({protocolFeeRaw:'1000000', protocolFeeAssetRef:address(d.usdl),gasEstimatePaxRaw:read.gasRaw,optionalInitialBuyRaw:firstBuyRaw,manifestRevision:d.revision,approvalSpender:address(d.usdlSpender),factory:address(d.factory)});
 }
 export function funding(cost: Cost, d: Deployment, balances?: {usdl: string; pax: string; allowance: string}) {
   if (d.chainId!==125) throw new Error('wrong_chain');
   if (raw(cost.protocolFeeRaw)!==CREATION_FEE_RAW) throw new Error('fee_changed_review_required');
   if (!balances) return {state:'balance_loading' as const};
   const target = raw(cost.protocolFeeRaw) + raw(cost.optionalInitialBuyRaw);
-  if (target > MAX || cost.manifestRevision !== d.revision || cost.approvalSpender!==address(d.router) || cost.factory!==address(d.factory) || address(cost.protocolFeeAssetRef) !== address(d.usdl)) throw new Error('review_required');
+  if (target > MAX || cost.manifestRevision !== d.revision || cost.approvalSpender!==address(d.usdlSpender) || cost.factory!==address(d.factory) || address(cost.protocolFeeAssetRef) !== address(d.usdl)) throw new Error('review_required');
   const state = raw(balances.usdl) < target ? 'insufficient_usdl' : raw(balances.pax) < raw(cost.gasEstimatePaxRaw) ? 'insufficient_gas' : raw(balances.allowance) < target ? 'approval_required' : 'signable';
-  return {state, approvalSpender:address(d.router), approvalTargetRaw:target.toString(), feeLabel:'1.00 USDL', gasAsset:'PAX'};
+  return {state, approvalSpender:address(d.usdlSpender), approvalTargetRaw:target.toString(), feeLabel:'1.00 USDL', gasAsset:'PAX'};
 }
 export interface Draft { draftId: string; version: number; creator: string; chainId: number; name: string; symbol: string; description: string; tags: string[]; socialLinks: string[]; uploadRefs: string[]; firstBuyRaw: string; opticalSelection: string; updatedAt: number }
 export function validateDraft(d: Draft, now: number): Record<string,string> {
@@ -140,7 +140,7 @@ export async function publishMetadata(p:Publication, creator:string, now:number,
 }
 function verifyApproval(receipt: {chainId:number;transactionHash:string;status:'success'|'reverted'}, expectedHash:string, actualAllowanceRaw:string, targetRaw:string) {
   if(raw(targetRaw)===0n)throw new Error('invalid_approval_target');
-  if(receipt.chainId!==125 || hash(receipt.transactionHash)!==hash(expectedHash) || receipt.status!=='success' || raw(actualAllowanceRaw)<raw(targetRaw)) throw new Error('approval_not_verified');
+  if(receipt.chainId!==125 || hash(receipt.transactionHash)!==hash(expectedHash) || receipt.status!=='success' || raw(actualAllowanceRaw)!==raw(targetRaw)) throw new Error('approval_not_verified');
   return true;
 }
 /** Store an explicit allowlist, never a wallet/auth object. Reload discards approval state. */
@@ -188,7 +188,7 @@ export function reviewFirstPurchase(resolution:Awaited<ReturnType<typeof resolve
 export interface ApprovalContext {chainId:number;token:string;spender:string;account:string;manifestRevision:string;accountEpoch:number;targetRaw:string;transactionHash:string;blockHeight:string;blockHash:string}
 export function verifyCreationApproval(expected:ApprovalContext, receipt:ApprovalContext & {status:'success'|'reverted'}, allowance:ApprovalContext & {allowanceRaw:string;observedAt:number}, deployment:Deployment, now:number, currentAccountEpoch:number) {
   if(!Number.isSafeInteger(now)||!Number.isSafeInteger(allowance.observedAt)||allowance.observedAt>now||now-allowance.observedAt>10000||currentAccountEpoch!==expected.accountEpoch)throw new Error('stale_approval_proof');
-  if(deployment.chainId!==125||expected.chainId!==125||address(expected.token)!==address(deployment.usdl)||address(expected.spender)!==address(deployment.router)||expected.manifestRevision!==deployment.revision||!Number.isSafeInteger(expected.accountEpoch)||expected.accountEpoch<0)throw new Error('approval_context_invalid');
+  if(deployment.chainId!==125||expected.chainId!==125||address(expected.token)!==address(deployment.usdl)||address(expected.spender)!==address(deployment.usdlSpender)||expected.manifestRevision!==deployment.revision||!Number.isSafeInteger(expected.accountEpoch)||expected.accountEpoch<0)throw new Error('approval_context_invalid');
   address(expected.account);raw(expected.blockHeight);hash(expected.blockHash);
   for(const actual of [receipt,allowance])for(const key of Object.keys(expected) as (keyof ApprovalContext)[])if(actual[key]!==expected[key])throw new Error('approval_context_mismatch');
   return verifyApproval(receipt,expected.transactionHash,allowance.allowanceRaw,expected.targetRaw);

@@ -1,63 +1,89 @@
 # Welcome to Paxeer X Network
 
-Paxeer X Network — one network: the Paxeer EVM chain and the LayerX agent-native domain behind one interface.
+Paxeer X Network is one BFT network, Paxeer mainnet-beta, running `paxd`
+with EVM chain ID **125** (`0x7d`). The LayerX kernel and deterministic
+Programs runtime execute inside the node. The kernel is part of the network
+that proposes blocks; a transaction receipt is final when its block commits.
 
-The limited beta has not opened yet. The gateway API becomes available when it does. This is a mainnet beta on real value, so the team does not run a faucet for general use; approved developers receive test allocations directly from the team through this service. Custody and settlement live on Paxeer. LayerX is licensed under the Apache License, Version 2.0.
-
-Ordinary agent activity is executed and ordered inside LayerX. Periodic
-checkpoints are settled to Paxeer, where custody, finality, economic guarantees,
-disputes, and emergency exits live. This separation keeps ordinary execution
-inside LayerX while custody and checkpoint settlement remain on Paxeer.
+The public JSON-RPC is served at the root of
+`https://api-mainnet-beta.paxeer.network` and
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`. Use the node origin itself as the
+RPC URL. `node.hyperpaxeer.com` is only the build-time hpx library mirror.
+See [Public JSON-RPC](PublicRpc.md) for node and hosted API ownership.
+LayerX source is licensed under the Apache License, Version 2.0.
 
 ## Repository and monorepo structure
 
-This is the canonical Sidiora Labs monorepo for Paxeer X Network and the Paxeer Network. The Paxeer settlement node source lives under the repository root (`go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`) with independent build, release tags (`paxeer-network/vX.Y.Z`), and trust boundaries. Co-location keeps the protocol, settlement network, and their automation auditable in one place while preserving separate deployment authority.
+The chain, kernel, programs, services, and SDKs share this repository.
+`node/`, `consensus/`, `modules/`, and `precompiles/` implement the node and
+native chain constructs. `src/` and `include/layerx/` hold the C kernel;
+`modules/lxphost/` hosts it through cgo in the node's transaction context.
+Kernel writes enter the chain's transaction store and become durable with
+block commit. `programs/` holds the deterministic WASM runtime, registry,
+guest SDKs, and reference programs. See the [monorepo layout](../MONOREPO.md).
 
-LayerX Programs is kernel module ID `9` (`LXP_MODULE_PROGRAMS` in `include/layerx/lxp_module.h`). Guest code runs in that module's namespace. Every monetary effect is forced through 402LXP; no program ever holds direct balance-writing authority. See [Programs](Programs.md). Protocol 3 (`LXP_PROTOCOL_VERSION_STATE_COMMITMENT`) is the beta wire; the C header default `LXP_PROTOCOL_VERSION` remains occupancy protocol 2 (`include/layerx/lxp_protocol.h`).
+Programs is kernel module ID `9` (`LXP_MODULE_PROGRAMS`). Its native EVM
+surface is `layerxprograms` at `0x000000000000000000000000000000000000101D`.
+Guest code has no direct balance-writing authority: its monetary effects
+are authenticated `402LXP` transfer sets. See [Programs](Programs.md) for
+activity kinds, host registration, guest ABI compatibility, and receipts.
 
 ## What is Paxeer?
 
-Paxeer handles custody, checkpoint registration, guarantor bonds, challenges,
-withdrawals, and emergency exits. LayerX registers periodic checkpoints with
-Paxeer rather than representing each ordinary activity as a Paxeer transaction.
+Paxeer executes EVM transactions and native network operations in one chain.
+The proposer executes and orders transactions; validators verify execution
+and commit the block. Submission or an early signed receipt does not establish
+block finality. The committed block is the finality boundary for program
+storage, transfers, events, and receipts; there is no later checkpoint
+settlement stage. See [Commitment levels](CommitmentLevels.md).
+
+Sub-chains are tenant domains: namespaces in the database that share the
+network and can be launched without provisioning another chain. See
+[Virtual chains](VirtualChains.md).
 
 ## Key properties
 
-Three rules sit at the center of LayerX:
-
-1. **One canonical history.** Every accepted or failed activity receives a global sequence. State roots are chained per activity, not only per batch.
-2. **One financial doorway.** `402LXP` is the only component allowed to write balances. Protocol modules produce validated transfer sets rather than mutating funds themselves.
-3. **One reproducible result.** Consensus-critical execution excludes floating point, local clock decisions, database iteration order, and other sources of nondeterminism.
+1. **One canonical history.** Native kernel execution and EVM execution share
+   the node's transaction and block history.
+2. **Authenticated money movement.** Programs express monetary effects through
+   `402LXP`; guests cannot set balances or widen the invoking authority.
+3. **Reproducible execution.** The Programs runtime validates and meters WASM
+   and excludes floating point and nondeterministic host imports.
 
 ## What LayerX supports
 
 | Area | Responsibilities |
 | --- | --- |
-| Identity and authority | Agent DIDs, primary and session keys, scoped capability grants, rotation, recovery, revocation, and expiry |
-| Money movement | Authenticated sends and receives, asset accounts, deposits, withdrawals, and reserve accounting |
-| Spending controls | Holds, escrow, recurring budgets, delegated limits, approvals, and metered streams |
-| Agent commerce | Offers, commitments, tool-execution attestations, delivery, acceptance, and disputes |
-| Markets | Oracle intake, order books, positions, funding, margin, liquidation, and insurance accounting |
-| Network operation | Sequencing, replicas, batch construction, data availability, replay, fees, and metering |
-| Settlement | Guarantor attestations, checkpoint registration, custody reconciliation, claims, and emergency exits |
+| Identity and authority | Agent DIDs, key bindings, session keys, and scoped capabilities |
+| Money movement | Asset accounts and authenticated transfers through the kernel |
+| Spending controls | Escrow, budgets, and streams |
+| Agent commerce | Service offers, delivery, acceptance, and disputes |
+| Markets | Native perps and spot venues and oracle-backed market inputs |
+| Programs | Deterministic WASM, program-owned accounts, bounded calls, storage, and events |
+| Network operation | Transaction ordering, block proposals, BFT commit, history, and proofs |
+| Tenancy | Database-backed tenant domains on the shared network |
 
 ## Fees
 
-Fees are computed from the committed canonical schedule. Schedule versions,
-named prices, and admission policy are on [Fees](Fees.md). Asset fee prices
-are named for ordinals `1`, `4`, `5`, `6`, `7`, `8`, `10`, and `11` on
-version 2, with pause/unpause and withdraw added on later encodings; see
-[Assets and tokens](Assets.md#named-fee-schedule). Public estimation returns
-the schedule and snapshot that produced the value, and does not reserve the
-fee or prove execution.
+EVM gas and program execution fees are distinct charges. Programs exposes
+`quoteCallFee`, `getCurrentFeeSchedule`, and `getCurrentMeteringSchedule` at
+`0x101D`. A fee estimate describes the schedule and declared budget; it
+neither reserves funds nor proves successful execution. Persistent program
+storage also carries deterministic occupancy charges. See
+[Programs](Programs.md#occupancy-and-committed-state), [Fees](Fees.md), and
+[Assets and tokens](Assets.md).
 
-See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag conventions.
+Hosted `px_*` methods belong to `services/platform/hosted/gateway/`, whose
+`openrpc.json` defines their contract. They are not node namespaces. The
+public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
+`txpool`; obtain hosted service availability from its operator.
 
 ## Resources
 
 | Guide | Covers |
 | --- | --- |
-| [Virtual chains](VirtualChains.md) | Launch, operate and build on a shared-state Paxeer namespace; registry ABI, allowances, fees, RPC, explorer, wallet and SDKs. |
+| [Virtual chains](VirtualChains.md) | Build within a tenant domain backed by a database namespace on the shared network. |
 
 - [Cluster quickstart](Quickstart.md)
 - [Getting started](Getting-Started-Beta.md)
@@ -84,9 +110,6 @@ See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag convention
 - [Sequencing](Sequencing.md)
 - [Finality](Finality.md)
 - [Data availability](DataAvailability.md)
-- [Guarantor](Guarantor.md)
-- [Settlement evidence](SettlementEvidence.md)
-- [LNI](LNI.md)
 - [Agent API](AgentApi.md)
 - [MCP](Mcp.md)
 - [Roadmap: beta surface expansion](Roadmap.md)
@@ -99,7 +122,7 @@ See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag convention
 - [Security policy](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)
 - [Qualification documentation](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/QUALIFICATION.md)
 - [Monorepo layout](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/MONOREPO.md)
-- [Programs](Programs.md)
+- [Programs](Programs.md): native WASM execution, guest ABIs, LXT-20, simulation, and committed receipts
 - [Sandbox](Sandbox.md)
 - [Storage scan](StorageScan.md)
 - [SDK terminal verification](SdkTerminalVerification.md)

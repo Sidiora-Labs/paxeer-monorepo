@@ -241,19 +241,20 @@ func TestPayGenesisRefusesGateDrift(t *testing.T) {
 		}
 	}
 
-	t.Run("record_limit", func(t *testing.T) {
+	t.Run("per_record_bounds", func(t *testing.T) {
 		gs := types.GenesisState{Params: types.Params{}, KernelRecords: make([]kv.Pair, types.MaxKernelRecords+1)}
 		for i := range gs.KernelRecords {
 			gs.KernelRecords[i] = kv.Pair{Key: types.KernelKVKey(types.EscrowModuleID, []byte(fmt.Sprintf("record-%03d", i))), Value: []byte{1}}
 		}
 		moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
 		hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
+		gs.KernelRecords[len(gs.KernelRecords)-1].Value = make([]byte, types.MaxKernelValueBytes+1)
 		err := h.keeper.InitGenesis(h.ctx, gs)
 		require.ErrorIs(t, err, types.ErrInvalidGenesis)
-		require.Contains(t, err.Error(), "kernel record count 513 exceeds 512")
+		require.Contains(t, err.Error(), "kernel record 512 value exceeds 1024 bytes")
 		require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
 		require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
-		gs.KernelRecords = gs.KernelRecords[:types.MaxKernelRecords]
+		gs.KernelRecords[len(gs.KernelRecords)-1].Value = []byte{1}
 		require.NoError(t, h.keeper.InitGenesis(h.ctx, gs))
 		require.Equal(t, gs.Params, h.keeper.GetParams(h.ctx))
 		for _, record := range gs.KernelRecords {

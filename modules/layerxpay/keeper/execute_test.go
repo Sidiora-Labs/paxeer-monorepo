@@ -163,6 +163,7 @@ func TestSubmitCommitsKernelActivity(t *testing.T) {
 	}, authority)
 	require.NoError(t, err)
 	require.Zero(t, expected.ResultCode)
+	require.NoError(t, h.keeper.bindEscrowReceipt(expectedBranch, &expected))
 	require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
 	receipt, err := h.keeper.Submit(h.ctx, actor.address, "escrowOpen", payload, key)
 	require.NoError(t, err)
