@@ -1,0 +1,14 @@
+[task]
+id = "22.33.566"
+audit = "22.30.158"
+finding = "053"
+proof = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_566_test.exs"
+tests = ["053: numeric revert code and recorded revert data survive the HTTP consumer", "053: revert imports missing balanceOf and removes only eligible placeholders", "053: numeric node failures schedule retries and import a later successful balance"]
+original_tests = "The declared proof also loads every existing historical_test.exs case, preserving all prior assertions."
+producer = "rpc/simulate.go NewRevertError/ErrorCode/ErrorData: integer 3 and hex revert data; the Nonexistent token payload is preserved from apps/explorer/test/explorer/token/metadata_retriever_test.exs."
+transcripts = "recorded_eth_call.json retains full JSON-RPC request/response envelopes; only the request address, contract and block are rebound to isolated database rows; response error objects are replayed unchanged."
+retry = "Integer -32000 missing trie node follows the existing node-error contract in apps/ethereum_jsonrpc/test/repair/repair_22_33_436_test.exs; the successful balance word is retained from historical_test.exs."
+path = "Historical.run -> TokenBalance.Helper -> TokenBalances -> BalanceReader -> SmartContract.Reader -> Contract -> HTTP/HTTPoison -> loopback transcript -> Encoder -> MissingBalanceOfToken/Chain.import -> persisted TokenBalance and init retry selection."
+baseline = "Not run: the explicit ordered instructions prohibit verification before complete implementation and require hf-build before hf-done; no pre-change failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the verified revision, exact command, exit code and private log; no gate is claimed before it runs."
