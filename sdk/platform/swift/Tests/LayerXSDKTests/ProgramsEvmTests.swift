@@ -1,3 +1,4 @@
+import Crypto
 import Foundation
 import XCTest
 
@@ -332,6 +333,7 @@ final class ProgramsEvmTests: XCTestCase {
       "gasUsed": .string("0x186a0"),
       "cumulativeGasUsed": .string("0x186a0"),
       "effectiveGasPrice": .string("0x64"),
+      "paymentDenom": .string("uhpx"),
       "feeDenom": .string("uhpx"),
       "feeAmount": .string("0x989680"),
       "sponsor": .string("0x0000000000000000000000000000000000000000"),
@@ -646,4 +648,95 @@ private final class RPCFixtureServer {
     try? FileManager.default.removeItem(at: directory)
   }
   deinit { stop() }
+}
+
+extension ProgramsEvmTests {
+  func testRecordedNodeReceiptsAcrossCommitAndDifferentDenominations() async throws {
+    try await Self.proveRecordedEVMProducer1398()
+  }
+
+  static func proveRecordedEVMProducer1398() async throws {
+    typealias E = RecordedProgramEvidence1398
+    let (committed, committedView) = try E.recordedCommitted()
+    let (feeToken, feeTokenView) = try E.feeToken()
+    let reverted = try E.firstVector("vector-v2-receipted-revert")
+    let sources: [(E.Record, E.Record, String)] = [
+      (committed, try E.object(committed, "receiptJson"), "executed"),
+      (committed, committedView, "executed"),
+      (feeToken, feeTokenView, "executed"),
+      (reverted, try E.object(reverted, "receiptJson"), "refused"),
+    ]
+    var preCommitDigest: Data?
+    for (vector, view, state) in sources {
+      let server = try ProgramReplayServer1398(E.rpcSteps(vector, view: view))
+      defer { server.stop() }
+      let hash = try E.bytes(view, "txHash")
+      let submission = try await E.client(server, vector: vector).activity(transactionHash: hash)
+      XCTAssertEqual(submission.state, state)
+      XCTAssertEqual(submission.transactionHash, hash)
+      XCTAssertEqual(submission.retainedSignedActivity, try E.bytes(vector, "rawTransaction"))
+      let receipt = try XCTUnwrap(submission.sequencerReceipt)
+      XCTAssertEqual(receipt.canonicalBytes, try E.bytes(vector, "signedReceipt"))
+      XCTAssertEqual(receipt.receiptDigest, try E.bytes(vector, "receiptDigest"))
+      XCTAssertEqual(receipt.receipt.activityID, hash)
+      XCTAssertEqual(receipt.status, state == "executed" ? 1 : 0)
+      XCTAssertEqual(
+        receipt.receipt.asset,
+        Data(SHA256.hash(data: Data(try E.text(view, "paymentDenom").utf8))))
+      // An RPC's committed label does not replace independently verified consensus.
+      XCTAssertEqual(receipt.level, "receipted")
+      if vector["id"] == committed["id"] {
+        if view["rung"] == .string("committed") {
+          XCTAssertEqual(receipt.reportedBlockHash, try E.checkpoint().blockHash)
+          XCTAssertEqual(receipt.reportedBlockNumber, 10)
+          XCTAssertEqual(receipt.receiptDigest, try XCTUnwrap(preCommitDigest))
+        } else {
+          XCTAssertNil(receipt.reportedBlockHash)
+          preCommitDigest = receipt.receiptDigest
+        }
+      }
+      if vector["id"] == feeToken["id"] {
+        XCTAssertNotEqual(view["paymentDenom"], view["feeDenom"])
+        XCTAssertEqual(view["paymentDenom"], .string("usid"))
+        XCTAssertEqual(view["feeDenom"], .string("uhpx"))
+        XCTAssertEqual(receipt.receipt.asset, try E.bytes(feeToken, "asset"))
+      }
+      server.assertConsumed(3)
+      XCTAssertEqual(
+        server.requests().compactMap { $0["method"]?.stringValue },
+        ["eth_getTransactionByHash", "pax_sequencerReceipt", "eth_getRawTransactionByHash"])
+    }
+
+    // Refusals traverse HTTP and the production transaction and signature checks.
+    for (vector, view) in [(committed, committedView), (feeToken, feeTokenView)] {
+      let hash = try E.bytes(view, "txHash")
+      let unpinned = try ProgramReplayServer1398(E.rpcSteps(vector, view: view))
+      defer { unpinned.stop() }
+      do {
+        _ = try await E.client(unpinned, vector: vector, keys: []).activity(transactionHash: hash)
+        XCTFail("Accepted an unpinned receipt key")
+      } catch let error as PlatformSDKError { XCTAssertEqual(error.code, .verificationFailure) }
+      unpinned.assertConsumed(3)
+      let other = vector["id"] == committed["id"] ? feeToken : committed
+      let wrongTransaction = try ProgramReplayServer1398(
+        E.rpcSteps(vector, view: view, raw: E.text(other, "rawTransaction")))
+      defer { wrongTransaction.stop() }
+      do {
+        _ = try await E.client(wrongTransaction, vector: vector).activity(transactionHash: hash)
+        XCTFail("Accepted another signed transaction")
+      } catch let error as PlatformSDKError { XCTAssertEqual(error.code, .verificationFailure) }
+      wrongTransaction.assertConsumed(3)
+      for field in ["paymentDenom", "feeDenom"] {
+        var changed = view
+        changed[field] = .string("unregistered")
+        let tampered = try ProgramReplayServer1398(E.rpcSteps(vector, view: changed))
+        defer { tampered.stop() }
+        do {
+          _ = try await E.client(tampered, vector: vector).activity(transactionHash: hash)
+          XCTFail("Accepted a changed \(field)")
+        } catch let error as PlatformSDKError { XCTAssertEqual(error.code, .verificationFailure) }
+        tampered.assertConsumed(3)
+      }
+    }
+  }
 }

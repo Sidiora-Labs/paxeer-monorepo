@@ -1,0 +1,44 @@
+[task.22.33.1086]
+findings = ["retry-signing-cancellation", "ping-false-success", "signer-tests-discard-signatures", "timeout-test-is-refusal", "timeout-classification", "socket-peer-identity"]
+proof = ["TestRepairM_1086_RetrySigningCancellation", "TestRepairM_1086_PingTransportFailure", "TestRepairM_1086_PingResponseVariant", "TestRepairM_1086_FilePVTransportReopen", "TestRepairM_1086_TimeoutClassification", "TestRepairM_1086_SocketPeerIdentity", "TestRepairM_1086_IdentityStorage"]
+baseline = "Not run: the ordered instructions prohibit testing before implementation and running verify_cmd outside hf-done. No pre-change test failures are claimed."
+evidence = "The runner's /out/run/gates.jsonl records the exact verified candidate revision, command, exit and private log; hf-done is the completion authority."
+wiring_requests = ["consensus/config/config.go and consensus/config/toml.go — domain 15: expose the private-validator TCP identity file and authorized remote public key as operator configuration.", "consensus/node/setup.go — domain 15: supply SocketIdentity to NewSignerListener for TCP; the legacy unconfigured TCP call now fails closed.", "consensus/test/e2e/node/runtime/node.go and consensus/node/node_test.go — domain 15: load a persisted signer identity and pass the configured node key to DialTCPFn; configure the reciprocal listener pin."]
+
+[finding.retry-signing-cancellation]
+implementation = "Check cancellation before every attempt and wait on a stopped timer against ctx.Done, including unlimited retries."
+proof = "TestRepairM_1086_RetrySigningCancellation"
+coverage = "Vote, proposal and public-key calls against unavailable real loopback endpoints, cancellation during connection acquisition and retry delay, and already-canceled requests; return within 500ms despite a 2s retry interval."
+
+[finding.ping-false-success]
+implementation = "Return transport errors and ErrUnexpectedResponse for a response of the wrong protobuf variant."
+proof = ["TestRepairM_1086_PingTransportFailure", "TestRepairM_1086_PingResponseVariant"]
+coverage = "Disconnected endpoint and FilePV-backed signer server returning a valid mismatched response through actual SecretConnection and delimited protobuf framing; valid Ping succeeds afterward."
+
+[finding.signer-tests-discard-signatures]
+implementation = "Existing signing tests retain mutated protobuf objects, compare returned signatures, require nonempty signatures and authenticate original canonical signing bytes with the validator public key."
+proof = "TestRepairM_1086_FilePVTransportReopen"
+coverage = "Real client, pinned TCP transport, server handler and disk-backed FilePV; proposal and vote signatures verify, survive stop/reopen, reproduce on retry and refuse conflicting same-HRS messages."
+
+[finding.timeout-test-is-refusal]
+implementation = "Replace the closed-port timeout fixture with an accepted connection stalling its SecretConnection handshake, and retain an explicit refusal test asserting false."
+proof = "TestRepairM_1086_TimeoutClassification"
+coverage = "Real accepted stalled-handshake deadline and real closed-port refusal use the production dialer; existing socket_dialers_test.go tests are updated to match."
+
+[finding.timeout-classification]
+implementation = "Use errors.As to find timeoutError through wrapping and return its actual Timeout value."
+proof = "TestRepairM_1086_TimeoutClassification"
+coverage = "Refusal, stalled handshake, endpoint timeout, ordinary error and nil; three wrapping layers retain the correct classification."
+
+[finding.socket-peer-identity]
+implementation = "Persist owner-only local identity files using synchronized temporary files and atomic no-replace installation; pin exactly one configured remote public key on each TCP side before returning any connection. Missing pins, identity errors and mismatches fail closed; failed dial handshakes close the raw connection."
+proof = ["TestRepairM_1086_FilePVTransportReopen", "TestRepairM_1086_SocketPeerIdentity", "TestRepairM_1086_IdentityStorage"]
+coverage = "Stable authorized identities reconnect across listener and signer reopen; unauthorized dialers never reach the listener dispatch boundary, unauthorized listeners receive no framed request, missing pins fail closed, and corrupt or public identity files are refused without replacement."
+
+[gotcha.1]
+observed = "The baseline-run task step conflicts with the mandatory implementation-first bounded gate order."
+resolution = "Follow the ordered gate instructions and record the omission here; do not edit out-of-scope spec or GOTCHA files."
+
+[gotcha.2]
+observed = "Proposal.ToProto emits a fixed-width zero signature for an unsigned proposal model."
+resolution = "Clear the public protobuf signature in unsigned proposal fixtures, retain that protobuf through transport, and require verification of the returned signature."

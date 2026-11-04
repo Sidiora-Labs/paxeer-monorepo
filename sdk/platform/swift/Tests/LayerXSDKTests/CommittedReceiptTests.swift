@@ -27,10 +27,11 @@ final class CommittedReceiptTests: XCTestCase {
     var commit: CometCommit
     var validators: [CometValidator]
     var keys: [Curve25519.Signing.PrivateKey]
+    let trust: CommittedTrust
     func verify() throws -> Committed {
       try Committed.verify(
         receipt, blockHeader: header, receiptInclusion: inclusion,
-        commit: commit, validatorSet: validators)
+        commit: commit, validatorSet: validators, trust: trust)
     }
   }
   private func hex(_ string: String) throws -> Data {
@@ -166,7 +167,8 @@ final class CommittedReceiptTests: XCTestCase {
         result: result, resultProof: resultProof, batchTransaction: batch,
         batchProof: tree(transactions, index: 0).1, nextHeader: next,
         nextCommit: try signedCommit(next, keys: keys, signers: 3), nextValidators: validators),
-      commit: commit, validators: validators, keys: keys)
+      commit: commit, validators: validators, keys: keys,
+      trust: CommittedTrust(chainID: header.chainID, height: header.height, blockHash: header.hash))
   }
   private func reanchorResult(_ f: inout Fixture) throws {
     let results = [
@@ -337,5 +339,125 @@ final class CommittedReceiptTests: XCTestCase {
     f.inclusion.result.gasUsed -= 1
     try reanchorResult(&f)
     refusal(f, .result)
+  }
+}
+
+extension CommittedReceiptTests {
+  func testRecordedNodeCommitRequiresIndependentCheckpointAndRefusesAttackerValidators() throws {
+    try Self.proveRecordedCommitTrust1398()
+  }
+
+  static func proveRecordedCommitTrust1398() throws {
+    typealias E = RecordedProgramEvidence1398
+    let (vector, view) = try E.recordedCommitted()
+    let evidence = try E.evidence(vector)
+    let receipt = try E.verify(vector, view: view)
+    let checkpoint = try E.checkpoint()
+    func verify(
+      _ header: CommittedHeader, _ inclusion: ReceiptInclusion,
+      _ commit: CometCommit, _ validators: [CometValidator],
+      _ trust: CommittedTrust?
+    ) throws -> Committed {
+      try Committed.verify(
+        receipt, blockHeader: header, receiptInclusion: inclusion,
+        commit: commit, validatorSet: validators, trust: trust)
+    }
+    let verified = try verify(
+      evidence.header, evidence.inclusion, evidence.commit,
+      evidence.validators, checkpoint)
+    XCTAssertEqual(verified.level, "committed")
+    XCTAssertEqual(verified.height, 10)
+    XCTAssertEqual(verified.blockHash, checkpoint.blockHash)
+    XCTAssertEqual(verified.receiptDigest, try E.bytes(vector, "receiptDigest"))
+    XCTAssertEqual(
+      verified.receiptVerification.canonicalBytes, try E.bytes(vector, "signedReceipt"))
+    XCTAssertEqual(verified.votingPower, evidence.validators.reduce(0) { $0 + $1.votingPower })
+    for trust in [
+      nil,
+      CommittedTrust(
+        chainID: "unrelated-chain", height: checkpoint.height,
+        blockHash: checkpoint.blockHash),
+      CommittedTrust(
+        chainID: checkpoint.chainID, height: checkpoint.height + 1,
+        blockHash: checkpoint.blockHash),
+      CommittedTrust(
+        chainID: checkpoint.chainID, height: checkpoint.height,
+        blockHash: Data(repeating: 1, count: 32)),
+    ] {
+      XCTAssertThrowsError(
+        try verify(
+          evidence.header, evidence.inclusion, evidence.commit,
+          evidence.validators, trust)
+      ) {
+        XCTAssertEqual($0 as? CommittedError, .trust)
+      }
+    }
+
+    // Keep consensus-power and every inclusion proof on the real producer evidence too.
+    var noPower = evidence.commit
+    noPower.signatures = noPower.signatures.map { _ in .init(blockIDFlag: .absent) }
+    XCTAssertThrowsError(
+      try verify(
+        evidence.header, evidence.inclusion, noPower,
+        evidence.validators, checkpoint)
+    ) {
+      XCTAssertEqual($0 as? CommittedError, .commit)
+    }
+    var nextNoPower = evidence.inclusion
+    nextNoPower.nextCommit.signatures = nextNoPower.nextCommit.signatures.map {
+      _ in .init(blockIDFlag: .absent)
+    }
+    XCTAssertThrowsError(
+      try verify(
+        evidence.header, nextNoPower, evidence.commit,
+        evidence.validators, checkpoint)
+    ) {
+      XCTAssertEqual($0 as? CommittedError, .nextCommit)
+    }
+    for field in ["transaction", "result", "batch"] {
+      var inclusion = evidence.inclusion
+      switch field {
+      case "transaction": inclusion.transactionProof.index += 1
+      case "result": inclusion.result.gasUsed += 1
+      default: inclusion.batchTransaction[0] ^= 1
+      }
+      XCTAssertThrowsError(
+        try verify(
+          evidence.header, inclusion, evidence.commit,
+          evidence.validators, checkpoint), field
+      ) {
+        XCTAssertEqual($0 as? CommittedError, .inclusion, field)
+      }
+    }
+
+    let attacker = try Curve25519.Signing.PrivateKey(
+      rawRepresentation: Data(repeating: 0x77, count: 32))
+    let attackers = [
+      CometValidator(publicKey: attacker.publicKey.rawRepresentation, votingPower: 100)
+    ]
+    let setHash = CommittedWire.validatorsHash(attackers)
+    for chain in ["attacker-chain", checkpoint.chainID] {
+      var header = evidence.header
+      header.chainID = chain
+      header.validatorsHash = setHash
+      header.nextValidatorsHash = setHash
+      let commit = try E.signedCommit(header, key: attacker)
+      var inclusion = evidence.inclusion
+      inclusion.nextHeader.chainID = chain
+      inclusion.nextHeader.validatorsHash = setHash
+      inclusion.nextHeader.nextValidatorsHash = setHash
+      inclusion.nextHeader.lastBlockID = commit.blockID
+      inclusion.nextCommit = try E.signedCommit(inclusion.nextHeader, key: attacker)
+      inclusion.nextValidators = attackers
+      XCTAssertEqual(try CommittedWire.verifyCommit(header, commit, attackers, error: .commit), 100)
+      XCTAssertEqual(
+        try CommittedWire.verifyCommit(
+          inclusion.nextHeader, inclusion.nextCommit,
+          attackers, error: .nextCommit), 100)
+      XCTAssertEqual(inclusion.transaction, evidence.inclusion.transaction)
+      XCTAssertThrowsError(try verify(header, inclusion, commit, attackers, checkpoint), chain) {
+        XCTAssertEqual($0 as? CommittedError, .trust)
+      }
+    }
   }
 }

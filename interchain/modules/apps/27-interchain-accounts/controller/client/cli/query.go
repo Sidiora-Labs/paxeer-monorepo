@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/27-interchain-accounts/controller/types"
+	icatypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/27-interchain-accounts/types"
 )
 
 // GetCmdQueryInterchainAccount returns the command handler for the controller submodule parameter querying.
@@ -16,7 +17,7 @@ func GetCmdQueryInterchainAccount() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "interchain-account [owner] [connection-id]",
 		Short:   "Query the interchain account address for a given owner on a particular connection",
-		Long:    "Query the controller submodule for the interchain account address for a given owner on a particular connection",
+		Long:    "Query the controller submodule for the interchain account address for a given owner on a particular connection\n\n" + icatypes.AvailabilityGuidance,
 		Args:    cobra.ExactArgs(2),
 		Example: fmt.Sprintf("%s query interchain-accounts controller interchain-account cosmos1layxcsmyye0dc0har9sdfzwckaz8sjwlfsj8zs connection-0", version.AppName),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -50,7 +51,7 @@ func GetCmdParams() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "params",
 		Short:   "Query the current interchain-accounts controller submodule parameters",
-		Long:    "Query the current interchain-accounts controller submodule parameters",
+		Long:    "Query the current interchain-accounts controller submodule parameters\n\n" + icatypes.AvailabilityGuidance,
 		Args:    cobra.NoArgs,
 		Example: fmt.Sprintf("%s query interchain-accounts controller params", version.AppName),
 		RunE: func(cmd *cobra.Command, _ []string) error {

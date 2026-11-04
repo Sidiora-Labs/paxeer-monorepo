@@ -1,0 +1,28 @@
+[repair.22.33.1202]
+audit = "22.30.57"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+availability_decision = "Keep ICA unsupported on mainnet, as already recorded in the IBC contract; document the boundary in the local ICA contract, production node wiring and all CLI help surfaces."
+qualification = "Only hf-build and hf-done are authorized; their ledger records the exact candidate revision, command, exit code and private evidence location. No qualification is claimed by this record."
+baseline = "Not run: the task's explicit Order and allowed gates forbid tests before complete implementation and verification outside hf-done; no pre-change failure is claimed."
+
+[finding.ica-runtime-availability]
+test = "TestRepairM_1202_RuntimeAvailability"
+proof = "Render actual AppModuleBasic and standalone controller/host command help, including all leaves; assert unsupported-mainnet guidance. Parse production node imports and IBC route registrations to pin the documented absence; this is not a claim of an executed mainnet chain or enabled ICA transactions."
+contract = "interchain/modules/apps/27-interchain-accounts/README.md"
+wiring_request = "spec/layerx-merge/contracts/ibc.md — domain 6 (IBC/chain modules): link the local ICA availability contract and retain the unsupported-mainnet controller/host/CLI boundary when regenerating the central contract."
+
+[finding.ica-export-context-lifetime]
+tests = ["TestRepairM_1202_ExportContextLifetimeRecovery", "TestRepairM_1202_StreamCompletesWithoutConsumer"]
+proof = "Production ICA keepers, codec, port and capability keepers export populated state; mutate parameters, channels and accounts and close the disk-backed source before draining; import the produced JSON through AppModule.InitGenesis, commit, close, reopen and verify recovered mappings, parameters and bound capabilities. Cover both, controller-only, host-only and absent keepers. Abandoned streams are fully buffered."
+
+[gotcha.baseline_order]
+observed = "Step 6 asks for a pre-change verify but the explicit Order forbids it and reserves the verify command for hf-done after implementation and build."
+resolution = "Follow the explicit Order and bounded gates; record no baseline execution instead of inventing evidence."
+
+[gotcha.contract_scope]
+observed = "The central generated ICA/IBC contract and spec task record are outside the permitted paths."
+resolution = "Keep the repair record and availability contract in the allowed ICA directory and request central contract wiring from its owning domain."
+
+[gotcha.codec_method]
+observed = "The first verification could not compile the new test: sdk/codec.Codec has UnmarshalAsJSON rather than UnmarshalJSON."
+resolution = "Decode the exported snapshot with the repository's production UnmarshalAsJSON method; retain every assertion and rerun the declared build and verification."

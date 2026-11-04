@@ -16,6 +16,9 @@ message GenesisState {
     (gogoproto.moretags) = "yaml:\"factory_denoms\"",
     (gogoproto.nullable) = false
   ];
+  // Paused factory denoms restored by InitGenesis and retained by ExportGenesis.
+  // Field 3 is part of the current contract; older genesis without it decodes
+  // as an empty list. The historical omission was resolved by req.6241.1.
   repeated string paused_denoms = 3 [(gogoproto.moretags) = "yaml:\"paused_denoms\""];
 }
 

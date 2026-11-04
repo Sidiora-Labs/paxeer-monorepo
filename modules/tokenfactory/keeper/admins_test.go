@@ -60,7 +60,9 @@ func (suite *KeeperTestSuite) TestAdminMsgs() {
 	suite.Require().True(suite.App.BankKeeper.GetBalance(suite.Ctx, suite.TestAccs[1], suite.defaultDenom).Amount.Int64() == addr1bal)
 
 	// Try setting admin to empty
-	_, err = suite.msgServer.ChangeAdmin(sdk.WrapSDKContext(suite.Ctx), types.NewMsgChangeAdmin(suite.TestAccs[1].String(), suite.defaultDenom, ""))
+	renounce := types.NewMsgChangeAdmin(suite.TestAccs[1].String(), suite.defaultDenom, "")
+	suite.Require().NoError(renounce.ValidateBasic())
+	_, err = suite.msgServer.ChangeAdmin(sdk.WrapSDKContext(suite.Ctx), renounce)
 
 	suite.Require().NoError(err)
 	queryRes, err = suite.queryClient.DenomAuthorityMetadata(suite.Ctx.Context(), &types.QueryDenomAuthorityMetadataRequest{
@@ -392,7 +394,9 @@ func TestIssuerDidSurvivesChangeAdmin(t *testing.T) {
 		{s.TestAccs[0].String(), s.TestAccs[1].String()},
 		{s.TestAccs[1].String(), ""},
 	} {
-		_, err := s.msgServer.ChangeAdmin(sdk.WrapSDKContext(s.Ctx), types.NewMsgChangeAdmin(step.sender, s.defaultDenom, step.newAdmin))
+		msg := types.NewMsgChangeAdmin(step.sender, s.defaultDenom, step.newAdmin)
+		s.Require().NoError(msg.ValidateBasic())
+		_, err := s.msgServer.ChangeAdmin(sdk.WrapSDKContext(s.Ctx), msg)
 		s.Require().NoError(err)
 
 		stored, err := k.GetAuthorityMetadata(s.Ctx, s.defaultDenom)

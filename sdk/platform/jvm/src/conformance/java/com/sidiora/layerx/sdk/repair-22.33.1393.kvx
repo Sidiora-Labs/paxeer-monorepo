@@ -1,0 +1,19 @@
+[repair.22.33.1393]
+audit = "22.30.77"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.sdk.Repair22331393Test"
+evidence = "The bounded hf-build and hf-done ledger records the candidate revision, exact command, exit code and private log; this source record makes no qualification claim."
+baseline = "Not run: the explicit gate order forbids tests before complete implementation and manual invocation of verify_cmd; no baseline failure is claimed."
+
+[finding.conformance-producer-gap]
+tests = ["producerFullResponsesAndSeparateFeeAssetVerify", "realRpcCommitmentAndPortableStateRecoverAfterClientReopen", "completeReceiptViewMismatchesFailTheConformanceEntryPoint", "contradictoryCommittedRpcMetadataFailsBeforeRecovery"]
+proof = "ConformanceMain retains its byte and schema checks, verifies all five producer-generated full V1 views and the signed usid-payment/uhpx-fee vector, then transports the archived node lifecycle through the real Programs HTTP client, complete-view verifier, consensus verifier and portable decoder; after closing the client, a fresh client reads the committed receipt and the portable state is reopened from disk under independent consensus trust."
+refusals = "Every full V1 view refuses altered status, return data, fee amount, payment denomination, fee denomination and missing logs; the real RPC lifecycle refuses contradictory block height/hash, fee denomination and log bytes, and offline recovery refuses absent or wrong-chain consensus trust."
+
+[wiring]
+fee_token_rpc = "rpc/sequencer_receipt_vectors_test.go and sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json — owning domain 8: record a producer-emitted full fee-token RPC receiptJson; the committed fixture contains signed bytes and denomination metadata only, so this task verifies that boundary without inventing a node response."
+task_record = "spec/layerx-merge/spec.kvx — owning domain 8: copy this finding-to-test mapping, baseline-order conflict and wiring request into task 22.33.1393; spec edits are outside the worker scope."
+
+[gotcha.conformance_source_profile]
+observed = "ConformanceMain is compiled only by the conformance Maven profile, while the prescribed repair gate uses the default profile."
+action = "The JUnit class compiles the actual ConformanceMain source with the running JDK compiler in process and invokes its entry points; it needs no extra Maven invocation, subprocess toolchain, credential or live endpoint."

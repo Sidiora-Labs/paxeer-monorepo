@@ -242,6 +242,11 @@ func newBridgeProposalPostHandler(clientCtx client.Context) http.HandlerFunc {
 		if typesrest.CheckBadRequestError(w, decoder.Decode(&req)) {
 			return
 		}
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			typesrest.WriteErrorResponse(w, http.StatusBadRequest, "the request body must contain exactly one JSON value")
+			return
+		}
 
 		req.BaseReq = req.BaseReq.Sanitize()
 		if !req.BaseReq.ValidateBasic(w) {

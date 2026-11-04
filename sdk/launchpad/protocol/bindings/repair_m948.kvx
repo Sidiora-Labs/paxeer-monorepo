@@ -1,0 +1,68 @@
+[repair.22.33.948]
+audit = "22.30.26"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+mode = "BUILD"
+qualification = "Only hf-build then hf-done qualify this task; the runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl. No completion is claimed without passing evidence."
+baseline = "The supplied previous-attempt output already records TestRepairM_948_BeaconOwnershipHandoff, TestRepairM_948_RetainedEmitterV2 and TestRepairM_948_NativeExecutorTransport failing because recordings were absent. It was not rerun; the explicit gate order reserves this attempt verification for hf-done after implementation and hf-build."
+
+[finding.retained_binding_proof_gap]
+proof = "TestRepairM_948_RetainedEmitterV2; TestRepairM_948_BeaconOwnershipHandoff; TestRepairM_948_RoleMetadata"
+path = "Reviewed source-hash-checked Solidity artifacts and strict recorded real JSON-RPC execution feed generated Go calls, Parse/Filter/Watch consumers; all seven scalar/array tuple families, indexed provenance, typed grants/revocation, unauthorized calls, malformed tuples, one-time migration and two-owner acceptance are asserted; WebSocket clients reopen before and after acceptance. The original eight producer comparisons remain intact."
+qualification = "The declared gate evidence in /out/run/gates.jsonl is authoritative for this candidate revision."
+
+[finding.runtime_emission_proof_gap]
+proof = "TestRepairM_948_NativeExecutorTransport; TestRepairM_948_NativeExecutorNode"
+path = "Strict committed executor-transcript consumption into all twelve native generated parsers and every retained role parser, with field equality, per-role origins, direct/surface Router and FeesRouter origins, eight non-pool Initialized refusals with unchanged log counts, malformed-data and unknown-topic refusal."
+qualification = "Execution recordings are now present; only the declared hf-build and hf-done evidence qualifies this candidate."
+
+[wiring.native_transcript]
+resolved = "Recorded real PrecompileExecutor emitFamily/emitAt output over the SDK EVM store in native-execution.json (12 families, 25 role observations, 8 refusals); native-node-rpc.json additionally records public Router, FeesRouter and NFT execution through actual node transport and typed Go consumers. All recording tools remain implementation-time only."
+
+[wiring.retained_transcripts]
+resolved = "Source-artifact-hash-pinned emitter-rpc.json and beacon-rpc.json now capture the real repository node executing all generated-binding calls, tuple logs, refusals, filters, subscriptions and client reconnects. Public fixture keys are integers 1 through 3 on Paxeer chain 125."
+
+[wiring.registry]
+request = "sdk/launchpad/protocol/events.go (owning domain 4): register NativeLaunchpadMetaData independently of retained EventEmitter metadata so all native family topics reach protocol.LookupEvent."
+
+[wiring.indexer]
+request = "services/launchpad/indexer/internal/decode and internal/processor/airdrop_test.go (owning domain 4): consume the same recorded executor logs through Decoder.Decode and replace constructed non-pool Initialized runtime evidence with actual executor refusals; codec tests remain schema evidence."
+
+[qualification.first_attempt]
+revision = "e75ab3e09a5548de678b0e15526d8386cd349b51"
+command = "cg spec done 22.33.948 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler output /tmp/repair-m948.log"
+observed = "The in-process geth backend required out-of-scope protocol/go.mod updates; replace only its peer with strict recorded real RPC traffic, retaining every contract and decoder assertion. The required real execution recordings remain an external interface. No results are synthesized."
+
+[recording.legacy_node]
+revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+command = "PAXD=/tmp/repair-m948-paxd bash /tmp/repair-m948-start.sh"
+exit = "node stopped advancing at height 34742500; recorder terminated"
+log = "/tmp/lx-localnode/node.6DWghwtY/node.log"
+observed = "The legacy OCC transaction scheduler panics with unexpected iterator call on cachekv store on the first deployment; no source outside bindings is changed or investigated further, and recording uses the repository's sequencer startup path."
+
+[recording.current]
+revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+node_build = "go build -o /tmp/repair-m948-paxd ./daemon/paxd"
+node_build_exit = 0
+node_build_log = "/tmp/repair-m948-node-build.log"
+node = "The committed node/testdata/v6120-halt-export.json is prepared by the existing v6120-node.sh sequencer startup procedure, with public fixture-key funding and local WebSocket enabled. The node was stopped before qualification."
+retained = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_retained.py ws://127.0.0.1:18546; exit 0; /tmp/repair-m948-retained-record.log; captures 83 beacon and 106 emitter calls."
+native = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_native.py; exit 0; /tmp/repair-m948-native-record.log; source overlay adds only a recorder entrypoint calling production emitters and store."
+native_node = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_retained.py ws://127.0.0.1:18546 NativeExecutorNode; exit 0; /tmp/repair-m948-native-node-record.log; captures successful market, buy, strategy and NFT transactions, both Router origins and both FeesRouter entry points."
+reproduce = "python3 sdk/launchpad/protocol/bindings/testdata/repair_m948/record_node.py builds and starts the local sequencer and runs all implementation-time captures; the focused gate never invokes these tools."
+
+[qualification.notes]
+workflow = "Scope excludes root gotchas/spec edits and publication; this record carries finding mappings, out-of-scope wiring and gotchas, hf-done records the verified revision, and the runner commits."
+gotcha_rpc = "JSON null in a recorded error field means no RPC error; the replay must preserve its real result rather than returning an empty error response."
+gotcha_nonce = "Paxeer reserves pending nonces for the sequencer; serial retained scenarios sign with committed nonces and advance only after successful mining."
+gotcha_precompile = "Go bind estimates reject native addresses with no bytecode; the public-method native scenario supplies an explicit transaction gas limit and requires successful receipts."
+gotcha_integer = "Decoded and constructed big.Int zero values can have different internal slice representations; compare numeric values with Cmp."
+gotcha_hash = "Paxeer RPC returns consensus block hashes independently of synthetic Ethereum Header.Hash; compare receipt and log hashes with the explicit RPC block hash."
+
+[qualification.repair_1]
+revision = "5eab4a480d2b91acf6a1dfc4f477774b96f6fa4c"
+command = "cg spec done 22.33.948 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Recorder serialization converted the absent params member on eth_maxPriorityFeePerGas into null; preserve omission in the fixture codec and require exact omission on both sides, keeping explicit null distinct."

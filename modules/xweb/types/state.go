@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -80,8 +81,9 @@ const (
 
 	// PayloadBytesLimit and CallbackGasLimit bound what governance may set
 	// the payload and callback caps to.
-	PayloadBytesLimit = uint32(16384)
-	CallbackGasLimit  = uint64(5_000_000)
+	PayloadBytesLimit  = uint32(16384)
+	CallbackGasLimit   = uint64(5_000_000)
+	TimeoutBlocksLimit = uint64(math.MaxInt64)
 )
 
 // DefaultFee is one PAX in base units.
@@ -150,8 +152,8 @@ func ValidateSettings(fee sdk.Int, maxPayloadBytes uint32, maxCallbackGas, timeo
 	if maxCallbackGas == 0 || maxCallbackGas > CallbackGasLimit {
 		return ErrInvalidParams.Wrapf("callback cap %d outside 1..%d", maxCallbackGas, CallbackGasLimit)
 	}
-	if timeoutBlocks == 0 {
-		return ErrInvalidParams.Wrap("timeout is zero")
+	if timeoutBlocks == 0 || timeoutBlocks > TimeoutBlocksLimit {
+		return ErrInvalidParams.Wrapf("timeout %d outside 1..%d", timeoutBlocks, TimeoutBlocksLimit)
 	}
 	return nil
 }

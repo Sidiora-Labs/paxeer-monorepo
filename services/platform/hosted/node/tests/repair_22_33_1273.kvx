@@ -1,0 +1,34 @@
+[task]
+id = "22.33.1273"
+audit = "22.30.63"
+acceptance = "22998.1"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+revision_source = "The final verify row in private /out/run/gates.jsonl records the exact verified candidate revision, command, exit and log; the runner publishes that unchanged candidate."
+status = "implemented-qualification-recorded-in-private-gate-ledger"
+baseline = "No prior hf-build/hf-done ledger or scoped edits existed at entry; the planned verify module did not exist, so no baseline failures were executed or claimed. The explicit implement-first, hf-build-then-hf-done order and prohibition on manual verification take precedence over do_6's contradictory unchanged-tree verification request."
+proof_boundary = "The production native bootstrap/supervisor, FileProvider, signer server/client and generation producer/broker/descriptor consumer run unchanged. The bounded gate explicitly selects the committed 22.31.355 native command/RPC peer; standalone suites require an executable paxd and never skip for a retired binary. This gate qualifies the hosted harness and real Python integration, not a compiled paxd or container image."
+key_contract = "Native receipt inputs are private lowercase hexadecimal files with no symlink; raw or uppercase receipt seeds and linked files are rejected. Treasury raw/hex file-provider support and the existing SignerCase credential, signature and binding tests are retained."
+
+[finding.006]
+source = "services/platform/hosted/node/tests/sequencer-seed-test.py"
+test = "test_finding_006_native_seed_harness"
+restart_test = "test_finding_006_native_seed_harness[test_supervisor_binds_the_hex_form_of_the_same_seed_before_publishing]"
+repair = "Replace retired sequencer/settlement bootstrap and sequencer.env with genesis-pinned native receipt key loading, native paxd start arguments and public generation handoff; migrate every seed test scenario to the native file contract, preserve refusal/no-copy/private-file assertions, add invalid encoding/mode coverage, and stop/reopen the real owner and consumer against retained generation state."
+
+[finding.007]
+source = "services/platform/hosted/node/tests/signer-test.py:BootstrapTreasuryCase"
+test = "test_finding_007_native_treasury_bootstrap"
+binding_test = "test_finding_007_recipient_binding_private_file_and_restart"
+private_tests = ["test_finding_007_private_seed_permissions_are_required", "test_finding_007_private_seed_links_and_malformed_material_are_refused"]
+repair = "Replace retired prerequisite skips with explicit native prerequisites, preflight the actual peer/key-pinned treasury client, bootstrap native generation, consume its real socket handoff, verify signatures and private files, reject conflicting/missing inputs, and stop/reopen the signer while preserving its key, binding signatures and retained public generation. Existing SignerCase tests outside BootstrapTreasuryCase are unchanged."
+
+[wiring.native_binary]
+request = "cmd/paxd and node/sequencer — native node runtime domain: qualify the binary-backed standalone seed and treasury bootstrap suites with the maintained paxd build and authoritative native genesis; the bounded Python gate uses committed native transcripts and does not certify those out-of-path binaries."
+
+[gotcha.baseline_order]
+observed = "The task repeats an unchanged-tree baseline run while its explicit gate order forbids testing before implementation and forbids manual verification."
+action = "Follow the explicit bounded gate order and record that no baseline failure was run; do not claim pre-change runtime evidence."
+
+[gotcha.native_keys]
+observed = "The integrated bootstrap requires lowercase hex receipt material and forbids linked inputs, while the retired harness accepted raw and uppercase seeds through symlinks."
+action = "Assert native rejection without weakening file safety or seed-leak checks, and keep the treasury provider's separate raw/hex contract."
