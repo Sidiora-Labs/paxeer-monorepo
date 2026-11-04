@@ -26,7 +26,8 @@ pub enum Verification {
     BlockCommitted,
 }
 
-pub(crate) fn deserialize_stored_verification<'de, D: serde::Deserializer<'de>>(
+#[doc(hidden)]
+pub fn deserialize_stored_verification<'de, D: serde::Deserializer<'de>>(
     d: D,
 ) -> Result<Verification, D::Error> {
     let word = String::deserialize(d)?;

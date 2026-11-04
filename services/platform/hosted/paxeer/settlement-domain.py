@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Helpers for the Paxeer bring-up: secp256k1 public-key handling and the
-checkpoint settlement document update for one settlement domain."""
+"""Historical checkpoint vector support; never part of merged node bring-up."""
 
 import json
 import os
@@ -8,8 +7,8 @@ import tempfile
 import pathlib
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from evm import keccak
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[4] / 'services/agent/sdk/python'))
+from layerx_sdk.account_derivation import keccak256 as keccak
 
 P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
 SCHEMA = "layerx/checkpoint-settlement/1"

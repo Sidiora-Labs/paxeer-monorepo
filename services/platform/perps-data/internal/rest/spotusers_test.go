@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,16 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 )
 
+//go:embed repair_m828_schema.sql
+var spotBoardSchema string
+
+func spotBoardMigrate(t *testing.T, db *sql.DB) {
+	t.Helper()
+	if _, err := db.Exec(spotBoardSchema); err != nil {
+		t.Fatal(err)
+	}
+}
+
 var (
 	spotUser      = addr(0xa1, 0x00)
 	spotLimitAddr = addr(0x22, 0x10)
@@ -37,14 +48,6 @@ var (
 // registration order.
 type spotTokenSet struct{ usdl, pax, sid []byte }
 
-// spotFactRow is a stored fact row handed to store.Project.
-type spotFactRow struct {
-	decode.Fact
-	table string
-}
-
-func (r spotFactRow) Table() string { return r.table }
-
 func spotPtr[T any](v T) *T { return &v }
 
 func spotHexOf(b []byte) string { return spotHex(common.BytesToAddress(b)) }
@@ -54,27 +57,62 @@ func spotTx(block int64) string { return common.BytesToHash(hash32(block, 0, 0))
 func spotReset(t *testing.T, db *sql.DB) {
 	t.Helper()
 	if _, err := db.Exec(`TRUNCATE perps.spot_swaps, perps.spot_fee_events, perps.spot_order_events, perps.spot_token_registry,
-		perps.spot_orders, perps.spot_token_seen, perps.index_prices RESTART IDENTITY`); err != nil {
+		perps.spot_orders, perps.spot_token_seen, perps.index_prices, perps.spot_leaderboard, perps.spot_account_legs, perps.spot_board_omissions, perps.spot_board_generation, perps.protocol_events, perps.tx_actions, perps.delivery_outbox RESTART IDENTITY`); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// spotProjected inserts a spot fact row and folds it through store.Project.
+// spotProjected passes typed facts through the production block writer,
+// including Project and FoldSpotBoard, instead of seeding ranking rows.
 func spotProjected(t *testing.T, db *sql.DB, r row) {
 	t.Helper()
-	insert(t, db, r)
-	tx, err := db.Begin()
-	if err != nil {
-		t.Fatal(err)
+	f := decode.Fact{Block: uint64(r.block), BlockHash: common.BigToHash(big.NewInt(r.block)), BlockTime: r.at,
+		TxHash: common.BytesToHash(hash32(r.block, r.txIndex, r.logIndex)), TxIndex: int64(r.txIndex), LogIndex: int64(r.logIndex),
+		ReceiptKind: decode.ReceiptTx, Kind: r.kind, Emitter: common.BytesToAddress(r.emitter), Account: common.BytesToAddress(r.account)}
+	var decoded decode.Row
+	switch r.kind {
+	case "token_registered":
+		decoded = decode.SpotTokenRegisteredRow{Fact: f}
+	case "market_order":
+		decoded = decode.SpotMarketOrderRow{Fact: f}
+	case "simple_swap":
+		decoded = decode.SpotSimpleSwapRow{Fact: f}
+	case "limit_created":
+		decoded = decode.SpotLimitCreatedRow{Fact: f}
+	case "limit_executed":
+		decoded = decode.SpotOrderExecutedRow{Fact: f}
+	default:
+		t.Fatalf("unsupported spot fixture kind %s", r.kind)
 	}
-	f := decode.Fact{Block: uint64(r.block), TxHash: common.BytesToHash(hash32(r.block, r.txIndex, r.logIndex)), LogIndex: int64(r.logIndex)}
-	if err := store.Project(context.Background(), tx, []decode.Row{spotFactRow{Fact: f, table: r.table}}); err != nil {
-		_ = tx.Rollback()
-		t.Fatalf("project %s: %v", r.table, err)
+	v := reflect.New(reflect.TypeOf(decoded))
+	v.Elem().Set(reflect.ValueOf(decoded))
+	for i, column := range r.args {
+		found := false
+		for j := 1; j < v.Elem().NumField(); j++ {
+			field := v.Elem().Type().Field(j)
+			if decode.ColumnName(field.Name) != column {
+				continue
+			}
+			value := reflect.ValueOf(r.values[i])
+			dest := v.Elem().Field(j)
+			if dest.Type() == reflect.TypeOf(common.Address{}) {
+				value = reflect.ValueOf(common.BytesToAddress(r.values[i].([]byte)))
+			}
+			if dest.Kind() == reflect.String && value.Kind() != reflect.String {
+				value = reflect.ValueOf(fmt.Sprint(r.values[i]))
+			}
+			dest.Set(value.Convert(dest.Type()))
+			found = true
+			break
+		}
+		// Executed events carry only an order ID on the real wire; Project
+		// resolves their owner from the preceding typed order placement.
+		if !found && !(column == "user" && r.kind == "limit_executed") {
+			t.Fatalf("missing %s.%s", r.kind, column)
+		}
 	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
+	decoded = v.Elem().Interface().(decode.Row)
+	repair828Write(t, db, store.Block{Number: f.Block, Hash: f.BlockHash, Time: r.at, Proposer: strings.Repeat("AB", 20)}, decoded)
 }
 
 func spotRegister(t *testing.T, db *sql.DB, tk spotTokenSet, at time.Time) {
@@ -237,134 +275,13 @@ func spotNodeBalance(t *testing.T, client *ethclient.Client, token []byte) strin
 }
 
 func TestSpotLeaderboardProjection(t *testing.T) {
-	db := openDB(t)
-	accounts := [][]byte{addr(0xab, 0xcd), addr(0xcd, 0xab), addr(0xef, 0xab)}
-	want := []spotRankJSON{
-		{Rank: 1, Address: spotHexOf(accounts[0]), Value: "7"},
-		{Rank: 2, Address: spotHexOf(accounts[1]), Value: "123456789012345678901234567890"},
-		{Rank: 3, Address: spotHexOf(accounts[2]), Value: "99"},
-	}
-	// Insert out of rank order, with values that would rank differently if
-	// the handler tried to recompute the board instead of reading it.
-	for _, i := range []int{2, 0, 1} {
-		if _, err := db.Exec(`INSERT INTO perps.spot_leaderboard (kind, rank, account, value, updated_block)
-			VALUES ('volume', $1, $2, $3, 42)`, want[i].Rank, accounts[i], want[i].Value); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, c := range []struct{ kind, value string }{
-		{"pnl", "-123456789012345678901234567890"},
-		{"win-rate", "66.6666666666666666666666666666666666666667"},
-	} {
-		if _, err := db.Exec(`INSERT INTO perps.spot_leaderboard (kind, rank, account, value, updated_block)
-			VALUES ($1, 1, $2, $3, 42)`, c.kind, accounts[2], c.value); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// A request-time fold would wait on these real source-table locks and
-	// fail its deadline. Reading the projection needs none of these tables.
-	lock, err := db.Begin()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lock.Rollback()
-	if _, err := lock.Exec(`LOCK TABLE perps.spot_swaps, perps.spot_order_events, perps.spot_orders,
-		perps.spot_token_registry, perps.spot_fee_events, perps.spot_account_legs IN ACCESS EXCLUSIVE MODE`); err != nil {
-		t.Fatal(err)
-	}
-	users := &SpotUsers{db: db}
-	mux := spotMux(users)
-	bounded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		mux.ServeHTTP(w, r.WithContext(ctx))
-	})
-
-	t.Run("rank_order_and_limit_without_folding", func(t *testing.T) {
-		var body spotLeaderboardBody
-		fields := spotGet(t, bounded, "/v1/leaderboards/volume?limit=2", http.StatusOK, &body)
-		wantKeys(t, fields, "kind", "as_of", "omitted_accounts", "items")
-		spotBoardAsOf(t, body.AsOf)
-		spotEqual(t, "projected volume ranks", body, spotLeaderboardBody{
-			Kind: "volume", AsOf: body.AsOf, Items: want[:2],
-		})
-		var items []map[string]json.RawMessage
-		if err := json.Unmarshal(fields["items"], &items); err != nil || len(items) != 2 {
-			t.Fatalf("items %s: %v", fields["items"], err)
-		}
-		for _, item := range items {
-			wantKeys(t, item, "rank", "address", "value")
-		}
-		for _, suffix := range []string{"", "?limit=999999999999999999999999999999"} {
-			body = spotLeaderboardBody{}
-			spotGet(t, bounded, "/v1/leaderboards/volume"+suffix, http.StatusOK, &body)
-			spotEqual(t, "all projected volume ranks", body.Items, want)
-		}
-	})
-
-	t.Run("kind_filter_and_value_format", func(t *testing.T) {
-		for _, c := range []struct{ kind, value string }{
-			{"pnl", "-123456789012345678901234567890"},
-			{"win-rate", "66.6667"},
-		} {
-			var body spotLeaderboardBody
-			spotGet(t, bounded, "/v1/leaderboards/"+c.kind, http.StatusOK, &body)
-			spotBoardAsOf(t, body.AsOf)
-			spotEqual(t, c.kind, body, spotLeaderboardBody{Kind: c.kind, AsOf: body.AsOf,
-				Items: []spotRankJSON{{Rank: 1, Address: spotHexOf(accounts[2]), Value: c.value}}})
-		}
-	})
-
-	t.Run("projection_updates_are_visible_immediately", func(t *testing.T) {
-		if _, err := db.Exec(`UPDATE perps.spot_leaderboard SET value = 17, updated_block = 43
-			WHERE kind = 'volume' AND rank = 1`); err != nil {
-			t.Fatal(err)
-		}
-		var body spotLeaderboardBody
-		spotGet(t, bounded, "/v1/leaderboards/volume?limit=1", http.StatusOK, &body)
-		spotEqual(t, "updated projection", body.Items, []spotRankJSON{{Rank: 1, Address: want[0].Address, Value: "17"}})
-	})
-
-	t.Run("invalid_requests", func(t *testing.T) {
-		spotRefused(t, bounded, "/v1/leaderboards/streak", http.StatusBadRequest, "unknown leaderboard streak")
-		spotRefused(t, bounded, "/v1/leaderboards/volume?limit=bad", http.StatusBadRequest, "invalid limit")
-	})
-
-	t.Run("empty_projection", func(t *testing.T) {
-		if _, err := db.Exec(`DELETE FROM perps.spot_leaderboard WHERE kind = 'volume'`); err != nil {
-			t.Fatal(err)
-		}
-		var body spotLeaderboardBody
-		fields := spotGet(t, bounded, "/v1/leaderboards/volume", http.StatusOK, &body)
-		spotBoardAsOf(t, body.AsOf)
-		spotEqual(t, "empty projection", body, spotLeaderboardBody{Kind: "volume", AsOf: body.AsOf, Items: []spotRankJSON{}})
-		if string(fields["items"]) != "[]" {
-			t.Fatalf("items = %s, want []", fields["items"])
-		}
-	})
-
-	t.Run("cancelled_request", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		if _, err := users.projectedRank(ctx, "volume", 2); !errors.Is(err, context.Canceled) {
-			t.Fatalf("cancelled projection read: %v", err)
-		}
-	})
-
-	if err := lock.Rollback(); err != nil {
-		t.Fatal(err)
-	}
-	t.Run("database_error", func(t *testing.T) {
-		if err := db.Close(); err != nil {
-			t.Fatal(err)
-		}
-		spotRefused(t, bounded, "/v1/leaderboards/pnl", http.StatusInternalServerError, "internal error")
-	})
+	db, reopen := repair828Database(t, "projection")
+	repair828BoardScenario(t, db, reopen)
 }
 
 func TestStreamItemsSingleFold(t *testing.T) {
 	db := openDB(t)
+	spotBoardMigrate(t, db)
 	client, tk := spotNode(t)
 	users, err := NewSpotUsers(db, client)
 	if err != nil {
@@ -438,6 +355,7 @@ func TestStreamItemsSingleFold(t *testing.T) {
 
 func TestSpotUsersREST(t *testing.T) {
 	db := openDB(t)
+	spotBoardMigrate(t, db)
 	dbOnly := spotMux(&SpotUsers{db: db})
 	base := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
 	at := func(block int64) string { return spotISO(base.Add(time.Duration(block) * time.Second)) }
@@ -747,20 +665,14 @@ func TestSpotUsersREST(t *testing.T) {
 		spotRefused(t, mux, "/v1/users/"+spotHexOf(oversold)+"/pnl/summary", http.StatusUnprocessableEntity,
 			"pnl: oversell attribution anomaly; reconcile unknown inventory")
 
-		// Within the TTL the board is served from the last fold; past it the
-		// next request folds again.
 		late := addr(0xc5, 0x00)
 		spotMarket(t, db, 410, base.Add(410*time.Second), late, synthetic.usdl, paxToken, true, "10", "10")
 		spotMarket(t, db, 411, base.Add(411*time.Second), late, synthetic.usdl, paxToken, false, "110", "10")
 		body = spotLeaderboardBody{}
 		spotGet(t, mux, "/v1/leaderboards/pnl", http.StatusOK, &body)
-		spotEqual(t, "pnl within the TTL", body, want)
-		users.board.at = users.board.at.Add(-spotBoardTTL)
-		body = spotLeaderboardBody{}
-		spotGet(t, mux, "/v1/leaderboards/pnl", http.StatusOK, &body)
 		spotBoardAsOf(t, body.AsOf)
 		if body.AsOf < want.AsOf {
-			t.Fatalf("rebuilt as_of %s before %s", body.AsOf, want.AsOf)
+			t.Fatalf("generation regressed: %s < %s", body.AsOf, want.AsOf)
 		}
 		rebuilt := spotLeaderboardBody{Kind: "pnl", AsOf: body.AsOf, OmittedAccounts: 1,
 			Items: []spotRankJSON{{Rank: 1, Address: spotHexOf(late), Value: e6(t, "100")}}}
@@ -768,14 +680,14 @@ func TestSpotUsersREST(t *testing.T) {
 			it.Rank++
 			rebuilt.Items = append(rebuilt.Items, it)
 		}
-		spotEqual(t, "pnl past the TTL", body, rebuilt)
+		spotEqual(t, "new generation visible immediately", body, rebuilt)
 	})
 
-	t.Run("leaderboard_one_fold_for_concurrent_callers", func(t *testing.T) {
+	t.Run("leaderboard_generation_for_concurrent_callers", func(t *testing.T) {
 		seedTraders(t)
 		users := &SpotUsers{db: db}
-		// Hold the fold on a table lock so the callers overlap it.
-		lock, err := db.BeginTx(context.Background(), nil)
+		mux := spotMux(users)
+		lock, err := db.Begin()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -783,69 +695,48 @@ func TestSpotUsersREST(t *testing.T) {
 		if _, err := lock.Exec(`LOCK TABLE perps.spot_swaps IN ACCESS EXCLUSIVE MODE`); err != nil {
 			t.Fatal(err)
 		}
-		type result struct {
-			body spotLeaderboardBody
-			err  error
-		}
-		call := func(ctx context.Context) chan result {
-			done := make(chan result, 1)
-			go func() {
-				body, err := users.rank(ctx, "pnl", maxLimit)
-				done <- result{body, err}
-			}()
-			return done
-		}
-		// The first caller starts the fold, then goes away.
 		ctx, cancel := context.WithCancel(context.Background())
-		first := call(ctx)
-		for deadline := time.Now().Add(10 * time.Second); users.board.folds.Load() == 0; time.Sleep(time.Millisecond) {
-			if time.Now().After(deadline) {
-				t.Fatal("the fold never started")
-			}
-		}
 		cancel()
-		select {
-		case r := <-first:
-			if !errors.Is(r.err, context.Canceled) {
-				t.Fatalf("cancelled caller: %v", r.err)
-			}
-		case <-time.After(5 * time.Second):
-			t.Fatal("the cancelled caller is still waiting")
+		if _, err := users.projectedRank(ctx, "pnl", maxLimit); !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancelled read: %v", err)
 		}
-		// The others wait on the same fold, which the cancellation left running.
-		waiters := []chan result{call(context.Background()), call(context.Background())}
-		select {
-		case <-waiters[0]:
-			t.Fatal("a waiter returned while the fold was held")
-		case <-waiters[1]:
-			t.Fatal("a waiter returned while the fold was held")
-		case <-time.After(200 * time.Millisecond):
+		responses := make(chan *httptest.ResponseRecorder, 2)
+		for range 2 {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				r := httptest.NewRecorder()
+				mux.ServeHTTP(r, httptest.NewRequest(http.MethodGet, "/v1/leaderboards/pnl", nil).WithContext(ctx))
+				responses <- r
+			}()
 		}
-		if err := lock.Rollback(); err != nil {
-			t.Fatal(err)
-		}
-		var got []spotLeaderboardBody
-		for _, w := range waiters {
+		var first spotLeaderboardBody
+		for i := 0; i < 2; i++ {
 			select {
-			case r := <-w:
-				if r.err != nil {
-					t.Fatalf("waiter: %v", r.err)
+			case r := <-responses:
+				if r.Code != http.StatusOK {
+					t.Fatalf("bounded read: %d %s", r.Code, r.Body.String())
 				}
-				got = append(got, r.body)
-			case <-time.After(30 * time.Second):
-				t.Fatal("a waiter never got the fold")
+				var body spotLeaderboardBody
+				if err := json.Unmarshal(r.Body.Bytes(), &body); err != nil {
+					t.Fatal(err)
+				}
+				want := spotLeaderboardBody{Kind: "pnl", AsOf: body.AsOf, Items: []spotRankJSON{
+					{Rank: 1, Address: spotHexOf(traders[0]), Value: e6(t, "20")},
+					{Rank: 2, Address: spotHexOf(traders[1]), Value: e6(t, "2")},
+					{Rank: 3, Address: spotHexOf(traders[2]), Value: e6(t, "-15")}}}
+				spotEqual(t, "concurrent generation", body, want)
+				if i == 0 {
+					first = body
+				} else {
+					spotEqual(t, "same generation", body, first)
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatal("projection read waited for a fold")
 			}
 		}
-		spotBoardAsOf(t, got[0].AsOf)
-		want := spotLeaderboardBody{Kind: "pnl", AsOf: got[0].AsOf, Items: []spotRankJSON{
-			{Rank: 1, Address: spotHexOf(traders[0]), Value: e6(t, "20")},
-			{Rank: 2, Address: spotHexOf(traders[1]), Value: e6(t, "2")},
-			{Rank: 3, Address: spotHexOf(traders[2]), Value: e6(t, "-15")},
-		}}
-		spotEqual(t, "first waiter", got[0], want)
-		spotEqual(t, "second waiter", got[1], want)
-		if n := users.board.folds.Load(); n != 1 {
-			t.Fatalf("%d folds, want 1", n)
+		if n := users.board.folds.Load(); n != 0 {
+			t.Fatalf("%d request-time folds", n)
 		}
 	})
 
@@ -1037,7 +928,7 @@ func ProofRESTObserveSpot(t *testing.T, client *http.Client, base string, round 
 			t.Fatalf("%s: %+v; want %s", kind, items, value)
 		}
 	}
-	ProofRESTGet(t, client, base, "/v1/leaderboards/unknown", http.StatusBadRequest)
+	ProofRESTGet(t, client, base, "/v1/leaderboards/unknown", http.StatusNotFound)
 	ProofRESTGet(t, client, base, "/v1/leaderboards/pnl?limit=bad", http.StatusBadRequest)
 	ProofRESTGet(t, client, base, "/v1/users/bad/trades", http.StatusBadRequest)
 }

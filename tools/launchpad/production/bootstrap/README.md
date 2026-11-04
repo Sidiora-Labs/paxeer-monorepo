@@ -41,6 +41,9 @@ and reviewed [check registry](check-registry.json). The configured invocation is
 python3 tools/launchpad/production/qualify.py \
   --task 0.1 \
   --spec launchpad/spec/production-system/spec.kvx \
+  --registry tools/launchpad/production/bootstrap/check-registry.json \
+  --contract-root contracts/launchpad \
+  --evidence-dir launchpad/evidence/production-system/qualification \
   --require-current-source
 ```
 
@@ -55,22 +58,39 @@ Go, SDK and web checks. At most two contiguous Go test suites overlap; individua
 Go builds use one package build worker. Read the registry for the precise suite
 selection rather than assuming all source tests run.
 
-[build/manifest.json](build/manifest.json) declares the shared and protocol Go
-modules under `sdk/launchpad` and service modules under `services/launchpad`.
-The build checker requires its module list to cover discovered launchpad modules
-exactly, and `baseline.py` still requires exactly thirteen. Additional modules
-can therefore fail the baseline; an inventory is not proof that the current tree
-builds. The task-0.1 registry excludes livestream from its required test targets
-while retaining its build target; this does not mean livestream has no tests.
+`services/launchpad/go.work` is the canonical Go workspace. `baseline.py` pins
+its seventeen reviewed production members (fifteen service modules, including
+security/control, and the shared/protocol SDK modules) and reconciles the
+workspace against them. Recovery-broker and load-eventdriver workspace members,
+and discovered test fixtures, are reported separately as auxiliary Go modules.
+Every selected module still requires its checksum file and dependency verification;
+the collector never repairs manifests or checksums. `baseline.json` records
+production modules in `go_modules` and test/tool modules in `auxiliary_go_modules`.
+
+JavaScript membership comes from `apps/launchpad/pnpm-workspace.yaml`: `web`,
+`mobile` and `../../sdk/launchpad/packages/*`, plus the workspace root manifest.
+The baseline checks workspace names and file/link targets in all four dependency
+sections, and records immutable hashes in `npm_workspace_manifests`. Package
+manifests in unrelated qualification fixtures are not workspace members.
+
+[build/manifest.json](build/manifest.json) remains a source command inventory
+covering thirteen modules. Its checker requires exact discovered-module coverage;
+that older inventory is not the seventeen-module dependency baseline and is not
+proof that the current tree builds. The checked-in task-0.1 registry and qualifier
+still require the listed build/test targets; membership discovery does not add,
+remove or certify executed checks. The registry excludes livestream from required
+test targets while retaining its build target; this does not mean it has no tests.
 
 ## Evidence and cleanup
 
 The default evidence directory is
 `launchpad/evidence/production-system/qualification/0.1/<run>/`.
 Read `result.json` for the final result, `progress.json` for completed checks,
-and the retained command logs and source snapshots for provenance. A nonzero
-exit, named skip, missing expected test, stale source or incomplete check fails
-qualification. Empty utility packages cannot replace a module test suite.
+`source-before.json` and `source-after.json` for provenance, and `<check-id>.log`
+for each registered check. The baseline additionally writes `baseline.json`,
+`baseline-command-<index>.log` and `abi-baseline.json` in that run directory.
+A nonzero exit, named skip, missing expected test, stale source or incomplete
+check fails qualification. Empty utility packages cannot replace a module test suite.
 
 The frontend fixture starts and terminates two ephemeral Anvil instances: a
 wallet chain using 125 and a dispatch chain initially using 1. The reusable

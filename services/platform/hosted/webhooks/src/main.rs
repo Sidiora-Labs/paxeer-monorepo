@@ -7,6 +7,7 @@ use layerx_platform_webhooks::events::{
 };
 use layerx_platform_webhooks::hosted::HostedService;
 use layerx_platform_webhooks::http::{self, Reply, Request};
+use layerx_platform_webhooks::routes::{body, encoded, endpoint_route, page, refusal};
 use layerx_platform_webhooks::scheme;
 use layerx_platform_webhooks::trusted::{
     DeveloperIdentity, IngressRole, SourceTrigger, TrustedSources,
@@ -25,7 +26,6 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const MAX_CONNECTIONS: usize = 256;
-const DEFAULT_PAGE: usize = 50;
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
 enum Listener {
@@ -67,12 +67,6 @@ struct RegisterBody {
     kinds: Vec<String>,
     #[serde(default)]
     minimum_verification: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SuspendBody {
-    reason: String,
 }
 
 #[derive(Serialize)]
@@ -247,50 +241,6 @@ fn config() -> Result<Config, String> {
     })
 }
 
-fn refusal(error: &WebhookError) -> Reply {
-    let (status, code, retry) = match error {
-        WebhookError::InvalidRequest => (400, "invalid_request", None),
-        WebhookError::UnknownEndpoint => (404, "unknown_endpoint", None),
-        WebhookError::UnknownDelivery => (404, "unknown_delivery", None),
-        WebhookError::NotDeadLettered => (409, "not_dead_lettered", None),
-        WebhookError::EndpointSuspended => (409, "endpoint_suspended", None),
-        WebhookError::EventConflict => (409, "conflict", None),
-        WebhookError::OrderViolation => (409, "order_violation", None),
-        WebhookError::InvalidCursor => (400, "invalid_cursor", None),
-        WebhookError::CursorExpired => (410, "cursor_expired", None),
-        WebhookError::VerificationRequired => (422, "verification_required", None),
-        WebhookError::SignatureRejected => (401, "signature_rejected", None),
-        WebhookError::ReplayRejected => (409, "replay_rejected", None),
-        WebhookError::StaleTimestamp => (400, "stale_timestamp", None),
-        WebhookError::ReplayCapacity => (503, "replay_capacity", Some(10)),
-        WebhookError::Entropy => (503, "entropy_unavailable", Some(5)),
-        WebhookError::CorruptStore | WebhookError::Unavailable | WebhookError::Io(_) => {
-            (503, "dependency_unavailable", Some(5))
-        }
-        WebhookError::Gateway(_) => (422, "verification_refused", None),
-    };
-    Reply::refusal(status, code, retry)
-}
-
-fn encoded<T: Serialize>(status: u16, value: &T) -> Reply {
-    serde_json::to_string(value).map_or_else(
-        |_| Reply::refusal(503, "encoding_failed", Some(5)),
-        |body| Reply::json(status, body),
-    )
-}
-
-fn body<T: for<'de> Deserialize<'de>>(request: &Request) -> Result<T, WebhookError> {
-    serde_json::from_slice(&request.body).map_err(|_| WebhookError::InvalidRequest)
-}
-
-fn page(request: &Request) -> usize {
-    request
-        .parameter("limit")
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(DEFAULT_PAGE)
-        .clamp(1, 200)
-}
-
 fn principal(identity: &DeveloperIdentity, request: &Request) -> Result<Principal, WebhookError> {
     identity.authenticate(
         request.header("authorization"),
@@ -342,73 +292,6 @@ fn endpoints(config: &Config, request: &Request, principal: &Principal, at: u64)
         .map_or_else(|error| refusal(&error), |value| encoded(201, &value))
 }
 
-fn endpoint_route(
-    config: &Config,
-    request: &Request,
-    principal: &Principal,
-    endpoint: &str,
-    action: &str,
-    at: u64,
-) -> Reply {
-    let endpoint = match EndpointId::new(endpoint) {
-        Ok(value) => value,
-        Err(error) => return refusal(&error),
-    };
-    match (request.method.as_str(), action) {
-        ("GET", "events") => config
-            .service
-            .events_since(
-                principal,
-                &endpoint,
-                request.parameter("cursor"),
-                page(request),
-            )
-            .map_or_else(|error| refusal(&error), |value| encoded(200, &value)),
-        ("GET", "keys") => config
-            .service
-            .signing_keys(principal, &endpoint, at)
-            .map_or_else(|error| refusal(&error), |value| encoded(200, &value)),
-        ("POST", "keys") => match request.header("idempotency-key") {
-            Some(idempotency) => config
-                .service
-                .rotate_key(principal, &endpoint, idempotency, at)
-                .map_or_else(|error| refusal(&error), |value| encoded(201, &value)),
-            None => Reply::refusal(400, "idempotency_key_required", None),
-        },
-        ("POST", "redeliveries") => {
-            let Some(idempotency) = request.header("idempotency-key") else {
-                return Reply::refusal(400, "idempotency_key_required", None);
-            };
-            config
-                .service
-                .redeliver(
-                    principal,
-                    &endpoint,
-                    request.parameter("cursor"),
-                    page(request),
-                    idempotency,
-                    at,
-                )
-                .map_or_else(|error| refusal(&error), |value| encoded(202, &value))
-        }
-        ("POST", "suspensions") => body::<SuspendBody>(request)
-            .and_then(|body| {
-                config
-                    .service
-                    .suspend(principal, &endpoint, &body.reason, at)
-            })
-            .map_or_else(
-                |error| refusal(&error),
-                |()| Reply::json(200, "{\"suspended\":true}".to_owned()),
-            ),
-        ("POST", "resumptions") => config.service.resume(principal, &endpoint).map_or_else(
-            |error| refusal(&error),
-            |()| Reply::json(200, "{\"suspended\":false}".to_owned()),
-        ),
-        _ => Reply::refusal(404, "not_found", None),
-    }
-}
-
 fn owned_route(config: &Config, request: &Request, principal: &Principal, at: u64) -> Reply {
     let segments = request.segments();
     match (request.method.as_str(), segments.as_slice()) {
@@ -419,7 +302,7 @@ fn owned_route(config: &Config, request: &Request, principal: &Principal, at: u6
             )
         }
         (_, ["v1", "webhooks", "endpoints", endpoint, action]) => {
-            endpoint_route(config, request, principal, endpoint, action, at)
+            endpoint_route(&config.service, request, principal, endpoint, action, at)
         }
         ("GET", ["v1", "webhooks", "events"]) => config
             .service
@@ -546,6 +429,15 @@ fn internal_route(
                 .and_then(|event| config.service.publish(&event, at))
                 .map_or_else(|error| refusal(&error), |value| encoded(202, &value))
         }
+        ("GET", ["internal", "v1", "worker-failures"]) => {
+            if peer != Some(IngressRole::Operator) {
+                return Reply::refusal(403, "operator_role_required", None);
+            }
+            if !operator_trigger.authorizes(request.header("authorization")) {
+                return Reply::refusal(401, "operator_authentication_required", None);
+            }
+            encoded(200, &config.service.worker_health())
+        }
         ("POST", ["internal", "v1", "dispatch"]) => {
             if peer != Some(IngressRole::Operator) {
                 return Reply::refusal(403, "operator_role_required", None);
@@ -573,6 +465,7 @@ fn readiness(config: &Config) -> Reply {
     let Some(deadline) = Instant::now().checked_add(Duration::from_secs(5)) else {
         return Reply::refusal(503, "admission_deadline_exceeded", None);
     };
+    let worker = config.service.worker_health();
     let delivery = config.service.ready_until(deadline);
     match &config.role {
         Role::Public { .. } => encoded(
@@ -580,7 +473,8 @@ fn readiness(config: &Config) -> Reply {
             &serde_json::json!({
                 "ready": delivery,
                 "role": "public",
-                "components": { "delivery_state_and_signer": delivery }
+                "worker_failure_count": worker.failure_count,
+                "components": { "delivery_state_and_signer": delivery, "workers": worker.failure_count == 0 }
             }),
         ),
         Role::Ingress { sources, .. } => {
@@ -590,7 +484,9 @@ fn readiness(config: &Config) -> Reply {
                 &serde_json::json!({
                     "ready": delivery && sources,
                     "role": "ingress",
+                    "worker_failure_count": worker.failure_count,
                     "components": {
+                        "workers": worker.failure_count == 0,
                         "delivery_state_and_signer": delivery,
                         "canonical_sources_and_node_receipts": sources
                     }
@@ -714,14 +610,17 @@ fn serve(config: Config) -> Result<(), String> {
     thread::spawn(move || loop {
         thread::sleep(worker_config.dispatch_interval);
         if let Some(markets) = &worker_config.markets {
-            let _ = markets.drain(&worker_config.service, now());
+            let result = markets.drain_report(&worker_config.service, now());
+            report_worker_result(&worker_config.service, "market_drain", result.is_err());
         }
-        let _ = worker_config
+        let result = worker_config
             .service
             .dispatch(now(), worker_config.dispatch_budget);
-        let _ = worker_config
+        report_worker_result(&worker_config.service, "dispatch", result.is_err());
+        let result = worker_config
             .service
-            .prune_all(worker_config.retention_events);
+            .prune_all_report(worker_config.retention_events);
+        report_worker_result(&worker_config.service, "retention", result.is_err());
     });
     let listener = TcpListener::bind(config.listen).map_err(|error| error.to_string())?;
     for accepted in listener.incoming() {
@@ -739,6 +638,19 @@ fn serve(config: Config) -> Result<(), String> {
         });
     }
     Ok(())
+}
+
+fn report_worker_result(service: &HostedService, stage: &'static str, failed: bool) {
+    let health = service.worker_health();
+    if failed || health.failure_count != 0 {
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "event": "webhook_worker_failure", "stage": stage,
+                "failed": failed, "health": health,
+            })
+        );
+    }
 }
 
 struct ConnectionGuard;
@@ -799,6 +711,9 @@ fn market_refusal(error: &MarketEventError) -> Reply {
     match error {
         MarketEventError::Webhook(e) => refusal(e),
         MarketEventError::InvalidRequest => Reply::refusal(400, "invalid_market_capture", None),
+        MarketEventError::HistoryExpired => {
+            Reply::refusal(410, "market_history_expired_resync_required", None)
+        }
         MarketEventError::ProducerRoleRequired | MarketEventError::Revoked => {
             Reply::refusal(403, "market_access_refused", None)
         }

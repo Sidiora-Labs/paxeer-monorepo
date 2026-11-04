@@ -19,6 +19,18 @@ def default_contracts(major):
     return repository_root() / ('launchpad/spec/production-system/integration/contracts/v' + str(major))
 
 
+def read_manifest(contracts, manifest_path=None):
+    path = manifest_path or contracts / 'codegen-manifest.json'
+    try:
+        return json.loads(path.read_bytes())
+    except FileNotFoundError:
+        raise ValueError(
+            f'Missing codegen manifest: {path}; requires the complete immutable '
+            f'{contracts.name} contract bundle (codegen-manifest.json, schema-definitions.json, '
+            'openapi.json, asyncapi.json and pinned generator/validator inputs) from the launchpad owner'
+        ) from None
+
+
 def expected_package(major):
     return repository_root() / ('sdk/launchpad/packages/sdk' if major == 1 else 'sdk/launchpad/packages/sdk-v' + str(major))
 
@@ -43,7 +55,7 @@ def local_refs(value):
 
 
 def emit_operations(root, contracts):
-    pin = json.loads((contracts / 'codegen-manifest.json').read_bytes())
+    pin = read_manifest(contracts)
     if pin.get('schemaMajor') != 2 or sha(contracts / 'schema-definitions.json') != pin.get('schemaSha256'):
         raise ValueError('Pinned v2 definition digest mismatch')
     definitions = json.loads((contracts / 'schema-definitions.json').read_bytes())
@@ -111,16 +123,16 @@ def main():
     if args.major < 1:
         raise ValueError('positive schema major required')
     contracts = (args.contracts or default_contracts(args.major)).resolve()
+    manifest_path = (args.manifest or contracts / 'codegen-manifest.json').resolve()
+    if not contracts.is_relative_to((root / 'launchpad/spec/production-system/integration/contracts').resolve()) or not manifest_path.is_relative_to(contracts):
+        raise ValueError('bundle/manifest outside contract allowlist')
     if args.operations_only:
         if args.major != 2: raise ValueError('--operations-only requires --major2')
         print(json.dumps(emit_operations(root, contracts), sort_keys=True)); return
-    manifest_path = (args.manifest or contracts / 'codegen-manifest.json').resolve()
     package = (args.package or expected_package(args.major)).resolve()
-    if not contracts.is_relative_to(root / 'launchpad/spec/production-system/integration/contracts') or not manifest_path.is_relative_to(contracts):
-        raise ValueError('bundle/manifest outside contract allowlist')
     if package != expected_package(args.major):
         raise ValueError('explicit versioned SDK package required; frozen SDK must not be overwritten')
-    manifest = json.loads(manifest_path.read_bytes())
+    manifest = read_manifest(contracts, manifest_path)
     generator = (args.generator or root / manifest['generator']).resolve()
     legacy_source = None
     if args.reproduce_v1:

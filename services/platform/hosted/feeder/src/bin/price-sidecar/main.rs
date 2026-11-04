@@ -1,8 +1,8 @@
 //! Validator price sidecar: reads the Chainflow feed for every market once
 //! per cadence and submits one signed `MsgSubmitPrices` Cosmos transaction.
 
-mod health;
-mod round;
+pub mod health;
+pub mod round;
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -94,11 +94,7 @@ impl Config {
         }
         address("validator", &self.validator)?;
         address("feed_account", &self.feed_account)?;
-        if !self.chainflow.base_url.starts_with("https://")
-            && !self.chainflow.base_url.starts_with("http://")
-        {
-            return Err("config field chainflow.base_url must be an http or https URL".to_owned());
-        }
+        self.validate_chainflow_transport(false)?;
         if self.markets.is_empty() {
             return Err("config field markets is empty".to_owned());
         }
@@ -128,6 +124,90 @@ impl Config {
             }
         }
         Ok(())
+    }
+
+    fn validate_chainflow_transport(&self, loopback: bool) -> Result<(), String> {
+        let uri: ureq::http::Uri = self
+            .chainflow
+            .base_url
+            .parse()
+            .map_err(|_| "chainflow.base_url must be an HTTPS URL")?;
+        let authority = uri
+            .authority()
+            .ok_or("chainflow.base_url requires a host")?;
+        if authority.as_str().contains('@') || uri.host().is_none_or(str::is_empty) {
+            return Err("chainflow.base_url must not contain credentials".to_owned());
+        }
+        if uri.scheme_str() == Some("https") {
+            return Ok(());
+        }
+        if loopback && uri.scheme_str() == Some("http") {
+            let host = uri
+                .host()
+                .unwrap_or_default()
+                .trim_start_matches('[')
+                .trim_end_matches(']');
+            if host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+            {
+                return Ok(());
+            }
+        }
+        Err("chainflow.base_url must use HTTPS".to_owned())
+    }
+
+    /// Retrieves a quote only after checking the credential transport.
+    pub fn fetch_ticker(
+        &self,
+        agent: &ureq::Agent,
+        symbol: &str,
+        api_key: &str,
+        now: impl FnOnce() -> u64,
+    ) -> Result<layerx_oracle_feeder::chainflow::Ticker, layerx_oracle_feeder::chainflow::FetchError>
+    {
+        self.fetch_ticker_transport(agent, symbol, api_key, now, false)
+    }
+
+    fn fetch_ticker_transport(
+        &self,
+        agent: &ureq::Agent,
+        symbol: &str,
+        api_key: &str,
+        now: impl FnOnce() -> u64,
+        loopback: bool,
+    ) -> Result<layerx_oracle_feeder::chainflow::Ticker, layerx_oracle_feeder::chainflow::FetchError>
+    {
+        use layerx_oracle_feeder::chainflow::{status_error, FetchError};
+        self.validate_chainflow_transport(loopback)
+            .map_err(FetchError::Transport)?;
+        let mut response = self
+            .chainflow
+            .ticker_request(agent, symbol, api_key)?
+            .config()
+            .max_redirects(0)
+            .build()
+            .call()
+            .map_err(|e| FetchError::Transport(e.to_string()))?;
+        status_error(response.status().as_u16())?;
+        let body = response
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| FetchError::Transport(e.to_string()))?;
+        self.chainflow.parse_ticker(&body, symbol, now())
+    }
+
+    /// Plaintext transport exists only in test builds and only for literal loopback IPs.
+    #[cfg(test)]
+    pub fn fetch_ticker_loopback(
+        &self,
+        agent: &ureq::Agent,
+        symbol: &str,
+        api_key: &str,
+        now: impl FnOnce() -> u64,
+    ) -> Result<layerx_oracle_feeder::chainflow::Ticker, layerx_oracle_feeder::chainflow::FetchError>
+    {
+        self.fetch_ticker_transport(agent, symbol, api_key, now, true)
     }
 
     /// # Errors

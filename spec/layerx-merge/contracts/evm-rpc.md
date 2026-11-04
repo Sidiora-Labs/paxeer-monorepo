@@ -3629,3 +3629,56 @@ Malformed parameters return `-32602`. These are deliberate, dispatched
 refusals on both transports, never method-not-found responses. Every px method
 records the same per-method/error/transport metrics as the existing RPC APIs.
 The node handlers perform no chain writes and require no hosted credentials.
+
+## px-node-root-history
+
+Decisions 2514 and 2521 also register `px_getHistory`, `px_getUnifiedHistory`
+and `px_listHolderRecords` at node root `/` on HTTP and WebSocket. Their
+positional parameters and result schemas follow
+`services/platform/hosted/gateway/openrpc.json`. These methods share the
+existing px indexer configuration (`evm.px_indexer_url` / `WithPxIndexerURL`),
+local account resolution, committed watermark and RPC metrics. No hosted
+credential or gateway upstream is needed. The handlers perform no chain writes.
+
+History and holder enumeration come from `/v1/history/{account}` and
+`/v1/holders/{address}` of the configured indexer. Amounts remain exact decimal
+strings. Asset records are joined from `/v1/assets/{asset}` and registry
+metadata; missing asset records yield null metadata. Indexer `indexedHeight`,
+readiness from `/readyz`, and the node's pinned `chainHeight` remain distinct.
+Indexer readiness never promotes a transfer's finality. HTTP and WebSocket
+expose the same result and error contract, including per-method metrics.
+
+Unified history resolves the binding locally and enumerates persisted owned
+accounts using the kernel account codec and owner rules over the committed
+`lxphost` registry. It includes the binding's canonical main account and every
+owned persisted account, with at most sixteen keys including the EVM address.
+Each side uses the same position cursor. Rows merge in indexer order and
+identical indexer row keys are deduplicated. An unavailable, corrupt or oversized
+native enumeration returns `-32001`, `History unavailable`, data.code
+`native_account_enumeration_unavailable`; an EVM-only partial unified answer
+must not be substituted. This implements the native merge promised by the
+OpenRPC method description; its older parameter text still describes the
+hosted gateway's EVM-only behavior. Hosted behavior and client cutover are
+outside this task.
+
+The existing indexer and gateway store implementations order positions oldest
+first, strictly after the supplied cursor. The architecture document's
+newest-first wording conflicts with that interface. Node reads preserve the
+existing cursor direction, with 32 lowercase hex digits encoding a signed-range
+height and two uint32 indexes. They keep every row at a page's last position
+together so advancing a cursor cannot lose self-transfer legs. The result stays
+within OpenRPC's 100-row bound; an indivisible position exceeding it fails with
+`-32001`, `History unavailable`, data.code `history_position_page_too_large`.
+The node makes no claim of newest-first or native-history client cutover.
+
+Invalid selectors, unbound DID history selectors, legacy 112-hex cursors,
+invalid kinds and limits outside 1–100 return `-32602`, `Invalid params`.
+Missing indexer configuration returns `-32001`, `History unavailable`,
+data.code `indexer_not_configured`. Unreachable or invalid indexer reads return
+that same code/message with `indexer_unreachable`, `indexer_unavailable`,
+`invalid_indexer_response`, `registry_unavailable` or
+`invalid_indexer_readiness` as appropriate. An indexer parameter refusal
+preserves its refusal document as `-32602` data. Local state/binding failures
+retain the account API's `Paxeer read unavailable` errors. These registered
+methods never use `-32601` to represent an unavailable backend. Existing
+`px_register` and `px_requestFunds` hosted-service refusals remain dispatched.

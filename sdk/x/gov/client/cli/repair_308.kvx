@@ -1,0 +1,14 @@
+[repair.22.31.308]
+finding = "22.30.167/historical-single-vote"
+tests = ["TestRepair_308_HistoricalSingleVoteAfterTallyAndClientRestart", "TestRepair_308_LiveVoteDoesNotRequireTransactionIndex", "TestRepair_308_HistoricalAbsenceAndIndexFailure", "TestRepair_308_HistoricalTransportErrorIsPreserved"]
+path = "sdk/x/gov/client/cli/query.go"
+baseline = "Not run: the explicit task gate order forbids verification before implementation and prohibits invoking verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = []
+qualification_note = "The first verification stopped at test compilation: this fork requires NewTextProposal's expedited flag and Codec.UnmarshalAsJSON; the test API calls were corrected without changing assertions."
+continued_from = "cdfdced3c54204d96d4bc6b109610dce366e0977"
+previous_failure = "The seeded attempt's tests failed before reaching vote history because the legacy rootmulti store rejects versioned application queries; the fixture now uses the production storev2 multistore with synchronous commits. All existing assertions remain intact."
+verified_revision_source = "The bounded hf-build and hf-done evidence records identify the exact candidate revision and private qualification logs."
+continued_attempt_5 = "Seed revision b6f93863b97d60b3abb9d6e76210b706095821fc failed test compilation because consensus/crypto/ed25519 has no GenPrivKeyFromSecret. Import sdk/crypto/keys/ed25519 and convert its public key with the production crypto codec to the consensus validator key type; retain the WeightedVoteOptions conversions and every existing assertion."
+continued_attempt_3 = "Seed revision fcb258977532126ec5e14a5051a21e7a8edb1d0a failed TestRepair_308_HistoricalSingleVoteAfterTallyAndClientRestart and TestRepair_308_LiveVoteDoesNotRequireTransactionIndex: require.Equal distinguishes WeightedVoteOptions from the generated Vote.Options unnamed slice despite equal elements. Convert the decoded options to WeightedVoteOptions before all three full equality assertions; no assertion or vote value changes."
+qualification_repair_3 = "Revision 2d514ed13b0184a520f56690c7b19df64b870fa2 passed go build ./sdk/x/gov/client/cli/...; cg spec done 22.31.308 -f layerx-merge --root /work/paxeer-monorepo exited 1, log /out/logs/verify-1.log: the indexed fixture block omitted its proposer address. Populate the proposer and validator hashes from a real validator key and set, and validate the block before storage."
+qualification_repair = "Candidate c771c29b1bfb66c5999cef7f2700dc70f6598a17 passed go build ./sdk/x/gov/client/cli/... but cg spec done 22.31.308 -f layerx-merge --root /work/paxeer-monorepo exited 1; private evidence: /out/logs/verify-1.log. The supported store buffers direct writes until commit, so the fixture now uses the application working cache, flushes it before committing, and opens a fresh cache afterwards."

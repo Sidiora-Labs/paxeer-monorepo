@@ -198,6 +198,7 @@ func TestServiceViewsReadKernelRecords(t *testing.T) {
 	copy(otherProgress.wire[65:97], otherCommitment[:])
 	binary.BigEndian.PutUint32(otherProgress.wire[225:229], 10000)
 	putServiceViewFixture(t, h.ctx, h.hostKey, otherProgress)
+	require.NoError(t, h.keeper.RebuildServiceIndexes(h.ctx))
 	hostBefore, payBefore := payStoreSnapshot(h.ctx, h.hostKey), payStoreSnapshot(h.ctx, h.storeKey)
 	for _, fixture := range fixtures {
 		t.Run(fixture.prefix, func(t *testing.T) {
@@ -220,6 +221,7 @@ func TestServiceViewsReadKernelRecords(t *testing.T) {
 	binary.BigEndian.PutUint64(tied.wire[130:138], delivery.GlobalSequence)
 	copy(tied.wire[97:129], otherAgreement[:])
 	putServiceViewFixture(t, h.ctx, h.hostKey, tied)
+	require.NoError(t, h.keeper.RebuildServiceIndexes(h.ctx))
 	latest, found = h.keeper.LatestDelivery(h.ctx, delivery.AgreementID)
 	require.True(t, found)
 	delivery.Provider = otherAgreement
@@ -267,6 +269,7 @@ func TestServiceViewsUnknownEmpty(t *testing.T) {
 	for _, fixture := range fixtures {
 		putServiceViewFixture(t, h.ctx, h.hostKey, fixture)
 	}
+	require.NoError(t, h.keeper.RebuildServiceIndexes(h.ctx))
 	hostBefore, payBefore := payStoreSnapshot(h.ctx, h.hostKey), payStoreSnapshot(h.ctx, h.storeKey)
 	checkUnknown(serviceViewID(200))
 	checkUnknown([32]byte{})

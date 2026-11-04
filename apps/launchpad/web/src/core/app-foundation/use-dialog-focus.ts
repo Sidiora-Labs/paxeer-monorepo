@@ -31,12 +31,38 @@ function releaseBackground(element: HTMLElement) {
   if (owner.addedInert) element.removeAttribute('inert');
   if (owner.addedHidden) element.removeAttribute('aria-hidden');
 }
-/** Scope keyboard focus to the actual mounted dialog; cleanup returns its opener. */
+interface DialogEntry {
+  dialog: HTMLElement;
+  opener: HTMLElement | null;
+  focus: () => void;
+  background: HTMLElement[];
+}
+const dialogs: DialogEntry[] = [];
+const topDialog = () => dialogs[dialogs.length - 1];
+
+function updateBackground() {
+  // Release the old branch before claiming the new one, even when roots differ.
+  for (const entry of dialogs) {
+    for (const element of entry.background) releaseBackground(element);
+    entry.background = [];
+  }
+  const top = topDialog();
+  if (!top) return;
+  for (let branch: HTMLElement = top.dialog; branch.parentElement; branch = branch.parentElement) {
+    for (const sibling of Array.from(branch.parentElement.children)) {
+      if (sibling === branch || !(sibling instanceof HTMLElement)) continue;
+      claimBackground(sibling);
+      top.background.push(sibling);
+    }
+    if (branch.parentElement === document.body) break;
+  }
+}
+
+/** Scope keyboard focus to the topmost mounted dialog; cleanup returns its opener. */
 export function useDialogFocus(ref: RefObject<HTMLElement | null>, open: boolean, restoreFocus?: () => boolean) {
   useEffect(() => {
     if (!open || !ref.current) return;
     const dialog = ref.current;
-    const opener = document.activeElement as HTMLElement | null;
     const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex]')).filter(item => {
       if (item.matches(':disabled, [tabindex="-1"]') || item.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
       for (let node: HTMLElement | null = item; node; node = node.parentElement) {
@@ -47,33 +73,44 @@ export function useDialogFocus(ref: RefObject<HTMLElement | null>, open: boolean
       return item.tabIndex >= 0;
     });
     const previousTabIndex = dialog.getAttribute('tabindex');
-    if (!controls().length) dialog.tabIndex = -1;
-    (controls()[0] || dialog).focus();
-    const background: HTMLElement[] = [];
-    for (let branch: HTMLElement = dialog; branch.parentElement; branch = branch.parentElement) {
-      for (const sibling of Array.from(branch.parentElement.children)) {
-        if (sibling === branch || !(sibling instanceof HTMLElement)) continue;
-        claimBackground(sibling);
-        background.push(sibling);
-      }
-      if (branch.parentElement === document.body) break;
-    }
+    const entry: DialogEntry = {
+      dialog, opener: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+      focus: () => {
+        const first = controls()[0];
+        if (!first && !dialog.hasAttribute('tabindex')) dialog.tabIndex = -1;
+        (first || dialog).focus();
+      },
+      background: [],
+    };
+    dialogs.push(entry);
+    updateBackground();
+    entry.focus();
     const trap = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
+      if (topDialog() !== entry || event.key !== 'Tab') return;
       const items = controls(); const first = items[0]; const last = items[items.length - 1];
-      if (!first) { event.preventDefault(); return; }
+      if (!first) { event.preventDefault(); dialog.focus(); return; }
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    const containFocus = (event: FocusEvent) => { if (event.target instanceof Node && !dialog.contains(event.target)) (controls()[0] || dialog).focus(); };
+    const containFocus = (event: FocusEvent) => {
+      if (topDialog() === entry && event.target instanceof Node && !dialog.contains(event.target)) entry.focus();
+    };
     dialog.addEventListener('keydown', trap);
     document.addEventListener('focusin', containFocus);
     return () => {
+      const wasTop = topDialog() === entry;
       dialog.removeEventListener('keydown', trap);
       document.removeEventListener('focusin', containFocus);
       if (previousTabIndex === null) dialog.removeAttribute('tabindex'); else dialog.setAttribute('tabindex', previousTabIndex);
-      for (const element of background) releaseBackground(element);
-      if (opener?.isConnected && (!restoreFocus || restoreFocus())) opener.focus();
+      for (const element of entry.background) releaseBackground(element);
+      dialogs.splice(dialogs.indexOf(entry), 1);
+      // If a lower dialog closes first, its eventual successor must still reach the page opener.
+      for (const next of dialogs) if (next.opener && dialog.contains(next.opener)) next.opener = entry.opener;
+      updateBackground();
+      if (!wasTop) return;
+      const top = topDialog();
+      if (entry.opener?.isConnected && (!top || top.dialog.contains(entry.opener)) && (!restoreFocus || restoreFocus())) entry.opener.focus();
+      else if (top) top.focus();
     };
   }, [open, ref, restoreFocus]);
 }

@@ -1,0 +1,7 @@
+{
+  "inactive": [{"kind":"noqueue","handle":"0:","root":true}],
+  "delayed": [{"kind":"netem","handle":"1f00:","root":true,"options":{"delay":200000,"jitter":10000,"delay_corr":25}}],
+  "restart_before": "4814b94ce76d4d9b99d350492d499101\n",
+  "restart_after": "5849cc891bd84fe09f57eb58f39df1e1\n",
+  "failure": "remote operation exited 255"
+}

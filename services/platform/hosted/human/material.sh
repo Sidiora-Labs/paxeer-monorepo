@@ -9,6 +9,17 @@ human_secrets_generate() (
     set -euo pipefail
     umask 077
     local root="$SECRETS_DIR/human" token
+    if [ -e "$root" ] || [ -L "$root" ]; then
+        retained_material_inventory check
+        python3 - "$REPO_ROOT" "$root" <<'PY_RETAINED'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / 'services/platform/hosted/human'))
+from history_material import refuse_legacy
+refuse_legacy(sys.argv[2])
+PY_RETAINED
+        return
+    fi
     mkdir -p "$root/components" "$root/kms" "$root/agent" "$root/config" "$root/agent-config" "$root/identity" "$root/security" \
         "$root/movement" "$root/movement-config" "$root/authority" "$root/authority-config"
     chmod 0700 "$root" "$root"/*
@@ -21,9 +32,7 @@ human_secrets_generate() (
         mv "$root/agent/$token.next" "$root/agent/$token"
     done
     cp "$SECRETS_DIR/node-program.token" "$root/agent/node-token"
-    cp "$SECRETS_DIR/trust-history" "$root/agent/trust-history"
     cp "$root/agent/authority-token" "$root/authority/authority-token"
-    cp "$SECRETS_DIR/trust-history" "$root/security/trust-history"
     cp "$CA_DIR/ca.der" "$root/agent/ca.der"
     cp "$CA_DIR/ca.der" "$root/movement/ca.der"
     cp "$CA_DIR/human-kms-executor/cert.der" "$root/movement/kms-executor.der"
@@ -61,8 +70,8 @@ human_policy_publish() {
     local evidence="$WORK_DIR/human-evidence"
     LAYERX_BETA_HUMAN_POLICY_FILE="$WORK_DIR/human-policy/policy.json"
     install -d -m 0700 "$WORK_DIR/human-policy"
-    python3 "$REPO_ROOT/services/platform/hosted/human/history_material.py" "$WORK_DIR/genesis" \
-        "$WORK_DIR/paxeer/deployment.json" "$evidence" "$SECRETS_DIR/human" "$CA_DIR/ca.der" "$NODE_SEQUENCER_PUBLIC_KEY"
+    python3 "$REPO_ROOT/services/platform/hosted/human/history_material.py" "$WORK_DIR" \
+        "$SECRETS_DIR/human" "$NODE_NETWORK_ID" "$PAXEER_CHAIN_ID"
     python3 "$REPO_ROOT/services/platform/hosted/human/material.py" --assemble \
         "$evidence" "$WORK_DIR/paxeer/deployment.json" "$SECRETS_DIR/module-registry.json" \
         "$LAYERX_BETA_HUMAN_POLICY_FILE" "$NODE_NETWORK_ID" "$PAXEER_CHAIN_ID"

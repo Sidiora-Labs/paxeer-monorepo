@@ -1,0 +1,44 @@
+[task.22.33.1177]
+base = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+status = "implemented; qualification evidence is retained by hf-build and hf-done"
+baseline = "No baseline gate ran: the task-specific ordered gate instructions prohibit verification before implementation and require hf-done as the sole verification entry point; no pre-existing test failures are claimed."
+wiring_requests = "storage/db_engine/pebbledb/mvcc/db.go (domain 5): restore persisted store pruning inventory on open, so offline pruning need not register discovered stores with empty changesets at the unchanged head."
+qualification_evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private log path in /out/run/gates.jsonl; no successful gate is claimed in advance."
+
+[finding.dump-db-ignores-source]
+test = "TestRepairM_1177_DumpSource; TestRepairM_1177_MissingSource"
+
+[finding.dump-iavl-header-error-hidden]
+test = "TestRepairM_1177_IAVLFailures"
+
+[finding.legacy-module-inventory]
+test = "TestRepairM_1177_ModuleInventory"
+
+[finding.prune-db-dir-home-confusion]
+test = "TestRepairM_1177_PruneNamedSource; TestRepairM_1177_MissingSource; TestRepairM_1177_PruneStoreInventory"
+
+[finding.replay-offset-flag-types]
+test = "TestRepairM_1177_ReplayBounds"
+
+[gotcha.scan-stop]
+observed = "memiavl.Tree.ScanPostOrder currently ignores false from its callback; the export uses the real tree iterator to stop immediately on failure."
+
+[gotcha.replay-open]
+observed = "ss.NewStateStore auto-recovers the entire WAL; bounded CLI replay opens the real MVCC backend directly to preserve selected offsets."
+
+[gotcha.pebble-manifest]
+observed = "Current Pebble stores use manifest markers rather than CURRENT; validate existing sources with read-only pebble.Peek, while RocksDB retains CURRENT."
+
+[qualification.first-attempt]
+revision = "64ba077c9fb9c3c99bb77b58d9da535e5b9bce95"
+command = "cg spec done 22.33.1177 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Source validation incorrectly required CURRENT for modern Pebble; repaired with Pebble's own read-only existence API without changing assertions."
+
+[gotcha.prune-reopen]
+observed = "Pebble pruning skips stores absent from process-local storeKeyDirty after reopen; the CLI reads the actual persisted store inventory and registers empty changesets at the existing head before pruning, preserving all values and the latest version."
+
+[qualification.carried-attempt]
+revision = "649fa58f4f01a3a7cbcb446fbc796881a0972630"
+observed = "The runner supplied the previous failed qualification: TestRepairM_1177_PruneNamedSource failed while IAVLFailures and ReplayBounds passed; no gate is rerun on the unchanged carried tree."

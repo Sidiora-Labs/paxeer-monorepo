@@ -1,0 +1,1350 @@
+[
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=25",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=100",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=2",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": "000000000000000b0000000000000000",
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000b0000000000000000&limit=2",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=1",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": "000000000000000a0000000000000000",
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000a0000000000000000&limit=1",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": "000000000000000b0000000000000000",
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000b0000000000000000&limit=1",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": "000000000000000c0000000000000000",
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "cursor=000000000000000c0000000000000000&limit=1",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=native_transfer&limit=1",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/readyz",
+    "query": "",
+    "status": 503,
+    "body": {
+      "database": "ok",
+      "sources": [],
+      "started_at": 0,
+      "status": "unavailable",
+      "version": 1
+    }
+  },
+  {
+    "path": "/v1/assets/evm:native",
+    "query": "",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "asset": {
+        "asset": "evm:native",
+        "chain": "paxeer",
+        "kind": "native",
+        "address": null,
+        "denom": null,
+        "metadata": {}
+      }
+    }
+  },
+  {
+    "path": "/v1/assets/evm:0xcccccccccccccccccccccccccccccccccccccccc",
+    "query": "",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "asset": {
+        "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+        "chain": "paxeer",
+        "kind": "pointer",
+        "address": "0xcccccccccccccccccccccccccccccccccccccccc",
+        "denom": "ulxp",
+        "metadata": {}
+      }
+    }
+  },
+  {
+    "path": "/v1/assets/denom:factory/pax1issuer/ticket",
+    "query": "",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "asset": {
+        "asset": "denom:factory/pax1issuer/ticket",
+        "chain": "paxeer",
+        "kind": "tokenfactory",
+        "address": null,
+        "denom": "factory/pax1issuer/ticket",
+        "metadata": {}
+      }
+    }
+  },
+  {
+    "path": "/v1/assets/evm:0x0000000000000000000000000000000000000abc",
+    "query": "",
+    "status": 404,
+    "body": {
+      "error": "not_found"
+    }
+  },
+  {
+    "path": "/v1/assets",
+    "query": "limit=500",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "asset": "1111111111111111111111111111111111111111111111111111111111111111",
+          "chain": "layerx",
+          "kind": "layerx",
+          "address": null,
+          "denom": null,
+          "metadata": {
+            "supply": "100"
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "path": "/native-empty",
+    "query": "limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/native-empty",
+    "query": "limit=25",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/native-empty",
+    "query": "limit=2",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/native-empty",
+    "query": "cursor=000000000000000b0000000000000000&limit=2",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12
+    }
+  },
+  {
+    "path": "/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=grant&limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12
+    }
+  },
+  {
+    "path": "/invalid-version/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 200,
+    "body": {
+      "version": 2,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/invalid-version/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 200,
+    "body": {
+      "version": 2,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12
+    }
+  },
+  {
+    "path": "/invalid-cursor/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/invalid-cursor/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "indexedHeight": 12
+    }
+  },
+  {
+    "path": "/invalid-items/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": null,
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/invalid-items/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": null,
+      "next_cursor": null,
+      "indexedHeight": 12
+    }
+  },
+  {
+    "path": "/indexer-refused/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 400,
+    "body": {
+      "code": "invalid_cursor"
+    }
+  },
+  {
+    "path": "/indexer-refused/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 400,
+    "body": {
+      "code": "invalid_cursor"
+    }
+  },
+  {
+    "path": "/indexer-failed/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 503,
+    "body": {
+      "code": "store_unavailable"
+    }
+  },
+  {
+    "path": "/indexer-failed/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 503,
+    "body": {
+      "code": "store_unavailable"
+    }
+  },
+  {
+    "path": "/invalid-readiness/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/invalid-readiness/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [],
+      "next_cursor": null,
+      "indexedHeight": 12
+    }
+  },
+  {
+    "path": "/invalid-readiness/v1/assets/evm:native",
+    "query": "",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "asset": {
+        "asset": "evm:native",
+        "chain": "paxeer",
+        "kind": "native",
+        "address": null,
+        "denom": null,
+        "metadata": {}
+      }
+    }
+  },
+  {
+    "path": "/invalid-readiness/v1/assets/evm:0xcccccccccccccccccccccccccccccccccccccccc",
+    "query": "",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "asset": {
+        "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+        "chain": "paxeer",
+        "kind": "pointer",
+        "address": "0xcccccccccccccccccccccccccccccccccccccccc",
+        "denom": "ulxp",
+        "metadata": {}
+      }
+    }
+  },
+  {
+    "path": "/invalid-readiness/v1/assets/denom:factory/pax1issuer/ticket",
+    "query": "",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "asset": {
+        "asset": "denom:factory/pax1issuer/ticket",
+        "chain": "paxeer",
+        "kind": "tokenfactory",
+        "address": null,
+        "denom": "factory/pax1issuer/ticket",
+        "metadata": {}
+      }
+    }
+  },
+  {
+    "path": "/invalid-readiness/v1/assets/evm:0x0000000000000000000000000000000000000abc",
+    "query": "",
+    "status": 404,
+    "body": {
+      "error": "not_found"
+    }
+  },
+  {
+    "path": "/invalid-readiness/v1/assets",
+    "query": "limit=500",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "asset": "1111111111111111111111111111111111111111111111111111111111111111",
+          "chain": "layerx",
+          "kind": "layerx",
+          "address": null,
+          "denom": null,
+          "metadata": {
+            "supply": "100"
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "path": "/invalid-readiness/readyz",
+    "query": "",
+    "status": 503,
+    "body": {
+      "version": 1,
+      "status": "unavailable"
+    }
+  },
+  {
+    "path": "/invalid-order/v1/history/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "id": "11",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "erc20_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0x0000000000000000000000000000000000000abc",
+          "amount": "4",
+          "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "1",
+          "log_index": "0"
+        },
+        {
+          "id": "9",
+          "height_or_seq": "12",
+          "chain": "paxeer",
+          "kind": "bank_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "denom:factory/pax1issuer/ticket",
+          "amount": "2",
+          "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "12"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "6",
+          "height_or_seq": "11",
+          "chain": "paxeer",
+          "kind": "pointer_transfer",
+          "direction": "in",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:0xcccccccccccccccccccccccccccccccccccccccc",
+          "amount": "3",
+          "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+          "ordinal": "1",
+          "final": false,
+          "decoded": {
+            "position": "11"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        },
+        {
+          "id": "3",
+          "height_or_seq": "10",
+          "chain": "paxeer",
+          "kind": "native_transfer",
+          "direction": "out",
+          "account": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "counterparty": "0xffffffffffffffffffffffffffffffffffffffff",
+          "asset": "evm:native",
+          "amount": "1000000000000000000",
+          "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+          "ordinal": "0",
+          "final": false,
+          "decoded": {
+            "position": "10"
+          },
+          "tx_index": "0",
+          "log_index": "0"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12,
+      "freshness": {
+        "database": "ok",
+        "sources": [],
+        "started_at": 0,
+        "status": "unavailable",
+        "version": 1
+      }
+    }
+  },
+  {
+    "path": "/invalid-order/v1/holders/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "query": "kind=budget&limit=50",
+    "status": 200,
+    "body": {
+      "version": 1,
+      "items": [
+        {
+          "holder": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "kind": "grant"
+        }
+      ],
+      "next_cursor": null,
+      "indexedHeight": 12
+    }
+  }
+]

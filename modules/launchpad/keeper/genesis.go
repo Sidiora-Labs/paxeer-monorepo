@@ -133,7 +133,11 @@ func (k *Keeper) initFeeAccounting(ctx sdk.Context, a types.FeeAccounting, pools
 		}
 	}
 	for _, claim := range a.Claims {
-		k.store(ctx).Set(poolAirdropClaimKey(common.HexToAddress(claim.Pool), common.HexToAddress(claim.Holder), claim.Epoch), []byte{1})
+		if err := k.setFeeAccountingEntry(ctx,
+			poolAirdropClaimKey(common.HexToAddress(claim.Pool), common.HexToAddress(claim.Holder), claim.Epoch),
+			[]byte{1}, feeAccountingClaimCountKey); err != nil {
+			return err
+		}
 	}
 	return nil
 }
