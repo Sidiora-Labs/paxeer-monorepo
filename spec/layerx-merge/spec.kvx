@@ -154696,7 +154696,7 @@ do_11 = "Attempt 2 (continue): the bridge type-check now runs the package typech
 
 [task.22.33.253]
 title = "Repair audit record 22.30.13 medium findings in apps/perps/tests (part 1 of 1): config-drift, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.10", "22.31.11", "22.31.12", "22.31.13", "22.31.479", "22.31.480"]
@@ -155075,7 +155075,7 @@ do_10 = "Attempt 2 (continue): the type-check failed only because sdk/wallet and
 
 [task.22.33.200]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/network-pill (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -155151,7 +155151,7 @@ do_11 = "Attempt 5 (continue): merge current main first (22.31.480 removed the t
 
 [task.22.33.198]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/portfolio (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -155275,7 +155275,7 @@ do_18 = "Next attempt (after 22.31.480): seven cases still fail against the curr
 
 [task.22.33.195]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/trading/modals (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -155474,7 +155474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.190]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/pages/api (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -176676,7 +176676,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1465]
 title = "Repair audit record 22.30.84 medium findings in services/platform/hosted/paxai-w*/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.203", "22.31.204", "22.31.205", "22.31.465", "22.31.484"]
@@ -197663,7 +197663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.483]
 title = "Restore the tracked Paxeer boundary manifest and reconcile the five consumers that still read it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -279599,7 +279599,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1143]
 title = "Repair audit record 22.30.50 medium findings in node (part 4 of 4): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.102"]
@@ -279636,7 +279636,7 @@ do_10 = "Attempt 2 (requalify): attempt 1 passed its build and verify and was he
 
 [task.22.33.1142]
 title = "Repair audit record 22.30.50 medium findings in node (part 3 of 4): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.102"]
@@ -325344,7 +325344,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.850]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 4 of 5): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -328727,7 +328727,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.597]
 title = "Repair audit record 22.30.161 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/config (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.281", "22.31.282"]
@@ -367579,7 +367579,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.490]
 title = "Fail over on node error envelopes and keep the price-acceptance replay moving past a held block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
