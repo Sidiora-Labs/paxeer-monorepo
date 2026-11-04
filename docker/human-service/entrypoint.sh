@@ -133,14 +133,7 @@ case "$role" in
     agent)
         copy_material ca.der
         copy_material session-operator
-        test -d /run/human-material/journal
-        mkdir -p "$private/journal"
-        chmod 0700 "$private/journal"
-        for record in /run/human-material/journal/*; do
-            [ -e "$record" ] || continue
-            test -s "$record"
-            install -m 0600 "$record" "$private/journal/${record##*/}"
-        done
+        python3 /usr/local/lib/layerx-human/journal_bootstrap.py /run/human-material/journal "$private"
         export LAYERX_AGENT_HUMAN_AUTHORITY_BEARER="$(cat /run/human-material/authority-token)"
         export LAYERX_AGENT_PROGRAM_BEARER_TOKEN="$(cat /run/human-material/program-token)"
         printf 'header = "Authorization: Bearer %s"\n' "$LAYERX_AGENT_PROGRAM_BEARER_TOKEN" > "$private/probe.conf"
@@ -202,17 +195,13 @@ PY_BINDING
         exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-identity-provider "$@"
         ;;
     security)
-        while [ ! -e /run/human-material/trust-history ] && [ ! -L /run/human-material/trust-history ]; do
-            printf 'security waiting /run/human-material/trust-history\n' >&2
-            sleep 5
-        done
         python3 - "$private" <<'PY_SECURITY_MATERIAL'
 import os
 import stat
 import sys
 
 try:
-    path = '/run/human-material/trust-history'
+    path = '/run/human-material/consensus-authority'
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as source:
         info = os.fstat(source.fileno())
@@ -221,9 +210,9 @@ try:
                 or info.st_nlink != 1 or not 0 < info.st_size <= 1048576):
             raise ValueError('ownership, type or bounds')
 except (OSError, ValueError):
-    raise SystemExit('security trust-history protected material refused')
+    raise SystemExit('security consensus-authority protected material refused')
 try:
-    destination = sys.argv[1] + '/trust-history'
+    destination = sys.argv[1] + '/consensus-authority'
     try:
         info = os.lstat(destination)
     except FileNotFoundError:
@@ -234,9 +223,10 @@ try:
             (os.geteuid(), os.getegid(), 0o600)):
         raise ValueError('ownership, type or mode')
 except (OSError, ValueError):
-    raise SystemExit('security trust-history private copy refused')
+    raise SystemExit('security consensus-authority private copy refused')
 PY_SECURITY_MATERIAL
-        copy_material trust-history
+        copy_material consensus-authority
+        export LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY="$private/consensus-authority"
         exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-security-provider "$@"
         ;;
     service) exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-service "$@" ;;
