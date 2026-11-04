@@ -1,0 +1,8 @@
+[repair.22.33.643]
+finding = "whitelist-cachemulti-escape"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+tests = ["TestRepairM_643_Accessors", "TestRepairM_643_SetKVStores", "TestRepairM_643_BranchesAndTransformations", "TestRepairM_643_UnsupportedBranches"]
+proof = "Real cachemulti, cachekv and MemDB-backed dbadapter stores prove lazy and materialized access, guarded transformation inputs and replacements, branch isolation, allowed write propagation, denied writes and unsupported-branch errors."
+baseline = "Not executed: the explicit task order permits verification only through hf-done after the complete implementation and hf-build; no baseline failure is claimed."
+evidence = "The runner's hf-build and hf-done receipts name the verified candidate revision, exact command, exit code and private log location."
+wiring_request = "Domain 15 owns sdk/store/whitelist/kv/store.go: close separate finding whitelist-kv-escape for KVStore DeleteAll, CacheWrap and CacheWrapWithTrace; this task preserves the existing per-KV wrapper boundary."
