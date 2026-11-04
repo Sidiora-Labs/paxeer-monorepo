@@ -117,6 +117,9 @@ func (s Store) DeleteAccount(ctx context.Context, account string) error {
 		return ErrInvalid
 	}
 	return s.transaction(ctx, func(tx *sql.Tx) error {
+		if e := lock(ctx, tx, "callout-author:"+account); e != nil {
+			return e
+		}
 		rows, e := tx.QueryContext(ctx, `SELECT document FROM narrative_discovery.callouts WHERE document->>'AuthorAccountID'=$1 FOR UPDATE`, account)
 		if e != nil {
 			return e
@@ -140,17 +143,15 @@ func (s Store) DeleteAccount(ctx context.Context, account string) error {
 			return e
 		}
 		for _, c := range callouts {
-			if !c.Deleted {
-				next, e := c.Remove(account, c.Revision)
-				if e != nil {
-					return e
-				}
-				if e = persistCallout(ctx, tx, next); e != nil {
-					return e
-				}
-				c = next
+			next, e := c.Remove(account, c.Revision)
+			if e != nil {
+				return e
 			}
-			c.AuthorAccountID = ""
+			next.AuthorAccountID = ""
+			if e = persistCallout(ctx, tx, next); e != nil {
+				return e
+			}
+			c = next
 			_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.callouts SET document=$1 WHERE id=$2`, encode(c), c.ID)
 			if e != nil {
 				return e
@@ -159,6 +160,12 @@ func (s Store) DeleteAccount(ctx context.Context, account string) error {
 			if e != nil {
 				return e
 			}
+		}
+		// Include already queued publications, not just the removal generated
+		// above. Published rows are scrubbed too so retries cannot expose identity.
+		_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.outbox SET document=jsonb_set(document,'{Actor}','""'::jsonb) WHERE kind='callout-target-ref-v2' AND document->>'Actor'=$1`, account)
+		if e != nil {
+			return e
 		}
 		_, e = tx.ExecContext(ctx, `DELETE FROM narrative_discovery.snapshots WHERE account_id=$1`, account)
 		if e != nil {
