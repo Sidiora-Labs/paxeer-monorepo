@@ -1,0 +1,44 @@
+[repair.22.33.1201]
+audit = "22.30.57"
+findings = ["validator-key-length", "staking-error-assertion", "shares-test-fixture", "static-query-no-assertion"]
+validator-key-length = ["TestRepairM_1201_ValidatorKeyLength", "TestRepairM_1201_ForwardVersionPolicy"]
+staking-error-assertion = ["TestRepairM_1201_StakingErrorAssertion"]
+shares-test-fixture = ["TestRepairM_1201_SharesTestFixture"]
+static-query-no-assertion = ["TestRepairM_1201_StaticQueryNoAssertion"]
+implementation = "Require exactly ed25519.PubKeySize decoded bytes before payment handling only when common.MergePlanActive is true; preserve all archived implementations, version registration, selectors and ABI types."
+activation = "The applied v7.0 upgrade height activates the guard. Unscheduled, scheduled-only and below-activation execution retain historical input handling in both ordinary execution and tracing. The boundary proof uses zero payment to observe the historical value guard without invoking the historical malformed-key panic."
+transactions = "Signed EVM transactions through ante preprocessing, the real message server, registered precompile and staking keeper refuse 0-, 31- and 33-byte keys at and above activation; validator records and caller, precompile and staking pool balances remain unchanged. Valid 32-byte controls create and persist validators."
+refusals = "Retain all existing negative createValidator cases with otherwise valid payment, key, commission and self-delegation inputs. Compare actual receipt VmError with each expected reason; compare validators refusal against StateDB.GetPrecompileError. The production staking constructor retains nil revert data and transports details through StateDB and receipts."
+shares = "Replace the hand-built equal-balance-and-shares happy projection with real validator creation, slash and BeginRedelegation. Decode the ABI response and compare 11.666666666666666666 destination shares with the persisted staking entry, independently of the integer balance."
+static_query = "The registered precompile successfully answers delegation with readOnly=true; decode and compare amount, denom, shares, precision and addresses against the real staking querier and persisted delegation. Preserve all five write-method static refusals and assert delegation state is unchanged."
+baseline = "Not run: the explicit task order requires complete implementation, hf-build, then hf-done and prohibits a manual verify_cmd before hf-done. No pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done ledger at /out/run/gates.jsonl records candidate revision, command, exit and private evidence log. Qualification requires hf-done to pass on the built revision; the runner records the verified revision."
+
+[gotcha.refusal_transport]
+observed = "The staking constructor does not enable ABI revert reasons; the wrapper returns execution reverted with nil data while recording the actual error in StateDB and the transaction receipt."
+resolution = "Assert StateDB.GetPrecompileError for direct registered calls and receipt.VmError for signed transactions instead of comparing an expected string to itself."
+
+[gotcha.fixture_isolation]
+observed = "The shared createValidator setup wrote every subtest directly into the shared app state."
+resolution = "Use a cached real SDK context for each fixture and a copied EVM keeper for task-specific version registration."
+
+[gotcha.historical_registration]
+observed = "The pre-activation validators refusal fixture had no completed historical upgrade, so version selection returned no registered staking precompile at height 99."
+resolution = "Record the real v6.4.0 upgrade as completed at height 1 before recording merge activation; retain every refusal assertion for both historical and activated calls."
+
+[qualification.attempt_3_first_gate]
+revision = "f18b844542da8f0d4e1e1bfcc54c5b6a90aeb60f"
+command = "cg spec done 22.33.1201 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All repair cases passed except the height-99 validators refusal fixture, which failed its registered-precompile existence assertion."
+assumption = "Complete historical upgrade registration in the fixture, then rebuild and qualify the same corrected candidate."
+
+[qualification.blocked]
+revision = "19760cd332aff4898809fc2e6fa1c3a69aa953eb"
+command = "cg spec done 22.33.1201 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The production build passed, but test compilation stopped before any repair test ran because out-of-scope SDK and tokenfactory CLI callers use the two-result tx.NewFactoryCLI as a single value."
+assumption = "The SDK client CLI and tokenfactory domains must repair their callers; this task cannot qualify until that external compilation failure is resolved. No tests are claimed to pass."
