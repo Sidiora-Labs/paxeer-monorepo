@@ -185783,7 +185783,7 @@ do_9 = "Attempt 2: fixtures_test.go TestMain (:20, exec at :149) starts an Anvil
 
 [task.22.31.64]
 title = "Repair audit record 22.30.37 findings in services/launchpad/pnl-tracker/internal/production/l17: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -242816,7 +242816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.423]
 title = "Repair audit record 22.30.172 findings in rpc: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -243594,7 +243594,7 @@ do_17 = "Attempt 2 (continue): TestRepair_103_MicrobatchAdmission bytes and doma
 
 [task.22.31.102]
 title = "Repair audit record 22.30.50 findings in node: interface-mismatch, restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324453,7 +324453,7 @@ do_10 = "Attempt 3 (continue): ten failures all show the migrator in services/ex
 
 [task.22.31.409]
 title = "Repair audit record 22.30.155 findings in services/explorer/backend/apps/explorer/lib/explorer/chain: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
