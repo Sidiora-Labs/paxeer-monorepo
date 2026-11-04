@@ -1,5 +1,5 @@
 {
-  "renderer_sha256": "ff7a62ac00b091882c23d51bc716715b88b723cf1de7fc6b3eb1b6be8cd26aef",
+  "renderer_sha256": "467cbc3be472530972b4a50b14bd9bb5c4ab43cdd30f8cb12fcb2a8a122499f9",
   "sources": {
     "render-config-check.sh": {
       "sha256": "e96bf91e1a8885af8129f300133aaab46644325344f1f04833ca9a896d1677c3",
@@ -220,7 +220,7 @@
       ]
     },
     "test_render_check_arguments.py": {
-      "sha256": "0c4b79d1de9d44b80411f4e0ddbc5143fde94e0f6c0c149e1fc7d4fc624ebf76",
+      "sha256": "1448b79d6a50e90f1c4fe7530825ccc7354cc824f57af3a24aefbaa1ab08412c",
       "endpoint_arguments": {
         "paxeer": [
           "https://paxeer-a.example/,paxeer-a,/run/secrets/ca.der,/run/secrets/token",
