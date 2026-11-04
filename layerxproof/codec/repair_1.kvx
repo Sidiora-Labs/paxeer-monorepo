@@ -1,0 +1,12 @@
+[repair.22.31.1]
+audit = "22.30.1"
+finding = "1"
+test = "TestRepair_1_NativeProducerTransportConsumer"
+path = "lxphost_reset -> real account registry, journal and module KV commit -> lxp_state_proof_build/encode -> process stdout -> DecodeStateWitness/Verify -> StateProof/AccountProof"
+contract = "include/layerx/lxp_module.h reserves IDs through 11; src/state/lxp_state_root.c retains at least 9 leaves and extends to highest registered ID plus one; src/state/lxp_state_proof.c accepts widths 9 through 12. Current lxphost registers service 5 and spot 10, giving 11 leaves; retired web retains ID 11 for historical decoding."
+coverage = "All nine actual lxphost module registrations, three KV leaves each, three funded account proofs, module-zero balance and sequence; native leaf hashes, all sibling paths and composite roots; account/asset bindings and malformed module/width/index/depth/promotion/root refusals."
+baseline = "Not run: the explicit gate order prohibits verification before implementation and allows verification only via hf-done; no baseline test failure is claimed."
+fixture = "The historical module-tree-width negative fixture uses width 11 and actually verifies under the native contract. The codec tests move only that negative input's composite width to 13, preserving its sibling path, trusted root, invalid verdict and exact ErrStateModule assertion. Module-out-of-range with module 10 and width 9 remains ErrStateModule."
+qualification_repair = "First hf-done at 6be5a91092bd612a6d24670ecb91c617ce7f9694 exposed the now-valid width-11 negative fixture in TestStateWitnessAgainstRustFixture and TestStateWitnessRefusalClasses; the native producer/transport/consumer regression test passed."
+wiring_request = "spec/layerx-merge/programme/audit/records/22.30.1.kvx, owning domain 1: update finding 1's stale service-11/full-host-12 description to service 5/full-host 11; codec still preserves native reserved-ID 11/width-12 compatibility."
+evidence = "The exact verified revision, command, exit and private log are recorded by hf-done in the task gate ledger and final evidence line."

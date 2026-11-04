@@ -142,15 +142,20 @@ func TestMigrate5to6(t *testing.T) {
 	)
 
 	// Migrate store
-	m := keeper.NewMigrator(input.OracleKeeper)
 	input.Ctx = input.Ctx.WithBlockHeight(int64(input.OracleKeeper.GetParams(input.Ctx).SlashWindow) + 10000)
-	m.Migrate5To6(input.Ctx)
+	m := keeper.NewMigrator(input.OracleKeeper, keeper.VotePeriodHistory{
+		StartHeight: 1,
+		EndHeight:   uint64(input.Ctx.BlockHeight()),
+		VotePeriod:  input.OracleKeeper.VotePeriod(input.Ctx),
+		SlashWindow: input.OracleKeeper.SlashWindow(input.Ctx),
+	})
+	require.NoError(t, m.Migrate5To6(input.Ctx))
 
 	// Get rate
 	votePenaltyCounter := input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, addr)
 	require.Equal(t, types.VotePenaltyCounter{
 		MissCount:    12,
 		AbstainCount: 13,
-		SuccessCount: 9975,
+		SuccessCount: 4975,
 	}, votePenaltyCounter)
 }
