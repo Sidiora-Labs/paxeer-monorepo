@@ -36,12 +36,32 @@ const (
 	// verify on the next.
 	ClockSkew = 30 * time.Second
 
+	// ChallengeCleanupBatch bounds the rows deleted by one cleanup pass.
+	// Both expired and consumed challenges are retained until expires_at;
+	// consumption never extends retention beyond ChallengeTTL after issuance.
+	ChallengeCleanupBatch = 512
+	// ChallengeCleanupInterval bounds the delay between cleanup passes while
+	// the gateway runs. A backlog drains in bounded batches, including at startup.
+	ChallengeCleanupInterval = time.Second
+	challengeCleanupTimeout  = 5 * time.Second
+
 	nonceLen     = 32
 	maxBodyBytes = 4096
 	bearerPrefix = "Bearer "
 
 	insertChallengeSQL = `INSERT INTO perps.auth_challenges (nonce, address, message, issued_at, expires_at) VALUES ($1, $2, $3, $4, $5)`
 	consumeSQL         = `UPDATE perps.auth_challenges SET used_at = $3 WHERE address = $1 AND message = $2 AND used_at IS NULL AND expires_at > $3 RETURNING nonce`
+	// The (expires_at, nonce) index is supplied by the store migration. Locks
+	// keep concurrent gateway replicas from waiting on the same expired rows.
+	cleanupChallengesSQL = `WITH expired AS (
+    SELECT nonce FROM perps.auth_challenges
+    WHERE expires_at <= $1
+    ORDER BY expires_at, nonce
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM perps.auth_challenges AS challenges USING expired
+WHERE challenges.nonce = expired.nonce`
 )
 
 var (
@@ -69,6 +89,45 @@ func NewService(db *sql.DB, secret string, now func() time.Time) (*Service, erro
 		now = time.Now
 	}
 	return &Service{db: db, secret: []byte(secret), now: now}, nil
+}
+
+// CleanupChallenges deletes one bounded batch of expired challenges, used or
+// unused. Valid challenges are never candidates. Verify retains its atomic
+// single-use update; deleting a nonce cannot make its message usable again.
+func (s *Service) CleanupChallenges(ctx context.Context) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, challengeCleanupTimeout)
+	defer cancel()
+	result, err := s.db.ExecContext(ctx, cleanupChallengesSQL, s.now().UTC(), ChallengeCleanupBatch)
+	if err != nil {
+		return 0, fmt.Errorf("auth: cleanup challenges: %w", err)
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("auth: cleanup count: %w", err)
+	}
+	return deleted, nil
+}
+
+// RunChallengeCleanup runs a pass immediately (also after a gateway restart),
+// then one pass per interval until cancellation or a cleanup failure. The
+// gateway must own and join this loop and surface its returned error through
+// its background-worker error path; no goroutine is detached by Service.
+func (s *Service) RunChallengeCleanup(ctx context.Context) error {
+	ticker := time.NewTicker(ChallengeCleanupInterval)
+	defer ticker.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := s.CleanupChallenges(ctx); err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }
 
 type challengeRequest struct {
