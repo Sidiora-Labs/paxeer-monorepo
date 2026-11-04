@@ -153,6 +153,7 @@ func FoldSpotBoard(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 func rebuildSpotBoard(ctx context.Context, tx *sql.Tx, block int64) error {
 	rows, err := tx.QueryContext(ctx, `SELECT account FROM perps.spot_account_legs
 UNION SELECT account FROM perps.spot_leaderboard
+UNION SELECT account FROM perps.spot_board_omissions
 UNION SELECT "user" FROM perps.spot_swaps WHERE kind IN ('market_order', 'simple_swap')
 UNION SELECT o.account FROM perps.spot_orders o JOIN perps.spot_order_events e
  ON o.order_id = e.order_id AND e.kind = o.kind || '_executed'`)
@@ -230,6 +231,17 @@ func foldSpotBoardAccounts(ctx context.Context, tx *sql.Tx, accounts []common.Ad
 			return fmt.Errorf("store: fold spot account %s: %w", account.Hex(), err)
 		}
 		delete(winRates, account)
+		// Refusals belong to the account's persisted history, not only the
+		// current batch. Unrelated updates must retain the omission count.
+		if refusal != nil {
+			_, err = tx.ExecContext(ctx, `INSERT INTO perps.spot_board_omissions (account, updated_block)
+VALUES ($1, $2) ON CONFLICT (account) DO UPDATE SET updated_block = EXCLUDED.updated_block`, account.Bytes(), updated)
+		} else {
+			_, err = tx.ExecContext(ctx, `DELETE FROM perps.spot_board_omissions WHERE account = $1`, account.Bytes())
+		}
+		if err != nil {
+			return fmt.Errorf("store: write spot omission: %w", err)
+		}
 		if refusal != nil || total.trades == 0 {
 			if refusal != nil {
 				slog.Warn("spot board: account left out", "account", account.Hex(), "block", block, "reason", refusal.Error())
@@ -283,6 +295,14 @@ VALUES ('win-rate', $1, $2, $3, $4)`, i+1, account.Bytes(), winRates[account].Fl
 		if err != nil {
 			return fmt.Errorf("store: rank spot win rate: %w", err)
 		}
+	}
+	// Publish metadata in the same transaction as all three rankings.
+	_, err = tx.ExecContext(ctx, `INSERT INTO perps.spot_board_generation (singleton, generated_at, omitted_accounts)
+VALUES (true, clock_timestamp(), (SELECT count(*) FROM perps.spot_board_omissions))
+ON CONFLICT (singleton) DO UPDATE SET generated_at = EXCLUDED.generated_at,
+omitted_accounts = EXCLUDED.omitted_accounts`)
+	if err != nil {
+		return fmt.Errorf("store: publish spot board generation: %w", err)
 	}
 	return nil
 }
