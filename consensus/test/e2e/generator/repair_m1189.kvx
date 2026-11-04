@@ -1,0 +1,21 @@
+[repair.22.33.1189]
+audit = "22.30.55"
+acceptance = "22998.1"
+baseline = "Not executed: the task's explicit gate order forbids builds or tests before the complete implementation and permits verification only through hf-done. No pre-change test failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; qualification requires both gates on the same candidate."
+wiring_requests = []
+
+[finding.generator-map-seed]
+task_alias = "fixture value"
+repair = "Sort probability and weighted choice keys before assigning random draws or intervals, and sort seed and light-provider names before emitting manifest peer lists."
+tests = ["TestRepairM_1189_SeededChoices", "TestRepairM_1189_ReproducibleManifests", "TestRepairM_1189_ManifestProcess"]
+proof = "Eight fresh invocations of the current test executable run the real CLI with its fixed seed, write all 48 complete TOML manifests, decode them through LoadManifest, and compare every filename and byte without invoking a toolchain or external binary."
+
+[finding.generator-cardinality]
+repair = "Select the subset length in the inclusive requested-minimum-to-input-length range, retaining saturation when the requested minimum exceeds the input length."
+tests = ["TestRepairM_1189_Cardinalities", "TestUniformSetChoiceCardinalities"]
+proof = "With fixture seed 2384, exercise Choose and ChooseAtLeast on empty through six-element inputs, including zero, exact and oversized minima; require every supported cardinality, valid membership, uniqueness and both bounds."
+
+[gotcha.manifest-provider-order]
+observed = "Sorting random.go choice maps alone leaves light-provider slices derived from unordered manifest node maps, so full manifest replay also requires ordering those names."
+action = "Sort provider and seed names in generateTestnet; the fresh-process proof covers the complete manifest transport."

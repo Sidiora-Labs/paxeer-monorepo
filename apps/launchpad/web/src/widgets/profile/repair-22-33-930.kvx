@@ -1,0 +1,12 @@
+[repair.22.33.930]
+audit = "22.30.22"
+balance-mask-first-render = "repair-22-33-930.test.ts: balance_mask_first_render; persist through the real toggle, unmount, server-render, hydrate and reopen with every initial layout masked visually and accessibly."
+portfolio-hover-range = "repair-22-33-930.test.ts: portfolio_hover_range; pointer-select the last bucket, replace with shorter, empty, single-point and same-length series, then select again."
+profile-image-remove-draft = "repair-22-33-930.test.ts: profile_image_remove_draft_avatar, profile_image_remove_draft_banner, profile_image_remove_draft_empty_avatar, profile_image_remove_draft_empty_banner; upload bytes, approve, remove, sign and save, read back and reopen both pickers with saved and empty baselines."
+product_choice = "Remove discards the selected upload and restores that image field's saved baseline; other draft edits remain."
+baseline_execution = "Not run: the explicit implementation-first order and wrapper-only gate budget prohibit a pre-change verify run; no pre-change failure is claimed."
+registration_gotcha = "Vitest accepts test(fn) as a function name but registers a todo without a second function argument; use test(fn.name, fn) to execute named test functions. The first gate's six todos are not qualification evidence."
+wiring_requests = "None; all proposed changes are inside the profile directory."
+evidence = "The final hf-done receipt supplies the exact qualified candidate revision, command, exit and private log location."
+continuation = "Clear hover state whenever the series changes so returning to an earlier array cannot restore a stale readout; explicitly dispatch the rendered preview image load event in all four removal cases."
+session_fixture_gotcha = "Clearing all local storage removes Wagmi's injected.connected flag and disconnects the shared wallet fixture on remount; remove only this suite's balance preference during cleanup."

@@ -39,25 +39,62 @@ defmodule Explorer.ThirdPartyIntegrations.Auth0.Migrated do
   def link_email(session_user_id_without_email, user_id_with_email, _email) do
     auth0_application_id = auth0_application_identifier()
 
-    with {:ok,
+    query = ~s(user_metadata.#{auth0_application_id}.user_id:"#{session_user_id_without_email}")
+
+    with {:ok, users} <- Internal.find_users(query, "Failed to find email link source") do
+      case Enum.reject(users, &(&1["user_id"] == user_id_with_email)) do
+        [
           %{
-            "user_id" => user_id_without_email,
-            "user_metadata" => %{^auth0_application_id => user_without_email_metadata}
-          }} <-
-           get_user_by_id_from_session(session_user_id_without_email),
-         {:ok, user_with_email} <-
+            "user_id" => source_id,
+            "user_metadata" => %{^auth0_application_id => %{"user_id" => ^session_user_id_without_email} = metadata}
+          }
+        ] ->
+          transfer_metadata(source_id, user_id_with_email, metadata, auth0_application_id)
+
+        [] ->
+          with {:ok, destination} <- Internal.get_user_by_id(user_id_with_email),
+               true <-
+                 get_in(destination, ["user_metadata", auth0_application_id, "user_id"]) ==
+                   session_user_id_without_email do
+            {:ok, destination}
+          else
+            _ -> {:error, "Email link source not found"}
+          end
+
+        _ ->
+          {:error, "Multiple email link sources found"}
+      end
+    end
+  end
+
+  defp transfer_metadata(source_id, destination_id, metadata, application_id) do
+    with {:ok, _} <-
            Internal.update_user(
-             user_id_with_email,
-             user_without_email_metadata,
+             destination_id,
+             %{"user_metadata" => %{application_id => metadata}},
              "Failed to link email on updating user with email metadata step"
            ),
+         {:ok, destination} <- Internal.get_user_by_id(destination_id),
+         true <- metadata_copied?(destination, application_id, metadata),
          {:ok, _} <-
            Internal.update_user(
-             user_id_without_email,
-             %{"user_metadata" => %{auth0_application_id => %{}}},
+             source_id,
+             %{"user_metadata" => %{application_id => nil}},
              "Failed to link email on updating user without email metadata"
-           ) do
-      {:ok, user_with_email}
+           ),
+         {:ok, source} <- Internal.get_user_by_id(source_id),
+         true <- is_nil(get_in(source, ["user_metadata", application_id])) do
+      {:ok, destination}
+    else
+      false -> {:error, "Email link metadata readback failed"}
+      error -> error
+    end
+  end
+
+  defp metadata_copied?(destination, application_id, metadata) do
+    case get_in(destination, ["user_metadata", application_id]) do
+      copied when is_map(copied) -> Map.take(copied, Map.keys(metadata)) == metadata
+      _ -> false
     end
   end
 
@@ -112,7 +149,10 @@ defmodule Explorer.ThirdPartyIntegrations.Auth0.Migrated do
              user_id,
              %{
                "user_metadata" => %{
-                 auth0_application_identifier() => Map.take(user_from_token, ["sub", "name", "nickname", "picture"])
+                 auth0_application_identifier() =>
+                   user_from_token
+                   |> Map.take(["name", "nickname", "picture"])
+                   |> Map.put("user_id", user_id)
                }
              },
              "Failed to update just created email user metadata"

@@ -1,0 +1,14 @@
+{
+  "batch_number": "1000",
+  "evidence": {
+    "kind": "receipt",
+    "index": 0
+  },
+  "policy": {
+    "kind": "exact",
+    "candidate": {
+      "source": 0,
+      "commitment_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  }
+}

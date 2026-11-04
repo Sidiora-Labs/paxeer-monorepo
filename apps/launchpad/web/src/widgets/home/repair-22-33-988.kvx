@@ -1,0 +1,16 @@
+[repair.22.33.988]
+finding = "paused-feed-count"
+implementation = "callouts-widget.tsx: useCalloutsFeed tracks distinct source:id identities over the lifetime of each pause."
+policy = "Freeze the displayed cards; retain observed identities through eviction and removal, count visible new identities once, and never count first-seen tombstones. Resume or feed-order change clears the snapshot and arrival history."
+tests = ["pausedFeedCountsArrivalsOnFullPage", "pausedFeedModerationNeverSubtractsArrivals", "pausedFeedDeduplicatesRevisionsAndIgnoresFilterChanges", "pausedFeedSwitchingOrderResetsSnapshot"]
+proof = "repair-22-33-988.test.ts mounts the production CalloutsWidget and serves an in-memory discovery feed over loopback HTTP through SdkClient, Operations and the useFeed query observer. Query success events record the received snapshots and EventIDs; assertions include those events on failure."
+baseline = "Not run: the explicit implementation-first order and allowed gate budget prohibit unchanged-tree verification. The original length subtraction yields 0 on full-page rotation and -1 on the removal asserted by the first two tests."
+registration = "Vitest 4 requires both the declared function's name and its body: test(function.name, function). The first gate returned zero with four todo tests and is not behavioral qualification; corrected registrations execute every assertion."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and private log location; no completion is claimed before hf-done passes."
+
+[continuation.22.33.988]
+prior_attempt = "The supplied attempt-1 evidence reports two failed arrival-count cases (expected 1, received 0); its gate did not qualify this task."
+arrival_path = "The home widget mounts useFeed, a React Query HTTP subscription. No callout/discovery WebSocket subscription or recorded WebSocket arrival exists in this checkout; the fixture delivers feed-page arrivals over the actual HTTP/query-observer path instead of passing cards as props."
+notification = "The test waits for the decoded snapshot and drains the query notification queue inside React act before asserting the widget or starting another pause; fetch completion alone precedes observer delivery."
+gotcha = "Awaiting invalidateQueries or isFetching=false does not establish that the widget has consumed a response; assertions include received query events and verify the mounted observer."

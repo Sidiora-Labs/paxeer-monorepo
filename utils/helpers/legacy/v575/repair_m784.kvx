@@ -1,0 +1,21 @@
+[task.22.33.784]
+mode = "BUILD"
+scope = ["utils/helpers/associate.go", "utils/helpers/legacy/v575"]
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+baseline = "Not run: the explicit implementation-first gate order prohibits the unchanged-tree verify requested by step 6; no baseline failure is claimed."
+evidence = "hf-build and hf-done record the exact qualified candidate revision, command, exit and private log in /out/run/gates.jsonl."
+wiring_request = "precompiles/addr/legacy/v575/addr.go, owning domain 16: pass the owning selector's sdk.Context to helpers.GetAddressesForContext instead of the context-free GetAddresses entry point; keep precompiles/addr/setup.go selecting v575 only from v5.7.5 until v6.0.0 and current execution on precompiles/addr/addr.go with utils/helpers/associate.go."
+
+[finding.legacy-key-123]
+tests = ["TestRepairM_784_KeyRoutingAndReplay", "TestRepairM_784_InvalidNewKeys", "TestRepairM_784_AssociationRejectsNewInvalidKey"]
+repair = "Default public conversion validates secp256k1 points and returns parser errors; signature recovery refuses nil and invalid signature integers; unchecked conversion is private and dispatched only for tracing with a valid upgrade in [v5.7.5, v6.0.0)."
+proof = "Real geth signing, transaction encoding and decoding, recovery and address derivation preserve replay identities at every routing boundary; malformed new input returns no partial identity and cannot mutate real keeper stores; the historical malformed-key panic remains explicit in its bounded replay range."
+
+[finding.legacy-association-124]
+tests = ["TestRepairM_784_AssociationCurrentRouting", "TestRepairM_784_AssociationHistoricalReplay", "TestRepairM_784_AssociationRejectsNewInvalidKey"]
+repair = "Both legacy association and direct migration dispatch to the current helper outside the historical tracing range; current association validates keys before state writes; the original historical migration body remains unchanged."
+proof = "Real account, bank and EVM keepers over in-memory stores prove missing-target creation, coin and wei migration, preserved account number and sequence on current routing, self-migration retention on current routing, and explicit historical missing-target and identical-account outcomes. Routed current stores and events equal direct current execution."
+
+[gotcha.gate-order]
+observed = "The baseline-verify step contradicts the explicit implementation-first order and bounded gates; spec and GOTCHA files are outside the user-authorized scope."
+resolution = "Follow the explicit gate order and keep the task record and wiring request inside the scoped legacy directory."

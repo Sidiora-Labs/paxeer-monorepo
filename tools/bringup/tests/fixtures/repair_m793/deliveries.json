@@ -1,0 +1,22 @@
+[
+  {
+    "delivery": "delivery-current",
+    "endpoint": "endpoint-probe",
+    "event": "event-current",
+    "kind": "journey",
+    "subject": "journey-current",
+    "subject_sequence": 1,
+    "log_position": 2,
+    "created_at": 1750000001,
+    "state": {
+      "state": "delivered",
+      "attempt": 1,
+      "at": 1750000002,
+      "status": 204
+    },
+    "attempts": [],
+    "verification": "unverified",
+    "receipt_digest": null,
+    "replay_of": null
+  }
+]

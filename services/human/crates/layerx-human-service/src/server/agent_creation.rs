@@ -60,41 +60,71 @@ pub fn verify_evm_outcome(
     evidence: &crate::agents::ProtocolEvidence,
     expected: layerx_types::payload::ActivityType,
 ) -> Result<layerx_wire::receipt::Receipt, AgentFailure> {
-    let bound = evidence
-        .bound_activity(expected)
-        .map_err(|_| AgentFailure::Refused("EVM receipt binding differs"))?;
+    let bound = evidence.bound_activity(expected)?;
     if evidence.rung != Rung::Committed {
         return Err(AgentFailure::Unavailable);
     }
     let receipt = layerx_wire::receipt::decode(&evidence.receipt_bytes)
-        .map_err(|_| AgentFailure::Refused("EVM receipt binding differs"))?;
+        .map_err(|_| AgentFailure::Refused("invalid EVM receipt encoding"))?;
     let canonical = layerx_wire::receipt::encode(&receipt)
-        .map_err(|_| AgentFailure::Refused("EVM receipt binding differs"))?;
+        .map_err(|_| AgentFailure::Refused("invalid canonical EVM receipt"))?;
     let hash: [u8; 32] = Sha256::digest(&canonical).into();
     let protocol = receipt.protocol().ok_or(AgentFailure::Refused(
         "EVM receipt is not protocol material",
     ))?;
     let height = protocol.batch_id();
-    if canonical != evidence.receipt_bytes
-        || evidence.tx_hash == [0; 32]
-        || protocol.activity_id() != evidence.tx_hash
-        || protocol.protocol_version() != layerx_wire::limits::PROTOCOL_VERSION
-        || protocol.module_id() != EVM_RECEIPT_MODULE_ID
-        || protocol.operation() != 2
-        || protocol.module_version() != 1
-        || protocol.timestamp() == 0
-        || protocol.fee_charged() > bound.disclosure.fee_limit
-        || (protocol.result_code() == 0
-            && !(bound.disclosure.expiry.not_before..=bound.disclosure.expiry.not_after)
-                .contains(&protocol.timestamp()))
-        || evidence.receipt_hash != hash
-        || evidence.block_height == 0
-        || protocol.global_sequence() == 0
-        || protocol.sequencer_signature().is_none()
-        || height[..24] != [0; 24]
-        || height[24..] != evidence.block_height.to_be_bytes()
-    {
-        return Err(AgentFailure::Refused("EVM receipt binding differs"));
+    for (differs, reason) in [
+        (
+            canonical != evidence.receipt_bytes,
+            "EVM receipt canonical bytes differ",
+        ),
+        (
+            evidence.tx_hash == [0; 32] || protocol.activity_id() != evidence.tx_hash,
+            "EVM receipt transaction binding differs",
+        ),
+        (
+            protocol.protocol_version() != bound.protocol_version(),
+            "EVM receipt protocol version binding differs",
+        ),
+        (
+            protocol.module_id() != EVM_RECEIPT_MODULE_ID
+                || protocol.operation() != 2
+                || protocol.module_version() != 1,
+            "EVM receipt operation binding differs",
+        ),
+        (
+            protocol.timestamp() == 0
+                || (protocol.result_code() == 0
+                    && !(bound.disclosure.expiry.not_before..=bound.disclosure.expiry.not_after)
+                        .contains(&protocol.timestamp())),
+            "EVM receipt timestamp binding differs",
+        ),
+        (
+            protocol.fee_charged() > bound.disclosure.fee_limit,
+            "EVM receipt fee exceeds disclosure",
+        ),
+        (
+            evidence.receipt_hash != hash,
+            "EVM receipt hash binding differs",
+        ),
+        (
+            evidence.block_height == 0
+                || height[..24] != [0; 24]
+                || height[24..] != evidence.block_height.to_be_bytes(),
+            "EVM receipt height binding differs",
+        ),
+        (
+            protocol.global_sequence() == 0,
+            "EVM receipt sequence is missing",
+        ),
+        (
+            protocol.sequencer_signature().is_none(),
+            "EVM receipt signature is missing",
+        ),
+    ] {
+        if differs {
+            return Err(AgentFailure::Refused(reason));
+        }
     }
     Ok(receipt)
 }

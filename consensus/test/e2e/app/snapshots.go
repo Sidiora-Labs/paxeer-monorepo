@@ -18,7 +18,13 @@ const (
 
 	// Keep only the most recent 10 snapshots. Older snapshots are pruned
 	maxSnapshotCount = 10
+	pruneFileName    = "prune.json"
 )
+
+type snapshotPrune struct {
+	Retained []abci.Snapshot
+	Removed  []abci.Snapshot
+}
 
 // SnapshotStore stores state sync snapshots. Snapshots are stored simply as
 // JSON files, and chunks are generated on-the-fly by splitting the JSON data
@@ -60,7 +66,7 @@ func (s *SnapshotStore) loadMetadata() error {
 		}
 	}
 	s.metadata = metadata
-	return nil
+	return s.recoverPrune()
 }
 
 // saveMetadata saves snapshot metadata. Does not take out locks, since it's
@@ -71,20 +77,51 @@ func (s *SnapshotStore) saveMetadata() error {
 		return err
 	}
 
-	// save the file to a new file and move it to make saving atomic.
-	newFile := filepath.Join(s.dir, "metadata.json.new")
-	file := filepath.Join(s.dir, "metadata.json")
-	err = os.WriteFile(newFile, bz, 0644) // nolint: gosec
+	return replaceFile(filepath.Join(s.dir, "metadata.json"), bz)
+}
+
+// recoverPrune completes a durable prune intent before accepting new writes.
+// The journal survives both partial deletion and interrupted metadata replacement.
+// The caller holds the store lock, or is constructing the store.
+func (s *SnapshotStore) recoverPrune() error {
+	file := filepath.Join(s.dir, pruneFileName)
+	bz, err := os.ReadFile(file)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	return os.Rename(newFile, file)
+	var prune snapshotPrune
+	if err := json.Unmarshal(bz, &prune); err != nil {
+		return fmt.Errorf("invalid snapshot prune journal: %w", err)
+	}
+	// Once an intent is durable, never advertise snapshots selected for removal.
+	s.metadata = prune.Retained
+	for _, snapshot := range prune.Removed {
+		if err := os.Remove(filepath.Join(s.dir, fmt.Sprintf("%v.json", snapshot.Height))); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	if err := syncDirectory(s.dir); err != nil {
+		return err
+	}
+	if err := s.saveMetadata(); err != nil {
+		return err
+	}
+	if err := os.Remove(file); err != nil {
+		return err
+	}
+	return syncDirectory(s.dir)
 }
 
 // Create creates a snapshot of the given application state's key/value pairs.
 func (s *SnapshotStore) Create(state *State) (abci.Snapshot, error) {
 	s.Lock()
 	defer s.Unlock()
+	if err := s.recoverPrune(); err != nil {
+		return abci.Snapshot{}, err
+	}
 	bz, err := state.Export()
 	if err != nil {
 		return abci.Snapshot{}, err
@@ -95,7 +132,7 @@ func (s *SnapshotStore) Create(state *State) (abci.Snapshot, error) {
 		Hash:   hashItems(state.Values, state.Height),
 		Chunks: byteChunks(bz),
 	}
-	err = os.WriteFile(filepath.Join(s.dir, fmt.Sprintf("%v.json", state.Height)), bz, 0644)
+	err = replaceFile(filepath.Join(s.dir, fmt.Sprintf("%v.json", state.Height)), bz)
 	if err != nil {
 		return abci.Snapshot{}, err
 	}
@@ -111,21 +148,26 @@ func (s *SnapshotStore) Create(state *State) (abci.Snapshot, error) {
 func (s *SnapshotStore) Prune(n int) error {
 	s.Lock()
 	defer s.Unlock()
-	// snapshots are appended to the metadata struct, hence pruning removes from
-	// the front of the array
-	i := 0
-	for ; i < len(s.metadata)-n; i++ {
-		h := s.metadata[i].Height
-		if err := os.Remove(filepath.Join(s.dir, fmt.Sprintf("%v.json", h))); err != nil {
-			return err
-		}
+	if n < 0 {
+		return fmt.Errorf("snapshot retention count must be non-negative: %d", n)
 	}
-
-	// update metadata by removing the deleted snapshots
-	pruned := make([]abci.Snapshot, len(s.metadata[i:]))
-	copy(pruned, s.metadata[i:])
-	s.metadata = pruned
-	return nil
+	if err := s.recoverPrune(); err != nil {
+		return err
+	}
+	if n >= len(s.metadata) {
+		return nil
+	}
+	// Persist the complete intent before removing any snapshot files.
+	i := len(s.metadata) - n
+	prune := snapshotPrune{Retained: s.metadata[i:], Removed: s.metadata[:i]}
+	bz, err := json.Marshal(prune)
+	if err != nil {
+		return err
+	}
+	if err := replaceFile(filepath.Join(s.dir, pruneFileName), bz); err != nil {
+		return err
+	}
+	return s.recoverPrune()
 }
 
 // List lists available snapshots.

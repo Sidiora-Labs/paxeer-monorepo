@@ -1,0 +1,38 @@
+[task.22.31.426]
+audit = "22.30.176"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+repair = "Replace the unbound Makefile batch with one task-bound invocation. BETA_SPEC defaults to the current feature spec; BETA_TASK, BETA_LEDGER and BETA_EVIDENCE_ROOT are explicit caller inputs. Resolve the selected pending or in-progress task only after every declared prerequisite is done. Pass its exact plain-make verify_cmd as one quoted argument after --, with the same spec and task and explicit private evidence locations. Further commands require separate invocations with their own task bindings; the existing consumer writes a distinct task-bound gate and unique source sidecar for each invocation. Selection failures stop the shell before execution."
+usage = "make beta-qualify-focused BETA_TASK=<eligible-task-id> BETA_LEDGER=<private-root>/qualification.kvx BETA_EVIDENCE_ROOT=<private-root>; repeat with a separate task ID for each further command. BETA_SPEC may explicitly select another feature spec. The evidence directory must already exist, be canonical, owner-only and outside the source checkout, as enforced by source-run."
+runtime_proof = "The declared pytest module executes the production embedded task selector and its CLI against the committed focused_tasks_22_31_426.kvx peer. It transports each selected exact command through the actual source consumer's argparse entry and recipe reader, asserts task/spec/private path binding and acceptance references, and enters the real source-run function. A deliberately external ledger then fails the next production guard, proving the matching command passed the run entry's command check without executing any source-monitor or qualification subprocess. Different commands bound to a single task fail the actual consumer command check. No transport or component function is mocked, replaced or stubbed."
+source_proof = "The module parses the production Makefile rule and defaults, checks its fail-fast selection and complete quoted task-bound CLI, parses both production shell files with bash -n, and checks explicit required-input guards followed by the exact --source-run dispatch. It checks the source consumer's source-operation adapter. Both fixture commands name existing production Makefile targets. CLI errors return 2 with no command output. Done, missing and dependency-blocked tasks, ambiguous specs and unsupported commands are rejected."
+review_only = "The gate does not execute Make, Git, native builds, the qualification target, source monitoring or ledger publication. Full Make/shell process execution, successful command execution, source identity and emitted record contents remain review-only here; the runtime proof ends at the existing private-ledger guard after the real source-run command check. Bash is invoked only for the expressly required syntax parses, not as a build toolchain. The selector deliberately accepts only exact plain-make commands because that is the existing out-of-scope source-run contract; unsupported commands fail explicitly rather than being rewritten. Private paths are validated by the unchanged consumer."
+baseline = "No pre-change verify ran: the explicit Order requires complete implementation before testing, hf-build before hf-done, and forbids verify_cmd by hand, contradicting the step requesting a baseline. No baseline failed test is claimed. Initial git status/diff contained only pre-existing runner-prepared .cgignore and spec task-start bookkeeping; no prior gates.jsonl or repair implementation existed. Preserve that bookkeeping without edits."
+formatting = "No Python, Bash or KVX formatter is configured for these paths. Follow the existing four-space Python/Bash indentation, Makefile tab recipes, LF final newlines and .editorconfig trailing-whitespace rules."
+verified_revision = "The final hf-done evidence line and private /out/run/gates.jsonl identify the exact content-derived candidate revision, command, exit and log. This source record is finalized before both gates; build and verify must name the same candidate. The runner commits; no source changes follow verification."
+wiring_requests = []
+
+[finding.1]
+audit = "22.30.176"
+file = "Makefile"
+class = "interface-mismatch"
+tests = ["test_finding_1_makefile_supplies_the_task_bound_cli", "test_finding_1_shell_parses_and_guards_the_source_run", "test_finding_1_exact_producer_command_reaches_source_run", "test_finding_1_further_commands_have_separate_task_bindings", "test_finding_1_ineligible_selection_stops_before_execution", "test_finding_1_unsupported_commands_fail_without_rewriting", "test_finding_1_ambiguous_specs_are_rejected", "test_finding_1_command_cli_emits_only_the_exact_command", "test_finding_1_command_cli_fails_closed", "test_finding_1_record_maps_the_finding_to_declared_proofs"]
+
+[gotcha.1]
+symptom = "The requested baseline run conflicts with the explicit bounded gate order."
+resolution = "Follow the explicit order and claim no pre-change test result; record the conflict here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+symptom = "Full GOTCHA and audit outputs exceed the tool output limit."
+resolution = "Read the complete GOTCHA file in-process and display relevant entries; retrieve the exact task, audit finding and consumer sections with bounded reads."
+
+[gotcha.3]
+symptom = "The source consumer manually separates -- before argparse because its command is one positional string after options."
+resolution = "Execute the production argument transport unchanged in-process; never substitute a hand-written parser or split the selected verify_cmd into several commands."
+
+[gotcha.4]
+symptom = "The fixture and repair KVX tables contain dotted IDs, which tomllib represents as nested mappings."
+resolution = "Traverse the dotted ID components when checking the committed peer and repair record."
+
+[gotcha.5]
+symptom = "The first verify rejected the selector because its inherited plain-make pattern also admitted -f as a target."
+resolution = "Strengthen the production selector so every target begins with an alphanumeric or underscore, preserve the failing assertion, and cover -f, --help and -n options. Failed candidate a27da9d2e4cb0bb89e9a7364efa4d54086ebe1a0; command cg spec done 22.31.426 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log."

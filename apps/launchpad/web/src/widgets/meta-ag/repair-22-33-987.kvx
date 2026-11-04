@@ -1,0 +1,38 @@
+[repair.22.33.987]
+mode = "BUILD"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+requirement = "22998.1"
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; the final response copies its last evidence line."
+baseline = "Not executed: the ordered implementation-first instructions and prohibition on invoking verify_cmd by hand take precedence over step 7's contradictory unchanged-tree verify request; no pre-change failure execution is claimed."
+wire_requests = "None: implementation, protocol fixtures and input admission remain within the declared paths."
+
+[finding.advanced-broadcast-recovery]
+tests = ["advanced_broadcast_recovery_placement", "advanced_broadcast_recovery_best_route", "advanced_broadcast_recovery_custom_route", "advanced_broadcast_recovery_concurrent_and_exact_evidence"]
+repair = "Reserve signing durably, save the transaction hash through PendingAttemptStore before receipt reads, fence unresolved actions and reopen against the same deployment/account/intent; verify canonical receipts, exact transaction calldata and unique exact events before clearing recovery."
+proof = "Production provider, viem wallet/public clients and codecs communicate with a committed loopback protocol-transcript peer and shared in-memory durable storage; each action drops receipt transport, stops the provider, reopens it and reconciles the original hash with exactly one economic broadcast."
+
+[finding.old-orders-unreadable]
+tests = ["old_orders_unreadable_paginated_exact_history", "old_orders_unreadable_mixed_account_pages"]
+repair = "Read manifest-admitted canonical order-id-filtered event history in disjoint ranges of at most 2000 blocks, stopping at the matching immutable transition; retain receipt/event identity and exact escrow-transfer attribution."
+proof = "Orders more than 2000 blocks old retain filled output, cancelled/expired refunds and activation revisions; mixed account creation pages exclude other owners and retain exact settlement evidence. Noncanonical evidence still refuses."
+
+[finding.advanced-qualification-paths]
+tests = ["advanced_qualification_paths_admitted_native_plan", "advanced_qualification_paths_reject_changed_or_nonregular_inputs"]
+repair = "The Python runner delegates strict input admission and native command construction to connected-chain-inputs.mjs, which hashes advanced-provider.ts for custom routes and apps/launchpad/pnpm-lock.yaml. The native command and native result/observation checks are preserved."
+proof = "The gate calls the same production admission module in-process with regular fixture/manifest files and checks all actual source digests, private evidence permissions, transport environment and exact unchanged native argv. Changed digests, missing/nonregular files and excessive timeouts refuse. No funded native qualification is claimed."
+
+[gotcha.scope-and-baseline]
+observed = "The task forbids editing spec/GOTCHA and running an unchanged-tree verify by hand while embedded workflow steps request both."
+resolution = "Keep this scoped repair record; obey the explicit scope and ordered bounded gates."
+
+[gotcha.swap-event-counter]
+observed = "The first hf-build rejected flatMap inference across the two distinct deployed swap event types (TS2345)."
+resolution = "Count the matching original receipt logs after exact event validation, without changing either event type or validation assertion."
+
+[gotcha.named-test-registration]
+observed = "Vitest accepts test(function) as a title-only todo declaration: the first hf-done exited zero but reported eight todo tests and zero executed assertions, so that result is not qualification evidence."
+resolution = "Register every declared function using test(function.name, function), retaining all eight test bodies and assertions; the corrected candidate requires both gates at the same revision."
+
+[gotcha.descriptor-symlink]
+observed = "Resolving the Python fixture path before shared admission hid descriptor symlinks from the strict regular-file check."
+resolution = "Pass an absolute path without dereferencing the descriptor; test shared admission rejects a symlink even when the target digest matches."
