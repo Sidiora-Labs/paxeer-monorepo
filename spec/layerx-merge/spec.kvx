@@ -185223,7 +185223,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.206]
 title = "Repair audit record 22.30.85 findings in services/platform/hosted/registry/src: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -326873,7 +326873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.446]
 title = "Make the bridge deploy entry points refuse an attestor manifest that still awaits the governance signer set, naming the governance step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.402"]
