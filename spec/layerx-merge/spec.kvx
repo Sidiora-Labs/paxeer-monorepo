@@ -183859,7 +183859,7 @@ do_8 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and wa
 
 [task.22.33.13]
 title = "Repair audit record 22.30.100 medium findings in services/agent/crates/layerx-agentd/src/capability (part 1 of 1): restart-recovery, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147", "22.31.443", "22.31.483"]
@@ -325543,7 +325543,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.851]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 5 of 5): retired-reference, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
