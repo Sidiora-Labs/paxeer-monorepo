@@ -57,7 +57,7 @@ var (
 	prevSentCounterPerMsgType = make(map[string]*int64)
 
 	BlockHeightsWithTxs = []int{}
-	EvmTxHashes         = []common.Hash{}
+	EvmTxHashes         = newEvmTxHashStore(maxRetainedEvmTxHashes)
 )
 
 type BlockData struct {
@@ -132,7 +132,7 @@ func deployEvmContracts(config *Config) {
 }
 
 func run(config *Config) {
-	if err := config.ValidateMessageTypes(); err != nil {
+	if err := config.Validate(); err != nil {
 		panic(err)
 	}
 	config.EVMAddresses = &EVMAddresses{}
@@ -614,12 +614,18 @@ func runEvmQueries(config Config) {
 
 	wg = sync.WaitGroup{}
 	start = time.Now()
-	for i := 0; i < config.PostTxEvmQueries.Receipt; i++ {
+	hashes := EvmTxHashes.Snapshot()
+	receiptQueries := config.PostTxEvmQueries.Receipt
+	if receiptQueries > 0 && len(hashes) == 0 {
+		fmt.Printf("Cannot query %d receipts: no EVM transaction hashes were produced\n", receiptQueries)
+		receiptQueries = 0
+	}
+	for i := 0; i < receiptQueries; i++ {
 		wg.Add(1)
 		i := i
 		go func() {
 			defer func() { wg.Done() }()
-			hash := EvmTxHashes[i%len(EvmTxHashes)]
+			hash := hashes[i%len(hashes)]
 			_, err := ethClients[i%len(ethClients)].TransactionReceipt(context.Background(), hash)
 			if err != nil {
 				fmt.Printf("Failed to get receipt of tx %s due to %s\n", hash.Hex(), err)
@@ -627,7 +633,7 @@ func runEvmQueries(config Config) {
 		}()
 	}
 	wg.Wait()
-	fmt.Printf("Querying %d receipts in parallel took %fs\n", config.PostTxEvmQueries.Receipt, time.Since(start).Seconds())
+	fmt.Printf("Querying %d receipts in parallel took %fs\n", receiptQueries, time.Since(start).Seconds())
 
 	if config.EVMAddresses.ERC20.Cmp(common.Address{}) != 0 {
 		wg = sync.WaitGroup{}
@@ -659,6 +665,9 @@ func ReadConfig(path string) Config {
 	config := Config{}
 	file, _ := os.ReadFile(filepath.Clean(path))
 	if err := json.Unmarshal(file, &config); err != nil {
+		panic(err)
+	}
+	if err := config.Validate(); err != nil {
 		panic(err)
 	}
 	return config

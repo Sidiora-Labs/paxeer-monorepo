@@ -1,0 +1,33 @@
+[repair.22.33.1526]
+mode = "BUILD"
+record = "spec/layerx-merge/programme/audit/records/22.30.93.kvx"
+evidence = "The runner's private hf-build/hf-done ledger supplies revision, exact command, exit and log; no gate is claimed here."
+baseline = "Not run: no repair_22_33_1526 test target existed at the starting revision; the explicit implementation-first gate order overrides do_10's baseline request."
+
+[finding.admission-controller-unwired]
+test = "admission_controller_routes_real_overload_with_reserved_capacity"
+repair = "TenantBoundary routes owned signed submissions, receipt reads and head reads through tenant-bounded priority queues; two protected in-flight slots preserve both critical lanes."
+wiring_request = "Domain 9: services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs must retain TenantBoundary after OperationPermit authorization and route authenticated node work through enqueue/start_next/finish_call."
+
+[finding.request-deadline-tracker-unwired]
+test = "deadline_disconnect_and_reopen_retain_real_unknown_submission"
+repair = "Actual transport EOF cancels queued caller work; before socket ownership, the real outbox durably records submission uncertainty; reopen restores daemon resolver ownership from durable outbox states; terminal resolver state alone permits tracked hold release."
+wiring_request = "Domain 9: services/agent/crates/layerx-agentd/src/human_runtime.rs must mount TenantBoundary, feed EOF/deadline observations and connect synchronize_resolution to SessionControl's durable budget settlement."
+
+[finding.shedding-cancellation-hooks-unwired]
+test = "shedding_cancels_one_authenticated_client_and_preserves_resolvers"
+repair = "Authenticated principal session coordinates select the tenant/client; observed activity drives shedding, cancels that client's caller reads, preserves daemon unknown resolution and exposes actual queue/rate/quota/work utilization."
+wiring_request = "Domain 9: services/agent/crates/layerx-agentd/src/agent_rpc.rs must feed authenticated connection EOF and deadline callbacks into TenantBoundary; services/agent/crates/layerx-client/src/sequencer.rs must expose per-call deadline/cancellation to interrupt an already-running synchronous read."
+
+[finding.quota-unbounded-observations]
+test = "quota_churn_and_shed_retention_are_bounded_and_indexed"
+repair = "Default per-tenant bounds are 1024 active client windows and 1024 latest decisions. Idle windows expire after one observation window. Latest decisions use direct tenant/client keys, with a fixed-header monotonic watermark lookup. The bounded index drives compaction and health. Superseded audit decisions are replaced immediately; latest decisions expire 60000ms after shedding ends. Capacity refusal never evicts live windows or active decisions. Restore migrates the timestamped layout before admission."
+
+[finding.rate-counter-recovery]
+test = "independent_daemons_and_reopen_share_atomic_durable_counters"
+repair = "CounterLedger::open restores a shared durable authority; an OS file lock serializes independent daemon opens and atomic fsynced replacement commits all matching counters and the revision. TenantBoundary refuses process-local authorities."
+wiring_request = "Domain 9: services/agent/crates/layerx-agentd/src/main.rs and services/agent/crates/layerx-agentd-host/src/lib.rs must configure the same durable CounterLedger root for every instance serving a tenant."
+
+[finding.rate-window-regression]
+test = "interleaved_and_concurrent_delayed_windows_preserve_ceiling"
+repair = "Each limit's durable current window is a monotonic admission watermark. Atomic preflight rejects older windows with the active limit/window/remaining/retry metadata; no failed preflight mutates counters or revisions."
