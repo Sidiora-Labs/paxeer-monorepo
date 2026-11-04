@@ -18,6 +18,14 @@ defmodule BlockScoutWeb.AddressWriteContractController do
   alias Indexer.Fetcher.OnDemand.CoinBalance, as: CoinBalanceOnDemand
 
   def index(conn, %{"address_id" => address_hash_string} = params) do
+    if AddressView.contract_interaction_disabled?() do
+      not_found(conn)
+    else
+      enabled_index(conn, address_hash_string, params)
+    end
+  end
+
+  defp enabled_index(conn, address_hash_string, params) do
     ip = AccessHelper.conn_to_ip_string(conn)
 
     address_options = [
@@ -39,8 +47,7 @@ defmodule BlockScoutWeb.AddressWriteContractController do
       exchange_rate: Market.get_coin_exchange_rate()
     ]
 
-    with false <- AddressView.contract_interaction_disabled?(),
-         {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
+    with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
          {:ok, address} <- Address.find_contract_address(address_hash, address_options),
          false <- is_nil(address.smart_contract),
          {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params) do
