@@ -102,6 +102,13 @@ func (c *Correlator) Correlate(ctx context.Context, header *types.Header, tx *ty
 	if err != nil {
 		return nil, fmt.Errorf("signed sender: %w", err)
 	}
+	if source, ok := c.Source.(interface {
+		AuthenticateReceipt(context.Context, *types.Receipt) error
+	}); ok {
+		if err := source.AuthenticateReceipt(ctx, receipt); err != nil {
+			return nil, err
+		}
+	}
 	out := &ReceiptResult{TransactionHash: receipt.TxHash, BlockHash: receipt.BlockHash, Successful: receipt.Status == types.ReceiptStatusSuccessful}
 	if !out.Successful {
 		if len(receipt.Logs) != 0 {
@@ -366,10 +373,12 @@ type PinnedRPC interface {
 }
 
 type RPCSource struct {
-	RPC          PinnedRPC
-	Registry     *catalog.Registry
-	PoolRegistry common.Address
-	Permissions  []PermissionEpoch
+	RPC            PinnedRPC
+	Registry       *catalog.Registry
+	PoolRegistry   common.Address
+	Permissions    []PermissionEpoch
+	Traces         ExecutionTraceSource
+	NativeReceipts NativeReceiptSource
 }
 
 func (s *RPCSource) call(ctx context.Context, block common.Hash, address common.Address, family, method string, args ...any) ([]any, error) {
@@ -437,34 +446,51 @@ func (s *RPCSource) CallerAt(ctx context.Context, id Identity, at Position) (com
 	if err != nil {
 		return fail(err)
 	}
-	if pending || tx == nil || tx.Hash() != id.TransactionHash || tx.To() == nil || *tx.To() != id.Emitter || len(tx.Data()) < 4 || tx.ChainId().Cmp(big.NewInt(125)) != 0 {
-		return fail(fmt.Errorf("internal emitter call requires authenticated execution trace"))
+	if pending || tx == nil || tx.Hash() != id.TransactionHash || tx.To() == nil || tx.ChainId().Cmp(big.NewInt(125)) != 0 {
+		return fail(fmt.Errorf("canonical signed caller transaction required"))
 	}
 	receipt, err := s.RPC.TransactionReceipt(ctx, id.TransactionHash)
 	if err != nil {
 		return fail(err)
 	}
-	if receipt == nil || receipt.Status != types.ReceiptStatusSuccessful || receipt.BlockHash != id.BlockHash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != at.Block || receipt.TransactionIndex != at.Transaction {
+	if receipt == nil || receipt.TxHash != id.TransactionHash || receipt.Status != types.ReceiptStatusSuccessful || receipt.BlockHash != id.BlockHash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != at.Block || receipt.TransactionIndex != at.Transaction || at.Log != id.LogIndex {
 		return fail(fmt.Errorf("caller receipt differs"))
 	}
-	found := false
+	header, err := s.RPC.HeaderByHash(ctx, id.BlockHash)
+	if err != nil || header == nil || header.Hash() != id.BlockHash || header.Number == nil || header.Number.Cmp(receipt.BlockNumber) != 0 {
+		return fail(fmt.Errorf("caller block differs"))
+	}
+	var found *types.Log
 	for _, l := range receipt.Logs {
-		if l != nil && l.Index == id.LogIndex && l.Address == id.Emitter && l.TxHash == id.TransactionHash && l.BlockHash == id.BlockHash && !l.Removed {
-			found = true
+		if l != nil && l.Index == id.LogIndex && l.Address == id.Emitter && l.TxHash == id.TransactionHash && l.BlockHash == id.BlockHash && l.BlockNumber == at.Block && l.TxIndex == at.Transaction && !l.Removed {
+			if found != nil {
+				return fail(fmt.Errorf("ambiguous caller log"))
+			}
+			found = l
 		}
 	}
-	if !found {
+	if found == nil {
 		return fail(fmt.Errorf("caller raw log absent"))
 	}
-	caller, err := types.Sender(types.LatestSignerForChainID(big.NewInt(125)), tx)
-	if err != nil {
-		return fail(err)
-	}
-	var selector [4]byte
-	copy(selector[:], tx.Data()[:4])
 	dep, ok := s.Registry.DeploymentAt(125, id.Emitter, at.Block)
 	if !ok || dep.Family != "EventEmitter" {
 		return fail(fmt.Errorf("unregistered emitter getter"))
+	}
+	var caller common.Address
+	var selector [4]byte
+	if id.Emitter == NativeLaunchpadEmitter {
+		caller, selector, err = s.nativeCaller(ctx, header, tx, receipt, *found)
+	} else if s.Traces != nil {
+		var frame *CallFrame
+		frame, err = s.Traces.TraceTransactionInBlock(ctx, id.BlockHash, id.TransactionHash)
+		if err == nil {
+			caller, selector, err = callerFromTrace(frame, tx, receipt, id)
+		}
+	} else {
+		err = fmt.Errorf("authenticated block execution trace required")
+	}
+	if err != nil {
+		return fail(err)
 	}
 	if !CallerAllowedAt(s.Permissions, 125, id.Emitter, caller, selector, at) {
 		return fail(fmt.Errorf("selector permission canonical position history unavailable"))
