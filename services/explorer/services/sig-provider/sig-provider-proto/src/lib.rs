@@ -1,4 +1,6 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
+pub use {actix_web, tonic};
+
 pub mod blockscout {
     pub mod sig_provider {
         pub mod v1 {
