@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import argparse
+import ctypes
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
+import signal
 import socket
 import ssl
 import stat
@@ -19,15 +22,15 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / 'tests/daemon'))
 sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
 sys.path.insert(0, str(ROOT / 'tools/qualification/paxeer-x/fixtures'))
-from event_source_fixture import NativeProofFaultRelay
+import merged_runtime_fixture as fixture
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 SCHEMA = 'paxeer-x.agent-envelope-artifacts.v1'
 CONFIG_SCHEMA = 'paxeer-x.agent-envelope-qualification.v1'
+PROOF_CASES = ('activity', 'receipt', 'maintained_account', 'non_maintained_account')
 ROUTE = '/v1/agent/rpc'
 MAX_BODY = 1_048_576
 LANGUAGES = ('rust', 'typescript', 'python', 'go', 'java', 'kotlin', 'swift', 'csharp')
@@ -121,8 +124,8 @@ SOURCES = ('services/agent/crates', 'services/agent/Cargo.toml', 'services/agent
            'services/agent/sdk/typescript/tsconfig.json', 'services/agent/sdk/python', 'services/platform/hosted/gateway', 'services/platform/Cargo.toml',
            'services/platform/Cargo.lock', 'sdk/platform/go', 'sdk/platform/jvm', 'sdk/platform/swift', 'sdk/platform/dotnet',
            'tools/paxeer-x/route-catalogue.json', 'tools/qualification/paxeer-x/agent_operation_envelope.py',
-           'tools/qualification/paxeer-x/fixtures/event_source_fixture.py',
-           'tests/programs/test_call_activity.c', 'services/agent/schema/lni/v1.kvx')
+           'tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py',
+           'services/platform/hosted/node/native_runtime.py', 'daemon/paxd')
 CASE_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASE ([a-z0-9_.\-]+) passed$', re.M)
 COUNT_LINE = re.compile(r'^PAXEER_X_AGENT_ENVELOPE_CASES=(\d+)$', re.M)
 
@@ -432,7 +435,7 @@ def load_config():
     config = load_private(os.environ.get('PAXEER_X_AGENT_ENVELOPE_CONFIG'), 'PAXEER_X_AGENT_ENVELOPE_CONFIG')
     require(config.get('schema') == CONFIG_SCHEMA, 'qualification configuration schema')
     for key in ('agentd_env', 'gateway_env', 'requests', 'credential_file', 'gateway_api_key_file',
-                'program_bearer_file', 'gateway_peer_identity', 'program_route', 'native_rpc_body',
+                'program_bearer_file', 'gateway_peer_identity', 'program_route', 'merged_runtime',
                 'gateway_network_id', 'wire_version', 'route_bindings', 'agentd_binding_pointer', 'signer_key_file'):
         require(key in config, 'qualification configuration lacks ' + key)
     require(isinstance(config['gateway_network_id'], str) and config['gateway_network_id']
@@ -592,9 +595,12 @@ def load_config():
 
 
 def proof_bundle_authority_inputs(config, primary):
-    advance = config.get('proof_bundle_head_advance_sequence')
-    require(isinstance(advance, str) and re.fullmatch(DECIMAL_U64, advance) and 6 <= int(advance) < 2**64,
-            'proof_bundle_head_advance_sequence must be the genuine next treasury fixture sequence')
+    advance = config.get('proof_bundle_head_advance_transaction')
+    require(isinstance(advance, str) and re.fullmatch('0x([0-9a-f]{2})+', advance),
+            'proof_bundle_head_advance_transaction must be a genuine signed merged transaction')
+    reference = config.get('proof_bundle_non_maintained_submission_ref')
+    require(isinstance(reference, str) and re.fullmatch(NONZERO_HEX32, reference),
+            'proof_bundle_non_maintained_submission_ref must name a genuine retained submission')
     entries = config.get('proof_bundle_authorities')
     names = {'wrong_tenant', 'wrong_principal', 'wrong_agent', 'wrong_asset', 'wrong_scope'}
     require(isinstance(entries, dict) and set(entries) == names,
@@ -764,11 +770,30 @@ class Qualification:
     def substitute(self, env, extra=None):
         values = {'tls_dir': str(self.tls), 'state_dir': str(self.d / 'agent-state'), 'runtime_dir': str(self.runtime.directory),
                   'agent_rpc_port': str(self.agent_port), 'gateway_port': str(self.gateway_port),
-                  'node_rpc_url': self.runtime.rpc_url, 'replica_url': 'http://127.0.0.1:' + str(self.runtime.ports[8]),
-                  'node_socket': self.runtime.manifest['node_socket'],
+                  'node_rpc_url': self.runtime.rpc_url,
+                  'hosted_rpc_url': 'https://localhost:' + str(self.gateway_port) + '/',
                   'route_bindings_file': str(self.d / 'route-bindings.json')}
         values.update(extra or {})
         return {key: value.format(**values) for key, value in env.items()}
+
+    def public_rpc_cases(self):
+        # Public node JSON-RPC and hosted px_ contracts have different owners.
+        require(self.runtime.rpc.request('eth_chainId', []) == '0x7d', 'merged root chain identity')
+        status, response = self.http(self.encode({'jsonrpc': '2.0', 'id': 1,
+                                                 'method': 'px_getNetwork', 'params': []}),
+                                     path='/', case='native_rpc_unchanged')
+        value = json.loads(response)
+        require(status == 200 and set(value) == {'jsonrpc', 'id', 'result'}
+                and value['jsonrpc'] == '2.0' and type(value['id']) is int and value['id'] == 1,
+                'hosted px_getNetwork envelope')
+        from layerx_sdk.px import decode_px_network_head
+        head = decode_px_network_head(value['result'])
+        require(head.paxeer.chain_id == 125 and head.latest_committed_height > 0,
+                'hosted px_getNetwork committed identity')
+        for path in ('/rpc', '/rpc/schema'):
+            status, _ = self.http(None, path=path, method='GET', case='retired_public_' + path.replace('/', '_'))
+            require(status == 404, 'retired public router route is still served: ' + path)
+        self.passed('native_rpc_unchanged', self.d / 'responses/native_rpc_unchanged.http')
 
     def start_agentd(self, overrides=None, expect_up=True):
         if self.agentd is not None and self.agentd.poll() is None:
@@ -1113,13 +1138,7 @@ class Qualification:
             self.refusal(status, response, 403, 'PolicyRefusal', 'envelope.coordinate_mismatch',
                          'coordinate_mismatch_' + field, value['request_id'])
         self.passed('coordinate_mismatch', self.d / 'responses/coordinate_mismatch_tenant.http')
-        status, response = self.http(self.config['native_rpc_body'].encode(), path='/rpc', headers=self.api_key(), case='native_rpc_unchanged')
-        value = json.loads(response)
-        require(status == 200 and value.get('jsonrpc') == '2.0' and 'request_id' not in value, 'native_rpc_unchanged: /rpc changed contract')
-        status, response = self.http(None, path='/rpc/schema', method='GET', headers={'Content-Type': 'application/json'},
-                                     case='native_rpc_schema_unchanged')
-        require(status == 200 and 'verification_status' not in json.loads(response), 'native /rpc/schema changed contract')
-        self.passed('native_rpc_unchanged', self.d / 'responses/native_rpc_unchanged.http')
+        self.public_rpc_cases()
         route = self.config['program_route']
         status, response = self.http(None if route['method'] == 'GET' else route['body'].encode(), path=route['path'],
                                      method=route['method'], headers=self.api_key(), case='programs_route_unchanged')
@@ -1758,6 +1777,34 @@ class Qualification:
             self.proof_bundle_record(proof, {'target': target, 'requested_verification_level': 'committed'}, kind)
         return offline
 
+    def proof_bundle_plan(self, observed, non_maintained):
+        account = self.config['requests']['read']['request']['account_id']
+        require(isinstance(account, str) and re.fullmatch(NONZERO_HEX32, account), 'proof account identity')
+        require(non_maintained['activity_id'] != observed['activity_id'],
+                'non-maintained account must use its own genuine producer activity')
+        plan = {}
+        for name, kind in (('activity', 1), ('receipt', 3), ('maintained_account', 2), ('non_maintained_account', 2)):
+            anchor = non_maintained if name == 'non_maintained_account' else observed
+            activity = anchor['activity_id']
+            require(isinstance(activity, str) and re.fullmatch(NONZERO_HEX32, activity)
+                    and anchor['submission']['state'] == 'Executed'
+                    and isinstance(anchor.get('receipt'), dict), name + ': genuine executed receipt required')
+            target = (b'\x00\x01' + bytes([kind]) + bytes.fromhex(activity)
+                      + (bytes.fromhex(account) if kind == 2 else b'')).hex()
+            request = {'target': target, 'requested_verification_level': 'committed' if kind == 2 else 'receipted'}
+            read_wire_request('read.proof_bundle', request)
+            plan['proof_bundle.' + name] = {'operation': 'read.proof_bundle', 'request': request,
+                                           'expected_kind': kind,
+                                           'receipt_bytes': anchor['receipt']['canonical_bytes']}
+        return plan
+
+    def check_proof_completeness(self):
+        expected = {'proof_bundle.' + name for name in PROOF_CASES}
+        require(self.proof_bundle_kinds == {1, 2, 3}
+                and self.proof_bundle_cases == expected and self.proof_bundle_recovered == expected,
+                'proof bundle qualification incomplete: genuine Activity, Receipt, maintained and non-maintained '
+                'AccountState portable v2 evidence must survive restart')
+
     def proof_bundle_pre_restart(self, submitted):
         case = 'proof_bundle.anchor'
         submission_ref = submitted['submission']['submission_ref']
@@ -1783,20 +1830,23 @@ class Qualification:
         activity = observed['activity_id']
         account = self.config['requests']['read']['request']['account_id']
         require(re.fullmatch(NONZERO_HEX32, activity) and re.fullmatch(NONZERO_HEX32, account), case + ': actual activity/account')
-        self.proof_bundle_requests = {}
+        value, status, body = self.call('proof_bundle.non_maintained.track', 'track',
+                                       {'submission_ref': self.config['proof_bundle_non_maintained_submission_ref']})
+        non_maintained = self.read_success(status, body, value['request_id'], 'proof_bundle.non_maintained.track')['value']
+        self.proof_bundle_requests = self.proof_bundle_plan(observed, non_maintained)
         self.proof_bundle_kinds = set()
-        for name, kind in (('activity', 1), ('receipt', 3), ('maintained_account', 2)):
-            target = (b'\x00\x01' + bytes([kind]) + bytes.fromhex(activity)
-                      + (bytes.fromhex(account) if kind == 2 else b'')).hex()
-            request = {'target': target, 'requested_verification_level': 'committed' if kind == 2 else 'receipted'}
-            entry = {'operation': 'read.proof_bundle', 'request': request, 'expected_kind': kind}
-            self.proof_bundle_requests['proof_bundle.' + name] = entry
-            value, status, body = self.call('proof_bundle.' + name, entry['operation'], request)
-            result = self.read_success(status, body, value['request_id'], 'proof_bundle.' + name)
+        self.proof_bundle_cases = set()
+        self.proof_bundle_recovered = set()
+        self.proof_bundle_retained = {}
+        for label, entry in self.proof_bundle_requests.items():
+            request, kind = entry['request'], entry['expected_kind']
+            value, status, body = self.call(label, entry['operation'], request)
+            result = self.read_success(status, body, value['request_id'], label)
             require(len(body) <= MAX_BODY, 'proof bundle response body bound')
-            self.proof_bundle_record(result, request, kind, observed['receipt']['canonical_bytes'])
+            self.proof_bundle_retained[label] = self.proof_bundle_record(result, request, kind, entry['receipt_bytes'])
             self.proof_bundle_kinds.add(kind)
-            self.passed('proof_bundle.' + name, self.d / 'responses' / ('proof_bundle.' + name + '.http'))
+            self.proof_bundle_cases.add(label)
+            self.passed(label, self.d / 'responses' / (label + '.http'))
         receipt_request = self.proof_bundle_requests['proof_bundle.receipt']['request']
         wrong_account = bytearray.fromhex(account)
         wrong_account[0] ^= 1
@@ -1836,6 +1886,7 @@ class Qualification:
         write_private(self.d / 'proof-bundle-coverage.json', {
             'source': 'existing w7 signed submit, actual owner track and retained receipt',
             'target_kinds_produced': sorted(self.proof_bundle_kinds),
+            'cases_produced': sorted(self.proof_bundle_cases),
             'format': 'layerx-receipt-proof-v2',
             'authority_fault_process_cases': self.proof_bundle_fault_evidence,
             'authority_cases': 'five issued sessions, genuine current balance/session controls, exact owner/scope refusals',
@@ -1890,10 +1941,11 @@ class Qualification:
         for mode in ('wrong_header_signature', 'wrong_native_network', 'wrong_sequencer_key', 'maintenance_link'):
             case = 'proof_bundle.native_fault.' + mode
             with tempfile.TemporaryDirectory(prefix='lx-pb-') as directory:
-                relay = NativeProofFaultRelay(self.runtime.manifest['node_socket'],
-                                              str(Path(directory) / 'node.sock'), mode).start()
+                relay = fixture.RpcProofFaultRelay(self.runtime.rpc_url,
+                                                  'https://localhost:' + str(self.gateway_port) + '/',
+                                                  self.context(), mode).start()
                 try:
-                    self.start_agentd({'LAYERX_AGENT_HUMAN_NODE_LNI': str(Path(directory) / 'node.sock')})
+                    self.start_agentd({'LAYERX_AGENT_NODE_RPC_URL': relay.endpoint})
                     entry = self.proof_bundle_requests['proof_bundle.maintained_account' if mode == 'maintenance_link'
                                                         else 'proof_bundle.receipt']
                     value, status, body = self.call(case + '.baseline', entry['operation'], entry['request'])
@@ -1920,30 +1972,28 @@ class Qualification:
         entry = self.proof_bundle_requests['proof_bundle.receipt']
         produced = []
         with tempfile.TemporaryDirectory(prefix='lx-pb-head-') as directory:
-            relay = NativeProofFaultRelay(self.runtime.manifest['node_socket'],
-                                          str(Path(directory) / 'node.sock'), 'moving_head').start()
+            relay = fixture.RpcProofFaultRelay(self.runtime.rpc_url,
+                                              'https://localhost:' + str(self.gateway_port) + '/',
+                                              self.context(), 'moving_head').start()
             try:
-                self.start_agentd({'LAYERX_AGENT_HUMAN_NODE_LNI': str(Path(directory) / 'node.sock')})
+                self.start_agentd({'LAYERX_AGENT_NODE_RPC_URL': relay.endpoint})
                 value, status, body = self.call(case + '.baseline', entry['operation'], entry['request'])
                 baseline = self.read_success(status, body, value['request_id'], case + '.baseline')
                 self.proof_bundle_record(baseline, entry['request'], entry['expected_kind'],
                                          self.proof_bundle_anchor['receipt']['canonical_bytes'])
                 head = int(baseline['value']['freshness']['chain_head'])
                 def advance():
-                    result = self.runtime.invoke('send-one', self.config['proof_bundle_head_advance_sequence'],
-                                                 'proof-bundle-head-advance')
-                    rows = [dict(item.split('=', 1) for item in line.split()[1:])
-                            for line in result.stdout.decode().splitlines() if line.startswith('receipt ')]
-                    require(len(rows) == 1 and rows[0]['result'] == '0' and int(rows[0]['sequence']) > head,
-                            case + ': real native fixture did not produce exactly one new successful receipt')
-                    produced.extend(rows)
+                    transaction = self.config['proof_bundle_head_advance_transaction']
+                    receipt = self.runtime.submit(transaction)
+                    require(int(receipt['blockNumber'], 16) > head and receipt['status'] == '0x1',
+                            case + ': genuine merged transaction did not advance the successful head')
+                    produced.append(receipt)
                 relay.arm(on_selected=advance)
                 value, status, body = self.call(case, entry['operation'], entry['request'])
                 self.refusal(status, body, 503, 'UnavailableCapability', 'owner.unavailable', case, value['request_id'])
                 relay.disarm()
                 require(relay.trigger_count == 1 and relay.mutated_frame_count == 0 and len(produced) == 1,
                         case + ': head advance must preserve every genuine native response byte')
-                self.runtime.catch_up(produced)
                 self.passed(case, self.d / 'responses' / (case + '.http'))
             finally:
                 try:
@@ -1957,7 +2007,14 @@ class Qualification:
         self.passed(stale_case, self.d / 'responses' / (stale_case + '.http'))
 
     def proof_bundle_post_restart(self):
-        cases = ('proof_bundle.activity', 'proof_bundle.receipt', 'proof_bundle.maintained_account')
+        cases = tuple('proof_bundle.' + name for name in PROOF_CASES)
+        for case in cases:
+            entry = self.proof_bundle_requests[case]
+            value, status, body = self.call(case + '.recovered', entry['operation'], entry['request'])
+            envelope = self.read_success(status, body, value['request_id'], case + '.recovered')
+            recovered = self.proof_bundle_record(envelope, entry['request'], entry['expected_kind'], entry['receipt_bytes'])
+            require(recovered == self.proof_bundle_retained[case], case + ': restart changed retained portable evidence')
+            self.proof_bundle_recovered.add(case)
         for language in LANGUAGES:
             requests = dict(self.config['requests'], **self.proof_bundle_requests)
             self.probe(language, cases, 'post-restart', self.d / 'probes' / (language + '-proof-bundle.state'),
@@ -2446,6 +2503,7 @@ class Qualification:
         self.agentd.wait(timeout=15)
         self.start_agentd()
         require(self.agentd.pid != old, 'agentd restart reused the process')
+        self.runtime.restart()
         self.proof_bundle_post_restart()
         self.native_post_restart()
         self.probe('rust', RUST_POST_RESTART, 'post-restart', state)
@@ -2461,24 +2519,18 @@ class Qualification:
             'effect_count': len(self.effects), 'decode_requests': self.decode_observed})
 
         write_private(self.d / 'operation-evidence.json', {'rows': self.operation_evidence_rows})
-        require(self.proof_bundle_kinds == {1, 2, 3},
-                'proof bundle qualification incomplete: genuine Activity, AccountState and Receipt portable v2 evidence required')
+        self.check_proof_completeness()
 
 
 def worker(directory):
     # Runtime dependencies are needed only when starting the actual runtime;
     # argument validation and artifact production must work before provisioning.
-    global fixture
-    import paxeer_x_runtime_fixture as fixture
-
     built = load_manifest()
     config, credential = load_config()
-    bundle = fixture.artifacts(os.environ.get('PAXEER_X_RUNTIME_ARTIFACTS'))
-    client = fixture.client_artifact(os.environ.get('PAXEER_X_RUNTIME_CLIENT_MANIFEST'))
     for name in ('net', 'pid', 'mnt'):
         require(os.readlink('/proc/self/ns/' + name) != os.environ['PAXEER_X_PARENT_' + name.upper()], 'namespace isolation')
     subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
-    runtime = fixture.RuntimeFixture(directory, bundle, client)
+    runtime = fixture.RuntimeFixture(directory, config['merged_runtime'], built['source_revision'])
     qualification = None
     try:
         runtime.generate()
@@ -2505,7 +2557,7 @@ def worker(directory):
         expected += len(W8_CAPABILITY_DIRECT) + len(W8_CAPABILITY_REFUSALS)
         expected += len(SERVED_READ_DIRECT) + len(SERVED_READ_REFUSALS) + 2
         expected += len(NATIVE_LANGUAGES) * (16 + len(NATIVE_REFUSALS))
-        expected += 3 + 5 + 5 + 4 + 1 + 2 + len(LANGUAGES) * (6 + 3)
+        expected += 4 + 5 + 5 + 4 + 1 + 2 + len(LANGUAGES) * (7 + 4)
         require(len(qualification.results) == expected, 'case count ' + str(len(qualification.results)) + ' != ' + str(expected))
         write_private(runtime.directory / 'case-results.json', qualification.results)
         print(f'PAXEER_X_GATE tests={len(qualification.results)} skipped=0', flush=True)
@@ -2513,6 +2565,96 @@ def worker(directory):
         if qualification is not None:
             qualification.stop()
         runtime.cleanup()
+
+
+def terminate_participant_tree(participant):
+    # Pin descendants before stopping the launcher, including children that
+    # created their own sessions. The namespace also kills late descendants.
+    descendants = []
+    pending = [participant.pid]
+    while pending:
+        pid = pending.pop()
+        try:
+            children = Path('/proc', str(pid), 'task', str(pid), 'children').read_text().split()
+        except FileNotFoundError:
+            continue
+        for child in map(int, children):
+            try:
+                descriptor = os.pidfd_open(child)
+            except ProcessLookupError:
+                continue
+            descendants.append((child, descriptor))
+            pending.append(child)
+    try:
+        try:
+            os.killpg(participant.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        for _, descriptor in reversed(descendants):
+            try:
+                signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        participant.wait()
+        for child, _ in descendants:
+            try:
+                os.waitpid(child, 0)
+            except ChildProcessError:
+                pass
+        while True:
+            try:
+                os.waitpid(-participant.pid, 0)
+            except InterruptedError:
+                continue
+            except ChildProcessError:
+                break
+    finally:
+        for _, descriptor in descendants:
+            os.close(descriptor)
+
+
+def run_participant(argv, env, evidence, revision, directory, timeout=1680):
+    """Retain terminal evidence even when the namespace participant times out."""
+    started = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    log_path = evidence / 'worker.log'
+    # Adopt orphaned namespace-launcher descendants so killing the process group
+    # cannot leave grandchildren as zombies in the qualification container.
+    libc = ctypes.CDLL(None, use_errno=True)
+    previous = ctypes.c_int()
+    require(libc.prctl(37, ctypes.byref(previous), 0, 0, 0) == 0, 'read child subreaper state')
+    require(libc.prctl(36, 1, 0, 0, 0) == 0, 'enable participant child reaping')
+    timed_out = False
+    participant = None
+    try:
+        descriptor = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, 'wb') as log:
+            participant = subprocess.Popen(argv, env=env, stdout=log, stderr=log, start_new_session=True)
+            try:
+                participant.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                terminate_participant_tree(participant)
+    finally:
+        require(libc.prctl(36, previous.value, 0, 0, 0) == 0, 'restore child subreaper state')
+    text = log_path.read_text(errors='replace')
+    markers = re.findall(r'^PAXEER_X_GATE tests=(\d+) skipped=0$', text, re.M)
+    progress = re.findall(r'^PAXEER_X_PROGRESS cases=(\d+)', text, re.M)
+    count = int(markers[0]) if len(markers) == 1 else int(progress[-1]) if progress else 0
+    exit_code = 124 if timed_out else participant.returncode
+    complete = not timed_out and exit_code == 0 and len(markers) == 1 and count > 0
+    outcome_exit = 0 if complete else exit_code or 1
+    write_private(evidence / 'result.json', {
+        'candidate_revision': revision, 'command': shlex.join(argv), 'participant_argv': list(argv),
+        'started_utc': started, 'finished_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'exit_code': outcome_exit, 'participant_exit_code': participant.returncode,
+        'status': 'timeout' if timed_out else 'passed' if complete else 'failed',
+        'timed_out': timed_out, 'timeout_seconds': timeout, 'participant_pid': participant.pid,
+        'cases_passed': count, 'gate_marker': complete, 'worker_log': str(log_path),
+        'runtime_directory': str(directory), 'case_results': str(directory / 'case-results.json'),
+        'effect_manifest': str(directory / 'effect-manifest.json')})
+    print(f'PAXEER_X_GATE tests={count} skipped=0' if complete else
+          f'PAXEER_X_GATE tests={count} skipped=0 incomplete=1', flush=True)
+    return outcome_exit
 
 
 def main():
@@ -2539,30 +2681,12 @@ def main():
     revision = capture(['git', 'rev-parse', 'HEAD'])
     directory = Path(tempfile.mkdtemp(prefix='px-agent-envelope-', dir='/var/tmp'))
     directory.rmdir()
-    command = 'timeout 30m python3 tools/qualification/paxeer-x/agent_operation_envelope.py'
-    started = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     env = dict(os.environ)
     for name in ('net', 'pid', 'mnt'):
         env['PAXEER_X_PARENT_' + name.upper()] = os.readlink('/proc/self/ns/' + name)
-    log_path = evidence / 'worker.log'
-    with log_path.open('wb') as log:
-        result = subprocess.run(['unshare', '--mount', '--net', '--pid', '--fork', '--kill-child=KILL', '--mount-proc',
-                                 '--propagation', 'private', sys.executable, str(Path(__file__).resolve()), '--worker', str(directory)],
-                                env=env, stdout=log, stderr=log, timeout=1680)
-    text = log_path.read_text()
-    markers = re.findall(r'^PAXEER_X_GATE tests=(\d+) skipped=0$', text, re.M)
-    progress = re.findall(r'^PAXEER_X_PROGRESS cases=(\d+)', text, re.M)
-    count = int(markers[0]) if len(markers) == 1 else int(progress[-1]) if progress else 0
-    write_private(evidence / 'result.json', {
-        'candidate_revision': revision, 'command': command, 'started_utc': started,
-        'finished_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'exit_code': result.returncode,
-        'cases_passed': count, 'gate_marker': len(markers) == 1, 'worker_log': str(log_path),
-        'runtime_directory': str(directory), 'case_results': str(directory / 'case-results.json'),
-        'effect_manifest': str(directory / 'effect-manifest.json')})
-    print(f'PAXEER_X_GATE tests={count} skipped=0' if len(markers) == 1 else
-          f'PAXEER_X_GATE tests={count} skipped=0 incomplete=1', flush=True)
-    require(result.returncode == 0 and len(markers) == 1 and count > 0, 'worker failed; inspect private worker.log')
-    return 0
+    argv = ['unshare', '--mount', '--net', '--pid', '--fork', '--kill-child=KILL', '--mount-proc',
+            '--propagation', 'private', sys.executable, str(Path(__file__).resolve()), '--worker', str(directory)]
+    return run_participant(argv, env, evidence, revision, directory)
 
 
 if __name__ == '__main__':
