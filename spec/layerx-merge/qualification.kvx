@@ -28891,3 +28891,83 @@ symbol = "repair_m1302_test.go"
 observed = "Attempt 3: the build passed; the verify reported FAIL ./types [setup failed] because the package path was resolved from the repository root."
 assumption = "Verify command working directory, not a defect of the change."
 severity = "low"
+
+[finding.22.33.1366.5]
+task = "22.33.1366"
+file = "services/platform/hosted/internal/tests/repair_22_33_1366.rs"
+symbol = "repair_22_33_1366.rs"
+observed = "Attempt 6: the build passed; the dependent-crate check failed in hosted core public_reads.rs with nine errors and the task's tests never ran."
+assumption = "Producer break in hosted core (22.31.485), not a defect of the change."
+severity = "low"
+
+[finding.22.31.478.1]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 1: the build passed; the dependent-crate check failed in hosted core public_reads.rs with nine errors before the verify ran; the fund-gas measurement is unrecorded."
+assumption = "Producer break in hosted core (22.31.485), not a defect of the change."
+severity = "low"
+
+[finding.22.33.1539.2]
+task = "22.33.1539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+symbol = "repair_22_33_1539.rs"
+observed = "Attempt 3: the build passed; the dependent-crate check failed in the gateway test repair_22_31_345.rs and the verify never ran."
+assumption = "Producer break in the gateway test (22.31.483), not a defect of the change."
+severity = "low"
+
+[finding.22.33.1528.2]
+task = "22.33.1528"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1528.rs"
+symbol = "repair_22_33_1528.rs"
+observed = "Attempt 2: the build passed; the dependent-crate check failed in the gateway test repair_22_31_345.rs and the verify never ran."
+assumption = "Producer break in the gateway test (22.31.483), not a defect of the change."
+severity = "low"
+
+[finding.22.33.360.2]
+task = "22.33.360"
+file = "tools/qualification/audit_repairs/test_repair_22_33_360.py"
+symbol = "test_repair_22_33_360.py"
+observed = "Attempt 2: the YAML repair held; 5 of 6 checks passed; the legacy v1 health schemas of the final document differ from the upstream snapshot by the healthy and data properties the generated models carry."
+assumption = "A test assertion against the wrong reference; the shipped document and its generated models agree."
+severity = "low"
+
+[finding.22.33.1142.1]
+task = "22.33.1142"
+file = "node/repair_m1142_test.go"
+symbol = "repair_m1142_test.go"
+observed = "Attempt 1: the build passed; the single verify run panicked in the diff printer while comparing two precompile maps that were not equal; the repair budget was exhausted."
+assumption = "Comparison shape in the test, not an activation defect as far as the evidence shows."
+severity = "high"
+
+[finding.22.33.810.2]
+task = "22.33.810"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+symbol = "test_repair_22_33_810.py"
+observed = "Attempt 2: the build passed; collection failed on a missing services/platform/hosted/paxeer/evm.py read by the human-service owner module; no test ran."
+assumption = "A restored producer file (22.31.467), not a defect of the change."
+severity = "low"
+
+[finding.22.33.217.2]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 2: the build passed; the dependent-crate check failed in hosted core public_reads.rs and the verify never ran."
+assumption = "Producer break in hosted core (22.31.485), not a defect of the change."
+severity = "low"
+
+[finding.22.95.1.5]
+task = "22.95.1"
+file = "services/agent/crates/layerx-agentd/tests/human_node.rs"
+symbol = "human_node.rs"
+observed = "Attempt 10: the build passed; the dependent-crate check failed in hosted core public_reads.rs with nine errors and the verify never ran."
+assumption = "Producer break in hosted core (22.31.485), not a defect of the change."
+severity = "low"
+
+[finding.22.33.1478.5]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 7: 17 of 20 cases passed; the three committed-rung cases were refused with Expected EIP-1559 transaction type 2 while decoding the committed recording."
+assumption = "Producer recording (22.31.486), not a defect of the change as far as the evidence shows."
+severity = "low"
