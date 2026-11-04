@@ -18,10 +18,16 @@
 package main
 
 import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -131,6 +137,24 @@ func (n Node) Peer() string {
 	return fmt.Sprintf("%s@%s", n.NodeID, net.JoinHostPort(n.IP, strconv.Itoa(port)))
 }
 
+const (
+	registryTTL       = 24 * time.Hour
+	registryCapacity  = 4096
+	registryMaxBytes  = 8 << 20
+	peerResponseLimit = 256
+	seedPeerLimit     = 64
+)
+
+var errRegistryFull = errors.New("registry capacity reached")
+
+func activeNode(n *Node, now time.Time) bool {
+	if n == nil {
+		return false
+	}
+	last, err := time.Parse(time.RFC3339Nano, n.LastSeen)
+	return err == nil && !last.After(now) && now.Sub(last) < registryTTL
+}
+
 type registry struct {
 	mu    sync.Mutex
 	path  string
@@ -142,11 +166,19 @@ func openRegistry(dir string) (*registry, error) {
 		return nil, err
 	}
 	r := &registry{path: filepath.Join(dir, "registry.json"), Nodes: map[string]*Node{}}
-	b, err := os.ReadFile(r.path)
+	file, err := os.Open(r.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return r, nil
 		}
+		return nil, err
+	}
+	defer file.Close()
+	b, err := io.ReadAll(io.LimitReader(file, registryMaxBytes+1))
+	if len(b) > registryMaxBytes {
+		return nil, errors.New("registry image exceeds size limit")
+	}
+	if err != nil {
 		return nil, err
 	}
 	if len(b) > 0 {
@@ -157,34 +189,102 @@ func openRegistry(dir string) (*registry, error) {
 			r.Nodes = map[string]*Node{}
 		}
 	}
+	if len(r.Nodes) > registryCapacity {
+		return nil, errRegistryFull
+	}
 	return r, nil
 }
 
 // saveLocked persists the registry; caller must hold r.mu.
-func (r *registry) saveLocked() error {
-	b, err := json.MarshalIndent(r, "", "  ")
+func (r *registry) saveLocked(nodes map[string]*Node) error {
+	b, err := json.MarshalIndent(struct {
+		Nodes map[string]*Node `json:"nodes"`
+	}{nodes}, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := r.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if len(b) > registryMaxBytes {
+		return errors.New("registry image exceeds size limit")
+	}
+	dir, err := os.Open(filepath.Dir(r.path))
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, r.path)
+	defer dir.Close()
+	file, err := os.CreateTemp(filepath.Dir(r.path), ".registry-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmp := file.Name()
+	defer os.Remove(tmp)
+	if _, err = file.Write(b); err != nil {
+		file.Close()
+		return err
+	}
+	if err = file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	if err = file.Close(); err != nil {
+		return err
+	}
+	previous := tmp + ".previous"
+	hadPrevious := true
+	if err = os.Link(r.path, previous); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		hadPrevious = false
+	}
+	defer os.Remove(previous)
+	if err = os.Rename(tmp, r.path); err != nil {
+		return err
+	}
+	if err = dir.Sync(); err != nil {
+		var restoreErr error
+		if hadPrevious {
+			restoreErr = os.Rename(previous, r.path)
+		} else {
+			restoreErr = os.Remove(r.path)
+		}
+		if restoreErr == nil {
+			restoreErr = dir.Sync()
+		}
+		if restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("restore previous registry image: %w", restoreErr))
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *registry) upsert(n *Node) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	now := time.Now().UTC().Format(time.RFC3339)
-	if ex, ok := r.Nodes[n.NodeID]; ok {
-		n.FirstSeen = ex.FirstSeen
-	} else {
-		n.FirstSeen = now
+	now := time.Now().UTC()
+	candidate := make(map[string]*Node, len(r.Nodes)+1)
+	for id, node := range r.Nodes {
+		if activeNode(node, now) {
+			candidate[id] = node
+		}
 	}
-	n.LastSeen = now
-	r.Nodes[n.NodeID] = n
-	return r.saveLocked()
+	value := *n
+	if ex, ok := candidate[value.NodeID]; ok {
+		value.FirstSeen = ex.FirstSeen
+	} else {
+		if len(candidate) >= registryCapacity {
+			return errRegistryFull
+		}
+		value.FirstSeen = now.Format(time.RFC3339Nano)
+	}
+	value.LastSeen = now.Format(time.RFC3339Nano)
+	candidate[value.NodeID] = &value
+	if err := r.saveLocked(candidate); err != nil {
+		return err
+	}
+	r.Nodes = candidate
+	*n = value
+	return nil
 }
 
 // list returns all nodes sorted by first_seen (stable peer ordering).
@@ -192,8 +292,12 @@ func (r *registry) list() []*Node {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	out := make([]*Node, 0, len(r.Nodes))
+	now := time.Now().UTC()
 	for _, n := range r.Nodes {
-		out = append(out, n)
+		if activeNode(n, now) {
+			value := *n
+			out = append(out, &value)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].FirstSeen != out[j].FirstSeen {
@@ -204,12 +308,110 @@ func (r *registry) list() []*Node {
 	return out
 }
 
+// ---- node ownership ---------------------------------------------------------
+
+const (
+	registrationProofDomain = "hpx-registry.registration.v1"
+	challengeTTL            = 2 * time.Minute
+	challengeCapacity       = 4096
+)
+
+type registrationChallenge struct {
+	Source  string    `json:"ip"`
+	ChainID string    `json:"chain_id"`
+	Nonce   string    `json:"challenge"`
+	Expires time.Time `json:"expires"`
+}
+
+type signedRegistration struct {
+	Node
+	Challenge string `json:"challenge"`
+	PublicKey []byte `json:"public_key"`
+	Signature []byte `json:"signature"`
+}
+
+func registrationMessage(chain, nonce string, node Node) []byte {
+	node.FirstSeen, node.LastSeen = "", ""
+	message, _ := json.Marshal(struct {
+		Domain    string `json:"domain"`
+		Chain     string `json:"chain_id"`
+		Challenge string `json:"challenge"`
+		Node      Node   `json:"node"`
+	}{registrationProofDomain, chain, nonce, node})
+	return message
+}
+
+func (s *server) handleRegistrationChallenge(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	source := clientIP(r)
+	if !validPublicIP(source) {
+		http.Error(w, "registration requires a public source address", http.StatusBadRequest)
+		return
+	}
+	now := time.Now()
+	if !s.challengeLimiter.allow(source, now) {
+		http.Error(w, "challenge rate limit exceeded", http.StatusTooManyRequests)
+		return
+	}
+	s.challengeMu.Lock()
+	defer s.challengeMu.Unlock()
+	if s.challenges == nil {
+		s.challenges = map[string]registrationChallenge{}
+	}
+	for nonce, challenge := range s.challenges {
+		if !now.Before(challenge.Expires) {
+			delete(s.challenges, nonce)
+		}
+	}
+	if len(s.challenges) >= challengeCapacity {
+		http.Error(w, "challenge capacity reached", http.StatusServiceUnavailable)
+		return
+	}
+	var nonce [32]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		http.Error(w, "challenge unavailable", http.StatusInternalServerError)
+		return
+	}
+	challenge := registrationChallenge{Source: source, ChainID: s.cfg.ChainID, Nonce: hex.EncodeToString(nonce[:]), Expires: now.Add(challengeTTL)}
+	s.challenges[challenge.Nonce] = challenge
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, challenge)
+}
+
+func (s *server) verifyRegistration(proof signedRegistration, node Node, now time.Time) bool {
+	if len(proof.PublicKey) != ed25519.PublicKeySize || len(proof.Signature) != ed25519.SignatureSize {
+		return false
+	}
+	sum := sha256.Sum256(proof.PublicKey)
+	if hex.EncodeToString(sum[:20]) != node.NodeID {
+		return false
+	}
+	s.challengeMu.Lock()
+	defer s.challengeMu.Unlock()
+	challenge, ok := s.challenges[proof.Challenge]
+	if !ok || !now.Before(challenge.Expires) || challenge.Source != node.IP || challenge.ChainID != s.cfg.ChainID {
+		return false
+	}
+	if !ed25519.Verify(proof.PublicKey, registrationMessage(s.cfg.ChainID, proof.Challenge, node), proof.Signature) {
+		return false
+	}
+	delete(s.challenges, proof.Challenge)
+	return true
+}
+
 // ---- server ----------------------------------------------------------------
 
 type server struct {
-	cfg     config
-	reg     *registry
-	limiter registrationLimiter
+	cfg              config
+	reg              *registry
+	limiter          registrationLimiter
+	challengeLimiter registrationLimiter
+	challengeMu      sync.Mutex
+	challenges       map[string]registrationChallenge
+	rpc              *http.Client
 }
 
 // registrationLimiter admits registerBurst registrations per source address in
@@ -272,6 +474,17 @@ func main() {
 	if !loopbackListen(cfg.Addr) {
 		log.Fatalf("registry: HPX_ADDR %q must be a loopback address and port behind the reverse proxy", cfg.Addr)
 	}
+	if len(cfg.SeedPeers) > seedPeerLimit {
+		log.Fatalf("registry: at most %d seed peers are allowed", seedPeerLimit)
+	}
+	for _, seed := range cfg.SeedPeers {
+		id, address, ok := strings.Cut(seed, "@")
+		host, port, err := net.SplitHostPort(address)
+		p, portErr := strconv.Atoi(port)
+		if !ok || !isHexID(id) || err != nil || len(host) > 253 || host == "" || portErr != nil || p < 1 || p > 65535 {
+			log.Fatal("registry: invalid seed peer")
+		}
+	}
 	reg, err := openRegistry(cfg.DataDir)
 	if err != nil {
 		log.Fatalf("registry: %v", err)
@@ -281,6 +494,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.HandleFunc("/api/register", s.handleRegister)
+	mux.HandleFunc("/api/register/challenge", s.handleRegistrationChallenge)
 	mux.HandleFunc("/api/peers", s.handlePeers)
 	mux.HandleFunc("/api/peers.txt", s.handlePeersTxt)
 	mux.HandleFunc("/api/nodes", s.handleNodes)
@@ -341,7 +555,7 @@ func (s *server) peerStrings(exclude string) []string {
 	seen := map[string]bool{}
 	var peers []string
 	add := func(p string) {
-		if p == "" || seen[p] {
+		if p == "" || seen[p] || len(peers) >= peerResponseLimit {
 			return
 		}
 		seen[p] = true
@@ -376,11 +590,18 @@ func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "registration rate limit exceeded", http.StatusTooManyRequests)
 		return
 	}
-	var n Node
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&n); err != nil {
+	var registration signedRegistration
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16))
+	if err := decoder.Decode(&registration); err != nil {
 		http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		http.Error(w, "expected a single registration", http.StatusBadRequest)
+		return
+	}
+	n := registration.Node
+	n.FirstSeen, n.LastSeen = "", ""
 	n.NodeID = strings.ToLower(strings.TrimSpace(n.NodeID))
 	if !isHexID(n.NodeID) {
 		http.Error(w, "invalid node_id (expect 40-char hex CometBFT id)", http.StatusBadRequest)
@@ -415,16 +636,25 @@ func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	default:
 		n.Type = "fullnode"
 	}
+	if !s.verifyRegistration(registration, n, time.Now()) {
+		http.Error(w, "invalid or expired node ownership proof", http.StatusUnauthorized)
+		return
+	}
 	if err := s.reg.upsert(&n); err != nil {
+		if errors.Is(err, errRegistryFull) {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
 		http.Error(w, "save failed", http.StatusInternalServerError)
 		return
 	}
 	log.Printf("registered %s (%s) %s type=%s ver=%s", n.NodeID, n.Moniker, n.Peer(), n.Type, n.Version)
+	peers := s.peerStrings(n.NodeID)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":               true,
 		"node":             n,
-		"peers":            s.peerStrings(n.NodeID),
-		"persistent_peers": strings.Join(s.peerStrings(n.NodeID), ","),
+		"peers":            peers,
+		"persistent_peers": strings.Join(peers, ","),
 	})
 }
 
@@ -466,89 +696,132 @@ func (s *server) handleMyIP(w http.ResponseWriter, r *http.Request) {
 // a recent trusted light-client anchor (height+hash) plus the rpc-servers to
 // fetch a snapshot from. The chain is pruned, so blocksync-from-genesis is
 // impossible; new nodes MUST state sync.
-func (s *server) handleStateSync(w http.ResponseWriter, _ *http.Request) {
+func (s *server) handleStateSync(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
+	disabled := func(reason string) { writeJSON(w, http.StatusOK, map[string]any{"enable": false, "reason": reason}) }
 	if s.cfg.StateSyncRPC == "" || s.cfg.StateSyncServers == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"enable": false, "reason": "no state-sync rpc configured"})
+		disabled("no state-sync rpc configured")
 		return
 	}
-	latest, err := rpcLatestHeight(s.cfg.StateSyncRPC)
-	if err != nil || latest <= 0 {
-		writeJSON(w, http.StatusOK, map[string]any{"enable": false, "reason": fmt.Sprintf("status query failed: %v", err)})
+	if s.cfg.ChainID == "" || s.cfg.TrustOffset < 0 {
+		disabled("invalid state-sync configuration")
 		return
 	}
-	trustHeight := latest - s.cfg.TrustOffset
+	client := s.rpc
+	if client == nil {
+		client = rpcClient
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+	latest, err := rpcLatestHeight(ctx, client, s.cfg.StateSyncRPC, s.cfg.ChainID)
+	if err != nil {
+		disabled("status query failed: " + err.Error())
+		return
+	}
+	trustHeight := latest - int64(s.cfg.TrustOffset)
 	if trustHeight < 1 {
 		trustHeight = 1
 	}
-	hash, err := rpcBlockHash(s.cfg.StateSyncRPC, trustHeight)
-	if err != nil || hash == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"enable": false, "reason": fmt.Sprintf("commit query failed: %v", err)})
+	hash, err := rpcBlockHash(ctx, client, s.cfg.StateSyncRPC, s.cfg.ChainID, trustHeight)
+	if err != nil {
+		disabled("commit query failed: " + err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"enable":       true,
-		"rpc_servers":  s.cfg.StateSyncServers,
-		"trust_height": trustHeight,
-		"trust_hash":   hash,
-		"trust_period": s.cfg.TrustPeriod,
-		"latest":       latest,
+		"enable": true, "rpc_servers": s.cfg.StateSyncServers, "trust_height": trustHeight,
+		"trust_hash": hash, "trust_period": s.cfg.TrustPeriod, "latest": latest,
 	})
 }
 
 var rpcClient = &http.Client{Timeout: 8 * time.Second}
 
-// rpcGet fetches a CometBFT RPC endpoint and unwraps the optional jsonrpc
-// "result" envelope (pax-tendermint's /status returns a bare object).
-func rpcGet(base, path string) (map[string]json.RawMessage, error) {
-	resp, err := rpcClient.Get(strings.TrimRight(base, "/") + path)
+const rpcResponseLimit = 1 << 20
+
+func rpcGet(ctx context.Context, client *http.Client, base, path string, target any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(base, "/")+path, nil)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
-	var raw map[string]json.RawMessage
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, err
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("upstream HTTP status %d", resp.StatusCode)
 	}
-	if res, ok := raw["result"]; ok {
-		var inner map[string]json.RawMessage
-		if err := json.Unmarshal(res, &inner); err == nil {
-			return inner, nil
+	body, err := io.ReadAll(io.LimitReader(resp.Body, rpcResponseLimit+1))
+	if err != nil {
+		return err
+	}
+	if len(body) > rpcResponseLimit {
+		return errors.New("RPC response exceeds size limit")
+	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return err
+	}
+	if len(envelope) == 0 {
+		return errors.New("empty RPC object")
+	}
+	if failure, ok := envelope["error"]; ok && string(failure) != "null" {
+		return errors.New("upstream RPC error")
+	}
+	if result, ok := envelope["result"]; ok {
+		var object map[string]json.RawMessage
+		if err := json.Unmarshal(result, &object); err != nil || len(object) == 0 {
+			return errors.New("invalid RPC result")
 		}
+		body = result
 	}
-	return raw, nil
+	return json.Unmarshal(body, target)
 }
 
-func rpcLatestHeight(base string) (int, error) {
-	m, err := rpcGet(base, "/status")
-	if err != nil {
+func rpcLatestHeight(ctx context.Context, client *http.Client, base, chain string) (int64, error) {
+	var status struct {
+		NodeInfo struct {
+			Network string `json:"network"`
+		} `json:"node_info"`
+		SyncInfo struct {
+			Latest int64 `json:"latest_block_height,string"`
+		} `json:"sync_info"`
+	}
+	if err := rpcGet(ctx, client, base, "/status", &status); err != nil {
 		return 0, err
 	}
-	var si struct {
-		Latest string `json:"latest_block_height"`
+	if status.NodeInfo.Network != chain || status.SyncInfo.Latest <= 0 {
+		return 0, errors.New("invalid status chain or height")
 	}
-	if err := json.Unmarshal(m["sync_info"], &si); err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(si.Latest)
+	return status.SyncInfo.Latest, nil
 }
 
-func rpcBlockHash(base string, height int) (string, error) {
-	m, err := rpcGet(base, "/commit?height="+strconv.Itoa(height))
-	if err != nil {
+func rpcBlockHash(ctx context.Context, client *http.Client, base, chain string, height int64) (string, error) {
+	var response struct {
+		SignedHeader struct {
+			Header struct {
+				ChainID string `json:"chain_id"`
+				Height  int64  `json:"height,string"`
+			} `json:"header"`
+			Commit struct {
+				Height  int64 `json:"height,string"`
+				BlockID struct {
+					Hash string `json:"hash"`
+				} `json:"block_id"`
+			} `json:"commit"`
+		} `json:"signed_header"`
+	}
+	if err := rpcGet(ctx, client, base, "/commit?height="+strconv.FormatInt(height, 10), &response); err != nil {
 		return "", err
 	}
-	var sh struct {
-		Commit struct {
-			BlockID struct {
-				Hash string `json:"hash"`
-			} `json:"block_id"`
-		} `json:"commit"`
+	header := response.SignedHeader
+	if header.Header.ChainID != chain || header.Header.Height != height || header.Commit.Height != height {
+		return "", errors.New("commit chain or height mismatch")
 	}
-	if err := json.Unmarshal(m["signed_header"], &sh); err != nil {
-		return "", err
+	hash, err := hex.DecodeString(header.Commit.BlockID.Hash)
+	if err != nil || len(hash) != sha256.Size {
+		return "", errors.New("invalid 32-byte commit hash")
 	}
-	return strings.ToUpper(sh.Commit.BlockID.Hash), nil
+	return strings.ToUpper(header.Commit.BlockID.Hash), nil
 }
 
 // ---- helpers ---------------------------------------------------------------
