@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'profile';
@@ -62,6 +62,7 @@ export interface AvatarProps {
 
 export function Avatar({ src, name, size = 'md', shape = 'round', decorative = false, badge, loading = false, className }: AvatarProps) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
   const radius = shape === 'round' ? 'rounded-pill' : 'rounded-sm';
   const showImage = Boolean(src) && !failed && !loading;
 
