@@ -196,3 +196,19 @@ keeper callback adapters. The [IBC testing guide](ibctesting/README.md) describe
 the local chain, endpoint and coordinator helpers. For ordinary contract
 operations and module configuration, see [README.md](README.md); for privileged
 contract lifecycle operations, see [Governance](Governance.md).
+
+### Local native callback example
+
+The committed IBC3 `wasm-runtime/testdata/ibc_reflect.wasm` contract accepts
+`{"reflect_code_id":1}` at instantiation (replace 1 with the uploaded reflect
+code ID). Its ordered channel protocol is `ibc-reflect-v1`; incompatible
+versions are refused. On connect it creates a reflect account. A packet with
+`{"who_am_i":{}}` returns a JSON acknowledgement naming that account. Query
+`{"list_accounts":{}}` to read the stored channel/account association.
+
+`TestRepairM_1289_IBC` in [repair_m1289_test.go](repair_m1289_test.go) exercises
+this native contract through the module callback adapter, including version
+refusal, receive acknowledgements, acknowledgement and timeout callbacks.
+It commits the channel/account association, closes the native VM and persistent
+store, reopens them, restores capabilities and pins, and repeats the query and
+receive callback against the recovered state. These are local recovery checks.

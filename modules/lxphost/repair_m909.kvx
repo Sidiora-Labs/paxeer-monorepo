@@ -1,0 +1,73 @@
+[repair.22.33.909]
+audit = "22.30.2"
+base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+qualification = "The hf-build/hf-done private gate ledger records the exact candidate revision, command, exit and log; the runner publishes the qualified candidate."
+baseline = "Inherited attempt 2 failed SimulationSuccessProof, SimulationTransferProjection, SimulationReceiptAuthorities and ProgramReadProducerProof with NON_CANONICAL; SimulationPaymentReference and SimulationFeeRecordLoading passed. No duplicate baseline gate: this continuation requires implementation before hf-build and hf-done."
+wiring = "No out-of-path implementation required; native fee genesis and retirement-profile producers are invoked through an in-scope fixture package, then transported through the real persisted module store."
+
+[finding.program-read-producer-proof]
+test = "TestRepairM_909_ProgramReadProducerProof"
+proof = "Actual signed Programs deployment, CALL storage write, LXPA2 account registration, sandbox FUND, exit-route and deprecation activities produce records; native retirement profile staging produces its 251-byte control record. Close and reopen the LevelDB/IAVL store and host, then verify projections, sandbox v3/v1/v2 domains, registration-event and profile digests and unchanged read state."
+
+[finding.simulation-receipt-authorities]
+test = "TestRepairM_909_SimulationReceiptAuthorities"
+proof = "A real successful payment receipt survives close/reopen in the authoritative reference set; the actual Wasm guest consumes its digest and emits its facts. Complete receipt parity, missing evidence, other network configuration and current/future height refusals are checked."
+
+[finding.simulation-payment-reference]
+test = "TestRepairM_909_SimulationPaymentReference"
+proof = "A successful send consumes the reference; simulation and execution refuse reuse with fresh identity and account sequences, before and after disk reopen, while a fresh-reference positive control executes. Simulation leaves the complete store unchanged."
+
+[finding.simulation-fee-record-loading]
+test = "TestRepairM_909_SimulationFeeRecordLoading"
+proof = "The native Programs genesis producer materializes fee active/history rows, which the real host restores for a fee-bearing version-2 session grant. Complete receipt parity and the executed grant's fee budget are checked before and after disk reopen."
+
+[finding.simulation-transfer-projection]
+test = "TestRepairM_909_SimulationTransferProjection"
+proof = "A funded Wasm guest checks host return values and emits two distinct real payment legs; simulation and sibling execution have identical full Go and decoded canonical receipts and exact transfer amounts/destinations, before and after disk reopen."
+
+[finding.simulation-success-proof]
+test = "TestRepairM_909_SimulationSuccessProof"
+proof = "Real funded guest execution consumes receipt evidence, emits an event, writes storage and transfers value with nonzero charged fees; full Go/canonical receipt equality holds across sibling execution and disk reopen, with unchanged simulation state, committed root and identity/global sequences."
+
+[gotcha.simulation-node-layout]
+symptom = "Simulation duplicated the native node layout without the programs_guest_abi field introduced by execution."
+repair = "Keep the native layouts identical so the verified_receipts index is addressed at its actual location."
+
+[gotcha.opaque-read-fixtures]
+symptom = "Opaque-copy fixtures are not proof of agreement with real Programs producers."
+repair = "Explicitly name the retained opaque-copy tests and add an independent real producer/store/reopen/consumer proof."
+
+[qualification.build-repair]
+revision = "429ac112961a2fe202854cfc65ebb3d78e7baf47"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/..."
+exit = 1
+log = "/out/logs/build-1.log"
+repair = "Include the complete native genesis manifest header in the producer fixture; use ABI 2 shared-storage mutation for the read projection's shared state head."
+
+[qualification.fixture-selector]
+revision = "155305ae2136388af3dec4f0c6b0df00f1a41176"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/..."
+exit = 0
+log = "/out/logs/build-2.log"
+repair = "The shared-storage guest must pass frozen ABI selector 2, not principal selector 1; retain the shared head assertions and rebuild the corrected candidate before verification."
+
+[qualification.continuation-interface]
+revision = "bbbc8dbb3e8daff430d8426eeb8816730c3588da"
+command = "cg spec done 22.33.909 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "On the inherited implementation, SimulationSuccessProof, SimulationTransferProjection, SimulationReceiptAuthorities, SimulationPaymentReference and ProgramReadProducerProof failed at shared guest deployment; SimulationFeeRecordLoading passed. Declare both StorageWrite and SharedStorageWrite required by the real scoped-write import's exact static interface mask; keep the invocation's shared-only grant and every assertion unchanged."
+
+[gotcha.production-records]
+symptom = "The inherited fixtures assembled fee accounts and lease history by hand, and imported height authorities without the payment facts consumed by receipt_read."
+repair = "Use native account/bootstrap/snapshot and metering producers, encode the required request acknowledgement from a native receipt, run real FUND, and project validated canonical authority receipts into the shared guest payment-facts index."
+
+[qualification.attempt3]
+evidence = "The final hf-build and hf-done ledger lines in /out/run/gates.jsonl bind this unchanged candidate to its exact revision, command, exit and private log."
+
+[qualification.attempt3-repair]
+revision = "90f9c6882f5eefa0c4e8f843868638b9e93b71b7"
+command = "cg spec done 22.33.909 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The four shared CALL cases exposed duplicate main/asset payment accounts; retain one real asset payer, use a separately bootstrapped main asset and its independent FUND sequence, encode the required request acknowledgement from native receipt fields, and assert the exact canonical receipt-facts event."

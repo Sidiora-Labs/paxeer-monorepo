@@ -1,0 +1,16 @@
+[repair.22.33.1266]
+finding = "addr-gas-charge-literal"
+proof = "TestRepairM_1266_AddrGasChargeLiteral"
+implementation = "TestAddrGasGolden retains every RequiredGas row and freezes suppliedGas-minus-remainingGas with literal execution charges for all ten ABI methods, through both the constructor and the application-served precompile below and at the merge height."
+fixture = "Real application EVM, bank, account and upgrade keepers on isolated cached stores with a v6.4.0 done marker at height 1 and the merge marker at height 100; fixed secp256k1 and Ed25519 keys produce real signed association and binding calldata; assertions cover ABI outputs, bidirectional address and DID mappings, binding nonces, association public keys and binding EVM logs."
+baseline = "No addr repair or previous hf-build/hf-done ledger existed on inspection at base 90c597177fcfcac6653ca7effb29d994ae45b128. Baseline verification was not run: the explicit allowed-gate order requires full implementation before hf-build then hf-done and forbids invoking verify_cmd by hand. No pre-change test failures are claimed."
+wiring = "None: the application EVM keeper already serves the current addr implementation at both merge-boundary heights; no out-of-path implementation step is required."
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; no passing result is claimed before those gates run."
+
+[qualification.initial_fixture]
+revision = "04552eb50792eacfe4a61589011ecc9c26118c66"
+command = "cg spec done 22.33.1266 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The fixture recorded only the latest-version merge marker, withholding addr below its height; bindLayerX charged 35300 rather than the hand-calculated 35312 because the two nil parameter slices encode as empty arrays."
+repair = "Record the prior v6.4.0 upgrade at height 1 so the real application selector serves addr on both sides of the merge; correct the exact bind literal to 35300 and preserve every assertion."
