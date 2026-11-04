@@ -287,7 +287,8 @@ export function orderLimitsFromConfig(
   return {
     tickSize: config.tickSize,
     lotSize: config.lotSize,
-    maxLeverage: tierMax < config.maxLeverage ? tierMax : config.maxLeverage,
+    maxLeverage:
+      (tierMax < config.maxLeverage ? tierMax : config.maxLeverage) * 10n ** 18n,
   };
 }
 
@@ -782,9 +783,9 @@ function ConnectedPerpsOrderForm({
       {
         ...orderLimits,
         maxLeverage:
-          tierMax < marketConfig.data.config.maxLeverage
+          (tierMax < marketConfig.data.config.maxLeverage
             ? tierMax
-            : marketConfig.data.config.maxLeverage,
+            : marketConfig.data.config.maxLeverage) * 10n ** 18n,
       },
     );
     if (plan.error) {

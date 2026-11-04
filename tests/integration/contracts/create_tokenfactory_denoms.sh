@@ -79,7 +79,81 @@ done
 third_set_block_height=$($paxdbin status | jq -r '.SyncInfo.latest_block_height')
 echo "$third_set_block_height" > $paxhome/tests/integration/contracts/tfk_third_set_block_height.txt
 
-num_denoms=$(paxd q tokenfactory denoms-from-creator $CREATOR_ID --output json | jq -r ".denoms | length")
-echo $num_denoms
+num_denoms=$(python3 - "$paxdbin" "$keyaddress" <<'PY'
+import base64
+import json
+import subprocess
+import sys
+
+
+def creator_queries(paxdbin, creator):
+    """Exchange CLI argument lists and JSON pages, then return the denom count."""
+    if not paxdbin or not creator:
+        raise ValueError("binary and creator address are required")
+    expected = {f"factory/{creator}/{i}" for i in range(1, 31)}
+    denoms = set()
+    seen_keys = set()
+    page_key = ""
+    while True:
+        command = [
+            paxdbin, "q", "tokenfactory", "denoms-from-creator", creator,
+            "--output", "json", "--limit", "100",
+        ]
+        if page_key:
+            command.extend(["--page-key", page_key])
+        page = json.loads((yield command))
+        if not isinstance(page, dict) or not isinstance(page.get("denoms"), list):
+            raise ValueError("creator query must return a denoms array")
+        for denom in page["denoms"]:
+            if not isinstance(denom, str) or not denom:
+                raise ValueError("creator query returned an invalid denom")
+            if denom in denoms:
+                raise ValueError("creator query repeated a denom across pages")
+            denoms.add(denom)
+        pagination = page.get("pagination")
+        if pagination is None:
+            next_key = None
+        elif isinstance(pagination, dict):
+            next_key = pagination.get("next_key")
+        else:
+            raise ValueError("creator query returned invalid pagination")
+        if next_key is None or next_key == "":
+            break
+        if not isinstance(next_key, str):
+            raise ValueError("creator query returned an invalid next_key")
+        # JSON encodes PageResponse bytes as base64; ReadPageRequest uses
+        # []byte(pageKey), so --page-key must receive the decoded store key.
+        page_key = base64.b64decode(next_key, validate=True).decode("utf-8")
+        if not page_key or "\0" in page_key or page_key in seen_keys:
+            raise ValueError("creator query returned a repeated or invalid page key")
+        seen_keys.add(page_key)
+    missing = expected - denoms
+    if missing:
+        raise ValueError(
+            "creator query is missing expected denoms: " + ", ".join(sorted(missing))
+        )
+    return len(denoms)
+
+
+def verify_creator_denoms(paxdbin, creator):
+    queries = creator_queries(paxdbin, creator)
+    command = next(queries)
+    while True:
+        response = subprocess.run(command, check=True, stdout=subprocess.PIPE, text=True)
+        try:
+            command = queries.send(response.stdout)
+        except StopIteration as complete:
+            return complete.value
+
+
+if __name__ == "__main__":
+    try:
+        print(verify_creator_denoms(*sys.argv[1:]))
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(f"tokenfactory creator verification failed: {error}", file=sys.stderr)
+        sys.exit(1)
+PY
+) || exit 1
+echo "$num_denoms"
 
 exit 0
