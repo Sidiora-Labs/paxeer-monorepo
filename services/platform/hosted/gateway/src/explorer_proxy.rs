@@ -457,7 +457,7 @@ mod tests {
     }
     #[test]
     fn explorer_query_and_finite_routes() {
-        assert_eq!(ROUTES.len(), 141);
+        assert_eq!(ROUTES.len(), 142);
         assert!(selected("GET", "/api/v2/addresses/0xabc/transactions").is_some());
         assert!(selected("POST", "/api/v2/watch").is_none());
         assert!(selected("POST", "/api/v2/webhooks").is_none());
@@ -548,6 +548,86 @@ mod tests {
             .headers
             .insert("origin".into(), "https://untrusted.invalid".into());
         assert_eq!(admitted_headers(&request, route).unwrap_err(), 403);
+    }
+
+    #[test]
+    fn explorer_signature_route_preserves_admission_bounds() {
+        assert_eq!(ui_proxy::beta_public().host, HOST);
+        let hash = format!("0x{}", "ab".repeat(32));
+        let path = format!("/api/v2/transactions/{hash}/signature");
+        let route = selected("GET", &path).expect("transaction signature route is admitted");
+        assert_eq!(
+            route.path,
+            "/api/v2/transactions/{transaction_hash_param}/signature"
+        );
+        assert!(!route.session_csrf);
+
+        let mut request = IncomingRequest {
+            method: "GET".into(),
+            path: format!("{PREFIX}{path}"),
+            headers: [
+                ("host".into(), HOST.into()),
+                ("origin".into(), ORIGIN.into()),
+                ("accept".into(), "application/json".into()),
+                ("authorization".into(), "Bearer private-token".into()),
+            ]
+            .into(),
+            body: Vec::new(),
+        };
+        let headers = admitted_headers(&request, route).unwrap();
+        assert!(headers
+            .iter()
+            .any(|(name, value)| name == "accept" && value.as_str() == "application/json"));
+        assert!(!headers.iter().any(|(name, _)| name == "authorization"));
+        for (name, value, status) in [
+            ("host", "untrusted.invalid", 400),
+            ("x-layerx-api-key", "private-key", 400),
+            ("referer", "https://untrusted.invalid/explorer", 403),
+            ("sec-fetch-site", "cross-site", 403),
+        ] {
+            let previous = request.headers.insert(name.into(), value.into());
+            assert_eq!(http_route(&request).status, status, "{name}");
+            request.headers.remove(name);
+            if let Some(value) = previous {
+                request.headers.insert(name.into(), value);
+            }
+        }
+        request.headers.insert("accept".into(), "a".repeat(4097));
+        assert_eq!(http_route(&request).status, 400);
+        request
+            .headers
+            .insert("accept".into(), "application/json".into());
+        request
+            .headers
+            .insert("origin".into(), "https://untrusted.invalid".into());
+        assert_eq!(http_route(&request).status, 403);
+        request.headers.insert("origin".into(), ORIGIN.into());
+        request
+            .headers
+            .insert("x-layerx-principal".into(), "private-principal".into());
+        assert_eq!(http_route(&request).status, 400);
+
+        for method in ["POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] {
+            request.method = method.into();
+            assert!(selected(method, &path).is_none());
+            assert_eq!(http_route(&request).status, 405);
+        }
+        for hash in ["0x01", "not-a-hash"] {
+            assert!(selected("GET", &format!("/api/v2/transactions/{hash}/signature")).is_some());
+        }
+        for path in [
+            "/api/v2/transactions//signature".to_owned(),
+            "/api/v2/transactions/../signature".to_owned(),
+            "/api/v2/transactions/%2e%2e/signature".to_owned(),
+            "/api/v2/transactions/a/b/signature".to_owned(),
+            format!("/api/v2/transactions/{}/signature", "a".repeat(257)),
+            format!("{path}/extra"),
+        ] {
+            assert!(selected("GET", &path).is_none(), "{path}");
+            request.method = "GET".into();
+            request.path = format!("{PREFIX}{path}");
+            assert!(matches!(http_route(&request).status, 400 | 404), "{path}");
+        }
     }
 }
 
@@ -880,6 +960,11 @@ static ROUTES: &[Route] = &[
     Route {
         method: "GET",
         path: "/api/v2/transactions/{transaction_hash_param}/status",
+        session_csrf: false,
+    },
+    Route {
+        method: "GET",
+        path: "/api/v2/transactions/{transaction_hash_param}/signature",
         session_csrf: false,
     },
     Route {
