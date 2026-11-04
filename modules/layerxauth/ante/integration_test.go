@@ -12,6 +12,7 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/apptesting"
@@ -40,6 +41,11 @@ type integrationAuthKeepers struct {
 func (k integrationAuthKeepers) LayerXAuthK() *authkeeper.Keeper { return k.auth }
 
 func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
+	testAuthzExecProducerGrant(t, false)
+}
+
+func testAuthzExecProducerGrant(t *testing.T, budgetProbes bool) {
+	t.Helper()
 	application := app.Setup(t, false, true, false)
 	t.Cleanup(func() { require.NoError(t, application.Close()) })
 	ctx, _ := application.NewContext(false, tmproto.Header{
@@ -51,11 +57,15 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	grantor := sdk.AccAddress(grantorPrivate.PubKey().Address())
 	grantee := sdk.AccAddress(granteePrivate.PubKey().Address())
 	recipient := sdk.AccAddress(bytes.Repeat([]byte{0x63}, 20))
-	denom := sdk.DefaultBondDenom
+	asset := [32]byte{0x11}
+	denom := ledgertypes.MirrorDenom(asset)
 	for _, address := range []sdk.AccAddress{grantor, grantee} {
 		require.NoError(t, apptesting.FundAccount(application.BankKeeper, ctx, address,
-			sdk.NewCoins(sdk.NewInt64Coin(denom, 1_000_000))))
+			sdk.NewCoins(sdk.NewInt64Coin(denom, 1_000_000), sdk.NewInt64Coin(sdk.DefaultBondDenom, 1_000_000))))
 	}
+	send := banktypes.NewMsgSend(grantor, recipient, sdk.NewCoins(sdk.NewInt64Coin(denom, 7)))
+	purpose, err := types.BankSendPurpose(send)
+	require.NoError(t, err)
 	caller := common.BytesToAddress(grantor)
 	delegate := common.BytesToAddress(grantee)
 	application.EvmKeeper.SetAddressMapping(ctx, grantor, caller)
@@ -95,13 +105,12 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	}
 	u64 := func(value uint64) { body = binary.BigEndian.AppendUint64(body, value) }
 	u128 := func(value uint64) { u64(0); u64(value) }
-	asset, purpose := [32]byte{0x11}, [32]byte{0x22}
 	field(actor.Authority.Actor[:])
 	field(actor.Authority.Actor[:])
 	body = append(body, 3)
 	delegateKeyOffset := len(body) + 4
 	field(delegateKey[:])
-	u64(1 << 9)
+	u64(1 << types.BankScopeModule)
 	body = binary.BigEndian.AppendUint16(body, 4)
 	body = binary.BigEndian.AppendUint16(body, 5)
 	field(asset[:])
@@ -109,9 +118,11 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	u128(20)
 	u128(0)
 	u64(1000)
+	maxPerPeriodOffset := len(body)
 	u128(15)
 	u128(0)
 	u64(timestamp - 1000)
+	purposeOffset := len(body) + 4
 	field(purpose[:])
 	u64(timestamp - 1000)
 	u64(timestamp + 1000)
@@ -142,6 +153,8 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 		require.NoError(t, err)
 		return values
 	}
+	issuanceCtx := ctx
+	ctx, _ = ctx.CacheContext()
 	grantValues := call("grantCapability", body)
 	require.Len(t, grantValues, 1)
 	grantID := grantValues[0].([32]byte)
@@ -154,20 +167,36 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	require.True(t, live)
 	require.Empty(t, reason)
 
-	send := &banktypes.MsgSend{FromAddress: grantor.String(), ToAddress: recipient.String(),
-		Amount: sdk.NewCoins(sdk.NewInt64Coin(denom, 7))}
-	authorization := &types.LayerXScopeAuthorization{
-		GrantId: grantID[:], MsgTypeUrl: sdk.MsgTypeURL(send), Kind: uint32(grant.Kind),
-		ModuleMask: grant.Scope.ModuleMask, OrdinalMin: uint32(grant.Scope.ActivityOrdinalMin),
-		OrdinalMax: uint32(grant.Scope.ActivityOrdinalMax), AssetId: asset[:], PurposeHash: purpose[:],
-		MaxPerActivity: "10", MaxTotal: "20", PeriodLength: 1000, MaxPerPeriod: "15",
-		NotBefore: grant.NotBefore, NotAfter: grant.NotAfter, RevocationEpoch: grant.GrantorRevocationSequence,
+	assertMirror := func(issued lxphost.AuthorityGrant, spent string, periodStart uint64, periodSpent string) {
+		t.Helper()
+		stored, expiry := application.AuthzKeeper.GetCleanAuthorization(ctx, grantee, grantor, sdk.MsgTypeURL(send))
+		require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
+		require.NoError(t, stored.ValidateBasic())
+		require.Equal(t, &types.LayerXScopeAuthorization{
+			GrantId: issued.GrantID[:], MsgTypeUrl: sdk.MsgTypeURL(send), Kind: uint32(issued.Kind),
+			ModuleMask: issued.Scope.ModuleMask, OrdinalMin: uint32(issued.Scope.ActivityOrdinalMin),
+			OrdinalMax: uint32(issued.Scope.ActivityOrdinalMax), AssetId: issued.Scope.AssetID[:],
+			PurposeHash: issued.Scope.PurposeHash[:], MaxPerActivity: issued.Scope.MaximumPerActivity.String(),
+			MaxTotal: issued.Scope.MaximumTotal.String(), PeriodLength: issued.Scope.PeriodLength,
+			MaxPerPeriod: issued.Scope.MaximumPerPeriod.String(), NotBefore: issued.NotBefore,
+			NotAfter: issued.NotAfter, RevocationEpoch: issued.GrantorRevocationSequence,
+			SpentTotal: spent, PeriodStart: periodStart, SpentThisPeriod: periodSpent,
+		}, stored)
+		require.Equal(t, time.UnixMilli(int64(issued.NotAfter)).UTC(), expiry)
 	}
-	require.NoError(t, authorization.ValidateBasic())
-	msgGrant, err := authz.NewMsgGrant(grantor, grantee, authorization, time.UnixMilli(int64(grant.NotAfter)))
-	require.NoError(t, err)
-	_, err = application.AuthzKeeper.Grant(sdk.WrapSDKContext(ctx), msgGrant)
-	require.NoError(t, err)
+	require.Equal(t, uint64(1<<types.BankScopeModule), grant.Scope.ModuleMask)
+	require.Equal(t, uint16(4), grant.Scope.ActivityOrdinalMin)
+	require.Equal(t, uint16(5), grant.Scope.ActivityOrdinalMax)
+	require.Equal(t, asset, grant.Scope.AssetID)
+	require.Equal(t, purpose, grant.Scope.PurposeHash)
+	require.Equal(t, "10", grant.Scope.MaximumPerActivity.String())
+	require.Equal(t, "20", grant.Scope.MaximumTotal.String())
+	require.Equal(t, uint64(1000), grant.Scope.PeriodLength)
+	require.Equal(t, "15", grant.Scope.MaximumPerPeriod.String())
+	require.Equal(t, timestamp-1000, grant.NotBefore)
+	require.Equal(t, timestamp+1000, grant.NotAfter)
+	assertMirror(grant, "0", 0, "")
+	require.Len(t, application.AuthzKeeper.GetAuthorizations(ctx, grantee, grantor), 2)
 
 	encoding := app.MakeEncodingConfig()
 	wasmConfig := wasmtypes.DefaultWasmConfig()
@@ -184,9 +213,9 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 		TracingInfo: tracing.NewTracingInfo(otel.Tracer("authz-kernel-revoke-test"), false),
 	})
 	require.NoError(t, err)
-	exec := authz.NewMsgExec(grantee, []sdk.Msg{send})
-	deliver := func() error {
+	deliver := func(message *banktypes.MsgSend) error {
 		t.Helper()
+		exec := authz.NewMsgExec(grantee, []sdk.Msg{message})
 		builder := encoding.TxConfig.NewTxBuilder()
 		require.NoError(t, builder.SetMsgs(&exec))
 		builder.SetGasLimit(1_000_000)
@@ -219,7 +248,73 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	}
 	before := application.BankKeeper.GetBalance(ctx, recipient, denom).Amount
 	grantorBefore := application.BankKeeper.GetBalance(ctx, grantor, denom).Amount
-	require.NoError(t, deliver())
+	require.NoError(t, deliver(send))
+	require.Equal(t, before.AddRaw(7), application.BankKeeper.GetBalance(ctx, recipient, denom).Amount)
+	require.Equal(t, grantorBefore.SubRaw(7), application.BankKeeper.GetBalance(ctx, grantor, denom).Amount)
+	assertMirror(grant, "7", timestamp, "7")
+
+	// Probes use the producer's stored authorization and discard their branch.
+	parent := ctx
+	ctx, _ = ctx.CacheContext()
+	if !budgetProbes {
+		changed := banktypes.NewMsgSend(grantor, grantee, send.Amount)
+		err = deliver(changed)
+		require.ErrorIs(t, err, types.ErrAuthScope)
+		require.ErrorContains(t, err, "purpose differs")
+	} else {
+		for _, probe := range []struct {
+			denom        string
+			amount       int64
+			periodLimit  uint64
+			successCount int
+			reason       string
+		}{
+			{ledgertypes.MirrorDenom([32]byte{0x12}), 7, 15, 0, "asset differs"},
+			{denom, 11, 15, 0, "above max per activity"},
+			{denom, 7, 10, 1, "period budget exceeded"},
+			{denom, 7, 15, 2, "above max total"},
+		} {
+			ctx, _ = issuanceCtx.CacheContext()
+			message := banktypes.NewMsgSend(grantor, recipient, sdk.NewCoins(sdk.NewInt64Coin(probe.denom, probe.amount)))
+			probePurpose, err := types.BankSendPurpose(message)
+			require.NoError(t, err)
+			probeBody := bytes.Clone(body)
+			copy(probeBody[purposeOffset:purposeOffset+32], probePurpose[:])
+			binary.BigEndian.PutUint64(probeBody[maxPerPeriodOffset+8:maxPerPeriodOffset+16], probe.periodLimit)
+			values := call("grantCapability", probeBody)
+			require.Len(t, values, 1)
+			issued, err := application.LayerXHost.ReadGrant(ctx, values[0].([32]byte))
+			require.NoError(t, err)
+			require.Equal(t, probePurpose, issued.Scope.PurposeHash)
+			require.Equal(t, sdk.NewIntFromUint64(probe.periodLimit), issued.Scope.MaximumPerPeriod)
+			assertMirror(issued, "0", 0, "")
+			spent, start, periodSpent := sdk.ZeroInt(), uint64(0), ""
+			for i := 0; i < probe.successCount; i++ {
+				require.NoError(t, deliver(message))
+				spent = spent.AddRaw(probe.amount)
+				start, periodSpent = timestamp, spent.String()
+				assertMirror(issued, spent.String(), start, periodSpent)
+			}
+			recipientBefore := application.BankKeeper.GetBalance(ctx, recipient, probe.denom).Amount
+			senderBefore := application.BankKeeper.GetBalance(ctx, grantor, probe.denom).Amount
+			require.Equal(t, spent, recipientBefore)
+			err = deliver(message)
+			require.ErrorIs(t, err, types.ErrAuthScope)
+			require.ErrorContains(t, err, probe.reason)
+			assertMirror(issued, spent.String(), start, periodSpent)
+			require.Equal(t, recipientBefore, application.BankKeeper.GetBalance(ctx, recipient, probe.denom).Amount)
+			require.Equal(t, senderBefore, application.BankKeeper.GetBalance(ctx, grantor, probe.denom).Amount)
+		}
+	}
+	ctx = parent.WithBlockTime(time.UnixMilli(int64(grant.NotBefore - 1)))
+	err = deliver(send)
+	require.ErrorIs(t, err, types.ErrAuthScope)
+	require.ErrorContains(t, err, "outside validity interval")
+	ctx = parent.WithBlockTime(time.UnixMilli(int64(grant.NotAfter)))
+	err = deliver(send)
+	require.ErrorContains(t, err, "authorization not found")
+	ctx = parent
+	assertMirror(grant, "7", timestamp, "7")
 	require.Equal(t, before.AddRaw(7), application.BankKeeper.GetBalance(ctx, recipient, denom).Amount)
 	require.Equal(t, grantorBefore.SubRaw(7), application.BankKeeper.GetBalance(ctx, grantor, denom).Amount)
 
@@ -238,15 +333,15 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	before = application.BankKeeper.GetBalance(ctx, recipient, denom).Amount
 	grantorBefore = application.BankKeeper.GetBalance(ctx, grantor, denom).Amount
 
-	stored, _ := application.AuthzKeeper.GetCleanAuthorization(ctx, grantee, grantor, sdk.MsgTypeURL(send))
-	require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
-	require.Equal(t, grantID[:], stored.(*types.LayerXScopeAuthorization).GrantId)
-	require.Equal(t, uint64(41), stored.(*types.LayerXScopeAuthorization).RevocationEpoch)
-	err = deliver()
+	assertMirror(grant, "7", timestamp, "7")
+	err = deliver(send)
 	require.Equal(t, before, application.BankKeeper.GetBalance(ctx, recipient, denom).Amount)
 	require.Equal(t, grantorBefore, application.BankKeeper.GetBalance(ctx, grantor, denom).Amount)
 	require.ErrorIs(t, err, types.ErrAuthRevoked)
 	require.ErrorContains(t, err, "revocation epoch 41, grantor revocation 43")
+	assertMirror(grant, "7", timestamp, "7")
+	require.NoError(t, application.LayerXAuthKeeper.DeleteGrant(ctx, grantID))
+	require.Empty(t, application.AuthzKeeper.GetAuthorizations(ctx, grantee, grantor))
 
 	unboundKey, _, err := application.EvmKeeper.UnbindLayerX(ctx, delegate)
 	require.NoError(t, err)
@@ -267,19 +362,12 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, live)
 	require.Empty(t, reason)
-	replacement := *authorization
-	replacement.GrantId = bytes.Clone(regrantID[:])
-	replacement.RevocationEpoch = regrant.GrantorRevocationSequence
-	require.NoError(t, replacement.ValidateBasic())
-	msgRegrant, err := authz.NewMsgGrant(grantor, grantee, &replacement, time.UnixMilli(int64(regrant.NotAfter)))
-	require.NoError(t, err)
-	_, err = application.AuthzKeeper.Grant(sdk.WrapSDKContext(ctx), msgRegrant)
-	require.NoError(t, err)
-	stored, _ = application.AuthzKeeper.GetCleanAuthorization(ctx, grantee, grantor, sdk.MsgTypeURL(send))
-	require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
-	require.Equal(t, regrantID[:], stored.(*types.LayerXScopeAuthorization).GrantId)
-	require.Equal(t, uint64(43), stored.(*types.LayerXScopeAuthorization).RevocationEpoch)
-	require.NoError(t, deliver())
+	require.Equal(t, grant.Scope, regrant.Scope)
+	require.Equal(t, grant.NotBefore, regrant.NotBefore)
+	require.Equal(t, grant.NotAfter, regrant.NotAfter)
+	assertMirror(regrant, "0", 0, "")
+	require.NoError(t, deliver(send))
+	assertMirror(regrant, "7", timestamp, "7")
 	require.Equal(t, before.AddRaw(7), application.BankKeeper.GetBalance(ctx, recipient, denom).Amount)
 	require.Equal(t, grantorBefore.SubRaw(7), application.BankKeeper.GetBalance(ctx, grantor, denom).Amount)
 	grant, err = application.LayerXHost.ReadGrant(ctx, grantID)

@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	clienttx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/tx"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -54,7 +53,7 @@ func repair204AssertFields(t *testing.T, source, target signing.Tx) {
 }
 
 func TestRepair_204_ProtobufFeeFields(t *testing.T) {
-	cfg := app.MakeEncodingConfig().TxConfig
+	cfg := makeTxEncodingConfig().TxConfig
 	for _, estimate := range []uint64{0, gasEstimate, ^uint64(0)} {
 		t.Run(fmt.Sprintf("estimate_%d", estimate), func(t *testing.T) {
 			producer := repair204BuildTx(t, cfg, estimate, addr2)
@@ -72,7 +71,7 @@ func TestRepair_204_ProtobufFeeFields(t *testing.T) {
 }
 
 func TestRepair_204_UnsupportedFeeGranter(t *testing.T) {
-	enc := app.MakeEncodingConfig()
+	enc := makeTxEncodingConfig()
 	protoCfg := enc.TxConfig
 	aminoCfg := legacytx.StdTxConfig{Cdc: enc.Amino}
 	producer := repair204BuildTx(t, protoCfg, gasEstimate, addr2)
@@ -96,7 +95,7 @@ func TestRepair_204_UnsupportedFeeGranter(t *testing.T) {
 }
 
 func TestRepair_204_GasEstimateAcrossFormats(t *testing.T) {
-	enc := app.MakeEncodingConfig()
+	enc := makeTxEncodingConfig()
 	protoCfg := enc.TxConfig
 	aminoCfg := legacytx.StdTxConfig{Cdc: enc.Amino}
 	producer := repair204BuildTx(t, protoCfg, gasEstimate, nil)
@@ -112,7 +111,7 @@ func TestRepair_204_GasEstimateAcrossFormats(t *testing.T) {
 }
 
 func TestRepair_204_EmptyFeeFieldsReplaceTarget(t *testing.T) {
-	cfg := app.MakeEncodingConfig().TxConfig
+	cfg := makeTxEncodingConfig().TxConfig
 	producer := repair204BuildTx(t, cfg, 0, nil)
 	source := repair204RoundTrip(t, cfg, producer.GetTx())
 	target := repair204BuildTx(t, cfg, gasEstimate, addr2)

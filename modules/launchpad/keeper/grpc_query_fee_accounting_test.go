@@ -22,7 +22,7 @@ func TestQueryFeeAccountingServes(t *testing.T) {
 	router := baseapp.NewQueryServerTestHelper(e.ctx, testkeeper.EVMTestApp.InterfaceRegistry())
 	types.RegisterQueryServer(router, keeper.NewQuerier(e.k))
 	client := types.NewQueryClient(router)
-	check := func(want sdk.Int) {
+	check := func(pools uint64, want sdk.Int) {
 		t.Helper()
 		liabilities, err := e.k.TotalLiabilities(e.ctx)
 		require.NoError(t, err)
@@ -33,8 +33,11 @@ func TestQueryFeeAccountingServes(t *testing.T) {
 		require.NotNil(t, response)
 		require.Equal(t, liabilities, response.Accounting.TotalLiabilities)
 		require.Equal(t, sdk.ZeroInt(), response.Accounting.PendingProtocolFees)
+		require.Equal(t, pools, response.Accounting.PoolCount)
+		require.Zero(t, response.Accounting.EpochCount)
+		require.Zero(t, response.Accounting.ClaimCount)
 	}
-	check(sdk.ZeroInt())
+	check(0, sdk.ZeroInt())
 
 	creator := e.account(100_000_000)
 	trader := e.account(1_000_000_000)
@@ -42,12 +45,12 @@ func TestQueryFeeAccountingServes(t *testing.T) {
 	first := e.swap(trader, denom, true, 333_333_334)
 	require.Positive(t, first.ProtocolCut.Sign())
 	require.Positive(t, first.PoolCut.Sign())
-	check(sdk.NewIntFromBigInt(first.PoolCut))
+	check(1, sdk.NewIntFromBigInt(first.PoolCut))
 
 	second := e.swap(trader, denom, true, 3334)
 	require.Positive(t, second.ProtocolCut.Sign())
 	require.Positive(t, second.PoolCut.Sign())
-	check(sdk.NewIntFromBigInt(new(big.Int).Add(first.PoolCut, second.PoolCut)))
+	check(1, sdk.NewIntFromBigInt(new(big.Int).Add(first.PoolCut, second.PoolCut)))
 }
 
 func TestQueryFeeAccountingRefusals(t *testing.T) {
@@ -88,9 +91,7 @@ func TestQueryFeeAccountingRefusals(t *testing.T) {
 			require.EqualError(t, err, keeperErr.Error())
 			require.Equal(t, keeperErr, err)
 			require.Same(t, types.ErrOverflow, errors.Unwrap(err))
-			var registeredErr *sdkerrors.Error
-			require.ErrorAs(t, err, &registeredErr)
-			codespace, code, _ := sdkerrors.ABCIInfo(registeredErr, false)
+			codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 			require.Equal(t, types.ModuleName, codespace)
 			require.Equal(t, types.ErrOverflow.ABCICode(), code)
 			require.Equal(t, tc.raw, store.Get(key))

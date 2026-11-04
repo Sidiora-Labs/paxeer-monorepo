@@ -355,6 +355,7 @@ func TestCreateRefusesBadNamesAllowancesAndBond(t *testing.T) {
 }
 
 func TestGenesisExportImportRoundTrip(t *testing.T) {
+	t.Run("accounting-restart-recovery", TestRepairM_1424_GenesisAccountingRestartRecovery)
 	h := newHarness(t)
 	first := h.create(t, "first", 500000)
 	second := h.create(t, "second", 750000)

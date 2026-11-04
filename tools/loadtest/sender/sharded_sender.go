@@ -151,3 +151,11 @@ func (s *ShardedSender) SetStatsCollector(collector *stats.Collector, logger *st
 		worker.SetStatsCollector(collector, logger)
 	}
 }
+
+// CloseInput ends admission after the dispatcher has joined. Run drains every
+// accepted transaction and its receipt before returning.
+func (s *ShardedSender) CloseInput() {
+	for _, worker := range s.workers {
+		worker.CloseInput()
+	}
+}

@@ -133,7 +133,7 @@ func (b *BoundaryFile) deserialize(data []byte) error {
 		return nil
 	}
 
-	boundaryIndex, err := strconv.Atoi(string(data))
+	boundaryIndex, err := strconv.ParseUint(string(data), 10, 32)
 	if err != nil {
 		return fmt.Errorf("failed to parse boundary index from data: %v", err)
 	}

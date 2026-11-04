@@ -688,7 +688,8 @@ def run(args, control=None):
     return 0 if result['qualified'] else 1
 
 
-def main():
+def argument_parser():
+    """Expose the operational CLI schema for bootstrap instruction checks."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--task', required=True)
     parser.add_argument('--spec', type=Path, required=True)
@@ -697,7 +698,11 @@ def main():
     parser.add_argument('--evidence-dir', type=Path, default=Path('launchpad/evidence/production-system/qualification'))
     parser.add_argument('--candidate-sha256')
     parser.add_argument('--contract-root', type=Path)
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = argument_parser().parse_args()
     control = ExecutionControl()
     previous_handlers = {}
     for signum in (signal.SIGINT, signal.SIGTERM):

@@ -12,7 +12,9 @@ use base64::Engine as _;
 use layerx_oracle_feeder::chainflow::{FetchError, Ticker};
 use layerx_oracle_feeder::cosmos_tx::{self, encode_tx, Observation, Submission};
 use layerx_oracle_feeder::{address_word, hex_decode, hex_encode, Journal, Sequencer};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
 use crate::health::{lock, Metrics};
@@ -115,17 +117,42 @@ impl Rpc {
         self.consensus("broadcast_tx_sync", &json!({"tx": STANDARD.encode(tx)}))
     }
 
+    fn lookup_tx(&self, hash: &str) -> Result<Option<Value>, String> {
+        let body = self.consensus("tx", &json!({"hash": hash.to_uppercase(), "prove": false}))?;
+        let answer: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+        if let Some(error) = answer.get("error") {
+            let expected = format!("tx ({hash}) not found");
+            if error.get("code").and_then(Value::as_i64) == Some(-32603)
+                && error
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .is_some_and(|data| {
+                        data.eq_ignore_ascii_case(&expected)
+                            || data.eq_ignore_ascii_case(&format!("{expected}, err: %!w(<nil>)"))
+                    })
+            {
+                return Ok(None);
+            }
+            return Err(format!("tx lookup: {error}"));
+        }
+        result_of(answer).map(Some)
+    }
+
     /// `eth_call` of `data` on 0x1020 at the latest block; returns the hex answer.
     ///
     /// # Errors
     /// Transport failures, JSON-RPC errors and a non-string answer.
     pub fn call_pricefeed(&self, data: &[u8]) -> Result<String, String> {
+        self.call_pricefeed_at(data, "latest")
+    }
+
+    fn call_pricefeed_at(&self, data: &[u8], height: &str) -> Result<String, String> {
         let answer = self.evm.call(
             "eth_call",
             &json!([{
                 "to": format!("0x{}", hex_encode(&PRICEFEED)),
                 "data": format!("0x{}", hex_encode(data)),
-            }, "latest"]),
+            }, height]),
         )?;
         answer
             .as_str()
@@ -374,7 +401,10 @@ pub fn parse_account(body: &str, feeder: &str) -> Result<Account, String> {
 /// What a `broadcast_tx_sync` answered, or why no answer came.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Outcome {
-    Accepted { hash: String },
+    Submitted { hash: String },
+    Committed { hash: String, height: u64 },
+    Failed,
+    Evicted,
     SequenceMismatch(String),
     RateLimited,
     UnregisteredFeeder,
@@ -388,7 +418,10 @@ impl Outcome {
     #[must_use]
     pub fn label(&self) -> &'static str {
         match self {
-            Self::Accepted { .. } => "accepted",
+            Self::Submitted { .. } => "submitted",
+            Self::Committed { .. } => "committed",
+            Self::Failed => "failed",
+            Self::Evicted => "evicted",
             Self::SequenceMismatch(_) => "sequence_mismatch",
             Self::RateLimited => "rate_limited",
             Self::UnregisteredFeeder => "unregistered_feeder",
@@ -419,13 +452,16 @@ pub fn parse_broadcast(body: &str) -> Outcome {
         .and_then(Value::as_str)
         .unwrap_or("");
     match (code, codespace) {
-        (0, _) => Outcome::Accepted {
-            hash: result
-                .get("hash")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_ascii_lowercase(),
-        },
+        (0, _) => {
+            let hash = result.get("hash").and_then(Value::as_str).unwrap_or("");
+            if hash.len() != 64 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                Outcome::Refused("broadcast_tx_sync: invalid submitted hash".to_owned())
+            } else {
+                Outcome::Submitted {
+                    hash: hash.to_ascii_lowercase(),
+                }
+            }
+        }
         (CODE_NOT_VALIDATOR, PRICEFEED_CODESPACE) => Outcome::NotValidator,
         (CODE_UNREGISTERED_FEEDER, PRICEFEED_CODESPACE) => Outcome::UnregisteredFeeder,
         (CODE_RATE_LIMITED, PRICEFEED_CODESPACE) => Outcome::RateLimited,
@@ -497,16 +533,70 @@ impl RetryPlan {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Pending {
+    hash: String,
+    tx: String,
+    proposed_height: u64,
+    journal: Journal,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+struct Progress {
+    pending: Option<Pending>,
+    confirmed_height: u64,
+    confirmed_ms: u64,
+}
+
+impl Progress {
+    fn load(dir: &Path) -> Result<Self, String> {
+        match std::fs::read(dir.join("price-sidecar-progress.json")) {
+            Ok(bytes) => {
+                let progress: Self =
+                    serde_json::from_slice(&bytes).map_err(|e| format!("progress: {e}"))?;
+                if let Some(pending) = &progress.pending {
+                    let tx = STANDARD
+                        .decode(&pending.tx)
+                        .map_err(|e| format!("progress: {e}"))?;
+                    if hex_encode(&Sha256::digest(tx)) != pending.hash {
+                        return Err("progress: pending hash does not match signed bytes".to_owned());
+                    }
+                }
+                Ok(progress)
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(format!("progress: {e}")),
+        }
+    }
+
+    fn store(&self, dir: &Path) -> Result<(), String> {
+        use std::io::Write as _;
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        let bytes = serde_json::to_vec(self).map_err(|e| e.to_string())?;
+        let temp = dir.join("price-sidecar-progress.json.tmp");
+        let mut file = std::fs::File::create(&temp).map_err(|e| e.to_string())?;
+        file.write_all(&bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(|e| e.to_string())?;
+        std::fs::rename(temp, dir.join("price-sidecar-progress.json"))
+            .map_err(|e| e.to_string())?;
+        std::fs::File::open(dir)
+            .and_then(|d| d.sync_all())
+            .map_err(|e| e.to_string())
+    }
+}
+
 /// The running sidecar: feed key, addresses and the journal of sequences.
 pub struct Sidecar {
     secret: Zeroizing<[u8; 32]>,
     feed_account: [u8; 20],
     feeder: String,
     journal: Journal,
+    progress: Progress,
 }
 
 /// Checks the registration on 0x1020 and syncs every market's next sequence
-/// to `max(journal, getObservation sequence + 1)`.
+/// to committed chain state, recovering any durable pending submission separately.
 ///
 /// # Errors
 /// Refuses a feed account not registered to the configured validator, failed
@@ -524,14 +614,13 @@ pub fn start(
         &validator,
         &feed_account,
     )?;
-    let mut journal = Journal::load(state_dir, 0)?;
-    for market in &config.markets {
-        let answer = rpc.call_pricefeed(&observation_call(market.market_id, &validator))?;
-        sync_sequence(&mut journal, &market.symbol, &answer)
-            .map_err(|e| format!("{}: {e}", market.symbol))?;
+    let journal = Journal::load(state_dir, 0)?;
+    let mut sidecar = Sidecar::new(secret, feed_account, journal);
+    sidecar.progress = Progress::load(state_dir)?;
+    if sidecar.progress.pending.is_none() {
+        sidecar.sync_committed(config, rpc, state_dir)?;
     }
-    journal.store(state_dir)?;
-    Ok(Sidecar::new(secret, feed_account, journal))
+    Ok(sidecar)
 }
 
 impl Sidecar {
@@ -542,7 +631,134 @@ impl Sidecar {
             feed_account,
             feeder: cosmos_tx::feed_account(&feed_account),
             journal,
+            progress: Progress::default(),
         }
+    }
+
+    fn sync_committed(&mut self, config: &Config, rpc: &Rpc, dir: &Path) -> Result<(), String> {
+        let account = parse_account(&rpc.query_account(&self.feeder)?, &self.feeder)?;
+        if account.height < self.progress.confirmed_height {
+            return Err("account query is behind the confirmed transaction height".to_owned());
+        }
+        let validator = config.validator()?;
+        let mut journal = self.journal.clone();
+        journal.next_account_sequence = account.sequence;
+        for market in &config.markets {
+            let sequence = observation_sequence(&rpc.call_pricefeed_at(
+                &observation_call(market.market_id, &validator),
+                &format!("0x{:x}", account.height),
+            )?)?;
+            let record = journal.markets.entry(market.symbol.clone()).or_default();
+            if record.sequence != sequence {
+                *record = layerx_oracle_feeder::MarketRecord::default();
+            }
+            record.sequence = sequence;
+        }
+        journal.store(dir)?;
+        self.journal = journal;
+        Ok(())
+    }
+
+    /// Reconciles durable submissions with committed execution and the mempool.
+    /// Returns false while a submission is still pending; no new round may spend its sequences.
+    pub fn reconcile(
+        &mut self,
+        config: &Config,
+        rpc: &Rpc,
+        metrics: &Mutex<Metrics>,
+        dir: &Path,
+    ) -> Result<bool, String> {
+        lock(metrics).confirmed(self.progress.confirmed_height, self.progress.confirmed_ms);
+        let Some(pending) = self.progress.pending.clone() else {
+            self.journal = Journal::load(dir, 0)?;
+            self.sync_committed(config, rpc, dir)?;
+            return Ok(true);
+        };
+        lock(metrics).pending(&pending.hash, pending.proposed_height);
+        let result = rpc.lookup_tx(&pending.hash)?;
+        let outcome = if let Some(result) = result {
+            let hash = result
+                .get("hash")
+                .and_then(Value::as_str)
+                .ok_or("tx: no hash")?;
+            let tx = result
+                .get("tx")
+                .and_then(Value::as_str)
+                .ok_or("tx: no bytes")?;
+            if !hash.eq_ignore_ascii_case(&pending.hash) || tx != pending.tx {
+                return Err("tx lookup does not match pending transaction".to_owned());
+            }
+            let height = json_u64(result.get("height"))
+                .filter(|h| *h > 0)
+                .ok_or("tx: invalid committed height")?;
+            // ExecTxResult's protobuf JSON omits code on success (the schema default is zero).
+            #[derive(Deserialize)]
+            struct ExecutionResult {
+                #[serde(default)]
+                code: u32,
+            }
+            let execution: ExecutionResult = serde_json::from_value(
+                result
+                    .get("tx_result")
+                    .cloned()
+                    .ok_or("tx: missing execution result")?,
+            )
+            .map_err(|e| format!("tx: invalid execution result: {e}"))?;
+            if execution.code == 0 {
+                self.journal = pending.journal;
+                self.progress.confirmed_height = height;
+                self.progress.confirmed_ms = now_ms();
+                Outcome::Committed {
+                    hash: pending.hash,
+                    height,
+                }
+            } else {
+                Outcome::Failed
+            }
+        } else {
+            let body = rpc.consensus("unconfirmed_txs", &json!({"page": 1, "per_page": 100}))?;
+            let result = rpc_result(&body)?;
+            let txs = match result.get("txs") {
+                Some(Value::Array(txs)) => txs.as_slice(),
+                Some(Value::Null) => &[],
+                _ => return Err("unconfirmed_txs: missing transactions".to_owned()),
+            };
+            for tx in txs {
+                let bytes = STANDARD
+                    .decode(tx.as_str().ok_or("unconfirmed_txs: invalid bytes")?)
+                    .map_err(|e| e.to_string())?;
+                if hex_encode(&Sha256::digest(bytes)) == pending.hash {
+                    lock(metrics).pending(&pending.hash, pending.proposed_height);
+                    return Ok(false);
+                }
+            }
+            if json_u64(result.get("total")) != Some(txs.len() as u64) {
+                return Err(
+                    "unconfirmed_txs: incomplete mempool; submission fate unknown".to_owned(),
+                );
+            }
+            // A transaction can leave the mempool by committing while we inspect it.
+            if rpc.lookup_tx(&pending.hash)?.is_some() {
+                return Err(
+                    "transaction committed during mempool reconciliation; retry lookup".to_owned(),
+                );
+            }
+            Outcome::Evicted
+        };
+        if !matches!(outcome, Outcome::Committed { .. }) {
+            self.journal = Journal::load(dir, 0)?;
+        }
+        self.sync_committed(config, rpc, dir)?;
+        self.progress.pending = None;
+        self.progress.store(dir)?;
+        let outcome_ms = if matches!(outcome, Outcome::Committed { .. }) {
+            self.progress.confirmed_ms
+        } else {
+            now_ms()
+        };
+        lock(metrics).submission(&outcome, 0, outcome_ms);
+        lock(metrics).clear_pending();
+        Ok(true)
     }
 
     /// The observations of the markets that produced a ticker, each with its
@@ -604,15 +820,15 @@ impl Sidecar {
         }
     }
 
-    /// Advances the journal past an accepted `submission` and records its
-    /// transaction hash on each market it carried.
+    /// Reserves sequences in memory for a submitted transaction; these are
+    /// persisted as pending, never as confirmed execution.
     pub fn record_broadcast(
         &mut self,
         config: &Config,
         submission: &Submission,
         outcome: &Outcome,
     ) {
-        if let Outcome::Accepted { hash } = outcome {
+        if let Outcome::Submitted { hash } = outcome {
             self.journal.next_account_sequence = submission.sequence.saturating_add(1);
             for observation in &submission.observations {
                 let record = config
@@ -621,6 +837,9 @@ impl Sidecar {
                     .find(|market| market.market_id == observation.market_id)
                     .and_then(|market| self.journal.markets.get_mut(&market.symbol));
                 if let Some(record) = record {
+                    record.sequence = observation.sequence;
+                    record.price.clone_from(&observation.index_price);
+                    record.observed_at = observation.source_timestamp_ms;
                     record.activity_id.clone_from(hash);
                 }
             }
@@ -634,14 +853,21 @@ impl Sidecar {
         observations: &[Observation],
         account: &mut Option<Account>,
         reread: bool,
-    ) -> Outcome {
+        state_dir: &Path,
+    ) -> Result<Outcome, String> {
+        if let Some(pending) = &self.progress.pending {
+            let tx = STANDARD.decode(&pending.tx).map_err(|e| e.to_string())?;
+            return Ok(rpc
+                .broadcast(&tx)
+                .map_or_else(Outcome::Transport, |body| parse_broadcast(&body)));
+        }
         let read = match *account {
             Some(read) if !reread => read,
             _ => match rpc.query_account(&self.feeder) {
-                Err(error) => return Outcome::Transport(error),
+                Err(error) => return Ok(Outcome::Transport(error)),
                 Ok(body) => match parse_account(&body, &self.feeder) {
                     Ok(read) => read,
-                    Err(error) => return Outcome::Refused(error),
+                    Err(error) => return Ok(Outcome::Refused(error)),
                 },
             },
         };
@@ -650,17 +876,30 @@ impl Sidecar {
         }
         *account = Some(read);
         let submission = self.next_submission(config, read, observations.to_vec());
-        let outcome = match encode_tx(&self.secret, &submission) {
-            Ok(tx) => rpc
-                .broadcast(&tx)
-                .map_or_else(Outcome::Transport, |body| parse_broadcast(&body)),
-            Err(error) => Outcome::Refused(error),
+        let tx = match encode_tx(&self.secret, &submission) {
+            Ok(tx) => tx,
+            Err(error) => return Ok(Outcome::Refused(error)),
         };
-        self.record_broadcast(config, &submission, &outcome);
-        outcome
+        let hash = hex_encode(&Sha256::digest(&tx));
+        self.record_broadcast(
+            config,
+            &submission,
+            &Outcome::Submitted { hash: hash.clone() },
+        );
+        self.progress.pending = Some(Pending {
+            hash,
+            tx: STANDARD.encode(&tx),
+            proposed_height: read.height.saturating_add(1),
+            journal: self.journal.clone(),
+        });
+        // Persist the exact signed bytes before the network can admit them.
+        self.progress.store(state_dir)?;
+        Ok(rpc
+            .broadcast(&tx)
+            .map_or_else(Outcome::Transport, |body| parse_broadcast(&body)))
     }
 
-    fn submit(
+    pub fn submit(
         &mut self,
         config: &Config,
         rpc: &Rpc,
@@ -668,19 +907,59 @@ impl Sidecar {
         metrics: &Mutex<Metrics>,
         state_dir: &Path,
     ) -> Result<(), String> {
+        if self.progress.pending.is_some() {
+            return Err(
+                "reconcile the pending submission before collecting another round".to_owned(),
+            );
+        }
+        let mut observations = observations.to_vec();
         let mut plan = RetryPlan::new(config.retry_backoff_ms, config.retry_max_attempts);
         let mut account = None;
         let mut last = None;
         while let Some(attempt) = plan.next(last.as_ref()) {
             thread::sleep(Duration::from_millis(attempt.delay_ms));
-            let outcome = self.attempt(config, rpc, observations, &mut account, attempt.reread);
-            let target_height = account.map_or(0, |read| read.height.saturating_add(1));
+            if attempt.reread {
+                if !self.reconcile(config, rpc, metrics, state_dir)? {
+                    break;
+                }
+                for observation in &mut observations {
+                    let market = config
+                        .markets
+                        .iter()
+                        .find(|market| market.market_id == observation.market_id)
+                        .ok_or("submission contains an unconfigured market")?;
+                    observation.sequence = self.journal.next_observation_sequence(&market.symbol);
+                }
+                account = None;
+            }
+            let outcome = self.attempt(
+                config,
+                rpc,
+                &observations,
+                &mut account,
+                attempt.reread,
+                state_dir,
+            )?;
+            let target_height = self.progress.pending.as_ref().map_or_else(
+                || account.map_or(0, |read| read.height.saturating_add(1)),
+                |pending| pending.proposed_height,
+            );
+            if let Some(pending) = &self.progress.pending {
+                lock(metrics).pending(&pending.hash, pending.proposed_height);
+            }
             lock(metrics).submission(&outcome, target_height, now_ms());
             match &outcome {
-                Outcome::Accepted { hash } => {
-                    self.journal.store(state_dir)?;
+                Outcome::Submitted { hash } => {
+                    if let Some(pending) = &self.progress.pending {
+                        if !hash.eq_ignore_ascii_case(&pending.hash) {
+                            return Err(
+                                "broadcast hash does not match signed transaction".to_owned()
+                            );
+                        }
+                        lock(metrics).pending(&pending.hash, pending.proposed_height);
+                    }
                     eprintln!(
-                        "price-sidecar: {hash} {} observations for height {target_height}",
+                        "price-sidecar: submitted {hash}, {} observations, proposed target height {target_height}",
                         observations.len()
                     );
                 }
@@ -707,6 +986,14 @@ pub fn run_round(
     metrics: &Mutex<Metrics>,
     state_dir: &Path,
 ) -> Result<(), String> {
+    match sidecar.reconcile(config, rpc, metrics, state_dir) {
+        Ok(true) => {}
+        Ok(false) => return Ok(()),
+        Err(error) => {
+            eprintln!("price-sidecar: reconciliation deferred: {error}");
+            return Ok(());
+        }
+    }
     let results: Vec<(&MarketConfig, Result<Ticker, FetchError>)> = thread::scope(|scope| {
         let handles: Vec<_> = config
             .markets
@@ -714,11 +1001,8 @@ pub fn run_round(
             .map(|market| {
                 (
                     market,
-                    scope.spawn(move || {
-                        config
-                            .chainflow
-                            .fetch_ticker(agent, &market.symbol, api_key, now_ms)
-                    }),
+                    scope
+                        .spawn(move || config.fetch_ticker(agent, &market.symbol, api_key, now_ms)),
                 )
             })
             .collect();
@@ -740,7 +1024,6 @@ pub fn run_round(
     let Some(observations) = observations else {
         return Ok(());
     };
-    sidecar.journal.store(state_dir)?;
     sidecar.submit(config, rpc, &observations, metrics, state_dir)
 }
 
@@ -778,7 +1061,7 @@ mod tests {
             retry_backoff_ms: 200,
             retry_max_attempts: 3,
             chainflow: ChainflowConfig {
-                base_url: "http://127.0.0.1:1".to_owned(),
+                base_url: "https://feed.example".to_owned(),
                 api_key_env: "PRICE_FEED_REST_API_KEY".to_owned(),
                 timeout_ms: 800,
                 max_quote_age_ms: 10_000,
@@ -835,7 +1118,7 @@ mod tests {
         let outcome = parse_broadcast(ACCEPTED_BODY);
         assert_eq!(
             outcome,
-            Outcome::Accepted {
+            Outcome::Submitted {
                 hash: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08".to_owned()
             }
         );
@@ -866,7 +1149,7 @@ mod tests {
         let mut attempts = Vec::new();
         let mut feed = [
             Outcome::SequenceMismatch("account sequence mismatch, expected 4, got 3".to_owned()),
-            Outcome::Accepted {
+            Outcome::Submitted {
                 hash: String::new(),
             },
         ]
@@ -1080,6 +1363,8 @@ mod tests {
         let config = config();
         let mut metrics = Metrics::default();
         metrics.submission(&parse_broadcast(ACCEPTED_BODY), 812, 1_700_000_000_000);
+        assert!(!metrics.is_ready(1_700_000_000_100, config.cadence_ms));
+        metrics.confirmed(812, 1_700_000_000_000);
         assert!(metrics.is_ready(1_700_000_000_100, config.cadence_ms));
         let outcome = parse_broadcast(NOT_VALIDATOR_BODY);
         assert_eq!(outcome, Outcome::NotValidator);

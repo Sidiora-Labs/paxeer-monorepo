@@ -1,0 +1,105 @@
+[repair.22.33.337]
+mode = "BUILD"
+base = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+audit = "22.30.138"
+proof = "apps/web/e2e/repair-22-33-337.test.ts"
+baseline = "No pre-change verification was run: the task's ordered implementation-first and bounded-gate instructions prohibit the contradictory audit step requesting an extra unchanged-tree verify. No pre-change failures are claimed."
+evidence = "The hf-build/hf-done private ledger records the candidate revision, exact command, exit code and log; no gate result is claimed in this source record."
+peers = "Committed human-api golden responses, an in-memory fixture store and loopback HTTP servers; generated clients, approval controller, WebAuthn signer, receipt readers, renderers and recovery functions are real modules."
+
+[finding.approval-vacuous-cases]
+test = "approval_vacuous_cases_require_targets_and_real_stepup"
+proof = "Pending, expired and defective items are mandatory; the real controller completes signed step-up over HTTP, asserts the decision identity and separately reads receipt-backed released activity. Browser cases share the same checked peer and keep every safety assertion."
+
+[finding.approval-two-device-proof]
+test = "approval_two_device_decision_survives_reopen_and_refuses_replay"
+proof = "Separate generated clients open distinct public passkey sessions; both decisions are tested, stale and reopened consumers converge, replay cannot create another decision or released activity. Browser cases use browser.newContext and signInPublicSession, never two pages in one context."
+
+[finding.retired-copy-boundaries]
+test = "retired_copy_boundaries_reject_a_forbidden_message"
+proof = "Escaped regex literals and word boundaries detect a representative forbidden message, reject regex metacharacter substitutions and preserve the exact retired-operation message."
+
+[finding.receipt-link-retired-target]
+test = "receipt_links_resolve_native_data_and_keep_archive_explicit"
+proof = "Current links require a resolved native hash and resolve /tx/hash using a live loopback native receipt; missing identities fail closed. Frozen historical archive links require the explicitly named historicalReceiptLinkPath. Origin and identifier checks remain."
+
+[finding.history-retired-rpc-path]
+test = "native_history_uses_distinct_root_node_and_hosted_gateway"
+proof = "The original history tests and the native-history proof run in the declared Node gate. Two distinct root HTTP origins enforce POST path / and px/eth method ownership; native transaction hashes and block heights agree with the recorded history."
+
+[finding.move-fixture-route-shape]
+test = "move_fixture_routes_decode_every_outcome_and_receipt_gate"
+proof = "Generated quote and commit clients reach /human/v1/moves/quote and /human/v1/moves over HTTP, decoding every declared Journey outcome and typed expiry envelope with the production receipt gate. Browser scenarios use the same peer, public sessions and mandatory POST observations."
+
+[finding.onboarding-unwired-switches]
+test = "onboarding_real_api_states_resume_and_recover_after_reopen"
+proof = "Real onboarding API clients read progress, failure and queued fixtures, preserve completed stages through server/consumer reopen, resume through the actual API, and recover receipt-gated activation. Browser lifecycle setup uses public sessions; account creation and second-device sign-in use actual public APIs."
+
+[finding.onboarding-copy-key-only]
+test = "onboarding_copy_resolves_catalogue_and_interpolates_visible_messages"
+proof = "Every onboarding catalogue message is resolved and formatted, required covered keys remain checked, visible screens are checked, and a forbidden-message counterexample proves the assertion can fail."
+
+[wiring.approval-production-seeding]
+request = "services/human/crates/layerx-human-service/src/server/production_components.rs — owning domain human service: expose deterministic pending/expired/defective approval seeding via the real agent activity producer for release browser qualification; the bounded Node gate uses committed producer fixtures."
+
+[wiring.native-receipt-identity]
+request = "apps/web/src/explorer/client.ts — owning domain fm-web-explorer-bridge: connect resolveReceiptLink to the current receipt-to-native-transaction identity producer; never infer a native hash from an archive receipt id or admit an unresolved receipt target."
+
+[wiring.onboarding-outcomes]
+request = "services/human/crates/layerx-human-service/src/server/identity_dispatch.rs — owning domain human service: provide deterministic failure/queue producer controls for release browser qualification; scoped lifecycle proofs use codec-checked committed onboarding transcripts."
+
+[gotcha.22.33.337]
+observed = "The unchanged-tree verify request conflicts with the explicit implementation-first order and single bounded verification budget."
+resolution = "Follow the explicit ordered gates; record no invented baseline evidence."
+
+[wiring.move-visible-refusal]
+request = "apps/web/src/journeys/move/move.tsx and apps/web/copy/catalog.ts — owning domain web journeys/copy: reconcile the existing browser requirement for visible refused/locked disabled-send wording with current Didn't go through copy and the StillCheckingSurface that renders no action; original assertions are retained."
+
+[qualification.22.33.337.verify1]
+revision = "8c542cc90d7f41482aab8405b4c2a5515a5d4fa3"
+command = "cg spec done 22.33.337 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Node could not resolve next/navigation before the test file executed; attempt 3 replaces Next-dependent imports with the production onboarding selectors, link resolver and copy catalogue, retaining rendered notice assertions in Playwright."
+
+[gotcha.22.33.337.next-runtime]
+observed = "Next runtime imports in the Node proof caused the recorded loader failures (GOTCHA.kvx 2978)."
+resolution = "Use existing pure onboarding/model.ts and explorer/links.ts plus copy/runtime.ts; keep UI wiring in the components and visible activation-copy assertions in onboarding.spec.ts."
+
+[qualification.22.33.337.continuation]
+implementation = "Retain attempt 3's scoped implementation and assertions; requalify on the prerequisite-updated base with the pure onboarding selectors and receipt-link resolver already imported by the Node proof."
+gates = "Run hf-build followed by hf-done on the same candidate; current evidence belongs to the private gate ledger, independently of the historical failure recorded above."
+
+[gotcha.22.33.337.reopen-http]
+observed = "Undici can reuse an idle connection after the loopback server has closed it during reopen, causing UND_ERR_SOCKET instead of a recovered-state read."
+resolution = "The fixture HTTP server explicitly closes each response connection so reopen exercises a fresh transport connection without retries or timing sleeps."
+
+[qualification.22.33.337.copy-conflicts]
+revision = "51a94040afe6ded670385a46d19f25c7753167a8"
+command = "cg spec done 22.33.337 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The retained approval rendering assertion requires Counterparty but the current catalogue renders Recipient; the onboarding vocabulary assertion detects case-insensitive DID in the existing phrase nothing you did is lost."
+assumption = "Keep the assertions and production catalogue unchanged; reconcile these out-of-scope copy contracts through their owning domain."
+
+[wiring.approval-counterparty-copy]
+resolution = "Attempt 6 ruling: the current catalogue owns the label; Node and browser proofs resolve approval.detail.counterparty and require that exact visible message. No catalogue change or external action is required."
+
+[wiring.onboarding-pending-copy]
+resolution = "Attempt 6 ruling: acronym policy matches whole uppercase tokens; DID is forbidden and lowercase did remains ordinary prose. Positive DID and PROOF counterexamples, word boundaries and regex escaping remain asserted. No catalogue change or external action is required."
+
+[recording.approval-producer]
+source = "services/human/schema/human-api/golden/approval.{get,list,approve,reject}.response.json"
+replay = "JourneyFixtureStore replays committed human service responses through the generated HTTP client and production approval controller, with in-memory state and verified passkey signatures; no live producer seeding is awaited by the declared gate."
+
+[recording.native-receipt-producer]
+source = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_import_1_receipt.json"
+replay = "Replay the committed explorer client's native receipt exchange over loopback, retaining the recorded result and changing only the JSON-RPC correlation id; the production gateway reader supplies the transaction identity to resolveReceiptLink and the destination is checked against that identity. No live endpoint or external wiring is awaited by the declared gate."
+
+[qualification.22.33.337.attempt6]
+implementation = "Continue the existing eight repairs, resolve visible approval labels from the catalogue, check uppercase acronym tokens, retain forbidden-message counterexamples, and replay the recorded native receipt without a synthetic receipt response."
+gates = "Run hf-build then hf-done on the final unchanged candidate; copy exact revision, command, exit and private log from the runner ledger. The runner owns publication."
+
+[gotcha.22.33.337.acronym-policy]
+observed = "Case-insensitive acronym matching treats the ordinary word did as forbidden DID, while hard-coded field labels can disagree with the catalogue producer."
+resolution = "Match uppercase acronym vocabulary case-sensitively at word boundaries and resolve visible labels from the current catalogue; preserve positive matcher counterexamples."

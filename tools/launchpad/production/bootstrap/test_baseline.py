@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import importlib.util
 import os
 from pathlib import Path
@@ -31,16 +32,26 @@ class BaselineControlFlow(unittest.TestCase):
     def test_source_manifest_excludes_secrets_generated_and_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            evidence = root / 'evidence'
-            evidence.mkdir()
-            for name in ['source.go', '.env', '.env.local']:
-                (root / name).write_text('content')
-            for name in ['node_modules', 'dist', 'evidence']:
-                (root / name).mkdir(exist_ok=True)
-                (root / name / 'generated').write_text('content')
-            (root / 'link').symlink_to(root / 'source.go')
-            self.assertEqual([p.name for p in baseline.source_files(root, evidence)], ['source.go'])
-            self.assertEqual(len(baseline.sha(root / 'source.go')), 64)
+            evidence = root / 'apps/launchpad/private-run'
+            evidence.mkdir(parents=True)
+            (evidence / 'baseline.json').write_text('evidence')
+            (root / 'source.go').write_text('unrelated monorepo source')
+            for home in ['apps/launchpad/web', 'services/launchpad/api']:
+                base = root / home
+                base.mkdir(parents=True)
+                for name in ['source.go', '.env', '.env.local']:
+                    (base / name).write_text('content')
+                for name in ['node_modules', 'dist', 'evidence']:
+                    (base / name).mkdir()
+                    (base / name / 'generated').write_text('content')
+                (base / 'link').symlink_to(base / 'source.go')
+                (base / 'linked-directory').symlink_to(evidence, target_is_directory=True)
+            selected = list(baseline.source_files(root, evidence))
+            self.assertEqual([p.relative_to(root).as_posix() for p in selected], [
+                'apps/launchpad/web/source.go', 'services/launchpad/api/source.go',
+            ])
+            for path in selected:
+                self.assertEqual(baseline.sha(path), hashlib.sha256(b'content').hexdigest())
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,37 @@
+[repair.22.33.998]
+finding = "legacy-webhook-restart-loss"
+acceptance = "22998.1"
+status = "implemented_not_qualified"
+decision = "Retire compatibility webhook target delivery and its durability promise; keep best-effort Redis realtime fan-out and the separate transactional durable stagers."
+refusal = "BuildTargets returns ErrLegacyWebhookRetired for any configured URL; New panics with the same error for direct target configuration before a processor can start."
+proof = ["TestRepairM_998_CompatibilityConfigurationRefused", "TestRepairM_998_RetirementSurvivesRestart", "TestRepairM_998_RealtimeOnlyConfigurationRemainsAvailable"]
+restart = "Stop and reopen the retained publisher three times; target configuration stays refused, replay cannot reach a real loopback receiver, and no unacknowledged compatibility state is accepted or recovered. The retired mode has no staging/cursor/acknowledgement crash window."
+existing_tests = "Keep every existing test function; update compatibility delivery expectations to explicit refusal, retaining realtime fan-out and dedup checks."
+baseline_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+baseline_verification = "Not run: the ordered gate instructions prohibit verification before complete implementation and require hf-build before hf-done; no pre-change failure is claimed."
+evidence = "The final hf-done evidence row records the exact candidate revision, command, exit code and private log; the runner publishes that candidate."
+wiring_request = "fm-launchpad: services/launchpad/indexer/internal/config/config.go and its operator configuration docs must retire WEBHOOK_URLS compatibility settings and direct durable delivery users to the existing transactional DurableWebhookStager; app/app.go already propagates BuildTargets refusal before processor construction."
+scope_note = "Task bookkeeping lives here because spec files and root GOTCHA.kvx are outside the authorized scope."
+
+[gotcha.gate-order]
+observed = "The embedded baseline-test step conflicts with the explicit ordered implementation-first gate rules."
+resolution = "Follow the ordered hf-build/hf-done lifecycle; do not run an undeclared baseline gate."
+
+[gotcha.graph-context]
+observed = "The preexisting Codify graph could not find publisher callers outside its indexed paths."
+resolution = "Read the actual application and processor callers with repository text search; do not infer caller behavior from an empty graph search."
+
+[gotcha.tool-script]
+observed = "An initial edit tool call failed JavaScript parsing before running or changing any file."
+resolution = "Use a multiline command literal for the edit script; no gate or repair cycle was consumed."
+
+[qualification.build]
+revision = "4da2978c750118b95956c88d435d14cde88384bc"
+command = "cd services/launchpad/indexer && go build ./internal/publisher/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Preexisting workspace version mismatch: ../notifications requires Go >= 1.27.0 while go.work declares Go 1.25.0; assumption: workspace repair belongs outside this task, so no retry or verification was run."
+
+[qualification.continuation]
+build_environment = "GOWORK=off selects the existing standalone indexer module and its committed local replace directives for both hf-build and hf-done; no workspace or dependency manifest is changed."
+previous_result = "The previous attempt stopped before verification on the unrelated workspace version mismatch recorded above; the retirement implementation and all existing test functions are retained."

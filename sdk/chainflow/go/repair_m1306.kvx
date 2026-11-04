@@ -1,0 +1,31 @@
+[task]
+id = "22.33.1306"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+record = "spec/layerx-merge/programme/audit/records/22.30.70.kvx"
+qualification = "hf-build and hf-done supply the exact candidate revision, command, exit and private log in the runner ledger; no completion is asserted before those gates."
+baseline = "No baseline verification was run: the explicit gate order requires complete implementation before hf-build and hf-done, prohibits running verify_cmd by hand, and permits one initial verification; repair_m1306_test.go did not exist on the initial tree. No pre-change test failure is claimed."
+
+[finding.sdk-install-readme]
+test = "TestRepairM_1306_InstallREADME"
+repair = "Retain the existing truthful local module workflow, add the consumer qualification commands, and compile and execute the separate consumer against the real SDK and loopback HTTP handler."
+
+[finding.sdk-install-skill]
+test = "TestRepairM_1306_InstallSkill"
+repair = "Keep module requirement, local replacement, imports and new-consumer qualification aligned with the production go.mod and compiled consumer."
+
+[finding.sdk-install-agent-skill]
+test = "TestRepairM_1306_InstallAgentSkill"
+repair = "Keep the agent-local instructions aligned with the real module, replacement and compiled consumer, including the final consumer build commands."
+
+[finding.sdk-token-example]
+test = "TestRepairM_1306_TokenHandshake"
+additional_test = "TestRepairM_1306_TokenFailuresDoNotExposeSecrets"
+repair = "Compile and execute the exact documented helper: mint with the separate key through the real SDK codec and HTTP transport, upgrade with the encoded token, exchange real WebSocket frames, and assert only scope and expiry reach output; failure paths return safe messages."
+
+[wiring.generator]
+request = "Domain 8 (SDKs), owning the external Scalar SDK Generator Go documentation template that emits sdk/chainflow/go/api.md and gateway.go: mirror the ConnectBTC example and safe metadata-only output there; the Scalar template source is not present in this checkout and is outside this task scope."
+
+[scope_notes]
+workflow = "The root GOTCHA.kvx and spec task record cannot be edited under this task's explicit scope; this scoped record carries the required finding-to-test mapping and wiring request."
+consumer = "go.work links the SDK and a new consumer module solely for the declared in-process gate; the SDK go.mod and production Go sources remain unchanged. The consumer go.mod also declares the documented local replace for standalone use."
+inspection = "Initial targeted reads found no client_test.go or gateway_test.go; tests live in coingecko_test.go and internal/requestconfig/requestconfig_test.go. No earlier gate ledger existed."

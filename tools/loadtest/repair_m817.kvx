@@ -1,0 +1,59 @@
+[repair.22.33.817]
+audit = "22.30.179"
+acceptance = "22998.1"
+baseline = "No earlier task implementation or gate ledger existed. No baseline verification was run: the explicit implementation-first gate order prohibits pre-change tests and manually running verify_cmd; no pre-change test failure is claimed."
+evidence = "The final hf-done runner ledger binds the exact candidate revision, command, exit code and private log; only that bounded result qualifies this repair."
+wiring_requests = ["spec/layerx-merge/contracts/operations.md and interfaces.kvx (domain 17 documentation): regenerate served CLI/toolchain/lifecycle views after this domain-16 repair is qualified."]
+
+[finding.loadtest-toolchain-image]
+proof = "TestRepairM_817_LoadtestToolchainImage"
+repair = "Digest-pinned repository Go 1.25.8 builder and static nonroot runtime; local compiler identity asserted before dependency fetch; readonly, trimmed, static binary; nested language directive unchanged."
+qualification = "Source policy assertions; Docker image execution is outside the declared gates. Reviewed digest and Solidity checksum were read from upstream registry/release metadata without publishing."
+
+[finding.binding-tool-provenance]
+proof = "TestRepairM_817_BindingToolProvenance"
+repair = "Explicit private-tool installation pins abigen to module v1.17.0 and solc to verified 0.8.19 bytes; checks refuse missing/replaced binaries; generated bindings carry version and input/output hash provenance; tidy is separate from readonly build."
+qualification = "Makefile producer/consumer policy assertions; native compiler execution and binding regeneration are outside the declared gate. Existing generated bindings are retained."
+
+[finding.loadtest-readme]
+proof = "TestRepairM_817_LoadtestReadme, TestRepairM_817_SignalExitCancellation"
+repair = "Correct binary, chain-125 profiles versus isolated transcripts, chain preflight, bound/report precedence, qualified shipped-profile invocation and signal/failure exit behavior."
+path = "Shipped profile with isolated endpoint substitution -> production command/main -> real generator/sender/collector -> final JSON report -> actual process exit."
+
+[finding.writer-shutdown-tail]
+proof = "TestRepairM_817_WriterShutdownTail"
+repair = "CLI owns writer finalization after all producer tasks join and before reporting; atomic tail publication and explicit retryable Close; flush failures remain operational exit failures."
+path = "Actual CLI generation -> writer buffer -> orderly signal stop -> durable atomic batch -> fresh writer reopening manifest/batches -> next-height publication; obstruction proves failed finalization exits 1."
+
+[finding.signal-exit-cancellation]
+proof = "TestRepairM_817_SignalExitCancellation, TestRepairM_817_ServiceCancellation, TestRepairM_817_SenderDrain"
+repair = "Stop generation before closing queues; workers drain accepted work and receipts; pure scope-cleanup cancellation is ignored while parent cancellation and joined operational failures remain visible."
+path = "Production main with actual SIGINT/SIGTERM -> dispatcher join -> sender drain -> loopback signed-transaction transcript -> report count equals consumed requests -> exit 0 or 1 for success, regression and refusal."
+
+[finding.metrics-server-lifecycle]
+proof = "TestRepairM_817_MetricsServerLifecycle"
+repair = "Synchronously bound listener, private mux and registry, scoped Serve and context-owned exporter/listener shutdown with returned errors."
+path = "Real occupied TCP port -> executable startup refusal without traffic; real HTTP /metrics -> cancellation -> listener rebind -> clean second run; independent close preserves serve error."
+
+[finding.configuration-admission]
+proof = "TestRepairM_817_ConfigurationAdmission"
+repair = "Profile structure and resolved settings reject invalid identities, counts, rates, weights, durations, participants, queues, gas/fee ranges and writer limits before generators/services; existing executable preflight checks eth_chainId."
+path = "JSON and explicit flags -> production loaders/validator -> field-specific refusal; mismatched real RPC identity prevents generation; admitted fresh-only configuration reaches actual signed transaction generation."
+interface_integration = "Existing NewAccountPool now returns (pool,error), but generator and sender test callers still expected one value. Scoped generator construction now propagates its admission error, and callers of the valid constant Disperse pool and tests check the error. No gate failure is claimed for this read-observed mismatch."
+
+[finding.scenario-template-signature]
+proof = "TestRepairM_817_ScenarioTemplateSignature"
+repair = "Shell commands delegate to the production embedded renderer; constructors accept config.Scenario and forward it to the base; custom contract operations remain explicit."
+path = "Production scaffold command -> rendered constructor and generated factory -> byte-compared compiled contract fixture with real constructor/Transfer operations -> real scenario base, binding, signer and calldata; gas/fee config survives both factory and constructor interfaces."
+
+[gotcha.baseline-order]
+observed = "The inherited baseline-verify step contradicts the explicit implementation-first, gate-only order."
+resolution = "Use hf-build then hf-done only; do not claim baseline failures."
+
+[gotcha.cli-location]
+observed = "Audit main.go line references predate migration of runtime logic into config/cli/command.go."
+resolution = "Repair the real production CLI implementation; main continues to call profiles.NewCommand."
+
+[gotcha.account-pool-interface]
+observed = "The error-returning account pool constructor had stale one-value generator and sender-test consumers."
+resolution = "Handle constructor errors along the configuration construction path and retain all existing test assertions."

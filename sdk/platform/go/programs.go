@@ -310,6 +310,9 @@ const (
 )
 
 type VerifiedProgramReceipt struct {
+	// NativeResult contains only facts in the authenticated 0x101D outcome log.
+	// Nil means the transaction receipt made no native program outcome statement.
+	NativeResult             *NativeProgramLogResult
 	SequencerReceipt         *SequencerReceiptVerification
 	TransferVerification     ProgramTransferVerification
 	Verification             VerifiedReceipt
@@ -318,8 +321,8 @@ type VerifiedProgramReceipt struct {
 	OccupancyPaymentAccounts [][32]byte
 }
 
-// OccupancyPayer offers a payer DID, and optionally one of the two payment
-// accounts that DID derives, for a state-commitment occupancy charge.
+// OccupancyPayer is a historical kernel codec input. Native EVM receipts do not
+// prove occupancy payer identities; VerifyProgramReceiptWithPayers refuses it.
 type OccupancyPayer struct {
 	DID     []byte
 	Account []byte
@@ -472,14 +475,46 @@ func programPayloadMatchesCall(payload []byte, call ProgramCall) bool {
 	return true
 }
 
+// NativeProgramLogResult is the ProgramCallOutcome ABI emitted by 0x101D and
+// authenticated as a log of the signed EVM receipt. ActivityID is the native
+// program activity, distinct from the enclosing EVM transaction hash. Digests
+// are authenticated commitments, not verification of separately supplied
+// terminal bytes, a decoded guest outcome, call graph or payer evidence.
+type NativeProgramLogResult struct {
+	ProgramID            [32]byte
+	Principal            [32]byte
+	ActivityID           [32]byte
+	FramePath            uint64
+	Depth                uint8
+	RuntimeVersion       uint16
+	GuestABIVersion      uint16
+	FeeScheduleVersion   uint32
+	MeteringVersion      uint32
+	TerminalResult       int32
+	TransferSetRoot      [32]byte
+	CallGraphDigest      [32]byte
+	TerminalDetailDigest [32]byte
+	EventEnvelopeDigest  [32]byte
+}
+
+// VerifyProgramReceipt authenticates a native EVM transaction receipt and any
+// ProgramCallOutcome log. Optional program ID and ABI claims, and the declared
+// terminal result, must match that log. Historical kernel projections and protocol selectors are
+// unsupported and refused; use NativeResult for the authenticated program facts.
 func VerifyProgramReceipt(execution ProgramExecutionDocument, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
 	return VerifyProgramReceiptWithPayers(execution, nil, selectedProtocol...)
 }
 
-// VerifyProgramReceiptWithPayers verifies like VerifyProgramReceipt and proves
-// the offered occupancy payers, which a state-commitment receipt with a paid
-// occupancy charge requires.
+// VerifyProgramReceiptWithPayers retains source compatibility, but only accepts
+// empty payers and no selectedProtocol. Native receipts have no payer-proof or
+// legacy kernel protocol contract; offering either returns a capability refusal.
 func VerifyProgramReceiptWithPayers(execution ProgramExecutionDocument, payers []OccupancyPayer, selectedProtocol ...uint16) (VerifiedProgramReceipt, error) {
+	if len(payers) != 0 || len(selectedProtocol) != 0 {
+		return VerifiedProgramReceipt{}, newSDKError(ErrorUnavailableCapability, RetryNever)
+	}
+	if execution.TerminalPayload != "" || execution.CallGraph != "" || execution.Outcome.Kind != "" || execution.Outcome.Code != nil || execution.Outcome.Response != nil || execution.Outcome.Values != nil || execution.Outcome.Failure != nil || execution.ModuleVersion != 0 || execution.BatchID != "" || execution.GlobalSequence != "" || execution.StateRoot != "" || execution.Usage != (ProgramUsage{}) || execution.Authority != (ProgramResponseAuthority{}) || execution.IdempotencyKey != "" {
+		return VerifiedProgramReceipt{}, newSDKError(ErrorUnavailableCapability, RetryNever)
+	}
 	verified, err := VerifySequencerReceipt([]byte(execution.Receipt), execution.RawTransaction, execution.ReceiptKeys)
 	if err != nil {
 		return VerifiedProgramReceipt{}, err
@@ -488,7 +523,89 @@ func VerifyProgramReceiptWithPayers(execution ProgramExecutionDocument, payers [
 	if !ok || len(expected) != 32 || !bytes.Equal(expected, verified.Receipt.ActivityID[:]) {
 		return VerifiedProgramReceipt{}, verificationFailure()
 	}
-	return VerifiedProgramReceipt{Verification: verified.VerifiedReceipt, SequencerReceipt: &verified}, nil
+	if execution.ActivityID != "" && execution.ActivityID != hex.EncodeToString(verified.Receipt.ActivityID[:]) ||
+		execution.ReceiptDigest != "" && execution.ReceiptDigest != hex.EncodeToString(verified.ReceiptDigest[:]) ||
+		execution.Verification != "" && execution.Verification != verified.Level ||
+		execution.State != "" && execution.State != string(ProgramSubmissionExecuted) && execution.State != string(ProgramSubmissionRefused) ||
+		execution.State == string(ProgramSubmissionExecuted) && verified.Status != 1 || execution.State == string(ProgramSubmissionRefused) && verified.Status != 0 {
+		return VerifiedProgramReceipt{}, verificationFailure()
+	}
+	native, err := authenticatedProgramLog(verified)
+	if err != nil {
+		return VerifiedProgramReceipt{}, err
+	}
+	if native == nil {
+		if execution.ProgramID != "" || execution.GuestABIVersion != 0 || execution.ResultCode != 0 {
+			return VerifiedProgramReceipt{}, verificationFailure()
+		}
+	} else if execution.ProgramID != "" && execution.ProgramID != hex.EncodeToString(native.ProgramID[:]) ||
+		execution.GuestABIVersion != 0 && execution.GuestABIVersion != native.GuestABIVersion || execution.ResultCode != native.TerminalResult {
+		return VerifiedProgramReceipt{}, verificationFailure()
+	}
+	return VerifiedProgramReceipt{Verification: verified.VerifiedReceipt, SequencerReceipt: &verified, NativeResult: native}, nil
+}
+
+func authenticatedProgramLog(receipt SequencerReceiptVerification) (*NativeProgramLogResult, error) {
+	const topic = "0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0"
+	var result *NativeProgramLogResult
+	for _, log := range receipt.Logs {
+		if !receiptHexEquals(log.Address, mustProgramAddress()) || len(log.Topics) == 0 || log.Topics[0] != topic {
+			continue
+		}
+		data, ok := receiptHex(log.Data)
+		if result != nil || receipt.Status != 1 || len(log.Topics) != 2 || !ok || len(data) != 13*32 {
+			return nil, verificationFailure()
+		}
+		program, ok := receiptHex(log.Topics[1])
+		if !ok || len(program) != 32 {
+			return nil, verificationFailure()
+		}
+		value := &NativeProgramLogResult{}
+		copy(value.ProgramID[:], program)
+		copy(value.Principal[:], data[:32])
+		copy(value.ActivityID[:], data[32:64])
+		if value.ProgramID == ([32]byte{}) || value.Principal == ([32]byte{}) || value.ActivityID == ([32]byte{}) {
+			return nil, verificationFailure()
+		}
+		var numbers [6]uint64
+		for n, bits := range []int{64, 8, 16, 16, 32, 32} {
+			var err error
+			numbers[n], err = programABIUint(data, (n+2)*32, bits)
+			if err != nil {
+				return nil, verificationFailure()
+			}
+		}
+		value.FramePath, value.Depth = numbers[0], uint8(numbers[1])
+		value.RuntimeVersion, value.GuestABIVersion = uint16(numbers[2]), uint16(numbers[3])
+		value.FeeScheduleVersion, value.MeteringVersion = uint32(numbers[4]), uint32(numbers[5])
+		if value.Depth > 8 || value.RuntimeVersion == 0 || !SupportsProgramGuestAbi(value.GuestABIVersion) || value.FeeScheduleVersion == 0 || value.MeteringVersion == 0 {
+			return nil, verificationFailure()
+		}
+		for n, component := range data[3*32-8 : 3*32] {
+			if (n < int(value.Depth)) != (component != 0) {
+				return nil, verificationFailure()
+			}
+		}
+		value.TerminalResult = int32(binary.BigEndian.Uint32(data[9*32-4 : 9*32]))
+		prefix := byte(0)
+		if value.TerminalResult < 0 {
+			prefix = 255
+		}
+		if !bytes.Equal(data[8*32:9*32-4], bytes.Repeat([]byte{prefix}, 28)) {
+			return nil, verificationFailure()
+		}
+		copy(value.TransferSetRoot[:], data[9*32:10*32])
+		copy(value.CallGraphDigest[:], data[10*32:11*32])
+		copy(value.TerminalDetailDigest[:], data[11*32:12*32])
+		copy(value.EventEnvelopeDigest[:], data[12*32:13*32])
+		result = value
+	}
+	return result, nil
+}
+
+func mustProgramAddress() []byte {
+	address, _ := receiptHex(layerxProgramsAddress)
+	return address
 }
 
 type programTerminalProjection struct {
@@ -2660,12 +2777,16 @@ func NewProgramRPCTransport(endpoint string, client *http.Client) (*ProgramRPCTr
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
-	return &ProgramRPCTransport{endpoint: endpoint, client: client}, nil
+	boundClient := *client
+	// Preparation must resolve the signing domain at the selected endpoint;
+	// redirects must not silently move any of its RPC reads to another domain.
+	boundClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+	return &ProgramRPCTransport{endpoint: endpoint, client: &boundClient}, nil
 }
 
 func (transport *ProgramRPCTransport) Call(ctx context.Context, call TransportCall) (json.RawMessage, error) {
 	switch call.Operation {
-	case "eth_sendRawTransaction", "eth_call", "eth_getTransactionCount", "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_getTransactionByHash", "eth_getRawTransactionByHash", "pax_sequencerReceipt":
+	case "eth_chainId", "eth_sendRawTransaction", "eth_call", "eth_getTransactionCount", "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_getTransactionByHash", "eth_getRawTransactionByHash", "pax_sequencerReceipt":
 	default:
 		return nil, lifecycleInvalid()
 	}
@@ -2759,7 +2880,14 @@ func (programs *Programs) buildTransaction(ctx context.Context, from [20]byte, d
 	if from == ([20]byte{}) {
 		return ProgramTransaction{}, lifecycleInvalid()
 	}
-	tx := ProgramTransaction{Type: "0x2", ChainID: "0x7d", From: "0x" + hex.EncodeToString(from[:]), To: layerxProgramsAddress, Value: "0x0", Data: "0x" + hex.EncodeToString(data), AccessList: []any{}}
+	var chainID string
+	if err := programs.rpc(ctx, "eth_chainId", []any{}, &chainID); err != nil {
+		return ProgramTransaction{}, err
+	}
+	if !programQuantity(chainID, 256) || chainID == "0x0" {
+		return ProgramTransaction{}, newSDKError(ErrorDecodeFailure, RetryNever)
+	}
+	tx := ProgramTransaction{Type: "0x2", ChainID: chainID, From: "0x" + hex.EncodeToString(from[:]), To: layerxProgramsAddress, Value: "0x0", Data: "0x" + hex.EncodeToString(data), AccessList: []any{}}
 	if err := programs.rpc(ctx, "eth_getTransactionCount", []any{tx.From, "pending"}, &tx.Nonce); err != nil {
 		return ProgramTransaction{}, err
 	}

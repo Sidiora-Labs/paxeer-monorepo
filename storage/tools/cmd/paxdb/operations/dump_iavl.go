@@ -1,20 +1,18 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/memiavl"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/tools/utils"
 	"github.com/spf13/cobra"
 )
 
 func DumpIAVLCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "dump-iavl",
-		Short: "Iterate and dump memIAVL data",
-		Run:   executeDumpIAVL,
-	}
-
+	cmd := &cobra.Command{Use: "dump-iavl", Short: "Iterate and dump memIAVL data", RunE: executeDumpIAVL}
 	cmd.PersistentFlags().StringP("db-dir", "d", "", "Database Directory")
 	cmd.PersistentFlags().StringP("output-dir", "o", "", "Output Directory")
 	cmd.PersistentFlags().Int64("height", 0, "Block Height")
@@ -22,73 +20,91 @@ func DumpIAVLCmd() *cobra.Command {
 	return cmd
 }
 
-func executeDumpIAVL(cmd *cobra.Command, _ []string) {
-	module, _ := cmd.Flags().GetString("module")
-	dbDir, _ := cmd.Flags().GetString("db-dir")
-	outputDir, _ := cmd.Flags().GetString("output-dir")
-	height, _ := cmd.Flags().GetInt64("height")
-
+func executeDumpIAVL(cmd *cobra.Command, _ []string) (retErr error) {
+	module, err := cmd.Flags().GetString("module")
+	if err != nil {
+		return err
+	}
+	dbDir, err := cmd.Flags().GetString("db-dir")
+	if err != nil {
+		return err
+	}
+	outputDir, err := cmd.Flags().GetString("output-dir")
+	if err != nil {
+		return err
+	}
+	height, err := cmd.Flags().GetInt64("height")
+	if err != nil {
+		return err
+	}
 	if dbDir == "" {
-		panic("Must provide database dir")
+		return fmt.Errorf("must provide database dir")
 	}
-
 	if outputDir == "" {
-		panic("Must provide output dir")
+		return fmt.Errorf("must provide output dir")
 	}
-
-	opts := memiavl.Options{
-		Dir:             dbDir,
-		ZeroCopy:        true,
-		CreateIfMissing: false,
-	}
-	db, err := memiavl.OpenDB(height, opts)
+	db, err := memiavl.OpenDB(height, memiavl.Options{Dir: dbDir, ZeroCopy: true, CreateIfMissing: false})
 	if err != nil {
-		panic(err)
+		return err
 	}
-	defer func() { _ = db.Close() }()
-	err = DumpIAVLData(module, db, outputDir)
-	if err != nil {
-		panic(err)
-	}
+	defer func() { retErr = errors.Join(retErr, db.Close()) }()
+	return DumpIAVLData(module, db, outputDir)
 }
 
-// DumpIAVLData print the raw keys and values for given module at given height for memIAVL tree
+// DumpIAVLData publishes each module only after all selected trees are written and closed.
 func DumpIAVLData(module string, db *memiavl.DB, outputDir string) error {
-	modules := []string{}
-	if module == "" {
-		modules = AllModules
-	} else {
-		modules = append(modules, module)
+	if outputDir == "" {
+		return fmt.Errorf("must provide output dir")
 	}
-
-	for _, moduleName := range modules {
-		tree := db.TreeByName(moduleName)
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return err
+	}
+	staging, err := os.MkdirTemp(outputDir, ".iavl-dump-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+	var modules []string
+	for _, name := range selectedModules(module, db) {
+		if name == "." || name == ".." || filepath.Base(name) != name {
+			return fmt.Errorf("invalid module filename %q", name)
+		}
+		tree := db.TreeByName(name)
 		if tree == nil {
-			fmt.Printf("Tree does not exist for module %s \n", moduleName)
-		} else {
-			fmt.Printf("Dumping module: %s \n", moduleName)
-			currentFile, err := utils.CreateFile(outputDir, moduleName)
-			if err != nil {
-				return err
-			}
-			_, err = fmt.Fprintf(currentFile, "Tree %s has version %d and root hash: %X \n", moduleName, tree.Version(), tree.RootHash())
-			if err != nil {
-				_ = currentFile.Close()
-				return nil
-			}
-			tree.ScanPostOrder(func(node memiavl.Node) bool {
-				if node.IsLeaf() {
-					_, err := fmt.Fprintf(currentFile, "Key: %X, Value: %X \n", node.Key(), node.Value())
-					if err != nil {
-						_ = currentFile.Close()
-						panic(err)
-					}
-				}
-				return true
-			})
-			_ = currentFile.Close()
-			fmt.Printf("Finished dumping module: %s \n", moduleName)
+			return fmt.Errorf("tree does not exist for module %s", name)
+		}
+		file, err := os.Create(filepath.Join(staging, name))
+		if err != nil {
+			return err
+		}
+		if err := writeIAVLTree(file, name, tree); err != nil {
+			return fmt.Errorf("dump module %s: %w", name, err)
+		}
+		modules = append(modules, name)
+	}
+	for _, name := range modules {
+		if err := os.Rename(filepath.Join(staging, name), filepath.Join(outputDir, name)); err != nil {
+			return err
 		}
 	}
+	for _, name := range modules {
+		fmt.Printf("Finished dumping module: %s \n", name)
+	}
 	return nil
+}
+
+// writeIAVLTree owns the destination and stops reading at the first write error.
+func writeIAVLTree(dst io.WriteCloser, name string, tree *memiavl.Tree) (retErr error) {
+	defer func() { retErr = errors.Join(retErr, dst.Close()) }()
+	if _, err := fmt.Fprintf(dst, "Tree %s has version %d and root hash: %X \n", name, tree.Version(), tree.RootHash()); err != nil {
+		return err
+	}
+	iter := tree.Iterator(nil, nil, true)
+	defer func() { retErr = errors.Join(retErr, iter.Close()) }()
+	for ; iter.Valid(); iter.Next() {
+		if _, err := fmt.Fprintf(dst, "Key: %X, Value: %X \n", iter.Key(), iter.Value()); err != nil {
+			return err
+		}
+	}
+	return iter.Error()
 }
