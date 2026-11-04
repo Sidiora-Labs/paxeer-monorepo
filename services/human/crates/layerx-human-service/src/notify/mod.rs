@@ -33,6 +33,9 @@ pub use links::{
 pub use preferences::{Channel, ChannelPreferences, Preferences};
 
 const PREFERENCES_KEY: &str = "notify_preferences";
+// Consumer choices and acknowledgements share the durable event-consumer
+// namespace; immutable delivery history keeps its own retention policy.
+const STATE_TABLE: Table = Table::EventOutbox;
 const BATCH_MAGIC: &[u8; 4] = b"LXNB";
 const BATCH_VERSION: u8 = 1;
 const BATCH_PREFIX: &str = "notify_batch_";
@@ -139,7 +142,7 @@ impl Dispatcher {
     /// Refuses a corrupt durable preference record.
     pub fn preferences(scope: &PrincipalScope<'_>) -> Result<Preferences, NotifyError> {
         let key = preference_key()?;
-        scope.get(Table::Notifications, &key).map_or_else(
+        retained_state(scope, &key).map_or_else(
             || Ok(Preferences::default()),
             |row| Preferences::decode(row.bytes()),
         )
@@ -156,13 +159,28 @@ impl Dispatcher {
         now: u64,
         preferences: &Preferences,
     ) -> Result<(), NotifyError> {
-        scope.put(
-            Table::Notifications,
-            preference_key()?,
-            now,
-            preferences.encode(),
-        )?;
+        put_retained_state(scope, preference_key()?, now, preferences.encode())?;
         Ok(())
+    }
+
+    /// Migrates saved choices and read acknowledgements before event-history
+    /// retention. Dispatch also runs this migration for active principals.
+    ///
+    /// # Errors
+    ///
+    /// Refuses corrupt state and rolls back the entire migration on failure.
+    pub fn migrate_retained_state(scope: &mut PrincipalScope<'_>) -> Result<(), NotifyError> {
+        scope.transaction(|scope| {
+            let key = preference_key()?;
+            if let Some(row) = retained_state(scope, &key) {
+                Preferences::decode(row.bytes())?;
+                if scope.get(STATE_TABLE, &key).is_none() {
+                    let (written_at, bytes) = (row.written_at(), row.bytes().to_vec());
+                    scope.put(STATE_TABLE, key, written_at, bytes)?;
+                }
+            }
+            links::migrate_read_states(scope)
+        })
     }
 
     /// Dispatches one typed event into every currently selected channel.
@@ -179,6 +197,7 @@ impl Dispatcher {
         trace: &TraceId,
         event: &Event,
     ) -> Result<DispatchReport, NotifyError> {
+        Self::migrate_retained_state(scope)?;
         let digest = dedup_digest(event);
         let digest_text = hex_digest(digest);
         let marker_key = row_key(&format!("{BATCH_PREFIX}{digest_text}"))?;
@@ -400,6 +419,31 @@ impl Batch {
 
 fn preference_key() -> Result<RowKey, NotifyError> {
     row_key(PREFERENCES_KEY)
+}
+
+fn retained_state<'a>(
+    scope: &'a PrincipalScope<'_>,
+    key: &RowKey,
+) -> Option<crate::store::StoredRow<'a>> {
+    scope
+        .get(STATE_TABLE, key)
+        .or_else(|| scope.get(Table::Notifications, key))
+}
+
+fn put_retained_state(
+    scope: &mut PrincipalScope<'_>,
+    key: RowKey,
+    now: u64,
+    bytes: Vec<u8>,
+) -> Result<(), NotifyError> {
+    scope.put_batch(
+        now,
+        vec![
+            (STATE_TABLE, key.clone(), bytes.clone()),
+            (Table::Notifications, key, bytes),
+        ],
+    )?;
+    Ok(())
 }
 
 fn row_key(value: &str) -> Result<RowKey, NotifyError> {

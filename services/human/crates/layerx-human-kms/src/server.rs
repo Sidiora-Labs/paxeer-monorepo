@@ -195,7 +195,26 @@ fn connection_until(
     }
     let mut tls = StreamOwned::new(connection, tcp);
     let frame = read_request(&mut tls)?;
-    let request = Request::decode(&frame)?;
+    let request = match Request::decode(&frame) {
+        Ok(request) => request,
+        Err(error) => {
+            // An authenticated caller must receive an explicit Sign migration
+            // refusal, including when the retired layout cannot be decoded.
+            let Some(header) = frame.get(..7).filter(|header| {
+                &header[..4] == b"LXKP" && header[6] == wire::signing_contract::OPERATION
+            }) else {
+                return Err(error);
+            };
+            return write_response(
+                &mut tls,
+                &wire::response(
+                    u16::from_be_bytes([header[4], header[5]]),
+                    header[6],
+                    Err(error),
+                ),
+            );
+        }
+    };
     let answer = (|| {
         let mut guard = loop {
             tls.sock.budget().map_err(|_| Error::Unavailable)?;

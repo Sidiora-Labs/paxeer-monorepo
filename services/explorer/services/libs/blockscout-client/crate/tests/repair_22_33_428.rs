@@ -191,6 +191,7 @@ async fn action_variant_collapse() {
         .expect("typed transaction response");
     let parsed = response.try_parse_as_success_model().unwrap();
     for actions in [&cached.actions, &parsed.actions] {
+        let actions = actions.as_ref().expect("producer actions must be present");
         // PartialEq includes the enum variant, the protocol/type and all raw data.
         assert_eq!(actions, &expected);
         assert_eq!(serde_json::to_value(actions).unwrap(), envelope["actions"]);

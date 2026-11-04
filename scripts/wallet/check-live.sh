@@ -7,9 +7,12 @@ usage: scripts/wallet/check-live.sh endpoint | attestors | gateway | cutover | h
 
 Checks a deployed wallet service against its live answers.
 
-endpoint  posts JSON-RPC to $CHECK_LIVE_ENDPOINT_BASE/rpc, a shared endpoint
-          running with the chain RPC configured and the kernel backends
-          unconfigured. CHECK_LIVE_ENDPOINT_BASE is required.
+endpoint  posts eth_chainId to the node root at CHECK_LIVE_NODE_RPC_URL and
+          px_ methods to the hosted gateway at CHECK_LIVE_HOSTED_RPC_URL. Both
+          URLs are required, used exactly as configured, and must name the
+          public root JSON-RPC endpoints, without the retired /rpc suffix.
+          Each result names its owner and URL. A hosted result does not prove
+          availability of px_ methods at the public node root.
 
 Checks, each printed as "pass <check> <observed>" or "fail <check> <observed>":
   eth_chainId        the chain id is 0x7d
@@ -86,7 +89,8 @@ ramp      checks CHECK_LIVE_RAMP_BASE/readyz as local-journal readiness and
 
 Environment:
   CHECK_LIVE_RAMP_BASE      base URL of the reference ramp
-  CHECK_LIVE_ENDPOINT_BASE   base URL of the endpoint, no trailing /rpc
+  CHECK_LIVE_NODE_RPC_URL    node root JSON-RPC URL (eth_ methods)
+  CHECK_LIVE_HOSTED_RPC_URL  hosted gateway root JSON-RPC URL (px_ methods)
   CHECK_LIVE_ATTESTOR_BASES  comma-separated base URLs of the attestor APIs
   CHECK_LIVE_CLIENT_CERT     client certificate presented to https bases
   CHECK_LIVE_CLIENT_KEY      key of the client certificate
@@ -763,28 +767,30 @@ if [ "$mode" = gateway ]; then
 	gateway
 fi
 
-base="${CHECK_LIVE_ENDPOINT_BASE:-}"
-if [ -z "$base" ]; then
-	echo "check-live: CHECK_LIVE_ENDPOINT_BASE is required" >&2
-	usage >&2
-	exit 2
-fi
-base="${base%/}"
+node_rpc_url="${CHECK_LIVE_NODE_RPC_URL:-}"
+hosted_rpc_url="${CHECK_LIVE_HOSTED_RPC_URL:-}"
+for name in CHECK_LIVE_NODE_RPC_URL CHECK_LIVE_HOSTED_RPC_URL; do
+	if [ -z "${!name:-}" ]; then
+		echo "check-live: $name is required" >&2
+		usage >&2
+		exit 2
+	fi
+done
 
 failures=0
 account_address="0x000000000000000000000000000000000000dEaD"
 
 call() {
-	local method="$1" params="$2"
+	local url="$1" method="$2" params="$3"
 	curl -sS --max-time "$timeout" \
 		-H 'content-type: application/json' \
 		-X POST \
 		--data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-		"$base/rpc" 2>&1
+		"$url" 2>&1
 }
 
 judge() {
-	local check="$1" status="$2" body="$3" verdict
+	local check="$1" status="$2" body="$3" owner="$4" url="$5" verdict
 	if [ "$status" -ne 0 ]; then
 		verdict="fail transport $(printf '%s' "$body" | tr '\n' ' ' | cut -c1-200)"
 	else
@@ -867,24 +873,24 @@ else:
 ' "$check" "$account_address")"
 	fi
 	case "$verdict" in
-	pass\ *) echo "pass $check ${verdict#pass }" ;;
+	pass\ *) echo "pass $check owner=$owner url=$url ${verdict#pass }" ;;
 	*)
-		echo "fail $check ${verdict#fail }"
+		echo "fail $check owner=$owner url=$url ${verdict#fail }"
 		failures=$((failures + 1))
 		;;
 	esac
 }
 
 run() {
-	local check="$1" params="$2" body status=0
-	body="$(call "$check" "$params")" || status=$?
-	judge "$check" "$status" "$body"
+	local owner="$1" url="$2" check="$3" params="$4" body status=0
+	body="$(call "$url" "$check" "$params")" || status=$?
+	judge "$check" "$status" "$body" "$owner" "$url"
 }
 
-run eth_chainId '[]'
-run px_resolveAccount "[\"$account_address\"]"
-run px_getNetwork '[]'
-run px_getAccount "[\"$account_address\"]"
+run node "$node_rpc_url" eth_chainId '[]'
+run hosted "$hosted_rpc_url" px_resolveAccount "[\"$account_address\"]"
+run hosted "$hosted_rpc_url" px_getNetwork '[]'
+run hosted "$hosted_rpc_url" px_getAccount "[\"$account_address\"]"
 
 if [ "$failures" -ne 0 ]; then
 	echo "check-live: $failures check(s) failed"

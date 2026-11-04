@@ -1,0 +1,16 @@
+[repair.22.33.60]
+mode = "BUILD"
+acceptance = "22998.1"
+verification = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_60"
+evidence = "The hf-build/hf-done private gate ledger records the exact candidate revision, command, exit and log; no gate was run manually."
+baseline = "No baseline run: the explicit gate order requires complete implementation before building or testing; the repair test file and earlier implementation were absent from this checkout."
+prior_failure = "Attempt 1 was blocked before its own verify by observed_balances_denom.rs; the task's prerequisite 22.31.443 owns that repair."
+wiring = "services/human/crates/layerx-human-service/src/activity/export.rs — Human domain 10: supply independently authenticated audit principal/head to verify_export_anchored wherever audit authenticity, rather than consistency, is required."
+
+[finding.audit-export-authentication-anchor]
+tests = ["audit_export_authentication_anchor_accepts_retained_commitment_after_reopen", "audit_export_authentication_anchor_refuses_replacement_and_valid_prefix", "audit_export_authentication_anchor_keeps_evidence_and_framing_checks"]
+repair = "Compare independently retained principal and head before entry allocation; label unanchored reports consistency-only; verify real store exports including recovery and replacement attacks."
+
+[finding.audit-export-count-allocation]
+tests = ["audit_export_count_allocation_refuses_short_entry_and_evidence_counts", "audit_export_count_allocation_enforces_budgets_even_with_framed_space", "audit_export_count_allocation_refuses_nested_binding_counts"]
+repair = "Bound encoded bytes, entry counts and evidence counts before allocation; check remaining frame space, borrow payloads and fallibly reserve bounded vectors, including decoded evidence bindings."

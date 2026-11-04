@@ -79,33 +79,65 @@ hex with or without `0x` and normalize letter case. The inventory is versioned
 with the service binary; it is not fetched from the node at runtime and signature
 uploads do not modify it.
 
-The [inventory comparison](sig-provider/src/sources/precompiles_abi_test.rs)
-currently compares the embedded signatures with the union of these repository
-ABI files:
+The revisioned [embedded inventory](sig-provider/src/sources/precompiles.json)
+contains an `inventory` manifest alongside the `abi` array. Each manifest entry
+records its `name`, repository `origin` (or Go file and ABI constant), and `status`:
 
-- [addr/abi.json](../../../../precompiles/addr/abi.json)
-- [layerxexchange/abi.json](../../../../precompiles/layerxexchange/abi.json)
-- [layerxbridge/abi.json](../../../../precompiles/layerxbridge/abi.json)
-- [launchpad/abi.json](../../../../precompiles/launchpad/abi.json)
+- `versioned`: ABI files declared by `precompileInfoSources` in the node's
+  [precompile registry](../../../../precompiles/setup.go), including bank, staking,
+  launchpad, perps, pricefeed and spot. The generator checks the
+  `GetCustomPrecompilesE` constructors and the `v6120Contracts` version switch in
+  [node/app.go](../../../../node/app.go).
+- `merge`: ABIs selected by `MergeAddressTable`, including ledger, pay, auth,
+  programs and chains, plus the served ABI constants in
+  [layerxagent](../../../../precompiles/layerxagent). Constructor ABIs include
+  wrapper-added events; cold metadata alone is insufficient.
+- `historical`: the previous exchange ABI, the
+  [launchpad predecessor](../../../../precompiles/launchpad/legacy/v610/abi.json),
+  and the [audit snapshot](sig-provider/src/sources/precompiles_historical.json)
+  retained for decoding older transactions.
 
-This is the shipped signature inventory, including historical signatures. It is
-not a declaration that all these contracts are active, nor a complete inventory
-of the merged node's precompiles. The source matches selectors and topics without
-an address parameter, so a candidate decoding does not establish which contract
-or network produced the data.
+The [generator](sig-provider/src/sources/generate_precompiles.py) derives this
+union from the repository's real producers, keeping overloads and distinct
+indexed event layouts. From this directory, regenerate it with
+`python3 sig-provider/src/sources/generate_precompiles.py`; `--stdout` emits the
+same inventory without writing. The
+[inventory comparison](sig-provider/src/sources/precompiles_abi_test.rs) checks
+the embedded signatures against the declared producer and historical union.
+The Git revision of `precompiles.json`, shipped with the service binary, identifies
+the decoding inventory. A node ABI change requires regeneration and a new service
+binary to update local decoding.
+
+Inventory status describes provenance, not current executability: a versioned
+entry can expose a retired refusal surface. Consult the node's upgrade/version
+selection for active contracts at a given height. The source matches selectors
+and topics without an address parameter, so a candidate decoding does not
+establish which contract or network produced the data.
 
 [Service construction](sig-provider-server/src/run.rs) puts local signatures
-before Openchain and 4byte signatures. The aggregator preserves that priority
-when removing duplicate function signatures. Event decoding tries complete ABIs
-from the bytecode database before signature-only candidates. The local source
-retains signature text, not indexed-argument metadata; signature-only event
-layouts are inferred and can be ambiguous.
+before Openchain and 4byte signatures, and local complete event ABIs before the
+bytecode database. The aggregator preserves priority when removing duplicates.
+The local source retains complete event ABIs, including argument names, order
+and indexed flags. Available complete ABIs determine exact layouts; only events
+without complete ABIs use inferred signature-only layouts, which can be ambiguous.
+Signature uploads do not change the read-only local inventory.
 
-An unknown selector or topic returns no local candidates and allows other sources
-to contribute. A remote source error is logged and omitted by the aggregator;
-it is not returned as a distinct unavailable-source result. Consequently an empty
-candidate list can also result from failed sources or data that does not decode.
-It does not prove that every source was available.
+An **unknown selector or topic** returns no local candidates. In the aggregator's
+coverage report this is `OutsideCoverage`, allowing external directories to
+contribute. A successful lookup can return an empty candidate list for an
+unknown key or data that does not decode; a successful source also allows partial
+results when another source fails. Such a result does not prove every source was
+available. The `*_with_coverage` methods expose `Succeeded`, `Failed` and
+`OutsideCoverage` outcomes per source.
+
+An **unavailable-source outcome** occurs when a capable source fails and no
+capable source succeeds. The aggregator returns typed `LookupUnavailable`
+(`signature lookup unavailable`), rather than converting the failure to an empty
+candidate list. A miss in the finite local inventory does not count as a
+successful directory lookup. The current service maps this lookup error to gRPC
+`INTERNAL` (HTTP 500); the candidate-array API does not expose the internal
+coverage report. A known local signature can still decode while external sources
+are unavailable.
 
 ## API
 
@@ -124,7 +156,7 @@ Function and event HTTP responses are candidate arrays. Malformed hex or a topic
 whose decoded length is not 32 bytes produces gRPC `INVALID_ARGUMENT`. Other
 aggregator errors, including transaction input shorter than four bytes, are
 mapped to gRPC `INTERNAL` by the service handler. Source lookup failures follow
-the logging behavior described above.
+the coverage and unavailable-source behavior described above.
 
 ## In this repository
 

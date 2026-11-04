@@ -1,0 +1,38 @@
+[repair.22.33.302]
+audit = "22.30.135"
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+multichain-short-chart = "multichainShortChartEmptyHistory; multichainShortChartSingleZeroSample; multichainShortChartTwoSamples"
+multichain-market-label = "multichainMarketLabelMatchesNativeFeed; multichainParentFeedSeparatesTenantCaches"
+multichain-parent-feed = "multichainParentFeedSeparatesTenantCaches; multichainParentFeedOmitsUnavailableStatistics; multichainParentFeedReportsFailedFeed; multichainParentFeedRequiresConfiguredIdentity"
+baseline = "Not executed: the explicit gate order forbids running verification before implementation; inspection confirms unchecked chart[-1]/chart[-2], hardcoded Ethereum endpoint/labels and unscoped query keys at the base revision. No baseline test failure is claimed."
+evidence = "The runner records the verified candidate revision, command, exit and private log in its hf-build/hf-done gate ledger; this record does not claim qualification before that gate passes."
+wiring_request_1 = "Domain 14: apps/explorer/ui/multichain/components/NativeTokenIcon.tsx must use useFetchParentChainApi().queryKey and disable queries when .market is absent; the repaired home uses its own stats response for the native icon."
+wiring_request_2 = "Domain 14: apps/explorer/ui/home/indicators/utils/chart.ts must remove its multichain ETH legend special case; the repaired home chart hook overrides its price legend with the configured native currency."
+
+[qualification.first_verify]
+revision = "e5e222d248bc63cb365f5c3bce550f32dfbe2c29"
+command = "cg spec done 22.33.302 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four tests passed; four failed when chart animation called SVG getTotalLength, which jsdom does not implement."
+assumption = "The scoped test geometry adapter measures the actual M/L/Z paths exactly and rejects unsupported commands; the production chart and assertions remain intact."
+
+[continuation.attempt_2]
+base_revision = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+change = "Install getTotalLength and getPointAtLength on the SVG path prototype (SVGElement in jsdom), retaining every rendered-output assertion and the existing geometry checks."
+gotcha = "jsdom omits SVGPathElement as well as its geometry methods; install the scoped browser API support on the actual path prototype before rendering."
+evidence = "The final hf-done ledger row records the verified candidate revision, exact command, exit and private evidence location."
+
+[qualification.attempt_2_build]
+revision = "d20b7d78e54a5875d423a1d485b6b2c8160e2fb5"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unrelated TS2769 at ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:116: query value lacks coverage, partialAllowances, scanIssues and retry; hf-done and the focused tests did not run."
+assumption = "The owning domain must repair the out-of-scope test interface before qualification can proceed; no completed status or verified revision is claimed."
+
+[continuation.attempt_4]
+base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+change = "Preserve the prior implementation and rendered-output assertions; register each named test with a string title and assertions in its body for decision 2528."
+gotcha = "Task 22.31.474 is done on this base; spec lint must run before hf-build and hf-done, whose ledger supplies final qualification evidence."
+spec_lint = "Passed: yarn eslint ui/multichain/home/ChainIndicators.tsx ui/multichain/home/useChartDataQuery.ts ui/multichain/home/useFetchParentChainApi.tsx ui/multichain/home/repair-22-33-302.spec.ts --fix; exit 0; private log /out/logs/eslint-22-33-302.log."
