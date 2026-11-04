@@ -1,0 +1,7 @@
+[repair.22.31.104]
+finding = "receipt-single-entry-recovery"
+tests = ["TestRepair_104_ZeroWALEntries", "TestRepair_104_SingleUnappliedEntry", "TestRepair_104_MultipleUnappliedEntries", "TestRepair_104_SingleUnappliedTail", "TestRepair_104_MultipleUnappliedTail", "TestRepair_104_FullyAppliedTail", "TestRepair_104_StoreAheadOfWAL", "TestRepair_104_PrunedWALSingleton"]
+proof = "Real SetReceipts producer writes its serialized receipt changes to its WAL; after both stores stop, only that WAL is transferred to the consumer, which reopens twice and checks the recovered watermark and complete receipts."
+baseline = "Not run: the task's explicit gate order requires complete implementation before the first build and hf-done; no pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location."

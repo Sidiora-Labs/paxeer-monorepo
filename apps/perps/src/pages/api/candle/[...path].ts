@@ -227,6 +227,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       signal: abort.signal,
     });
 
+    if (method === "HEAD") {
+      // Forward representation metadata without decoding a body that HEAD omits.
+      const hopByHopHeaders = new Set([
+        "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+        "te", "trailer", "transfer-encoding", "upgrade",
+        ...(upstreamRes.headers.get("connection") || "").split(",").map(header => header.trim().toLowerCase()),
+      ]);
+      upstreamRes.headers.forEach((value, header) => {
+        if (!hopByHopHeaders.has(header)) res.setHeader(header, value);
+      });
+      return res.status(upstreamRes.status).end();
+    }
+
     const contentType = upstreamRes.headers.get("content-type") || "";
     res.setHeader("Cache-Control", "public, s-maxage=2, stale-while-revalidate=5");
 

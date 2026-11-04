@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"math/big"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -56,7 +55,7 @@ func usdOperand(usd sdk.Int) (*big.Int, error) {
 		return nil, invalid("USD amount %s is negative", amount)
 	}
 	if amount.BitLen() > maxUint256Bits {
-		return nil, fmt.Errorf("%w: USD amount %s above 2^256-1", ErrOverflow, amount)
+		return nil, ErrOverflow.Wrapf("USD amount %s above 2^256-1", amount)
 	}
 	return amount, nil
 }
@@ -103,7 +102,7 @@ func mulDivUnsigned(a, b, denominator sdk.Int, up bool) (sdk.Int, error) {
 		return sdk.Int{}, err
 	}
 	if out.BitLen() > maxUint256Bits {
-		return sdk.Int{}, fmt.Errorf("%w: result %s above 2^256-1", ErrOverflow, out)
+		return sdk.Int{}, ErrOverflow.Wrapf("result %s above 2^256-1", out)
 	}
 	return sdk.NewIntFromBigInt(out), nil
 }
@@ -122,7 +121,7 @@ func mulDivSigned(a, b, denominator sdk.Int, up bool) (sdk.Int, error) {
 		return sdk.Int{}, err
 	}
 	if out.Cmp(minInt256) < 0 || out.Cmp(maxInt256) > 0 {
-		return sdk.Int{}, fmt.Errorf("%w: result %s outside the int256 range", ErrOverflow, out)
+		return sdk.Int{}, ErrOverflow.Wrapf("result %s outside the int256 range", out)
 	}
 	return sdk.NewIntFromBigInt(out), nil
 }
@@ -155,7 +154,7 @@ func unsignedOperand(value sdk.Int) (*big.Int, error) {
 		return nil, invalid("operand %s is negative", operand)
 	}
 	if operand.BitLen() > maxUint256Bits {
-		return nil, fmt.Errorf("%w: operand %s above 2^256-1", ErrOverflow, operand)
+		return nil, ErrOverflow.Wrapf("operand %s above 2^256-1", operand)
 	}
 	return operand, nil
 }
@@ -166,7 +165,7 @@ func signedOperand(value sdk.Int) (*big.Int, error) {
 	}
 	operand := value.BigInt()
 	if operand.Cmp(minInt256) < 0 || operand.Cmp(maxInt256) > 0 {
-		return nil, fmt.Errorf("%w: operand %s outside the int256 range", ErrOverflow, operand)
+		return nil, ErrOverflow.Wrapf("operand %s outside the int256 range", operand)
 	}
 	return operand, nil
 }
