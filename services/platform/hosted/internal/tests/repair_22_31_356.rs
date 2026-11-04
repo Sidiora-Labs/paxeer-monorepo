@@ -4,12 +4,16 @@ extern crate self as layerx_platform_identity;
 pub mod mailer;
 #[path = "../../registry/src/event_producer.rs"]
 mod registry_producer;
+#[path = "../../identity/src/seal.rs"]
+pub mod seal;
 #[path = "../../identity/src/signup.rs"]
 pub mod signup;
 #[path = "../../identity/src/store.rs"]
 pub mod store;
 #[path = "../src/producer_test_support.rs"]
 mod transport;
+#[path = "../../identity/src/verification.rs"]
+pub mod verification;
 
 use layerx_platform_internal::{
     events::{enrollment_snapshot_mac, Kind, ProducerCredential, Record, Service},

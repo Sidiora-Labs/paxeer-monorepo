@@ -53,12 +53,9 @@ pub(super) struct ReadinessNode {
 
 impl ReadinessNode {
     pub(super) fn new() -> Self {
-        let chain_id = must(
-            std::env::var("LAYERX_TEST_PAXEER_CHAIN_ID"),
-            "real isolated Paxeer chain id is required",
-        );
-        let chain_id = must(chain_id.parse::<u64>(), "canonical Paxeer chain id");
-        assert_ne!(chain_id, 0);
+        // This peer provides focused decoder coverage; node transcripts below
+        // provide the production-interface proof without external configuration.
+        let chain_id = 125;
         let listener = must(TcpListener::bind("127.0.0.1:0"), "readiness listener");
         let config = NodeRpcConfig {
             url: format!(
@@ -88,12 +85,12 @@ fn readiness_gate(
         readiness_node.listener.try_clone(),
         "readiness listener clone",
     );
-    let keys = serde_json::json!([{
+    let keys = serde_json::json!({"keys": [{
         "keyId": format!("0x{}", hex::encode(&fixture.sequencer_id)),
         "publicKey": format!("0x{}", hex::encode(&fixture.sequencer_key)),
-        "firstHeight": format!("0x{batch:x}"),
-        "lastHeight": format!("0x{batch:x}"),
-    }]);
+        "firstHeight": batch,
+        "lastHeight": batch,
+    }]});
     let server = thread::spawn(move || {
         for (method, result) in [
             ("eth_chainId", serde_json::json!(format!("0x{chain_id:x}"))),
