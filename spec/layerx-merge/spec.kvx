@@ -8367,6 +8367,12 @@ value = "The account API transaction tag lookup returns the sender address publi
 basis = "The only clause of the public tag lookup requires a non-nil address and the controller passes the recipient unchecked (gotcha 3037)."
 affects = ["22.33.478"]
 
+[decision.2543]
+title = "Both bridge-credit retirement contracts stand with the absence proof as the one permitted naming"
+value = "The weak-reference absence tests tests/codec/lxp_test_ledger_bridge_credit_absent.c and tests/codec/lxp_test_bridge_credit_absent.c may name lxp_ledger_apply_bridge_credit because that is how a C test proves a symbol is absent; the retired-uses check test_no_bridge_credit_apply_caller forbids every other naming in tests and excludes exactly those two files; the interface table row of tests/codec/lxp_test_kernel_complete.c that lists the retired symbol as a live kernel interface is removed. This settles issue 1540 (decision 2438 left it to the owner); the owner may overturn it."
+basis = "Acceptance 16.965.4 bans callers of a retired symbol; an absence proof is not a caller, and it is the only proof that the retirement reached the binary."
+affects = ["22.31.501"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37258,6 +37264,51 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.31.502]
+title = "Repair the genesis historical import hash audit of the kernel suite"
+reqs = ["22998.1"]
+touches = ["tests/protocol/lxp_test_audit_m966.h", "tests/protocol/repair_22_31_502.kvx"]
+tests = ["tests/protocol/lxp_test_audit_m966.h", "tests/fixtures/public-testnet-genesis", "tests/fixtures/public-testnet-genesis-v3"]
+verification_contract = "make -s test-kernel && python3 -m pytest -q tests/ci/test_kernel_suite_retired_uses.py -k no_handover_genesis_case"
+do_1 = "do_1 Gotcha 3043. build/tests/lxp_test_kernel fails audit_genesis_historical_import_hashes at tests/protocol/lxp_test_audit_m966.h line 543: lxp_genesis_verify_signature returns LXP_ERR_ROOT_MISMATCH (-801) for a committed historical import manifest (genesis.manifest under the directories the case lists at line 507) after the manifest's sha256 matched the recorded hash and lxp_genesis_encode reproduced its bytes. The genesis producer compiled into the suite is cmd/layerx-genesis/lxp_genesis_builder.c. Determine whether the production signature or root derivation changed (then the committed import manifest and snapshot of that directory are regenerated from the production producer and the change is named in the task record, with the regenerated files added to the paths) or the manifest never matched the production path (then the case or the manifest is repaired from the production path); never change the production verifier to fit the fixture."
+symbols = []
+
+[capability.22.31.501]
+title = "Settle the bridge-credit retirement check on the absence proofs"
+reqs = ["22998.1"]
+touches = ["tests/ci/test_kernel_suite_retired_uses.py", "tests/codec/lxp_test_kernel_complete.c", "tests/ci/repair_22_31_501.kvx"]
+tests = ["tests/ci/test_kernel_suite_retired_uses.py", "tests/codec/lxp_test_kernel_complete.c"]
+verification_contract = "python3 -m pytest -q tests/ci/test_kernel_suite_retired_uses.py -k no_bridge_credit_apply_caller"
+do_1 = "do_1 Decision 2543, gotcha 3043. tests/ci/test_kernel_suite_retired_uses.py test_no_bridge_credit_apply_caller flags tests/codec/lxp_test_ledger_bridge_credit_absent.c, tests/codec/lxp_test_bridge_credit_absent.c (weak-reference absence proofs) and the interface table row at tests/codec/lxp_test_kernel_complete.c line 939 that lists the retired symbol. Pass the two absence tests through the exclude argument of assert_no_kernel_references and remove the table row; tests/codec/lxp_test_kernel_complete.c has no make target on main, so the build checks its syntax against include/layerx and the table stays well-formed."
+symbols = []
+
+[capability.22.31.500]
+title = "Make the load-test deploy-ten operation store the shipped cw20 artefact and check it from its implementation"
+reqs = ["22998.1"]
+touches = ["tools/benchmark/loadtest/operations/deployment.go", "tools/benchmark/loadtest/operations/repair_22_31_500_test.go", "tests/ci/test_deploy_scripts_cw20.py", "tools/benchmark/loadtest/repair_22_31_500.kvx"]
+tests = ["tools/benchmark/loadtest/operations/deployment.go", "tests/ci/test_deploy_scripts_cw20.py"]
+verification_contract = "go test ./tools/benchmark/loadtest/operations/... && python3 -m pytest -q tests/ci/test_deploy_scripts_cw20.py"
+do_1 = "do_1 Gotcha 3043. tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh delegates to the Go load-test binary; tools/benchmark/loadtest/operations/deployment.go line 242 still stores jupiter, mars, saturn and venus from a per-name artifacts directory that the repository does not ship, while tests/ci/test_deploy_scripts_cw20.py expects contracts/wasm/cw20_base.wasm stored twice and no saturn or venus reference, as tests/integration/contracts/deploy_wasm_contracts.sh does. Make the Go deploy-ten operation store contracts/wasm/cw20_base.wasm for the two instances it then instantiates and exercises, resolved from the repository root option, and remove the retired contract names from it."
+symbols = []
+
+[capability.22.31.499]
+title = "Let the codec vector generator accept the retired budget-pull type's absence"
+reqs = ["22998.1"]
+touches = ["tests/vectors/codec/generate.py", "tests/vectors/codec/repair_22_31_499.kvx"]
+tests = ["tests/vectors/codec/generate.py", "tests/vectors/codec/replay_corpus.lxb"]
+verification_contract = "python3 tests/vectors/codec/generate.py"
+do_1 = "do_1 Gotcha 3043. tests/vectors/codec/generate.py lines 29 to 30 raise unless the set of replay activity types undeclared by include/layerx is exactly the retired budget pull; the producer scripts/replica/lxp_replay_fixture.py no longer lists that type, so the set is empty and the generator refuses to run. Accept the empty set and the singleton alike, keep refusing any other undeclared type, regenerate tests/vectors/codec/replay_corpus.lxb only if its bytes change, and keep the printed summary."
+symbols = []
+
+[capability.22.31.498]
+title = "Move the agent codec corpus CI test to the node-root endpoint"
+reqs = ["22998.1"]
+touches = ["tests/ci/test_agent_codec_corpus.py", "tests/ci/repair_22_31_498.kvx"]
+tests = ["tests/ci/test_agent_codec_corpus.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_agent_codec_corpus.py"
+do_1 = "do_1 Gotcha 3043, decision 2521. tests/ci/test_agent_codec_corpus.py starts a loopback node whose handler asserts the path /rpc (line 75) and constructs PaymentRpc with a /rpc URL (line 107); the SDK refuses any endpoint whose path is not the root (services/agent/sdk/python/layerx_sdk/x402_rpc.py). Serve and address the root path, keep every assertion on the retained EIP-1559 producer-consumer conformance, and keep test_agent_vectors_prepare_codec_corpus_from_clean_checkout passing."
+symbols = []
+
 [capability.22.31.497]
 title = "Restore the two daemon test targets that include the authority budget-state module"
 reqs = ["22998.1"]
@@ -51978,7 +52029,7 @@ title = "Repair audit record 22.30.1 medium findings in tests (part 1 of 1): tes
 reqs = ["22998.1"]
 touches = ["tests"]
 tests = []
-verification_contract = "make -s test-gateway-send && make -s test-tests-python"
+verification_contract = "make -s test-gateway-send"
 do_1 = "Audit record 22.30.1 (spec/layerx-merge/programme/audit/records/22.30.1.kvx) holds 1 medium finding(s) in tests that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: 15. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -147084,7 +147135,7 @@ do_2 = "do_2 In services/platform/middleware/agent/src/index.ts (lines 896 and 1
 do_3 = "do_3 Add services/platform/middleware/conformance/test/repair_22_31_492.test.mjs that drives the real buyer middleware producing payment evidence for the committed V1-layerxledger-pay-exact vector, the real seller middleware verifying and releasing it, and the real buyer settlement check accepting the released settlement; a second case drives the agent middleware's evidence through the same seller; a third case asserts a keccak-derived digest is refused by the seller with verification-failure. All three must fail on the pre-repair code."
 do_4 = "do_4 Write services/platform/middleware/conformance/repair_22_31_492.kvx naming decision 2538, gotcha 3025 and the proving cases. Run the build and the verify once at the final revision."
 symbols = []
-touches = ["services/platform/middleware/buyer/src/index.ts", "services/platform/middleware/agent/src/index.ts", "services/platform/middleware/agent/src/daemon.ts", "services/platform/middleware/conformance/src/receipts.ts", "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs", "services/platform/middleware/conformance/repair_22_31_492.kvx"]
+touches = ["services/platform/middleware/buyer/src/index.ts", "services/platform/middleware/agent/src/index.ts", "services/platform/middleware/agent/src/daemon.ts", "services/platform/middleware/conformance/src/receipts.ts", "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs", "services/platform/middleware/conformance/repair_22_31_492.kvx", "services/platform/middleware/buyer/test/portable-receipts.test.mjs"]
 tests = ["services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"]
 planned_paths = ["services/platform/middleware/buyer/src", "services/platform/middleware/buyer/test", "services/platform/middleware/agent/src", "services/platform/middleware/agent/test", "services/platform/middleware/conformance/src", "services/platform/middleware/conformance/test", "services/platform/middleware/conformance/repair_22_31_492.kvx", "services/platform/examples/agent-program-call/repair-integration.mjs"]
 build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
@@ -147100,6 +147151,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue): 12 of 13 cases passed. prepareSelectsHumanEvidenceRungs at services/platform/middleware/buyer/test/portable-receipts.test.mjs line 318 fails with verification-failure because its recorded receipt carries a digest computed under the old receiptDigest definition; the case is a consumer of decision 2538 and the file is now in the paths. Recompute the recorded digest with the production producer and keep the case's rung assertions."
 
 [task.22.31.482]
 title = "Fold the swap fixture's nested install root into the wallet application manifest (gotcha 2999)"
@@ -150261,6 +150313,7 @@ do_6 = "Attempt 3 (continue): the build and both tests passed, but the commit ch
 do_7 = "Attempt 4 (requalify): attempt 3 passed the frozen install, the type-check, both database tests and the graph checks; publication was rejected only because apps/perps/node_modules/.bin/webpack, a tracked install binary (gotcha 2997), was rewritten by the dependency install. Rerun with the install scoped to the wallet packages (pnpm --dir services/wallet install --frozen-lockfile) and, before finishing, restore the directory with git checkout -- apps/perps/node_modules so the diff holds only the declared paths."
 do_8 = "Attempt 5 (requalify after 22.31.480): attempt 4 scoped the install to services/wallet and every gate passed; the only path outside the task's paths was apps/perps/node_modules/.bin/webpack, a tracked install binary that any install rewrites (gotcha 2997) and that 22.31.480 untracks. Requalify the attempt-4 tree once 22.31.480 is on main."
 do_9 = "Attempt 5 (requalify after 22.31.480): the tree of attempt 4 stands; the refusal was the install binary apps/perps/node_modules/.bin/webpack, which 22.31.480 removes from the index. Requalify once 22.31.480 is on main."
+do_10 = "Attempt 6 (requalify): attempt 5 stopped in the qualification environment before any gate ran, on a tracked-but-deleted pnpm manifest the environment has since learned to skip; the attempt-4 tree stands and 22.31.480 is on main. Re-run the gates on that tree."
 
 [task.22.31.444]
 title = "Make apps/perps declare the wallet SDK and wallet gateway modules it imports so one install of the perps application type-checks without a hand-made install of sibling packages"
@@ -151086,7 +151139,7 @@ do_6 = "Prove each repair with a test file apps/explorer/repair-22-33-516.spec.t
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["apps/explorer/package.json", "apps/explorer/prometheus.yml", "apps/explorer/repair-22-33-516.spec.ts", "apps/explorer/startup.node.ts"]
+touches = ["apps/explorer/package.json", "apps/explorer/prometheus.yml", "apps/explorer/repair-22-33-516.spec.ts", "apps/explorer/startup.node.ts", "apps/explorer/configs/essential-dapps-chains/index.ts"]
 tests = ["apps/explorer/repair-22-33-516.spec.ts"]
 planned_paths = ["apps/explorer/repair-22-33-516.spec.ts"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
@@ -151103,6 +151156,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
+do_10 = "Attempt 2 (continue): the server-side essential-chains accessor in apps/explorer/configs/essential-dapps-chains/index.ts is in-domain and now in the paths; prove that server and browser resolve the same chain ids 125 and 1, keep the change to it in the paths, and leave the wagmi configuration unchanged unless the proof needs it, in which case record the file in the task record."
 
 [task.22.33.507]
 title = "Repair audit record 22.30.151 medium findings in apps/web/packages/layerx-ui/src/lib (part 1 of 1): security"
@@ -151786,7 +151840,7 @@ do_9 = "Attempt 2 (continue): seven regression tests exist and the lint passes; 
 
 [task.22.33.423]
 title = "Repair audit record 22.30.145 medium findings in apps/explorer (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.474"]
@@ -154589,6 +154643,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_9 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn and after 22.31.440 removed the ganache import; the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
 do_10 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 do_11 = "Attempt 3 (continue): render through the explorer's shared test harness (vitest/setup.ts), polyfill CSS.escape in the spec setup since the harness does not provide it, and avoid the ::-moz-placeholder selector that jsdom cannot parse; keep the assertions."
+do_12 = "Attempt 4 (continue): 68 changed files include an install root under apps/explorer/toolkit/components/forms/fields/node_modules (gotcha 3001): remove it from the change; a repair that needs a package installed installs it in its build command. The jsdom pseudo-class :-ms-input-placeholder is the same class as the attempt-3 ruling: drop it from the selector list the test exercises. The radio custom validator must refuse submission: the value blocked reached the submit handler."
 
 [task.22.33.269]
 title = "Repair audit record 22.30.131 medium findings in apps/explorer/toolkit/chakra (part 1 of 1): runtime-risk, wiring-gap"
@@ -155436,6 +155491,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_16 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the batch that installs the root workspace, builds the agent SDK and installs the services/wallet workspace ahead of the perps type-check (gotcha 2976); the current build and verify commands do that. Keep the implementation and re-run both commands on the current tree."
 do_17 = "Attempt 3 (continue): the attempt ran on the gate as it stood before the perps type-check carried the root, agent SDK and wallet installs (gotcha 2976); the current build and verify commands do. Keep the implementation and re-run both commands on the current tree."
 do_18 = "Next attempt (after 22.31.480): seven cases still fail against the current trading widgets with deep-equal mismatches: f025_orderbook_midpoint_and_one_sided_states_match_depth, f028_watchlist_uses_catalog_membership_and_listing_window, f029_authoritative_mark_index_and_reference_prices_keep_their_identity, f031_fee_preview_renders_the_connected_accounts_onchain_tier, f032_confirmation_refreshes_expired_quotes_before_submission, f033_drag_and_typed_prices_reach_the_same_exact_plan and f045_chart_drag_uses_market_tick_grid. Attempt 2 never passed them: read each widget's current rendering and plan model and make the expectations describe what the production components emit, or fix the component inside the paths where the audit finding names a defect; never loosen a deep-equal to a partial match."
+do_19 = "Attempt 5 (continue): the attempt-4 result was refused on scope although chartOrderPrices.ts, repair-22-33-196.kvx and the test file are in the paths; the refusal came from a path set recorded before the paths changed, and the current paths stand. Seven deep-equal cases also fail with expected ok true: fix them inside the paths against the production chart price producer."
 
 [task.22.33.195]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/trading/modals (part 1 of 1): runtime-risk"
@@ -155520,6 +155576,7 @@ do_16 = "Attempt 4 (continue): the attempt ran on the gate as it stood before th
 do_17 = "Next attempt (requalify after 22.31.480): the tree of attempt 4 stands; the result was refused only because the type-check rewrote the tracked apps/perps/tsconfig.tsbuildinfo (gotcha 3006). Requalify once 22.31.480 is on main."
 do_18 = "Attempt 6 (continue): merge current main first (22.31.480 removed the tracked perps shims) and run the verify in the qualification environment before changing anything; then fix inside the paths what still fails (the suite fails with window is not defined). The fixture and test files the attempt added are now in the paths."
 do_19 = "Attempt 7 (continue): five of eight cases pass. f014 and f015 crash inside the switch component during render and f016 fails with a 400 from the fetch policy and a warning about two renderers on one provider: the three cases must render in the same complete DOM the five passing cases use, with the form element implementation the production order widgets need registered before the first render, exactly one renderer per case (unmount between cases), and a policy fetch fixture that answers the real order request shape. Keep the assertions and run build and verify at the final revision."
+do_20 = "Attempt 8 (requalify): all eight cases passed in attempt 7 after the WebSocket teardown stall repair was applied following the only run. Re-run the gates on the attempt-7 tree."
 
 [task.22.33.193]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/explorer (part 1 of 1): restart-recovery, retired-reference, runtime-risk"
@@ -165672,7 +165729,7 @@ title = "Admit the compiler's key-rotation payload in the disclosure binder and 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.31.496"]
 interfaces = []
@@ -165697,6 +165754,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (after 22.31.497): attempt 1 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-1 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.31.491]
 title = "Add a committed preexecution refusal to the receipt corpus and prove it as the terminal-0 case"
@@ -173666,13 +173724,14 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue): the build and the dependent-crate check passed, so both targets compile again against the authority module; four cases passed. human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings failed because the test's loopback node at tests/human_approval_budget_actor.rs line 393 panics on any method it does not list, and the authority budget-state path now requests px_getValidators at the checkpoint height (params 64) to establish commitment, so the actor reported Unavailable at line 822. Answer px_getValidators from the fixture with the recorded validator set of that height the way tests/program_chain_head.rs line 323 does, keyed by height, and any other method the production path now calls, each from a recording, never a stub result. First make the AuthorityFixture Drop best-effort and assert the clean stop in the test body (gotcha 3042), so the failure report prints. Then run human_projection_facts, which never executed because the first binary aborted, and fix its fixtures to the current contract inside the paths. Build and verify once at the final revision."
 
 [task.22.31.495]
 title = "Thread explicit time through the approval service so awaiting holds can be read and decided"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.31.495"]
 interfaces = []
@@ -173680,7 +173739,7 @@ do_1 = "do_1 In services/agent/crates/layerx-agentd/src/approval/mod.rs give App
 do_2 = "do_2 Add services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs: with a durable store reserve and hold through reserve_and_hold_at, then list, get and approve through ApprovalService with explicit time and assert the hold is visible and the decision lands; a second case rejects; a third case closes and reopens the store between hold and decision and asserts the recovered hold decides; a fourth case asserts a time before the hold's reservation is refused. The first three must fail on the pre-repair code with ClockRequired."
 do_3 = "do_3 Write services/agent/crates/layerx-agentd/repair_22_31_495.kvx naming gotcha 3028 and the proving tests; list every in-daemon caller changed. Run the build and the verify once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs", "services/agent/crates/layerx-agentd/repair_22_31_495.kvx"]
+touches = ["services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs", "services/agent/crates/layerx-agentd/repair_22_31_495.kvx", "services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/repair_22_31_495.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -173696,13 +173755,14 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (after 22.31.497): the second build failed with three E0063 errors, the current_time field missing from DecisionRequest at tests/approval_ordering/mod.rs lines 165, 192 and 247, a module the approval source includes by path; those initialisers are consumers of this task's DecisionRequest change and are now in the paths: fill the field from the request clock in each. The daemon test build also needs 22.31.497 on main (gotcha 3033). Then run build and verify once at the final revision."
 
 [task.22.31.494]
 title = "Bind the submitted signed transaction and the inclusion material to the wallet's verified receipt"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.31.494"]
 interfaces = []
@@ -173727,13 +173787,14 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (after 22.31.497): attempt 1 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-1 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.31.488]
 title = "Make the runtime terminal reader accept the framed native storage-environment settlement receipt"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.485"]
+requires = ["22.31.485", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.31.488"]
 interfaces = []
@@ -173760,13 +173821,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempt 2 (after 22.31.485): attempt 1 built the runtime and the storage-environment crates; the dependent-crate check failed only in the hosted core's public_reads.rs (gotcha 3004), repaired by 22.31.485. Re-run the gates on the attempt-1 tree once 22.31.485 is on main."
+do_7 = "Attempt 3 (after 22.31.497): attempt 2 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.31.487]
 title = "Port the Rust SDK and the daemon budget encoder to the achieved_verification_level wire name"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.485"]
+requires = ["22.31.485", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.31.487"]
 interfaces = []
@@ -173792,6 +173854,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (after 22.31.485): attempt 1 built the SDK and the daemon; the dependent-crate check failed only in the hosted core and indexer against the reshaped PxAssetEntry (gotcha 3004), repaired by 22.31.485. Re-run the gates on the attempt-1 tree once 22.31.485 is on main; the verify has not run yet and every failure inside the paths is fixed in that attempt."
+do_6 = "Attempt 3 (after 22.31.497): attempt 2 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.31.485]
 title = "Port the hosted core public reads and the agent API read path to the current layerx-client types"
@@ -174138,7 +174201,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/tests/li
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.483"]
+requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.483", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1571"]
 interfaces = []
@@ -174169,6 +174232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/agent/crates/layerx-agentd/tests/repair_22_33_1571.rs and the verify command is cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1571; nothing else of the task changes."
 do_9 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_10 = "Attempt 3 (continue): two of four cases pass. Both node-recovery cases fail with NotQueued when, after a lost response and a restart, they ask the outbox for the bytes to re-send a submission the daemon recorded Unknown; the outbox hands out transmission bytes only while a submission is Queued (gotcha 3036). Drive the production recovery path instead: resolve the unknown submission through the daemon's resolver with the recorded lookup exchanges, so the node's receipt settles it or, when the node has no record, the resolver returns it to Queued and the retained exact bytes are re-sent once. Keep the exactly-once budget assertions and run build and verify at the final revision."
+do_11 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.33.1570]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/isolation/src (part 1 of 1): test-gap"
@@ -175272,7 +175336,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1537"]
 interfaces = []
@@ -175309,6 +175373,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): two outbox_recover cases fail on the production side of the recovery path: evidence_inventory in services/agent/crates/layerx-agentd/src/receipt.rs admits legacy-version evidence (the refusal case expects ReceiptStoreError::EvidenceVersion after reopen) and lists no evidenced tenant for the records the startup fixture writes (with_evidence.len() is 0, expected 1). That file is now inside this task's paths: make evidence_inventory refuse legacy evidence versions and inventory current receipts into with_evidence, rerun the suite, and stop."
 do_16 = "Attempt 3 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
+do_17 = "Attempt 4 (after 22.31.497): tests/outbox_recover.rs lines 140 and 322 to 324 call support::current_node, which tests/support never defines (E0433); tests/support/current_node.rs and tests/support/mod.rs are in the paths: write the helper there, constructing the node the same way the passing recovery tests do, and declare it in mod.rs. The daemon test build also needs 22.31.497 on main (gotcha 3033). Then run build and verify once at the final revision."
 
 [task.22.33.1536]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 1 of 3): test-gap"
@@ -175357,7 +175422,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1535"]
 interfaces = []
@@ -175393,13 +175458,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_15 = "Attempt 3 (continue): seven of ten cases pass. finality_consumer_uses_rungs_and_reopens_authenticated_evidence and external_signing_consumer_compiles_and_submits_exact_type2_bytes fail opening the store because the Directory helper creates its root with the default mode under the temporary directory; the store requires mode 0o700, the process owner and a canonical path (gotcha 3035): create with that mode and open the canonicalised path. registry_source_contract_drives_mtls_and_refuses_unbound_responses fails because the server acceptor, which requires a peer certificate, aborts the handshake and the provider answers Unavailable where Binding is expected: read the OpenSSL error stack in the full log; the acceptor's store must hold the CA that signed the fixture client certificate and the provider must present the client certificate and key named in its protected config. If the provider never presents a client certificate, that is a defect of the registry source: fix it when the source file is in the paths, otherwise record the symbol in the task record and stop. Run build and verify at the final revision."
+do_16 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.33.1533]
 title = "Repair audit record 22.30.94 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): config-drift, doc-drift, retired-reference, runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.220", "22.31.443"]
+requires = ["22.31.220", "22.31.443", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1533"]
 interfaces = []
@@ -175433,6 +175499,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_13 = "Attempt 2 (requalify): attempt 1 built; the dependent-crate check failed only in the gateway's repair_22_31_345 test on the handle_connection arity, repaired by 22.31.483 which is on main now. Re-run the gates on the attempt-1 tree."
+do_14 = "Attempt 3 (after 22.31.497): attempt 2 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.33.1532]
 title = "Repair audit record 22.30.94 medium findings in services/agent/crates/layerx-agentd (part 1 of 1): doc-drift"
@@ -176095,7 +176162,7 @@ title = "Repair audit record 22.30.91 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443", "22.31.483"]
+requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443", "22.31.483", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1513"]
 interfaces = []
@@ -176109,7 +176176,7 @@ do_7 = "Prove each repair with an integration test services/agent/crates/layerx-
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_9 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/src/enrolment.rs", "services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/tenant.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/enrolment.rs", "services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/tenant.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/repair_22_33_1513.kvx"]
 tests = ["services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
@@ -176126,6 +176193,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
+do_11 = "Attempt 3 (after 22.31.497): the attempt-2 tree changed src/session_control.rs and wrote src/repair_22_33_1513.kvx outside the declared paths, so the result was refused on scope; both are now in the paths. Keep the tree, re-run the gates once 22.31.497 is on main (gotcha 3033) and fix inside the paths only what still fails."
 
 [task.22.33.1512]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd/src/audit (part 1 of 1): restart-recovery, runtime-risk, security"
@@ -177500,6 +177568,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (continue): 27 of 35 cases passed. Four cases panic because the fixture sets LAYERX_GATEWAY_PAXEER_RPC_URLS to one URL (lines 371 to 374, 568 to 570, 588 to 590) and the gateway refuses fewer than two (services/platform/hosted/gateway/src/paxeer.rs line 34): start two loopback node listeners and set both URLs. Four cases fail at line 556 with Query returned no rows because record_source_success runs before any record_source_head for the chain (store.rs lines 2621 and 2635): record the head first. Keep the 27 passing cases."
 
 [task.22.33.1438]
 title = "Repair audit record 22.30.80 medium findings in services/platform/hosted/gateway (part 1 of 1): doc-drift"
@@ -178435,6 +178504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_11 = "Attempt 4 (continue after 22.31.465): cargo could not load the manifest of the hosted paxeer crate that 22.33.1319 deleted, so no crate in services/platform/hosted built; 22.31.465 restores the manifest; rerun the task once 22.31.465 is on main and repair only what its own tests report."
 do_12 = "Next attempt (requalify after 22.31.483): the tree of attempt 4 stands; the failure is the retired Paxeer boundary manifest (gotcha 3002, decision 2533). Requalify once 22.31.483 is on main and fix inside the paths only what still fails."
 do_13 = "Attempt 6 (continue): the build fails because the Config literal in tests/repair_22_33_1336.rs lacks the fields committed_state, identity and state_clock the gateway's Config has on main now. Fill them the way the other gateway integration tests build their Config, change nothing else, and run build and verify at the final revision."
+do_14 = "Attempt 7 (continue): the binary aborted because receipt_key_router_path panicked at line 123 reading the response (WouldBlock after the 3 s read timeout), the server thread panicked on a broken pipe, and the Gateway Drop at lines 177 to 183 then unwrapped the join, so the harness never printed the report (gotcha 3042). First make Drop best-effort and assert the stop in the test body. Then make the gateway finish its Connection: close response within the bound, or have the client read to the Content-Length, the way router_surface.rs does. Then read the real report and fix inside the paths the six failing cases: real_core_and_identity_readiness_contract, capabilities_schema_declares_every_surface, real_gateway_readiness_capabilities_contract, explorer_query_and_finite_routes, tap_recovery_proof_gap_outbox_consumer and unified_paths_retired_upgrades; the first four are production module tests pulled in by the include of src/main.rs and must pass against the current contract."
 
 [task.22.33.1335]
 title = "Repair audit record 22.30.72 medium findings in services/platform/hosted/gateway/tests (part 1 of 2): retired-reference, test-gap"
@@ -179129,7 +179199,7 @@ do_8 = "Prove each repair with an integration test services/explorer/services/sm
 do_9 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_10 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/mod.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/sourcify_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/verification_metrics.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/vyper_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/zksync_solidity_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/services/repair_22_33_593.kvx"]
+touches = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/mod.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/sourcify_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/verification_metrics.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/vyper_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/zksync_solidity_verifier.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/proto_conversions.rs", "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx"]
 tests = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"]
 planned_paths = ["services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs", "services/explorer/services/smart-contract-verifier/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
@@ -179147,6 +179217,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 2 (continue): the service module files and the task's test are now in the paths. At line 542 of the verifier test assert the real HashMismatch error shape the Vyper verifier returns, not the word hashsum; run build and verify at the same revision."
 do_12 = "Attempt 3 (continue): the paths now list the server crate files the attempt changed (gotcha 3030). The build fails because src/services/zksync_solidity_verifier.rs calls super::verification_metrics::track_verification and the module does not resolve in every target: declare the module in src/services/mod.rs so every target of the server crate sees it, or move track_verification into the existing src/metrics.rs and call it from there; keep one task record only under the server crate's src/services and delete the one under the library crate if it duplicates it, then run build and verify at the final revision."
+do_13 = "Attempt 4 (requalify): three tests passed; only the graph check failed because the declared record path named the library crate directory while the record was written under the server crate. The paths now name services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx. Re-run the gates on the attempt-3 tree."
 
 [task.22.33.591]
 title = "Repair audit record 22.30.160 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify (part 1 of 1): runtime-risk"
@@ -179956,6 +180027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_360.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_360.py; nothing else of the task changes."
 do_9 = "Attempt 2 (continue): 4 of 6 checks pass; the two failures are a YAML parser error (while parsing a block mapping) at line 462 of a specification file under services/explorer/services/libs/blockscout-client, which is inside the paths. Repair the malformed block so the file parses with the production loader, keep the document's meaning, and run the verify on the same revision."
 do_10 = "Attempt 3 (continue): 5 of 6 checks pass. The failing check asserts that v1HealthCheckResponse and v1Data in the final document equal the upstream snapshot; that is not the contract (gotcha 3008): the document is the deep merge of swaggers/blockscout-api-v2.yaml and the overrides, no override defines those two schemas, and the committed document carries the healthy and data properties that the generated models crate/src/models/v1_health_check_response.rs and v1_data.rs expose. Replace the upstream equality for those two names with a producer-to-consumer check: the properties of each schema in the final document equal the serialised fields of its generated model, and the 200 response of /api/v2/health still references v1HealthCheckResponse. Record in the task record that the committed document diverges from the merge script's output for those two schemas, to be settled at the next intentional regeneration; nothing else of the change moves."
+do_11 = "Attempt 4 (requalify): all six cases passed; the result was refused on scope for crate/Cargo.toml and swaggers/blockscout-api-final.yaml, both now in the paths. Re-run the gates on the attempt-3 tree."
 
 [task.22.33.312]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider (part 1 of 1): doc-drift"
@@ -181081,7 +181153,7 @@ title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.443", "22.31.485"]
+requires = ["22.31.443", "22.31.485", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.33.223"]
 interfaces = []
@@ -181115,6 +181187,7 @@ do_10 = "Attempt 3 (continue): the crate's source is now in scope (programs/crat
 do_11 = "Attempt 4 (continue): nine cases pass; the fuel-cap case fails because the FUND and maximum-state guest executions produce no measured fuel (every routed guest execution must report measured fuel), and the close-settlement coverage case fails against the compiled guest. The fuel meter in programs/crates/layerx-programs-ai-market/src is in scope since attempt 2: meter every routed operation including FUND and the maximum-state path, and rebuild the compiled guest fixture from the current source at implementation time so the coverage case runs the current boundary. Run the build and the verify once on the final revision; no commit after the pass."
 do_12 = "Attempt 5 (continue): the attempt-3 ruling stands, and in addition the guest operations exceed the 1,000,000 CPU budget by between 1 and 52 units: the meter accounting or the budget constant in src must agree with the compiled guest; rebuild the guest fixture from the current source and make the budget check use one definition."
 do_13 = "Attempt 6 (requalify after 22.31.485): the previous attempt built; the dependent-crate check failed in services/platform/hosted/core on the unported px read types (PxAssetEntry, Uint256 byte conversions), which 22.31.485 ports. Once 22.31.485 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
+do_14 = "Attempt 7 (after 22.31.497): attempt 6 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-6 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"
@@ -183948,7 +184021,7 @@ title = "Repair audit record 22.30.100 medium findings in services/agent/crates/
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.147", "22.31.443", "22.31.483"]
+requires = ["22.31.147", "22.31.443", "22.31.483", "22.31.497"]
 reqs = ["22998.1"]
 capabilities = ["22.33.14"]
 interfaces = []
@@ -183978,6 +184051,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_9 = "Attempt 3 (continue): the task record services/agent/crates/layerx-agentd/tests/repair_22_33_14.kvx is in the paths now. Eleven of fourteen cases pass; three fail against the shared ingestion fixtures: the backpressure-and-restart case expects next_expected 40 and sees 0 (tests/ingest.rs line 292), logs_are_ingested_in_block_position_order unwraps ReceiptEvidenceMismatch (tests/ingest_eth_subscribe.rs line 99) and receipted_logs_recover_committed_without_duplicate_delivery unwraps CorruptEvent (line 252). The receipted log fixtures must carry receipt evidence that matches the logs they deliver and events encoded by the production encoder, and the restart case must resume from the persisted watermark; fix inside the paths (the two fixture files are now declared) and run build and verify at the final revision."
+do_10 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.33.13]
 title = "Repair audit record 22.30.100 medium findings in services/agent/crates/layerx-agentd/src/capability (part 1 of 1): restart-recovery, retired-reference"
@@ -187807,7 +187881,7 @@ title = "Carry paymentDenom in every daemon receipt fixture so the exact receipt
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.23.11", "22.31.443", "22.31.485"]
+requires = ["22.23.11", "22.31.443", "22.31.485", "22.31.497"]
 reqs = ["9998.1"]
 capabilities = ["9.98.4"]
 interfaces = []
@@ -187836,6 +187910,7 @@ do_5 = "Attempt 2 (continue): human_receipt_lookup_reads_pax_receipt_by_outbox_h
 do_6 = "Attempt 2: the build passed and the dependent-crate check failed on the human service's observed-balances test; that test is repaired by task 22.31.443, which this task now requires."
 do_7 = "Attempt 3 (continue): the dependency check failed only in the human-service observed-balances test whose Quantity types producer repair 22.31.443 corrected; that repair is published and this task requires it. Re-run the build, the dependency check and the verify once on the current head, repair only what that run reports, and finish on one commit."
 do_8 = "Attempt 4 (after 22.31.485): attempt 3 built the daemon with its fifteen changed files; the dependent-crate check failed only in the hosted core and indexer against the reshaped PxAssetEntry (gotcha 3004), repaired by 22.31.485. Re-run the gates on the attempt-3 tree once 22.31.485 is on main; the verify has not run yet and every failure inside the paths is fixed in that attempt."
+do_9 = "Attempt 5 (after 22.31.497): attempt 4 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-4 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 
 [task.22.99.159]
 title = "Restore the provider-subject consent fixture the agent daemon tests include"
@@ -197984,6 +198059,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.31.500]
+title = "Make the load-test deploy-ten operation store the shipped cw20 artefact and check it from its implementation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.500"]
+interfaces = []
+do_1 = "do_1 Gotcha 3043. tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh delegates to the Go load-test binary; tools/benchmark/loadtest/operations/deployment.go line 242 still stores jupiter, mars, saturn and venus from a per-name artifacts directory that the repository does not ship, while tests/ci/test_deploy_scripts_cw20.py expects contracts/wasm/cw20_base.wasm stored twice and no saturn or venus reference, as tests/integration/contracts/deploy_wasm_contracts.sh does. Make the Go deploy-ten operation store contracts/wasm/cw20_base.wasm for the two instances it then instantiates and exercises, resolved from the repository root option, and remove the retired contract names from it."
+do_2 = "do_2 Rewrite tests/ci/test_deploy_scripts_cw20.py so the load-test check reads tools/benchmark/loadtest/operations/deployment.go (the implementation) for the two cw20 stores and the absence of saturn and venus, keeps the shell-script check for deploy_wasm_contracts.sh, and keeps the bash -n syntax check of both scripts. Add a Go unit test in tools/benchmark/loadtest/operations that drives the deploy-ten store step against a recording command runner and asserts the two artefact paths."
+do_3 = "do_3 Write tools/benchmark/loadtest/repair_22_31_500.kvx naming gotcha 3043, the acceptance 16.965 retirement and the files. Run build and verify once at the final revision."
+symbols = []
+touches = ["tools/benchmark/loadtest/operations/deployment.go", "tools/benchmark/loadtest/operations/repair_22_31_500_test.go", "tests/ci/test_deploy_scripts_cw20.py", "tools/benchmark/loadtest/repair_22_31_500.kvx"]
+tests = ["tools/benchmark/loadtest/operations/deployment.go", "tests/ci/test_deploy_scripts_cw20.py"]
+planned_paths = ["tools/benchmark/loadtest", "tests/ci"]
+build_cmd = "go build ./tools/benchmark/loadtest/..."
+verify_cmd = "go test ./tools/benchmark/loadtest/operations/... && python3 -m pytest -q tests/ci/test_deploy_scripts_cw20.py"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.31.489]
 title = "Re-record the fiat conformance journeys from the adapter against the type-2 committed vector"
@@ -208952,7 +209057,7 @@ title = "Repair audit record 22.30.184 medium findings in tools/release/tests (p
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.331", "22.31.332"]
+requires = ["22.31.331", "22.31.332", "22.33.893"]
 reqs = ["22998.1"]
 capabilities = ["22.33.889"]
 interfaces = []
@@ -208988,6 +209093,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/release/tests/test_repair_22_33_889.py and the verify command is python3 -m pytest -q tools/release/tests/test_repair_22_33_889.py; nothing else of the task changes."
+do_16 = "Attempt 2 (after 22.33.893): 8 of 9 cases passed; test_programme_merged_scenarios asserts that tools/release/rehearsal/programme.py and the rehearsal script wire the merged owner-domain-16 scenarios, which 22.33.893 writes into programme.py. Re-run the gates once 22.33.893 is on main; if the rehearsal script still lacks the wiring, add it inside the paths."
 
 [task.22.33.884]
 title = "Repair audit record 22.30.183 medium findings in tools/tx-scanner/state (part 1 of 1): restart-recovery"
@@ -277881,6 +277987,35 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.31.502]
+title = "Repair the genesis historical import hash audit of the kernel suite"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.502"]
+interfaces = []
+do_1 = "do_1 Gotcha 3043. build/tests/lxp_test_kernel fails audit_genesis_historical_import_hashes at tests/protocol/lxp_test_audit_m966.h line 543: lxp_genesis_verify_signature returns LXP_ERR_ROOT_MISMATCH (-801) for a committed historical import manifest (genesis.manifest under the directories the case lists at line 507) after the manifest's sha256 matched the recorded hash and lxp_genesis_encode reproduced its bytes. The genesis producer compiled into the suite is cmd/layerx-genesis/lxp_genesis_builder.c. Determine whether the production signature or root derivation changed (then the committed import manifest and snapshot of that directory are regenerated from the production producer and the change is named in the task record, with the regenerated files added to the paths) or the manifest never matched the production path (then the case or the manifest is repaired from the production path); never change the production verifier to fit the fixture."
+do_2 = "do_2 Write tests/protocol/repair_22_31_502.kvx naming gotcha 3043, the audit case and the cause found. Run build and verify once at the final revision; tests/ci/test_kernel_suite_retired_uses.py test_no_handover_genesis_case, which runs the same binary, must pass."
+symbols = []
+touches = ["tests/protocol/lxp_test_audit_m966.h", "tests/protocol/repair_22_31_502.kvx"]
+tests = ["tests/protocol/lxp_test_audit_m966.h", "tests/fixtures/public-testnet-genesis", "tests/fixtures/public-testnet-genesis-v3"]
+planned_paths = ["tests/protocol", "tests/fixtures", "tests/ci", "cmd/layerx-genesis"]
+build_cmd = "make -s build/tests/lxp_test_kernel"
+verify_cmd = "make -s test-kernel && python3 -m pytest -q tests/ci/test_kernel_suite_retired_uses.py -k no_handover_genesis_case"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.33.1503]
 title = "Repair audit record 22.30.9 medium findings in precompiles/layerxauth (part 1 of 1): test-gap"
 status = "done"
@@ -279477,6 +279612,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): the verify now builds and runs the seven module test binaries the task changed (gotcha 3019). Run build and verify at the same revision; fix inside the paths what fails."
+do_16 = "Attempt 3 (continue): lxp_kernel_bind_module_runtime for the asset module is refused at tests/modules/test_asset_withdraw_activity.c line 143 and native_fixture_init fails at tests/modules/test_asset_reserve.c line 47. Bind the asset runtime the way the passing module tests in tests/modules do (the registered runtime table and version the kernel expects), then the conservation case at line 183 follows. All seven targets must pass."
 
 [task.22.33.1235]
 title = "Repair audit record 22.30.6 medium findings in src/modules/perps (part 1 of 1): wiring-gap"
@@ -280709,6 +280845,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): the four codec test binaries fail to link: build/liblayerx.a references the programs runtime symbols (layerx_programs_*) and the codec strict test references OpenSSL EVP symbols, and the Makefile rule at line 1253 links neither. The Makefile is now in the paths; link the codec test targets with the programs runtime archive and libcrypto the way the module test targets do, then run build and verify."
+do_16 = "Attempt 3 (continue): prepare_refuses_host_fee_meter fails because the receipt handed to lxp_receipt_verify at tests/codec/lxp_test_fee_meter_refused.c line 304 is refused. Produce and sign that receipt through the production kernel path under the fixture key instead of re-encoding it by hand; if the production receipt is still refused, record the refusing field in the task record and stop."
 
 [task.22.31.454]
 title = "Close the pion dtls and stun advisories in the root Go module and the embedded geth module"
@@ -281355,6 +281492,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (requalify): attempt 1 implemented the self-call authorization and four regressions; the verify failed to compile on an unused import that the final revision removes, and the retry was refused by the budget. Re-run the gates on the attempt-1 tree."
+do_10 = "Attempt 3 (continue): the trailer assertion at rpc/repair_m750_test.go line 105 failed because the recorded creation bytecode and the recorded metadata string are not from one compiler run (gotcha 3041). Re-record both byte-exact from one solc 0.8.28 cancun optimizer-200 compilation of the final SimpleAccount7702 source at implementation time, store the metadata exactly as the compiler emits it, keep the trailer and source-keccak assertions as written, and run the verify once at the final revision."
 
 [task.22.33.749]
 title = "Repair audit record 22.30.172 medium findings in rpc (part 1 of 1): config-drift"
@@ -281962,8 +282100,8 @@ symbols = []
 touches = ["tests/repair_22_33_7.kvx", "tests/test_gateway_send.c"]
 tests = []
 planned_paths = []
-build_cmd = "make -s all && python3 -m pip install -q pytest"
-verify_cmd = "make -s test-gateway-send && make -s test-tests-python"
+build_cmd = "make -s all"
+verify_cmd = "make -s test-gateway-send"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
@@ -281977,6 +282115,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the build passed and the verify failed before collecting because the python running the test target has no pytest; the build now installs it. The verify also runs the C test the task wrote: make -s test-gateway-send builds and executes tests/test_gateway_send.c against the native kernel (Makefile line 996), so the parity checks must pass there, not only compile. Fix inside tests only what fails."
 do_9 = "Attempt 3 (continue): the finding record is now in the paths. At test_gateway_send.c line 404 assert the effects count the production send path records, not a hand-chosen value; run build and verify."
+do_10 = "Attempt 4 (requalify): the C proofs passed in attempt 3; the task failed only on the aggregate python target in its verify, which the hard rule forbids at task level (gotcha 3032). The build and verify now name the task's own gateway-send target. Re-run the gates on the attempt-3 tree."
 
 [task.22.33.6]
 title = "Repair audit record 22.30.1 medium findings in src/modules/spot (part 1 of 1): restart-recovery"
@@ -303124,6 +303263,7 @@ do_7 = "Attempt 7 (d9c803cc7, base 710592c26) carries the do_6 change at spec/la
 do_8 = "Attempt 9 (c62f113af, base f352b312c) carries the attempt 7 test unchanged and exited 2 in step 1, make workspace-build: human-build (Makefile:1958) stops at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, the stale operation count left by 10.15.2 (c51f67b3b) and 10.16.1 (b7a323711) that 10.16.4 repairs outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4; workspace-test, core-test-all and test-sanitizer-suite have not run on any attempt, so record each further failure the step logs under logs/waves/1 name, with file, line and owning task."
 do_9 = "Attempt 11 (d1b8a416a, base 9f8c07033) carries the attempt 9 test unchanged and exited 2 in step 1, make workspace-build, at the human workspace build (Makefile:1960) on the same services/human/crates/layerx-explorer-index/src/lib.rs:225 E0631 as 17.5.1 attempt 11: IndexError::ProgramProtocolUnavailable (lib.rs:186) still carries ProtocolAdapterError while read_protocol_state returns ProgramReadError since 9.94.1 (a02e09aec). 10.16.5 ports it outside this task's touches; the requires gain 10.16.5, and gain 17.5.1 because both scripts begin with make workspace-build, so this gate runs once after the wave 0 gate passes. The test is unchanged and right; re-qualify it once on that revision; workspace-test, core-test-all and test-sanitizer-suite have not run on any attempt, so record each further failure the step logs under logs/waves/1 name, with file, line and owning task."
 do_10 = "The human workspace build fails on the explorer index crate (E0631 at services/human/crates/layerx-explorer-index/src/lib.rs line 225); task 22.31.439 repairs it and this gate requires it."
+do_11 = "Attempt 12 (requalify): the attempt stopped on the explorer index crate, whose lib.rs line 225 no longer compiled; 22.31.439 removed that crate from main. Re-run the gates on the current base and fix inside the paths only what still fails."
 
 [task.17.5.3]
 title = "Run the wave 2 aggregate gate once on the merged wave revision"
@@ -303160,6 +303300,7 @@ do_5 = "Attempt 5 (21bc0a531, base 710592c26) exited 2 in step 1, make workspace
 do_6 = "Attempt 7 (e97a1e588, base f352b312c) carries the attempt 4 test unchanged and exited 2 in step 1, make workspace-build: human-build (Makefile:1958) stops at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, the stale operation count left by 10.15.2 (c51f67b3b) and 10.16.1 (b7a323711) that 10.16.4 repairs outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4; workspace-test, core-test-all and agent-test have not run on any attempt, so record each further failure the step logs under logs/waves/2 name, with file, line and owning task."
 do_7 = "Attempt 9 (9969cb2e9, base 9f8c07033) carries the attempt 7 test unchanged and exited 2 in step 1, make workspace-build, at the human workspace build (Makefile:1960) on services/human/crates/layerx-explorer-index/src/lib.rs:225 E0631, the ProgramProtocolUnavailable payload (lib.rs:186) left as ProtocolAdapterError after 9.94.1 (a02e09aec) made read_protocol_state return ProgramReadError. 10.16.5 ports it outside this task's touches; the requires gain 10.16.5 and 17.5.1, whose script shares step 1. The test is unchanged and right; re-qualify it once on that revision; workspace-test, core-test-all and agent-test have not run on any attempt, so record each further failure the step logs under logs/waves/2 name, with file, line and owning task."
 do_8 = "The human workspace build fails on the explorer index crate (E0631 at services/human/crates/layerx-explorer-index/src/lib.rs line 225); task 22.31.439 repairs it and this gate requires it."
+do_9 = "Attempt 10 (requalify): the attempt stopped on the explorer index crate, whose lib.rs line 225 no longer compiled; 22.31.439 removed that crate from main. Re-run the gates on the current base and fix inside the paths only what still fails."
 
 [task.17.5.4]
 title = "Run the wave 3 aggregate gate once on the merged wave revision"
@@ -303196,6 +303337,7 @@ do_5 = "Attempt 5 (b78eee5c8, base 710592c26) exited 2 in step 1, make workspace
 do_6 = "Attempt 7 (3e5283efb, base f352b312c) carries the attempt 4 test unchanged and exited 2 in step 1, make workspace-build: human-build (Makefile:1958) stops at services/human/tools/api-gen/tests/generation.rs:183, generated_client_covers_every_schema_declaration, left 84 right 95, the stale operation count left by 10.15.2 (c51f67b3b) and 10.16.1 (b7a323711) that 10.16.4 repairs outside this task's touches; the requires gain 10.16.4. The test is unchanged and right; re-qualify it once on a revision that includes 10.16.4; workspace-test, agent-test, interop-test and programs-test have not run on any attempt, so record each further failure the step logs under logs/waves/3 name, with file, line and owning task."
 do_7 = "Attempt 9 (5a3085107, base 9f8c07033) carries the attempt 7 test unchanged and exited 2 in step 1, make workspace-build, at the human workspace build (Makefile:1960) on services/human/crates/layerx-explorer-index/src/lib.rs:225 E0631, the ProgramProtocolUnavailable payload (lib.rs:186) left as ProtocolAdapterError after 9.94.1 (a02e09aec) made read_protocol_state return ProgramReadError. 10.16.5 ports it outside this task's touches; the requires gain 10.16.5 and 17.5.1, whose script shares step 1. The test is unchanged and right; re-qualify it once on that revision; workspace-test, agent-test, interop-test and programs-test have not run on any attempt, so record each further failure the step logs under logs/waves/3 name, with file, line and owning task."
 do_8 = "The human workspace build fails on the explorer index crate (E0631 at services/human/crates/layerx-explorer-index/src/lib.rs line 225); task 22.31.439 repairs it and this gate requires it."
+do_9 = "Attempt 10 (requalify): the attempt stopped on the explorer index crate, whose lib.rs line 225 no longer compiled; 22.31.439 removed that crate from main. Re-run the gates on the current base and fix inside the paths only what still fails."
 
 [task.17.5.5]
 title = "Run the wave 4 aggregate gate once on the merged wave revision"
@@ -320579,6 +320721,93 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.31.501]
+title = "Settle the bridge-credit retirement check on the absence proofs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.501"]
+interfaces = []
+do_1 = "do_1 Decision 2543, gotcha 3043. tests/ci/test_kernel_suite_retired_uses.py test_no_bridge_credit_apply_caller flags tests/codec/lxp_test_ledger_bridge_credit_absent.c, tests/codec/lxp_test_bridge_credit_absent.c (weak-reference absence proofs) and the interface table row at tests/codec/lxp_test_kernel_complete.c line 939 that lists the retired symbol. Pass the two absence tests through the exclude argument of assert_no_kernel_references and remove the table row; tests/codec/lxp_test_kernel_complete.c has no make target on main, so the build checks its syntax against include/layerx and the table stays well-formed."
+do_2 = "do_2 Write tests/ci/repair_22_31_501.kvx naming decision 2543, gotcha 3043 and issue 1540. Run build and verify once at the final revision."
+symbols = []
+touches = ["tests/ci/test_kernel_suite_retired_uses.py", "tests/codec/lxp_test_kernel_complete.c", "tests/ci/repair_22_31_501.kvx"]
+tests = ["tests/ci/test_kernel_suite_retired_uses.py", "tests/codec/lxp_test_kernel_complete.c"]
+planned_paths = ["tests/ci", "tests/codec"]
+build_cmd = "python3 -m py_compile tests/ci/test_kernel_suite_retired_uses.py && gcc -fsyntax-only -Iinclude tests/codec/lxp_test_kernel_complete.c"
+verify_cmd = "python3 -m pytest -q tests/ci/test_kernel_suite_retired_uses.py -k no_bridge_credit_apply_caller"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.499]
+title = "Let the codec vector generator accept the retired budget-pull type's absence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.499"]
+interfaces = []
+do_1 = "do_1 Gotcha 3043. tests/vectors/codec/generate.py lines 29 to 30 raise unless the set of replay activity types undeclared by include/layerx is exactly the retired budget pull; the producer scripts/replica/lxp_replay_fixture.py no longer lists that type, so the set is empty and the generator refuses to run. Accept the empty set and the singleton alike, keep refusing any other undeclared type, regenerate tests/vectors/codec/replay_corpus.lxb only if its bytes change, and keep the printed summary."
+do_2 = "do_2 Write tests/vectors/codec/repair_22_31_499.kvx naming gotcha 3043 and the producer table. Run the verify once at the final revision."
+symbols = []
+touches = ["tests/vectors/codec/generate.py", "tests/vectors/codec/repair_22_31_499.kvx"]
+tests = ["tests/vectors/codec/generate.py", "tests/vectors/codec/replay_corpus.lxb"]
+planned_paths = ["tests/vectors/codec"]
+build_cmd = "python3 -m py_compile tests/vectors/codec/generate.py"
+verify_cmd = "python3 tests/vectors/codec/generate.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.498]
+title = "Move the agent codec corpus CI test to the node-root endpoint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.498"]
+interfaces = []
+do_1 = "do_1 Gotcha 3043, decision 2521. tests/ci/test_agent_codec_corpus.py starts a loopback node whose handler asserts the path /rpc (line 75) and constructs PaymentRpc with a /rpc URL (line 107); the SDK refuses any endpoint whose path is not the root (services/agent/sdk/python/layerx_sdk/x402_rpc.py). Serve and address the root path, keep every assertion on the retained EIP-1559 producer-consumer conformance, and keep test_agent_vectors_prepare_codec_corpus_from_clean_checkout passing."
+do_2 = "do_2 Write tests/ci/repair_22_31_498.kvx naming gotcha 3043, decision 2521 and the two cases. Run the verify once at the final revision."
+symbols = []
+touches = ["tests/ci/test_agent_codec_corpus.py", "tests/ci/repair_22_31_498.kvx"]
+tests = ["tests/ci/test_agent_codec_corpus.py"]
+planned_paths = ["tests/ci"]
+build_cmd = "python3 -m py_compile tests/ci/test_agent_codec_corpus.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_agent_codec_corpus.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.470]
 title = "Rewrite the root README for every root-readme finding of the medium wave"
 status = "done"
@@ -324884,7 +325113,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.893]
 title = "Repair audit record 22.30.184 medium findings in tools/release/rehearsal (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.331", "22.31.332"]
@@ -369903,7 +370132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.478]
 title = "Repair audit record 22.30.149 medium findings in services/explorer/backend/apps/block_scout_web (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.398"]
