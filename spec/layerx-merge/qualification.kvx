@@ -29787,3 +29787,123 @@ symbol = "market_receipt_producer.c"
 observed = "Attempt 1: 190 of 201 suite cases passed; eight failures belong to other work; the task's three cases failed on the refusal code and the endpoint shape."
 assumption = "Gate scope (gotcha 3032) and the refusal order of the retired-payment path."
 severity = "high"
+
+[finding.22.31.212.5]
+task = "22.31.212"
+file = "tools/platform/cli/tests/repair_22_31_212.rs"
+symbol = "repair_22_31_212.rs"
+observed = "Attempt 6: the platform CLI, SDK RPC and gateway changes built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1544.2]
+task = "22.33.1544"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+symbol = "repair_22_33_1544.rs"
+observed = "Attempt 2: the client test and task record built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.217.3]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 3: the AI-market routing and task changes built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.218.4]
+task = "22.33.218"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+symbol = "repair_22_33_218.rs"
+observed = "Attempt 4: the programs runtime qualification and terminal changes built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.222.3]
+task = "22.33.222"
+file = "programs/crates/layerx-programs-registry/tests/repair_22_33_222.rs"
+symbol = "repair_22_33_222.rs"
+observed = "Attempt 3: the registry test support and cases built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.224.3]
+task = "22.33.224"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_224.rs"
+symbol = "repair_22_33_224.rs"
+observed = "Attempt 3: the programs runtime commit change and test built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.233.3]
+task = "22.33.233"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+symbol = "repair_22_33_233.rs"
+observed = "Attempt 3: the AI-market guest proof test and manifest changes built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1547.2]
+task = "22.33.1547"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+symbol = "repair_22_33_1547.rs"
+observed = "Attempt 2: the client changes built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.249.2]
+task = "22.33.249"
+file = "tools/qualification/audit_repairs/test_repair_22_33_249.py"
+symbol = "test_repair_22_33_249.py"
+observed = "Attempt 2: the programs changes built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.261.2]
+task = "22.33.261"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs"
+symbol = "repair_22_33_261.rs"
+observed = "Attempt 2: the programs changes built; the dependent-crate check failed on two daemon test targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1539.3]
+task = "22.33.1539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+symbol = "repair_22_33_1539.rs"
+observed = "Attempt 4: 3 of 5 cases passed; two cases were refused ClockRequired by the approval service."
+assumption = "Producer gap of the approval service fixed by 22.31.495, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1550.3]
+task = "22.33.1550"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+symbol = "repair_22_33_1550.rs"
+observed = "Attempt 3: 5 of 7 cases passed; two cases were refused ClockRequired by the approval service."
+assumption = "Producer gap of the approval service fixed by 22.31.495, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1545.2]
+task = "22.33.1545"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+symbol = "repair_22_33_1545.rs"
+observed = "Attempt 2: the build passed; the dependent-crate check failed with two E0560 errors in the agent API's 22.31.485 test on the removed fields."
+assumption = "An interface change that did not carry its published consumer (gotcha 3034)."
+severity = "medium"
+
+[finding.22.33.1535.2]
+task = "22.33.1535"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"
+symbol = "repair_22_33_1535.rs"
+observed = "Attempt 2: 7 of 10 cases passed; two store opens were refused on the root directory and the mTLS handshake failed before the first response."
+assumption = "Store root hygiene in the test (gotcha 3035) and the client identity of the registry source handshake."
+severity = "high"
+
+[finding.22.33.1571.2]
+task = "22.33.1571"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1571.rs"
+symbol = "repair_22_33_1571.rs"
+observed = "Attempt 2: 2 of 4 cases passed; both node-recovery cases requested transmission bytes of an Unknown submission and were refused NotQueued."
+assumption = "Recovery contract of the outbox (gotcha 3036); the test drives a path the daemon does not take."
+severity = "high"
