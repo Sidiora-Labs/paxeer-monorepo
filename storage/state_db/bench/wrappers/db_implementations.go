@@ -144,12 +144,22 @@ func newCombinedCompositeDualSSComposite(
 // NewDBImpl instantiates a new empty DBWrapper based on the given DBType.
 func NewDBImpl(ctx context.Context, dbType DBType, dataDir string, dbConfig any) (DBWrapper, error) {
 	switch dbType {
+	case NoOp, MemIAVL, CompositeDual, CompositeSplit, CompositeCosmos:
+		if dbConfig != nil {
+			return nil, fmt.Errorf("%s configuration must be nil (got %T)", dbType, dbConfig)
+		}
+	}
+	switch dbType {
 	case NoOp:
 		return NewNoOpWrapper(), nil
 	case MemIAVL:
 		return newMemIAVLCommitStore(dataDir)
 	case FlatKV:
-		return newFlatKVCommitStore(ctx, dataDir, dbConfig.(*flatkvConfig.Config))
+		cfg, ok := dbConfig.(*flatkvConfig.Config)
+		if !ok || cfg == nil {
+			return nil, fmt.Errorf("%s configuration must be a non-nil *flatkvConfig.Config (got %T)", dbType, dbConfig)
+		}
+		return newFlatKVCommitStore(ctx, dataDir, cfg)
 	case CompositeDual:
 		return newCompositeCommitStore(ctx, dataDir, config.TestOnlyDualWrite)
 	case CompositeSplit:
@@ -157,11 +167,23 @@ func NewDBImpl(ctx context.Context, dbType DBType, dataDir string, dbConfig any)
 	case CompositeCosmos:
 		return newCompositeCommitStore(ctx, dataDir, config.MemiavlOnly)
 	case SSComposite:
-		return newSSCompositeStateStore(dataDir, dbConfig.(*config.StateStoreConfig))
+		cfg, ok := dbConfig.(*config.StateStoreConfig)
+		if !ok || cfg == nil {
+			return nil, fmt.Errorf("%s configuration must be a non-nil *config.StateStoreConfig (got %T)", dbType, dbConfig)
+		}
+		return newSSCompositeStateStore(dataDir, cfg)
 	case SSHistoricalOffload:
-		return newSSHistoricalOffloadStateStore(ctx, dataDir, dbConfig.(*HistoricalOffloadConfig))
+		cfg, ok := dbConfig.(*HistoricalOffloadConfig)
+		if !ok || cfg == nil {
+			return nil, fmt.Errorf("%s configuration must be a non-nil *wrappers.HistoricalOffloadConfig (got %T)", dbType, dbConfig)
+		}
+		return newSSHistoricalOffloadStateStore(ctx, dataDir, cfg)
 	case CompositeDual_SSComposite:
-		return newCombinedCompositeDualSSComposite(ctx, dataDir, dbConfig.(*config.StateStoreConfig))
+		cfg, ok := dbConfig.(*config.StateStoreConfig)
+		if !ok || cfg == nil {
+			return nil, fmt.Errorf("%s configuration must be a non-nil *config.StateStoreConfig (got %T)", dbType, dbConfig)
+		}
+		return newCombinedCompositeDualSSComposite(ctx, dataDir, cfg)
 	default:
 		return nil, fmt.Errorf("unsupported DB type: %s", dbType)
 	}

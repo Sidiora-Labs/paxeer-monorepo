@@ -3,6 +3,7 @@ package blockdbtest
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -15,8 +16,9 @@ import (
 var testRng = crand.NewCannedRandom(4*unit.MB, 42)
 
 type blockDBBuilder struct {
-	name    string
-	builder func(path string) (block.BlockDB, error)
+	name      string
+	builder   func(path string) (block.BlockDB, error)
+	ephemeral bool
 }
 
 func buildBuilders() []blockDBBuilder {
@@ -26,11 +28,11 @@ func buildBuilders() []blockDBBuilder {
 }
 
 func newMemBlockDBBuilder() blockDBBuilder {
-	db := memblockdb.NewMemBlockDB()
 	return blockDBBuilder{
-		name: "mem",
+		name:      "mem",
+		ephemeral: true,
 		builder: func(_ string) (block.BlockDB, error) {
-			return db, nil
+			return memblockdb.NewMemBlockDB(), nil
 		},
 	}
 }
@@ -52,9 +54,16 @@ func makeBlock(height uint64, numTxs int) *block.BinaryBlock {
 }
 
 func forEachBuilder(t *testing.T, fn func(t *testing.T, builder func(path string) (block.BlockDB, error))) {
+	forEachBackend(t, func(t *testing.T, b blockDBBuilder) {
+		fn(t, b.builder)
+	})
+}
+
+func forEachBackend(t *testing.T, fn func(t *testing.T, b blockDBBuilder)) {
+	t.Helper()
 	for _, b := range buildBuilders() {
 		t.Run(b.name, func(t *testing.T) {
-			fn(t, b.builder)
+			fn(t, b)
 		})
 	}
 }
@@ -228,7 +237,8 @@ func TestPruneDoesNotError(t *testing.T) {
 }
 
 func TestCloseAndReopen(t *testing.T) {
-	forEachBuilder(t, func(t *testing.T, builder func(string) (block.BlockDB, error)) {
+	forEachBackend(t, func(t *testing.T, backend blockDBBuilder) {
+		builder := backend.builder
 		ctx := context.Background()
 		path := t.TempDir()
 
@@ -243,6 +253,13 @@ func TestCloseAndReopen(t *testing.T) {
 		db2, err := builder(path)
 		requireNoError(t, err)
 		defer db2.Close(ctx)
+		requireTrue(t, db != db2, "reopen must construct an independent instance")
+
+		if backend.ephemeral {
+			requireBlockAbsent(t, ctx, db2, blk)
+			requireEmptyBlockDB(t, ctx, db2)
+			return
+		}
 
 		got, ok, err := db2.GetBlockByHeight(ctx, 1)
 		requireNoError(t, err)
@@ -259,7 +276,8 @@ func TestCloseAndReopen(t *testing.T) {
 }
 
 func TestCloseAndReopenThenWrite(t *testing.T) {
-	forEachBuilder(t, func(t *testing.T, builder func(string) (block.BlockDB, error)) {
+	forEachBackend(t, func(t *testing.T, backend blockDBBuilder) {
+		builder := backend.builder
 		ctx := context.Background()
 		path := t.TempDir()
 
@@ -272,8 +290,23 @@ func TestCloseAndReopenThenWrite(t *testing.T) {
 		db2, err := builder(path)
 		requireNoError(t, err)
 		defer db2.Close(ctx)
+		requireTrue(t, db != db2, "reopen must construct an independent instance")
+
+		if backend.ephemeral {
+			requireBlockAbsent(t, ctx, db2, makeBlock(1, 1))
+			requireEmptyBlockDB(t, ctx, db2)
+		}
 
 		requireNoError(t, db2.WriteBlock(ctx, makeBlock(2, 1)))
+
+		if backend.ephemeral {
+			requireBlockAbsent(t, ctx, db2, makeBlock(1, 1))
+			got, ok, err := db2.GetBlockByHeight(ctx, 2)
+			requireNoError(t, err)
+			requireTrue(t, ok, "expected newly written block at height 2")
+			requireBlockEqual(t, makeBlock(2, 1), got)
+			return
+		}
 
 		for _, h := range []uint64{1, 2} {
 			_, ok, err := db2.GetBlockByHeight(ctx, h)
@@ -387,6 +420,29 @@ func requireBlockBytesEqual(t *testing.T, expected, actual *block.BinaryBlock) {
 }
 
 // --- test helpers ---
+
+func requireBlockAbsent(t *testing.T, ctx context.Context, db block.BlockDB, blk *block.BinaryBlock) {
+	t.Helper()
+	byHeight, ok, err := db.GetBlockByHeight(ctx, blk.Height)
+	requireNoError(t, err)
+	requireTrue(t, !ok && byHeight == nil, "unexpected block at height %d", blk.Height)
+	byHash, ok, err := db.GetBlockByHash(ctx, blk.Hash)
+	requireNoError(t, err)
+	requireTrue(t, !ok && byHash == nil, "unexpected block with hash %x", blk.Hash)
+	for _, tx := range blk.Transactions {
+		got, ok, err := db.GetTransactionByHash(ctx, tx.Hash)
+		requireNoError(t, err)
+		requireTrue(t, !ok && got == nil, "unexpected transaction with hash %x", tx.Hash)
+	}
+}
+
+func requireEmptyBlockDB(t *testing.T, ctx context.Context, db block.BlockDB) {
+	t.Helper()
+	_, err := db.GetLowestBlockHeight(ctx)
+	requireTrue(t, errors.Is(err, block.ErrNoBlocks), "expected empty lowest height, got %v", err)
+	_, err = db.GetHighestBlockHeight(ctx)
+	requireTrue(t, errors.Is(err, block.ErrNoBlocks), "expected empty highest height, got %v", err)
+}
 
 func requireNoError(t *testing.T, err error) {
 	t.Helper()

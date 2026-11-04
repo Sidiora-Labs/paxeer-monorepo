@@ -5,33 +5,36 @@ const SPLASH_SESSION_KEY = "sidiora.splashShown";
 const VISIBLE_MS = 3000;
 const FADE_MS = 400;
 
+export function startSplashSession(
+  storage: Pick<Storage, "getItem" | "setItem">,
+  render: (shown: boolean) => void,
+  show: (visible: boolean) => void,
+): () => void {
+  try {
+    if (storage.getItem(SPLASH_SESSION_KEY) === "1") return () => {};
+    storage.setItem(SPLASH_SESSION_KEY, "1");
+  } catch {}
+  render(true);
+  show(true);
+  const fadeTimer = setTimeout(() => show(false), VISIBLE_MS);
+  const unmountTimer = setTimeout(() => render(false), VISIBLE_MS + FADE_MS);
+  return () => {
+    clearTimeout(fadeTimer);
+    clearTimeout(unmountTimer);
+  };
+}
+
 export function SplashScreen() {
-  // Render immediately on first mount if the splash has not yet been shown
-  // in this browser session. Using lazy init avoids a "flash" from `false`
-  // → `true` on mount.
-  const [shouldRender, setShouldRender] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.sessionStorage.getItem(SPLASH_SESSION_KEY) !== "1";
-    } catch {
-      return true;
-    }
-  });
-  const [visible, setVisible] = useState<boolean>(true);
+  const [shouldRender, setShouldRender] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (!shouldRender) return;
-
-    // Mark shown right away so HMR / route changes don't replay.
-    try { window.sessionStorage.setItem(SPLASH_SESSION_KEY, "1"); } catch {}
-
-    const fadeTimer = window.setTimeout(() => setVisible(false), VISIBLE_MS);
-    const unmountTimer = window.setTimeout(() => setShouldRender(false), VISIBLE_MS + FADE_MS);
-    return () => {
-      window.clearTimeout(fadeTimer);
-      window.clearTimeout(unmountTimer);
-    };
-  }, [shouldRender]);
+    // Storage access stays after hydration, including browsers that deny it.
+    return startSplashSession({
+      getItem: (key) => window.sessionStorage.getItem(key),
+      setItem: (key, value) => window.sessionStorage.setItem(key, value),
+    }, setShouldRender, setVisible);
+  }, []);
 
   if (!shouldRender) return null;
 

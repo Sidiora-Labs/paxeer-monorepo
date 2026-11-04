@@ -254,11 +254,6 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 	frames := make([]wal.Frame, len(entries))
 	var maxSeq uint64
 	for i, e := range entries {
-		if r.standalone {
-			if _, ok := e.(*wal.Lease); ok {
-				return Ack{}, ErrNoAck
-			}
-		}
 		f, err := wal.NewFrame(e)
 		if err != nil {
 			return Ack{}, err
@@ -631,6 +626,7 @@ type Standby struct {
 	failed       error
 	leader       bool
 	promoting    bool
+	serveDone    chan struct{}
 	ctx          context.Context
 }
 

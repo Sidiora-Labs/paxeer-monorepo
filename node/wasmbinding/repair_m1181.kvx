@@ -1,0 +1,11 @@
+[repair.22.33.1181]
+findings = ["wasm-message-ambiguous-variant", "wasm-oracle-ambiguous-query"]
+wasm_message_ambiguous_variant_tests = ["TestRepairM_1181_MessageAmbiguousVariants", "TestRepairM_1181_MessageKeeperMutationAndAuthorization"]
+wasm_oracle_ambiguous_query_tests = ["TestRepairM_1181_OracleAmbiguousQuery", "TestRepairM_1181_OracleDeclaredResponses"]
+regression_tests = ["TestRepairM_1181_TokenFactoryQueryValidationRetained"]
+implementation = "Reject multiple populated message variants before module encoding or dispatch, treating null alternatives as absent; reject multiple Oracle query alternatives before invoking module handlers. Preserve unknown-envelope, module encoding, authorization, pause and query error semantics."
+proof = "Production CustomMessageHandler and registered SDK MsgServiceRouter consume JSON from binding types and mutate real TokenFactory, bank and auth keepers on in-memory stores. Production CustomQuerier consumes wrapped Oracle binding queries and returns exact module exchange-rate and TWAP response shapes from real keeper state. All 28 message-variant pairs reject without store or event mutation; TokenFactory query validation remains covered."
+baseline = "Not run: the explicit implementation-first gate order forbids testing the unchanged tree and direct verify_cmd invocation. No baseline failures are claimed."
+wiring_request = "None: both proposals and their real keeper/store proofs fit node/wasmbinding."
+evidence = "The private hf-build/hf-done ledger records the candidate revision, exact command, exit code and evidence log; no gate is claimed before it runs."
+qualification_repair = "First hf-done at d0a7f667cebd889c503f245d9dda21084726c93e exited 1 because the test used sdk.NewMemoryStoreKey instead of storetypes.NewMemoryStoreKey; corrected the constructor without changing assertions. Command: cg spec done 22.33.1181 -f layerx-merge --root /work/paxeer-monorepo; private log: /out/logs/verify-1.log."

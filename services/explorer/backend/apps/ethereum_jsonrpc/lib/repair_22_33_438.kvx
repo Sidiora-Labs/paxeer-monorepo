@@ -1,0 +1,10 @@
+[repair.22.33.438]
+finding = "finalized-block-tag"
+test_file = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_438_test.exs"
+proving_tests = ["finalized-block-tag: block helper imports the recorded committed head over HTTP", "finalized-block-tag: number helper consumes the same committed head for all BFT head tags", "finalized-block-tag: the shared builder preserves finalized and an independent request id"]
+path = "Both public tag helpers traverse Block.ByTag.request, the request coordinator, HTTP/HTTPoison, a loopback Cowboy transcript server and Blocks.from_responses; the number helper then consumes Block.ByTag.number_from_result."
+fixture = "test/support/fixture/paxeer_x/new_head_full.json contains the recorded block and matching committed new head at height 0x1714efe; the loopback peer serves this block unchanged for latest, safe and finalized, matching rpc/pending_state_test.go TestPendingStateResolvesOpenHeight."
+semantics = "Paxeer BFT latest, safe and finalized select the same committed head; the client preserves the requested tag on the wire for compatibility with other chains."
+baseline = "Not run: the explicit task order requires complete implementation before building and permits verification only through hf-done; this repair test did not exist on the base. No baseline failure is claimed."
+qualification = "The verified candidate revision, command, exit and private log are recorded by hf-done in the runner evidence ledger; this source record makes no independent qualification claim."
+wiring_requests = "None; the shared request builder already preserves finalized and both public helper changes and their documentation fit within scope."

@@ -13,22 +13,17 @@
 import { classifyError, isUserFacingError } from "./classify";
 import type { UserFacingError, ReportErrorOptions } from "./types";
 
-let sentryReady = false;
-let sentryModule: typeof import("@sentry/nextjs") | null = null;
+let sentryPromise: Promise<typeof import("@sentry/nextjs") | null> | null = null;
 
 async function getSentry(): Promise<typeof import("@sentry/nextjs") | null> {
-  if (sentryReady) return sentryModule;
-  // We mark this ready synchronously so racing callers don't double-init.
-  sentryReady = true;
-  if (typeof window === "undefined") {
-    // Server-side: Sentry is initialised by the dedicated `sentry.server.config.ts`.
+  if (!sentryPromise) {
+    sentryPromise = import("@sentry/nextjs").catch(() => {
+      // Share a failed attempt with its waiters; the next call retries.
+      sentryPromise = null;
+      return null;
+    });
   }
-  try {
-    sentryModule = await import("@sentry/nextjs");
-  } catch {
-    sentryModule = null;
-  }
-  return sentryModule;
+  return sentryPromise;
 }
 
 function severityToSentryLevel(

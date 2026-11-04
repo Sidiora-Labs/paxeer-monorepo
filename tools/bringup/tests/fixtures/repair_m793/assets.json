@@ -1,0 +1,17 @@
+{
+  "height": 11,
+  "assets": [
+    {
+      "asset_id": "1111111111111111111111111111111111111111111111111111111111111111",
+      "kind": "ledger",
+      "denom": null,
+      "name": "Paxeer",
+      "symbol": "PAX",
+      "decimals": 18,
+      "supply": "100000000000000000000",
+      "paused": false,
+      "verification": "authenticated_committed_snapshot"
+    }
+  ],
+  "joined_limit": 16
+}
