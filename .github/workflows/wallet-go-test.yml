@@ -72,5 +72,10 @@ jobs:
         with:
           go-version-file: services/wallet/ceremony/go.mod
           cache-dependency-path: services/wallet/ceremony/go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+      - name: Install pnpm
+        run: npm install --global pnpm@9.15.9
       - name: Test ceremony
         run: go test ./...

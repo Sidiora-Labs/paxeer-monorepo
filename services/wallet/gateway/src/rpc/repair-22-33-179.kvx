@@ -1,0 +1,15 @@
+[repair.22.33.179]
+finding = "rpc-body-timeout"
+base_revision = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
+continuation_revision = "f8c9307c43570c14d383738b65baeaf7bdf7d38c"
+prerequisite = "22.31.447 published at 725db4187d3cf26afe11b4df619a45f2c0a049ac; the continuation includes its gateway PGlite dependencies and wallet workspace lockfile."
+previous_attempt = "Candidate ca9a9c427a36415040d503ed6da9279a29e62c7d failed pnpm --dir services/wallet/gateway run typecheck with exit 2 because the PGlite dependencies were missing; no behavioral verification ran. Preserve that implementation and qualify after the prerequisite."
+test_file = "services/wallet/gateway/test/repair-22-33-179.test.ts"
+proving_tests = ["headersOnlyBodyTimeoutReleasesConnection", "slowBodyCannotExtendAbsoluteDeadline", "chunkedOversizeBodyAbortsBeforeTimeout", "bodyLimitCountsUtf8Bytes", "scalarLimitIncludesEnvelopeAndAcceptsExactBoundary", "callUsesLargerBoundAndPreservesDecodedResult", "bulkAndDefaultMethodsRemainBounded", "oversizeMemberFailsOverAfterReleasingBody", "httpFailureReleasesUnreadBody", "boundedMalformedBodyFailsAndRpcRefusalRetainsType"]
+repair = "Keep the abort timer through streaming and JSON decoding, check the absolute monotonic deadline during consumption and after decoding, count decoded response bytes before retaining each chunk, release the reader lock, and abort the request on every exit including HTTP errors."
+limits = "64 KiB for scalar reads and sendRawTransaction, 8 MiB for calls, code, logs, blocks and receipts, and 1 MiB for other methods; limits include the JSON envelope and error data and count UTF-8 bytes after HTTP decompression."
+proof = "In-process loopback HTTP servers consume real RpcPool requests and emit complete, stalled, slowly streamed, oversized and malformed replies; assertions cover bounded failure, server-observed cancellation, exact byte boundaries, successful simulation decoding, failover and typed pending refusals."
+baseline = "No pre-change gate ran: the explicit implementation-first and hf-build then hf-done order prohibits the conflicting do_5 baseline verification; no baseline failures are claimed. The base already retained the abort timer during res.json following repair 22.31.373, but had no body byte limit or unconditional transport cleanup."
+qualification = "The runner records the verified candidate revision, exact command, exit code and private evidence log through hf-build and hf-done."
+qualification_gotcha = "Vitest 4.1.12 accepts test(function) but registers TODOs without executing the callback; use test(function.name, function) with each declared proving function. Candidate feac3f9e17a619a83f37c15fe06e53dba8f9c95a exited zero with ten TODOs at /out/logs/verify-1.log, so that run is not behavioral evidence; repair registration and rerun both bounded gates."
+wiring_request = "None: the finding and its HTTP proof are fully repairable within the declared RPC and test paths."

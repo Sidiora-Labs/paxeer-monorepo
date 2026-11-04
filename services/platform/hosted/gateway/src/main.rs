@@ -1954,9 +1954,6 @@ fn route_with_peer(
     if let Some(result) = routes::route(config, request, peer) {
         return result;
     }
-    if request.path == "/" && request.method == "POST" {
-        return rpc::route(config, request);
-    }
     if let Some(result) = public_reads::route(config, request) {
         return result;
     }
@@ -2059,6 +2056,15 @@ fn exchange<S: ws::Connection>(
             }
             Err(_) => return Ok(()),
         };
+        if request.method == "GET"
+            && request.path == "/"
+            && request
+                .headers
+                .get("upgrade")
+                .is_some_and(|value| value.eq_ignore_ascii_case("websocket"))
+        {
+            return ws::serve(config, &request, stream);
+        }
         if let Some(result) = explorer_proxy::websocket(&request, stream) {
             return result;
         }
@@ -2269,7 +2275,7 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
         },
     ];
     backends.retain(|backend| {
-        backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus")
+        backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus" | "indexer")
     });
     backends
 }
@@ -2284,7 +2290,7 @@ fn paxeer_chain_readiness(config: &Config) -> BackendAvailability {
         "method": "eth_chainId",
         "params": []
     });
-    let ready = paxeer::node(config, &request).is_ok_and(|document| {
+    let ready = paxeer::node_unmetered(config, &request).is_ok_and(|document| {
         document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0")
             && document.get("id") == request.get("id")
             && document.get("result").and_then(serde_json::Value::as_str) == Some("0x7d")
@@ -2368,15 +2374,13 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
         .find(|backend| backend.backend == "paxeer_chain")
         .copied()
         .unwrap_or_else(|| BackendAvailability::not_configured("paxeer_chain"));
-    let serving = backends
-        .iter()
-        .all(|backend| backend.ready || !backend.configured);
+    let serving = backends.iter().all(|backend| backend.ready);
     let product_routes = if include_product_routes {
         config.routes.readiness(config)
     } else {
         serde_json::Value::Null
     };
-    let complete = serving;
+    let complete = serving && (!include_product_routes || product_routes["complete"] == true);
     let component_name = |name: &str| {
         if backend_ready(&backends, name) {
             "ready"
@@ -2388,11 +2392,7 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
         "durable_store": component_name("durable_store")
     });
     json_response(
-        if (include_product_routes && serving) || (!include_product_routes && complete) {
-            200
-        } else {
-            503
-        },
+        if complete { 200 } else { 503 },
         &serde_json::json!({
             "readiness_version": 1,
             "protocol_version": config.protocol_version,
@@ -2427,24 +2427,39 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
 }
 
 fn gateway_status(config: &Config) -> OutgoingResponse {
-    let gateway = config.store.ready();
-    let core = kernel_availability(config, KernelBackend::Component, |endpoint, token| {
-        dependency_ready(config, endpoint, token, true)
-    });
-    let authority = kernel_availability(config, KernelBackend::Authority, |endpoint, token| {
-        authority_ready(config, endpoint, token)
-    });
+    let backends = readiness(config);
+    let available = backends.iter().all(|backend| backend.ready);
+    let mut services = backends
+        .iter()
+        .map(|backend| {
+            (
+                backend.backend.to_owned(),
+                serde_json::json!(if backend.ready {
+                    "available"
+                } else if backend.configured {
+                    "unavailable"
+                } else {
+                    "not_configured"
+                }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+    services.insert(
+        "hosted_gateway".to_owned(),
+        serde_json::json!(if available {
+            "available"
+        } else if backend_ready(&backends, "durable_store") {
+            "degraded"
+        } else {
+            "unavailable"
+        }),
+    );
     json_response(
         200,
         &serde_json::json!({
             "ok": true,
-            "services": {
-                "hosted_gateway": if gateway { "degraded" } else { "unavailable" },
-                "testnet_core": if core.ready { "available" } else { "unavailable" },
-                "receipt_authority": if authority.ready { "available" } else { "unavailable" },
-                "paxeer": paxeer::status(config),
-                "indexer": history::status(config)
-            },
+            "services": services,
+            "product_routes": config.routes.readiness(config),
             "lxp_wire_version": config.wire_version,
             "package_semver": env!("CARGO_PKG_VERSION")
         }),
@@ -5346,7 +5361,15 @@ mod complete_readiness_contract_tests {
             assert_eq!(document["lxp_wire_version"], config.wire_version);
             assert_eq!(document["network_id"], config.network_id);
             let backends = document["backends"].as_object().expect("backend object");
-            assert_eq!(backends.len(), if event_producer { 4 } else { 3 });
+            assert_eq!(backends.len(), if event_producer { 5 } else { 4 });
+            for name in ["durable_store", "paxeer_chain", "consensus", "indexer"] {
+                assert!(backends.contains_key(name), "required dependency {name}");
+            }
+            assert!(!backends.contains_key("core_agent_boundary"));
+            assert!(!document["components"]
+                .as_object()
+                .unwrap()
+                .contains_key("principal_state_boundary"));
             let capabilities = document["capabilities"]
                 .as_object()
                 .expect("capabilities object");
@@ -5374,10 +5397,14 @@ mod complete_readiness_contract_tests {
                 assert!(document["product_routes"].is_object());
             } else {
                 assert!(document["product_routes"].is_null());
+            }
+            {
                 let all_backends_ready =
                     backends.values().all(|backend| backend["state"] == "ready");
-                assert_eq!(response.status == 200, all_backends_ready);
-                assert_eq!(document["status"] == "ready", all_backends_ready);
+                let expected_ready = all_backends_ready
+                    && (!include_product_routes || document["product_routes"]["complete"] == true);
+                assert_eq!(response.status == 200, expected_ready);
+                assert_eq!(document["status"] == "ready", expected_ready);
             }
             let observed_at = document["observed_at_ms"]
                 .as_u64()

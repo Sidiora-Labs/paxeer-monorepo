@@ -719,41 +719,21 @@ fn budget_observation(
         .get(&record)
         .ok_or(HumanOperationError::Unavailable)?
         .bytes();
-    if bytes.len() != 209
-        || bytes[..32] != budget
-        || bytes[49..81] != digest
-        || bytes[48] < 4
-        || bytes[48] > 5
-        || bytes[81..113] == [0; 32]
-        || bytes[113..145] == [0; 32]
-        || bytes[177..209] == [0; 32]
+    let (stored_budget, state) = crate::human_runtime::CoreBudgetState::decode_snapshot(bytes)
+        .map_err(|_| HumanOperationError::Refused)?;
+    if stored_budget != budget
+        || state.evidence_digest != digest
+        || state.verification != VerificationLevel::COMMITTED.wire_rank()
+        || state.receipt_digest == [0; 32]
+        || state.checkpoint_digest == [0; 32]
+        || state.asset == [0; 32]
     {
         return Err(HumanOperationError::Refused);
     }
-    let observed = u64::from_be_bytes(
-        bytes[40..48]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let age = u64::from_be_bytes(
-        bytes[145..153]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let maximum = u64::from_be_bytes(
-        bytes[153..161]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let remaining = u128::from_be_bytes(
-        bytes[161..177]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    if observed < minimum_sequence
-        || maximum == 0
-        || age > maximum
-        || (require_zero && remaining != 0)
+    if state.observed_head_sequence < minimum_sequence
+        || state.maximum_age_sequences == 0
+        || state.age_sequences > state.maximum_age_sequences
+        || (require_zero && state.remaining != 0)
     {
         return Err(HumanOperationError::Refused);
     }
@@ -2868,19 +2848,10 @@ pub fn record_budget_snapshot(
     budget: [u8; 32],
     state: &crate::human_runtime::CoreBudgetState,
 ) -> Result<HumanResponse, HumanOperationError> {
-    let mut out = Wire::new();
-    out.fixed(&budget);
-    out.u64(state.revocation_sequence);
-    out.u64(state.observed_head_sequence);
-    out.u8(state.verification);
-    out.fixed(&state.evidence_digest);
-    out.fixed(&state.receipt_digest);
-    out.fixed(&state.checkpoint_digest);
-    out.u64(state.age_sequences);
-    out.u64(state.maximum_age_sequences);
-    out.u128(state.remaining);
-    out.fixed(&state.asset);
-    let response = out.finish()?;
+    let bytes = state
+        .encode_snapshot(budget)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let response = HumanResponse::new(bytes).map_err(|_| HumanOperationError::Refused)?;
     record_observation(
         store,
         tenant,

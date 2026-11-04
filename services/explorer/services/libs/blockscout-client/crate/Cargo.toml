@@ -81,3 +81,7 @@ lazy_static = "1.4.0"
 [[test]]
 name = "repair_22_33_430"
 path = "../../tests/repair_22_33_430.rs"
+
+[[test]]
+name = "repair_22_33_360"
+path = "../../tests/repair_22_33_360.rs"

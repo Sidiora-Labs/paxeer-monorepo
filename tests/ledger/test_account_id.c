@@ -118,7 +118,9 @@ static int retired_namespace_admission(lx_account_registry *registry,
         "system:paxeer-reserve:sid",
         "system:paxeer-reserve:usdc",
         "system:paxeer-reserve:usdl",
-        "system:paxeer-withdrawals"
+        "system:paxeer-withdrawals",
+        "module:asset:value:"
+        "0300000000000000000000000000000000000000000000000000000000000000"
     };
     static const lx_account_open_authority authorities[] = {
         LX_ACCOUNT_OPEN_CREDIT, LX_ACCOUNT_OPEN_GENESIS,
@@ -129,8 +131,11 @@ static int retired_namespace_admission(lx_account_registry *registry,
 
     for (i = 0U; i < sizeof(names) / sizeof(names[0]); ++i) {
         uint8_t id[32];
+        lx_account_kind kind;
         if (lx_account_id_from_string((const uint8_t *)names[i],
-                                      strlen(names[i]), id) != LXP_OK)
+                                      strlen(names[i]), id) != LXP_OK ||
+            lx_account_kind_of((const uint8_t *)names[i], strlen(names[i]),
+                               &kind) != LXP_OK)
             return 1;
         for (j = 0U; j < sizeof(authorities) / sizeof(authorities[0]); ++j) {
             lx_account *account = NULL;
@@ -139,26 +144,81 @@ static int retired_namespace_admission(lx_account_registry *registry,
             size_t count = registry->count;
             uint64_t write_offset = log->write_offset;
             uint64_t next_sequence = log->next_sequence;
+            lx_account *found = NULL;
+            lxp_log_record_header header;
+            uint8_t body[1024];
+            size_t k;
             lxp_result status;
 
             if (lx_account_registry_root(registry, before) != LXP_OK) return 1;
             status = lx_account_open(registry, (const uint8_t *)names[i],
-                                      strlen(names[i]), id, 9U,
+                                      strlen(names[i]), id, next_sequence,
                                       authorities[j], log, &account);
-            if (status == LXP_OK || account != NULL ||
-                registry->count != count || log->write_offset != write_offset ||
-                log->next_sequence != next_sequence ||
-                lx_account_registry_root(registry, after) != LXP_OK ||
-                memcmp(before, after, sizeof(before)) != 0 ||
+            if (kind == LX_ACCOUNT_MODULE_VALUE ||
+                authorities[j] == LX_ACCOUNT_OPEN_CREDIT) {
+                if (status != LXP_ERR_UNAUTHORIZED_DEBIT || account != NULL ||
+                    registry->count != count ||
+                    log->write_offset != write_offset ||
+                    log->next_sequence != next_sequence ||
+                    lx_account_registry_root(registry, after) != LXP_OK ||
+                    memcmp(before, after, sizeof(before)) != 0 ||
+                    lx_account_registry_index_validate(registry) != LXP_OK ||
+                    lx_account_lookup(registry, (const uint8_t *)names[i],
+                                       strlen(names[i]), id, &found) !=
+                        LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE || found != NULL) {
+                    (void)fprintf(stderr,
+                        "retired_namespace_admission: %s authority %d "
+                        "returned %d or changed registry/log state\n",
+                        names[i], (int)authorities[j], (int)status);
+                    return 1;
+                }
+                continue;
+            }
+            if (status != LXP_OK || account == NULL ||
+                registry->count != count + 1U || account->kind != kind ||
+                account->created_at_sequence != next_sequence ||
+                !lxp_u128_is_zero(account->balance) ||
+                log->write_offset <= write_offset ||
+                log->next_sequence != next_sequence + 1U ||
+                lxp_log_read(log, write_offset, &header, body,
+                             sizeof(body)) != LXP_OK ||
+                header.record_kind != LXP_LOG_ACTIVITY ||
+                header.global_sequence != next_sequence ||
+                lx_account_registry_index_validate(registry) != LXP_OK ||
                 lx_account_lookup(registry, (const uint8_t *)names[i],
-                                   strlen(names[i]), id, &account) !=
-                    LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE || account != NULL) {
+                                   strlen(names[i]), id, &found) != LXP_OK ||
+                found != account) {
                 (void)fprintf(stderr,
-                    "22.30.5.27: retired_namespace_admission: %s authority %d "
-                    "returned %d or changed registry/log state\n",
+                    "retired_namespace_admission: %s authority %d "
+                    "returned %d or failed creation/lookup\n",
                     names[i], (int)authorities[j], (int)status);
                 return 1;
             }
+            count = registry->count;
+            write_offset = log->write_offset;
+            next_sequence = log->next_sequence;
+            if (lx_account_registry_root(registry, before) != LXP_OK) return 1;
+            for (k = 0U; k < sizeof(authorities) / sizeof(authorities[0]); ++k) {
+                lx_account *reopened = NULL;
+                if (lx_account_open(registry, (const uint8_t *)names[i],
+                                      strlen(names[i]), id, next_sequence,
+                                      authorities[k], log, &reopened) != LXP_OK ||
+                    reopened != account || registry->count != count ||
+                    log->write_offset != write_offset ||
+                    log->next_sequence != next_sequence ||
+                    lx_account_registry_root(registry, after) != LXP_OK ||
+                    memcmp(before, after, sizeof(before)) != 0) {
+                    (void)fprintf(stderr,
+                        "retired_namespace_admission: %s authority %d "
+                        "failed indexed reopen or changed registry/log state\n",
+                        names[i], (int)authorities[k]);
+                    return 1;
+                }
+            }
+            if (lx_account_close(registry, id) != LXP_OK ||
+                registry->count != count - 1U ||
+                lx_account_registry_index_validate(registry) != LXP_OK)
+                return 1;
         }
     }
     return 0;

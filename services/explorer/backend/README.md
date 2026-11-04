@@ -49,16 +49,19 @@ the current native account, transaction and feed APIs.
 
 | Path | Purpose |
 | --- | --- |
-| `/paxeer-x/capabilities` | Last successful capability probe, plus native feed availability when present |
+| `/paxeer-x/capabilities` | [Last successful capability probe](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex), plus native feed availability when present |
 | `/addresses/:address_hash_param/unified` | Native identities, balances and cursor-paginated activity |
-| `/transactions/:transaction_hash_param/status` | Live `submitted`, `receipted` or `committed` observation and committed height |
+| `/transactions/:transaction_hash_param/status` | [Live native transaction status](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex): `submitted`, `receipted` or `committed` observation and committed height |
 | `/transactions/:transaction_hash_param/signature` | Verified native receipt, receipt key, signature and evidence-backed rung |
-| `/paxeer-x/feed/markets` | Native price-feed markets and latest observations |
+| `/paxeer-x/feed/markets` | [Native price-feed markets](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex) and latest observations |
 | `/paxeer-x/feed/markets/:market_id/updates` | Paginated observations for one market |
 | `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
 | `/paxeer-x/feed/updates/:hash` | One native submission |
 
-Historical archive APIs are separate from current transaction status (full paths):
+Historical anchor and old receipt rows are read-only data. Archive APIs serve
+these frozen items with no live settlement status; use the current capability,
+feed and native transaction-status routes linked separately above for live data.
+The archive examples below use full paths:
 
 | Path | Purpose |
 | --- | --- |

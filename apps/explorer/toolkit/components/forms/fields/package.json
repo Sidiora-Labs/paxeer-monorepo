@@ -1,0 +1,8 @@
+{
+  "name": "explorer-form-fields-repair-tests",
+  "private": true,
+  "devDependencies": {
+    "@juggle/resize-observer": "3.4.0",
+    "intersection-observer": "0.12.2"
+  }
+}

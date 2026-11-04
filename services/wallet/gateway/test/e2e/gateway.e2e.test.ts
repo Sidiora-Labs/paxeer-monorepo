@@ -33,6 +33,8 @@ import {
   type Identity,
 } from './attestors.js';
 
+import { assertRetainedSigningAuthentication } from './wallet-signing-adapters.production.js';
+
 const RECIPIENT = '0x000000000000000000000000000000000000c0de';
 
 const typedData = {
@@ -487,20 +489,37 @@ describe('gateway against five real attestor daemons', () => {
     expect(res.json().error).toBe('agent_signature_required');
   });
 
-  it('mounts custody and constrained digest adapters under real wallet authentication', async () => {
-    for (const url of ['/v1/wallet/sign-custody', '/v1/wallet/sign-digest']) {
-      const unauthenticated = await app.inject({ method: 'POST', url, payload: {} });
-      expect(unauthenticated.statusCode).toBe(401);
-    }
+  it('authenticates retained EVM and constrained digest adapters and leaves custody absent', async () => {
+    await assertRetainedSigningAuthentication(
+      async (url, payload, bearer, method = 'POST') => {
+        const response = await app.inject({
+          method,
+          url,
+          headers: bearer ? auth(bearer) : {},
+          ...(payload === undefined ? {} : { payload }),
+        });
+        return { status: response.statusCode, body: response.json() };
+      },
+      await identity.mint(userId),
+      await identity.mintForeign(userId)
+    );
   });
 
-  it('refuses opaque custody bytes and bare digest before requesting a signing session', async () => {
+  it('leaves opaque custody bytes unserved and refuses bare digest before requesting a signing session', async () => {
     const headers = auth(await identity.mint(userId));
-    const custody = await app.inject({ method: 'POST', url: '/v1/wallet/sign-custody', headers,
-      payload: { custody: '0x4c583a435553544f44593a7631' + '00'.repeat(32) } });
-    expect(custody.statusCode).toBe(400);
-    const digest = await app.inject({ method: 'POST', url: '/v1/wallet/sign-digest', headers,
-      payload: { digest: '0x' + '01'.repeat(32) } });
+    const custody = await app.inject({
+      method: 'POST',
+      url: '/v1/wallet/sign-custody',
+      headers,
+      payload: { custody: '0x4c583a435553544f44593a7631' + '00'.repeat(32) },
+    });
+    expect(custody.statusCode).toBe(404);
+    const digest = await app.inject({
+      method: 'POST',
+      url: '/v1/wallet/sign-digest',
+      headers,
+      payload: { digest: '0x' + '01'.repeat(32) },
+    });
     expect(digest.statusCode).toBe(400);
   });
 
