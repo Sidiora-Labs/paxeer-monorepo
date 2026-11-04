@@ -1,0 +1,9 @@
+[repair.22.31.108]
+finding = "signer-state-rename-not-durable"
+implementation = "WriteFileAtomic checks file sync and close before rename, then checks parent-directory sync and close before success; existing FilePV persistence errors reach SignVote."
+tests = ["TestRepair_108_SignerRestartRecovery", "TestRepair_108_SignerIOFailures"]
+proof = "A signed vote is recovered after killing its producer process; Linux ptrace observes real file finalization and directory durability ordering and injects EIO results at each sync and close through the real signer."
+qualification_gotcha = "The sandbox's inherited seccomp listener makes NEW_LISTENER fail with EBUSY; the syscall observer uses ptrace without changing the assertions."
+baseline = "Not run: the task's explicit implementation-first order and bounded gates prohibit the conflicting unchanged-tree verification request."
+wiring_requests = []
+qualification = "The private hf-build/hf-done ledger records the exact candidate revision, commands, exit codes and evidence locations."
