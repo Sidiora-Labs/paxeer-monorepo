@@ -1,0 +1,5 @@
+{
+  "base_revision": "716e8dfe1518af0033ed3d0e2b7b4f34fa81f0aa",
+  "normalization": "Entire parsed OpenRPC document excluding px_getRouteCatalogue and only px_resolveAccount.description; canonical JSON with sorted keys and compact separators.",
+  "sha256": "b22291fb76d87299146334720796e23915d58d3784682beca6429e17284ab840"
+}

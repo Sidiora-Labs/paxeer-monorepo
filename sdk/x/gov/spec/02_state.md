@@ -141,8 +141,12 @@ The key layout in [types/keys.go](../types/keys.go) is:
 | 0x20 + proposalID + length-prefixed voter address     | Vote protobuf        |
 
 Proposal IDs use eight-byte big-endian encoding. Queue timestamps use
-`sdk.FormatTimeBytes`; address keys contain the byte length followed by the raw
-address bytes. Prefix iteration retrieves all deposits or votes for a proposal.
+`sdk.FormatTimeBytes`: UTC text in the fixed-width layout
+`2006-01-02T15:04:05.000000000`, without a trailing `Z`. For example, the fixture's
+expedited deadline is `2023-11-15T22:13:20.000000000`. Each queue value is the same
+eight-byte big-endian proposal ID used in its key, not a proposal protobuf.
+Address keys contain a one-byte length followed by the raw address bytes. Prefix
+iteration retrieves all deposits or votes for a proposal.
 
 ## Proposal Processing Queue
 

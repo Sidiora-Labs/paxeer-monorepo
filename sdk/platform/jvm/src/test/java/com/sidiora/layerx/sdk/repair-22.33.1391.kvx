@@ -1,0 +1,77 @@
+[repair.22.33.1391]
+audit = "22.30.77"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.sdk.Repair22331391Test"
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log. This source record makes no qualification claim."
+baseline = "Not run: the explicit gate order forbids testing before complete implementation or invoking verify_cmd by hand. No pre-change execution or failure is claimed."
+
+[finding.program-metadata-test]
+tests = ["programMetadataMatchesCanonicalRetainedTransactionContract", "programReceiptTracesTheRealRetainedTransactionRequestSequence"]
+proof = "Generated metadata is compared to the canonical operations.json retained-transaction lookup with no precompile target or calls. A recorded native program receipt is resolved twice from the retained raw transaction through ProgramsClient and HTTP; every request must be pax_sequencerReceipt with its transaction hash. Unrelated catalogue, retirement, preparation and immutability assertions remain."
+implementation = "Aligned GeneratedSchema PROGRAM_ACTIVITY_TRANSPORT and PROGRAM_RECEIPT_TRANSPORT to the canonical eth_getTransactionByHash method, empty target and empty calls; main sources are explicitly in scope for this continuation."
+
+[finding.portable-test-rung-rewrite]
+tests = ["portableCommittedResponsePreservesProducerFieldsAcrossRestart", "portableNormalizationRemainsAnExplicitIndependentVectorTest"]
+proof = "The recorded receipted and committed answers cross ProgramsClient HTTP unchanged. The client closes and reopens, recovers the same signed receipt, then exports and verifies a committed portable proof with independent consensus trust. Rung, block number, block hash and receipt digest are preserved; missing or contradictory metadata refuses. The historical normalization test remains explicitly documented and independently exercised."
+
+[finding.fee-token-test-coverage]
+tests = ["feeTokenSignedVectorBindsPaymentAssetAndIndependentFeeSummary", "feeTokenSignedReceiptRejectsIndependentDenominationMutations", "recordedNodeHttpDecoderRejectsIndependentDenominationMutations"]
+proof = "The committed fee-token signed receipt and raw transaction bind SHA256(usid) independently of the uhpx fee summary and exact charged fee. Independent substitutions of the signed payment asset and fee-summary denomination refuse with SIGNATURE while the other field stays unchanged. Existing recorded node JSON crosses HTTP and refuses separate denomination substitutions with FIELDS, and direct verification refuses missing denominations."
+ruling = "Attempt 5 supersedes the public-node recording requirement: consume the committed sequencer-receipt-fee-token-v1.json directly without network access or invented receipt JSON."
+
+[gotcha.fee-token-json]
+observed = "The fee-token vector's producer passes nil as the recorded JSON answer, so this fixture has no receiptJson."
+action = "Attempt the explicitly authorized public root RPC recording, preserve its actual response locally and keep the missing producer-interface assertion strict; never derive receipt JSON from decoded fields."
+
+[gotcha.generated-metadata]
+observed = "The canonical operations.json uses eth_getTransactionByHash for retained reads, while generated JVM receipt/activity metadata still uses eth_getLogs at 0x101D."
+action = "The continuation explicitly authorizes aligning metadata in src/main with the canonical contract; preserve every metadata assertion."
+
+[qualification.initial]
+revision = "006f2c98a3ff6a355d1580f6333aec7dbff49aa7"
+command = "cg spec done 22.33.1391 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five of seven tests passed; the catalogue reader incorrectly iterated groups as descriptors and the fee-token node JSON is absent."
+assumption = "This is historical attempt-1 evidence; the continuation now authorizes the metadata correction and public RPC recording within scope."
+
+[gotcha.canonical-operation-groups]
+observed = "operations.json stores descriptors in arrays keyed by operation id, rather than a flat descriptor array."
+action = "Traverse each group array with explicit shape assertions before matching plane and operation name."
+
+[continuation.attempt-2]
+seed_revision = "3c4a6edb2069c1193a432406fdf945b307df7422"
+prior_failures = ["programMetadataMatchesCanonicalRetainedTransactionContract", "feeTokenRecordedNodeJsonBindsBothDenominations"]
+baseline_evidence = "The runner supplied these failures from attempt 1 before this continuation changed any source; no additional baseline gate is run."
+change = "Group each operation's metadata assertions with assertAll so stale RPC metadata cannot prevent target, calls, retirement, identity and immutability checks from executing. Preserve every expected value."
+historical_scope = "Attempt 2 treated generated metadata and the producer recording as outside scope; the attempt-3 ruling supersedes that assumption."
+
+[gotcha.metadata-short-circuit]
+observed = "A failed RPC-method assertion stopped target, calls and immutability assertions for that operation."
+action = "Execute all independent transport assertions together without relaxing any expectation."
+
+[continuation.attempt-3]
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+prior_failures = ["programMetadataMatchesCanonicalRetainedTransactionContract", "feeTokenRecordedNodeJsonBindsBothDenominations"]
+baseline_evidence = "The runner supplied attempt-2 failures before this continuation changed source; its gate ledger starts with zero build and verify runs. No duplicate baseline gate is run."
+change = "Retain all prior tests, correct both generated metadata descriptors, and consume the one-time public RPC recording from a local SDK fixture; file no wiring requests."
+recording = "fixtures/sequencer-receipt-fee-token-node-v1.json records the exact chain-id and receipt RPC requests and responses from https://api1.mainnet-beta.paxeer.network/ on 2026-11-04; it contains the observed RPC error, not a fabricated successful receipt."
+remaining = "The public root RPC supplies no fee-token receipt JSON. The strict real-response test must fail until a successful producer recording exists; no live RPC is read during the gate."
+
+[gotcha.public-root-receipt]
+observed = "The specified root endpoint returns eth_chainId 0x7d, but pax_sequencerReceipt for the existing fee-token vector returns -32000 with message pax_sequencerReceipt served by sequencer."
+action = "Preserve the response in the scoped test fixtures, fail the receipt-result assertion, run the bounded gates and report the external interface failure without fabricating a receipt or filing a wiring request."
+
+[continuation.attempt-4]
+seed_revision = "33a2229a882af04db1cd43dd68cb72c068b79833"
+review = "Preserved all seven carried-over paths. Both generated retained-transaction descriptors already use eth_getTransactionByHash with empty target and calls. All seven repair cases retain their assertions and real production verifier/HTTP decoder paths."
+baseline_evidence = "The runner supplied the previous failed gate; no duplicate baseline verification is run. The current private gate ledger starts with zero build and verify runs."
+external_failure = "The committed one-time public root RPC recording contains error -32000 rather than a receipt result. This previously recorded missing external interface cannot be repaired in JVM code without fabricating producer data or weakening the strict assertion."
+qualification = "Run hf-build then hf-done on the unchanged final candidate; exact revision, command, exit and private log are recorded by the gate ledger. No wiring request, live endpoint access during verification, or manual commit."
+
+[continuation.attempt-5]
+base_revision = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+baseline_evidence = "The runner supplied attempt-4's failure in feeTokenRecordedNodeJsonBindsBothDenominations before this continuation; no duplicate baseline gate is run."
+change = "Apply the explicit ruling to replace the unavailable public-node-result requirement with independent signed payment-asset and fee-denomination tampering checks against the committed fee-token vector. Preserve the positive vector, recorded-node HTTP decoder, canonical metadata and portable transition/restart proofs."
+recording = "The earlier local public RPC error fixture remains historical evidence only; no test requests a live endpoint or synthesizes a successful fee-token JSON receipt."
+qualification = "The private hf-build/hf-done ledger names the verified revision, exact command, exit and log on one unchanged candidate; the runner publishes it. No wiring requests or manual commits."

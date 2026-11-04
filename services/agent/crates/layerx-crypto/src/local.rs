@@ -64,7 +64,7 @@ impl Signer for LocalSigner {
     fn sign<'a>(&'a self, request: SigningRequest<'a>) -> SignFuture<'a> {
         Box::pin(async move {
             let signing_key = self.seed.expose(SigningKey::from_bytes);
-            let signature = signing_key.sign(&request.message().digest());
+            let signature = signing_key.sign(&request.signing_bytes()?);
             Ok(DidSignature::new(signature.to_bytes()))
         })
     }

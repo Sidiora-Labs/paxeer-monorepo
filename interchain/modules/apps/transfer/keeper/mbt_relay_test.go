@@ -15,6 +15,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 
+	transfer "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/types"
 	clienttypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/02-client/types"
 	channeltypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/04-channel/types"
@@ -73,8 +74,8 @@ type OnRecvPacketTestCase = struct {
 	handler string
 	// The expected bank state after processing (wrt. bankBefore)
 	bankAfter []Balance
-	// Whether OnRecvPacket should pass or fail
-	pass bool
+	// Expected handler outcome, independent of the exact bank delta.
+	handlerSuccess bool
 }
 
 type OwnedCoin struct {
@@ -151,12 +152,12 @@ func FungibleTokenPacketFromTla(packet TlaFungibleTokenPacket) FungibleTokenPack
 
 func OnRecvPacketTestCaseFromTla(tc TlaOnRecvPacketTestCase) OnRecvPacketTestCase {
 	return OnRecvPacketTestCase{
-		description: "auto-generated",
-		bankBefore:  BalancesFromTla(tc.BankBefore),
-		packet:      FungibleTokenPacketFromTla(tc.Packet),
-		handler:     tc.Handler,
-		bankAfter:   BalancesFromTla(tc.BankAfter), // TODO different semantics
-		pass:        !tc.Error,
+		description:    "auto-generated",
+		bankBefore:     BalancesFromTla(tc.BankBefore),
+		packet:         FungibleTokenPacketFromTla(tc.Packet),
+		handler:        tc.Handler,
+		bankAfter:      BalancesFromTla(tc.BankAfter), // TODO different semantics
+		handlerSuccess: !tc.Error,
 	}
 }
 
@@ -293,6 +294,9 @@ func (suite *KeeperTestSuite) TestModelBasedRelay() {
 			panic(fmt.Errorf("Failed to parse JSON test fixture: %w", err))
 		}
 
+		for _, chain := range suite.coordinator.Chains {
+			suite.Require().NoError(chain.GetSimApp().Close())
+		}
 		suite.SetupTest()
 		pathAtoB := NewTransferPath(suite.chainA, suite.chainB)
 		pathBtoC := NewTransferPath(suite.chainB, suite.chainC)
@@ -317,64 +321,70 @@ func (suite *KeeperTestSuite) TestModelBasedRelay() {
 				realBankBefore := BankOfChain(suite.chainB)
 				// First validate the packet itself (mimics what happens when the packet is being sent and/or received)
 				err := packet.ValidateBasic()
-				if err != nil {
-					suite.Require().False(tc.pass, err.Error())
-					return
-				}
-				switch tc.handler {
-				case "SendTransfer":
-					var sender sdk.AccAddress
-					sender, err = sdk.AccAddressFromBech32(tc.packet.Data.Sender)
-					if err != nil {
-						panic("MBT failed to convert sender address")
-					}
-					registerDenom()
-					denomTrace := types.ParseDenomTrace(tc.packet.Data.Denom)
-					denom := denomTrace.IBCDenom()
-					err = sdk.ValidateDenom(denom)
-					if err == nil {
-						amount, ok := sdk.NewIntFromString(tc.packet.Data.Amount)
-						if !ok {
-							panic("MBT failed to parse amount from string")
+				ctx, commit := suite.chainB.GetContext().CacheContext()
+				if err == nil {
+					switch tc.handler {
+					case "SendTransfer":
+						var sender sdk.AccAddress
+						sender, err = sdk.AccAddressFromBech32(tc.packet.Data.Sender)
+						if err != nil {
+							panic("MBT failed to convert sender address")
 						}
-						err = suite.chainB.GetSimApp().TransferKeeper.SendTransfer(
-							suite.chainB.GetContext(),
-							tc.packet.SourcePort,
-							tc.packet.SourceChannel,
-							sdk.NewCoin(denom, amount),
-							sender,
-							tc.packet.Data.Receiver,
-							clienttypes.NewHeight(0, 110),
-							0)
+						registerDenom()
+						denomTrace := types.ParseDenomTrace(tc.packet.Data.Denom)
+						denom := denomTrace.IBCDenom()
+						err = sdk.ValidateDenom(denom)
+						if err == nil {
+							amount, ok := sdk.NewIntFromString(tc.packet.Data.Amount)
+							if !ok {
+								panic("MBT failed to parse amount from string")
+							}
+							err = suite.chainB.GetSimApp().TransferKeeper.SendTransfer(
+								ctx,
+								tc.packet.SourcePort,
+								tc.packet.SourceChannel,
+								sdk.NewCoin(denom, amount),
+								sender,
+								tc.packet.Data.Receiver,
+								clienttypes.NewHeight(0, 110),
+								0)
+						}
+					case "OnRecvPacket":
+						ack := transfer.NewIBCModule(suite.chainB.GetSimApp().TransferKeeper).OnRecvPacket(ctx, packet, nil)
+						if !ack.Success() {
+							err = fmt.Errorf("receive refused: %s", ack.Acknowledgement())
+						}
+					case "OnTimeoutPacket":
+						registerDenom()
+						err = suite.chainB.GetSimApp().TransferKeeper.OnTimeoutPacket(ctx, packet, tc.packet.Data)
+					case "OnRecvAcknowledgementResult":
+						err = suite.chainB.GetSimApp().TransferKeeper.OnAcknowledgementPacket(
+							ctx, packet, tc.packet.Data,
+							channeltypes.NewResultAcknowledgement(nil))
+					case "OnRecvAcknowledgementError":
+						registerDenom()
+						err = suite.chainB.GetSimApp().TransferKeeper.OnAcknowledgementPacket(
+							ctx, packet, tc.packet.Data,
+							channeltypes.NewErrorAcknowledgement("MBT Error Acknowledgement"))
+					default:
+						err = fmt.Errorf("Unknown handler:  %s", tc.handler)
 					}
-				case "OnRecvPacket":
-					err = suite.chainB.GetSimApp().TransferKeeper.OnRecvPacket(suite.chainB.GetContext(), packet, tc.packet.Data)
-				case "OnTimeoutPacket":
-					registerDenom()
-					err = suite.chainB.GetSimApp().TransferKeeper.OnTimeoutPacket(suite.chainB.GetContext(), packet, tc.packet.Data)
-				case "OnRecvAcknowledgementResult":
-					err = suite.chainB.GetSimApp().TransferKeeper.OnAcknowledgementPacket(
-						suite.chainB.GetContext(), packet, tc.packet.Data,
-						channeltypes.NewResultAcknowledgement(nil))
-				case "OnRecvAcknowledgementError":
-					registerDenom()
-					err = suite.chainB.GetSimApp().TransferKeeper.OnAcknowledgementPacket(
-						suite.chainB.GetContext(), packet, tc.packet.Data,
-						channeltypes.NewErrorAcknowledgement("MBT Error Acknowledgement"))
-				default:
-					err = fmt.Errorf("Unknown handler:  %s", tc.handler)
 				}
-				if err != nil {
-					suite.Require().False(tc.pass, err.Error())
-					return
+				if err == nil {
+					commit()
+				}
+				if tc.handlerSuccess {
+					suite.Assert().NoError(err, "handler outcome")
+				} else {
+					suite.Assert().Error(err, "handler must refuse independently of bank comparison")
 				}
 				bankAfter := BankFromBalances(tc.bankAfter)
 				expectedBankChange := bankAfter.Sub(&bankBefore)
-				if err := suite.CheckBankBalances(suite.chainB, &realBankBefore, &expectedBankChange); err != nil {
-					suite.Require().False(tc.pass, err.Error())
-					return
+				suite.Require().NoError(suite.CheckBankBalances(suite.chainB, &realBankBefore, &expectedBankChange), "exact modeled bank delta")
+				if !tc.handlerSuccess {
+					unchanged := MakeBank()
+					suite.Require().NoError(suite.CheckBankBalances(suite.chainB, &realBankBefore, &unchanged), "refusal must be atomic")
 				}
-				suite.Require().True(tc.pass)
 			})
 		}
 	}

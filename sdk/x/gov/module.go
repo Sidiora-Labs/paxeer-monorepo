@@ -142,7 +142,9 @@ func (AppModule) Name() string {
 }
 
 // RegisterInvariants registers module invariants
-func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {}
+func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
+	keeper.RegisterInvariants(ir, am.keeper, am.bankKeeper)
+}
 
 // Route returns the message routing key for the gov module.
 func (am AppModule) Route() sdk.Route {

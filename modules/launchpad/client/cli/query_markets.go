@@ -41,7 +41,7 @@ func CmdQueryMarkets() *cobra.Command {
 func CmdQueryMarketsByCreator() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "markets-by-creator [creator]",
-		Example: "layerxd query launchpad markets-by-creator <creator> --offset 0 --limit 1 --output json",
+		Example: "paxd query launchpad markets-by-creator <creator> --offset 0 --limit 1 --output json",
 		Short:   "Query launchpad markets by creator",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

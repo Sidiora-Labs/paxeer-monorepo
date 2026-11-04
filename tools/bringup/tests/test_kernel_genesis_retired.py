@@ -43,6 +43,16 @@ class KernelGenesisRetiredTest(unittest.TestCase):
         )
         self.assertEqual(services.returncode, 0, services.stdout + services.stderr)
         names = {line.split()[0] for line in services.stdout.splitlines()}
-        self.assertIn("receipt-authority", names)
+        self.assertTrue({"human-event-client", "human-kms", "human-kms-client", "human-kms-executor", "registry", "gateway-client"} <= names)
+        self.assertEqual(len(names), 30)
+        self.assertNotIn("receipt-authority", names)
+        self.assertNotIn("guarantor-1", names)
+        self.assertNotIn("guarantor-2", names)
+        self.assertNotIn("layerxd", names)
         self.assertNotIn("guarantor", names)
         self.assertNotIn("relay-archive", names)
+
+        value_loop = (root / "tools/bringup/value-loop.sh").read_text()
+        self.assertIn('committed-transaction "$rpc" "0x$activity"', value_loop)
+        self.assertIn("latest_committed_height", value_loop)
+        self.assertNotIn("--socket", value_loop)

@@ -1,0 +1,62 @@
+[task]
+id = "22.33.85"
+requirement = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+initial_revision = "5f108dc30cfa8c664987552e0f13ae52fe7ab1fc"
+readme_owner_task = "22.31.470"
+readme_source_revision = "38801bb427090ac96d47c86a026a63ec05e67315"
+repair = "Consume the README rewrite owned by task 22.31.470 under decision 2525 and add focused source-contract proofs for audit 22.30.11/readme-merged-network. README.md is outside this task's paths and is unchanged."
+wiring_requests = []
+wiring_review = "No expected README fact is missing in the inspected source. Any future missing architecture, build, current-status or operator-link fact requires README.md wiring by domain 17 through owning task 22.31.470; this task never edits that path."
+
+[finding.readme-merged-network]
+audit = "22.30.11"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+resolution = "The README describes one chain-125 BFT paxd network with an embedded block-proposing kernel, block-commit receipt finality, root JSON-RPC hosts, transaction submission and committed receipt consumption, linked native build prerequisites and paxd startup. Custody and checkpoint executors are retired refusal surfaces; historical anchor views are archive-only and there is no separate kernel daemon or checkpoint deployment."
+tests = ["test_readme_merged_network_and_block_finality", "test_readme_root_rpc_hosts_and_chain_probe", "test_readme_transaction_to_committed_receipt_path", "test_readme_retired_executors_and_no_separate_deployment", "test_readme_merged_build_runtime_and_operator_links"]
+closure = "Source facts are implemented by 22.31.470 and asserted here; qualification is established only by a passing hf-done on the same candidate revision as hf-build, with exact evidence in the private ledger."
+
+[baseline]
+working_tree = "Initial git status/diff showed only runner-prepared .cgignore and spec/layerx-merge/spec.kvx bookkeeping; neither scoped repair file existed. The start revision already contains the README rewrite."
+ledger = "At inspection, /out/run/gates.jsonl was absent and gate.json recorded builds_used=0, verify_runs_used=0 and two repair cycles available."
+verification = "Pre-change verification was not run. The explicit implementation-first order and exclusive hf-done gate override the older do_5 baseline instruction. No pre-change failing test is claimed; the task's test module did not exist on the unchanged tree."
+
+[proof]
+source_facts = "Five finding tests read the actual README and production sources. They assert the integrated kernel/consensus topology and finality, parse the documented curl argv and JSON chain probe without executing it, validate the api1..api14 host range and root URLs, check ordered transaction/receipt steps and diagram events against acceptance/forwarding, WAL release-before-publication and committed coverage, check retirement gates, build prerequisites and linked operator guidance. A sixth test parses the audit and repair KVX and checks the finding-to-test map against declared Python test functions."
+producer_transport_consumer = "README submission guidance is tied to rpc/send.go acceptance/forwarding and node/sequencer/accepter.go durable WAL release, then to rpc/sequencer_receipt.go submitted/receipted/committed results and the client's documented committed receipt/status/log consumption. These are static connections in real production sources, with no substitute runtime or fake peer."
+review_only = "Native Go/C/Rust builds, node startup, endpoint availability, signing, transaction execution, WAL restart/recovery, BFT consensus and deployment are not executed by this documentation gate. The module proves source facts and navigation, not runtime behavior. This doc-drift finding changes no production interface or persisted state, so no restart-recovery or interface-mismatch runtime claim is made."
+dependencies = "The gate uses Python standard-library parsing and pytest only; it needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_85.py"
+build_gate = "hf-build"
+verify_gate = "hf-done"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done line and private gate ledger record exact revision, command, exit code and log path. Build and verify must pass at the same content-derived candidate revision. This record is finalized before gates; embedding its own candidate revision afterward would invalidate that evidence. The runner retains the exact evidence and publishes the result."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply repository .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions after the entire implementation is complete."
+
+[qualification.initial_failure]
+revision = "8f7594a40243c8175dd8aa76a1196b893eabcecd"
+command = "cg spec done 22.33.85 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four tests passed; two failed because the new Markdown section parser interpreted a fenced shell comment as a heading and the link checker required a directory target to be a file."
+repair = "Parse Markdown fence boundaries before recognizing headings, interpret shell line continuations before tokenizing the documented probe, and assert directory or file type according to the link target. Keep every source-fact assertion and all six tests."
+
+[gotcha.1]
+observed = "Large combined reads of the gotcha ledger and audit/context output exceeded tool output limits; a guessed sibling repair module was absent."
+resolution = "Read bounded task, finding and relevant source sections and the actual owning task's repair artifacts. Keep task-specific notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The older task step requests an unchanged-tree baseline test while the current order prohibits manual verification and requires complete implementation before either bounded gate."
+resolution = "Follow the explicit bounded order, record that no baseline test ran, and claim qualification only from the hf-build/hf-done ledger."
+
+[gotcha.3]
+observed = "Markdown shell examples contain hash-prefixed comments and repository links can name directories."
+resolution = "Respect fenced code when extracting sections, join shell continuations before parsing argv, and check each link against its declared file or directory kind."

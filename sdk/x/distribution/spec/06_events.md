@@ -6,7 +6,10 @@ order: 6
 
 Distribution event names and module-specific attribute keys are declared in
 [types/events.go](../types/events.go). Amount attributes contain SDK coin strings;
-allocation events use decimal coins and withdrawals use integer coins. Validator
+allocation events use decimal coins and withdrawals use integer coins. Bank
+transfers also emit `coin_spent`, `coin_received`, `transfer` and a sender-only
+`message` event; the tables below describe distribution events and the separate
+BaseApp action event. Validator
 attributes identify operator addresses.
 
 ## BeginBlocker
@@ -30,6 +33,30 @@ found. Each call to `AllocateTokensToValidator` emits `commission` and `rewards`
 current shared rewards exclude commission. If previous total voting power is
 zero, allocation sends all collected fees to the community pool and returns
 without these allocation events.
+
+### Non-default allocation example
+
+With `100uhpx` collected, one validator holding all voting power and signing,
+community tax `0.02`, base proposer reward `0.01`, bonus proposer reward `0.04`,
+and validator commission `0.10`, the known previous proposer receives a 5%
+allocation. These are **non-default rates and nonempty votes**, supplied to
+illustrate the configurable branch. In emission order (each event also has
+`validator={validatorOperatorAddress}`):
+
+```text
+proposer_reward.amount = 5.000000000000000000uhpx
+commission.amount = 0.500000000000000000uhpx
+rewards.amount = 5.000000000000000000uhpx
+commission.amount = 9.300000000000000000uhpx
+rewards.amount = 93.000000000000000000uhpx
+```
+
+The remaining `2uhpx` goes to the community pool. The validator's commission
+increases by `9.8uhpx`, shared rewards by `88.2uhpx`, and outstanding rewards
+by `98uhpx`. In the current Autobahn empty-vote path, the same collected fees
+increase the community pool by `100uhpx` and none of these events is emitted.
+A known proposer on a nonzero-power path with zero proposer rates still emits
+`proposer_reward` with an empty `amount` coin string.
 
 ## Handlers
 

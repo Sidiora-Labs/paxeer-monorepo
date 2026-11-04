@@ -106,6 +106,10 @@ impl PrecompileSource {
 
 #[async_trait::async_trait]
 impl super::CompleteSignatureSource for PrecompileSource {
+    fn covers_event(&self, hex: &str) -> bool {
+        !Self::lookup(&Self::signatures().complete_events, hex).is_empty()
+    }
+
     async fn get_event_signatures(
         &self,
         hex: &str,
@@ -131,8 +135,20 @@ impl super::CompleteSignatureSource for PrecompileSource {
 
 #[async_trait::async_trait]
 impl SignatureSource for PrecompileSource {
+    fn covers_function(&self, hex: &str) -> bool {
+        !Self::lookup(&Self::signatures().functions, hex).is_empty()
+    }
+
+    fn covers_event(&self, hex: &str) -> bool {
+        !Self::lookup(&Self::signatures().events, hex).is_empty()
+    }
+
+    fn accepts_imports(&self) -> bool {
+        false
+    }
+
     async fn create_signatures(&self, _abi: &str) -> Result<(), anyhow::Error> {
-        Ok(())
+        anyhow::bail!("embedded precompile inventory is read-only")
     }
 
     async fn get_function_signatures(&self, hex: &str) -> Result<Vec<String>, anyhow::Error> {
@@ -176,7 +192,7 @@ mod tests {
             );
         }
         assert_eq!(source.source(), "precompiles");
-        source.create_signatures("[]").await.unwrap();
+        assert!(source.create_signatures("[]").await.is_err());
 
         let topic = hex::encode(ethabi::long_signature(
             "OrderCancelRequested",

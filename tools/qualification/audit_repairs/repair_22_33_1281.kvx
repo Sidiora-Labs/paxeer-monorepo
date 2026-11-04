@@ -1,0 +1,37 @@
+[task.22.33.1281]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+repair = "Decision 2525 delegates root README edits to task 22.31.470. Preserve its existing integrated paxd network description and qualify finding readme-separated-network with focused regression assertions. README.md is read only in this task; all expected facts are present, so no additional wiring request is needed."
+source_proof = "The pytest module asserts README source facts for one BFT network, the embedded block-proposing kernel, chain 125, api1 through api14 root HTTPS JSON-RPC hosts, signed transaction submission, durable execution receipts, committed-block finality, retired custody/checkpoint executors and paxd startup. It parses the documented curl arguments and JSON payload without executing commands, checks diagram order, and traces production source wiring from RPC submission to sequencer acceptance and durable release, then RPC committed coverage and the proof consumers. Retirement checks inspect the actual refusal gates."
+review_only = "Native Go/C/Rust execution, real transactions, signature verification, BFT commitment and live endpoint availability are not executed by this documentation gate. Producer, transport and consumer assertions prove source wiring only. No interface or restart-recovery behavior is changed and no runtime interface or recovery qualification is claimed. No shell script, unit, manifest or build file is repaired. The test needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit order requires complete implementation before formatting/build/testing and hf-build before hf-done, and forbids manually running verify_cmd. No baseline failing tests are claimed. The initial private gate ledger did not exist and gate configuration showed zero builds and verify runs. The initial git diff contained only runner-prepared .cgignore and spec task-status bookkeeping; neither scoped file existed, and the README already contained the required facts from 22.31.470."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1281.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified content-derived candidate revision, command, exit code and log path. hf-build and hf-done must pass on the same candidate revision. This record is finalized before qualification; embedding its own content-derived revision would change that revision. The runner retains the exact evidence and commits the result. No source edit follows a passing hf-done."
+wiring_requests = []
+
+[finding.readme-separated-network]
+audit = "22.30.64"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+expected = "The merged network runs paxd with the kernel proposing BFT blocks; a committed receipt is final and there is no separate sequencer daemon or checkpoint-settlement service."
+tests = ["test_readme_integrates_kernel_and_block_proposal_inside_paxd", "test_readme_public_rpc_uses_chain_125_and_numbered_root_hosts", "test_readme_transaction_receipt_flow_matches_producer_transport_consumer", "test_readme_finality_requires_authenticated_committed_block", "test_readme_retires_custody_checkpoint_executors_and_separate_startup", "test_readme_diagrams_keep_execution_and_finality_in_one_network", "test_repair_record_maps_readme_finding_to_all_proofs_and_limits"]
+
+[gotcha.1]
+observed = "The baseline verification clause conflicts with the explicit implementation-first bounded gate order."
+resolution = "Follow the explicit order, record no measured baseline failures and run verification only through hf-done after hf-build."
+
+[gotcha.2]
+observed = "Root README changes and central gotcha/spec ledger changes are outside this task's scope."
+resolution = "Keep the inherited README repair and runner bookkeeping intact; record task notes here and route any missing README fact to domain 17 task 22.31.470. No missing fact was observed."
+
+[gotcha.3]
+observed = "Combined broad repository reads exceeded tool output limits and Codify context included unrelated programme material."
+resolution = "Use bounded reads of the exact audit, task block, README sections and related repair files, and use the runner's private ledger for gate evidence."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply repository .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions to the two touched files after implementation."

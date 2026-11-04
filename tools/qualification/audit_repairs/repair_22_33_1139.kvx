@@ -1,0 +1,36 @@
+[task]
+id = "22.33.1139"
+finding = "22.30.5.29"
+audit_record = "spec/layerx-merge/programme/audit/records/22.30.5.kvx"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+prerequisite_revision = "1b708157029f33ef200b52c18fdf90e608aeb58d"
+repair = "Decision 2525 assigns README.md to domain 17 task 22.31.470. Its merged README already replaces the separate daemon/checkpoint architecture with the integrated paxd chain. This task adds focused regression checks and finding-to-test evidence without editing README.md."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1139.py"
+wiring_requests = []
+wiring_resolution = "README.md, owning domain 17, task 22.31.470: the requested architecture/build/run, root RPC, native funding and committed-proof guidance is already present; no missing fact or further wiring request was identified."
+
+[finding."22.30.5.29"]
+file = "README.md"
+classification = "doc-drift"
+severity = "medium"
+tests = ["test_merged_paxd_network_and_commit_finality", "test_root_rpc_hosts_and_chain_probe", "test_transaction_to_committed_receipt_path", "test_native_funding_and_proof_guidance", "test_retired_executors_and_no_separate_deployment", "test_paxd_build_and_run_guidance"]
+source_proof = "Read the actual README sections, topology and sequence diagrams. Check the chain-125 root URL range and parse the curl JSON-RPC payload without sending it; trace documented transaction acceptance, durable receipt release and committed coverage against production Go sources; parse the native funding ABI and confirm receipt signing/verification source links; check retirement inventory and upgrade refusals and the paxd Makefile targets. Resolve the current funding/proof links on disk."
+review_only = "No native build toolchain is run. Source assertions establish documentation agreement with production producer, transport and consumer wiring; they do not execute transactions, cryptography, BFT consensus, endpoint availability, node startup or WAL restart/recovery. This doc-drift finding changes no stateful component or interface, so restart and interface execution proofs are not applicable."
+
+[baseline]
+working_tree = "Initial git status and git diff showed only pre-existing .cgignore and spec/layerx-merge/spec.kvx bookkeeping changes. Both scoped files were absent; no earlier implementation was replaced."
+ledger = "Before implementation /out/run/gate.json showed builds_used=0 and verify_runs_used=0; /out/run/gates.jsonl did not exist."
+pre_change_tests = "Not run; no pre-change failures are claimed. The explicit implementation-first order and exclusive hf-done gate prohibit the older do_5 baseline verify instruction. README.md remains unchanged throughout this task, so the declared gate checks the prerequisite's actual README."
+
+[qualification]
+verified_revision = "Resolved by the final verify row in private /out/run/gates.jsonl and the identical final hf-done JSON evidence line; this content-derived candidate includes both task files."
+evidence_ledger = "/out/run/gates.jsonl"
+evidence_policy = "hf-build and hf-done must pass on the same candidate revision. Retain their exact revision, command, exit code and private log path in the runner ledger and final response. Do not embed the candidate hash into its own hashed record or edit after qualification. The runner publishes; this task performs no manual commit or push."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final newline and no trailing whitespace to the two complete files before qualification."
+
+[gotcha.1]
+observed = "Broad context reads exceeded tool output limits, and cg brief reports an unrelated task and stale graph change counts."
+resolution = "Use bounded reads, the explicitly assigned task, actual git status/diff and the private runner ledger; do not claim another task or chase unrelated graph changes. Keep session notes here because GOTCHA.kvx and spec files are outside scope."
