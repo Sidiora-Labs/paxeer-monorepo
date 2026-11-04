@@ -1756,6 +1756,17 @@ pub fn serve_one<T: HumanFrameTransport, O: HumanOperations>(
     peer: &HumanPeer,
     operations: &mut O,
 ) -> Result<(), HumanProtocolError> {
+    serve_one_with(transport, peer, |request| {
+        dispatch_request(request, peer, operations)
+    })
+}
+
+/// A peer-authenticated transport adapter for a concrete operation owner.
+pub fn serve_one_with<T: HumanFrameTransport>(
+    transport: &mut T,
+    peer: &HumanPeer,
+    handler: impl FnOnce(HumanRequest) -> Result<HumanResponse, HumanOperationError>,
+) -> Result<(), HumanProtocolError> {
     peer.validate()?;
     let frame = transport.receive().map_err(HumanProtocolError::Transport)?;
     if frame.len() > MAX_BYTES {
@@ -1764,7 +1775,7 @@ pub fn serve_one<T: HumanFrameTransport, O: HumanOperations>(
     let (trace, frame) = trace_envelope(frame)?;
     let request = decode_request(frame)?;
     let _context = TraceContext(REQUEST_TRACE.with(|current| current.replace(trace.clone())));
-    let result = dispatch_request(request, peer, operations);
+    let result = handler(request);
     let mut response = encode_response(result);
     if let Some(trace) = trace {
         eprintln!("human_request trace={trace} outcome={}", response[8]);
@@ -1799,12 +1810,22 @@ pub fn encode_response(result: Result<HumanResponse, HumanOperationError>) -> Ve
             response.extend_from_slice(&expected.to_be_bytes());
             response.extend_from_slice(&pending.to_be_bytes());
         }
-        Err(
-            HumanOperationError::Refused
-            | HumanOperationError::CapabilityRefused(_)
-            | HumanOperationError::Typed(_),
-        ) => response.push(1),
-        Err(HumanOperationError::Unavailable) => response.push(2),
+        Err(error) => {
+            response.push(1);
+            let reason = match error {
+                HumanOperationError::Typed(refusal) => refusal.reason(),
+                HumanOperationError::CapabilityRefused(dimension) => {
+                    capability_refusal_reason(dimension)
+                }
+                HumanOperationError::Refused => "operation.refused",
+                HumanOperationError::Unavailable => {
+                    response[8] = 2;
+                    return response;
+                }
+            };
+            response.extend_from_slice(&(reason.len() as u32).to_be_bytes());
+            response.extend_from_slice(reason.as_bytes());
+        }
     }
     response
 }
@@ -2944,45 +2965,44 @@ fn decode_operation_2(
             evidence: finalization(reader)?,
         },
         AGENT_JOURNEY => {
+            if reader.fixed::<2>()? != *b"J1" {
+                return Err(HumanProtocolError::Malformed);
+            }
             let tag = reader.u8()?;
             let agent_id = reader.text()?;
-            let amount = reader.u128()?;
-            let currency = reader.text()?;
-            let challenge_delay_seconds = reader.u64()?;
-            let ready_at = reader.u64()?;
-            let pre_observation = reader.fixed()?;
-            let post_observation = reader.fixed()?;
-            let evidence = finalization(reader)?;
             let kind = match tag {
-                0 if amount > 0
-                    && !currency.is_empty()
-                    && challenge_delay_seconds == 0
-                    && ready_at == 0 =>
-                {
-                    HumanAgentJourneyKind::Reclaim { amount, currency }
-                }
-                1 if amount == 0
-                    && currency.is_empty()
-                    && challenge_delay_seconds > 0
-                    && ready_at > evidence.finalized_at =>
-                {
-                    HumanAgentJourneyKind::Rotate {
-                        challenge_delay_seconds,
-                        ready_at,
-                    }
-                }
-                2 if amount == 0
-                    && currency.is_empty()
-                    && challenge_delay_seconds > 0
-                    && ready_at > evidence.finalized_at =>
-                {
-                    HumanAgentJourneyKind::Recover {
-                        challenge_delay_seconds,
-                        ready_at,
+                0 => HumanAgentJourneyKind::Reclaim {
+                    amount: reader.u128()?,
+                    currency: reader.text()?,
+                },
+                1 | 2 => {
+                    let challenge_delay_seconds = reader.u64()?;
+                    let ready_at = reader.u64()?;
+                    if tag == 1 {
+                        HumanAgentJourneyKind::Rotate {
+                            challenge_delay_seconds,
+                            ready_at,
+                        }
+                    } else {
+                        HumanAgentJourneyKind::Recover {
+                            challenge_delay_seconds,
+                            ready_at,
+                        }
                     }
                 }
                 _ => return Err(HumanProtocolError::Malformed),
             };
+            let pre_observation = reader.fixed()?;
+            let post_observation = reader.fixed()?;
+            let evidence = finalization(reader)?;
+            HumanJourneyRequestV1 {
+                agent_id: agent_id.clone(),
+                kind: kind.clone(),
+                pre_observation,
+                post_observation,
+                evidence,
+            }
+            .validate()?;
             HumanRequest::AgentJourney {
                 agent_id,
                 kind,
@@ -3358,4 +3378,243 @@ mod trace_envelope_tests {
         invalid[12] = b'G';
         assert!(trace_envelope(invalid).is_err());
     }
+}
+
+/// Version 1 journey producer shared with Human clients. Currency exists only for reclaim.
+#[derive(Clone, Debug)]
+pub struct HumanJourneyRequestV1 {
+    pub agent_id: String,
+    pub kind: HumanAgentJourneyKind,
+    pub pre_observation: [u8; 32],
+    pub post_observation: [u8; 32],
+    pub evidence: HumanFinalizationEvidence,
+}
+impl HumanJourneyRequestV1 {
+    fn validate(&self) -> Result<(), HumanProtocolError> {
+        self.evidence.validate()?;
+        if self.agent_id.is_empty()
+            || self.agent_id.len() > MAX_TEXT
+            || self.pre_observation == [0; 32]
+        {
+            return Err(HumanProtocolError::Malformed);
+        }
+        match &self.kind {
+            HumanAgentJourneyKind::Reclaim { amount, currency }
+                if *amount > 0
+                    && !currency.is_empty()
+                    && currency.len() <= MAX_TEXT
+                    && self.post_observation != [0; 32] =>
+            {
+                Ok(())
+            }
+            HumanAgentJourneyKind::Rotate {
+                challenge_delay_seconds,
+                ready_at,
+            }
+            | HumanAgentJourneyKind::Recover {
+                challenge_delay_seconds,
+                ready_at,
+            } if *challenge_delay_seconds > 0
+                && self
+                    .evidence
+                    .finalized_at
+                    .checked_add(*challenge_delay_seconds)
+                    == Some(*ready_at)
+                && self.post_observation == [0; 32] =>
+            {
+                Ok(())
+            }
+            _ => Err(HumanProtocolError::Malformed),
+        }
+    }
+    pub fn encode(&self) -> Result<Vec<u8>, HumanProtocolError> {
+        self.validate()?;
+        let mut out = MAGIC.to_vec();
+        out.push(AGENT_JOURNEY);
+        out.extend_from_slice(b"J1");
+        out.push(match self.kind {
+            HumanAgentJourneyKind::Reclaim { .. } => 0,
+            HumanAgentJourneyKind::Rotate { .. } => 1,
+            HumanAgentJourneyKind::Recover { .. } => 2,
+            _ => return Err(HumanProtocolError::Malformed),
+        });
+        let text = |out: &mut Vec<u8>, value: &str| {
+            out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+            out.extend_from_slice(value.as_bytes());
+        };
+        text(&mut out, &self.agent_id);
+        match &self.kind {
+            HumanAgentJourneyKind::Reclaim { amount, currency } => {
+                out.extend_from_slice(&amount.to_be_bytes());
+                text(&mut out, currency);
+            }
+            HumanAgentJourneyKind::Rotate {
+                challenge_delay_seconds,
+                ready_at,
+            }
+            | HumanAgentJourneyKind::Recover {
+                challenge_delay_seconds,
+                ready_at,
+            } => {
+                out.extend_from_slice(&challenge_delay_seconds.to_be_bytes());
+                out.extend_from_slice(&ready_at.to_be_bytes());
+            }
+            _ => return Err(HumanProtocolError::Malformed),
+        }
+        out.extend_from_slice(&self.pre_observation);
+        out.extend_from_slice(&self.post_observation);
+        let evidence = self.evidence;
+        out.extend_from_slice(&evidence.action_key);
+        out.extend_from_slice(&evidence.tx_hash);
+        out.extend_from_slice(&evidence.receipt_hash);
+        out.extend_from_slice(&evidence.observed_height.to_be_bytes());
+        out.push(evidence.rung);
+        out.extend_from_slice(&evidence.finalized_at.to_be_bytes());
+        Ok(out)
+    }
+}
+
+pub const fn capability_refusal_reason(dimension: crate::capability::Dimension) -> &'static str {
+    use crate::capability::Dimension;
+    match dimension {
+        Dimension::Expiry => "capability.expiry",
+        Dimension::ActivityType => "capability.activity_type",
+        Dimension::Counterparty => "capability.counterparty",
+        Dimension::Asset => "capability.asset",
+        Dimension::Amount => "capability.amount",
+        Dimension::Rate => "capability.rate",
+        Dimension::Purpose => "capability.purpose",
+    }
+}
+
+/// Bounded refusal envelope v1 (the LXHAGT01 protocol): a reason and operation-specific details.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HumanWireRefusal {
+    pub reason: String,
+    pub nonce: Option<(u64, u64)>,
+}
+#[derive(Debug)]
+pub enum HumanWireResponse {
+    Success(HumanResponse),
+    Refused(HumanWireRefusal),
+    Unavailable,
+}
+/// Lossless consumer; rejects unknown status, oversized fields and trailing refusal details.
+pub fn decode_response(bytes: Vec<u8>) -> Result<HumanWireResponse, HumanProtocolError> {
+    if bytes.len() > MAX_BYTES {
+        return Err(HumanProtocolError::Malformed);
+    }
+    let mut reader = Reader::new(bytes);
+    if reader.fixed::<8>()? != *MAGIC {
+        return Err(HumanProtocolError::Malformed);
+    }
+    let answer = match reader.u8()? {
+        0 => {
+            let payload = reader.bytes[reader.offset..].to_vec();
+            return Ok(HumanWireResponse::Success(HumanResponse::new(payload)?));
+        }
+        1 => {
+            let reason = reader.text()?;
+            if reason.is_empty()
+                || !reason
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'_')
+            {
+                return Err(HumanProtocolError::Malformed);
+            }
+            let nonce = if reason == "prepare.stale_nonce" {
+                Some((reader.u64()?, reader.u64()?))
+            } else {
+                None
+            };
+            HumanWireResponse::Refused(HumanWireRefusal { reason, nonce })
+        }
+        2 => HumanWireResponse::Unavailable,
+        _ => return Err(HumanProtocolError::Malformed),
+    };
+    reader.finish()?;
+    Ok(answer)
+}
+
+/// Producer for lifecycle requests whose finalization fields share one wire codec.
+pub fn encode_lifecycle_request(request: &HumanRequest) -> Result<Vec<u8>, HumanProtocolError> {
+    if let HumanRequest::AgentJourney {
+        agent_id,
+        kind,
+        pre_observation,
+        post_observation,
+        evidence,
+    } = request
+    {
+        return HumanJourneyRequestV1 {
+            agent_id: agent_id.clone(),
+            kind: kind.clone(),
+            pre_observation: *pre_observation,
+            post_observation: *post_observation,
+            evidence: *evidence,
+        }
+        .encode();
+    }
+    let mut out = MAGIC.to_vec();
+    let text = |out: &mut Vec<u8>, value: &str| -> Result<(), HumanProtocolError> {
+        if value.is_empty() || value.len() > MAX_TEXT {
+            return Err(HumanProtocolError::Malformed);
+        }
+        out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+        out.extend_from_slice(value.as_bytes());
+        Ok(())
+    };
+    let evidence = match request {
+        HumanRequest::AgentControl {
+            agent_id,
+            resume,
+            session_observation,
+            evidence,
+        } => {
+            out.push(AGENT_CONTROL);
+            text(&mut out, agent_id)?;
+            out.push(u8::from(*resume));
+            out.extend_from_slice(session_observation);
+            evidence
+        }
+        HumanRequest::AgentLimit {
+            agent_id,
+            monthly_limit,
+            currency,
+            replacement_budget_id,
+            evidence,
+        } => {
+            out.push(AGENT_LIMIT);
+            text(&mut out, agent_id)?;
+            out.extend_from_slice(&monthly_limit.to_be_bytes());
+            text(&mut out, currency)?;
+            out.extend_from_slice(replacement_budget_id);
+            evidence
+        }
+        HumanRequest::AgentArchive {
+            agent_id,
+            confirm_name,
+            pre_observation,
+            post_observation,
+            session_observation,
+            evidence,
+        } => {
+            out.push(AGENT_ARCHIVE);
+            text(&mut out, agent_id)?;
+            text(&mut out, confirm_name)?;
+            out.extend_from_slice(pre_observation);
+            out.extend_from_slice(post_observation);
+            out.extend_from_slice(session_observation);
+            evidence
+        }
+        _ => return Err(HumanProtocolError::Malformed),
+    };
+    evidence.validate()?;
+    out.extend_from_slice(&evidence.action_key);
+    out.extend_from_slice(&evidence.tx_hash);
+    out.extend_from_slice(&evidence.receipt_hash);
+    out.extend_from_slice(&evidence.observed_height.to_be_bytes());
+    out.push(evidence.rung);
+    out.extend_from_slice(&evidence.finalized_at.to_be_bytes());
+    Ok(out)
 }
