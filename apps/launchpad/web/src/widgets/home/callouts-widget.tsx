@@ -53,24 +53,42 @@ export interface CalloutsFeedState {
  * the query keeps refreshing; `pending` counts what arrived meanwhile.
  */
 export function useCalloutsFeed(feed: CalloutsFeed, filter: string): CalloutsFeedState {
-  const [paused, setPaused] = useState(false);
   const order = feedOrderFor(feed);
   const page = useFeed(order);
   const queryClient = useQueryClient();
-  const live = useMemo<CalloutView[]>(() => (page.state === 'ready' ? page.data.Entries.map(feedCardView) : []), [page]);
-  const [frozen, setFrozen] = useState<CalloutView[] | null>(null);
-  useEffect(() => { setPaused(false); setFrozen(null); }, [feed]);
-  const callouts = paused && frozen ? frozen : live;
+  const data = page.state === 'ready' ? page.data : null;
+  const live = useMemo<CalloutView[]>(() => data ? data.Entries.map(feedCardView) : [], [data]);
+  const [frozen, setFrozen] = useState<{ cards: CalloutView[]; seen: ReadonlySet<string>; pending: number } | null>(null);
+  const paused = frozen !== null;
+  useEffect(() => { setFrozen(null); }, [feed]);
+  useEffect(() => {
+    if (page.state !== 'ready') return;
+    setFrozen(snapshot => {
+      if (!snapshot) return snapshot;
+      const seen = new Set(snapshot.seen);
+      let pending = snapshot.pending;
+      for (const callout of live) {
+        const identity = `${callout.source}:${callout.id}`;
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        if (!callout.removed) pending += 1;
+      }
+      // Keep arrivals through page eviction/removal; reappearance is not another arrival.
+      // A first observation that is already removed is remembered but never counted.
+      return seen.size === snapshot.seen.size ? snapshot : { ...snapshot, seen, pending };
+    });
+  }, [live, page.state]);
+  const callouts = frozen ? frozen.cards : live;
   const visible = useMemo(() => callouts.filter(callout => matchesCallout(callout, filter)), [callouts, filter]);
   const statsFor = useCalloutStats(visible);
-  const pending = paused && frozen ? live.length - frozen.length : 0;
+  const pending = frozen?.pending ?? 0;
   return {
     page,
     visible,
     statsFor,
     paused,
     pending,
-    togglePause() { setFrozen(paused ? null : live); setPaused(!paused); },
+    togglePause() { setFrozen(snapshot => snapshot ? null : { cards: live, seen: new Set(live.map(callout => `${callout.source}:${callout.id}`)), pending: 0 }); },
     retry() { void queryClient.invalidateQueries({ queryKey: queryKeys.feed(order, null, 50) }); },
   };
 }
