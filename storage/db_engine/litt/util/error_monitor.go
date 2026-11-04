@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"sync"
 	"sync/atomic"
 )
 
@@ -27,7 +28,12 @@ type ErrorMonitor struct {
 	callback func(error)
 
 	// If this is non-nil, the monitor is either in a "panic" state or a "shutdown" state.
-	error atomic.Pointer[error]
+	error     atomic.Pointer[error]
+	drain     chan struct{}
+	drainOnce sync.Once
+	workerMu  sync.Mutex
+	workers   sync.WaitGroup
+	stopped   bool
 }
 
 // NewErrorMonitor creates a new ErrorMonitor struct. Executes the callback function when/if Panic() is called.
@@ -44,6 +50,7 @@ func NewErrorMonitor(
 		cancel:   cancel,
 		logger:   logger,
 		callback: callback,
+		drain:    make(chan struct{}),
 	}
 }
 
@@ -90,12 +97,41 @@ func (h *ErrorMonitor) IsOk() (bool, error) {
 	return true, nil
 }
 
-// Shutdown causes the ErrorMonitor to enter a "shutdown" state. Causes ImmediateShutdownRequired() to signal.
+// Shutdown closes admission while allowing accepted work to drain. It does not
+// cancel running loops; the owner calls CompleteShutdown after the control loop exits.
 func (h *ErrorMonitor) Shutdown() {
 	err := fmt.Errorf("monitor is shut down")
 
 	// don't overwrite the error if there is already an error stored
 	h.error.CompareAndSwap(nil, &err)
+	h.drainOnce.Do(func() { close(h.drain) })
+}
+
+// DrainRequired signals admission closure, independently of final cancellation.
+func (h *ErrorMonitor) DrainRequired() <-chan struct{} { return h.drain }
+
+// Go registers a background loop so final shutdown can join it. Registration is
+// rejected after final stop begins. A registered loop must not call CompleteShutdown.
+func (h *ErrorMonitor) Go(run func()) error {
+	h.workerMu.Lock()
+	defer h.workerMu.Unlock()
+	if h.stopped || h.ctx.Err() != nil {
+		return fmt.Errorf("monitor is stopped")
+	}
+	h.workers.Add(1)
+	go func() { defer h.workers.Done(); run() }()
+	return nil
+}
+
+// CompleteShutdown cancels background loops and joins them. Call only after all
+// accepted control-loop work has completed; Shutdown alone starts graceful drain.
+func (h *ErrorMonitor) CompleteShutdown() {
+	h.Shutdown()
+	h.workerMu.Lock()
+	h.stopped = true
+	h.cancel()
+	h.workerMu.Unlock()
+	h.workers.Wait()
 }
 
 // Panic time! Something just went very wrong. (╯°□°)╯︵ ┻━┻
@@ -106,6 +142,8 @@ func (h *ErrorMonitor) Panic(err error) {
 
 	// only store the error if there isn't already an error stored
 	firstError := h.error.CompareAndSwap(nil, &err)
+
+	h.drainOnce.Do(func() { close(h.drain) })
 
 	// Always cancel the context, even if this is not the first error. It's possible that the first "error" was
 	// actually a shutdown request, and we want to make sure that the context is always cancelled in the event

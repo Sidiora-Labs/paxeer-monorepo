@@ -5,15 +5,18 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_no_queue_disposition_codec_case():
-    path = ROOT / "tests/protocol/lxp_test_terminal_rejection.c"
+def assert_no_queue_disposition(root):
+    path = root / "tests/protocol/lxp_test_terminal_rejection.c"
     assert not path.exists() and not path.is_symlink(), (
         "Retired terminal rejection suite remains"
     )
-    sources = sorted((ROOT / "tests/protocol").glob("*.c"))
+    sources = sorted(
+        source for source in (root / "tests/protocol").rglob("*")
+        if source.is_file() and source.suffix in {".c", ".h"}
+    )
     assert sources, "No protocol test sources found"
     retired = [
-        f"{source.relative_to(ROOT)}: {name}"
+        f"{source.relative_to(root)}: {name}"
         for source in sources
         for name in re.findall(
             r"\b(?:two_class_disposition_case|lxp_queue_disposition\w*|"
@@ -22,6 +25,10 @@ def test_no_queue_disposition_codec_case():
         )
     ]
     assert not retired, f"Queue-disposition codec case remains: {retired}"
+
+
+def test_no_queue_disposition_codec_case():
+    assert_no_queue_disposition(ROOT)
 
 
 def test_no_budget_pull_request_case():

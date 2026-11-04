@@ -8,14 +8,25 @@ from pathlib import Path, PurePosixPath
 import stat
 import sys
 
-EXCLUDED_DIRS = frozenset({'.git', 'node_modules', '__pycache__', '.next', '.turbo', '.cache', 'dist', 'build', 'coverage', '.venv', 'venv', 'runtime', 'logs'})
+EXCLUDED_DIRS = frozenset({'.git', 'node_modules', '__pycache__', '.next', '.turbo', '.cache', '.venv', 'venv'})
+GENERATED_OUTPUT_PATHS = frozenset({
+    'build', 'coverage', 'dist', 'runtime', 'logs',
+    'consensus/build', 'sdk/build', 'wasm/build', 'interchain/build',
+    'contracts/bridge/evm/build', 'vue/dist',
+    'apps/launchpad/web/build', 'apps/launchpad/web/dist', 'apps/launchpad/web/logs',
+    'contracts/launchpad/coverage', 'contracts/launchpad/dist',
+    'sdk/launchpad/packages/dist', 'sdk/launchpad/packages/sidiora-launchpad-v3/dist',
+})
 SECRET_NAMES = frozenset({'id_rsa', 'id_ed25519', 'id_ecdsa', '.npmrc', '.pypirc', '.netrc', 'credentials.json', 'service-account.json'})
 SECRET_SUFFIXES = ('.pem', '.key', '.p12', '.pfx', '.keystore')
 
 
 def excluded(parts):
     name = parts[-1]
+    relative = '/'.join(parts)
     return (name in SECRET_NAMES or any(p in EXCLUDED_DIRS for p in parts)
+            or any(relative == output or relative.startswith(output + '/')
+                   for output in GENERATED_OUTPUT_PATHS)
             or any(p in {'secrets', '.secrets', 'credentials'} for p in parts)
             or name == '.env' or name.startswith('.env.')
             or name.endswith(SECRET_SUFFIXES + ('.pyc', '.log', '.tsbuildinfo')))

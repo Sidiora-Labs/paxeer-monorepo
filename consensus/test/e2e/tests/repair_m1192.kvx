@@ -1,0 +1,24 @@
+[meta]
+task = "22.33.1192"
+audit = "22.30.55"
+acceptance = "22998.1"
+status = "implemented; qualification evidence is recorded by hf-build and hf-done against their candidate revision"
+baseline = "No baseline gate ran: the explicit gate order requires full implementation before qualification and forbids running verify_cmd by hand; no TestRepairM_1192_* test existed on the starting tree. No baseline failure is claimed."
+
+[finding.peer-assertions-skipped]
+tests = ["TestRepairM_1192_PeerTopology", "TestRepairM_1192_PeerDiscovery", "TestRepairM_1192_PeerAddressBookIsNotConnectivity"]
+proof = "Manifest.Save -> LoadTestnet -> real P2P routers and loopback handshakes -> core.Environment.NetInfo -> JSON-RPC HTTP server -> HTTP.NetInfo -> checkPeerTopology. Sparse persistent edges and seed-discovered stateful connectivity pass; missing persistent edges, unknown IDs, incorrect IPs and discovery with only seed connections fail."
+repair = "Remove unconditional skip, map peer IDs using node public keys, distinguish address-book entries from ready connections, require configured persistent edges and usable discovery without requiring full mesh or permanent seed connections."
+
+[finding.proposer-pin-fixture]
+tests = ["TestRepairM_1192_SequencerProposals", "TestRepairM_1192_LeaderPolicyRounds"]
+proof = "Load the committed networks/sequencer.toml; start three real nodes with the runner's shared builtin node runtime; retrieve committed blocks and commits over real HTTP RPC; check proposers before and after height 3 and reject excluded validator03. Application.LeaderSchedule -> LeaderPinFromSchedule -> RoundState.NewRoundEvent -> production JSON codec proves rounds 0 through 5."
+repair = "Use the production RoundState election at each height and round, preserve round-zero opportunity counts and minimum proposal checks, and reject headers whose creator is outside the allowed schedule. Valid blocks carried from an earlier round retain their original header proposer, so check the creator through the commit round."
+wiring_request = "consensus/test/e2e/runner (owning domain 15): expose the main package's Setup/MakeConfig/MakeAppConfig as an importable fixture API and run networks/sequencer.toml through it; this scoped proof invokes the same production node/runtime.Run used by its builtin entrypoint with local test configuration, without a runner subprocess or Docker."
+
+[qualification.initial]
+revision = "8fe9b61023e00bc7eeb1262e7f075d4333d9a505"
+command = "cg spec done 22.33.1192 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The real handshake requires a nonempty NodeInfo.Moniker, and application validator_update map keys are base64 while leader_pin keys are hex; corrected both fixture inputs without changing assertions."

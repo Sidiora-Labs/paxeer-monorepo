@@ -110,6 +110,12 @@ func (q *blockQueue) nextHeight() <-chan int64 {
 	q.mtx.Lock()
 	defer q.mtx.Unlock()
 	ch := make(chan int64, 1)
+	select {
+	case <-q.doneCh:
+		close(ch)
+		return ch
+	default:
+	}
 	// if a previous process failed then we pick up this one
 	if q.failed.Len() > 0 {
 		failedHeight := heap.Pop(q.failed)
@@ -150,6 +156,7 @@ func (q *blockQueue) verifyNext() <-chan lightBlockResponse {
 
 	select {
 	case <-q.doneCh:
+		close(ch)
 		return ch
 	default:
 	}
@@ -228,20 +235,21 @@ func (q *blockQueue) close() {
 
 // CONTRACT: must have a write lock. Use close instead
 func (q *blockQueue) _closeChannels() {
-	close(q.doneCh)
-
-	// wait for the channel to be drained
+	// Competing completion and cancellation paths may both shut down the queue.
 	select {
 	case <-q.doneCh:
 		return
 	default:
 	}
 
+	close(q.doneCh)
 	for _, ch := range q.waiters {
 		close(ch)
 	}
+	q.waiters = nil
 	if q.verifyCh != nil {
 		close(q.verifyCh)
+		q.verifyCh = nil
 	}
 }
 

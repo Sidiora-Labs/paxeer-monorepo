@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/evmc/v12/bindings/go/evmc"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,30 +57,9 @@ func TestCallKindMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Replicate the mapping logic from Run()
-			var callKind evmc.CallKind
-			var static bool
-
-			if tt.opCode == vm.STATICCALL {
-				static = true
-			}
-
-			switch tt.opCode {
-			case vm.STATICCALL:
-				fallthrough
-			case vm.CALL:
-				callKind = evmc.Call
-			case vm.DELEGATECALL:
-				callKind = evmc.DelegateCall
-			case vm.CREATE2:
-				callKind = evmc.Create2
-			case vm.CREATE:
-				callKind = evmc.Create
-			case vm.CALLCODE:
-				callKind = evmc.CallCode
-			default:
-				t.Fatalf("Unsupported opcode: %v", tt.opCode)
-			}
+			interpreter := &EVMInterpreter{}
+			callKind, static, err := interpreter.callMode(tt.opCode)
+			require.NoError(t, err)
 
 			require.Equal(t, tt.expectedKind, callKind)
 			require.Equal(t, tt.expectedStatic, static)
@@ -111,35 +91,36 @@ func TestCodeToExecuteForCreate(t *testing.T) {
 			expectCode:   []byte{0x60, 0x01, 0x60, 0x01, 0xf3},
 		},
 		{
-			name:         "CALL uses input (call data)",
+			name:         "CALL keeps code separate from call data",
 			opCode:       vm.CALL,
-			contractCode: []byte{0xfe},                   // not used
+			contractCode: []byte{0xfe},                   // executable code
 			input:        []byte{0x12, 0x34, 0x56, 0x78}, // call data
-			expectCode:   []byte{0x12, 0x34, 0x56, 0x78},
+			expectCode:   []byte{0xfe},
 		},
 		{
-			name:         "STATICCALL uses input (call data)",
+			name:         "STATICCALL keeps code separate from call data",
 			opCode:       vm.STATICCALL,
 			contractCode: []byte{0xfe},
 			input:        []byte{0xab, 0xcd},
-			expectCode:   []byte{0xab, 0xcd},
+			expectCode:   []byte{0xfe},
 		},
 		{
-			name:         "DELEGATECALL uses input (call data)",
+			name:         "DELEGATECALL keeps code separate from call data",
 			opCode:       vm.DELEGATECALL,
 			contractCode: []byte{0xfe},
 			input:        []byte{0x11, 0x22, 0x33},
-			expectCode:   []byte{0x11, 0x22, 0x33},
+			expectCode:   []byte{0xfe},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Replicate the code selection logic from Run()
-			codeToExecute := tt.input
-			if tt.opCode == vm.CREATE || tt.opCode == vm.CREATE2 {
-				codeToExecute = tt.contractCode
-			}
+			contract := vm.NewContract(repairM1131Caller, repairM1131Recipient, new(uint256.Int), 100000, nil)
+			contract.Code = tt.contractCode
+			message, err := (&EVMInterpreter{}).executionMessage(tt.opCode, contract, tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.input, message.input)
+			codeToExecute := message.code
 			require.Equal(t, tt.expectCode, codeToExecute)
 		})
 	}
@@ -161,7 +142,8 @@ func TestStaticCallFlag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.opCode.String(), func(t *testing.T) {
-			static := tt.opCode == vm.STATICCALL
+			_, static, err := (&EVMInterpreter{}).callMode(tt.opCode)
+			require.NoError(t, err)
 			require.Equal(t, tt.expected, static)
 		})
 	}
@@ -518,4 +500,24 @@ func TestSstoreGasAdjustmentBoundaryConditions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHostExecutionCreationAndCalls(t *testing.T) {
+	repairM1131CreationAndCalls(t)
+}
+
+func TestHostExecutionDelegatedCode(t *testing.T) {
+	repairM1131DelegatedCode(t)
+}
+
+func TestHostExecutionStaticDescendants(t *testing.T) {
+	repairM1131StaticDescendants(t)
+}
+
+func TestHostExecutionRevertAndGas(t *testing.T) {
+	repairM1131RevertAndGas(t)
+}
+
+func TestHostExecutionAbort(t *testing.T) {
+	repairM1131Abort(t)
 }

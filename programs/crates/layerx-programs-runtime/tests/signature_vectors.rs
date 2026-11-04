@@ -278,17 +278,98 @@ fn secp256k1_verify_published_test_vector_1() {
     assert_eq!(verify_secp256k1(&digest, &public_key, &signature), Ok(()));
 }
 
+// RustCrypto k256 upstream ecdsa.rs RECOVERY_TEST_VECTORS, recovery ID 0:
+// https://github.com/RustCrypto/elliptic-curves/blob/k256/v0.13.4/k256/src/ecdsa.rs
+// SHA-256("example message"); the published compressed key has even Y.
+const RECOVERY_DIGEST: &str = "ad84cd0b10fc028738971b078124aec2a0e7c6d986a381be0b386f32bee887af";
+const RECOVERY_SIGNATURE: &str = "ce53abb3721bafc561408ce8ff99c909f7f0b18a2f788649d6470162ab1aa0323971edc523a6d6453f3fb6128d318d9db1a5ff3386feb1047d9816e780039d52";
+const RECOVERY_PUBLIC_KEY: &str = "041a7a569e91dbf60581509c7fc946d1003b60c7dee85299538db6353538d59574b4e89d60c7d584d084632d296f125f165b4df8e061a49daeba51d36133d03e1a";
+
 #[test]
 fn secp256k1_recover_published_test_vector_1() {
-    let digest = hex::decode("5905238877c77421f73e43ee3da6f2d9e2ccad5fc942dcec0cbd25482935faaf")
-        .unwrap_or_else(|error| panic!("{}: {error:?}", "required value"));
-    let signature = hex::decode(
-        "f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9388f7b0f632de8140fe337e62a37f3566500a99934c2231b6cb9fd7584b8e672",
-    )
-    .unwrap_or_else(|error| panic!("{}: {error:?}", "required value"));
+    let digest = hex::decode(RECOVERY_DIGEST).unwrap();
+    let signature = hex::decode(RECOVERY_SIGNATURE).unwrap();
+    let expected: [u8; 65] = hex::decode(RECOVERY_PUBLIC_KEY)
+        .unwrap()
+        .try_into()
+        .unwrap();
+    assert_eq!(recover_secp256k1(&digest, &signature, 0), Ok(expected));
+    assert_eq!(verify_secp256k1(&digest, &expected, &signature), Ok(()));
+}
 
-    let result = recover_secp256k1(&digest, &signature, 0);
-    assert!(result.is_ok() || result.err() == Some(SignatureRefusal::RecoveryFailed));
+fn signed_i32(mut value: i32) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    loop {
+        let byte = (value & 0x7f) as u8;
+        value >>= 7;
+        let done = (value == 0 && byte & 0x40 == 0) || (value == -1 && byte & 0x40 != 0);
+        bytes.push(if done { byte } else { byte | 0x80 });
+        if done {
+            return bytes;
+        }
+    }
+}
+
+#[test]
+fn published_recovery_bytes_cross_the_real_signature_recover_host_transport() {
+    use layerx_programs_runtime::test_support::{
+        code_section, func_body, function_section, import_section, module, raw_section,
+        type_section, unsigned_leb, OP_CALL, OP_END, OP_I32_CONST, TYPE_I32,
+    };
+    use layerx_programs_runtime::{WasmEngine, WasmValue, ABI_V2_MODULE};
+    let digest = hex::decode(RECOVERY_DIGEST).unwrap();
+    let signature = hex::decode(RECOVERY_SIGNATURE).unwrap();
+    let expected = hex::decode(RECOVERY_PUBLIC_KEY).unwrap();
+    let mut run = Vec::new();
+    for value in [0, 32, 32, 64, 0, 128, 65] {
+        run.push(OP_I32_CONST);
+        run.extend(signed_i32(value));
+    }
+    run.extend([OP_CALL, 0, OP_END]);
+    // Read the actual host output through Wasm loads and compare every byte.
+    let mut compare = vec![OP_I32_CONST, 1];
+    for (index, byte) in expected.iter().enumerate() {
+        compare.push(OP_I32_CONST);
+        compare.extend(signed_i32(128 + i32::try_from(index).unwrap()));
+        compare.extend([0x2d, 0, 0, OP_I32_CONST]); // i32.load8_u
+        compare.extend(signed_i32(i32::from(*byte)));
+        compare.extend([0x46, 0x71]); // i32.eq, i32.and
+    }
+    compare.push(OP_END);
+    let mut data = vec![1, 0, OP_I32_CONST, 0, OP_END];
+    data.extend(unsigned_leb((digest.len() + signature.len()) as u64));
+    data.extend(digest);
+    data.extend(signature);
+    let mut export_payload = vec![3];
+    for (name, kind, index) in [("run", 0, 1), ("key_is_exact", 0, 2), ("memory", 2, 0)] {
+        export_payload.extend(unsigned_leb(name.len() as u64));
+        export_payload.extend_from_slice(name.as_bytes());
+        export_payload.extend([kind, index]);
+    }
+    let exports = raw_section(7, &export_payload);
+    let wasm = module(&[
+        type_section(&[(&[TYPE_I32; 7], &[TYPE_I32]), (&[], &[TYPE_I32])]),
+        import_section(&[(ABI_V2_MODULE, "signature_recover", 0)]),
+        function_section(&[1, 1]),
+        raw_section(5, &[1, 1, 1, 1]),
+        exports,
+        code_section(&[func_body(&[], &run), func_body(&[], &compare)]),
+        raw_section(11, &data),
+    ]);
+    let engine = WasmEngine::declared().unwrap();
+    for version in 2..=layerx_programs_runtime::ABI_V5_VERSION {
+        let validated = engine.validate_versioned(version, &wasm).unwrap();
+        let mut instance = validated.instantiate().unwrap();
+        assert_eq!(
+            instance.call("key_is_exact", &[]),
+            Ok(vec![WasmValue::I32(0)])
+        );
+        assert_eq!(instance.call("run", &[]), Ok(vec![WasmValue::I32(65)]));
+        assert_eq!(
+            instance.call("key_is_exact", &[]),
+            Ok(vec![WasmValue::I32(1)])
+        );
+    }
 }
 
 #[test]

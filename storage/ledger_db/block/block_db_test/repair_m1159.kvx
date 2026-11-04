@@ -1,0 +1,7 @@
+[repair.22.33.1159]
+finding = "blockdb-reopen-test-reuses-instance"
+tests = ["TestRepairM_1159_MemoryBuilderInstancesAreIndependent", "TestRepairM_1159_MemoryReopenIsEphemeral", "TestRepairM_1159_ReopenContracts"]
+proof = "The real memory BlockDB receives blocks and transactions through WriteBlock and Flush; independent opens at identical and distinct paths cannot observe each other's indexes. After Close, a fresh open at the same path is empty and accepts new blocks without recovering old data. The existing reopen tests explicitly assert ephemeral semantics while retaining their durable recovery assertions for persistent backends."
+baseline = "Not run: the explicit task gate order requires complete implementation before hf-build and hf-done, and forbids a manual verify run; no pre-change test failures are claimed."
+wiring_requests = ["Domain 5 (fm-node-runtime), storage/ledger_db/block: supply a production persistent BlockDB opened independently from its path, then register its builder in storage/ledger_db/block/block_db_test/block_db_test.go with ephemeral=false to execute the retained durable reopen assertions; only the memory implementation exists at this revision."]
+evidence = "The runner's hf-build and hf-done ledger records the exact verified candidate revision, command, exit code and private log location; durable backend recovery is not claimed by this memory qualification."

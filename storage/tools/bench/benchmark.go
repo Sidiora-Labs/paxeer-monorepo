@@ -9,16 +9,61 @@ import (
 	"sync/atomic"
 	"time"
 
+	dbm "github.com/tendermint/tm-db"
+
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/tools/utils"
 )
+
+func requirePositiveBenchmarkDimension(name string, value int64) {
+	if value <= 0 {
+		panic(fmt.Errorf("benchmark: %s must be positive (got %d)", name, value))
+	}
+}
+
+func validateBenchmarkDimensions(numVersions, concurrency int) {
+	requirePositiveBenchmarkDimension("concurrency", int64(concurrency))
+	requirePositiveBenchmarkDimension("num-versions", int64(numVersions))
+}
+
+func requireBenchmarkData(allKVs []utils.KeyValuePair) {
+	if len(allKVs) == 0 {
+		panic(fmt.Errorf("benchmark: input dataset is empty"))
+	}
+}
+
+func requireBenchmarkLatencies(latencies []time.Duration) {
+	if len(latencies) == 0 {
+		panic(fmt.Errorf("benchmark: no operation latencies to summarize"))
+	}
+}
+
+func iterateBenchmarkOperation(it dbm.Iterator, numIterationSteps int) (steps int) {
+	defer func() {
+		if err := it.Close(); err != nil {
+			panic(err)
+		}
+	}()
+	for steps < numIterationSteps && it.Valid() {
+		steps++
+		it.Next()
+	}
+	if err := it.Error(); err != nil {
+		panic(err)
+	}
+	return steps
+}
 
 // writeToDBConcurrently generates random write load against the db
 // Given kv pairs (randomly shuffled), the version, batch size, it will spin up `concurrency` goroutines
 // each of which is assigned to a portion of the kv data and writes to db in `batchSize` batches.
 // It maintains a `latencies` channel which aggregates all the latencies
 func writeToDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePair, concurrency int, version int64, batchSize int) []time.Duration {
+	requirePositiveBenchmarkDimension("concurrency", int64(concurrency))
+	requirePositiveBenchmarkDimension("version", version)
+	requirePositiveBenchmarkDimension("batch-size", int64(batchSize))
+	requireBenchmarkData(allKVs)
 	allKVsLen := len(allKVs)
 	allLatencies := make([]time.Duration, 0, allKVsLen)
 	latencies := make(chan time.Duration, allKVsLen)
@@ -85,11 +130,14 @@ func writeToDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePair, con
 // BenchmarkDBWrite measures random write performance of the db
 // Given an input dir containing all the raw kv data, it writes to the db one version after another
 func BenchmarkDBWrite(db types.StateStore, inputKVDir string, numVersions int, concurrency int, batchSize int) {
+	validateBenchmarkDimensions(numVersions, concurrency)
+	requirePositiveBenchmarkDimension("batch-size", int64(batchSize))
 	startLoad := time.Now()
 	kvData, err := utils.LoadAndShuffleKV(inputKVDir, concurrency)
 	if err != nil {
 		panic(err)
 	}
+	requireBenchmarkData(kvData)
 	endLoad := time.Now()
 	fmt.Printf("Finishing loading %+v kv pairs into memory %+v\n", len(kvData), endLoad.Sub(startLoad).String())
 
@@ -104,6 +152,7 @@ func BenchmarkDBWrite(db types.StateStore, inputKVDir string, numVersions int, c
 		endTime := time.Now()
 		totalTime += endTime.Sub(startTime)
 		writeCount += len(latencies)
+		requireBenchmarkLatencies(latencies)
 
 		sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 		// Latencies per version
@@ -127,6 +176,9 @@ func BenchmarkDBWrite(db types.StateStore, inputKVDir string, numVersions int, c
 // that randomly select a version, key and query the db.
 // It only performs `maxOps“ random reads and maintains a `latencies` channel which aggregates all the latencies.
 func readFromDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePair, numVersions int, concurrency int, maxOps int64) []time.Duration {
+	validateBenchmarkDimensions(numVersions, concurrency)
+	requirePositiveBenchmarkDimension("max-operations", maxOps)
+	requireBenchmarkData(allKVs)
 	allLatencies := make([]time.Duration, 0, maxOps)
 	latencies := make(chan time.Duration, maxOps)
 
@@ -176,10 +228,13 @@ func readFromDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePair, nu
 // BenchmarkDBRead measures random read performance of the db
 // Given an input dir containing all the raw kv data, it generates random read load and measures performance.
 func BenchmarkDBRead(db types.StateStore, inputKVDir string, numVersions int, concurrency int, maxOps int64) {
+	validateBenchmarkDimensions(numVersions, concurrency)
+	requirePositiveBenchmarkDimension("max-operations", maxOps)
 	kvData, err := utils.LoadAndShuffleKV(inputKVDir, concurrency)
 	if err != nil {
 		panic(err)
 	}
+	requireBenchmarkData(kvData)
 	startTime := time.Now()
 	latencies := readFromDBConcurrently(db, kvData, numVersions, concurrency, maxOps)
 	endTime := time.Now()
@@ -192,6 +247,7 @@ func BenchmarkDBRead(db types.StateStore, inputKVDir string, numVersions int, co
 	fmt.Printf("Throughput: %f reads/sec\n", float64(len(latencies))/totalTime.Seconds())
 	fmt.Printf("Total records read %d\n", len(latencies))
 
+	requireBenchmarkLatencies(latencies)
 	// Sort latencies for percentile calculations
 	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 
@@ -213,6 +269,10 @@ func BenchmarkDBRead(db types.StateStore, inputKVDir string, numVersions int, co
 // that randomly select a version, key, seeks to that key and starts a forward iteration for at most `numIterationSteps` steps.
 // It only performs `maxOps“ forward iterations and maintains a `latencies` channel which aggregates all the latencies.
 func forwardIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePair, numVersions int, concurrency int, numIterationSteps int, maxOps int64) ([]time.Duration, int) {
+	validateBenchmarkDimensions(numVersions, concurrency)
+	requirePositiveBenchmarkDimension("max-operations", maxOps)
+	requirePositiveBenchmarkDimension("iteration-steps", int64(numIterationSteps))
+	requireBenchmarkData(allKVs)
 	allLatencies := make([]time.Duration, 0, maxOps)
 	var totalSteps int
 	latencies := make(chan time.Duration, maxOps)
@@ -232,7 +292,7 @@ func forwardIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePa
 					break
 				}
 				// Randomly pick a version and retrieve its column family handle
-				version := int64(rand.Intn(numVersions))
+				version := int64(rand.Intn(numVersions)) + 1
 
 				// Randomly pick a key-value pair to seek to
 				kv := allKVs[rand.Intn(len(allKVs))]
@@ -244,15 +304,11 @@ func forwardIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePa
 					panic(err)
 				}
 
-				step := 0
-				for j := 0; j < numIterationSteps && it.Valid(); it.Next() {
-					step++
-				}
+				step := iterateBenchmarkOperation(it, numIterationSteps)
 				latency := time.Since(startTime)
 
 				latencies <- latency
 				steps <- step
-				_ = it.Close()
 			}
 		}()
 	}
@@ -275,10 +331,14 @@ func forwardIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePa
 // BenchmarkDBForwardIteration measures forward iteration performance of the db
 // Given an input dir containing all the raw kv data, it selects a random key, forward iterates and measures performance.
 func BenchmarkDBForwardIteration(db types.StateStore, inputKVDir string, numVersions int, concurrency int, maxOps int64, iterationSteps int) {
+	validateBenchmarkDimensions(numVersions, concurrency)
+	requirePositiveBenchmarkDimension("max-operations", maxOps)
+	requirePositiveBenchmarkDimension("iteration-steps", int64(iterationSteps))
 	kvData, err := utils.LoadAndShuffleKV(inputKVDir, concurrency)
 	if err != nil {
 		panic(err)
 	}
+	requireBenchmarkData(kvData)
 	startTime := time.Now()
 	latencies, totalCountIteration := forwardIterateDBConcurrently(db, kvData, numVersions, concurrency, iterationSteps, maxOps)
 	endTime := time.Now()
@@ -289,6 +349,11 @@ func BenchmarkDBForwardIteration(db types.StateStore, inputKVDir string, numVers
 	fmt.Printf("Total Prefixes Iterated: %d\n", totalCountIteration)
 	fmt.Printf("Total Time taken: %v\n", totalTime)
 	fmt.Printf("Throughput: %f iterations/sec\n", float64(totalCountIteration)/totalTime.Seconds())
+
+	if totalCountIteration == 0 {
+		fmt.Println("Average Per-Key Latency: unavailable (no keys iterated)")
+		return
+	}
 
 	// Calculate average latency
 	var totalLatency time.Duration
@@ -304,6 +369,10 @@ func BenchmarkDBForwardIteration(db types.StateStore, inputKVDir string, numVers
 // that randomly select a version, key, seeks to that key and starts a reverse iteration for at most `numIterationSteps` steps.
 // It only performs `maxOps“ reverse iterations and maintains a `latencies` channel which aggregates all the latencies.
 func reverseIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePair, numVersions int, concurrency int, numIterationSteps int, maxOps int64) ([]time.Duration, int) {
+	validateBenchmarkDimensions(numVersions, concurrency)
+	requirePositiveBenchmarkDimension("max-operations", maxOps)
+	requirePositiveBenchmarkDimension("iteration-steps", int64(numIterationSteps))
+	requireBenchmarkData(allKVs)
 	allLatencies := make([]time.Duration, 0, maxOps)
 	var totalSteps int
 	latencies := make(chan time.Duration, maxOps)
@@ -323,7 +392,7 @@ func reverseIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePa
 					break
 				}
 				// Randomly pick a version and retrieve its column family handle
-				version := int64(rand.Intn(numVersions))
+				version := int64(rand.Intn(numVersions)) + 1
 
 				// Randomly pick a key-value pair to seek to
 				kv := allKVs[rand.Intn(len(allKVs))]
@@ -334,12 +403,8 @@ func reverseIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePa
 				if err != nil {
 					panic(err)
 				}
-				defer func() { _ = it.Close() }()
 
-				step := 0
-				for j := 0; j < numIterationSteps && it.Valid(); it.Next() {
-					step++
-				}
+				step := iterateBenchmarkOperation(it, numIterationSteps)
 				latency := time.Since(startTime)
 
 				latencies <- latency
@@ -367,10 +432,14 @@ func reverseIterateDBConcurrently(db types.StateStore, allKVs []utils.KeyValuePa
 // BenchmarkDBReverseIteration measures reverse iteration performance of the db
 // Given an input dir containing all the raw kv data, it selects a random key, reverse iterates and measures performance.
 func BenchmarkDBReverseIteration(db types.StateStore, inputKVDir string, numVersions int, concurrency int, maxOps int64, iterationSteps int) {
+	validateBenchmarkDimensions(numVersions, concurrency)
+	requirePositiveBenchmarkDimension("max-operations", maxOps)
+	requirePositiveBenchmarkDimension("iteration-steps", int64(iterationSteps))
 	kvData, err := utils.LoadAndShuffleKV(inputKVDir, concurrency)
 	if err != nil {
 		panic(err)
 	}
+	requireBenchmarkData(kvData)
 
 	startTime := time.Now()
 	latencies, totalCountIteration := reverseIterateDBConcurrently(db, kvData, numVersions, concurrency, iterationSteps, maxOps)
@@ -382,6 +451,11 @@ func BenchmarkDBReverseIteration(db types.StateStore, inputKVDir string, numVers
 	fmt.Printf("Total Prefixes Reverse-Iterated: %d\n", totalCountIteration)
 	fmt.Printf("Total Time taken: %v\n", totalTime)
 	fmt.Printf("Throughput: %f iterations/sec\n", float64(totalCountIteration)/totalTime.Seconds())
+
+	if totalCountIteration == 0 {
+		fmt.Println("Average Per-Key Latency: unavailable (no keys iterated)")
+		return
+	}
 
 	// Calculate average latency
 	var totalLatency time.Duration

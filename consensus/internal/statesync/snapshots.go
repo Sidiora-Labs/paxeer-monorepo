@@ -75,6 +75,9 @@ func newSnapshotPool() *snapshotPool {
 // snapshot height is verified using the light client, and the expected app hash
 // is set for the snapshot.
 func (p *snapshotPool) Add(peerID types.NodeID, snapshot *snapshot) (bool, error) {
+	if err := validateSnapshotChunks(snapshot); err != nil {
+		return false, err
+	}
 	key := snapshot.Key()
 
 	p.Lock()
@@ -158,8 +161,9 @@ func (p *snapshotPool) GetPeers(snapshot *snapshot) []types.NodeID {
 }
 
 // Ranked returns a list of snapshots ranked by preference. The current heuristic is very naïve,
-// preferring the snapshot with the greatest height, then greatest format, then greatest number of
-// peers. This can be improved quite a lot.
+// preferring candidates with above-median peer support first. Within each group,
+// prefer greatest height, then greatest peer count, then greatest format.
+// Candidates equal on all three priorities are equivalent.
 func (p *snapshotPool) Ranked() []*snapshot {
 	p.Lock()
 	defer p.Unlock()
@@ -209,6 +213,8 @@ func (p *snapshotPool) sorterFactory(candidates []*snapshot) func(int, int) bool
 			return false
 		case len(p.snapshotPeers[a.Key()]) > len(p.snapshotPeers[b.Key()]):
 			return true
+		case len(p.snapshotPeers[a.Key()]) < len(p.snapshotPeers[b.Key()]):
+			return false
 		case a.Format > b.Format:
 			return true
 		case a.Format < b.Format:

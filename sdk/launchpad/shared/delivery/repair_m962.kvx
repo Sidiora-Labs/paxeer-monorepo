@@ -1,0 +1,26 @@
+[repair.22.33.962]
+acceptance = "22998.1"
+findings = ["rollback-generation-freshness", "replay-lifecycle-tests", "shadow-proof-scope", "shadow-durable-tests"]
+baseline = "Not run: the explicit gate order forbids verification before complete implementation and requires hf-build before hf-done; no pre-change failure is claimed."
+fixture = "Production ReplayEngine, Archive, Store, pgx and S3 client run against committed canonical inputs, a transactional in-memory SQL peer over loopback PostgreSQL wire protocol, and a loopback object server. Runtime connections and components close and reopen against retained peer state. No external service, binary, environment variable or credential is needed."
+integration = "TestReplayPostgresLifecycle and TestShadowPostgresDurableObservations extend the separately admitted PostgreSQL/object-store suite; these are not claimed as executed by the bounded gate."
+evidence = "The private hf-build/hf-done ledger supplies the verified candidate revision, exact command, exit and evidence log; the runner publishes that revision."
+wiring_requests = ["services/launchpad/indexer (owning domain 4): apply the updated delivery ReplayDDL through the owned deployment migration, including observation subjects and comparison scope; existing unscoped proofs must be regenerated via CompareShadowGeneration for the configured consumer, generation and full enabled subject policy before promotion.", "services/launchpad/indexer (owning domain 4): before exposing RollbackAlias, provide the current authorized recovery worker lease and epoch guard; an advanced frontier requires a fully rebuilt, retained prior generation and cannot bypass freshness checks."]
+qualification_repair = "Initial hf-done could not compile the new integration test because of an unused context import; removed that import without changing tests or assertions. The private ledger retains the failed command and revision."
+gotcha = "The task's baseline instruction conflicts with its explicit implementation-first gate order; follow the latter. SQL loopback coverage validates production paths and transaction outcomes, without claiming PostgreSQL server deployment qualification."
+
+[finding.rollback-generation-freshness]
+tests = ["TestRepairM_962_RollbackFreshness", "TestRepairM_962_ChangedCanonical", "TestRepairM_962_ArchiveTransport"]
+proof = "Two generations are captured, replayed, compared and promoted before rollback; source advance, missing manifests or segments, changed projection, incomplete progress, stale worker, expired lease, stale recovery guard, alias revision and authorization are refused without alias/history changes. Fresh, retired and verified complete prior generations survive rollback and reopen."
+
+[finding.replay-lifecycle-tests]
+tests = ["TestRepairM_962_ReplayLifecycle", "TestRepairM_962_ChangedCanonical", "TestRepairM_962_RollbackFreshness"]
+proof = "Interrupted projector SQL rolls back progress and bytes; reopening refuses live lease theft, recovers expired leases, fences the old worker, and resumes through promotion. Duplicate startup after promotion preserves records, lease, revision and cutover history. Apply, verify and promotion reject changed canonical records."
+
+[finding.shadow-proof-scope]
+tests = ["TestRepairM_962_ShadowProofScope", "TestRepairM_962_ShadowDurable"]
+proof = "Persisted proofs include sorted unique enabled subjects, consumer and generation; promotion rejects subset, different consumer, different generation and unbound evidence. Matching canonical scope is accepted and current observations/outbox are rechecked before cutover."
+
+[finding.shadow-durable-tests]
+tests = ["TestRepairM_962_ShadowDurable"]
+proof = "Store.Produce, Enqueue and RecordShadowTx emit durable outbox and observation records through pgx; missing, extra, changed, wrong-range and outbox-absent observations cannot persist comparison evidence. Exact retries and reopened comparison retain one proof; a conflicting retry and observations changed after proof creation cannot authorize promotion."

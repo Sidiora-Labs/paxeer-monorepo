@@ -132,6 +132,9 @@ func (d *Database) FinalizeBlock(
 	}
 
 	if d.transactionsInCurrentBlock == 0 {
+		if forceCommit {
+			return d.commitPendingBlocks()
+		}
 		return nil
 	}
 
@@ -170,14 +173,13 @@ func (d *Database) FinalizeBlock(
 
 	// Persist the block number counter in every batch.
 	blockNumberValue := make([]byte, 8)
-	binary.BigEndian.PutUint64(blockNumberValue, d.nextBlockNumber)
+	binary.BigEndian.PutUint64(blockNumberValue, d.nextBlockNumber+1)
 	changeSets = append(changeSets, &proto.NamedChangeSet{
 		Name: wrappers.EVMStoreName,
 		Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
 			{Key: BlockNumberCounterKey(), Value: blockNumberValue},
 		}},
 	})
-	d.nextBlockNumber++
 
 	entry := &proto.ChangelogEntry{
 		Version:    d.db.Version() + 1,
@@ -188,23 +190,34 @@ func (d *Database) FinalizeBlock(
 		return fmt.Errorf("failed to apply change sets: %w", err)
 	}
 
+	d.nextBlockNumber++
 	d.metrics.ReportBlockFinalized(d.transactionsInCurrentBlock)
 	d.transactionsInCurrentBlock = 0
 
 	// Periodically commit the changes to the database.
 	d.uncommittedBlockCount++
 	if forceCommit || d.uncommittedBlockCount >= int64(d.config.BlocksPerCommit) {
-		d.metrics.SetMainThreadPhase("committing")
-		_, err := d.db.Commit()
-		if err != nil {
-			return fmt.Errorf("failed to commit: %w", err)
+		if err := d.commitPendingBlocks(); err != nil {
+			return err
 		}
-		d.metrics.ReportDBCommit()
-		d.uncommittedBlockCount = 0
 	}
 
 	d.metrics.SetMainThreadPhase("executing")
 
+	return nil
+}
+
+// commitPendingBlocks flushes applied blocks even when the current block is empty.
+func (d *Database) commitPendingBlocks() error {
+	if d.uncommittedBlockCount == 0 {
+		return nil
+	}
+	d.metrics.SetMainThreadPhase("committing")
+	if _, err := d.db.Commit(); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+	d.metrics.ReportDBCommit()
+	d.uncommittedBlockCount = 0
 	return nil
 }
 

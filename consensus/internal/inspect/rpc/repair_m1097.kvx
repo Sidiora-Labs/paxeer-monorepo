@@ -1,0 +1,27 @@
+[task]
+id = "22.33.1097"
+audit_record = "22.30.46"
+baseline = "Not run: the explicit gate order requires complete implementation before the first build and hf-done verification; no baseline failure is claimed."
+wiring_requests = "None; subscription cleanup is unnecessary for the inspector's read-only routes."
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location."
+
+[finding.1]
+repair = "Remove the uninitialized event-bus disconnect callback and its unused interface from Handler."
+tests = ["TestRepairM_1097_ConnectReadDisconnect", "TestRepairM_1097_AbruptDisconnect"]
+proof = "Real in-memory state and block stores feed Routes and Handler over loopback HTTP and WebSocket transports; both disconnect modes return without panic, permit another connection and HTTP read, and leave stored state unchanged."
+
+[gotcha.fixture]
+symptom = "The initial focused gate failed before reaching the handler because an empty genesis validator set cannot be decoded by the state store."
+repair = "Populate genesis with a real deterministic validator before saving and loading it; retain all state and transport assertions."
+revision = "13ca294ef617e8b8bdfb4172c51c1001c1f3322c"
+command = "cg spec done 22.33.1097 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[gotcha.http_fixture]
+symptom = "Both disconnect tests in the previous attempt failed on the HTTP read with cannot decode empty bytes after decoding a bare URI result as a JSON-RPC envelope."
+repair = "Decode the HTTP body as a raw result, then use the same consensus parameter and height assertions as the WebSocket result; keep the WebSocket error and request ID assertions."
+revision = "10e1a036320981a9b6c92dba044c850f9977b9b0"
+command = "cg spec done 22.33.1097 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/run/gate.json (seed.reason preserves the previous attempt failure)"

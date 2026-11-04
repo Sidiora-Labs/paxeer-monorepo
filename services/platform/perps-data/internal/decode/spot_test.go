@@ -218,8 +218,14 @@ func TestSpotDecoders(t *testing.T) {
 		wantRows(t, res, createdRow, decode.SpotShareApprovalRow{fact(xPointer, 1, "approval", xAlice), xPointer, xToken, xAlice, xBob, "5"})
 	})
 	t.Run("share_OwnershipTransferred", func(t *testing.T) {
-		res := decodeRows(t, registry(t, nil), created, pack(t, share("OwnershipTransferred"), xPointer, 1, xAlice, xBob))
-		wantRows(t, res, createdRow, decode.SpotOwnershipRow{fact(xPointer, 1, "ownership_transferred", spotModule), xAlice, xBob})
+		log := pack(t, event(t, spotabi.HistoricalSolidityShare, "OwnershipTransferred"), xPointer, 1, xAlice, xBob)
+		res := decodeRows(t, registry(t, nil), created, log)
+		if len(res.Decoded) != 1 || !reflect.DeepEqual(res.Decoded[0].Rows, []decode.Row{createdRow}) ||
+			len(res.Raw) != 1 || res.Raw[0].FailureClass != decode.FailureUnknownTopic || res.Raw[0].Kind != "raw" ||
+			res.Raw[0].Emitter != xPointer || res.Raw[0].Account != spotModule ||
+			!reflect.DeepEqual(res.Raw[0].Topics, log.Topics) || !reflect.DeepEqual(res.Raw[0].Data, log.Data) {
+			t.Fatalf("historical ownership log must remain raw: %+v", res)
+		}
 	})
 
 	t.Run("share_pointer_passes", func(t *testing.T) {

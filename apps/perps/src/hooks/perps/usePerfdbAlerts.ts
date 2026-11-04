@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useSelectionRequest } from "./useSelectionRequest";
+import { requirePerfdbIdentity } from "./usePerfdbAuth";
 import {
   perfdbQueryAuth,
   perfdbRestAuth,
-  getAuthToken,
 } from "@/core/perfdb/client";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -80,6 +80,8 @@ export function usePerfdbAlerts(address: string | undefined): {
   deleteAlert: (id: string) => Promise<void>;
 } {
   const account = address?.toLowerCase() || undefined;
+  const addressRef = useRef(account);
+  addressRef.current = account;
   const load = useCallback(async () => {
     if (!account) throw new Error("Account selection unavailable");
     const res = await perfdbQueryAuth<UserAlertsResponse>(USER_ALERTS_QUERY, {
@@ -99,10 +101,7 @@ export function usePerfdbAlerts(address: string | undefined): {
       marketId?: number,
       threshold?: string,
     ): Promise<void> => {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("Not authenticated. Sign in first.");
-      }
+      requirePerfdbIdentity(addressRef.current);
       const body: Record<string, unknown> = { alertType };
       if (typeof marketId === "number") body.marketId = marketId;
       if (threshold !== undefined && threshold !== "")
@@ -119,11 +118,8 @@ export function usePerfdbAlerts(address: string | undefined): {
 
   const deleteAlert = useCallback(
     async (id: string): Promise<void> => {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("Not authenticated. Sign in first.");
-      }
-      await perfdbRestAuth<{ ok: boolean }>(
+      requirePerfdbIdentity(addressRef.current);
+      await perfdbRestAuth<{ ok: boolean; }>(
         `/v2/alerts/${encodeURIComponent(id)}`,
         { method: "DELETE" },
       );

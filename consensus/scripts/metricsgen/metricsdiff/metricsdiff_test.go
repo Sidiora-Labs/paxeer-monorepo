@@ -27,8 +27,8 @@ func TestDiff(t *testing.T) {
 			`,
 			want: `Label changes:
 Metric: metric_one
-+++ label_three
 +++ label_four
++++ label_three
 --- label_one
 --- label_two
 `,

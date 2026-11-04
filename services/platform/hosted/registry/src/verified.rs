@@ -63,7 +63,7 @@ impl VerifiedSourceDeployment {
 
     fn decode(document: &Value) -> Option<Self> {
         let abi_version = u16::try_from(document["abi_version"].as_u64()?).ok()?;
-        if !(1..=4).contains(&abi_version) {
+        if layerx_programs::VerifiedDeploymentEvidence::admit_abi_version(abi_version).is_err() {
             return None;
         }
         Some(Self {
@@ -71,7 +71,8 @@ impl VerifiedSourceDeployment {
             code_hash: hex::decode_digest(document["code_hash"].as_str()?).ok()?,
             activity_id: hex::decode_digest(document["activity_id"].as_str()?).ok()?,
             receipt_digest: hex::decode_digest(document["receipt_digest"].as_str()?).ok()?,
-            batch_header_digest: hex::decode_digest(document["batch_header_digest"].as_str()?).ok()?,
+            batch_header_digest: hex::decode_digest(document["batch_header_digest"].as_str()?)
+                .ok()?,
             state_root: hex::decode_digest(document["state_root"].as_str()?).ok()?,
             programs_root: hex::decode_digest(document["programs_root"].as_str()?).ok()?,
             observed_sequence: document["observed_sequence"].as_u64()?,
@@ -104,7 +105,10 @@ impl VerifiedSourceStore {
     ///
     /// Returns the filesystem error that prevented durable persistence.
     pub fn record(&self, entry: &VerifiedSource) -> Result<(), String> {
-        if !(1..=4).contains(&entry.deployment_provenance.abi_version)
+        if layerx_programs::VerifiedDeploymentEvidence::admit_abi_version(
+            entry.deployment_provenance.abi_version,
+        )
+        .is_err()
             || entry.artifact_digest != entry.deployment_provenance.code_hash
         {
             return Err("source verification does not match its deployment provenance".to_owned());
@@ -151,7 +155,10 @@ impl VerifiedSourceStore {
             let bytes = fs::read(&path)
                 .map_err(|error| format!("could not read {}: {error}", path.display()))?;
             let record = decode(&bytes).ok_or_else(|| {
-                format!("{} is corrupt or lacks required deployment provenance", path.display())
+                format!(
+                    "{} is corrupt or lacks required deployment provenance",
+                    path.display()
+                )
             })?;
             records.push(record);
         }
@@ -168,7 +175,8 @@ fn encode_source(entry: &VerifiedSource) -> String {
         "artifact_digest": hex::encode(&entry.artifact_digest),
         "plan": entry.plan.encode(),
         "deployment_provenance": entry.deployment_provenance.encode(),
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn decode(bytes: &[u8]) -> Option<VerifiedSource> {
@@ -180,7 +188,9 @@ fn decode(bytes: &[u8]) -> Option<VerifiedSource> {
         source_digest: hex::decode_digest(document["source_digest"].as_str()?).ok()?,
         artifact_digest: hex::decode_digest(document["artifact_digest"].as_str()?).ok()?,
         plan: BuildPlan::parse(document["plan"].as_str()?).ok()?,
-        deployment_provenance: VerifiedSourceDeployment::decode(&document["deployment_provenance"])?,
+        deployment_provenance: VerifiedSourceDeployment::decode(
+            &document["deployment_provenance"],
+        )?,
     })
 }
 
@@ -634,7 +644,9 @@ fn decode_request(scope: &str, bytes: &[u8]) -> Result<VerificationRecord, Strin
     }
     if let VerificationState::Artifact { response, source } = &record.state {
         let verified = VerifiedSourceStore::decode_record(source)?;
-        if hex::encode(&verified.program.bytes()) != record.program || !matches!(response.status, 200 | 409) {
+        if hex::encode(&verified.program.bytes()) != record.program
+            || !matches!(response.status, 200 | 409)
+        {
             return Err("prepared artifact identity is invalid".to_owned());
         }
     }
@@ -848,30 +860,58 @@ mod tests {
             .acknowledge(&pending.observation.id, false)
             .unwrap_or_else(|e| panic!("{e}"));
         assert!(outbox.pending().unwrap_or_else(|e| panic!("{e}")).is_none());
-        outbox.enqueue_publication(&publication.body, &"bc".repeat(32), 40)
+        outbox
+            .enqueue_publication(&publication.body, &"bc".repeat(32), 40)
             .unwrap_or_else(|e| panic!("{e}"));
-        let other = outbox.pending().unwrap_or_else(|e| panic!("{e}"))
+        let other = outbox
+            .pending()
+            .unwrap_or_else(|e| panic!("{e}"))
             .unwrap_or_else(|| panic!("other principal publication missing"));
         assert_eq!(other.observation.sequence, 2);
         assert_eq!(other.observation.principal_digest, Some("bc".repeat(32)));
-        outbox.acknowledge(&other.observation.id, true).unwrap_or_else(|e| panic!("{e}"));
-        outbox.acknowledge(&other.observation.id, false).unwrap_or_else(|e| panic!("{e}"));
-        outbox.enqueue_publication(&publication.body, &publication.principal, publication.occurred_at)
+        outbox
+            .acknowledge(&other.observation.id, true)
+            .unwrap_or_else(|e| panic!("{e}"));
+        outbox
+            .acknowledge(&other.observation.id, false)
+            .unwrap_or_else(|e| panic!("{e}"));
+        outbox
+            .enqueue_publication(
+                &publication.body,
+                &publication.principal,
+                publication.occurred_at,
+            )
             .unwrap_or_else(|e| panic!("{e}"));
         assert!(outbox.pending().unwrap_or_else(|e| panic!("{e}")).is_none());
 
         let legacy = ProgramOutbox::new(&root.join("legacy"));
-        legacy.enqueue(
-            &format!("{}:{}", pending.observation.resource, pending.observation.source_sequence),
-            pending.observation.clone(),
-        ).unwrap_or_else(|e| panic!("{e}"));
-        legacy.enqueue_publication(&publication.body, &publication.principal, publication.occurred_at)
+        legacy
+            .enqueue(
+                &format!(
+                    "{}:{}",
+                    pending.observation.resource, pending.observation.source_sequence
+                ),
+                pending.observation.clone(),
+            )
             .unwrap_or_else(|e| panic!("{e}"));
-        let legacy_pending = legacy.pending().unwrap_or_else(|e| panic!("{e}"))
+        legacy
+            .enqueue_publication(
+                &publication.body,
+                &publication.principal,
+                publication.occurred_at,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+        let legacy_pending = legacy
+            .pending()
+            .unwrap_or_else(|e| panic!("{e}"))
             .unwrap_or_else(|| panic!("legacy publication missing"));
         assert_eq!(legacy_pending.observation.sequence, 1);
-        legacy.acknowledge(&legacy_pending.observation.id, true).unwrap_or_else(|e| panic!("{e}"));
-        legacy.acknowledge(&legacy_pending.observation.id, false).unwrap_or_else(|e| panic!("{e}"));
+        legacy
+            .acknowledge(&legacy_pending.observation.id, true)
+            .unwrap_or_else(|e| panic!("{e}"));
+        legacy
+            .acknowledge(&legacy_pending.observation.id, false)
+            .unwrap_or_else(|e| panic!("{e}"));
         assert!(legacy.pending().unwrap_or_else(|e| panic!("{e}")).is_none());
         assert_eq!(
             held.admit(&scope(4), "alice", program(7), [1; 32], 32),
@@ -883,22 +923,33 @@ mod tests {
     #[test]
     fn durable_verification_recovers_artifact_before_publication() {
         let root = directory("artifact-recovery");
-        let journal = VerificationJournal::with_capacity(root.join("requests"), 1).unwrap_or_else(|e| panic!("{e}"));
-        let store = VerifiedSourceStore::open(root.join("verified")).unwrap_or_else(|e| panic!("{e}"));
+        let journal = VerificationJournal::with_capacity(root.join("requests"), 1)
+            .unwrap_or_else(|e| panic!("{e}"));
+        let store =
+            VerifiedSourceStore::open(root.join("verified")).unwrap_or_else(|e| panic!("{e}"));
         let source = VerifiedSource {
-            program: program(7), version: 1,
+            program: program(7),
+            version: 1,
             source_uri: "https://source.example/program".to_owned(),
-            source_digest: [1; 32], artifact_digest: [2; 32],
+            source_digest: [1; 32],
+            artifact_digest: [2; 32],
             deployment_provenance: VerifiedSourceDeployment {
-                abi_version: 1, code_hash: [2; 32], activity_id: [6; 32],
-                receipt_digest: [7; 32], batch_header_digest: [8; 32],
-                state_root: [9; 32], programs_root: [10; 32],
-                observed_sequence: 1, observed_at: 1,
+                abi_version: 1,
+                code_hash: [2; 32],
+                activity_id: [6; 32],
+                receipt_digest: [7; 32],
+                batch_header_digest: [8; 32],
+                state_root: [9; 32],
+                programs_root: [10; 32],
+                observed_sequence: 1,
+                observed_at: 1,
             },
             plan: BuildPlan {
                 environment: layerx_programs::BuildEnvironment {
-                    builder_image_digest: [3; 32], toolchain_digest: [4; 32],
-                    dependency_lock_digest: [5; 32], source_date_epoch: 1,
+                    builder_image_digest: [3; 32],
+                    toolchain_digest: [4; 32],
+                    dependency_lock_digest: [5; 32],
+                    source_date_epoch: 1,
                     command: vec!["/usr/bin/cc".to_owned(), "source.c".to_owned()],
                 },
                 artifact_path: "program.wasm".to_owned(),
@@ -908,28 +959,54 @@ mod tests {
         };
         let held = lease(&journal);
         let mut record = build(held.admit(&scope(10), "alice", program(7), [1; 32], 10));
-        held.settle(&mut record, VerificationState::Artifact {
-            response: ok(200), source: VerifiedSourceStore::encode_record(&source),
-        }, 11).unwrap_or_else(|e| panic!("{e:?}"));
-        assert_eq!(held.admit(&scope(11), "alice", program(7), [1; 32], 11), Ok(Admission::QuotaExhausted));
+        held.settle(
+            &mut record,
+            VerificationState::Artifact {
+                response: ok(200),
+                source: VerifiedSourceStore::encode_record(&source),
+            },
+            11,
+        )
+        .unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(
+            held.admit(&scope(11), "alice", program(7), [1; 32], 11),
+            Ok(Admission::QuotaExhausted)
+        );
         drop(held);
         assert!(store.records().unwrap_or_else(|e| panic!("{e}")).is_empty());
         for now in [12, 13] {
-            let reopened = VerificationJournal::open(root.join("requests")).unwrap_or_else(|e| panic!("{e}"));
-            assert_eq!(reopened.reconcile(now).unwrap_or_else(|e| panic!("{e}")).live, 1);
+            let reopened =
+                VerificationJournal::open(root.join("requests")).unwrap_or_else(|e| panic!("{e}"));
+            assert_eq!(
+                reopened
+                    .reconcile(now)
+                    .unwrap_or_else(|e| panic!("{e}"))
+                    .live,
+                1
+            );
             let held = lease(&reopened);
-            let Ok(Admission::Artifact(recovered)) = held.admit(&scope(10), "alice", program(7), [1; 32], now) else {
+            let Ok(Admission::Artifact(recovered)) =
+                held.admit(&scope(10), "alice", program(7), [1; 32], now)
+            else {
                 panic!("artifact recovery must not rebuild");
             };
             assert_eq!(recovered.attempt, 1);
-            let VerificationState::Artifact { response, source: encoded } = recovered.state else {
+            let VerificationState::Artifact {
+                response,
+                source: encoded,
+            } = recovered.state
+            else {
                 panic!("artifact recovery phase missing");
             };
             assert_eq!(response, ok(200));
-            let restored = VerifiedSourceStore::decode_record(&encoded).unwrap_or_else(|e| panic!("{e}"));
+            let restored =
+                VerifiedSourceStore::decode_record(&encoded).unwrap_or_else(|e| panic!("{e}"));
             assert_eq!(restored, source);
             store.record(&restored).unwrap_or_else(|e| panic!("{e}"));
-            assert_eq!(store.records().unwrap_or_else(|e| panic!("{e}")), vec![source.clone()]);
+            assert_eq!(
+                store.records().unwrap_or_else(|e| panic!("{e}")),
+                vec![source.clone()]
+            );
         }
         let _ = fs::remove_dir_all(root);
     }
@@ -993,10 +1070,14 @@ mod tests {
         .unwrap_or_else(|e| panic!("{e:?}"));
         let terminal_path = root.join(format!("{}.request", scope(8)));
         let terminal_bytes = fs::read(&terminal_path).unwrap_or_else(|e| panic!("{e}"));
-        let mut altered: Value = serde_json::from_slice(&terminal_bytes).unwrap_or_else(|e| panic!("{e}"));
+        let mut altered: Value =
+            serde_json::from_slice(&terminal_bytes).unwrap_or_else(|e| panic!("{e}"));
         altered["state"]["response"]["body"] = Value::String("changed response".to_owned());
         fs::write(&terminal_path, altered.to_string()).unwrap_or_else(|e| panic!("{e}"));
-        assert!(matches!(held.admit(&scope(8), "alice", program(7), [1; 32], 13), Err(JournalRefusal::Corrupt(_))));
+        assert!(matches!(
+            held.admit(&scope(8), "alice", program(7), [1; 32], 13),
+            Err(JournalRefusal::Corrupt(_))
+        ));
         fs::write(&terminal_path, &terminal_bytes).unwrap_or_else(|e| panic!("{e}"));
         let interrupted = root.join(format!("{}.request.tmp", scope(8)));
         fs::write(&interrupted, b"partial").unwrap_or_else(|e| panic!("{e}"));

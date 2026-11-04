@@ -63,10 +63,10 @@ describe('TokenHolders', () => {
     expect(container.querySelector('[data-title]')?.textContent).toBe('Latest 2 from a total of 8,838,883 holders');
   });
 
-  it('says only that there are more when no total was reported', () => {
+  it('labels the current page count when no total was reported', () => {
     const { container } = render(<TokenHolders holdersQuery={ holdersQuery() } token={ tokenInfo }/>);
 
-    expect(container.querySelector('[data-title]')?.textContent).toBe('More than 2 holders found');
+    expect(container.querySelector('[data-title]')?.textContent).toBe('2 holders on this page');
   });
 
   it('offers the holders download beside the count line', () => {

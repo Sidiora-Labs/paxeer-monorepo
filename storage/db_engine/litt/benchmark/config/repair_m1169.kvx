@@ -1,0 +1,19 @@
+[repair.22.33.1169]
+audit = "22.30.53"
+baseline = "Not run: the ordered instructions prohibit testing before full implementation and running verify_cmd by hand; the initial gate ledger had no runs, so no baseline failures are claimed."
+evidence = "The private /out/run/gates.jsonl ledger records the exact candidate revision, command, exit code and log for hf-build and hf-done; the runner publishes that verified candidate."
+wiring = "None: datasource import inputs and all benchmark validation changes are confined to this directory; no deployment or generated artifacts are changed."
+
+[finding.dashboard-datasource]
+test = "TestRepairM_1169_DashboardDatasourceImport"
+change = "Declare a Prometheus datasource import input and reference it explicitly from every panel and target instead of the private datasource UID."
+proof = "Decode the shipped dashboard and input schema using the real JSON codec, bind two operator datasource UIDs through the exported import placeholder, round-trip the resulting JSON and check every panel and target; retain the built-in Grafana annotation source and all PromQL expressions. This is an in-process import-payload proof, not a claim that a live Grafana server was exercised."
+
+[finding.benchmark-config-validation]
+test = "TestRepairM_1169_LoadConfigRejectsInvalid, TestRepairM_1169_LoadConfigValidBoundaries, TestRepairM_1169_ValidateNonFinite"
+change = "Validate nested LittConfig, nonzero participants, representable channels and pool size, cohort bounds, finite and representable byte sizes/rates, positive worker throughput, and active durations including the doubled startup delay and safety margin."
+proof = "Write actual JSON files and call production LoadConfig for null, zero, negative, underflow and overflow inputs, nested failures and accepted boundaries; exercise non-finite floats directly through the same Validate method because JSON cannot encode them."
+
+[gotcha.baseline-order]
+observed = "The task's baseline-run step conflicts with the explicitly ordered implementation-first and hf-done-only gates."
+resolution = "Follow the ordered gates and record the absent baseline without claiming pre-change test results."

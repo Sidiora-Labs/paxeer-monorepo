@@ -201,8 +201,9 @@ func (suite *TypesTestSuite) TestValidateHostGenesisState() {
 			func() {
 				activeChannels := []types.ActiveChannel{
 					{
-						PortId:    "invalid|port",
-						ChannelId: ibctesting.FirstChannelID,
+						ConnectionId: ibctesting.FirstConnectionID,
+						PortId:       "invalid|port",
+						ChannelId:    ibctesting.FirstChannelID,
 					},
 				}
 
@@ -215,8 +216,9 @@ func (suite *TypesTestSuite) TestValidateHostGenesisState() {
 			func() {
 				activeChannels := []types.ActiveChannel{
 					{
-						PortId:    TestPortID,
-						ChannelId: "invalid|channel",
+						ConnectionId: ibctesting.FirstConnectionID,
+						PortId:       TestPortID,
+						ChannelId:    "invalid|channel",
 					},
 				}
 
@@ -229,13 +231,15 @@ func (suite *TypesTestSuite) TestValidateHostGenesisState() {
 			func() {
 				activeChannels := []types.ActiveChannel{
 					{
-						PortId:    TestPortID,
-						ChannelId: ibctesting.FirstChannelID,
+						ConnectionId: ibctesting.FirstConnectionID,
+						PortId:       TestPortID,
+						ChannelId:    ibctesting.FirstChannelID,
 					},
 				}
 
 				registeredAccounts := []types.RegisteredInterchainAccount{
 					{
+						ConnectionId:   ibctesting.FirstConnectionID,
 						PortId:         "invalid|port",
 						AccountAddress: TestOwnerAddress,
 					},
@@ -250,13 +254,15 @@ func (suite *TypesTestSuite) TestValidateHostGenesisState() {
 			func() {
 				activeChannels := []types.ActiveChannel{
 					{
-						PortId:    TestPortID,
-						ChannelId: ibctesting.FirstChannelID,
+						ConnectionId: ibctesting.FirstConnectionID,
+						PortId:       TestPortID,
+						ChannelId:    ibctesting.FirstChannelID,
 					},
 				}
 
 				registeredAccounts := []types.RegisteredInterchainAccount{
 					{
+						ConnectionId:   ibctesting.FirstConnectionID,
 						PortId:         TestPortID,
 						AccountAddress: "",
 					},
@@ -271,13 +277,15 @@ func (suite *TypesTestSuite) TestValidateHostGenesisState() {
 			func() {
 				activeChannels := []types.ActiveChannel{
 					{
-						PortId:    TestPortID,
-						ChannelId: ibctesting.FirstChannelID,
+						ConnectionId: ibctesting.FirstConnectionID,
+						PortId:       TestPortID,
+						ChannelId:    ibctesting.FirstChannelID,
 					},
 				}
 
 				registeredAccounts := []types.RegisteredInterchainAccount{
 					{
+						ConnectionId:   ibctesting.FirstConnectionID,
 						PortId:         TestPortID,
 						AccountAddress: TestOwnerAddress,
 					},
