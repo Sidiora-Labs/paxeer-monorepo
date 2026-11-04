@@ -179,13 +179,13 @@ func WriteGeneratedTxResponse(
 	txf := Factory{fees: br.Fees, gasPrices: br.GasPrices}.
 		WithAccountNumber(br.AccountNumber).
 		WithSequence(br.Sequence).
+		WithTimeoutHeight(br.TimeoutHeight).
 		WithGas(gasSetting.Gas).
 		WithGasAdjustment(gasAdj).
 		WithMemo(br.Memo).
 		WithChainID(br.ChainID).
 		WithSimulateAndExecute(br.Simulate).
-		WithTxConfig(clientCtx.TxConfig).
-		WithTimeoutHeight(br.TimeoutHeight)
+		WithTxConfig(clientCtx.TxConfig)
 
 	if br.Simulate || gasSetting.Simulate {
 		if gasAdj < 0 {
