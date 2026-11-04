@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -48,24 +50,34 @@ func RegisterWebhook(r chi.Router, deps WebhookDeps) {
 	r.With(webhookAuth(deps.Secret)).Post("/webhooks/events", webhookHandler(deps))
 }
 
-// webhookHandler dispatches each event to the matching consumer, counting
-// processed vs errored events (parity with the TS webhook route, including the
-// behaviour that unknown event names count as processed and that a Swap requires
-// BOTH the swap consumer and the holder tracker to succeed).
+// WebhookMaxBodyBytes and WebhookMaxEvents bound the wire payload and decoded
+// batch independently. Senders retry the unchanged batch on non-2xx responses;
+// swap and holder effects share the durable txHash-logIndex inbox transaction.
+const (
+	WebhookMaxBodyBytes = 1 << 20 // 1 MiB, including JSON whitespace
+	WebhookMaxEvents    = 1000
+)
+
+type webhookBodyKey struct{}
+
+var errWebhookEventLimit = errors.New("webhook event limit exceeded")
+
+// webhookHandler acknowledges a batch only when every event succeeded. A 503
+// asks the existing HTTP sender to retry the whole batch, including after restart.
 func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
+		body, ok := r.Context().Value(webhookBodyKey{}).([]byte)
+		if !ok {
+			sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "authenticated webhook body required")
+			return
+		}
+		wb, err := decodeWebhookBody(body)
 		if err != nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "failed to read body")
-			return
-		}
-		var wb WebhookBody
-		if err := json.Unmarshal(body, &wb); err != nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid JSON body")
-			return
-		}
-		if wb.Events == nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "events must be an array")
+			status := http.StatusBadRequest
+			if errors.Is(err, errWebhookEventLimit) {
+				status = http.StatusRequestEntityTooLarge
+			}
+			sharedhttp.WriteError(w, status, http.StatusText(status), err.Error())
 			return
 		}
 
@@ -81,8 +93,13 @@ func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 			processed++
 		}
 
-		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"ok":        true,
+		status := http.StatusOK
+		if errCount != 0 {
+			status = http.StatusServiceUnavailable
+			w.Header().Set("Retry-After", "1")
+		}
+		sharedhttp.WriteJSON(w, status, map[string]any{
+			"ok":        errCount == 0,
 			"processed": processed,
 			"errors":    errCount,
 		})
@@ -94,7 +111,7 @@ func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 func dispatchEvent(ctx context.Context, deps WebhookDeps, ev WebhookEvent) error {
 	switch ev.EventName {
 	case "Swap":
-		if err := deps.Swap.ProcessEvent(ctx, consumer.SwapEvent{
+		return deps.Swap.ProcessWebhookEvent(ctx, consumer.SwapEvent{
 			PoolAddress:    asString(ev.Args["poolAddress"]),
 			Sender:         asString(ev.Args["sender"]),
 			IsBuy:          asBool(ev.Args["isBuy"]),
@@ -105,16 +122,7 @@ func dispatchEvent(ctx context.Context, deps WebhookDeps, ev WebhookEvent) error
 			BlockTimestamp: ev.BlockTimestamp,
 			TxHash:         ev.TxHash,
 			LogIndex:       ev.LogIndex,
-		}); err != nil {
-			return err
-		}
-		return deps.Holder.ProcessSwap(ctx, consumer.HolderSwap{
-			PoolAddress: asString(ev.Args["poolAddress"]),
-			Sender:      asString(ev.Args["sender"]),
-			IsBuy:       asBool(ev.Args["isBuy"]),
-			AmountIn:    asString(ev.Args["amountIn"]),
-			AmountOut:   asString(ev.Args["amountOut"]),
-		})
+		}, deps.Holder)
 	case "MarketCreated":
 		return deps.Market.ProcessEvent(ctx, consumer.MarketEvent{
 			Pool:    asString(ev.Args["pool"]),
@@ -151,8 +159,8 @@ func dispatchEvent(ctx context.Context, deps WebhookDeps, ev WebhookEvent) error
 }
 
 // webhookAuth verifies the HMAC signature on /webhooks/* requests, mirroring the
-// shared registerWebhookAuth (header names + replay window). The body is read and
-// restored so the handler can re-read it.
+// shared registerWebhookAuth (header names + replay window). The bounded raw
+// bytes are authenticated once and passed directly to the decoder in context.
 func webhookAuth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -162,18 +170,88 @@ func webhookAuth(secret string) func(http.Handler) http.Handler {
 				sig = r.Header.Get("X-Hub-Signature-256")
 			}
 
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "failed to read body")
+			if sig == "" || ts == "" {
+				sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "missing webhook signature or timestamp")
 				return
 			}
-			r.Body = io.NopCloser(bytes.NewReader(body))
+			if r.ContentLength > WebhookMaxBodyBytes {
+				sharedhttp.WriteError(w, http.StatusRequestEntityTooLarge, "Request Entity Too Large", "webhook body exceeds 1 MiB")
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, WebhookMaxBodyBytes)
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				status := http.StatusBadRequest
+				var tooLarge *http.MaxBytesError
+				if errors.As(err, &tooLarge) {
+					status = http.StatusRequestEntityTooLarge
+				}
+				sharedhttp.WriteError(w, status, http.StatusText(status), "failed to read bounded webhook body")
+				return
+			}
 
 			if err := auth.VerifyWebhook(secret, ts, string(body), sig, time.Now(), 0); err != nil {
 				sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "invalid webhook signature")
 				return
 			}
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), webhookBodyKey{}, body)))
 		})
 	}
+}
+
+// Decode incrementally so even a compact batch cannot allocate more than the
+// declared event count. Reject the entire batch before applying any event.
+func decodeWebhookBody(body []byte) (WebhookBody, error) {
+	var result WebhookBody
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return result, fmt.Errorf("invalid JSON body")
+	}
+	seen := false
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return result, fmt.Errorf("invalid JSON body")
+		}
+		if key != "events" {
+			var ignored json.RawMessage
+			if err := decoder.Decode(&ignored); err != nil {
+				return result, fmt.Errorf("invalid JSON body")
+			}
+			continue
+		}
+		if seen {
+			return result, fmt.Errorf("duplicate events field")
+		}
+		seen = true
+		token, err := decoder.Token()
+		if err != nil || token != json.Delim('[') {
+			return result, fmt.Errorf("events must be an array")
+		}
+		result.Events = []WebhookEvent{}
+		for decoder.More() {
+			if len(result.Events) == WebhookMaxEvents {
+				return result, errWebhookEventLimit
+			}
+			var event WebhookEvent
+			if err := decoder.Decode(&event); err != nil {
+				return result, fmt.Errorf("invalid webhook event")
+			}
+			result.Events = append(result.Events, event)
+		}
+		if _, err := decoder.Token(); err != nil {
+			return result, fmt.Errorf("invalid JSON body")
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return result, fmt.Errorf("invalid JSON body")
+	}
+	if !seen {
+		return result, fmt.Errorf("events must be an array")
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return result, fmt.Errorf("invalid JSON body")
+	}
+	return result, nil
 }
