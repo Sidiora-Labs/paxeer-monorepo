@@ -151995,7 +151995,7 @@ do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file thi
 
 [task.22.33.449]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/api/tokens/[hash]/instances/[id] (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276", "22.31.474"]
