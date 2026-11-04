@@ -43,20 +43,31 @@ func TestXWebUpgradeIsRegisteredUnderTheLatestTag(t *testing.T) {
 	tags, err := f.ReadFile("tags")
 	require.NoError(t, err)
 	names := parseUpgradesList(string(tags))
-	require.Equal(t, "v6.8", xwebUpgrade)
-	require.Equal(t, precompiles.XWebUpgrade, xwebUpgrade)
-	require.Equal(t, xwebUpgrade, names[len(names)-1])
-	require.Equal(t, xwebUpgrade, LatestUpgrade)
-	require.Less(t, indexOf(names, sidioraFeeTokenUpgrade), indexOf(names, xwebUpgrade))
+	t.Run("CurrentLatestTag", func(t *testing.T) {
+		require.NotEmpty(t, names)
+		require.Equal(t, "v7.0", names[len(names)-1])
+		require.Equal(t, "v7.0", LatestUpgrade)
+		require.Equal(t, MergeUpgrade, LatestUpgrade)
+	})
 
-	versions := readVersionLines(t, filepath.Join("..", "precompiles", "xweb", "versions"))
-	require.Equal(t, []string{xwebUpgrade}, versions)
+	t.Run("HistoricalXWebRegistration", func(t *testing.T) {
+		require.Equal(t, "v6.8", xwebUpgrade)
+		require.Equal(t, precompiles.XWebUpgrade, xwebUpgrade)
+		require.Contains(t, names, sidioraFeeTokenUpgrade)
+		require.Contains(t, names, xwebUpgrade)
+		require.Less(t, indexOf(names, sidioraFeeTokenUpgrade), indexOf(names, xwebUpgrade))
+		require.Less(t, indexOf(names, xwebUpgrade), indexOf(names, LatestUpgrade))
 
-	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
-	a := testWrapper.App
-	a.RegisterUpgradeHandlers()
-	require.True(t, a.UpgradeKeeper.HasHandler(xwebUpgrade))
-	require.True(t, a.UpgradeKeeper.HasHandler(sidioraFeeTokenUpgrade))
+		versions := readVersionLines(t, filepath.Join("..", "precompiles", "xweb", "versions"))
+		require.Equal(t, []string{xwebUpgrade}, versions)
+
+		testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
+		a := testWrapper.App
+		a.RegisterUpgradeHandlers()
+		require.True(t, a.UpgradeKeeper.HasHandler(xwebUpgrade))
+		require.True(t, a.UpgradeKeeper.HasHandler(sidioraFeeTokenUpgrade))
+		require.True(t, a.UpgradeKeeper.HasHandler(LatestUpgrade))
+	})
 }
 
 func indexOf(names []string, name string) int {
