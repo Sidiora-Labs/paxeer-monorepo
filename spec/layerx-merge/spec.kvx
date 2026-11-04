@@ -151423,7 +151423,7 @@ do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file thi
 
 [task.22.33.451]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/apps (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276", "22.31.474"]
@@ -151751,7 +151751,7 @@ do_12 = "Decision 2528: before qualifying, run yarn eslint on every spec file th
 
 [task.22.33.387]
 title = "Repair audit record 22.30.141 medium findings in apps/explorer/ui/megaEth/uptime (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.271", "22.31.272", "22.31.388", "22.31.389", "22.31.474"]
@@ -153091,7 +153091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.326]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/monaco (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.474"]
