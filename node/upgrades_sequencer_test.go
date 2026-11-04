@@ -18,6 +18,7 @@ import (
 	appparams "github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	paramstypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
@@ -61,39 +62,43 @@ func activationInfo(t *testing.T) string {
 }
 
 // rewindBeforeMerge turns the test application into a chain that has not applied
-// the merge plan: the sequencer store holds nothing, the ReceiptKeys param is
-// unset and the module version map does not know the sequencer module.
+// the merge plan: all eight merge stores are empty, sequencer parameters are
+// unset and the module version map carries none of the merged modules.
 func rewindBeforeMerge(t *testing.T, a *App, ctx sdk.Context) {
 	t.Helper()
-	store := ctx.KVStore(a.GetKey(keys.SequencerStoreKey))
-	iter := store.Iterator(nil, nil)
-	var stale [][]byte
-	for ; iter.Valid(); iter.Next() {
-		stale = append(stale, iter.Key())
-	}
-	require.NoError(t, iter.Close())
-	for _, key := range stale {
-		store.Delete(key)
+	for _, name := range mergeStoreUpgrades().Added {
+		store := ctx.KVStore(a.GetKey(name))
+		iter := store.Iterator(nil, nil)
+		var stale [][]byte
+		for ; iter.Valid(); iter.Next() {
+			stale = append(stale, bytes.Clone(iter.Key()))
+		}
+		require.NoError(t, iter.Close())
+		for _, key := range stale {
+			store.Delete(key)
+		}
 	}
 	params := ctx.KVStore(a.GetKey(paramstypes.StoreKey))
 	for _, key := range [][]byte{seqkeeper.KeyReceiptKeys, seqkeeper.KeyLeaders} {
 		params.Delete(append([]byte(seqtypes.ModuleName+"/"), key...))
 	}
-	ctx.KVStore(a.GetKey(upgradetypes.StoreKey)).Delete(append([]byte{upgradetypes.VersionMapByte}, seqtypes.ModuleName...))
-	require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), seqtypes.ModuleName)
+	for _, name := range mergeStoreUpgrades().Added {
+		ctx.KVStore(a.GetKey(upgradetypes.StoreKey)).Delete(append([]byte{upgradetypes.VersionMapByte}, name...))
+		require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), name)
+	}
 	require.Nil(t, seqkeeper.GetReceiptKeys(ctx, a.GetSubspace(seqtypes.ModuleName)))
 	require.Nil(t, seqkeeper.GetLeadersParam(ctx, a.GetSubspace(seqtypes.ModuleName)))
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade))
 }
 
 // snapshotStores copies every pair of every KV store the merge plan must leave
-// untouched: every store but the sequencer store it adds and the upgrade store
+// untouched: every store but the merge stores it adds and the upgrade store
 // that records it, with the params store taken without the sequencer subspace.
 func snapshotStores(t *testing.T, a *App, ctx sdk.Context) map[string]map[string][]byte {
 	t.Helper()
 	snapshot := make(map[string]map[string][]byte, len(kvStoreKeyNames))
 	for _, name := range kvStoreKeyNames {
-		if name == keys.SequencerStoreKey || name == upgradetypes.StoreKey {
+		if indexOf(mergeStoreUpgrades().Added, name) >= 0 || name == upgradetypes.StoreKey {
 			continue
 		}
 		pairs := map[string][]byte{}
@@ -125,16 +130,19 @@ func snapshotMergeStores(t *testing.T, a *App, ctx sdk.Context) map[string]map[s
 	return snapshot
 }
 
-func TestUpgradesSequencerAddsStoreOnly(t *testing.T) {
+func TestUpgradesSequencerInitialisesAllMergeStores(t *testing.T) {
 	upgrades, ok := layerxStoreUpgrades(MergeUpgrade)
 	require.True(t, ok)
-	require.Equal(t, []string{keys.SequencerStoreKey}, upgrades.Added)
+	require.Equal(t, []string{keys.SequencerStoreKey, keys.LayerXLedgerStoreKey, keys.LayerXAuthStoreKey,
+		keys.LayerXPayStoreKey, keys.LayerXChainsStoreKey, keys.LayerXProgramsStoreKey,
+		keys.LayerXAgentStoreKey, keys.LayerXHostStoreKey}, upgrades.Added)
 	require.Empty(t, upgrades.Deleted)
 	require.Empty(t, upgrades.Renamed)
 	require.Contains(t, knownUpgradePlans(), MergeUpgrade)
 
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := testWrapper.App, testWrapper.Ctx.WithBlockHeight(mergeHeight)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	require.True(t, a.UpgradeKeeper.HasHandler(MergeUpgrade))
 	rewindBeforeMerge(t, a, ctx)
 
@@ -155,19 +163,37 @@ func TestUpgradesSequencerAddsStoreOnly(t *testing.T) {
 
 	require.Equal(t, mergeHeight, a.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade))
 	after := a.UpgradeKeeper.GetModuleVersionMap(ctx)
-	require.Equal(t, a.mm.Modules[seqtypes.ModuleName].ConsensusVersion(), after[seqtypes.ModuleName])
-	delete(after, seqtypes.ModuleName)
+	for _, name := range upgrades.Added {
+		if name == keys.LayerXProgramsStoreKey {
+			require.NotContains(t, a.mm.Modules, name)
+			require.NotContains(t, after, name)
+			continue
+		}
+		require.Equal(t, a.mm.Modules[name].ConsensusVersion(), after[name], name)
+		delete(after, name)
+	}
 	require.Equal(t, versions, after)
 
 	require.Equal(t, before, snapshotStores(t, a, ctx))
 	require.Equal(t, balances, a.BankKeeper.GetAllBalances(ctx, holder))
 	require.Equal(t, uint64(7), a.EvmKeeper.GetNonce(ctx, contract))
 	require.Equal(t, crypto.Keccak256Hash(code), a.EvmKeeper.GetCodeHash(ctx, contract))
+
+	// A replay cannot refund or reinitialize already migrated state.
+	committed := snapshotMergeStores(t, a, ctx)
+	currentVersions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
+	_, err := a.mergeUpgradePlan(ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)}, currentVersions)
+	require.ErrorIs(t, err, sdkerrors.ErrInvalidRequest)
+	require.ErrorContains(t, err, "upgrade with name v7.0 has already been completed")
+	require.Equal(t, committed, snapshotMergeStores(t, a, ctx))
+	require.Equal(t, currentVersions, a.UpgradeKeeper.GetModuleVersionMap(ctx))
+	require.Equal(t, mergeHeight, a.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade))
 }
 
 func TestUpgradesSequencerGenesisAtActivation(t *testing.T) {
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := testWrapper.App, testWrapper.Ctx.WithBlockHeight(mergeHeight)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	rewindBeforeMerge(t, a, ctx)
 	versions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
 	activationOnlyKey := mergeReceiptKey(uint64(mergeHeight))
@@ -256,6 +282,7 @@ func TestUpgradesSequencerGenesisAtActivation(t *testing.T) {
 func TestMergePlanRequiresKeyForFirstSequencedHeight(t *testing.T) {
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := testWrapper.App, testWrapper.Ctx.WithBlockHeight(mergeHeight)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	rewindBeforeMerge(t, a, ctx)
 
 	key := mergeReceiptKey(uint64(mergeHeight) + 1)
@@ -281,6 +308,7 @@ func TestMergePlanRequiresKeyForFirstSequencedHeight(t *testing.T) {
 func TestMergePlanRefusesKeyCoveringOnlyActivationHeight(t *testing.T) {
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
 	a, ctx := testWrapper.App, testWrapper.Ctx.WithBlockHeight(mergeHeight)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	rewindBeforeMerge(t, a, ctx)
 	versions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
 
