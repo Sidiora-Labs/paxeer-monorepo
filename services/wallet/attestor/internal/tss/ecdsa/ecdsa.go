@@ -20,13 +20,15 @@ import (
 	"github.com/getamis/alice/crypto/tss/ecdsa/cggmp/sign"
 	paillierzkproof "github.com/getamis/alice/crypto/zkproof/paillier"
 	"github.com/getamis/alice/types"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
-	Threshold       = 3
-	Participants    = 5
-	DigestLength    = 32
-	PaillierKeySize = 2048
+	Threshold              = 3
+	Participants           = 5
+	DigestLength           = 32
+	PaillierKeySize        = 2048
+	maxPendingBytesPerPeer = 1 << 20
 )
 
 var (
@@ -37,6 +39,8 @@ var (
 	ErrBelowThreshold           = errors.New("ecdsa: participants below threshold")
 	ErrSessionFailed            = errors.New("ecdsa: session failed")
 	ErrUnexpectedMessage        = errors.New("ecdsa: unexpected protocol message")
+	ErrPendingLimit             = errors.New("ecdsa: pending message budget exceeded")
+	ErrDuplicateMessage         = errors.New("ecdsa: duplicate protocol message")
 	ErrPartialPublicKeys        = errors.New("ecdsa: partial public keys inconsistent")
 	ErrSignatureOutOfRange      = errors.New("ecdsa: signature scalar out of range")
 	ErrSignatureDoesNotRecover  = errors.New("ecdsa: signature does not recover the key address")
@@ -82,7 +86,8 @@ func Keygen(ctx context.Context, net Network, sessionID []byte) (*KeyShare, erro
 	}
 	curve := elliptic.Secp256k1()
 	selfID := net.SelfID()
-	r := newRouter()
+	r := newRouter(net, phaseDKG)
+	defer r.close()
 	net.Bind(r)
 
 	dkgListener := newListener()
@@ -93,7 +98,7 @@ func Keygen(ctx context.Context, net Network, sessionID []byte) (*KeyShare, erro
 	if err := r.attach(phaseDKG, dkgCore); err != nil {
 		return nil, err
 	}
-	if err := run(ctx, dkgCore, dkgListener, dkgCore.Start); err != nil {
+	if err := r.run(ctx, dkgCore, dkgListener, dkgCore.Start); err != nil {
 		return nil, fmt.Errorf("ecdsa: dkg: %w", err)
 	}
 	dkgResult, err := dkgCore.GetResult()
@@ -114,7 +119,7 @@ func Keygen(ctx context.Context, net Network, sessionID []byte) (*KeyShare, erro
 	if err := r.attach(phaseRefresh, refreshCore); err != nil {
 		return nil, err
 	}
-	if err := run(ctx, refreshCore, refreshListener, refreshCore.Start); err != nil {
+	if err := r.run(ctx, refreshCore, refreshListener, refreshCore.Start); err != nil {
 		return nil, fmt.Errorf("ecdsa: refresh: %w", err)
 	}
 	refreshResult, err := refreshCore.GetResult()
@@ -166,7 +171,8 @@ func Sign(ctx context.Context, share *KeyShare, net Network, participants []stri
 
 	msg := make([]byte, DigestLength)
 	copy(msg, digest)
-	r := newRouter()
+	r := newRouter(net, phaseSign)
+	defer r.close()
 	net.Bind(r)
 	listener := newListener()
 	signer, err := sign.NewSign(share.Threshold, share.SSID, share.Share, share.PublicKey, partials, share.PaillierKey, peds, bks, msg, net, listener)
@@ -176,7 +182,7 @@ func Sign(ctx context.Context, share *KeyShare, net Network, participants []stri
 	if err := r.attach(phaseSign, signer); err != nil {
 		return EthereumSignature{}, err
 	}
-	if err := run(ctx, signer, listener, signer.Start); err != nil {
+	if err := r.run(ctx, signer, listener, signer.Start); err != nil {
 		return EthereumSignature{}, fmt.Errorf("ecdsa: sign: %w", err)
 	}
 	result, err := signer.GetResult()
@@ -299,15 +305,27 @@ func (l *listener) OnStateChanged(_ types.MainState, newState types.MainState) {
 	}
 }
 
-func run(ctx context.Context, main types.MessageMain, l *listener, start func()) error {
+func (r *router) run(ctx context.Context, main types.MessageMain, l *listener, start func()) error {
+	defer main.Stop()
+	if err := r.failure(); err != nil {
+		return err
+	}
 	start()
 	select {
+	case <-r.failed:
+		return r.failure()
 	case state := <-l.final:
+		if err := r.failure(); err != nil {
+			return err
+		}
 		if state != types.StateDone {
 			return fmt.Errorf("%w: state %s", ErrSessionFailed, state)
 		}
 		return nil
 	case <-ctx.Done():
+		if err := r.failure(); err != nil {
+			return err
+		}
 		main.Stop()
 		return fmt.Errorf("%w: %w", ErrSessionFailed, ctx.Err())
 	}
@@ -326,16 +344,50 @@ type pendingMessage struct {
 	msg    types.Message
 }
 
+type messageKey struct {
+	sender string
+	origin string
+	round  types.MessageType
+}
+
+type pendingBudget struct {
+	count int
+	bytes int
+}
+
 type router struct {
 	mu       sync.Mutex
+	peers    map[string]bool
+	allowed  map[phase]int
+	seen     map[phase]map[messageKey]struct{}
+	budgets  map[phase]map[string]pendingBudget
+	failed   chan struct{}
+	err      error
+	closed   bool
 	mains    map[phase]types.MessageMain
 	pending  map[phase][]pendingMessage
 	siG      map[string]*pt.ECPoint
 	conflict map[string]bool
 }
 
-func newRouter() *router {
+func newRouter(net Network, initial phase) *router {
+	allowed := map[phase]int{phaseSign: int(sign.Type_Round4) + 1}
+	if initial == phaseDKG {
+		allowed = map[phase]int{
+			phaseDKG:     int(dkg.Type_Result) + 1,
+			phaseRefresh: int(refresh.Type_Round3) + 1,
+		}
+	}
+	peers := make(map[string]bool, net.NumPeers())
+	for _, id := range net.PeerIDs() {
+		peers[id] = true
+	}
 	return &router{
+		peers:    peers,
+		allowed:  allowed,
+		seen:     make(map[phase]map[messageKey]struct{}),
+		budgets:  make(map[phase]map[string]pendingBudget),
+		failed:   make(chan struct{}),
 		mains:    make(map[phase]types.MessageMain),
 		pending:  make(map[phase][]pendingMessage),
 		siG:      make(map[string]*pt.ECPoint),
@@ -346,35 +398,105 @@ func newRouter() *router {
 func classify(msg types.Message) (phase, bool) {
 	switch msg.(type) {
 	case *dkg.Message:
-		return phaseDKG, true
+		return phaseDKG, msg.(*dkg.Message) != nil
 	case *refresh.Message:
-		return phaseRefresh, true
+		return phaseRefresh, msg.(*refresh.Message) != nil
 	case *sign.Message:
-		return phaseSign, true
+		return phaseSign, msg.(*sign.Message) != nil
 	}
 	return 0, false
 }
 
 func (r *router) AddMessage(senderID string, msg types.Message) error {
-	if msg == nil {
-		return ErrUnexpectedMessage
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.err != nil {
+		return r.err
+	}
+	if r.closed {
+		return ErrSessionFailed
 	}
 	p, ok := classify(msg)
 	if !ok {
-		return fmt.Errorf("%w: %T", ErrUnexpectedMessage, msg)
+		return r.failLocked(fmt.Errorf("%w: %T", ErrUnexpectedMessage, msg))
 	}
-	r.mu.Lock()
-	if p == phaseDKG {
-		r.captureSiG(senderID, msg.(*dkg.Message))
+	rounds, allowed := r.allowed[p]
+	if !allowed || !r.peers[senderID] || !r.peers[msg.GetId()] || msg.GetMessageType() < 0 || int(msg.GetMessageType()) >= rounds {
+		return r.failLocked(ErrUnexpectedMessage)
 	}
+	key := messageKey{sender: senderID, origin: msg.GetId(), round: msg.GetMessageType()}
+	if _, duplicate := r.seen[p][key]; duplicate {
+		return r.failLocked(ErrDuplicateMessage)
+	}
+	size := proto.Size(msg.(proto.Message))
 	main, attached := r.mains[p]
+	if size > maxPendingBytesPerPeer {
+		return r.failLocked(ErrPendingLimit)
+	}
 	if !attached {
-		r.pending[p] = append(r.pending[p], pendingMessage{sender: senderID, msg: msg})
-		r.mu.Unlock()
+		budget := r.budgets[p][senderID]
+		if budget.count >= rounds*len(r.peers) || size > maxPendingBytesPerPeer-budget.bytes {
+			return r.failLocked(ErrPendingLimit)
+		}
+		if r.budgets[p] == nil {
+			r.budgets[p] = make(map[string]pendingBudget)
+		}
+		r.budgets[p][senderID] = pendingBudget{count: budget.count + 1, bytes: budget.bytes + size}
+	}
+	if r.seen[p] == nil {
+		r.seen[p] = make(map[messageKey]struct{})
+	}
+	r.seen[p][key] = struct{}{}
+	if !attached {
+		retained := proto.Clone(msg.(proto.Message)).(types.Message)
+		r.pending[p] = append(r.pending[p], pendingMessage{sender: senderID, msg: retained})
 		return nil
 	}
-	r.mu.Unlock()
-	return main.AddMessage(senderID, msg)
+	return r.deliverLocked(p, main, senderID, msg)
+}
+
+func (r *router) deliverLocked(p phase, main types.MessageMain, sender string, msg types.Message) error {
+	if err := main.AddMessage(sender, msg); err != nil {
+		return r.failLocked(err)
+	}
+	if p == phaseDKG {
+		r.captureSiG(sender, msg.(*dkg.Message))
+	}
+	return nil
+}
+
+func (r *router) failLocked(err error) error {
+	if r.err == nil {
+		r.err = fmt.Errorf("%w: %w", ErrSessionFailed, err)
+		close(r.failed)
+		r.clearLocked()
+	}
+	return r.err
+}
+
+func (r *router) clearLocked() {
+	for _, main := range r.mains {
+		main.Stop()
+	}
+	clear(r.mains)
+	clear(r.pending)
+	clear(r.budgets)
+	clear(r.seen)
+	clear(r.siG)
+	clear(r.conflict)
+}
+
+func (r *router) close() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.closed = true
+	r.clearLocked()
+}
+
+func (r *router) failure() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.err
 }
 
 func (r *router) captureSiG(senderID string, msg *dkg.Message) {
@@ -395,16 +517,30 @@ func (r *router) captureSiG(senderID string, msg *dkg.Message) {
 
 func (r *router) attach(p phase, main types.MessageMain) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.err != nil {
+		main.Stop()
+		return r.err
+	}
+	if r.closed {
+		main.Stop()
+		return ErrSessionFailed
+	}
+	if _, ok := r.allowed[p]; !ok {
+		main.Stop()
+		return r.failLocked(ErrUnexpectedMessage)
+	}
 	if _, ok := r.mains[p]; ok {
-		r.mu.Unlock()
 		return errPhaseAlreadyAttached
 	}
 	r.mains[p] = main
 	queued := r.pending[p]
 	delete(r.pending, p)
-	r.mu.Unlock()
+	delete(r.budgets, p)
 	for _, m := range queued {
-		_ = main.AddMessage(m.sender, m.msg)
+		if err := r.deliverLocked(p, main, m.sender, m.msg); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -412,6 +548,9 @@ func (r *router) attach(p phase, main types.MessageMain) error {
 func (r *router) dkgPartialPublicKeys(selfID string, share *big.Int, bks map[string]*birkhoffinterpolation.BkParameter, pubKey *pt.ECPoint) (map[string]*pt.ECPoint, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.err != nil {
+		return nil, r.err
+	}
 	curve := pubKey.GetCurve()
 	partials := make(map[string]*pt.ECPoint, len(bks))
 	params := make(birkhoffinterpolation.BkParameters, 0, len(bks))

@@ -157,10 +157,11 @@ async fn process_event_signatures(
     complete_signatures: Vec<alloy_json_abi::Event>,
     signatures: Vec<String>,
 ) -> Result<Vec<Abi>, anyhow::Error> {
+    let has_complete_signatures = !complete_signatures.is_empty();
     let complete_abis: Vec<_> = complete_signatures.into_iter().filter_map(|alloy_event| {
         let ethabi_event = try_from_alloy_event_to_ethabi_event(alloy_event.clone())
             .map_err(|err| tracing::error!("converting alloy_json_abi::Event into ethabi::Event failed for {alloy_event:?}; err={err:#}")).ok()?;
-        ethabi_event.parse_log_whole(raw.clone()).ok()
+        crate::sources::decode_complete_event(&ethabi_event, raw)
             .map(|event| {
                 let mut names = Vec::new();
                 let mut values = Vec::new();
@@ -183,6 +184,7 @@ async fn process_event_signatures(
 
     let abis: Vec<_> = signatures
         .into_iter()
+        .filter(|_| !has_complete_signatures)
         .filter_map(|sig| {
             let (name, args) = parse_signature(&sig)?;
             let (values, indexed) = decode_log(name.to_string(), &args, raw.clone())?;

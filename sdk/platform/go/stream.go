@@ -70,13 +70,19 @@ func (source *HumanStreamSource) Next(ctx context.Context, cursor StreamCursor) 
 	return page, err
 }
 
+// Cursors are opaque: ordering beyond this replay window is enforced by the
+// source's acknowledged checkpoint. Pending pages are checked independently.
+const maximumStreamReplayCursors = 256
+
 type ResumableStream struct {
-	mu      sync.Mutex
-	cursor  StreamCursor
-	seen    map[string]struct{}
-	source  StreamSource
-	fetched StreamCursor
-	pending []StreamEvent
+	mu         sync.Mutex
+	cursor     StreamCursor
+	seen       map[string]struct{}
+	replay     [maximumStreamReplayCursors]string
+	replayNext int
+	source     StreamSource
+	fetched    StreamCursor
+	pending    []StreamEvent
 }
 
 func NewResumableStream(cursor StreamCursor, source StreamSource) (*ResumableStream, error) {
@@ -143,8 +149,17 @@ func (stream *ResumableStream) Acknowledge(cursor StreamCursor) error {
 		return newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	stream.cursor = cursor
+	if previous := stream.replay[stream.replayNext]; previous != "" {
+		delete(stream.seen, previous)
+	}
+	stream.replay[stream.replayNext] = cursor.value
+	stream.replayNext = (stream.replayNext + 1) % maximumStreamReplayCursors
 	stream.seen[cursor.value] = struct{}{}
+	stream.pending[0] = StreamEvent{}
 	stream.pending = stream.pending[1:]
+	if len(stream.pending) == 0 {
+		stream.pending = nil
+	}
 	return nil
 }
 

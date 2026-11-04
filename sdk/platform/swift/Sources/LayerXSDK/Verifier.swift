@@ -236,25 +236,15 @@ public enum LocalVerifier {
     guard current == expectedRoot else { throw verificationFailure() }
   }
 
+  @available(
+    *, deprecated,
+    message:
+      "Kernel lifecycle receipts are retired. Use verifySequencerReceipt with the retained EVM transaction, ReceiptKeys and authenticated sequence context."
+  )
   public static func verifyProgramLifecycleReceipt(
     _ canonical: Data, expectedActivity: Data, sequencer: Data
   ) throws -> ReceiptVerification {
-    let decoded = try decodeProtocolReceipt(canonical, sequencerOnly: false)
-    let receipt = decoded.receipt
-    guard receipt.protocolVersion == 3, receipt.moduleID == 9, receipt.moduleVersion == 4,
-      receipt.operation == 0,
-      receipt.programOutcome == nil, expectedActivity.count == 32, !allZero(expectedActivity),
-      receipt.activityID == expectedActivity,
-      sequencer.count == 32, !allZero(sequencer)
-    else { throw receiptFailure(.receiptShape) }
-    let receiptDigest = digest(wireReceiptDomain, decoded.unsignedBytes)
-    guard
-      verifyEd25519(
-        publicKey: sequencer, signature: receipt.sequencerSignature, message: receiptDigest)
-    else { throw receiptFailure(.sequencerSignature) }
-    return ReceiptVerification(
-      level: "sequencer-signed", receipt: receipt, canonicalBytes: canonical,
-      receiptDigest: receiptDigest)
+    throw PlatformSDKError(code: .protocolIncompatibility, retry: .never)
   }
 
 }

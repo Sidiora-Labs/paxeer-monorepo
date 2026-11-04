@@ -1,0 +1,9 @@
+[repair.22.33.1347]
+audit = "22.30.73"
+findings = ["multisig-add-index"]
+multisig-add-index = ["TestRepairM_1347_MismatchedKeySets", "TestRepairM_1347_InvalidIndices", "TestRepairM_1347_InvalidTargets", "TestRepairM_1347_SignEncodeVerify"]
+proof = "Real secp256k1 signing feeds NewMultisig and all three addition APIs, then the production signature descriptor protobuf marshal/unmarshal and LegacyAminoPubKey verifier. Mismatched key sets, invalid dimensions and indices, padding and signature-count disagreement return errors without changing target bits, signatures or backing storage. Valid insertions and replacements retain key order across partial and byte-aligned sizes; rejected additions leave the completed signature verifiable, and a changed message is refused."
+baseline = "Not run: the explicit ordered gate instructions require complete implementation before hf-build and hf-done and prohibit manual verification, overriding step 5's pre-change verification request; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and log path; qualification is claimed only on hf-done success."
+qualification_repair = "Revision e5fb330456e2f0ae11589cfd002f5d4cc62f6c29; command cg spec done 22.33.1347 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log. The test snapshot used CompactBitArray.Copy, which changes nil Elems to a nonnil empty slice; preserve nilness with slices.Clone while retaining exact unchanged-state assertions."
