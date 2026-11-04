@@ -1,0 +1,25 @@
+[repair.22.31.26]
+finding = "log-free-receipt-contract"
+tests = ["TestRepair_26_Transfer", "TestRepair_26_Reversion", "TestRepair_26_Events", "TestRepair_26_ContractCreation"]
+implementation = "Client.ReceiptState, the API TransactionStatus adapter and RPCReceipt.TxStatus share one projection that returns committed log-free receipts and preserves actual first-log indices for event-bearing receipts."
+position = "Frozen v2 wire compatibility: log-free receipts carry logIndex zero, identified by chain, committed block and transaction index/hash; this zero does not attest an event."
+proof = "Signed transactions execute on a real chain-125 Go Ethereum node over HTTP JSON-RPC; the SDK verified-client and API TransactionStatus paths, plus the RPCReceipt projection, feed the generated schema validator and generated Go consumer, asserting receipt identity, status, sender, destination, gas and complete position."
+baseline = "No baseline gate was run: the explicit task order requires complete implementation before hf-build followed by hf-done and prohibits manually running verify_cmd; no pre-change test failure is claimed."
+wiring = "Domain 4 (launchpad): define a distinct transaction-level Receipt position in launchpad/spec/production-system/integration/contracts/v2/schema-definitions.json and regenerate sdk/launchpad/shared/interfaces/v2 and sdk/launchpad/packages/production-contracts-v2/src with tools/launchpad/production/interfaces/codegen.py; migrate receipt consumers together."
+qualification = "The runner records the verified candidate revision, exact command, exit and private log in /out/run/gates.jsonl; no qualification is claimed before hf-done passes."
+
+[gotcha.baseline_order]
+observed = "The audit-derived baseline instruction conflicts with the task's explicit implementation-first gate order and single verification allowance."
+action = "Follow the explicit gate order and report the absence of pre-change execution rather than invent baseline evidence."
+
+[gotcha.receipt_schema_scope]
+observed = "The receipt-position source schema and generated Go/TypeScript contracts are outside the allowed repair paths."
+action = "Retain the current v2 wire contract explicitly and route its transaction-position migration to the owning domain."
+
+[gotcha.seed_conflicts]
+observed = "The seeded repair predates the committed-block and signed-transaction evidence checks now shared by ReceiptState and the API TransactionStatus adapter."
+action = "Keep the current evidence checks, integrate the seeded receipt projection beside them, and drive TransactionStatus as well as ReceiptState in every repair case."
+
+[baseline.attempt_1]
+observed = "The supplied attempt-1 evidence reports TestRepair_26_* passing; its package-wide gate failed in pre-existing service-bound TestPhase2, TestPhase3 and TestPhase4 tests requiring isolated workload artifacts."
+action = "Run only the declared narrowed gate; do not rerun or investigate those unrelated failures."

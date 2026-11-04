@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,11 +29,13 @@ const (
 
 // Server is the HTTP API for the sidecar.
 type Server struct {
-	addr    string
-	homeDir string
-	engine  *engine.Engine
-	mux     *http.ServeMux
-	handler http.Handler // mux, possibly wrapped by trustedHeaderMiddleware
+	addr      string
+	homeDir   string
+	engine    *engine.Engine
+	mux       *http.ServeMux
+	handler   http.Handler // mux, possibly wrapped by trustedHeaderMiddleware
+	protected bool
+	configErr error
 }
 
 // TaskRequest is the JSON body for POST /v0/tasks. When ID is provided,
@@ -44,6 +47,41 @@ type TaskRequest struct {
 	Params map[string]any `json:"params,omitempty"`
 }
 
+func (r *TaskRequest) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		ID     string          `json:"id,omitempty"`
+		Type   string          `json:"type"`
+		Params json.RawMessage `json:"params,omitempty"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	params, err := decodeTaskParams(wire.Params)
+	if err != nil {
+		return err
+	}
+	r.ID, r.Type, r.Params = wire.ID, wire.Type, params
+	return nil
+}
+
+func decodeTaskParams(data []byte) (map[string]any, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	if raw == nil {
+		return nil, nil
+	}
+	params := make(map[string]any, len(raw))
+	for k, v := range raw {
+		params[k] = v
+	}
+	return params, nil
+}
+
 // ErrorResponse is a standard JSON error envelope.
 type ErrorResponse struct {
 	Error string `json:"error"`
@@ -52,12 +90,18 @@ type ErrorResponse struct {
 // NewServer wires a Server to the engine. authnMode must come from
 // AuthnMode() so the env read and validation happen once at startup.
 func NewServer(addr string, eng *engine.Engine, homeDir, authnMode string) *Server {
-	s := &Server{
-		addr:    addr,
-		homeDir: homeDir,
-		engine:  eng,
-		mux:     http.NewServeMux(),
+	if authnMode == "" {
+		authnMode = AuthnModeTrustedHeader
 	}
+	s := &Server{
+		addr:      addr,
+		homeDir:   homeDir,
+		engine:    eng,
+		mux:       http.NewServeMux(),
+		protected: authnMode == AuthnModeTrustedHeader,
+		configErr: validateListener(addr, authnMode),
+	}
+	s.protected = s.protected && s.configErr == nil
 	s.mux.HandleFunc("GET /v0/healthz", s.handleHealthz)
 	s.mux.HandleFunc("GET /v0/startupz", s.handleHealthz)
 	s.mux.HandleFunc("GET /v0/livez", s.handleLivez)
@@ -72,6 +116,11 @@ func NewServer(addr string, eng *engine.Engine, homeDir, authnMode string) *Serv
 	s.handler = s.mux
 	if authnMode == AuthnModeTrustedHeader {
 		s.handler = trustedHeaderMiddleware(s.mux)
+	}
+	if s.configErr != nil {
+		s.handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			writeError(w, http.StatusServiceUnavailable, s.configErr.Error())
+		})
 	}
 	return s
 }
@@ -115,9 +164,18 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handlePostTask(w http.ResponseWriter, r *http.Request) {
+	if !s.protected {
+		writeError(w, http.StatusForbidden, "task submission requires an authenticated loopback listener")
+		return
+	}
 	var req TaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		writeError(w, http.StatusBadRequest, "request body must contain exactly one JSON object")
 		return
 	}
 	if req.Type == "" {
@@ -158,6 +216,10 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
+	if !s.protected {
+		writeError(w, http.StatusForbidden, "task deletion requires an authenticated loopback listener")
+		return
+	}
 	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing task ID")
@@ -217,6 +279,9 @@ func (s *Server) handleNodeID(w http.ResponseWriter, _ *http.Request) {
 
 // ListenAndServe starts the HTTP server and blocks until ctx is cancelled.
 func (s *Server) ListenAndServe(ctx context.Context) error {
+	if s.configErr != nil {
+		return s.configErr
+	}
 	srv := &http.Server{
 		Addr:              s.addr,
 		Handler:           s.handler,

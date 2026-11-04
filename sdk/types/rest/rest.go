@@ -95,10 +95,12 @@ func NewBaseReq(
 
 // Sanitize performs basic sanitization on a BaseReq object.
 func (br BaseReq) Sanitize() BaseReq {
-	return NewBaseReq(
+	sanitized := NewBaseReq(
 		br.From, br.Memo, br.ChainID, br.Gas, br.GasAdjustment,
 		br.AccountNumber, br.Sequence, br.Fees, br.GasPrices, br.Simulate,
 	)
+	sanitized.TimeoutHeight = br.TimeoutHeight
+	return sanitized
 }
 
 // ValidateBasic performs basic validation of a BaseReq. If custom validation

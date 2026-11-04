@@ -263,6 +263,8 @@ lxp_result lxp_genesis_build_snapshot_migration(
     lxp_state_journal *journal = NULL;
     lxp_kernel *kernel = NULL;
     lx_account_registry *accounts = NULL;
+    lxp_genesis_module_plan plan;
+    const lxp_module_iface *programs = NULL;
     uint8_t signer[32];
     uint8_t authorization[LXP_SNAPSHOT_MIGRATION_AUTHORIZATION_BYTES];
     size_t authorization_length = 0U;
@@ -301,8 +303,14 @@ lxp_result lxp_genesis_build_snapshot_migration(
     if (status == LXP_OK)
         status = lxp_kernel_create(kernel, state, journal, genesis, 1U);
     if (status == LXP_OK)
-        status = lxp_kernel_register_module(
-            kernel, programs_module_registration_v4());
+        status = lxp_genesis_module_plan_resolve(genesis, &plan);
+    if (status == LXP_OK) {
+        for (size_t i = 0U; i < plan.count; ++i)
+            if (plan.modules[i]->module_id == LXP_MODULE_PROGRAMS)
+                programs = plan.modules[i];
+        status = programs == NULL ? LXP_ERR_UNKNOWN_MODULE :
+            lxp_kernel_register_module(kernel, programs);
+    }
     if (status == LXP_OK &&
         genesis->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT)
         status = lxp_kernel_register_module(kernel, lx_asset_module_iface());

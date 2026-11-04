@@ -1120,6 +1120,8 @@ func decodePoolMembership(membership [][]byte) error {
 	return nil
 }
 
+// Deprecated: valid log-free receipts now use the shared v2 receipt projection.
+// Retained for callers that previously matched this exported error.
 var ErrReceiptPosition = errors.New("RECEIPT_POSITION_UNREPRESENTABLE: frozen receipt requires event logIndex for a log-free transaction")
 
 // ErrReceiptIntegrity marks foreign or conflicting chain evidence. Callers
@@ -1240,30 +1242,16 @@ func projectReceipt(r receiptEvidence) (contractv2.TxStatusData, error) {
 	if err != nil {
 		return contractv2.TxStatusData{}, receiptConflict("invalid transaction signature")
 	}
-	var to *string
-	if r.tx.To() != nil {
-		address := r.tx.To().Hex()
-		to = &address
+	view, err := projectCommittedReceipt(r.receipt, from, r.tx.To())
+	if err != nil {
+		return contractv2.TxStatusData{}, receiptConflict(err.Error())
 	}
-	gasPrice := r.receipt.EffectiveGasPrice
-	if gasPrice == nil || gasPrice.Sign() < 0 || gasPrice.BitLen() > 256 {
-		return contractv2.TxStatusData{}, receiptConflict("receipt gas price unavailable")
-	}
-	status := "included_success"
-	if r.receipt.Status == 0 {
-		status = "included_reverted"
-	}
-	if len(r.receipt.Logs) == 0 {
-		return contractv2.TxStatusData{Status: status}, ErrReceiptPosition
-	}
-	position := contractv2.ChainPosition{BlockHash: r.receipt.BlockHash.Hex(), ChainId: "125", Height: contractv2.UInt256(r.receipt.BlockNumber.String()), LogIndex: contractv2.UInt256(strconv.FormatUint(uint64(r.receipt.Logs[0].Index), 10)), TransactionHash: r.receipt.TxHash.Hex(), TransactionIndex: contractv2.UInt256(strconv.FormatUint(uint64(r.receipt.TransactionIndex), 10))}
-	view := &contractv2.Receipt{BlockHash: r.receipt.BlockHash.Hex(), EffectiveGasPriceRaw: contractv2.UInt256(gasPrice.String()), From: from.Hex(), GasUsedRaw: contractv2.UInt256(strconv.FormatUint(r.receipt.GasUsed, 10)), Height: position.Height, Position: position, Success: r.receipt.Status == 1, To: to, TransactionHash: r.receipt.TxHash.Hex()}
-	return contractv2.TxStatusData{Receipt: view, Status: status}, nil
+	return view, nil
 }
 
 // TransactionStatus serves the frozen receipt contract using the same inclusion
-// checks and event position as ReceiptState. A log-free receipt is explicitly
-// unrepresentable until the source contract defines a transaction-only position.
+// checks and receipt position as ReceiptState. Log-free receipts use the
+// legacy zero logIndex with identity supplied by their transaction position.
 // The caller owns rpcClient and its bounded transport and request deadline.
 func TransactionStatus(ctx context.Context, rpcClient *rpc.Client, hash common.Hash) (contractv2.TxStatusData, error) {
 	if rpcClient == nil || hash == (common.Hash{}) {
