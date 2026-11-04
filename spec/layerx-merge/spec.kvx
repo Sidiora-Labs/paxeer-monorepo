@@ -251977,7 +251977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.181]
 title = "Pre-upgrade audit of tools-ops: tools/paxeer-x (187 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252265,7 +252265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.172]
 title = "Pre-upgrade audit of tools-ops: tests/integration (157 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
