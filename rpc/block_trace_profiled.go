@@ -27,8 +27,12 @@ const profiledDefaultTraceTimeout = 5 * time.Second
 const profiledDefaultTraceReexec = uint64(128)
 const maxProfiledTraceWorkers = 16
 
+func isProfiledDefaultTracer(config *tracers.TraceConfig) bool {
+	return config == nil || config.Tracer == nil || *config.Tracer == ""
+}
+
 func (api *DebugAPI) shouldUseProfiledBlockTrace(config *tracers.TraceConfig) bool {
-	return api.profiledBlockTrace && (config == nil || config.Tracer == nil || *config.Tracer == "")
+	return api.profiledBlockTrace && isProfiledDefaultTracer(config)
 }
 
 func (api *DebugAPI) profiledTraceBlockByNumber(ctx context.Context, number rpc.BlockNumber, config *tracers.TraceConfig) (interface{}, error) {
@@ -339,7 +343,7 @@ func (api *DebugAPI) profiledTraceTx(
 	if config == nil {
 		config = &tracers.TraceConfig{}
 	}
-	if config.Tracer == nil {
+	if isProfiledDefaultTracer(config) {
 		logger := traceLogger.NewStructLogger(config.Config)
 		tracer = &tracers.Tracer{
 			Hooks:     logger.Hooks(),
@@ -367,16 +371,30 @@ func (api *DebugAPI) profiledTraceTx(
 		}
 	}
 	deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
+	executionDone := make(chan struct{})
+	watcherDone := make(chan struct{})
 	go func() {
-		<-deadlineCtx.Done()
-		if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+		defer close(watcherDone)
+		select {
+		case <-executionDone:
+			return
+		case <-deadlineCtx.Done():
+			err := deadlineCtx.Err()
+			if errors.Is(err, context.DeadlineExceeded) {
+				err = errors.New("execution timeout")
+			}
 			tracerMtx.Lock()
-			tracer.Stop(errors.New("execution timeout"))
+			tracer.Stop(err)
 			tracerMtx.Unlock()
 			evm.Cancel()
 		}
 	}()
+	finishExecution := sync.OnceFunc(func() {
+		close(executionDone)
+		<-watcherDone
+	})
 	defer cancel()
+	defer finishExecution()
 
 	statedb.SetTxContext(txctx.TxHash, txctx.TxIndex)
 	var prepareTxErr error
@@ -394,6 +412,13 @@ func (api *DebugAPI) profiledTraceTx(
 	}
 	executionStart := time.Now()
 	_, err = core.ApplyTransactionWithEVM(message, new(core.GasPool).AddGas(message.GasLimit), statedb, vmctx.BlockNumber, txctx.BlockHash, tx, &usedGas, evm)
+	finishExecution()
+	if traceErr := deadlineCtx.Err(); traceErr != nil {
+		if errors.Is(traceErr, context.DeadlineExceeded) {
+			return nil, errors.New("execution timeout")
+		}
+		return nil, traceErr
+	}
 	if phaseDurations != nil {
 		phaseDurations.ExecutionNanos = time.Since(executionStart).Nanoseconds()
 	}
