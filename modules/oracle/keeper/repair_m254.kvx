@@ -1,0 +1,8 @@
+[repair.22.33.254]
+findings = ["22.30.13/011", "22.30.13/010"]
+implementation = "Derive migration fixtures from pre-upgrade MidBlock tally and EndBlock reset boundaries; reject the impossible height-25 counter atomically; prove default 4975 successes and non-unit periods across aligned and nonaligned slash-window rollovers with real keepers, handlers, codec and in-memory stores."
+finding_011_tests = ["TestRepairM_254_011_AtomicRejection", "TestRepairM_254_011_ZeroSuccessBoundary"]
+finding_010_tests = ["TestRepairM_254_010_DefaultBackfill", "TestRepairM_254_010_HookBoundaries"]
+baseline = "Not run: the explicit gate order prohibits testing before complete implementation and direct invocation of verify_cmd; no baseline failures are claimed. The base already contains migration unit repairs and the 4975 assertion."
+evidence = "The private hf-done ledger records the verified candidate revision, exact command, exit code and log location."
+wiring_request = "None: both test-gap proposals are confined to modules/oracle/keeper; production migration units are already repaired by 22.31.11."

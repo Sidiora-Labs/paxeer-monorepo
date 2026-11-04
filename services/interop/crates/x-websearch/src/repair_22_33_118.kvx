@@ -1,0 +1,44 @@
+[repair.22.33.118]
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+mode = "BUILD"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test repair_22_33_118"
+evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log; this record makes no unexecuted qualification claim."
+baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and allow verification only through the bounded hf-done gate; there was no earlier gate ledger or repair test at session start."
+
+[finding.api-framing-memory]
+test = "api_framing_memory_is_bounded_over_tls_with_credentials"
+repair = "API and fetch share a compacting wire parser; completed delimiter offsets, aggregate informational heads, chunk metadata and trailers are bounded independently of decoded body bytes. TLS, sealed credentials, tamper refusals and body limits remain enforced."
+
+[finding.receipt-key-registry]
+test = "receipt_key_registry_generated_configuration_uses_strict_nested_snake_case"
+repair = "The committed operator template is filled without field translation and consumed by the strict production loader; camelCase aliases, retired fields, empty keys, overlapping windows, weak keys and reversed heights remain refused."
+wiring = "Domain 11: update spec/layerx-merge/interfaces.kvx row 11.cfg-xws-receipt-keys and contracts/interop-websearch.md#cfg-xws-receipt-keys to gateway.receipt_keys entries {key_id, public_key, first_height, last_height}; both documentation paths are outside this task's scope."
+
+[finding.fetch-framing-memory]
+test = "fetch_framing_memory_is_bounded_on_the_real_http_client"
+repair = "The shared parser compacts before reads, bounds completed lines and total framing, and reports its actual peak buffered length; real tiny-chunk transfers retain at most two read buffers."
+
+[finding.fetch-dns-deadline]
+tests = ["fetch_dns_deadline_cancels_slow_resolution_for_fetch_api_and_robots", "fetch_dns_preserves_all_address_ssrf_checks_and_pins_the_transport", "fetch_dns_tcp_fallback_obeys_the_same_deadline"]
+repair = "Production DNS uses cancellable UDP/TCP sockets under the caller's absolute deadline, system hosts/nameservers/search configuration, both address families, bounded CNAME traversal and pinned checked addresses. No detached blocking resolver remains in fetch or API."
+
+[finding.settlement-authority]
+test = "settlement_authority_is_shared_with_readiness_and_paid_route_eligibility"
+repair = "gateway.endpoint is the named settlement authority; PaymentGate owns its chain-bound SettlementRpc and main readiness probes that exact client. evm.endpoint remains the watcher/relay endpoint."
+wiring = "Domain 11: clarify spec/layerx-merge/spec.kvx req.11394 and contracts/interop-websearch.md endpoint responsibilities to name gateway.endpoint as payment and readiness authority and evm.endpoint as watcher/relay authority; these paths are outside this task's scope."
+
+[finding.watcher-ownership]
+test = "watcher_ownership_retires_mixed_traffic_and_recovers_without_orphans"
+repair = "main assigns ordinary and program watchers to their completion owners. Both topics are still discovered and validated; foreign-kind duplicates are excluded from new journals and retired durably on legacy reopen without losing owned work."
+
+[finding.search-tie-expansion]
+test = "search_tie_expansion_keeps_ten_candidates_and_loads_only_winning_bodies"
+repair = "One collector retains the best ten globally by score then URL across segments, reads only the first stored URL field while collecting, and materializes titles/bodies only for winners; real resource counters and reopened canonical results prove the bound."
+
+[session_gotcha.1]
+observed = "Task steps request baseline verification and edits to the spec task record, while the explicit order prohibits tests before implementation and the scope forbids spec changes."
+action = "Follow the explicit order and scope; keep this in-scope repair record and run only hf-build followed by hf-done."
+
+[session_gotcha.2]
+observed = "This sandbox has no Cargo registry sources before the gate; reading Tantivy collector and document APIs required the published crate source."
+action = "Read the pinned crate source without running an extra build or test gate."

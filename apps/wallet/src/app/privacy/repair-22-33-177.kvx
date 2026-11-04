@@ -1,0 +1,7 @@
+[repair.22.33.177]
+finding = "22.30.118/privacy-recipient-drift"
+proof = "repair-22-33-177.test.ts: privacy_recipient_drift_discloses_current_recipients_in_the_rendered_page; page.test.ts: privacy_page_describes_the_web_wallet (included in the repair gate)."
+baseline = "Not run: the prescribed implementation-first gate order forbids unchanged-tree verification; no pre-change failing test execution is claimed. The former page contains all three retired recipients and lacks the required configured-recipient disclosures."
+recipients = "Configured root chain RPC or selected network endpoint; configured explorer (default paxscan.io); wallet same-origin Blockscout proxy forwarding portfolio, prices and explorer queries to the configured Paxeer indexer (default api.paxscan.io), as implemented in lib/constants.ts and app/api/wallet/[...path]/route.ts."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and log location; qualification is claimed only on hf-done success."

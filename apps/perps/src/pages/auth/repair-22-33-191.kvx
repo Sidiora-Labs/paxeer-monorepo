@@ -1,0 +1,9 @@
+[task.22.33.191]
+finding = "22.30.12.f007"
+repair = "Catch rejected PKCE exchange and wallet session reads, suppress cancelled results, and navigate home before opening the existing wallet sign-in modal so retry does not save an expired callback URL."
+proving_tests = ["f007ExchangeRejectionShowsRetry", "f007SessionRejectionShowsRetry", "f007SuccessfulExchangeUsesRealSession", "f007CancellationSuppressesLateSuccess", "f007CancellationSuppressesExchangeAndSessionRejections", "f007MissingCodeAndReturnedErrorsRecover", "f007NonErrorRejectionRecovers", "f007RetryWaitsForHomeNavigation"]
+test_path = "apps/perps/tests/repair-22-33-191.test.ts"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and prohibits running verify_cmd by hand. No baseline failures are claimed."
+evidence = "The bounded hf-done ledger records the verified revision, command, exit code and private log; the final task response copies that record."
+build_1 = "revision=0396a88aa657804b583164a384164d68f6ffd4ef; command=pnpm --dir apps/perps exec tsc --noEmit; exit=2; log=/out/logs/build-1.log; existing imported SDK/gateway dependencies were not installed."
+wiring_requests = []
