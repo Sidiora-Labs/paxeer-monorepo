@@ -44,6 +44,7 @@
 # 1 naming the first mismatch when any value disagrees, a placeholder is still
 # in place, the native coin is unregistered, uncapped or paused, or the Paxeer
 # side carries no registration for the chain.
+python3 "${BASH_SOURCE[0]%${BASH_SOURCE[0]##*/}}check-attestor-manifest.py" || exit "$?"
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
