@@ -1,0 +1,27 @@
+{
+  "model": "typesafe/jev-1.13-20260917",
+  "answers": {
+    "same_claims": {
+      "type": "noul",
+      "noul": 0.99
+    },
+    "drift_kind": {
+      "type": "choice",
+      "choice": "faithful",
+      "probabilities": {
+        "faithful": 0.96,
+        "missing_content": 0.01,
+        "extra_content": 0.01,
+        "stale_reference": 0.01,
+        "mistranslated": 0.01
+      },
+      "confidence": 0.96
+    }
+  },
+  "usage": {
+    "input_tokens": 512,
+    "output_tokens": 40,
+    "cost": 2.15e-05
+  },
+  "id": "gen-dec-1789717233-test"
+}

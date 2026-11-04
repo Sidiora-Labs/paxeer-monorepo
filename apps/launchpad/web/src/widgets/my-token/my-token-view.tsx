@@ -74,7 +74,7 @@ export async function fetchCreatorPoolMetadata(
   return { poolAddress, tokenAddress, name: data.name, symbol: data.symbol };
 }
 
-function useCreatorPoolMetadata(poolAddress: Address) {
+function useCreatorPoolMetadata(creator: Address, poolAddress: Address) {
   const identity = useReadContract({
     chainId: CORE_DEPLOYMENT.chainId,
     address: CORE_DEPLOYMENT.poolRegistry,
@@ -84,7 +84,9 @@ function useCreatorPoolMetadata(poolAddress: Address) {
   });
   const tokenAddress = identity.data?.token;
   const metadata = useQuery({
-    queryKey: ['creator-pool-metadata', CORE_DEPLOYMENT.chainId, poolAddress, tokenAddress],
+    queryKey: [
+      'creator-pool-metadata', CORE_DEPLOYMENT.chainId, creator, poolAddress, tokenAddress,
+    ],
     enabled: tokenAddress !== undefined,
     queryFn: ({ signal }) => {
       if (!tokenAddress) throw new Error('Pool token identity is unavailable');
@@ -96,15 +98,17 @@ function useCreatorPoolMetadata(poolAddress: Address) {
 }
 
 function CreatorPoolButton({
+  creator,
   poolAddress,
   selected,
   onSelect,
 }: {
+  creator: Address;
   poolAddress: Address;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const metadata = useCreatorPoolMetadata(poolAddress);
+  const metadata = useCreatorPoolMetadata(creator, poolAddress);
   return (
     <button
       onClick={onSelect}
@@ -119,8 +123,11 @@ function CreatorPoolButton({
   );
 }
 
-function CreatorPoolInfo({ poolAddress }: { poolAddress: Address }) {
-  const metadata = useCreatorPoolMetadata(poolAddress);
+function CreatorPoolInfo({ creator, poolAddress }: {
+  creator: Address;
+  poolAddress: Address;
+}) {
+  const metadata = useCreatorPoolMetadata(creator, poolAddress);
   return (
     <div className="rounded-lg bg-surface-2 p-4">
       <h3 className="text-sm font-bold mb-2">Coin info</h3>
@@ -139,8 +146,7 @@ function CreatorPoolInfo({ poolAddress }: { poolAddress: Address }) {
   );
 }
 
-export default function MyTokenView() {
-  const { address } = useAccount();
+function CreatorPools({ creator }: { creator: Address }) {
   const [selectedPool, setSelectedPool] = useState<Address | null>(null);
 
   const {
@@ -149,7 +155,7 @@ export default function MyTokenView() {
     isError,
     error,
     refetch,
-  } = useReadQuoterGetPoolsByCreator({ creator: address! });
+  } = useReadQuoterGetPoolsByCreator({ creator });
 
   const poolList = useMemo<Address[]>(
     () =>
@@ -159,24 +165,18 @@ export default function MyTokenView() {
     [pools],
   );
 
+  const activePool =
+    selectedPool && poolList.includes(selectedPool)
+      ? selectedPool
+      : poolList[0] ?? null;
+
   useEffect(() => {
-    if (poolList.length > 0 && !selectedPool) {
-      setSelectedPool(poolList[0]);
-    }
-  }, [poolList, selectedPool]);
+    if (selectedPool !== activePool) setSelectedPool(activePool);
+  }, [activePool, selectedPool]);
 
   return (
-    <div className="p-6 text-text space-y-4">
-      <h1 className="text-md font-bold">My coins</h1>
-
-      {!address ? (
-        <SignedOutState
-          icon={Coins}
-          title="Sign in to see your coins"
-          body="Coins you launch with your wallet show up here with their holders and trades."
-          className="rounded-lg bg-surface-1"
-        />
-      ) : isPending ? (
+    <>
+      {isPending ? (
         <Skeleton
           variant="rows"
           rows={3}
@@ -210,23 +210,43 @@ export default function MyTokenView() {
             {poolList.map((addr) => (
               <CreatorPoolButton
                 key={addr}
+                creator={creator}
                 poolAddress={addr}
-                selected={selectedPool === addr}
+                selected={activePool === addr}
                 onSelect={() => setSelectedPool(addr)}
               />
             ))}
           </div>
 
-          {selectedPool && (
+          {activePool && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-4">
-                <CreatorPoolInfo poolAddress={selectedPool} />
-                <HoldersPanel poolAddress={selectedPool} />
+                <CreatorPoolInfo creator={creator} poolAddress={activePool} />
+                <HoldersPanel poolAddress={activePool} />
               </div>
-              <TxFeed poolAddress={selectedPool} />
+              <TxFeed poolAddress={activePool} />
             </div>
           )}
         </>
+      )}
+    </>
+  );
+}
+
+export default function MyTokenView() {
+  const { address } = useAccount();
+  return (
+    <div className="p-6 text-text space-y-4">
+      <h1 className="text-md font-bold">My coins</h1>
+      {address ? (
+        <CreatorPools key={address.toLowerCase()} creator={address} />
+      ) : (
+        <SignedOutState
+          icon={Coins}
+          title="Sign in to see your coins"
+          body="Coins you launch with your wallet show up here with their holders and trades."
+          className="rounded-lg bg-surface-1"
+        />
       )}
     </div>
   );

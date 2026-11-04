@@ -228,6 +228,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         if (digest !== markerDigestRef.current) { markerDigestRef.current = digest; if (chartReadyRef.current) widgetRef.current?.activeChart().refreshMarks(); }
       },
       value => { if (active) setValuation(value); },
+      reason => { if (active) { setError(reason); if (reason) setAnswer('answered'); } },
     );
     datafeedRef.current = datafeed;
     datafeed.setMarkPresentation(presentationRef.current);

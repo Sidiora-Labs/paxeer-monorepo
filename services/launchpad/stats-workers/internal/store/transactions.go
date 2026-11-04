@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -76,7 +77,7 @@ func (s *Store) ListTransactions(ctx context.Context, poolAddress string, limit,
 	case "sell":
 		query += ` AND is_buy = false`
 	}
-	query += ` ORDER BY block_timestamp DESC LIMIT $2 OFFSET $3`
+	query += ` ORDER BY block_timestamp DESC, id DESC LIMIT $2 OFFSET $3`
 	args = append(args, limit, offset)
 
 	rows, err := s.db.Query(ctx, query, args...)
@@ -87,19 +88,10 @@ func (s *Store) ListTransactions(ctx context.Context, poolAddress string, limit,
 	return scanTransactions(rows)
 }
 
-// CreatorTransactions returns all transactions sent by the creator address
-// (lower-cased by the caller), newest first. Ports the creator-activity query.
-func (s *Store) CreatorTransactions(ctx context.Context, poolAddress, creatorAddressLower string) ([]TransactionRow, error) {
-	rows, err := s.db.Query(ctx, `
-		SELECT id, pool_address, sender, is_buy, amount_in, amount_out, price, fee, block_timestamp, tx_hash
-		FROM stats.pool_transactions
-		WHERE pool_address = $1 AND sender = $2
-		ORDER BY block_timestamp DESC`, poolAddress, creatorAddressLower)
-	if err != nil {
-		return nil, fmt.Errorf("store: creator transactions: %w", err)
-	}
-	defer rows.Close()
-	return scanTransactions(rows)
+// CreatorTransactions retains the bounded first-page API for internal callers.
+func (s *Store) CreatorTransactions(ctx context.Context, pool, creator string) ([]TransactionRow, error) {
+	page, err := s.CreatorTransactionPage(ctx, pool, creator, 100, 0, nil, nil)
+	return page.Transactions, err
 }
 
 // InsertCrossTokenSwap records a native multihop (token-for-token) swap,
@@ -182,4 +174,99 @@ func scanCrossTokenSwaps(rows interface {
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// HistoryPosition is the immutable timestamp/id ordering key of stored history.
+type HistoryPosition struct {
+	Timestamp int64  `json:"timestamp"`
+	ID        string `json:"id"`
+}
+
+type CreatorSummary struct {
+	BuyCount          int64  `json:"buyCount"`
+	SellCount         int64  `json:"sellCount"`
+	HasSold           bool   `json:"hasSold"`
+	TotalBoughtTokens string `json:"totalBoughtTokens"`
+	TotalSoldTokens   string `json:"totalSoldTokens"`
+	NetTokenBalance   string `json:"netTokenBalance"`
+}
+type CreatorPage struct {
+	Transactions []TransactionRow
+	Summary      CreatorSummary
+	Head         *HistoryPosition
+}
+
+// CreatorTransactionPage computes totals and the bounded page in one SQL
+// statement, so a concurrent append cannot split the summary from its page.
+// Subsequent pages retain the first page's upper ordering boundary.
+func (s *Store) CreatorTransactionPage(ctx context.Context, pool, creator string, limit, offset int, after, head *HistoryPosition) (out CreatorPage, err error) {
+	if limit < 1 || limit > 101 || offset < 0 || offset > 10000 {
+		return out, fmt.Errorf("store: invalid creator page")
+	}
+	var afterTime, headTime int64
+	var afterID, headID string
+	if after != nil {
+		afterTime, afterID = after.Timestamp, after.ID
+	}
+	if head != nil {
+		headTime, headID = head.Timestamp, head.ID
+	}
+	var body []byte
+	var topTime *int64
+	var topID *string
+	err = s.db.QueryRow(ctx, `
+ WITH summary AS (
+  SELECT count(*) FILTER (WHERE is_buy) AS buys, count(*) FILTER (WHERE NOT is_buy) AS sells,
+   COALESCE(sum(amount_out::numeric) FILTER (WHERE is_buy),0) AS bought,
+   COALESCE(sum(amount_in::numeric) FILTER (WHERE NOT is_buy),0) AS sold
+  FROM stats.pool_transactions WHERE pool_address=$1 AND sender=$2
+   AND ($7='' OR (block_timestamp,id)<=($6,$7))
+ ), head AS (
+  SELECT block_timestamp,id FROM stats.pool_transactions WHERE pool_address=$1 AND sender=$2
+   AND ($7='' OR (block_timestamp,id)<=($6,$7)) ORDER BY block_timestamp DESC,id DESC LIMIT 1
+ ), page AS (
+  SELECT id, pool_address AS "poolAddress", sender, is_buy AS "isBuy", amount_in AS "amountIn", amount_out AS "amountOut", price, fee, block_timestamp AS "blockTimestamp", tx_hash AS "txHash"
+  FROM stats.pool_transactions WHERE pool_address=$1 AND sender=$2
+   AND ($5='' OR (block_timestamp,id)<($4,$5)) AND ($7='' OR (block_timestamp,id)<=($6,$7))
+  ORDER BY block_timestamp DESC,id DESC LIMIT $8 OFFSET $3
+ )
+ SELECT buys, sells, bought::text, sold::text, (bought-sold)::text,
+  (SELECT block_timestamp FROM head), (SELECT id FROM head),
+  COALESCE((SELECT jsonb_agg(page ORDER BY "blockTimestamp" DESC,id DESC) FROM page),'[]'::jsonb)
+ FROM summary`, pool, creator, offset, afterTime, afterID, headTime, headID, limit).Scan(
+		&out.Summary.BuyCount, &out.Summary.SellCount, &out.Summary.TotalBoughtTokens, &out.Summary.TotalSoldTokens, &out.Summary.NetTokenBalance, &topTime, &topID, &body)
+	if err != nil {
+		return out, fmt.Errorf("store: creator page: %w", err)
+	}
+	out.Summary.HasSold = out.Summary.SellCount > 0
+	if topTime != nil && topID != nil {
+		out.Head = &HistoryPosition{Timestamp: *topTime, ID: *topID}
+	}
+	if err = json.Unmarshal(body, &out.Transactions); err != nil {
+		return out, fmt.Errorf("store: creator page decode: %w", err)
+	}
+	return out, nil
+}
+
+func (s *Store) CrossTokenSwapPage(ctx context.Context, subject string, token bool, limit, offset int, after *HistoryPosition) ([]CrossTokenSwapRow, error) {
+	if limit < 1 || limit > 501 || offset < 0 || offset > 10000 {
+		return nil, fmt.Errorf("store: invalid cross swap page")
+	}
+	var timestamp int64
+	var id string
+	if after != nil {
+		timestamp, id = after.Timestamp, after.ID
+	}
+	predicate := "sender=$1"
+	if token {
+		predicate = "(token_in=$1 OR token_out=$1)"
+	}
+	rows, err := s.db.Query(ctx, `SELECT id, sender, token_in, token_out, pool_in, pool_out, amount_in, intermediate_usdl, amount_out, fee_in, fee_out, block_timestamp, tx_hash
+ FROM stats.cross_token_swaps WHERE `+predicate+` AND ($5='' OR (block_timestamp,id)<($4,$5))
+ ORDER BY block_timestamp DESC,id DESC LIMIT $2 OFFSET $3`, subject, limit, offset, timestamp, id)
+	if err != nil {
+		return nil, fmt.Errorf("store: cross swap page: %w", err)
+	}
+	defer rows.Close()
+	return scanCrossTokenSwaps(rows)
 }

@@ -1,0 +1,19 @@
+# Explicit schema-exercise selection of fields in the committed SDK; not a production catalogue.
+[schema.IF_WATERMARK]
+wire_name = "Watermark"
+fields = "chainId:string125;height:uintString;blockHash:hex32;projectionRevision:positiveUIntString;observedAt:UTC;integrity:healthy|quarantined"
+[schema.IF_SUBSCRIBE]
+wire_name = "Subscribe"
+fields = "op:constant=subscribe;subscriptionId:string1..64;topics:distinctStringArray1..20;afterCursor:opaqueResumeCursor|null"
+[schema.IF_STREAM_CONTROL]
+wire_name = "StreamControl"
+fields = "op:subscribed|unsubscribed|checkpoint|heartbeat|error|resnapshot_required|integrity_incident|subscription_closed;subscriptionId:string|null;cursor:opaqueResumeCursor|null;code:string|null;snapshotUrl:relativeAllowlistedPath|null;watermark:Watermark|null"
+[endpoint.IF_STREAM_HEARTBEAT]
+path = "/v1/streams/{streamId}/viewers:heartbeat"
+method = "POST"
+request_fields = "viewerToken:opaqueSigned;playbackSessionId:UUID;streamId:UUID"
+response_fields = "viewerCount:integer;expiresAt:UTC"
+success_status = 200
+auth = "public"
+[stream]
+[error]

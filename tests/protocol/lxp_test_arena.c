@@ -35,10 +35,10 @@ static int exercise(lxp_arena *arena, size_t offsets[3])
 
 int main(void)
 {
-    uint8_t storage_a[127];
+    _Alignas(16) uint8_t storage_a[127];
     struct {
         uint8_t pad[13];
-        uint8_t storage[127];
+        _Alignas(16) uint8_t storage[127];
     } shifted;
     lxp_arena a;
     lxp_arena b;

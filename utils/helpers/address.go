@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
@@ -14,9 +15,10 @@ import (
 )
 
 var (
-	big2  = big.NewInt(2)
-	big8  = big.NewInt(8)
-	big27 = big.NewInt(27)
+	ErrInvalidPubkey = errors.New("invalid public key")
+	big2             = big.NewInt(2)
+	big8             = big.NewInt(8)
+	big27            = big.NewInt(27)
 )
 
 // AdjustV adjusts the V value from a raw signature for pubkey recovery.
@@ -49,7 +51,10 @@ func GetAddressesFromPubkeyBytes(pubkey []byte) (common.Address, sdk.AccAddress,
 	if err != nil {
 		return common.Address{}, sdk.AccAddress{}, nil, err
 	}
-	paxPubkey := PubkeyBytesToPaxPubKey(pubkey)
+	paxPubkey, err := PubkeyBytesToPaxPubKey(pubkey)
+	if err != nil {
+		return common.Address{}, sdk.AccAddress{}, nil, err
+	}
 	paxAddr := sdk.AccAddress(paxPubkey.Address())
 	return evmAddr, paxAddr, &paxPubkey, nil
 }
@@ -76,17 +81,23 @@ func RecoverPubkey(sighash common.Hash, R, S, Vb *big.Int, homestead bool) ([]by
 
 // second half of go-ethereum/core/types/transaction_signing.go:recoverPlain
 func PubkeyToEVMAddress(pub []byte) (common.Address, error) {
-	if len(pub) == 0 || pub[0] != 4 {
-		return common.Address{}, errors.New("invalid public key")
+	if len(pub) != 65 || pub[0] != 4 {
+		return common.Address{}, ErrInvalidPubkey
+	}
+	if _, err := btcec.ParsePubKey(pub); err != nil {
+		return common.Address{}, fmt.Errorf("%w: %w", ErrInvalidPubkey, err)
 	}
 	var addr common.Address
 	copy(addr[:], crypto.Keccak256(pub[1:])[12:])
 	return addr, nil
 }
 
-func PubkeyBytesToPaxPubKey(pub []byte) secp256k1.PubKey {
-	pubkeyObj, _ := btcec.ParsePubKey(pub)
-	return secp256k1.PubKey{Key: pubkeyObj.SerializeCompressed()}
+func PubkeyBytesToPaxPubKey(pub []byte) (secp256k1.PubKey, error) {
+	pubkeyObj, err := btcec.ParsePubKey(pub)
+	if err != nil {
+		return secp256k1.PubKey{}, fmt.Errorf("%w: %w", ErrInvalidPubkey, err)
+	}
+	return secp256k1.PubKey{Key: pubkeyObj.SerializeCompressed()}, nil
 }
 
 // RecoverAddressesFromTx recovers the sender's EVM address, Pax address, and public key
@@ -101,6 +112,9 @@ func PubkeyBytesToPaxPubKey(pub []byte) secp256k1.PubKey {
 // where version is determined by evmante.GetVersion(ctx, ethCfg) to ensure consistent behavior
 // with the EVM ante handler.
 func RecoverAddressesFromTx(ethTx *ethtypes.Transaction, signer ethtypes.Signer, chainID *big.Int) (common.Address, sdk.AccAddress, cryptotypes.PubKey, error) {
+	if ethTx.ChainId().Cmp(chainID) != 0 || signer.ChainID().Cmp(chainID) != 0 {
+		return common.Address{}, sdk.AccAddress{}, nil, ethtypes.ErrInvalidChainId
+	}
 	txHash := signer.Hash(ethTx)
 	V, R, S := ethTx.RawSignatureValues()
 	adjustedV := AdjustV(V, ethTx.Type(), chainID)

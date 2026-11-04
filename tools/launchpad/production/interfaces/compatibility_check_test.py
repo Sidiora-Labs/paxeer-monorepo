@@ -1,18 +1,29 @@
 """Negative freeze checks against actual frozen repository files, not fake adapter proof."""
+import argparse
 import copy
 import json
-import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from compatibility_check import check
 
-ROOT=Path(os.environ.get('COMPAT_SOURCE_ROOT','/root/mk-falcon/KindleLaunch'))
-MANIFEST=Path(__file__).resolve().parents[4]/'launchpad/spec/production-system/integration/contracts/v1/compatibility.json'
-SCHEMAS=os.environ.get('COMPAT_SCHEMAS')
+ROOT=Path(__file__).resolve().parents[4]
+MANIFEST=None
+SCHEMAS=None
+
+def bind_inputs(manifest, schemas, root=ROOT):
+    global ROOT, MANIFEST, SCHEMAS
+    ROOT=Path(root).resolve()
+    MANIFEST=Path(manifest).resolve()
+    SCHEMAS=Path(schemas).resolve()
+
 
 class CompatibilityFreezeTests(unittest.TestCase):
-    def setUp(self): self.data=json.loads(MANIFEST.read_text())
+    def setUp(self):
+        if MANIFEST is None or SCHEMAS is None:
+            raise ValueError('explicit --manifest and --schemas required for frozen mapping suite')
+        self.data=json.loads(MANIFEST.read_text())
     def validate(self,data):
         with tempfile.TemporaryDirectory(prefix='compat-negative-') as folder:
             p=Path(folder)/'manifest.json';p.write_text(json.dumps(data));return check(ROOT,p,SCHEMAS)
@@ -28,6 +39,15 @@ class CompatibilityFreezeTests(unittest.TestCase):
     def test_runtime_claim_rejected(self):
         self.data['contracts'][0]['runtime_qualified']=True;self.assertTrue(self.validate(self.data))
     def test_unknown_generated_field_rejected(self):
-        if not SCHEMAS:self.fail('COMPAT_SCHEMAS required to test materialized references')
+        if not SCHEMAS:self.fail('--schemas required to test materialized references')
         c=self.data['contracts'][1];c['field_mappings'][0].update(target_schema_ref='schema-definitions.json#/$defs/PoolStats',target_field='fabricatedField');self.assertTrue(self.validate(self.data))
-if __name__=='__main__':unittest.main()
+def main(argv=None):
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--root',type=Path,default=ROOT)
+    parser.add_argument('--manifest',type=Path,required=True)
+    parser.add_argument('--schemas',type=Path,required=True)
+    args,remaining=parser.parse_known_args(argv)
+    bind_inputs(args.manifest,args.schemas,args.root)
+    unittest.main(argv=[sys.argv[0],*remaining])
+
+if __name__=='__main__':main()

@@ -24,6 +24,12 @@ used by the typed accessors or `Update` needs its own registration. Fields in a
 stored object, such as the [governance parameters](../../gov/spec/06_params.md),
 are decoded as part of that object, not looked up as subkeys.
 
+For example, registering `ExampleParameter` does not register
+`ExampleParameterChild`. `ExampleParameterChild` must be registered separately
+with its own type and validator through `KeyTable.RegisterType` (or
+`RegisterParamSet`). A governance proposal's basic validation does not check
+this registration; executing an update for an unregistered key panics.
+
 ## KeyTable
 
 [`KeyTable`](../types/table.go) maps each exact key string to an attribute

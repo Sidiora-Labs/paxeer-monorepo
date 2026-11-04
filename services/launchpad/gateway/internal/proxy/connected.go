@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -341,7 +342,12 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "audio/ogg")
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		_, _ = io.Copy(w, io.LimitReader(resp.Body, 64<<20))
+		if resp.ContentLength >= 0 {
+			w.Header().Set("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+		}
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			panic(http.ErrAbortHandler)
+		}
 		return
 	}
 	if p.audience == "metadata" && selected.Template == metadataLogo && resp.StatusCode == 200 {

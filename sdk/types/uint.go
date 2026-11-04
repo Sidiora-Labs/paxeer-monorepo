@@ -142,10 +142,15 @@ func (u Uint) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON defines custom decoding scheme
 func (u *Uint) UnmarshalJSON(bz []byte) error {
-	if u.i == nil { // Necessary since default Uint initialization has i.i as nil
-		u.i = new(big.Int)
+	i := new(big.Int)
+	if err := unmarshalJSON(i, bz); err != nil {
+		return err
 	}
-	return unmarshalJSON(u.i, bz)
+	if err := UintOverflow(i); err != nil {
+		return err
+	}
+	u.i = i
+	return nil
 }
 
 // Marshal implements the gogo proto custom type interface.
@@ -188,18 +193,14 @@ func (u *Uint) Unmarshal(data []byte) error {
 		return nil
 	}
 
-	if u.i == nil {
-		u.i = new(big.Int)
-	}
-
-	if err := u.i.UnmarshalText(data); err != nil {
+	i := new(big.Int)
+	if err := i.UnmarshalText(data); err != nil {
 		return err
 	}
-
-	if u.i.BitLen() > maxBitLen {
-		return fmt.Errorf("integer out of range; got: %d, max: %d", u.i.BitLen(), maxBitLen)
+	if err := UintOverflow(i); err != nil {
+		return err
 	}
-
+	u.i = i
 	return nil
 }
 

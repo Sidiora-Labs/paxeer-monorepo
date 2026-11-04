@@ -14,6 +14,7 @@ import (
 )
 
 type RiskInputs struct {
+	ProjectionRevision                                string `json:"projectionRevision,omitempty"`
 	CreatedAt                                         int64
 	Top10Concentration, CreatorHoldingsPct, SupplyRaw string
 	UniqueTraders24h, HolderCount                     int
@@ -42,6 +43,11 @@ func NewProjector(a ReactionAuthority, model RiskModel, inputs RiskInputProvider
 	}
 	if !noncePattern.MatchString(model.Version()) {
 		return nil, errors.New("invalid model version")
+	}
+	if validator, ok := inputs.(interface{ Validate() error }); ok {
+		if err := validator.Validate(); err != nil {
+			return nil, err
+		}
 	}
 	if err := model.Validate(); err != nil {
 		return nil, err
@@ -170,7 +176,15 @@ func (p *Projector) recompute(ctx context.Context, tx pgx.Tx, pool string, wm Wa
 	if err := tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); err != nil {
 		return err
 	}
-	inputs, err := p.Inputs.LoadRiskInputs(ctx, tx, pool, wm)
+	var inputs RiskInputs
+	var err error
+	if source, ok := p.Inputs.(interface {
+		LoadRiskInputsAt(context.Context, pgx.Tx, string, Watermark, int64) (RiskInputs, error)
+	}); ok {
+		inputs, err = source.LoadRiskInputsAt(ctx, tx, pool, wm, now.Unix())
+	} else {
+		inputs, err = p.Inputs.LoadRiskInputs(ctx, tx, pool, wm)
+	}
 	if err != nil {
 		return err
 	}
@@ -291,7 +305,7 @@ func (p PostgresRiskInputs) LoadRiskInputs(ctx context.Context, tx pgx.Tx, pool 
 		return RiskInputs{}, err
 	}
 	var inputs RiskInputs
-	if json.Unmarshal(raw, &inputs) != nil {
+	if json.Unmarshal(raw, &inputs) != nil || (inputs.ProjectionRevision != "" && inputs.ProjectionRevision != wm.ProjectionRevision) {
 		return RiskInputs{}, ErrConflict
 	}
 	return inputs, nil
@@ -299,6 +313,14 @@ func (p PostgresRiskInputs) LoadRiskInputs(ctx context.Context, tx pgx.Tx, pool 
 func (a ReactionAuthority) PersistRiskInputsTx(ctx context.Context, tx pgx.Tx, pool string, wm Watermark, inputs RiskInputs) error {
 	if tx == nil || !address.MatchString(pool) || wm.Validate() != nil || wm.Integrity != "healthy" || len(inputs.Top10Concentration) > 128 || len(inputs.CreatorHoldingsPct) > 128 || len(inputs.SupplyRaw) > 128 || inputs.CreatedAt < 0 || inputs.UniqueTraders24h < -1 || inputs.HolderCount < -1 {
 		return errors.New("invalid canonical risk input")
+	}
+	if inputs.ProjectionRevision != "" {
+		if inputs.ProjectionRevision != wm.ProjectionRevision {
+			return ErrConflict
+		}
+		if _, err := validInputRevision(inputs.ProjectionRevision); err != nil {
+			return err
+		}
 	}
 	table, err := a.table("analytics_risk_inputs")
 	if err != nil {
@@ -311,18 +333,34 @@ func (a ReactionAuthority) PersistRiskInputsTx(ctx context.Context, tx pgx.Tx, p
 	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", a.Schema+":analytics:"+pool); err != nil {
 		return err
 	}
-	var same bool
-	err = tx.QueryRow(ctx, "SELECT block_hash=$3 AND payload=$4::jsonb FROM "+table+" WHERE pool=$1 AND height=$2::numeric", pool, wm.Height, wm.BlockHash, string(raw)).Scan(&same)
+	var priorHash string
+	var priorRaw []byte
+	err = tx.QueryRow(ctx, "SELECT block_hash,payload FROM "+table+" WHERE pool=$1 AND height=$2::numeric", pool, wm.Height).Scan(&priorHash, &priorRaw)
 	if err == nil {
-		if !same {
+		var prior RiskInputs
+		if priorHash != wm.BlockHash || json.Unmarshal(priorRaw, &prior) != nil {
 			return ErrConflict
 		}
-		return nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+		if prior == inputs {
+			return nil
+		}
+		if inputs.ProjectionRevision == "" {
+			return ErrConflict
+		}
+		next, e := validInputRevision(inputs.ProjectionRevision)
+		if e != nil {
+			return e
+		}
+		if prior.ProjectionRevision != "" {
+			previous, e := validInputRevision(prior.ProjectionRevision)
+			if e != nil || next.Cmp(previous) <= 0 {
+				return ErrConflict
+			}
+		}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	tag, err := tx.Exec(ctx, "INSERT INTO "+table+"(pool,height,block_hash,payload) VALUES($1,$2::numeric,$3,$4::jsonb) ON CONFLICT(pool) DO UPDATE SET height=EXCLUDED.height,block_hash=EXCLUDED.block_hash,payload=EXCLUDED.payload WHERE EXCLUDED.height>"+table+".height", pool, wm.Height, wm.BlockHash, string(raw))
+	tag, err := tx.Exec(ctx, "INSERT INTO "+table+"(pool,height,block_hash,payload) VALUES($1,$2::numeric,$3,$4::jsonb) ON CONFLICT(pool) DO UPDATE SET height=EXCLUDED.height,block_hash=EXCLUDED.block_hash,payload=EXCLUDED.payload WHERE EXCLUDED.height>"+table+".height OR (EXCLUDED.height="+table+".height AND EXCLUDED.block_hash="+table+".block_hash AND (EXCLUDED.payload->>'projectionRevision')::numeric>COALESCE(("+table+".payload->>'projectionRevision')::numeric,0))", pool, wm.Height, wm.BlockHash, string(raw))
 	if err != nil {
 		return err
 	}

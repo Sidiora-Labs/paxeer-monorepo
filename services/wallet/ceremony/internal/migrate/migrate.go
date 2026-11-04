@@ -732,19 +732,22 @@ func resumeCurve(ctx context.Context, client *attestor.Client, o Options, w Wall
 		}
 	}
 	if !c.Refreshed {
-		descriptions, e := client.DescribeCeremony(ctx, c.KeyID)
+		descriptions, e := client.InspectRefreshRecovery(ctx, o.CeremonyID, c.ImportSession, c.RefreshSession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
 		if e != nil {
 			return e
 		}
 		if e = prepareRefreshRecovery(descriptions, c, save); e != nil {
 			return e
 		}
-		_, err = client.RefreshCeremony(ctx, o.CeremonyID, c.ImportSession, c.RefreshSession, c.RefreshRecoverySession, c.KeyID, pub, 0)
+		_, err = client.RefreshCeremony(ctx, o.CeremonyID, c.ImportSession, c.RefreshSession, c.RefreshRecoverySession, c.KeyID, pub, c.BaseEpoch)
 		if err != nil {
 			return err
 		}
+		if err = client.ReconcileCeremony(ctx, o.CeremonyID, c.ImportSession, c.RefreshSession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch+1); err != nil {
+			return err
+		}
 		c.Refreshed = true
-		c.Epoch = 1
+		c.Epoch = c.BaseEpoch + 1
 		if err = save(); err != nil {
 			return err
 		}
@@ -1000,7 +1003,13 @@ func verifyOriginalBinding(ctx context.Context, rpcURL string, w Wallet, origina
 }
 
 func resumeHeldIdentity(ctx context.Context, client *attestor.Client, o Options, w Wallet, c *curveJournal, original originalIdentity, save func() error) error {
-	replies, err := client.DescribeCeremony(ctx, c.KeyID)
+	var replies []attestor.DescribeResponse
+	var err error
+	if c.EpochCaptured {
+		replies, err = client.InspectRefreshRecovery(ctx, o.CeremonyID, "", c.RefreshSession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
+	} else {
+		replies, err = client.DescribeCeremony(ctx, c.KeyID)
+	}
 	if err != nil {
 		return err
 	}
@@ -1050,6 +1059,18 @@ func resumeHeldIdentity(ctx context.Context, client *attestor.Client, o Options,
 		}
 		if _, err = client.RefreshOriginalIdentity(ctx, o.CeremonyID, c.RefreshSession, c.RefreshRecoverySession, c.KeyID, pub, c.BaseEpoch); err != nil {
 			return err
+		}
+		if _, err = client.InspectRefreshRecovery(ctx, o.CeremonyID, "", c.RefreshSession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch); err != nil {
+			return err
+		}
+		replies, err = client.DescribeCeremony(ctx, c.KeyID)
+		if err != nil {
+			return err
+		}
+		for _, reply := range replies {
+			if reply.Epoch != c.BaseEpoch+1 || reply.RefreshSessionID != c.RefreshSession || reply.RefreshState != "complete" {
+				return attestor.ErrDisagree
+			}
 		}
 		c.Epoch = c.BaseEpoch + 1
 		c.Refreshed = true

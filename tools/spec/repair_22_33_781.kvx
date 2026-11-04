@@ -1,0 +1,18 @@
+[repair.22.33.781]
+finding = "projection-json-number"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+change = "Reject every floating-point JSON value explicitly, recursively, at parsing, canonicalization and emission; retain safe integers, booleans and quoted numeric text."
+proof = "test_projection_json_number_recorded_digest_round_trip; test_projection_json_number_rejects_noncanonical_source; test_projection_json_number_rejects_direct_codec_inputs; test_projection_json_number_keeps_nonfinite_refusal; test_projection_json_number_strings_are_not_numeric_inputs"
+fixture = "tools/spec/fixtures/projection_numeric_vectors.json records actual Node JSON.parse/JSON.stringify canonical bytes and SHA-256 digests, using the sorted-key recursion documented by the projection's importer contract."
+path = "Production project -> render KVX -> parse_kvx -> canonical -> digest, in both generations, replaying committed codec vectors with no subprocess or endpoint in the test gate."
+baseline = "No baseline verification was run: the ordered task instructions prohibit verification before implementation and direct invocation of pytest; the planned test file did not exist in the initial tree. No pre-change test failures are claimed."
+qualification = "The hf-build/hf-done private ledger records the exact verified candidate revision, command, exit and log; the candidate revision cannot be embedded in its own content."
+wiring_request = "Domain 16 (fm-tools-ops): replay these committed vectors against services/hyperfide/src/spec/import.ts in its owning checkout; that importer path is absent here and outside this task's allowed scope."
+
+[gotcha.numeric_vectors]
+observed = "The referenced JavaScript importer is absent from this checkout, including the audit revision; the fixture therefore records the real JavaScript scalar codec with the documented canonical recursion, not an importer execution."
+action = "Keep the full-importer replay as the explicit wiring request above; never claim an importer gate ran."
+
+[gotcha.baseline_order]
+observed = "The task steps request a baseline run, while the governing order allows verification only through hf-done after implementation and build."
+action = "Follow the governing gate order and state that no baseline failures were measured."

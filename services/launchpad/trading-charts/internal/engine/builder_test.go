@@ -39,6 +39,9 @@ func newBuilder(t *testing.T) (*engine.Builder, *store.Store, *goredis.Client) {
 	t.Cleanup(func() { _ = rdb.Close() })
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if _, err := pool.Exec(context.Background(), engine.DevelopmentSchemaDDL); err != nil {
+		t.Fatal(err)
+	}
 	st := store.New(pool)
 	return engine.New(pool, rdb, st, logger), st, rdb
 }
@@ -56,16 +59,16 @@ func TestProcessSwapNewCandle(t *testing.T) {
 	ch := sub.Channel()
 
 	swap := engine.SwapEvent{
-		PoolAddress:    bPool,
-		Sender:         "0xsenderAAAA",
-		IsBuy:          true,
-		AmountIn:       "100",
-		AmountOut:      "200",
-		Fee:            "1",
-		Price:          priceA,
-		BlockTimestamp: bTS,
-		TxHash:         "0xtx1",
-		LogIndex:       0,
+		PoolAddress: bPool,
+		Sender:      "0xsenderAAAA",
+		IsBuy:       true,
+		AmountIn:    "100",
+		AmountOut:   "200",
+		Fee:         "1",
+		Price:       priceA,
+		Position:    &engine.ChainOrder{Height: 100}, BlockTimestamp: bTS,
+		TxHash:   "0xtx1",
+		LogIndex: 0,
 	}
 	if err := b.ProcessSwap(ctx, swap); err != nil {
 		t.Fatalf("ProcessSwap: %v", err)
@@ -114,7 +117,7 @@ func TestProcessSwapUpdateExisting(t *testing.T) {
 	first := engine.SwapEvent{
 		PoolAddress: bPool, Sender: "0xsenderAAAA", IsBuy: true,
 		AmountIn: "100", AmountOut: "200", Fee: "1", Price: priceA,
-		BlockTimestamp: bTS, TxHash: "0xtx1", LogIndex: 0,
+		Position: &engine.ChainOrder{Height: 100}, BlockTimestamp: bTS, TxHash: "0xtx1", LogIndex: 0,
 	}
 	if err := b.ProcessSwap(ctx, first); err != nil {
 		t.Fatalf("ProcessSwap first: %v", err)
@@ -124,7 +127,7 @@ func TestProcessSwapUpdateExisting(t *testing.T) {
 	second := engine.SwapEvent{
 		PoolAddress: bPool, Sender: "0xsenderBBBB", IsBuy: false,
 		AmountIn: "50", AmountOut: "500000000", Fee: "1", Price: priceB,
-		BlockTimestamp: bTS + 30, TxHash: "0xtx2", LogIndex: 1,
+		Position: &engine.ChainOrder{Height: 101, LogIndex: 1}, BlockTimestamp: bTS + 30, TxHash: "0xtx2", LogIndex: 1,
 	}
 	if err := b.ProcessSwap(ctx, second); err != nil {
 		t.Fatalf("ProcessSwap second: %v", err)
@@ -169,13 +172,14 @@ func TestProcessSwapSameTraderNoUniqueIncrement(t *testing.T) {
 	swap := engine.SwapEvent{
 		PoolAddress: bPool, Sender: "0xsameSender", IsBuy: true,
 		AmountIn: "100", AmountOut: "200", Fee: "1", Price: priceA,
-		BlockTimestamp: bTS, TxHash: "0xtx1", LogIndex: 0,
+		Position: &engine.ChainOrder{Height: 100}, BlockTimestamp: bTS, TxHash: "0xtx1", LogIndex: 0,
 	}
 	if err := b.ProcessSwap(ctx, swap); err != nil {
 		t.Fatalf("ProcessSwap 1: %v", err)
 	}
 	swap.TxHash = "0xtx2"
 	swap.LogIndex = 1
+	swap.Position = &engine.ChainOrder{Height: 101, LogIndex: 1}
 	if err := b.ProcessSwap(ctx, swap); err != nil {
 		t.Fatalf("ProcessSwap 2: %v", err)
 	}
@@ -197,7 +201,7 @@ func TestProcessSwapInvalidTimestampSkipped(t *testing.T) {
 		swap := engine.SwapEvent{
 			PoolAddress: bPool, Sender: "0xs", IsBuy: true,
 			AmountIn: "100", AmountOut: "200", Fee: "1", Price: priceA,
-			BlockTimestamp: ts, TxHash: "0xtx", LogIndex: 0,
+			Position: &engine.ChainOrder{Height: 100}, BlockTimestamp: ts, TxHash: "0xtx", LogIndex: 0,
 		}
 		if err := b.ProcessSwap(ctx, swap); err != nil {
 			t.Fatalf("ProcessSwap ts=%d: %v", ts, err)
@@ -216,7 +220,7 @@ func TestProcessSwapInvalidAmountErrors(t *testing.T) {
 	swap := engine.SwapEvent{
 		PoolAddress: bPool, Sender: "0xs", IsBuy: true,
 		AmountIn: "not-a-number", AmountOut: "200", Fee: "1", Price: priceA,
-		BlockTimestamp: bTS, TxHash: "0xtx", LogIndex: 0,
+		Position: &engine.ChainOrder{Height: 100}, BlockTimestamp: bTS, TxHash: "0xtx", LogIndex: 0,
 	}
 	if err := b.ProcessSwap(ctx, swap); err == nil {
 		t.Fatal("ProcessSwap with non-numeric volume should error")
@@ -233,7 +237,7 @@ func TestProcessSwapDedupSameInstance(t *testing.T) {
 	swap := engine.SwapEvent{
 		PoolAddress: bPool, Sender: "0xsenderAAAA", IsBuy: true,
 		AmountIn: "100", AmountOut: "200", Fee: "1", Price: priceA,
-		BlockTimestamp: bTS, TxHash: "0xdup", LogIndex: 0,
+		Position: &engine.ChainOrder{Height: 100}, BlockTimestamp: bTS, TxHash: "0xdup", LogIndex: 0,
 	}
 	for i := 0; i < 3; i++ {
 		if err := b.ProcessSwap(ctx, swap); err != nil {
@@ -267,12 +271,15 @@ func TestProcessSwapDedupDurableAcrossInstances(t *testing.T) {
 	rdb := goredis.NewClient(opt)
 	t.Cleanup(func() { _ = rdb.Close() })
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if _, err := pool.Exec(context.Background(), engine.DevelopmentSchemaDDL); err != nil {
+		t.Fatal(err)
+	}
 	st := store.New(pool)
 
 	swap := engine.SwapEvent{
 		PoolAddress: bPool, Sender: "0xsenderAAAA", IsBuy: true,
 		AmountIn: "100", AmountOut: "200", Fee: "1", Price: priceA,
-		BlockTimestamp: bTS, TxHash: "0xdup", LogIndex: 0,
+		Position: &engine.ChainOrder{Height: 100}, BlockTimestamp: bTS, TxHash: "0xdup", LogIndex: 0,
 	}
 
 	first := engine.New(pool, rdb, st, logger)
