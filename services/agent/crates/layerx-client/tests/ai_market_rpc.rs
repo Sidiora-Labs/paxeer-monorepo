@@ -1,3 +1,6 @@
+#[path = "support/receipt_22_33_1546.rs"]
+mod producer_repair;
+
 use std::fmt::Write as _;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -7,21 +10,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_client::ai_market::{AiClientError, OperationJournal, OperationRecord, OperationState};
 use layerx_client::rpc::receipt::{LookupContext, ReceiptError};
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_crypto::evm_transaction::{self, transaction_hash, Eip1559Call};
 use layerx_types::payload::ModuleRegistry;
 use layerx_types::rung::Rung;
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::receipt_digest;
-use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
 use serde_json::{json, Value};
-use sha2::{Digest as _, Sha256};
 
-const HEIGHT: u64 = 150;
-const KEY_ID: [u8; 32] = [1; 32];
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
 fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
@@ -67,10 +63,6 @@ fn signed_transaction(nonce: u64) -> Vec<u8> {
     )
 }
 
-fn sha256(bytes: &[u8]) -> [u8; 32] {
-    Sha256::digest(bytes).into()
-}
-
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().fold(String::from("0x"), |mut text, byte| {
         must(write!(text, "{byte:02x}"));
@@ -78,84 +70,26 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-fn encoded_receipt(
-    tx_hash: [u8; 32],
-    sender: [u8; 20],
-    success: bool,
-    signature: Option<[u8; 64]>,
-) -> Vec<u8> {
-    let previous = [4; 32];
-    let mut sequence = b"PAXEER/v1/sequence\0".to_vec();
-    sequence.extend_from_slice(&previous);
-    sequence.extend_from_slice(&7_u64.to_be_bytes());
-    sequence.extend_from_slice(&tx_hash);
-    let mut height = [0; 32];
-    height[24..].copy_from_slice(&HEIGHT.to_be_bytes());
-    let mut from = [0; 32];
-    from[12..].copy_from_slice(&sender);
-    let mut to = [0; 32];
-    to[12..].fill(7);
-    let vm_error = if success { "" } else { "execution reverted" };
-    let mut summary = Encoder::new(256);
-    must(summary.u64(21_000));
-    must(summary.u64(42_000));
-    must(summary.u64(1));
-    must(summary.u32(1));
-    must(summary.fixed(&[0; 20]));
-    must(summary.fixed(&[0; 20]));
-    must(summary.fixed(&sha256(vm_error.as_bytes())));
-    must(summary.u32(2));
-    must(summary.u32(1));
-    must(summary.u8(4));
-    must(summary.fixed(b"upax"));
-    let mut log = vec![8; 20];
-    log.push(1);
-    log.extend_from_slice(&[9; 32]);
-    log.extend_from_slice(&sha256(&[10, 11]));
+fn recorded_case(success: bool) -> Value {
+    let corpus: Value = must(serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )));
+    assert_eq!(
+        corpus["provenance"]["generator"],
+        "rpc/sequencer_receipt_vectors_test.go"
+    );
+    corpus["cases"][if success { 1 } else { 5 }].clone()
+}
 
-    let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
-    must(encoder.structure_header_version(0x5201, PROTOCOL_VERSION));
-    must(encoder.u16(PROTOCOL_VERSION));
-    must(encoder.bytes(&tx_hash, 32));
-    must(encoder.u64(7));
-    must(encoder.bytes(&previous, 32));
-    must(encoder.bytes(&sha256(&sequence), 32));
-    must(encoder.bytes(&sha256(&[0xab, 0xcd]), 32));
-    must(encoder.i32(i32::from(!success)));
-    must(encoder.sequence_length(2, 512));
-    for (ordinal, kind, body) in [(0, 1, summary.finish()), (1, 3, log)] {
-        must(encoder.u16(12));
-        must(encoder.u16(ordinal));
-        must(encoder.u16(0));
-        must(encoder.u8(kind));
-        must(encoder.u8(0));
-        must(encoder.bytes(&[0; 32], 32));
-        must(encoder.bytes(&body, 256));
-    }
-    must(encoder.u128(21_000));
-    must(encoder.bytes(&height, 32));
-    must(encoder.u16(12));
-    must(encoder.u32(1));
-    must(encoder.u32(0));
-    must(encoder.u8(2));
-    must(encoder.bytes(&sha256(b"upax"), 32));
-    must(encoder.u128(1));
-    must(encoder.bytes(&from, 32));
-    must(encoder.u128(21_002));
-    must(encoder.u128(if success { 1 } else { 2 }));
-    must(encoder.u64(41));
-    must(encoder.bytes(&to, 32));
-    must(encoder.u128(0));
-    must(encoder.u128(u128::from(success)));
-    must(encoder.bytes(&[0; 32], 32));
-    must(encoder.bytes(&[0; 32], 32));
-    must(encoder.bytes(&KEY_ID, 32));
-    must(encoder.u64(1_000));
-    must(encoder.u8(u8::from(signature.is_some())));
-    if let Some(signature) = signature {
-        must(encoder.bytes(&signature, 64));
-    }
-    encoder.finish()
+fn fixture_bytes(value: &Value) -> Vec<u8> {
+    value
+        .as_str()
+        .expect("producer hex")
+        .trim_start_matches("0x")
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| must(u8::from_str_radix(must(std::str::from_utf8(pair)), 16)))
+        .collect()
 }
 
 fn signed_receipt(
@@ -163,30 +97,15 @@ fn signed_receipt(
     sender: [u8; 20],
     success: bool,
 ) -> (Value, Vec<u8>, ReceiptKeyEntry) {
-    let signer = SigningKey::from_bytes(&[8; 32]);
-    let unsigned = encoded_receipt(tx_hash, sender, success, None);
-    let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
-    let bytes = encoded_receipt(tx_hash, sender, success, Some(signature));
-    let key = ReceiptKeyEntry {
-        key_id: KEY_ID,
-        public_key: signer.verifying_key().to_bytes(),
-        first_height: 100,
-        last_height: 199,
-    };
-    let view = json!({
-        "rung": "receipted", "txHash": hex(&tx_hash), "nonce": "0x29",
-        "seq": "0x7", "height": "0x96", "index": "0x1", "timestamp": "0x3e8",
-        "status": if success { "0x1" } else { "0x0" }, "returnData": "0xabcd",
-        "logs": [{"address": hex(&[8; 20]), "topics": [hex(&[9; 32])],
-            "data": "0x0a0b", "logIndex": "0x0"}],
-        "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": hex(&[0; 20]),
-        "from": hex(&sender), "to": hex(&[7; 20]), "contractAddress": hex(&[0; 20]),
-        "vmError": if success { "" } else { "execution reverted" },
-        "keyId": hex(&KEY_ID), "signingKey": hex(&signer.verifying_key().to_bytes()),
-        "receipt": hex(&bytes)
-    });
-    (view, bytes, key)
+    let case = recorded_case(success);
+    let view = case["receiptJson"].clone();
+    assert_eq!(view["txHash"], hex(&tx_hash));
+    assert_eq!(view["from"], hex(&sender));
+    assert_eq!(view["paymentDenom"], "uhpx");
+    let keys = must(layerx_client::sequencer::decode_receipt_keys(
+        &json!({"keys":[case["pinnedKey"]]}),
+    ));
+    (view, fixture_bytes(&case["signedReceipt"]), keys[0].clone())
 }
 
 type Exchange = (&'static str, Value, Option<Value>);
@@ -376,10 +295,11 @@ fn operation_journal_submit_sends_the_exact_raw_bytes_once() {
 
 #[test]
 fn operation_journal_resolve_records_the_receipted_rung() {
+    producer_repair::producer_receipts_survive_reopen_and_refuse_missing_payment_denom();
     for success in [true, false] {
         let scratch = Scratch::new();
         let journal = must(OperationJournal::open(&scratch.0));
-        let raw = signed_transaction(41);
+        let raw = fixture_bytes(&recorded_case(success)["rawTransaction"]);
         let id = transaction_hash(&raw);
         let (call, signature) = must(evm_transaction::decode_signed(&raw));
         let sender = must(evm_transaction::recover_sender(&call, &signature));
@@ -404,7 +324,7 @@ fn operation_journal_resolve_records_the_receipted_rung() {
                 receipt_exchange(id, Value::Null),
                 receipt_exchange(
                     id,
-                    json!({"rung": "submitted", "txHash": hex(&id), "nonce": "0x29"}),
+                    json!({"rung": "submitted", "txHash": hex(&id), "nonce": view["nonce"]}),
                 ),
                 receipt_exchange(id, view.clone()),
                 receipt_exchange(id, view),
@@ -444,11 +364,18 @@ fn operation_journal_resolve_records_the_receipted_rung() {
         );
         assert_eq!(record.rung(), Some(Rung::Receipted));
         assert_eq!(record.result_code(), Some(i32::from(!success)));
-        assert_eq!(record.global_sequence(), Some(7));
+        assert_eq!(record.global_sequence(), Some(if success { 2 } else { 6 }));
+        assert_eq!(
+            record.execution_height(),
+            Some(if success { 1000 } else { 1002 })
+        );
         assert_eq!(record.signed_bytes(), raw);
         assert_eq!(record.attempt(), 1);
         assert_eq!(record.checkpoint(), None);
         assert_eq!(must(journal.load(&id, &registry())), record);
+        drop(journal);
+        let reopened = must(OperationJournal::open(&scratch.0));
+        assert_eq!(must(reopened.load(&id, &registry())), record);
         let observed = must(server.join());
         assert_eq!(observed.len(), 6);
         assert_eq!(observed[0].state(), OperationState::Submitting);

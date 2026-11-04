@@ -1,0 +1,15 @@
+[repair.22.33.244]
+audit = "22.30.129"
+acceptance = "22998.1"
+baseline_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+baseline = "No unchanged-tree verification was run: the ordered task contract permits only implementation, hf-build, then hf-done. Attempt 1 stopped before this task's tests on the unrelated Quantity test error recorded in qualification.kvx and gotcha 2974; no individual regression test is claimed to have failed before this change."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log. Qualification is claimed only if hf-done passes on the built revision."
+wiring = "None: both proposals are implemented entirely within the SDK paths; the native host and xweb keeper stay unchanged."
+
+[finding.012]
+tests = ["finding_012_direct_zero_ceiling_is_refused_without_mutating_either_set", "finding_012_sdk_refuses_zero_before_producing_an_encoding", "finding_012_all_public_variants_reach_the_real_runtime_codec", "finding_012_real_host_still_rejects_a_zero_ceiling_on_the_wire"]
+proof = "Direct enum construction reaches shared insertion validation in both SDK set types; every public variant and nonzero amount endpoints encode through the SDK into the production runtime canonical decoders. Corrupting only the ceiling of SDK-produced bytes is rejected by both runtime decoders and the real program_call WASM host import."
+
+[finding.017]
+tests = ["finding_017_retirement_guidance_names_refusal_query_and_ownership", "finding_017_frozen_decoder_consumes_real_runtime_records_with_owner_isolation"]
+proof = "Module and read documentation name retirement, observable refusal and xweb query ownership semantics. The unchanged runtime committed-answer store, ABI read and canonical producer feed the frozen SDK decoder, proving record compatibility, owner isolation and malformed-length refusal. This compatibility proof does not claim execution of the native C kernel or the Go query server; neither is a dependency of this Rust-only gate."
