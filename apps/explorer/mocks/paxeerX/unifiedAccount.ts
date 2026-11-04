@@ -1,4 +1,4 @@
-import type { PaxeerXAsset, PaxeerXUnifiedAccount } from 'types/api/paxeerX';
+import type { PaxeerXAsset, PaxeerXNativeUnifiedAccount, PaxeerXUnifiedAccount } from 'types/api/paxeerX';
 
 export const evmAddress = '0xd789a607CEac2f0E14867de4EB15b15C9FFB5859';
 export const paxAddress = 'pax1005qwm6w5jj26zq8tsjs3eyp6my5d5fthrlqk3';
@@ -22,7 +22,7 @@ export const tokenAsset: PaxeerXAsset = {
   decimals: 6,
 };
 
-export const unifiedAccount: PaxeerXUnifiedAccount = {
+export const nativeUnifiedAccount: PaxeerXNativeUnifiedAccount = {
   next_page_params: null,
   page_cursor: 'fixture-page',
   first_page_cursor: 'fixture-page',
@@ -45,14 +45,15 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
   ],
   activity: [
     {
-      kind: 'token_transfer',
+      kind: 'transaction',
       hash: '0x1f0e9c7a3b5d2e4f6081a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7',
       block_number: 1_284_912,
       ordinal: 0,
-      status: 'receipted',
+      status: 'committed',
+      result: 'error',
       timestamp: '2024-04-02T11:03:11.000000Z',
-      asset: tokenAsset,
-      amount: '2500000',
+      asset: nativeAsset,
+      amount: '0',
       counterparty: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
     },
     {
@@ -61,6 +62,7 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
       block_number: 1_284_017,
       ordinal: 0,
       status: 'committed',
+      result: 'ok',
       timestamp: '2024-04-02T10:12:35.000000Z',
       asset: nativeAsset,
       amount: '1500000000000000000',
@@ -69,7 +71,7 @@ export const unifiedAccount: PaxeerXUnifiedAccount = {
   ],
 };
 
-export const unifiedAccountEvmOnly: PaxeerXUnifiedAccount = {
+export const nativeUnifiedAccountEvmOnly: PaxeerXNativeUnifiedAccount = {
   next_page_params: null,
   page_cursor: 'fixture-page',
   first_page_cursor: 'fixture-page',
@@ -80,6 +82,15 @@ export const unifiedAccountEvmOnly: PaxeerXUnifiedAccount = {
     pax: null,
     did: null,
   },
-  balances: [],
+  balances: [ { asset: nativeAsset, total: '0' } ],
   activity: [],
 };
+
+export const nativeUnifiedAccountUnknownResult: PaxeerXNativeUnifiedAccount = {
+  ...nativeUnifiedAccount,
+  activity_total: 1,
+  activity: [ { ...nativeUnifiedAccount.activity[0], result: null } ],
+};
+
+export const unifiedAccount: PaxeerXUnifiedAccount = nativeUnifiedAccount;
+export const unifiedAccountEvmOnly: PaxeerXUnifiedAccount = nativeUnifiedAccountEvmOnly;
