@@ -5,13 +5,6 @@
 // Replaying the same version preserves the stored state, while operation
 // histograms correctly count the replay as another request. Scraping alone
 // never increments them. A negative version is refused and exported as failure.
-//
-// Findings outside this task's scope are asserted as current behavior:
-// storage/db_engine/pebbledb/mvcc/batch.go, writeBatchOps, records len(ops) in a
-// byte histogram; the expected byte metric would measure serialized bytes.
-// storage/db_engine/pebbledb/mvcc/db.go, Database.collectAndRecordMetrics, adds
-// cumulative cache and compaction readings on each poll; counters should add
-// deltas instead. Two unchanged polls currently double the exported totals.
 package mvcc
 
 import (
@@ -59,6 +52,7 @@ func TestProofNodeMetrics(t *testing.T) {
 		// Use the production collection method synchronously so that a ticker
 		// cannot introduce an extra cumulative poll during the assertions.
 		db.metricsCancel()
+		db.metricsWG.Wait()
 		t.Cleanup(func() { require.NoError(t, db.Close()) })
 		return db
 	}
@@ -75,6 +69,17 @@ func TestProofNodeMetrics(t *testing.T) {
 		return []*proto.NamedChangeSet{{Name: "proof", Changeset: *cs}}
 	}
 	first, second := changes(1), changes(2)
+	encodedBytes := func(version int64, changes []*proto.NamedChangeSet) int64 {
+		batch, batchErr := NewBatch(db.storage, version, db.descending)
+		require.NoError(t, batchErr)
+		for _, cs := range changes {
+			for _, pair := range cs.Changeset.Pairs {
+				require.NoError(t, batch.Set(cs.Name, pair.Key, pair.Value))
+			}
+		}
+		return repair1174EncodedBytes(batch.ops, true)
+	}
+	firstBytes, secondBytes := encodedBytes(1, first), encodedBytes(2, second)
 	require.NoError(t, db.ApplyChangesetSync(1, first))
 	require.NoError(t, db.storage.Flush())
 	require.NoError(t, db.ApplyChangesetAsync(2, second))
@@ -143,15 +148,21 @@ func TestProofNodeMetrics(t *testing.T) {
 	proofNodeHistogram(t, observed, "pebble_apply_changeset_latency_seconds", "true", 2, smetrics.LatencyBuckets)
 	proofNodeHistogram(t, observed, "pebble_batch_write_latency_seconds", "true", 2, smetrics.LatencyBuckets)
 	batch := proofNodeHistogram(t, observed, "pebble_batch_size_bytes", "", 2, smetrics.ByteSizeBuckets)
-	require.Equal(t, float64(2*pairs), batch.GetSampleSum(), "current producer reports operations as bytes")
-	require.Equal(t, float64(2*snapshot.BlockCache.Hits), proofNodeCounter(t, observed, "pebble_cache_hits_total"))
-	require.Equal(t, float64(2*snapshot.BlockCache.Misses), proofNodeCounter(t, observed, "pebble_cache_misses_total"))
+	require.Equal(t, float64(firstBytes+secondBytes), batch.GetSampleSum(), "producer reports encoded bytes including metadata")
+	require.Equal(t, float64(snapshot.BlockCache.Hits), proofNodeCounter(t, observed, "pebble_cache_hits_total"))
+	require.Equal(t, float64(snapshot.BlockCache.Misses), proofNodeCounter(t, observed, "pebble_cache_misses_total"))
 	cache := proofNodeMetric(t, observed, "pebble_cache_size_bytes", "")
 	require.NotNil(t, cache.Gauge)
 	require.Equal(t, float64(snapshot.BlockCache.Size), cache.GetGauge().GetValue())
-	require.Equal(t, float64(2*bytesRead), proofNodeCounter(t, observed, "pebble_compaction_bytes_read_bytes_total"))
+	require.Equal(t, float64(bytesRead), proofNodeCounter(t, observed, "pebble_compaction_bytes_read_bytes_total"))
 	levels := observed["pebble_compaction_bytes_read_bytes_total"].GetMetric()
-	require.Len(t, levels, len(snapshot.Levels))
+	expectedLevels := 0
+	for _, level := range snapshot.Levels {
+		if level.TableBytesIn > 0 {
+			expectedLevels++
+		}
+	}
+	require.Len(t, levels, expectedLevels)
 	for i, level := range snapshot.Levels {
 		var matching []*dto.Metric
 		for _, point := range levels {
@@ -161,8 +172,12 @@ func TestProofNodeMetrics(t *testing.T) {
 				}
 			}
 		}
-		require.Len(t, matching, 1)
-		require.Equal(t, float64(2*level.TableBytesIn), matching[0].GetCounter().GetValue())
+		if level.TableBytesIn == 0 {
+			require.Empty(t, matching, "zero deltas do not create a counter series")
+		} else {
+			require.Len(t, matching, 1)
+			require.Equal(t, float64(level.TableBytesIn), matching[0].GetCounter().GetValue())
+		}
 	}
 
 	// A second consumer scrape must not change any of the eight streams.
@@ -188,7 +203,7 @@ func TestProofNodeMetrics(t *testing.T) {
 	proofNodeHistogram(t, refused, "pebble_apply_changeset_async_latency_seconds", "true", 1, smetrics.LatencyBuckets)
 	proofNodeHistogram(t, refused, "pebble_batch_write_latency_seconds", "true", 3, smetrics.LatencyBuckets)
 	batch = proofNodeHistogram(t, refused, "pebble_batch_size_bytes", "", 3, smetrics.ByteSizeBuckets)
-	require.Equal(t, float64(3*pairs), batch.GetSampleSum(), "refused input must not write a batch")
+	require.Equal(t, float64(firstBytes+2*secondBytes), batch.GetSampleSum(), "refused input must not write a batch")
 	require.Len(t, refused["pebble_batch_write_latency_seconds"].GetMetric(), 1, "refusal happens before batch creation")
 	require.NoError(t, db.Close())
 	db = open()

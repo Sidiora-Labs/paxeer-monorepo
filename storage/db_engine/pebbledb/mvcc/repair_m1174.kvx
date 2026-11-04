@@ -1,0 +1,46 @@
+[repair.22.33.1174]
+audit = "22.30.54"
+acceptance = "22998.1"
+baseline = "Not run: the explicit implementation-first gate order prohibits pre-change verification and permits verify_cmd only through hf-done; no baseline failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger and cg spec done record name the verified candidate revision, exact command, exit code and private evidence log."
+wiring_requests = ["Domain 5: storage/db_engine/types/types.go must document empty-store RawIterate keys as s/k:<store>/<user key>, with named-store callbacks retaining unqualified user keys.", "Domain 5: storage/tools/cmd/paxdb/operations/dump_db.go and corresponding import consumers must preserve qualified all-store keys, parsing the actual module prefix or feeding them unchanged to empty-store RawBatch.Set."]
+
+[finding.batch-bytes-is-operation-count]
+tests = ["TestRepairM_1174_BatchBytes"]
+repair = "Record committed Pebble batch representation bytes, including its 12-byte header and all metadata operations; raw batches have no added head metadata and failed commits have no size sample."
+proof = "Real StateStore, RawBatch and physical Batch deletion writes reach the Prometheus HTTP histogram; differently sized values yield exact independent wire-size totals and preserve stored values."
+
+[finding.mvcc-metrics-close-race]
+tests = ["TestRepairM_1174_MetricsCloseRace"]
+repair = "Cancel and join the metrics worker and drain async writes before closing storage; synchronize snapshots with storage shutdown and serialize repeated Close calls without a storage lock across worker joins."
+proof = "The actual periodic metrics worker overlaps eight concurrent Close calls while a real snapshot is blocked; shutdown completes after release, further polls see closed storage and repeated Close succeeds."
+
+[finding.metadata-short-version-panic]
+tests = ["TestRepairM_1174_MetadataVersions"]
+repair = "Require exactly eight metadata bytes before uint64 decoding and reject overflow; only ErrNotFound means absent metadata."
+proof = "Real stopped databases are reopened with empty, every short length, oversized and overflowing latest/earliest metadata; errors identify the corrupt key and failed opens preserve corruption while releasing storage; zero, maximum and absent metadata remain valid."
+
+[finding.prune-dirty-map-restart]
+tests = ["TestRepairM_1174_PruneDirtyMapRestart"]
+repair = "Treat unknown module histories as eligible for scanning and invalidate dirty-map entries on import; only known histories already below the completed boundary may use the store skip."
+proof = "Physical versions of a dormant module obey both retention policies in populated, reopened and real iterator-produced snapshot imports, including a second prune and reopen."
+
+[finding.raw-export-module-identity]
+tests = ["TestRepairM_1174_RawExportModuleIdentity"]
+repair = "Bound all-store iteration to logical storage keys, validate each actual module prefix and preserve complete qualified keys; named-store iteration still strips its own prefix."
+proof = "Different-length module names with equal binary user keys round-trip all historical versions through real RawIterate/RawBatch/reopen and current snapshots through Import, under both encodings and the default comparer."
+
+[finding.rollback-leaves-tombstones]
+tests = ["TestRepairM_1174_RollbackLeavesTombstones"]
+repair = "Use a physical iterator that includes tombstones and metadata-free deletion batches; preserve latest and earliest head markers, leaving explicit rollback head changes to the caller."
+proof = "Set, delete, overwrite and physical removal restore prior values across reopen, isolate other modules and cross 49/50/51/101-key batch boundaries in legacy, descending and default-comparer databases; retries and absent-version deletion do not move the head."
+
+[finding.rollback-discards-callback-errors]
+tests = ["TestRepairM_1174_RollbackCallbackErrors"]
+repair = "Propagate callback errors separately from iterator status, abort without a final retry after failure and report the committed deletion count and partial-completion policy."
+proof = "Actual read-only Pebble storage rejects an intermediate 50-key deletion batch before a 101-key traversal ends; the caller and physical callback transport preserve ErrReadOnly, stop enumeration and leave persisted keys/head intact after reopen."
+
+[finding.mvcc-counter-double-count]
+tests = ["TestRepairM_1174_CounterDoubleCount"]
+repair = "Serialize polls and retain each database's previous Pebble snapshot; add positive deltas only, clamp unsigned values and count reset snapshots from zero, matching the raw Pebble collector's explicit reset policy."
+proof = "Real flushes, compactions and cached SST reads reach Prometheus HTTP counters exactly once across unchanged polls, incremented snapshots, concurrent polls and database reopen under a continuing exporter."
