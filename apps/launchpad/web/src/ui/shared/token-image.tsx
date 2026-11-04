@@ -1,7 +1,7 @@
 'use client';
 
 import Image, { type ImageProps } from 'next/image';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const PLACEHOLDER = '/shadcn.png';
 
@@ -82,15 +82,29 @@ export default function TokenImage(props: TokenImageProps) {
     try { remoteSvg = new URL(src).pathname.toLowerCase().endsWith('.svg'); } catch { /* Image error uses the fallback. */ }
   }
   const requestedSrc = remoteSvg ? fallbackSrc : src || fallbackSrc;
-  const [errored, setErrored] = useState(false);
+  const sources = [...new Set([requestedSrc, fallbackSrc, PLACEHOLDER])].filter(Boolean);
+  const [attempt, setAttempt] = useState({ requestedSrc, fallbackSrc, index: 0 });
+  const sameSources = attempt.requestedSrc === requestedSrc && attempt.fallbackSrc === fallbackSrc;
+  const index = sameSources ? attempt.index : 0;
 
-  // When the parent passes a NEW src, retry — clear the prior error.
-  useEffect(() => {
-    setErrored(false);
-  }, [requestedSrc]);
+  if (!sameSources) {
+    setAttempt({ requestedSrc, fallbackSrc, index: 0 });
+  }
 
-  const resolvedSrc = errored ? fallbackSrc : requestedSrc;
-  const handleError = () => setErrored(true);
+  const resolvedSrc = sources[index];
+  const handleError = () => {
+    setAttempt((current) => {
+      if (
+        current.requestedSrc !== requestedSrc ||
+        current.fallbackSrc !== fallbackSrc ||
+        current.index !== index ||
+        index === sources.length - 1
+      ) {
+        return current;
+      }
+      return { ...current, index: index + 1 };
+    });
+  };
 
   // Local files (`/shadcn.png`, `/icons/foo.svg`) don't go through the
   // remote-pattern check, but SVG icons should pass `unoptimized` to

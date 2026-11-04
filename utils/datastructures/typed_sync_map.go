@@ -40,6 +40,11 @@ func (m *TypedSyncMap[K, V]) Delete(key K) {
 	m.internal.Delete(key)
 }
 
+// Range visits collected keys in ascending order and stops when f returns false.
+// Key collection follows sync.Map.Range semantics, not a consistent snapshot.
+// Each value is loaded immediately before its callback; keys deleted before that
+// load are skipped, and concurrent stores may change the values observed.
+// Callbacks may read or mutate the map.
 func (m *TypedSyncMap[K, V]) Range(f func(K, V) bool) {
 	// All map iterations should be deterministic, so we apply f in sorted order to avoid nondeterminism
 	var keys []K
@@ -52,9 +57,13 @@ func (m *TypedSyncMap[K, V]) Range(f func(K, V) bool) {
 	})
 
 	for _, key := range keys {
-		val, _ := m.internal.Load(key)
-		typedVal := val.(V)
-		f(key, typedVal)
+		val, ok := m.Load(key)
+		if !ok {
+			continue
+		}
+		if !f(key, val) {
+			return
+		}
 	}
 }
 

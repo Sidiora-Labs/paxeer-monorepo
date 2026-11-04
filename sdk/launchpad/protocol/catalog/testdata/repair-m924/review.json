@@ -1,0 +1,842 @@
+{
+  "schemaVersion": 1,
+  "kind": "reviewed-optical-registry",
+  "bundle": {
+    "name": "OpticalRegistry",
+    "sourceName": "contracts/opticals/OpticalRegistry.sol",
+    "artifactPath": "artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json",
+    "artifactSha256": "6b6e8357b3752d84d9072696b964d5c6a75dc86de1444191dcf236cd138277cc",
+    "abiSha256": "afbac39f5a59a7264856e4905c7090c2bf4221cb06aac8404ebed1f75cce5540",
+    "sourceSha256": "690867a1a9c59a80c4015be459514e499fd5a311dfcdb3116548146daf709401",
+    "buildInfoSha256": "6d7d36951f4a0d9aa72b688afebef78de8c7ebc1c1012873098043d0c3d81589",
+    "compilerVersion": "0.8.27+commit.40a35a09.Emscripten.clang",
+    "abi": [
+      {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "inputs": [],
+        "name": "AlreadyInitialized",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "AlreadyRegistered",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "InvalidImplementation",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "InvalidImplementation",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "InvalidOptical",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "InvalidRoleAccount",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "LastDefaultAdmin",
+        "type": "error"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          }
+        ],
+        "name": "MissingRole",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "NonPayableUpgrade",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "NotInitializing",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "NotRegistered",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "ReviewIdentityMismatch",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "UUPSNotThroughActiveProxy",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "UUPSNotThroughProxy",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "UnauthorizedUpgrade",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "UpgradeInitializationFailed",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "ZeroAddress",
+        "type": "error"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "uint64",
+            "name": "version",
+            "type": "uint64"
+          }
+        ],
+        "name": "Initialized",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "name": "OpticalDeregistered",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "bytes32",
+            "name": "codeHash",
+            "type": "bytes32"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint8",
+            "name": "flags",
+            "type": "uint8"
+          },
+          {
+            "indexed": false,
+            "internalType": "bytes32",
+            "name": "evidenceDigest",
+            "type": "bytes32"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "reviewedAt",
+            "type": "uint256"
+          }
+        ],
+        "name": "OpticalIdentityReviewed",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "name": "OpticalMetadataUpdated",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint8",
+            "name": "riskLevel",
+            "type": "uint8"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "name": "OpticalRegistered",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          },
+          {
+            "indexed": true,
+            "internalType": "bytes32",
+            "name": "previousAdminRole",
+            "type": "bytes32"
+          },
+          {
+            "indexed": true,
+            "internalType": "bytes32",
+            "name": "newAdminRole",
+            "type": "bytes32"
+          }
+        ],
+        "name": "RoleAdminChanged",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "sender",
+            "type": "address"
+          }
+        ],
+        "name": "RoleGranted",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "sender",
+            "type": "address"
+          }
+        ],
+        "name": "RoleRevoked",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "implementation",
+            "type": "address"
+          }
+        ],
+        "name": "Upgraded",
+        "type": "event"
+      },
+      {
+        "inputs": [],
+        "name": "DEFAULT_ADMIN_ROLE",
+        "outputs": [
+          {
+            "internalType": "bytes32",
+            "name": "",
+            "type": "bytes32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "name": "approvedCodeHash",
+        "outputs": [
+          {
+            "internalType": "bytes32",
+            "name": "",
+            "type": "bytes32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          }
+        ],
+        "name": "deregisterOptical",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "eventEmitter",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "offset",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "limit",
+            "type": "uint256"
+          }
+        ],
+        "name": "getAllOpticals",
+        "outputs": [
+          {
+            "internalType": "address[]",
+            "name": "",
+            "type": "address[]"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getOpticalCount",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          }
+        ],
+        "name": "getOpticalMetadata",
+        "outputs": [
+          {
+            "components": [
+              {
+                "internalType": "string",
+                "name": "name",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "description",
+                "type": "string"
+              },
+              {
+                "internalType": "uint8",
+                "name": "riskLevel",
+                "type": "uint8"
+              },
+              {
+                "internalType": "string",
+                "name": "auditor",
+                "type": "string"
+              },
+              {
+                "internalType": "uint256",
+                "name": "registeredAt",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct OpticalRegistry.OpticalMetadata",
+            "name": "",
+            "type": "tuple"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          }
+        ],
+        "name": "getRoleAdmin",
+        "outputs": [
+          {
+            "internalType": "bytes32",
+            "name": "",
+            "type": "bytes32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          }
+        ],
+        "name": "grantRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          }
+        ],
+        "name": "hasRole",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "name": "identityReviews",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "initialized",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint8",
+            "name": "flags",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reviewedAt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "evidenceDigest",
+            "type": "bytes32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "indexInitialized",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "indexMigrationCursor",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "indexMigrationWritten",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "_eventEmitter",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "_admin",
+            "type": "address"
+          }
+        ],
+        "name": "initialize",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          }
+        ],
+        "name": "isApproved",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          }
+        ],
+        "name": "isRegistered",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "limit",
+            "type": "uint256"
+          }
+        ],
+        "name": "migrateIndex",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "proxiableUUID",
+        "outputs": [
+          {
+            "internalType": "bytes32",
+            "name": "",
+            "type": "bytes32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "internalType": "uint8",
+            "name": "riskLevel",
+            "type": "uint8"
+          },
+          {
+            "internalType": "string",
+            "name": "auditor",
+            "type": "string"
+          }
+        ],
+        "name": "registerOptical",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "registeredDefaultAdminCount",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "expectedCodeHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint8",
+            "name": "expectedFlags",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "evidenceDigest",
+            "type": "bytes32"
+          }
+        ],
+        "name": "renewReview",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "callerConfirmation",
+            "type": "address"
+          }
+        ],
+        "name": "renounceRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "role",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          }
+        ],
+        "name": "revokeRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "optical",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "internalType": "uint8",
+            "name": "riskLevel",
+            "type": "uint8"
+          },
+          {
+            "internalType": "string",
+            "name": "auditor",
+            "type": "string"
+          }
+        ],
+        "name": "updateMetadata",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "newImplementation",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "name": "upgradeToAndCall",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      }
+    ]
+  }
+}

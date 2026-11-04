@@ -58,9 +58,9 @@ deploy <service-host>
 Environment:
   BRINGUP_HOSTS_FILE   the private host map, as tools/bringup/check-live.sh
   CHECK_LIVE_TIMEOUT   seconds per ssh call, default 30
-  SEARCH_FRONT_PRIMARY the pinned serving name, default api15.paxeer.network
+  SEARCH_FRONT_PRIMARY the pinned serving name, default the first declared RPC node
   SEARCH_FRONT_BACKUP  the serving name pinned while the primary is not
-                       ready, default api1.paxeer.network
+                       ready, default the second declared RPC node
   SEARCH_FRONT_READINESS_TIMEOUT seconds per HTTPS readiness probe, default 5
 
 Exits 1 when a destination or configuration step fails; 2 on a usage
@@ -69,11 +69,12 @@ EOF
 }
 
 search_front_host="search.paxeer.network"
-search_front_primary="${SEARCH_FRONT_PRIMARY:-api15.paxeer.network}"
-search_front_backup="${SEARCH_FRONT_BACKUP:-api1.paxeer.network}"
+search_front_primary="${SEARCH_FRONT_PRIMARY:-}"
+search_front_backup="${SEARCH_FRONT_BACKUP:-}"
 search_front_config_template="services/interop/crates/x-websearch/config.example.json"
 
 search_front_names() {
+	load_rpc_inventory || return 1
 	local -a dests validators lines=()
 	local k v reply name role status
 	read -r -a dests <<<"$RPC_HOSTS"
@@ -86,8 +87,8 @@ search_front_names() {
 			return 1
 		fi
 		read -r name _ <<<"$reply"
-		case "$name" in
-		api[1-9] | api1[0-6]) ;;
+		case " ${rpc_names[*]} " in
+		*" $name.$rpc_domain "*) ;;
 		*)
 			echo "search-front: RPC_HOSTS[$k] site=none" >&2
 			return 1
@@ -205,12 +206,18 @@ PY
 }
 
 search_front_render() {
+	load_rpc_inventory || return 1
 	local name pinned admitted=0
+	[ -n "$search_front_primary" ] || search_front_primary="${rpc_names[0]}"
+	[ -n "$search_front_backup" ] || search_front_backup="${rpc_names[1]}"
 	for name in "$search_front_primary" "$search_front_backup"; do
-		if [[ ! "$name" =~ ^api([1-9]|1[0-6])\.([a-z0-9-]+\.)?paxeer\.network$ ]]; then
-			echo "search-front: $name is not a serving apiN name" >&2
+		case " ${rpc_names[*]} " in
+		*" $name "*) ;;
+		*)
+			echo "search-front: $name is not a declared serving apiN name" >&2
 			return 1
-		fi
+			;;
+		esac
 	done
 	if [ "$search_front_primary" = "$search_front_backup" ]; then
 		echo "search-front: the backup repeats the primary" >&2
@@ -330,6 +337,7 @@ if [ "$#" -ne "$expected_args" ]; then
 fi
 
 tools=(timeout)
+case "$mode" in names | render | qualify | deploy) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;; esac
 [ "$mode" != names ] || tools+=(ssh sort)
 [ "$mode" = names ] || tools+=(python3)
 [ "$mode" != deploy ] || tools+=(base64)

@@ -48,6 +48,49 @@ pub trait BuyerPaymentPlane {
     fn construct(&mut self, request: PaymentBuildRequest) -> Result<Value, X402Error>;
 }
 
+/// Binds a caller-supplied scheme payload to the service's payment identity.
+pub struct BoundBuyerPaymentPlane {
+    payload: Option<Value>,
+}
+
+impl BoundBuyerPaymentPlane {
+    #[must_use]
+    pub fn new(payload: Value) -> Self {
+        Self {
+            payload: Some(payload),
+        }
+    }
+}
+
+impl BuyerPaymentPlane for BoundBuyerPaymentPlane {
+    fn construct(&mut self, request: PaymentBuildRequest) -> Result<Value, X402Error> {
+        let mut payload = self.payload.take().ok_or(X402Error::InvalidPayload)?;
+        let object = payload.as_object_mut().ok_or(X402Error::InvalidPayload)?;
+        if request.idempotency_key == [0; 32] {
+            return Err(X402Error::InvalidPayload);
+        }
+        if let Some(value) = object.get("idempotencyKey") {
+            validate_payment_identity(value, request.idempotency_key)?;
+        }
+        object.insert(
+            "idempotencyKey".to_owned(),
+            Value::String(hex(&request.idempotency_key)),
+        );
+        Ok(payload)
+    }
+}
+
+fn validate_payment_identity(value: &Value, expected: [u8; 32]) -> Result<(), X402Error> {
+    let actual = value
+        .as_str()
+        .and_then(|value| parse_hex32(value).ok())
+        .ok_or(X402Error::InvalidPayload)?;
+    if actual == [0; 32] || actual != expected {
+        return Err(X402Error::InvalidPayload);
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct BuiltPayment {
     pub header: String,
@@ -566,6 +609,13 @@ impl Buyer {
         if !scheme_payload.is_object() {
             return Err(fail(X402Error::InvalidPayload));
         }
+        validate_payment_identity(
+            scheme_payload
+                .get("idempotencyKey")
+                .ok_or_else(|| fail(X402Error::InvalidPayload))?,
+            idempotency_key,
+        )
+        .map_err(fail)?;
         let payload = PaymentPayload {
             x402_version: X402_VERSION,
             resource: Some(required.resource),

@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "bundle": "merged-runtime",
+  "names": [
+    "paxd",
+    "attestor",
+    "bringup-inspect"
+  ],
+  "go_paths": [
+    "chain.mk",
+    "Makefile",
+    "go.mod",
+    "go.sum",
+    "admin",
+    "consensus",
+    "daemon",
+    "engine",
+    "interchain",
+    "modules",
+    "node",
+    "precompiles",
+    "rpc",
+    "sdk",
+    "storage",
+    "utils",
+    "wasm",
+    "wasm-runtime",
+    "tools/chain",
+    "scripts",
+    "src",
+    "include",
+    "cmd",
+    "programs",
+    "rust-toolchain.toml",
+    "tools/bringup/runtime-bundle.json",
+    "tools/bringup/tests/foundation-artifacts.py",
+    "core",
+    "api",
+    "launchpad",
+    "contracts",
+    "migrations",
+    "tools/bringup",
+    "services"
+  ],
+  "libraries": [
+    "wasm-runtime/internal/api/libwasmvm.x86_64.so",
+    "wasm/x/wasm/artifacts/v152/api/libwasmvm152.x86_64.so",
+    "wasm/x/wasm/artifacts/v155/api/libwasmvm155.x86_64.so"
+  ]
+}

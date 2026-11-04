@@ -42,7 +42,7 @@ async function account_test_endpoint_answers_the_merged_reads() {
       },
       { account: OWNER, height: '1000', balances: [{ denom: 'ulxp', amount: '125000' }] },
       {
-        height: '1000',
+        height: 1000,
         assets: [
           {
             asset_id: 'aa'.repeat(32),
@@ -160,7 +160,10 @@ async function account_test_endpoint_answers_the_merged_reads() {
   }
 }
 
-test(account_test_endpoint_answers_the_merged_reads);
+test(
+  account_test_endpoint_answers_the_merged_reads.name,
+  account_test_endpoint_answers_the_merged_reads
+);
 
 async function account_test_endpoint_refuses_lx_and_custody_methods() {
   const endpoint = await startAccountEndpoint();
@@ -247,4 +250,7 @@ async function account_test_endpoint_refuses_lx_and_custody_methods() {
   }
 }
 
-test(account_test_endpoint_refuses_lx_and_custody_methods);
+test(
+  account_test_endpoint_refuses_lx_and_custody_methods.name,
+  account_test_endpoint_refuses_lx_and_custody_methods
+);

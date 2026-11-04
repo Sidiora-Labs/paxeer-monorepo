@@ -80,7 +80,7 @@ def validate_binding(plan):
             raise ValueError("actual command kind and bounded launch offset required")
         if not command["argv"] or not all(isinstance(arg, str) and arg for arg in command["argv"]) or digest_file(Path(command["argv"][0])) != command["executableSha256"]:
             raise ValueError("actual controller executable binding required")
-        if type(command["timeoutSeconds"], plan["maximumCommandLogBytes"]) is not int or not 1 <= command["timeoutSeconds"] <= 86400:
+        if type(command["timeoutSeconds"]) is not int or not 1 <= command["timeoutSeconds"] <= 86400:
             raise ValueError("bounded controller runtime required")
         for path, expected in command["boundFiles"].items():
             if digest_file(Path(path)) != expected:
@@ -239,7 +239,7 @@ async def run(plan, config, output: Path, release: bool):
     controller_results = []
     async def controller(index, command):
         await asyncio.sleep(max(0, started + command["offsetSeconds"] - time.monotonic()))
-        result = await run_command(command["argv"], command["environment"], logs / f"{index}-{command['kind']}.log", command["timeoutSeconds"])
+        result = await run_command(command["argv"], command["environment"], logs / f"{index}-{command['kind']}.log", command["timeoutSeconds"], plan["maximumCommandLogBytes"])
         result["kind"] = command["kind"]
         controller_results.append(result)
     if release and {command["kind"] for command in plan["releaseCommands"]} != {"workload", "replica_loss", "checkpoint_restore_replay"}:
