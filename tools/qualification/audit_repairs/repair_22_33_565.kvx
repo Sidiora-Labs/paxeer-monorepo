@@ -1,0 +1,39 @@
+[task.22.33.565]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+input_revision = "404ef97e86593776f2f8e3e87ad67afe5ea8a3bb"
+repair = "Decision 2525 assigns README.md to task 22.31.470, whose integrated README is present at the input revision. Add focused regression proof for audit 22.30.158 finding 042 without editing the README: one chain-125 paxd network, embedded kernel and block proposal, root JSON-RPC, transaction and committed receipt flows, retained native precompiles, retired custody/checkpoint executors, paxd build/start examples, explorer and optional hosted gateway entry points. All requested facts are present; no missing fact requires wiring."
+source_proof = "The Python-only module reads the real README and asserts architecture and diagram facts against node host and consensus wiring; parses the curl arguments and JSON request in-process, checks numbered-host root URLs and root dispatch; traces transaction acceptance/forwarding, WAL release before receipt publication, RPC rungs and committed block coverage; checks signature producer and authenticated-commit consumer source; compares the complete documented merge address table with the production registry, checks retirement gates and historical-read limits; checks Makefile native prerequisites and chain.mk output; parses the hosted OpenRPC contract and resolves explorer/hosted documentation links."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, cryptographic verification, WAL restart/recovery, live endpoint availability, explorer operation, hosted deployment and BFT consensus are not executed by this documentation gate. Producer, transport and consumer connections are source assertions, not runtime certification. No production interface or stateful component changes, so no restart or interface-mismatch runtime proof is claimed. No shell script, unit file or manifest is changed; no subprocess toolchain, external binary, environment variable, credential, endpoint, native artifact or device is needed by the pytest module."
+baseline = "No pre-change verification was run: the explicit task order requires complete implementation before formatting/build/testing, hf-build before hf-done, and prohibits manually running verify_cmd. No baseline test failure is claimed. Initial status/diff showed only runner-prepared .cgignore and spec task-status changes, neither scoped deliverable existed, gate.json recorded zero build and verify runs, and /out/run/gates.jsonl did not exist. README already contains the owning task's corrections and remains unchanged."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_565.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and log path. hf-build and hf-done must pass on the same candidate revision. This record is finalized before qualification: embedding the candidate hash in its own source would change that hash. The runner retains the revision-specific evidence and publishes the result; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.042]
+audit = "22.30.158"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 1
+readme_owner_task = "22.31.470"
+observed = "The audited overview described a separate C daemon and checkpoint settlement, live custody/anchor precompiles and make layerxd. These obsolete facts are absent from the integrated README at the input revision."
+resolution = "The merged kernel runs inside paxd with BFT block commit finality. Retained historical executor registrations are compatibility refusal surfaces; anchor historical views remain archive-only until v7.0-anchor-store-delete. They are not current custody funding or checkpoint execution services. Decision 2525 and the real upgrade gates resolve the audit's shorthand request for no custody/anchor precompiles."
+tests = ["test_f042_merged_network_embeds_kernel_and_block_proposal", "test_f042_chain_probe_and_numbered_hosts_use_root_json_rpc", "test_f042_transaction_receipt_producer_transport_and_consumer", "test_f042_finality_requires_authenticated_block_commit", "test_f042_native_inventory_and_retired_executor_refusals", "test_f042_build_examples_produce_and_start_paxd", "test_f042_explorer_and_optional_hosted_gateway_entry_points", "test_f042_record_maps_finding_to_proofs_and_evidence"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two scoped files."
+
+[gotcha.1]
+observed = "The inherited baseline-verification clause conflicts with the explicit implementation-first bounded gate order."
+resolution = "Follow the explicit order and record no baseline execution or test failure; never invoke verify_cmd by hand."
+
+[gotcha.2]
+observed = "Combined context reads exceeded output limits, guessed /usr/local/bin wrapper paths were absent, and no root Python formatter configuration exists."
+resolution = "Use bounded reads and actual /out/run/bin wrappers, with editorconfig formatting only. Keep task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.3]
+observed = "The supplied base differs from HEAD because the README-owning prerequisite has already been merged; Codify cached context includes unrelated tasks."
+resolution = "Retain both the supplied base and actual input revision, preserve runner bookkeeping, and use Git status/diff plus the private gate ledger for this task's state."

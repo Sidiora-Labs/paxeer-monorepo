@@ -1,0 +1,37 @@
+[task.22.33.787]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+checkout_revision = "8eca1fbc8f7ea65e5c22298ddb8be588ad27d3a4"
+repair = "Decision 2525 assigns README.md to task 22.31.470, domain 17. Preserve that production README and add focused offline regression checks for audit 22.30.175/readme-premerge-network; only this record and its declared pytest module are changed."
+baseline = "Initial git status and diff showed only pre-existing .cgignore and spec task bookkeeping, no scoped changes. The private gate configuration recorded zero builds, zero verifies and two repair cycles available; no gates.jsonl existed. Baseline verification was not run: the explicit implementation-first order and exclusive hf-done gate override do_5's older pre-change verify instruction. No pre-change test failures are claimed."
+source_proof = "Six tests read the real README.md left by 22.31.470 and assert embedded paxd execution, chain 125, BFT committed-block finality, root api1..api14 JSON-RPC endpoints, parsed chain-probe JSON and startup command arguments, transaction/receipt order in prose and the diagram, historical inventory and archived settlement labels, upgrade-gated retired executor refusals, native ledger and gas balances, and authenticated committed proof replacements. No alternate README or copied fixture supplies these facts."
+review_only = "Native node builds, startup, transaction execution, receipt signing, public endpoint availability, BFT consensus, WAL restart/recovery and cryptographic proof verification are not executed by this documentation gate. Documentation facts and parsed examples are proven; runtime producer/transport/consumer behavior requires its owning implementation gates and review. This doc-drift finding changes no stateful component or runtime interface. No shell script, unit file, manifest or build file is changed by this task."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_787.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "Resolved by the final hf-done evidence entry in /out/run/gates.jsonl: revision, command, exit and private log. This content-derived candidate must match the hf-build candidate; embedding its own hash here would change that hash."
+evidence_policy = "Finalize the record before qualification, retain exact build and verify evidence in the private runner ledger and final response, and let the runner publish. No gate pass or finding closure is claimed before hf-done passes."
+wiring_requests = []
+
+[finding.readme-premerge-network]
+audit = "22.30.175"
+file = "README.md"
+audit_line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+implementation_task = "22.31.470"
+observed = "The audit's old README described two execution domains, separate daemon/checkpoint settlement, draft merge guidance and retired precompiles as current dependencies."
+resolution = "The current production README already describes one BFT chain-125 network with embedded paxd kernel, committed receipt finality, the merged node build/start commands, historical ABI/source inventories, retired verify/custody/anchor refusal surfaces and native balance/proof replacements. Decision 2525's additional root RPC and transaction flow facts are also present."
+tests = ["test_readme_premerge_network_embedded_paxd_and_committed_finality", "test_readme_premerge_network_root_rpc_hosts_and_chain_probe", "test_readme_premerge_network_transaction_to_committed_receipt", "test_readme_premerge_network_historical_executors_refuse", "test_readme_premerge_network_native_balance_and_proof_replacements", "test_readme_premerge_network_build_and_run_merged_node"]
+closure = "Documentation closure is established only when the declared pytest module passes through hf-done at its recorded candidate revision. All expected README facts are present on inspection, so no missing-fact wiring request to README.md / domain 17 / task 22.31.470 is needed."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after the complete implementation."
+
+[gotcha.1]
+observed = "Broad combined context reads exceeded output limits; older task text requests a baseline verify that conflicts with the explicit gate order, and GOTCHA.kvx/spec files are outside the authorized scope."
+resolution = "Use bounded relevant source sections and the private gate configuration; do not run an extra verify or write outside scope. Record task-specific observations here and keep the final runner evidence authoritative."
+
+[gotcha.2]
+observed = "Initial hf-done at revision 9f1544189c64f1d8f292f195c87b809feb45f18a exited 1: the section helper mistook the fenced shell comment # Expected result for a Markdown heading, truncating quick-start facts; six tests passed and one failed. Evidence: /out/logs/verify-1.log."
+resolution = "Repair the Markdown section helper to track fenced code blocks before detecting heading boundaries; preserve all source-fact assertions and rerun hf-build then hf-done on the repaired candidate."

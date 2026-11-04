@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -35,6 +36,8 @@ func TestProgramsValueAccountMatchesBankBalance(t *testing.T) {
 		data, _, err := h.evm.Call(h.caller, h.precompile.Address(), input, 2000000, uint256.NewInt(0))
 		require.NoError(t, err, "%s returned %x", method, data)
 		require.Empty(t, data)
+		// Commit this fixture transaction before starting the next EVM call.
+		h.stateDB.CleanupForTracer()
 	}
 	call("deploy", program, uint16(2), uint8(1), authority.Principal, codeHash, []byte(nil), wasm)
 
@@ -64,6 +67,7 @@ func TestProgramsValueAccountMatchesBankBalance(t *testing.T) {
 	store.Set(accountKey, row)
 
 	expected := [3]int64{}
+	frozen := [3]bool{}
 	remaining := int64(100)
 	assertParity := func() {
 		t.Helper()
@@ -88,7 +92,7 @@ func TestProgramsValueAccountMatchesBankBalance(t *testing.T) {
 			require.Zero(t, balance.BigInt().Cmp(values[0].(*big.Int)), "EVM/bank parity for %s (%x), asset %x", seeds[i], account, asset)
 			value, err := h.host.ReadValueAccount(h.stateDB.Ctx(), program, account)
 			require.NoError(t, err)
-			require.False(t, value.Frozen)
+			require.Equal(t, frozen[i], value.Frozen)
 			require.Equal(t, value.Frozen, values[1], "freeze flag for %s (%x)", seeds[i], account)
 		}
 		balance, err := h.host.ReadBalance(h.stateDB.Ctx(), source, asset)
@@ -100,6 +104,7 @@ func TestProgramsValueAccountMatchesBankBalance(t *testing.T) {
 		require.Equal(t, sdk.NewInt(1000), total)
 		require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 		require.Equal(t, logsBefore, h.stateDB.GetAllLogs())
+		h.stateDB.CleanupForTracer()
 	}
 	assertParity()
 	for _, transfer := range []struct {
@@ -121,4 +126,33 @@ func TestProgramsValueAccountMatchesBankBalance(t *testing.T) {
 		remaining -= transfer.amount + transfer.reward
 		assertParity()
 	}
+	setFrozen := func(value bool) {
+		t.Helper()
+		key := append([]byte{6}, accounts[0][:]...)
+		row := append([]byte(nil), h.stateDB.Ctx().KVStore(h.key).Get(key)...)
+		require.GreaterOrEqual(t, len(row), 40)
+		offset := 4 + 32 + 4 + int(binary.BigEndian.Uint32(row[36:40])) + 1 + 16 + 4 + 32 + 1 + 8 + 8
+		require.Greater(t, len(row), offset)
+		row[offset] = 0
+		if value {
+			row[offset] = 1
+		}
+		h.stateDB.Ctx().KVStore(h.key).Set(key, row)
+		frozen[0] = value
+	}
+	setFrozen(true)
+	assertParity()
+	before := h.dump(h.stateDB.Ctx())
+	logsBefore := h.stateDB.GetAllLogs()
+	input, err := lp.ProgramsABI.Pack("transfer", program, []lp.TransferLeg{{From: source, Asset: asset, To: accounts[0], Amount: big.NewInt(1)}})
+	require.NoError(t, err)
+	output, _, err := h.evm.Call(h.caller, lp.Address, input, 2000000, uint256.NewInt(0))
+	require.Error(t, err)
+	reason, err := abi.UnpackRevert(output)
+	require.NoError(t, err)
+	require.Equal(t, lp.KernelError(lxphost.Code(-404), "transfer").Error(), reason)
+	require.Equal(t, before, h.dump(h.stateDB.Ctx()))
+	require.Equal(t, logsBefore, h.stateDB.GetAllLogs())
+	setFrozen(false)
+	assertParity()
 }

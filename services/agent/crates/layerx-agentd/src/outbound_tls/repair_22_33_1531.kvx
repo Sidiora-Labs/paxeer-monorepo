@@ -1,0 +1,22 @@
+[repair.22.33.1531]
+acceptance = "22998.1"
+findings = ["orphan_tls_tests"]
+baseline = "No pre-change verification ran: the explicit gate order prohibits testing before complete implementation and direct invocation of verify_cmd; the initial runner ledger had zero build or verification runs, so no baseline failure is claimed."
+evidence = "The runner hf-build/hf-done gate ledger records the exact verified candidate revision, command, exit code and private evidence path; closure requires hf-done passing on the built revision."
+wiring_requests = ["Domain 9: update services/agent/crates/layerx-agentd/README.md to replace the orphan-module claim with the executed library outbound_tls::tests and repair_22_33_1531 integration targets documented in src/outbound_tls/README.md."]
+
+[finding.orphan_tls_tests]
+proving_tests = ["outbound_tls::private_ca_is_required_and_hostname_verification_remains_enabled", "outbound_tls::human_authority_refuses_empty_ca_and_preserves_input_bounds"]
+repair = "Register the existing TLS cases under cfg(test) and include them in the integration target against the linked production crate, preserving trusted, wrong-CA, wrong-host, empty-CA, bearer, deadline and response-bound assertions; retain the direct empty private_ca assertion as the library test private_ca_refuses_empty_trust_roots."
+path = "Real RemoteHumanAuthority through rustls and loopback HTTPS into the typed ModuleRegistry consumer, asserting the request route and bearer and the exact decoded registry."
+
+[gotcha.private_client_method]
+observed = "The orphaned exchange helper called RemoteHumanAuthority::get, which is private to human_runtime and therefore inaccessible from this sibling module."
+repair = "Exercise the public HumanAuthorityBoundary::registry method with a typed registry response instead of exposing or copying the private method."
+
+[qualification.repair_1]
+revision = "22f9e4ac2387cffc32685ae9e4ef462e4088e3f0"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "rpc_surface_major_two includes outbound_tls.rs by path, so the implicit tests module resolved to src/tests.rs; use the explicit outbound_tls/tests.rs path to register it consistently for both callers."

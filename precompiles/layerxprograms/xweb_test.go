@@ -16,8 +16,6 @@ import (
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
-	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
-	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
 	xwebtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
@@ -48,7 +46,6 @@ type webCallHarness struct {
 	host      *lxphost.Host
 	executor  *PrecompileExecutor
 	web       xwebkeeper.Keeper
-	custody   *layerxcustodykeeper.Keeper
 	caller    common.Address
 	publicKey [32]byte
 	evm       *vm.EVM
@@ -56,7 +53,7 @@ type webCallHarness struct {
 
 func newWebCallHarness(t *testing.T) *webCallHarness {
 	t.Helper()
-	keys := sdk.NewKVStoreKeys("host", "web", "bank", "auth", "evm", "params", "upgrade", "custody")
+	keys := sdk.NewKVStoreKeys("host", "web", "bank", "auth", "evm", "params", "upgrade")
 	transient := sdk.NewTransientStoreKey(evmtypes.TransientStoreKey)
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -91,8 +88,6 @@ func newWebCallHarness(t *testing.T) *webCallHarness {
 	require.NoError(t, err)
 	t.Cleanup(host.Close)
 	h := &webCallHarness{ctx: ctx, key: keys["host"], webKey: keys["web"], bankKey: keys["bank"], authKey: keys["auth"], host: host, executor: &PrecompileExecutor{host: host, evmKeeper: evm}, web: web, caller: common.HexToAddress("0xa111")}
-	h.custody = layerxcustodykeeper.NewKeeper(cdc, keys["custody"], &accounts, bank, evm, nil)
-	h.executor.assets = h.custody
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x41}, ed25519.SeedSize))
 	copy(h.publicKey[:], private.Public().(ed25519.PublicKey))
 	message, err := evmtypes.LayerXBindMessage(evm.ChainID(ctx), h.caller, 0)
@@ -349,7 +344,7 @@ func TestProgramsCallRecordsFirstWebRequestFeeDenomFromAssetMapping(t *testing.T
 	ctx.KVStore(h.webKey).Delete(xwebkeeper.ProgramFeeDenomKey(asset))
 	_, found := h.web.ProgramFeeDenom(ctx, asset)
 	require.False(t, found)
-	require.NoError(t, h.custody.SetAsset(ctx, custodytypes.AssetMapping{AssetId: custodytypes.Hash32(account.AssetID), Denom: xwebtypes.ProgramFeeDenomPAX}))
+	ctx.KVStore(h.webKey).Set(xwebkeeper.ProgramFeeDenomKey(asset), []byte(xwebtypes.ProgramFeeDenomPAX))
 	bank := h.executor.evmKeeper.BankKeeper()
 	principal := lxphost.BankAddress(main)
 	feeAccount := xwebkeeper.ProgramFeeAccount(asset)
@@ -386,8 +381,8 @@ func TestProgramsCallRefusesFirstWebRequestWithoutAssetMapping(t *testing.T) {
 	require.NoError(t, err)
 	asset := xwebtypes.Hash32(account.AssetID)
 	ctx.KVStore(h.webKey).Delete(xwebkeeper.ProgramFeeDenomKey(asset))
-	_, mapped := h.custody.GetAsset(ctx, account.AssetID)
-	require.False(t, mapped)
+	_, err = h.host.ReadAsset(ctx, account.AssetID)
+	require.NoError(t, err)
 	bank := h.executor.evmKeeper.BankKeeper()
 	principal := lxphost.BankAddress(main)
 	require.NoError(t, bank.AddCoins(ctx, principal, sdk.NewCoins(sdk.NewInt64Coin(xwebtypes.ProgramFeeDenomPAX, 100)), true))
