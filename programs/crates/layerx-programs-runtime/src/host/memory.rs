@@ -9,6 +9,34 @@ pub(super) struct OutputRange {
     capacity: usize,
 }
 
+pub(super) struct InputRange {
+    memory: Memory,
+    range: core::ops::Range<usize>,
+}
+
+impl InputRange {
+    pub(super) fn read(&self, caller: &Caller<'_, RuntimeState>) -> Vec<u8> {
+        self.memory.data(caller)[self.range.clone()].to_vec()
+    }
+}
+
+pub(super) fn validate_input(
+    caller: &Caller<'_, RuntimeState>,
+    pointer: i32,
+    length: usize,
+) -> Result<InputRange, i32> {
+    let pointer = nonnegative(pointer)?;
+    let end = pointer.checked_add(length).ok_or(STATUS_BOUNDS)?;
+    let memory = memory(caller)?;
+    if end > memory.data(caller).len() {
+        return Err(STATUS_BOUNDS);
+    }
+    Ok(InputRange {
+        memory,
+        range: pointer..end,
+    })
+}
+
 pub(super) fn validate_output(
     caller: &Caller<'_, RuntimeState>,
     pointer: i32,
@@ -60,16 +88,12 @@ pub(crate) fn read_guest(
     length: i32,
     maximum: usize,
 ) -> Result<Vec<u8>, i32> {
-    let pointer = nonnegative(pointer)?;
+    nonnegative(pointer)?;
     let length = nonnegative(length)?;
     if length > maximum {
         return Err(STATUS_BOUNDS);
     }
-    let mut bytes = vec![0u8; length];
-    memory(caller)?
-        .read(caller, pointer, &mut bytes)
-        .map_err(|_| STATUS_BOUNDS)?;
-    Ok(bytes)
+    read_slice(caller, pointer, length)
 }
 
 pub(crate) fn validate_guest_read(
@@ -78,15 +102,12 @@ pub(crate) fn validate_guest_read(
     length: i32,
     maximum: usize,
 ) -> Result<usize, i32> {
-    let pointer = nonnegative(pointer)?;
+    nonnegative(pointer)?;
     let length = nonnegative(length)?;
     if length > maximum {
         return Err(STATUS_BOUNDS);
     }
-    let end = pointer.checked_add(length).ok_or(STATUS_BOUNDS)?;
-    if end > memory(caller)?.data(caller).len() {
-        return Err(STATUS_BOUNDS);
-    }
+    validate_input(caller, pointer, length)?;
     Ok(length)
 }
 
@@ -95,16 +116,7 @@ pub(super) fn read_slice(
     pointer: i32,
     length: usize,
 ) -> Result<Vec<u8>, i32> {
-    let pointer = nonnegative(pointer)?;
-    let available = memory(caller)?.data(caller).len();
-    if length > available {
-        return Err(STATUS_BOUNDS);
-    }
-    let mut bytes = vec![0u8; length];
-    memory(caller)?
-        .read(caller, pointer, &mut bytes)
-        .map_err(|_| STATUS_BOUNDS)?;
-    Ok(bytes)
+    Ok(validate_input(caller, pointer, length)?.read(caller))
 }
 
 pub(super) fn read_fixed<const N: usize>(
