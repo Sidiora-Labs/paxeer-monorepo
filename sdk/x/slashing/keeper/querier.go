@@ -48,7 +48,12 @@ func querySigningInfo(ctx sdk.Context, req abci.RequestQuery, k Keeper, legacyQu
 		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
 
-	signingInfo, found := k.GetValidatorSigningInfo(ctx, sdk.ConsAddress(params.ConsAddress))
+	consAddr, err := sdk.ConsAddressFromBech32(params.ConsAddress)
+	if err != nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, err.Error())
+	}
+
+	signingInfo, found := k.GetValidatorSigningInfo(ctx, consAddr)
 	if !found {
 		return nil, sdkerrors.Wrap(types.ErrNoSigningInfoFound, params.ConsAddress)
 	}
