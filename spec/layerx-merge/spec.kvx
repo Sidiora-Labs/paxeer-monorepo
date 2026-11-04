@@ -156268,7 +156268,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.126]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/lib/data/facades (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
@@ -156304,7 +156304,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.125]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/components (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
@@ -199043,7 +199043,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1294]
 title = "Repair audit record 22.30.68 medium findings in rpc/stats (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.339"]
@@ -205415,7 +205415,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1012]
 title = "Repair audit record 22.30.36 medium findings in sdk/launchpad/protocol (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.60", "22.31.61"]
@@ -214059,7 +214059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.129]
 title = "Repair audit record 22.30.114 medium findings in services/wallet/attestor/internal/tss/ecdsa (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
@@ -214095,7 +214095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.128]
 title = "Repair audit record 22.30.114 medium findings in services/wallet/attestor/internal/tss/eddsa (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
