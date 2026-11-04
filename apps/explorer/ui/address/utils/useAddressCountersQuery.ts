@@ -1,21 +1,21 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
+import React from 'react';
+import { createPublicClient, http } from 'viem';
 
 import type { AddressCounters } from 'types/api/address';
 import type { ClusterChainConfig } from 'types/multichain';
 
+import config from 'configs/app';
 import type { ResourceError } from 'lib/api/resources';
 import useApiQuery from 'lib/api/useApiQuery';
-import { publicClient } from 'lib/web3/client';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import { ADDRESS_COUNTERS } from 'stubs/address';
-import { GET_TRANSACTIONS_COUNT } from 'stubs/RPC';
-
-type RpcResponseType = [
-  number | null,
-];
 
 export type AddressCountersQuery = UseQueryResult<AddressCounters, ResourceError<{ status: number }>> & {
   isDegradedData: boolean;
+  outgoingTransactionCount: string | undefined;
+  rpcError: Error | null;
 };
 
 interface Params {
@@ -26,7 +26,15 @@ interface Params {
   chain?: ClusterChainConfig;
 }
 
-export default function useAddressCountersQuery({ hash, isLoading, isDegradedData, isEnabled = true, chain }: Params): AddressCountersQuery {
+export default function useAddressCountersQuery({ hash, isLoading, isDegradedData, isEnabled = true, chain: chainProp }: Params): AddressCountersQuery {
+  const multichainContext = useMultichainContext();
+  const chain = chainProp || multichainContext?.chain;
+  const chainConfig = chain?.app_config ?? config;
+  const chainId = chain?.id ?? chainConfig.chain.id;
+  const rpcUrl = chainConfig.chain.rpcUrls.find(Boolean);
+  const publicClient = React.useMemo(() => rpcUrl ? createPublicClient({
+    transport: http(rpcUrl, { retryCount: 0 }),
+  }) : undefined, [ rpcUrl ]);
   // The counters of an address do not depend on the address itself, so the request leaves with it
   // instead of waiting for its answer. Only the RPC fallback waits, because whether it is needed is
   // read from that answer.
@@ -35,46 +43,30 @@ export default function useAddressCountersQuery({ hash, isLoading, isDegradedDat
   const apiQuery = useApiQuery<'general:address_counters', { status: number }>('general:address_counters', {
     pathParams: { hash },
     queryOptions: {
-      enabled: enabled && !isDegradedData,
+      enabled,
       placeholderData: ADDRESS_COUNTERS,
       refetchOnMount: false,
     },
     chain,
   });
 
-  const rpcQuery = useQuery<RpcResponseType, unknown, AddressCounters | null>({
-    queryKey: [ 'RPC', 'address_counters', { hash } ],
+  const rpcQuery = useQuery<number, Error>({
+    queryKey: [ 'RPC', 'address_counters', { hash, chainId, chainSlug: chain?.slug, rpcUrl } ],
     queryFn: async() => {
       if (!publicClient) {
-        throw new Error('No public RPC client');
+        throw new Error(`No public RPC configured for chain ${ chainId }`);
       }
-
-      const txCount = publicClient.getTransactionCount({ address: hash as `0x${ string }` }).catch(() => null);
-
-      return Promise.all([
-        txCount,
-      ]);
+      return publicClient.getTransactionCount({ address: hash as `0x${ string }` });
     },
-    select: (response) => {
-      const [ txCount ] = response;
-      return {
-        transactions_count: txCount?.toString() ?? '0',
-        token_transfers_count: '0',
-        gas_usage_count: null,
-        validations_count: null,
-      };
-    },
-    placeholderData: [ GET_TRANSACTIONS_COUNT ],
     enabled: enabled && !isLoading && (isDegradedData || apiQuery.isError),
     retry: false,
     refetchOnMount: false,
   });
 
-  const isRpcQuery = Boolean((isDegradedData || apiQuery.isError) && rpcQuery.data && publicClient);
-  const query = isRpcQuery ? rpcQuery as UseQueryResult<AddressCounters, ResourceError<{ status: number }>> : apiQuery;
-
   return {
-    ...query,
-    isDegradedData: isRpcQuery,
+    ...apiQuery,
+    isDegradedData: Boolean((isDegradedData || apiQuery.isError) && !apiQuery.data),
+    outgoingTransactionCount: rpcQuery.data?.toString(),
+    rpcError: rpcQuery.error,
   };
 }

@@ -111,6 +111,13 @@ func NewHostGenesisState(channels []ActiveChannel, accounts []RegisteredIntercha
 
 // Validate performs basic validation of the HostGenesisState
 func (gs HostGenesisState) Validate() error {
+	if err := host.PortIdentifierValidator(gs.Port); err != nil {
+		return err
+	}
+	if gs.Port != PortID {
+		return sdkerrors.Wrapf(ErrInvalidHostPort, "expected %s, got %s", PortID, gs.Port)
+	}
+
 	channels := make(map[string]struct{}, len(gs.ActiveChannels))
 	for _, ch := range gs.ActiveChannels {
 		if err := host.ConnectionIdentifierValidator(ch.ConnectionId); err != nil {
@@ -151,13 +158,6 @@ func (gs HostGenesisState) Validate() error {
 			return fmt.Errorf("duplicate host account mapping for connection %s and port %s", acc.ConnectionId, acc.PortId)
 		}
 		accounts[key] = struct{}{}
-	}
-
-	if err := host.PortIdentifierValidator(gs.Port); err != nil {
-		return err
-	}
-	if gs.Port != PortID {
-		return sdkerrors.Wrapf(ErrInvalidHostPort, "expected %s, got %s", PortID, gs.Port)
 	}
 
 	if err := gs.Params.Validate(); err != nil {
