@@ -30515,3 +30515,35 @@ symbol = "test_repair_22_31_510.py"
 observed = "Attempt 1: the build passed; the seven new cases passed; twelve cases of the 147 test expected the octet-stream agent route the transport no longer uses."
 assumption = "Producer transport change (22.33.16) left its consumer test behind; decision 2557."
 severity = "low"
+
+[finding.22.31.509.1]
+task = "22.31.509"
+file = "daemon/committed-fixture/vector_v6_test.go"
+symbol = "vector_v6_test.go"
+observed = "Attempt 1: build 3 of 3 passed at the final revision; the verify failed to compile on two codec method names that do not exist on codec.Codec; the test never ran."
+assumption = "Method naming of the forked codec; not a defect of the recording."
+severity = "low"
+
+[finding.22.33.891.3]
+task = "22.33.891"
+file = "tests/test_authority_multisig.c"
+symbol = "test_authority_multisig.c"
+observed = "Attempt 3: 25 of 26 cases passed after 22.31.505; the allowance-policy case expected LXP_ERR_VERSION_UNSUPPORTED and received LXP_ERR_NON_CANONICAL on a zero-guarantor manifest."
+assumption = "Fixture change in attempt 3 moved the manifest into the non-canonical shape; the kernel contract is unchanged."
+severity = "low"
+
+[finding.22.33.1236.5]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 5: re-qualification of the attempt-4 tree after 22.31.505; two assertions in tests/modules/test_asset_withdraw.c failed on the retired premise that genesis authority cannot open the system custody accounts."
+assumption = "The attempt-4 fixture adopted the retired 22.33.1138 premise; no agent acted on the batch-448 instruction (gotcha 3068)."
+severity = "high"
+
+[finding.22.33.1510.2]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 2: the build failed with seven unresolved names in an authority source module path-included by the test support; the verify never ran."
+assumption = "Fixture construction against the wrong producer; the service and daemon contract of 22.31.462 is on main."
+severity = "high"

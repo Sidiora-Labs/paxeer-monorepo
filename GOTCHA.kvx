@@ -15145,3 +15145,23 @@ fix = "Decision 2557: the 147 cases follow the node-root contract; 22.31.510 rea
 title = "A path list naming the bare tests directory waits on every test change"
 symptom = "22.33.1135 and 22.33.1136 declared tests as a path next to their kernel source file; the admission check treats every task changing any file under tests/ as an overlap, so both stayed eligible but unlaunched for hours."
 fix = "Their paths now name the source file alone, with tests/codec and tests/ledger as planned paths."
+
+[gotcha.3065]
+title = "The JSON codec of sdk/codec names its methods MarshalAsJSON and UnmarshalAsJSON"
+symptom = "sdk/codec/codec.go lines 60 and 73 declare MarshalAsJSON(proto.Message) and UnmarshalAsJSON([]byte, proto.Message) on the JSONCodec interface; the upstream names MarshalJSON and UnmarshalJSON do not exist on codec.Codec. 22.31.509 attempt 1 (2026-11-04 22:21Z) compiled its recorder and mirrored the V6 vector, then its test called encoding.Marshaler.MarshalJSON and UnmarshalJSON and the verify failed to compile."
+fix = "Tests that encode a module genesis through the production encoder call MarshalAsJSON and UnmarshalAsJSON (or MustMarshalJSON); 22.31.509 continues with that fix."
+
+[gotcha.3066]
+title = "A genesis manifest without guarantors is canonical only under the state-commitment protocol version"
+symptom = "src/protocol/lxp_genesis.c validate (line 550) refuses a manifest whose protocol_version is not LXP_PROTOCOL_VERSION_STATE_COMMITMENT and whose guarantor_count is zero with LXP_ERR_NON_CANONICAL before the fee-authority parameter check that yields LXP_ERR_VERSION_UNSUPPORTED (line 571). 22.33.891 attempt 3 (2026-11-04 22:03Z) set the fixture's guarantor_count to zero for the merged node initialization and kept the allowance-policy case that expects an occupancy-version copy of that manifest to be refused LXP_ERR_VERSION_UNSUPPORTED; the kernel answered LXP_ERR_NON_CANONICAL."
+fix = "A version-downgrade case on a zero-guarantor manifest asserts LXP_ERR_NON_CANONICAL, or it downgrades a manifest that carries guarantors to reach the version refusal; 22.33.891 continues with the assertion aligned to the kernel contract."
+
+[gotcha.3067]
+title = "A test support file cannot path-include another service's source module"
+symptom = "22.33.1510 attempt 2 (2026-11-04 22:05Z) added a module in services/human/crates/layerx-human-service/tests/support/approval_owner.rs with a path attribute pointing at services/platform/hosted/authority/src/human; the authority's budget_state module imports crate::committed and crate::loopback_http and refers to super::Human, super::Policy and Config.human, none of which exist in the Human service's test crate, so the build failed with seven unresolved names (the class of gotchas 3033 and 3047). The Human service's budget-state input is written by the agent daemon (layerx_agentd::human_runtime, a dependency of the service crate since 22.31.462), not by the platform authority."
+fix = "Integration tests consume a producer through its crate dependency or a recorded transcript, never through a path-included copy of its source; 22.33.1510 continues with the module removed and the daemon library as the producer (decision 2558)."
+
+[gotcha.3068]
+title = "A finding recorded without a continuation note re-qualifies the attempt's last tree unchanged"
+symptom = "22.33.1236 attempt 5 and 22.33.891 attempt 3 (2026-11-04 22:03Z) ran after 22.31.505 landed as pure re-qualifications of the parked trees: no agent read the do items written for them in batches 448 and 449, so the instructions to restore the main fixture shape in tests/modules/test_asset_withdraw.c and to report the escrow outcome code were never carried out and both attempts failed on the unchanged trees."
+fix = "A ruling whose do items need edits carries a continuation note; a finding alone only re-runs the gates on the parked tree. 22.33.1236 and 22.33.891 continue with their outstanding do items restated."
