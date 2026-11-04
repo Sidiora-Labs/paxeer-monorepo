@@ -1,3 +1,4 @@
+import React from "react";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { useSpotPortfolio } from "@/hooks/spot/useSpotPortfolio";
 import { dStrToToken, dStrToUsd } from "@/core/spot/api";
