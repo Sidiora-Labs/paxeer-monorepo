@@ -17,6 +17,7 @@
  * catalog mapping, query cache and wallet providers are used without substitution.
  * The catalog hook's existing server limitation is asserted explicitly below.
  */
+import "./fixtures/react-runtime";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
@@ -26,7 +27,7 @@ import { WagmiProvider } from "wagmi";
 import Router, { type NextRouter } from "next/router";
 import { RouterContext } from "next/dist/shared/lib/router-context.shared-runtime";
 import { decodeFunctionResult, encodeFunctionResult } from "viem";
-import { spotWidgetElements } from "./spot-release-gate.test";
+import { spotWidgetElements } from "./fixtures/spot-widget-elements";
 import { spotTokenState, type VaultTokenInfo } from "../src/core/spot/tokenState";
 import { feeTierView } from "../src/core/perps/feeTier";
 import { PerpsPrecompileABI } from "../src/core/network/abi/PerpsPrecompile";
@@ -78,11 +79,9 @@ async function spotWidgetsReachDesktopMobileAndRouteConsumers() {
       assert.equal(loaded.default, widgets.SpotOrderForm);
       assert.equal((await consumer.loadSpotOrderForm()).default, direct.SpotOrderForm);
     }
-    // apps/perps/src/widgets/spot/SpotOrderbook.tsx::SpotOrderbook currently
-    // throws under the declared tsx runner because its JSX has no React import.
-    // Expected behavior is a rendered loading book. This out-of-scope defect
-    // is preserved; below, render the page's actual contracted widget subtrees.
-    assert.throws(() => render(page.SpotPage({ symbol: "SID" })), /React is not defined/);
+    const pageHtml = render(createElement(page.SpotPage, { symbol: "SID" }));
+    assert.ok(pageHtml.includes("SID/USDL"));
+    assert.ok(pageHtml.includes("Connect Wallet"));
     const info: VaultTokenInfo = [true, false, 6, 10_000_000n, 12_000_000n, 2_000_000n];
     for (const market of SPOT_MARKETS) {
       const route = await page.getServerSideProps({ query: { market: market.symbol.toLowerCase() } });
@@ -90,9 +89,6 @@ async function spotWidgetsReachDesktopMobileAndRouteConsumers() {
       assert.equal(route.props.symbol, market.symbol);
       const tree = page.SpotPage(route.props);
       const composed = spotWidgetElements(tree);
-      const contractedWidgets = createElement(Fragment, null, ...selectedElements(tree, [
-        widgets.SpotPairHeader, widgets.SpotMarketWatchlist, widgets.SpotOrderForm,
-      ]));
       const form = composed.find((node) => node.type === widgets.SpotOrderForm);
       const watchlist = composed.find((node) => node.type === widgets.SpotMarketWatchlist);
       assert.ok(form);
@@ -107,7 +103,7 @@ async function spotWidgetsReachDesktopMobileAndRouteConsumers() {
             entry === market ? produced : spotTokenState(false, info));
         }
         for (let pass = 0; pass < 2; pass++) {
-          const html = render(contractedWidgets);
+          const html = render(createElement(page.SpotPage, route.props));
           assert.equal((html.match(/>Paused<\/span>/g) ?? []).length, paused ? 1 : 0);
           assert.ok(html.includes(market.pair));
           assert.ok(html.includes("Checking token trading status"));
@@ -147,9 +143,9 @@ async function spotWidgetsReachDesktopMobileAndRouteConsumers() {
       const malformed = { ...live, reason: "TokenPaused" } as typeof live;
       assert.equal(direct.spotSubmitBlocked(malformed), "TokenStateUnavailable");
       client.setQueryData(["spot-token-state", market.baseAddress], malformed);
-      assert.throws(() => render(contractedWidgets), /Invalid spot token state/);
+      assert.throws(() => render(createElement(page.SpotPage, route.props)), /Invalid spot token state/);
       client.setQueryData(["spot-token-state", market.baseAddress], live);
-      assert.ok(render(contractedWidgets).includes(market.pair), "consumer recovers from a refused result");
+      assert.ok(render(createElement(page.SpotPage, route.props)).includes(market.pair), "consumer recovers from a refused result");
     }
     for (const malformed of ["NONE", "", ["PAX", "SID"], { symbol: "PAX" }]) {
       assert.deepEqual(await page.getServerSideProps({ query: { market: malformed } } as Parameters<typeof page.getServerSideProps>[0]),
@@ -221,7 +217,7 @@ async function marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults() {
   const producer = await import("../src/widgets/markets/useMarketsRows");
   const consumer = await import("../src/widgets/markets");
   const { catalogFromGateway } = await import("../src/core/perps/marketCatalog");
-  const { normalizeMarket } = await import("../src/hooks/perps/useMarketsStream");
+  const { normalizeMarket, normalizeMarketsFrame } = await import("../src/hooks/perps/useMarketsStream");
   const { client, render } = await renderer();
   const now = Date.parse("2026-10-27T12:00:00Z");
   const row: GatewayMarketRow = {
@@ -273,10 +269,32 @@ async function marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults() {
       assert.throws(() => producer.buildMarketsRows(markets, [{ ...snapshot, price: NaN }]), /Invalid market snapshot/);
       assert.throws(() => producer.buildMarketsRows(markets, [{ ...snapshot, volume_24h: -1 }]), /Invalid market snapshot/);
     }
-    // apps/perps/src/hooks/perps/useMarketsStream.ts::normalizeMarket currently
-    // normalizes a malformed numeric price to zero. Preserve that finding:
-    // the expected upstream behavior is to reject malformed numeric fields.
-    assert.equal(normalizeMarket({ symbol: "DOGE", price: "bad" })?.price, 0);
+    for (const field of ["price", "change_24h", "volume_24h", "open_interest", "volume_7d", "volume_30d",
+      "trades_count", "last_updated", "price_updated_at", "price_24h", "high_24h", "low_24h", "amount_24h",
+      "reported_volume_24h", "reported_open_interest"]) {
+      for (const malformed of ["bad", "", " ", "0x10", "1e309", null, false, [], {}, NaN, Infinity]) {
+        const raw = { symbol: "DOGE", price: 2, [field]: malformed };
+        assert.equal(normalizeMarket(raw), null, `${field} must refuse ${String(malformed)}`);
+        const frame = normalizeMarketsFrame([raw]);
+        assert.deepEqual(frame, []);
+        const rows = producer.buildMarketsRows(markets, frame);
+        assert.equal(rows[0].hasLiveData, false);
+        assert.equal(rows[0].snapshot, undefined);
+        const html = render(table(rows));
+        assert.ok(html.includes("DOGE"));
+        assert.ok(!html.includes("$0.00"), "refused input is unavailable, never a live zero price");
+      }
+    }
+    const zero = normalizeMarket({ symbol: "DOGE", price: 0 });
+    assert.ok(zero, "a valid numeric zero is distinct from a refused row");
+    const zeroRows = producer.buildMarketsRows(markets, [zero]);
+    assert.equal(zeroRows[0].hasLiveData, true);
+    assert.equal(zeroRows[0].snapshot, zero);
+    assert.equal(normalizeMarket({ symbol: "DOGE", price: "2.5", change_24h: "-5" })?.price, 2.5);
+    assert.equal(normalizeMarket({ symbol: "DOGE", price: -1 }), null);
+    const recovered = normalizeMarketsFrame([{ symbol: "BAD", price: "bad" }, { symbol: "DOGE", price: 3 }]);
+    assert.equal(recovered.length, 1);
+    assert.ok(render(table(producer.buildMarketsRows(markets, recovered))).includes("$3.00"));
   } finally { client.clear(); }
 }
 

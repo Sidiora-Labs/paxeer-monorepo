@@ -122,6 +122,15 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
+    /// Keeps an explicit node RPC path and makes a bare origin target `/`.
+    #[must_use]
+    pub fn chain_rpc(mut self) -> Self {
+        if self.base_path.is_empty() {
+            self.base_path.push('/');
+        }
+        self
+    }
+
     /// A plain-HTTP endpoint for a private-network hop; the caller owns the
     /// policy that admits it.
     #[must_use]

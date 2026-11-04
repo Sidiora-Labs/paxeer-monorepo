@@ -44,7 +44,7 @@ use std::fs;
 use std::io::Write;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
@@ -71,7 +71,10 @@ struct Config {
     client: Client,
     client_identity: bool,
     kernel: Option<Kernel>,
+    identity: Option<IdentityTarget>,
     receipt_keys: Option<ReceiptKeyList>,
+    committed_state: Option<layerx_platform_gateway::committed_state::Authority>,
+    state_clock: fn() -> Result<u64, String>,
     paxeer: Option<Vec<Endpoint>>,
     capabilities: capabilities::Cache,
     indexer: Option<history::Indexer>,
@@ -93,28 +96,26 @@ struct Kernel {
     public_core: Option<Endpoint>,
     authority: Endpoint,
     authority_token: Zeroizing<String>,
-    identity: Endpoint,
-    identity_token: Zeroizing<String>,
     registry: Endpoint,
     registry_token: Zeroizing<String>,
-    key_provisioning_key: Zeroizing<[u8; 32]>,
     #[cfg(test)]
     modules: ModuleRegistry,
 }
 
-const KERNEL_VARIABLES: [&str; 13] = [
+struct IdentityTarget {
+    endpoint: Endpoint,
+    token: Zeroizing<String>,
+    key_provisioning_key: Option<Zeroizing<[u8; 32]>>,
+}
+
+const KERNEL_VARIABLES: [&str; 8] = [
     "LAYERX_GATEWAY_COMPONENT_URL",
     "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
     "LAYERX_GATEWAY_PUBLIC_CORE_URL",
     "LAYERX_GATEWAY_AUTHORITY_URL",
     "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
-    "LAYERX_GATEWAY_IDENTITY_URL",
-    "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
     "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
     "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE",
-    "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
-    "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
-    "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
     "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
 ];
 
@@ -189,6 +190,13 @@ impl From<KernelUnavailable> for OutgoingResponse {
 
 impl Config {
     fn backend(&self, backend: KernelBackend) -> Result<(&Endpoint, &str), KernelUnavailable> {
+        if backend == KernelBackend::Identity {
+            let target = self
+                .identity
+                .as_ref()
+                .ok_or(KernelUnavailable::not_configured(backend))?;
+            return Ok((&target.endpoint, target.token.as_str()));
+        }
         let kernel = self
             .kernel
             .as_ref()
@@ -203,7 +211,7 @@ impl Config {
                 kernel.component_token.as_str(),
             ),
             KernelBackend::Authority => (&kernel.authority, kernel.authority_token.as_str()),
-            KernelBackend::Identity => (&kernel.identity, kernel.identity_token.as_str()),
+            KernelBackend::Identity => unreachable!("identity is resolved independently"),
             KernelBackend::Registry => (&kernel.registry, kernel.registry_token.as_str()),
         })
     }
@@ -226,8 +234,10 @@ impl Config {
     }
 
     fn key_provisioning_key(&self) -> Result<&Zeroizing<[u8; 32]>, KernelUnavailable> {
-        self.kernel_side(KernelBackend::Identity)
-            .map(|kernel| &kernel.key_provisioning_key)
+        self.identity
+            .as_ref()
+            .and_then(|target| target.key_provisioning_key.as_ref())
+            .ok_or(KernelUnavailable::not_configured(KernelBackend::Identity))
     }
 }
 
@@ -661,9 +671,14 @@ const LISTENER_CERTIFICATE_VARIABLES: [&str; 2] =
     ["LAYERX_GATEWAY_TLS_CERT_DER", "LAYERX_GATEWAY_TLS_KEY_DER"];
 
 fn listener_config() -> Result<Listener, String> {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .map_err(|_| "failed to install TLS crypto provider".to_owned())?;
+    static TLS_PROVIDER: OnceLock<Result<(), String>> = OnceLock::new();
+    TLS_PROVIDER
+        .get_or_init(|| {
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .map_err(|_| "failed to install TLS crypto provider".to_owned())
+        })
+        .clone()?;
     match env::var("LAYERX_GATEWAY_LISTENER") {
         Err(env::VarError::NotPresent) => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "tls" => tls_config().map(Listener::Tls),
@@ -733,7 +748,7 @@ fn configured_protocol() -> Result<ProtocolConfig, String> {
     })
 }
 
-fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
+fn configured_kernel() -> Result<Option<Kernel>, String> {
     if env::var_os("LAYERX_GATEWAY_COMPONENT_URL").is_none() {
         if let Some(variable) = KERNEL_VARIABLES
             .iter()
@@ -745,18 +760,6 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
         }
         return Ok(None);
     }
-    let identity_password = read_secret("LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE")?;
-    let identity = Identity::from_pkcs12(
-        &fs::read(
-            env::var("LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12")
-                .map_err(|_| "gateway client identity is required")?,
-        )
-        .map_err(|error| error.to_string())?,
-        identity_password.as_str(),
-    )
-    .map_err(|error| error.to_string())?;
-    let provisioning_key = read_secret("LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE")?;
-    let key_provisioning_key = Zeroizing::new(parse_hex32(provisioning_key.as_str())?);
     #[cfg(not(test))]
     configured_modules()?;
     let kernel = Kernel {
@@ -771,47 +774,78 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
                 .map_err(|_| "gateway authority URL is required")?,
         )?,
         authority_token: read_secret("LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE")?,
-        identity: Endpoint::parse(
-            &env::var("LAYERX_GATEWAY_IDENTITY_URL")
-                .map_err(|_| "gateway identity URL is required")?,
-        )?,
-        identity_token: read_secret("LAYERX_GATEWAY_IDENTITY_TOKEN_FILE")?,
         registry: Endpoint::parse(
             &env::var("LAYERX_GATEWAY_PROGRAM_REGISTRY_URL")
                 .map_err(|_| "gateway program registry URL is required")?,
         )?,
         registry_token: read_secret("LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE")?,
-        key_provisioning_key,
         #[cfg(test)]
         modules: configured_modules()?,
     };
-    Ok(Some((kernel, identity)))
+    Ok(Some(kernel))
 }
 
-fn configured_service_identity(kernel_configured: bool) -> Result<Option<Identity>, String> {
-    const IDENTITY: &str = "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12";
-    const PASSWORD: &str = "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE";
-    let identity_configured = env::var_os(IDENTITY).is_some();
-    let password_configured = env::var_os(PASSWORD).is_some();
-    if !identity_configured && !password_configured {
+fn configured_identity() -> Result<Option<IdentityTarget>, String> {
+    const URL: &str = "LAYERX_GATEWAY_IDENTITY_URL";
+    const TOKEN: &str = "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE";
+    const KEY: &str = "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE";
+    let Some(url) = env::var_os(URL) else {
+        for variable in [
+            TOKEN,
+            KEY,
+            "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE",
+        ] {
+            if env::var_os(variable).is_some() {
+                return Err(format!("{variable} requires {URL}"));
+            }
+        }
         return Ok(None);
-    }
-    if kernel_configured {
+    };
+    let url = url
+        .into_string()
+        .map_err(|_| "gateway identity URL is invalid")?;
+    let key_provisioning_key = if env::var_os(KEY).is_some() {
+        Some(Zeroizing::new(parse_hex32(read_secret(KEY)?.as_str())?))
+    } else {
+        None
+    };
+    Ok(Some(IdentityTarget {
+        endpoint: Endpoint::parse(&url)?,
+        token: read_secret(TOKEN)?,
+        key_provisioning_key,
+    }))
+}
+
+fn configured_service_identity() -> Result<Option<Identity>, String> {
+    let legacy = (
+        "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
+        "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
+    );
+    let service = (
+        "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12",
+        "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE",
+    );
+    let legacy_set = env::var_os(legacy.0).is_some() || env::var_os(legacy.1).is_some();
+    let service_set = env::var_os(service.0).is_some() || env::var_os(service.1).is_some();
+    if legacy_set && service_set {
         return Err(
-            "service client identity conflicts with the configured kernel client identity"
-                .to_owned(),
+            "service client identity conflicts with the configured kernel client identity".into(),
         );
     }
-    if !identity_configured || !password_configured {
+    let (identity, password) = if legacy_set { legacy } else { service };
+    if !legacy_set && !service_set {
+        return Ok(None);
+    }
+    if env::var_os(identity).is_none() || env::var_os(password).is_none() {
         return Err(format!(
-            "{IDENTITY} and {PASSWORD} must be configured together"
+            "{identity} and {password} must be configured together"
         ));
     }
-    let path = env::var(IDENTITY)
-        .map_err(|_| "gateway service client identity path is invalid".to_owned())?;
-    let password = read_secret(PASSWORD)?;
-    let encoded = Zeroizing::new(fs::read(path).map_err(|error| error.to_string())?);
-    Identity::from_pkcs12(encoded.as_slice(), password.as_str())
+    let encoded = Zeroizing::new(
+        fs::read(env::var(identity).map_err(|_| "invalid client identity path")?)
+            .map_err(|error| error.to_string())?,
+    );
+    Identity::from_pkcs12(encoded.as_slice(), read_secret(password)?.as_str())
         .map(Some)
         .map_err(|error| error.to_string())
 }
@@ -842,13 +876,14 @@ fn config(event_producer: bool) -> Result<Config, String> {
     )
     .map_err(|error| error.to_string())?;
     let kernel = configured_kernel()?;
-    let service_identity = configured_service_identity(kernel.is_some())?;
-    let (client, kernel, client_identity) = match kernel {
-        Some((kernel, identity)) => (Client::new(ca.clone(), identity), Some(kernel), true),
-        None => match service_identity {
-            Some(identity) => (Client::new(ca.clone(), identity), None, true),
-            None => (Client::without_identity(ca.clone()), None, false),
-        },
+    let identity = configured_identity()?;
+    let service_identity = configured_service_identity()?;
+    if kernel.is_some() && service_identity.is_none() {
+        return Err("gateway kernel client identity is required".into());
+    }
+    let (client, client_identity) = match service_identity {
+        Some(identity) => (Client::new(ca.clone(), identity), true),
+        None => (Client::without_identity(ca.clone()), false),
     };
     let idempotency_seconds = env::var("LAYERX_GATEWAY_IDEMPOTENCY_SECONDS")
         .unwrap_or_else(|_| "604800".to_owned())
@@ -870,7 +905,10 @@ fn config(event_producer: bool) -> Result<Config, String> {
         client,
         client_identity,
         kernel,
+        identity,
         receipt_keys,
+        committed_state: layerx_platform_gateway::committed_state::Authority::configured()?,
+        state_clock: now,
         paxeer: paxeer::configured_endpoint()?,
         capabilities: capabilities::configured()?,
         indexer: history::configured_endpoint()?,
@@ -1918,8 +1956,10 @@ fn route_with_peer(
     let Ok(parsed) = production_route(&request.method, &request.path) else {
         return response(404, "not_found", None);
     };
-    if let Err(unavailable) = config.backend(KernelBackend::Component) {
-        return OutgoingResponse::from(unavailable);
+    if matches!(parsed, ProductionRoute::Receipt(_)) {
+        if let Err(unavailable) = config.backend(KernelBackend::Component) {
+            return OutgoingResponse::from(unavailable);
+        }
     }
     let record = match authenticate_key(config, request) {
         Ok(value) => value,

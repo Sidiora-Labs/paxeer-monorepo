@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   LineChart,
   Line,
@@ -10,7 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { DailyPnl } from "@/hooks/perps/useDailyPnl";
-import { fmtUsdCompact as fmtUsd } from "@/ui/utils/format";
+import { fmtUsdCompact as fmtUsd, parseWei, weiToNumber } from "@/ui/utils/format";
 
 interface PnlChartProps {
   dailyPnl: DailyPnl[];
@@ -32,12 +33,12 @@ export function PnlChart({ dailyPnl }: PnlChartProps) {
   }
 
   // ── Compute cumulative PnL curve ──────────────────────────────────
-  let running = 0;
+  let running = 0n;
   const data: ChartPoint[] = dailyPnl.map((d) => {
-    running += parseFloat(d.pnl || "0");
+    running += parseWei(d.pnl);
     return {
       date: d.date.length >= 10 ? d.date.slice(5, 10) : d.date, // "MM-DD"
-      cumPnl: running,
+      cumPnl: weiToNumber(running),
     };
   });
 
