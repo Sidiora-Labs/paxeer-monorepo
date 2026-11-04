@@ -1,0 +1,39 @@
+[repair.22.31.20]
+mode = "BUILD"
+audit = "22.30.17"
+acceptance = "22998.1"
+status = "implementation_complete"
+baseline = "Not executed: explicit implementation-first order and hf-build/hf-done-only gates supersede the contradictory unchanged-tree verification step; no baseline test failure is claimed."
+evidence = "Use the last bounded gate JSON for the exact candidate revision, command, exit code and private log; no unexecuted gate is claimed."
+
+[finding.indexer-subscription-wire-types]
+test = "apps/perps/tests/repair-22-31-20.test.ts:indexerSubscriptionWireTypes"
+repair = "Decode real subscription payloads with RFC3339 DateTime strings and SDL nullability; preserve exact decimal strings and unavailable values."
+path = "Recorded production SQL subscription resolvers/subTime/TransportWS output for persisted orders, settlements and liquidations -> committed transcript -> loopback RFC6455 server -> real subscribeStream -> exported adapters used by the hooks."
+consumer = "No external callers of the three affected event hooks exist in the current application."
+
+[finding.referral-null-tier]
+test = "apps/perps/tests/repair-22-31-20.test.ts:referralNullTier"
+repair = "Preserve nullable tier in RawUserReferrals and UserReferralData; the page consumes the hook's unranked/unavailable/ranked view for safe matching, label, progress and max-tier state, including all-tiers highlighting."
+path = "Recorded accountTierJoin/UserReferrals/relay.Handler output for a persisted referral with no eligible tier, its ranked transition and a missing account -> committed transcript -> loopback HTTP server -> real perfdbQuery -> fetchPerfdbReferrals -> referralTierView -> ReferralTierStatus rendered by the page."
+wiring_request = "None: the continuation scope includes apps/perps/src/page-modules/referrals and both consumer sites are repaired here."
+
+[qualification_constraints]
+prior_attempt = "Revision feb1523368974a1ebcfe2c7fb50cbc7da50ce9ff failed pnpm --dir apps/perps exec tsc --noEmit at both nullable tier consumer sites (TS18047); the test runner did not execute."
+page_contract = "A null tier renders Unranked with progress toward the first tier, highlights no ranked tier and never reports max tier; absent or unknown tier data remains unavailable."
+gotcha = "Hook nullability changes must be carried to all page consumers in the same candidate; preserve the valid server null rather than inventing a tier."
+
+[qualification.inherited_build]
+revision = "204e5bc98e67d17ea3b98e754b074e78aee9f08b"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unrelated sdk/wallet/src/provider.ts:10 cannot resolve viem (TS2307); the nullable referral consumers no longer produce compiler errors."
+assumption = "No out-of-scope SDK dependency changes are authorized; hf-done requires a passing build and has not run."
+
+[fixtures]
+file = "apps/perps/src/hooks/perps/repair-22-31-20-fixtures.json"
+provenance = "Production perps-data responses recorded from PostgreSQL, NewSchema, SQL resolvers, subTime, TransportWS and relay.Handler during fixture authoring; no Go helper project, binary or cache is carried by the candidate."
+gate = "The test starts its own loopback HTTP/WebSocket transcript peer; no externally supplied configuration, live service, native artifact or subprocess toolchain is required. Only the session subscription id is remapped, and queries/variables are matched to the captured requests."
+assertions = "All inherited behavior assertions are retained; additional checks cover every SDL-nullable event field, exact uint256 strings, nanosecond DateTimes, unavailable tier state and the tiers-only path."
+qualification = "The hf-build/hf-done ledger is authoritative for the final revision and private logs; the inherited build entry above is historical evidence, not a gate run in this continuation."

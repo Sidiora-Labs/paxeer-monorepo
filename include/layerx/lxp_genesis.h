@@ -4,6 +4,7 @@
 /* Governance parameter: a canonical 32-byte boolean, disabled when absent.
  * This selects a programs interface without changing its module enable key. */
 #define LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER "module-enable:programs-retire"
+#define LXP_PROGRAMS_GUEST_ABI_V5_PARAMETER "module-enable:programs-abi5"
 
 #define LXP_PERPS_ORDER_TIF_PARAMETER "perps-order-tif"
 #define LXP_PERPS_ORACLE_TRANSPORT_PARAMETER "perps-oracle-transport"

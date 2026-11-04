@@ -645,6 +645,31 @@ pub fn check_new_admission(
     Ok(())
 }
 
+/// New work against an opened immutable identity. A prospective next-epoch rotation
+/// leaves its opening entry intact; live revocation, ownership and expiry still apply.
+pub fn check_opened_admission(
+    record: &WorkerCurrent,
+    frozen: &WorkerRosterEntry,
+    epoch: u64,
+    height: u64,
+) -> CodecResult<()> {
+    if record.effective_epoch <= epoch {
+        return check_new_admission(record, frozen, height);
+    }
+    if frozen.worker != record.worker || frozen.owner != record.owner {
+        return Err(EVIDENCE_BINDING);
+    }
+    match record.state {
+        WorkerState::Revoked => return Err(F02_DELEGATE_REVOKED),
+        WorkerState::Enrolled | WorkerState::Available => {}
+        _ => return Err(F02_ADMISSION_NOT_EFFECTIVE),
+    }
+    if height >= record.expiry {
+        return Err(F02_METADATA_EXPIRED);
+    }
+    Ok(())
+}
+
 fn check_market(ctx: &CallContext<'_>, env: &codec::Envelope<'_>) -> CodecResult<()> {
     env.check_domain(
         ctx.market.deployment_chain_domain,

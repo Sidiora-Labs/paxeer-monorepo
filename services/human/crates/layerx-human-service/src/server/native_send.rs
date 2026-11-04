@@ -152,7 +152,7 @@ impl HumanOwnerNativeSessionV1 {
             || evidence.activity_id == [0; 32]
             || evidence.receipt_digest == [0; 32]
             || evidence.observed_sequence == 0
-            || !matches!(evidence.verification, 4 | 5)
+            || !super::finalization::committed(evidence.verification)
             || evidence.action_key != request.action_key
         {
             return Err(AgentFailure::Refused("Human owner session proof differs"));

@@ -9,3 +9,4 @@ optimizer_runs = 100000
 via_ir = true
 bytecode_hash = "none"
 cbor_metadata = false
+ffi = true

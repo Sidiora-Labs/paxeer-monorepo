@@ -43,6 +43,14 @@ var serveCmd = cli.Command{
 			homeDir = "/sei"
 		}
 		port := cmd.String("port")
+		authnMode, err := server.AuthnMode()
+		if err != nil {
+			return err
+		}
+		if authnMode != server.AuthnModeTrustedHeader {
+			return fmt.Errorf("serve registers signing and destructive handlers and requires trusted-header authentication")
+		}
+		bindAddr := server.BindAddress(port, authnMode)
 		chainID := os.Getenv("SEI_CHAIN_ID")
 		genesisBucket := os.Getenv("SEI_GENESIS_BUCKET")
 		genesisRegion := os.Getenv("SEI_GENESIS_REGION")
@@ -98,7 +106,7 @@ var serveCmd = cli.Command{
 			return fmt.Errorf("home directory init failed: %w", err)
 		}
 
-		store, err := engine.NewSQLiteStore(filepath.Join(homeDir, "sidecar.db"))
+		store, err := server.NewTaskStore(filepath.Join(homeDir, "sidecar.db"))
 		if err != nil {
 			return fmt.Errorf("open result store: %w", err)
 		}
@@ -151,11 +159,6 @@ var serveCmd = cli.Command{
 		// the full dep set via the goroutine-spawn happens-before edge.
 		eng.RehydrateStaleTasks()
 
-		authnMode, err := server.AuthnMode()
-		if err != nil {
-			return err
-		}
-		bindAddr := server.BindAddress(port, authnMode)
 		logArgs := []any{"authnMode", authnMode, "bind", bindAddr}
 		if authnMode == server.AuthnModeTrustedHeader {
 			logArgs = append(logArgs, "bypassPaths", server.BypassPaths())

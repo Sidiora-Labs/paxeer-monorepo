@@ -1,0 +1,10 @@
+{
+  "name": "repair-51-sql-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite-socket": "0.2.18"
+  }
+}
