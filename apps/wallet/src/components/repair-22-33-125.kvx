@@ -1,0 +1,33 @@
+[repair.22.33.125]
+audit = "22.30.114"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+mode = "BUILD"
+verification = "hf-build then hf-done; the candidate revision, command, exit code and private evidence location are emitted by the runner to /out/run/gates.jsonl and copied into the final evidence line. Qualification is claimed only from those bounded results."
+baseline = "Not run: the controlling ordered instructions require complete implementation before any build or test and forbid manually running verify_cmd; this conflicts with task step 6. No pre-change failure is claimed."
+proof = "The tests use production React components, the transfer observer and storage repositories, the swap journal, ethers JSON-RPC receipt/transaction/block codecs, signed transaction identities, ABI-encoded Transfer logs and a loopback HTTP peer backed by an in-memory transaction store. The fixture configures its own endpoints before imports; no external configuration, credential, native artifact, subprocess or live endpoint is needed."
+
+[finding.41]
+tests = ["swap_receipt_output_preserves_exact_units_and_executed_quote", "swap_receipt_zero_decimals_and_unverified_estimates_stay_distinct", "swap_receipt_rejects_foreign_chain_reorg_revert_and_missing_output"]
+repair = "resolveSwapReceiptResult snapshots the executed journal quote, revalidates its chain, signed transaction fields, successful receipt and canonical block inclusion, and derives exact recipient net ERC-20 output from the final swap receipt using integer arithmetic. Its immutable result binds quote id, chain, transaction hash, token and raw/display units. SwapSuccess consumes that result and ignores refreshed presentation props; without matching verified evidence it labels quoted values as estimates and never claims completion or received funds."
+
+[finding.11]
+tests = ["transfer_pending_reopens_on_its_original_network_after_switch", "transfer_origin_is_saved_before_an_offline_observation_and_recovered", "transfer_origin_refuses_a_wrong_chain_after_recovery", "transfer_unavailable_origin_never_uses_the_active_chain"]
+repair = "The observer resolves endpoints by the submitted chain, retains and persists origin before the first request, and reopens that origin independently of selected networks, deleted network preferences and custom RPC changes. Polling and explorer links use that origin. Unavailable configuration is explicit and never falls through to another chain; the SDK revalidates reported chain and receipt identity. The real mounted component remains pending across a selector switch, unmounts, reopens, reaches commitment from the original RPC/explorer, and reopens again to revalidate saved commitment."
+
+[wiring.swap-result]
+request = "apps/wallet/src/widgets/swap/SwapWidget.tsx and apps/wallet/src/widgets/swap/useSwapExecution.ts — owner domain 12 (wallet swap): resolveSwapReceiptResult(execution.intent, original-chain provider) after successful execution/recovery and pass the immutable result into SwapSuccess.result, retaining its quote id and transaction identity; surface verification errors and retry. Until wired, the in-scope success component explicitly presents estimated output awaiting verified evidence."
+
+[wiring.native-output]
+request = "apps/wallet/src/widgets/swap/useSwapExecution.ts and apps/wallet/src/lib/swap/executor.ts — owner domain 12 (wallet swap): provide verified native-output receipt evidence or transaction-scoped reconciled native balance delta including gas and native input, bound to the executed quote and canonical receipt; ERC-20 receipt extraction explicitly refuses native output rather than inventing a received amount."
+
+[wiring.send-lifecycle]
+request = "apps/wallet/src/widgets/send/SendWidget.tsx — owner domain 12 (wallet send): retain and reopen the original submitted transfer across network changes instead of hiding it when transfer.chainId differs from the active chain; the in-scope observer and link now retain their original network independently."
+
+[gotcha.baseline-order]
+observed = "The audit step requests an unchanged-tree verify, but the controlling ordered gate instructions forbid testing before implementation or invoking verify_cmd manually; only hf-build then hf-done are used."
+
+[gotcha.scope]
+observed = "The initial .cgignore and task-status edits are runner-prepared and left untouched. Task findings, wiring requests and gotchas are recorded here because the explicit scope forbids editing spec files or root GOTCHA.kvx."
+
+[gotcha.test-registration]
+observed = "Vitest requires a handler as well as a test name; declared named proof functions are registered using test(proof.name, proof), so each criterion executes."

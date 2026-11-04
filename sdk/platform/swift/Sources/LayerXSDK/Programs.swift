@@ -82,11 +82,11 @@ struct ProgramRPC: Sendable {
         "jsonrpc": .string("2.0"), "id": .integer(1), "method": .string(method),
         "params": .array(params),
       ]))
-    let (bytes, response) = try await session.data(for: request)
-    guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-      throw PlatformSDKError(code: .transportFailure, retry: .safe)
+    let bytes = try await ProgramRPCResponse.read(request, session: session)
+    let value: JSONValue
+    do { value = try JSONDecoder().decode(JSONValue.self, from: bytes) } catch {
+      throw programDecode()
     }
-    let value = try JSONDecoder().decode(JSONValue.self, from: bytes)
     guard let fields = value.objectValue, fields["jsonrpc"] == .string("2.0"),
       fields["id"] == .integer(1)
     else { throw programDecode() }
@@ -104,6 +104,119 @@ struct ProgramRPC: Sendable {
     return value
   }
 }
+
+// Limits the decoded HTTP body, including decompression, before JSON allocation.
+private final class ProgramRPCResponse: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+  static let maximumBytes = 8 * 1024 * 1024
+  private var bytes = Data()
+  private var failure: Error?
+  private var continuation: CheckedContinuation<Data, Error>?
+  private let lock = NSLock()
+  private var task: URLSessionDataTask?
+  private var cancelled = false
+
+  static func read(_ request: URLRequest, session: URLSession) async throws -> Data {
+    let receiver = ProgramRPCResponse()
+    return try await withTaskCancellationHandler {
+      try await withCheckedThrowingContinuation { continuation in
+        receiver.continuation = continuation
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        let bounded = URLSession(
+          configuration: session.configuration, delegate: receiver, delegateQueue: queue)
+        let task = bounded.dataTask(with: request)
+        receiver.start(task)
+      }
+    } onCancel: {
+      receiver.cancel()
+    }
+  }
+
+  private func start(_ task: URLSessionDataTask) {
+    lock.lock()
+    self.task = task
+    let cancel = cancelled
+    lock.unlock()
+    task.resume()
+    if cancel { task.cancel() }
+  }
+
+  private func cancel() {
+    lock.lock()
+    cancelled = true
+    let task = task
+    lock.unlock()
+    task?.cancel()
+  }
+
+  func urlSession(
+    _ session: URLSession, dataTask: URLSessionDataTask,
+    didReceive response: URLResponse,
+    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+  ) {
+    guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+      response.expectedContentLength <= Int64(Self.maximumBytes)
+    else {
+      failure = PlatformSDKError(code: .transportFailure, retry: .safe)
+      dataTask.cancel()
+      completionHandler(.cancel)
+      session.invalidateAndCancel()
+      return
+    }
+    completionHandler(.allow)
+  }
+
+  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    guard failure == nil else { return }
+    guard data.count <= Self.maximumBytes - bytes.count else {
+      failure = PlatformSDKError(code: .transportFailure, retry: .safe)
+      dataTask.cancel()
+      session.invalidateAndCancel()
+      return
+    }
+    bytes.append(data)
+  }
+
+  func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    defer { session.invalidateAndCancel() }
+    let continuation = self.continuation
+    self.continuation = nil
+    if let failure {
+      continuation?.resume(throwing: failure)
+    } else if let error {
+      if (error as? URLError)?.code == .cancelled {
+        continuation?.resume(throwing: CancellationError())
+      } else {
+        continuation?.resume(throwing: PlatformSDKError(code: .transportFailure, retry: .safe))
+      }
+    } else {
+      continuation?.resume(returning: bytes)
+    }
+    lock.lock()
+    self.task = nil
+    lock.unlock()
+  }
+}
+
+/// Context obtained from the caller's independently authenticated sequence history.
+/// Persist it keyed by transaction hash and reload it when reopening a client. Never
+/// derive it from the unverified RPC receipt that is being checked.
+public struct ProgramSequenceContext: Sendable, Codable {
+  public let transactionHash: Data
+  public let sequence: UInt64
+  public let previousSequenceHash: Data
+
+  public init(transactionHash: Data, sequence: UInt64, previousSequenceHash: Data) throws {
+    guard transactionHash.count == 32, sequence > 0, previousSequenceHash.count == 32 else {
+      throw programInvalid()
+    }
+    self.transactionHash = transactionHash
+    self.sequence = sequence
+    self.previousSequenceHash = previousSequenceHash
+  }
+}
+
+public typealias ProgramSequenceRecovery = @Sendable (Data) async throws -> ProgramSequenceContext
 
 enum ProgramABI {
   enum Field { case word(Data), bytes(Data) }
@@ -380,11 +493,15 @@ public struct ProgramsClient: Sendable {
   private let maxPriorityFeePerGas: UInt64
   private let receiptKeys: [ReceiptKeys]
   private let prevSeqHash: Data
+  private let sequenceRecovery: ProgramSequenceRecovery?
 
+  /// Use sequenceRecovery for reusable clients and restore its authenticated history
+  /// after restart. Without it, prevSeqHash pins this client to one predecessor.
   public init(
     rpcURL: URL, sender: Data, actor: Data? = nil, receiptKeys: [ReceiptKeys],
     maxFeePerGas: UInt64, maxPriorityFeePerGas: UInt64,
     prevSeqHash: Data = Data(repeating: 0, count: 32),
+    sequenceRecovery: ProgramSequenceRecovery? = nil,
     session: URLSession = .shared
   ) throws {
     guard sender.count == 20, sender.contains(where: { $0 != 0 }),
@@ -396,10 +513,16 @@ public struct ProgramsClient: Sendable {
     self.actor = actor
     self.receiptKeys = receiptKeys
     self.prevSeqHash = prevSeqHash
+    self.sequenceRecovery = sequenceRecovery
     self.maxFeePerGas = maxFeePerGas
     self.maxPriorityFeePerGas = maxPriorityFeePerGas
   }
 
+  @available(
+    *, deprecated,
+    message:
+      "Retired configuration is unavailable. Use init(rpcURL:sender:receiptKeys:maxFeePerGas:maxPriorityFeePerGas:sequenceRecovery:session:)."
+  )
   public init(
     client: PlatformClient, sequencerPublicKey: Data,
     protocolVersion: UInt16 = 2, maximumSimulationAgeMilliseconds: UInt64 = 300_000,
@@ -411,13 +534,7 @@ public struct ProgramsClient: Sendable {
       sequencerPublicKey.count == 32, sequencerPublicKey.contains(where: { $0 != 0 }),
       maximumSimulationAgeMilliseconds > 0
     else { throw programInvalid() }
-    rpc = nil
-    sender = nil
-    actor = nil
-    receiptKeys = []
-    prevSeqHash = Data(repeating: 0, count: 32)
-    maxFeePerGas = 0
-    maxPriorityFeePerGas = 0
+    throw PlatformSDKError(code: .protocolIncompatibility, retry: .never)
   }
 
   private func transport() throws -> ProgramRPC {
@@ -612,9 +729,22 @@ public struct ProgramsClient: Sendable {
     guard let rawTransaction = try? ProgramABI.hex(raw.stringValue),
       CommittedWire.keccak256(rawTransaction) == transactionHash
     else { throw programVerification() }
-    return try verifySubmission(
+    let context = try await sequenceRecovery?(transactionHash)
+    if let context {
+      guard context.transactionHash == transactionHash, context.sequence > 0,
+        context.previousSequenceHash.count == 32
+      else { throw programVerification() }
+    }
+    let submission = try verifySubmission(
       ProgramABI.hex(receiptJSON["receipt"]?.stringValue), transactionHash: transactionHash,
-      rawTransaction: rawTransaction, receiptJSON: receiptJSON, prevSeqHash: prevSeqHash)
+      rawTransaction: rawTransaction, receiptJSON: receiptJSON,
+      prevSeqHash: context?.previousSequenceHash ?? prevSeqHash)
+    if let context {
+      guard submission.sequencerReceipt?.receipt.globalSequence == context.sequence else {
+        throw programVerification()
+      }
+    }
+    return submission
   }
   public static func verifyReceipt(
     _ canonicalReceipt: Data, rawTransaction: Data, keys: [ReceiptKeys],

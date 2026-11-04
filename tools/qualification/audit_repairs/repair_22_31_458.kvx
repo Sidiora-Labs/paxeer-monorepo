@@ -1,0 +1,19 @@
+[task.22.31.458]
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+cache_directory = "tools/qualification/audit_repairs/__pycache__"
+cache_file_patterns = ["test_px_node_root_design.*.pyc", "test_repair_22_31_425.*.pyc", "test_repair_22_31_427.*.pyc"]
+required_ignore_rules = ["__pycache__/", "*.pyc"]
+baseline = "The supplied base already contains both root ignore rules and git ls-files reports no path with a __pycache__ component; the three named historical caches are already absent, so no deletion or duplicate rule is necessary. No pre-change build or verification ran. The gate ledger has no prior runs."
+repair = "Preserve every existing ignore rule, label the Python bytecode section, and add a regression test of the full tracked inventory, exact whole-line ignore rules and real Git ignore behavior at the root and under audit_repairs."
+proofs = ["test_tracked_inventory_contains_no_python_cache_directory", "test_root_gitignore_contains_and_applies_python_bytecode_rules"]
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_458.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_458.py"
+evidence = "The final hf-done JSON and private gate ledger name the verified candidate revision, exact command, exit code and log location; hf-build and hf-done must qualify the same candidate. This record is finalized before the gates; the runner commits."
+
+[gotcha.1]
+observed = "The task describes missing ignore rules and committed caches, but both cleanup requirements are already satisfied in the supplied base."
+resolution = "Preserve the inherited cleanup and prove it through regression tests; do not recreate removed bytecode or claim new deletions. Record this here because GOTCHA.kvx and spec files are outside the authorized scope."
+
+[gotcha.2]
+observed = "Combined repository reads exceeded the tool output limit."
+resolution = "Use bounded task-specific reads for the source, workflow and evidence."
