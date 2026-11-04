@@ -6,6 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define main sandbox_lifecycle_case_main
+#define put_u32 sandbox_lifecycle_put_u32
+#include "../codec/lxp_test_sandbox_lifecycle.c"
+#undef put_u32
+#undef main
+
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define SANDBOX_ADDRESS_SANITIZER 1
@@ -422,9 +428,18 @@ static int abi_transition_matrix(void)
 
 int main(int argc, char **argv)
 {
+    char *rollback_cases[] = {
+        argv[0],
+        "sandbox_execute_refusal_propagates",
+        "sandbox_execute_unpayable_charge_is_named",
+        "sandbox_rollback_preserves_refusal",
+        "sandbox_rollback_staged_account_failure_is_fatal",
+        "sandbox_rollback_transfer_failure_is_fatal"
+    };
     if (argc == 2 && strcmp(argv[1], "--sandbox-bounds") == 0)
         return sandbox_bounds();
     if (argc != 1) return 1;
+    if (sandbox_lifecycle_case_main(6, rollback_cases) != 0) return 1;
     if (lxp_programs_abi_transition_validate(0U, LX_PROGRAMS_ABI_VERSION) != LXP_OK ||
         lxp_programs_abi_transition_validate(0U, LX_PROGRAMS_ACCOUNT_ABI_VERSION) != LXP_OK ||
         lxp_programs_abi_transition_validate(LX_PROGRAMS_ABI_VERSION,
