@@ -1,0 +1,60 @@
+[repair.22.31.103]
+audit = "22.30.51"
+mode = "BUILD"
+acceptance = "22998.1"
+verification = "hf-done; exact candidate revision, command, exit and private log are recorded in the runner gate ledger and final evidence"
+baseline = "Continue the supplied attempt-1 evidence: TestRepair_103_MicrobatchAdmission failed its bytes and domain-bytes cases. No unchanged-tree rerun: the explicit ordered gate budget requires full implementation before hf-build/hf-done."
+
+[finding.microbatch-admission]
+test = "TestRepair_103_MicrobatchAdmission"
+repair = "Reserve admission usage for the runnable prefix in arrival order and roll it back for refusals and failed execution. Prove block gas, gas wanted, tx-0 byte reservation and domain gas/bytes; over-limit sends have no receipt and the resulting block passes validator admission."
+
+[finding.replication-auth]
+test = "TestRepair_103_ReplicationRejectsForgedACK"
+repair = "DialStandby requires mutual TLS with explicit CA trust, certificate DNS identity and SHA-256 SPKI pin. No WAL/ACK stream is returned before authentication; plaintext, unknown roots, mismatched keys and missing trust cannot release a receipt."
+
+[finding.standby-listener-auth]
+test = "TestRepair_103_StandbyRejectsUnauthorizedControl"
+repair = "StartStandby uses the same configured roots and peer pin; its listener completes a bounded mutual TLS handshake before Serve receives any frame. Unauthorized lifecycle frames never reach WAL append; trusted peers remain usable."
+
+[finding.sealed-tail-restart]
+test = "TestRepair_103_SealedTailRestart"
+repair = "Replay preserves and validates the sealed Batch, startup restores the consensus pending batch, and an application tip already committed before WAL COMMITTED is reconciled only against the exact sequence/hash seal. Stop/reopen proves receipt identity, proposal identity, ordering and commit in both executor modes."
+
+[finding.promotion-abandons-pending]
+test = "TestRepair_103_PromotionDrainsAcknowledgedTail"
+repair = "TakeLease fences replication before draining pending entries; leadership is published only after appliedSeq equals the acknowledged cursor. Failover and Handover prove queued ACCEPT recovery through local commit and WAL reopen."
+
+[finding.seal-overtakes-accept-wal]
+test = "TestRepair_103_SealWaitsForAcceptWAL"
+repair = "Consensus Seal shares the accepter admission boundary through WAL release and receipt publication. A real concurrent send/seal proves OPEN/ACCEPT/SEAL ordering in both WALs and exact receipt/block recovery after reopen."
+
+[finding.receipt-first-record-after-commit]
+test = "TestRepair_103_ReceiptFirstPublicationAfterCommit"
+repair = "ReceiptSource keeps first publication below the commit watermark and remembers exact evicted sequence ranges, preserving eviction semantics without treating a never-published earlier sequence as a duplicate. Concurrent publication and commit retain the exact signed send by hash."
+
+[wiring.sequencer-contract]
+request = "spec/layerx-merge/contracts/sequencer.md and owning interface registry: domain 5 must describe mandatory replication-tls-cert/key/ca, replication-peer-name and replication-peer-spki configuration and authenticated transport."
+
+[gotcha.implementation]
+observed = "Public RPC admission and consensus sealing previously held separate locks, and a synced standby tail may remain unapplied behind local commit."
+resolution = "Share the acceptance boundary with sealing and fence ingress while promotion waits for the durable tail to be applied; queued durable records are not evidence of applied leadership state."
+
+[gotcha.qualification]
+observed = "The first hf-done stopped at test compilation on an unused import. Fixture review also aligned the test-chain ID and pinned proposer with the real validator path."
+resolution = "Remove the import and use the configured root chain and the real consensus public key in the fixture; retain every assertion and rerun hf-build followed by hf-done on the repaired candidate."
+
+[gotcha.continue-admission]
+observed = "The nonce-gap candidate encodes a nonzero nonce and may exceed nonce-zero fixture sizes; its admission then fails before execution can refuse the nonce."
+resolution = "Derive the single-candidate byte budget from every candidate, plus the reserved tx-0 only for block bytes. The merged base already counts candidate bytes once; preserve that rule and assert exact accepted-only block and domain usage."
+
+[gotcha.continue-merge]
+observed = "The seeded consensus source retained an obsolete acceptance callback and conflicted with the current acknowledgement and owned retry-result paths."
+resolution = "Keep the current accepter and retry copies, then share its mutex with new seals through durable ACCEPT release and receipt publication."
+
+[qualification.snapshot-fixture]
+revision = "69a3bf23acfaa99f2b2d0d3240d984c6d781588d"
+command = "cg spec done 22.31.103 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; goroutine dump in /out/logs/repair-103-first.log"
+observed = "The replica fixture blocked in the pre-existing historical-state snapshot importer before exercising concurrent send/seal; SIGQUIT ended the run. The fixture now selects the production SC store without optional history indexing, retaining the exact snapshot hash and all recovery assertions."

@@ -1,14 +1,11 @@
+Code.require_file("committed_evidence.exs", __DIR__)
+
 defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
   use BlockScoutWeb.ConnCase
 
   alias Explorer.Chain
   alias Explorer.Chain.PaxeerX.SequencerReceipt
-  alias Plug.Conn
-
-  @vectors Path.expand(
-             "../../../../../../../explorer/test/support/fixture/paxeer_x/committed_vectors.json",
-             __DIR__
-           )
+  alias BlockScoutWeb.API.V2.PaxeerX.CommittedEvidence, as: Evidence
 
   setup do
     original_receipt_config = Application.get_env(:explorer, SequencerReceipt)
@@ -20,8 +17,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
       restore_env(:tesla, :adapter, original_adapter)
     end)
 
-    %{"cases" => cases} = @vectors |> File.read!() |> Jason.decode!()
-    {:ok, vector: Enum.find(cases, &(&1["id"] == "committed-ok"))}
+    {:ok, vector: Evidence.settlement()}
   end
 
   test "status_answers_committed_for_router_verified_hash", context do
@@ -35,18 +31,11 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
 
     batch = gateway_batch(vector)
 
-    calls = [
-      {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
-      {"px_getReceiptKeys", [], %{"keys" => [vector["pinnedKey"]]}},
-      {"eth_getTransactionReceipt", [hash], vector["eth_receipt"]},
-      {"px_getCommit", ["1000"], %{"height" => "1000", "signedHeader" => vector["commit"]["signed_header"]}},
-      {"px_getValidators", ["1000"], gateway_validators(vector["validators"])},
-      {"px_getSequenceBatch", ["1000"], batch}
-    ]
+    calls = Evidence.committed_calls(vector)
 
     response = status_response(conn, hash, calls)
 
-    assert response == %{"rung" => "committed", "block_number" => nil, "committed_height" => 1_000}
+    assert response == %{"rung" => "committed", "block_number" => nil, "committed_height" => 10}
     assert {:error, :not_found} = Chain.hash_to_transaction(transaction_hash, api?: true)
 
     "0x" <> tx_hex = batch["tx"]
@@ -57,10 +46,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
           binary_part(tx, 0, 240),
           tx <> <<0>>,
           <<0>> <> binary_part(tx, 1, 240),
-          domain <> <<1_001::64>> <> rest
+          domain <> <<11::64>> <> rest
         ] do
       invalid_batch = Map.put(batch, "tx", hex(invalid_tx))
-      invalid_calls = List.keyreplace(calls, "px_getSequenceBatch", 0, {"px_getSequenceBatch", ["1000"], invalid_batch})
+      invalid_calls = List.keyreplace(calls, "px_getSequenceBatch", 0, {"px_getSequenceBatch", ["10"], invalid_batch})
 
       assert status_response(conn, hash, invalid_calls) ==
                %{"rung" => "receipted", "block_number" => nil, "committed_height" => nil}
@@ -77,10 +66,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
     assert {:error, :not_found} = Chain.hash_to_transaction(transaction_hash, api?: true)
 
     calls = [
-      {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
-      {"px_getReceiptKeys", [], %{"keys" => [vector["pinnedKey"]]}},
-      {"eth_getTransactionReceipt", [hash], vector["eth_receipt"]},
-      {"px_getCommit", ["1000"], nil}
+      {"pax_sequencerReceipt", [hash], vector["receipt"]},
+      {"px_getReceiptKeys", [], %{"keys" => [Evidence.receipt_key()]}},
+      {"eth_getTransactionReceipt", [hash], Evidence.eth_receipt(vector)},
+      {"px_getCommit", ["10"], nil}
     ]
 
     assert status_response(conn, hash, calls) ==
@@ -88,7 +77,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
 
     assert {:error, :not_found} = Chain.hash_to_transaction(transaction_hash, api?: true)
 
-    for malformed <- [[vector["pinnedKey"]], %{}, %{"keys" => nil}, %{"keys" => %{}}] do
+    for malformed <- [[Evidence.receipt_key()], %{}, %{"keys" => nil}, %{"keys" => %{}}] do
       serve_rpc([{"px_getReceiptKeys", [], malformed}])
       assert {:error, :malformed_receipt_keys} = SequencerReceipt.receipt_keys()
       assert_received {:rpc_call, "px_getReceiptKeys", []}
@@ -108,76 +97,9 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusCommittedTest do
     response
   end
 
-  defp transaction_hash(vector) do
-    "0x" <> raw_transaction = vector["rawTransaction"]
-    raw_transaction |> Base.decode16!(case: :mixed) |> ExKeccak.hash_256() |> hex()
-  end
-
-  defp gateway_validators(validators) do
-    %{
-      "height" => validators["block_height"],
-      "total" => validators["total"],
-      "validators" =>
-        Enum.map(validators["validators"], fn validator ->
-          %{
-            "address" => validator["address"],
-            "pubKey" => validator["pub_key"],
-            "votingPower" => validator["voting_power"]
-          }
-        end)
-    }
-  end
-
-  defp gateway_batch(vector) do
-    "0x" <> receipt_hex = vector["receiptJson"]["receipt"]
-    {:ok, receipt} = receipt_hex |> Base.decode16!(case: :mixed) |> SequencerReceipt.decode()
-    domain = "PAXEER/v1/sequence-batch\0"
-
-    fields =
-      <<1_000::64, vector["batch"]["from_seq"]::64, vector["batch"]["to_seq"]::64>> <>
-        receipt.previous_state_root <> receipt.resulting_state_root <> receipt.activity_root
-
-    seed = :binary.copy(<<0x5E>>, 32)
-    {public_key, private_key} = :crypto.generate_key(:eddsa, :ed25519, seed)
-    assert hex(public_key) == vector["pinnedKey"]["publicKey"]
-    digest = :crypto.hash(:sha256, domain <> vector["chain_id"] <> fields)
-    signature = :crypto.sign(:eddsa, :none, digest, [private_key, :ed25519])
-    tx = domain <> fields <> receipt.context_hash <> signature
-    assert byte_size(tx) == 241
-
-    %{
-      "height" => "1000",
-      "tx" => hex(tx),
-      "proof" => %{
-        "total" => 1,
-        "index" => 0,
-        "leafHash" => hex(:crypto.hash(:sha256, <<0>> <> :crypto.hash(:sha256, tx))),
-        "aunts" => []
-      }
-    }
-  end
-
-  defp hex(bytes), do: "0x" <> Base.encode16(bytes, case: :lower)
-
-  defp serve_rpc(calls) do
-    bypass = Bypass.open()
-    test_pid = self()
-    answers = Map.new(calls, fn {method, params, result} -> {method, {params, result}} end)
-
-    Bypass.expect(bypass, "POST", "/", fn conn ->
-      {:ok, body, conn} = Conn.read_body(conn)
-      assert %{"jsonrpc" => "2.0", "id" => id, "method" => method, "params" => params} = Jason.decode!(body)
-      assert {^params, result} = Map.fetch!(answers, method)
-      send(test_pid, {:rpc_call, method, params})
-
-      conn
-      |> Conn.put_resp_content_type("application/json")
-      |> Conn.resp(200, Jason.encode!(%{jsonrpc: "2.0", id: id, result: result}))
-    end)
-
-    Application.put_env(:explorer, SequencerReceipt, router_url: "http://localhost:#{bypass.port}/")
-  end
-
-  defp restore_env(app, key, nil), do: Application.delete_env(app, key)
-  defp restore_env(app, key, value), do: Application.put_env(app, key, value)
+  defp transaction_hash(vector), do: vector["raw_transaction"] |> Evidence.bytes() |> ExKeccak.hash_256() |> hex()
+  defp gateway_batch(vector), do: Evidence.gateway_batch(vector)
+  defp hex(bytes), do: Evidence.hex(bytes)
+  defp serve_rpc(calls), do: Evidence.serve_rpc(calls)
+  defp restore_env(app, key, value), do: Evidence.restore_env(app, key, value)
 end

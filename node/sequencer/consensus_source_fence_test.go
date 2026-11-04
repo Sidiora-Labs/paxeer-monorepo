@@ -23,7 +23,7 @@ import (
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,7 +39,7 @@ type consensusFenceHarness struct {
 	openedAt  int64
 }
 
-func newConsensusFenceHarness(t *testing.T, lastSeq uint64, sender utils.TestAcct) *consensusFenceHarness {
+func newConsensusFenceHarness(t *testing.T, lastSeq uint64, sender utils.TestAcct, setup ...func(sdk.Context, *app.App)) *consensusFenceHarness {
 	t.Helper()
 	previousOCC := app.EnableOCC
 	app.EnableOCC = false
@@ -71,7 +71,7 @@ func newConsensusFenceHarness(t *testing.T, lastSeq uint64, sender utils.TestAcc
 	require.NoError(t, err)
 
 	now := time.Now().UTC()
-	valPub := secp256k1.GenPrivKey().PubKey()
+	valPub := &sdked25519.PubKey{Key: pv.Key.PubKey.Bytes()}
 	tw := app.NewTestWrapper(t, now, valPub, false, func(ba *baseapp.BaseApp) {
 		ba.SetOccEnabled(false)
 		ba.SetConcurrencyWorkers(1)
@@ -81,12 +81,15 @@ func newConsensusFenceHarness(t *testing.T, lastSeq uint64, sender utils.TestAcc
 	tw.FundAcc(sender.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(1_000_000_000_000))))
 	previousHash := sha256.Sum256([]byte("consensus fence previous sequence hash"))
 	require.NoError(t, a.SequencerKeeper.InitGenesis(tw.Ctx, seqtypes.GenesisState{
-		Leaders: [][32]byte{keyID},
+		Leaders: [][32]byte{[32]byte(valPub.Bytes())},
 		ReceiptKeys: []seqtypes.ReceiptKey{{
 			KeyId: keyID, PublicKey: public, FirstHeight: 1, LastHeight: 100,
 		}},
 		LastSeq: lastSeq, LastSeqHash: previousHash,
 	}))
+	for _, configure := range setup {
+		configure(tw.Ctx, a)
+	}
 	a.UpgradeKeeper.SetDone(tw.Ctx.WithBlockHeight(1), app.MergeUpgrade)
 	_, err = a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Header: &tmproto.Header{ChainID: "pax-test", Height: 1},

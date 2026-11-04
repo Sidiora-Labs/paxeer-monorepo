@@ -1,0 +1,16 @@
+[package]
+name = "x-websearch-application-proof"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+x-websearch = { path = "../.." }
+k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
+serde_json = "=1.0.151"
+
+[[bin]]
+name = "xweb-application-proof"
+path = "main.rs"

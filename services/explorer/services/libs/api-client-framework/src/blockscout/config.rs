@@ -1,7 +1,8 @@
+use super::config_security::{deserialize_api_key, ConfigDebug};
 use reqwest::header::HeaderValue;
 use reqwest_middleware::Middleware;
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use std::{fmt, fmt::Formatter, sync::Arc, time::Duration};
 
 #[derive(Clone, Deserialize)]
@@ -19,28 +20,9 @@ pub struct Config {
     pub middlewares: Vec<Arc<dyn Middleware>>,
 }
 
-fn deserialize_api_key<'de, D>(deserializer: D) -> Result<Option<HeaderValue>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let string = Option::<String>::deserialize(deserializer)?;
-    string
-        .map(|value| HeaderValue::from_str(&value))
-        .transpose()
-        .map_err(<D::Error as serde::de::Error>::custom)
-}
-
 // We have to derive `Debug` manually as we need to skip middlewares field which does not implement it.
 impl fmt::Debug for Config {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        #[derive(Debug)]
-        #[allow(dead_code)]
-        struct ConfigDebug<'a> {
-            url: &'a url::Url,
-            api_key: &'a Option<HeaderValue>,
-            http_timeout: &'a Duration,
-            probe_url: &'a bool,
-        }
         let Config {
             url,
             api_key,

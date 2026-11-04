@@ -29,7 +29,7 @@ use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 use layerx_network_gateway::{
-    AccountBalances, AccountIdentifier, GatewayEndpoint, GatewayError, WalletObservation,
+    AccountBalances, AccountIdentifier, GatewayEndpoint, GatewayError, Quantity, WalletObservation,
 };
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
@@ -194,8 +194,8 @@ impl NetworkObservation {
     }
 
     #[must_use]
-    pub fn balance(&self, denom: &str) -> Option<Amount> {
-        self.wallet.balance(denom).map(Amount::from_u128)
+    pub fn balance(&self, denom: &str) -> Option<Quantity> {
+        self.wallet.balance(denom)
     }
 
     /// The bound Paxeer wallet the custody context is built around.
@@ -221,7 +221,8 @@ impl NetworkObservation {
     /// # Errors
     ///
     /// Refuses rather than reporting zero when no bank denomination hashes to
-    /// the requested asset identifier. An unobserved holding is never zero.
+    /// the requested asset identifier, or when the holding exceeds the intent
+    /// planner's business amount. An unobserved holding is never zero.
     pub fn wallet_balance(&self, asset: AssetId) -> Result<Amount, ObservationError> {
         let row = self
             .joined()
@@ -232,7 +233,9 @@ impl NetworkObservation {
                 identifier == asset.bytes()
             })
             .ok_or(ObservationError::AssetNotJoined { asset })?;
-        Ok(Amount::from_u128(row.amount))
+        Ok(Amount::from_u128(
+            row.amount.for_operation("intent-planning")?,
+        ))
     }
 }
 
@@ -446,7 +449,7 @@ mod tests {
     fn row(denom: &str, amount: u128) -> AssetBalance {
         AssetBalance {
             denom: denom.to_owned(),
-            amount,
+            amount: amount.into(),
         }
     }
 
@@ -637,5 +640,35 @@ mod tests {
             Ok(Amount::from_u128(4_096))
         );
         assert_eq!(observation.joined().evidence, Evidence::GatewayReported);
+    }
+
+    #[test]
+    fn large_wallet_reads_remain_exact_when_intent_planning_refuses_them() {
+        for amount in [
+            "1606938044258990275541962092341162602522202993782792835301376",
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        ] {
+            let quantity = layerx_network_gateway::quantity(&serde_json::json!(amount))
+                .expect("valid uint256 balance");
+            let observation = network(vec![
+                row("uusdc", 7),
+                AssetBalance {
+                    denom: "upax".to_owned(),
+                    amount: quantity,
+                },
+            ]);
+            assert_eq!(observation.balance("upax"), Some(quantity));
+            assert_eq!(observation.balance("upax").unwrap().to_string(), amount);
+            assert_eq!(observation.balance("uusdc"), Some(7.into()));
+            assert_eq!(observation.balance("unobserved"), None);
+            assert_eq!(
+                observation.wallet_balance(ASSET),
+                Err(ObservationError::Gateway(GatewayError::AmountOutOfRange {
+                    operation: "intent-planning"
+                }))
+            );
+            assert_eq!(observation.balance("upax"), Some(quantity));
+            assert_eq!(observation.joined().balances.len(), 2);
+        }
     }
 }

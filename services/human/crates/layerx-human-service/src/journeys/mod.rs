@@ -1,5 +1,6 @@
 //! Durable, receipt-gated human journeys and their deterministic routing.
 
+mod bank_commit;
 mod engine;
 mod intent_submit;
 mod move_money;
@@ -9,6 +10,8 @@ mod router;
 mod wire;
 
 pub use layerx_client::sequencer::ReceiptKeyEntry;
+
+pub use bank_commit::{BankCommitEvidence, BankCommittedReceipt};
 
 pub use engine::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, JourneyEngine,

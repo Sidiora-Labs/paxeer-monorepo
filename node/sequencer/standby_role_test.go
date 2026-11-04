@@ -121,12 +121,13 @@ func TestStartStandbyReplaysLedgerAfterCommit(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o700))
 		require.NoError(t, os.WriteFile(target, data, 0o600))
 	}
+	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
 	l := listen(t)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())
 	standbyCtx, cancel := context.WithCancel(ctx)
 	s, err := sequencer.StartStandby(standbyCtx, sequencer.Config{
-		Role: sequencer.RoleStandby, WALDir: filepath.Join(dir, "standby-wal"),
+		Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, WALDir: filepath.Join(dir, "standby-wal"),
 		ReceiptKeyFile: writeSeed(t, dir, "standby-receipt", standbySeed, 0o600),
 		StandbyAddress: address, ReplicationTimeout: replicationTimeout,
 	}, backup)
@@ -140,7 +141,7 @@ func TestStartStandbyReplaysLedgerAfterCommit(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(w.Close)
 	repl, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: w, Dial: sequencer.DialStandby(address, replicationTimeout), ReplicationTimeout: replicationTimeout,
+		WAL: w, Dial: sequencer.DialStandby(address, replicationTimeout, primaryTLS), ReplicationTimeout: replicationTimeout,
 	})
 	require.NoError(t, err)
 	t.Cleanup(repl.Close)
@@ -303,12 +304,13 @@ func TestStandbyReplayCommitsSealedLayerAcrossBlocks(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o700))
 		require.NoError(t, os.WriteFile(target, data, 0o600))
 	}
+	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
 	l := listen(t)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())
 	standbyCtx, cancel := context.WithCancel(ctx)
 	s, err := sequencer.StartStandby(standbyCtx, sequencer.Config{
-		Role: sequencer.RoleStandby, WALDir: filepath.Join(dir, "standby-wal"),
+		Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, WALDir: filepath.Join(dir, "standby-wal"),
 		ReceiptKeyFile: writeSeed(t, dir, "standby-receipt", standbySeed, 0o600),
 		StandbyAddress: address, ReplicationTimeout: replicationTimeout,
 	}, backup)
@@ -325,7 +327,7 @@ func TestStandbyReplayCommitsSealedLayerAcrossBlocks(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(w.Close)
 	repl, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: w, Dial: sequencer.DialStandby(address, replicationTimeout), ReplicationTimeout: replicationTimeout,
+		WAL: w, Dial: sequencer.DialStandby(address, replicationTimeout, primaryTLS), ReplicationTimeout: replicationTimeout,
 	})
 	require.NoError(t, err)
 	t.Cleanup(repl.Close)
@@ -483,11 +485,12 @@ func TestStartStandbyServesReplication(t *testing.T) {
 	require.NoError(t, err)
 	receipter, err := sequencer.NewReceipter(primary.exec, primary.app, &primary.app.EvmKeeper, key, app.EVMReceiptModuleID)
 	require.NoError(t, err)
+	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
 	l := listen(t)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())
 	cfg := sequencer.Config{
-		Role: sequencer.RoleStandby, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
+		Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
 		ReceiptKeyFile: writeSeed(t, t.TempDir(), "receipt_key", standbySeed, 0o600), StandbyAddress: address,
 		ReplicationTimeout: 200 * time.Millisecond,
 	}
@@ -507,7 +510,7 @@ func TestStartStandbyServesReplication(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(w.Close)
 	repl, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: w, Dial: sequencer.DialStandby(address, replicationTimeout), ReplicationTimeout: replicationTimeout,
+		WAL: w, Dial: sequencer.DialStandby(address, replicationTimeout, primaryTLS), ReplicationTimeout: replicationTimeout,
 	})
 	require.NoError(t, err)
 	t.Cleanup(repl.Close)
@@ -574,7 +577,7 @@ func TestStartStandbyServesReplication(t *testing.T) {
 		openMs++
 		require.NoError(t, primary.exec.Open(height+1, openMs))
 		nextOpen := &wal.Open{Height: uint64(height + 1), OpenTimeMs: uint64(openMs), BaseFee: uint256.NewInt(0)}
-		conn, err := net.DialTimeout("tcp", address, replicationTimeout)
+		conn, err := sequencer.DialStandby(address, replicationTimeout, primaryTLS)(ctx)
 		require.NoError(t, err)
 		started := time.Now()
 		nextAck := standbyLeaseExchange(t, conn, nextOpen)
@@ -694,11 +697,12 @@ func TestReplicatorReleaseOverLaggingStandbyCommit(t *testing.T) {
 		_, err = a.Commit(ctx)
 		require.NoError(t, err)
 	}
+	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
 	l := listen(t)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())
 	cfg := sequencer.Config{
-		Role: sequencer.RoleStandby, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
+		Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
 		ReceiptKeyFile: writeSeed(t, t.TempDir(), "receipt_key", standbySeed, 0o600),
 		StandbyAddress: address, ReplicationTimeout: 400 * time.Millisecond,
 	}
@@ -713,7 +717,7 @@ func TestReplicatorReleaseOverLaggingStandbyCommit(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(w.Close)
 	repl, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: w, Dial: sequencer.DialStandby(address, cfg.ReplicationTimeout), ReplicationTimeout: cfg.ReplicationTimeout,
+		WAL: w, Dial: sequencer.DialStandby(address, cfg.ReplicationTimeout, primaryTLS), ReplicationTimeout: cfg.ReplicationTimeout,
 	})
 	require.NoError(t, err)
 	t.Cleanup(repl.Close)
@@ -841,11 +845,12 @@ func TestStandbyTakeLeaseWhileOpenWaitsForCommit(t *testing.T) {
 	a.SetDeliverStateToCommit()
 	_, err = a.Commit(ctx)
 	require.NoError(t, err)
+	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
 	l := listen(t)
 	address := l.Addr().String()
 	require.NoError(t, l.Close())
 	cfg := sequencer.Config{
-		Role: sequencer.RoleStandby, WALDir: filepath.Join(dir, "standby-wal"),
+		Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, WALDir: filepath.Join(dir, "standby-wal"),
 		ReceiptKeyFile: writeSeed(t, dir, "receipt", standbySeed, 0o600),
 		StandbyAddress: address, ReplicationTimeout: 2 * time.Second,
 	}
@@ -855,7 +860,7 @@ func TestStandbyTakeLeaseWhileOpenWaitsForCommit(t *testing.T) {
 		cancel()
 		require.Eventually(t, func() bool { return s.Err() != nil }, replicationTimeout, time.Millisecond)
 	})
-	conn, err := net.DialTimeout("tcp", address, replicationTimeout)
+	conn, err := sequencer.DialStandby(address, replicationTimeout, primaryTLS)(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	openMs := uint64(time.Now().Add(time.Minute).UnixMilli())
@@ -910,16 +915,42 @@ func TestStandbyTakeLeaseWhileOpenWaitsForCommit(t *testing.T) {
 	responsive("RefusalReason", func() { refusal = s.RefusalReason() })
 	require.NoError(t, refusal)
 	lease := &wal.Lease{Epoch: 2, ExpiryMs: openMs + 1000}
-	var leaseErr error
-	responsive("TakeLease", func() { leaseErr = s.TakeLease(lease) })
-	require.NoError(t, leaseErr)
+	leaseResult := make(chan error, 1)
+	go func() { leaseResult <- s.TakeLease(lease) }()
+	select {
+	case err := <-leaseResult:
+		t.Fatalf("TakeLease returned before local commit: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	// The standby already holds a sealed empty block; sign the matching tx 0
+	// with the pinned primary key and finalize it through the real consumer.
+	primaryKey, err := loadKey(t, testKeySeed, []verify.SequencerAuthorization{{SequencerID: testKeyID, PublicKey: publicOf(testKeySeed), FirstBatchNumber: 1, LastBatchNumber: 1000}}, openHeight)
+	require.NoError(t, err)
+	exec, err := sequencer.NewExecutor(a, sequencer.Options{ChainID: testChainID, ProposerAddress: primaryPub.Address(), LastSeq: startSeq, LastSeqHash: startSeqHash})
+	require.NoError(t, err)
+	require.NoError(t, exec.Open(openHeight, int64(openMs)))
+	source, err := sequencer.NewConsensusSource(a, exec, primaryKey)
+	require.NoError(t, err)
+	block, err := source.Seal(ctx, openHeight)
+	require.NoError(t, err)
+	_, err = a.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: testChainID, Height: openHeight, Time: block.OpenTime, ProposerAddress: primaryPub.Address()}, Txs: [][]byte{block.Batch}})
+	require.NoError(t, err)
+	a.SetDeliverStateToCommit()
+	_, err = a.Commit(ctx)
+	require.NoError(t, err)
+	select {
+	case err := <-leaseResult:
+		require.NoError(t, err)
+	case <-time.After(cfg.ReplicationTimeout):
+		t.Fatal("TakeLease did not apply the queued OPEN after commit")
+	}
 	ack = standbyLeaseExchange(t, conn, &wal.Open{Height: uint64(openHeight + 1), OpenTimeMs: openMs + 1, BaseFee: uint256.NewInt(0)})
 	require.Equal(t, sequencer.AckRefused, ack.Status)
 	require.Equal(t, startSeq, ack.LastSeq)
 	require.Equal(t, lease.Epoch, ack.Epoch)
 	require.ErrorIs(t, s.RefusalReason(), sequencer.ErrFenced)
 	require.NoError(t, s.Err())
-	require.Equal(t, int64(committedTip), a.LastBlockHeight())
+	require.Equal(t, int64(openHeight), a.LastBlockHeight())
 }
 
 func newStandbyRoleApp(t *testing.T, sender utils.TestAcct) *app.TestWrapper {

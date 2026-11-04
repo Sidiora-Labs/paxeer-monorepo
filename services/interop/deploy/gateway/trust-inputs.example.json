@@ -1,0 +1,58 @@
+{
+  "ap2_assets": [
+    {
+      "asset": "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898",
+      "atomic_units_per_minor_unit": "1000000000000000000",
+      "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "currency": "LXT",
+      "minor_unit_exponent": 0,
+      "payee_account": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "payee_merchant_id": "layerx-beta-merchant",
+      "payee_merchant_name": "LayerX Beta Testnet Merchant",
+      "payer_account": "1111111111111111111111111111111111111111111111111111111111111111",
+      "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "ap2_keys": [
+    {
+      "key_id": "layerx-beta-checkout-mandate-key",
+      "public_key_sec1": "04aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "use_case": "checkout-mandate"
+    },
+    {
+      "key_id": "layerx-beta-payment-mandate-key",
+      "public_key_sec1": "04bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "use_case": "payment-mandate"
+    },
+    {
+      "key_id": "layerx-beta-merchant-checkout-key",
+      "public_key_sec1": "04cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "use_case": "merchant-checkout"
+    }
+  ],
+  "fiat_providers": [
+    {
+      "provider": "layerx-beta-fiat-provider",
+      "public_key_ed25519": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "visa_agents": [
+    {
+      "agent_domain": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "agent_id": "layerx-beta-trusted-agent",
+      "algorithm": "ed25519",
+      "expires_at": 1893456000,
+      "key_id": "layerx-beta-tap-key-1",
+      "layerx_agent": "1111111111111111111111111111111111111111111111111111111111111111",
+      "public_key": "2222222222222222222222222222222222222222222222222222222222222222",
+      "status": "active"
+    }
+  ],
+  "visa_targets": [
+    {
+      "authority": "layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "path": "/checkout",
+      "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ]
+}

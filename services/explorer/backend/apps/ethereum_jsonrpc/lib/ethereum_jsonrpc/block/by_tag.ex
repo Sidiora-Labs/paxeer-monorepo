@@ -57,6 +57,7 @@ defmodule EthereumJSONRPC.Block.ByTag do
 
   def number_from_result({:ok, nil}), do: {:error, :not_found}
 
+  def number_from_result({:error, %{code: -32602}}), do: {:error, :invalid_tag}
   def number_from_result({:error, %{"code" => -32602}}), do: {:error, :invalid_tag}
   def number_from_result({:error, _} = error), do: error
 end

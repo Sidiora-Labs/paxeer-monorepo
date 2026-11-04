@@ -267,3 +267,11 @@ fn arguments_are_refused_before_configuration() {
         );
     }
 }
+
+#[path = "support/settlement_fixture.rs"]
+mod settlement_fixture;
+
+#[test]
+fn private_network_route_coverage() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    settlement_fixture::private_network_payment_recovers_through_mounted_route()
+}

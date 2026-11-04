@@ -279,3 +279,32 @@ func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 		t.Fatalf("rehearse counts exit %d out %q: %s", code, out, errOut)
 	}
 }
+
+func TestRehearseRejectsMissingProtectedInputs(t *testing.T) {
+	env := protectedCommandEnvironment(t)
+	for _, name := range []string{
+		rehearsal.EnvSourceURL, rehearsal.EnvGatewayMigrationsDir, rehearsal.EnvAdminURL,
+		archive.EnvPath, archive.EnvPassphrase, envelope.EnvMasterKey,
+		"CEREMONY_ID", "CEREMONY_JOURNAL_DIR", "CEREMONY_JOURNAL_KEY_FILE",
+		"CEREMONY_REHEARSAL_RECEIPT", "CEREMONY_REHEARSAL_JOURNAL_DIR", "CEREMONY_REHEARSAL_RPC_URL",
+		attestor.EnvNodes, attestor.EnvNodePins, attestor.EnvTLSCertFile,
+		attestor.EnvTLSKeyFile, attestor.EnvTLSCAFile,
+		"CEREMONY_GATEWAY_TLS_CERT_FILE", "CEREMONY_GATEWAY_TLS_KEY_FILE", "CEREMONY_OWNER_TOKENS_FILE",
+		"CEREMONY_REHEARSAL_NODES", "CEREMONY_REHEARSAL_NODE_PINS",
+		"CEREMONY_REHEARSAL_TLS_CERT_FILE", "CEREMONY_REHEARSAL_TLS_KEY_FILE", "CEREMONY_REHEARSAL_TLS_CA_FILE",
+		"CEREMONY_REHEARSAL_GATEWAY_TLS_CERT_FILE", "CEREMONY_REHEARSAL_GATEWAY_TLS_KEY_FILE",
+		"CEREMONY_REHEARSAL_OWNER_TOKENS_FILE",
+	} {
+		t.Run(name, func(t *testing.T) {
+			missing := cloneCommandEnvironment(env)
+			delete(missing, name)
+			for _, args := range [][]string{{"rehearse"}, {"rehearse", reportOnlyCounts}} {
+				code, out, errOut := invoke(missing, args...)
+				if code != 1 || out != "" || !strings.HasPrefix(errOut, "ceremony rehearse: ") {
+					t.Fatalf("%v without %s: exit=%d out=%q error=%q", args, name, code, out, errOut)
+				}
+				assertCommandSecretsRedacted(t, env, out+errOut)
+			}
+		})
+	}
+}

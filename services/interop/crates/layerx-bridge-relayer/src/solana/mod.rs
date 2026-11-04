@@ -18,6 +18,7 @@
 //! [`release::build_release_transaction`] and paid for by the ed25519 fee
 //! payer the remote signer holds.
 
+pub mod journal;
 pub mod observe;
 pub mod release;
 pub mod rpc;

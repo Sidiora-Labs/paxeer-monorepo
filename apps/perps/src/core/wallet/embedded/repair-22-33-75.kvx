@@ -1,0 +1,48 @@
+[task]
+id = "22.33.75"
+audit = "22.30.11"
+acceptance = "22998.1"
+verified_revision_source = "The bounded runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl."
+baseline = "Not run: the explicit ordered implementation-before-qualification rule and bounded single verify gate prohibit the contradictory pre-change verify instruction; no pre-change result is claimed."
+
+[finding.transaction-quantity-validation]
+test = "transactionQuantitiesReachSerializerAndGatewayValidation"
+repair = "Refuse explicit malformed, negative, fractional, unsafe-number and overflowing uint256 quantities with -32602 and field evidence; preserve optional fields, exact decimal serialization and safe nonce bounds on both transaction paths."
+
+[finding.embedded-rpc-liveness]
+test = "embeddedRpcBoundsAndValidatesRealReadTransport"
+repair = "Bound reads and response bodies to ten seconds, cancel sockets on deadlines and destroy, check HTTP status, JSON-RPC version and request id, and require exactly one result or valid error."
+
+[finding.rpc-error-data]
+test = "encodedNodeRefusalsReachClassifierAndUserFacingConsumer"
+repair = "Preserve error.data without coercion through the embedded read adapter into classifyError and AlertsPanel.alertErrorText; exercise perps precision, margin and pause and spot slippage and pause refusals encoded with the node's served ABIs."
+
+[finding.typed-data-provider-drift]
+test = "typedDataUsesValidatedCanonicalProviderAndDeploymentRefusals"
+repair = "Delegate only EIP-712 v4 to the canonical provider with pinned session, account and chain checks, signature recovery, request snapshot and deployment-specific unsupported-route wording; retain explicit refusals for legacy variants."
+
+[wiring.domain12]
+path = "services/wallet/gateway/src/routes/sign.ts"
+owner = "domain 12 wallet gateway"
+request = "Deploy the existing authenticated /v1/wallet/sign-typed-data route with signature/address responses; this app exercises canonical provider validation and committed domain 12 transcripts without changing gateway code."
+
+[wiring.node]
+path = "precompiles/perps/abi/abi.json; precompiles/spot/abi/pecor.json"
+owner = "node perps and spot domains"
+request = "Retain the served custom-error ABI contract consumed by the offline loopback test; live node execution and recording new node transcripts require the owning domain's gate, outside this no-external-binary task."
+
+[gotcha.dependencies]
+observed = "The perps-only sandbox install omitted dependencies resolved from the existing canonical wallet SDK and gateway schema paths."
+resolution = "Install the existing SDK and wallet workspace from their frozen lockfiles without build scripts; the declared gate requires no build, service, credential or external binary."
+
+[gotcha.formatter-cwd]
+observed = "pnpm --dir with dlx retained the repository working directory, so relative formatter patterns found no files."
+resolution = "Pass the two task-touched TypeScript paths from the repository root to the existing Prettier formatter."
+
+[gotcha.fixture-auth-readiness]
+observed = "The initial verification's quantity and typed-data cases dispatched before Supabase INITIAL_SESSION settled, correctly receiving the existing session-change refusal; liveness and revert-consumer tests passed."
+resolution = "Wait for the real embedded provider connect event and assert eth_accounts before dispatching fixture requests; preserve every refusal assertion and the production session guard."
+revision = "23faf9293a8f0169b2e0609cfe621b051a74e8e5"
+command = "cg spec done 22.33.75 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

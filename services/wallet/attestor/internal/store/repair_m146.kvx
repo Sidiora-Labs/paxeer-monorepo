@@ -1,0 +1,12 @@
+[repair.22.33.146]
+finding = "snapshot-store-test"
+audit = "22.30.116"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+implementation = "Extend TestSnapshotRestore to populate ledger, replay and staged ceremony records, compare all four durable buckets after restore and reopen, retain refusal decisions and consume the recovered staged share."
+proving_tests = ["TestRepairM_146_SnapshotRestoreRecordsAndRefusals"]
+producer_transport_consumer = "Committed real dealer/server-codec fixture -> Store.Import, policy.Evaluate with SpendLedger, replay and ceremony lifecycle APIs -> Store.Snapshot -> Store.Restore into an empty directory -> close and reopen -> real policy and store consumers."
+recovery_cases = "Undecided, commit and abort ceremony states; exact ledger and ceremony plaintext and share/stage metadata; audited import identity and idempotency; rolling usage and rate/daily-cap refusals; token-request and agent-nonce replay refusals; conflicting import and ceremony decisions; wrong session/epoch refusals; recovered commit/discard."
+baseline = "No baseline verification ran: the explicit gate order prohibits testing before complete implementation and requires hf-build before hf-done; repair_m146_test.go was absent initially and the gate ledger had no earlier runs. No pre-change failing test is claimed."
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies the last hf-done evidence line."
+wiring_requests = "None: the finding proposal is entirely inside the store directory."
+workflow_notes = "Task instructions prohibit edits to GOTCHA.kvx and spec files; this in-scope record retains the baseline-order conflict and evidence pointer. The policy evaluator lives in policy.go, not evaluate.go; no out-of-scope change is needed."

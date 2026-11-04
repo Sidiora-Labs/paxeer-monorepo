@@ -12,9 +12,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/crypto/scrypt"
+	"golang.org/x/sys/unix"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/migrate"
 )
@@ -108,17 +110,20 @@ func Archive(ctx context.Context, db *sql.DB, path string, passphrase []byte) (R
 	if err != nil {
 		return Result{}, err
 	}
-	if err := writeExclusive(path, sealed); err != nil {
+	if err := writeExclusive(path, sealed, func(staged string) error {
+		back, err := Open(staged, passphrase)
+		if err != nil {
+			return err
+		}
+		if err := sameRows(rows, back); err != nil {
+			return err
+		}
+		_, err = Verify(ctx, db, staged, passphrase)
+		return err
+	}); err != nil {
 		return Result{}, err
 	}
-	back, err := Open(path, passphrase)
-	if err != nil {
-		return Result{}, err
-	}
-	if err := sameRows(rows, back); err != nil {
-		return Result{}, err
-	}
-	return Verify(ctx, db, path, passphrase)
+	return Result{Path: path, Rows: len(rows)}, nil
 }
 
 func Verify(ctx context.Context, db *sql.DB, path string, passphrase []byte) (Result, error) {
@@ -162,7 +167,7 @@ func Unseal(data, passphrase []byte) ([]byte, error) {
 		return nil, ErrFormat
 	}
 	logN, r, p := data[len(magic)], data[len(magic)+1], data[len(magic)+2]
-	if logN < 14 || logN > 22 || r == 0 || r > 32 || p == 0 || p > 16 {
+	if !supportedScryptCost(logN, r, p) {
 		return nil, ErrFormat
 	}
 	header := data[:headerLen]
@@ -177,6 +182,19 @@ func Unseal(data, passphrase []byte) ([]byte, error) {
 		return nil, ErrDecrypt
 	}
 	return plain, nil
+}
+
+func supportedScryptCost(logN, r, p byte) bool {
+	if logN < 14 || logN > 22 || r == 0 || r > 32 || p == 0 || p > 16 {
+		return false
+	}
+	// Bound both allocations (V, B and XY) and work by the writer's profile.
+	// This also retains older, cheaper profiles without trusting header fields.
+	n, block, parallel := uint64(1)<<logN, uint64(r), uint64(p)
+	memory := 128 * block * (n + parallel + 2)
+	const maxMemory = 128 * scryptR * ((1 << scryptLogN) + scryptP + 2)
+	const maxWork = (1 << scryptLogN) * scryptR * scryptP
+	return memory <= maxMemory && n*block*parallel <= maxWork
 }
 
 func Open(path string, passphrase []byte) ([]json.RawMessage, error) {
@@ -217,23 +235,129 @@ func newGCM(passphrase, salt []byte, logN, r, p int) (cipher.AEAD, error) {
 	return cipher.NewGCMWithNonceSize(block, nonceLen)
 }
 
-func writeExclusive(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+type archiveWrite struct {
+	path     string
+	temp     string
+	dir      *os.File
+	file     *os.File
+	ownsTemp bool
+}
+
+func beginArchiveWrite(path string) (_ *archiveWrite, err error) {
+	dir, err := os.Open(filepath.Dir(path))
 	if err != nil {
-		return fmt.Errorf("archive: create: %w", err)
+		return nil, fmt.Errorf("archive: open directory: %w", err)
 	}
-	if _, err := f.Write(data); err != nil {
-		f.Close()
+	w := &archiveWrite{path: path, temp: filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".archive-tmp"), dir: dir}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, w.close())
+		}
+	}()
+	// A directory lock survives neither close nor process exit. It serializes
+	// reconciliation and publication, including independent writers after restart.
+	if err = unix.Flock(int(dir.Fd()), unix.LOCK_EX); err != nil {
+		return nil, fmt.Errorf("archive: lock directory: %w", err)
+	}
+	// The reserved staging name is never committed state. Discard any regular
+	// orphan and regenerate from current rows; never follow a staged symlink.
+	if info, statErr := os.Lstat(w.temp); statErr == nil {
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("%w: staging path is not a regular file", ErrFormat)
+		}
+		if err = os.Remove(w.temp); err != nil {
+			return nil, fmt.Errorf("archive: reconcile staging file: %w", err)
+		}
+		if err = dir.Sync(); err != nil {
+			return nil, fmt.Errorf("archive: sync reconciliation: %w", err)
+		}
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return nil, fmt.Errorf("archive: inspect staging file: %w", statErr)
+	}
+	if _, statErr := os.Lstat(path); statErr == nil {
+		return nil, fmt.Errorf("archive: create: %w", os.ErrExist)
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return nil, fmt.Errorf("archive: inspect final file: %w", statErr)
+	}
+	w.file, err = os.OpenFile(w.temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("archive: create: %w", err)
+	}
+	w.ownsTemp = true
+	return w, nil
+}
+
+func (w *archiveWrite) stage(data []byte) error {
+	if err := w.write(data); err != nil {
+		return err
+	}
+	return w.syncAndClose()
+}
+
+func (w *archiveWrite) write(data []byte) error {
+	n, err := w.file.Write(data)
+	if err != nil {
 		return fmt.Errorf("archive: write: %w", err)
 	}
-	if err := f.Sync(); err != nil {
-		f.Close()
+	if n != len(data) {
+		return fmt.Errorf("archive: write: %w", io.ErrShortWrite)
+	}
+	return nil
+}
+
+func (w *archiveWrite) syncAndClose() error {
+	if err := w.file.Sync(); err != nil {
 		return fmt.Errorf("archive: sync: %w", err)
 	}
-	if err := f.Close(); err != nil {
+	err := w.file.Close()
+	w.file = nil
+	if err != nil {
 		return fmt.Errorf("archive: close: %w", err)
 	}
 	return nil
+}
+
+func (w *archiveWrite) publish() error {
+	// Link is an atomic, non-replacing publication on the same filesystem.
+	if err := os.Link(w.temp, w.path); err != nil {
+		return fmt.Errorf("archive: publish: %w", err)
+	}
+	if err := w.dir.Sync(); err != nil {
+		return fmt.Errorf("archive: sync publication: %w", err)
+	}
+	return nil
+}
+
+func (w *archiveWrite) close() error {
+	var err error
+	if w.file != nil {
+		err = w.file.Close()
+		w.file = nil
+	}
+	if w.ownsTemp {
+		if removeErr := os.Remove(w.temp); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			err = errors.Join(err, fmt.Errorf("archive: remove staging file: %w", removeErr))
+		} else {
+			err = errors.Join(err, w.dir.Sync())
+		}
+		w.ownsTemp = false
+	}
+	return errors.Join(err, w.dir.Close())
+}
+
+func writeExclusive(path string, data []byte, verify func(string) error) (err error) {
+	w, err := beginArchiveWrite(path)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, w.close()) }()
+	if err := w.stage(data); err != nil {
+		return err
+	}
+	if err := verify(w.temp); err != nil {
+		return err
+	}
+	return w.publish()
 }
 
 func sameRows(want, got []json.RawMessage) error {

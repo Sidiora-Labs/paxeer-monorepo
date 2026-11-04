@@ -14680,3 +14680,33 @@ fix = "Before writing a cargo -p command read the workspace members list and the
 title = "The tail of a go test log hides why the package failed"
 symptom = "Two repair tasks printed every one of their TestRepair_ tests as PASS and still reported FAIL for the package: the cause (a sibling test in the same file from an earlier attempt, a vet refusal or a panic outside the matched tests) sat above the eighty-line tail the gate shows, and the agents called it out of scope."
 fix = "A go verify prints the RUN, PASS, FAIL and panic lines of the whole log before its tail, and every test matched by the run filter belongs to the task that owns the filter: it is fixed or removed, never declared out of scope."
+
+[gotcha.2972]
+title = "A test reaches repository files through the helpers the production tests use"
+symptom = "A repair test typed the migrations directory from the repository layout (spec/production-system at the root) while the production tests of the same package build it from the coordinator test helper, which already knows the real directory (launchpad/spec/production-system/integration/migrations) and the repository root; the attempt then called its own path bug an out-of-scope fixture defect. A second test compared a checksummed address the producer emits against a lowercase literal and called the mismatch a fixture problem."
+fix = "A test derives paths, addresses and other shapes through the production helpers and types (the root helper, the address type's parser, the encoder), never from literals typed by hand; a mismatch between the literal and the producer is a test defect the task fixes, not a scope limit."
+
+[gotcha.2973]
+title = "A dependency added to one npm workspace member without the root lockfile breaks npm ci for every member"
+symptom = "A published repair added a ganache devDependency to services/platform/examples/marketplace/package.json, a member of the root npm workspace, without touching the root package-lock.json; npm ci run inside services/agent/sdk/typescript then refused with the lockfile out of sync, and every task building a workspace member failed before compiling (22.9.10 a30)."
+fix = "The npm lockfile of a workspace lives at the root and npm ci in any member directory validates the whole workspace; a task that changes a member manifest carries the root lockfile as a planned path, and a test never needs a package the manifest and lockfile of its package do not already declare."
+
+[gotcha.2974]
+title = "A producer repair that changes a public type must carry the consumer crate's tests, not only its sources"
+symptom = "22.31.157 changed the gateway balance row amount from a 128-bit integer to the exact Quantity type and updated the human service sources that read it, but left services/human/crates/layerx-human-service/tests/observed_balances_denom.rs on the old type; every later task building that crate with --tests, and every task whose dependent-crate check includes it, failed before its own verify ran (22.33.56 to 22.33.62, 22.33.48, 22.33.51, 22.33.117, 22.33.218, 22.33.221, 22.33.244 a1)."
+fix = "An interface change lists the consumer's tests directory in its touches and its verify builds the consumer with --tests; the consumer's integration tests are part of the real producer, transport and consumer path."
+
+[gotcha.2975]
+title = "A scope path whose directory name contains bracket characters is read as a glob character class"
+symptom = "22.33.163 a1 declared the Next.js route directory apps/wallet/src/app/api/wallet/[...path]; the scope check treated the brackets as a character class, matched no changed file and refused the candidate although the type-check and all seven tests passed."
+fix = "Declare the parent directory of a bracketed route directory in touches and reference the bracketed path only in the verify command."
+
+[gotcha.2976]
+title = "A type-check that follows relative imports into sibling packages needs those packages installed from their own workspace"
+symptom = "apps/perps imports modules of sdk/wallet and services/wallet/gateway by relative path (published by 22.31.4); its type-check failed on every attempt with viem, the noble packages and zod unresolved because only apps/perps had been installed (22.33.12, 22.33.77, 22.33.79 to 22.33.83, 22.33.193 a1). sdk/wallet and the gateway are members of the services/wallet pnpm workspace, whose lockfile is services/wallet/pnpm-lock.yaml; an install run inside sdk/wallet alone climbs to the repository root workspace and installs nothing useful."
+fix = "The build command of a task whose type-check crosses into the wallet workspace runs pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts first; the lasting repair makes apps/perps declare those packages (22.31.444)."
+
+[gotcha.2977]
+title = "The bridge application's global layout props type exists only after the framework's type generation step"
+symptom = "apps/bridge/src/app/layout.tsx uses the LayoutProps global type that Next.js 16 generates with next typegen; a bare tsc --noEmit fails with the name not found before any task test runs (22.33.264, 22.33.266, 22.33.268 a1), while the package's own typecheck script runs the generation first."
+fix = "A type-check gate of a Next.js application runs the package's typecheck script (or next typegen before tsc), never tsc alone."

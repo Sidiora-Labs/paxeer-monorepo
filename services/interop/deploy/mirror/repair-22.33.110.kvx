@@ -1,0 +1,35 @@
+[task]
+id = "22.33.110"
+audit = "22.30.112"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+baseline = "No scoped changes or prior gate ledger existed. No unchanged-tree test ran: the ordered instructions prohibit tests before complete implementation and require verification only through hf-done. No pre-change test failure is claimed."
+qualification = "The bounded runner retains the verified candidate revision, exact command, exit code and private log in /out/run/gates.jsonl; the final response copies the last hf-done evidence verbatim."
+
+[finding.mirror_example_rpc]
+test = "TestRepairM_110_MirrorExampleRPC"
+repair = "The three Paxeer example URLs use the root path. Rendering refuses nonroot or decorated Paxeer URLs and preserves Ethereum and Solana provider paths."
+proof = "Both Ethereum-only and Solana-enabled production renderings consume the example endpoints; source hashes bind the recorded output to the example and renderer. Exact rendered HTTPS URLs drive the production JSON-RPC client over loopback TLS into the node's production HTTP handler and rpc_modules service; assertions check Host, POST target, TLS transport and decoded response."
+
+[finding.mirror_key_policy_drift]
+test = "TestRepairM_110_MirrorKeyPolicy"
+receipt_test = "TestRepairM_110_ReceiptVerification"
+repair = "Normalized key IDs must be unique even across disjoint windows; firstHeight zero and both inclusive uint64 boundaries are accepted. Strict integer types, nonzero hexadecimal identities, ordered windows and overlap refusals remain enforced."
+proof = "One committed canonical receipt-key file feeds the production mirror renderer and gateway key loader/render function. Recorded outputs preserve identities, complete gateway signer sets and bounds; negative transcripts cover duplicate/normalized IDs, overlap, malformed identities, reversed bounds, wrong types and overflow. Real node-produced receipts cross a loopback JSON-RPC transport into the production Go receipt codec and strict signature verifier using the rendered key, with signed key/height/digest binding, signature tamper, key substitution and noncanonical-byte refusals."
+
+[fixtures]
+recorder = "PYTHONDONTWRITEBYTECODE=1 python3 services/interop/deploy/mirror/testdata/repair_m110/record.py"
+location = "services/interop/deploy/mirror/testdata/repair_m110/rendered.json"
+canonical_keys = "services/interop/deploy/mirror/testdata/repair_m110/receipt-keys.json"
+producer = "services/interop/crates/layerx-mirror/tests/fixtures/committed_blocks.json records signed receipts from rpc/sequencer_receipt_vectors_test.go; receipt bytes and signatures are not synthesized by the repair test."
+runtime = "The Go gate uses committed source-hashed transcripts, in-process HTTP/TLS transports and real Go codec/signature implementations; it needs no environment variable, credential, subprocess, native artifact or live endpoint."
+existing_tests = "Python regression assertions now cover accepted zero boundaries and duplicate IDs. The existing repair_m111 renderer/source transcript is regenerated because the production renderer and Python assertion source changed."
+limit = "The Go signature consumer is exercised in process; the Rust ReceiptKeys consumer and full native node startup are not executed by this Go-only gate."
+
+[wiring.receipt_keys]
+request = "Domain 11: services/agent/crates/layerx-proof/tests/resolution_receipt_key.rs should reuse this canonical key file for its Rust ReceiptKeys duplicate-ID and inclusive zero-window integration cases; its production policy is unchanged and source-hashed here."
+
+[gotcha.gateway_zero_id]
+observed = "The gateway loader already accepts a zero keyId while the mirror renderer rejects zero identities; this repair retains the mirror's existing identity check and records that separate policy difference without widening either validation rule."
+
+[gotcha.node_zero_window]
+observed = "modules/sequencer/keeper/receipt_keys.go still rejects zero firstHeight, whereas the Rust mirror receipt consumer accepts it; this task targets the mirror's ReceiptKeys consumer and does not change the node keeper."

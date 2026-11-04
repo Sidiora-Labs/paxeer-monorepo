@@ -1,6 +1,7 @@
 package replica
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -25,14 +26,16 @@ type LedgerEntry struct {
 }
 
 type ledgerFile struct {
-	Version int           `json:"version"`
-	Entries []LedgerEntry `json:"entries"`
+	Version     int           `json:"version"`
+	Entries     []LedgerEntry `json:"entries"`
+	LastShipped time.Time     `json:"last_shipped,omitempty"`
 }
 
 type Ledger struct {
 	path    string
 	mu      sync.Mutex
 	entries map[string]LedgerEntry
+	last    time.Time
 }
 
 func OpenLedger(path string) (*Ledger, error) {
@@ -51,6 +54,7 @@ func OpenLedger(path string) (*Ledger, error) {
 	if file.Version != ledgerVersion {
 		return nil, fmt.Errorf("%w: unsupported version %d", ErrLedger, file.Version)
 	}
+	l.last = file.LastShipped
 	for _, e := range file.Entries {
 		if err := validEntry(e); err != nil {
 			return nil, err
@@ -59,6 +63,9 @@ func OpenLedger(path string) (*Ledger, error) {
 			return nil, fmt.Errorf("%w: %q appears twice", ErrLedger, e.Name)
 		}
 		l.entries[e.Name] = e
+		if e.ShippedAt.After(l.last) {
+			l.last = e.ShippedAt
+		}
 	}
 	return l, nil
 }
@@ -100,13 +107,7 @@ func (l *Ledger) Entries() []LedgerEntry {
 func (l *Ledger) LastShipped() time.Time {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	var last time.Time
-	for _, e := range l.entries {
-		if e.ShippedAt.After(last) {
-			last = e.ShippedAt
-		}
-	}
-	return last
+	return l.last
 }
 
 func (l *Ledger) Record(e LedgerEntry) error {
@@ -118,7 +119,16 @@ func (l *Ledger) Record(e LedgerEntry) error {
 	if _, dup := l.entries[e.Name]; dup {
 		return fmt.Errorf("%w: %q is already recorded", ErrLedger, e.Name)
 	}
-	file := ledgerFile{Version: ledgerVersion, Entries: make([]LedgerEntry, 0, len(l.entries)+1)}
+	if _, ok, err := l.Archived(e.Name); err != nil {
+		return err
+	} else if ok {
+		return fmt.Errorf("%w: %q is already archived", ErrLedger, e.Name)
+	}
+	last := l.last
+	if e.ShippedAt.After(last) {
+		last = e.ShippedAt
+	}
+	file := ledgerFile{Version: ledgerVersion, LastShipped: last, Entries: make([]LedgerEntry, 0, len(l.entries)+1)}
 	for _, existing := range l.entries {
 		file.Entries = append(file.Entries, existing)
 	}
@@ -128,6 +138,112 @@ func (l *Ledger) Record(e LedgerEntry) error {
 		return err
 	}
 	l.entries[e.Name] = e
+	l.last = last
+	return nil
+}
+
+// archivePath uses a sharded, on-disk index. Archives are not loaded at startup
+// or rewritten for later shipments; each acknowledgement is retained indefinitely.
+func (l *Ledger) archivePath(name string) string {
+	digest := sha256.Sum256([]byte(name))
+	key := hex.EncodeToString(digest[:])
+	return filepath.Join(l.path+".archive", key[:2], key+".json")
+}
+
+// Archived reads one retired acknowledgement without growing the active index.
+func (l *Ledger) Archived(name string) (LedgerEntry, bool, error) {
+	if !validName(name) {
+		return LedgerEntry{}, false, fmt.Errorf("%w: invalid snapshot name %q", ErrLedger, name)
+	}
+	raw, err := os.ReadFile(l.archivePath(name))
+	if errors.Is(err, fs.ErrNotExist) {
+		return LedgerEntry{}, false, nil
+	}
+	if err != nil {
+		return LedgerEntry{}, false, fmt.Errorf("%w: read archive: %v", ErrLedger, err)
+	}
+	var file ledgerFile
+	if err := json.Unmarshal(raw, &file); err != nil || file.Version != ledgerVersion || len(file.Entries) != 1 || file.Entries[0].Name != name {
+		return LedgerEntry{}, false, fmt.Errorf("%w: invalid archive for %q", ErrLedger, name)
+	}
+	e := file.Entries[0]
+	if err := validEntry(e); err != nil {
+		return LedgerEntry{}, false, err
+	}
+	return e, true, nil
+}
+
+// RetireAbsent archives only acknowledged snapshots whose local removal has
+// completed. A missing or unreadable snapshot directory is never retirement.
+// Archive fsync precedes active-index replacement so either crash ordering
+// preserves the acknowledgement. Retrying after an archive-only crash is safe.
+func (l *Ledger) RetireAbsent(snapshotDir string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	dir, err := os.Open(snapshotDir)
+	if err != nil {
+		return fmt.Errorf("%w: open snapshot directory: %v", ErrLedger, err)
+	}
+	defer dir.Close()
+	info, err := dir.Stat()
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("%w: snapshot directory unavailable", ErrLedger)
+	}
+	retained := make([]LedgerEntry, 0, len(l.entries))
+	retired := make([]string, 0)
+	for name, e := range l.entries {
+		_, err := os.Lstat(filepath.Join(snapshotDir, name))
+		if err == nil {
+			retained = append(retained, e)
+			continue
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%w: inspect local snapshot: %v", ErrLedger, err)
+		}
+		archived, ok, err := l.Archived(name)
+		if err != nil {
+			return err
+		}
+		if ok {
+			if archived.Name != e.Name || archived.Size != e.Size || archived.SHA256 != e.SHA256 || !archived.ShippedAt.Equal(e.ShippedAt) {
+				return fmt.Errorf("%w: conflicting archive for %q", ErrLedger, name)
+			}
+		} else if err := writeAtomic(l.archivePath(name), ledgerFile{Version: ledgerVersion, Entries: []LedgerEntry{e}}); err != nil {
+			return err
+		}
+		retired = append(retired, name)
+	}
+	if len(retired) == 0 {
+		return nil
+	}
+	// Persist the local removals before acknowledging retirement in the ledger.
+	if err := dir.Sync(); err != nil {
+		return fmt.Errorf("%w: sync snapshot retirement: %v", ErrLedger, err)
+	}
+	for _, p := range []string{l.path + ".archive", filepath.Dir(l.path)} {
+		if err := syncLedgerDir(p); err != nil {
+			return err
+		}
+	}
+	sort.Slice(retained, func(i, j int) bool { return retained[i].Name < retained[j].Name })
+	if err := writeAtomic(l.path, ledgerFile{Version: ledgerVersion, Entries: retained, LastShipped: l.last}); err != nil {
+		return err
+	}
+	for _, name := range retired {
+		delete(l.entries, name)
+	}
+	return nil
+}
+
+func syncLedgerDir(path string) error {
+	d, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("%w: open directory: %v", ErrLedger, err)
+	}
+	defer d.Close()
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("%w: sync directory: %v", ErrLedger, err)
+	}
 	return nil
 }
 

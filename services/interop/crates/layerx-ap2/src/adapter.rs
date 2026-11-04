@@ -229,6 +229,8 @@ pub struct Ap2Adapter<'a, R> {
 }
 
 impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
+    /// Constructs the adapter with mandate trust resolution and the
+    /// height-ranged sequencer receipt keys used for settlement and v2 export.
     #[must_use]
     pub const fn new(resolver: &'a R, receipt_keys: &'a [SequencerAuthorization]) -> Self {
         Self {
@@ -483,7 +485,9 @@ fn prepare_payment(
         &[principal.as_str().as_bytes(), stable_reference.as_bytes()],
     );
     let amount_bytes = amount.to_be_bytes();
-    let execution_bytes = mandates.execution_at().to_be_bytes();
+    // The signed presentations already bind any explicit execution_date.
+    // An omitted date resolves to the verifier's clock for execution policy,
+    // but that local clock must not change the identity of a retry.
     let mut request_parts = mandates.request_material().to_vec();
     request_parts.extend([
         binding.currency.as_bytes(),
@@ -491,7 +495,6 @@ fn prepare_payment(
         &binding.payer_receipt_account,
         &binding.payee_receipt_account,
         &amount_bytes,
-        &execution_bytes,
     ]);
     let request_digest = digest(REQUEST_DOMAIN, &request_parts);
     Ok(AuthorizedPayment {

@@ -22,7 +22,7 @@ use crate::relayer::{
     ChainLink, ChainSettings, GasPolicy, PaxeerLink, PaxeerSettings, RelayerAssembly, RelayerError,
     RelayerParts, RelayerSetup, SolanaLink, SolanaRelease,
 };
-use crate::rpc::PaxeerRpc;
+use crate::rpc::{normalized_authority, validate_backend_identities, PaxeerRpc};
 use crate::signer::{Attestor, FeePayer, Submitter, ALGORITHM, FEE_PAYER_ALGORITHM};
 use crate::solana::observe::SolanaSettings;
 use crate::solana::rpc::{Commitment, SolanaRpc};
@@ -90,6 +90,9 @@ impl From<GasConfig> for GasPolicy {
 #[serde(deny_unknown_fields)]
 pub struct PaxeerEndpointConfig {
     pub url: String,
+    /// Operator-declared independent backend. Required for multi-endpoint reads.
+    #[serde(default)]
+    pub independent_backend: Option<String>,
     /// DER trust anchor of a TLS endpoint. Absent only with `local_emulator`.
     #[serde(default)]
     pub trust_anchor_der: Option<PathBuf>,
@@ -429,9 +432,7 @@ impl RelayerConfig {
         if self.signer.timeout_ms == 0 {
             return Err(invalid("signer timeout must be positive"));
         }
-        if self.paxeer.endpoints.is_empty() {
-            return Err(invalid("paxeer needs at least one endpoint"));
-        }
+        self.validate_paxeer_backends()?;
         for endpoint in &self.paxeer.endpoints {
             if endpoint.request_timeout_ms == 0
                 || endpoint.local_emulator == endpoint.trust_anchor_der.is_some()
@@ -511,7 +512,59 @@ impl RelayerConfig {
         .map_err(|error| invalid(format!("signer handle {}: {error:?}", key.handle)))
     }
 
+    fn validate_paxeer_backends(&self) -> Result<(), RelayerError> {
+        let endpoints = &self.paxeer.endpoints;
+        if endpoints.is_empty() || endpoints.len() > 8 {
+            return Err(invalid("paxeer needs between one and eight endpoints"));
+        }
+        let mut authorities = std::collections::BTreeSet::new();
+        for endpoint in endpoints {
+            let authority =
+                normalized_authority(&endpoint.url).map_err(|error| invalid(error.to_string()))?;
+            if !authorities.insert(authority) {
+                return Err(invalid("paxeer endpoints repeat an authority"));
+            }
+        }
+        if endpoints.len() > 1
+            && endpoints
+                .iter()
+                .any(|endpoint| endpoint.independent_backend.is_none())
+        {
+            return Err(invalid(
+                "multiple paxeer endpoints require explicit independent backend identities",
+            ));
+        }
+        validate_backend_identities(
+            endpoints
+                .iter()
+                .filter_map(|endpoint| endpoint.independent_backend.as_deref()),
+        )
+        .map_err(|error| invalid(error.to_string()))
+    }
+
+    pub fn paxeer_rpc(&self) -> Result<PaxeerRpc, RelayerError> {
+        let endpoints = self.paxeer_endpoints()?;
+        if endpoints.len() == 1 {
+            return PaxeerRpc::new(endpoints).map_err(Into::into);
+        }
+        let backends = self
+            .paxeer
+            .endpoints
+            .iter()
+            .zip(endpoints)
+            .map(|(config, endpoint)| {
+                config
+                    .independent_backend
+                    .clone()
+                    .map(|identity| (identity, endpoint))
+                    .ok_or_else(|| invalid("missing independent backend identity"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        PaxeerRpc::with_backends(backends).map_err(Into::into)
+    }
+
     pub fn paxeer_endpoints(&self) -> Result<Vec<PaxeerEndpoint>, RelayerError> {
+        self.validate_paxeer_backends()?;
         self.paxeer
             .endpoints
             .iter()
@@ -593,7 +646,7 @@ impl RelayerConfig {
                 max_block_range: self.paxeer.max_block_range,
                 gas: self.paxeer.gas.into(),
             },
-            rpc: Box::new(PaxeerRpc::new(self.paxeer_endpoints()?)?),
+            rpc: Box::new(self.paxeer_rpc()?),
             submitter: Submitter::paxeer(self.remote_signer(&self.paxeer.submitter)?)
                 .map_err(|error| invalid(format!("paxeer submitter: {error:?}")))?,
         };

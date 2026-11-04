@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -14,6 +13,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use zeroize::{Zeroize, Zeroizing};
 
+use crate::deadline::Deadline;
 use crate::MigrationError;
 
 const MAX_ENDPOINTS: usize = 8;
@@ -111,6 +111,7 @@ impl RpcCluster {
         {
             return Err(MigrationError::Configuration);
         }
+        let deadline = Deadline::new(self.request_timeout);
         let request_id = REQUEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         if request_id == 0 {
             return Err(MigrationError::RpcUnavailable);
@@ -129,34 +130,51 @@ impl RpcCluster {
         let mut rate_limit = None;
         let mut responses = 0_usize;
         let mut malformed = 0_usize;
-        for endpoint in &self.endpoints {
-            match endpoint.request(
-                &body,
-                self.connect_timeout,
-                self.request_timeout,
-                self.maximum_response_bytes,
-                request_id,
-            ) {
-                Ok(value) => {
-                    responses = responses.saturating_add(1);
-                    let canonical = serde_json::to_vec(&value)
-                        .map_err(|_| MigrationError::RpcResponseMismatch)?;
-                    let entry = matching.entry(canonical).or_insert((0, value));
-                    entry.0 = entry.0.saturating_add(1);
-                }
-                Err(MigrationError::RpcRateLimited {
-                    retry_after_seconds,
-                }) => {
-                    rate_limit = Some(rate_limit.map_or(retry_after_seconds, |existing: u64| {
-                        existing.max(retry_after_seconds)
-                    }));
-                }
-                Err(MigrationError::RpcResponseMismatch) => {
-                    malformed = malformed.saturating_add(1);
-                }
-                Err(_) => {}
+        std::thread::scope(|scope| -> Result<(), MigrationError> {
+            let (sender, receiver) = std::sync::mpsc::channel();
+            for endpoint in &self.endpoints {
+                let sender = sender.clone();
+                let body = &body;
+                scope.spawn(move || {
+                    let result = endpoint.request(
+                        body,
+                        self.connect_timeout,
+                        deadline,
+                        self.maximum_response_bytes,
+                        request_id,
+                    );
+                    let _ = sender.send(result);
+                });
             }
-        }
+            drop(sender);
+            while let Ok(left) = deadline.remaining() {
+                let Ok(result) = receiver.recv_timeout(left) else {
+                    break;
+                };
+                match result {
+                    Ok(value) => {
+                        responses = responses.saturating_add(1);
+                        let canonical = serde_json::to_vec(&value)
+                            .map_err(|_| MigrationError::RpcResponseMismatch)?;
+                        let entry = matching.entry(canonical).or_insert((0, value));
+                        entry.0 = entry.0.saturating_add(1);
+                    }
+                    Err(MigrationError::RpcRateLimited {
+                        retry_after_seconds,
+                    }) => {
+                        rate_limit =
+                            Some(rate_limit.map_or(retry_after_seconds, |existing: u64| {
+                                existing.max(retry_after_seconds)
+                            }));
+                    }
+                    Err(MigrationError::RpcResponseMismatch) => {
+                        malformed = malformed.saturating_add(1);
+                    }
+                    Err(_) => {}
+                }
+            }
+            Ok(())
+        })?;
         if let Some((_, value)) = matching
             .into_values()
             .find(|(count, _)| *count >= self.quorum)
@@ -223,32 +241,19 @@ impl Endpoint {
         &self,
         body: &[u8],
         connect_timeout: Duration,
-        request_timeout: Duration,
+        deadline: Deadline,
         maximum_response_bytes: usize,
         request_id: u64,
     ) -> Result<Value, MigrationError> {
-        let addresses: Vec<SocketAddr> = (self.host.as_str(), self.port)
-            .to_socket_addrs()
-            .map_err(|_| MigrationError::RpcUnavailable)?
-            .take(8)
-            .collect();
-        if addresses.is_empty() {
-            return Err(MigrationError::RpcUnavailable);
-        }
-        for address in addresses {
-            let Ok(tcp) = TcpStream::connect_timeout(&address, connect_timeout) else {
-                continue;
-            };
-            tcp.set_read_timeout(Some(request_timeout))
-                .map_err(|_| MigrationError::RpcUnavailable)?;
-            tcp.set_write_timeout(Some(request_timeout))
-                .map_err(|_| MigrationError::RpcUnavailable)?;
-            let server_name = ServerName::try_from(self.host.clone())
-                .map_err(|_| MigrationError::Configuration)?;
-            let connection = ClientConnection::new(Arc::clone(&self.tls), server_name)
-                .map_err(|_| MigrationError::RpcUnavailable)?;
-            let mut stream = StreamOwned::new(connection, tcp);
-            write!(
+        let tcp = deadline
+            .connect(&self.host, self.port, connect_timeout)
+            .map_err(|_| MigrationError::RpcUnavailable)?;
+        let server_name =
+            ServerName::try_from(self.host.clone()).map_err(|_| MigrationError::Configuration)?;
+        let connection = ClientConnection::new(Arc::clone(&self.tls), server_name)
+            .map_err(|_| MigrationError::RpcUnavailable)?;
+        let mut stream = StreamOwned::new(connection, tcp);
+        write!(
                 stream,
                 "POST {} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nAccept: application/json\r\nContent-Type: application/json\r\nUser-Agent: LayerX-Migrate/1\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                 self.path,
@@ -257,13 +262,11 @@ impl Endpoint {
                 body.len()
             )
             .map_err(|_| MigrationError::RpcUnavailable)?;
-            stream
-                .write_all(body)
-                .and_then(|()| stream.flush())
-                .map_err(|_| MigrationError::RpcUnavailable)?;
-            return read_json_rpc(&mut stream, maximum_response_bytes, request_id);
-        }
-        Err(MigrationError::RpcUnavailable)
+        stream
+            .write_all(body)
+            .and_then(|()| stream.flush())
+            .map_err(|_| MigrationError::RpcUnavailable)?;
+        read_json_rpc(&mut stream, maximum_response_bytes, request_id, deadline)
     }
 }
 
@@ -359,10 +362,14 @@ fn read_json_rpc(
     stream: &mut impl Read,
     maximum_response_bytes: usize,
     request_id: u64,
+    deadline: Deadline,
 ) -> Result<Value, MigrationError> {
     let mut response = Vec::with_capacity(4096);
     let mut buffer = [0_u8; 4096];
     let header_end = loop {
+        deadline
+            .remaining()
+            .map_err(|_| MigrationError::RpcUnavailable)?;
         let read = stream
             .read(&mut buffer)
             .map_err(|_| MigrationError::RpcUnavailable)?;
@@ -418,8 +425,44 @@ fn read_json_rpc(
     {
         return Err(MigrationError::RpcUnavailable);
     }
+    if headers.contains_key("transfer-encoding") && headers.contains_key("content-length") {
+        return Err(MigrationError::RpcResponseMismatch);
+    }
+    let length = headers
+        .get("content-length")
+        .map(|value| {
+            value
+                .parse::<usize>()
+                .map_err(|_| MigrationError::RpcResponseMismatch)
+        })
+        .transpose()?;
+    if length.is_some_and(|length| length.saturating_add(header_end) > maximum_response_bytes) {
+        return Err(MigrationError::RpcResponseMismatch);
+    }
     let mut wire_body = response[header_end..].to_vec();
-    while wire_body.len().saturating_add(header_end) < maximum_response_bytes {
+    loop {
+        deadline
+            .remaining()
+            .map_err(|_| MigrationError::RpcUnavailable)?;
+        if wire_body.len().saturating_add(header_end) > maximum_response_bytes
+            || length.is_some_and(|length| wire_body.len() > length)
+        {
+            return Err(MigrationError::RpcResponseMismatch);
+        }
+        if length == Some(wire_body.len())
+            || (headers
+                .get("transfer-encoding")
+                .is_some_and(|value| value.eq_ignore_ascii_case("chunked"))
+                && decode_chunked(&wire_body).is_ok())
+        {
+            break;
+        }
+        if wire_body.len().saturating_add(header_end) == maximum_response_bytes {
+            return Err(MigrationError::RpcResponseMismatch);
+        }
+        deadline
+            .remaining()
+            .map_err(|_| MigrationError::RpcUnavailable)?;
         let read = stream
             .read(&mut buffer)
             .map_err(|_| MigrationError::RpcUnavailable)?;
@@ -446,6 +489,9 @@ fn read_json_rpc(
             wire_body
         }
     };
+    deadline
+        .remaining()
+        .map_err(|_| MigrationError::RpcUnavailable)?;
     decode_rpc_envelope(&body, request_id)
 }
 
@@ -492,7 +538,9 @@ fn decode_chunked(wire: &[u8]) -> Result<Vec<u8>, MigrationError> {
         .map_err(|_| MigrationError::RpcResponseMismatch)?;
         offset = line_end.saturating_add(2);
         if length == 0 {
-            if wire.get(offset..offset.saturating_add(2)) != Some(b"\r\n") {
+            if wire.get(offset..offset.saturating_add(2)) != Some(b"\r\n")
+                || offset.saturating_add(2) != wire.len()
+            {
                 return Err(MigrationError::RpcResponseMismatch);
             }
             return Ok(body);

@@ -48,8 +48,9 @@ defmodule Explorer.Market.Source.DIA do
     {to_fetch, remaining} = Enum.split(state, batch_size)
 
     tasks_results =
-      to_fetch
-      |> Task.async_stream(
+      Task.Supervisor.async_stream_nolink(
+        Explorer.MarketTaskSupervisor,
+        to_fetch,
         fn token ->
           case Source.http_request(
                  base_url()
@@ -77,6 +78,7 @@ defmodule Explorer.Market.Source.DIA do
         end,
         max_concurrency: 5,
         timeout: :timer.seconds(60),
+        on_timeout: :kill_task,
         zip_input_on_exit: true
       )
       |> Enum.group_by(
@@ -87,7 +89,7 @@ defmodule Explorer.Market.Source.DIA do
         fn
           {:ok, {:ok, token_to_import}} -> token_to_import
           {:ok, {:error, {token, reason}}} -> {token, reason}
-          {:error, {token, reason}} -> {token, reason}
+          {:exit, {token, reason}} -> {token, reason}
         end
       )
 

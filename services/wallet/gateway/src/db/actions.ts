@@ -81,6 +81,20 @@ const COLS = `id, did, wallet_id, wallet_address, kind, status, phase, idempoten
   reserved_budget_id, reserved_value_wei::text, error_code, error,
   credit_verified, credit, worker_locked_until, attempts, created_at, updated_at, terminal_at`;
 
+// attempts increases under the claim's row lock and is never reset: it is the
+// durable lease epoch. An omitted epoch authorizes only pre-claim intake.
+function leasePredicate(epochParameter: string): string {
+  return `((${epochParameter}::integer is null and attempts = 0 and worker_locked_until is null)
+    or (attempts = ${epochParameter}::integer and worker_locked_until > clock_timestamp()))`;
+}
+
+export class ActionLeaseLostError extends Error {
+  constructor() {
+    super('action lease is missing, expired or superseded');
+    this.name = 'ActionLeaseLostError';
+  }
+}
+
 function newActionId(): string {
   return `act_${randomBytes(12).toString('hex')}`;
 }
@@ -177,7 +191,7 @@ const TERMINAL_SET = new Set<ActionStatus>([
 ]);
 
 /** Patch an action, stamping terminal_at when it enters a terminal status. */
-export async function updateAction(id: string, patch: ActionPatch): Promise<ActionRow> {
+export async function updateAction(id: string, patch: ActionPatch, leaseEpoch?: number): Promise<ActionRow> {
   const cols: string[] = [];
   const vals: unknown[] = [id];
   const push = (col: string, val: unknown): void => {
@@ -207,13 +221,15 @@ export async function updateAction(id: string, patch: ActionPatch): Promise<Acti
 
   const setTerminal = patch.status !== undefined && TERMINAL_SET.has(patch.status);
   const terminalClause = setTerminal ? ', terminal_at = coalesce(terminal_at, now())' : '';
+  vals.push(leaseEpoch ?? null);
 
   const { rows } = await query<ActionRow>(
     `update agent_actions set ${cols.join(', ')}, updated_at = now()${terminalClause}
-      where id = $1 returning ${COLS}`,
+      where id = $1 and terminal_at is null and ${leasePredicate(`$${vals.length}`)} returning ${COLS}`,
     vals
   );
-  return rows[0]!;
+  if (!rows[0]) throw new ActionLeaseLostError();
+  return rows[0];
 }
 
 /**
@@ -234,13 +250,14 @@ const INTAKE_GRACE_SECONDS = 60;
  * crashed worker's action becomes claimable again after `leaseMs`.
  */
 export async function claimNextAction(leaseMs: number): Promise<ActionRow | null> {
+  if (!Number.isSafeInteger(leaseMs) || leaseMs <= 0) throw new Error('invalid action lease duration');
   return withTransaction(async (client) => {
     const { rows } = await client.query<{ id: string }>(
       `select id from agent_actions
         where terminal_at is null
           and status = any($1::text[])
           and error_code is distinct from 'AGENT_REAUTHORIZATION_REQUIRED'
-          and (worker_locked_until is null or worker_locked_until < now())
+          and (worker_locked_until is null or worker_locked_until <= clock_timestamp())
           and (plan is not null or created_at < now() - ($2 || ' seconds')::interval)
         order by updated_at asc
         for update skip locked
@@ -251,7 +268,7 @@ export async function claimNextAction(leaseMs: number): Promise<ActionRow | null
     if (!id) return null;
     const claimed = await client.query<ActionRow>(
       `update agent_actions
-          set worker_locked_until = now() + ($2 || ' milliseconds')::interval,
+          set worker_locked_until = clock_timestamp() + ($2 || ' milliseconds')::interval,
               attempts = attempts + 1,
               updated_at = now()
         where id = $1
@@ -263,11 +280,14 @@ export async function claimNextAction(leaseMs: number): Promise<ActionRow | null
 }
 
 /** Release a worker lease (lets the next tick pick the action up immediately). */
-export async function releaseLease(id: string): Promise<void> {
-  await query(
-    `update agent_actions set worker_locked_until = null, updated_at = now() where id = $1`,
-    [id]
-  ).catch(() => undefined);
+export async function releaseLease(id: string, leaseEpoch?: number): Promise<void> {
+  if (leaseEpoch === undefined) throw new ActionLeaseLostError();
+  const released = await query(
+    `update agent_actions set worker_locked_until = null, updated_at = now()
+      where id = $1 and ${leasePredicate('$2')}`,
+    [id, leaseEpoch]
+  );
+  if (released.rowCount !== 1) throw new ActionLeaseLostError();
 }
 
 /** Non-terminal actions whose lease is stale — the reconciler's work list. */
@@ -287,12 +307,15 @@ export async function listStalledActions(limit = 50): Promise<ActionRow[]> {
 /** Flip an already-confirmed deposit to credit-verified with the LayerX snapshot. */
 export async function markCreditVerified(
   id: string,
-  credit: Record<string, unknown>
+  credit: Record<string, unknown>,
+  leaseEpoch?: number
 ): Promise<void> {
-  await query(
-    `update agent_actions set credit_verified = true, credit = $2, updated_at = now() where id = $1`,
-    [id, JSON.stringify(credit)]
+  const updated = await query(
+    `update agent_actions set credit_verified = true, credit = $2, updated_at = now()
+      where id = $1 and ${leasePredicate('$3')}`,
+    [id, JSON.stringify(credit), leaseEpoch ?? null]
   );
+  if (updated.rowCount !== 1) throw new ActionLeaseLostError();
 }
 
 export async function retainActionCustodyAuthorization(
@@ -302,7 +325,8 @@ export async function retainActionCustodyAuthorization(
 ): Promise<ActionRow> {
   return withTransaction(async (client) => {
     const selected = await client.query<ActionRow>(
-      `select ${COLS} from agent_actions where id = $1 and did = $2 for update`,
+      `select ${COLS} from agent_actions where id = $1 and did = $2
+        and (worker_locked_until is null or worker_locked_until <= clock_timestamp()) for update`,
       [id, did]
     );
     const row = selected.rows[0];
@@ -383,12 +407,14 @@ export function actionLegExecution(row: ActionRow, leg: ActionLeg): ActionLegExe
   return execution?.[leg] ?? {};
 }
 
-async function lockedAction(client: PoolClient, id: string): Promise<ActionRow> {
+async function lockedAction(client: PoolClient, id: string, leaseEpoch?: number): Promise<ActionRow> {
   const selected = await client.query<ActionRow>(
-    `select ${COLS} from agent_actions where id = $1 for update`,
-    [id]
+    `select ${COLS} from agent_actions
+      where id = $1 and ${leasePredicate('$2')} for update`,
+    [id, leaseEpoch ?? null]
   );
   const row = selected.rows[0];
+  if (!row) throw new ActionLeaseLostError();
   if (!row || row.terminal_at !== null) throw new Error('action is no longer advanceable');
   return row;
 }
@@ -396,10 +422,11 @@ async function lockedAction(client: PoolClient, id: string): Promise<ActionRow> 
 export async function retainActionTransactionDraft(
   id: string,
   leg: ActionLeg,
-  draft: ActionTransactionDraft
+  draft: ActionTransactionDraft,
+  leaseEpoch?: number
 ): Promise<ActionTransactionDraft> {
   return withTransaction(async (client) => {
-    const row = await lockedAction(client, id);
+    const row = await lockedAction(client, id, leaseEpoch);
     const state = actionLegExecution(row, leg);
     if (state.draft) return state.draft;
     const currentHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
@@ -435,10 +462,11 @@ export async function retainActionTransactionDraft(
 export async function retainActionSignedTransaction(
   id: string,
   leg: ActionLeg,
-  signed: ActionSignedTransaction
+  signed: ActionSignedTransaction,
+  leaseEpoch?: number
 ): Promise<ActionSignedTransaction> {
   return withTransaction(async (client) => {
-    const row = await lockedAction(client, id);
+    const row = await lockedAction(client, id, leaseEpoch);
     const state = actionLegExecution(row, leg);
     if (state.current?.hash === signed.hash) return state.current;
     if (!state.draft || !isDeepStrictEqual(state.draft, signed.draft)) {
@@ -491,9 +519,9 @@ export async function retainActionSignedTransaction(
   });
 }
 
-export async function releaseActionBudget(id: string): Promise<void> {
+export async function releaseActionBudget(id: string, leaseEpoch?: number): Promise<void> {
   await withTransaction(async (client) => {
-    const row = await lockedAction(client, id);
+    const row = await lockedAction(client, id, leaseEpoch);
     if (
       row.approval_tx_hash ||
       row.call_tx_hash ||
@@ -512,19 +540,20 @@ export async function releaseActionBudget(id: string): Promise<void> {
   });
 }
 
-export async function releaseActionNonce(id: string, nonce: number): Promise<void> {
-  await query('delete from custody_signing_reservations where action_id = $1 and nonce = $2', [
-    id,
-    nonce,
-  ]);
+export async function releaseActionNonce(id: string, nonce: number, leaseEpoch?: number): Promise<void> {
+  await withTransaction(async (client) => {
+    await lockedAction(client, id, leaseEpoch);
+    await client.query('delete from custody_signing_reservations where action_id = $1 and nonce = $2', [id, nonce]);
+  });
 }
 
 export async function reserveActionBudget(
   id: string,
-  args: Parameters<typeof reserveBudget>[0]
+  args: Parameters<typeof reserveBudget>[0],
+  leaseEpoch?: number
 ): Promise<string | null> {
   return withTransaction(async (client) => {
-    const row = await lockedAction(client, id);
+    const row = await lockedAction(client, id, leaseEpoch);
     if (row.did !== args.did) throw new Error('budget principal differs from action');
     const prior = row.request._budget as typeof args | undefined;
     const budgetRequest = { ...args, valueWei: args.valueWei.toString() };
@@ -543,9 +572,12 @@ export async function reserveActionBudget(
   });
 }
 
-export async function releaseUnsignedActionNonce(id: string): Promise<void> {
-  await query(
-    'delete from custody_signing_reservations where action_id = $1 and signed_hash is null',
-    [id]
-  );
+export async function releaseUnsignedActionNonce(id: string, leaseEpoch?: number): Promise<void> {
+  await withTransaction(async (client) => {
+    await lockedAction(client, id, leaseEpoch);
+    await client.query(
+      'delete from custody_signing_reservations where action_id = $1 and signed_hash is null',
+      [id]
+    );
+  });
 }

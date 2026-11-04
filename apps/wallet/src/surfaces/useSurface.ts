@@ -9,6 +9,7 @@ import {
   type GasStationModule,
   type SponsoredBatch,
   type SponsoredConsent,
+  type SponsoredSubmissionEvidence,
   webData,
   ethCall,
   ethQuantity,
@@ -25,6 +26,8 @@ import {
   type ModuleProvider,
   type ModuleTransaction,
   sendModuleTransactionReceipted,
+  requireAuthenticatedReceipt,
+  matchReceiptTransaction,
   waitForSequencerReceipt,
   type SequencerReceiptAnswer,
   type SequencerRung,
@@ -101,6 +104,7 @@ export function receiptEvents(
   receipt: SequencerReceiptAnswer,
   surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
 ): SentTransaction['events'] {
+  requireAuthenticatedReceipt(receipt);
   if (!Array.isArray(receipt.logs)) throw new Error('the receipt carries no logs');
   return receipt.logs
     .map((log) => {
@@ -121,6 +125,7 @@ export function surfaceReceipt(
   receipt: SequencerReceiptAnswer,
   surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
 ): SentTransaction {
+  requireAuthenticatedReceipt(receipt);
   return {
     hash: receipt.txHash,
     rung: receipt.rung,
@@ -131,6 +136,7 @@ export function surfaceReceipt(
 
 export function receiptStatus(receipt: unknown): ReceiptStatus {
   if (!isRecord(receipt) || receipt.status === undefined) return 'pending';
+  requireAuthenticatedReceipt(receipt);
   if (receipt.status === '0x1') return 'confirmed';
   if (receipt.status === '0x0') return 'reverted';
   throw new Error('the receipt carries an invalid status');
@@ -207,7 +213,10 @@ export function useModuleSend(
             return receipt.txHash;
           };
           const hash = fee ? await fee.submit(transaction, direct) : await direct();
-          if (receipt) return receipt;
+          if (receipt) {
+            requireAuthenticatedReceipt(receipt);
+            return receipt;
+          }
           if (fee?.choice !== 'sid_sponsored')
             throw new Error('the module send returned no sequencer receipt');
           const sponsoredReceipt = await waitForSequencerReceipt(
@@ -215,6 +224,8 @@ export function useModuleSend(
             hash,
             { rung: 'receipted' }
           );
+          requireAuthenticatedReceipt(sponsoredReceipt);
+          matchReceiptTransaction(sponsoredReceipt, address, transaction);
           const status = receiptStatus(sponsoredReceipt);
           if (status !== 'pending') fee.settle(status);
           return sponsoredReceipt;
@@ -309,6 +320,24 @@ function sameCalls(batch: SponsoredBatch, tx: ModuleTransaction): boolean {
     batch.calls[0]?.data.toLowerCase() === tx.data.toLowerCase() &&
     batch.calls[0]?.value === tx.value
   );
+}
+
+export async function authenticatedSponsoredPhase(
+  provider: ModuleProvider | null,
+  report: Pick<SponsoredSubmissionEvidence, 'status' | 'tx_hash'>
+): Promise<SponsoredSelection['phase']> {
+  if (report.status === 'pending') return 'submitted';
+  if (report.status === 'cancelled') return 'cancelled';
+  if (!provider || !report.tx_hash) throw new Error('the sponsored result carries no transaction');
+  const receipt = await waitForSequencerReceipt(
+    (method, params) => provider.request({ method, params }),
+    report.tx_hash,
+    { rung: 'receipted' }
+  );
+  const status = receiptStatus(receipt);
+  if (status === 'pending' || status !== report.status)
+    throw new Error('the sponsored result differs from the authenticated receipt');
+  return status;
 }
 
 export function useFeeSelection(
@@ -444,9 +473,10 @@ export function useFeeSelection(
       }
       retainedFound = true;
       const report = await client.resume(retained.batch, retained.relayerSignature);
+      const phase = await authenticatedSponsoredPhase(provider, report);
       if (ticket === generation.current)
         publish({
-          phase: report.status === 'pending' ? 'submitted' : report.status,
+          phase,
           batch: retained.batch,
           relayerSignature: retained.relayerSignature,
           digest: client.digest(retained.batch),
@@ -463,7 +493,7 @@ export function useFeeSelection(
           reason: sponsoredReason(cause),
         });
     }
-  }, [address, station]);
+  }, [address, station, provider]);
   useEffect(() => {
     if (choice === 'sid_sponsored') void recover();
   }, [choice, recover]);
@@ -556,9 +586,10 @@ export function useFeeSelection(
           throw new GasStationError({ code: 'refused', field: 'quote_required' });
         }
         const report = await client.resume(current.batch, current.relayerSignature);
+        const phase = await authenticatedSponsoredPhase(provider, report);
         publish({
           ...current,
-          phase: report.status === 'pending' ? 'submitted' : report.status,
+          phase,
           ...(report.tx_hash ? { txHash: report.tx_hash } : {}),
         });
         if (!report.tx_hash)
@@ -616,7 +647,7 @@ export function useFeeSelection(
         throw cause;
       }
     },
-    [choice, feeDenom, station, address]
+    [choice, feeDenom, station, address, provider]
   );
   const setChoice = useCallback(
     (next: FeeChoiceId) => {

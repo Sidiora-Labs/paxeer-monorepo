@@ -1,45 +1,125 @@
 # NFTMediaHandler
 
-The NFT Media Handler is an Elixir component in Blockscout responsible for fetching, resizing, and uploading NFT media files. It retrieves images and videos from URLs while handling errors and enforcing a size limit. It efficiently resizes images using the vix_vips library to generate various thumbnail sizes. If the original image is smaller than a target thumbnail size, resizing is skipped. For video files, it extracts the first frame to create a thumbnail image. It uploads media data to a cloud storage service using ExAws.S3. The component manages concurrent tasks with a GenServer and Task.Supervisor to optimize processing. It supports distributed processing through a round-robin node selection via a DispatcherInterface. The application is highly configurable through environment variables for different deployment scenarios.
+NFTMediaHandler fetches NFT media, generates thumbnails and uploads data to
+an R2/S3-compatible bucket for the explorer. It processes PNG, JPEG, GIF and
+WebP images and MP4 videos. The fetcher follows redirects and requests a
+20,000,000-byte maximum response body. Unsupported media returns
+`{:error, :unsupported_media_type}`; non-200 responses return
+`{:error, status_code}` and HTTP failures return `{:error, reason}`.
+
+The resizer produces 60, 250 and 500 pixel thumbnails when the source is larger
+than the target. Each successful result is `{pixel_size, binary, file_name}`;
+a skipped or failed size is omitted, so an empty list is possible. File names
+are the lowercase SHA-1 of the source URL plus a size suffix and extension.
+Images upload their original bytes as well as generated thumbnails. Videos
+are written to temporary storage and their first frame generates JPEG
+thumbnails; the video branch uploads thumbnails only.
+
+This is explorer media processing for the merged Paxeer network. Its remote
+mode uses distributed Erlang workers and the indexer's media queue; it does
+not create a blockchain or a tenant domain. See
+[EthereumJSONRPC](../ethereum_jsonrpc/README.md) for node access.
 
 ## Configuration
 
-The application settings are read from `NFT_MEDIA_HANDLER_*` environment variables in the umbrella's `config/runtime.exs`. Key parameters include:
+The umbrella's [runtime.exs](../../config/runtime.exs) maps these variables to
+`:nft_media_handler` settings:
 
-- `:enabled?` - Enable/disable the application.
-- `:remote?` - Use remote mode.
-- `:worker?` - Enable worker mode.
-- `:worker_concurrency` - Number of concurrent tasks.
-- `:worker_batch_size` - Batch size for tasks.
-- `:worker_spawn_tasks_timeout` - Timeout between task spawns.
-- `:tmp_dir` - Temporary directory for storing files.
+| Setting | Environment variable | Default |
+| --- | --- | --- |
+| `enabled?` | `NFT_MEDIA_HANDLER_ENABLED` | false |
+| `remote?` | `NFT_MEDIA_HANDLER_REMOTE_DISPATCHER_NODE_MODE_ENABLED` | false |
+| `worker?` | `NFT_MEDIA_HANDLER_IS_WORKER` | false |
+| `worker_concurrency` | `NFT_MEDIA_HANDLER_WORKER_CONCURRENCY` | 10 |
+| `worker_batch_size` | `NFT_MEDIA_HANDLER_WORKER_BATCH_SIZE` | 10 |
+| `worker_spawn_tasks_timeout` | `NFT_MEDIA_HANDLER_WORKER_SPAWN_TASKS_TIMEOUT` | 100ms |
+| `r2_folder` | `NFT_MEDIA_HANDLER_BUCKET_FOLDER` | deployment path |
+| `cache_uniqueness_max_size` | `NFT_MEDIA_HANDLER_CACHE_UNIQUENESS_MAX_SIZE` | 100,000 |
+
+`tmp_dir` is configured as `"./temp"` in runtime.exs, not read from an
+`NFT_MEDIA_HANDLER_*` variable. The application creates this directory at
+startup. Ensure it is writable and that any custom value suits the code's
+string concatenation of the directory and file name.
+
+When enabled in local mode, the supervisor starts the dispatcher and task
+supervisor. Remote mode starts those workers only when `worker?` is true.
+`standalone_media_worker?` is derived from all three flags being true and also
+starts `DispatcherInterface`, which discovers indexer nodes and rotates among
+them to retrieve work from `Indexer.NFTMediaHandler.Queue`. Distributed Erlang
+connectivity and indexer discovery must be configured for that mode.
+
+Uploads use `NFT_MEDIA_HANDLER_AWS_ACCESS_KEY_ID` and
+`NFT_MEDIA_HANDLER_AWS_SECRET_ACCESS_KEY` through ExAws. The S3 configuration
+uses `NFT_MEDIA_HANDLER_AWS_BUCKET_HOST`, `NFT_MEDIA_HANDLER_AWS_BUCKET_NAME`
+and `NFT_MEDIA_HANDLER_AWS_PUBLIC_BUCKET_URL`, with HTTPS. Supply credentials
+through the deployment environment. The configured `r2_folder` is the object
+key prefix.
 
 ## Project Structure
-- `lib/nft_media_handler/application.ex` - Main application module.
-- `lib/nft_media_handler.ex` - Main module for processing and uploading media.
-- `lib/nft_media_handler/dispatcher.ex` - Module for managing tasks.
-- `lib/nft_media_handler/dispatcher_interface.ex` - Interface for interacting with the dispatcher.
-- `lib/nft_media_handler/image/resizer.ex` - Module for resizing images.
-- `lib/nft_media_handler/media/fetcher.ex `- Module for fetching media from various sources.
-- `lib/nft_media_handler/r2/uploader.ex` - Module for uploading images to R2/S3.
+
+- [lib/nft_media_handler/application.ex](lib/nft_media_handler/application.ex): supervision and startup modes.
+- [lib/nft_media_handler.ex](lib/nft_media_handler.ex): URL normalization, image/video processing and upload orchestration.
+- [lib/nft_media_handler/dispatcher.ex](lib/nft_media_handler/dispatcher.ex): concurrent task dispatch.
+- [lib/nft_media_handler/dispatcher_interface.ex](lib/nft_media_handler/dispatcher_interface.ex): local or distributed queue access and result storage.
+- [lib/nft_media_handler/image/resizer.ex](lib/nft_media_handler/image/resizer.ex): thumbnail generation and file names.
+- [lib/nft_media_handler/media/fetcher.ex](lib/nft_media_handler/media/fetcher.ex): supported media detection and download.
+- [lib/nft_media_handler/r2/uploader.ex](lib/nft_media_handler/r2/uploader.ex): ExAws object uploads.
 
 ## Usage Examples
 
+Run these in the configured backend with its image/video dependencies and
+bucket settings available. All URLs and paths below are illustrative.
+
 ### Resizing an Image
-To resize an image, use the NFTMediaHandler.Image.Resizer.resize/3 function:
+
+`Vix.Vips.Image.new_from_file/1` returns a result tuple. Pass only the image
+inside a successful result to `NFTMediaHandler.Image.Resizer.resize/3`:
+
+```elixir
+case Vix.Vips.Image.new_from_file("path/to/image.jpg") do
+  {:ok, image} ->
+    {:ok, NFTMediaHandler.Image.Resizer.resize(image, "https://example.com/image.jpg", ".jpg")}
+
+  {:error, reason} ->
+    {:error, {:image_open_failed, reason}}
+end
 ```
-image = Vix.Vips.Image.new_from_file("path/to/image.jpg")
-resized_images = NFTMediaHandler.Image.Resizer.resize(image, "http://example.com/image.jpg", ".jpg")
-```
+
+The successful wrapper contains the list of generated thumbnails. Resizing
+can return `[]` for a small source or if all conversions fail; inspect the
+list and logs before deciding what to upload.
 
 ### Uploading an Image
-To upload an image, use the NFTMediaHandler.R2.Uploader.upload_image/3 function:
-```
-{:ok, result} = NFTMediaHandler.R2.Uploader.upload_image(image_binary, "image.jpg", "folder")
+
+`upload_image/3` takes encoded bytes, a file name and a folder, not a Vix image
+or an image-open tuple. With `image_binary` holding encoded JPEG bytes:
+
+```elixir
+case NFTMediaHandler.R2.Uploader.upload_image(image_binary, "image.jpg", "nft-media") do
+  {:ok, result} -> {:ok, result}
+  {:error, reason} -> {:error, {:upload_failed, reason}}
+end
 ```
 
+`upload_images/2` accepts the resizer's tuple list and stops on the first
+upload error. An empty list returns `{:ok, nil}` without uploading an object.
+
 ### Fetching Media
-To fetch media, use the NFTMediaHandler.Media.Fetcher.fetch_media/2 function:
+
+`fetch_media/2` takes a URL and request-header list:
+
+```elixir
+case NFTMediaHandler.Media.Fetcher.fetch_media("https://example.com/media.jpg", []) do
+  {:ok, media_type, body} -> {:ok, media_type, body}
+  {:error, reason} -> {:error, {:media_fetch_failed, reason}}
+end
 ```
-{:ok, media_type, body} = NFTMediaHandler.Media.Fetcher.fetch_media("http://example.com/media.jpg", [])
-```
+
+`media_type` is a tuple such as `{"image", "jpeg"}`. For the full processing
+path use `NFTMediaHandler.prepare_and_upload_by_url(url, folder)`. It also
+normalizes supported IPFS and Arweave references using the metadata retriever.
+It returns `{[file_path_pattern, uploaded_sizes, original_uploaded?], media_type}`
+on success, or `{:error, reason}`. The file pattern contains `{}` for the size
+suffix. In the current video branch `original_uploaded?` is set to true even
+though only thumbnails are uploaded; do not infer the presence of the original
+MP4 object from that flag.

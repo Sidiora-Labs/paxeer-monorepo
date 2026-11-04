@@ -57,6 +57,7 @@ func inspectConstruct(ctx Context, call *evm.Call, value *big.Int, out *Inspecti
 	if err != nil {
 		return err
 	}
+	out.ReviewedBlock = state.pin.BlockHash
 	effect := func(from, asset, to [32]byte, amount *big.Int, requireOwned bool) error {
 		if amount == nil || amount.Sign() < 0 || amount.BitLen() > 128 {
 			return refuse(CodeDecodeError, "invalid construct amount")

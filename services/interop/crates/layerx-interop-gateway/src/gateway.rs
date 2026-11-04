@@ -565,7 +565,8 @@ impl GatewayCore {
     /// # Errors
     ///
     /// Submitted evidence returns `ReceiptPending` without writing state. Other
-    /// rungs apply the signature, log and payment checks of the receipt path.
+    /// rungs bind the evidence transaction hash to the signed receipt activity ID
+    /// and apply the signature, log and payment checks of the receipt path.
     #[allow(clippy::too_many_arguments)]
     pub fn settle_with_sequencer_evidence(
         &mut self,
@@ -585,6 +586,18 @@ impl GatewayCore {
                 ReceiptKeys::HeightRanges(receipt_keys),
             )
             .map_err(GatewayError::ReceiptRejected)?;
+            let protocol =
+                receipt
+                    .protocol()
+                    .ok_or(GatewayError::ReceiptRejected(VerificationFailure {
+                        check: ReceiptCheck::ReceiptShape,
+                    }))?;
+            if protocol.activity_id() != evidence.transaction_hash {
+                return Err(GatewayError::ReceiptRejected(VerificationFailure {
+                    check: ReceiptCheck::ActivityId,
+                })
+                .into());
+            }
             let verified = verify_logs(&receipt, evidence.logs.clone())
                 .map_err(SequencerSettlementError::Logs)?;
             let payment_exact = keccak256(PAYMENT_EXACT_EVENT);

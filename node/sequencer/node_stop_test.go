@@ -50,7 +50,7 @@ func TestNodeStopClosesWALAndRefusesAccept(t *testing.T) {
 		h := newAccepterHarness(t, sender)
 		synced := make(chan struct{}, 1)
 		rep, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-			WAL: h.w, Dial: sequencer.DialStandby(h.l.Addr().String(), replicationTimeout),
+			WAL: h.w, Dial: sequencer.DialStandby(h.l.Addr().String(), replicationTimeout, h.auth),
 			ReplicationTimeout: replicationTimeout,
 			OnWALSync:          func(time.Duration) { synced <- struct{}{} },
 		})

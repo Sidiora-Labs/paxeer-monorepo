@@ -1,0 +1,33 @@
+[task.22.31.421]
+audit = "22.30.172"
+finding = "tokenfactory-unset-creator"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+seed_base_revision = "089fc62b48230622d7e72a1625ec77c092956fb1"
+repair = "Pass the creation keyaddress and selected paxdbin as quoted arguments into the script's Python verifier; invoke denoms-from-creator with a single creator argument, propagate nonzero CLI status and JSON errors, follow decoded raw pagination keys, reject pagination cycles and duplicate denoms, and require every factory/<creator>/1 through /30 before printing a count or exiting zero. Existing creator denoms remain allowed."
+proofs = ["test_tokenfactory_unset_creator_guarded_source_contract", "test_tokenfactory_unset_creator_real_interface_declarations", "test_tokenfactory_unset_creator_exchange_all_thirty", "test_tokenfactory_unset_creator_rejects_each_missing_denom", "test_tokenfactory_unset_creator_rejects_bad_json_pages", "test_tokenfactory_unset_creator_terminal_proto_forms", "test_tokenfactory_unset_creator_checks_later_page_errors", "test_tokenfactory_unset_creator_rejects_pagination_cycles", "test_tokenfactory_unset_creator_rejects_duplicate_denoms", "test_tokenfactory_unset_creator_rejects_missing_identity", "test_tokenfactory_unset_creator_record_names_proof_and_limits"]
+source_proof = "Pytest parses the repaired shell with the explicitly required bash -n, checks the unchanged thirty-creation producer and shared identity, verifies guarded shell and subprocess failure propagation, and checks the Go CLI, SDK page-key reader, keeper and protobuf declarations. It executes the exact Python generator embedded in the production script against a committed in-memory creator index peer across both argument and JSON interfaces, including single-item pages, preexisting denoms, every individual expected-denom omission, malformed data, duplicate entries, later-page corruption and pagination cycles. The peer is an in-memory fixture, not an execution of the Go producer."
+review_only = "The Go CLI/keeper and thirty on-chain creation transactions are not executed by this Python-only gate. Actual subprocess execution of paxd and end-to-end Go producer/transport execution remain review-only; the test does not claim a live-chain integration result. The production subprocess uses check=True and inherits CLI stderr; the shell exits nonzero on verifier failure."
+baseline = "No pre-change verification was run: the explicit ordered instructions require full implementation before testing, hf-build before hf-done and forbid running verify_cmd by hand. The resumed attempt inherits the implementation and 65 passing tests from attempt 1, whose qualification was held for same_candidate; that is not a pre-change baseline. The current attempt starts with no gate ledger. Runner-prepared .cgignore and task-status bookkeeping are preserved untouched and excluded by the runner from the candidate."
+evidence = "The last hf-done JSON and private runner gate ledger name the exact verified candidate revision, command, exit and log path; no source is edited after that gate to insert a self-referential candidate revision."
+candidate_hygiene = "Remove the inherited Python bytecode cache before hf-build. Invoke hf-build and hf-done with PYTHONDONTWRITEBYTECODE=1 so pytest cannot add compiled files to the candidate during verification; this interpreter setting suppresses generated artifacts and does not alter or disable any test assertion."
+wiring_requests = []
+
+[gotcha.1]
+symptom = "The requested pre-change verify conflicts with the explicit implementation-first order and single-run gate budget."
+resolution = "Follow the explicit order and record no baseline test result; root GOTCHA.kvx and spec files are outside the task scope."
+
+[gotcha.2]
+symptom = "PageResponse.next_key is base64 JSON, while this repository's SDK ReadPageRequest passes the CLI page-key string directly to []byte."
+resolution = "Decode next_key to the UTF-8 denom store key before the next request and reject malformed, NUL-containing or repeated keys."
+
+[gotcha.3]
+symptom = "The mandatory bash -n source parse is an external executable although the general fixture rule prohibits external binaries and subprocess toolchains."
+resolution = "Use bash only for the expressly required syntax parse; run production Python verification in-process and retain Go and live-chain execution as unproven by this gate."
+
+[gotcha.4]
+symptom = "Initial exploratory reads targeted nonexistent proto/, pyproject.toml and modules/tokenfactory/keeper/creators_test.go paths."
+resolution = "Read api/tokenfactory/query.proto, sdk/client/utils.go and modules/tokenfactory/keeper/creators.go; no formatter configuration governs these Python or shell paths."
+
+[gotcha.5]
+symptom = "The seeded attempt contains a pytest bytecode cache, and the runner includes ignored files under allowed directories in its candidate."
+resolution = "Remove the inherited cache and suppress bytecode writes during both gates so source-only build and verify revisions stay identical; leave runner-owned .cgignore and spec bookkeeping untouched."

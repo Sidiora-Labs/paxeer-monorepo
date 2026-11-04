@@ -1210,7 +1210,7 @@ impl PaymentGate {
                 return Err(GateError::Conformance);
             }
         }
-        let rpc = SettlementRpc::new(&config.evm.endpoint, config.evm.chain_id)
+        let rpc = SettlementRpc::new(&config.gateway.endpoint, config.evm.chain_id)
             .map_err(|_| GateError::Endpoint)?;
         let store = PaymentStore::open(&config.data_dir).map_err(GateError::Store)?;
         let lease = fs::OpenOptions::new()
@@ -1255,6 +1255,19 @@ impl PaymentGate {
             payment_lock: Mutex::new(()),
             _lease: lease,
         })
+    }
+
+    /// The configured settlement authority, shared by payment and readiness.
+    #[must_use]
+    pub const fn settlement_authority(&self) -> &SettlementRpc {
+        &self.rpc
+    }
+
+    #[must_use]
+    pub fn settlement_usable(&self) -> bool {
+        self.settlement_authority()
+            .sequencer_receipt(&[0; 32])
+            .is_ok()
     }
 
     #[must_use]
