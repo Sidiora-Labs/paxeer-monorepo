@@ -3,69 +3,12 @@
 import { act } from '@testing-library/react';
 import React from 'react';
 
-import type { PaxeerXTxSignature } from 'types/api/paxeerXSignature';
+import { describe, expect, it, test } from 'vitest';
 
-import { base } from 'mocks/txs/tx';
-import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { afterAll, beforeEach, describe, expect, it, test, vi } from 'vitest';
-
-const { answer, requests, server, originalEnvs } = await vi.hoisted(async() => {
-  const { generateKeyPairSync, sign } = await import('node:crypto');
-  const { createServer } = await import('node:http');
-  const receipt = Buffer.from('transaction details sequencer receipt');
-  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
-  const answer: PaxeerXTxSignature = {
-    rung: 'receipted',
-    receipt: `0x${ receipt.toString('hex') }`,
-    receipt_key: {
-      key_id: `0x${ '56'.repeat(32) }`,
-      public_key: `0x${ publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('hex') }`,
-    },
-    signature: `0x${ sign(null, new Uint8Array(receipt), privateKey).toString('hex') }`,
-  };
-  const requests: Array<string | undefined> = [];
-  const server = createServer((request, response) => {
-    requests.push(request.url);
-    response.setHeader('Content-Type', 'application/json');
-    if (request.url === `/api/v2/transactions/${ base.hash }/signature`) {
-      response.writeHead(200);
-      response.end(JSON.stringify(answer));
-    } else {
-      response.writeHead(404);
-      response.end(JSON.stringify({ message: 'Not found' }));
-    }
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  if (!address || typeof address === 'string') {
-    throw new Error('The signature server must listen on a TCP port');
-  }
-  const originalEnvs = window.__envs;
-  window.__envs = {
-    ...originalEnvs,
-    NEXT_PUBLIC_PAXEER_X_ENABLED: 'true',
-    NEXT_PUBLIC_API_PROTOCOL: 'http',
-    NEXT_PUBLIC_API_HOST: '127.0.0.1',
-    NEXT_PUBLIC_API_PORT: String(address.port),
-    NEXT_PUBLIC_API_BASE_PATH: '/',
-    NEXT_PUBLIC_USE_NEXT_JS_PROXY: 'false',
-    NEXT_PUBLIC_APP_ENV: 'testing',
-  };
-  return { answer, requests, server, originalEnvs };
-});
-
-vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
-
-import TxInfo from './TxInfo';
+import { answer, transaction as base, render, requests, TxInfo } from './signatureTestFixture';
 
 const labels = (container: HTMLElement, scope: string) =>
   Array.from(container.querySelectorAll(`${ scope } [data-detailed-info-label]`)).map((item) => item.textContent);
-
-afterAll(async() => {
-  window.__envs = originalEnvs;
-  fetchMock.enableMocks();
-  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-});
 
 async function tx_info_shows_sequencer_signature_row() {
   const { container, findByText } = render(<TxInfo data={ base } isLoading={ false }/>);
@@ -81,13 +24,6 @@ async function tx_info_shows_sequencer_signature_row() {
 }
 
 describe('TxInfo', () => {
-  beforeEach(() => {
-    routerState.pathname = '/tx/[hash]';
-    routerState.query = { hash: base.hash };
-    fetchMock.disableMocks();
-    requests.length = 0;
-  });
-
   test(tx_info_shows_sequencer_signature_row.name, tx_info_shows_sequencer_signature_row);
 
   it('puts the detail card before the more details expander', () => {
