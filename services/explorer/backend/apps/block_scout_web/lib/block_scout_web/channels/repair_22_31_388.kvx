@@ -1,0 +1,11 @@
+[repair.22.31.388]
+finding = "legacy-token-instance-topic"
+proving_tests = ["legacy-token-instance-topic: /socket joins and delivers metadata on the legacy topic", "legacy-token-instance-topic: /socket/v2 retains join and metadata delivery"]
+test_file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_388_test.exs"
+retained_routes = ["/socket token_instances_old:*", "/socket/v2 token_instances:*"]
+implementation = "Legacy channel processes subscribe to the notifier's canonical token_instances topic and push its broadcasts on the joined legacy topic; the v2 subscription stays canonical."
+proof_path = "Recorded CryptoKitties metadata and Token.Instance types -> Events.Publisher -> RealtimeEventHandlers.Main -> Notifier -> Endpoint PubSub -> socket route and TokenInstanceChannel process -> Phoenix.Socket.Message, including success, both failure reasons, exact token id, topic isolation and no duplicate delivery."
+recording_source = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/helper_test.exs: fetches json metadata for kitties"
+baseline = "Not run: the explicit numbered gate order forbids tests before the complete implementation and requires hf-build before hf-done; source inspection confirms legacy joins have no matching original clause. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner records the verified candidate revision, command, exit and private log in /out/run/gates.jsonl; no gate result is claimed in this source record."

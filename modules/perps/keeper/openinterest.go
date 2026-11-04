@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -77,15 +76,14 @@ func (k *Keeper) OpenInterestCap(ctx sdk.Context, marketID uint64) (sdk.Int, err
 // refused fill writes nothing.
 func (k *Keeper) CheckOpenInterest(ctx sdk.Context, fill OpenInterestFill) (*types.EventRecord, error) {
 	if fill.SizeBase.IsZero() || fill.PriceUsd.IsZero() {
-		return nil, fmt.Errorf("%w: fill of market %d needs a size and a price", types.ErrZeroAmount, fill.MarketID)
+		return nil, types.ErrZeroAmount.Wrapf("fill of market %d needs a size and a price", fill.MarketID)
 	}
 	if fill.BuyerOpensBase.Gt(&fill.SizeBase) || fill.SellerOpensBase.Gt(&fill.SizeBase) {
-		return nil, fmt.Errorf("%w: opening size above fill size %s in market %d",
-			types.ErrInvalidParams, fill.SizeBase.Dec(), fill.MarketID)
+		return nil, types.ErrInvalidParams.Wrapf("opening size above fill size %s in market %d", fill.SizeBase.Dec(), fill.MarketID)
 	}
 	var opens uint256.Int
 	if _, overflow := opens.AddOverflow(&fill.BuyerOpensBase, &fill.SellerOpensBase); overflow {
-		return nil, fmt.Errorf("%w: opening size of market %d", types.ErrOverflow, fill.MarketID)
+		return nil, types.ErrOverflow.Wrapf("opening size of market %d", fill.MarketID)
 	}
 	if opens.Eq(&fill.SizeBase) {
 		return nil, nil
@@ -108,22 +106,21 @@ func (k *Keeper) CheckOpenInterest(ctx sdk.Context, fill OpenInterestFill) (*typ
 	var side uint256.Int
 	if isIncrease {
 		if _, overflow := side.AddOverflow(&state.LongOpenInterest, &delta); overflow {
-			return nil, fmt.Errorf("%w: open interest of market %d", types.ErrOverflow, fill.MarketID)
+			return nil, types.ErrOverflow.Wrapf("open interest of market %d", fill.MarketID)
 		}
 		if err := k.checkOpenInterestCap(ctx, state, side); err != nil {
 			return nil, err
 		}
 	} else {
 		if delta.Gt(&state.LongOpenInterest) {
-			return nil, fmt.Errorf("%w: fill removes %s base above the open interest %s of market %d",
-				types.ErrOverflow, delta.Dec(), state.LongOpenInterest.Dec(), fill.MarketID)
+			return nil, types.ErrOverflow.Wrapf("fill removes %s base above the open interest %s of market %d", delta.Dec(), state.LongOpenInterest.Dec(), fill.MarketID)
 		}
 		side.Sub(&state.LongOpenInterest, &delta)
 	}
 
 	deltaUsd, overflow := new(uint256.Int).MulDivOverflow(&delta, &fill.PriceUsd, openInterestScale)
 	if overflow {
-		return nil, fmt.Errorf("%w: open interest change of market %d in USD", types.ErrOverflow, fill.MarketID)
+		return nil, types.ErrOverflow.Wrapf("open interest change of market %d in USD", fill.MarketID)
 	}
 	state.LongOpenInterest = side
 	state.ShortOpenInterest = side
@@ -145,7 +142,7 @@ func (k *Keeper) CheckOpenInterest(ctx sdk.Context, fill OpenInterestFill) (*typ
 // exceeds the cap in force; a side exactly at the cap passes.
 func (k *Keeper) checkOpenInterestCap(ctx sdk.Context, state types.MarketState, newSideBase uint256.Int) error {
 	if state.MarkPrice.IsZero() {
-		return fmt.Errorf("%w: market %d has no mark price", types.ErrPriceStale, state.MarketID)
+		return types.ErrPriceStale.Wrapf("market %d has no mark price", state.MarketID)
 	}
 	capUsd, err := k.OpenInterestCap(ctx, state.MarketID)
 	if err != nil {
@@ -153,7 +150,7 @@ func (k *Keeper) checkOpenInterestCap(ctx sdk.Context, state types.MarketState, 
 	}
 	sideUsd, overflow := new(uint256.Int).MulDivOverflow(&newSideBase, &state.MarkPrice, openInterestScale)
 	if overflow || sideUsd.ToBig().Cmp(capUsd.BigInt()) > 0 {
-		return fmt.Errorf("%w: market %d side above cap %s USD", types.ErrOpenInterestCap, state.MarketID, capUsd)
+		return types.ErrOpenInterestCap.Wrapf("market %d side above cap %s USD", state.MarketID, capUsd)
 	}
 	return nil
 }
@@ -167,11 +164,10 @@ func (k *Keeper) openInterestState(ctx sdk.Context, marketID uint64) (types.Mark
 		return state, nil
 	}
 	if err := state.Unmarshal(bz); err != nil {
-		return types.MarketState{}, fmt.Errorf("%w: market state %d: %v", types.ErrInvalidParams, marketID, err)
+		return types.MarketState{}, types.ErrInvalidParams.Wrapf("market state %d: %v", marketID, err)
 	}
 	if state.MarketID != marketID || !state.LongOpenInterest.Eq(&state.ShortOpenInterest) {
-		return types.MarketState{}, fmt.Errorf("%w: market state %d holds market %d with long %s and short %s",
-			types.ErrInvalidParams, marketID, state.MarketID, state.LongOpenInterest.Dec(), state.ShortOpenInterest.Dec())
+		return types.MarketState{}, types.ErrInvalidParams.Wrapf("market state %d holds market %d with long %s and short %s", marketID, state.MarketID, state.LongOpenInterest.Dec(), state.ShortOpenInterest.Dec())
 	}
 	return state, nil
 }
@@ -179,10 +175,10 @@ func (k *Keeper) openInterestState(ctx sdk.Context, marketID uint64) (types.Mark
 func openInterestAtMark(state types.MarketState) (MarketOpenInterest, error) {
 	out := MarketOpenInterest{LongBase: state.LongOpenInterest, ShortBase: state.ShortOpenInterest}
 	if _, overflow := out.LongUsd.MulDivOverflow(&state.LongOpenInterest, &state.MarkPrice, openInterestScale); overflow {
-		return MarketOpenInterest{}, fmt.Errorf("%w: long open interest of market %d in USD", types.ErrOverflow, state.MarketID)
+		return MarketOpenInterest{}, types.ErrOverflow.Wrapf("long open interest of market %d in USD", state.MarketID)
 	}
 	if _, overflow := out.ShortUsd.MulDivOverflow(&state.ShortOpenInterest, &state.MarkPrice, openInterestScale); overflow {
-		return MarketOpenInterest{}, fmt.Errorf("%w: short open interest of market %d in USD", types.ErrOverflow, state.MarketID)
+		return MarketOpenInterest{}, types.ErrOverflow.Wrapf("short open interest of market %d in USD", state.MarketID)
 	}
 	return out, nil
 }

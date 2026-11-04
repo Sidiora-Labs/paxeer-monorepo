@@ -21,6 +21,7 @@ use serde_aux::prelude::*;
 pub struct RawTrace {
     pub action: models::RawTraceAction,
     pub subtraces: Decimal,
+    #[serde(rename = "traceAddress")]
     pub trace_address: Vec<i32>,
     pub r#type: String,
     #[serde(default)]

@@ -30,7 +30,8 @@ pub struct TokenTransfer {
 
     pub to: models::AddressParam,
     pub token: models::TokenInfo,
-    pub total: models::TokenTransferTotal,
+    pub token_type: Option<String>,
+    pub total: Option<models::TokenTransferTotal>,
     pub transaction_hash: String,
     pub r#type: String,
 }

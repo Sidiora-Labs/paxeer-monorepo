@@ -137,6 +137,8 @@ type SequencerReceiptLog struct {
 }
 
 // SequencerReceiptView is the decoded receipt and its pinned signing public key.
+// Sponsor is the summary address, including zero when reverted execution emitted
+// no Sponsored event. The address is serialized as a string, never JSON null.
 type SequencerReceiptView struct {
 	Seq               hexutil.Uint64        `json:"seq"`
 	Height            hexutil.Uint64        `json:"height"`

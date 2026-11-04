@@ -15,12 +15,13 @@ use zeroize::Zeroizing;
 
 use crate::payer_tx::{decode_pay_exact, PayerTransactionRefusal};
 
-pub(crate) struct ChainRelay {
+pub struct ChainRelay {
     pub(crate) endpoint: Arc<SequencerEndpoint>,
     pub(crate) receipt_keys: Vec<SequencerAuthorization>,
     pub(crate) journal: RelayJournal,
 }
 
+#[derive(Clone)]
 pub(crate) struct RelayJournal {
     host: String,
     port: u16,
@@ -32,6 +33,7 @@ pub(crate) struct RelayJournal {
 struct JournalEntry {
     tx_hash: [u8; 32],
     raw: Vec<u8>,
+    submitted: bool,
 }
 
 impl RelayJournal {
@@ -159,13 +161,47 @@ impl RelayJournal {
                 .try_into()
                 .map_err(|_| RelayError::TransactionHashMismatch)?,
             raw: raw.to_vec(),
+            submitted: false,
         })
     }
 
     fn read(&self, key: &str) -> Result<Option<JournalEntry>, RelayError> {
-        self.command(&[b"GET", key.as_bytes()])?
-            .map(|bytes| Self::decode(&bytes))
-            .transpose()
+        let progress_key = format!("{key}:submitted");
+        self.command(&[
+            b"EVAL",
+            b"local old = redis.call('GET', KEYS[1]); if not old then return nil end; local progress = redis.call('GET', KEYS[2]); if progress and progress ~= string.sub(old, 1, 32) then return redis.error_reply('relay submission hash mismatch') end; return string.char(progress and 1 or 0) .. old",
+            b"2", key.as_bytes(), progress_key.as_bytes(),
+        ])?
+        .map(|bytes| {
+            let (status, bytes) = bytes.split_first().ok_or_else(|| {
+                RelayError::Journal("invalid relay submission progress".to_owned())
+            })?;
+            let mut entry = Self::decode(bytes)?;
+            entry.submitted = match status {
+                0 => false,
+                1 => true,
+                _ => return Err(RelayError::Journal("invalid relay submission progress".to_owned())),
+            };
+            Ok(entry)
+        })
+        .transpose()
+    }
+
+    fn submitted(&self, key: &str, entry: &JournalEntry) -> Result<(), RelayError> {
+        let progress_key = format!("{key}:submitted");
+        let mut record = entry.tx_hash.to_vec();
+        record.extend_from_slice(&entry.raw);
+        let answer = self.command(&[
+            b"EVAL",
+            b"if redis.call('GET', KEYS[1]) ~= ARGV[1] then return nil end; redis.call('SET', KEYS[2], ARGV[2]); return ARGV[2]",
+            b"2", key.as_bytes(), progress_key.as_bytes(), &record, &entry.tx_hash,
+        ])?;
+        if answer.as_deref() != Some(entry.tx_hash.as_slice()) {
+            return Err(RelayError::Journal(
+                "relay submission claim changed".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     fn claim(&self, key: &str, raw: &[u8], tx_hash: [u8; 32]) -> Result<bool, RelayError> {
@@ -202,13 +238,13 @@ impl RelayJournal {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum RelayOutcome {
+pub enum RelayOutcome {
     Pending { tx_hash: [u8; 32] },
     Executed(SequencerEvidence),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum RelayError {
+pub enum RelayError {
     Transaction(PayerTransactionRefusal),
     Sequencer(SequencerError),
     TransactionHashMismatch,
@@ -234,7 +270,15 @@ impl std::fmt::Display for RelayError {
 impl std::error::Error for RelayError {}
 
 impl ChainRelay {
-    pub(crate) fn relay(
+    pub fn from_config(config: &crate::config::Config) -> Self {
+        Self {
+            endpoint: Arc::clone(&config.sequencer),
+            receipt_keys: config.receipt_keys.clone(),
+            journal: config.relay_journal.clone(),
+        }
+    }
+
+    pub fn relay(
         &self,
         idempotency_key: &str,
         raw: &[u8],
@@ -251,30 +295,30 @@ impl ChainRelay {
                 PayerTransactionRefusal::SignatureRefused,
             ));
         }
-        let tx_hash = match stored {
-            Some(entry) => {
-                if entry.tx_hash != decoded_hash {
-                    return Err(RelayError::TransactionHashMismatch);
-                }
-                entry.tx_hash
+        if let Some(entry) = stored {
+            if entry.tx_hash != decoded_hash {
+                return Err(RelayError::TransactionHashMismatch);
             }
-            None => {
-                if self.journal.claim(&key, raw, decoded_hash)? {
-                    let submitted_hash = self
-                        .endpoint
-                        .send_raw_transaction(raw)
-                        .map_err(RelayError::Sequencer)?;
-                    if submitted_hash != decoded_hash {
-                        return Err(RelayError::TransactionHashMismatch);
-                    }
-                }
-                decoded_hash
-            }
-        };
-        self.receipt(tx_hash)
+            return self.recover(&key, &entry);
+        }
+        if !self.journal.claim(&key, raw, decoded_hash)? {
+            let entry = self
+                .journal
+                .read(&key)?
+                .ok_or_else(|| RelayError::Journal("relay claim disappeared".to_owned()))?;
+            return self.recover(&key, &entry);
+        }
+        self.submit(
+            &key,
+            &JournalEntry {
+                tx_hash: decoded_hash,
+                raw: raw.to_vec(),
+                submitted: false,
+            },
+        )
     }
 
-    pub(crate) fn recorded_evidence(
+    pub fn recorded_evidence(
         &self,
         idempotency_key: &str,
     ) -> Result<Option<RelayOutcome>, RelayError> {
@@ -282,11 +326,36 @@ impl ChainRelay {
         let Some(entry) = self.journal.read(&key)? else {
             return Ok(None);
         };
+        self.recover(&key, &entry).map(Some)
+    }
+
+    fn recover(&self, key: &str, entry: &JournalEntry) -> Result<RelayOutcome, RelayError> {
         let (_, _, tx_hash) = decode_pay_exact(&entry.raw).map_err(RelayError::Transaction)?;
         if tx_hash != entry.tx_hash {
             return Err(RelayError::TransactionHashMismatch);
         }
-        self.receipt(tx_hash).map(Some)
+        match self.receipt(tx_hash) {
+            Err(RelayError::Unknown) => self.submit(key, entry),
+            Ok(outcome) => {
+                if !entry.submitted {
+                    self.journal.submitted(key, entry)?;
+                }
+                Ok(outcome)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn submit(&self, key: &str, entry: &JournalEntry) -> Result<RelayOutcome, RelayError> {
+        let submitted_hash = self
+            .endpoint
+            .send_raw_transaction(&entry.raw)
+            .map_err(RelayError::Sequencer)?;
+        if submitted_hash != entry.tx_hash {
+            return Err(RelayError::TransactionHashMismatch);
+        }
+        self.journal.submitted(key, entry)?;
+        self.receipt(entry.tx_hash)
     }
 
     fn receipt(&self, tx_hash: [u8; 32]) -> Result<RelayOutcome, RelayError> {

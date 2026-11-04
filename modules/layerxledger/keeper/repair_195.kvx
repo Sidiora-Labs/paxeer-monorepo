@@ -1,0 +1,48 @@
+[repair.22.31.195]
+audit = "22.30.8"
+acceptance = "22998.1"
+base = "61b2c3c98c61e72d831e1ce948a0bde6d218c980"
+qualification = "hf-build and hf-done retain the exact candidate revision, command, exit and private evidence log; no independent gate or baseline result is claimed."
+baseline = "Not run: the controlling task order prohibits testing before the entire implementation and permits verification only through hf-done after hf-build. No tests are claimed to have failed on the unchanged tree."
+wiring_requests = []
+
+[finding.send-refuses-opened-account]
+test = "TestRepair_195_SendOpenedAccount"
+repair = "Preserve the base's canonical main/asset namespace and persisted asset/owner validation in a shared sendSource resolver, with bound authority checked before debit. OpenAccount returns the source consumed by EncodeSendPayload, EVM.Call at 0x101A, Send and the kernel; minted funds, decoded Transfer logs, exact bank/kernel balances and source sequences are asserted. Foreign ownership, asset mismatch and consumed sequence refuse without state or logs."
+existing_test = "TestSendRefusals.asset_subaccount_wrong_asset now asserts the asset boundary; an owned canonical asset account is accepted and proven by TestRepair_195_SendOpenedAccount rather than incorrectly asserted unauthorized."
+
+[finding.payexact-uses-different-account-sequence]
+tests = ["TestRepair_195_PayExactSourceSequence", "TestRepair_195_PayExactMainWithoutAssetAccount"]
+repair = "PayExact resolves args.From through the same ownership, asset and namespace checks as Send and encodes its persisted NextSequence. Real onboarding produces the main account; real openAccount, mint and send produce divergent main/asset debit sequences. Payments through 0x101A advance only their actual source, emit decoded Transfer and PaymentExact logs and preserve mirrored balances. Foreign main/asset sources and mismatched assets refuse without state changes; a funded main source also pays when no canonical asset account exists."
+
+[gotcha.scope]
+observed = "The task prohibits spec and root gotcha ledger changes, while repository workflow asks for a task record and gotchas."
+resolution = "Keep the finding-to-test mapping and workflow contradiction inside this scoped record; the runner owns spec bookkeeping and publication."
+
+[gotcha.base]
+observed = "The checked-out base already contains the earlier canonical asset-account Send validation and an obsolete refusal assertion for that source namespace."
+resolution = "Preserve the existing validation in the shared resolver, correct the obsolete test to enforce asset matching, and prove the public account-opening/send composition with the task's focused tests."
+
+[qualification.first_pass]
+revision = "1ece17d1e54f99cba15c86840bcae781156e99fd"
+command = "cg spec done 22.31.195 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Governance setup supplied a 61000 ms activity window exceeding the host's unchanged 60000 ms admission limit, so every proof stopped before ledger execution."
+repair = "Narrow the signed setup activity to a 2000 ms window and encode the matching onboarding consent expiry; retain all production bounds and test assertions."
+
+[gotcha.timestamp]
+observed = "A setup activity with notBefore one second before now and notAfter sixty seconds after now exceeds a sixty-second maximum timestamp window."
+resolution = "Choose a valid activity interval within the configured admission window and match the onboarding consent's encoded expiry to that signed interval."
+
+[qualification.continued_attempt]
+revision = "215ef9e03a850bc60c0eb89252bf3c4f8fca24d2"
+command = "cg spec done 22.31.195 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/tmp/repair-195.log (previous sandbox; failure excerpt supplied by runner)"
+observed = "SendOpenedAccount and PayExactSourceSequence passed; PayExactMainWithoutAssetAccount stopped while minting to a main account with LXP_ASSET_MISMATCH."
+repair = "Mint to the payee's canonical asset account and send through 0x101A into the payer's main account, then payExact while the payer's canonical asset account remains absent."
+
+[gotcha.mint_recipient]
+observed = "The production mint interface accepts canonical asset recipients and refuses a main account even when its asset matches."
+resolution = "Use mint followed by a real send from a bound owner to fund a main source; preserve the existing mint validation and absent payer asset-account assertions."
