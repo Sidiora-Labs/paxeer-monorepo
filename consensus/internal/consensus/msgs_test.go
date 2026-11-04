@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -215,6 +216,7 @@ func TestMsgToProto(t *testing.T) {
 }
 
 func TestWALMsgProto(t *testing.T) {
+	t.Run("producer timed proposal", testRepairM1082WALProto)
 
 	parts := types.Part{
 		Index: 1,
@@ -715,4 +717,38 @@ func TestHasVoteMessageValidateBasic(t *testing.T) {
 			assert.Equal(t, tc.expectErr, message.ValidateBasic() != nil, "Validate Basic had an unexpected result")
 		})
 	}
+}
+
+// The inner protobuf carries Msg/PeerID; the timed WAL envelope carries the
+// reactor/producer receive clock. Exercise both representations of one message.
+func testRepairM1082WALProto(t *testing.T) {
+	t.Helper()
+	f := newRepair80Fixture(t)
+	mi := f.messages[0]
+	require.False(t, mi.ReceiveTime.IsZero())
+	inner := NewWALMessage(mi).toProto()
+	require.Equal(t, *MsgToProto(mi.Msg), inner.GetMsgInfo().Msg)
+	require.Equal(t, string(mi.PeerID), inner.GetMsgInfo().PeerID)
+	decoded, err := walFromProto(inner)
+	require.NoError(t, err)
+	got := decoded.any.(msgInfo)
+	require.Equal(t, MsgToProto(mi.Msg), MsgToProto(got.Msg))
+	require.Equal(t, mi.PeerID, got.PeerID)
+	walPath := filepath.Join(t.TempDir(), "timed-proposal.wal")
+	wal, err := OpenWAL(walPath)
+	require.NoError(t, err)
+	require.NoError(t, wal.Append(NewWALMessage(mi)))
+	require.NoError(t, wal.Sync())
+	wal.Close()
+	reopened, err := OpenWAL(walPath)
+	require.NoError(t, err)
+	defer reopened.Close()
+	height, messages, err := reopened.ReadLastHeightMsgs()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, height)
+	require.Len(t, messages, 1)
+	recovered := messages[0].any.(msgInfo)
+	require.True(t, mi.ReceiveTime.Equal(recovered.ReceiveTime))
+	require.Equal(t, mi.PeerID, recovered.PeerID)
+	require.Equal(t, MsgToProto(mi.Msg), MsgToProto(recovered.Msg))
 }

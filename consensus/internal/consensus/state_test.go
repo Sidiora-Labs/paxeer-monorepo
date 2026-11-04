@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/proxy"
 	tmpubsub "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/pubsub"
 	tmquery "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/pubsub/query"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/store"
 	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	tmrand "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/rand"
 	tmtime "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/time"
@@ -72,82 +74,12 @@ x * TestHalt1 - if we see +2/3 precommits after timing out into new round, we sh
 // ProposeSuite
 
 func TestStateProposerSelection0(t *testing.T) {
-	ctx := t.Context()
-	config := configSetup(t)
-
-	cs1, vss := makeState(ctx, t, makeStateArgs{config: config})
-	height, round := cs1.roundState.Height(), cs1.roundState.Round()
-
-	newRoundCh := subscribe(ctx, t, cs1.eventBus, types.EventQueryNewRound)
-	proposalCh := subscribe(ctx, t, cs1.eventBus, types.EventQueryCompleteProposal)
-
-	cs1.startTestRound(ctx, height, round)
-
-	// Wait for new round so proposer is set.
-	ensureNewRound(t, newRoundCh, height, round)
-
-	// Commit a block and ensure proposer for the next height is correct.
-	prop := cs1.GetRoundState().Validators.GetProposer()
-	pv, _ := cs1.privValidator.Get()
-	key, err := pv.GetPubKey(ctx)
-	require.NoError(t, err)
-	address := key.Address()
-	require.NoError(t, utils.TestDiff(prop.Address, address))
-
-	// Wait for complete proposal.
-	ensureNewProposal(t, proposalCh, height, round)
-
-	rs := cs1.GetRoundState()
-	cs1.signAddVotes(ctx, t, tmproto.PrecommitType, config.ChainID(), types.BlockID{
-		Hash:          rs.ProposalBlock.Hash(),
-		PartSetHeader: rs.ProposalBlockParts.Header(),
-	}, vss[1:]...)
-
-	// Wait for new round so next validator is set.
-	ensureNewRound(t, newRoundCh, height+1, 0)
-
-	prop = cs1.GetRoundState().Validators.GetProposer()
-	pv1, err := vss[1].GetPubKey(ctx)
-	require.NoError(t, err)
-	addr := pv1.Address()
-	require.True(t, bytes.Equal(prop.Address, addr), "expected proposer to be validator %d. Got %X", 1, prop.Address)
+	testRepairM1082ProposerSelection(t, 0)
 }
 
-// Now let's do it all again, but starting from round 2 instead of 0
+// Exercise the same leader contract starting at a nonzero round.
 func TestStateProposerSelection2(t *testing.T) {
-	config := configSetup(t)
-
-	ctx := t.Context()
-	cs1, vss := makeState(ctx, t, makeStateArgs{config: config}) // test needs more work for more than 3 validators
-	height := cs1.roundState.Height()
-	newRoundCh := subscribe(ctx, t, cs1.eventBus, types.EventQueryNewRound)
-
-	// this time we jump in at round 2
-	incrementRound(vss[1:]...)
-	incrementRound(vss[1:]...)
-
-	var round int32 = 2
-	cs1.startTestRound(ctx, height, round)
-
-	ensureNewRound(t, newRoundCh, height, round) // wait for the new round
-
-	// everyone just votes nil. we get a new proposer each round
-	for i := int32(0); int(i) < len(vss); i++ {
-		prop := cs1.GetRoundState().Validators.GetProposer()
-		pvk, err := vss[int(i+round)%len(vss)].GetPubKey(ctx)
-		require.NoError(t, err)
-		addr := pvk.Address()
-		correctProposer := addr
-		require.True(t, bytes.Equal(prop.Address, correctProposer),
-			"expected RoundState.Validators.GetProposer() to be validator %d. Got %X",
-			int(i+2)%len(vss),
-			prop.Address)
-
-		cs1.signAddVotes(ctx, t, tmproto.PrecommitType, config.ChainID(), types.BlockID{}, vss[1:]...)
-		ensureNewRound(t, newRoundCh, height, i+round+1) // wait for the new round event each round
-		incrementRound(vss[1:]...)
-	}
-
+	testRepairM1082ProposerSelection(t, 2)
 }
 
 // a non-validator should timeout into the prevote round
@@ -2912,4 +2844,67 @@ func TestAddProposalBlockPartNilProposalBlockParts(t *testing.T) {
 	// Should not add the part and should not return an error (just a debug log)
 	require.False(t, added, "Part should not be added when ProposalBlockParts is nil")
 	require.NoError(t, err, "No error expected when ProposalBlockParts is nil, just debug logging")
+}
+
+func testRepairM1082ProposerSelection(t *testing.T, startRound int32) {
+	t.Helper()
+	for _, mode := range []string{"weighted", "active_pin", "disabled_pin", "activate_at_second_height"} {
+		t.Run(fmt.Sprintf("round_%d/%s", startRound, mode), func(t *testing.T) {
+			f := newRepairM1082Fixture(t, true, time.Now().Add(-time.Minute))
+			cs, _ := f.state(t, f.honest[0])
+			cs.SetPrivValidator(t.Context(), utils.None[types.PrivValidator]())
+			var pin cstypes.LeaderPin
+			switch mode {
+			case "active_pin", "activate_at_second_height":
+				activation := int64(1)
+				if mode == "activate_at_second_height" {
+					activation = 2
+				}
+				var err error
+				pin, err = cstypes.NewLeaderPin(activation, []crypto.PubKey{f.keys[3].Public(), f.keys[1].Public()})
+				require.NoError(t, err)
+			case "disabled_pin":
+				var err error
+				pin, err = cstypes.LeaderPinFromSchedule(0, [][32]byte{[32]byte(f.keys[3].Public().Bytes()), [32]byte(f.keys[1].Public().Bytes())})
+				require.NoError(t, err)
+				require.False(t, pin.Applies(1))
+			}
+			cs.SetLeaderPin(pin)
+			rounds := subscribe(t.Context(), t, cs.eventBus, types.EventQueryNewRound)
+			proposals := subscribe(t.Context(), t, cs.eventBus, types.EventQueryCompleteProposal)
+			blocks := subscribe(t.Context(), t, cs.eventBus, types.EventQueryNewBlock)
+			for height := int64(1); height <= 2; height++ {
+				round := startRound + int32(height-1)
+				expected := cs.GetRoundState()
+				expected.Round = round
+				expected.LeaderPin = pin
+				leader := expected.Leader()
+				cs.enterNewRound(t.Context(), height, round, "repair-m1082-selection")
+				event := ensureMessageBeforeTimeout(t, rounds, ensureTimeout).Data().(types.EventDataNewRound)
+				require.Equal(t, height, event.Height)
+				require.Equal(t, round, event.Round)
+				require.Equal(t, leader.Address(), event.Proposer.Address)
+				require.Equal(t, leader, cs.GetRoundState().Leader())
+				producer, _ := newRepairM1082State(t, getConfig(t), cs.GetState(), f.signers[f.index(t, leader)], cs.blockStore.(*store.BlockStore), NopMetrics())
+				producer.SetLeaderPin(pin)
+				messages := repairM1082ProducerMessages(t, producer, height, round)
+				proposal := messages[0].Msg.(*ProposalMessage).Proposal
+				require.Equal(t, leader.Address(), proposal.ProposerAddress)
+				require.NoError(t, leader.Verify(types.ProposalSignBytes(f.genesis.ChainID, proposal.ToProto()), proposal.Signature))
+				for _, mi := range messages {
+					cs.handleMsg(t.Context(), repairM1082Transport(t, mi), false)
+				}
+				id := ensureNewProposal(t, proposals, height, round)
+				require.True(t, id.Equals(proposal.BlockID))
+				require.Equal(t, proposal.Signature, cs.GetRoundState().Proposal.Signature)
+				for signer := range 3 {
+					vote := f.vote(t, signer, tmproto.PrecommitType, height, round, id)
+					cs.handleMsg(t.Context(), repairM1082Transport(t, msgInfo{Msg: &VoteMessage{vote}, PeerID: "selection-peer", ReceiveTime: time.Now()}), false)
+				}
+				ensureNewBlock(t, blocks, height)
+				require.Equal(t, height+1, cs.GetRoundState().Height)
+				require.Equal(t, id.Hash, cs.blockStore.LoadBlock(height).Hash())
+			}
+		})
+	}
 }
