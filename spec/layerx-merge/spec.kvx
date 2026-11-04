@@ -147559,7 +147559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1010]
 title = "Repair audit record 22.30.36 medium findings in apps/launchpad/web/src/widgets/my-token (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.60", "22.31.61"]
@@ -147629,7 +147629,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1004]
 title = "Repair audit record 22.30.34 medium findings in apps/launchpad/web/src/widgets/trading (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.57"]
@@ -204950,7 +204950,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1013]
 title = "Repair audit record 22.30.36 medium findings in sdk/launchpad/shared/telemetry (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.60", "22.31.61"]
@@ -205020,7 +205020,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1009]
 title = "Repair audit record 22.30.35 medium findings in services/launchpad/metadata/internal/image (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.58", "22.31.59"]
@@ -205203,7 +205203,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1002]
 title = "Repair audit record 22.30.34 medium findings in services/launchpad/livestream/internal/app (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.57"]
@@ -219420,7 +219420,7 @@ do_14 = "Attempt 6 (continue): two tests refuse to run without L06_POSTGRES_DSN;
 
 [task.22.31.53]
 title = "Repair audit record 22.30.33 findings in services/launchpad/indexer/internal/receipt: interface-mismatch, restart-recovery, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -369996,7 +369996,7 @@ do_10 = "Attempt 3 (continue): seven failures show the production committed-with
 
 [task.22.31.410]
 title = "Repair audit record 22.30.155 findings in services/explorer/backend/apps/explorer/test/explorer/migrator: test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
