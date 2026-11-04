@@ -1,0 +1,13 @@
+[repair.22.33.1]
+audit = "22.30.1"
+finding = "2"
+tests = ["TestRepairM_1_CurrentHostNativeWitnesses", "TestRepairM_1_TwelveLeafModuleInclusion", "TestRepairM_1_PreservedRefusals"]
+path = "Current production lxphost node creation/reset snapshot (checked against modules/lxphost/host.go) -> real account registry, journal and module KV commits -> C lxp_state_proof_build/encode/decode/verify -> in-memory JSON stream -> Go DecodeStateWitness/Root/Verify -> verify.StateProof/AccountProof."
+coverage = "Current host: all nine registered modules including service 5 and spot 10, three KV leaves each, three funded accounts, balance and sequence at width 11. Retained codec format: production C encode/decode/verify of twelve-leaf fixture state with module 10 and reserved historical module 11 inclusion; no claim that the current host registers module 11."
+refusals = "Historical exact error classes and all core vectors retained; each new witness rejects bad roots, mutated values/siblings, unsupported modules, out-of-range and empty subtrees, malformed widths, excessive depth, missing/extra siblings, forged promotions, truncated and trailing wire. Module 11 also rejects width 11."
+baseline = "Not run: explicit task Order forbids testing before complete implementation and verification outside hf-done. No unchanged-tree failure is claimed; there were no TestRepairM_1_ tests or earlier gate ledger entries at task start."
+fixture = "Committed C fixture sources execute in process through cgo, with linked native libraries supplied by the declared build. Tests invoke no compiler, subprocess, endpoint, credentials or external native executable. The host snapshot contains only the production preamble through lxphost_reset and must match it byte for byte."
+wiring_request_1 = "services/agent/crates/layerx-proof/tests/state_witness.rs and its fixture producer, owning domain 13: replace the obsolete eleven-leaf negative case with an out-of-contract width and consume current host witnesses while retaining malformed-width and root refusals."
+wiring_request_2 = "spec/layerx-merge/programme/audit/records/22.30.1.kvx, owning domain 1: record finding 2 closure with the proving tests above; current service is ID 5, spot is ID 10, and reserved historical web is ID 11."
+evidence = "hf-done records the exact verified revision, command, exit and private evidence log in its gate ledger and the final evidence line."
+qualification_repair = "First hf-done at c4ccc27490a3c7178b6c9e89ce9419f912656b26 exited 1 before tests: Go vet reported suspect or for the native/Go bound assertion. Split into two independent exact assertions without changing their predicates; evidence /out/logs/verify-1.log and /tmp/repair-m1.log."

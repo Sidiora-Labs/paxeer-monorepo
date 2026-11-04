@@ -9793,12 +9793,25 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?;
             managed_agent::budget_owners(&store, &tenant)?
         };
-        let mut selected = owners
-            .iter()
-            .filter(|owner| owner.agent_did == record.held_activity.actor.as_str());
-        let (Some(owner), None) = (selected.next(), selected.next()) else {
-            return Err(HumanOperationError::Refused);
-        };
+        let mut operations = self.lock_operations()?;
+        let mut selected = None;
+        for owner in &owners {
+            let public_key = owner
+                .agent_did
+                .strip_prefix("did:layerx:")
+                .and_then(digest_from_hex)
+                .ok_or(HumanOperationError::Refused)?;
+            let address = operations
+                .chain
+                .bound_address(&public_key)
+                .map_err(human_receipt_node_error)?;
+            if address.is_some_and(|address| hex(&address) == record.held_activity.actor.as_str()) {
+                if selected.replace(owner).is_some() {
+                    return Err(HumanOperationError::Refused);
+                }
+            }
+        }
+        let owner = selected.ok_or(HumanOperationError::Refused)?;
         let held_limits = if terminal {
             retained_reservations
                 .iter()
@@ -9809,9 +9822,8 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                 .held_limits(approval_id)
                 .map_err(|_| HumanOperationError::Refused)?
         };
-        let mut operations = self.lock_operations()?;
-        let actor = Did::new(record.held_activity.actor.as_str().as_bytes())
-            .map_err(|_| HumanOperationError::Refused)?;
+        let actor =
+            Did::new(owner.agent_did.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
         let snapshot = core_preparation_snapshot(
             operations.chain.as_ref(),
             &operations.authority,
@@ -9859,8 +9871,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                         && limit.asset == asset
                         && (terminal
                             || (!limit.revoked && limit.expiry_ms > snapshot.protocol_timestamp))
-                        && limit.agent_digest
-                            == daemon_limit_agent(record.held_activity.actor.as_str())
+                        && limit.agent_digest == daemon_limit_agent(&owner.agent_did)
                 })
             })
         {

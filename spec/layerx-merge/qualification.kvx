@@ -22643,3 +22643,43 @@ symbol = "repair_22_31_269.rs"
 observed = "Attempt 3: cargo build of the libs workspace fails on type errors in repair_22_31_273.rs; the agent reports the client regeneration needs excluded paths."
 assumption = "Wrong build target and a consumer test of the regenerated models left outside scope."
 severity = "high"
+
+[finding.22.31.396.2]
+task = "22.31.396"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs"
+symbol = "repair_22_31_396_test.exs"
+observed = "Attempt 2: build passed; 49 tests, 36 failures; the agent reports the remaining producer fixes need files outside the allowed scope."
+assumption = "Producer-consumer defect: the verifier, the two controllers and the configuration were left outside the first scope."
+severity = "high"
+
+[finding.22.31.421.1]
+task = "22.31.421"
+file = "tools/qualification/audit_repairs/test_repair_22_31_421.py"
+symbol = "test_repair_22_31_421.py"
+observed = "Attempt 1: build and verify passed, done record written; the final commit differs from the qualified candidate and includes a compiled bytecode cache file."
+assumption = "A re-commit after qualification broke the candidate identity; the repair itself is sound."
+severity = "medium"
+
+[finding.22.9.10.17]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 30: npm ci refuses because ganache 7.9.2 is missing from the lockfile; the SDK was never compiled."
+assumption = "A workspace member manifest changed without the root lockfile; repaired by its own task."
+severity = "high"
+
+[finding.22.31.269.4]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 4: the libs workspace build fails on two type mismatches in the 22.31.273 repair test (FeedItem fields); the agent reports the regeneration needs paths outside scope."
+assumption = "The attempt started before the corrected scope and target were in force."
+severity = "high"
+
+[finding.22.31.384.2]
+task = "22.31.384"
+file = "apps/web/e2e/repair-22-31-384.test.ts"
+symbol = "repair-22-31-384.test.ts"
+observed = "Attempt 3: approval_operation_digest_real_http fails; the generated ApprovalDetail codec returns undefined for the operation digest."
+assumption = "Producer-consumer defect: the schema and generated client were left outside the first scope."
+severity = "high"

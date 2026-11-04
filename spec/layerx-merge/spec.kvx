@@ -8229,6 +8229,12 @@ value = "Every medium finding of the audit records that names a code path is clo
 basis = "The owner's closure ruling: the merge closes only spotless, fully wired and with no known issue; the audit records hold 6103 medium findings."
 affects = ["22.33.1", "22.33.2", "22.33.3", "22.33.4", "22.33.5", "22.33.6", "22.33.7", "22.33.8", "22.33.9", "22.33.10", "22.33.11", "22.33.12", "22.33.13", "22.33.14", "22.33.15", "22.33.16", "22.33.17", "22.33.18", "22.33.19", "22.33.20", "22.33.21", "22.33.22", "22.33.23", "22.33.24", "22.33.25", "22.33.26", "22.33.27", "22.33.28", "22.33.29", "22.33.30", "22.33.31", "22.33.32", "22.33.33", "22.33.34", "22.33.35", "22.33.36", "22.33.37", "22.33.38", "22.33.39", "22.33.40", "22.33.41", "22.33.42", "22.33.43", "22.33.44", "22.33.45", "22.33.46", "22.33.47", "22.33.48", "22.33.49", "22.33.50", "22.33.51", "22.33.52", "22.33.53", "22.33.54", "22.33.55", "22.33.56", "22.33.57", "22.33.58", "22.33.59", "22.33.60", "22.33.61", "22.33.62", "22.33.63", "22.33.64", "22.33.65", "22.33.66", "22.33.67", "22.33.68", "22.33.69", "22.33.70", "22.33.71", "22.33.72", "22.33.73", "22.33.74", "22.33.75", "22.33.76", "22.33.77", "22.33.78", "22.33.79", "22.33.80", "22.33.81", "22.33.82", "22.33.83", "22.33.84", "22.33.85", "22.33.86", "22.33.87", "22.33.88", "22.33.89", "22.33.90", "22.33.91", "22.33.92", "22.33.93", "22.33.94", "22.33.95", "22.33.96", "22.33.97", "22.33.98", "22.33.99", "22.33.100", "22.33.101", "22.33.102", "22.33.103", "22.33.104", "22.33.105", "22.33.106", "22.33.107", "22.33.108", "22.33.109", "22.33.110", "22.33.111", "22.33.112", "22.33.113", "22.33.114", "22.33.115", "22.33.116", "22.33.117", "22.33.118", "22.33.119", "22.33.120", "22.33.121", "22.33.122", "22.33.123", "22.33.124", "22.33.125", "22.33.126", "22.33.127", "22.33.128", "22.33.129", "22.33.130", "22.33.131", "22.33.132", "22.33.133", "22.33.134", "22.33.135", "22.33.136", "22.33.137", "22.33.138", "22.33.139", "22.33.140", "22.33.141", "22.33.142", "22.33.143", "22.33.144", "22.33.145", "22.33.146", "22.33.147", "22.33.148", "22.33.149", "22.33.150", "22.33.151", "22.33.152", "22.33.153", "22.33.154", "22.33.155", "22.33.156", "22.33.157", "22.33.158", "22.33.159", "22.33.160", "22.33.161", "22.33.162", "22.33.163", "22.33.164", "22.33.165", "22.33.166", "22.33.167", "22.33.168", "22.33.169", "22.33.170", "22.33.171", "22.33.172", "22.33.173", "22.33.174", "22.33.175", "22.33.176", "22.33.177", "22.33.178", "22.33.179", "22.33.180", "22.33.181", "22.33.182", "22.33.183", "22.33.184", "22.33.185", "22.33.186", "22.33.187", "22.33.188", "22.33.189", "22.33.190", "22.33.191", "22.33.192", "22.33.193", "22.33.194", "22.33.195", "22.33.196", "22.33.197", "22.33.198", "22.33.199", "22.33.200", "22.33.201", "22.33.202", "22.33.203", "22.33.204", "22.33.205", "22.33.206", "22.33.207", "22.33.208", "22.33.209", "22.33.210", "22.33.211", "22.33.212", "22.33.213", "22.33.214", "22.33.215", "22.33.216", "22.33.217", "22.33.218", "22.33.219", "22.33.220", "22.33.221", "22.33.222", "22.33.223", "22.33.224", "22.33.225", "22.33.226", "22.33.227", "22.33.228", "22.33.229", "22.33.230", "22.33.231", "22.33.232", "22.33.233", "22.33.234", "22.33.235", "22.33.236", "22.33.237", "22.33.238", "22.33.239", "22.33.240", "22.33.241", "22.33.242", "22.33.243", "22.33.244", "22.33.245", "22.33.246", "22.33.247", "22.33.248", "22.33.249", "22.33.250", "22.33.251", "22.33.252", "22.33.253", "22.33.254", "22.33.255", "22.33.256", "22.33.257", "22.33.258", "22.33.259", "22.33.260", "22.33.261", "22.33.262", "22.33.263", "22.33.264", "22.33.265", "22.33.266", "22.33.267", "22.33.268", "22.33.269", "22.33.270", "22.33.271", "22.33.272", "22.33.273", "22.33.274", "22.33.275", "22.33.276", "22.33.277", "22.33.278", "22.33.279", "22.33.280", "22.33.281", "22.33.282", "22.33.283", "22.33.284", "22.33.285", "22.33.286", "22.33.287", "22.33.288", "22.33.289", "22.33.290", "22.33.291", "22.33.292", "22.33.293", "22.33.294", "22.33.295", "22.33.296", "22.33.297", "22.33.298", "22.33.299", "22.33.300", "22.33.301", "22.33.302", "22.33.303", "22.33.304", "22.33.305", "22.33.306", "22.33.307", "22.33.308", "22.33.309", "22.33.310", "22.33.311", "22.33.312", "22.33.313", "22.33.314", "22.33.315", "22.33.316", "22.33.317", "22.33.318", "22.33.319", "22.33.320", "22.33.321", "22.33.322", "22.33.323", "22.33.324", "22.33.325", "22.33.326", "22.33.327", "22.33.328", "22.33.329", "22.33.330", "22.33.331", "22.33.332", "22.33.333", "22.33.334", "22.33.335", "22.33.336", "22.33.337", "22.33.338", "22.33.339", "22.33.340", "22.33.341", "22.33.342", "22.33.343", "22.33.344", "22.33.345", "22.33.346", "22.33.347", "22.33.348", "22.33.349", "22.33.350", "22.33.351", "22.33.352", "22.33.353", "22.33.354", "22.33.355", "22.33.356", "22.33.357", "22.33.358", "22.33.359", "22.33.360", "22.33.361", "22.33.362", "22.33.363", "22.33.364", "22.33.365", "22.33.366", "22.33.367", "22.33.368", "22.33.369", "22.33.370", "22.33.371", "22.33.372", "22.33.373", "22.33.374", "22.33.375", "22.33.376", "22.33.377", "22.33.378", "22.33.379", "22.33.380", "22.33.381", "22.33.382", "22.33.383", "22.33.384", "22.33.385", "22.33.386", "22.33.387", "22.33.388", "22.33.389", "22.33.390", "22.33.391", "22.33.392", "22.33.393", "22.33.394", "22.33.395", "22.33.396", "22.33.397", "22.33.398", "22.33.399", "22.33.400", "22.33.401", "22.33.402", "22.33.403", "22.33.404", "22.33.405", "22.33.406", "22.33.407", "22.33.408", "22.33.409", "22.33.410", "22.33.411", "22.33.412", "22.33.413", "22.33.414", "22.33.415", "22.33.416", "22.33.417", "22.33.418", "22.33.419", "22.33.420", "22.33.421", "22.33.422", "22.33.423", "22.33.424", "22.33.425", "22.33.426", "22.33.427", "22.33.428", "22.33.429", "22.33.430", "22.33.431", "22.33.432", "22.33.433", "22.33.434", "22.33.435", "22.33.436", "22.33.437", "22.33.438", "22.33.439", "22.33.440", "22.33.441", "22.33.442", "22.33.443", "22.33.444", "22.33.445", "22.33.446", "22.33.447", "22.33.448", "22.33.449", "22.33.450", "22.33.451", "22.33.452", "22.33.453", "22.33.454", "22.33.455", "22.33.456", "22.33.457", "22.33.458", "22.33.459", "22.33.460", "22.33.461", "22.33.462", "22.33.463", "22.33.464", "22.33.465", "22.33.466", "22.33.467", "22.33.468", "22.33.469", "22.33.470", "22.33.471", "22.33.472", "22.33.473", "22.33.474", "22.33.475", "22.33.476", "22.33.477", "22.33.478", "22.33.479", "22.33.480", "22.33.481", "22.33.482", "22.33.483", "22.33.484", "22.33.485", "22.33.486", "22.33.487", "22.33.488", "22.33.489", "22.33.490", "22.33.491", "22.33.492", "22.33.493", "22.33.494", "22.33.495", "22.33.496", "22.33.497", "22.33.498", "22.33.499", "22.33.500", "22.33.501", "22.33.502", "22.33.503", "22.33.504", "22.33.505", "22.33.506", "22.33.507", "22.33.508", "22.33.509", "22.33.510", "22.33.511", "22.33.512", "22.33.513", "22.33.514", "22.33.515", "22.33.516", "22.33.517", "22.33.518", "22.33.519", "22.33.520", "22.33.521", "22.33.522", "22.33.523", "22.33.524", "22.33.525", "22.33.526", "22.33.527", "22.33.528", "22.33.529", "22.33.530", "22.33.531", "22.33.532", "22.33.533", "22.33.534", "22.33.535", "22.33.536", "22.33.537", "22.33.538", "22.33.539", "22.33.540", "22.33.541", "22.33.542", "22.33.543", "22.33.544", "22.33.545", "22.33.546", "22.33.547", "22.33.548", "22.33.549", "22.33.550", "22.33.551", "22.33.552", "22.33.553", "22.33.554", "22.33.555", "22.33.556", "22.33.557", "22.33.558", "22.33.559", "22.33.560", "22.33.561", "22.33.562", "22.33.563", "22.33.564", "22.33.565", "22.33.566", "22.33.567", "22.33.568", "22.33.569", "22.33.570", "22.33.571", "22.33.572", "22.33.573", "22.33.574", "22.33.575", "22.33.576", "22.33.577", "22.33.578", "22.33.579", "22.33.580", "22.33.581", "22.33.582", "22.33.583", "22.33.584", "22.33.585", "22.33.586", "22.33.587", "22.33.588", "22.33.589", "22.33.590", "22.33.591", "22.33.592", "22.33.593", "22.33.594", "22.33.595", "22.33.596", "22.33.597", "22.33.598", "22.33.599", "22.33.600"]
 
+[decision.2520]
+title = "A test takes no dependency its package manifest and lockfile do not declare"
+value = "The peer of a test that talks to an EVM node is an in-process JSON-RPC fixture serving recorded results of chain 125 (a loopback node:http server or a custom transport the test starts and stops); a package installed at test time, a nested manifest planted inside the source tree of an application, a shrinkwrap beside a test, or an external binary such as a database server is a defect of the test, not a scope limit. The four repairs that introduced ganache manifests (22.31.43, 22.31.60, 22.31.349, 22.31.381) are repaired by 22.31.440, 22.31.441 and 22.31.442; any task that changes a member manifest of the root npm workspace carries the root package-lock.json as a planned path."
+basis = "The 22.9.10 a30 case: npm ci of the agent SDK refused because a published repair of another package left the root workspace lockfile out of sync; the explorer type-check broke the same way through an undeclared import (22.31.440)."
+affects = ["22.31.440", "22.31.441", "22.31.442", "22.9.10", "22.99.148", "18.1562.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37119,6 +37125,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.442]
+title = "Replace the ganache runtimes of the swap and my-token widget repair tests of apps/launchpad/web with in-process JSON-RPC fixtures and remove their nested package manifests"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/my-token"]
+tests = ["apps/launchpad/web/src/widgets/swap/repair-22-31-43.test.ts", "apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts"]
+verification_contract = "pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web exec vitest run src/widgets/swap/repair-22-31-43.test.ts src/widgets/my-token/repair-22-31-60.test.ts"
+do_1 = "apps/launchpad/web/src/widgets/swap/package.json with its npm-shrinkwrap.json (published by 22.31.43) and apps/launchpad/web/src/widgets/my-token/test-runtime/package.json with the chain runtime script of that directory (published by 22.31.60) declare ganache and solc inside the source tree of a pnpm application whose workspace does not include them; the repair tests only pass where someone installs those packages by hand. The nested manifests, the shrinkwrap and the chain runtime script are deleted and nothing under apps/launchpad/web installs a package at test time."
+symbols = []
+
+[capability.22.31.441]
+title = "Remove the undeclared ganache dependency from the marketplace example and prove its deploy payload against an in-process JSON-RPC fixture so npm ci of the root workspace passes again"
+reqs = ["22998.1"]
+touches = ["services/platform/examples/marketplace", "services/platform/examples/test", "package-lock.json"]
+tests = ["services/platform/examples/test/repair-22-31-349.test.mjs"]
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && node --test services/platform/examples/test/repair-22-31-349.test.mjs"
+do_1 = "services/platform/examples/marketplace/package.json (published by 22.31.349) declares ganache 7.9.2 while the root package-lock.json of the npm workspace does not; npm ci therefore fails in every workspace member (services/agent/sdk/typescript, the platform middleware packages, the SDK integrations, the examples and the documentation samples). The devDependency is removed and the root lockfile and the manifests agree again: npm ci --ignore-scripts at the repository root succeeds on the changed tree."
+symbols = []
 
 [capability.22.31.440]
 title = "Replace the undeclared ganache import in the revoke hooks repair test of apps/explorer with an in-process JSON-RPC fixture so the explorer type-check passes again"
@@ -137533,6 +137557,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.442]
+title = "Replace the ganache runtimes of the swap and my-token widget repair tests of apps/launchpad/web with in-process JSON-RPC fixtures and remove their nested package manifests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.442"]
+interfaces = []
+do_1 = "apps/launchpad/web/src/widgets/swap/package.json with its npm-shrinkwrap.json (published by 22.31.43) and apps/launchpad/web/src/widgets/my-token/test-runtime/package.json with the chain runtime script of that directory (published by 22.31.60) declare ganache and solc inside the source tree of a pnpm application whose workspace does not include them; the repair tests only pass where someone installs those packages by hand. The nested manifests, the shrinkwrap and the chain runtime script are deleted and nothing under apps/launchpad/web installs a package at test time."
+do_2 = "apps/launchpad/web/src/widgets/swap/repair-22-31-43.test.ts with its swap-chain fixture and apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts drive the production widgets against an in-process JSON-RPC fixture (a custom viem transport or a loopback node:http server the test starts and stops) answering from recorded eth_chainId, eth_call, eth_estimateGas, eth_sendRawTransaction and eth_getTransactionReceipt results of chain 125; the recorded results are committed beside the tests and every assertion of both repair tests keeps its meaning."
+do_3 = "The my-token test starts no PostgreSQL server and no other external binary; what it proved through a database it proves through the production module's own interface with a committed fixture (gotcha 2962)."
+do_4 = "Delete the nested manifests, the shrinkwrap and the chain runtime script; rewrite the swap-chain fixture and both repair tests so that their EVM peer is the committed in-process fixture; keep both test file names so the 22.31.43 and 22.31.60 ledger entries stay valid."
+do_5 = "Run the verify on the unchanged tree first and note in the task record that both tests fail without a hand-installed package."
+do_6 = "Real means the widgets under test are the production widgets of apps/launchpad/web; their peer, the RPC provider, is the committed fixture."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/my-token"]
+tests = ["apps/launchpad/web/src/widgets/swap/repair-22-31-43.test.ts", "apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts"]
+planned_paths = ["apps/launchpad/web/src/widgets/swap/repair-22-31-43.test.ts", "apps/launchpad/web/src/widgets/swap/swap-chain.fixture.ts", "apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web exec vitest run src/widgets/swap/repair-22-31-43.test.ts src/widgets/my-token/repair-22-31-60.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.441]
+title = "Remove the undeclared ganache dependency from the marketplace example and prove its deploy payload against an in-process JSON-RPC fixture so npm ci of the root workspace passes again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.441"]
+interfaces = []
+do_1 = "services/platform/examples/marketplace/package.json (published by 22.31.349) declares ganache 7.9.2 while the root package-lock.json of the npm workspace does not; npm ci therefore fails in every workspace member (services/agent/sdk/typescript, the platform middleware packages, the SDK integrations, the examples and the documentation samples). The devDependency is removed and the root lockfile and the manifests agree again: npm ci --ignore-scripts at the repository root succeeds on the changed tree."
+do_2 = "services/platform/examples/test/repair-22-31-349.test.mjs is rewritten to drive the real deploy-payload module of the marketplace example against an in-process JSON-RPC fixture (a loopback node:http server the test starts and stops) answering from the recorded eth_chainId, eth_call, eth_sendRawTransaction and eth_getTransactionReceipt results of chain 125 the 22.31.349 repair captured; every assertion of that test keeps its meaning and the negative cases still refuse the malformed envelopes."
+do_3 = "No package is installed at test time and no external binary, credential, environment variable or live endpoint is needed (gotcha 2962); the task record names the fixture source and lists the assertions kept."
+do_4 = "Remove the ganache devDependency from the marketplace example manifest, keep the root package-lock.json consistent with every member manifest, and run npm ci --ignore-scripts at the repository root on the unchanged tree first, noting in the task record that it fails before the change."
+do_5 = "Rewrite the repair test of the marketplace example so that its EVM peer is the in-process fixture; keep the file name so the 22.31.349 ledger entry stays valid."
+do_6 = "Real means the module under test is the production deploy-payload module; its peer, the JSON-RPC node, is the committed fixture serving recorded results."
+symbols = []
+touches = ["services/platform/examples/marketplace", "services/platform/examples/test", "package-lock.json"]
+tests = ["services/platform/examples/test/repair-22-31-349.test.mjs"]
+planned_paths = ["services/platform/examples/marketplace/package.json", "services/platform/examples/test/repair-22-31-349.test.mjs", "package-lock.json"]
+build_cmd = "npm ci --ignore-scripts"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && node --test services/platform/examples/test/repair-22-31-349.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.440]
 title = "Replace the undeclared ganache import in the revoke hooks repair test of apps/explorer with an in-process JSON-RPC fixture so the explorer type-check passes again"
 status = "pending"
@@ -145223,7 +145313,7 @@ do_9 = "Attempt 2 (continue): the POST proof requires LAYERX_HUMAN_SERVICE_URL; 
 
 [task.22.31.386]
 title = "Repair audit record 22.30.139 findings in apps/web/src/journeys/activity: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145311,7 +145401,7 @@ do_7 = "Finding stepup-timestamp-types (interface-mismatch, high) on apps/web/sr
 do_8 = "Prove each repair with a test file apps/web/e2e/repair-22-31-384.test.ts that drives the real module (real provider, codec, hook or route handler) and fails before the change; run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_9 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["apps/web/src/journeys/approvals", "apps/web/src/journeys/onboarding/ceremony.ts", "services/human/crates/layerx-human-service/src/server/identity_dispatch.rs", "services/human/crates/layerx-human-service/src/auth/mod.rs", "services/human/crates/layerx-human-service/src/server/identity.rs"]
+touches = ["apps/web/src/journeys/approvals", "apps/web/src/journeys/onboarding/ceremony.ts", "services/human/crates/layerx-human-service/src/server/identity_dispatch.rs", "services/human/crates/layerx-human-service/src/auth/mod.rs", "services/human/crates/layerx-human-service/src/server/identity.rs", "services/human/schema/human-api", "apps/web/src/api/generated"]
 tests = ["apps/web/e2e/repair-22-31-384.test.ts"]
 planned_paths = ["apps/web/e2e/repair-22-31-384.test.ts"]
 build_cmd = "pnpm --dir apps/web exec tsc --noEmit"
@@ -145331,6 +145421,7 @@ do_10 = "Real means the component under repair is the production code; its peers
 do_11 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_12 = "Attempt 1: the e2e tests demand PAXEER_X_APPROVAL_REPAIR_FIXTURE, a live Human, Agent, Programs and browser fixture; a gate reads no environment variable (gotcha 2963). Record the approval ceremony transcripts from the real services once, commit them under apps/web/e2e/fixtures, replay them through the loopback mock server the e2e suite already starts, and keep the live fixture as an optional mode that skips when unset. Real means the component under repair is the production code and its peers are committed fixtures or loopback servers the test starts; a gate reads no environment variable and reaches no network (gotchas 2962, 2963)."
 do_13 = "Attempt 3 (continue): the real-HTTP approval test fails because the approval codec of the human service drops operation_digest between encode and decode; that codec (src/auth/mod.rs and src/server/identity.rs of the human service crate) is now in scope. Carry operation_digest through both directions, prove it with the existing e2e test, and keep the three passing tests."
+do_14 = "Attempt 4 (continue): three tests pass and the fourth fails because the generated approval codec in apps/web/src/api/generated/index.ts drops the explicit operation digest; that file is generated from services/human/schema/human-api by the api-gen tool of services/human/tools (the regeneration command stands in the file header). The schema and the generated client are now in scope: add the operation digest to the ApprovalDetail schema where it is missing, regenerate with the stated command, keep the hand-written approvals journey and the human service identity handlers consistent with it, and record the regeneration in the task record; nothing in the generated file is edited by hand."
 
 [task.22.31.383]
 title = "Repair audit record 22.30.139 findings in apps/web/src/explorer: interface-mismatch"
@@ -146703,7 +146794,7 @@ do_11 = "Attempt 3: the perps typecheck fails on the missing viem import in sdk/
 
 [task.22.31.13]
 title = "Repair audit record 22.30.13 findings in apps/perps/tests: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147107,7 +147198,7 @@ title = "Repair the inventory sweep target services/agent/sdk/typescript"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.10"]
+requires = ["22.9.10", "22.31.441"]
 reqs = ["22998.1"]
 capabilities = ["22.99.148"]
 interfaces = []
@@ -149275,7 +149366,7 @@ title = "Finalize TypeScript market operations against commit finality"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.14", "22.9.37", "18.1518.1", "11.98.1", "22.99.161"]
+requires = ["22.9.14", "22.9.37", "18.1518.1", "11.98.1", "22.99.161", "22.31.441"]
 reqs = ["22006.1"]
 capabilities = ["22.9.10"]
 interfaces = []
@@ -149325,6 +149416,7 @@ do_26 = "Attempt 26 (continue): keep every attempt-26 change; #settle verifies t
 do_27 = "Attempt 28 (continue): keep every attempt-27 change. The SID metered search of test/web-search.test.ts fails with sidecar-refused:unrecorded_request because the gateway renamed the payer header: services/interop/crates/x-websearch/src/payment.rs:58 defines PAYER_ADDRESS as LAYERX-PAYER-ADDRESS carrying the payer's EVM address and :1887-1894 reads only that header (a LAYERX-PAYER-DID header is ignored, task 11.34.7), and the exchange recorded by 33be5948fb carries LAYERX-PAYER-ADDRESS 0xabab...abab on both search steps, while src/web-search.ts:13 still exports WEB_SEARCH_PAYER_HEADER as LAYERX-PAYER-DID and :412 sends WebSearchPayer.did. Follow the producer: WEB_SEARCH_PAYER_HEADER becomes LAYERX-PAYER-ADDRESS; WebSearchPayer carries address?: string (0x plus 40 hex digits, sent lowercased, refused otherwise with invalid-payer-address) in place of did and the header is sent only when the payer sets it; in test/web-search.test.ts the matcher at line 94 compares LAYERX-PAYER-ADDRESS, the metered payer takes its address from the recorded first step's request headers instead of a literal, and the exact payers keep sending no payer header because the recorded exact steps carry none. test/web-search-sequencer.test.ts follows the same field rename where it builds a payer. The python client (services/agent/sdk/python/layerx_sdk/web_search.py:35) is the same defect and is closed by the repair task of audit record 22.30.100, not here."
 do_28 = "Attempt 29 (continue): the metered fixture in web-search.test.ts passes undefined to Buffer.from because its body field no longer matches the producer. Mirror the current producer body field name and shape in the fixture (gotcha 2968) and keep the metered path assertions."
 do_29 = "Attempt 30 (continue): the only failing check is the negative web-search case that tampers the removed receipt field of the payment, so the tampering reaches nothing and the settlement-mismatch check fires first instead of settlement-receipt-mismatch. The web-search test and module are in scope: tamper a field the current payment shape carries (the receipt digest or the encoded receipt) so the case proves settlement-receipt-mismatch, and drop the dead comparison against the removed field in src/web-search.ts."
+do_30 = "Attempt 31 (continue): the build stopped at npm ci because the root npm workspace lockfile no longer matches a member manifest: another repair added a ganache devDependency to the marketplace example manifest without the root package-lock.json, and npm ci run in services/agent/sdk/typescript validates the whole workspace. Task 22.31.441 repairs that manifest and this task now requires it; the resolved web-search conflicts and the corrected receipt-digest tampering test are retained. When 22.31.441 has landed, run the build and the verify as they stand and finish the market operations against commit finality."
 
 [task.22.91.38]
 title = "Inventory the platform examples packages"
@@ -152765,7 +152857,7 @@ title = "Issue #1562: Decode and validate transfer-authority wrappers in AI mark
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1"]
+requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1", "22.31.441"]
 reqs = ["181562.1"]
 capabilities = ["18.1562.1"]
 interfaces = []
@@ -166331,6 +166423,7 @@ do_8 = "Real means the component under repair is the production code; its peers 
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_10 = "Attempt 3 (continue): the generated client still drops the metadata.blocks object fields and the media data field of the health response and has no typed HTTP 500 model. Declare those schemas in the swagger override for the health route (object with its fields, and a 500 response schema), regenerate the client crate from the override, and run the test against the regenerated models."
 do_11 = "Attempt 4 (continue): the build targeted the whole libs workspace and failed in services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_273.rs (lines 747 and 761), a test of the published 22.31.273 repair that reads models the swagger override change regenerates. That test directory is already in scope, so the test is updated to the regenerated model shapes in the same change, and the regenerated client sources under services/explorer/services/libs/blockscout-client/crate/src are now in scope as well. The build and the test live in the blockscout-client crate, not the workspace root: the build now targets the crate manifest and the test file is services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs."
+do_12 = "Attempt 5 (continue): this attempt ran against the earlier scope and build target and failed as attempt 3 did, in the repair test of 22.31.273 under the whole libs workspace. The build now targets the blockscout-client crate manifest alone and services/explorer/services/libs/blockscout-client/crate/src is in scope: regenerate the client models from the committed schema, adapt the 22.31.273 test to the regenerated shapes where it reads the FeedItem fields, and record the regeneration command in the task record."
 
 [task.22.31.267]
 title = "Repair audit record 22.30.135 findings in services/explorer/services/sig-provider/sig-provider/src/sources: interface-mismatch"
@@ -180541,7 +180634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.2]
 title = "Repair audit record 22.30.1 medium findings in layerxproof/verify (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.1"]
@@ -186129,7 +186222,7 @@ do_13 = "Attempt 4 (continue): the restart recovery test fails only because the 
 
 [task.22.31.54]
 title = "Repair audit record 22.30.33 findings in services/launchpad/indexer/internal/processor: restart-recovery, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -242781,7 +242874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1]
 title = "Repair audit record 22.30.1 medium findings in layerxproof/codec (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.1"]
@@ -284004,7 +284097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.189]
 title = "Rewrite the programme documentation pages of spec/release-v6-12-0: stale and misleading pages (manifest 22.32.189, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284034,7 +284127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.188]
 title = "Rewrite the programme documentation pages of spec/release-v6-12-0: stale and misleading pages (manifest 22.32.188, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284064,7 +284157,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.187]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.187, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284094,7 +284187,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.186]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.186, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284124,7 +284217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.185]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.185, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284154,7 +284247,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.184]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.184, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284184,7 +284277,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.183]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.183, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284214,7 +284307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.182]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.182, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284244,7 +284337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.181]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.181, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284274,7 +284367,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.180]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.180, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284304,7 +284397,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.179]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.179, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284334,7 +284427,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.178]
 title = "Rewrite the programme documentation pages of spec/layerx-merge: stale and misleading pages (manifest 22.32.178, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284364,7 +284457,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.177]
 title = "Rewrite the programme documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.177, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284394,7 +284487,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.176]
 title = "Rewrite the programme documentation pages of .: stale and misleading pages (manifest 22.32.176, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284424,7 +284517,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.175]
 title = "Rewrite the tools-ops documentation pages of tools/paxeer-x: stale and misleading pages (manifest 22.32.175, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284454,7 +284547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.174]
 title = "Rewrite the tools-ops documentation pages of tools/loadtest: stale and misleading pages (manifest 22.32.174, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284484,7 +284577,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.173]
 title = "Rewrite the tools-ops documentation pages of tools/hpx: stale and misleading pages (manifest 22.32.173, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286704,7 +286797,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.99]
 title = "Rewrite the interop documentation pages of docs/site: stale and misleading pages (manifest 22.32.99, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286974,7 +287067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.90]
 title = "Rewrite the agent documentation pages of services/agent: stale and misleading pages (manifest 22.32.90, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290052,6 +290145,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_8 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_9 = "Attempt 2 (requalify): both gates passed (65 tests) on the qualification candidate, but the attempt ended on a later commit than the one qualified, so the record did not match the verified tree and the task was not accepted. Finish on one commit: drop the compiled bytecode cache file (the .pyc under tools/qualification/audit_repairs/__pycache__) from the commit, add that cache directory to the ignore rules if none covers it, run the build and the verify once more on the final tree, and do not amend or commit again after the qualification run."
 
 [task.22.31.418]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/android/src/main/java/com/sidiora/layerx/android: interface-mismatch"
@@ -290456,7 +290550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.330]
 title = "Repair audit record 22.30.183 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324827,7 +324921,7 @@ do_6 = "Finding pax-identity-not-imported (interface-mismatch, high) on services
 do_7 = "Prove each repair with an ExUnit module services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs whose cases drive the real controller, channel, schema or import runner with recorded chain data (real request and response shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x", "daemon/committed-fixture/vectors/vector-v4-committed.json"]
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x", "daemon/committed-fixture/vectors/vector-v4-committed.json", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x", "services/explorer/backend/config"]
 tests = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs"]
 planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs"]
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -324846,6 +324940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_9 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_10 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_11 = "Attempt 2 (continue): three failures: the identity search for a pax bech32 string returns no account (the search must resolve the bound account through the identity table, the existing test is right); the signature controller reports committed for a changed proof where receipted is required (a changed proof must drop the committed status to receipted); the status route answers 200 where 404 is required when the receipt authority is not discoverable from its own response. Fix the three producers, keep the vectors as recorded."
+do_12 = "Attempt 3 (continue): the build passed and 36 of 49 tests fail because the producers the record names were left outside the first scope: the receipt verifier services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex and receipt_inclusion.ex still accept a self-supplied authority and an unverified inclusion, the transaction signature and transaction status controllers of services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x still answer 200 where the finding requires a refusal, and the runtime configuration under services/explorer/backend/config carries no trusted chain identity, governed receipt-key pins or validator checkpoint. Those modules are the consumers along the real path and are now in scope: implement the verification the two security findings prescribe (inclusion against authenticated linked headers, batch signature and roots, governed key pins with rotation that survives a restart) so the recorded vectors of daemon/committed-fixture/vectors/vector-v4-committed.json drive every assertion; keep the test helper changes; every test the verify runs belongs to this task (gotcha 2971)."
 
 [task.22.31.395]
 title = "Repair audit record 22.30.143 findings in services/explorer/backend/apps/indexer/lib/indexer/transform: security"
