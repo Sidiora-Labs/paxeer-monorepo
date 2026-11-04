@@ -108,20 +108,23 @@ symlink components are refused. `writer.lock` is held with an exclusive flock
 for the process lifetime, including administration. `snapshot.json` is a
 canonical initial empty snapshot. `initialized` commits its SHA-256 digest.
 `00000000000000000001.json` and subsequent numbered files are canonical state
-records with sequence and previous-record digest. `head` commits the latest
-sequence and digest, detecting a missing journal tail. `transaction.tmp` is the
+records with sequence and previous-record digest. `head` is exactly 40 bytes: the latest
+sequence as a big-endian u64 followed by the 32-byte SHA-256 record digest. It
+detects a missing journal tail. `transaction.tmp` is the
 exclusive temporary file used by atomic rename. Files are fsynced before rename;
 the state directory is fsynced afterward. Initial root creation fsyncs its parent.
 
 Startup replays every record, validates bounds and account clocks, verifies all
 stored recovery proofs, and checks snapshot, marker, chain and head consistency.
-On reopen, a protected `transaction.tmp` is removed after the retained state is
-validated. If the journal contains exactly one fully valid record beyond the
+On reopen, a protected `transaction.tmp` (regular, single-link, provider-owned
+0600, at most 16 MiB) is removed only after the retained state and head relation
+are validated; its contents are never applied as a record. If the journal contains exactly one fully valid record beyond the
 published head and that head equals the preceding record's sequence and digest,
 startup republishes the head to the journal tip. This handles a crash after
 journal rename and before head publication; it does not discard that record.
-Other head mismatches, missing records, unexpected files or invalid proofs are
-refused. A partially initialized directory is not silently reset.
+A gap of two or more records, an incorrect preceding digest, other head
+mismatches, missing records, unexpected files or invalid proofs are refused
+without cleaning up the pending file. A partially initialized directory is not silently reset.
 
 Each live operation rechecks consistency without startup repair. A failed
 consistency check or durable write withdraws readiness for that store instance;
@@ -143,6 +146,10 @@ The probe sends LXSP operation 0 to the running provider at SOCKET and exits 0 o
 
 ## Recovery administration
 
+The administration path is `ingest_recovery_receipt` in [state.rs](src/state.rs).
+It decodes and verifies the complete node evidence before opening the persistent
+store. Ingestion never accepts a receipt signature or an inclusion proof alone.
+
 Stop the provider (administration takes the same exclusive writer lock), then:
 
 ```sh
@@ -154,6 +161,7 @@ This command needs `LAYERX_HUMAN_SECURITY_PROVIDER_STATE_ROOT` and
 file must be a protected, single-link 0600 regular file, bounded to 32 KiB.
 The exact outer JSON shape, in serialization order, is:
 
+<!-- recovery-json -->
 ```json
 {"version":2,"principal":"alice","evidence_id":"recovery-1","canonical_receipt":"BASE64_RECEIPT","header":"BASE64_HEADER","commit":"BASE64_COMMIT","transaction_proof":"BASE64_EVIDENCE_JSON"}
 ```
@@ -170,7 +178,19 @@ consensus commit, rather than a signed batch header.
 `transaction_proof` is base64 of compact canonical JSON serialized from
 [`RecoveryTransactionEvidence`](src/recovery.rs), not a bare Merkle proof.
 `RecoveryReceipt::with_transaction_evidence` sets version 2 and encodes that
-nested object. Its required fields, in order, are:
+nested object. The nested JSON shape, also in serialization order, is:
+
+<!-- recovery-evidence-json -->
+```json
+{"containing_transaction":"BASE64_BATCH_TRANSACTION","transaction_proof":"BASE64_BATCH_PROOF","execution_header":"BASE64_EXECUTION_HEADER","execution_commit":"BASE64_EXECUTION_COMMIT","activity_ids":[[42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42]],"receipt_index":0,"raw_transaction":"BASE64_SIGNED_TRANSACTION","receipt_keys_proof":"BASE64_RECEIPT_KEYS_PROOF","result_code":0,"result_data":"BASE64_RESULT_DATA","gas_wanted":100000,"gas_used":1,"result_proof":"BASE64_RESULT_PROOF","recovery_did":[9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9],"recovery_root":[7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7],"recovery_threshold":2}
+```
+
+Here the repeated integer arrays illustrate 32-byte binary identities; replace
+`activity_ids`, DID, root, threshold, receipt index and gas values with the
+values from the committed recovery transaction and result. Replace every
+`BASE64_...` label with canonical proof material. These labels cannot be ingested
+as evidence. No fields are optional, and nested JSON has the same canonical
+reserialization requirement as the outer object. The nested fields mean:
 
 | Fields | Encoding and purpose |
 | --- | --- |
@@ -187,7 +207,11 @@ the sequence-batch inclusion and receipt position, sequence and state-root
 transitions, authenticated receipt keys, receipt signature, matching signed
 transaction and successful result proof. It also checks the recovery call to
 the auth precompile at `0x000000000000000000000000000000000000101c` and its
-successful return data. These are proofs from blocks in the same network;
+successful return data. The protocol receipt must belong to the EVM module
+(id 12), name recovery registration (operation 2), and have result code zero; the
+committed transaction result must also have code zero. DID and recovery root
+must be nonzero, and the nonzero threshold must match the signed call.
+These are proofs from blocks in the same network;
 EVM chain id 125 is not a separate settlement domain.
 
 ## Trust root and replay verification
@@ -198,8 +222,14 @@ consensus chain-id string, height, time in milliseconds, header hash and validat
 set with addresses, Ed25519 public keys and voting powers. Obtain the root from
 an independently authenticated chain head and validator set; this provider
 cannot establish trust from caller-supplied receipt material. Do not substitute
-JSON or the old receipt-key history format. See
-[trust_store.rs](../../../../programs/crates/layerx-programs-registry/src/chain_proof/trust_store.rs)
+JSON or a receipt-key history file. In a trusted provisioning process, call
+`TrustRoot::from_head(&trusted_head, trusted_validators)` using a head and validator
+set authenticated independently of the ingestion request, then write
+`canonical_bytes()` without a newline to a new provider-owned 0600 file. The
+parent directory must already exist, and neither the path nor its components
+may be symlinks. The trust file, like other protected inputs, is bounded to
+16 MiB. See
+[trust_store.rs](../../../../../programs/crates/layerx-programs-registry/src/chain_proof/trust_store.rs)
 from the repository's `programs` workspace.
 
 The provider decodes that file with `TrustRoot::decode` and constructs
@@ -217,3 +247,50 @@ the exact stored canonical receipt base64 string after verification, not a
 stored success boolean. Ingestion is administrative only; LXSP operations remain
 0–6. See [test support](../layerx-human-test-support/README.md) for the distinction
 between submission fixtures and committed proof evidence.
+
+## Provisioning and ingestion example
+
+The following Rust helper writes the binary trust root and compact receipt JSON
+to **new** protected files and calls the same administration entry point as the
+binary. Supply an independently authenticated `TrustRoot` and a `RecoveryReceipt`
+assembled from node evidence using `with_transaction_evidence`; do not derive
+trust from that receipt. Run as the provider UID with a restrictive umask such
+as 0077, in an existing protected parent directory, while the provider is stopped.
+Existing files cause an error; the helper does not replace provisioned trust.
+The CLI command above consumes these same two file formats.
+
+<!-- administration-rust -->
+```rust
+fn administer_recovery(
+    state_root: &std::path::Path,
+    trust_path: &std::path::Path,
+    receipt_path: &std::path::Path,
+    trusted_root: &layerx_programs::chain_proof::trust_store::TrustRoot,
+    receipt: &layerx_human_security_provider::RecoveryReceipt,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt as _;
+
+    for (path, bytes) in [
+        (trust_path, trusted_root.canonical_bytes()?),
+        (receipt_path, serde_json::to_vec(receipt)?),
+    ] {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+    }
+    layerx_human_security_provider::ingest_recovery_receipt(state_root, trust_path, receipt_path)?;
+    Ok(())
+}
+```
+
+The integration test [repair_22_33_54.rs](tests/repair_22_33_54.rs) compiles this
+helper, checks it against this text, fills the JSON examples using signed,
+committed in-process chain evidence, ingests through the production decoder,
+and reveals the receipt through the production Unix server and Human client
+before and after restart. It also proves the one-record head repair, pending
+file cleanup and refusal of a larger gap without deleting the pending file.
