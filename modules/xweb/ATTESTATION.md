@@ -26,6 +26,14 @@ at `0x0000000000000000000000000000000000001019` and the persisted xweb keeper:
 Both paths use the same governance-managed xweb attestor set. A receipt is final
 when its block is committed.
 
+For origin 2, the program event admits a pending request; answer enforcement is
+[`keeper.Keeper.FulfilProgram`](keeper/program_fulfil.go), reached through the
+xweb precompile's `fulfilProgram(bytes)` entry point. Attestors sign the digest
+of the 188-byte preimage; submitters encode the answer and signatures with
+[`types.EncodeObservation`](types/observation.go), and submit those observation
+bytes to the precompile. Consumers read the stored answer through
+`getProgramResult(bytes32,uint64)` on the same `0x1019` precompile.
+
 ## Preimage
 
 Domain `PAXEERX_WEB_V1`. Preimage length 188 bytes.
@@ -107,7 +115,10 @@ fetches `<baseURL>/manifests/<objectDigest>.json`, with the digest rendered as
 64 lowercase hexadecimal digits, and checks SHA-256 of those bytes against the
 payload's object digest. It builds receipt text
 `pns-receipt/v1\n<hex digest>\n<manifest byte length>\n<baseURL>\n` and stores its
-canonical encoding. The attestation's `contentDigest` is keccak256 of that
+canonical encoding using `ContentKind::Fetch`, the original request payload
+and media type `text/plain`, as defined in
+[`canonical.rs`](../../services/interop/crates/x-websearch/src/canonical.rs).
+The attestation's `contentDigest` is keccak256 of that
 canonical encoding; it is distinct from the SHA-256 object digest. On chain,
 the keeper verifies the signatures binding the stored request's payload hash,
 the supplied content digest, response hash and full length; it does not fetch

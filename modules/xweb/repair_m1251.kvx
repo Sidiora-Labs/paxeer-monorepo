@@ -1,0 +1,20 @@
+[repair.22.33.1251]
+audit = "22.30.61"
+acceptance = "22998.1"
+owner = "fm-chain-modules (domain 6), module attestation documentation"
+qualification = "The authoritative verified revision, command, exit code and private log location are emitted by hf-done and retained in the runner ledger."
+baseline = "At initial inspection no prior gate ledger existed and no unchanged-tree verify ran: the explicit implementation-first hf-build/hf-done order prohibits the baseline requested in do_5; no baseline test failure is claimed."
+
+[finding.attestation-doc-retired-intake]
+proof = "TestRepairM_1251_ProgramEnforcement; TestRepairM_1251_StorageReceiptPolicy; TestRepairM_1251_FrozenVectorsAndDocumentation"
+path = "Paid program event admission -> real 0x1019 ABI fulfilProgram -> keeper signature/context enforcement, bank payouts and stored answer -> ABI getProgramResult; origin-1 storage receipt codec -> paid keeper Request -> signed Fulfil -> stored result; historical vectors -> exact production preimage/digest/recovered signer and documentation."
+change = "Retain the existing origin policy and historical vectors; clarify current keeper/precompile submission and result retrieval, and link the canonical storage receipt encoding with its content kind, payload and media type."
+wiring = "None: this finding's documentation and tests are inside modules/xweb; the existing precompile and attestor producers are exercised or referenced without out-of-path changes."
+
+[gotcha.baseline]
+observed = "The unchanged-tree verify request conflicts with the explicit gate order and single verification budget."
+action = "Follow the gate order, leave spec and root ledgers untouched under the explicit scope restriction, and claim no unrun baseline."
+
+[gotcha.precompile-test-setup]
+observed = "Verification at ddcaf51dd4403facd4d58933935e666e89e52690 exited 1 because app.Setup with custom precompiles disabled supplies a nil registry; evidence: /out/logs/verify-1.log."
+action = "Enable the real application precompile registry before cloning it and wiring the test's real xweb keeper; preserve all assertions and rerun both bounded gates on the repaired revision."
