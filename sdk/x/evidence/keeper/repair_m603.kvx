@@ -1,0 +1,8 @@
+[repair.22.33.603]
+audit = "22.30.162"
+finding.evidence-pagination-scan = "TestRepairM_603_Pagination: persisted collection through Query/AllEvidence; page-only production decoding, Any values, next keys, totals and reverse traversal."
+finding.evidence-node-router = "TestRepairM_603_NodeRouter and TestRepairM_603_RouterPolicy: actual node constructor and registered Msg service return evidence code 2; default and explicit routing policies are sealed."
+baseline = "No TestRepairM_603_ tests existed on the starting tree; baseline verification was not run because the task's ordered gate instructions require complete implementation before qualification and prohibit running verify_cmd by hand."
+wiring_requests = "None; both keeper policy and node startup wiring are within the declared scope."
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence location."
+repair = "Initial verification at 7da8937ebf6f78e280982c4f94d8dbcf9d9e899f exited 1: cms.Commit requires the repository-specific bumpVersion argument; corrected to Commit(true). Private evidence: /out/logs/verify-1.log and /tmp/repair-m603.log."
