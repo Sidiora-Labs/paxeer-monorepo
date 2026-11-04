@@ -2,7 +2,10 @@ package generator
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
+	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/paxeer-network/pax-load/types"
@@ -24,6 +27,8 @@ func WeightedConfig(weight int, generator Generator) *WeightedCfg {
 
 type weightedGenerator struct {
 	generators []Generator
+	cumulative []int64
+	total      int64
 	mx         sync.RWMutex
 	counter    int64
 }
@@ -52,19 +57,13 @@ func (w *weightedGenerator) GenerateInfinite(ctx context.Context) <-chan *types.
 	return output
 }
 
-func (w *weightedGenerator) nextIndex() int64 {
+func (w *weightedGenerator) nextGenerator() Generator {
 	w.mx.Lock()
 	defer w.mx.Unlock()
-	w.counter++
-	if w.counter >= int64(len(w.generators)) {
-		w.counter = 0
-	}
-	return w.counter
-}
-
-// generators are randomized at startup.
-func (w *weightedGenerator) nextGenerator() Generator {
-	return w.generators[w.nextIndex()]
+	slot := w.counter
+	w.counter = (w.counter + 1) % w.total
+	index := sort.Search(len(w.cumulative), func(i int) bool { return slot < w.cumulative[i] })
+	return w.generators[index]
 }
 
 // GenerateN generates n transactions.
@@ -91,34 +90,58 @@ func (w *weightedGenerator) GetAccountPools() []types.AccountPool {
 	defer w.mx.RUnlock()
 
 	var allPools []types.AccountPool
-
-	// Collect pools from all underlying generators
+	seen := make(map[types.AccountPool]bool)
 	for _, gen := range w.generators {
-		pools := gen.GetAccountPools()
-		allPools = append(allPools, pools...)
+		for _, pool := range gen.GetAccountPools() {
+			if !seen[pool] {
+				seen[pool] = true
+				allPools = append(allPools, pool)
+			}
+		}
 	}
-
 	return allPools
 }
 
-// NewWeightedGenerator creates a new scenarioGenerator that will randomly select from the provided generators.
-func NewWeightedGenerator(cfgs ...*WeightedCfg) Generator {
-	// no need for clever weighting logic if we just have 1 scenarioGenerator anyway.
-	if len(cfgs) == 1 {
-		return cfgs[0].Generator
+// MaxTotalWeight bounds arithmetic and the length of a weighted selection cycle.
+const MaxTotalWeight int64 = 1<<31 - 1
+
+func addWeight(total int64, weight int) (int64, error) {
+	if weight < 0 || int64(weight) > MaxTotalWeight-total {
+		return 0, fmt.Errorf("weight %d is negative or total exceeds %d", weight, MaxTotalWeight)
 	}
-	var weighted []Generator
-	for _, cfg := range cfgs {
-		for range cfg.Weight {
-			weighted = append(weighted, cfg.Generator)
+	return total + int64(weight), nil
+}
+
+// NewWeightedGenerator admits nonnegative weights with a bounded positive total.
+// Zero weights disable a generator, including in a single-entry configuration.
+func NewWeightedGenerator(cfgs ...*WeightedCfg) (Generator, error) {
+	var total int64
+	for i, cfg := range cfgs {
+		if cfg == nil || cfg.Generator == nil {
+			return nil, fmt.Errorf("weighted configuration %d has no generator", i)
+		}
+		value := reflect.ValueOf(cfg.Generator)
+		if value.Kind() == reflect.Pointer && value.IsNil() {
+			return nil, fmt.Errorf("weighted configuration %d has a nil generator", i)
+		}
+		var err error
+		total, err = addWeight(total, cfg.Weight)
+		if err != nil {
+			return nil, fmt.Errorf("weighted configuration %d: %w", i, err)
 		}
 	}
-
-	rand.Shuffle(len(weighted), func(i, j int) {
-		weighted[i], weighted[j] = weighted[j], weighted[i]
-	})
-
-	return &weightedGenerator{
-		generators: weighted,
+	if total == 0 {
+		return nil, fmt.Errorf("weights must have a positive total")
 	}
+	w := &weightedGenerator{total: total, counter: rand.Int63n(total)}
+	var cumulative int64
+	for _, cfg := range cfgs {
+		if cfg.Weight == 0 {
+			continue
+		}
+		cumulative += int64(cfg.Weight)
+		w.generators = append(w.generators, cfg.Generator)
+		w.cumulative = append(w.cumulative, cumulative)
+	}
+	return w, nil
 }
