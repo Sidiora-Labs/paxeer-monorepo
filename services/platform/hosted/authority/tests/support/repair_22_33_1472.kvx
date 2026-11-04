@@ -1,0 +1,14 @@
+[repair.22.33.1472]
+mode = "BUILD"
+audit_record = "22.30.85"
+finding = "lifecycle-anchor-abi-test"
+proving_tests = ["lifecycle_budget_finality_proves_node_membership_at_the_plan_height", "lifecycle_budget_finality_refuses_wrong_membership_and_replaced_commits", "historical_anchor_abi_preserves_checkpoint_decoding_layout"]
+repair = "Replace current-anchor ABI assumptions with lifecycle assertions over the production budget route's committed block identity and authenticated native state at H-1; preserve all legacy ABI assertions under an explicitly historical test name."
+proof = "Reuse the existing committed in-memory store and loopback node harness from repair_22_31_208.rs. Drive the production TLS authority route, node RPC client, budget codec and ICS23 verifier; independently verify exported sequence and account membership against the store app hash. Advance the committed height without advancing the receipt sequence, assert all reads use the plan state height, and refuse altered proof, value, key, height, store, app hash, budget balance membership and same-height block replacement."
+baseline = "No prior gate ledger or implementation existed. The declared integration target did not exist on the starting tree, so no baseline test failure is claimed; the explicit ordered gate instructions prohibit running verify by hand or before implementation and hf-build."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log path; no gate is claimed before those wrappers run."
+
+[gotcha.gate_order]
+observed = "Task step do_5 asks for unchanged-tree verify, but the explicit Order permits only hf-build after full implementation followed by hf-done and forbids manual verify."
+resolution = "Follow the explicit gate order and record baseline as unrun instead of claiming a baseline failure or consuming an unauthorized gate."
