@@ -1,0 +1,1616 @@
+# Pre-upgrade audit of consensus state, light clients, RPC and inspection.
+# Source repairs and runtime qualifications belong to the owning domains.
+
+[audit.22.30.46]
+task = "22.30.46"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 130
+findings = 64
+docs_reviewed = 19
+upgrade_ready = false
+blocking = ["3","7","8","9","10","11","12","13","14","15","16","22","23","32","33","34","35","40","41","42","43","44","45","46","47","48"]
+requirements = ["21113.1","21037.1","5091.1","5267.1","15252.1","15266.1","15277.1"]
+produces_reviewed = 263
+consumes_reviewed = 315
+review_basis = "All 123 non-generated members were read in full. Seven mockery-generated members are identified with generation notes. The audit covers signatures, wire encodings, registered routes, application commitments, failure handling, recovery, configuration, tests, security and retired references."
+requirement_assessment = "5267.1 open-time rejection, 15252.1 distinct Autobahn sentinels and 15277.1 provider refusal mapping are present. 5091.1 has a fatal/closed-height admission recovery gap. 15266.1 registered operation names are present, but the declared response schemas drift. 21113.1 and 21037.1 real producer/transport/consumer proofs remain incomplete at the paths identified by the findings."
+registry_assessment = "All 578 package rows were read with slice call sites and declaration signatures. Config selection, ABCI result types, state-store interfaces, metrics and typed RPC dispatch were traced. Generic error-code, status/genesis/health route, protocol_version and GW_PORT lexical matches are not cross-service runtime dependencies. Retired relay error-code rows do not make the standard JSON-RPC error constants retired references."
+lifecycle_assessment = "Stateful paths were inspected for prune retry, event-index failure/replay, sequencer retry, provider quarantine, trusted-store duplicate delivery, WebSocket reconnect and unsubscribe. Proposed recovery qualifications are not claimed as executed tests."
+qualification_boundary = "The task's declared gates validate the audit record and graph. They do not execute the proposed runtime repairs, PostgreSQL scenarios or network tests; upgrade readiness remains blocked by the listed high findings."
+total_member_lines = 32619
+
+[file.1]
+path = "consensus/internal/inspect/doc.go"
+lines = 36
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["37"]
+
+[file.2]
+path = "consensus/internal/inspect/inspect.go"
+lines = 139
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["21"]
+
+[file.3]
+path = "consensus/internal/inspect/inspect_test.go"
+lines = 594
+verdict = "clean"
+note = "Full-file review of inspector route fixtures and cancellation cleanup. Legacy block-store routes remain distinct from Autobahn refusals; constructor and disconnect defects are recorded on their owning files."
+
+[file.4]
+path = "consensus/internal/inspect/rpc/rpc.go"
+lines = 125
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["1"]
+
+[file.5]
+path = "consensus/internal/state/errors.go"
+lines = 107
+verdict = "clean"
+note = "Typed state-store errors preserve height context and distinct missing-validator/finalize-response conditions."
+
+[file.6]
+path = "consensus/internal/state/execution.go"
+lines = 914
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["2","32"]
+
+[file.7]
+path = "consensus/internal/state/execution_test.go"
+lines = 796
+verdict = "clean"
+note = "Full-file review of application execution, validator/parameter updates and proposer-priority metrics assertions; shared proposal recovery and commitment defects are recorded on the production paths."
+
+[file.8]
+path = "consensus/internal/state/export_test.go"
+lines = 15
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.9]
+path = "consensus/internal/state/helpers_test.go"
+lines = 339
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.10]
+path = "consensus/internal/state/indexer/block/kv/kv.go"
+lines = 524
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["5"]
+
+[file.11]
+path = "consensus/internal/state/indexer/block/kv/kv_test.go"
+lines = 141
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.12]
+path = "consensus/internal/state/indexer/block/kv/util.go"
+lines = 97
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.13]
+path = "consensus/internal/state/indexer/block/null/null.go"
+lines = 27
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.14]
+path = "consensus/internal/state/indexer/doc.go"
+lines = 72
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["51"]
+
+[file.15]
+path = "consensus/internal/state/indexer/eventsink.go"
+lines = 56
+verdict = "clean"
+note = "EventSink declares block-before-transaction indexing and query/lookup methods with consistent TxResultV2 types across KV, SQL and null implementations."
+
+[file.16]
+path = "consensus/internal/state/indexer/indexer.go"
+lines = 66
+verdict = "clean"
+note = "Batch validates transaction positions and pending counts; TxIndexer and BlockIndexer signatures agree with their adapters."
+
+[file.17]
+path = "consensus/internal/state/indexer/indexer_service.go"
+lines = 170
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["3"]
+
+[file.18]
+path = "consensus/internal/state/indexer/indexer_service_test.go"
+lines = 192
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.19]
+path = "consensus/internal/state/indexer/metrics.go"
+lines = 25
+verdict = "clean"
+note = "Indexer counters and durations match generated metric constructors and successful sink call sites."
+
+[file.20]
+path = "consensus/internal/state/indexer/mocks/event_sink.go"
+lines = 226
+verdict = "generated"
+note = "Mockery-generated test double with a Code generated / DO NOT EDIT header; generation provenance recorded instead of a handwritten source review."
+
+[file.21]
+path = "consensus/internal/state/indexer/query_range.go"
+lines = 135
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["4"]
+
+[file.22]
+path = "consensus/internal/state/indexer/query_range_test.go"
+lines = 30
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.23]
+path = "consensus/internal/state/indexer/sink/kv/kv.go"
+lines = 64
+verdict = "clean"
+note = "KV sink delegates producer-shaped TxResultV2 records to transaction and block indexes; underlying search correctness and recovery defects are recorded at their owners."
+
+[file.24]
+path = "consensus/internal/state/indexer/sink/kv/kv_test.go"
+lines = 345
+verdict = "issues"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+findings = ["25"]
+
+[file.25]
+path = "consensus/internal/state/indexer/sink/null/null.go"
+lines = 51
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.26]
+path = "consensus/internal/state/indexer/sink/null/null_test.go"
+lines = 41
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.27]
+path = "consensus/internal/state/indexer/sink/psql/psql.go"
+lines = 257
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["7"]
+
+[file.28]
+path = "consensus/internal/state/indexer/sink/psql/psql_test.go"
+lines = 330
+verdict = "issues"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+findings = ["24"]
+
+[file.29]
+path = "consensus/internal/state/indexer/sink/psql/schema.sql"
+lines = 85
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["34"]
+
+[file.30]
+path = "consensus/internal/state/indexer/sink/sink.go"
+lines = 63
+verdict = "clean"
+note = "Config keys indexer/psql-conn agree with RPC/node configuration; null overrides other sinks, duplicates are refused and chain identity is passed to SQL."
+
+[file.31]
+path = "consensus/internal/state/indexer/tx/kv/kv.go"
+lines = 623
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["6"]
+
+[file.32]
+path = "consensus/internal/state/indexer/tx/kv/kv_bench_test.go"
+lines = 69
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.33]
+path = "consensus/internal/state/indexer/tx/kv/kv_test.go"
+lines = 380
+verdict = "issues"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+findings = ["26"]
+
+[file.34]
+path = "consensus/internal/state/indexer/tx/kv/utils.go"
+lines = 11
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.35]
+path = "consensus/internal/state/indexer/tx/kv/utils_test.go"
+lines = 14
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.36]
+path = "consensus/internal/state/indexer/tx/null/null.go"
+lines = 34
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.37]
+path = "consensus/internal/state/metrics.go"
+lines = 64
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["36"]
+
+[file.38]
+path = "consensus/internal/state/mocks/block_store.go"
+lines = 293
+verdict = "generated"
+note = "Mockery-generated test double with a Code generated / DO NOT EDIT header; generation provenance recorded instead of a handwritten source review."
+
+[file.39]
+path = "consensus/internal/state/mocks/evidence_pool.go"
+lines = 102
+verdict = "generated"
+note = "Mockery-generated test double with a Code generated / DO NOT EDIT header; generation provenance recorded instead of a handwritten source review."
+
+[file.40]
+path = "consensus/internal/state/mocks/store.go"
+lines = 273
+verdict = "generated"
+note = "Mockery-generated test double with a Code generated / DO NOT EDIT header; generation provenance recorded instead of a handwritten source review."
+
+[file.41]
+path = "consensus/internal/state/prune.go"
+lines = 83
+verdict = "clean"
+note = "Prune worker coalesces monotonic retain-height requests and joins shutdown. Cross-store retry completion defect is recorded in execution.go."
+
+[file.42]
+path = "consensus/internal/state/resolution_prune_test.go"
+lines = 103
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.43]
+path = "consensus/internal/state/rollback.go"
+lines = 156
+verdict = "clean"
+note = "Rollback reconstructs state from stored predecessor metadata and restores private-validator signing state within the documented rollback lifecycle."
+
+[file.44]
+path = "consensus/internal/state/rollback_test.go"
+lines = 293
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.45]
+path = "consensus/internal/state/sequencer_proposal_test.go"
+lines = 459
+verdict = "clean"
+note = "Real mempool, admission and index-service integration asserts sequence-batch ordering, logged individual refusals and non-increasing open-time rejection; fatal/closed-height removal gap remains recorded in execution.go."
+
+[file.46]
+path = "consensus/internal/state/services.go"
+lines = 68
+verdict = "clean"
+note = "BlockStore and EvidencePool method shapes align with concrete store and empty-pool adapters; generated mock files are separately identified."
+
+[file.47]
+path = "consensus/internal/state/state.go"
+lines = 368
+verdict = "clean"
+note = "State serialization, genesis construction and explicit-time block construction preserve chain identity, validator transitions and decimal-height semantics."
+
+[file.48]
+path = "consensus/internal/state/state_test.go"
+lines = 1181
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.49]
+path = "consensus/internal/state/store.go"
+lines = 713
+verdict = "clean"
+note = "State, validator and ABCI response encodings and missing-height errors reviewed with restart paths and rollback consumers; no independent finding."
+
+[file.50]
+path = "consensus/internal/state/store_test.go"
+lines = 293
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.51]
+path = "consensus/internal/state/test/factory/block.go"
+lines = 89
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.52]
+path = "consensus/internal/state/tx_filter.go"
+lines = 63
+verdict = "clean"
+note = "State-derived mempool byte/gas constraints agree with ReapLimits and block limits; constraint-fetch errors remain explicit."
+
+[file.53]
+path = "consensus/internal/state/tx_filter_test.go"
+lines = 43
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.54]
+path = "consensus/internal/state/validation.go"
+lines = 154
+verdict = "clean"
+note = "Consensus policy checks, evidence limits, prior-header commitments and validator transitions reviewed; global compatibility switches are explicit rather than hidden fallback paths."
+
+[file.55]
+path = "consensus/internal/state/validation_test.go"
+lines = 343
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.56]
+path = "consensus/light/client.go"
+lines = 1240
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["8","9"]
+
+[file.57]
+path = "consensus/light/client_benchmark_test.go"
+lines = 165
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.58]
+path = "consensus/light/client_test.go"
+lines = 1195
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.59]
+path = "consensus/light/detector.go"
+lines = 443
+verdict = "clean"
+note = "Witness divergence, provider replacement and evidence-reporting paths reviewed; restored-client blacklist initialization defect is recorded in client.go."
+
+[file.60]
+path = "consensus/light/detector_test.go"
+lines = 567
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.61]
+path = "consensus/light/doc.go"
+lines = 124
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["38"]
+
+[file.62]
+path = "consensus/light/errors.go"
+lines = 122
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.63]
+path = "consensus/light/example_test.go"
+lines = 98
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.64]
+path = "consensus/light/helpers_test.go"
+lines = 226
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.65]
+path = "consensus/light/light_test.go"
+lines = 232
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.66]
+path = "consensus/light/mocks/state_provider.go"
+lines = 120
+verdict = "generated"
+note = "Mockery-generated test double with a Code generated / DO NOT EDIT header; generation provenance recorded instead of a handwritten source review."
+
+[file.67]
+path = "consensus/light/provider/errors.go"
+lines = 47
+verdict = "clean"
+note = "Provider error taxonomy distinguishes height availability, malformed blocks, no response and unreliable providers without conflating the Autobahn commit refusal."
+
+[file.68]
+path = "consensus/light/provider/http/http.go"
+lines = 343
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["19"]
+
+[file.69]
+path = "consensus/light/provider/http/http_internal_test.go"
+lines = 37
+verdict = "clean"
+note = "Error classification assertions preserve the commit-unavailable to unreliable-provider mapping rather than accepting an unverified light block."
+
+[file.70]
+path = "consensus/light/provider/http/http_test.go"
+lines = 112
+verdict = "clean"
+note = "Provider height, chain identity and typed-error paths reviewed against the HTTP consumer; malformed-header dereference is recorded on the producer adapter."
+
+[file.71]
+path = "consensus/light/provider/mocks/provider.go"
+lines = 96
+verdict = "generated"
+note = "Mockery-generated test double with a Code generated / DO NOT EDIT header; generation provenance recorded instead of a handwritten source review."
+
+[file.72]
+path = "consensus/light/provider/provider.go"
+lines = 32
+verdict = "clean"
+note = "LightBlock and ReportEvidence interface signatures agree with HTTP and test providers; unavailable commitment sources are explicitly refused."
+
+[file.73]
+path = "consensus/light/proxy/proxy.go"
+lines = 121
+verdict = "clean"
+note = "Route registration, HTTP/TLS listener construction and client startup reviewed; route ABCIInfo, status and subscription lifecycle defects are recorded at their owning implementations."
+
+[file.74]
+path = "consensus/light/proxy/routes.go"
+lines = 153
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["11"]
+
+[file.75]
+path = "consensus/light/rpc/client.go"
+lines = 729
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["10","13","14","20","22","23","33"]
+
+[file.76]
+path = "consensus/light/rpc/mocks/light_client.go"
+lines = 160
+verdict = "generated"
+note = "Mockery-generated test double with a Code generated / DO NOT EDIT header; generation provenance recorded instead of a handwritten source review."
+
+[file.77]
+path = "consensus/light/setup.go"
+lines = 54
+verdict = "clean"
+note = "Primary and witness URLs feed the HTTP provider and trusted-store constructor with context, trust options and blacklist TTL."
+
+[file.78]
+path = "consensus/light/store/db/db.go"
+lines = 330
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["12"]
+
+[file.79]
+path = "consensus/light/store/db/db_test.go"
+lines = 216
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.80]
+path = "consensus/light/store/errors.go"
+lines = 9
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.81]
+path = "consensus/light/store/store.go"
+lines = 48
+verdict = "clean"
+note = "Trusted-store operations declare height retrieval, cardinality and pruning consistently; implementation idempotency defect is recorded in db/db.go."
+
+[file.82]
+path = "consensus/light/trust_options.go"
+lines = 53
+verdict = "clean"
+note = "Trust period, positive height and hash-length validation match the light-client bootstrap contract."
+
+[file.83]
+path = "consensus/light/verifier.go"
+lines = 290
+verdict = "clean"
+note = "Adjacent/nonadjacent signature voting power, trust level, expiry, chain and timestamp validation reviewed; backward traversal bypass is owned by client.go."
+
+[file.84]
+path = "consensus/light/verifier_test.go"
+lines = 358
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.85]
+path = "consensus/rpc/client/event_test.go"
+lines = 102
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.86]
+path = "consensus/rpc/client/eventstream/eventstream.go"
+lines = 193
+verdict = "clean"
+note = "Cursor progression, oldest/newest bounds, missed-item detection and polling cancellation agree with ResultEvents producer semantics."
+
+[file.87]
+path = "consensus/rpc/client/eventstream/eventstream_test.go"
+lines = 277
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.88]
+path = "consensus/rpc/client/evidence_test.go"
+lines = 123
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.89]
+path = "consensus/rpc/client/examples_test.go"
+lines = 151
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.90]
+path = "consensus/rpc/client/helpers.go"
+lines = 78
+verdict = "clean"
+note = "Read in full against package requirements and registered producer/consumer shapes, configuration and lifecycle. No independent discrepancy or retired runtime dependency identified."
+
+[file.91]
+path = "consensus/rpc/client/helpers_test.go"
+lines = 81
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.92]
+path = "consensus/rpc/client/http/http.go"
+lines = 524
+verdict = "clean"
+note = "Typed requests, decimal heights and response wrappers reviewed against registered handlers; chain-identity validation correctly rejects incomplete status, exposing the light Status producer finding."
+
+[file.93]
+path = "consensus/rpc/client/http/ws.go"
+lines = 213
+verdict = "clean"
+note = "Subscription indexing, reconnect resubscription and never-closed user channel contract reviewed; underlying normal-close defect is recorded in jsonrpc/client/ws_client.go."
+
+[file.94]
+path = "consensus/rpc/client/interface.go"
+lines = 182
+verdict = "clean"
+note = "Client group signatures agree with HTTP/local adapters, including never-closed subscription channels and optional height/page pointers."
+
+[file.95]
+path = "consensus/rpc/client/local/local.go"
+lines = 301
+verdict = "clean"
+note = "Local adapter constructs the same typed requests as HTTP and forwards environment errors and subscriptions without changing their contract."
+
+[file.96]
+path = "consensus/rpc/client/main_test.go"
+lines = 49
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.97]
+path = "consensus/rpc/client/mock/client.go"
+lines = 171
+verdict = "clean"
+note = "Hand-maintained test adapter reviewed as source, not generated; configured Call responses and default forwarding retain the declared client signatures."
+
+[file.98]
+path = "consensus/rpc/client/mock/status.go"
+lines = 72
+verdict = "clean"
+note = "Status recorder stores calls and results with synchronization and exposes the same chain-status contract."
+
+[file.99]
+path = "consensus/rpc/client/mock/status_test.go"
+lines = 73
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.100]
+path = "consensus/rpc/client/rpc_test.go"
+lines = 860
+verdict = "issues"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+findings = ["31"]
+
+[file.101]
+path = "consensus/rpc/client/types.go"
+lines = 11
+verdict = "clean"
+note = "ABCIQueryOptions retains explicit height/prove semantics with the documented zero-height default."
+
+[file.102]
+path = "consensus/rpc/coretypes/proof_rpc_autobahn_test.go"
+lines = 247
+verdict = "clean"
+note = "Distinct unavailable-consensus sentinels and proof-facing Autobahn response expectations reviewed; no success-shaped precommit proof is fabricated."
+
+[file.103]
+path = "consensus/rpc/coretypes/requests.go"
+lines = 188
+verdict = "clean"
+note = "Typed RPC request structures, Int64 decimal parsing and evidence tagging agree with registrar and client encoding."
+
+[file.104]
+path = "consensus/rpc/coretypes/responses.go"
+lines = 520
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["35"]
+
+[file.105]
+path = "consensus/rpc/coretypes/responses_autobahn_test.go"
+lines = 60
+verdict = "clean"
+note = "Autobahn typed response/error coverage reviewed with current result types and explicit unavailable behavior."
+
+[file.106]
+path = "consensus/rpc/coretypes/responses_test.go"
+lines = 120
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.107]
+path = "consensus/rpc/jsonrpc/client/decode.go"
+lines = 71
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["15"]
+
+[file.108]
+path = "consensus/rpc/jsonrpc/client/http_json_client.go"
+lines = 403
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["17"]
+
+[file.109]
+path = "consensus/rpc/jsonrpc/client/http_json_client_test.go"
+lines = 115
+verdict = "clean"
+note = "URL cases include a generic example.com/rpc path to test path preservation; this is not a deployed LayerX/router endpoint or a retired service dependency."
+
+[file.110]
+path = "consensus/rpc/jsonrpc/client/integration_test.go"
+lines = 60
+verdict = "issues"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+findings = ["30"]
+
+[file.111]
+path = "consensus/rpc/jsonrpc/client/ws_client.go"
+lines = 467
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["18"]
+
+[file.112]
+path = "consensus/rpc/jsonrpc/client/ws_client_test.go"
+lines = 246
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.113]
+path = "consensus/rpc/jsonrpc/doc.go"
+lines = 84
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["39"]
+
+[file.114]
+path = "consensus/rpc/jsonrpc/jsonrpc_test.go"
+lines = 345
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.115]
+path = "consensus/rpc/jsonrpc/server/http_json_handler.go"
+lines = 172
+verdict = "clean"
+note = "Registered typed methods, notification filtering and ten-request batch bound reviewed; shared writer's single-item framing defect is recorded in http_server.go."
+
+[file.116]
+path = "consensus/rpc/jsonrpc/server/http_json_handler_test.go"
+lines = 326
+verdict = "issues"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+findings = ["29"]
+
+[file.117]
+path = "consensus/rpc/jsonrpc/server/http_server.go"
+lines = 310
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["16"]
+
+[file.118]
+path = "consensus/rpc/jsonrpc/server/http_server_test.go"
+lines = 203
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.119]
+path = "consensus/rpc/jsonrpc/server/http_uri_handler.go"
+lines = 104
+verdict = "clean"
+note = "URI handler converts query parameters using declared request-field types and returns the unwrapped result/error contract."
+
+[file.120]
+path = "consensus/rpc/jsonrpc/server/parse_test.go"
+lines = 328
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.121]
+path = "consensus/rpc/jsonrpc/server/rpc_func.go"
+lines = 269
+verdict = "clean"
+note = "Registrar enforces context plus optional pointer-to-struct arguments and result/error returns, parses typed params and applies call timeout."
+
+[file.122]
+path = "consensus/rpc/jsonrpc/server/ws_handler.go"
+lines = 396
+verdict = "clean"
+note = "Server route dispatch and connection lifecycle reviewed; inspector's invalid disconnect callback and event serialization findings are recorded at their owning files."
+
+[file.123]
+path = "consensus/rpc/jsonrpc/server/ws_handler_test.go"
+lines = 63
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.124]
+path = "consensus/rpc/jsonrpc/test/data.json"
+lines = 9
+verdict = "clean"
+note = "JSON request example names hello_world and typed name/num fields; incompatible handler signature and shell envelope expectations are recorded separately."
+
+[file.125]
+path = "consensus/rpc/jsonrpc/test/integration_test.sh"
+lines = 95
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["28"]
+
+[file.126]
+path = "consensus/rpc/jsonrpc/test/main.go"
+lines = 46
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["27"]
+
+[file.127]
+path = "consensus/rpc/jsonrpc/types/types.go"
+lines = 327
+verdict = "clean"
+note = "RPCRequest/RPCResponse preserve IDs and structured code/message/data errors; declared standard parse/method/parameter codes agree. Numeric-code registry matches to other services do not establish a runtime dependency."
+
+[file.128]
+path = "consensus/rpc/jsonrpc/types/types_test.go"
+lines = 73
+verdict = "clean"
+note = "Read in full against the exercised producer, types and lifecycle. No additional independent issue beyond findings on the owning implementation; existing fixtures are not claimed as merged-network qualification."
+
+[file.129]
+path = "consensus/rpc/openapi/openapi.yaml"
+lines = 3301
+verdict = "issues"
+note = "Read in full against package requirements and producer/consumer shapes, configuration and lifecycle. The numbered findings below identify the discrepancies and owning repair proposals."
+findings = ["40","41","42","43","44","45","46","47","48","49","50","63","64"]
+
+[file.130]
+path = "consensus/rpc/test/helpers.go"
+lines = 156
+verdict = "clean"
+note = "Test-node config, listener allocation, startup and cleanup reviewed; legacy Tendermint fixtures are not evidence of Autobahn precommit availability."
+
+[finding.1]
+file = "consensus/internal/inspect/rpc/rpc.go"
+line = 62
+class = "runtime-risk"
+severity = "medium"
+observed = "Handler leaves eventBus as a nil eventBusUnsubscriber, then websocketDisconnectFn dereferences it on every disconnect. wsConnection.Stop invokes that callback before cancellation and readRoutine reaches panic recovery instead of closing its reader-quit signal normally."
+expected = "The inspection service must remain available when an operator closes a WebSocket and must not invoke an uninitialized service."
+proposal = "In consensus/internal/inspect/rpc/rpc.go remove subscription cleanup for this read-only route set or inject the actual event bus; prove connect, read and disconnect leave the inspector alive."
+owner_domain = 5
+interface = "15.go-consensus-internal-inspect-rpc-handler-j57"
+
+[finding.2]
+file = "consensus/internal/state/execution.go"
+line = 174
+class = "restart-recovery"
+severity = "medium"
+observed = "AsyncPruner.pruneStores advances blockStore.Base with PruneBlocks before PruneStates; a state prune failure followed by the same retain height returns early because the block base already advanced, and prune records success."
+expected = "A retain height is completed only when both stores have been pruned; retry and restart must resume an interrupted state-store prune."
+proposal = "In consensus/internal/state/execution.go track the state pruning watermark independently and retry unfinished PruneStates even when blockStore.Base equals retainHeight; persist or reconstruct the pending watermark on reopen."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-block-store-j57"
+
+[finding.3]
+file = "consensus/internal/state/indexer/indexer_service.go"
+line = 85
+class = "restart-recovery"
+severity = "high"
+observed = "Service.publish logs IndexBlockEvents and IndexTxEvents failures, clears currentBlock.batch, and returns nil; OnStart subscribes only to new live events with no durable progress or automatic replay, leaving failed committed heights absent from search after restart."
+expected = "Committed transaction and block history must recover from a temporary sink error or crash without permanently losing search records."
+proposal = "In consensus/internal/state/indexer persist a contiguous indexed-height watermark, replay missing heights from block and response stores on startup and retry sink failures before acknowledging progress; qualify a failed-write and reopen path."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-indexer-event-sink-j57"
+
+[finding.4]
+file = "consensus/internal/state/indexer/query_range.go"
+line = 89
+class = "runtime-risk"
+severity = "medium"
+observed = "LookForRanges overwrites a prior bound with the last same-side condition and never resets IncludeLowerBound or IncludeUpperBound after a later strict operator; x >= 5 AND x > 10 therefore admits 10, and reordered bounds change results."
+expected = "AND range queries must intersect all conditions independently of order and preserve the strictness of the strongest bound."
+proposal = "In consensus/internal/state/indexer/query_range.go combine lower bounds by maximum and upper bounds by minimum with strictness on ties; cover reordered, duplicate, contradictory and mixed inclusive conditions through both KV consumers."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-indexer-look-for-ranges-j57"
+
+[finding.5]
+file = "consensus/internal/state/indexer/block/kv/kv.go"
+line = 93
+class = "runtime-risk"
+severity = "medium"
+observed = "BlockerIndexer.Search returns immediately for block.height=H and ignores every other AND condition, so an indexed H is returned even when an event predicate is false."
+expected = "A height equality narrows candidates but must not bypass other query predicates."
+proposal = "In consensus/internal/state/indexer/block/kv/kv.go use the height lookup as a candidate set and intersect the remaining conditions; prove absent event and contradictory height filters return no blocks."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-indexer-block-indexer-j57"
+
+[finding.6]
+file = "consensus/internal/state/indexer/tx/kv/kv.go"
+line = 156
+class = "runtime-risk"
+severity = "medium"
+observed = "TxIndex.Search returns a transaction immediately when any tx.hash tag exists, ignoring both its operator and all other predicates; tx.hash CONTAINS and a hash combined with a false height filter are treated as exact-hash success."
+expected = "Transaction search must apply each declared operator and all conjunctive filters."
+proposal = "In consensus/internal/state/indexer/tx/kv/kv.go limit the direct lookup optimization to equality and intersect all remaining predicates; return a typed refusal for unsupported hash operators."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-indexer-tx-indexer-j57"
+
+[finding.7]
+file = "consensus/internal/state/indexer/sink/psql/psql.go"
+line = 80
+class = "interface-mismatch"
+severity = "high"
+interface = "15.go-consensus-internal-state-indexer-sink-psql-new-event-sink-j57"
+observed = "queryWithID scans PostgreSQL BIGSERIAL rowid into uint32 and insertEvents takes uint32 identifiers, while schema.sql declares BIGINT rowids and foreign keys; at rowid 4294967296 inserts fail and the live service discards the height."
+expected = "The SQL producer and Go consumer must agree on the signed 64-bit identifier width declared by schema.sql."
+proposal = "In consensus/internal/state/indexer/sink/psql/psql.go use int64 for row identifiers end to end and qualify with real PostgreSQL sequences above the uint32 boundary."
+owner_domain = 5
+
+[finding.8]
+file = "consensus/light/client.go"
+line = 919
+class = "security"
+severity = "high"
+observed = "Client.backwards returns nil without VerifyBackwards when the target is more than 10000 heights before the trusted header; verifyLightBlock then persists the unverified target as trusted. For smaller gaps it refetches the target while walking but never compares that final verified header with the original target being saved."
+expected = "Every persisted trusted header must be cryptographically linked to an existing trust root; a work limit must refuse rather than claim verification."
+proposal = "In consensus/light/client.go refuse work beyond the backward verification limit or traverse verified checkpoints, and bind the final verified header hash to the original target; prove a substituted historical header cannot enter the trusted store."
+owner_domain = 5
+interface = "15.go-consensus-light-client-j57"
+
+[finding.9]
+file = "consensus/light/client.go"
+line = 240
+class = "restart-recovery"
+severity = "high"
+observed = "NewClientFromTrustedStore omits initialization of blacklist although NewClient initializes it; addWitnessesToBlacklist assigns into that map when divergence handling removes witnesses after reopen."
+expected = "Restored light clients must support the same provider quarantine lifecycle as newly bootstrapped clients without a nil-map panic."
+proposal = "In consensus/light/client.go initialize the restored blacklist and validate restored client configuration; exercise reopen followed by real witness divergence and quarantine."
+owner_domain = 5
+interface = "15.go-consensus-light-new-client-from-trusted-store-j57"
+
+[finding.10]
+file = "consensus/light/rpc/client.go"
+line = 452
+class = "interface-mismatch"
+severity = "high"
+interface = "15.go-consensus-light-rpc-client-j57"
+observed = "Client.BlockResults prepends protobuf FinalizeBlock.Events to the TxResults merkle leaves, but BlockExecutor.ApplyBlock commits only abci.MarshalTxResults leaves in LastResultsHash; valid block results fail verification even with an empty Events message."
+expected = "The execution producer and light RPC verifier must compute the identical LastResultsHash leaf sequence."
+proposal = "Reconcile consensus/light/rpc/client.go with consensus/internal/state/execution.go using the network's canonical result commitment and prove real ApplyBlock output over RPC verifies without disabling hash checks."
+owner_domain = 5
+
+[finding.11]
+file = "consensus/light/proxy/routes.go"
+line = 18
+class = "interface-mismatch"
+severity = "high"
+interface = "15.rpc-consensus-abci-info-j57"
+observed = "proxyService.ABCIInfo is registered by NewRoutesMap but always executes panic(\"ok\") instead of calling the existing Client.ABCIInfo forwarding method."
+expected = "The declared abci_info route must return the underlying application's ResultABCIInfo or a typed refusal over the proxy transport."
+proposal = "In consensus/light/proxy/routes.go delegate ABCIInfo to p.Client.ABCIInfo and add a real endpoint round-trip plus unavailable-provider refusal."
+owner_domain = 5
+
+[finding.12]
+file = "consensus/light/store/db/db.go"
+line = 81
+class = "restart-recovery"
+severity = "high"
+observed = "SaveLightBlock increments persisted uint16 size on every overwrite and DeleteLightBlock decrements it for missing keys; Prune trusts this inaccurate count and can delete additional trusted headers, while failed prune writes already mutate the in-memory size."
+expected = "Trusted-store cardinality and pruning must reflect distinct persisted heights across duplicate delivery, failure and restart."
+proposal = "In consensus/light/store/db/db.go update size only for actual insertions/deletions, prevent counter overflow and publish in-memory size only after successful writes; prove duplicate save, missing delete, failed write and reopen preserve the intended trusted set."
+owner_domain = 5
+interface = "15.go-consensus-light-store-store-j57"
+
+[finding.13]
+file = "consensus/light/rpc/client.go"
+line = 179
+class = "security"
+severity = "high"
+observed = "For standard store-key queries ABCIQueryWithOptions verifies a Merkle path built from resp.Key and a header selected by resp.Height without binding them to the requested key and opts.Height; a provider can substitute a valid proof from another key or snapshot."
+expected = "A verified ABCI query must authenticate the caller's requested key and requested snapshot as well as the returned value."
+proposal = "In consensus/light/rpc/client.go bind resp.Height to opts.Height and derive the expected proof key from the request according to the configured query path before verification; prove substituted standard store keys and snapshots are refused."
+owner_domain = 5
+interface = "15.rpc-consensus-abci-query-j57"
+
+[finding.14]
+file = "consensus/light/rpc/client.go"
+line = 542
+class = "security"
+severity = "high"
+observed = "Client.Tx validates res.Proof against the trusted DataHash but never checks the proof's transaction bytes against res.Tx, res.Hash or the requested hash, nor the returned index against Proof.Proof.Index."
+expected = "A verified transaction lookup must prove inclusion of the exact requested transaction and returned position."
+proposal = "In consensus/light/rpc/client.go bind the requested hash, returned transaction, proof data and index before accepting inclusion; exercise a real valid proof paired with substituted result fields."
+owner_domain = 5
+interface = "15.rpc-consensus-tx-j57"
+
+[finding.15]
+file = "consensus/rpc/jsonrpc/client/decode.go"
+line = 34
+class = "interface-mismatch"
+severity = "high"
+interface = "15.go-consensus-rpc-jsonrpc-client-request-batch-j57"
+observed = "unmarshalResponseBytesArray validates only ID membership and decodes by response array position; it accepts duplicate IDs, does not reorder responses by ID and ignores resp.Error, so out-of-order responses can populate the wrong caller's result or hide refusals."
+expected = "A JSON-RPC batch must correlate every result or error with exactly one original request by ID regardless of response order."
+proposal = "In consensus/rpc/jsonrpc/client/decode.go enforce an exact one-to-one ID set, decode by requested ID and propagate per-request errors; prove reordered and duplicate-ID replies and mixed successes/refusals through HTTP."
+owner_domain = 5
+
+[finding.16]
+file = "consensus/rpc/jsonrpc/server/http_server.go"
+line = 169
+class = "interface-mismatch"
+severity = "high"
+interface = "15.go-consensus-rpc-jsonrpc-client-request-batch-j57"
+observed = "writeRPCResponse serializes a lone response as an object even when the incoming request was a one-element batch; Client.sendBatch always decodes an array, so a supported one-request RequestBatch.Send fails against this server."
+expected = "A batch request must produce a response array even when it has only one non-notification request."
+proposal = "In consensus/rpc/jsonrpc/server retain whether parseRequests received a batch and preserve array framing when writing its responses; prove one-item batch through RequestBatch.Send."
+owner_domain = 5
+
+[finding.17]
+file = "consensus/rpc/jsonrpc/client/http_json_client.go"
+line = 210
+class = "security"
+severity = "medium"
+observed = "Client.Call and sendBatch use io.ReadAll on untrusted response bodies without a size bound; disabling HTTP compression does not bound a direct oversized response."
+expected = "Consensus RPC clients must cap response allocation before parsing data from remote providers."
+proposal = "In consensus/rpc/jsonrpc/client/http_json_client.go define configurable bounded response sizes appropriate to block and genesis calls and reject oversized streams before allocating unbounded memory."
+owner_domain = 5
+interface = "15.go-consensus-rpc-jsonrpc-client-caller-j57"
+
+[finding.18]
+file = "consensus/rpc/jsonrpc/client/ws_client.go"
+line = 409
+class = "restart-recovery"
+severity = "medium"
+observed = "readRoutine returns on a normal server close without closing readRoutineQuit or signaling reconnectAfter; with the default zero ping period the writer stays idle and subscriptions silently stop receiving events until another outgoing request or parent cancellation."
+expected = "A server-initiated close must reconnect subscriptions or visibly terminate the client and its reader and writer lifecycle."
+proposal = "In consensus/rpc/jsonrpc/client/ws_client.go signal the writer and apply an explicit reconnect or terminal policy for every close path; prove normal server closure restores subscriptions or reports termination without waiting for a user request."
+owner_domain = 5
+interface = "15.go-consensus-rpc-jsonrpc-client-ws-client-j57"
+
+[finding.19]
+file = "consensus/light/provider/http/http.go"
+line = 121
+class = "runtime-risk"
+severity = "medium"
+observed = "LightBlock reads sh.Height through the embedded Header before checking sh.Header for nil when height is nonzero; an RPC result containing signed_header with a missing header panics before ErrBadLightBlock can be returned."
+expected = "Malformed remote light blocks must be refused with ErrBadLightBlock before any pointer dereference."
+proposal = "In consensus/light/provider/http/http.go validate result, signed header and embedded header before reading promoted fields; exercise malformed real HTTP replies at explicit and latest heights."
+owner_domain = 5
+interface = "15.go-consensus-light-provider-provider-j57"
+
+[finding.20]
+file = "consensus/light/rpc/client.go"
+line = 637
+class = "runtime-risk"
+severity = "medium"
+observed = "SubscribeWS creates a background context and stores its cancel function only in the client-wide closers slice; UnsubscribeWS and UnsubscribeAllWS stop upstream delivery without canceling that context, and SubscriptionClient channels never close, so each forwarding goroutine remains blocked until whole-client shutdown."
+expected = "Unsubscribe and disconnect must cancel each forwarding goroutine and release its per-subscription state."
+proposal = "In consensus/light/rpc/client.go retain cancel functions by subscriber and query, invoke and remove them on unsubscribe/disconnect and synchronize their lifecycle; prove real unsubscribe and disconnect terminate forwarding."
+owner_domain = 5
+interface = "15.rpc-consensus-subscribe-j57"
+
+[finding.21]
+file = "consensus/internal/inspect/inspect.go"
+line = 90
+class = "runtime-risk"
+severity = "medium"
+observed = "Inspector.Run defers eventBus.Wait and indexerService.Wait on the caller's context; if startRPCServers fails to bind, those defers wait for a context that Run never cancels, so the bind error is not returned."
+expected = "An inspector listener startup failure must stop already-started services and return the original error without needing an external cancel."
+proposal = "In consensus/internal/inspect/inspect.go own a child cancellation context, cancel it before waiting on all failure paths and close databases owned by NewFromConfig; prove an occupied listen address returns promptly."
+owner_domain = 5
+interface = "15.go-consensus-internal-inspect-new-j57"
+
+[finding.22]
+file = "consensus/light/rpc/client.go"
+line = 130
+class = "interface-mismatch"
+severity = "high"
+interface = "15.rpc-consensus-status-j57"
+observed = "The light RPC Status producer emits an empty NodeInfo.Network, while baseRPCClient.statusResponse.UnmarshalJSON rejects every status lacking NodeInfo.Network as ErrInvalidStatusResponse; HTTP.Status cannot consume the light proxy's own declared status result."
+expected = "The light proxy must expose a chain identity and status shape accepted by the production HTTP client."
+proposal = "In consensus/light/rpc/client.go populate the configured chain identity and define the light status contract consistently with consensus/rpc/client/http/http.go; prove HTTP.Status against a running light proxy."
+owner_domain = 5
+
+[finding.23]
+file = "consensus/light/rpc/client.go"
+line = 491
+class = "interface-mismatch"
+severity = "high"
+interface = "15.rpc-consensus-header-by-hash-j57"
+observed = "HeaderByHash invokes the value-receiver Header.ValidateBasic through res.Header without checking nil, although Environment.HeaderByHash returns an empty ResultHeader for an unknown or malformed hash. BlockByHash similarly converts the node's empty successful ResultBlock into a nil-block error."
+expected = "Missing blocks and headers must preserve the node's declared empty-result semantics through the light RPC transport and client."
+proposal = "In consensus/light/rpc/client.go handle empty results before validation and preserve the agreed missing-result contract in HeaderByHash and BlockByHash; prove known, unknown and malformed hashes through the node, light proxy and HTTP consumer."
+owner_domain = 5
+
+[finding.24]
+file = "consensus/internal/state/indexer/sink/psql/psql_test.go"
+line = 301
+class = "test-gap"
+severity = "medium"
+observed = "verifyBlock checks QueryRow(...).Err without Scan, so an absent height is not reported as sql.ErrNoRows; TestIndexing even asks to verify height 2 although newTestBlockHeader emits only height 1. verifyTimeStamp similarly never scans a row."
+expected = "The PostgreSQL qualification must demonstrate actual persisted heights and timestamps and fail when the queried rows are missing."
+proposal = "In consensus/internal/state/indexer/sink/psql/psql_test.go scan and assert the returned height and timestamp against actual producer input, and prove removal of an expected row makes the qualification fail."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-indexer-sink-psql-new-event-sink-j57"
+
+[finding.25]
+file = "consensus/internal/state/indexer/sink/kv/kv_test.go"
+line = 197
+class = "test-gap"
+severity = "medium"
+observed = "TestTxSearchDeprecatedIndexing serializes the second transaction's abci.TxResult without Tx bytes, unlike the production indexer, then compares only inside nested loops without asserting result count; empty results or missing transaction bytes can pass unnoticed."
+expected = "Search compatibility tests must use the persisted producer shape and assert every expected transaction and exact result count."
+proposal = "In consensus/internal/state/indexer/sink/kv/kv_test.go write a real legacy producer-shaped record including Tx, assert the complete result set, and prove missing or unexpected matches fail the test."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-indexer-event-sink-j57"
+
+[finding.26]
+file = "consensus/internal/state/indexer/tx/kv/kv_test.go"
+line = 238
+class = "test-gap"
+severity = "medium"
+observed = "TestTxSearchDeprecatedIndexing compares results in nested loops without asserting their length; the compatibility cases all pass if Search returns no records, including queries expected to recover a stored transaction."
+expected = "Legacy-index compatibility must prove the full expected result set survives producer serialization and consumer search."
+proposal = "In consensus/internal/state/indexer/tx/kv/kv_test.go assert exact lengths and transaction sets for each query, then exercise reopening the database before the search."
+owner_domain = 5
+interface = "15.go-consensus-internal-state-indexer-tx-indexer-j57"
+
+[finding.27]
+file = "consensus/rpc/jsonrpc/test/main.go"
+line = 22
+class = "runtime-risk"
+severity = "medium"
+observed = "The standalone hello_world example registers HelloWorld(context.Context,string,int), while RPCFunc requires a context plus one pointer-to-struct argument; NewRPCFunc rejects this signature during route initialization."
+expected = "The shipped JSON-RPC integration example must start with the same typed request contract as the production route registrar."
+proposal = "In consensus/rpc/jsonrpc/test/main.go define a typed request struct for name and num, use the supported handler signature, and exercise the example over both URI and JSON-RPC transports."
+owner_domain = 5
+interface = "15.go-consensus-rpc-jsonrpc-server-new-rpc-func-j57"
+
+[finding.28]
+file = "consensus/rpc/jsonrpc/test/integration_test.sh"
+line = 40
+class = "test-gap"
+severity = "medium"
+observed = "The shell expectations require a success envelope with error as an empty string and error envelopes as strings, but RPCResponse emits an omitted error on success and a structured code/message/data object on refusal; URI results are also unwrapped by writeHTTPResponse."
+expected = "The example integration checks must compare the actual declared transport envelopes and typed error codes."
+proposal = "In consensus/rpc/jsonrpc/test/integration_test.sh assert URI and JSON-RPC responses according to their own contracts, use structured JSON comparisons, and cover the real example process with cleanup on failure."
+owner_domain = 5
+interface = "15.go-consensus-rpc-jsonrpc-types-rpc-response-j57"
+
+[finding.29]
+file = "consensus/rpc/jsonrpc/server/http_json_handler_test.go"
+line = 204
+class = "test-gap"
+severity = "medium"
+observed = "TestRPCNotificationInBatch accepts an object whenever exactly one response is expected, masking the server's loss of array framing and the production RequestBatch.Send decoder failure."
+expected = "All nonempty JSON-RPC batch responses must keep array framing, including a batch containing notifications and one result."
+proposal = "In consensus/rpc/jsonrpc/server/http_json_handler_test.go require an array for every batch case and drive the same cases through the production RequestBatch consumer."
+owner_domain = 5
+interface = "15.go-consensus-rpc-jsonrpc-client-request-batch-j57"
+
+[finding.30]
+file = "consensus/rpc/jsonrpc/client/integration_test.go"
+line = 38
+class = "test-gap"
+severity = "medium"
+observed = "TestWSClientReconnectWithJitter creates an unused bytes.Buffer, never attaches a logger to it and inspects it immediately without waiting for reconnect attempts; the duplicate-duration assertion iterates over zero log records."
+expected = "Release qualification must observe multiple actual reconnect delays and assert their bounded jitter distribution after the attempts have occurred."
+proposal = "In consensus/rpc/jsonrpc/client/integration_test.go capture actual reconnect timing or wired logs, wait on completed attempts, assert nonzero observations and qualify the real reconnect lifecycle."
+owner_domain = 5
+interface = "15.go-consensus-rpc-jsonrpc-client-ws-client-j57"
+
+[finding.31]
+file = "consensus/rpc/client/rpc_test.go"
+line = 648
+class = "test-gap"
+severity = "medium"
+observed = "The TxSearch integration subtest is unconditionally skipped, removing its proof, pagination and ordering assertions from both HTTP and local client qualification."
+expected = "The declared transaction-search contract must be exercised deterministically through the real node and both consumers."
+proposal = "In consensus/rpc/client/rpc_test.go give TxSearch an isolated node and known committed transactions, remove the skip and retain strict proof, page and sort assertions against that producer output."
+owner_domain = 5
+interface = "15.rpc-consensus-tx-search-j57"
+
+[finding.32]
+file = "consensus/internal/state/execution.go"
+line = 269
+class = "restart-recovery"
+severity = "high"
+observed = "CreateProposalBlock removes all reaped transactions from the mempool before Admit. ConsensusSource.Admit can return early on fencing, replication or layer errors, or return zero without refusal when the height is already pending/sealed; transactions not admitted are no longer available to a later proposal."
+expected = "Requirement 5091.1 requires each reaped transaction to be admitted and committed or have its individual refusal recorded; proposal retries must retain unprocessed transactions."
+proposal = "In consensus/internal/state/execution.go and node/sequencer/consensus_source.go acknowledge removal only for admitted or explicitly refused transactions, and preserve the unprocessed suffix on fencing, sealed-height retry and restart; qualify those real admission outcomes."
+owner_domain = 5
+interface = "15.go-consensus-types-sequencer-source-j57"
+
+[finding.33]
+file = "consensus/light/rpc/client.go"
+line = 320
+class = "interface-mismatch"
+severity = "high"
+observed = "BlockchainInfo updates the light client only to the last returned meta, but Environment.BlockchainInfo emits descending heights. It then calls TrustedLightBlock for every meta, so a valid range beyond the current trust height fails on the first higher header; skipping verification also need not persist intermediate heights."
+expected = "The declared blockchain range must verify each returned header in the producer's descending order and work from an ordinary sparse trusted store."
+proposal = "In consensus/light/rpc/client.go verify every returned height against the trust root, retaining the producer's response order, and qualify a multi-height descending response with a reopened sparse store."
+owner_domain = 5
+interface = "15.rpc-consensus-blockchain-j57"
+
+[finding.34]
+file = "consensus/internal/state/indexer/sink/psql/schema.sql"
+line = 65
+class = "interface-mismatch"
+severity = "high"
+observed = "The attributes table requires UNIQUE(event_id,key), while abci.Event.Attributes and insertEvents accept an ordered list without key uniqueness. Two indexed attributes sharing a key in one event cause a constraint error and roll back the containing block or transaction record."
+expected = "The SQL sink must preserve every legal event attribute emitted by the application, including repeated keys, without discarding committed index records."
+proposal = "In consensus/internal/state/indexer/sink/psql/schema.sql give attributes an ordinal or row identity instead of unique bare keys, update the sink writer, and prove repeated-key block and transaction events persist through real PostgreSQL and reopen."
+owner_domain = 5
+interface = "5.go-consensus-abci-types-event-attribute"
+
+[finding.35]
+file = "consensus/rpc/coretypes/responses.go"
+line = 430
+class = "interface-mismatch"
+severity = "high"
+observed = "ResultEvent.MarshalJSON compacts event type and attribute key with a dot; decompactEvents splits on every dot and drops anything with more than two segments. Legal dotted event types or keys therefore vanish from ResultEvent.Events at the HTTP/WebSocket consumer."
+expected = "The event producer, transport and client must preserve legal event names and values; serialization must not silently drop attributes from subscribed events."
+proposal = "In consensus/rpc/coretypes/responses.go define a versioned lossless event representation or an unambiguous compatible key encoding, preserve event grouping and attribute values, and qualify dotted names through the real subscription producer and decoder."
+owner_domain = 5
+interface = "15.go-consensus-rpc-coretypes-result-event-j57"
+
+[finding.36]
+file = "consensus/internal/state/metrics.go"
+line = 52
+class = "doc-drift"
+severity = "low"
+observed = "The ProposerPriorityHash comment promises the first six hash bytes encoded exactly as float64, but execution.go exports binary.BigEndian.Uint64(full[:8]) converted to float64; eight-byte integers can lose low bits in that conversion."
+expected = "The operator-facing metric description must state the actual byte width and numeric precision so equal samples are not treated as proof of identical proposer state."
+proposal = "In consensus/internal/state/metrics.go document the implemented eight-byte projection and precision limit, and have the owning state-metrics task choose an exactly representable diagnostic contract before operators rely on equality."
+owner_domain = 5
+
+[finding.37]
+file = "consensus/internal/inspect/doc.go"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The inspector example assigns inspect.NewFromConfig(rpcConfig) to one result and passes an RPC config, while the actual constructor requires *config.Config and returns (*Inspector,error). Both repeated examples omit error handling."
+expected = "An operator following the package documentation must be able to construct and cancel the current inspector using its actual exported signature."
+proposal = "In consensus/internal/inspect/doc.go replace both constructor examples with the full node configuration, handle the returned error and document cancellation and Run's returned startup error."
+owner_domain = 5
+
+[finding.38]
+file = "consensus/light/doc.go"
+line = 71
+class = "doc-drift"
+severity = "medium"
+observed = "The light-client example calls NewHTTPClient without context or blacklistTTL, passes a removed second argument to dbs.New and calls the removed TrustedHeader method rather than TrustedLightBlock."
+expected = "The published example must match the exported constructor, trusted-store and retrieval signatures used by real light clients."
+proposal = "In consensus/light/doc.go update the complete example to NewHTTPClient(ctx,...,blacklistTTL), dbs.New(db) and TrustedLightBlock, and explain which network commitment source can supply verifiable light blocks."
+owner_domain = 5
+
+[finding.39]
+file = "consensus/rpc/jsonrpc/doc.go"
+line = 61
+class = "doc-drift"
+severity = "medium"
+observed = "The server example registers Status(v string), then shows Listen with Config and Serve without context/config; RPCFunc requires context plus an optional pointer-to-struct request, Listen accepts a connection limit and Serve requires context and configuration."
+expected = "The JSON-RPC package's server example must use handler and lifecycle signatures accepted by the actual registrar and server."
+proposal = "In consensus/rpc/jsonrpc/doc.go publish a complete typed-request example with context, maxOpenConnections and server config, and keep URI, HTTP and WebSocket examples consistent with that handler."
+owner_domain = 5
+
+[finding.40]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 893
+class = "interface-mismatch"
+severity = "high"
+observed = "The /block_results operation references BlockSearchResponse while /block_search references BlockResultsResponse at line 1280; their producers emit height/txs_results and blocks/total_count respectively."
+expected = "Each registered operation must declare the response object emitted by its own producer so generated consumers can decode it."
+proposal = "In consensus/rpc/openapi/openapi.yaml correct both operation references and qualify actual BlockResults and BlockSearch responses against their respective schemas through the registered HTTP handlers."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.41]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 1903
+class = "interface-mismatch"
+severity = "high"
+observed = "GET operation response schemas require JSON-RPC jsonrpc/id/result envelopes, but makeHTTPHandler calls writeHTTPResponse, which returns the bare result or error object. Every URI consumer generated from those response schemas expects a wrapper the transport does not send."
+expected = "The OpenAPI GET contract must match the URI transport; JSON-RPC POST envelopes must be described independently."
+proposal = "In consensus/rpc/openapi/openapi.yaml define bare URI success/error schemas and describe root POST JSON-RPC envelopes separately; qualify both transports against actual handlers without changing their framing silently."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.42]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 1455
+class = "interface-mismatch"
+severity = "high"
+observed = "ErrorResponse declares error as a string, and several schemas require error even on success. RPCResponse emits an optional structured RPCError with numeric code, message and data; URI refusals expose that error object directly."
+expected = "Generated consumers must accept the actual structured refusal and distinguish success from error using the implemented JSON-RPC contract."
+proposal = "In consensus/rpc/openapi/openapi.yaml declare RPCError's code/message/data object and success/error alternatives, and verify real parse, invalid-parameter, unavailable and lag errors including their HTTP statuses."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.43]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 1907
+class = "interface-mismatch"
+severity = "high"
+observed = "HeaderResponse declares result as a BlockHeader directly, whereas ResultHeader serializes result.header and can contain a nil header for missing hashes."
+expected = "The header and header_by_hash response contracts must retain the producer's header wrapper and missing-result optionality."
+proposal = "In consensus/rpc/openapi/openapi.yaml wrap BlockHeader in the ResultHeader object, declare absent-header semantics and qualify both height and hash lookups against the actual routes."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.44]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 1975
+class = "interface-mismatch"
+severity = "high"
+observed = "BlockResultsResponse describes begin_block_events and end_block, but ResultBlockResults produces finalize_block_events with txs_results and the current gas/update fields. The schema retains the pre-FinalizeBlock event lifecycle."
+expected = "Applications consuming block results must see the current finalized event phase and the exact producer field names and encodings."
+proposal = "In consensus/rpc/openapi/openapi.yaml replace legacy phase fields with the serialized ResultBlockResults contract, including nullable collections and current gas/update fields, then qualify an actual finalized block response."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.45]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 2711
+class = "interface-mismatch"
+severity = "high"
+observed = "TxSearchResponse requires proof.RootHash, Data and Proof and models tx_result.tags; TxProof serializes root_hash, data and proof and ExecTxResult emits events. An actual proved transaction search result cannot satisfy those required proof names."
+expected = "Transaction proof schemas must match the canonical inclusion proof and execution-result JSON consumed by real clients."
+proposal = "In consensus/rpc/openapi/openapi.yaml use the producer's lower-case proof fields and events array, share the shape with transaction lookup and qualify a real included transaction and proof."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.46]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 2871
+class = "interface-mismatch"
+severity = "high"
+observed = "ABCIQueryResponse requires a string proof and illustrates key/value as hexadecimal, while ResponseQuery emits proof_ops as a structured operation list and byte keys/values as base64; the response code is also a numeric uint32 rather than the declared string."
+expected = "A query consumer must decode the proof operations, byte encodings and error code emitted by the application response."
+proposal = "In consensus/rpc/openapi/openapi.yaml model ResponseQuery and ProofOps from the actual JSON encoder and qualify nonempty value, absence proof and application-refusal responses through ABCIQuery."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.47]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 2929
+class = "interface-mismatch"
+severity = "high"
+observed = "BroadcastTxCommitResponse requires deliver_tx and an error string, but ResultBroadcastTxCommit emits tx_result with check_tx, hash and height and omits the JSON-RPC error on success."
+expected = "The broadcast-commit consumer must receive the actual committed execution result under its canonical field name."
+proposal = "In consensus/rpc/openapi/openapi.yaml replace deliver_tx with tx_result and use the actual ResponseCheckTx and ExecTxResult encodings; qualify a committed transaction and a CheckTx refusal."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.48]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 3167
+class = "interface-mismatch"
+severity = "high"
+observed = "ConsensusParams requires block.time_iota_ms and evidence.max_age, neither of which exists in the current ConsensusParams producer; it also requires max_gas_wanted without declaring that property and omits the current evidence age fields."
+expected = "The parameter schema must match the current block, evidence, validator, version, synchrony and timeout parameter objects with their actual units and encodings."
+proposal = "In consensus/rpc/openapi/openapi.yaml derive the parameter properties from the serialized types, declare max_gas_wanted and current age fields, and qualify actual consensus_params and genesis outputs."
+owner_domain = 5
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.49]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 900
+class = "doc-drift"
+severity = "medium"
+observed = "The commit, consensus_state, dump_consensus_state and broadcast_evidence operations promise legacy successful consensus data without explaining that the Autobahn-backed environment returns ErrCommitNotAvailable, ErrConsensusStateNotAvailable or ErrEvidenceNotAccepted."
+expected = "Operators and light-client integrators must be told which routes refuse under the merged consensus engine and must not infer Tendermint precommit proofs are served."
+proposal = "In consensus/rpc/openapi/openapi.yaml document the Autobahn route refusals and typed JSON-RPC error behavior, identify any supported commitment source and retain the legacy-mode distinction only where it is actually available."
+owner_domain = 5
+
+[finding.50]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The document advertises 0.0.0.0:26657 as the default listener and rpc.cosmos.network as its server, while the local RPCConfig default binds 127.0.0.1 and the merged product's public network is Paxeer chain 125 at its named root endpoints."
+expected = "Operators must distinguish internal consensus diagnostics from the public Paxeer node RPC and configure only the supported listener defaults and origins."
+proposal = "In consensus/rpc/openapi/openapi.yaml label the consensus diagnostic interface, correct the bind default and remove the unrelated Cosmos server; link the merged public root endpoint and namespace contract without claiming this diagnostic schema describes eth or px methods."
+owner_domain = 5
+
+[finding.51]
+file = "consensus/internal/state/indexer/doc.go"
+line = 59
+class = "doc-drift"
+severity = "medium"
+observed = "The SQL example queries tx_events.hash even though that view contains no hash column; its type.key example filters the bare key rather than composite_key. Following either example fails or returns the wrong event set."
+expected = "Indexer documentation must give executable queries against the schema supplied with the PostgreSQL producer."
+proposal = "In consensus/internal/state/indexer/doc.go join tx_events to tx_results using the view's documented keys and tx_hash, and use composite_key for type.key filters; demonstrate the examples against persisted producer events."
+owner_domain = 5
+
+[finding.52]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster guide describes paxd plus a separate LayerX daemon and later deploys layerxd with a custody profile at line 50; line 40 advertises native custody deposits through retired precompile 0x1013."
+expected = "The merged network is one paxd chain with an embedded kernel; retired LayerX daemon and custody-precompile paths must not be operator prerequisites."
+proposal = "In docs/site/docs/operators/beta-cluster.md rewrite bring-up around the merged paxd services, tenant-domain configuration and supported funding path, and remove daemon, relay-archive and retired custody deployment instructions."
+owner_domain = 17
+
+[finding.53]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki mirrors the separate LayerX Network daemon/image inventory and tells operators to mount a custody profile into layerxd at line 42, retaining the pre-merge deployment model."
+expected = "The wiki must describe the same single-network lifecycle and retired-component status as the authoritative merged operator guide."
+proposal = "In docs/wiki/BetaCluster.md synchronize the bring-up sequence and service inventory with the merged paxd guide, removing the independent daemon and custody-profile startup requirement."
+owner_domain = 17
+
+[finding.54]
+file = "docs/site/docs/overview/unified-network.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The overview divides Paxeer and LayerX into two domains, places consensus in a C layerxd node, describes active 0x1012/0x1013/0x1014 operations and sends clients to a router /rpc URL at line 129."
+expected = "The merged product is one BFT paxd network on EVM chain 125 with its kernel proposing blocks, committed receipts final, tenant domains in the database and retired precompiles refusing."
+proposal = "In docs/site/docs/overview/unified-network.md replace the dual-network architecture with the embedded-kernel and tenant-domain model, document retired precompile refusals and publish the Paxeer root RPC and hosted px method boundary."
+owner_domain = 17
+
+[finding.55]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs maintained clients to POST /rpc and /rpc/ws, repeats public suffixed URLs at lines 214-215 and prescribes a deposit into retired custody precompile 0x1013 at lines 299-304; its settlement variables also target retired 0x1014."
+expected = "A new developer must reach the merged chain at the supported root endpoint and use the current funding and receipt-finality path without retired precompile dependencies."
+proposal = "In docs/site/docs/overview/quickstart.md replace all retired route, custody and anchor instructions with the current chain-125 workflow, identify node namespaces versus hosted px calls and align funding steps with the maintained faucet and CLI pages."
+owner_domain = 17
+
+[finding.56]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The payments path names a published router origin with a /rpc suffix and later relies on separate LayerX funding/receipt concepts; line 79 directs public funding through a custody-credit guide."
+expected = "Payment instructions must describe one committed-network transfer path, the supported public root endpoint and currently available funding without separate-network custody assumptions."
+proposal = "In docs/site/docs/overview/payments.md rewrite the RPC, funding, submission and receipt steps for the merged network, remove retired router and commitment-rung assumptions and reconcile the command availability claims with the maintained CLI."
+owner_domain = 17
+
+[finding.57]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The operator guide's public-funding notice tells users to submit custody credit to the router, which is a retired public topology even though most of the page describes private beta control."
+expected = "Private operator controls and public funding must be described with the supported merged-network boundary and current service names."
+proposal = "In docs/site/docs/operators/beta-control.md replace the opening funding/router instruction with the current supported funding reference and keep the private control lifecycle and authorization separate from public RPC guidance."
+owner_domain = 17
+
+[finding.58]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet page's opening funding notice directs public users through custody credit submitted to a router, while lines 22-35 expose lx_requestFunds as the gateway method. The merged boundary assigns hosted methods to px and retires router-based public routing."
+expected = "Developers must receive a single current funding path with the published gateway method names and correct merged-network endpoint."
+proposal = "In docs/site/docs/platform/faucet.md reconcile public and approved-private funding instructions with the current gateway OpenRPC contract, remove router/custody dependencies and update the CLI, SDK and MCP method references together."
+owner_domain = 17
+
+[finding.59]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires global --rpc URLs to end in /rpc and repeats that transport restriction at line 278; the merged public JSON-RPC endpoint is the root and no router /rpc surface remains."
+expected = "CLI users must be told the endpoint and method namespace accepted by the merged product without retired path requirements."
+proposal = "In docs/site/docs/platform/cli.md update endpoint examples and validation guidance to the root RPC, document node and hosted method ownership and coordinate corresponding CLI validation changes with its owning domain."
+owner_domain = 17
+
+[finding.60]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The guide first says wallet/token groups and global RPC/credential flags are implemented and cites their code, then lines 106-137 claim those same groups, flags and RPC calls have no counterpart in this tree."
+expected = "One command reference must consistently distinguish implemented commands and accepted flags from genuinely unavailable behavior."
+proposal = "In docs/site/docs/platform/cli.md remove the contradictory intended-only table and flags paragraph, reconcile each command with its cited implementation and retain explicit typed refusals where the public operation remains unavailable."
+owner_domain = 17
+
+[finding.61]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway guide presents a router unifying eth/lx/px and advertises POST /rpc, /rpc/schema and /rpc/ws at lines 50-51 and 198-200; its closing appendix again deploys a daemon with a custody profile."
+expected = "The public node RPC is served at root with its declared node namespaces; hosted px calls belong to the gateway and there is no separate LayerX interface or running daemon."
+proposal = "In docs/site/docs/platform/hosted-gateway.md rewrite the topology, transport table and deployment appendix for the merged root endpoint and gateway OpenRPC contract, removing legacy lx routing and daemon/custody startup claims."
+owner_domain = 17
+
+[finding.62]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment guide derives LAYERX_WEBHOOKS_NETWORK_ID from ${{router.LAYERX_GATEWAY_NETWORK_ID}}, binding webhook network identity to a retired router service rather than the single merged network."
+expected = "Webhook network identity must come from the deployed merged chain and agree with its event producers and receipt consumers without a router dependency."
+proposal = "In docs/site/docs/platform/webhooks.md replace the router service-variable reference with the maintained deployment's canonical network identity and document how event and receipt identities are checked across startup and reconnect."
+owner_domain = 17
+
+[finding.63]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The OpenAPI registry row points to contracts/consensus-fork.md#openapi and the slice's Go/config rows also point to contracts/consensus-fork.md and contracts/sequencer.md, but neither contract page exists at the audited revision."
+expected = "Declared producer and consumer contracts must resolve to maintained pages describing names, encodings, refusals and lifecycle for the merged consensus interface."
+proposal = "Restore the maintained consensus contract pages or repoint the owning rows in spec/layerx-merge/interfaces.kvx to existing authoritative documentation, covering Autobahn refusals, state recovery and the internal versus public RPC boundary."
+owner_domain = 17
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[finding.64]
+file = "consensus/rpc/openapi/openapi.yaml"
+line = 1
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 15.fmt-consensus-rpc-openapi-j57 says this document advertises dial_peers and dial_seeds that NewRoutesMap does not register, but neither operation is present in the audited OpenAPI document; the current mismatch is response schemas and mode semantics."
+expected = "The registry's change note must identify the current producer-consumer disagreement so its repair task targets the actual problem."
+proposal = "In spec/layerx-merge/interfaces.kvx replace the stale dial-route note on 15.fmt-consensus-rpc-openapi-j57 with the current schema and Autobahn-refusal contract gaps after the owning RPC documentation task reconciles them."
+owner_domain = 17
+interface = "15.fmt-consensus-rpc-openapi-j57"
+
+[doc.1]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3, 40 and 50 retain the separate daemon, retired custody precompile and layerxd profile deployment; rewrite the merged bring-up and inventory."
+
+[doc.2]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Lines 3 and 42 mirror the separate daemon topology and custody-profile launch instructions; synchronize with the merged operator guide."
+
+[doc.3]
+path = "contracts/launchpad/README.md"
+status = "accurate"
+notes = "Read in full. Describes the launchpad contract architecture; Router and FeesRouter here are Solidity contracts, not the retired public RPC router. No consensus/RPC contract is defined by this page."
+
+[doc.4]
+path = "contracts/launchpad/operations/README.md"
+status = "accurate"
+notes = "Read in full. Describes governed incident response, escrow recovery and pinned contract inspection. These contract-specific custody and routing terms do not prescribe a separate network or consensus RPC transport."
+
+[doc.5]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Lines 7-17, 52-67, 104-114 and 129 describe two networks, retired precompiles, C daemon and router /rpc; conflicts with the merged embedded-kernel chain."
+
+[doc.6]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20, 131-132, 167-168, 214-215, 299-304 and 497-518 retain /rpc, /rpc/ws, retired custody and anchor instructions; update network funding and finality guidance."
+
+[doc.7]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Lines 18-21 name the retired router /rpc origin; funding and receipt guidance retains the separate-network model and conflicts with the maintained CLI/faucet descriptions."
+
+[doc.8]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Line 5 directs public funding through custody credit submitted to the router. The remaining private-control documentation must be retained only where it matches the merged deployment."
+
+[doc.9]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Line 5 retains router custody funding and lines 22-35 name legacy lx_requestFunds; reconcile with the merged gateway OpenRPC method and supported public/private funding boundary."
+
+[doc.10]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Lines 8 and 278 require retired /rpc routing. Lines 106-137 contradict the opening description and implemented command table by claiming wallet/token and global flags do not exist."
+
+[doc.11]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Lines 39-51 and 198-200 advertise router eth/lx/px consolidation and /rpc/schema/ws; lines 609-623 reintroduce daemon/custody deployment. Rewrite the boundary and transport table."
+
+[doc.12]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Lines 76-77 bind network identity to a retired router service variable. Preserve role-specific authorization and delivery controls while correcting deployment identity wiring."
+
+[doc.13]
+path = "consensus/internal/inspect/doc.go"
+status = "stale"
+notes = "Line 17 and repeated constructor example pass RPCConfig and ignore the constructor error; current NewFromConfig requires the full Config and returns two values."
+
+[doc.14]
+path = "consensus/internal/state/indexer/doc.go"
+status = "stale"
+notes = "Lines 59-67 give SQL against a nonexistent tx_events.hash field and use the bare key for a composite event name; the sink selection and direct-SQL versus RPC distinction otherwise match."
+
+[doc.15]
+path = "consensus/light/doc.go"
+status = "stale"
+notes = "Lines 71-87 use obsolete constructor/store arguments and TrustedHeader retrieval. Secure-client guidance must also identify an actual supported proof source under merged consensus."
+
+[doc.16]
+path = "consensus/rpc/jsonrpc/doc.go"
+status = "stale"
+notes = "Lines 61-76 register an unsupported handler and use obsolete Listen/Serve lifecycle signatures. Request examples must be tied to the typed handler contract."
+
+[doc.17]
+path = "consensus/rpc/openapi/openapi.yaml"
+status = "misleading"
+notes = "Read all 3301 lines. GET framing, error envelopes, result references, header/proof/query/commit/parameter fields and consensus-mode behavior disagree with current producers; bind/server defaults are stale."
+
+[doc.18]
+path = "contracts/consensus-fork.md"
+status = "missing"
+notes = "Registry contract target for consensus exported types, RPC routes, metrics and OpenAPI does not exist at the audited revision; restore the authoritative contract or correct the registry links."
+
+[doc.19]
+path = "contracts/sequencer.md"
+status = "missing"
+notes = "Registry contract target for consensus configuration and ABCI APIs does not exist at the audited revision; restore the maintained merged-network contract or correct the registry links."
+
+
