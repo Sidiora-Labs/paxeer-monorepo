@@ -174446,7 +174446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1540]
 title = "Repair audit record 22.30.95 medium findings in services/human/crates/layerx-human-kms/tests/provider (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443"]
@@ -197226,7 +197226,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.475]
 title = "Reconcile the consensus AppHash with the application commit hash across a node restart"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -280549,7 +280549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.714]
 title = "Repair audit record 22.30.17 medium findings in precompiles/spot/abi (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.19", "22.31.20", "22.31.463"]
