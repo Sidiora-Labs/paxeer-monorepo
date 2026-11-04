@@ -125,6 +125,7 @@ pub struct QuotePolicy {
     reserved_pax: u128,
     finalized_spend: u128,
     did_budget: DidBudget,
+    registered: BTreeMap<Address, u128>,
 }
 impl QuotePolicy {
     /// # Errors
@@ -140,6 +141,7 @@ impl QuotePolicy {
             reserved_pax: 0,
             finalized_spend: 0,
             did_budget: DidBudget::new(0),
+            registered: BTreeMap::new(),
         })
     }
 
@@ -147,6 +149,27 @@ impl QuotePolicy {
     pub fn with_did_budget(mut self, budget: DidBudget) -> Self {
         self.did_budget = budget;
         self
+    }
+
+    pub(crate) fn with_registered_senders(
+        mut self,
+        senders: &[crate::config::RegisteredSender],
+    ) -> Self {
+        self.registered = senders
+            .iter()
+            .map(|sender| (sender.address, sender.budget))
+            .collect();
+        self
+    }
+
+    #[must_use]
+    pub fn sender_used(&self, account: Address, now: u64) -> u128 {
+        let key = format!("registered:{}", crate::rpc::hex(&account));
+        if self.interval == Some(now / self.config.interval_seconds) {
+            self.accounts.get(&key).copied().unwrap_or(0)
+        } else {
+            0
+        }
     }
 
     #[must_use]
@@ -188,7 +211,7 @@ impl QuotePolicy {
         }
         let active = self.reserved_pax;
         self.reserved_pax = 0;
-        let result = self.reserve_key(did, amount, gas, u128::MAX, now);
+        let result = self.reserve_key(did, Some(account), amount, gas, u128::MAX, now);
         self.reserved_pax = active;
         result
     }
@@ -272,7 +295,14 @@ impl QuotePolicy {
         }
         let gas_cost = fees.gas_cost().map_err(|_| PolicyRefusal::InvalidAmount)?;
         let mut next = self.clone();
-        next.reserve_key(budget.as_str(), amount, gas_cost, balance, now)?;
+        next.reserve_key(
+            budget.as_str(),
+            Some(account),
+            amount,
+            gas_cost,
+            balance,
+            now,
+        )?;
         next.did_budget.reserve(
             budget.as_str(),
             fees.gas_limit,
@@ -391,12 +421,20 @@ impl QuotePolicy {
         if account == [0; 20] {
             return Err(PolicyRefusal::InvalidAmount);
         }
-        self.reserve_key(&crate::rpc::hex(&account), amount, gas_cost, balance, now)
+        self.reserve_key(
+            &crate::rpc::hex(&account),
+            Some(account),
+            amount,
+            gas_cost,
+            balance,
+            now,
+        )
     }
 
     fn reserve_key(
         &mut self,
         key: &str,
+        account: Option<Address>,
         amount: u128,
         gas_cost: u128,
         balance: u128,
@@ -408,10 +446,17 @@ impl QuotePolicy {
         if now < self.last_time {
             return Err(PolicyRefusal::ClockRegression);
         }
+        let custom =
+            account.and_then(|account| self.registered.get(&account).map(|cap| (account, *cap)));
+        let charge_key = custom.map_or_else(
+            || key.to_owned(),
+            |(account, _)| format!("registered:{}", crate::rpc::hex(&account)),
+        );
+        let cap = custom.map_or(self.config.per_account_limit, |(_, cap)| cap);
         let interval = now / self.config.interval_seconds;
         let same_interval = self.interval == Some(interval);
         let prior_account = if same_interval {
-            self.accounts.get(key).copied().unwrap_or(0)
+            self.accounts.get(&charge_key).copied().unwrap_or(0)
         } else {
             0
         };
@@ -421,7 +466,7 @@ impl QuotePolicy {
         }
         let account_total = prior_account
             .checked_add(amount)
-            .filter(|value| *value <= self.config.per_account_limit)
+            .filter(|value| *value <= cap)
             .ok_or(PolicyRefusal::PerAccount)?;
         let total = prior_total
             .checked_add(amount)
@@ -442,7 +487,7 @@ impl QuotePolicy {
         }
         self.interval = Some(interval);
         self.last_time = now;
-        self.accounts.insert(key.to_owned(), account_total);
+        self.accounts.insert(charge_key, account_total);
         self.total = total;
         self.reserved_pax = reserved;
         Ok(())
