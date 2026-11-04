@@ -29,7 +29,7 @@ defmodule BlockScoutWeb.API.V2.SmartContractController do
       safe_parse_non_negative_integer: 1
     ]
 
-  alias BlockScoutWeb.AccessHelper
+  alias BlockScoutWeb.API.V2.RestrictedAccessHelper
   alias Explorer.Chain
   alias Explorer.Chain.{Address, SmartContract}
   alias Explorer.Chain.SmartContract.AuditReport
@@ -60,7 +60,7 @@ defmodule BlockScoutWeb.API.V2.SmartContractController do
   @spec smart_contract(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def smart_contract(conn, %{address_hash_param: address_hash_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          _ <- PublishHelper.sourcify_check(address_hash_string),
          {:not_found, {:ok, %Address{} = address}} <-
            {:not_found, Address.find_contract_address(address_hash, smart_contract_address_options())} do
@@ -421,7 +421,7 @@ defmodule BlockScoutWeb.API.V2.SmartContractController do
 
   defp validate_smart_contract(params, address_hash_string) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {smart_contract, _}} when not is_nil(smart_contract) <-
            {:not_found, SmartContract.address_hash_to_smart_contract_with_bytecode_twin(address_hash, @api_true)} do
       {:ok, address_hash, smart_contract}

@@ -31,6 +31,7 @@ defmodule BlockScoutWeb.API.V2.AddressController do
   import Explorer.MicroserviceInterfaces.Metadata, only: [maybe_preload_metadata: 1]
   import Explorer.Chain.Address.Reputation, only: [reputation_association: 0]
 
+  alias BlockScoutWeb.API.V2.RestrictedAccessHelper
   alias BlockScoutWeb.AccessHelper
 
   alias BlockScoutWeb.API.V2.{
@@ -1551,7 +1552,7 @@ defmodule BlockScoutWeb.API.V2.AddressController do
           | {:ok, Hash.t()}
   defp validate_address_hash(address_hash_string, params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params) do
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params) do
       {:ok, address_hash}
     end
   end

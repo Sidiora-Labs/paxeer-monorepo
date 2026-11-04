@@ -3,6 +3,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
   use Utils.CompileTimeEnvHelper, bridged_tokens_enabled: [:explorer, [Explorer.Chain.BridgedToken, :enabled]]
   use OpenApiSpex.ControllerSpecs
 
+  alias BlockScoutWeb.API.V2.RestrictedAccessHelper
   alias BlockScoutWeb.{AccessHelper, AuthenticationHelper}
   alias BlockScoutWeb.API.V2.{AddressView, TransactionView}
   alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
@@ -66,7 +67,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
     ip = AccessHelper.conn_to_ip_string(conn)
 
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @token_options)} do
       TokenTotalSupplyOnDemand.trigger_fetch(ip, address_hash)
 
@@ -114,7 +115,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
   @spec counters(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def counters(conn, %{address_hash_param: address_hash_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, true} <- {:not_found, Token.by_contract_address_hash_exists?(address_hash, @api_true)} do
       {transfers_count, holders_count} = Token.fetch_token_counters(address_hash, 5_000)
 
@@ -160,7 +161,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
   @spec transfers(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def transfers(conn, %{address_hash_param: address_hash_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, true} <- {:not_found, Token.by_contract_address_hash_exists?(address_hash, @api_true)} do
       paging_options = paging_options(params)
 
@@ -216,7 +217,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
   @spec holders(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def holders(conn, %{address_hash_param: address_hash_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, true} <- {:not_found, Token.by_contract_address_hash_exists?(address_hash, @api_true)} do
       results_plus_one =
         Chain.fetch_token_holders_from_token_hash(address_hash, Keyword.merge(paging_options(params), @api_true))
@@ -265,11 +266,11 @@ defmodule BlockScoutWeb.API.V2.TokenController do
         %{address_hash_param: address_hash_string, holder_address_hash: holder_address_hash_string} = params
       ) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @token_options)},
          {:not_found, false} <- {:not_found, Chain.erc_20_token?(token) or Token.zrc_2_token?(token)},
          {:format, {:ok, holder_address_hash}} <- {:format, Chain.string_to_address_hash(holder_address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(holder_address_hash_string, params) do
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(holder_address_hash_string, params) do
       holder_address_with_proxy_implementations =
         case Address.get(holder_address_hash, @api_true) do
           %Address{} = holder_address -> %Address{holder_address | proxy_implementations: nil}
@@ -308,7 +309,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
 
   def instances(conn, %{address_hash_param: address_hash_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @token_options)} do
       results_plus_one =
         Instance.address_to_unique_tokens(
@@ -354,7 +355,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
   @spec instance(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def instance(conn, %{address_hash_param: address_hash_string, token_id_param: token_id_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @token_options)},
          {:not_found, false} <- {:not_found, Chain.erc_20_token?(token) or Token.zrc_2_token?(token)},
          {:format, {token_id, ""}} <- {:format, Integer.parse(token_id_string)},
@@ -417,7 +418,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
         %{address_hash_param: address_hash_string, token_id_param: token_id_string} = params
       ) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @api_true)},
          {:not_found, false} <- {:not_found, Chain.erc_20_token?(token) or Token.zrc_2_token?(token)},
          {:format, {token_id, ""}} <- {:format, Integer.parse(token_id_string)} do
@@ -475,7 +476,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
   @spec holders_by_instance(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def holders_by_instance(conn, %{address_hash_param: address_hash_string, token_id_param: token_id_string} = params) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @api_true)},
          {:not_found, false} <- {:not_found, Chain.erc_20_token?(token) or Token.zrc_2_token?(token)},
          {:format, {token_id, ""}} <- {:format, Integer.parse(token_id_string)} do
@@ -530,7 +531,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
         %{address_hash_param: address_hash_string, token_id_param: token_id_string} = params
       ) do
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @api_true)},
          {:not_found, false} <- {:not_found, Chain.erc_20_token?(token) or Token.zrc_2_token?(token)},
          {:format, {token_id, ""}} <- {:format, Integer.parse(token_id_string)} do
@@ -698,7 +699,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
     token_id_string = params[:token_id_param]
 
     with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @api_true)},
          {:not_found, false} <- {:not_found, Chain.erc_20_token?(token) or Token.zrc_2_token?(token)},
          {:format, {token_id, ""}} <- {:format, Integer.parse(token_id_string)},
@@ -743,7 +744,7 @@ defmodule BlockScoutWeb.API.V2.TokenController do
 
     with :ok <- AuthenticationHelper.validate_sensitive_endpoints_api_key(get_api_key(conn)),
          {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
+         {:ok, false} <- RestrictedAccessHelper.restricted_access?(address_hash_string, params),
          {:not_found, {:ok, token}} <- {:not_found, Chain.token_from_address_hash(address_hash, @api_true)},
          {:not_found, false} <- {:not_found, Chain.erc_20_token?(token) or Token.zrc_2_token?(token)} do
       NFTCollectionMetadataRefetchOnDemand.trigger_refetch(ip, token)
