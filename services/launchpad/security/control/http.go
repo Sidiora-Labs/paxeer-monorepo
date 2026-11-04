@@ -16,7 +16,7 @@ type HTTPService struct {
 }
 
 func NewHTTPService(store *Store, worker *SettlementWorker) (*HTTPService, error) {
-	if store == nil || store.pool == nil || store.identity == nil || (worker != nil && worker.store != store) {
+	if store == nil || (store.pool == nil && store.local == nil) || store.identity == nil || (worker != nil && worker.store != store) {
 		return nil, Invalid
 	}
 	return &HTTPService{store, worker}, nil

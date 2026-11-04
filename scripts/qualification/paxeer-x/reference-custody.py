@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -34,12 +35,91 @@ spec = importlib.util.spec_from_file_location('spending_evidence',
 evidence = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(evidence)
 evidence.ROOT = ROOT
+producer_spec = importlib.util.spec_from_file_location('custody_source_producer',
+    Path(__file__).with_name('program-http-producer.py'))
+producer = importlib.util.module_from_spec(producer_spec)
+producer_spec.loader.exec_module(producer)
+
+
+def authenticate_source(bundle, receipt_keys, report, native_evidence, candidate, network_id=125):
+    evidence.require(type(network_id) is int and 0 < network_id < 1 << 32,
+        'independently selected bounded source network required')
+    selected = {key: candidate[key] for key in ('revision', 'tree')}
+    producer.source_identity(selected, candidate['revision'])
+    evidence.require(isinstance(bundle, dict)
+        and set(bundle) == {'schema', 'source', 'network_id', 'records'}
+        and bundle['schema'] == producer.SOURCE_SCHEMA and bundle['source'] == selected
+        and type(bundle['network_id']) is int and bundle['network_id'] == network_id
+        and isinstance(bundle['records'], list) and 0 < len(bundle['records']) <= 256,
+        'complete source-bound authenticated custody producer evidence required')
+    pins = producer.decode_receipt_keys(receipt_keys)
+    evidence.require(isinstance(report, dict)
+        and report.get('schema') == 'paxeer-x.reference-custody-native.v1',
+        'actual native custody report required')
+    consumption = report.get('authenticated_source')
+    evidence.require(isinstance(consumption, dict)
+        and set(consumption) == {'schema', 'receipts'}
+        and consumption['schema'] == 'paxeer-x.reference-custody-source-consumption.v1'
+        and isinstance(consumption['receipts'], list),
+        'native custody must export the authenticated source receipts it actually consumed')
+    inventory = {}
+    for saved in native_evidence:
+        evidence.require(producer.artifact(saved['path']) == saved,
+            'native custody source receipt artifact changed')
+        evidence.require(saved['sha256'] not in inventory, 'duplicate native receipt artifact')
+        inventory[saved['sha256']] = producer.read(saved['path'])
+    consumed = {}
+    for row in consumption['receipts']:
+        evidence.require(isinstance(row, dict) and set(row) == {'activity_id', 'receipt_sha256'}
+            and row['activity_id'] not in consumed, 'exact unique consumed source receipt binding required')
+        consumed[row['activity_id']] = row['receipt_sha256']
+    verified_sources = []
+    seen = set()
+    for record in bundle['records']:
+        verified = producer.consume_source(record, pins, selected, network_id)
+        activity = verified.receipt.activity_id.hex()
+        digest = hashlib.sha256(verified.canonical_bytes).hexdigest()
+        evidence.require(activity not in seen and verified.receipt.result_code == 0,
+            'unique successful authenticated source condition required')
+        seen.add(activity)
+        evidence.require(consumed.get(activity) == digest
+            and inventory.get(digest) == verified.canonical_bytes,
+            'authenticated chain receipt differs from the condition consumed by native custody')
+        receipt = record['receipts']['paxd']
+        verified_sources.append({'activity_id': activity,
+            'receipt_digest': verified.receipt_digest.hex(), 'receipt_sha256': digest,
+            'height': verified.height, 'rung': receipt['rung'],
+            'block_hash': receipt.get('blockHash')})
+    evidence.require(set(consumed) == seen, 'native custody consumed an unqualified source receipt')
+    return verified_sources
+
+
+def authenticated_source_qualification(bundle, receipt_keys, report, native_evidence, candidate, network_id=125):
+    authenticated = authenticate_source(bundle, receipt_keys, report, native_evidence, candidate, network_id)
+    committed = all(row['rung'] == 'committed' for row in authenticated)
+    return {'authenticated_source': authenticated, 'passed': committed,
+        'unqualified_criteria': [] if committed else list(UNQUALIFIED)}
+
+
+def complete_authenticated_source(result, bundle, receipt_keys, report, native_evidence, candidate, network_id=125):
+    evidence.require(result.get('native_passed') is True and result.get('source') == candidate
+        and result.get('cases') == ['native:' + name for name in NATIVE_CASES]
+        and [case['name'] for case in report['cases']] == NATIVE_CASES
+        and all(case['passed'] is True for case in report['cases'])
+        and set(report['programs']) == set(GUESTS), 'complete native custody verification required')
+    qualified = authenticated_source_qualification(bundle, receipt_keys, report, native_evidence, candidate, network_id)
+    result.update(qualified)
+    if qualified['passed']:
+        result['cases'].append('authenticated-source-verification')
+    return result
 
 
 def source():
     record = evidence.source()
     paths = evidence.capture(['git', 'ls-files', '--',
         'scripts/qualification/paxeer-x/reference-custody.py',
+        'scripts/qualification/paxeer-x/program-http-producer.py',
+        'services/agent/sdk/python/layerx_sdk',
         'tests/programs/test_reference_custody.c',
         'tools/paxeer-x/gates/104.30.7.sh',
         'services/platform/docs/content/guide/programs.md', 'programs/porting']).splitlines()
@@ -114,7 +194,7 @@ def build(args, directory):
         evidence.write_private(directory / ('task-' + TASK + '-build.json'), record)
 
 
-def qualify(directory):
+def qualify(directory, authenticated_source=None, receipt_keys=None, network_id=125):
     manifest = json.loads((directory / ('task-' + TASK + '-build.json')).read_text())
     candidate = source()
     evidence.require(manifest['schema'] == SCHEMA and manifest['completed'] is True
@@ -135,6 +215,12 @@ def qualify(directory):
         'unqualified_criteria': list(UNQUALIFIED)}
     deadline = time.monotonic() + 1800
     try:
+        source_arguments = []
+        if authenticated_source is not None or receipt_keys is not None:
+            evidence.require(authenticated_source is not None and receipt_keys is not None,
+                'authenticated source export and independently selected receipt pins are both required')
+            source_arguments = ['--authenticated-source', str(producer.private(authenticated_source)),
+                '--receipt-keys', str(producer.private(receipt_keys)), '--network-id', str(network_id)]
         for guest in GUESTS:
             result['steps'].append(evidence.launch([str(lint),
                 str(ROOT / ('programs/sdk/rust/examples/' + guest)),
@@ -143,7 +229,7 @@ def qualify(directory):
         output = run / 'native-evidence'
         output.mkdir(mode=0o700)
         result['steps'].append(evidence.launch([str(native), artifacts['escrow']['path'],
-            artifacts['vault']['path'], str(output)], run, dict(os.environ),
+            artifacts['vault']['path'], str(output), *source_arguments], run, dict(os.environ),
             deadline, 'actual-native-custody'))
         result['native_evidence'] = [evidence.artifact(p) for p in sorted(output.iterdir())
             if p.is_file()]
@@ -161,6 +247,12 @@ def qualify(directory):
         evidence.require(source() == candidate, 'source changed during qualification')
         result['cases'] = ['native:' + name for name in NATIVE_CASES]
         result['native_passed'] = True
+        result['native_report'] = report
+        if authenticated_source is not None or receipt_keys is not None:
+            evidence.require(authenticated_source is not None and receipt_keys is not None,
+                'authenticated source export and independently selected receipt pins are both required')
+            complete_authenticated_source(result, producer.load(authenticated_source),
+                producer.load(receipt_keys), report, result['native_evidence'], candidate, network_id)
     finally:
         error = sys.exc_info()[1]
         if isinstance(error, evidence.GateProcessError):
@@ -170,24 +262,29 @@ def qualify(directory):
             result['native_evidence'] = [evidence.artifact(p) for p in sorted(output.iterdir())
                 if p.is_file()]
         evidence.write_private(directory / ('task-' + TASK + '-result.json'), result)
+    return result
 
 
-def main():
+def main(argv=None):
     os.umask(0o077)
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument('--build', action='store_true')
     parser.add_argument('--cc', default='cc')
-    args = parser.parse_args()
+    parser.add_argument('--authenticated-source')
+    parser.add_argument('--receipt-keys')
+    parser.add_argument('--network-id', type=int, default=125)
+    args = parser.parse_args(argv)
     try:
         directory = evidence.private_directory()
         if args.build:
             build(args, directory)
         else:
-            qualify(directory)
-            print('custody native evidence recorded; unqualified: ' + ', '.join(UNQUALIFIED),
-                file=sys.stderr)
-            return 2
-    except (OSError, ValueError, KeyError, TypeError) as error:
+            result = qualify(directory, args.authenticated_source, args.receipt_keys, args.network_id)
+            if not result['passed']:
+                print('custody native evidence recorded; unqualified: '
+                    + ', '.join(result['unqualified_criteria']), file=sys.stderr)
+                return 2
+    except (OSError, ValueError, KeyError, TypeError, producer.PlatformSdkError) as error:
         print('reference custody qualification refused: ' + str(error), file=sys.stderr)
         return 1
     return 0

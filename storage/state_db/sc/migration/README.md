@@ -12,6 +12,22 @@ existing inspection tools and proposed tooling.
 `MemiavlOnly` and `FlatKVOnly`. The composite store builds its storage handle
 after loading the backends; it does not bypass this package at V0 or V3.
 
+The call in `CompositeCommitStore.buildRouter` is the same for terminal and
+transition modes:
+
+```go
+router, err := migration.BuildRouter(
+    routerCtx, cs.config.WriteMode, cs.memIAVL, cs.flatKV,
+    cs.config.KeysToMigratePerBlock,
+)
+```
+
+With `MemiavlOnly`, the returned `*PassthroughRouter` uses memiavl reader,
+writer and proof accessors (flatkv may be nil). With `FlatKVOnly`, it uses
+flatkv reader/writer accessors (memiavl may be nil; proofs are unsupported).
+Neither terminal mode constructs a `MigrationManager`; both still route reads
+and writes through the returned single-backend router.
+
 ## State machine
 
 ```mermaid
@@ -176,3 +192,27 @@ An absent version falls back to the mode's start version; an absent boundary
 means not started unless the target version already establishes completion.
 Metadata is durable with its backend commit, not merely when a change set is
 assembled.
+
+## Progress telemetry
+
+All three transition builders share a 10-second cursor-log interval. The
+`paxdb_migration_version` gauge reports the observed version as a numeric value.
+`paxdb_migration_boundary_snapshot` now reports numeric status: 0 = not started,
+1 = in progress, 2 = complete. It has no `boundary_hex` label. The
+`paxdb_migration_keys_migrated` and `paxdb_migration_bytes_migrated` gauges report
+keys and combined key/value bytes processed in the current process run. They
+reset on restart and do not estimate a completion percentage. Existing total
+counters remain available. Status/progress update on apply; these observations
+are not evidence of a durable commit.
+
+Each gauge has one unlabeled series, independent of the number of cursors or
+collector retention. Periodic refresh and structured `migration boundary
+snapshot` logs stop at completion, context cancellation or `Close`. Exact
+serialized cursors are in the log's `boundary_hex` field, alongside version,
+targetVersion, status and module. Metrics retain numeric samples according to
+the collector's configured retention; they do not retain cursor history or
+rely on staleness eviction. Cursor history lasts only as long as the deployment's
+configured log retention. At 10 seconds, a continuously running 30-day migration
+can produce 259,200 snapshot log events; provision log retention accordingly.
+Dashboards consuming the former cursor label must use the numeric status and
+progress gauges and consult structured logs for exact positions.

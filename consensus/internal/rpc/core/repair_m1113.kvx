@@ -1,0 +1,29 @@
+[task]
+id = "22.33.1113"
+audit = "22.30.46"
+acceptance = "22998.1"
+status = "Implementation; only hf-done supplies qualification evidence."
+baseline = "Not run: the explicit ordered instructions prohibit verification before full implementation and invoking verify_cmd by hand; no pre-change test failures are claimed."
+verification = "hf-build and hf-done record the candidate revision, exact command, exit code and private evidence location in /out/run/gates.jsonl; hf-done runs only TestRepairM_1113_* once."
+gotcha = "Autobahn blocks use an empty LastCommit placeholder, not a nil LastCommit; Go sentinel identity does not cross HTTP: these Autobahn refusals become numeric code -32603, message Internal error, and the sentinel text in RPCError.data."
+
+[finding.63]
+tests = ["TestRepairM_1113_MaintainedContractRecovery", "TestRepairM_1113_AutobahnRefusals", "TestRepairM_1113_DiagnosticBoundary"]
+repair = "Publish the scoped consensus_contract.md authority and link it from OpenAPI; cover names, encodings, refusals, commitment limitations, persistent result recovery and diagnostic/public ownership."
+wiring = "Domain 17: repoint consensus Go/config/OpenAPI contract rows in spec/layerx-merge/interfaces.kvx (including 15.fmt-consensus-rpc-openapi-j57) from missing contracts/consensus-fork.md and contracts/sequencer.md to consensus/internal/rpc/core/consensus_contract.md and its maintained sections."
+
+[finding.50]
+tests = ["TestRepairM_1113_DiagnosticBoundary"]
+repair = "Label internal diagnostics, match the production loopback/CORS defaults, remove the Cosmos server, link public root/namespace and hosted px contracts, and prove eth/px are not diagnostic routes."
+
+[finding.49]
+tests = ["TestRepairM_1113_AutobahnRefusals", "TestRepairM_1113_ValidEvidenceRefused", "TestRepairM_1113_MaintainedContractRecovery"]
+repair = "Document each real refusal and its HTTP/JSON-RPC encoding; qualify URI errors, POST envelopes and typed HTTP consumer errors; identify available metadata/results and the absence of an Autobahn proof endpoint while retaining configured legacy semantics."
+
+[qualification.1]
+revision = "5e5b16dcf3da680bb4a56f7f8315fca3ac04523c"
+command = "cg spec done 22.33.1113 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Raw commit/evidence POST fixtures omitted params and received -32602 before mode dispatch; boundary, recovery and valid signed-evidence tests passed."
+assumption = "Serialize production request objects to reach the unchanged -32603 assertions, and additionally assert the observed missing-params refusals."

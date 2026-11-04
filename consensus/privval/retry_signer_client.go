@@ -51,8 +51,10 @@ func (sc *RetrySignerClient) GetPubKey(ctx context.Context) (crypto.PubKey, erro
 		err error
 	)
 
-	t := time.NewTimer(sc.timeout)
 	for i := 0; i < sc.retries || sc.retries == 0; i++ {
+		if err := ctx.Err(); err != nil {
+			return pk, err
+		}
 		pk, err = sc.next.GetPubKey(ctx)
 		if err == nil {
 			return pk, nil
@@ -61,11 +63,11 @@ func (sc *RetrySignerClient) GetPubKey(ctx context.Context) (crypto.PubKey, erro
 		if _, ok := err.(*RemoteSignerError); ok {
 			return pk, err
 		}
-		select {
-		case <-ctx.Done():
-			return pk, ctx.Err()
-		case <-t.C:
-			t.Reset(sc.timeout)
+		if sc.retries > 0 && i+1 == sc.retries {
+			break
+		}
+		if err := sc.waitRetry(ctx); err != nil {
+			return pk, err
 		}
 	}
 	return pk, fmt.Errorf("exhausted all attempts to get pubkey: %w", err)
@@ -74,6 +76,9 @@ func (sc *RetrySignerClient) GetPubKey(ctx context.Context) (crypto.PubKey, erro
 func (sc *RetrySignerClient) SignVote(ctx context.Context, chainID string, vote *tmproto.Vote) error {
 	var err error
 	for i := 0; i < sc.retries || sc.retries == 0; i++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		err = sc.next.SignVote(ctx, chainID, vote)
 		if err == nil {
 			return nil
@@ -82,7 +87,12 @@ func (sc *RetrySignerClient) SignVote(ctx context.Context, chainID string, vote 
 		if _, ok := err.(*RemoteSignerError); ok {
 			return err
 		}
-		time.Sleep(sc.timeout)
+		if sc.retries > 0 && i+1 == sc.retries {
+			break
+		}
+		if err := sc.waitRetry(ctx); err != nil {
+			return err
+		}
 	}
 	return fmt.Errorf("exhausted all attempts to sign vote: %w", err)
 }
@@ -90,6 +100,9 @@ func (sc *RetrySignerClient) SignVote(ctx context.Context, chainID string, vote 
 func (sc *RetrySignerClient) SignProposal(ctx context.Context, chainID string, proposal *tmproto.Proposal) error {
 	var err error
 	for i := 0; i < sc.retries || sc.retries == 0; i++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		err = sc.next.SignProposal(ctx, chainID, proposal)
 		if err == nil {
 			return nil
@@ -98,7 +111,24 @@ func (sc *RetrySignerClient) SignProposal(ctx context.Context, chainID string, p
 		if _, ok := err.(*RemoteSignerError); ok {
 			return err
 		}
-		time.Sleep(sc.timeout)
+		if sc.retries > 0 && i+1 == sc.retries {
+			break
+		}
+		if err := sc.waitRetry(ctx); err != nil {
+			return err
+		}
 	}
 	return fmt.Errorf("exhausted all attempts to sign proposal: %w", err)
+}
+
+// waitRetry releases its timer on cancellation as well as on expiry.
+func (sc *RetrySignerClient) waitRetry(ctx context.Context) error {
+	timer := time.NewTimer(sc.timeout)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return ctx.Err()
+	}
 }

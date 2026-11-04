@@ -1,0 +1,16 @@
+[repair.22.33.1098]
+audit = "22.30.46"
+findings = ["2"]
+proofs = ["TestRepairM_1098_RetryStatePruneAtBlockBase", "TestRepairM_1098_RestartResumesStatePrune", "TestRepairM_1098_RestartKeepsFailedPrunePending"]
+implementation = "Use the completed retained base as a state-pruning watermark independent of the block base; retry incomplete state pruning at the block base, normalize lower requests to that boundary, and reconstruct pending pruning from the durable block base when reopening."
+baseline = "Not run: the explicit implementation/build/verification order prohibits a baseline verify or running verify_cmd by hand; no pre-change test failure is claimed."
+qualification = "The private hf-build and hf-done receipts record the exact candidate revision, command, exit code and evidence log; final task evidence names the verified revision."
+wiring_requests = []
+
+[finding.2]
+tests = ["TestRepairM_1098_RetryStatePruneAtBlockBase", "TestRepairM_1098_RestartResumesStatePrune", "TestRepairM_1098_RestartKeepsFailedPrunePending"]
+path = "consensus/internal/state/repair_m1098_test.go"
+producer = "Production State.MakeBlockAt, BlockStore.SaveBlock, Store.Save and SaveFinalizeBlockResponses persist blocks, validators, parameters and execution results in real on-disk LevelDB stores."
+consumer = "AsyncPruner.Request and its production worker prune both real stores; a missing validator height causes PruneStates to fail after consensus-parameter deletion, with no mock or injected implementation."
+restart = "Stop the pruner, close both databases, reopen both stores and construct a new pruner; recovery completes without a new request, remains unacknowledged on repeated failure, and safely replays an already completed boundary."
+gotcha = "BlockStore.Base advances before PruneStates completes; equality with that base cannot acknowledge state pruning, including a lower request received after reopening."

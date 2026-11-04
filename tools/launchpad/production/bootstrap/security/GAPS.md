@@ -9,8 +9,13 @@ python3 tools/launchpad/production/bootstrap/security/build_manifest.py
 ```
 
 The generator prints JSON to stdout; it does not update the checked-in manifest
-or execute tests. A reviewed regeneration must reconcile current source hashes
-before registry admission. This inventory does not qualify bootstrap task `0.1`
+or execute tests. Capture stdout as a candidate and compare it with
+`tools/launchpad/production/bootstrap/security/manifest.json`. Before replacing
+that checked-in destination, review each row's module working directory, command,
+source paths, SHA-256 hashes, test names and dependency prerequisites against the
+current tree. Keep `execution_status` as `not_executed_by_inventory`; registry
+admission requires this reconciliation and separate execution evidence. This
+inventory does not qualify bootstrap task `0.1`
 or certify production security. Preserve command exits and Go JSON test events;
 skips and zero-case execution must fail qualification.
 
@@ -50,21 +55,32 @@ not the historical Go import names, determine command working directories.
 
 ## Scanner behavior and remaining proof
 
-`ScanBuffer` in `sdk/launchpad/shared/http/virusscan.go` fails closed. An absent
-`CLAMAV_HOST` returns `UNAVAILABLE` with `clamav-not-configured`; an unreachable
+`ScanBuffer` in `sdk/launchpad/shared/http/virusscan.go` fails closed. Host selection
+uses `ScanOptions.Host`, then `CLAMAV_HOST`; if both are empty it returns
+`UNAVAILABLE` with `clamav-not-configured`. An unreachable
 scanner returns `UNAVAILABLE` with `clamav-unreachable`. Port selection uses
 `ScanOptions.Port`, then `CLAMAV_PORT`, then 3310. Invalid ports return `ERROR`.
 Scans are bounded to 6 MiB and at most five seconds. Only the complete ClamAV
 `stream: OK` verdict sets `Clean: true`; infected, interrupted, timed-out and
 malformed results never become clean.
 
-`TestScanBufferNotConfigured` and `TestScanBufferUnreachable` now assert rejection.
+`TestScanBufferNotConfigured` and `TestScanBufferUnreachable` assert `Clean: false`,
+`UNAVAILABLE`, the specific reason, an empty content hash and zero size.
 The gateway upload regression `TestUpload_ScannerUnavailableFailsClosed503`
-checks HTTP 503 on unavailable scanning. Protocol-response tests using a local
-server are distinct from live ClamAV/EICAR execution. `ScanVerifiedBuffer` also
-checks scanner engine/signature revision before and after the scan. To qualify a
-deployment, retain actual scanner version, EICAR, timeout/malformed-response and
-failed-scan storage-denial evidence from the deployed path.
+checks HTTP 503, masked client errors, logged reasons and no forwarding to
+media/metadata on unavailable scanning. `TestScanBufferClean` and
+`TestScanBufferInfected` use fixed protocol responses from a local server; they
+do not execute live ClamAV/EICAR scanning.
+
+`ScanVerifiedBuffer` obtains scanner engine/signature revision before scanning.
+Only after a `CLEAN` result does it query the version again; a failed initial
+query returns `UNAVAILABLE` with `clamav-version-unavailable`, and a failed
+recheck or changed engine/signature revision returns `UNAVAILABLE` with
+`clamav-version-changed`. Neither result is clean. To qualify a deployment,
+retain real-scanner version and EICAR evidence, timeout/malformed-response and
+failed-dependency evidence, and failed-scan storage-denial evidence from the
+deployed path, including no object-store writes or metadata side effects.
+The forwarding assertion alone does not prove these storage-side-effect bounds.
 
 ## Deferred security qualification gaps
 

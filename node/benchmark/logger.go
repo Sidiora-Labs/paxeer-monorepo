@@ -21,6 +21,7 @@ type Logger struct {
 	maxCommitTime   time.Duration // Maximum commit time in the window
 	totalCommitTime time.Duration // Sum of all commit times in the window
 	commitCount     int64         // Number of commits in the window
+	onCommit        func()        // Notifies generation of chain progress, outside mx.
 	// Block processing time tracking (ProcessProposal start to FinalizeBlock end)
 	blockProcessStartTime time.Time     // Start time of current block processing
 	maxBlockProcessTime   time.Duration // Maximum block processing time in the window
@@ -64,13 +65,17 @@ func (l *Logger) Increment(count int64, blocktime time.Time, height int64) {
 // RecordCommitTime records the duration of a commit operation.
 func (l *Logger) RecordCommitTime(duration time.Duration) {
 	l.mx.Lock()
-	defer l.mx.Unlock()
 
 	if duration > l.maxCommitTime {
 		l.maxCommitTime = duration
 	}
 	l.totalCommitTime += duration
 	l.commitCount++
+	onCommit := l.onCommit
+	l.mx.Unlock()
+	if onCommit != nil {
+		onCommit()
+	}
 }
 
 // StartBlockProcessing marks the start of block processing (at ProcessProposal).

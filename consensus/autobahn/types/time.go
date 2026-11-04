@@ -11,11 +11,29 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 )
 
+const (
+	minTimestampSeconds int64 = -62135596800
+	maxTimestampSeconds int64 = 253402300799
+)
+
+func validateTimestamp(seconds int64, nanos int32) error {
+	if seconds < minTimestampSeconds || seconds > maxTimestampSeconds {
+		return errors.New("seconds: outside supported timestamp range")
+	}
+	if nanos < 0 || nanos >= 1e9 {
+		return errors.New("nanos: outside canonical timestamp range")
+	}
+	return nil
+}
+
 // TimeConv is the protobuf converter for time.Time.
 var TimeConv = protoutils.Conv[time.Time, *pb.Timestamp]{
 	// implementation based on
 	// https://github.com/pbbuffers/protobuf-go/blob/v1.36.5/types/known/timestamppb/timestamp.pb.go
 	Encode: func(t time.Time) *pb.Timestamp {
+		if err := validateTimestamp(t.Unix(), int32(t.Nanosecond())); err != nil {
+			panic(err)
+		}
 		return &pb.Timestamp{
 			Seconds: proto.Int64(t.Unix()),
 			Nanos:   proto.Int32(int32(t.Nanosecond())),
@@ -27,6 +45,9 @@ var TimeConv = protoutils.Conv[time.Time, *pb.Timestamp]{
 		}
 		if p.Nanos == nil {
 			return utils.Zero[time.Time](), errors.New("nanos: missing")
+		}
+		if err := validateTimestamp(*p.Seconds, *p.Nanos); err != nil {
+			return utils.Zero[time.Time](), err
 		}
 		return time.Unix(*p.Seconds, int64(*p.Nanos)).UTC(), nil
 	},
