@@ -20,7 +20,7 @@ still-checking.semantics = "The outcome is unknown. Reconciliation tracks the or
 refused.semantics = "A typed refusal backs this state and always states whether any money left the account."
 waiting-for-you.semantics = "A policy hold with deterministic expiry awaits the user's approval decision."
 awaiting-approval.semantics = "The native engine's awaiting-approval leg phase is exposed with this stage state while the journey awaits approval; it is not receipt-backed completion."
-closed.semantics = "Retained wallet-binding, deposit, withdraw and exit history is read as closed with state_copy_key journey.state.closed. The native history projection preserves the historical kind and timestamps and returns empty stages and evidence. Closed history cannot resume signing or execution and does not assert a successful movement."
+closed.semantics = "Retained wallet-binding, deposit, withdraw and exit history is read as closed with state_copy_key journey.state.closed. The native history projection preserves the historical kind and timestamps and returns empty stages and evidence. Closed history remains encodable through journey.get and journey.list after reopening the journey store. It cannot resume signing or execution and does not assert a successful movement."
 
 [type.EvidenceClass]
 variants = ["local-journey-state","submission-record","layerx-receipt","checkpoint-proof","paxeer-finality","typed-refusal","approval-hold","wallet-ack"]

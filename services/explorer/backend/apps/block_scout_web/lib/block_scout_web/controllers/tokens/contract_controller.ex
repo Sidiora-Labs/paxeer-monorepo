@@ -4,7 +4,7 @@ defmodule BlockScoutWeb.Tokens.ContractController do
   import BlockScoutWeb.Account.AuthController, only: [current_user: 1]
   import BlockScoutWeb.Models.GetAddressTags, only: [get_address_tags: 2]
 
-  alias BlockScoutWeb.{AccessHelper, TabHelper}
+  alias BlockScoutWeb.{AccessHelper, AddressView, TabHelper}
   alias Explorer.Chain
   alias Explorer.Chain.{Address, SmartContract}
 
@@ -30,15 +30,19 @@ defmodule BlockScoutWeb.Tokens.ContractController do
             %{type: :proxy, action: :write}
         end
 
-      render(
-        conn,
-        "index.html",
-        type: type,
-        action: action,
-        token: token,
-        counters_path: token_path(conn, :token_counters, %{"id" => Address.checksum(address_hash)}),
-        tags: get_address_tags(address_hash, current_user(conn))
-      )
+      if action == :write && AddressView.contract_interaction_disabled?() do
+        not_found(conn)
+      else
+        render(
+          conn,
+          "index.html",
+          type: type,
+          action: action,
+          token: token,
+          counters_path: token_path(conn, :token_counters, %{"id" => Address.checksum(address_hash)}),
+          tags: get_address_tags(address_hash, current_user(conn))
+        )
+      end
     else
       {:restricted_access, _} ->
         not_found(conn)

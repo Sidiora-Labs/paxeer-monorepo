@@ -1,0 +1,298 @@
+//! Task 22.33.107 repair record, audit 22.30.111, finding 40 (doc-drift).
+//! Finding 40 is proven by finding_40_matrix_matches_production_codecs,
+//! finding_40_identity_survives_transport, and finding_40_qualification_stays_pending.
+//! These tests exercise production codecs and identity derivation with committed
+//! role fixtures; they do not qualify durable recovery or native economic effects.
+//! Baseline: no earlier gate ledger or repair test existed; the controlling
+//! implementation-first hf-build/hf-done order forbids do_5's pre-change run.
+//! No baseline failure is claimed. Exact verified revision, command, exit and
+//! private log are recorded by hf-done and copied into the final task evidence.
+//! Wiring request: services/interop/crates/layerx-interop-service (domain 11)
+//! must qualify a real service stop/reopen/retry against persisted payment state.
+//! Wiring request: modules/layerxledger (domain 2) must supply authoritative native
+//! balance/payment observations for that same restart and duplicate-delivery path.
+
+use std::{collections::BTreeSet, fmt::Debug};
+
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use layerx_interop_gateway::principal::PrincipalId;
+use layerx_x402::{
+    facilitator::{
+        Facilitator, FacilitatorRequest, SettlementIdentity, SettlementStep, SupportedResponse,
+        VerifyResponse,
+    },
+    model::{
+        PaymentPayload, PaymentRequired, SettlementResponse, X402Error, PAYMENT_REQUIRED_HEADER,
+        PAYMENT_RESPONSE_HEADER, PAYMENT_SIGNATURE_HEADER,
+    },
+    transport::{
+        decode_facilitator_request, decode_facilitator_settlement, decode_payment_payload,
+        decode_payment_required, decode_settlement, decode_supported_response,
+        decode_verify_response, encode_facilitator_request, encode_facilitator_settlement,
+        encode_payment_payload, encode_payment_required, encode_settlement,
+        encode_supported_response, encode_verify_response, TransportKind, TransportValue,
+        TRANSPORT_MATRIX,
+    },
+    Seller,
+};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::Value;
+
+const DOCUMENT: &str = include_str!("../COMPATIBILITY.md");
+const SUITES: [(TransportKind, &str, &str); 3] = [
+    (
+        TransportKind::Http,
+        "HTTP",
+        include_str!("../../../specs/conformance/transport-http/role-messages.json"),
+    ),
+    (
+        TransportKind::Mcp,
+        "MCP",
+        include_str!("../../../specs/conformance/transport-mcp/role-messages.json"),
+    ),
+    (
+        TransportKind::A2a,
+        "A2A",
+        include_str!("../../../specs/conformance/transport-a2a/role-messages.json"),
+    ),
+];
+
+#[derive(Deserialize)]
+struct RoleVector {
+    role: String,
+    accepted: bool,
+    representation: String,
+    header: Option<String>,
+    document: Value,
+}
+
+impl RoleVector {
+    fn wire(&self) -> TransportValue {
+        match self.representation.as_str() {
+            "json" => TransportValue::Json(self.document.clone()),
+            "http-header" => TransportValue::HttpHeader {
+                name: match self.header.as_deref().unwrap() {
+                    PAYMENT_REQUIRED_HEADER => PAYMENT_REQUIRED_HEADER,
+                    PAYMENT_SIGNATURE_HEADER => PAYMENT_SIGNATURE_HEADER,
+                    PAYMENT_RESPONSE_HEADER => PAYMENT_RESPONSE_HEADER,
+                    other => panic!("unexpected payment header {other}"),
+                },
+                value: STANDARD.encode(serde_json::to_vec(&self.document).unwrap()),
+            },
+            other => panic!("unexpected representation {other}"),
+        }
+    }
+}
+
+fn round_trip<T: DeserializeOwned + Serialize + Debug + PartialEq>(
+    transport: TransportKind,
+    vector: &RoleVector,
+    encode: fn(TransportKind, &T) -> Result<TransportValue, X402Error>,
+    decode: fn(TransportKind, &TransportValue) -> Result<T, X402Error>,
+) {
+    let wire = vector.wire();
+    if vector.accepted {
+        let model: T = serde_json::from_value(vector.document.clone()).unwrap();
+        let produced = encode(transport, &model).unwrap();
+        match (&produced, &wire) {
+            (
+                TransportValue::HttpHeader { name, value },
+                TransportValue::HttpHeader { name: expected, .. },
+            ) => {
+                assert_eq!(name, expected);
+                let document: Value =
+                    serde_json::from_slice(&STANDARD.decode(value).unwrap()).unwrap();
+                assert_eq!(document, vector.document);
+            }
+            (TransportValue::Json(_), TransportValue::Json(_)) => assert_eq!(produced, wire),
+            _ => panic!("{} representation mismatch", vector.role),
+        }
+        assert_eq!(decode(transport, &produced).unwrap(), model);
+        assert_eq!(decode(transport, &wire).unwrap(), model);
+    } else {
+        assert!(
+            decode(transport, &wire).is_err(),
+            "{} must be refused",
+            vector.role
+        );
+    }
+}
+
+#[test]
+fn finding_40_matrix_matches_production_codecs() {
+    assert_eq!(TRANSPORT_MATRIX.len(), SUITES.len());
+    for (row, (transport, label, suite)) in TRANSPORT_MATRIX.iter().zip(SUITES) {
+        assert_eq!(row.transport, transport);
+        assert!(row.buyer && row.seller && row.facilitator);
+        assert!(DOCUMENT.contains(&format!("| {label} | yes | yes | yes |")));
+        let vectors: Vec<RoleVector> = serde_json::from_str(suite).unwrap();
+        let mut roles = BTreeSet::new();
+        let mut refused = 0;
+        for vector in &vectors {
+            if vector.accepted {
+                roles.insert(vector.role.as_str());
+            } else {
+                refused += 1;
+            }
+            match vector.role.as_str() {
+                "payment-required" => {
+                    round_trip::<PaymentRequired>(
+                        transport,
+                        vector,
+                        encode_payment_required,
+                        decode_payment_required,
+                    );
+                    if vector.accepted {
+                        let seller =
+                            Seller::new(serde_json::from_value(vector.document.clone()).unwrap())
+                                .unwrap();
+                        let signal = seller.payment_required().unwrap();
+                        assert_eq!(signal.status, 402);
+                        let produced = if transport == TransportKind::Http {
+                            TransportValue::HttpHeader {
+                                name: PAYMENT_REQUIRED_HEADER,
+                                value: signal.header,
+                            }
+                        } else {
+                            encode_payment_required(transport, &signal.body).unwrap()
+                        };
+                        assert_eq!(
+                            decode_payment_required(transport, &produced).unwrap(),
+                            signal.body
+                        );
+                    }
+                }
+                "payment-payload" => round_trip::<PaymentPayload>(
+                    transport,
+                    vector,
+                    encode_payment_payload,
+                    decode_payment_payload,
+                ),
+                "settlement-response" => round_trip::<SettlementResponse>(
+                    transport,
+                    vector,
+                    encode_settlement,
+                    decode_settlement,
+                ),
+                "facilitator-request" => round_trip::<FacilitatorRequest>(
+                    transport,
+                    vector,
+                    encode_facilitator_request,
+                    decode_facilitator_request,
+                ),
+                "verify-response" => round_trip::<VerifyResponse>(
+                    transport,
+                    vector,
+                    encode_verify_response,
+                    decode_verify_response,
+                ),
+                "facilitator-settlement" => round_trip::<SettlementResponse>(
+                    transport,
+                    vector,
+                    encode_facilitator_settlement,
+                    decode_facilitator_settlement,
+                ),
+                "supported-response" => {
+                    round_trip::<SupportedResponse>(
+                        transport,
+                        vector,
+                        encode_supported_response,
+                        decode_supported_response,
+                    );
+                    let facilitator =
+                        Facilitator::new(serde_json::from_value(vector.document.clone()).unwrap())
+                            .unwrap();
+                    let produced =
+                        encode_supported_response(transport, &facilitator.supported()).unwrap();
+                    assert_eq!(
+                        decode_supported_response(transport, &produced).unwrap(),
+                        facilitator.supported()
+                    );
+                }
+                other => panic!("uncovered role {other}"),
+            }
+        }
+        assert_eq!(
+            roles,
+            BTreeSet::from([
+                "payment-required",
+                "payment-payload",
+                "settlement-response",
+                "facilitator-request",
+                "verify-response",
+                "facilitator-settlement",
+                "supported-response"
+            ])
+        );
+        assert_eq!(refused, 1);
+    }
+}
+
+#[test]
+fn finding_40_identity_survives_transport() {
+    let principal = PrincipalId::new("finding-40-merchant").unwrap();
+    let mut identities = Vec::new();
+    for (transport, _, suite) in SUITES {
+        let vectors: Vec<RoleVector> = serde_json::from_str(suite).unwrap();
+        let vector = vectors
+            .iter()
+            .find(|v| v.role == "facilitator-request" && v.accepted)
+            .unwrap();
+        let request: FacilitatorRequest = serde_json::from_value(vector.document.clone()).unwrap();
+        let produced = encode_facilitator_request(transport, &request).unwrap();
+        let received = decode_facilitator_request(transport, &produced).unwrap();
+        let identity =
+            SettlementIdentity::derive(&principal, &received, [9; 32], SettlementStep::Single)
+                .unwrap();
+        let deposit = SettlementIdentity::derive(
+            &principal,
+            &received,
+            [9; 32],
+            SettlementStep::EscrowDeposit,
+        )
+        .unwrap();
+        let charge = SettlementIdentity::derive(
+            &principal,
+            &received,
+            [9; 32],
+            SettlementStep::EscrowCharge,
+        )
+        .unwrap();
+        assert_ne!(identity.idempotency_key, deposit.idempotency_key);
+        assert_ne!(deposit.idempotency_key, charge.idempotency_key);
+        assert_ne!(deposit.request_digest, charge.request_digest);
+        identities.push(identity);
+    }
+    assert_eq!(identities[0], identities[1]);
+    assert_eq!(identities[1], identities[2]);
+}
+
+#[test]
+fn finding_40_qualification_stays_pending() {
+    for claim in [
+        "Durable recovery across service restart",
+        "Exactly-once economic effect",
+        "Upstream reference conformance",
+        "Independently operated facilitator interoperability",
+    ] {
+        let rows: Vec<_> = DOCUMENT
+            .lines()
+            .filter(|line| line.starts_with(&format!("| {claim} |")))
+            .collect();
+        assert_eq!(rows.len(), 1, "one qualification status for {claim}");
+        assert_eq!(rows[0].split('|').nth(2).unwrap().trim(), "pending");
+    }
+    let text = DOCUMENT.split_whitespace().collect::<Vec<_>>().join(" ");
+    for boundary in [
+        "HTTP row covers header and JSON-body codecs",
+        "MCP and A2A rows cover JSON message bindings",
+        "do not start HTTP, MCP or A2A services",
+        "retain the same `GatewayCore` across retries",
+        "does not terminate a process, reopen persistent state or observe a funded ledger across restart",
+        "not an independently measured chain balance",
+        "Promote durable recovery and economic-effect claims only with real service restart and native ledger evidence from the same payment path",
+        "`0x101a` on chain 125",
+    ] {
+        assert!(text.contains(boundary), "missing qualification boundary: {boundary}");
+    }
+}

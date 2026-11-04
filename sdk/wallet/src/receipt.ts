@@ -10,7 +10,7 @@ import {
   type TransactionSerialized,
 } from 'viem';
 import { LADDER_RUNGS, type TransferRpc } from './ladder.js';
-import { isRecord } from './rpc.js';
+import { isRecord, type JsonRpcRequestOptions } from './rpc.js';
 import type {
   Hex,
   ReceiptKeyPin,
@@ -44,8 +44,13 @@ function pinHeight(value: unknown): bigint {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 1) return BigInt(value);
   return invalid('key height');
 }
-export async function readReceiptKeyPins(rpc: TransferRpc): Promise<readonly ReceiptKeyPin[]> {
-  const value = await rpc('px_getReceiptKeys', []);
+export async function readReceiptKeyPins(
+  rpc: TransferRpc,
+  options: JsonRpcRequestOptions = {}
+): Promise<readonly ReceiptKeyPin[]> {
+  options.signal?.throwIfAborted();
+  const value = await rpc('px_getReceiptKeys', [], options);
+  options.signal?.throwIfAborted();
   if (!isRecord(value) || !Array.isArray(value.keys)) return invalid('governed keys');
   const seen = new Set<string>();
   return value.keys.map((entry: unknown) => {
@@ -412,11 +417,13 @@ function equalQuantity(value: unknown, expected: bigint, field: string): void {
 export async function authenticateSequencerReceipt(
   rpc: TransferRpc,
   value: unknown,
-  expectedHash?: string
+  expectedHash?: string,
+  options: JsonRpcRequestOptions = {}
 ): Promise<SequencerReceiptAnswer> {
+  options.signal?.throwIfAborted();
   // Snapshot untrusted input before consulting governed keys over the transport.
   const snapshot: unknown = structuredClone(value);
-  const pins = await readReceiptKeyPins(rpc);
+  const pins = await readReceiptKeyPins(rpc, options);
   const answer = decodeSequencerReceipt(snapshot, expectedHash, pins);
   if (answer.rung === 'submitted') return receiptMismatch('receipt rung');
   const canonical = receiptBytes(answer.receipt, 'receipt');
@@ -426,7 +433,9 @@ export async function authenticateSequencerReceipt(
     first_height: pin.firstHeight,
     last_height: pin.lastHeight,
   }));
-  const raw = await rpc('eth_getRawTransactionByHash', [answer.txHash]);
+  options.signal?.throwIfAborted();
+  const raw = await rpc('eth_getRawTransactionByHash', [answer.txHash], options);
+  options.signal?.throwIfAborted();
   const rawTransaction = decodeHex(raw, BYTES, 'raw transaction');
   const verified = await verifySequencerReceipt(
     canonical,
@@ -616,13 +625,16 @@ export function matchReceiptTransaction(
 
 export async function readSequencerReceipt(
   rpc: TransferRpc,
-  hash: string
+  hash: string,
+  options: JsonRpcRequestOptions = {}
 ): Promise<SequencerReceiptAnswer | null> {
+  options.signal?.throwIfAborted();
   decodeHex(hash, HASH, 'transaction hash');
-  const value = await rpc('pax_sequencerReceipt', [hash]);
+  const value = await rpc('pax_sequencerReceipt', [hash], options);
+  options.signal?.throwIfAborted();
   if (value === null) return null;
   if (isRecord(value) && value.rung === 'submitted') return decodeSequencerReceipt(value, hash);
-  return authenticateSequencerReceipt(rpc, value, hash);
+  return authenticateSequencerReceipt(rpc, value, hash, options);
 }
 
 export class ReceiptTimeoutError extends Error {
@@ -674,7 +686,10 @@ export async function waitForSequencerReceipt(
   decodeHex(hash, HASH, 'transaction hash');
   let lastAnswer: SequencerReceiptAnswer | null = null;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    lastAnswer = await abortableReceiptWait(() => readSequencerReceipt(rpc, hash), signal);
+    lastAnswer = await abortableReceiptWait(
+      () => readSequencerReceipt(rpc, hash, { signal }),
+      signal
+    );
     if (signal?.aborted) throw new DOMException('sequencer receipt wait aborted', 'AbortError');
     if (lastAnswer !== null && LADDER_RUNGS.indexOf(lastAnswer.rung) >= targetRank)
       return lastAnswer;

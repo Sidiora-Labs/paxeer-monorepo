@@ -1,0 +1,145 @@
+[
+  {
+    "path": "/metadata/0x59d3631c86bbe35ef041872d502f218a39fba150",
+    "status": 200,
+    "body": {
+      "token_address": "0x59d3631c86bbe35ef041872d502f218a39fba150",
+      "pool_address": "0x0290fb167208af455bb137780163b7b7a9a10c16",
+      "name": "Creator Alpha",
+      "symbol": "ALPHA",
+      "decimals": 6,
+      "total_supply": "1000000000000000",
+      "creator": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+      "description": null,
+      "socials": {
+        "website": null,
+        "twitter": null,
+        "telegram": null,
+        "discord": null
+      },
+      "tags": [],
+      "images": {
+        "logo": null,
+        "banner": null
+      },
+      "created_at": 1700000000000,
+      "updated_at": 1700000000000
+    }
+  },
+  {
+    "path": "/metadata/0x67b5656d60a809915323bf2c40a8bef15a152e3e",
+    "status": 200,
+    "body": {
+      "token_address": "0x67b5656d60a809915323bf2c40a8bef15a152e3e",
+      "pool_address": "0x2612af3a521c2df9eaf28422ca335b04adf3ac66",
+      "name": "Creator Beta",
+      "symbol": "BETA",
+      "decimals": 6,
+      "total_supply": "1000000000000000",
+      "creator": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+      "description": null,
+      "socials": {
+        "website": null,
+        "twitter": null,
+        "telegram": null,
+        "discord": null
+      },
+      "tags": [],
+      "images": {
+        "logo": null,
+        "banner": null
+      },
+      "created_at": 1700000000000,
+      "updated_at": 1700000000000
+    }
+  },
+  {
+    "path": "/metadata/0x26b4afb60d6c903165150c6f0aa14f8016be4aec",
+    "status": 200,
+    "body": {
+      "token_address": "0x26b4afb60d6c903165150c6f0aa14f8016be4aec",
+      "pool_address": null,
+      "name": null,
+      "symbol": null,
+      "decimals": 6,
+      "total_supply": "1000000000000000",
+      "creator": null,
+      "description": null,
+      "socials": {
+        "website": null,
+        "twitter": null,
+        "telegram": null,
+        "discord": null
+      },
+      "tags": [],
+      "images": {
+        "logo": null,
+        "banner": null
+      },
+      "created_at": null,
+      "updated_at": null
+    }
+  },
+  {
+    "path": "/metadata/0x0290fb167208af455bb137780163b7b7a9a10c16",
+    "status": 200,
+    "body": {
+      "token_address": "0x0290fb167208af455bb137780163b7b7a9a10c16",
+      "pool_address": null,
+      "name": null,
+      "symbol": null,
+      "decimals": 6,
+      "total_supply": "1000000000000000",
+      "creator": null,
+      "description": null,
+      "socials": {
+        "website": null,
+        "twitter": null,
+        "telegram": null,
+        "discord": null
+      },
+      "tags": [],
+      "images": {
+        "logo": null,
+        "banner": null
+      },
+      "created_at": null,
+      "updated_at": null
+    }
+  },
+  {
+    "path": "/v2/pools/0x0290fb167208af455bb137780163b7b7a9a10c16",
+    "status": 404,
+    "body": {
+      "error": "Not Found"
+    }
+  },
+  {
+    "path": "/v2/pools/0x2612af3a521c2df9eaf28422ca335b04adf3ac66",
+    "status": 404,
+    "body": {
+      "error": "Not Found"
+    }
+  },
+  {
+    "path": "/v2/pools/0x630589690929e9cdefdef0734717a9ef3ec7fcfe",
+    "status": 404,
+    "body": {
+      "error": "Not Found"
+    }
+  },
+  {
+    "path": "/v2/search",
+    "status": 404,
+    "body": {
+      "error": "Not Found"
+    }
+  },
+  {
+    "path": "/v2/snapshots",
+    "status": 404,
+    "body": {
+      "error": "Not Found"
+    }
+  }
+]

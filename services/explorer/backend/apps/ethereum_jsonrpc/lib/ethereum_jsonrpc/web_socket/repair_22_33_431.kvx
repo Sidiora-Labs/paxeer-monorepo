@@ -1,0 +1,39 @@
+[repair.22.33.431]
+acceptance = "22998.1"
+fixture = "apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/new_head_full.json: committed newHeads and eth_getBlockByHash transcript for block 24203006; Cowboy loopback peers maintain real per-connection subscription IDs."
+baseline = "No earlier task gates or task implementation were present. No unchanged-tree verify was run because the explicit implementation-first order and hf-done-only gate rule take precedence over step 9."
+evidence = "hf-build and hf-done retain exact candidate revision, command, exit and private log; the runner publishes only a candidate whose build and verification revisions match."
+wiring_request = "services/explorer/backend/apps/indexer/lib/indexer/block/realtime/fetcher.ex (explorer indexer domain): explicitly consume {subscription, {:error, {:websocket_terminated, reason}}}, retaining the public handle while RetryWorker restores the connection; its current catch-all ignores this envelope."
+lifecycle_test_wiring_request = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket/web_socket_client_test.exs (ethereum_jsonrpc test domain): replace the raw :close expectation with {:error, {:websocket_terminated, :close}}; this out-of-scope lifecycle test is not part of this task's declared gate."
+
+[finding.ws-crash-recovery]
+test = "EthereumJSONRPC.Repair2233431Test: ws-crash-recovery preserves public handles after an unexpected client exit"
+repair = "RetryWorker synchronously retains acknowledged subscription intent and monitors the active client independently of socket callbacks, then reopens the primary with the original public handles after unexpected exits. Removed subscriptions and dead consumers are excluded from recovery."
+
+[finding.ws-url-logging]
+test = "EthereumJSONRPC.Repair2233431Test: ws-url-logging redacts userinfo, query, fragment and credential paths for primary fallback and retry"
+repair = "All endpoint diagnostics use the same scheme/host/port-only redactor, including invalid endpoint construction; raw connection error structs are not logged because they carry the original URL, and supervisor start MFAs use an opaque function so child failure reports do not print endpoint arguments."
+
+[finding.ws-unbounded-pending]
+test = "EthereumJSONRPC.Repair2233431Test: ws-unbounded-pending expires live callers, removes dead callers and replays only live reads"
+repair = "Public calls carry absolute monotonic deadlines, registrations own expiration timers and caller monitors, and delayed dispatch and replay both check caller liveness and deadlines. Only explicit read-only methods and subscription intent may cross a reconnect; in-flight writes receive a disconnected error."
+
+[finding.ws-termination-envelope]
+test = "EthereumJSONRPC.Repair2233431Test: ws-termination-envelope delivers tagged errors on terminal exit and failback"
+repair = "Socket termination publishes {subscription, {:error, {:websocket_terminated, reason}}}; supervisor failback uses system termination to run the callback because WebSockex does not trap parent exits; the loopback lifecycle consumer verifies failback and terminal shutdown while the same public handle continues receiving recovered headers."
+
+[finding.ws-old-server-ids]
+test = "EthereumJSONRPC.Repair2233431Test: ws-old-server-ids stay bounded through repeated transport reconnects"
+repair = "Disconnect clears connection-scoped forward and reverse IDs, and successful resubscription atomically replaces every prior reverse entry for its public reference. Five real reconnects prove the maps stay bounded and the old IDs disappear."
+
+[gotcha.task_constraints]
+symptom = "The task's unchanged-tree baseline and spec bookkeeping steps conflict with the explicit implementation-first order, single verify gate and exact writable paths."
+action = "Follow the explicit order, preserve runner bookkeeping, and retain the finding-to-test mapping and out-of-path wiring requests in this scoped repair record."
+
+[qualification.repair_1]
+revision = "47aded439d57252570f4f787ea8ded26fd35e4df"
+command = "cg spec done 22.33.431 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests executed, three failed: two peer-process identity assertions confused Cowboy upgrade and WebSocket processes; the failback test exposed that parent shutdown does not invoke WebSockex's termination callback."
+repair = "The peer now records the actual upgrade-to-WebSocket process handoff without weakening the identity assertions; socket stop operations use system termination to execute the tagged termination callback."

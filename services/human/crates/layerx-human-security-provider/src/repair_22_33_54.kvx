@@ -1,0 +1,11 @@
+[repair.22.33.54]
+audit = "22.30.106"
+finding = "17"
+implementation = "README documents the canonical v2 outer and nested node recovery JSON, protected LXTR TrustRoot provisioning, receipt and result semantics, and the bounded one-record head repair and post-validation pending-file cleanup; the administration helper is compiled and executed by the integration test."
+proof = "tests/repair_22_33_54.rs::repair_22_33_54_documented_administration_ingests_reveals_and_reopens"
+refusals = "tests/repair_22_33_54.rs::repair_22_33_54_documented_decoder_and_trust_refusals"
+recovery = "tests/repair_22_33_54.rs::repair_22_33_54_documented_one_record_head_repair_and_pending_cleanup"
+fixtures = "Committed native-policy vectors and chain fixture helpers produce signed EIP-1559 transactions, canonical receipts, consensus commits and authenticated sequencer-key and execution-result proofs in process; production ingestion, persistent replay, Unix transport and Human client consume them without subprocesses, external artifacts or credentials."
+baseline = "Not run: the explicit ordered instructions require complete implementation before testing and permit verification only through hf-done after hf-build, conflicting with step 5's unchanged-tree verify; no pre-change failing test is claimed. The README already contained partial v2 corrections on the starting revision."
+wiring = "None required outside the declared paths for finding 17."
+qualification = "The runner records the verified candidate revision, exact command, exit code and private evidence log in /out/run/gates.jsonl; the final evidence line reports the bounded gate result without claiming unrun checks."

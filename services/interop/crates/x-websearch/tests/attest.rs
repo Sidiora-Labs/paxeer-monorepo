@@ -1996,77 +1996,10 @@ fn program_attestor_composes_content_errors_without_changing_attest_errors() -> 
     Ok(())
 }
 
-/// The Go proof provides an RPC endpoint that executes the application EVM;
-/// there are no recorded RPC answers on this path.
+#[path = "support/application_proof.rs"]
+mod application_proof;
+
 #[test]
-fn xweb_0x1019_application_proof() -> Outcome {
-    let record: Value = serde_json::from_reader(std::io::stdin().lock())?;
-    let endpoint = text(&record, "/rpc")?;
-    let request = ProgramRequest {
-        program_id: fixed(&record, "/program_id")?,
-        sequence: record["sequence"]
-            .as_u64()
-            .ok_or_else(|| fail("sequence missing"))?,
-        request_id: record["request_id"]
-            .as_u64()
-            .ok_or_else(|| fail("request id missing"))?,
-        kind: u8::try_from(
-            record["kind"]
-                .as_u64()
-                .ok_or_else(|| fail("kind missing"))?,
-        )?,
-        payload: unhex0x(text(&record, "/payload")?).ok_or_else(|| fail("payload is not hex"))?,
-    };
-    let scratch = Scratch::new("application-proof")?;
-    let rpc = EvmRpc::new(&endpoint)?;
-    let mut signatures = BTreeMap::new();
-    let mut answers = Vec::new();
-    for index in 1..=3 {
-        let engine = Attestor::new(
-            attestor_key(index)?,
-            CHAIN_ID,
-            Arc::new(loopback_fetcher()?),
-            Arc::new(WebIndex::open(&scratch.0.join(format!("index-{index}")))?),
-            Arc::new(ContentStore::open(
-                &scratch.0.join(format!("store-{index}")),
-                &[],
-            )?),
-        );
-        let answer = Answer::try_from((&engine, &rpc, &request))?;
-        let again = Answer::try_from((&engine, &rpc, &request))?;
-        assert_eq!(answer, again);
-        assert_eq!(answer.attestation.network_id, network_word(1));
-        assert_eq!(answer.response, b"[]");
-        assert_eq!(
-            recover_signer(&answer.digest, &answer.signature)?,
-            engine.signer()
-        );
-        let malformed = EvmRpc::new(&format!("{endpoint}/zero"))?;
-        // watch.rs::kernel_network_id currently admits zero; attestation must refuse it.
-        assert_eq!(x_websearch::watch::kernel_network_id(&malformed)?, 0);
-        assert_eq!(
-            Answer::try_from((&engine, &malformed, &request)),
-            Err(ProgramAttestError::Network(EvmError::Malformed))
-        );
-        signatures.insert(answer.signer, answer.signature);
-        answers.push(answer);
-    }
-    let first = answers.first().ok_or_else(|| fail("no answers"))?;
-    assert!(answers.iter().all(|answer| answer.digest == first.digest));
-    let set = AttestorSet {
-        signers: signatures.keys().copied().collect(),
-        threshold: 2,
-    };
-    let ready = Ready::from_signatures(first, &set, &signatures)
-        .ok_or_else(|| fail("real signatures did not reach threshold"))?;
-    let observation = observation_bytes(1, &request, &ready)?;
-    println!(
-        "XWEB_PROOF_ANSWER={}",
-        serde_json::to_string(&json!({
-            "observation": hex0x(&observation), "response": hex0x(&first.response),
-            "content_digest": hex0x(&first.attestation.content_digest),
-            "full_length": first.attestation.full_length,
-        }))?,
-    );
-    Ok(())
+fn application_proof_requires_an_explicit_producer_and_propagates_transport_refusals() -> Outcome {
+    application_proof::explicit_input_and_transport_refusal()
 }
