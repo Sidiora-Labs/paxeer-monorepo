@@ -83,7 +83,15 @@ impl ListHealthRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::ExplorerHealth, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::ExplorerHealth, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -159,7 +167,7 @@ impl ListBlocksRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -237,7 +245,7 @@ impl ListTransactionsRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await

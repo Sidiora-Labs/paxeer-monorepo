@@ -1,0 +1,8 @@
+[repair.22.31.117]
+finding = "disk-read-metric-semantics"
+test = "TestRepair_117_DiskReadMetricSemantics"
+change = "Keep litt_bytes_read and litt_keys_read disk-only; count every returned value in litt_logical_bytes_read and litt_logical_keys_read, preserving cache and latency observations."
+proof = "Real DiskTable through cachedTable through the OTel Prometheus exporter: write-cache, unflushed-memory, disk, read-cache, cache-only cold lookup and absent-key reads with exact cumulative exported samples and disk descriptions."
+baseline = "Not run: the task's ordered gate instructions require implementation first and prohibit running verify_cmd by hand; no earlier gate ledger exists and no prior test failures are claimed."
+evidence = "The hf-build and hf-done private gate ledger records the exact candidate revision, command, exit code and log location."
+wiring = "None required: existing disk-read instrument names, units and descriptions remain intact; logical-read counters are additive and registered by NewLittDBMetrics."

@@ -1,0 +1,1480 @@
+# Pre-upgrade source audit; qualification evidence is recorded by the bounded task gates.
+# Revision identifies the source reviewed. No source repairs are included.
+
+[audit.22.30.174]
+task = "22.30.174"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 126
+findings = 61
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["backup-consistency", "key-enumeration", "key-backup-content"]
+
+[file.1]
+path = "docker/rpcnode/Dockerfile"
+lines = 24
+verdict = "issues"
+note = "Reviewed container setup, runtime ownership and node startup permissions; see security finding."
+
+[file.2]
+path = "docker/rpcnode/config/app.toml"
+lines = 310
+verdict = "issues"
+note = "Reviewed all API, storage, pruning, simulation and EVM defaults; public simulation/test policy needs correction."
+
+[file.3]
+path = "docker/rpcnode/config/config.toml"
+lines = 419
+verdict = "clean"
+note = "Reviewed node transport, consensus, mempool, state-sync and metrics configuration; string fetchers is accepted by the compatibility parser."
+
+[file.4]
+path = "docker/rpcnode/scripts/deploy.sh"
+lines = 29
+verdict = "issues"
+note = "Reviewed full build/init/start orchestration; failure propagation and node supervision need correction."
+
+[file.5]
+path = "docker/rpcnode/scripts/step0_build.sh"
+lines = 12
+verdict = "clean"
+note = "Reviewed the build command sequence and binary installation inputs; startup orchestration is addressed on deploy.sh."
+
+[file.6]
+path = "docker/rpcnode/scripts/step1_configure_init.sh"
+lines = 74
+verdict = "issues"
+note = "Reviewed initialization, storage override and discovery commands; state-sync trust inputs need validation."
+
+[file.7]
+path = "docker/rpcnode/scripts/step2_start_pax.sh"
+lines = 10
+verdict = "issues"
+note = "Reviewed node arguments and process lifecycle; background start does not propagate node failure."
+
+[file.8]
+path = "scripts/explorer/gate-lint.sh"
+lines = 232
+verdict = "clean"
+note = "Reviewed changed-path selection, lint dispatch, exit propagation and bounded execution in the explorer gate."
+
+[file.9]
+path = "scripts/explorer/gate-test.sh"
+lines = 294
+verdict = "clean"
+note = "Reviewed explorer test selection, gate timeouts, evidence handling and failure propagation."
+
+[file.10]
+path = "scripts/explorer/lint-backend.sh"
+lines = 93
+verdict = "clean"
+note = "Reviewed backend tool detection, scope dispatch and lint command failure handling."
+
+[file.11]
+path = "scripts/explorer/lint-frontend.sh"
+lines = 53
+verdict = "clean"
+note = "Reviewed frontend lint selection and package-manager invocation against the gate caller."
+
+[file.12]
+path = "scripts/explorer/lint-services.sh"
+lines = 33
+verdict = "clean"
+note = "Reviewed service lint dispatch and shell error propagation."
+
+[file.13]
+path = "scripts/explorer/test-ratio.sh"
+lines = 404
+verdict = "issues"
+note = "Reviewed all source classifiers and ratio arithmetic; mixed Rust classification can hide production lines."
+
+[file.14]
+path = "tests/testutil/keeper/epoch.go"
+lines = 56
+verdict = "clean"
+note = "Reviewed epoch keeper stores, account/bank dependencies and fixture context construction."
+
+[file.15]
+path = "tests/testutil/keeper/evm.go"
+lines = 170
+verdict = "issues"
+note = "Reviewed EVM keeper setup and application reuse; shared mutable fixture state needs isolation."
+
+[file.16]
+path = "tests/testutil/nullify/nullify.go"
+lines = 57
+verdict = "issues"
+note = "Reviewed pointer, struct, map and slice normalization; nonempty slice contents are erased."
+
+[file.17]
+path = "tests/testutil/processblock/common.go"
+lines = 187
+verdict = "clean"
+note = "Reviewed processblock setup, context/cache lifecycle and app-state helpers against keeper APIs."
+
+[file.18]
+path = "tests/testutil/processblock/common_test.go"
+lines = 80
+verdict = "clean"
+note = "Reviewed block fixture assertions and test setup against the processblock helper outputs."
+
+[file.19]
+path = "tests/testutil/processblock/genesisacc.go"
+lines = 19
+verdict = "clean"
+note = "Reviewed genesis account mutation and account key/value shape."
+
+[file.20]
+path = "tests/testutil/processblock/genesisbank.go"
+lines = 45
+verdict = "clean"
+note = "Reviewed bank genesis balances and supply construction with SDK denominations."
+
+[file.21]
+path = "tests/testutil/processblock/genesisepoch.go"
+lines = 9
+verdict = "clean"
+note = "Reviewed epoch genesis construction and default parameter shape."
+
+[file.22]
+path = "tests/testutil/processblock/genesismint.go"
+lines = 19
+verdict = "clean"
+note = "Reviewed mint genesis state and parameter initialization."
+
+[file.23]
+path = "tests/testutil/processblock/genesisstaking.go"
+lines = 56
+verdict = "clean"
+note = "Reviewed staking genesis validators, delegations and bonded pool accounting."
+
+[file.24]
+path = "tests/testutil/processblock/genesiswasm.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed Wasm genesis code and module-state initialization."
+
+[file.25]
+path = "tests/testutil/processblock/msgs/bank.go"
+lines = 14
+verdict = "clean"
+note = "Reviewed bank message helpers and sender/recipient coin shape."
+
+[file.26]
+path = "tests/testutil/processblock/msgs/feetoken.go"
+lines = 137
+verdict = "clean"
+note = "Reviewed fee-token message construction and denomination handling."
+
+[file.27]
+path = "tests/testutil/processblock/presets.go"
+lines = 55
+verdict = "clean"
+note = "Reviewed processblock presets and transaction/context fixture composition."
+
+[file.28]
+path = "tests/testutil/processblock/tx.go"
+lines = 89
+verdict = "clean"
+note = "Reviewed signing, transaction encoding and block delivery helpers."
+
+[file.29]
+path = "tests/testutil/processblock/verify/bank.go"
+lines = 80
+verdict = "issues"
+note = "Reviewed bank invariant verification; SDK amounts are narrowed to Int64."
+
+[file.30]
+path = "tests/testutil/processblock/verify/common.go"
+lines = 23
+verdict = "clean"
+note = "Reviewed common verification callback shape and failure reporting."
+
+[file.31]
+path = "tests/testutil/processblock/verify/distribution.go"
+lines = 89
+verdict = "clean"
+note = "Reviewed distribution accounting checks and reward/commission parameter handling."
+
+[file.32]
+path = "tests/testutil/processblock/verify/epoch.go"
+lines = 21
+verdict = "clean"
+note = "Reviewed epoch transition assertions against context and epoch state."
+
+[file.33]
+path = "tests/testutil/processblock/verify/feetoken.go"
+lines = 133
+verdict = "clean"
+note = "Reviewed fee-token balance and parameter verification against fixture messages."
+
+[file.34]
+path = "tests/testutil/processblock/verify/mint.go"
+lines = 40
+verdict = "clean"
+note = "Reviewed mint supply and inflation verification with SDK decimal amounts."
+
+[file.35]
+path = "tests/testutil/sample/sample.go"
+lines = 13
+verdict = "clean"
+note = "Reviewed sample address generation and bech32 address conversion."
+
+[file.36]
+path = "tools/README.md"
+lines = 59
+verdict = "clean"
+note = "Read complete tools index and command descriptions; no retired runtime dependency is prescribed here."
+
+[file.37]
+path = "tools/benchmark/loadtest/contracts/deploy_fifty_contracts.sh"
+lines = 426
+verdict = "clean"
+note = "Reviewed full contract compilation/deployment and scenario setup, address capture and load-test inputs."
+
+[file.38]
+path = "tools/benchmark/loadtest/contracts/evm/src/ERC20Token.sol"
+lines = 12
+verdict = "clean"
+note = "Reviewed benchmark ERC20 inheritance and initial supply constructor."
+
+[file.39]
+path = "tools/benchmark/loadtest/contracts/evm/src/ERC721.sol"
+lines = 158
+verdict = "issues"
+note = "Reviewed token ownership, approval, transfer and mint paths; duplicate mint breaks bookkeeping."
+
+[file.40]
+path = "tools/benchmark/loadtest/contracts/evm/src/NoopToken.sol"
+lines = 12
+verdict = "clean"
+note = "Reviewed minimal no-op token benchmark constructor and inheritance."
+
+[file.41]
+path = "tools/benchmark/loadtest/contracts/evm/src/UniV2Swapper.sol"
+lines = 45
+verdict = "clean"
+note = "Reviewed swapper token approval, liquidity setup and swap argument flow."
+
+[file.42]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/UniswapV2Factory.sol"
+lines = 76
+verdict = "clean"
+note = "Reviewed factory pair registration, duplicate prevention and token ordering."
+
+[file.43]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/UniswapV2Pair.sol"
+lines = 247
+verdict = "issues"
+note = "Reviewed reserve updates, LP mint/burn and swap accounting; burn uses incorrect denominators."
+
+[file.44]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/UniswapV2Router.sol"
+lines = 204
+verdict = "clean"
+note = "Reviewed router token ordering, path iteration, minimum output checks and pair calls."
+
+[file.45]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/interfaces/IERC20.sol"
+lines = 18
+verdict = "clean"
+note = "Reviewed ERC20 interface declarations against benchmark token and pair call sites."
+
+[file.46]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/interfaces/IUniswapV2Factory.sol"
+lines = 11
+verdict = "clean"
+note = "Reviewed factory interface against the factory implementation and router consumer."
+
+[file.47]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/interfaces/IUniswapV2Pair.sol"
+lines = 27
+verdict = "clean"
+note = "Reviewed pair interface against pair implementation and library/router consumers."
+
+[file.48]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/libraries/Math.sol"
+lines = 8
+verdict = "clean"
+note = "Reviewed square-root helper boundaries and integer arithmetic."
+
+[file.49]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/libraries/UQ112x112.sol"
+lines = 19
+verdict = "clean"
+note = "Reviewed fixed-point encoding and division types and callers."
+
+[file.50]
+path = "tools/benchmark/loadtest/contracts/evm/src/univ2/libraries/UniswapV2Library.sol"
+lines = 90
+verdict = "clean"
+note = "Reviewed reserve ordering, quote arithmetic and multi-hop amount calculations."
+
+[file.51]
+path = "tools/containers/check.sh"
+lines = 435
+verdict = "clean"
+note = "Reviewed complete container inventory, approved exclusions, image inspection and check dispatch."
+
+[file.52]
+path = "tools/containers/test_check_all_services_scope.py"
+lines = 170
+verdict = "clean"
+note = "Reviewed all-services container scope cases against current check.sh modes."
+
+[file.53]
+path = "tools/containers/test_human_service_image.py"
+lines = 34
+verdict = "clean"
+note = "Reviewed human image scope assertions against declared service paths."
+
+[file.54]
+path = "tools/containers/test_kernel_image.py"
+lines = 20
+verdict = "clean"
+note = "Reviewed kernel image ownership assertions and expected Dockerfile selection."
+
+[file.55]
+path = "tools/containers/test_kernel_init.py"
+lines = 95
+verdict = "clean"
+note = "Reviewed kernel initialization/container argument cases and environment handling."
+
+[file.56]
+path = "tools/containers/test_out_of_scope_list.py"
+lines = 30
+verdict = "issues"
+note = "Reviewed exact exclusion-list test; it disagrees with the current inventory producer."
+
+[file.57]
+path = "tools/containers/test_out_of_scope_localnode.py"
+lines = 24
+verdict = "clean"
+note = "Reviewed localnode exclusion assertion against inventory scope."
+
+[file.58]
+path = "tools/containers/test_paxd_images.py"
+lines = 24
+verdict = "clean"
+note = "Reviewed paxd image inclusion assertions and build context expectations."
+
+[file.59]
+path = "tools/containers/test_platform_node_retired.py"
+lines = 37
+verdict = "clean"
+note = "Reviewed assertions preventing use of retired platform-node images."
+
+[file.60]
+path = "tools/containers/test_requested_image_edits.py"
+lines = 59
+verdict = "clean"
+note = "Reviewed requested image-edit coverage and include/exclude expectations."
+
+[file.61]
+path = "tools/containers/test_retired_images.py"
+lines = 60
+verdict = "clean"
+note = "Reviewed removed-image assertions and historical Dockerfile references as retirement checks."
+
+[file.62]
+path = "tools/log_inspect.c"
+lines = 24
+verdict = "clean"
+note = "Reviewed log open/inspection errors and output; it reads canonical local log state."
+
+[file.63]
+path = "tools/lxp_arith_proof.sh"
+lines = 105
+verdict = "clean"
+note = "Reviewed arithmetic qualification matrix and real compiler invocation/error propagation."
+
+[file.64]
+path = "tools/lxp_corpus_gen.c"
+lines = 53
+verdict = "issues"
+note = "Reviewed corpus parameter parsing and generation; negative unsigned counts need refusal."
+
+[file.65]
+path = "tools/lxp_legacy_reader.c"
+lines = 121
+verdict = "issues"
+note = "Reviewed read-only canonical stream framing and close behavior; failed reads lack terminal state."
+
+[file.66]
+path = "tools/lxp_qual_replay_matrix.sh"
+lines = 131
+verdict = "clean"
+note = "Reviewed replay matrix orchestration, compiler variants and evidence outputs."
+
+[file.67]
+path = "tools/lxp_reserve_report.c"
+lines = 64
+verdict = "clean"
+note = "Reviewed reserve report traversal, aggregation and resource reporting."
+
+[file.68]
+path = "tools/lxp_shadow_compare.c"
+lines = 192
+verdict = "clean"
+note = "Reviewed shadow result comparison, receipt bounds and divergence accounting."
+
+[file.69]
+path = "tools/names/package.json"
+lines = 30
+verdict = "clean"
+note = "Reviewed names package scripts, dependency versions and CLI entrypoint."
+
+[file.70]
+path = "tools/names/pnpm-lock.yaml"
+lines = 499
+verdict = "generated"
+note = "Generated pnpm dependency-resolution lock; reviewed as generated metadata for the names manifest."
+
+[file.71]
+path = "tools/names/src/cli.ts"
+lines = 88
+verdict = "clean"
+note = "Reviewed CLI argument parsing, credential inputs and publish/verify dispatch."
+
+[file.72]
+path = "tools/names/src/publish.ts"
+lines = 165
+verdict = "issues"
+note = "Reviewed artifact upload and resolver transaction path; existing-byte and network binding checks are incomplete."
+
+[file.73]
+path = "tools/names/src/verify.ts"
+lines = 56
+verdict = "issues"
+note = "Reviewed digest parsing, name resolution and object verification; fetch time/size need bounds."
+
+[file.74]
+path = "tools/names/test/doubles.ts"
+lines = 313
+verdict = "clean"
+note = "Reviewed object-store/resolver test doubles and their request/response shapes against the publisher."
+
+[file.75]
+path = "tools/names/test/publish.test.ts"
+lines = 176
+verdict = "clean"
+note = "Reviewed publication digest, idempotency and transaction tests; source findings identify remaining negative cases."
+
+[file.76]
+path = "tools/names/tsconfig.json"
+lines = 14
+verdict = "clean"
+note = "Reviewed TypeScript module/target and compilation scope for names source and tests."
+
+[file.77]
+path = "tools/ops/backup/backup.sh"
+lines = 60
+verdict = "issues"
+note = "Reviewed capture/encryption/upload/retention lifecycle; consistency is not established before pruning."
+
+[file.78]
+path = "tools/ops/backup/lib.sh"
+lines = 33
+verdict = "clean"
+note = "Reviewed backup environment defaults, shell quoting and local/SSH store transport."
+
+[file.79]
+path = "tools/ops/backup/restore.sh"
+lines = 29
+verdict = "clean"
+note = "Reviewed checksum verification, age decryption, tar extraction and restore destination handling."
+
+[file.80]
+path = "tools/ops/backup/test.sh"
+lines = 80
+verdict = "issues"
+note = "Reviewed backup test cases and stage failures; the partial-tar success assertion is unsafe."
+
+[file.81]
+path = "tools/ops/keyring-migrate.sh"
+lines = 153
+verdict = "issues"
+note = "Reviewed full source/destination key migration and backup prerequisites; deletion safety needs correction."
+
+[file.82]
+path = "tools/ops/monitoring/blackbox.yml"
+lines = 13
+verdict = "clean"
+note = "Reviewed blackbox HTTP/TLS probe definitions and bounded probe timeout."
+
+[file.83]
+path = "tools/ops/monitoring/docker-compose.yml"
+lines = 49
+verdict = "clean"
+note = "Reviewed monitoring service images, mounted configuration and read-only target volumes."
+
+[file.84]
+path = "tools/ops/monitoring/install.sh"
+lines = 44
+verdict = "clean"
+note = "Reviewed monitoring installation, render integration and compose startup failure handling."
+
+[file.85]
+path = "tools/ops/monitoring/prometheus.yml"
+lines = 117
+verdict = "issues"
+note = "Reviewed all scrape jobs and labels; separate sequencer targets are retired."
+
+[file.86]
+path = "tools/ops/monitoring/render.sh"
+lines = 108
+verdict = "issues"
+note = "Reviewed target and secret rendering; current configuration still provisions standalone sequencer roles."
+
+[file.87]
+path = "tools/ops/monitoring/rules.yml"
+lines = 114
+verdict = "issues"
+note = "Reviewed every alert expression and labels against scrape producers; kernel readiness is unwired and sequencer alerts retired."
+
+[file.88]
+path = "tools/ops/monitoring/rules_test.yml"
+lines = 184
+verdict = "issues"
+note = "Reviewed all rule input-series and firing assertions; readiness fixture jobs disagree with deployment."
+
+[file.89]
+path = "tools/ops/monitoring/test.sh"
+lines = 51
+verdict = "clean"
+note = "Reviewed render validation, Prometheus config checks and rule-test invocation."
+
+[file.90]
+path = "tools/qualification/paxeer-x/agent_http_bounds.py"
+lines = 918
+verdict = "issues"
+note = "Reviewed entire agent fixture and HTTP bounds suite; shared RPC transport uses a retired path."
+
+[file.91]
+path = "tools/qualification/paxeer-x/agent_tenant_readiness.py"
+lines = 618
+verdict = "issues"
+note = "Reviewed tenant bindings, cross-tenant refusals and restart cases; inherited transport/finality need migration."
+
+[file.92]
+path = "tools/qualification/paxeer-x/deterministic-execution-producer.py"
+lines = 524
+verdict = "clean"
+note = "Reviewed deterministic execution artifact provenance, actual producer invocation and evidence extraction."
+
+[file.93]
+path = "tools/qualification/paxeer-x/human-api-boundary.py"
+lines = 520
+verdict = "clean"
+note = "Reviewed human API authentication, boundary requests, producer assembly and refusal assertions."
+
+[file.94]
+path = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+lines = 784
+verdict = "issues"
+note = "Reviewed KMS/movement assembly, signing, restart and inventory checks; source provenance names a missing tree."
+
+[file.95]
+path = "tools/qualification/paxeer-x/mcp_served_writes.py"
+lines = 831
+verdict = "issues"
+note = "Reviewed socket/stdio served write cases, idempotency, restart and authority checks; whole-line timeout is missing."
+
+[file.96]
+path = "tools/qualification/paxeer-x/mcp_web_payer.py"
+lines = 650
+verdict = "issues"
+note = "Reviewed paid MCP cases, offer binding and durable invocation checks; framing deadline and finality model need correction."
+
+[file.97]
+path = "tools/qualification/paxeer-x/programs_accounts_winddown.py"
+lines = 567
+verdict = "issues"
+note = "Reviewed programs account migration and recovery cases; runtime provisioning requires retired layerxd."
+
+[file.98]
+path = "tools/qualification/paxeer-x/programs_native_migration.py"
+lines = 664
+verdict = "clean"
+note = "Reviewed native migration source validation, fail-closed backend requirements and ABI fixture provenance."
+
+[file.99]
+path = "tools/qualification/paxeer-x/programs_source_abi.py"
+lines = 745
+verdict = "issues"
+note = "Reviewed complete source archive, ABI validation and qualification cases; configuration binds retired execution services."
+
+[file.100]
+path = "tools/qualification/paxeer-x/programs_typed_interfaces.py"
+lines = 470
+verdict = "issues"
+note = "Reviewed typed interface qualification and negative ABI cases; producer lifecycle predates EVM programs."
+
+[file.101]
+path = "tools/qualification/paxeer-x/router-complete-readiness.py"
+lines = 951
+verdict = "issues"
+note = "Reviewed complete router readiness scenarios and restart checks; required router/sequencer surfaces are retired."
+
+[file.102]
+path = "tools/qualification/paxeer-x/test_programs_native_migration_sources.py"
+lines = 8
+verdict = "clean"
+note = "Reviewed migration source regression invoking the actual backend/source validator."
+
+[file.103]
+path = "tools/qualification/paxeer-x/wallet-402-caps.py"
+lines = 936
+verdict = "issues"
+note = "Reviewed wallet capability and 402 qualification with real service bindings; daemon and RPC surface are retired."
+
+[file.104]
+path = "tools/qualification/paxeer-x/wallet-ceremony-resume.py"
+lines = 695
+verdict = "issues"
+note = "Reviewed ceremony progression, restart state and artifact checks; revision spelling is insufficient provenance."
+
+[file.105]
+path = "tools/qualification/release_runner.py"
+lines = 814
+verdict = "issues"
+note = "Reviewed release evidence collection and fault scenarios; network lifecycle assumptions require migration."
+
+[file.106]
+path = "tools/repotest/gen.go"
+lines = 4
+verdict = "clean"
+note = "Reviewed repotest generation directive and package declaration."
+
+[file.107]
+path = "tools/repotest/link_directives_test.go"
+lines = 203
+verdict = "clean"
+note = "Reviewed link-directive discovery and policy assertions against repository Go source rules."
+
+[file.108]
+path = "tools/repotest/mod_test.go"
+lines = 146
+verdict = "clean"
+note = "Reviewed module/workspace dependency and replace-directive assertions."
+
+[file.109]
+path = "tools/repotest/pytest_reachability_test.go"
+lines = 82
+verdict = "clean"
+note = "Reviewed pytest discovery/reachability checks and repository path handling."
+
+[file.110]
+path = "tools/repotest/reachability_test.go"
+lines = 141
+verdict = "clean"
+note = "Reviewed test-package discovery, generated reachability manifest and Go module traversal."
+
+[file.111]
+path = "tools/repotest/selectors_test.go"
+lines = 287
+verdict = "clean"
+note = "Reviewed all selector test cases and source-selection expectations."
+
+[file.112]
+path = "tools/spec/hyperfide_projection.py"
+lines = 676
+verdict = "issues"
+note = "Reviewed complete projection grammar, constraints and evidence generation; numeric canonicalization differs from JS."
+
+[file.113]
+path = "tools/specgen/adapters.go"
+lines = 79
+verdict = "clean"
+note = "Reviewed workflow adapter output paths, ordering and generated ownership markers."
+
+[file.114]
+path = "tools/specgen/kvx.go"
+lines = 288
+verdict = "issues"
+note = "Reviewed full KVX parser, comments, list/string decoding and interpolation; escaped quote semantics disagree."
+
+[file.115]
+path = "tools/specgen/main.go"
+lines = 179
+verdict = "clean"
+note = "Reviewed specgen command parsing, renderer selection and error reporting."
+
+[file.116]
+path = "tools/specgen/render.go"
+lines = 239
+verdict = "clean"
+note = "Reviewed workflow/spec/task graph renderers and deterministic ordering."
+
+[file.117]
+path = "tools/specgen/validate.go"
+lines = 155
+verdict = "clean"
+note = "Reviewed requirement/task/dependency validation and status rules."
+
+[file.118]
+path = "tools/specgen/validate_test.go"
+lines = 110
+verdict = "clean"
+note = "Reviewed validation cases and malformed reference/dependency assertions."
+
+[file.119]
+path = "utils/helpers/address.go"
+lines = 108
+verdict = "issues"
+note = "Reviewed complete signature/address conversion; unchecked public-key parse can panic."
+
+[file.120]
+path = "utils/helpers/address_test.go"
+lines = 508
+verdict = "issues"
+note = "Reviewed all signature recovery and transaction tests; deployed chain 125 needs explicit coverage."
+
+[file.121]
+path = "utils/helpers/associate.go"
+lines = 83
+verdict = "clean"
+note = "Reviewed guarded current association, balance migration and identical-address behavior."
+
+[file.122]
+path = "utils/helpers/associate_test.go"
+lines = 299
+verdict = "issues"
+note = "Reviewed association and key-conversion cases; invalid key is explicitly accepted in one test."
+
+[file.123]
+path = "utils/helpers/legacy/v575/address.go"
+lines = 64
+verdict = "issues"
+note = "Reviewed historical v575 recovery and conversion code; unchecked parse must remain isolated from live input."
+
+[file.124]
+path = "utils/helpers/legacy/v575/associate.go"
+lines = 50
+verdict = "issues"
+note = "Reviewed historical v575 migration; nil/equal-account cases require version-bound dispatch."
+
+[file.125]
+path = "utils/helpers/legacy/v600/address.go"
+lines = 68
+verdict = "issues"
+note = "Reviewed historical v600 recovery and conversion code; unchecked parse must remain isolated from live input."
+
+[file.126]
+path = "utils/helpers/legacy/v600/asssociate.go"
+lines = 50
+verdict = "issues"
+note = "Reviewed historical v600 migration; nil/equal-account cases require version-bound dispatch."
+
+[finding.backup-consistency]
+file = "tools/ops/backup/backup.sh"
+line = 42
+class = "restart-recovery"
+severity = "high"
+observed = "backup.sh accepts tar exit 1 for changing live state, then checks only the age header and a newly computed ciphertext checksum before pruning old archives at line 59. Neither check establishes that node and kernel state can be restored consistently."
+expected = "A retained recovery point must contain a coherent snapshot of committed node and kernel state; an unreadable or inconsistent new archive must not evict the last recoverable checkpoint."
+proposal = "In tools/ops/backup/backup.sh, archive a quiesced or storage-supported consistent snapshot, reject incomplete captures, and permit retention pruning only after an isolated restore validates the committed state and required key material."
+owner_domain = 16
+interface = "16.cli-ops-ops-backup-backup"
+
+[finding.key-enumeration]
+file = "tools/ops/keyring-migrate.sh"
+line = 111
+class = "restart-recovery"
+severity = "high"
+observed = "Failure of keys list on the test backend is converted to an empty want list. The comparison at line 135 then succeeds vacuously, and a matching archive listing allows removal of keyring-test at line 150 although no keys were imported."
+expected = "An unreadable source keyring must stop migration with the original directory intact; successful enumeration and destination key recovery are prerequisites to deleting the active source."
+proposal = "In tools/ops/keyring-migrate.sh, preserve the source on enumeration failure, distinguish a positively enumerated empty keyring, and prove destination signing/address recovery for every source key before removing the original."
+owner_domain = 16
+interface = "16.cli-ops-ops-keyring-migrate"
+
+[finding.key-backup-content]
+file = "tools/ops/keyring-migrate.sh"
+line = 79
+class = "restart-recovery"
+severity = "high"
+observed = "verify_backup checks archive member names and timestamp but never compares extracted key bytes or opens the recovered keyring. A valid encrypted tar containing the same filenames with incomplete key contents passes this deletion prerequisite."
+expected = "The migration backup prerequisite must establish recovery of the original keys, including their contents and addresses, before the live source keyring is removed."
+proposal = "In tools/ops/keyring-migrate.sh, extract the archive into a private temporary home, compare source content digests and enumerate/recover its keys with the actual backend; leave the source untouched on any disagreement."
+owner_domain = 16
+interface = "16.cli-ops-ops-keyring-migrate"
+
+[finding.backup-test-contract]
+file = "tools/ops/backup/test.sh"
+line = 74
+class = "test-gap"
+severity = "medium"
+observed = "The backup test replaces tar with a command that writes partial data and exits 1, then explicitly expects backup success. This fixture treats incomplete plaintext as a verified recoverable archive."
+expected = "Recovery tests must reject incomplete capture and prove that a previously recoverable archive survives a failed backup; encryption framing alone cannot establish recoverability."
+proposal = "In tools/ops/backup/test.sh, exercise actual snapshot, encryption and restore with changing source files and assert failed capture cannot prune the known-good recovery point."
+owner_domain = 16
+
+[finding.rpc-root-permissions]
+file = "docker/rpcnode/Dockerfile"
+line = 10
+class = "security"
+severity = "medium"
+observed = "The RPC node image grants recursive a+rwX permission to /root and has no non-root USER. Files later placed below that directory can inherit an unnecessarily broad writable trust boundary."
+expected = "A deployed RPC node should expose only the permissions needed for its state and build artifacts, while protecting node configuration and keys from unrelated local processes."
+proposal = "In docker/rpcnode/Dockerfile, create a dedicated node user and narrowly owned state directories; replace the recursive world-write grant with explicit build/runtime permissions."
+owner_domain = 16
+
+[finding.rpc-unbounded-simulation]
+file = "docker/rpcnode/config/app.toml"
+line = 264
+class = "config-drift"
+severity = "medium"
+observed = "The RPC deployment enables the test API and sets max-concurrent-simulation-calls to 0, documented here as unlimited. The same profile enables public API listeners and unsafe CORS."
+expected = "The public node profile must make test-only capabilities deliberate and bound simulation resources so one caller cannot consume all RPC capacity."
+proposal = "In docker/rpcnode/config/app.toml, select an operator-approved finite simulation limit and a production test/API exposure policy, with explicit authenticated or private overrides for diagnostics."
+owner_domain = 16
+interface = "16.cfg-dock-config-app-toml-evm-max-concurrent-simulation-calls-2"
+
+[finding.rpc-deploy-failure]
+file = "docker/rpcnode/scripts/deploy.sh"
+line = 21
+class = "runtime-risk"
+severity = "medium"
+observed = "deploy.sh has no fail-fast checks around copying paxd, initializing state or starting it, then tails /dev/null indefinitely. Failed initialization or a dead child can leave the container apparently running."
+expected = "RPC deployment must report failure when its node cannot initialize or exits, and its container lifecycle must track the actual paxd process."
+proposal = "In docker/rpcnode/scripts/deploy.sh and step2_start_pax.sh, check every prerequisite and exec paxd as the supervised foreground process so failed startup terminates the container."
+owner_domain = 16
+interface = "16.cli-dock-rpcnode-scripts-deploy"
+
+[finding.rpc-state-sync-trust]
+file = "docker/rpcnode/scripts/step1_configure_init.sh"
+line = 63
+class = "config-drift"
+severity = "medium"
+observed = "State sync uses a hard-coded private RPC endpoint, duplicates it as both rpc-servers and derives trust height/hash from unchecked curl and jq results. Requests have no deadline and the generated peer list is appended on repeat initialization."
+expected = "A mainnet-beta operator must configure independently verified state-sync providers and a validated trust checkpoint; failed discovery must not write null or stale trust values."
+proposal = "In docker/rpcnode/scripts/step1_configure_init.sh, require configured independent providers, bound and validate HTTP responses, atomically replace discovered peers, and validate checkpoint identity before editing node configuration."
+owner_domain = 16
+interface = "16.cli-dock-rpcnode-scripts-step1-configure-init"
+
+[finding.rpc-background-start]
+file = "docker/rpcnode/scripts/step2_start_pax.sh"
+line = 9
+class = "runtime-risk"
+severity = "medium"
+observed = "The startup script backgrounds paxd and prints completion immediately, without observing successful initialization or retaining supervision of the node process."
+expected = "A node startup result must reflect the real node lifecycle and propagate an early or later paxd exit to its deployment supervisor."
+proposal = "In docker/rpcnode/scripts/step2_start_pax.sh, exec the node in the foreground and let the container supervisor derive readiness from the running node."
+owner_domain = 16
+interface = "16.cli-dock-rpcnode-scripts-step2-start-pax"
+
+[finding.coverage-rust-classification]
+file = "scripts/explorer/test-ratio.sh"
+line = 177
+class = "test-gap"
+severity = "medium"
+observed = "The Rust coverage classifier treats a source file containing a cfg(test) marker as test content. A production module with an inline test module can therefore be removed from the production denominator."
+expected = "The test-ratio gate must count production code in mixed Rust modules while counting only the actual test module as test code."
+proposal = "In scripts/explorer/test-ratio.sh, classify Rust items or line ranges rather than discarding a complete mixed file; include a real mixed-module regression example in the owning gate."
+owner_domain = 16
+interface = "16.cli-scr-explorer-test-ratio"
+
+[finding.shared-evm-fixture]
+file = "tests/testutil/keeper/evm.go"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "MockEVMKeeperWithPrecompiles caches mockKeeper and mockCtx globally from EVMTestApp. Its mutex protects initialization only; every later caller receives the same mutable keeper and context, permitting state leakage or races between tests."
+expected = "Independent keeper fixtures must not inherit mutations from another test or race on a shared application when tests run concurrently."
+proposal = "In tests/testutil/keeper/evm.go, provide isolated application state per fixture or an explicit exclusive lifecycle with reset, and verify concurrent callers cannot observe each other's mutations."
+owner_domain = 16
+interface = "16.go-testutil-keeper-mockevmkeeperwithprecompiles-j59"
+
+[finding.nullify-slice-loss]
+file = "tests/testutil/nullify/nullify.go"
+line = 37
+class = "test-gap"
+severity = "medium"
+observed = "The nullifier replaces every slice with an empty slice, including nonempty slices whose elements carry meaningful state. Equality through this helper can conceal differences in the complete slice payload."
+expected = "Normalization used by tests should reconcile nil and empty representations without erasing nonempty application values that the assertion is meant to compare."
+proposal = "In tests/testutil/nullify/nullify.go, retain and recursively normalize nonempty slice elements; add comparisons demonstrating differing nonempty payloads remain distinguishable."
+owner_domain = 16
+interface = "16.go-testutil-nullify-fill-j59"
+
+[finding.bank-narrowing]
+file = "tests/testutil/processblock/verify/bank.go"
+line = 17
+class = "test-gap"
+severity = "medium"
+observed = "Balance verification narrows sdk.Int amounts with Int64 at lines 17, 45 and 76. Legitimate balances above the signed 64-bit range cannot be faithfully checked by these test helpers."
+expected = "Bank invariants must compare the full SDK integer domain and denomination-specific amounts without narrowing valid balances to machine-sized signed values."
+proposal = "In tests/testutil/processblock/verify/bank.go, compare sdk.Int values directly and exercise a balance greater than 2^63 minus one in the owning processblock tests."
+owner_domain = 16
+interface = "16.go-testutil-processblock-verify-balance-j59"
+
+[finding.nft-duplicate-mint]
+file = "tools/benchmark/loadtest/contracts/evm/src/ERC721.sol"
+line = 125
+class = "runtime-risk"
+severity = "medium"
+observed = "The benchmark ERC721 _mint deliberately omits the existing-owner check, overwrites ownerOf[id] and increments the recipient balance without clearing previous ownership accounting or approvals."
+expected = "An ERC721 benchmark must retain the ownership and balance invariants of the token operations it claims to measure, including refusing a second mint of the same token id."
+proposal = "In tools/benchmark/loadtest/contracts/evm/src/ERC721.sol, reject existing token ids and benchmark fresh ids; validate duplicate mint leaves ownership, approvals and balances unchanged."
+owner_domain = 16
+interface = "16.fmt-bench-evm-src-erc721-j59"
+
+[finding.lp-burn-denominator]
+file = "tools/benchmark/loadtest/contracts/evm/src/univ2/UniswapV2Pair.sol"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "UniswapV2Pair.burn divides each liquidity times balance by that token's reserve instead of LP totalSupply. Unequal reserves produce incorrect redemption amounts or revert a valid redemption."
+expected = "Liquidity providers must redeem each asset in proportion to their share of total LP supply, preserving the pool's accounting for asymmetric reserves."
+proposal = "In tools/benchmark/loadtest/contracts/evm/src/univ2/UniswapV2Pair.sol, use totalSupply as the common burn denominator and validate asymmetric-pool redemption through the benchmark router."
+owner_domain = 16
+
+[finding.container-inventory-test]
+file = "tools/containers/test_out_of_scope_list.py"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "test_out_of_scope_omits_consensus_test_dockerfile asserts an exact historical OUT_OF_SCOPE list. check.sh now contains explanatory comments and additional intentionally excluded paths, so the asserted raw list differs from its producer."
+expected = "Container inventory tests must assert the current approved scope and preserve the requirement that the consensus test Dockerfile is actually checked."
+proposal = "In tools/containers/test_out_of_scope_list.py, parse the actual list grammar and assert the current reviewed exclusions while retaining the positive consensus coverage assertion; align the list with check.sh."
+owner_domain = 16
+
+[finding.corpus-negative-count]
+file = "tools/lxp_corpus_gen.c"
+line = 13
+class = "runtime-risk"
+severity = "medium"
+observed = "The corpus generator parses its requested count with strtoull; a leading minus is accepted as an unsigned magnitude rather than refused as an invalid count, potentially requesting an enormous corpus."
+expected = "A qualification corpus request must reject negative or out-of-policy counts before writing records or consuming unbounded disk and execution time."
+proposal = "In tools/lxp_corpus_gen.c, require an unsigned decimal spelling and an explicit finite corpus limit, then reject overflow and trailing input before generation begins."
+owner_domain = 16
+interface = "16.cli-ctool-lxp-corpus-gen"
+
+[finding.legacy-stream-resume]
+file = "tools/lxp_legacy_reader.c"
+line = 66
+class = "restart-recovery"
+severity = "medium"
+observed = "lxp_legacy_stream_next consumes the length prefix before length validation, allocation and payload reads. Error returns do not mark reader->halted or restore its offset, so a caller retry can decode payload bytes as a fresh prefix."
+expected = "A failed canonical record read must leave a well-defined terminal reader or a safe retry position, preventing recovery from silently changing record boundaries."
+proposal = "In tools/lxp_legacy_reader.c, make failures after prefix consumption terminal or explicitly rewind to a verified boundary; exercise allocation failure, partial payload and retry behavior."
+owner_domain = 1
+interface = "1.c-lxp-legacy-stream-next"
+
+[finding.names-existing-object]
+file = "tools/names/src/publish.ts"
+line = 112
+class = "runtime-risk"
+severity = "medium"
+observed = "Name publication treats an existing object detected by HEAD, or a conditional PUT returning 412, as success without checking that the bytes at the content-addressed URL match the release digest before updating the resolver."
+expected = "Publishing a release must ensure the resolver names the exact release bytes; a preexisting corrupt object must not be certified merely because its key already exists."
+proposal = "In tools/names/src/publish.ts, verify the existing object's digest or trustworthy digest metadata before resolver mutation, and refuse a mismatching object without overwriting the published name."
+owner_domain = 16
+
+[finding.names-chain-binding]
+file = "tools/names/src/publish.ts"
+line = 149
+class = "config-drift"
+severity = "medium"
+observed = "The publisher obtains chain.id from the supplied RPC and builds its wallet/public clients around that value without requiring mainnet-beta chain id 125 before the resolver write."
+expected = "A mainnet-beta release publication must bind its resolver transaction to the intended network and reject an accidentally selected different chain."
+proposal = "In tools/names/src/publish.ts and its CLI, require the configured deployment chain id and resolver binding to equal the intended network before signing any publication transaction."
+owner_domain = 16
+
+[finding.names-fetch-bounds]
+file = "tools/names/src/verify.ts"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "The verifier fetches the release object and materializes its body with no request deadline or response-size limit. An unresponsive or oversized object can hang or exhaust the verification process."
+expected = "Release verification must bound network time and bytes while hashing the exact published artifact, failing explicitly when those bounds are exceeded."
+proposal = "In tools/names/src/verify.ts, add a deadline and streamed byte cap based on the release policy, and abort before materializing a response beyond that limit."
+owner_domain = 16
+
+[finding.monitoring-retired-jobs]
+file = "tools/ops/monitoring/prometheus.yml"
+line = 28
+class = "retired-reference"
+severity = "medium"
+observed = "Prometheus declares sequencer-readyz with primary and standby target files, modeling separate sequencer services as live monitoring endpoints in the merged network."
+expected = "The merged network proposes blocks in paxd and has no separately operated sequencer service; monitoring must reflect the node and current hosted services."
+proposal = "In tools/ops/monitoring/prometheus.yml, replace retired sequencer probes with current node consensus/readiness targets and migrate dashboards and alerts to those emitted series."
+owner_domain = 16
+interface = "16.cfg-ops-prometheus-job-sequencer-readyz"
+
+[finding.monitoring-retired-render]
+file = "tools/ops/monitoring/render.sh"
+line = 11
+class = "retired-reference"
+severity = "medium"
+observed = "The target renderer accepts SEQUENCER_PRIMARY_READYZ_URLS and SEQUENCER_STANDBY_READYZ_URLS and emits separate primary/standby readiness target files at lines 65-66."
+expected = "Operators must configure probes for the single merged node network, with no requirement to provision retired standalone sequencer endpoints."
+proposal = "In tools/ops/monitoring/render.sh, render actual merged node readiness targets and remove obsolete sequencer-role configuration after migrating the matching scrape and alert consumers."
+owner_domain = 16
+interface = "16.cli-ops-ops-monitoring-render"
+
+[finding.monitoring-unwired-kernel]
+file = "tools/ops/monitoring/rules.yml"
+line = 56
+class = "wiring-gap"
+severity = "medium"
+observed = "KernelReadyzDown selects probe_success with job kernel-readyz, but prometheus.yml declares no kernel-readyz scrape job and render.sh emits no such targets. The rule therefore has no deployed producer."
+expected = "Every readiness alert must be connected to a real scrape target and emitted job label so loss of the monitored service is observable."
+proposal = "In tools/ops/monitoring/rules.yml and prometheus.yml, bind this alert to the merged node readiness producer and verify the rendered scrape labels feed the alert expression."
+owner_domain = 16
+interface = "16.met-ops-alert-kernelreadyzdown"
+
+[finding.monitoring-retired-alerts]
+file = "tools/ops/monitoring/rules.yml"
+line = 64
+class = "retired-reference"
+severity = "medium"
+observed = "SequencerNotReady and StandbyNotReady require sequencer-readyz series with primary and standby roles, retaining the retired independent sequencer failover model."
+expected = "Readiness alerts must describe current paxd consensus and node availability, with finality determined by committed blocks instead of a standalone sequencer."
+proposal = "In tools/ops/monitoring/rules.yml, replace these rules with node/consensus readiness conditions and preserve meaningful outage escalation on the merged deployment."
+owner_domain = 16
+interface = "16.met-ops-alert-sequencernotready"
+
+[finding.monitoring-fixture-shape]
+file = "tools/ops/monitoring/rules_test.yml"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "The rules test injects a kernel-readyz series that the deployed scrape configuration does not produce, and later injects the retired sequencer roles, so passing rule tests would not prove deployed readiness wiring."
+expected = "Monitoring qualification must cover the rendered scrape producer and rule consumer together, rather than supplying invented job labels only to the rule evaluator."
+proposal = "In tools/ops/monitoring/rules_test.yml and test.sh, derive representative labels from rendered targets and assert each readiness rule has a deployed producer before testing its firing behavior."
+owner_domain = 16
+interface = "16.fmt-ops-ops-monitoring-rules-test-yml"
+
+[finding.agent-rpc-path]
+file = "tools/qualification/paxeer-x/agent_http_bounds.py"
+line = 514
+class = "retired-reference"
+severity = "medium"
+observed = "The shared agent HTTP fixture submits JSON-RPC requests to /rpc. It is consumed by readiness and MCP qualification, propagating the retired unified RPC endpoint into those real-path gates."
+expected = "Node JSON-RPC uses the root path on mainnet-beta; hosted gateway px_ methods must use their declared gateway contract rather than a unified LayerX router."
+proposal = "In tools/qualification/paxeer-x/agent_http_bounds.py, bind node requests to the merged root RPC and route hosted methods to their declared gateway endpoint while retaining all bounds and refusal assertions."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-agent-http-bounds"
+
+[finding.tenant-readiness-transport]
+file = "tools/qualification/paxeer-x/agent_tenant_readiness.py"
+line = 337
+class = "retired-reference"
+severity = "medium"
+observed = "Tenant readiness uses HTTP.AgentdFixture and its RPC helper alongside canonical kernel receipt checks, inheriting the /rpc fixture and pre-merge daemon receipt lifecycle rather than proving merged block finality."
+expected = "Tenant isolation and restart recovery must be qualified through the current transport with receipts tied to a committed paxd block for the correct tenant."
+proposal = "In tools/qualification/paxeer-x/agent_tenant_readiness.py, retain the cross-tenant and recovery cases but provision the merged node/gateway path and assert tenant-bound committed receipts."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-agent-tenant-readiness"
+
+[finding.kms-source-provenance]
+file = "tools/qualification/paxeer-x/human-movement-kms-assembly.py"
+line = 35
+class = "test-gap"
+severity = "medium"
+observed = "SOURCES contains platform/crates although the moved producer tree is services/platform/crates. The source check relies on git status and a revision and does not require that each named source path exists."
+expected = "Artifact provenance must cover the actual source trees used to build the KMS and movement producers, and a missing provenance path must stop qualification."
+proposal = "In tools/qualification/paxeer-x/human-movement-kms-assembly.py, name services/platform/crates and require every provenance path to exist and match the artifact revision before starting live producers."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-human-movement-kms-assembly"
+
+[finding.mcp-write-line-deadline]
+file = "tools/qualification/paxeer-x/mcp_served_writes.py"
+line = 149
+class = "runtime-risk"
+severity = "medium"
+observed = "The stdio transport waits up to 30 seconds for initial readability, then performs a blocking readline. A child that emits one byte and stalls bypasses the claimed response deadline."
+expected = "An MCP invocation deadline must cover the entire bounded JSON line, including a partial response whose terminating newline never arrives."
+proposal = "In tools/qualification/paxeer-x/mcp_served_writes.py, read nonblocking chunks against one monotonic deadline and enforce both newline and byte bounds before JSON decoding."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-mcp-served-writes"
+
+[finding.mcp-payer-line-deadline]
+file = "tools/qualification/paxeer-x/mcp_web_payer.py"
+line = 208
+class = "runtime-risk"
+severity = "medium"
+observed = "The MCP payer selector bounds only the arrival of the first byte before a blocking stdout.readline. A partial stdio response can therefore stall the full paid-call qualification indefinitely."
+expected = "Paid MCP invocations must enforce an end-to-end framing deadline and return an explicit failure for a child that leaves a JSON line incomplete."
+proposal = "In tools/qualification/paxeer-x/mcp_web_payer.py, read bounded chunks under one monotonic deadline and terminate the child on incomplete framing while retaining invocation identity checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-mcp-web-payer"
+
+[finding.mcp-payer-finality]
+file = "tools/qualification/paxeer-x/mcp_web_payer.py"
+line = 468
+class = "retired-reference"
+severity = "medium"
+observed = "Successful payment content is required to report verificationLevel sequencer-signed. This assertion preserves the pre-merge receipt authority instead of demonstrating a committed network receipt."
+expected = "Paid content settlement must bind the exact offer to the merged chain receipt and its committed block, with no standalone sequencer service required for finality."
+proposal = "In tools/qualification/paxeer-x/mcp_web_payer.py, migrate the payment evidence assertion to the committed receipt contract while preserving exact asset, payer, amount, offer and deduplication checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-mcp-web-payer"
+
+[finding.programs-winddown-daemon]
+file = "tools/qualification/paxeer-x/programs_accounts_winddown.py"
+line = 55
+class = "retired-reference"
+severity = "medium"
+observed = "The programs winddown runner requires layerxd artifacts and provisions the old real_node execution route, so its migration and restart cases depend on a retired live daemon."
+expected = "Programs migration and recovery must execute through the merged paxd runtime and the EVM programs surface at 0x101D, with committed receipts."
+proposal = "In tools/qualification/paxeer-x/programs_accounts_winddown.py, provision the merged node and port every account winddown and recovery case to current programs interfaces without dropping invariant checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-programs-accounts-winddown"
+
+[finding.programs-source-config]
+file = "tools/qualification/paxeer-x/programs_source_abi.py"
+line = 291
+class = "retired-reference"
+severity = "medium"
+observed = "The programs source/ABI harness requires NODE_ENDPOINT, NODE_AUTHORIZATION and RECEIPT_AUTHORITY_ENDPOINT in its provisioned config, binding qualification to the old standalone node and authority path."
+expected = "Source and ABI qualification must exercise the merged programs deployment and call path, including the current node and gateway contracts and committed receipt lifecycle."
+proposal = "In tools/qualification/paxeer-x/programs_source_abi.py, replace retired required bindings with the merged EVM 0x101D route and preserve source archive validation and ABI negative cases."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-programs-source-abi"
+
+[finding.typed-programs-daemon]
+file = "tools/qualification/paxeer-x/programs_typed_interfaces.py"
+line = 25
+class = "retired-reference"
+severity = "medium"
+observed = "The typed-programs runner requires layerxd and the old kernel/CLI execution lifecycle, so its producer path does not qualify the required merged EVM programs deploy/call/simulate/discover interfaces."
+expected = "Requirements 8537-8539 put programs behind the EVM surface at 0x101D; guest ABI checks must run on every actual registration path used by that surface."
+proposal = "In tools/qualification/paxeer-x/programs_typed_interfaces.py, provision paxd and exercise deploy, call, simulation and discovery through 0x101D while preserving all typed ABI refusal assertions."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-programs-typed-interfaces"
+
+[finding.router-readiness-retired]
+file = "tools/qualification/paxeer-x/router-complete-readiness.py"
+line = 605
+class = "retired-reference"
+severity = "medium"
+observed = "Router readiness requires the /rpc family and standalone sequencer environment/lifecycle assertions. These are acceptance conditions for a retired router rather than current merged network readiness."
+expected = "Merged readiness must prove root node RPC, the declared hosted gateway methods and committed-block receipt behavior with no independent router or sequencer process."
+proposal = "In tools/qualification/paxeer-x/router-complete-readiness.py, migrate every positive, negative and restart scenario to current node/gateway boundaries and qualify their real producer/consumer paths."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-router-complete-readiness"
+
+[finding.wallet-caps-retired]
+file = "tools/qualification/paxeer-x/wallet-402-caps.py"
+line = 454
+class = "retired-reference"
+severity = "medium"
+observed = "Wallet capability qualification requires a layerxd artifact and service and exercises /rpc and lx_getWalletCaps, retaining a retired node API and process as mandatory live dependencies."
+expected = "Wallet capabilities must be discovered and exercised through current chain-125 node and hosted gateway contracts, with custody and payment receipts bound to committed network state."
+proposal = "In tools/qualification/paxeer-x/wallet-402-caps.py, provision merged-node artifacts and current capability methods while preserving custody refusal, fee and payment assertions."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-wallet-402-caps"
+
+[finding.ceremony-artifact-revision]
+file = "tools/qualification/paxeer-x/wallet-ceremony-resume.py"
+line = 301
+class = "test-gap"
+severity = "medium"
+observed = "Artifact source_revision is checked only for a 40-hex spelling. It is not required to equal the audited source revision, so a valid old binary can accompany hashes of current source in ceremony evidence."
+expected = "A restart/resume ceremony must identify the exact source revision of every executed artifact and reject provenance that differs from the source being qualified."
+proposal = "In tools/qualification/paxeer-x/wallet-ceremony-resume.py, compare artifact revisions with the manifest/current qualified revision and bind the executable digest to that revision before launching it."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-wallet-ceremony-resume"
+
+[finding.release-split-network]
+file = "tools/qualification/release_runner.py"
+line = 23
+class = "retired-reference"
+severity = "medium"
+observed = "The release runner retains separate node and Paxeer endpoint roles and checkpoint/exit fault scenarios as the network release model, carrying forward independent execution and settlement qualification."
+expected = "The released product is one BFT paxd network whose receipts become final on committed blocks; release evidence must exercise that lifecycle and its recovery invariants."
+proposal = "In tools/qualification/release_runner.py, replace pre-merge split-network assumptions with merged node consensus, receipt and restart scenarios while retaining applicable custody and safety invariants."
+owner_domain = 16
+interface = "16.cli-qual-qualification-release-runner"
+
+[finding.projection-json-number]
+file = "tools/spec/hyperfide_projection.py"
+line = 124
+class = "runtime-risk"
+severity = "medium"
+observed = "canonical serializes primitive numbers with Python json.dumps while claiming to mirror the Hyperfide JavaScript digest format. Accepted JSON 1.0 serializes as 1.0 here but as 1 through JSON.stringify, changing canonical digests."
+expected = "Projection and import must compute identical canonical bytes for every accepted input value so the same task/rubric has the same digest across both implementations."
+proposal = "In tools/spec/hyperfide_projection.py, implement the exact producer numeric canonicalization or reject noncanonical numeric inputs explicitly, and compare real importer/projection digest vectors."
+owner_domain = 16
+
+[finding.specgen-escaped-quotes]
+file = "tools/specgen/kvx.go"
+line = 93
+class = "runtime-risk"
+severity = "medium"
+observed = "stripComment toggles its quote state for every double quote, including an escaped quote. A valid string with an escaped quote before a hash can be truncated as a comment; unquote also leaves encoded escapes unresolved."
+expected = "The spec renderer must preserve the accepted KVX string grammar and literal content consistently through parsing, list splitting and rendering."
+proposal = "In tools/specgen/kvx.go, share an escape-aware scanner and proper string decoder for comment/list/string handling, with vectors covering escaped quotes, hashes and backslashes."
+owner_domain = 16
+
+[finding.address-invalid-key]
+file = "utils/helpers/address.go"
+line = 87
+class = "runtime-risk"
+severity = "medium"
+observed = "PubkeyToEVMAddress accepts any nonempty bytes beginning with 0x04, including a single prefix. GetAddressesFromPubkeyBytes then calls PubkeyBytesToPaxPubKey, which ignores ParsePubKey failure and dereferences the nil parsed key."
+expected = "Public-key conversion must validate a complete secp256k1 point and return a typed error for invalid input rather than manufacturing an address or panicking."
+proposal = "In utils/helpers/address.go, validate point encoding before either address derivation, propagate parse errors through the public conversion path, and exercise prefix-only and invalid-curve inputs."
+owner_domain = 16
+
+[finding.address-test-chain]
+file = "utils/helpers/address_test.go"
+line = 292
+class = "test-gap"
+severity = "medium"
+observed = "The address transaction tests use chain id 713715 as the Pax chain id and do not exercise the merged mainnet-beta chain id 125, leaving the deployed signature domain unrepresented."
+expected = "Signature recovery tests must cover chain 125 and reject signatures from a different domain while retaining the existing transaction-format and historical compatibility cases."
+proposal = "In utils/helpers/address_test.go, add real chain-125 protected legacy and typed transactions and explicit cross-chain rejection assertions without deleting historical vectors."
+owner_domain = 16
+
+[finding.address-test-invalid-key]
+file = "utils/helpers/associate_test.go"
+line = 145
+class = "test-gap"
+severity = "medium"
+observed = "TestEdgeCases explicitly changes its expected result to success for a prefix-only public key because the implementation hashes it, masking invalid-point acceptance and omitting the subsequent conversion panic."
+expected = "A cryptographic address test must reject incomplete public keys and verify the complete public conversion path returns an error without panic."
+proposal = "In utils/helpers/associate_test.go, assert invalid-point refusal through GetAddressesFromPubkeyBytes and retain positive valid-key address equivalence cases."
+owner_domain = 16
+
+[finding.legacy-key-123]
+file = "utils/helpers/legacy/v575/address.go"
+line = 61
+class = "runtime-risk"
+severity = "medium"
+observed = "The historical address helper ignores the error from btcec.ParsePubKey before calling SerializeCompressed, and its EVM derivation checks only the 0x04 prefix. Malformed public bytes can panic if this entry point is reused."
+expected = "Historical replay semantics must remain explicit, and malformed new input must not be routed into an unchecked historical conversion path."
+proposal = "In utils/helpers/legacy/v575/address.go, document and enforce historical-only dispatch from the owning version selector; validate new public inputs before dispatch and preserve historical replay vectors."
+owner_domain = 16
+
+[finding.legacy-key-125]
+file = "utils/helpers/legacy/v600/address.go"
+line = 65
+class = "runtime-risk"
+severity = "medium"
+observed = "The historical address helper ignores the error from btcec.ParsePubKey before calling SerializeCompressed, and its EVM derivation checks only the 0x04 prefix. Malformed public bytes can panic if this entry point is reused."
+expected = "Historical replay semantics must remain explicit, and malformed new input must not be routed into an unchecked historical conversion path."
+proposal = "In utils/helpers/legacy/v600/address.go, document and enforce historical-only dispatch from the owning version selector; validate new public inputs before dispatch and preserve historical replay vectors."
+owner_domain = 16
+
+[finding.legacy-association-124]
+file = "utils/helpers/legacy/v575/associate.go"
+line = 24
+class = "runtime-risk"
+severity = "medium"
+observed = "The historical association helper dereferences GetAccount without a nil check and can transfer/remove the cast account when its address equals the associated account; the current helper guards these cases."
+expected = "Current association calls must use guarded behavior, while any historical replay dependency on old account migration semantics must be version-bound and preserved deliberately."
+proposal = "At utils/helpers/legacy/v575/associate.go, restrict dispatch to its historical upgrade range and verify current-version routing uses utils/helpers/associate.go; retain explicit replay cases for missing and identical accounts."
+owner_domain = 16
+
+[finding.legacy-association-126]
+file = "utils/helpers/legacy/v600/asssociate.go"
+line = 24
+class = "runtime-risk"
+severity = "medium"
+observed = "The historical association helper dereferences GetAccount without a nil check and can transfer/remove the cast account when its address equals the associated account; the current helper guards these cases."
+expected = "Current association calls must use guarded behavior, while any historical replay dependency on old account migration semantics must be version-bound and preserved deliberately."
+proposal = "At utils/helpers/legacy/v600/asssociate.go, restrict dispatch to its historical upgrade range and verify current-version routing uses utils/helpers/associate.go; retain explicit replay cases for missing and identical accounts."
+owner_domain = 16
+
+[finding.doc-1]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The overview calls layerxd a running separate daemon, presents checkpoint settlement and make layerxd, and describes the merge as a future draft at lines 79 and 181."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite README.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-2]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo overview lists paxd and layerxd as separate runtime components and keeps independent execution/settlement trust boundaries at lines 70-71."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/MONOREPO.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-3]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network page calls Paxeer a settlement/custody layer for a separate LayerX network, with ordinary activity outside Paxeer and periodic sequencer checkpoints."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/paxeer-network.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-4]
+file = "docs/site/docs/overview/quickstart.md"
+line = 165
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart uses the /rpc endpoint family, standalone layerxd and hosted program deployment/receipt-authority flows, then describes separate Paxeer settlement instead of committed-block finality."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-5]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-6]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-7]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-8]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-9]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-10]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-11]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-12]
+file = "docs/site/docs/operators/qualification.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification page requires a standalone sequencer-offline exit drill and states at line 100 that Paxeer and LayerX qualify as independent systems."
+expected = "Finished-network documentation must describe one paxd BFT chain, EVM chain id 125, root public RPC endpoints and receipts final on committed blocks, with current programs and tenant-domain behavior."
+proposal = "Rewrite docs/site/docs/operators/qualification.md around the merged network and current node/gateway contracts; replace retired daemon/router commands and verify every operator example against the declared producer path."
+owner_domain = 16
+
+[finding.doc-registry-snapshot]
+file = "spec/layerx-merge/contracts/operations.md"
+line = 8335
+class = "doc-drift"
+severity = "medium"
+observed = "The operations contract inventory presents sequencer readiness configuration as a stable current operator interface alongside the backup and key-migration commands, retaining the retired standalone service model."
+expected = "Operator-facing contract inventories must distinguish historical interfaces from the supported merged-node configuration and recovery lifecycle."
+proposal = "Regenerate spec/layerx-merge/contracts/operations.md from corrected owning monitoring interface declarations after their migration, preserving historical references only with an explicit retired status."
+owner_domain = 16
+interface = "16.cfg-ops-prometheus-job-sequencer-readyz"
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Full page reviewed. Line 47: The overview calls layerxd a running separate daemon, presents checkpoint settlement and make layerxd, and describes the merge as a future draft at lines 79 and 181."
+
+[doc.2]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Full page reviewed. Line 3: The monorepo overview lists paxd and layerxd as separate runtime components and keeps independent execution/settlement trust boundaries at lines 70-71."
+
+[doc.3]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Full page reviewed. Line 3: The network page calls Paxeer a settlement/custody layer for a separate LayerX network, with ordinary activity outside Paxeer and periodic sequencer checkpoints."
+
+[doc.4]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Full page reviewed. Line 165: The quickstart uses the /rpc endpoint family, standalone layerxd and hosted program deployment/receipt-authority flows, then describes separate Paxeer settlement instead of committed-block finality."
+
+[doc.5]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Full page reviewed. Line 18: The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+
+[doc.6]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Full page reviewed. Line 18: The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+
+[doc.7]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Full page reviewed. Line 18: The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+
+[doc.8]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Full page reviewed. Line 18: The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+
+[doc.9]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Full page reviewed. Line 18: The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Full page reviewed. Line 18: The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Full page reviewed. Line 18: The translated overview describes LayerX execution followed by Paxeer checkpoint settlement and retains layerxd setup and pre-merge receipt verification instructions."
+
+[doc.12]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "Full page reviewed. Line 21: The qualification page requires a standalone sequencer-offline exit drill and states at line 100 that Paxeer and LayerX qualify as independent systems."
+
+[doc.13]
+path = "tools/README.md"
+status = "accurate"
+notes = "Complete tools index reviewed; its command inventory and tool purposes match the slice."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "Relevant backup, keyring and monitoring registry inventory rows reviewed at lines 8269-8340, rather than the entire generated contract catalogue. The stable sequencer entries retain the retired deployment model."

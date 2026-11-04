@@ -11,8 +11,6 @@ pub struct Evidence {
     receipt_digest: Option<[u8; 32]>,
     header_digest: Option<[u8; 32]>,
     proof_root: Option<[u8; 32]>,
-    checkpoint_id: Option<[u8; 32]>,
-    settlement_reference: Option<Vec<u8>>,
 }
 
 impl Evidence {
@@ -22,8 +20,6 @@ impl Evidence {
             receipt_digest: Some(receipt_digest),
             header_digest: None,
             proof_root: None,
-            checkpoint_id: None,
-            settlement_reference: None,
         }
     }
 
@@ -38,8 +34,6 @@ impl Evidence {
             receipt_digest: None,
             header_digest: Some(header_digest),
             proof_root: Some(proof_root),
-            checkpoint_id: None,
-            settlement_reference: None,
         }
     }
 
@@ -49,26 +43,6 @@ impl Evidence {
             receipt_digest: None,
             header_digest: Some(header_digest),
             proof_root: Some(proof_root),
-            checkpoint_id: None,
-            settlement_reference: None,
-        }
-    }
-
-    pub(crate) fn checkpoint(
-        checkpoint_id: [u8; 32],
-        settlement_reference: Option<Vec<u8>>,
-    ) -> Self {
-        Self {
-            // A matching registration reference proves only that the
-            // checkpoint was registered. Settlement anchoring requires a
-            // separate live Paxeer finality verifier and is never inferred
-            // from transported bytes.
-            achieved: Achieved::checkpoint_finalised(),
-            receipt_digest: None,
-            header_digest: None,
-            proof_root: None,
-            checkpoint_id: Some(checkpoint_id),
-            settlement_reference,
         }
     }
 
@@ -103,18 +77,5 @@ impl Evidence {
     #[must_use]
     pub const fn proof_root(&self) -> Option<[u8; 32]> {
         self.proof_root
-    }
-
-    /// Returns the recomputed registered checkpoint identifier.
-    #[must_use]
-    pub const fn checkpoint_id(&self) -> Option<[u8; 32]> {
-        self.checkpoint_id
-    }
-
-    /// Borrows the exact matched settlement-registration reference. Its
-    /// presence does not establish Paxeer settlement anchoring.
-    #[must_use]
-    pub fn settlement_reference(&self) -> Option<&[u8]> {
-        self.settlement_reference.as_deref()
     }
 }

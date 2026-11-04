@@ -1,0 +1,1132 @@
+[audit.22.30.170]
+task = "22.30.170"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 114
+findings = 29
+docs_reviewed = 28
+upgrade_ready = false
+blocking = ["topology_adapter_path","qualification_integer_roundtrip"]
+produces_reviewed = 464
+consumes_reviewed = 416
+interface_review = "Registry declarations were compared with full member sources, actual runtime configuration consumers, adapter/workflow transports and provider recovery paths. Generic matches such as chain_id, reader, ROLE and invalid_request are lexical associations rather than calls to unrelated interop, wallet or retired relay services. Versioned fixtures and compatibility formats do not establish production qualification."
+qualification_scope = "This record proposes repairs without changing implementations. Only the declared audit-record gates qualify this deliverable; runtime, sweep, capacity and production gates are not claimed."
+
+[file.001]
+path = "deploy/launchpad/README.md"
+lines = 29
+verdict = "issues"
+note = "Overview read in full; registry/host deferral claims no longer describe the Railway and production trees."
+
+[file.002]
+path = "deploy/launchpad/deploy.sh"
+lines = 37
+verdict = "clean"
+note = "Repository-root Docker build and explicit registry/tag push inputs agree with the parameterized service image."
+
+[file.003]
+path = "deploy/launchpad/docker-compose.strangler.yml"
+lines = 255
+verdict = "clean"
+note = "Twelve local strangler services bind the existing database/cache with explicit service build identities; this is coexistence configuration, not production qualification."
+
+[file.004]
+path = "deploy/launchpad/production/bootstrap/README.md"
+lines = 62
+verdict = "issues"
+note = "Fixture limitations and smoke behavior are explicit; documented repository-root command paths are stale."
+
+[file.005]
+path = "deploy/launchpad/production/bootstrap/compose.yml"
+lines = 99
+verdict = "clean"
+note = "Pinned private fixtures bind loopback ports; PostgreSQL, NATS, object store and chain persist in declared volumes, with explicitly public test credentials."
+
+[file.006]
+path = "deploy/launchpad/production/bootstrap/images.json"
+lines = 68
+verdict = "clean"
+note = "Image digests, versions and limitations match compose and smoke; Ganache chain125 is explicitly a fixture without BFT qualification."
+
+[file.007]
+path = "deploy/launchpad/production/bootstrap/smoke.py"
+lines = 158
+verdict = "clean"
+note = "Smoke performs native PostgreSQL/Redis, JetStream, signed object storage and fixture EVM transfer/receipt checks with bounded requests."
+
+[file.008]
+path = "deploy/launchpad/production/bootstrap/start.py"
+lines = 24
+verdict = "clean"
+note = "Validates the fixture inventory before actual compose startup and bounded health waiting."
+
+[file.009]
+path = "deploy/launchpad/production/bootstrap/validate.py"
+lines = 65
+verdict = "clean"
+note = "Checks immutable image references, fixture identity and network/port restrictions before startup."
+
+[file.010]
+path = "deploy/launchpad/production/observability/README.md"
+lines = 27
+verdict = "issues"
+note = "Separates arithmetic fixtures from production measurements; the primary checker command predates relocation."
+
+[file.011]
+path = "deploy/launchpad/production/observability/check.py"
+lines = 15
+verdict = "clean"
+note = "Invokes contract checks and native pinned Prometheus rule evaluation, recording results without a capacity claim."
+
+[file.012]
+path = "deploy/launchpad/production/observability/config-v2.json"
+lines = 215
+verdict = "clean"
+note = "Additive v2 has twelve runtime owners, three zones and bounded cardinality/queue; capacity remains explicitly unqualified."
+
+[file.013]
+path = "deploy/launchpad/production/observability/config-v4.schema.json"
+lines = 98
+verdict = "clean"
+note = "Closed v4 schema binds source, collection/allocation inputs and distinct final-shared evidence."
+
+[file.014]
+path = "deploy/launchpad/production/observability/config.json"
+lines = 211
+verdict = "clean"
+note = "Frozen v1 eight-role configuration remains separately versioned from twelve-role v2; it supplies no measured production capacity."
+
+[file.015]
+path = "deploy/launchpad/production/observability/contracts.py"
+lines = 143
+verdict = "clean"
+note = "V1 validation checks finite labels, traffic arithmetic, sampling, incident ownership and unqualified capacity status."
+
+[file.016]
+path = "deploy/launchpad/production/observability/contracts_v2.py"
+lines = 144
+verdict = "clean"
+note = "V2 validation retains bounds and binds all twelve runtime identities and finite route/error dimensions."
+
+[file.017]
+path = "deploy/launchpad/production/observability/grafana-dashboard.json"
+lines = 594
+verdict = "clean"
+note = "Dashboard queries expose bounded traffic, latency, storage and exporter-loss metrics without creating authority or qualification."
+
+[file.018]
+path = "deploy/launchpad/production/observability/otel-collector.yaml"
+lines = 131
+verdict = "clean"
+note = "Collector uses mTLS references, sensitive-attribute removal, bounded memory/batches/queue and failure-aware sampling."
+
+[file.019]
+path = "deploy/launchpad/production/observability/phase2/build.py"
+lines = 49
+verdict = "clean"
+note = "Build validation pins collector/promtool executable digests and records exact rendered source identities."
+
+[file.020]
+path = "deploy/launchpad/production/observability/phase2/contracts.py"
+lines = 150
+verdict = "clean"
+note = "Binding validation enforces chain125, service/role ownership, safe endpoints, pinned response schemas and non-economic probes."
+
+[file.021]
+path = "deploy/launchpad/production/observability/phase2/control.py"
+lines = 160
+verdict = "clean"
+note = "SQLite BEGIN IMMEDIATE/FULL synchronization preserves control sequence/CAS, scoped operator authority and durable audit across restart."
+
+[file.022]
+path = "deploy/launchpad/production/observability/phase2/evidence.py"
+lines = 456
+verdict = "clean"
+note = "Provider evidence binds candidate identity, HMAC freshness, recovery scenarios and budgets; fixtures do not replace production observations."
+
+[file.023]
+path = "deploy/launchpad/production/observability/phase2/phase4.py"
+lines = 335
+verdict = "clean"
+note = "Actual read-only captures bind the admitted D16 run and allocations; final capacity/monthly/production qualification remains a final-shared gate."
+
+[file.024]
+path = "deploy/launchpad/production/observability/phase2/probes.py"
+lines = 167
+verdict = "clean"
+note = "HTTP/WebSocket probes validate bounded actual responses against pinned schemas and produce synthetic.prom for ingestion."
+
+[file.025]
+path = "deploy/launchpad/production/observability/phase2/qualify.py"
+lines = 37
+verdict = "clean"
+note = "Qualification consumes complete signed provider evidence with phase-specific checks and emits explicit bounded decisions."
+
+[file.026]
+path = "deploy/launchpad/production/observability/phase2/render.py"
+lines = 109
+verdict = "issues"
+note = "Private immutable bundles verify exact content/source identity; synthetic ingestion and routed-alert transport are absent from emitted configuration."
+
+[file.027]
+path = "deploy/launchpad/production/observability/phase2/runbooks/activation.md"
+lines = 21
+verdict = "clean"
+note = "Activation instructions bind operator authority, immutable bundle adoption, durable rollback and phase3 interruption/denial evidence."
+
+[file.028]
+path = "deploy/launchpad/production/observability/phase2/runbooks/capacity.md"
+lines = 15
+verdict = "clean"
+note = "Capacity instructions require source-bound allocations/workload captures and explicitly reserve final shared qualification."
+
+[file.029]
+path = "deploy/launchpad/production/observability/phase2/runtime.py"
+lines = 139
+verdict = "clean"
+note = "Runtime scrape/privacy/counter checks enforce bounded metrics and source/deployment owner identity."
+
+[file.030]
+path = "deploy/launchpad/production/observability/phase2/tests/test_control.py"
+lines = 154
+verdict = "clean"
+note = "Tests cover durable CAS, immutable bundle validation, UID-scoped operator authority, denied mutation and restart."
+
+[file.031]
+path = "deploy/launchpad/production/observability/phase2/tests/test_evidence.py"
+lines = 160
+verdict = "clean"
+note = "Tests reject source mismatch, missing native scenarios, changed identity, stale artifacts and invented capacity."
+
+[file.032]
+path = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py"
+lines = 121
+verdict = "clean"
+note = "Tests distinguish collection/evaluation contracts from admitted native capture prerequisites and reject absent authority."
+
+[file.033]
+path = "deploy/launchpad/production/observability/phase2/tests/test_runtime.py"
+lines = 50
+verdict = "clean"
+note = "Tests cover privacy/cardinality and actual non-economic probe/schema behavior."
+
+[file.034]
+path = "deploy/launchpad/production/observability/prometheus-rules.json"
+lines = 329
+verdict = "clean"
+note = "Rules retain independent origin numerators, minimum traffic, absent-data checks, integrity, lag and resource-pressure semantics."
+
+[file.035]
+path = "deploy/launchpad/production/observability/runbooks/availability.md"
+lines = 9
+verdict = "clean"
+note = "Runbook separates missing traffic from outages and requires timely ownership, acknowledgment and customer updates."
+
+[file.036]
+path = "deploy/launchpad/production/observability/runbooks/integrity.md"
+lines = 9
+verdict = "clean"
+note = "Runbook quarantines conflicting RPC endpoints without rolling back committed blocks and preserves source proof."
+
+[file.037]
+path = "deploy/launchpad/production/observability/runbooks/storage.md"
+lines = 9
+verdict = "clean"
+note = "Runbook preserves offsets/WAL and unacknowledged durable messages, limiting replay to measured spare capacity."
+
+[file.038]
+path = "deploy/launchpad/production/observability/runbooks/synthetic.md"
+lines = 9
+verdict = "clean"
+note = "Runbook requires actual journey/schema evidence and nonprivileged bounded probes, conditioning paging on collectors being wired."
+
+[file.039]
+path = "deploy/launchpad/production/observability/runbooks/telemetry.md"
+lines = 9
+verdict = "clean"
+note = "Runbook preserves telemetry privacy/cardinality budgets and drops telemetry before obstructing durable business commits."
+
+[file.040]
+path = "deploy/launchpad/production/observability/test_contracts_v2.py"
+lines = 89
+verdict = "clean"
+note = "V2 tests cover twelve-role identity, finite metric labels and explicit unqualified capacity evidence."
+
+[file.041]
+path = "deploy/launchpad/production/observability/tests/prometheus.test.yml"
+lines = 87
+verdict = "clean"
+note = "Prometheus fixtures evaluate rules against explicit synthetic counters, missing traffic and burn windows without claiming deployed traffic."
+
+[file.042]
+path = "deploy/launchpad/production/observability/tests/test_contracts.py"
+lines = 54
+verdict = "clean"
+note = "V1 tests cover rates, forbidden high-cardinality labels, retention and missing-capacity refusal."
+
+[file.043]
+path = "deploy/launchpad/production/recovery/README.md"
+lines = 31
+verdict = "issues"
+note = "Recovery page distinguishes offline declarations and provider proof; its primary command uses the old directory."
+
+[file.044]
+path = "deploy/launchpad/production/recovery/check.py"
+lines = 14
+verdict = "clean"
+note = "Checker invokes focused contracts/PostgreSQL checks and records status without converting provider absence into success."
+
+[file.045]
+path = "deploy/launchpad/production/recovery/config.example.json"
+lines = 24
+verdict = "clean"
+note = "Qualification example separates regions/principals/archive keys and uses reviewed retention and RPO/RTO targets."
+
+[file.046]
+path = "deploy/launchpad/production/recovery/epoch.sql"
+lines = 131
+verdict = "clean"
+note = "Epoch SQL holds transactional writer fences/exclusive activation, broker-fence freshness, authenticated session_user and durable proposal/audit state."
+
+[file.047]
+path = "deploy/launchpad/production/recovery/phase2/broker/main.go"
+lines = 521
+verdict = "clean"
+note = "Native broker binds actual admitted NATS/PostgreSQL providers with pinned identity, TLS, fresh fences and principal revocation."
+
+[file.048]
+path = "deploy/launchpad/production/recovery/phase2/check.py"
+lines = 74
+verdict = "clean"
+note = "Phase checker requires admitted configuration, observations and genuine scenario/denial receipts; provider absence refuses qualification."
+
+[file.049]
+path = "deploy/launchpad/production/recovery/phase2/operator.py"
+lines = 430
+verdict = "clean"
+note = "Operator binds authenticated database principal, candidate inventory, full reconciliation and fresh broker fencing before durable activation."
+
+[file.050]
+path = "deploy/launchpad/production/recovery/phase2/providers.py"
+lines = 496
+verdict = "clean"
+note = "Providers pin executables/private credentials and verify physical/WAL identity, object versions/checksums and independently audited access denial."
+
+[file.051]
+path = "deploy/launchpad/production/recovery/phase2/reconciliation.sql"
+lines = 36
+verdict = "issues"
+note = "Snapshot includes raw identity and integer inventory/delivery effects but aggregates unbounded arrays into a transport capped at 2 MiB."
+
+[file.052]
+path = "deploy/launchpad/production/recovery/phase2/render.py"
+lines = 115
+verdict = "clean"
+note = "Renderer binds chain/source/interface/deployment/inventory, retention and grants without activating production changes."
+
+[file.053]
+path = "deploy/launchpad/production/recovery/phase2/runbook.md"
+lines = 48
+verdict = "issues"
+note = "Runbook demands genuine PITR/reconciliation/adversarial receipts; the v3 command uses the old directory."
+
+[file.054]
+path = "deploy/launchpad/production/recovery/phase2/test_operator.py"
+lines = 264
+verdict = "clean"
+note = "Tests cover real isolated PostgreSQL role/fence transitions and reject absent admitted observations."
+
+[file.055]
+path = "deploy/launchpad/production/recovery/phase4/config.schema.json"
+lines = 479
+verdict = "clean"
+note = "Closed release schema binds providers, finite readonly metrics, collection allocations and measured evidence windows."
+
+[file.056]
+path = "deploy/launchpad/production/recovery/phase4/release.py"
+lines = 378
+verdict = "clean"
+note = "Release capture reads real Prometheus/Kubernetes/database state and refuses missing shared prerequisites; reconciliation size risk is recorded on its SQL producer."
+
+[file.057]
+path = "deploy/launchpad/production/recovery/phase4/runbook.md"
+lines = 35
+verdict = "issues"
+note = "Runbook retains all ten scenarios and final-shared limits; collect/test command paths are stale."
+
+[file.058]
+path = "deploy/launchpad/production/recovery/phase4/test_release.py"
+lines = 119
+verdict = "clean"
+note = "Release tests cover parser and actual configured provider capture behavior; absent providers do not qualify capacity."
+
+[file.059]
+path = "deploy/launchpad/production/recovery/recovery.py"
+lines = 508
+verdict = "issues"
+note = "Offline manifests bind provenance/WAL coverage and exact reconciliation, but incorrectly validate opaque provider versions as resource names."
+
+[file.060]
+path = "deploy/launchpad/production/recovery/resources.json"
+lines = 126
+verdict = "issues"
+note = "Disabled operational groups retain fencing/IAM/recovery prerequisites; declared tar backup differs from the actual plain-directory restore."
+
+[file.061]
+path = "deploy/launchpad/production/recovery/test_postgres.py"
+lines = 135
+verdict = "clean"
+note = "Native PostgreSQL tests exercise epoch locking, authenticated activation and durable stale-writer fencing."
+
+[file.062]
+path = "deploy/launchpad/production/recovery/test_recovery.py"
+lines = 178
+verdict = "clean"
+note = "Tests cover inventory provenance, unsafe links, integer amounts, corrupt objects, WAL coverage and fail-closed restore planning."
+
+[file.063]
+path = "deploy/launchpad/production/topology/README.md"
+lines = 54
+verdict = "issues"
+note = "Topology page distinguishes declarations from runtime implementation; repository-root command block is stale."
+
+[file.064]
+path = "deploy/launchpad/production/topology/native_nats_check.py"
+lines = 48
+verdict = "clean"
+note = "Native NATS check parses generated configuration using the pinned broker image in isolation and cleans only owned temporary resources."
+
+[file.065]
+path = "deploy/launchpad/production/topology/phase2/__init__.py"
+lines = 6
+verdict = "clean"
+note = "Package explicitly loads the adjacent v1 topology source rather than introducing an alternative implementation."
+
+[file.066]
+path = "deploy/launchpad/production/topology/phase2/attestations.py"
+lines = 70
+verdict = "clean"
+note = "Native Ed25519 verification pins executable/key bytes and purpose-scoped trust, rejecting changed, linked and oversized inputs."
+
+[file.067]
+path = "deploy/launchpad/production/topology/phase2/capacity.py"
+lines = 631
+verdict = "clean"
+note = "Capacity collection binds real Prometheus/Kubernetes allocation and source-pinned load captures with distinct normal/replay ledgers; connected planning inherits the adapter finding."
+
+[file.068]
+path = "deploy/launchpad/production/topology/phase2/evidence.py"
+lines = 431
+verdict = "clean"
+note = "Evidence binds signed observations, namespace UID, recovery resources and full storage/cost allocations before qualification."
+
+[file.069]
+path = "deploy/launchpad/production/topology/phase2/operator-runbook.md"
+lines = 57
+verdict = "issues"
+note = "Runbook requires isolated qualification/actual capacity evidence, but PYTHONPATH and load-source locations predate relocation."
+
+[file.070]
+path = "deploy/launchpad/production/topology/phase2/operator.py"
+lines = 356
+verdict = "clean"
+note = "Operator persists activation/rehearsal intents, requires signed CAS/resume and recovers isolated faults; connected planning inherits the adapter finding."
+
+[file.071]
+path = "deploy/launchpad/production/topology/phase2/providers.py"
+lines = 333
+verdict = "issues"
+note = "Connected provider checks exact role documents and chain manifests but attempts to load the relocated adapter at an absent path."
+
+[file.072]
+path = "deploy/launchpad/production/topology/phase2/tests/test_capacity.py"
+lines = 97
+verdict = "clean"
+note = "Capacity tests reject missing native measurements, changed sources, insufficient allocations and swapped normal/replay ledgers."
+
+[file.073]
+path = "deploy/launchpad/production/topology/phase2/tests/test_evidence.py"
+lines = 216
+verdict = "clean"
+note = "Evidence tests reject incomplete scenarios, wrong namespace/resource identity, forged signatures and absent measured headroom."
+
+[file.074]
+path = "deploy/launchpad/production/topology/phase2/tests/test_operator.py"
+lines = 197
+verdict = "issues"
+note = "Journal and real signature tests read fully; none reaches the connected repository adapter whose path is missing."
+
+[file.075]
+path = "deploy/launchpad/production/topology/production-input.template.json"
+lines = 241
+verdict = "clean"
+note = "Template declares reviewed immutable-image placeholders, root chain125 endpoints and bounded connection/storage assumptions; it is not an activated deployment."
+
+[file.076]
+path = "deploy/launchpad/production/topology/tests/test_topology.py"
+lines = 162
+verdict = "clean"
+note = "Topology tests cover default-deny declarations, image identity, exact scenarios and arithmetic using explicit synthetic parser vectors."
+
+[file.077]
+path = "deploy/launchpad/production/topology/topology.py"
+lines = 338
+verdict = "clean"
+note = "Offline compiler binds twelve roles, immutable images, private mounts, least privilege and budgets without inferring measured capacity or deploying another network."
+
+[file.078]
+path = "deploy/launchpad/railway-values.json"
+lines = 31
+verdict = "clean"
+note = "Root mainnet-beta RPC/public web origins match chain125; private origins and API upstream ownership remain explicit."
+
+[file.079]
+path = "deploy/launchpad/railway/api-sockets.railway.json"
+lines = 22
+verdict = "clean"
+note = "Railway api-sockets manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.080]
+path = "deploy/launchpad/railway/api.railway.json"
+lines = 22
+verdict = "clean"
+note = "Railway api manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.081]
+path = "deploy/launchpad/railway/charts.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway charts manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.082]
+path = "deploy/launchpad/railway/gateway.railway.json"
+lines = 21
+verdict = "clean"
+note = "Railway gateway manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.083]
+path = "deploy/launchpad/railway/indexer.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway indexer manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.084]
+path = "deploy/launchpad/railway/livestream.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway livestream manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.085]
+path = "deploy/launchpad/railway/metadata.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway metadata manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.086]
+path = "deploy/launchpad/railway/pnl.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway pnl manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.087]
+path = "deploy/launchpad/railway/ranking.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway ranking manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.088]
+path = "deploy/launchpad/railway/social.railway.json"
+lines = 22
+verdict = "clean"
+note = "Railway social manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.089]
+path = "deploy/launchpad/railway/stats.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway stats manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.090]
+path = "deploy/launchpad/railway/user.railway.json"
+lines = 20
+verdict = "clean"
+note = "Railway user manifest matches its service Dockerfile/source dependencies, readiness endpoint, startup timeout and one-replica restart policy; variables.json supplies role-specific build inputs."
+
+[file.091]
+path = "deploy/launchpad/railway/variables.json"
+lines = 681
+verdict = "clean"
+note = "Twelve-role variable producer supplies exact inline-document/SHA pairs, credentials and root RPC. Actual service consumers accept DOCUMENT as the FILE alternative."
+
+[file.092]
+path = "deploy/launchpad/railway/web.railway.json"
+lines = 19
+verdict = "clean"
+note = "Web manifest matches standalone Dockerfile, application watch patterns, /api/health and runtime port."
+
+[file.093]
+path = "deploy/launchpad/tests/railway-values.test.sh"
+lines = 119
+verdict = "clean"
+note = "Shell assertions check actual build arguments, hosts, secret classification and variable replay shapes; these are config checks rather than live deployment evidence."
+
+[file.094]
+path = "deploy/launchpad/web-build-env.sh"
+lines = 5
+verdict = "clean"
+note = "Empty build arguments are unset so application fallbacks remain effective; explicit nonempty inputs survive."
+
+[file.095]
+path = "scripts/replica/lxp_replay_fixture.py"
+lines = 122
+verdict = "issues"
+note = "Codec wrapper imports build for retained compatibility vectors, but the registered standalone generator emits a retired activity and old output path."
+
+[file.096]
+path = "tools/flyci/controller/config.go"
+lines = 136
+verdict = "clean"
+note = "Controller config validates provider identity, finite machine limits/timeouts and optional private readiness/qualification bindings."
+
+[file.097]
+path = "tools/flyci/controller/config_test.go"
+lines = 111
+verdict = "clean"
+note = "Tests cover required credentials, malformed configuration and explicit bounds without default production secrets."
+
+[file.098]
+path = "tools/flyci/controller/fly.go"
+lines = 142
+verdict = "clean"
+note = "Fly API uses bounded HTTP, actual machine/runner identity, ephemeral JIT input and auto-destroy semantics."
+
+[file.099]
+path = "tools/flyci/controller/fly.toml"
+lines = 24
+verdict = "clean"
+note = "Controller app, mounted private qualification state and execution identity match the image/config; secrets remain external provisioning inputs."
+
+[file.100]
+path = "tools/flyci/controller/fly_test.go"
+lines = 203
+verdict = "clean"
+note = "Fly tests cover actual machine request/response shapes, identity and provider error handling."
+
+[file.101]
+path = "tools/flyci/controller/github.go"
+lines = 717
+verdict = "clean"
+note = "GitHub provider bounds pages/retries/artifacts, strips cross-origin redirect credentials and binds workflow/run/job identity; canonical transport inherits the numeric finding."
+
+[file.102]
+path = "tools/flyci/controller/github_test.go"
+lines = 366
+verdict = "clean"
+note = "Provider tests cover rates, pagination, dispatch ambiguity, artifact identity and URL authentication policy."
+
+[file.103]
+path = "tools/flyci/controller/main.go"
+lines = 127
+verdict = "clean"
+note = "Main wires reconciliation, durable qualification state, finite polling and optional admitted readiness collection with shutdown handling."
+
+[file.104]
+path = "tools/flyci/controller/qualification.go"
+lines = 223
+verdict = "issues"
+note = "Typed manifests enforce complete acceptance and fixed gate commands, but generic canonicalization loses int64 precision."
+
+[file.105]
+path = "tools/flyci/controller/qualification_control.go"
+lines = 214
+verdict = "clean"
+note = "Private Unix socket and CLI strictly decode/bound I/O for submit/status/seal/verify and pinned completion trust."
+
+[file.106]
+path = "tools/flyci/controller/qualification_evidence.go"
+lines = 284
+verdict = "clean"
+note = "AES-GCM/RSA-OAEP and Ed25519 bind encrypted artifacts and completion provenance; canonical signatures inherit the numeric finding."
+
+[file.107]
+path = "tools/flyci/controller/qualification_registry.go"
+lines = 298
+verdict = "issues"
+note = "Registry locks/fsync preserve complete events, but direct publication to final names leaves unrecoverable partial records on interruption."
+
+[file.108]
+path = "tools/flyci/controller/qualification_test.go"
+lines = 356
+verdict = "clean"
+note = "Tests cover encrypted evidence, signatures, actual process concurrency and complete-event reopen; large integers and interrupted publication need the proposed coverage."
+
+[file.109]
+path = "tools/flyci/controller/readiness.go"
+lines = 497
+verdict = "clean"
+note = "Readiness uses actual mTLS1.3/SPKI probes, exact source/build identity, finite slots and fresh snapshots with incomplete state explicitly false."
+
+[file.110]
+path = "tools/flyci/controller/readiness_test.go"
+lines = 435
+verdict = "clean"
+note = "Tests cover TLS/admission identity, finite bounds, stale/failed refusal and controller-versus-workload failure distinctions."
+
+[file.111]
+path = "tools/flyci/controller/reconcile.go"
+lines = 393
+verdict = "clean"
+note = "Reconciliation follows actual runner assignments across job labels, bounds scaling/TTL and protects qualification state under provider ambiguity."
+
+[file.112]
+path = "tools/flyci/controller/reconcile_test.go"
+lines = 594
+verdict = "clean"
+note = "Tests cover actual cross-assigned runners, incomplete indexes, finite scaling, active-job protection and cleanup decisions."
+
+[file.113]
+path = "tools/flyci/runner/entrypoint.sh"
+lines = 151
+verdict = "clean"
+note = "Runner uses ephemeral JIT registration, finite idle timeout and owned cleanup/selfcheck without installing a long-lived repository credential."
+
+[file.114]
+path = "tools/flyci/runner/fly.toml"
+lines = 5
+verdict = "clean"
+note = "Runner app points to its matching Dockerfile and region; the controller supplies machine lifecycle/JIT inputs."
+
+[finding.topology_adapter_path]
+file = "deploy/launchpad/production/topology/phase2/providers.py"
+line = 25
+class = "wiring-gap"
+severity = "high"
+observed = "connected_plan loads launchpad/spec/production-system/integration/runtime/adapters.py below source_root. That file is absent; the actual adapter is tools/launchpad/production/integration/adapters.py. regular_bytes fails before connected render, validation, activation or capacity planning can bind runtime documents."
+expected = "The declared connected topology operator must load the digest-pinned runtime adapter from the admitted repository and carry its role/document bindings through deployment and recovery."
+proposal = "Update deploy/launchpad/production/topology/phase2/providers.py to the canonical tools/launchpad/production/integration/adapters.py path, preserving digest verification. Prove connected render and capacity planning against the actual adapter and admitted documents for all twelve runtime roles."
+owner_domain = 16
+interface = "16.cli-dep-launchpad-production-topology-phase2-operator"
+
+[finding.topology_connected_test_gap]
+file = "deploy/launchpad/production/topology/phase2/tests/test_operator.py"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "JournalTests compiles fixtures/synthetic-config.json with v1.compile_plan; remaining tests exercise journal and signature primitives. No test invokes connected_plan with the actual repository adapter, leaving the missing adapter path unobserved."
+expected = "The connected operator must be tested against its actual runtime adapter producer and document mounts as well as durable control and signature primitives."
+proposal = "Add a connected render test in deploy/launchpad/production/topology/phase2/tests/test_operator.py using tools/launchpad/production/integration/adapters.py and real digest-pinned role documents. Assert emitted owner identities, mounted paths and hashes for every role."
+owner_domain = 16
+
+[finding.qualification_integer_roundtrip]
+file = "tools/flyci/controller/qualification.go"
+line = 72
+class = "interface-mismatch"
+severity = "high"
+observed = "qCanonical marshals typed int64 fields, unmarshals into any using float64, then marshals again. An accepted threshold 9007199254740993 becomes 9007199254740992. Registry submit/advance, GitHub dispatch and completed evidence use these bytes, changing admitted thresholds after persistence and giving adjacent values the same logical hash."
+expected = "Qualification submit/status must preserve all accepted int64 thresholds, measurements and run identities exactly across hashing, durable reopen, workflow dispatch and signed completion verification."
+proposal = "Replace float64 normalization in tools/flyci/controller/qualification.go with exact-number canonicalization shared with tools/qualification/paxeer_x_release.py, and propagate serialization errors. Prove submit/reopen/dispatch/signature behavior for adjacent integers around 2^53 and int64 limits."
+owner_domain = 16
+interface = "16.cli-flyci-qualification-control-op-submit"
+
+[finding.qualification_partial_record_recovery]
+file = "tools/flyci/controller/qualification_registry.go"
+line = 88
+class = "restart-recovery"
+severity = "medium"
+observed = "qWrite creates the final sequence filename with O_EXCL before writing and syncing. A crash can expose an empty or partial JSON record. submit also syncs a new logical directory before its first record. read refuses these states, list aborts on that request, and no interrupted-publication recovery exists."
+expected = "Restart must recover interrupted local record publication without losing durable dispatch intent or permanently preventing other qualification requests from reconciliation."
+proposal = "In tools/flyci/controller/qualification_registry.go atomically publish complete fsynced records without replacement and sync the directory. Define recovery for pre-record directories and uncommitted tails while preserving ambiguous dispatch intent. Prove process interruption before writing, during writing and after publication."
+owner_domain = 16
+
+[finding.recovery_opaque_version_id]
+file = "deploy/launchpad/production/recovery/recovery.py"
+line = 129
+class = "runtime-risk"
+severity = "medium"
+observed = "manifest validates version_id with the resource NAME expression [a-z][a-z0-9-]{1,62}. S3Archive.upload preserves provider VersionId and head accepts opaque identifiers up to 1024 characters. Normal versions with uppercase, digit-first, underscore or longer values cannot enter the restore manifest."
+expected = "Verified immutable object versions must remain opaque identifiers and survive upload, inventory binding and restore planning with their exact bytes."
+proposal = "Introduce a dedicated bounded opaque version-ID validator in deploy/launchpad/production/recovery/recovery.py aligned with phase2/providers.py. Bind original bytes in inventory hashes and cover producer-shaped S3 versions through manifest and restore_plan."
+owner_domain = 16
+interface = "16.cli-dep-launchpad-production-recovery-phase2-providers"
+
+[finding.recovery_backup_format_contract]
+file = "deploy/launchpad/production/recovery/resources.json"
+line = 107
+class = "config-drift"
+severity = "medium"
+observed = "resources.command_contracts.base_backup and recovery.resources require pg_basebackup --format=tar. PostgreSQL.physical_backup uses --format=plain, verifies a directory, and restore_physical copies that directory. Declared and implemented backup/restore layouts differ."
+expected = "The declared command, physical artifact, verification and restore consumer must describe one supported layout, with any extraction or conversion explicitly verified."
+proposal = "Reconcile deploy/launchpad/production/recovery/resources.json and recovery.py with the actual plain-directory path in phase2/providers.py, or implement verified tar conversion. Prove a native backup-to-restore round trip and publish its matching command/layout contract."
+owner_domain = 16
+interface = "16.cfg-dep-resources-command-contracts"
+
+[finding.recovery_reconciliation_response_bound]
+file = "deploy/launchpad/production/recovery/phase2/reconciliation.sql"
+line = 20
+class = "runtime-risk"
+severity = "medium"
+observed = "reconciliation.sql json_agg exports every raw-chain identity, inventory state and delivery inbox/outbox identity in one JSON row. phase4/release.py consumes it through PostgreSQL.document and BoundTools.run, which refuses stdout above 2 MiB after the process finishes. A retained 72-hour dataset readily exceeds that transport."
+expected = "Recovery reconciliation must cover the complete retained authoritative dataset with exact counts, raw integer amounts and stable identities while respecting explicit query, disk, memory and transport bounds."
+proposal = "Replace monolithic identity arrays in deploy/launchpad/production/recovery/phase2/reconciliation.sql with deterministic streamed or partitioned canonical digests and counts consumed by phase4/release.py. Preserve snapshot consistency and prove full reconciliation for a retained dataset exceeding 2 MiB without truncation or weakened checks."
+owner_domain = 16
+
+[finding.observability_synthetic_transport]
+file = "deploy/launchpad/production/observability/phase2/render.py"
+line = 47
+class = "wiring-gap"
+severity = "medium"
+observed = "configuration_files renders only bound service /metrics scrapes. probes.py writes synthetic.prom locally; the bundle declares no textfile-exporter target, mount or equivalent ingestion, and no Alertmanager destination. Synthetic rules and alert delivery depend on an unbound external integration."
+expected = "The admitted observability deployment must carry synthetic journey expectation/success/timestamp series into Prometheus and route evaluated alerts to the assigned responder, binding those transports to the deployed configuration."
+proposal = "Extend deploy/launchpad/production/observability/phase2/render.py and its binding with an explicit synthetic ingestion path and Alertmanager destination, including mounts and authentication. Prove a genuine failed journey reaches its rule and routed alert using the admitted bundle."
+owner_domain = 16
+interface = "16.cli-dep-launchpad-production-observability-phase2-render"
+
+[finding.replica_fixture_standalone_retired_activity]
+file = "scripts/replica/lxp_replay_fixture.py"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "The standalone generator includes module 3 ordinal 11, retired budget-pull 0x0003000B, and writes tests/vectors/replay_corpus.lxb. The live tests/vectors/codec/generate.py imports build but filters that undeclared activity and writes under codec/. The registered standalone CLI still emits the obsolete corpus."
+expected = "Current fixture generation must emit declared kernel activities. Historical codec compatibility bytes must be explicitly identified and must not advertise a running replica or batch service."
+proposal = "Update scripts/replica/lxp_replay_fixture.py to expose the current declared-activity corpus with a canonical codec output path. Keep necessary historical ordering behind an explicit compatibility mode, reconcile tests/vectors/codec/generate.py, and state that fixture bytes do not deploy the retired replica."
+owner_domain = 16
+interface = "16.cli-scr-replica-lxp-replay-fixture"
+
+[finding.deployment_overview_drift]
+file = "deploy/launchpad/README.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The overview says nothing here hard-codes a registry or host and treats Railway host wiring as a future choice. railway-values.json already pins mainnet-beta RPC/public web origins and railway/ provides concrete deployment and variable contracts."
+expected = "The overview must distinguish the registry-agnostic image helper, local strangler fixtures, Railway service deployment and production qualification topology with their actual configuration owners."
+proposal = "Rewrite deploy/launchpad/README.md to name the existing Railway and production trees, root-path chain125 endpoints and secret/document inputs. Scope registry-agnostic claims to deploy.sh and replace deferred host-selection instructions."
+owner_domain = 16
+
+[finding.bootstrap_command_paths]
+file = "deploy/launchpad/production/bootstrap/README.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 19-22 and 56 invoke deploy/production/bootstrap; compose and scripts actually live under deploy/launchpad/production/bootstrap."
+expected = "Repository-root operator commands must reach the checked-in tool and its admitted producer sources, preserving isolated qualification, authority flags and evidence destinations."
+proposal = "Update deploy/launchpad/production/bootstrap/README.md to canonical deploy/launchpad/production and tools/launchpad/production paths, preserving every argument and safety condition. Match the examples to actual CLI declarations and the current source-root layout."
+owner_domain = 16
+
+[finding.observability_command_paths]
+file = "deploy/launchpad/production/observability/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Line 11 invokes deploy/production/observability/check.py; the checked-in checker lives under deploy/launchpad/production/observability."
+expected = "Repository-root operator commands must reach the checked-in tool and its admitted producer sources, preserving isolated qualification, authority flags and evidence destinations."
+proposal = "Update deploy/launchpad/production/observability/README.md to canonical deploy/launchpad/production and tools/launchpad/production paths, preserving every argument and safety condition. Match the examples to actual CLI declarations and the current source-root layout."
+owner_domain = 16
+
+[finding.recovery_command_paths]
+file = "deploy/launchpad/production/recovery/README.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Line 8 invokes deploy/production/recovery/check.py; the checked-in checker lives under deploy/launchpad/production/recovery."
+expected = "Repository-root operator commands must reach the checked-in tool and its admitted producer sources, preserving isolated qualification, authority flags and evidence destinations."
+proposal = "Update deploy/launchpad/production/recovery/README.md to canonical deploy/launchpad/production and tools/launchpad/production paths, preserving every argument and safety condition. Match the examples to actual CLI declarations and the current source-root layout."
+owner_domain = 16
+
+[finding.recovery_v3_command_paths]
+file = "deploy/launchpad/production/recovery/phase2/runbook.md"
+line = 48
+class = "doc-drift"
+severity = "medium"
+observed = "Line 48 invokes deploy/production/recovery/phase2/check.py; the phase3 checker actually lives under deploy/launchpad/production/recovery/phase2."
+expected = "Repository-root operator commands must reach the checked-in tool and its admitted producer sources, preserving isolated qualification, authority flags and evidence destinations."
+proposal = "Update deploy/launchpad/production/recovery/phase2/runbook.md to canonical deploy/launchpad/production and tools/launchpad/production paths, preserving every argument and safety condition. Match the examples to actual CLI declarations and the current source-root layout."
+owner_domain = 16
+
+[finding.recovery_release_command_paths]
+file = "deploy/launchpad/production/recovery/phase4/runbook.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 9 and 33 invoke release collect/tests in deploy/production/recovery/phase4; that directory is now deploy/launchpad/production/recovery/phase4."
+expected = "Repository-root operator commands must reach the checked-in tool and its admitted producer sources, preserving isolated qualification, authority flags and evidence destinations."
+proposal = "Update deploy/launchpad/production/recovery/phase4/runbook.md to canonical deploy/launchpad/production and tools/launchpad/production paths, preserving every argument and safety condition. Match the examples to actual CLI declarations and the current source-root layout."
+owner_domain = 16
+
+[finding.topology_command_paths]
+file = "deploy/launchpad/production/topology/README.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 10-15 invoke deploy/production/topology scripts and tests; those paths are now under deploy/launchpad/production/topology."
+expected = "Repository-root operator commands must reach the checked-in tool and its admitted producer sources, preserving isolated qualification, authority flags and evidence destinations."
+proposal = "Update deploy/launchpad/production/topology/README.md to canonical deploy/launchpad/production and tools/launchpad/production paths, preserving every argument and safety condition. Match the examples to actual CLI declarations and the current source-root layout."
+owner_domain = 16
+
+[finding.topology_operator_command_paths]
+file = "deploy/launchpad/production/topology/phase2/operator-runbook.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 43 set PYTHONPATH=deploy/production/topology; line 45 pins tools/production/load. Current paths are deploy/launchpad/production/topology and tools/launchpad/production/load."
+expected = "Repository-root operator commands must reach the checked-in tool and its admitted producer sources, preserving isolated qualification, authority flags and evidence destinations."
+proposal = "Update deploy/launchpad/production/topology/phase2/operator-runbook.md to canonical deploy/launchpad/production and tools/launchpad/production paths, preserving every argument and safety condition. Match the examples to actual CLI declarations and the current source-root layout."
+owner_domain = 16
+
+[finding.package_doc_01]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-5 describe a node with separate receipt-authority/replica trust boundaries; lines 40, 50 and 68 provision a sequencer and layerxd custody profile."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md: Describe paxd validator/node roles, direct chain125 root RPC, committed-block finality and hosted gateway ownership; remove separate sequencer, replica and layerxd provisioning."
+owner_domain = 8
+
+[finding.package_doc_02]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-5 describe the former node/replica deployment; line 42 runs layerxd --custody-profile and line 60 provisions sequencer-id/first-batch/last-batch secrets."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/wiki/BetaCluster.md: Align the wiki setup with the single paxd BFT network, current hosted contracts and site beta-cluster procedure; remove operational sequencer, replica and layerxd setup."
+owner_domain = 8
+
+[finding.package_doc_03]
+file = "docs/site/docs/index.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-14 describe LayerX as separate execution with history settled by periodic checkpoints on Paxeer; lines 24-25 continue the separate settlement architecture."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/index.md: Rewrite the introduction and architecture links around one Paxeer BFT chain, integrated kernel, committed-block finality and the distinct hosted gateway OpenRPC contract."
+owner_domain = 8
+
+[finding.package_doc_04]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 present services/platform/hosted/paxeer as the chain-facing boundary; the page specifies that retired relay's readiness, genesis transport and method allowlist as the running interface."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md: Replace the retired hosted/paxeer relay setup with direct root-path JSON-RPC on mainnet-beta node names and current chain identity/commit health checks."
+owner_domain = 8
+
+[finding.package_doc_05]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-9 and 30-39 instruct checkpoint certificate registration, balance/withdrawal witness publication and deposit-root authority configuration through publication contracts."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md: Replace retired checkpoint/deposit-root operations with evidence from committed paxd blocks and supported native/EVM proof and receipt paths; place any necessary historical explanation in explicitly archival material."
+owner_domain = 8
+
+[finding.package_doc_06]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 71
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 71-81 say beta-cluster IMAGE_NAMES omits internal images and apply omits internal workloads; lines 225-233 say no layerx-human workload is declared. The package beta-cluster page describes its applied Human manifest and service."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/operators/hosted-internal.md: Reconcile documented image inventory, rendered/applied workloads and event-upstream ownership between hosted-internal and beta-cluster against the supported merged deployment; remove simultaneous incompatible installation claims."
+owner_domain = 8
+
+[finding.package_doc_07]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 sends custody credit to a router; later operations describe controls around the former core/sequencer deployment and reset lifecycle."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md: Rewrite beta funding and control operations for the single paxd network and current hosted authorization surfaces with committed transaction evidence, removing router and separate sequencer reset directions."
+owner_domain = 8
+
+[finding.package_doc_08]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "Line 512 sends eth_sendRawTransaction to /rpc; lines 67-87 and 701-702 retain separate sequencer trust and verification-rung setup."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/agents/running.md: Use mainnet-beta root EVM endpoints and distinguish hosted gateway receipt verification from BFT committed-block finality; replace sequencer-specific setup with current network trust configuration."
+owner_domain = 8
+
+[finding.package_doc_09]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 directs public funding through custody credit submitted to a router although the opening declares the faucet private-only; examples retain the former hosted payment flow."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/platform/faucet.md: Document private allocation eligibility and the current gateway payment contract, remove router-based public funding directions and state the supported account-funding path without advertising a public faucet."
+owner_domain = 8
+
+[finding.package_doc_10]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-13 define an in-cluster sequencer running layerxd with serve/authority-replica modes; later sections instruct LNI socket and sequencer-key lifecycle operations."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md: Replace retired daemon deployment with paxd BFT node/validator operation, committed-block finality and supported persistence/recovery and root RPC; remove LNI and separate sequencer lifecycle procedures."
+owner_domain = 8
+
+[finding.package_doc_11]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-8 submit activities onto node LNI; later deployment config treats the retired layerxd socket and program listener as running dependencies."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/platform/agent-boundary.md: Describe merged submission through paxd and the supported hosted gateway receipt contract, including authentication, errors and restart behavior; remove LNI and legacy program-ingress dependencies."
+owner_domain = 8
+
+[finding.package_doc_12]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 5-6 put the TLS core boundary in front of layerxd; lines 23-25 configure the LNI socket, replica listener and separate daemon in one pod."
+expected = "Operator and integration pages must describe one paxd BFT network on chain125, direct node root RPC and supported hosted interfaces without treating retired components as running services."
+proposal = "Rewrite docs/site/docs/platform/hosted-core.md: Rewrite hosted backend, receipt conversion and readiness around the integrated paxd chain and current gateway contract, replacing layerxd/LNI/replica lifecycle and obsolete finality stages."
+owner_domain = 8
+
+[doc.001]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3-5 describe a node with separate receipt-authority/replica trust boundaries; lines 40, 50 and 68 provision a sequencer and layerxd custody profile. See finding.package_doc_01 for the concrete rewrite."
+
+[doc.002]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Lines 3-5 describe the former node/replica deployment; line 42 runs layerxd --custody-profile and line 60 provisions sequencer-id/first-batch/last-batch secrets. See finding.package_doc_02 for the concrete rewrite."
+
+[doc.003]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 3-14 describe LayerX as separate execution with history settled by periodic checkpoints on Paxeer; lines 24-25 continue the separate settlement architecture. See finding.package_doc_03 for the concrete rewrite."
+
+[doc.004]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3-7 present services/platform/hosted/paxeer as the chain-facing boundary; the page specifies that retired relay's readiness, genesis transport and method allowlist as the running interface. See finding.package_doc_04 for the concrete rewrite."
+
+[doc.005]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3-9 and 30-39 instruct checkpoint certificate registration, balance/withdrawal witness publication and deposit-root authority configuration through publication contracts. See finding.package_doc_05 for the concrete rewrite."
+
+[doc.006]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Lines 71-81 say beta-cluster IMAGE_NAMES omits internal images and apply omits internal workloads; lines 225-233 say no layerx-human workload is declared. The package beta-cluster page describes its applied Human manifest and service. See finding.package_doc_06 for the concrete rewrite."
+
+[doc.007]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Line 5 sends custody credit to a router; later operations describe controls around the former core/sequencer deployment and reset lifecycle. See finding.package_doc_07 for the concrete rewrite."
+
+[doc.008]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Line 512 sends eth_sendRawTransaction to /rpc; lines 67-87 and 701-702 retain separate sequencer trust and verification-rung setup. See finding.package_doc_08 for the concrete rewrite."
+
+[doc.009]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Line 5 directs public funding through custody credit submitted to a router although the opening declares the faucet private-only; examples retain the former hosted payment flow. See finding.package_doc_09 for the concrete rewrite."
+
+[doc.010]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Lines 3-13 define an in-cluster sequencer running layerxd with serve/authority-replica modes; later sections instruct LNI socket and sequencer-key lifecycle operations. See finding.package_doc_10 for the concrete rewrite."
+
+[doc.011]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Lines 3-8 submit activities onto node LNI; later deployment config treats the retired layerxd socket and program listener as running dependencies. See finding.package_doc_11 for the concrete rewrite."
+
+[doc.012]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "stale"
+notes = "Lines 5-6 put the TLS core boundary in front of layerxd; lines 23-25 configure the LNI socket, replica listener and separate daemon in one pod. See finding.package_doc_12 for the concrete rewrite."
+
+[doc.013]
+path = "deploy/launchpad/README.md"
+status = "stale"
+notes = "The overview says nothing here hard-codes a registry or host and treats Railway host wiring as a future choice. railway-values.json already pins mainnet-beta RPC/public web origins and railway/ provides concrete deployment and variable contracts. See finding.deployment_overview_drift."
+
+[doc.014]
+path = "deploy/launchpad/production/bootstrap/README.md"
+status = "stale"
+notes = "Lines 19-22 and 56 invoke deploy/production/bootstrap; compose and scripts actually live under deploy/launchpad/production/bootstrap. See finding.bootstrap_command_paths."
+
+[doc.015]
+path = "deploy/launchpad/production/observability/README.md"
+status = "stale"
+notes = "Line 11 invokes deploy/production/observability/check.py; the checked-in checker lives under deploy/launchpad/production/observability. See finding.observability_command_paths."
+
+[doc.016]
+path = "deploy/launchpad/production/observability/phase2/runbooks/activation.md"
+status = "accurate"
+notes = "Activation instructions bind operator authority, immutable bundle adoption, durable rollback and phase3 interruption/denial evidence."
+
+[doc.017]
+path = "deploy/launchpad/production/observability/phase2/runbooks/capacity.md"
+status = "accurate"
+notes = "Capacity instructions require source-bound allocations/workload captures and explicitly reserve final shared qualification."
+
+[doc.018]
+path = "deploy/launchpad/production/observability/runbooks/availability.md"
+status = "accurate"
+notes = "Runbook separates missing traffic from outages and requires timely ownership, acknowledgment and customer updates."
+
+[doc.019]
+path = "deploy/launchpad/production/observability/runbooks/integrity.md"
+status = "accurate"
+notes = "Runbook quarantines conflicting RPC endpoints without rolling back committed blocks and preserves source proof."
+
+[doc.020]
+path = "deploy/launchpad/production/observability/runbooks/storage.md"
+status = "accurate"
+notes = "Runbook preserves offsets/WAL and unacknowledged durable messages, limiting replay to measured spare capacity."
+
+[doc.021]
+path = "deploy/launchpad/production/observability/runbooks/synthetic.md"
+status = "accurate"
+notes = "Runbook requires actual journey/schema evidence and nonprivileged bounded probes, conditioning paging on collectors being wired."
+
+[doc.022]
+path = "deploy/launchpad/production/observability/runbooks/telemetry.md"
+status = "accurate"
+notes = "Runbook preserves telemetry privacy/cardinality budgets and drops telemetry before obstructing durable business commits."
+
+[doc.023]
+path = "deploy/launchpad/production/recovery/README.md"
+status = "stale"
+notes = "Line 8 invokes deploy/production/recovery/check.py; the checked-in checker lives under deploy/launchpad/production/recovery. See finding.recovery_command_paths."
+
+[doc.024]
+path = "deploy/launchpad/production/recovery/phase2/runbook.md"
+status = "stale"
+notes = "Line 48 invokes deploy/production/recovery/phase2/check.py; the phase3 checker actually lives under deploy/launchpad/production/recovery/phase2. See finding.recovery_v3_command_paths."
+
+[doc.025]
+path = "deploy/launchpad/production/recovery/phase4/runbook.md"
+status = "stale"
+notes = "Lines 9 and 33 invoke release collect/tests in deploy/production/recovery/phase4; that directory is now deploy/launchpad/production/recovery/phase4. See finding.recovery_release_command_paths."
+
+[doc.026]
+path = "deploy/launchpad/production/topology/README.md"
+status = "stale"
+notes = "Lines 10-15 invoke deploy/production/topology scripts and tests; those paths are now under deploy/launchpad/production/topology. See finding.topology_command_paths."
+
+[doc.027]
+path = "deploy/launchpad/production/topology/phase2/operator-runbook.md"
+status = "stale"
+notes = "Lines 3 and 43 set PYTHONPATH=deploy/production/topology; line 45 pins tools/production/load. Current paths are deploy/launchpad/production/topology and tools/launchpad/production/load. See finding.topology_operator_command_paths."
+
+[doc.028]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "accurate"
+notes = "Reviewed the deploy CLI/config/env/format/metrics and FlyCI CLI/config/env/format declarations. Registry-derived source paths and option identities match current declarations; implementation and integration defects are recorded against their owning member files."

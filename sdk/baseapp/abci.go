@@ -917,10 +917,7 @@ func handleQueryStore(ctx context.Context, app *BaseApp, path []string, req abci
 			), app.trace)
 	}
 
-	resp := queryable.Query(ctx, req)
-	resp.Height = req.Height
-
-	return resp
+	return queryable.Query(ctx, req)
 }
 
 func handleQueryCustom(app *BaseApp, path []string, req abci.RequestQuery) abci.ResponseQuery {

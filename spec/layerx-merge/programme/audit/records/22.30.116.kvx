@@ -1,0 +1,1605 @@
+# Pre-upgrade wallet audit at the source revision below. Qualification evidence is retained by the bounded task gates.
+
+[audit.22.30.116]
+task = "22.30.116"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 158
+findings = 50
+docs_reviewed = 26
+upgrade_ready = false
+blocking = ["snapshot-state", "account-names"]
+review_basis = "Full member-file review against the audit brief, package requirements, listed producer/consumer registry rows and documentation. Generated examples are explicitly exempted from a hand-maintained source verdict. Findings are proposals only; no implementation or runtime qualification is claimed."
+requirements_reviewed = ["22998.1", "22076.1", "20005.2", "5045.2", "14054.1", "5004.1", "5004.2", "5089.1", "5049.4", "5064.1", "17054.2", "22106.1", "22011.1", "2020.2", "2035.1", "2058.4", "18814.1", "22108.1", "22095.1", "8361.1", "21163.1", "21157.1", "21143.1", "21142.1", "21138.1", "21133.1", "21131.1", "20007.1", "19010.3", "19005.1", "181562.1", "84505.1", "5001.1", "5001.2", "5001.3", "5019.1", "5019.2", "5019.3", "5019.4", "5044.1", "5044.2", "5044.3", "5053.1", "5053.2", "5053.3", "5999.1", "5003.1", "5003.2", "5003.3", "5003.4", "5005.1", "5005.2", "5006.1", "5006.2", "5058.1", "5007.1", "5008.1", "5020.1", "5020.2", "5020.3", "5009.1", "5009.2", "5033.1", "5033.2", "5059.1", "5059.2", "5021.1", "5010.1", "5010.2", "5010.3", "5010.4", "5011.1", "5011.2", "5022.1", "5022.2", "5023.1", "5023.2", "5023.3", "5087.1", "21127.1"]
+produces_reviewed = 400
+consumes_reviewed = 400
+
+[file.001]
+path = "apps/wallet/.eslintrc.json"
+lines = 38
+verdict = "issues"
+note = "Read legacy lint settings against the active ESLint 9 flat configuration; see the unused configuration finding."
+
+[file.002]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md"
+lines = 34
+verdict = "issues"
+note = "Read all bug-report prompts and checked repository template discovery; nested path is not discovered."
+
+[file.003]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md"
+lines = 19
+verdict = "issues"
+note = "Read feature-request prompts and checked repository template discovery; nested path is not discovered."
+
+[file.004]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/question.md"
+lines = 13
+verdict = "issues"
+note = "Read question prompts and checked repository template discovery; nested path is not discovered."
+
+[file.005]
+path = "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md"
+lines = 41
+verdict = "issues"
+note = "Read review and testing checklist; repository pull-request creation does not discover this nested template."
+
+[file.006]
+path = "apps/wallet/.github/copilot-instructions.md"
+lines = 50
+verdict = "generated"
+note = "Generated Copilot instruction page; retained as generated guidance, not a hand-maintained runtime or interface implementation."
+
+[file.007]
+path = "apps/wallet/.github/workflows/ci.yml"
+lines = 29
+verdict = "issues"
+note = "Read workflow triggers, dependency install and every validation step; discovery and package targeting are recorded."
+
+[file.008]
+path = "apps/wallet/.github/workflows/deploy.yml"
+lines = 27
+verdict = "issues"
+note = "Read production trigger, build and deploy steps; nested discovery and placeholder deployment are recorded."
+
+[file.009]
+path = "apps/wallet/.github/workflows/nextjs.yml"
+lines = 93
+verdict = "issues"
+note = "Read complete Pages workflow, artifact and permissions; nested discovery and static artifact drift are recorded."
+
+[file.010]
+path = "apps/wallet/.github/workflows/security.yml"
+lines = 49
+verdict = "issues"
+note = "Read audit, CodeQL and dependency-review jobs; registration and ineffective security steps are recorded."
+
+[file.011]
+path = "apps/wallet/.yarnrc.yml"
+lines = 7
+verdict = "clean"
+note = "Read Yarn node-linker settings; optional package-manager configuration contains no network endpoint or secret."
+
+[file.012]
+path = "apps/wallet/CHANGELOG.md"
+lines = 47
+verdict = "issues"
+note = "Read complete release history and links; placeholder release date and imported repository identity are recorded."
+
+[file.013]
+path = "apps/wallet/README.md"
+lines = 88
+verdict = "clean"
+note = "Read scripts, environment table and operational pointers against wallet package, PWA build and server deployment. Current network default is chain 125; no retired public endpoint is prescribed."
+
+[file.014]
+path = "apps/wallet/commitlint.config.js"
+lines = 24
+verdict = "clean"
+note = "Read conventional-commit configuration; only commit message validation, no runtime interface or retired endpoint."
+
+[file.015]
+path = "apps/wallet/config/README.md"
+lines = 6
+verdict = "clean"
+note = "Read configuration documentation; it accurately labels the unused environment and compiler fragments rather than claiming they are active."
+
+[file.016]
+path = "apps/wallet/config/env/schema.ts"
+lines = 73
+verdict = "issues"
+note = "Read every environment field, default and export; unused reader is recorded as dormant configuration."
+
+[file.017]
+path = "apps/wallet/config/typescript/base.json"
+lines = 23
+verdict = "issues"
+note = "Read every compiler option and compared the active tsconfig extension path; unused fragment is recorded."
+
+[file.018]
+path = "apps/wallet/deployment/render-edge-trust.sh"
+lines = 38
+verdict = "clean"
+note = "Read complete trust renderer: validates the proxy secret and writes escaped edge configuration without printing secret material."
+
+[file.019]
+path = "apps/wallet/deployment/render-edge-trust.test.sh"
+lines = 57
+verdict = "clean"
+note = "Read shell assertions covering trust rendering, invalid secret refusal and injection handling; fixtures are shell input cases rather than a claimed network integration proof."
+
+[file.020]
+path = "apps/wallet/deployment/start-wallet.sh"
+lines = 37
+verdict = "clean"
+note = "Read startup script, trust rendering, nginx/Next startup and termination handling against standalone deployment paths."
+
+[file.021]
+path = "apps/wallet/e2e/environment.ts"
+lines = 13
+verdict = "clean"
+note = "Read test environment parsing and origin validation; test configuration preserves explicit network origins without credential defaults."
+
+[file.022]
+path = "apps/wallet/e2e/global-setup.ts"
+lines = 39
+verdict = "clean"
+note = "Read global setup, real RPC availability and state preparation; refusals remain visible rather than weakening enabled tests."
+
+[file.023]
+path = "apps/wallet/e2e/home.spec.ts"
+lines = 22
+verdict = "clean"
+note = "Read home navigation checks against the mounted wallet application and authenticated test environment."
+
+[file.024]
+path = "apps/wallet/e2e/receive.spec.ts"
+lines = 21
+verdict = "clean"
+note = "Read receive address and QR/export assertions against the actual wallet fixture identity."
+
+[file.025]
+path = "apps/wallet/e2e/send.spec.ts"
+lines = 991
+verdict = "issues"
+note = "Read native/token send and recovery cases. Chain submission is real; explorer response interception is a coverage limit, recorded separately."
+
+[file.026]
+path = "apps/wallet/e2e/settings.spec.ts"
+lines = 21
+verdict = "clean"
+note = "Read settings persistence and network-choice UI cases against the actual repository and reload behavior."
+
+[file.027]
+path = "apps/wallet/e2e/sign-in.spec.ts"
+lines = 34
+verdict = "clean"
+note = "Read sign-in UI and unavailable configuration cases; no test embeds a reusable credential or accepts unsigned authenticated writes."
+
+[file.028]
+path = "apps/wallet/e2e/wallet.ts"
+lines = 40
+verdict = "clean"
+note = "Read wallet test helpers, injected provider/session preparation and account selection; these are explicit browser fixtures, not claimed production signing proofs."
+
+[file.029]
+path = "apps/wallet/ecosystem.config.cjs"
+lines = 25
+verdict = "clean"
+note = "Read process-manager cwd, runtime environment and app startup against package scripts; no stale public RPC default."
+
+[file.030]
+path = "apps/wallet/eslint.config.mjs"
+lines = 82
+verdict = "clean"
+note = "Read all flat lint rules and file scopes; this is the active package ESLint configuration, distinct from the dormant legacy file."
+
+[file.031]
+path = "apps/wallet/next.config.mjs"
+lines = 111
+verdict = "clean"
+note = "Read standalone output, basePath, rewrites, build and security settings against nginx and the PWA /wallet mount."
+
+[file.032]
+path = "apps/wallet/package.json"
+lines = 117
+verdict = "clean"
+note = "Read all package scripts, SDK link and runtime/dev dependency declarations against wallet build and test entry points."
+
+[file.033]
+path = "apps/wallet/pnpm-workspace.yaml"
+lines = 10
+verdict = "clean"
+note = "Read dependency-build approvals; this package-manager configuration matches the documented isolated installation procedure."
+
+[file.034]
+path = "apps/wallet/postcss.config.js"
+lines = 6
+verdict = "clean"
+note = "Read PostCSS plugins against the app Tailwind build pipeline; no external runtime interface."
+
+[file.035]
+path = "apps/wallet/railway.json"
+lines = 12
+verdict = "clean"
+note = "Read Railway build/start settings and runtime target against the wallet standalone image and server entry point."
+
+[file.036]
+path = "apps/wallet/scripts/build-pwa.mjs"
+lines = 28
+verdict = "clean"
+note = "Read PWA builder, source dependency hashing, asset generation and service-worker output paths against manifest/caching exports."
+
+[file.037]
+path = "apps/wallet/scripts/generate-swap-abi-index.mjs"
+lines = 33
+verdict = "clean"
+note = "Read ABI index generator and check mode, input paths and deterministic output ordering; no runtime RPC write."
+
+[file.038]
+path = "apps/wallet/scripts/generate-vapid-keys.js"
+lines = 15
+verdict = "clean"
+note = "Read VAPID key generation and environment naming; outputs are deliberate operator key material, not committed default keys."
+
+[file.039]
+path = "apps/wallet/scripts/release-check.sh"
+lines = 184
+verdict = "issues"
+note = "Read entire release check; manifest asset resolution and service-worker path assertions lag the /wallet mount."
+
+[file.040]
+path = "apps/wallet/scripts/scan-secrets.sh"
+lines = 86
+verdict = "clean"
+note = "Read complete secret scanner, allow patterns and redacted reporting; it reports location/class without printing matched values."
+
+[file.041]
+path = "apps/wallet/scripts/scan-secrets.test.sh"
+lines = 102
+verdict = "clean"
+note = "Read generated scanner fixtures and cleanup/refusal assertions; tests cover secret detection without committing usable credentials."
+
+[file.042]
+path = "apps/wallet/scripts/seed-sid-campaign.js"
+lines = 44
+verdict = "issues"
+note = "Read complete seeding script; corrupt campaign state replacement and uncoordinated persistence are recorded."
+
+[file.043]
+path = "apps/wallet/sentry.edge.config.ts"
+lines = 8
+verdict = "clean"
+note = "Read edge Sentry initialization; reporting is configured from environment without logging credentials."
+
+[file.044]
+path = "apps/wallet/sentry.server.config.ts"
+lines = 8
+verdict = "clean"
+note = "Read server Sentry initialization and environment behavior; no secret default or retired service endpoint."
+
+[file.045]
+path = "apps/wallet/src/hooks/useContacts.ts"
+lines = 50
+verdict = "clean"
+note = "Read contact hook CRUD and repository use; validates contact metadata through the central storage path. Shared repository persistence risks are owned in registry findings."
+
+[file.046]
+path = "apps/wallet/src/hooks/useOnlineStatus.ts"
+lines = 31
+verdict = "clean"
+note = "Read online/offline listener setup and cleanup; online status is browser connectivity information, not chain-finality evidence."
+
+[file.047]
+path = "apps/wallet/src/hooks/useRpcBalances.ts"
+lines = 92
+verdict = "issues"
+note = "Read complete RPC balance hook; no live importer found and its dormant error/race behavior is recorded."
+
+[file.048]
+path = "apps/wallet/src/platform/status/background-failures.ts"
+lines = 51
+verdict = "clean"
+note = "Read failure-domain types, deduplication and notification publication; messages carry safe user-facing failure codes rather than key material."
+
+[file.049]
+path = "apps/wallet/src/platform/storage/registry.ts"
+lines = 231
+verdict = "issues"
+note = "Read complete storage registry, quotas, version envelopes, lifecycle reset and corruption policy; migration and persistence acknowledgement findings apply."
+
+[file.050]
+path = "apps/wallet/src/platform/storage/repositories.ts"
+lines = 875
+verdict = "issues"
+note = "Read every repository parser, key, sensitivity, retention and migration; premature deletion of legacy transfer/metadata records is recorded."
+
+[file.051]
+path = "apps/wallet/src/platform/storage/storage-forensics.test.ts"
+lines = 61
+verdict = "clean"
+note = "Read storage forensic catalog, corruption and lifecycle-reset tests; they use browser storage fixtures and do not by themselves claim a real chain recovery proof."
+
+[file.052]
+path = "apps/wallet/src/platform/storage/storage.acceptance.test.ts"
+lines = 420
+verdict = "clean"
+note = "Read storage migration, account/network persistence and provider-routing tests. Custom /rpc fixture paths test arbitrary user URLs, not a public mainnet endpoint declaration; transport doubles limit them to unit acceptance."
+
+[file.053]
+path = "apps/wallet/src/proof_wallet_app.test.ts"
+lines = 458
+verdict = "issues"
+note = "Read all proof functions and real loopback refusal path; successful hosted plan transport and reopen coverage are missing."
+
+[file.054]
+path = "apps/wallet/src/proxy.ts"
+lines = 28
+verdict = "clean"
+note = "Read proxy matcher and request metadata handling; Next router-prefetch is framework metadata, not the retired network router."
+
+[file.055]
+path = "apps/wallet/src/pwa/InstallPrompt.test.tsx"
+lines = 137
+verdict = "clean"
+note = "Read install-prompt UI assertions, browser event fixtures and dismissal behavior against its component contract."
+
+[file.056]
+path = "apps/wallet/src/pwa/InstallPrompt.tsx"
+lines = 112
+verdict = "clean"
+note = "Read install-prompt rendering, action callbacks and disabled/installed states; no network or signing path is exposed."
+
+[file.057]
+path = "apps/wallet/src/pwa/OfflineFallback.tsx"
+lines = 19
+verdict = "clean"
+note = "Read offline fallback and retry/navigation behavior; it does not claim offline writes or fabricate transaction success."
+
+[file.058]
+path = "apps/wallet/src/pwa/build.ts"
+lines = 86
+verdict = "clean"
+note = "Read PWA build helpers and content hashing against scripts/build-pwa.mjs and generated worker configuration."
+
+[file.059]
+path = "apps/wallet/src/pwa/caching.test.ts"
+lines = 137
+verdict = "clean"
+note = "Read full cache strategy matrix, network-origin validation and fixture URL cases; custom loopback /rpc values exercise network-only classification rather than advertise a public endpoint."
+
+[file.060]
+path = "apps/wallet/src/pwa/caching.ts"
+lines = 86
+verdict = "clean"
+note = "Read method/origin/path cache classification and /wallet worker/static URLs; RPC and sensitive network bases are network-only."
+
+[file.061]
+path = "apps/wallet/src/pwa/config.ts"
+lines = 89
+verdict = "clean"
+note = "Read network base environment list, URL validation and network-only origin derivation; no node.hyperpaxeer.com RPC default."
+
+[file.062]
+path = "apps/wallet/src/pwa/manifest.test.ts"
+lines = 87
+verdict = "clean"
+note = "Read manifest asset dimension, MIME, purpose and install-scope checks against exported manifest definitions."
+
+[file.063]
+path = "apps/wallet/src/pwa/manifest.ts"
+lines = 75
+verdict = "clean"
+note = "Read complete manifest, icon inventory, start_url and /wallet scope against public icon filesystem and mounted browser URLs."
+
+[file.064]
+path = "apps/wallet/src/pwa/policy.test.ts"
+lines = 64
+verdict = "clean"
+note = "Read PWA policy checks for sensitive caching and service-worker behavior; these are source-contract checks, not browser lifecycle qualification."
+
+[file.065]
+path = "apps/wallet/src/pwa/register.test.ts"
+lines = 177
+verdict = "clean"
+note = "Read registration/update/reload fixtures and assertion functions against the real registerServiceWorker module."
+
+[file.066]
+path = "apps/wallet/src/pwa/register.ts"
+lines = 110
+verdict = "clean"
+note = "Read registration, update offering, controller changes, visibility/reload and disposal; /wallet/sw.js matches the production mount."
+
+[file.067]
+path = "apps/wallet/src/pwa/sw.ts"
+lines = 203
+verdict = "issues"
+note = "Read all worker event handlers and cache lifecycle; unvalidated push JSON and non-durable subscription renewal are recorded."
+
+[file.068]
+path = "apps/wallet/src/pwa/worker.test.ts"
+lines = 148
+verdict = "clean"
+note = "Read complete worker VM harness and cache/network/refusal assertions; fake worker APIs test handler semantics, not a real browser offline/restart proof."
+
+[file.069]
+path = "apps/wallet/tests/wallet-app/wiring.spec.ts"
+lines = 24
+verdict = "clean"
+note = "Read wallet-app wiring browser assertions and route/configuration expectations against the actual application mount."
+
+[file.070]
+path = "apps/wallet/tools/README.md"
+lines = 3
+verdict = "clean"
+note = "Read tools directory guide; it accurately points to the scripts directory and does not claim tools exist here."
+
+[file.071]
+path = "apps/wallet/tsconfig.json"
+lines = 71
+verdict = "clean"
+note = "Read compiler include/exclude, aliases and Next plugin settings against the real app source and generated Next types."
+
+[file.072]
+path = "apps/web/e2e/exchange-perps.test.ts"
+lines = 616
+verdict = "clean"
+note = "Read complete exchange/perps browser scenario, real provider path, committed result handling and refusal coverage; endpoint fixtures are supplied by the environment."
+
+[file.073]
+path = "node/rpc_restart_test.go"
+lines = 159
+verdict = "clean"
+note = "Read full node/RPC restart test, committed receipt checks and process restart path against native node state."
+
+[file.074]
+path = "node/sequencer/accepter.go"
+lines = 115
+verdict = "clean"
+note = "Read accepter validation, release/ack and signed receipt flow; AckOK is required and failure halts later acceptance. It is integrated node code, not a separate sequencer service."
+
+[file.075]
+path = "node/sequencer/node_start.go"
+lines = 175
+verdict = "clean"
+note = "Read full node startup wiring, handler registration, peer roles and panic reporting; integrated node ownership is distinct from the retired hosted daemon."
+
+[file.076]
+path = "node/sequencer/standalone_primary_test.go"
+lines = 251
+verdict = "clean"
+note = "Read standalone-primary real transaction test, empty standby configuration and receipt signature assertions through production SendConfig."
+
+[file.077]
+path = "rpc/send_sequencer_test.go"
+lines = 594
+verdict = "clean"
+note = "Read complete SendRawTransaction tests and node integration setup, negative validation, forwarding and restart assertions against production accepter paths."
+
+[file.078]
+path = "rpc/utils.go"
+lines = 675
+verdict = "clean"
+note = "Read complete RPC utility/conversion and send routing implementation; invalid input paths retain explicit errors and units are preserved."
+
+[file.079]
+path = "services/wallet/README.md"
+lines = 65
+verdict = "clean"
+note = "Read wallet workspace layout, commands and complete environment inventory against gateway, SDK and demo package roles."
+
+[file.080]
+path = "services/wallet/attestor/dealer/dealer.go"
+lines = 22
+verdict = "clean"
+note = "Read dealer share generation, scalar validation and secret zeroing against threshold participant and curve contracts."
+
+[file.081]
+path = "services/wallet/attestor/dealer/dealer_test.go"
+lines = 131
+verdict = "clean"
+note = "Read dealer reconstruction, threshold, malformed input and curve cases against the actual dealer implementation."
+
+[file.082]
+path = "services/wallet/attestor/internal/backup/backup_test.go"
+lines = 470
+verdict = "issues"
+note = "Read complete snapshot writer/retention/restore tests; production recovery assertions currently compare shares only."
+
+[file.083]
+path = "services/wallet/attestor/internal/backup/restore.go"
+lines = 106
+verdict = "clean"
+note = "Read digest validation, owner binding, empty-directory restore and audit publication; underlying snapshot state omission is owned in store/backup.go."
+
+[file.084]
+path = "services/wallet/attestor/internal/backup/writer.go"
+lines = 354
+verdict = "clean"
+note = "Read complete atomic snapshot publication, sequence naming, retention and health counters; wire body omission is owned at Store.Snapshot."
+
+[file.085]
+path = "services/wallet/attestor/internal/config/config.go"
+lines = 408
+verdict = "clean"
+note = "Read all attestor environment/config parsing, required key files, quorum and policy defaults against registry variable names and transport requirements."
+
+[file.086]
+path = "services/wallet/attestor/internal/config/config_test.go"
+lines = 360
+verdict = "clean"
+note = "Read complete valid/default and refusal configuration tests against actual config.Load behavior and declared limits."
+
+[file.087]
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+lines = 577
+verdict = "clean"
+note = "Read full activity wire codec, bounded fields, version/module tags and canonical encodings against chain codec and policy consumers."
+
+[file.088]
+path = "services/wallet/attestor/internal/lxwire/bind.go"
+lines = 48
+verdict = "clean"
+note = "Read bind/grant-related canonical preimages and byte bounds against their decoder contracts; retained parsing support is not itself a public retired route."
+
+[file.089]
+path = "services/wallet/attestor/internal/lxwire/ids.go"
+lines = 178
+verdict = "issues"
+note = "Read complete identifier grammar and hash derivation; stream and other chain namespaces disagree with AccountID."
+
+[file.090]
+path = "services/wallet/attestor/internal/lxwire/lxwire_test.go"
+lines = 735
+verdict = "issues"
+note = "Read full cross-language wire and identifier tests; the explicit chain-valid stream rejection hides the parser mismatch."
+
+[file.091]
+path = "services/wallet/attestor/internal/lxwire/payments.go"
+lines = 134
+verdict = "clean"
+note = "Read payment preimage encoding, amount widths, chain/protocol binding and decode bounds against policy consumers."
+
+[file.092]
+path = "services/wallet/attestor/internal/lxwire/send.go"
+lines = 272
+verdict = "clean"
+note = "Read send authorization, activity/digest binding and exact byte parsing against native asset send contract."
+
+[file.093]
+path = "services/wallet/attestor/internal/lxwire/send_test.go"
+lines = 273
+verdict = "clean"
+note = "Read all send encoding/decoding and refusal tests; current supported send shapes agree with the implementation and golden vectors."
+
+[file.094]
+path = "services/wallet/attestor/internal/replica/config.go"
+lines = 86
+verdict = "clean"
+note = "Read replica SSH destination, key paths, interval and strict configuration validation; private keys remain file inputs."
+
+[file.095]
+path = "services/wallet/attestor/internal/replica/ledger.go"
+lines = 176
+verdict = "issues"
+note = "Read complete durable shipping ledger format and atomic writes; unbounded historical index growth is recorded."
+
+[file.096]
+path = "services/wallet/attestor/internal/replica/replica_test.go"
+lines = 597
+verdict = "clean"
+note = "Read real SSH/SFTP shipping, host-key mismatch, conflict, replay and restart cases; no replacement remote hash is accepted as verification."
+
+[file.097]
+path = "services/wallet/attestor/internal/replica/shipper.go"
+lines = 445
+verdict = "issues"
+note = "Read complete shipping lifecycle, pinning, read-back digest, ledger acknowledgement and retry; post-handshake cancellation bound is missing."
+
+[file.098]
+path = "services/wallet/attestor/internal/store/backup.go"
+lines = 210
+verdict = "issues"
+note = "Read complete snapshot cryptographic envelope, authenticated owner/version and empty-directory restore; durable non-share buckets are omitted."
+
+[file.099]
+path = "services/wallet/attestor/internal/store/replay.go"
+lines = 70
+verdict = "clean"
+note = "Read replay reservation/commit and persistence methods, byte bounds and duplicate refusal against actual store transactions."
+
+[file.100]
+path = "services/wallet/attestor/internal/store/replay_test.go"
+lines = 49
+verdict = "clean"
+note = "Read replay duplicate, persistence and reopen tests against the real encrypted store; ordinary reopen is covered, snapshot recovery gap is separately recorded."
+
+[file.101]
+path = "services/wallet/attestor/internal/store/staged_test.go"
+lines = 80
+verdict = "clean"
+note = "Read staged share create/promote/refusal and reopen cases against store transactions and ceremony lifecycle."
+
+[file.102]
+path = "services/wallet/attestor/internal/store/store.go"
+lines = 962
+verdict = "clean"
+note = "Read complete encrypted shares, generic records, staged/import/verification/refresh and ceremony state implementation; record methods persist in bbolt. Snapshot omission is owned in backup.go."
+
+[file.103]
+path = "services/wallet/attestor/internal/store/store_test.go"
+lines = 589
+verdict = "issues"
+note = "Read all store tests including encryption, associated-data tampering and share recovery; full-state snapshot comparison is absent."
+
+[file.104]
+path = "services/wallet/attestor/internal/transport/bounds_test.go"
+lines = 76
+verdict = "clean"
+note = "Read transport frame/message bounds, invalid length and timeout tests against production framing/session paths."
+
+[file.105]
+path = "services/wallet/attestor/internal/transport/codec_test.go"
+lines = 89
+verdict = "clean"
+note = "Read complete transport codec roundtrip and malformed frame tests against real encode/decode functions."
+
+[file.106]
+path = "services/wallet/attestor/internal/transport/session.go"
+lines = 666
+verdict = "clean"
+note = "Read session sequencing, deadline, cancellation and close handling against peer-message authentication/framing contracts."
+
+[file.107]
+path = "services/wallet/attestor/internal/transport/tls.go"
+lines = 166
+verdict = "clean"
+note = "Read mTLS certificate/name checks, peer pinning and TLS minimum configuration; no unauthenticated threshold peer fallback."
+
+[file.108]
+path = "services/wallet/attestor/internal/transport/transport.go"
+lines = 502
+verdict = "clean"
+note = "Read full transport connection/listener lifecycle, size bounds, peer validation and shutdown paths against sessions and registry signatures."
+
+[file.109]
+path = "services/wallet/attestor/internal/transport/transport_test.go"
+lines = 793
+verdict = "clean"
+note = "Read transport real connection, authentication/refusal and lifecycle tests against its production TLS/frame code."
+
+[file.110]
+path = "services/wallet/demo/README.md"
+lines = 40
+verdict = "issues"
+note = "Read complete demo setup and source inventory; current send component and lint command documentation drift are recorded."
+
+[file.111]
+path = "services/wallet/demo/next.config.mjs"
+lines = 12
+verdict = "clean"
+note = "Read demo Next configuration against package build and framework imports; SDK remains a transpiled workspace dependency."
+
+[file.112]
+path = "services/wallet/demo/package.json"
+lines = 34
+verdict = "issues"
+note = "Read every demo script and dependency; declared next lint command does not exist in the declared framework version."
+
+[file.113]
+path = "services/wallet/demo/postcss.config.mjs"
+lines = 7
+verdict = "clean"
+note = "Read Tailwind/PostCSS plugin configuration against demo dependencies and CSS build path."
+
+[file.114]
+path = "services/wallet/demo/src/app/auth/callback/page.tsx"
+lines = 89
+verdict = "issues"
+note = "Read full OAuth return effect, listener and timeout behavior; cleanup leaves authentication subscription active."
+
+[file.115]
+path = "services/wallet/demo/src/app/layout.tsx"
+lines = 39
+verdict = "clean"
+note = "Read full layout/provider setup and metadata; runtime provider/session paths match the SDK integration, while short marketing text is not a timing or passkey test guarantee."
+
+[file.116]
+path = "services/wallet/demo/src/app/page.tsx"
+lines = 129
+verdict = "issues"
+note = "Read full demo landing component and feature descriptions; the advertised unused SendTxForm is tracked in demo-form-unwired and demo README finding."
+
+[file.117]
+path = "services/wallet/demo/src/components/Completion.test.tsx"
+lines = 300
+verdict = "clean"
+note = "Read full completion/disclosure/receipt presentation assertions against actual wallet components and bound SDK inputs."
+
+[file.118]
+path = "services/wallet/demo/src/components/ConnectButton.tsx"
+lines = 32
+verdict = "clean"
+note = "Read connect button and modal toggling; delegates authentication and wallet operations to the actual modal/SDK."
+
+[file.119]
+path = "services/wallet/demo/src/components/FundedAccountPanel.test.tsx"
+lines = 80
+verdict = "clean"
+note = "Read funded-account panel tests, injected-provider selection, configuration refusal and intent/status UI assertions; fixtures do not claim real chain signing."
+
+[file.120]
+path = "services/wallet/demo/src/components/FundedAccountPanel.tsx"
+lines = 115
+verdict = "clean"
+note = "Read full supported wallet panel, provider selection, provisioning, intent approval and receipt/result flow against SDK types and chain/network binding."
+
+[file.121]
+path = "services/wallet/demo/src/components/ProviderButton.tsx"
+lines = 74
+verdict = "clean"
+note = "Read provider button type, icon and action rendering; no authentication bypass or embedded credential."
+
+[file.122]
+path = "services/wallet/demo/src/components/SendTxForm.tsx"
+lines = 200
+verdict = "issues"
+note = "Read complete legacy send form; no demo source imports it, despite README and landing-page claims."
+
+[file.123]
+path = "services/wallet/demo/src/components/WalletModal.tsx"
+lines = 209
+verdict = "clean"
+note = "Read full modal authentication, session, provisioning and SupportedWalletPanel wiring against SDK state and sign-out lifecycle."
+
+[file.124]
+path = "services/wallet/demo/src/lib/format.ts"
+lines = 34
+verdict = "issues"
+note = "Read every formatter and parser; nativeToWei silently discards excess input precision."
+
+[file.125]
+path = "services/wallet/demo/src/lib/paxeer.ts"
+lines = 58
+verdict = "clean"
+note = "Read wallet singleton environment validation and auth redirect origin/path construction against SDK and Supabase setup."
+
+[file.126]
+path = "services/wallet/demo/tsconfig.json"
+lines = 27
+verdict = "clean"
+note = "Read demo compiler alias, includes and workspace base settings against package/module layout."
+
+[file.127]
+path = "services/wallet/demo/vitest.config.ts"
+lines = 15
+verdict = "clean"
+note = "Read demo test include/environment and aliases against component suites and actual SDK imports."
+
+[file.128]
+path = "services/wallet/deploy/attestor-kernel-policy.json"
+lines = 20
+verdict = "clean"
+note = "Read shipped kernel module/operation policy and cap values against native asset-send ownership and the evaluator document schema."
+
+[file.129]
+path = "services/wallet/deploy/attestor-policy.md"
+lines = 152
+verdict = "clean"
+note = "Read full policy guide, override/merge semantics, amount caps and all refusal tables against the policy implementation; retained grant inspection descriptions are policy details, not a live router contract."
+
+[file.130]
+path = "services/wallet/deploy/cutover/apply.sh"
+lines = 124
+verdict = "clean"
+note = "Read complete cutover apply flow, backups, validation and guarded replacement against the shared cutover library; this is explicit operator migration tooling."
+
+[file.131]
+path = "services/wallet/deploy/cutover/lib.sh"
+lines = 97
+verdict = "clean"
+note = "Read all cutover helpers, validation, safety checks, backups and reversible file installation; no default public RPC rewrite to retired routes."
+
+[file.132]
+path = "services/wallet/deploy/cutover/preflight.sh"
+lines = 65
+verdict = "clean"
+note = "Read complete cutover preflight, prerequisites and refusal checks; operator evidence is required before apply."
+
+[file.133]
+path = "services/wallet/deploy/cutover/retire.sh"
+lines = 168
+verdict = "clean"
+note = "Read retirement script and backups/validation; retired component names are migration targets rather than instructions to run them."
+
+[file.134]
+path = "services/wallet/deploy/cutover/rewrite-caddyfile.py"
+lines = 109
+verdict = "clean"
+note = "Read full Caddyfile parser/rewriter, matching and output behavior against the cutover scripts; only targeted route blocks are modified."
+
+[file.135]
+path = "services/wallet/deploy/human.toml"
+lines = 118
+verdict = "issues"
+note = "Read full Human deployment, secret mounts, health checks and event upstream mTLS; router-based network-name comment is stale."
+
+[file.136]
+path = "services/wallet/gateway/loadtest/README.md"
+lines = 36
+verdict = "clean"
+note = "Read full k6 usage and threshold table; documented HTTP/latency thresholds match the script, whose unenforced semantic checks are separately recorded."
+
+[file.137]
+path = "services/wallet/gateway/loadtest/wallet.js"
+lines = 136
+verdict = "issues"
+note = "Read full k6 requests, thresholds and summary; semantic response checks do not determine exit status."
+
+[file.138]
+path = "services/wallet/gateway/tsconfig.json"
+lines = 12
+verdict = "clean"
+note = "Read gateway TypeScript include/output and strict compilation settings against gateway source layout."
+
+[file.139]
+path = "services/wallet/gateway/vitest.config.ts"
+lines = 15
+verdict = "clean"
+note = "Read gateway Vitest configuration, setup, environment and test patterns against the actual gateway suites."
+
+[file.140]
+path = "services/wallet/schema/attestor-api/golden/error.policy.json"
+lines = 8
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.141]
+path = "services/wallet/schema/attestor-api/golden/error.token.json"
+lines = 7
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.142]
+path = "services/wallet/schema/attestor-api/golden/evm.review.request.json"
+lines = 5
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.143]
+path = "services/wallet/schema/attestor-api/golden/evm.review.response.json"
+lines = 13
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.144]
+path = "services/wallet/schema/attestor-api/golden/health.response.json"
+lines = 16
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.145]
+path = "services/wallet/schema/attestor-api/golden/keys.addshare.request.json"
+lines = 14
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.146]
+path = "services/wallet/schema/attestor-api/golden/keys.describe.request.json"
+lines = 4
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.147]
+path = "services/wallet/schema/attestor-api/golden/keys.describe.response.json"
+lines = 18
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.148]
+path = "services/wallet/schema/attestor-api/golden/keys.generate.request.json"
+lines = 7
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.149]
+path = "services/wallet/schema/attestor-api/golden/keys.import.request.json"
+lines = 59
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.150]
+path = "services/wallet/schema/attestor-api/golden/keys.refresh.request.json"
+lines = 4
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.151]
+path = "services/wallet/schema/attestor-api/golden/keys.response.json"
+lines = 17
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.152]
+path = "services/wallet/schema/attestor-api/golden/sign.request.eth_sign_digest.json"
+lines = 17
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.153]
+path = "services/wallet/schema/attestor-api/golden/sign.request.json"
+lines = 11
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.154]
+path = "services/wallet/schema/attestor-api/golden/sign.request.lx_grant.json"
+lines = 24
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.155]
+path = "services/wallet/schema/attestor-api/golden/sign.request.lx_send_authorization.json"
+lines = 38
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.156]
+path = "services/wallet/schema/attestor-api/golden/sign.request.operator_verification.json"
+lines = 11
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.157]
+path = "services/wallet/schema/attestor-api/golden/sign.response.json"
+lines = 9
+verdict = "generated"
+note = "Generated attestor API golden example maintained by the schema/server golden-update path. Recorded as generated with exact bytes/line count; illustrative payload bytes are examples, not evidence of a real signed transaction or recovery path."
+
+[file.158]
+path = "services/wallet/tsconfig.base.json"
+lines = 22
+verdict = "clean"
+note = "Read shared wallet TypeScript module/target/strict settings against gateway and demo extension paths."
+
+[finding.snapshot-state]
+file = "services/wallet/attestor/internal/store/backup.go"
+line = 74
+class = "restart-recovery"
+severity = "high"
+observed = "Store.Snapshot serializes only bucketShares and Restore repopulates only that bucket. The records, staged and replay buckets are absent. RecordLedger holds rolling spend/rate history; policy.SpendLedger.load treats a missing record as empty usage. Ceremony import receipts, verification/refresh decisions and native-purpose/agent authority records also disappear after restoring the same keys."
+expected = "A recovered signing node must retain its policy limits, replay decisions and key ceremony state as well as its secret shares. The backup transport must preserve the state consumed by production policies() in cmd/attestor/main.go and the store lifecycle methods."
+proposal = "In services/wallet/attestor/internal/store/backup.go introduce a versioned authenticated snapshot of every durable lifecycle bucket, restore it transactionally, validate key/ceremony relationships before admitting signing, and prove spend limits, replay refusals and interrupted ceremony recovery through the production backup writer and restored server."
+owner_domain = 12
+interface = "12.go-att-store-store-snapshot"
+
+[finding.account-names]
+file = "services/wallet/attestor/internal/lxwire/ids.go"
+line = 136
+class = "interface-mismatch"
+severity = "high"
+observed = "parseAgentAccount accepts budget, escrow and margin markers but omits stream. Thus AccountID rejects agent:did:layerx:alice:stream:s1 although layerxproof/codec.AccountKind accepts it as kind 4 and DeriveAccountID derives its identifier. The attestor also lacks the chain funding and module:value namespaces, including the latter direct-identifier rule."
+expected = "The registered native AccountID interface must agree with the chain identifier producer on supported canonical names and identifier bytes. checkProtocolThreeName already includes stream, but its earlier parser prevents this canonical name reaching the hash."
+proposal = "Align services/wallet/attestor/internal/lxwire/ids.go with the canonical grammar in layerxproof/codec/state.go and src/ledger/lx_account_id.c, including stream, funding and module-value semantics; share valid and invalid vectors across all implementations and prove the exact names and bytes through policy consumers."
+owner_domain = 12
+interface = "12.go-att-lxwire-account-id"
+
+[finding.account-parity-test]
+file = "services/wallet/attestor/internal/lxwire/lxwire_test.go"
+line = 537
+class = "test-gap"
+severity = "medium"
+observed = "TestAccountIDsMatchRustAndChain places agent:did:layerx:alice:stream:s1 in the rejected-name table. The positive subset is compared with codec.DeriveAccountID, but rejected names are checked only against the attestor, so a chain-valid account is codified as invalid."
+expected = "Parity coverage must compare acceptance, refusal and derived bytes against the real chain codec for every canonical namespace, including streams and special module-value identifiers."
+proposal = "In services/wallet/attestor/internal/lxwire/lxwire_test.go use a shared all-kind vector table and compare both successful derivation and rejected inputs with the chain codec; include policy-consumer cases for stream accounts instead of preserving this contradictory refusal."
+owner_domain = 12
+interface = "12.go-att-lxwire-account-id"
+
+[finding.snapshot-store-test]
+file = "services/wallet/attestor/internal/store/store_test.go"
+line = 357
+class = "test-gap"
+severity = "medium"
+observed = "TestSnapshotRestore populates and checks share records and snapshot authentication, but does not seed or compare records, staged or replay state. It therefore passes a backup that resets rolling usage and forgets ceremony decisions."
+expected = "The recovery proof must cover all durable state consumed by the signing node, with identical policy decisions before backup and after restore plus reopen."
+proposal = "Extend services/wallet/attestor/internal/store/store_test.go with real ledger, replay and ceremony records, snapshot and restore them to an empty store, reopen it, and assert identical records and refusal decisions without replacing the store."
+owner_domain = 12
+interface = "12.go-att-store-store-snapshot"
+
+[finding.snapshot-writer-test]
+file = "services/wallet/attestor/internal/backup/backup_test.go"
+line = 111
+class = "test-gap"
+severity = "medium"
+observed = "fixture.assertRestorable restores a snapshot and compares shares only. The writer and RestoreFile success tests validate publication, digest and audit metadata without proving recovery of the policy and ceremony records that accompany the keys."
+expected = "The production writer-to-file-to-RestoreFile path must recover a usable signing node with its prior policy and lifecycle decisions intact, as required by the brief recovery check."
+proposal = "Extend services/wallet/attestor/internal/backup/backup_test.go to seed real spend/replay/ceremony state, write and ship a real snapshot, restore through RestoreFile, reopen the node store, and prove limits and ceremony continuation as well as shares."
+owner_domain = 12
+interface = "12.go-att-store-store-snapshot"
+
+[finding.replica-timeout]
+file = "services/wallet/attestor/internal/replica/shipper.go"
+line = 284
+class = "runtime-risk"
+severity = "medium"
+observed = "connect clears the raw socket deadline after SSH handshake. sftp.NewClient, Stat, upload, remoteDigest and rename then have no deadline or context-driven socket closure. A peer that accepts SSH but stops servicing SFTP can block Ship and its background loop indefinitely despite context cancellation."
+expected = "Replica shipping must bound stalled remote operations and let cancellation terminate a shipment so backup health and shutdown remain responsive."
+proposal = "In services/wallet/attestor/internal/replica/shipper.go close the underlying connection on context cancellation and enforce a configured operation deadline through subsystem negotiation, upload and read-back; exercise a real SSH/SFTP peer that stalls after handshake."
+owner_domain = 12
+interface = "12.go-att-replica-new"
+
+[finding.replica-ledger-growth]
+file = "services/wallet/attestor/internal/replica/ledger.go"
+line = 121
+class = "runtime-risk"
+severity = "medium"
+observed = "Ledger.Record retains every shipped snapshot forever, copies the entire map, sorts it and atomically rewrites the whole JSON file for each new snapshot. Local snapshot retention does not prune ledger entries, so memory, startup and write cost grow with node lifetime."
+expected = "A long-running backup service must have a bounded active shipping index while retaining the evidence needed to distinguish acknowledged snapshots from unshipped local files."
+proposal = "Define retention and archival for services/wallet/attestor/internal/replica/ledger.go, prune entries only after acknowledged local snapshot retirement, and prove restart, duplicate detection and retention behavior with a long history."
+owner_domain = 12
+interface = "12.go-att-replica-open-ledger"
+
+[finding.release-basepath]
+file = "apps/wallet/scripts/release-check.sh"
+line = 66
+class = "test-gap"
+severity = "medium"
+observed = "The release check maps manifest icon.src to public${icon.src}; current icons start /wallet/icons/app, while the filesystem assets live under public/icons/app. It also requires SERVICE_WORKER_URL = /sw.js at line 82 although caching.ts exports /wallet/sw.js. Both checks reject the current mounted wallet app."
+expected = "Release checks must resolve browser basePath URLs to their filesystem assets and validate the service-worker URL actually emitted and registered by the app."
+proposal = "Update apps/wallet/scripts/release-check.sh to use the /wallet mount from the production PWA configuration, strip that mount when resolving public assets, and inspect the exported registration contract instead of the obsolete /sw.js literal."
+owner_domain = 12
+
+[finding.ci-discovery]
+file = "apps/wallet/.github/workflows/ci.yml"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "This workflow lives under apps/wallet/.github/workflows, outside the repository-root .github/workflows directory GitHub Actions discovers. The steps also run npm ci and root-relative scripts although the wallet uses pnpm and a link: SDK dependency."
+expected = "Wallet CI, security and deployment automation must be registered in the monorepo and target the wallet package with its supported package manager and runtime artifact."
+proposal = "Consolidate apps/wallet/.github/workflows/ci.yml into repository-root automation with working-directory apps/wallet and pnpm; wire its intended checks or deployment to the actual standalone production image and make failures visible."
+owner_domain = 12
+
+[finding.deploy-discovery]
+file = "apps/wallet/.github/workflows/deploy.yml"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "This workflow lives under apps/wallet/.github/workflows, outside the repository-root .github/workflows directory GitHub Actions discovers. The terminal Deploy step only echoes Add your deployment commands here, so even a relocated workflow would publish nothing."
+expected = "Wallet CI, security and deployment automation must be registered in the monorepo and target the wallet package with its supported package manager and runtime artifact."
+proposal = "Consolidate apps/wallet/.github/workflows/deploy.yml into repository-root automation with working-directory apps/wallet and pnpm; wire its intended checks or deployment to the actual standalone production image and make failures visible."
+owner_domain = 12
+
+[finding.pages-discovery]
+file = "apps/wallet/.github/workflows/nextjs.yml"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "This workflow lives under apps/wallet/.github/workflows, outside the repository-root .github/workflows directory GitHub Actions discovers. The sample targets a static ./out Pages artifact, while next.config.mjs builds a standalone server with server routes."
+expected = "Wallet CI, security and deployment automation must be registered in the monorepo and target the wallet package with its supported package manager and runtime artifact."
+proposal = "Consolidate apps/wallet/.github/workflows/nextjs.yml into repository-root automation with working-directory apps/wallet and pnpm; wire its intended checks or deployment to the actual standalone production image and make failures visible."
+owner_domain = 12
+
+[finding.security-discovery]
+file = "apps/wallet/.github/workflows/security.yml"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "This workflow lives under apps/wallet/.github/workflows, outside the repository-root .github/workflows directory GitHub Actions discovers. The audit uses root-relative npm ci, CodeQL has if: false, and dependency review is allowed to fail."
+expected = "Wallet CI, security and deployment automation must be registered in the monorepo and target the wallet package with its supported package manager and runtime artifact."
+proposal = "Consolidate apps/wallet/.github/workflows/security.yml into repository-root automation with working-directory apps/wallet and pnpm; wire its intended checks or deployment to the actual standalone production image and make failures visible."
+owner_domain = 12
+
+[finding.campaign-overwrite]
+file = "apps/wallet/scripts/seed-sid-campaign.js"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "The seed script catches any campaigns.json parse/read error as an empty list and then overwrites the file with its single campaign. Its direct read-modify-write is also uncoordinated with the running push producer and is not atomic."
+expected = "Seeding an announcement must preserve existing campaigns and refuse corrupt or unavailable state rather than turn a read failure into successful replacement."
+proposal = "Change apps/wallet/scripts/seed-sid-campaign.js to use the authenticated campaign API or the push store transactional writer; refuse malformed input, preserve the original file on failure, and verify concurrent updates and repeated seeding are idempotent."
+owner_domain = 12
+
+[finding.balance-hook-unwired]
+file = "apps/wallet/src/hooks/useRpcBalances.ts"
+line = 31
+class = "dead-code"
+severity = "low"
+observed = "useRpcBalances is exported but has no live importer in apps/wallet/src. It duplicates balance retrieval, substitutes zero on ERC-20 failures and lacks request-generation protection, so adopting it later would bypass the existing account-bound read behavior."
+expected = "The wallet should expose one live balance path with account/network binding and explicit unavailable results; an unused alternative must not appear to be the production balance contract."
+proposal = "Retire apps/wallet/src/hooks/useRpcBalances.ts or integrate it through the supported balance repository after adding explicit error states and identity/network request guards; document the single balance path."
+owner_domain = 12
+interface = "12.ts-app-use-rpc-balances"
+
+[finding.migration-delete-on-failure]
+file = "apps/wallet/src/platform/storage/registry.ts"
+line = 154
+class = "restart-recovery"
+severity = "medium"
+observed = "read calls writeTo and then removeLegacy, and its catch also calls removeLegacy. writeTo can signal a quota error and return without persisting for reset-and-signal records; setItem can throw. In either case valid legacy data can be deleted before a replacement is durable."
+expected = "Migration must preserve the last readable value until the new versioned envelope has been persisted successfully, including storage quota and browser storage exceptions."
+proposal = "In apps/wallet/src/platform/storage/registry.ts make migration persistence report success, delete legacy keys only after durable write confirmation, and preserve or quarantine source values on refusal; prove quota and setItem failure followed by reload and retry."
+owner_domain = 12
+interface = "12.ts-app-define-storage-repository"
+
+[finding.storage-unsaved-success]
+file = "apps/wallet/src/platform/storage/registry.ts"
+line = 172
+class = "runtime-risk"
+severity = "medium"
+observed = "StorageRepository.write catches persistence failures and returns void; update returns next even when write did not save it. For fail-closed definitions writeTo can throw StorageCorruptionError on quota/validation, but write converts that to a background notification and callers still receive an apparent successful update."
+expected = "Security-relevant choices and settings must expose whether a write persisted; fail-closed records must propagate refusal so the UI cannot present an unsaved value as durable."
+proposal = "Change the repository write/update contract in apps/wallet/src/platform/storage/registry.ts to return an explicit persisted result or throw the declared refusal, update callers to acknowledge only persisted changes, and exercise unavailable storage and quota across reopen."
+owner_domain = 12
+interface = "12.ts-app-storage-repository"
+
+[finding.legacy-transfer-loss]
+file = "apps/wallet/src/platform/storage/repositories.ts"
+line = 811
+class = "restart-recovery"
+severity = "medium"
+observed = "collectLegacyTransferRecords deletes every source key before returning data to the registry for validation and persistence. metadataCacheRepository.migrateLegacy similarly removes each pax:meta key while collecting it. A later parse/quota/setItem failure loses the original records, including submitted transfer tracking."
+expected = "Submitted-transfer and metadata migration must collect and validate first, persist the replacement next and only then retire source keys; valid transfer tracking must survive an interrupted migration."
+proposal = "Refactor apps/wallet/src/platform/storage/repositories.ts migration collectors to be read-only and return source keys for post-commit deletion by the registry; prove partial malformed data, quota refusal and reload retain valid pending transfer records."
+owner_domain = 12
+interface = "12.key-app-paxport-v1-submitted-transfers"
+
+[finding.proof-positive-transport]
+file = "apps/wallet/src/proof_wallet_app.test.ts"
+line = 119
+class = "test-gap"
+severity = "medium"
+observed = "planState constructs IntentPlan data locally and passes it through real decoders and consumers. The real loopback HTTP case proves a 405 refusal. These are useful checks, but no successful plan is emitted by the hosted producer and transported to the wallet consumer, and the plan flow is not repeated after producer-state reopen."
+expected = "Requirement 21133.1 and brief fact 7 require success and refusal along the real producer, transport and consumer path, including reopen where the plan depends on persisted state."
+proposal = "Extend apps/wallet/src/proof_wallet_app.test.ts with a real hosted intent producer backed by its production store, request a successful plan through its HTTP handler, feed the response to the wallet bindings/fees consumer, and repeat after closing and reopening persisted state without replacing producer or transport."
+owner_domain = 12
+
+[finding.push-payload-shape]
+file = "apps/wallet/src/pwa/sw.ts"
+line = 161
+class = "runtime-risk"
+severity = "medium"
+observed = "The push listener casts event.data.json() to PushPayload without validating it. Valid JSON null passes the parse try block, then payload.title throws outside that block and the notification is dropped; non-string fields are also forwarded without type or size checks."
+expected = "A malformed push payload must be refused or produce a bounded generic notification without crashing the worker, and only validated presentation fields should reach showNotification."
+proposal = "Validate the object and field types in apps/wallet/src/pwa/sw.ts before using it, apply length limits and safe defaults, and exercise null, arrays, scalar JSON and oversized fields through the worker push handler."
+owner_domain = 12
+
+[finding.push-renewal-delivery]
+file = "apps/wallet/src/pwa/sw.ts"
+line = 192
+class = "restart-recovery"
+severity = "medium"
+observed = "pushsubscriptionchange subscribes a new endpoint and sends it only to currently open clients. With no windows the update disappears. The PWAProvider message handler only rereads the subscription into UI state; this path does not update the push server, leaving delivery aimed at the expired endpoint."
+expected = "Renewed subscriptions must reach the authenticated push registration service and survive a worker-only renewal or temporary server unavailability."
+proposal = "Persist pending renewal in apps/wallet/src/pwa/sw.ts, synchronize it through the authenticated push client when an eligible session opens, and clear it only after server acknowledgement; prove windowless renewal and retry against the real registration route."
+owner_domain = 12
+
+[finding.auth-callback-cleanup]
+file = "services/wallet/demo/src/app/auth/callback/page.tsx"
+line = 35
+class = "runtime-risk"
+severity = "medium"
+observed = "The callback effect installs an auth listener and an eight-second timer inside the async branch, but cleanup only sets cancelled. The listener does not check cancelled, so after navigation/unmount it can still call router.replace; it also remains registered if cleanup happened before the timeout fires."
+expected = "Sign-in completion must stop listeners and timers when its page unmounts or completes so an old callback cannot redirect a later wallet session."
+proposal = "In services/wallet/demo/src/app/auth/callback/page.tsx retain the unsubscribe and timeout handles in the effect, clear both on success and cleanup, check cancellation in callbacks, and cover delayed authentication after unmount."
+owner_domain = 12
+
+[finding.demo-lint-command]
+file = "services/wallet/demo/package.json"
+line = 11
+class = "config-drift"
+severity = "medium"
+observed = "The demo declares next ^16.3.0 but its lint script invokes next lint, a command removed in Next.js 16. The package also supplies no ESLint dependency or configuration to replace that removed CLI entry point."
+expected = "The registered @paxeer/demo lint command must invoke a supported linter and report actionable results for the declared framework version."
+proposal = "Replace the lint script in services/wallet/demo/package.json with the supported repository ESLint entry point, declare its required configuration and dependencies, and qualify that exact package command."
+owner_domain = 12
+interface = "12.cli-demo-script-lint"
+
+[finding.demo-form-unwired]
+file = "services/wallet/demo/src/components/SendTxForm.tsx"
+line = 23
+class = "dead-code"
+severity = "low"
+observed = "SendTxForm has no importer in the demo source. WalletModal renders SupportedWalletPanel for its active wallet flow, while the demo README and landing-page copy still advertise SendTxForm as a component in that flow."
+expected = "The reference demo must identify the actual supported send flow and avoid an unused alternative that integrators mistake for the exercised production component."
+proposal = "Retire services/wallet/demo/src/components/SendTxForm.tsx or explicitly integrate and qualify it as a supported flow; align the demo landing page and README with the component actually rendered."
+owner_domain = 12
+
+[finding.demo-amount-truncation]
+file = "services/wallet/demo/src/lib/format.ts"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "nativeToWei accepts any number of fractional digits and slices the fraction to 18. For example 0.0000000000000000001 becomes 0, and 1.0000000000000000009 becomes 1000000000000000000 without warning. Its current SendTxForm consumer is unused, so this is an exported helper risk rather than a claim of a live transfer loss."
+expected = "A monetary input conversion must either represent the requested amount exactly in wei or refuse unsupported precision; silently changing the requested value is unsafe for a reference integration."
+proposal = "In services/wallet/demo/src/lib/format.ts reject nonzero fractional precision beyond 18 digits or use the shared exact amount parser; add boundary cases for one wei, excess precision and large integers before exposing the helper in a supported send form."
+owner_domain = 12
+interface = "12.ts-demo-native-to-wei"
+
+[finding.demo-readme-flow]
+file = "services/wallet/demo/README.md"
+line = 36
+class = "doc-drift"
+severity = "medium"
+observed = "The source table says SendTxForm is shown inside WalletModal, but the modal uses SupportedWalletPanel and never imports SendTxForm. The page also lists lint as an available script without noting its removed next lint implementation."
+expected = "Partner documentation must describe the actually rendered send/provision flow and commands that work with the demo framework version."
+proposal = "Rewrite services/wallet/demo/README.md around WalletModal and SupportedWalletPanel, describe explicit provisioning and the supported send intent path, and update the command examples after the lint command is repaired."
+owner_domain = 12
+
+[finding.human-router-comment]
+file = "services/wallet/deploy/human.toml"
+line = 45
+class = "retired-reference"
+severity = "low"
+observed = "The deployment input comment defines LAYERX_NODE_NETWORK_NAME in terms of the router LAYERX_GATEWAY_NETWORK_ID. There is no router in the merged public network, so the deployment guide leaves a retired component as the source of truth."
+expected = "Deployment network identity must come from the current merged-network identity configuration and agree with the chain, without requiring a retired router service."
+proposal = "Update the comments in services/wallet/deploy/human.toml to name the shared network identity source and its validation against the node; retain the actual secret names and describe where operators obtain each value."
+owner_domain = 10
+
+[finding.loadtest-semantic-failures]
+file = "services/wallet/gateway/loadtest/wallet.js"
+line = 61
+class = "test-gap"
+severity = "medium"
+observed = "The k6 script calls check for healthz.ok and wallet/me.address, but thresholds do not include checks and paxeer_me_errors counts only status != 200. Fast HTTP 200 bodies with ok:false, missing addresses or invalid JSON therefore fail checks while all declared failure-rate thresholds can still pass."
+expected = "A wallet capacity qualification must fail for broken response semantics as well as HTTP failures, otherwise a fast unusable service appears healthy."
+proposal = "In services/wallet/gateway/loadtest/wallet.js add enforced semantic-failure thresholds per route using the actual response contract and include semantic outcomes in the reported error metric; prove HTTP 200 malformed/refusal bodies fail the qualification."
+owner_domain = 12
+
+[finding.env-schema-unwired]
+file = "apps/wallet/config/env/schema.ts"
+line = 47
+class = "dead-code"
+severity = "low"
+observed = "validateEnv copies a small environment subset without validation and is not imported by the app. config/README.md acknowledges it is unused, but its exported env and validateEnv names present an alternative configuration API alongside the real wallet configuration."
+expected = "Operators and maintainers should have one authoritative validated environment path, with dormant fragments clearly retired rather than resembling active validation."
+proposal = "Retire apps/wallet/config/env/schema.ts or consolidate it into the active wallet configuration after matching all keys and validation rules; keep the README aligned with the chosen authoritative reader."
+owner_domain = 12
+
+[finding.typescript-base-unwired]
+file = "apps/wallet/config/typescript/base.json"
+line = 1
+class = "dead-code"
+severity = "low"
+observed = "The shared config/typescript/base.json fragment is not extended by apps/wallet/tsconfig.json, as config/README.md also states. Changes to this apparent shared configuration do not affect the wallet compilation."
+expected = "Compiler settings advertised as shared should either be consumed by the app or be removed so maintainers do not edit an ineffective configuration."
+proposal = "Consolidate apps/wallet/config/typescript/base.json with the active tsconfig.json or explicitly retire the unused fragment and document the single compiler configuration."
+owner_domain = 12
+
+[finding.eslint-legacy-config]
+file = "apps/wallet/.eslintrc.json"
+line = 1
+class = "dead-code"
+severity = "low"
+observed = "The package uses ESLint 9 with eslint.config.mjs, while .eslintrc.json remains as a separate legacy configuration. The declared eslint . command reads the flat configuration, so edits to this legacy file do not govern that gate."
+expected = "The app should expose a single active lint configuration so reviewers can tell which import and code-quality rules are enforced."
+proposal = "Retire apps/wallet/.eslintrc.json after reconciling any needed rules into eslint.config.mjs, and point developer tooling at the active flat configuration."
+owner_domain = 12
+
+[finding.bug-template-discovery]
+file = "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md"
+line = 1
+class = "wiring-gap"
+severity = "low"
+observed = "This issue template resides in apps/wallet/.github rather than a repository-level template discovery location. GitHub does not present this nested package template for monorepo issue creation."
+expected = "Wallet contributors should reach the intended report or review template from the repository interface, with wallet-specific fields retained where useful."
+proposal = "Merge apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md into the repository-root GitHub template configuration, using a wallet selector or dedicated template so the intended prompts are discoverable."
+owner_domain = 12
+
+[finding.feature-template-discovery]
+file = "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md"
+line = 1
+class = "wiring-gap"
+severity = "low"
+observed = "This issue template resides in apps/wallet/.github rather than a repository-level template discovery location. GitHub does not present this nested package template for monorepo issue creation."
+expected = "Wallet contributors should reach the intended report or review template from the repository interface, with wallet-specific fields retained where useful."
+proposal = "Merge apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md into the repository-root GitHub template configuration, using a wallet selector or dedicated template so the intended prompts are discoverable."
+owner_domain = 12
+
+[finding.question-template-discovery]
+file = "apps/wallet/.github/ISSUE_TEMPLATE/question.md"
+line = 1
+class = "wiring-gap"
+severity = "low"
+observed = "This issue template resides in apps/wallet/.github rather than a repository-level template discovery location. GitHub does not present this nested package template for monorepo issue creation."
+expected = "Wallet contributors should reach the intended report or review template from the repository interface, with wallet-specific fields retained where useful."
+proposal = "Merge apps/wallet/.github/ISSUE_TEMPLATE/question.md into the repository-root GitHub template configuration, using a wallet selector or dedicated template so the intended prompts are discoverable."
+owner_domain = 12
+
+[finding.pr-template-discovery]
+file = "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md"
+line = 1
+class = "wiring-gap"
+severity = "low"
+observed = "This pull-request template resides in apps/wallet/.github rather than a repository-level template discovery location. GitHub does not present this nested package template for monorepo pull-request creation."
+expected = "Wallet contributors should reach the intended report or review template from the repository interface, with wallet-specific fields retained where useful."
+proposal = "Merge apps/wallet/.github/PULL_REQUEST_TEMPLATE.md into the repository-root GitHub template configuration, using a wallet selector or dedicated template so the intended prompts are discoverable."
+owner_domain = 12
+
+[finding.changelog-release-identity]
+file = "apps/wallet/CHANGELOG.md"
+line = 34
+class = "doc-drift"
+severity = "low"
+observed = "The changelog records release 1.0.0 with the placeholder date 2024-XX-XX and links to paxeer/Paxport-v2, whereas this package is the monorepo wallet app at version 0.1.0. Historical and current release identities are not distinguished."
+expected = "Release notes must distinguish imported history from current wallet releases and link users to the repository and version whose behavior they can verify."
+proposal = "Update apps/wallet/CHANGELOG.md to label imported history, replace the placeholder with a verified release date or remove the unsupported release claim, and use current repository release/compare links."
+owner_domain = 12
+
+[finding.routes]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated page is titled Router routes and its service table describes a standalone kernel sequencer and LayerX settlement boundaries; the route catalogue also retains pre-merge custody and RPC surfaces."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Update tools/paxeer-x/route-catalogue.json to the merged service ownership, remove retired public paths and regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh."
+owner_domain = 16
+
+[finding.quickstart-site]
+file = "docs/site/docs/overview/quickstart.md"
+line = 214
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart publishes api-mainnet-beta.paxeer.network/rpc and /rpc/ws as public hosted endpoints, describes custody credit submitted to that router, and retains separate sequencer trust and settlement-era steps."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md with root-path mainnet-beta RPC, chain id 125, committed-block finality and the supported hosted intent flow; isolate any retained private-network instructions from public-network setup."
+owner_domain = 8
+
+[finding.gateway-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the public origin a router URL and declares POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and 198-200. Its 15-method statement also differs from the wiki 18-method statement."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md from services/platform/hosted/gateway/openrpc.json, distinguishing hosted px_ methods from root node namespaces and removing the unified router and obsolete endpoint instructions."
+owner_domain = 8
+
+[finding.webhooks-site]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment instructions obtain network identity from router.LAYERX_GATEWAY_NETWORK_ID and retain sequencer-era authority terminology. An operator following the network binding step depends on a service retired by the merged architecture."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Update docs/site/docs/platform/webhooks.md to the shared merged-network identity and current authenticated producer/ingress/delivery contract; name the actual manifest inputs and document delivery replay and restart behavior."
+owner_domain = 8
+
+[finding.gateway-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki repeats the router URL and POST /rpc, /rpc/schema and /rpc/ws endpoints, while claiming 18 methods where the site page claims 15. It conflates hosted gateway methods and public node RPC."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Regenerate or rewrite docs/wiki/HostedGateway.md from the same current OpenRPC and deployment source as the site page, documenting hosted px_ methods separately from the node root RPC and current authentication."
+owner_domain = 8
+
+[finding.webhooks-wiki]
+file = "docs/wiki/HostedWebhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki deployment network binding still references router.LAYERX_GATEWAY_NETWORK_ID, repeating the retired-service dependency in the site page. Its operational setup cannot be the merged-network source of truth."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Align docs/wiki/HostedWebhooks.md with the current webhook manifests and the corrected site page, naming the shared network identity, live ingress authentication and durable replay/delivery lifecycle."
+owner_domain = 8
+
+[finding.quickstart-wiki]
+file = "docs/wiki/Quickstart.md"
+line = 214
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki publishes the public /rpc and /rpc/ws URLs and router-based custody credit and repeats pre-merge trust/settlement setup. These are presented as current public onboarding instructions."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Rewrite docs/wiki/Quickstart.md with the same root node endpoint, chain id 125, committed receipts and supported hosted workflows as the corrected site quickstart; retain private profiles only under explicitly scoped instructions."
+owner_domain = 8
+
+[finding.agent-site]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The A2A submission instructions say eth_sendRawTransaction is sent to /rpc, and the verification configuration retains sequencer-signed through settlement-anchored levels without explaining the single BFT network finality model."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Update docs/site/docs/agents/running.md to the live agent adapter and root node RPC contract, explain transaction submission versus committed finality, and remove retired public router/settlement dependencies from operator examples."
+owner_domain = 8
+
+[finding.cli-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide says --rpc must end in /rpc and repeats that restriction at line 131; wallet/token and A2A examples also describe the retired gateway /rpc surface as the public network contract."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Rewrite docs/site/docs/platform/cli.md against the current tools/platform/cli implementation and supported root endpoints; distinguish hosted operations, remove obsolete path restrictions and verify the documented invocation inventory."
+owner_domain = 8
+
+[finding.hosted-node-site]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page defines the hosted node as an in-cluster sequencer pod running layerxd and documents a separate daemon supervisor, replica authority and settlement workflow as current deployment architecture."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Replace docs/site/docs/platform/hosted-node.md with paxd BFT node and integrated-kernel startup, shared network configuration, committed finality and current snapshot/restart recovery; label any retained daemon material as historical."
+owner_domain = 8
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The German overview describes two execution domains linked by custody 0x1013 and anchor 0x1014, and its architecture diagram runs layerxd as a separate sequencer. The same two-domain claim appears again at line 125."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Rewrite docs/readme/README.de.md and its architecture diagram in German for one paxd BFT network with the integrated kernel, chain id 125 and final committed receipts; remove retired custody/anchor operating instructions."
+owner_domain = 16
+
+[finding.agent-wiki]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki A2A guide instructs eth_sendRawTransaction submission to /rpc and repeats the pre-merge verification-level and separate authority configuration without the merged BFT finality boundary."
+expected = "The audit brief defines one paxd BFT network, root-path public node RPC, hosted px_ methods and committed-block finality; retired router and daemon paths must not be described as current public services."
+proposal = "Align docs/wiki/RunningAnAgent.md with the corrected agent site guide, documenting actual adapter endpoints, root node submission and committed receipt semantics from the same implementation source."
+owner_domain = 8
+
+[finding.contract-recovery-inventory]
+file = "spec/layerx-merge/contracts/services.md"
+line = 2217
+class = "doc-drift"
+severity = "medium"
+observed = "The wallet-attestors section lists state as key shares and recovery as restore shares from backup. The running store also owns spend/rate records, ceremony decisions, replay state and authority/native-purpose records, which materially affect safe signing after recovery."
+expected = "The attestor service contract must enumerate all safety-relevant durable state and define its recovery obligations, including the policy and replay decisions associated with recovered keys."
+proposal = "Expand the wallet-attestors section of spec/layerx-merge/contracts/services.md to include durable lifecycle state and the full-state recovery invariant, then link the real snapshot/restore qualification for those records."
+owner_domain = 12
+
+[finding.demo-landing-flow]
+file = "services/wallet/demo/src/app/page.tsx"
+line = 73
+class = "doc-drift"
+severity = "low"
+observed = "The demo landing page advertises Three components: ConnectButton, WalletModal, SendTxForm and invites copying them, while the running modal uses SupportedWalletPanel and never imports SendTxForm."
+expected = "The reference application should direct integrators to the send component and SDK path that it actually exercises and supports."
+proposal = "Update services/wallet/demo/src/app/page.tsx feature copy after choosing the supported send flow, and link it to the rendered SupportedWalletPanel integration instead of the unused form."
+owner_domain = 12
+
+[finding.send-explorer-proof]
+file = "apps/wallet/e2e/send.spec.ts"
+line = 580
+class = "test-gap"
+severity = "medium"
+observed = "The send suite exercises real transaction submission, but its explorer-status cases intercept the explorer request with page.route and supply JSON in the browser test. That tests wallet presentation without proving the actual explorer producer emits the consumed status shape."
+expected = "Brief fact 7 requires producer, transport and consumer agreement for transaction outcomes; a browser-crafted explorer response cannot establish the live explorer-to-wallet status contract."
+proposal = "Add a case in apps/wallet/e2e/send.spec.ts that submits on the real configured chain, waits for the production explorer/indexer to expose the committed result and observes it in the wallet, including reload and an actual unavailable/refusal response."
+owner_domain = 12
+
+[doc.01]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The generated page is titled Router routes and its service table describes a standalone kernel sequencer and LayerX settlement boundaries; the route catalogue also retains pre-merge custody and RPC surfaces. Rewrite proposal: Update tools/paxeer-x/route-catalogue.json to the merged service ownership, remove retired public paths and regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh."
+
+[doc.02]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The quickstart publishes api-mainnet-beta.paxeer.network/rpc and /rpc/ws as public hosted endpoints, describes custody credit submitted to that router, and retains separate sequencer trust and settlement-era steps. Rewrite proposal: Rewrite docs/site/docs/overview/quickstart.md with root-path mainnet-beta RPC, chain id 125, committed-block finality and the supported hosted intent flow; isolate any retained private-network instructions from public-network setup."
+
+[doc.03]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The page calls the public origin a router URL and declares POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and 198-200. Its 15-method statement also differs from the wiki 18-method statement. Rewrite proposal: Rewrite docs/site/docs/platform/hosted-gateway.md from services/platform/hosted/gateway/openrpc.json, distinguishing hosted px_ methods from root node namespaces and removing the unified router and obsolete endpoint instructions."
+
+[doc.04]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The deployment instructions obtain network identity from router.LAYERX_GATEWAY_NETWORK_ID and retain sequencer-era authority terminology. An operator following the network binding step depends on a service retired by the merged architecture. Rewrite proposal: Update docs/site/docs/platform/webhooks.md to the shared merged-network identity and current authenticated producer/ingress/delivery contract; name the actual manifest inputs and document delivery replay and restart behavior."
+
+[doc.05]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The wiki repeats the router URL and POST /rpc, /rpc/schema and /rpc/ws endpoints, while claiming 18 methods where the site page claims 15. It conflates hosted gateway methods and public node RPC. Rewrite proposal: Regenerate or rewrite docs/wiki/HostedGateway.md from the same current OpenRPC and deployment source as the site page, documenting hosted px_ methods separately from the node root RPC and current authentication."
+
+[doc.06]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The wiki deployment network binding still references router.LAYERX_GATEWAY_NETWORK_ID, repeating the retired-service dependency in the site page. Its operational setup cannot be the merged-network source of truth. Rewrite proposal: Align docs/wiki/HostedWebhooks.md with the current webhook manifests and the corrected site page, naming the shared network identity, live ingress authentication and durable replay/delivery lifecycle."
+
+[doc.07]
+path = "docs/wiki/Quickstart.md"
+status = "misleading"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The wiki publishes the public /rpc and /rpc/ws URLs and router-based custody credit and repeats pre-merge trust/settlement setup. These are presented as current public onboarding instructions. Rewrite proposal: Rewrite docs/wiki/Quickstart.md with the same root node endpoint, chain id 125, committed receipts and supported hosted workflows as the corrected site quickstart; retain private profiles only under explicitly scoped instructions."
+
+[doc.08]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The A2A submission instructions say eth_sendRawTransaction is sent to /rpc, and the verification configuration retains sequencer-signed through settlement-anchored levels without explaining the single BFT network finality model. Rewrite proposal: Update docs/site/docs/agents/running.md to the live agent adapter and root node RPC contract, explain transaction submission versus committed finality, and remove retired public router/settlement dependencies from operator examples."
+
+[doc.09]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The CLI guide says --rpc must end in /rpc and repeats that restriction at line 131; wallet/token and A2A examples also describe the retired gateway /rpc surface as the public network contract. Rewrite proposal: Rewrite docs/site/docs/platform/cli.md against the current tools/platform/cli implementation and supported root endpoints; distinguish hosted operations, remove obsolete path restrictions and verify the documented invocation inventory."
+
+[doc.10]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The page defines the hosted node as an in-cluster sequencer pod running layerxd and documents a separate daemon supervisor, replica authority and settlement workflow as current deployment architecture. Rewrite proposal: Replace docs/site/docs/platform/hosted-node.md with paxd BFT node and integrated-kernel startup, shared network configuration, committed finality and current snapshot/restart recovery; label any retained daemon material as historical."
+
+[doc.11]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The German overview describes two execution domains linked by custody 0x1013 and anchor 0x1014, and its architecture diagram runs layerxd as a separate sequencer. The same two-domain claim appears again at line 125. Rewrite proposal: Rewrite docs/readme/README.de.md and its architecture diagram in German for one paxd BFT network with the integrated kernel, chain id 125 and final committed receipts; remove retired custody/anchor operating instructions."
+
+[doc.12]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Read the page and checked its network, endpoint and lifecycle claims. The wiki A2A guide instructs eth_sendRawTransaction submission to /rpc and repeats the pre-merge verification-level and separate authority configuration without the merged BFT finality boundary. Rewrite proposal: Align docs/wiki/RunningAnAgent.md with the corrected agent site guide, documenting actual adapter endpoints, root node submission and committed receipt semantics from the same implementation source."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Read wallet-attestors section lines 2208-2265 and its interface/environment tables. Its share-only state and recovery summary omits durable policy and ceremony state; see contract-recovery-inventory. Other service sections were not part of this supporting read."
+
+[doc.14]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md"
+status = "stale"
+notes = "Read all bug-report prompts and checked repository template discovery; nested path is not discovered."
+
+[doc.15]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md"
+status = "stale"
+notes = "Read feature-request prompts and checked repository template discovery; nested path is not discovered."
+
+[doc.16]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/question.md"
+status = "stale"
+notes = "Read question prompts and checked repository template discovery; nested path is not discovered."
+
+[doc.17]
+path = "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md"
+status = "stale"
+notes = "Read review and testing checklist; repository pull-request creation does not discover this nested template."
+
+[doc.18]
+path = "apps/wallet/.github/copilot-instructions.md"
+status = "accurate"
+notes = "Generated Copilot instruction page; retained as generated guidance, not a hand-maintained runtime or interface implementation."
+
+[doc.19]
+path = "apps/wallet/CHANGELOG.md"
+status = "stale"
+notes = "Read complete release history and links; placeholder release date and imported repository identity are recorded."
+
+[doc.20]
+path = "apps/wallet/README.md"
+status = "accurate"
+notes = "Read scripts, environment table and operational pointers against wallet package, PWA build and server deployment. Current network default is chain 125; no retired public endpoint is prescribed."
+
+[doc.21]
+path = "apps/wallet/config/README.md"
+status = "accurate"
+notes = "Read configuration documentation; it accurately labels the unused environment and compiler fragments rather than claiming they are active."
+
+[doc.22]
+path = "apps/wallet/tools/README.md"
+status = "accurate"
+notes = "Read tools directory guide; it accurately points to the scripts directory and does not claim tools exist here."
+
+[doc.23]
+path = "services/wallet/README.md"
+status = "accurate"
+notes = "Read wallet workspace layout, commands and complete environment inventory against gateway, SDK and demo package roles."
+
+[doc.24]
+path = "services/wallet/demo/README.md"
+status = "stale"
+notes = "Read complete demo setup and source inventory; current send component and lint command documentation drift are recorded."
+
+[doc.25]
+path = "services/wallet/deploy/attestor-policy.md"
+status = "accurate"
+notes = "Read full policy guide, override/merge semantics, amount caps and all refusal tables against the policy implementation; retained grant inspection descriptions are policy details, not a live router contract."
+
+[doc.26]
+path = "services/wallet/gateway/loadtest/README.md"
+status = "accurate"
+notes = "Read full k6 usage and threshold table; documented HTTP/latency thresholds match the script, whose unenforced semantic checks are separately recorded."

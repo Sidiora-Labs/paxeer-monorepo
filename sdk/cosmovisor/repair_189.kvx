@@ -1,0 +1,15 @@
+[task]
+id = "22.31.189"
+audit = "22.30.79"
+finding = "005"
+repair = "Stage the replacement symlink on the same filesystem, atomically rename it over current, and fsync the parent directory before returning. Persist initialization before selecting a binary; reject missing or unreadable selection state on restart, including legacy upgrade-info.json."
+tests = ["TestRepair_189_InterruptedPublication", "TestRepair_189_AtomicSelection", "TestRepair_189_LostSelection", "TestRepair_189_InvalidSelection", "TestRepair_189_FirstInitialization", "TestRepair_189_PublicationFailure"]
+baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd outside hf-done. No pre-change failing tests are claimed."
+prior_attempt = "At revision cd058ab93dc103f4f6e2e33adb7ae1d56e1d250c, the supplied attempt-1 verification failed in TestProcessTestSuite/TestLaunchProcessWithDownloads at process_test.go:109: expected final process output, received an empty string. The existing process output-draining failure is unrelated to selection persistence; no process code or assertion is changed here."
+evidence = "The runner hf-done ledger records the verified candidate revision, exact command, exit code and private evidence log; hf-build and hf-done must identify the same candidate."
+wiring_requests = "None; all repair code and proving tests are inside sdk/cosmovisor."
+
+[gotcha]
+area = "restart-recovery"
+observed = "Upgrade binaries may be staged before the first supervisor start; their presence alone cannot distinguish initialization from lost current state."
+resolution = "Use a durable initialization marker and legacy data/upgrade-info.json evidence, preserving first initialization with pre-staged binaries. If current is missing after initialization, restore the operator-selected binary explicitly."

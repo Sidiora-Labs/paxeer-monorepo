@@ -51,28 +51,30 @@ func (a *Authority) RegisterLineage(ctx context.Context, object LineageObject) e
 	}
 	initialRevision := int64(1)
 	initialState := "approved"
+	// Keep the positive lineage FK anchor distinct from moderation revision one.
+	initialVisibility := false
 	if a.productionViews {
 		var exists bool
 		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+a.table("restrictions")+" WHERE hash=$1)", object.Hash).Scan(&exists); e != nil {
 			return ErrUnavailable
 		}
 		if !exists {
-			var status string
-			e = tx.QueryRow(ctx, "SELECT v.revision,v.status FROM "+a.metadata("assets")+" asset JOIN "+a.safety("safety_visibility")+" v ON (v.target_type='token' AND v.target_id=asset.pool) OR (v.target_type='asset' AND v.target_id=asset.id::text) WHERE asset.hash=$1 AND v.revision>0 ORDER BY v.revision DESC LIMIT 1", object.Hash).Scan(&initialRevision, &status)
-			if errors.Is(e, pgx.ErrNoRows) {
-				return ErrRestricted
-			}
-			if e != nil {
+			var denied bool
+			if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+a.metadata("assets")+" asset JOIN "+a.safety("safety_visibility")+" v ON (v.target_type='token' AND v.target_id=asset.pool) OR (v.target_type='asset' AND v.target_id=asset.id::text) WHERE asset.hash=$1 AND (v.revision<1 OR v.status NOT IN ('removed','restored'))) OR EXISTS(SELECT 1 FROM "+a.metadata("assets")+" asset JOIN "+a.safety("safety_visibility")+" v ON (v.target_type='token' AND v.target_id=asset.pool) OR (v.target_type='asset' AND v.target_id=asset.id::text) WHERE asset.hash=$1 AND v.status='removed')", object.Hash).Scan(&denied); e != nil {
 				return ErrUnavailable
 			}
-			if status == "removed" {
-				initialState = "blocked"
-			} else if status != "restored" {
+			if denied {
 				return ErrRestricted
+			}
+			e = tx.QueryRow(ctx, "SELECT max(v.revision) FROM "+a.metadata("assets")+" asset JOIN "+a.safety("safety_visibility")+" v ON (v.target_type='token' AND v.target_id=asset.pool) OR (v.target_type='asset' AND v.target_id=asset.id::text) WHERE asset.hash=$1 HAVING count(*)>0", object.Hash).Scan(&initialRevision)
+			if errors.Is(e, pgx.ErrNoRows) {
+				initialVisibility = true
+			} else if e != nil {
+				return ErrUnavailable
 			}
 		}
 	}
-	if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("restrictions")+"(hash,revision,state) VALUES($1,$2,$3) ON CONFLICT DO NOTHING", object.Hash, initialRevision, initialState); e != nil {
+	if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("restrictions")+"(hash,revision,state,initial_visibility) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING", object.Hash, initialRevision, initialState, initialVisibility); e != nil {
 		return ErrUnavailable
 	}
 	var state string

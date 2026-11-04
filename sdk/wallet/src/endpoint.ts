@@ -30,48 +30,84 @@ const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
 const HISTORY_CURSOR = /^[0-9A-Za-z]{1,32}$/;
 
+export interface EndpointClientOptions extends Omit<JsonRpcClientOptions, 'url'> {
+  url?: string;
+  nodeUrl?: string;
+  hostedUrl?: string;
+}
+
 export class EndpointClient {
   readonly rpc: JsonRpcClient;
+  readonly hostedRpc: JsonRpcClient | null;
 
-  constructor(
-    options: (Omit<JsonRpcClientOptions, 'url'> & { url?: string }) | JsonRpcClient = {}
-  ) {
+  constructor(options: EndpointClientOptions | JsonRpcClient = {}) {
     this.rpc =
       options instanceof JsonRpcClient
         ? options
-        : new JsonRpcClient({ ...options, url: options.url ?? DEFAULT_ENDPOINT_URL });
+        : new JsonRpcClient({
+            ...options,
+            url: options.nodeUrl ?? options.url ?? DEFAULT_ENDPOINT_URL,
+          });
+    this.hostedRpc =
+      options instanceof JsonRpcClient || !options.hostedUrl
+        ? null
+        : new JsonRpcClient({
+            ...options,
+            url: options.hostedUrl,
+          });
   }
 
-  batch(calls: readonly JsonRpcCall[]): Promise<JsonRpcOutcome[]> {
-    return this.rpc.batch(calls);
+  private hosted(): JsonRpcClient {
+    if (this.hostedRpc === null)
+      throw new JsonRpcTransportError('EndpointClient: hostedUrl required for hosted px_ reads');
+    return this.hostedRpc;
+  }
+
+  async batch(calls: readonly JsonRpcCall[]): Promise<JsonRpcOutcome[]> {
+    const hosted = calls.filter((call) => this.isHosted(call.method));
+    const node = calls.filter((call) => !this.isHosted(call.method));
+    const hostedRpc = hosted.length ? this.hosted() : null;
+    const [hostedResults, nodeResults] = await Promise.all([
+      hostedRpc ? hostedRpc.batch(hosted) : Promise.resolve([]),
+      node.length ? this.rpc.batch(node) : Promise.resolve([]),
+    ]);
+    let h = 0;
+    let n = 0;
+    return calls.map((call) =>
+      this.isHosted(call.method) ? hostedResults[h++]! : nodeResults[n++]!
+    );
+  }
+
+  private isHosted(method: string): boolean {
+    return method.startsWith('px_') && method !== 'px_getReceiptKeys';
   }
 
   async resolveAccount(account: string): Promise<UnifiedAccountDocument> {
-    return decodeAccountDocument(await this.rpc.call('px_resolveAccount', [account]));
+    return decodeAccountDocument(await this.hosted().call('px_resolveAccount', [account]));
   }
 
   async getChainAccount(address: string): Promise<ChainAccount> {
-    return decodeChainAccount(await this.rpc.call('px_getAccount', [address]), address);
+    return decodeChainAccount(await this.hosted().call('px_getAccount', [address]), address);
   }
 
   async listBankAssets(): Promise<AssetPage> {
-    return decodeBankAssetPage(await this.rpc.call('px_listAssets', []));
+    return decodeBankAssetPage(await this.hosted().call('px_listAssets', []));
   }
 
   async getRouteCatalogue(): Promise<RouteCatalogue> {
-    return decodeRouteCatalogue(await this.rpc.call('px_getRouteCatalogue', []));
+    return decodeRouteCatalogue(await this.hosted().call('px_getRouteCatalogue', []));
   }
 
   async getCapabilities(): Promise<Capabilities> {
-    return decodeCapabilities(await this.rpc.call('px_getCapabilities', []));
+    return decodeCapabilities(await this.hosted().call('px_getCapabilities', []));
   }
 
   async getNetwork(): Promise<NetworkHead> {
-    return decodeNetwork(await this.rpc.call('px_getNetwork', []));
+    return decodeNetwork(await this.hosted().call('px_getNetwork', []));
   }
 
   async getBankBalances(address: string): Promise<Balances> {
-    return decodeBankBalances(await this.rpc.call('px_getBalances', [address]));
+    return decodeBankBalances(await this.hosted().call('px_getBalances', [address]));
   }
 
   async getChainHistory(
@@ -88,7 +124,7 @@ export class EndpointClient {
       throw new RangeError('history limit must be an integer from 1 to 100');
     }
     return decodeChainHistoryPage(
-      await this.rpc.call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])
+      await this.hosted().call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])
     );
   }
 

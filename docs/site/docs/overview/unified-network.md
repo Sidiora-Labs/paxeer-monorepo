@@ -123,15 +123,20 @@ Guarantors bond native tokens. They can register, increase their bond, begin unb
 
 Genesis for the anchor module is written by `services/platform/hosted/paxeer/anchor-genesis.py`. It configures the authority account, Paxeer chain ID, network ID, certificate threshold, minimum bond, challenge parameters, unbonding delay, sequencer authorization, and optional pre-registered guarantors. The anchor point — the batch the first checkpoint must continue — is set at genesis.
 
-## The single network endpoint
+## Public node JSON-RPC and the hosted gateway
 
-One endpoint serves the whole network: the hosted gateway at
-`https://api-mainnet-beta.paxeer.network/rpc`, the router URL. It is
-the only unified endpoint; the sixteen numbered names in
-[Public RPC endpoints](../reference/public-rpc.md) serve the EVM domain alone.
-A caller does not choose a chain — the method name decides the domain. The
-block explorer for the network is `paxscan.io` and the wallet is
-`paxportwallet.com`.
+The public JSON-RPC is at the root of
+`https://api-mainnet-beta.paxeer.network` and the node names `api1` through
+`api14.mainnet-beta.paxeer.network`, with EVM chain ID `125` (`0x7d`).
+These serve the merged network; there is no separate public LayerX interface.
+WebSocket upgrades were observed at the mainnet-beta node's root and `/ws`.
+The block explorer is `paxscan.io` and the wallet is `paxportwallet.com`.
+
+The hosted gateway is an operator-deployed service. The checked-in deployment
+configuration establishes no separate public gateway URL; obtain its origin
+from the operator. The `px_*` and `lx_*` methods below are gateway methods;
+the public node returns `-32601` for `px_getReceiptKeys` and `px_getHistory`.
+Within a gateway deployment, the method name selects the backend:
 
 - `eth_*`, `net_*` and `web3_*` are the Paxeer EVM JSON-RPC, relayed verbatim to
   the chain through the first answering Paxeer RPC name of
@@ -168,7 +173,7 @@ Successful `px_listAssets` ledger rows include `paused` (boolean) and `verificat
 
 The exact parameter and result shapes are in the gateway's
 [`openrpc.json`](https://github.com/Sidiora-Labs/Layerx-protocol/blob/main/platform/hosted/gateway/openrpc.json),
-served live at `GET /rpc/schema`.
+served by a deployed gateway at `GET /rpc/schema`.
 
 Clients that want to bind an account call `bindLayerX` with a signature the
 `layerx-client` crate builds: `layerx_client::paxeer_binding::Binding` assembles

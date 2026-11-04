@@ -12,9 +12,12 @@ type SettlementWorker struct {
 	provider *PayoutProvider
 }
 type payoutAttempt struct {
-	Claim            string
-	Until            time.Time
+	Claim string
+	Until time.Time
+	// Submitted records durable dispatch intent, including attempts written before
+	// acceptance was tracked separately. It never proves the provider accepted it.
 	Submitted        bool
+	Accepted         bool
 	State, Reference string
 }
 
@@ -34,6 +37,9 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 		}
 		if obligation.Scope != scope {
 			return Denied
+		}
+		if obligation.IdempotencyKey != k {
+			return Conflict
 		}
 		if obligation.State == "settled" {
 			return nil
@@ -55,13 +61,13 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 		return obligation, err
 	}
 	result, providerErr := w.provider.Lookup(ctx, k)
-	if providerErr == nil && result.State == "absent" && !attempt.Submitted {
+	if providerErr == nil && result.State == "absent" {
 		err = w.store.run(ctx, credential, "settlement", scope, reason, func(t *transaction) error {
 			var current payoutAttempt
 			if err := t.get("payout_attempt", k, &current); err != nil {
 				return err
 			}
-			if current.Claim != claim || !current.Until.After(t.now) || current.Submitted {
+			if current.Claim != claim || !current.Until.After(t.now) {
 				return Conflict
 			}
 			current.Submitted = true
@@ -86,6 +92,9 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 		}
 		current.State = result.State
 		current.Reference = result.Reference
+		if providerErr == nil && (result.State == "pending" || result.State == "confirmed") {
+			current.Accepted = true
+		}
 		current.Claim = ""
 		current.Until = time.Time{}
 		var o Obligation

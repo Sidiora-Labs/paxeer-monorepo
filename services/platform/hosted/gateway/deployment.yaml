@@ -96,7 +96,7 @@ spec:
             - {name: LAYERX_GATEWAY_FAUCET_URL, value: "https://layerx-faucet-public.layerx-testnet.svc.cluster.local:443"}
             - {name: LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE, value: /run/layerx/faucet/token}
             - {name: LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT, value: "1000000"}
-            - {name: LAYERX_GATEWAY_PAXEER_RPC_URLS, value: '["https://api1.mainnet-beta.paxeer.network","https://api2.mainnet-beta.paxeer.network"]'}
+            - {name: LAYERX_GATEWAY_PAXEER_RPC_URLS, value: '["https://paxeer-boundary.layerx-testnet.svc.cluster.local:9443"]'}
             - {name: LAYERX_GATEWAY_PROGRAM_REGISTRY_URL, value: "https://layerx-program-registry.layerx-testnet.svc.cluster.local:9420"}
             - {name: LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE, value: /run/layerx/registry/token}
             - {name: LAYERX_GATEWAY_REDIS_URL, value: "rediss://layerx-gateway-redis.layerx-testnet.svc.cluster.local:6379"}
@@ -200,6 +200,8 @@ spec:
   egress:
     - to: [{podSelector: {matchLabels: {app: layerx-gateway-redis}}}]
       ports: [{protocol: TCP, port: 6379}]
+    - to: [{podSelector: {matchLabels: {app: paxeer}}}]
+      ports: [{protocol: TCP, port: 9443}]
     - to: [{podSelector: {matchLabels: {app: layerx-program-registry}}}]
       ports: [{protocol: TCP, port: 9420}]
     - to: [{podSelector: {matchLabels: {layerx-plane: trusted-boundary}}}]

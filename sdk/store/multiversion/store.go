@@ -274,7 +274,7 @@ func (s *Store) validateIterator(index int, tracker iterationTracker) bool {
 		var parentIter types.Iterator
 		expectedKeys := iterationTracker.iteratedKeys
 		foundKeys := 0
-		iter := s.newMVSValidationIterator(index, iterationTracker.startKey, iterationTracker.endKey, items, iterationTracker.ascending, iterationTracker.writeset, abortChan)
+		iter := s.newMVSValidationIterator(index, iterationTracker.startKey, iterationTracker.endKey, items, iterationTracker.ascending, iterationTracker.writeset, s.parentStore, abortChan)
 		if iterationTracker.ascending {
 			parentIter = s.parentStore.Iterator(iterationTracker.startKey, iterationTracker.endKey)
 		} else {

@@ -2,12 +2,14 @@ export const supportedResolutions = ['1', '5', '15', '60', '240', '1D', '1W', 'D
 export type Resolution = (typeof supportedResolutions)[number];
 export interface ClientConfiguration { baseUrl: string; timeoutMs?: number }
 export interface RequestOptions { signal?: AbortSignal }
+const maxVendorHistoryBars = 5000;
 export interface HistoryRequest {
   symbol: string;
   resolution: Resolution;
   from?: number;
   to: number;
   countback?: number;
+  cursor?: string;
 }
 // Current Go UDF responses contain display numbers, not lossless accounting amounts.
 export interface HistoryBars {
@@ -18,6 +20,7 @@ export interface HistoryBars {
   l: number[];
   c: number[];
   v: number[];
+  nextCursor?: string;
 }
 export interface NoHistory { s: 'no_data'; nextTime?: number }
 export type HistoryResponse = HistoryBars | NoHistory;
@@ -97,6 +100,12 @@ function resolution(value: unknown): Resolution {
   }
   return value as Resolution;
 }
+function historyCursor(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.length > 256 || /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.exec(value)?.[0] !== value) {
+    throw new UdfResponseError(`Expected bounded opaque history cursor: ${field}`);
+  }
+  return value;
+}
 
 export function parseHistory(value: unknown): HistoryResponse {
   const body = record(value);
@@ -115,7 +124,7 @@ export function parseHistory(value: unknown): HistoryResponse {
     v: array(body.v, 'v', item => nonnegative(item, 'v')),
   };
   const length = bars.t.length;
-  if (length > 2000) throw new UdfResponseError('History exceeds 2000 bars');
+  if (length > maxVendorHistoryBars) throw new UdfResponseError(`History exceeds ${maxVendorHistoryBars} bars`);
   if ([bars.o, bars.h, bars.l, bars.c, bars.v].some(values => values.length !== length)) {
     throw new UdfResponseError('UDF history arrays have unequal lengths');
   }
@@ -127,6 +136,7 @@ export function parseHistory(value: unknown): HistoryResponse {
       throw new UdfResponseError('Invalid OHLC range');
     }
   }
+  if (body.nextCursor !== undefined) bars.nextCursor = historyCursor(body.nextCursor, 'nextCursor');
   return bars;
 }
 
@@ -234,13 +244,14 @@ export class CandlesClient {
       timestamp(request.from, 'from');
       if (request.from > request.to) throw new RangeError('from must not exceed to');
     }
-    if (request.countback !== undefined && (!Number.isSafeInteger(request.countback) || request.countback < 1 || request.countback > 2000)) {
-      throw new RangeError('countback must be 1..2000');
+    if (request.countback !== undefined && (!Number.isSafeInteger(request.countback) || request.countback < 1 || request.countback > maxVendorHistoryBars)) {
+      throw new RangeError(`countback must be 1..${maxVendorHistoryBars}`);
     }
     if (request.from === undefined && request.countback === undefined) throw new TypeError('History requires from or countback');
     const parameters = new URLSearchParams({ symbol: request.symbol, resolution: request.resolution, to: String(request.to) });
     if (request.from !== undefined) parameters.set('from', String(request.from));
     if (request.countback !== undefined) parameters.set('countback', String(request.countback));
+    if (request.cursor !== undefined) parameters.set('cursor', historyCursor(request.cursor, 'cursor'));
     return parseHistory(await this.request('/history', parameters, options));
   }
   async getTime(options: RequestOptions = {}): Promise<number> {

@@ -10,6 +10,7 @@ import (
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/vesting/types"
+	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
@@ -45,7 +46,12 @@ func (s msgServer) CreateVestingAccount(goCtx context.Context, msg *types.MsgCre
 		return nil, err
 	}
 
-	if bk.BlockedAddr(to) {
+	allowListCache := make(map[string]bankkeeper.AllowedAddresses)
+	if !bk.IsInDenomAllowList(ctx, from, msg.Amount, allowListCache) {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to send funds", msg.FromAddress)
+	}
+
+	if bk.BlockedAddr(to) || !bk.IsInDenomAllowList(ctx, to, msg.Amount, allowListCache) {
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", msg.ToAddress)
 	}
 

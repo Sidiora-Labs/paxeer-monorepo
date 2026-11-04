@@ -119,6 +119,7 @@ func (e *TaskError) Error() string {
 // authenticated alternative to publishing results through attacker-writable
 // shared storage.
 type TaskResult struct {
+	Generation  string          `json:"-"`
 	ID          string          `json:"id"`
 	Type        string          `json:"type"`
 	Status      TaskStatus      `json:"status"`

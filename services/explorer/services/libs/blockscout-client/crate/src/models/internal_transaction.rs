@@ -31,7 +31,7 @@ pub struct InternalTransaction {
     pub index: Decimal,
     pub success: bool,
     pub timestamp: String,
-    pub to: models::AddressParam,
+    pub to: Option<models::AddressParam>,
     pub transaction_hash: String,
     pub r#type: String,
     pub value: String,

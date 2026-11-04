@@ -181,6 +181,9 @@ func TestLedgerGasConformance(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedFrom, from)
 	to := call(recipient, "openAccount", asset)[0].([32]byte)
+	expectedTo, err := ledgerkeeper.AccountID(payee.DIDKey, asset)
+	require.NoError(t, err)
+	require.Equal(t, expectedTo, to)
 	call(sender, "mint", asset, from, big.NewInt(251))
 	call(sender, "burn", asset, from, big.NewInt(1))
 	main := transferMainAccount(t, &harness{
@@ -245,7 +248,7 @@ func TestLedgerGasConformance(t *testing.T) {
 	grant = append(grant, ed25519.Sign(private, grantID[:])...)
 	require.NoError(t, types.ValidateIssueGrantPayload(grant))
 	call(sender, "issueGrant", grant)
-	sequence := call(recipient, "nextSequence", payee.DIDKey, asset)[0].(uint64)
+	sequence := call(recipient, "nextSequence", to, asset)[0].(uint64)
 	call(recipient, "draw", grantID, to, big.NewInt(15), [32]byte{0x75}, sequence, purpose, contextHash)
 	revokeSequence, err := a.LayerXHost.ReadIdentitySequence(ctx, payer.DID)
 	require.NoError(t, err)

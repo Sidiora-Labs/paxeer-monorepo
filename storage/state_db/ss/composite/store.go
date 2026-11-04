@@ -97,7 +97,7 @@ func NewCompositeStateStore(
 		return nil, fmt.Errorf("failed to recover state store: %w", err)
 	}
 
-	// Mismatched earliest versions = DBs from different snapshots; reads would diverge.
+	// Both history boundaries must agree before reads can use the split stores.
 	if err := cs.validateEVMSSPostRecovery(); err != nil {
 		_ = cs.Close()
 		return nil, err
@@ -150,7 +150,7 @@ func (s *CompositeStateStore) validateEVMSSPreRecovery() error {
 	return nil
 }
 
-// validateEVMSSPostRecovery rejects mismatched earliest versions between the two SS DBs.
+// validateEVMSSPostRecovery rejects mismatched history boundaries between the two SS DBs.
 func (s *CompositeStateStore) validateEVMSSPostRecovery() error {
 	if s.evmStore == nil {
 		return nil
@@ -161,6 +161,14 @@ func (s *CompositeStateStore) validateEVMSSPostRecovery() error {
 		return fmt.Errorf(
 			"EVM SS earliest version %d does not match Cosmos SS earliest version %d: state sync the EVM SS DB, or set evm-ss-split=false",
 			evmEarliest, cosmosEarliest,
+		)
+	}
+	cosmosLatest := s.cosmosStore.GetLatestVersion()
+	evmLatest := s.evmStore.GetLatestVersion()
+	if cosmosLatest != evmLatest {
+		return fmt.Errorf(
+			"EVM SS latest version %d does not match Cosmos SS latest version %d: state sync the split SS DBs",
+			evmLatest, cosmosLatest,
 		)
 	}
 	return nil
@@ -340,7 +348,10 @@ func convertFlatKVNodes(node types.SnapshotNode) ([]types.SnapshotNode, error) {
 		return nil, fmt.Errorf("convertFlatKVNodes failed: %w", err)
 	}
 
-	kind, strippedKey := keys.ParseEVMKey(innerKey)
+	kind, strippedKey := keys.EVMKeyLegacy, innerKey
+	if moduleName == evm.EVMStoreKey {
+		kind, strippedKey = keys.ParseEVMKey(innerKey)
+	}
 
 	switch kind {
 	case keys.EVMKeyNonce:
@@ -518,11 +529,16 @@ func RecoverCompositeStateStore(
 	}
 
 	startVersion := cosmosVersion
-	if compositeStore.evmStore != nil && evmVersion < startVersion {
-		startVersion = evmVersion
-	}
-
 	evmSplit := compositeStore.evmStore != nil
+	targetVersion := cosmosVersion
+	if evmSplit {
+		// Imports establish a snapshot boundary before latest is first committed.
+		startVersion = max(cosmosVersion, compositeStore.cosmosStore.GetEarliestVersion())
+		evmStartVersion := max(evmVersion, compositeStore.evmStore.GetEarliestVersion())
+		startVersion = min(startVersion, evmStartVersion)
+		targetVersion = max(cosmosVersion, evmVersion)
+	}
+	recoveredVersion := startVersion
 
 	logger.Info("Recovering CompositeStateStore",
 		"cosmosVersion", cosmosVersion,
@@ -531,7 +547,12 @@ func RecoverCompositeStateStore(
 		"changelogPath", changelogPath,
 	)
 
-	return ReplayWAL(changelogPath, startVersion, -1, func(entry proto.ChangelogEntry) error {
+	err := ReplayWAL(changelogPath, startVersion, -1, func(entry proto.ChangelogEntry) error {
+		// A fresh database can start at a chain's non-one initial height. Once
+		// history exists, every following version is required, even empty blocks.
+		if evmSplit && (recoveredVersion > 0 || targetVersion > 0) && entry.Version != recoveredVersion+1 {
+			return fmt.Errorf("incomplete split SS WAL: expected version %d, got %d; state sync the split SS DBs", recoveredVersion+1, entry.Version)
+		}
 		if compositeStore.cosmosStore != nil && entry.Version > cosmosVersion {
 			changesets := entry.Changesets
 			if evmSplit {
@@ -557,8 +578,21 @@ func RecoverCompositeStateStore(
 			}
 		}
 
+		recoveredVersion = entry.Version
+		targetVersion = max(targetVersion, entry.Version)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if evmSplit {
+		if compositeStore.cosmosStore.GetLatestVersion() != targetVersion || compositeStore.evmStore.GetLatestVersion() != targetVersion {
+			return fmt.Errorf("incomplete split SS WAL recovery through version %d (Cosmos SS %d, EVM SS %d); state sync the split SS DBs",
+				targetVersion, compositeStore.cosmosStore.GetLatestVersion(), compositeStore.evmStore.GetLatestVersion())
+		}
+		return compositeStore.validateEVMSSPostRecovery()
+	}
+	return nil
 }
 
 type WALEntryHandler func(entry proto.ChangelogEntry) error

@@ -1148,6 +1148,23 @@ $(BUILD_DIR)/tests/test_qual_recovery: tests/test_qual_recovery.c \
 qualify-faults: $(BUILD_DIR)/tests/test_qual_recovery
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_qual_recovery
 
+QUAL_REPLAY_TAIL_SOURCES := tests/test_qual_replay_tail.c \
+	tests/qualification/lxp_qual_replay.c \
+	src/protocol/lxp_activity.c src/codec/lxp_codec.c \
+	src/protocol/lxp_arena.c src/protocol/lxp_u128.c \
+	src/protocol/lxp_result.c src/crypto/lxp_hash.c src/crypto/lxp_ct.c \
+	src/protocol/lxp_protocol.c
+
+$(BUILD_DIR)/tests/test_qual_replay_tail: $(QUAL_REPLAY_TAIL_SOURCES) \
+		include/layerx/lxp_qualification.h Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(QUAL_REPLAY_TAIL_SOURCES) \
+		$(EXTRA_LDFLAGS) -o $@
+
+.PHONY: test-qual-replay-tail
+test-qual-replay-tail: $(BUILD_DIR)/tests/test_qual_replay_tail
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_qual_replay_tail
+
 $(BUILD_DIR)/tests/kernel/%: tests/%.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Itests/codec $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
@@ -2912,6 +2929,7 @@ $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
 paxai-host-boundary: paxai-host-boundary-build
 
 paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
+	@printf '%s\n' '$(PAXAI_CHAIN_DOMAIN)' | LC_ALL=C grep -Eq '^[0-9a-f]{64}$$'
 	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-ai-market
 	@mkdir -p $(PAXAI_HOST_BOUNDARY_DIR)
 	cp $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm

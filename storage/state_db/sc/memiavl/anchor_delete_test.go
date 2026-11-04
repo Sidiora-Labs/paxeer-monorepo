@@ -120,9 +120,10 @@ func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, reopened.Close()) })
 			assertRetired(reopened)
-			require.EqualError(t, reopened.ApplyUpgrades([]*proto.TreeNameUpgrade{
+			require.NoError(t, reopened.ApplyUpgrades([]*proto.TreeNameUpgrade{
 				{Name: anchorName, Delete: true},
-			}), "unknown tree name layerxanchor")
+			}))
+			assertRetired(reopened)
 		})
 	}
 }

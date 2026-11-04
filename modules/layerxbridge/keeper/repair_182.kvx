@@ -1,0 +1,32 @@
+[repair.22.31.182]
+finding = "sidiora-cap-genesis"
+tests = ["TestRepair_182_CapBeforePairRefusesBeforeWrites", "TestRepair_182_GovernanceOrdersRoundTrip"]
+implementation = "SetCap refuses the canonical Sidiora pair before tokenfactory or bridge writes unless it is already registered as SidioraDenom; an existing generic mapping is refused pending governed migration. Genesis validation and InitGenesis remain strict."
+proof = "Real application keepers, Msg service, application codec, stored governance proposal and registered governance route; committed full application export and fresh InitChain import include bank balances, supply, metadata, tokenfactory authority, bridge maps, caps, in-flight supply, replay protection and nonces. Both proposal orders preserve balances; cap-first refuses before registration and succeeds after registration."
+baseline = "No pre-change verification was run: the task's explicit gate order and single verify budget prohibit the earlier baseline instruction. No pre-existing test failure is claimed without an executed baseline."
+legacy_test = "keeper_test.go:TestSidioraPairIsRefusedOnceACapBoundItElsewhere restores the former producer's persisted generic mapping and cap through the real store and tokenfactory keeper; its unchanged registration refusal assertions still protect legacy state, and it additionally asserts SetCap refuses that mapping without writes."
+gotcha = "Record task findings and wiring here because spec/ and root GOTCHA.kvx are outside the task's explicit edit scope."
+codec_gotcha = "The SDK Codec interface decodes protobuf JSON with UnmarshalAsJSON; it has no UnmarshalJSON method."
+
+[qualification.compile_repair]
+revision = "5fbb3ffa794eee5ec4540f0805cd4c7b363b9966"
+command = "cg spec done 22.31.182 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new tests used UnmarshalJSON, which is absent from the SDK Codec interface; repaired both calls to UnmarshalAsJSON."
+assumption = "Qualification is pending the required rebuilt and reverified candidate; no behavior-test result is claimed from this compilation failure."
+
+[qualification.snapshot_repair]
+revision = "879841caa8e802021e0442eebb53515d9defcfdb"
+command = "cg spec done 22.31.182 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All repair cases reached the full application export comparison; protobuf JSON converted nil repeated fields to empty slices, so the expected bank and tokenfactory snapshots now cross the same codec before exact all-field equality."
+assumption = "The repair preserves every balance, supply, metadata, authority and parameter assertion; full import and subsequent bridge operations still require successful qualification."
+
+[migration.sidiora-cap-genesis]
+authorization = "A separate explicit governance-approved software-upgrade plan must name the canonical pair, old generic denom, canonical usid denom, activation height and audited balance/supply snapshot; ordinary SetCap/RegisterSidioraPair must never silently rewrite a legacy mapping or balances."
+preconditions = "Pause the bridge and both denoms at the upgrade boundary; require the old forward/reverse mapping to agree, both denom admins to be the bridge, no conflicting canonical pair, and old bank supply to equal audited balances and bridge in-flight supply. Abort the entire migration on any mismatch."
+conversion = "In one cached state transaction create/verify the canonical usid denom and metadata, convert every old balance 1:1 by authorized burn and mint without changing account ownership, move cap and in-flight records to usid, replace both asset indexes, delete old bridge cap/in-flight/index records, and retain all nullifiers and outbound nonces. Assert old supply and balances are zero and total converted supply/in-flight and every holder balance are conserved before committing; keep the old denom frozen permanently."
+qualification = "Before activation, the owning domain must prove the live legacy producer snapshot through the governed upgrade and complete application export/import, preserving balances and replay protection, rejecting unauthorized plans and snapshot mismatches, and refusing an unconverted generic genesis under unchanged validation."
+wiring_request = "modules/layerxbridge/types, modules/layerxbridge/handler.go and node/upgrade.go — domain 6 (fm-chain-modules): register and execute the explicit governance-approved legacy Sidiora denom/supply migration above, coordinating bank/tokenfactory authority and pause handling; these paths are outside this task."

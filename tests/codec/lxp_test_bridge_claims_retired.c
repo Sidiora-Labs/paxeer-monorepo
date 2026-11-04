@@ -16,19 +16,24 @@ typedef struct lxp_exit_claim lxp_exit_claim;
 struct lxp_guarantor_cert;
 struct lxp_guarantor_key_record;
 
-extern lxp_result lxp_bridge_withdraw_finalize(
+typedef lxp_result lxp_bridge_withdraw_finalize_probe(
     lxp_module_ctx *, lx_account *, lx_account *, const lx_asset_record *,
     const lx_withdrawal_request *, lx_withdrawal_store *,
     const lxp_withdrawal_claim *, lxp_transfer_context, lxp_receipt *);
-extern lxp_result lxp_exit_claim_build(
+extern lxp_bridge_withdraw_finalize_probe lxp_bridge_withdraw_finalize;
+typedef lxp_result lxp_exit_claim_build_probe(
     const lx_finalized_checkpoint *, const struct lxp_guarantor_cert *,
     const lxp_exit_balance_record *, const lxp_merkle_proof *, lxp_arena *,
     lxp_exit_claim *);
-extern lxp_result lxp_exit_verify_balance_proof(
+extern lxp_exit_claim_build_probe lxp_exit_claim_build;
+typedef lxp_result lxp_exit_verify_balance_proof_probe(
     const lxp_exit_claim *, const struct lxp_guarantor_key_record *, size_t,
     lxp_arena *);
-extern lxp_result lx_checkpoint_registry_register_deposit_root(
+extern lxp_exit_verify_balance_proof_probe lxp_exit_verify_balance_proof;
+typedef lxp_result lx_checkpoint_registry_register_deposit_root_probe(
     lx_checkpoint_registry *, const lx_paxeer_deposit_root_registration *);
+extern lx_checkpoint_registry_register_deposit_root_probe
+    lx_checkpoint_registry_register_deposit_root;
 
 #pragma weak lxp_bridge_withdraw_finalize
 #pragma weak lxp_exit_claim_build

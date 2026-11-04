@@ -1,0 +1,1441 @@
+[audit.22.30.68]
+task = "22.30.68"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 159
+findings = 39
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["tenant-raw-hash", "tenant-raw-number", "tenant-raw-blockhash", "tenant-ws-context"]
+
+[file.001]
+path = "api/epoch/epoch.proto"
+lines = 35
+verdict = "clean"
+note = "Numbered epoch time and height fields agree with epoch state and query response messages."
+
+[file.002]
+path = "api/epoch/genesis.proto"
+lines = 16
+verdict = "clean"
+note = "Genesis reuses the declared Epoch and Params messages with stable wire fields."
+
+[file.003]
+path = "api/epoch/params.proto"
+lines = 11
+verdict = "clean"
+note = "Intentionally empty epoch parameter compatibility schema."
+
+[file.004]
+path = "api/epoch/query.proto"
+lines = 39
+verdict = "clean"
+note = "Epoch and Params gRPC and REST declarations return the module's declared response messages."
+
+[file.005]
+path = "api/epoch/tx.proto"
+lines = 13
+verdict = "clean"
+note = "Empty Msg service preserves the epoch protobuf namespace without declaring a transaction method."
+
+[file.006]
+path = "api/eth/tx.proto"
+lines = 191
+verdict = "clean"
+note = "Authored schemas preserve legacy, access-list, dynamic-fee, blob, set-code and association wire representations, including sidecars and byte fields."
+
+[file.007]
+path = "api/layerxanchor/tx.proto"
+lines = 33
+verdict = "clean"
+note = "Historical anchor parameters and authority fields remain replay-compatible; retaining a schema does not activate an anchor service."
+
+[file.008]
+path = "api/layerxbridge/proposal.proto"
+lines = 24
+verdict = "clean"
+note = "Historical bridge governance proposals retain identifiers and payloads without activating retired custody."
+
+[file.009]
+path = "api/layerxbridge/tx.proto"
+lines = 139
+verdict = "clean"
+note = "Historical authority, attestor, pair, cap and chain administration schemas preserve decoding compatibility."
+
+[file.010]
+path = "api/layerxexchange/events.proto"
+lines = 181
+verdict = "clean"
+note = "Historical exchange events retain order, market, margin, funding and settlement wire identities."
+
+[file.011]
+path = "api/layerxexchange/genesis.proto"
+lines = 16
+verdict = "clean"
+note = "Retained genesis state reuses Params, Intent and OwnerNonce with stable field numbers."
+
+[file.012]
+path = "api/layerxexchange/params.proto"
+lines = 31
+verdict = "issues"
+note = "Comments present retired external intent routing and custody as current operation; see exchange-params-wording."
+
+[file.013]
+path = "api/layerxexchange/state.proto"
+lines = 53
+verdict = "issues"
+note = "Intent comments omit the historical status of the external router; see exchange-state-wording."
+
+[file.014]
+path = "api/layerxexchange/tx.proto"
+lines = 33
+verdict = "issues"
+note = "MsgSetMarket documentation promises creation and replacement beyond the handler's behavior; see exchange-market-wording."
+
+[file.015]
+path = "api/layerxgov/proposal.proto"
+lines = 14
+verdict = "clean"
+note = "Historical governance proposal fields preserve replay decoding without establishing an independent network."
+
+[file.016]
+path = "api/mint/v1beta1/genesis.proto"
+lines = 16
+verdict = "clean"
+note = "Mint genesis reuses the minter and parameter wire schemas, including token release schedules."
+
+[file.017]
+path = "api/mint/v1beta1/gov.proto"
+lines = 17
+verdict = "clean"
+note = "Versioned mint proposal messages preserve scheduled-release and parameter representations."
+
+[file.018]
+path = "api/mint/v1beta1/mint.proto"
+lines = 69
+verdict = "clean"
+note = "Minter, denomination and scheduled token release fields agree with the mint state contract."
+
+[file.019]
+path = "api/mint/v1beta1/query.proto"
+lines = 47
+verdict = "clean"
+note = "Mint gRPC and REST declarations return the declared Minter and Params messages."
+
+[file.020]
+path = "api/pax/admin/v0/admin.proto"
+lines = 53
+verdict = "clean"
+note = "Logger enumeration and level administration use explicit stable gRPC requests and responses."
+
+[file.021]
+path = "api/spot/tx.proto"
+lines = 20
+verdict = "clean"
+note = "Parameter updates and reserve synchronization retain the authority and pool identifiers accepted by their handlers."
+
+[file.022]
+path = "rpc/AGENTS.md"
+lines = 27
+verdict = "issues"
+note = "Behavior instructions contain superseded pending and unsupported-method claims; see rpc-instructions-drift."
+
+[file.023]
+path = "rpc/association.go"
+lines = 204
+verdict = "clean"
+note = "Association and Cosmos/EVM address and transaction mappings retain the declared namespace and conversion behavior."
+
+[file.024]
+path = "rpc/association_test.go"
+lines = 57
+verdict = "clean"
+note = "Exercises association, bidirectional addresses and Cosmos/EVM transaction mappings through registered methods."
+
+[file.025]
+path = "rpc/block_launch_height_test.go"
+lines = 90
+verdict = "clean"
+note = "Public behavior assertions cover TestBlockLookupHasNoLaunchHeightFloor."
+
+[file.026]
+path = "rpc/block_receipts_root_test.go"
+lines = 140
+verdict = "clean"
+note = "Public behavior assertions cover TestReceiptsRootIsSameBlockResults."
+
+[file.027]
+path = "rpc/block_test.go"
+lines = 565
+verdict = "clean"
+note = "Checks sequence-batch exclusion, native/synthetic encoding, canonical receipts and constrained historical missing-receipt handling."
+
+[file.028]
+path = "rpc/block_trace_profiled.go"
+lines = 485
+verdict = "issues"
+note = "Empty tracer dispatch and parent cancellation differ from the intended default-tracer and timeout behavior; see profiled findings."
+
+[file.029]
+path = "rpc/block_trace_profiled_test.go"
+lines = 68
+verdict = "issues"
+note = "Predicate-only coverage accepts an empty name without executing the rejecting tracer branch; see profiled-empty-test."
+
+[file.030]
+path = "rpc/block_txcount_parity_test.go"
+lines = 222
+verdict = "clean"
+note = "Public behavior assertions cover TestBlockTransactionCountMatchesGetBlockByNumber, TestBlockAPILatestTagResolves."
+
+[file.031]
+path = "rpc/bloom_test.go"
+lines = 52
+verdict = "clean"
+note = "Public behavior assertions cover TestMatchBloom."
+
+[file.032]
+path = "rpc/client_matrix_test.go"
+lines = 157
+verdict = "clean"
+note = "Public behavior assertions cover TestClientMatrixMethodsServedHTTP, TestClientMatrixMethodsServedWS."
+
+[file.033]
+path = "rpc/completion_gate_test.go"
+lines = 43
+verdict = "clean"
+note = "Public behavior assertions cover TestRpcCompletionRetiredSurfacesAbsent."
+
+[file.034]
+path = "rpc/config_integration_test.go"
+lines = 353
+verdict = "issues"
+note = "Expected auto-sizing repeats an uncapped CPU formula rather than production's capped rule; see worker-config-test."
+
+[file.035]
+path = "rpc/context.go"
+lines = 145
+verdict = "clean"
+note = "Context-bound consensus and receipt traces use synchronized append/marshal operations and explicit hexadecimal receipt fields; unavailable trace collections return errors."
+
+[file.036]
+path = "rpc/debug_raw_tx_test.go"
+lines = 53
+verdict = "clean"
+note = "Public behavior assertions cover TestDebugGetRawTransactionReturnsEnvelope."
+
+[file.037]
+path = "rpc/debug_trace_block_test.go"
+lines = 38
+verdict = "clean"
+note = "Public behavior assertions cover TestDebugTraceBlockByNumberEntriesMatchBlockTxs."
+
+[file.038]
+path = "rpc/debug_tracer_shape_test.go"
+lines = 197
+verdict = "clean"
+note = "Public behavior assertions cover TestDebugTraceTransactionCallTracerShape, TestDebugTraceTransactionPrestateTracerShape."
+
+[file.039]
+path = "rpc/domain_index.go"
+lines = 66
+verdict = "clean"
+note = "Keeper-backed membership reads use the canonical transaction domain index and propagate storage failures."
+
+[file.040]
+path = "rpc/domain_reads_test.go"
+lines = 337
+verdict = "clean"
+note = "Mixed-domain HTTP tests cover scoped blocks, canonical indices, receipts and logs while root retains every domain."
+
+[file.041]
+path = "rpc/domain_scope.go"
+lines = 34
+verdict = "clean"
+note = "DomainScope carries the uint32 tenant ID and derived big-integer chain ID through a private context key; the resolver ServerOption supplies domain resolution to server construction."
+
+[file.042]
+path = "rpc/domain_scope_test.go"
+lines = 231
+verdict = "clean"
+note = "Checks derived/root identities, unknown-path refusal, WebSocket upgrades and scoped connection shutdown."
+
+[file.043]
+path = "rpc/domain_ws_test.go"
+lines = 308
+verdict = "issues"
+note = "Mixed-domain log and shared-head tests omit ordinary scoped WebSocket reads; see tenant-ws-test."
+
+[file.044]
+path = "rpc/endpoints.go"
+lines = 64
+verdict = "clean"
+note = "Module availability checks accept only registered namespaces plus built-in metadata/engine exceptions; invalid sub-second HTTP timeouts are replaced by declared geth defaults."
+
+[file.045]
+path = "rpc/error_codes_test.go"
+lines = 176
+verdict = "clean"
+note = "Public behavior assertions cover TestErrorCodeRegistry."
+
+[file.046]
+path = "rpc/ethbloom/bloom.go"
+lines = 126
+verdict = "issues"
+note = "Exact topic matching accepts absent topic positions when the selector is a wildcard; see wildcard-topic-cardinality."
+
+[file.047]
+path = "rpc/ethclient_blocks_test.go"
+lines = 66
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientBlockByNumberDecodes, TestEthclientHeaderByHashMatchesBlock."
+
+[file.048]
+path = "rpc/ethclient_call_test.go"
+lines = 78
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientCallContract, TestEthclientEstimateGas."
+
+[file.049]
+path = "rpc/ethclient_chain_test.go"
+lines = 46
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientChainIDAndNetworkID, TestEthclientSyncProgress."
+
+[file.050]
+path = "rpc/ethclient_domain_test.go"
+lines = 345
+verdict = "clean"
+note = "Real chain-path client sends transactions and consumes scoped receipts and filters on the shared network."
+
+[file.051]
+path = "rpc/ethclient_fees_test.go"
+lines = 74
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientSuggestGasPriceAndTip, TestEthclientFeeHistory."
+
+[file.052]
+path = "rpc/ethclient_logs_test.go"
+lines = 41
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientFilterLogs."
+
+[file.053]
+path = "rpc/ethclient_newhead_test.go"
+lines = 100
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientSubscribeNewHeadHashMatchesBlock."
+
+[file.054]
+path = "rpc/ethclient_pending_test.go"
+lines = 62
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientPendingNonceAndPendingBlock."
+
+[file.055]
+path = "rpc/ethclient_receipts_test.go"
+lines = 119
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientTransactionReceiptDecodes, TestEthclientBlockReceiptsDecode."
+
+[file.056]
+path = "rpc/ethclient_send_test.go"
+lines = 71
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientSendTransactionRoundTrip."
+
+[file.057]
+path = "rpc/ethclient_state_test.go"
+lines = 68
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientBalanceAndNonceAt, TestEthclientCodeAndStorageAt."
+
+[file.058]
+path = "rpc/ethclient_transactions_test.go"
+lines = 74
+verdict = "clean"
+note = "Public behavior assertions cover TestEthclientTransactionByHash, TestEthclientTransactionInBlock."
+
+[file.059]
+path = "rpc/filter_blockhash_test.go"
+lines = 101
+verdict = "clean"
+note = "Public behavior assertions cover TestGetLogsUnknownBlockHashErrors."
+
+[file.060]
+path = "rpc/filter_bounds_test.go"
+lines = 118
+verdict = "clean"
+note = "Public behavior assertions cover TestComputeBlockBounds."
+
+[file.061]
+path = "rpc/filter_earliest_test.go"
+lines = 78
+verdict = "clean"
+note = "Public behavior assertions cover TestGetLogsFailsWhenEarliestHeightUnavailable."
+
+[file.062]
+path = "rpc/filter_shutdown_test.go"
+lines = 100
+verdict = "clean"
+note = "Checks cleanup is not exported and HTTP server Stop cancels filter cleanup ownership."
+
+[file.063]
+path = "rpc/filter_test.go"
+lines = 648
+verdict = "issues"
+note = "Unconditional skips disable core log and polling-filter assertions; see skipped-filter-cases."
+
+[file.064]
+path = "rpc/header_receipts_root_test.go"
+lines = 220
+verdict = "clean"
+note = "Public behavior assertions cover TestHeaderReceiptsRootIsSameBlockResults."
+
+[file.065]
+path = "rpc/height_availability_test.go"
+lines = 298
+verdict = "clean"
+note = "Covers watermark bounds, unavailable/pruned blocks and receipts, cached log availability and proof state refusal."
+
+[file.066]
+path = "rpc/historical_debug_trace_test.go"
+lines = 117
+verdict = "clean"
+note = "Public behavior assertions cover TestIsHistoricalDebugTraceBlock, TestGuardHistoricalDebugTraceHeight, TestGuardHistoricalDebugTraceByHashUsesTendermintHeight."
+
+[file.067]
+path = "rpc/http_ws_parity_test.go"
+lines = 179
+verdict = "clean"
+note = "Compares root HTTP/WebSocket results and mixed-batch deny-list behavior; ordinary tenant parity is tracked separately."
+
+[file.068]
+path = "rpc/info.go"
+lines = 713
+verdict = "clean"
+note = "Identity, fee and sync results use tenant identity, canonical watermarks and same-block fee inputs as applicable."
+
+[file.069]
+path = "rpc/info_metric_labels_test.go"
+lines = 112
+verdict = "clean"
+note = "Public behavior assertions cover TestInfoAPIMetricLabelsUseServedNames."
+
+[file.070]
+path = "rpc/info_test.go"
+lines = 596
+verdict = "clean"
+note = "Covers identities, sync, fee history, parent/child base fees, gas ratios, receipt failures and canonical watermarks."
+
+[file.071]
+path = "rpc/ip_rate_limit.go"
+lines = 97
+verdict = "clean"
+note = "Per-remote-IP token buckets enforce configured rate/burst limits and expose cleanup ownership to the server wrapper."
+
+[file.072]
+path = "rpc/ip_rate_limit_test.go"
+lines = 119
+verdict = "clean"
+note = "Public behavior assertions cover TestIPRateLimiterRefusesAboveBurst, TestIPRateLimiterKeysByRemoteIP."
+
+[file.073]
+path = "rpc/jwt_handler.go"
+lines = 80
+verdict = "clean"
+note = "Bearer-token validation guards entry to the RPC transport stack."
+
+[file.074]
+path = "rpc/lx_switch_off_test.go"
+lines = 114
+verdict = "clean"
+note = "Public behavior assertions cover TestLxMethodsNotServedHTTP, TestLxMethodsNotServedWS."
+
+[file.075]
+path = "rpc/metrics.go"
+lines = 185
+verdict = "clean"
+note = "Active RPC and baker instruments preserve the declared measurement names without retired request counters."
+
+[file.076]
+path = "rpc/metrics_test.go"
+lines = 57
+verdict = "clean"
+note = "Public behavior assertions cover TestRecordRPCMetricsNoPanic, TestClassifyRPCMetricError."
+
+[file.077]
+path = "rpc/names_proof_test.go"
+lines = 286
+verdict = "clean"
+note = "Public behavior assertions cover TestNamesContenthashProofVerifiesAgainstTheAppHash."
+
+[file.078]
+path = "rpc/net.go"
+lines = 40
+verdict = "clean"
+note = "Registered net methods return the root or tenant network identity and listening status."
+
+[file.079]
+path = "rpc/notifier.go"
+lines = 157
+verdict = "clean"
+note = "Bounded committed-header delivery supports stashing and publication; its consumer shutdown gap is recorded in subscribe.go."
+
+[file.080]
+path = "rpc/notifier_internal_test.go"
+lines = 574
+verdict = "clean"
+note = "Checks bounded overwrite/stash delivery and committed header roots, bloom, gas and parent-context base fees."
+
+[file.081]
+path = "rpc/pax_debug_surface_test.go"
+lines = 30
+verdict = "clean"
+note = "Public behavior assertions cover TestPaxDebugServesOnlyExcludeTraceFail."
+
+[file.082]
+path = "rpc/pax_filter.go"
+lines = 40
+verdict = "clean"
+note = "Explicit wrappers restrict promoted pax filter methods to the intended gated surface."
+
+[file.083]
+path = "rpc/pax_filter_test.go"
+lines = 32
+verdict = "clean"
+note = "Public behavior assertions cover TestPaxFilterAPIMethodSetMatchesGate."
+
+[file.084]
+path = "rpc/pax_legacy.go"
+lines = 184
+verdict = "clean"
+note = "Legacy allowlist, refusal code and deprecation metadata are shared by registration and transport gates."
+
+[file.085]
+path = "rpc/pax_legacy_http.go"
+lines = 448
+verdict = "issues"
+note = "Body truncation, blocked singleton notifications and filtered batch limits diverge from transport policy; see legacy HTTP findings."
+
+[file.086]
+path = "rpc/pax_legacy_http_gzip_test.go"
+lines = 224
+verdict = "clean"
+note = "Checks gzip pass-through and legacy deprecation/refusal handling without treating compressed bytes as JSON."
+
+[file.087]
+path = "rpc/pax_served_set_test.go"
+lines = 109
+verdict = "clean"
+note = "Public behavior assertions cover TestPaxServedSetEqualsGatedSet."
+
+[file.088]
+path = "rpc/pending_block_fields_test.go"
+lines = 131
+verdict = "clean"
+note = "Public behavior assertions cover TestPendingBlockCarriesHeaderFields."
+
+[file.089]
+path = "rpc/pending_block_txcount_test.go"
+lines = 58
+verdict = "clean"
+note = "Public behavior assertions cover TestPendingBlockTransactionCount."
+
+[file.090]
+path = "rpc/pending_filter_test.go"
+lines = 516
+verdict = "clean"
+note = "Checks receipted pending logs, no repetition after commit, pending transactions and explicit-latest filters."
+
+[file.091]
+path = "rpc/pending_simulate_test.go"
+lines = 669
+verdict = "clean"
+note = "Uses real open snapshots and WAL-backed standby to check execution state, estimation, access lists and parent hashes, with unsupported proof/trace refusal."
+
+[file.092]
+path = "rpc/pending_state_test.go"
+lines = 333
+verdict = "clean"
+note = "Checks open-height state, refusal without an executor and snapshots that do not block acceptance."
+
+[file.093]
+path = "rpc/pending_tx_index_test.go"
+lines = 108
+verdict = "clean"
+note = "Public behavior assertions cover TestPendingTransactionByBlockNumberAndIndex."
+
+[file.094]
+path = "rpc/proof_client_parity_test.go"
+lines = 387
+verdict = "clean"
+note = "Real consensus submission, EVM handler, receipt persistence and fresh HTTP ethclient decoding repeat across reconstruction, including envelope/hash and refusal assertions."
+
+[file.095]
+path = "rpc/proof_metrics_test.go"
+lines = 184
+verdict = "clean"
+note = "Runs the real baker and scrapes exported metrics; direct baker Stop coverage does not establish server lifecycle ownership."
+
+[file.096]
+path = "rpc/raw_tx.go"
+lines = 114
+verdict = "issues"
+note = "Pending, mempool and committed raw-by-hash branches omit tenant visibility; see tenant-raw-hash."
+
+[file.097]
+path = "rpc/raw_tx_index.go"
+lines = 81
+verdict = "issues"
+note = "Both indexed raw methods marshal shared block transactions without request scope; see tenant-raw-number and tenant-raw-blockhash."
+
+[file.098]
+path = "rpc/raw_tx_index_test.go"
+lines = 121
+verdict = "clean"
+note = "Checks root indexed raw envelopes and invalid/missing index behavior; tenant omissions are recorded against the producer."
+
+[file.099]
+path = "rpc/raw_tx_test.go"
+lines = 96
+verdict = "clean"
+note = "Checks canonical root raw-by-hash envelope bytes; tenant visibility is tracked against raw_tx.go."
+
+[file.100]
+path = "rpc/resolution_pending_test.go"
+lines = 466
+verdict = "clean"
+note = "Exercises pending tags, accepted hashes, node receipt-key relay input and pending subscriptions/overflow."
+
+[file.101]
+path = "rpc/rpcstack.go"
+lines = 946
+verdict = "issues"
+note = "Tenant WebSocket registration scopes only identity and log subscription wrappers; see tenant-ws-context."
+
+[file.102]
+path = "rpc/rpcstack_test.go"
+lines = 653
+verdict = "clean"
+note = "Covers start/stop, CORS, vhosts, WebSocket origins, paths, JWT, gzip, write timeout and HTTP deny lists."
+
+[file.103]
+path = "rpc/rpcutils/sig.go"
+lines = 98
+verdict = "clean"
+note = "Height-aware sender recovery preserves legacy/unprotected signing behavior and rejects invalid signatures."
+
+[file.104]
+path = "rpc/rpcutils/sig_test.go"
+lines = 547
+verdict = "clean"
+note = "Covers transaction families, signer heights and invalid signatures with the currently present real-transaction corpus."
+
+[file.105]
+path = "rpc/send_sync.go"
+lines = 97
+verdict = "clean"
+note = "Synchronous submission waits for the accepted hash's canonical receipt and preserves that hash in timeout error data."
+
+[file.106]
+path = "rpc/send_sync_test.go"
+lines = 95
+verdict = "clean"
+note = "Public behavior assertions cover TestSendRawTransactionSyncReturnsReceipt."
+
+[file.107]
+path = "rpc/send_sync_timeout_test.go"
+lines = 88
+verdict = "clean"
+note = "Public behavior assertions cover TestSendRawTransactionSyncTimeoutReturnsHash."
+
+[file.108]
+path = "rpc/send_test.go"
+lines = 153
+verdict = "clean"
+note = "Public behavior assertions cover TestMnemonicToPrivateKey, TestSendRawTransaction, TestSendRawTransactionUsesProxy."
+
+[file.109]
+path = "rpc/sequencer_options_integration_test.go"
+lines = 267
+verdict = "clean"
+note = "Checks shared embedded executor feeds across HTTP/WebSocket and pending/receipt-key option wiring."
+
+[file.110]
+path = "rpc/sequencer_receipt_hosted_test.go"
+lines = 157
+verdict = "clean"
+note = "Checks unknown node receipt keys are null and produced receipt-key data includes the signing key consumed by the hosted relay."
+
+[file.111]
+path = "rpc/served_labels_test.go"
+lines = 197
+verdict = "clean"
+note = "Public behavior assertions cover TestServedMethodsRecordServedEndpointLabel."
+
+[file.112]
+path = "rpc/served_methods.go"
+lines = 92
+verdict = "clean"
+note = "Discovery distinguishes subscriptions from callable methods and applies namespace and deny-list selection."
+
+[file.113]
+path = "rpc/served_methods_golden_test.go"
+lines = 71
+verdict = "clean"
+note = "Explicit HTTP/WebSocket method sets include polling filters and node receipt keys while excluding retired lx methods."
+
+[file.114]
+path = "rpc/served_methods_test.go"
+lines = 97
+verdict = "issues"
+note = "Dispatch parity compares one server's method list with a different fixture listener; see served-dispatch-instance."
+
+[file.115]
+path = "rpc/server.go"
+lines = 592
+verdict = "issues"
+note = "The started baker handle is discarded instead of being stopped with its server; see trace-baker-server-lifecycle."
+
+[file.116]
+path = "rpc/server_options.go"
+lines = 40
+verdict = "clean"
+note = "Pending and forwarding options validate dependencies and URLs and carry the embedded acceptance/feed inputs into construction."
+
+[file.117]
+path = "rpc/server_options_test.go"
+lines = 63
+verdict = "clean"
+note = "Public behavior assertions cover TestNewPendingOptionRejectsNil, TestNewSequencerForwardOptionRejectsNonHTTPURL."
+
+[file.118]
+path = "rpc/server_options_wiring_test.go"
+lines = 183
+verdict = "clean"
+note = "Public behavior assertions cover TestHTTPServerPendingOptionServesPendingBlock, TestHTTPServerForwardOptionForwardsRawTransaction."
+
+[file.119]
+path = "rpc/server_registration_test.go"
+lines = 158
+verdict = "clean"
+note = "Checks promoted raw/uncle methods, WebSocket getLogs and excluded pax pending filters on registered servers."
+
+[file.120]
+path = "rpc/simulate_basefee_test.go"
+lines = 115
+verdict = "clean"
+note = "Public behavior assertions cover TestSimulateHeaderKeepsBaseFee."
+
+[file.121]
+path = "rpc/solidity/ERC20.sol"
+lines = 61
+verdict = "clean"
+note = "Wrapped-Pax fixture declares balance, allowance and Deposit/Withdrawal/Transfer/Approval ABI shapes used by compatibility tests."
+
+[file.122]
+path = "rpc/solidity/IAddr.sol"
+lines = 14
+verdict = "clean"
+note = "Address precompile fixture preserves the Pax/EVM address conversion ABI consumed by Solidity tests."
+
+[file.123]
+path = "rpc/solidity/IJson.sol"
+lines = 17
+verdict = "clean"
+note = "JSON precompile fixture declares typed extraction signatures used by its Solidity consumers."
+
+[file.124]
+path = "rpc/solidity/IWasmd.sol"
+lines = 28
+verdict = "clean"
+note = "Wasm precompile fixture preserves execution and query inputs and outputs for EVM interoperability."
+
+[file.125]
+path = "rpc/solidity/MixedLogTester.sol"
+lines = 67
+verdict = "clean"
+note = "Fixture produces EVM and native precompile logs for mixed receipt/log encoding checks."
+
+[file.126]
+path = "rpc/state.go"
+lines = 262
+verdict = "clean"
+note = "Pending snapshots and historical watermarks resolve state reads; tenant state is intentionally shared and pending proofs are explicitly refused."
+
+[file.127]
+path = "rpc/state_test.go"
+lines = 295
+verdict = "clean"
+note = "Public behavior assertions cover TestGetBalance, TestGetCode, TestGetStorageAt, TestGetProof."
+
+[file.128]
+path = "rpc/stats/tracker.go"
+lines = 279
+verdict = "issues"
+note = "Global trackers are replaced without synchronized lifecycle ownership or effective zero-interval disable; see stats-tracker-lifecycle."
+
+[file.129]
+path = "rpc/subscribe.go"
+lines = 717
+verdict = "issues"
+note = "New-head consumer loops have no cancel/join path owned by server shutdown; see subscription-server-lifecycle."
+
+[file.130]
+path = "rpc/subscribe_logs_limit_test.go"
+lines = 145
+verdict = "clean"
+note = "Public behavior assertions cover TestLogsSubscriptionLimit."
+
+[file.131]
+path = "rpc/subscribe_logs_test.go"
+lines = 207
+verdict = "clean"
+note = "Public behavior assertions cover TestLogsSubscriptionNeverNotifiesErrorPayload, TestLogsSubscriptionOutlivesSubscribeCall."
+
+[file.132]
+path = "rpc/synthetic_receipts_test.go"
+lines = 306
+verdict = "clean"
+note = "Checks deterministic synthetic receipt hashes, public endpoint shapes and stable indices with sparse kinds."
+
+[file.133]
+path = "rpc/trace_baker.go"
+lines = 393
+verdict = "clean"
+note = "Bounded baking persists cache/progress and provides Stop that waits for workers and unregisters telemetry; missing server ownership is recorded in server.go."
+
+[file.134]
+path = "rpc/trace_baker_metrics_test.go"
+lines = 97
+verdict = "clean"
+note = "Public behavior assertions cover TestTraceBakerCountersExported."
+
+[file.135]
+path = "rpc/trace_baker_test.go"
+lines = 506
+verdict = "clean"
+note = "Covers bounded baking, errors, contiguous persisted progress, restart catch-up, pruning, block rows and direct Stop cleanup."
+
+[file.136]
+path = "rpc/trace_db_reader_test.go"
+lines = 161
+verdict = "clean"
+note = "Public behavior assertions cover TestBakeableTracerName, TestBlockTraceCacheGet, TestFilterExcludeFailFromBlockCache, TestTryBlockResultCache."
+
+[file.137]
+path = "rpc/trace_profile.go"
+lines = 163
+verdict = "clean"
+note = "Profile phases and durations augment tracing without changing the underlying result payload."
+
+[file.138]
+path = "rpc/trace_tx_decoder.go"
+lines = 45
+verdict = "clean"
+note = "Historical trace decoding selects the pre-v6.5 decoder without body-bloat rejection only before that upgrade, retaining the ordinary configured decoder afterward."
+
+[file.139]
+path = "rpc/tracers_internal_test.go"
+lines = 46
+verdict = "clean"
+note = "Public behavior assertions cover TestDebugAPIAsRawJSON."
+
+[file.140]
+path = "rpc/tracers_semaphore_test.go"
+lines = 129
+verdict = "clean"
+note = "Public behavior assertions cover TestPrepareTraceContextFailsFastWhenSemaphoreIsFull, TestPrepareTraceContextReleasesSemaphoreOnCleanup, TestAcquireTraceSemaphoreCanceledContextDoesNotConsumeSlot, TestHashBasedTraceEndpointsAcquireSemaphoreBeforeHashLookup."
+
+[file.141]
+path = "rpc/tracers_test.go"
+lines = 124
+verdict = "clean"
+note = "Unsupported raw tests now contain only block/header/receipts; transaction tracing, timeout and lookback behavior are covered."
+
+[file.142]
+path = "rpc/transport_limits_test.go"
+lines = 196
+verdict = "clean"
+note = "Checks ordinary HTTP rate and batch limits; filtered legacy batches need the separate producer repair proposal."
+
+[file.143]
+path = "rpc/tx.go"
+lines = 774
+verdict = "issues"
+note = "Receipt error metadata lacks the tenant check applied by ordinary transaction/receipt reads; see tenant-error-metadata."
+
+[file.144]
+path = "rpc/tx_metric_labels_test.go"
+lines = 134
+verdict = "clean"
+note = "Public behavior assertions cover TestPaxTransactionMethodsRecordPaxLabels."
+
+[file.145]
+path = "rpc/txpool.go"
+lines = 103
+verdict = "issues"
+note = "Content and status enumerate the complete EVM mempool without tenant scope; see tenant-txpool."
+
+[file.146]
+path = "rpc/txpool_status_test.go"
+lines = 83
+verdict = "clean"
+note = "Public behavior assertions cover TestTxPoolStatusCountsPendingEVMTxs."
+
+[file.147]
+path = "rpc/txpool_test.go"
+lines = 128
+verdict = "clean"
+note = "Public behavior assertions cover TestTxPoolContent, TestTxPoolContentSenderRecovery."
+
+[file.148]
+path = "rpc/uncle.go"
+lines = 47
+verdict = "clean"
+note = "Uncle-by-block lookups return null without fabricating BFT uncle headers."
+
+[file.149]
+path = "rpc/uncle_count.go"
+lines = 58
+verdict = "clean"
+note = "Known blocks return zero and unavailable blocks return null using canonical height resolution."
+
+[file.150]
+path = "rpc/uncle_count_test.go"
+lines = 88
+verdict = "clean"
+note = "Public behavior assertions cover TestUncleCountKnownBlockIsZero, TestUncleCountUnknownBlockIsNull."
+
+[file.151]
+path = "rpc/uncle_test.go"
+lines = 38
+verdict = "clean"
+note = "Public behavior assertions cover TestUncleByBlockIndexIsNull."
+
+[file.152]
+path = "rpc/unsupported_ethdb.go"
+lines = 102
+verdict = "clean"
+note = "Unsupported database operations explicitly refuse to fabricate an Ethereum trie store for proof/trace consumers."
+
+[file.153]
+path = "rpc/utils_metrics_test.go"
+lines = 140
+verdict = "clean"
+note = "Public behavior assertions cover TestRecordMetricsDoesNotEmitLegacyRequestMetrics."
+
+[file.154]
+path = "rpc/watermark_manager_test.go"
+lines = 530
+verdict = "clean"
+note = "Public behavior assertions cover TestWatermarksAggregatesSources, TestWatermarksIncludesCtxProviderHeight, TestWatermarksNoSources, TestResolveHeightGating, TestResolvePendingFallsBackToLatestWhileNoBlockIsOpen, TestResolveHeightByHash, TestEnsureBlockHeightAvailableBounds, TestEnsureReceiptHeightAvailable, TestLatestAndEarliestHeightHelpers, TestResolveHeightUsesStateEarliest, TestStateWatermarksCanLagBlocks, TestBlockByNumberOrNullForJSONRPC, TestBlockByHashOrNullForJSONRPC."
+
+[file.155]
+path = "rpc/web3_sha3_test.go"
+lines = 31
+verdict = "clean"
+note = "Public behavior assertions cover TestWeb3Sha3HashesInput."
+
+[file.156]
+path = "rpc/websockets_metrics_test.go"
+lines = 95
+verdict = "clean"
+note = "Public behavior assertions cover TestWSConnectDoesNotEmitLegacyCounter."
+
+[file.157]
+path = "rpc/worker_pool.go"
+lines = 207
+verdict = "issues"
+note = "Both submission methods release the state lock before a send that races queue closure; see worker-submit-close."
+
+[file.158]
+path = "rpc/worker_pool_test.go"
+lines = 553
+verdict = "clean"
+note = "Covers sizing, bounded admission, execution, idempotent initialization, panic recovery and orderly close; the concurrent close race is tracked separately."
+
+[file.159]
+path = "rpc/ws_transport_test.go"
+lines = 303
+verdict = "clean"
+note = "Checks real WebSocket bind address and deny-list behavior for calls, mixed batches, notifications and protocol errors."
+
+[finding.tenant-raw-hash]
+file = "rpc/raw_tx.go"
+line = 54
+class = "interface-mismatch"
+severity = "high"
+observed = "GetRawTransactionByHash returns pending, mempool and committed EVM envelopes without consulting DomainScopeFrom, domainAllowsTransaction or domainHashSet. A request on /chain/1 can retrieve a root or other tenant transaction hidden by ordinary getTransactionByHash."
+expected = "Requirement 8368.1 makes transaction visibility tenant-scoped while root sees all domains. Registry row 7.rpc-eth-getrawtransactionbyhash-j38 must preserve that visibility in every lifecycle branch, with the same hash and envelope identity."
+proposal = "In rpc/raw_tx.go, apply the appropriate pending/mempool domainAllowsTransaction and committed domain index checks before returning bytes. Retain rawEnvelopeForHash validation and prove root, own-domain and hidden-domain behavior through real mixed-domain HTTP and WebSocket requests for pending and committed transactions."
+owner_domain = 7
+interface = "7.rpc-eth-getrawtransactionbyhash-j38"
+
+[finding.tenant-raw-number]
+file = "rpc/raw_tx_index.go"
+line = 43
+class = "interface-mismatch"
+severity = "high"
+observed = "GetRawTransactionByBlockNumberAndIndex resolves the shared block then calls rawTransactionWithBlock without request context. The helper marshals the selected transaction even when its domain is hidden by the ordinary indexed transaction API."
+expected = "Requirement 8368.1 and registry row 7.rpc-eth-getrawtransactionbyblocknumberandindex-j38 require the tenant view to hide other-domain transactions while retaining the canonical shared-block index, including the pending view."
+proposal = "In rpc/raw_tx_index.go, thread context into rawTransactionWithBlock and use the same domainAllowsTransaction visibility rule as rpc/tx.go before marshaling. Add real mixed-domain transport assertions for own, root and other-domain transactions at canonical indices for committed and open blocks."
+owner_domain = 7
+interface = "7.rpc-eth-getrawtransactionbyblocknumberandindex-j38"
+
+[finding.tenant-raw-blockhash]
+file = "rpc/raw_tx_index.go"
+line = 64
+class = "interface-mismatch"
+severity = "high"
+observed = "GetRawTransactionByBlockHashAndIndex passes a shared block to a context-free rawTransactionWithBlock. It returns an otherwise valid root or other-tenant envelope that the corresponding ordinary tenant indexed lookup hides."
+expected = "The transaction visibility boundary in requirement 8368.1 also applies to registry row 7.rpc-eth-getrawtransactionbyblockhashandindex-j38. Hash-based resolution must retain canonical indices without exposing another tenant transaction."
+proposal = "In rpc/raw_tx_index.go, carry the request scope into the shared raw helper and reject invisible transactions using the same domain rule as ordinary indexed reads. Exercise the real block-hash RPC on HTTP and WebSocket against a block containing root and multiple tenant transactions."
+owner_domain = 7
+interface = "7.rpc-eth-getrawtransactionbyblockhashandindex-j38"
+
+[finding.tenant-ws-context]
+file = "rpc/rpcstack.go"
+line = 474
+class = "interface-mismatch"
+severity = "high"
+observed = "newDomainWSHandler wraps only InfoAPI, domainNetAPI and SubscriptionAPI. The geth ServeCodec path initializes call handlers from context.Background in core/deps/geth/rpc/client.go:120, so the upgrade request scope never reaches ordinary BlockAPI, TransactionAPI or FilterAPI calls. A tenant identity can accompany an unscoped transaction/log view."
+expected = "The scoped WebSocket endpoint in registry row 7.ws-endpoint-root must preserve the same domain visibility as HTTP under requirements 8368.1 and 8364.1. Shared newHeads and shared account state are intentional, but ordinary transaction and log visibility must remain scoped."
+proposal = "In rpc/rpcstack.go and the geth codec context boundary, bind DomainScope to every call on a tenant connection, or supply complete scoped API wrappers. Extend real tenant WebSocket tests to compare blocks, counts, transactions, receipts, getLogs, polling filters and raw methods with HTTP before and after reconnect, preserving root access and shared newHeads."
+owner_domain = 7
+interface = "7.ws-endpoint-root"
+
+[finding.tenant-error-metadata]
+file = "rpc/tx.go"
+line = 203
+class = "wiring-gap"
+severity = "medium"
+observed = "GetVMError and GetTransactionErrorByHash (line 421) read receipt.VmError directly without the committed domain membership check used by getTransactionByHash and getTransactionReceipt. The eth methods and enabled pax aliases can reveal another domain transaction error by hash."
+expected = "Tenant transaction visibility must also govern derived receipt error data. Registry rows 7.rpc-eth-getvmerror, 7.rpc-eth-gettransactionerrorbyhash and their pax counterparts should not reveal metadata for a transaction the same tenant cannot retrieve."
+proposal = "In rpc/tx.go, apply the committed domain-index visibility check before returning either error string, keeping each method's documented not-found convention. Add real mixed-domain receipt/error lookups through enabled eth and pax methods over both transports."
+owner_domain = 7
+interface = "7.rpc-eth-getvmerror"
+
+[finding.tenant-txpool]
+file = "rpc/txpool.go"
+line = 51
+class = "wiring-gap"
+severity = "medium"
+observed = "Content enumerates every decoded EVM transaction from UnconfirmedTxs, and Status at line 88 counts the same global set. Neither uses request domain scope, so a tenant pool response includes other domains even when normal transaction reads hide them."
+expected = "Tenant domains must retain transaction visibility on pool reads as well as individual lookups. Registry rows 7.rpc-txpool-content and 7.rpc-txpool-status-j38 should agree with the tenant-visible pending transaction set, while root retains the global view."
+proposal = "In rpc/txpool.go, filter decoded transactions through the established domain visibility rule before sender grouping or counting. Prove content and status agreement on real root and tenant HTTP/WebSocket clients with a mempool containing transactions from several domains."
+owner_domain = 7
+interface = "7.rpc-txpool-content"
+
+[finding.subscription-server-lifecycle]
+file = "rpc/subscribe.go"
+line = 129
+class = "restart-recovery"
+severity = "medium"
+observed = "runNewHeadsFromNotifier ranges notifier.recv indefinitely without a cancel or Stop path; the legacy subscription also uses context.Background. Stopping the WebSocket server does not join either producer consumer. Recreating a server with the same notifier leaves the old loop able to consume and discard committed heads."
+expected = "Registry rows 7.go-blockheadernotifier-j38 and 7.ws-eth-subscribe-newheads need a server-owned consumer lifecycle. Recreated listeners must receive the committed stream without competition from a stopped server's orphaned consumer."
+proposal = "Add an explicit cancel-and-join lifecycle to SubscriptionAPI in rpc/subscribe.go and register it with server Stop in rpc/server.go. Cancel legacy event-bus subscriptions too. Exercise repeated real WebSocket server stop/recreation sharing the same notifier and assert each new committed head reaches the active listener and old consumers are gone."
+owner_domain = 7
+interface = "7.go-blockheadernotifier-j38"
+
+[finding.trace-baker-server-lifecycle]
+file = "rpc/server.go"
+line = 247
+class = "restart-recovery"
+severity = "medium"
+observed = "NewEVMHTTPServer starts StartTraceBakerForDebugAPI but discards the returned baker. No server stop hook calls its Stop. The baker retains workers, TraceDB enqueuer and telemetry hook until explicitly stopped, so server recreation can leave old work and hook ownership behind."
+expected = "The enabled baker configured by registry row 7.cfg-evm-trace-bake-enabled must stop and drain with its owning server. TraceDB and telemetry callbacks must have one live owner during shutdown and reconstruction."
+proposal = "In rpc/server.go, retain the returned baker and register its Stop in server shutdown before dependent stores close. Ensure callback detach cannot remove a replacement owner. Extend the actual TraceDB/exporter integration path to stop and recreate the server and assert old workers stop and new baking/metrics remain live."
+owner_domain = 7
+interface = "7.cfg-evm-trace-bake-enabled"
+
+[finding.stats-tracker-lifecycle]
+file = "rpc/stats/tracker.go"
+line = 45
+class = "restart-recovery"
+severity = "medium"
+observed = "InitRPCTracker and InitWSTracker overwrite global pointers without synchronization or stopping previous tracker goroutines. An interval of zero leaves the previous pointer active. The available tracker.Stop has no owning caller in server shutdown."
+expected = "Registry row 7.cfg-evm-rpc-stats-interval must control the actual active tracker, including disabling at zero, and server recreation must not leak reporting loops or race concurrent request recording."
+proposal = "Give HTTP and WebSocket servers owned tracker handles in rpc/stats/tracker.go and rpc/server.go, synchronize pointer reads/replacement, and cancel/join the previous tracker during replacement or Stop. Verify repeated construction, concurrent recording and zero-interval disable with actual tracker lifecycles."
+owner_domain = 7
+interface = "7.cfg-evm-rpc-stats-interval"
+
+[finding.worker-submit-close]
+file = "rpc/worker_pool.go"
+line = 116
+class = "runtime-risk"
+severity = "medium"
+observed = "SubmitWithMetrics and Submit release the closed-state RLock before sending. Close can then close taskQueue before that send. A select containing done does not make a send to a closed queue safe, so simultaneous submission and shutdown can panic outside a worker."
+expected = "Configured simulation worker admission must return a closing/full error during shutdown and never panic in an RPC caller. Accepted work should retain the promised queue-drain behavior."
+proposal = "In rpc/worker_pool.go, implement an atomic admission/closure protocol that prevents taskQueue closure while a sender can still enter it, without blocking Close on an undrainable submission. Add simultaneous Submit and SubmitWithMetrics versus Close coverage with real workers and assert accepted work drains and refused work returns an error."
+owner_domain = 7
+interface = "7.cfg-evm-worker-pool-size"
+
+[finding.profiled-parent-cancel]
+file = "rpc/block_trace_profiled.go"
+line = 369
+class = "runtime-risk"
+severity = "medium"
+observed = "The profiled execution watcher stops the tracer and EVM only for context.DeadlineExceeded. Parent cancellation resolves deadlineCtx with context.Canceled and exits the watcher, removing even the later timeout while expensive EVM execution continues."
+expected = "A canceled request must stop expensive trace execution and release its resources. The configured timeout must not disappear merely because the parent was canceled first."
+proposal = "In rpc/block_trace_profiled.go, distinguish normal completed execution from parent cancellation and stop the tracer/EVM for canceled live requests as well as expired deadlines. Join the watcher and exercise an actual long-running EVM trace with parent cancellation, asserting prompt termination and subsequent admission capacity."
+owner_domain = 7
+
+[finding.profiled-empty-tracer]
+file = "rpc/block_trace_profiled.go"
+line = 342
+class = "runtime-risk"
+severity = "medium"
+observed = "shouldUseProfiledBlockTrace treats a non-nil empty Tracer name as the default tracer, but executeProfiledTrace selects StructLogger only when Tracer is nil. An empty string reaches DefaultDirectory.New and its JavaScript evaluator receives invalid empty source."
+expected = "Nil and empty default-tracer configurations accepted by the dispatch predicate must execute the same supported struct-logger trace, instead of failing after the profiled path has been selected."
+proposal = "Normalize the default tracer configuration in rpc/block_trace_profiled.go so both the predicate and executor use one rule for nil and empty names. Compare real trace results for both forms and retain explicit named-tracer dispatch and errors."
+owner_domain = 7
+
+[finding.profiled-empty-test]
+file = "rpc/block_trace_profiled_test.go"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "TestShouldUseProfiledBlockTrace declares an empty tracer string a supported default but tests only the boolean predicate. It never executes the selected branch, which sends the empty string to the JavaScript tracer factory."
+expected = "The supported default-tracer configuration must be demonstrated along dispatch, actual EVM tracing and result decoding, so a predicate cannot pass while its producer fails."
+proposal = "Extend rpc/block_trace_profiled_test.go with real block/transaction trace execution for nil and empty tracer configurations using the production dispatcher and actual backend. Assert equivalent supported struct-logger results and preserve the existing named-tracer checks."
+owner_domain = 7
+
+[finding.wildcard-topic-cardinality]
+file = "rpc/ethbloom/bloom.go"
+line = 107
+class = "runtime-risk"
+severity = "medium"
+observed = "MatchesCriteria continues on an empty topicList before checking whether the corresponding log topic exists. Thus [null] accepts a LOG0 event and [hash,null] accepts a log with only the first topic. Log and subscription consumers all use this exact matcher."
+expected = "Ethereum wildcard topic positions still require that position to exist. A selector with more topic positions than the emitted log must not match, while OR within a position and AND between positions remain unchanged."
+proposal = "In rpc/ethbloom/bloom.go, reject criteria with more topic positions than the log before matching wildcard/OR values. Prove the real eth_getLogs and WebSocket log paths against zero-, one- and multi-topic producer events, including trailing wildcards and OR selectors."
+owner_domain = 7
+
+[finding.legacy-body-truncation]
+file = "rpc/pax_legacy_http.go"
+line = 42
+class = "security"
+severity = "medium"
+observed = "ServeHTTP reads only paxLegacyHTTPMaxBody bytes without detecting overflow, then serveInnerWithBody replaces ContentLength with the truncated size. An oversized known-length request with a valid JSON prefix and padding can be accepted after the wrapper erases the size that geth would reject."
+expected = "Enabling legacy gates must preserve the transport request-size policy. Both known-length and streamed bodies beyond the configured cap must be refused rather than silently truncated into a different request."
+proposal = "In rpc/pax_legacy_http.go, enforce the original body limit before dispatch and read at most cap plus one byte to detect streamed overflow. Return the transport's explicit oversized-body response and test known-length/chunked oversized valid JSON prefixes through the real enabled gate stack."
+owner_domain = 7
+interface = "7.cfg-evm-enabled-legacy-pax-apis"
+
+[finding.legacy-single-notification]
+file = "rpc/pax_legacy_http.go"
+line = 82
+class = "runtime-risk"
+severity = "medium"
+observed = "handleSingle writes a blocked-method error using orNullID even when a valid JSON-RPC notification has no id. The batch branch correctly suppresses such notification responses, so identical calls have different notification semantics depending on packaging."
+expected = "A valid JSON-RPC notification must produce no response, including when its legacy method is disabled. Malformed requests must still receive their appropriate protocol errors."
+proposal = "In rpc/pax_legacy_http.go, validate the singleton request shape and suppress the blocked response for a valid notification while retaining invalid-request handling. Assert empty responses and no method execution for real root and tenant requests with no id, alongside id-bearing blocked calls and malformed requests."
+owner_domain = 7
+interface = "7.cfg-evm-enabled-legacy-pax-apis"
+
+[finding.legacy-batch-limit]
+file = "rpc/pax_legacy_http.go"
+line = 124
+class = "config-drift"
+severity = "medium"
+observed = "handleBatch removes blocked and invalid entries before forwarding a subset to the inner RPC server. The inner batch-item limit counts only that subset, so an original oversized batch with a few allowed calls can execute instead of being refused as a whole."
+expected = "The configured batch request limit must apply to the submitted JSON-RPC batch independent of legacy allowlist filtering. Enabling a gate must not change admission limits or permit side effects from an otherwise rejected batch."
+proposal = "Carry the configured batch limit into rpc/pax_legacy_http.go and enforce the original batch count before filtering or dispatch. Extend rpc/transport_limits_test.go through the real enabled legacy wrapper with over-limit mixed allowed/blocked/invalid entries and verify no forwarded method executes."
+owner_domain = 7
+
+[finding.skipped-filter-cases]
+file = "rpc/filter_test.go"
+line = 202
+class = "test-gap"
+severity = "medium"
+observed = "Unconditional t.Skip calls at lines 202, 207, 248, 303, 327 and 420 disable filter log, pax log, mixed synthetic/EVM, filter-change and canonical block-hash assertions. Existing newer tests cover subsets but do not execute those retained cases."
+expected = "The declared filter and canonical log behavior needs executable assertions against the current producer shape. Retained tests must not silently disappear from qualification because their old fixtures drifted."
+proposal = "Rebuild the affected fixtures in rpc/filter_test.go from real current EVM/native receipt producers and enable the skipped cases with their substantive assertions preserved. Cover addresses, topic positions, synthetic separation, cursor advancement and canonical hashes on the actual filter path."
+owner_domain = 7
+
+[finding.served-dispatch-instance]
+file = "rpc/served_methods_test.go"
+line = 71
+class = "test-gap"
+severity = "medium"
+observed = "TestServedMethodsMatchServerDispatch constructs an HTTPServer and reads its HTTPMethods without starting it, then dials the fixed global TestPort. The list and dispatcher belong to different server instances and can have different allowlists or options."
+expected = "Method-discovery parity must compare the list and live dispatcher of the same configured server, including gated and refused methods, so configuration wiring failures cannot be hidden by a fixture listener."
+proposal = "In rpc/served_methods_test.go, start the constructed server on an ephemeral port, register cleanup and dial its actual ListenAddr. Check its discovered methods and configured refusals on that listener and preserve the explicit legacy-gate configuration."
+owner_domain = 7
+
+[finding.tenant-ws-test]
+file = "rpc/domain_ws_test.go"
+line = 125
+class = "test-gap"
+severity = "medium"
+observed = "The real mixed-domain WebSocket tests exercise log subscriptions and deliberately unchanged newHeads. Identity upgrade coverage also passes, but no ordinary block, transaction, receipt or getLogs call checks scope on the same tenant connection."
+expected = "Requirement 8368.1 requires tenant visibility on ordinary reads across the served transports. Identity and subscription wrappers alone cannot establish the context used by other registered services."
+proposal = "Extend rpc/domain_ws_test.go using its real mixed-domain producer and actual WebSocket client to compare ordinary tenant reads with HTTP, including canonical indices, polling filters and raw envelopes. Repeat after reconnect and preserve intentional shared heads and account state."
+owner_domain = 7
+interface = "7.ws-endpoint-root"
+
+[finding.worker-config-test]
+file = "rpc/config_integration_test.go"
+line = 114
+class = "test-gap"
+severity = "low"
+observed = "The integration fixture manually computes runtime.NumCPU()*2 for automatic worker sizing here and again near line 224. Production InitGlobalWorkerPool caps that value at MaxWorkerPoolSize, so the test labeled as matching production uses another rule on large machines."
+expected = "Configuration integration should consume the production defaulting path and assert its bounded worker count, including automatic sizing on machines above the cap."
+proposal = "In rpc/config_integration_test.go, exercise the production sizing resolver or global initialization path in an isolated lifecycle, and assert the capped automatic result plus explicit sizes and queue defaults. Remove the duplicated uncapped expectation without weakening the cap assertion."
+owner_domain = 7
+interface = "7.cfg-evm-worker-pool-size"
+
+[finding.exchange-params-wording]
+file = "api/layerxexchange/params.proto"
+line = 8
+class = "doc-drift"
+severity = "low"
+observed = "Params comments describe enabling external LayerX intents, custody and matching on LayerX without identifying the fields as historical. This reads as an active routing/trust boundary even though that external execution and custody path is retired."
+expected = "Retained protobuf fields preserve replay compatibility; their descriptions must distinguish historical semantics from the single-network live execution model and retired ingress."
+proposal = "Update comments in api/layerxexchange/params.proto to identify historical external-intent/custody fields, current retirement/refusal behavior and replay purpose. Preserve every field number, name and wire type."
+owner_domain = 3
+interface = "3.proto-layerxexchange-params"
+
+[finding.exchange-state-wording]
+file = "api/layerxexchange/state.proto"
+line = 22
+class = "doc-drift"
+severity = "low"
+observed = "The Intent description calls this a pending intent tracked by the router without a historical qualifier. It therefore presents a retired external router lifecycle as the current producer of exchange state."
+expected = "Historical intent records remain decodable, but schema comments must not imply a running external router or separate LayerX execution network after the merge."
+proposal = "Annotate api/layerxexchange/state.proto Intent and its lifecycle comments as retained historical/replay state, describing current ingress retirement where relevant without changing the encoded schema."
+owner_domain = 3
+interface = "3.proto-layerxexchange-intent"
+
+[finding.exchange-market-wording]
+file = "api/layerxexchange/tx.proto"
+line = 9
+class = "doc-drift"
+severity = "low"
+observed = "The Msg service and MsgSetMarket comments say it creates or replaces a market. modules/layerxexchange/keeper/msg_server.go only toggles Enabled on an existing market, rejects unknown IDs and observes retirement; the schema description overstates the supported operation."
+expected = "Registry row 3.msg-layerxexchange-setmarket and the protobuf documentation should describe the handler's actual administrative toggle and retirement restrictions while preserving historical decoding."
+proposal = "Correct api/layerxexchange/tx.proto service and MsgSetMarket comments to document existing-market enable/disable semantics and retirement refusal. Keep authority/market wire fields unchanged and align generated API prose with the actual handler."
+owner_domain = 3
+interface = "3.msg-layerxexchange-setmarket"
+
+[finding.rpc-instructions-drift]
+file = "rpc/AGENTS.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The behavior guide says pending always equals latest, all uncle/trie-related methods are unsupported, debug_getRawTransaction is unsupported and pending transaction filters always refuse. Current code supports open-block snapshots, null/zero uncle answers, application proofs, raw envelopes and pending feeds with the appropriate embedded executor."
+expected = "RPC behavior instructions must match the registered merged-network APIs and distinguish configured capabilities from unconditional refusals. Clients should not be directed away from supported methods."
+proposal = "Rewrite rpc/AGENTS.md pending, uncle, proof and unsupported-method sections from the actual registration and real client tests. Document idle pending fallback, executor-dependent features, proof format, exact null/zero uncle answers and the remaining explicit refusals."
+owner_domain = 7
+
+[finding.raw-missing-contract-drift]
+file = "rpc/raw_tx.go"
+line = 48
+class = "doc-drift"
+severity = "low"
+observed = "Registry rows 7.rpc-eth-getrawtransactionbyhash-j38 and the two indexed raw rows still promise JSON null and reference absent contracts/evm-rpc.md. The actual nil hexutil.Bytes result is the JSON string 0x, explicitly required by decision 2300 and asserted by the real client parity proof."
+expected = "Public raw transaction descriptions must state the authoritative 0x missing-envelope result while uncle methods retain null. Their linked client-parity contract must exist and agree with the producer and consumer."
+proposal = "Update the three raw-method registry notes in spec/layerx-merge/interfaces.kvx and restore contracts/evm-rpc.md with decision 2300's wire distinction. Preserve rpc/proof_client_parity_test.go's real transport assertions; do not change the correct producer to match obsolete null prose."
+owner_domain = 7
+interface = "7.rpc-eth-getrawtransactionbyhash-j38"
+
+[finding.rpc-catalogue-drift]
+file = "docs/system/rpc.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The catalogue claims 103 methods, omits active eth polling filters and node px_getReceiptKeys, and lists eth_logs, eth_newHeads and eth_newPendingTransactions as callable methods at lines 71, 73 and 74. ServedMethods instead identifies those as eth_subscribe topics and the current golden sets include the omitted calls."
+expected = "The published RPC catalogue must distinguish callable methods from subscription topics and include the actual configured HTTP/WebSocket dispatch set. Node px_getReceiptKeys is the intentional upstream consumed by the hosted relay, not a retired gateway duplicate."
+proposal = "Repair tools/docs/gen-system-docs.sh to derive docs/system/rpc.md from the same served-method registration and subscription classification as rpc/served_methods.go. Regenerate method counts and rows, document transport/gate availability and include polling filters and the intentional node receipt-key upstream."
+owner_domain = 7
+
+[finding.precompile-catalogue-drift]
+file = "docs/system/precompiles.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The catalogue presents anchor, custody claims/verification and legacy external intent ABIs among current precompiles without an active-versus-retired distinction. The introductions and anchor/custody/exchange sections, including lines 1170-1210, 1285-1347, 1552-1562 and 2463 onward, can lead clients to depend on retired behavior."
+expected = "The merged network has one execution and finality boundary. Historical ABI declarations may remain for decoding, but retired anchor/custody/intent operations must be labeled with their actual refusal or replay-only behavior rather than advertised as live services."
+proposal = "Update tools/docs/gen-system-docs.sh and its precompile inputs so docs/system/precompiles.md separates live callable operations from retained historical ABI material, lists active addresses and explains retired-call refusal. Preserve ABI decoding documentation where replay still uses it."
+owner_domain = 6
+
+[finding.route-catalogue-drift]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page is titled Router, describes LayerX settlement near line 35, lists retired archive sync/batches at lines 61-75, external kernel REST/lx subscriptions at 843-848, /rpc/evm/ws at 908 and retired Programs REST at 927-937. Source-derived rows are published without activation or retirement status."
+expected = "There is no running RPC router, separate LayerX settlement interface or external kernel service. Public node RPC uses root endpoints; hosted gateway routes and historical declarations must be identified separately with their current availability."
+proposal = "Reconcile tools/paxeer-x/route-catalogue.json and tools/docs/gen-system-docs.sh with actual node and hosted gateway registrations, then regenerate docs/system/routes.md. Remove active-route claims for retired components, retain labeled historical references where useful and document root node HTTP/WebSocket endpoints separately from hosted routes."
+owner_domain = 8
+
+[finding.readme-architecture-drift]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The README describes two domains with a separate layerxd/checkpoint settlement path at lines 44-47, presents the merge as a draft at lines 79 and 181, advertises retired live precompiles near line 83 and instructs make layerxd at lines 141-146. These statements describe the superseded deployment model."
+expected = "The product is one paxd BFT network with an embedded kernel, final committed receipts and EVM chain ID 125. Operator build/run guidance must target that network and distinguish historical replay interfaces from live features."
+proposal = "Rewrite README.md architecture, merge status, feature list and build instructions for the completed single-network deployment. Replace retired daemon/checkpoint steps with actual paxd targets and root endpoints, and point the translations at the same maintained architecture source."
+owner_domain = 5
+
+[finding.network-overview-drift]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview describes separate settlement, custody and sequencer roles with independent trust boundaries at lines 3-20 and lists the old module model near line 38. Its statement that tenant chains share EVM state at lines 26-28 is correct, but the surrounding architecture still describes the pre-merge network."
+expected = "Paxd and its embedded kernel form one BFT network; a receipt becomes final at commit with no separate sequencer service or external custody settlement boundary. Tenant domains namespace visibility while intentionally sharing EVM state."
+proposal = "Rewrite docs/paxeer-network.md deployment, trust and finality sections around the single network and actual retained modules. Preserve the accurate shared-state tenant explanation and distinguish embedded acceptance from a retired standalone sequencer service."
+owner_domain = 5
+
+[finding.unified-overview-architecture]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The overview names an external node/C service and cmd/layerxd, advertises retired verify/custody/anchor behavior near lines 17, 52 and 67, and bases finality on guarantors at lines 115-125. This presents retired services as required parts of the merged product."
+expected = "The merged product is one paxd BFT chain whose kernel proposes blocks and whose receipts are final on commit. Retired anchor/custody/guarantor deployment components do not define the current trust boundary."
+proposal = "Rewrite architecture, component and finality descriptions and diagrams in docs/site/docs/overview/unified-network.md for embedded kernel execution and BFT commit finality. Remove active deployment instructions for retired services and label any preserved historical comparison explicitly."
+owner_domain = 5
+
+[finding.unified-overview-endpoints]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint section publishes /rpc and sixteen numbered nodes, the namespace table at lines 135-145 implies a router between network interfaces, and line 171 advertises /rpc/schema. None is the merged node endpoint contract."
+expected = "Public node RPC is at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network. There is no unified /rpc, /rpc/ws or /rpc/schema router; hosted gateway methods have a separate declared contract."
+proposal = "Replace the endpoint examples and namespace/schema instructions in docs/site/docs/overview/unified-network.md with the actual root node HTTP/WebSocket endpoints and supported node namespaces. Link the hosted gateway contract separately and remove the invented numbered nodes and router schema URL."
+owner_domain = 7
+
+[finding.readme-pt-br-drift]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The Portuguese README repeats the pre-merge layerxd/LNI and settlement architecture at lines 37-41, retired feature claims at 79-88 and standalone guarantor/archive/lx deployment and repository guidance at 125-242. Translation does not change the obsolete service and trust boundaries."
+expected = "Localized operator and integrator guidance must describe the finished single paxd network, embedded kernel, commit finality and current repository/build paths, with retired interfaces clearly identified as historical."
+proposal = "Update docs/readme/README.pt-BR.md from the corrected root README and finished-network architecture, including diagrams, feature lists, build paths and endpoint examples. Preserve translation quality while removing standalone layerxd/LNI/guarantor/archive instructions and obsolete lx reads."
+owner_domain = 5
+
+[finding.readme-fr-drift]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The French README repeats the pre-merge layerxd/LNI and settlement architecture at lines 37-41, retired feature claims at 79-88 and standalone guarantor/archive/lx deployment and repository guidance at 125-242. Translation does not change the obsolete service and trust boundaries."
+expected = "Localized operator and integrator guidance must describe the finished single paxd network, embedded kernel, commit finality and current repository/build paths, with retired interfaces clearly identified as historical."
+proposal = "Update docs/readme/README.fr.md from the corrected root README and finished-network architecture, including diagrams, feature lists, build paths and endpoint examples. Preserve translation quality while removing standalone layerxd/LNI/guarantor/archive instructions and obsolete lx reads."
+owner_domain = 5
+
+[finding.readme-ja-drift]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The Japanese README repeats the pre-merge layerxd/LNI and settlement architecture at lines 37-41, retired feature claims at 79-88 and standalone guarantor/archive/lx deployment and repository guidance at 125-242. Translation does not change the obsolete service and trust boundaries."
+expected = "Localized operator and integrator guidance must describe the finished single paxd network, embedded kernel, commit finality and current repository/build paths, with retired interfaces clearly identified as historical."
+proposal = "Update docs/readme/README.ja.md from the corrected root README and finished-network architecture, including diagrams, feature lists, build paths and endpoint examples. Preserve translation quality while removing standalone layerxd/LNI/guarantor/archive instructions and obsolete lx reads."
+owner_domain = 5
+
+[finding.readme-ru-drift]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The Russian README repeats the pre-merge layerxd/LNI and settlement architecture at lines 37-41, retired feature claims at 79-88 and standalone guarantor/archive/lx deployment and repository guidance at 125-242. Translation does not change the obsolete service and trust boundaries."
+expected = "Localized operator and integrator guidance must describe the finished single paxd network, embedded kernel, commit finality and current repository/build paths, with retired interfaces clearly identified as historical."
+proposal = "Update docs/readme/README.ru.md from the corrected root README and finished-network architecture, including diagrams, feature lists, build paths and endpoint examples. Preserve translation quality while removing standalone layerxd/LNI/guarantor/archive instructions and obsolete lx reads."
+owner_domain = 5
+
+[finding.readme-zh-cn-drift]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The Chinese README repeats the pre-merge layerxd/LNI and settlement architecture at lines 37-41, retired feature claims at 79-88 and standalone guarantor/archive/lx deployment and repository guidance at 125-242. Translation does not change the obsolete service and trust boundaries."
+expected = "Localized operator and integrator guidance must describe the finished single paxd network, embedded kernel, commit finality and current repository/build paths, with retired interfaces clearly identified as historical."
+proposal = "Update docs/readme/README.zh-CN.md from the corrected root README and finished-network architecture, including diagrams, feature lists, build paths and endpoint examples. Preserve translation quality while removing standalone layerxd/LNI/guarantor/archive instructions and obsolete lx reads."
+owner_domain = 5
+
+[finding.readme-de-drift]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The German README repeats the pre-merge layerxd/LNI and settlement architecture at lines 37-41, retired feature claims at 79-88 and standalone guarantor/archive/lx deployment and repository guidance at 125-242. Translation does not change the obsolete service and trust boundaries."
+expected = "Localized operator and integrator guidance must describe the finished single paxd network, embedded kernel, commit finality and current repository/build paths, with retired interfaces clearly identified as historical."
+proposal = "Update docs/readme/README.de.md from the corrected root README and finished-network architecture, including diagrams, feature lists, build paths and endpoint examples. Preserve translation quality while removing standalone layerxd/LNI/guarantor/archive instructions and obsolete lx reads."
+owner_domain = 5
+
+[doc.rpc]
+path = "docs/system/rpc.md"
+status = "stale"
+notes = "Lines 7 and 71-74 miscount the surface and present subscription topics as methods; active polling filters and node receipt keys are omitted. See rpc-catalogue-drift."
+
+[doc.precompiles]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Lines 32-41 and anchor/custody/intent sections at 1170-1210, 1285-1347, 1552-1562 and 2463 onward need live-versus-retired status. See precompile-catalogue-drift."
+
+[doc.routes]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Lines 3, 35, 61-75, 843-848, 908 and 927-937 present router, retired external interfaces and wrong WebSocket paths as active. See route-catalogue-drift."
+
+[doc.readme]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 79, 83, 141-146 and 181 describe the prior split deployment, draft merge and retired build/feature paths. See readme-architecture-drift."
+
+[doc.network]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-20 and 38 have obsolete settlement/custody/sequencer boundaries; the shared tenant EVM state explanation at 26-28 remains accurate. See network-overview-drift."
+
+[doc.unified]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Lines 11, 17, 52, 67, 115-145 and 171 describe retired components/finality and incorrect router/node URLs. See unified-overview-architecture and unified-overview-endpoints."
+
+[doc.readme-pt-br]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Portuguese text at lines 37-41, 79-88 and 125-242 repeats the retired deployment architecture and repository guidance. See readme-pt-br-drift."
+
+[doc.readme-fr]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "French text at lines 37-41, 79-88 and 125-242 repeats the retired deployment architecture and repository guidance. See readme-fr-drift."
+
+[doc.readme-ja]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Japanese text at lines 37-41, 79-88 and 125-242 repeats the retired deployment architecture and repository guidance. See readme-ja-drift."
+
+[doc.readme-ru]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Russian text at lines 37-41, 79-88 and 125-242 repeats the retired deployment architecture and repository guidance. See readme-ru-drift."
+
+[doc.readme-zh-cn]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Chinese text at lines 37-41, 79-88 and 125-242 repeats the retired deployment architecture and repository guidance. See readme-zh-cn-drift."
+
+[doc.readme-de]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "German text at lines 37-41, 79-88 and 125-242 repeats the retired deployment architecture and repository guidance. See readme-de-drift."
+
+[doc.rpc-instructions]
+path = "rpc/AGENTS.md"
+status = "stale"
+notes = "Lines 6-14 contain superseded pending, proof, uncle and unsupported-method claims; the legacy gate section still describes intentional compatibility. See rpc-instructions-drift."
+
+[doc.rpc-contract]
+path = "contracts/evm-rpc.md"
+status = "missing"
+notes = "The raw-method registry rows reference #client-parity in this absent contract. Decision 2300 and the real proof establish 0x for missing raw envelopes; restore the linked public contract. See raw-missing-contract-drift."
+

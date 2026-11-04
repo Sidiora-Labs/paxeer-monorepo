@@ -1,0 +1,36 @@
+[repair.22.31.234]
+audit = "22.30.114"
+finding_ids = ["1"]
+tests = ["finding_1_router_roles_match_the_served_generation_2_abi", "finding_1_executor_encodes_the_generation_2_multihop_call", "finding_1_wallet_decodes_both_generation_2_return_amounts"]
+proof = "The executor prepares the real ethers contract method; its calldata is consumed by the served generation-2 ABI codec, whose two-word return encoding is decoded by the wallet contract interface. No provider or transport is replaced. This is codec proof, not a funded chain execution."
+baseline = "Not executed: the task's numbered order requires whole implementation before hf-build and hf-done and prohibits running verify_cmd by hand. No before-change failure is claimed. The original ABI lacks swapTokenForToken and its second output, and the original executor sends the obsolete selector."
+evidence = "The private hf-done gate ledger records the verified candidate revision, exact command, exit code and log; no gate result is claimed before that record exists."
+
+[wiring.domain12]
+funded_swap = "Domain 12, with domain 4 owning precompiles/launchpad: prove the funded token-to-token swap through the domain-4 producer, a committed receipt and the received token balance in the chain integration harness; codec qualification here does not claim that execution."
+sdk_helper = "Domain 12: apps/wallet/src/lib/swap/sdk/sidiora.ts must migrate its separately exported swapTokenToToken helper to the generation-2 swapTokenForToken method and two-output ABI."
+existing_test = "Domain 12: apps/wallet/src/lib/swap/executor.test.ts must replace its obsolete-selector failure expectation with funded successful multihop execution and assert the confirmed quote's minimum output."
+abi_generator = "Domain 12: apps/wallet/scripts/generate-swap-abi-index.mjs must exclude *.test.ts when discovering ABI modules, since the task requires its proving test inside sdk/abis."
+
+[gotcha.scoped]
+area = "test"
+symptom = "The repair requires a test in the ABI directory, but the ABI index generator treats every .ts file there as an ABI module."
+do = "Keep the required test and request a domain-12 generator exclusion; do not edit the out-of-scope script or run its unrelated gate."
+
+[qualification.build_1]
+revision = "0fb2bb86b5ba99b1f4923575eaea46ec53aa6121"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Strict variance rejects a tuple ContractMethod as a generic getFunction parameter; viem Abi and ethers InterfaceAbi differ on optional gas metadata."
+repair = "Preserve the exact tuple via an explicitly typed method assignment; feed ethers the original producer JSON instead of viem's parsed ABI type."
+
+[gotcha.types]
+area = "node"
+symptom = "ethers getFunction rejects an exact tuple method as its generic constraint under strict variance, and viem Abi is not ethers InterfaceAbi."
+do = "Use an exact typed method assignment and let each codec consume the authoritative JSON in its supported form."
+
+[gotcha.formatter]
+area = "tooling"
+symptom = "The repository Prettier configuration emits a jsxBracketSameLine deprecation warning."
+do = "Use the existing configuration and leave its out-of-scope migration to its owner."

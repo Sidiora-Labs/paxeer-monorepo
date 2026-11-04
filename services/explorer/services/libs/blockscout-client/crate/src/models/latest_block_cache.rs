@@ -23,5 +23,5 @@ pub struct LatestBlockCache {
     pub timestamp: Option<String>,
 
     #[serde(default)]
-    pub mber: Option<String>,
+    pub number: Option<String>,
 }

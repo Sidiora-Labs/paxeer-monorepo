@@ -47,14 +47,14 @@ impl Kind {
             Self::Program => "program",
         }
     }
-    fn route(self, resource: &str) -> String {
+    fn route(self, resource: &str) -> Option<String> {
         let prefix = match self {
             Self::Journey => "/v1/journeys",
             Self::Approval => "/v1/approvals",
             Self::Payment => "/v1/receipts",
-            Self::Program => "/v1/programs/registry",
+            Self::Program => return None,
         };
-        format!("{prefix}/{resource}")
+        Some(format!("{prefix}/{resource}"))
     }
     fn credential(self, value: &str) -> (&'static str, Zeroizing<String>) {
         if matches!(self, Self::Journey | Self::Approval) {
@@ -105,6 +105,15 @@ enum Stored {
 pub struct ProducerCredential {
     pub token: Zeroizing<String>,
     pub allow_principal_digest: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DigestEnrollmentStatus {
+    pub kind: String,
+    pub principal_digest: String,
+    pub generation: u64,
+    pub bound: bool,
 }
 
 struct Store {
@@ -327,6 +336,15 @@ impl Generation {
     #[must_use]
     pub fn principals(&self) -> usize {
         self.credentials.len()
+    }
+
+    fn principal_for_digest(&self, digest: &str) -> Option<&str> {
+        let mut matches = self
+            .credentials
+            .keys()
+            .filter(|principal| principal_digest(principal) == digest);
+        let principal = matches.next()?;
+        matches.next().is_none().then_some(principal.as_str())
     }
 }
 
@@ -1190,17 +1208,10 @@ impl Service {
         }
         let principal = match (&observation.principal, &observation.principal_digest) {
             (Some(principal), None) => principal.clone(),
-            (None, Some(digest)) if credential.allow_principal_digest => {
-                let mut matches = enrolled
-                    .credentials
-                    .keys()
-                    .filter(|principal| principal_digest(principal) == *digest);
-                let principal = matches.next().ok_or(403_u16)?.clone();
-                if matches.next().is_some() {
-                    return Err(403);
-                }
-                principal
-            }
+            (None, Some(digest)) if credential.allow_principal_digest => enrolled
+                .principal_for_digest(digest)
+                .ok_or(403_u16)?
+                .to_owned(),
             _ => return Err(403),
         };
         self.bind(enrolled, &principal).map_err(|_| 403_u16)?;
@@ -1318,7 +1329,10 @@ impl Service {
         let snapshot = self.fetch(
             enrolled,
             &request.principal,
-            &self.kind.route(&request.resource),
+            &self
+                .kind
+                .route(&request.resource)
+                .ok_or("program pull retired")?,
         )?;
         let record = derive(self.kind, &request.principal, &request.resource, &snapshot)?;
         self.store
@@ -1363,6 +1377,9 @@ impl Service {
             return self.admission(request, &enrolled);
         }
         if let Some(response) = self.principal_status(request, &enrolled) {
+            return response;
+        }
+        if let Some(response) = self.digest_status(request, &enrolled) {
             return response;
         }
         if enrolled.credentials.is_empty() {
@@ -1488,6 +1505,43 @@ impl Service {
                 .any(|credential| request.bearer_matches(&credential.token))
     }
 
+    fn digest_status(&self, request: &Request, enrolled: &Generation) -> Option<Response> {
+        if request.method != "GET" {
+            return None;
+        }
+        let path = request
+            .path
+            .strip_prefix("/internal/v1/principal-digests/")?;
+        if !request.peer_verified
+            || !matches!(self.kind, Kind::Payment | Kind::Program)
+            || !self.producers.iter().any(|credential| {
+                credential.allow_principal_digest && request.bearer_matches(&credential.token)
+            })
+        {
+            return Some(refusal(401, "unauthorized", None));
+        }
+        let Some(digest) = path
+            .strip_suffix("/enrollment")
+            .filter(|digest| valid_hex(digest, 32))
+            .filter(|_| request.body.is_empty())
+        else {
+            return Some(refusal(400, "invalid_enrollment_digest", None));
+        };
+        let bound = enrolled.adopted
+            && enrolled
+                .principal_for_digest(digest)
+                .is_some_and(|principal| self.bind(enrolled, principal).is_ok());
+        Some(json(
+            200,
+            &DigestEnrollmentStatus {
+                kind: self.kind.singular().to_owned(),
+                principal_digest: digest.to_owned(),
+                generation: enrolled.number,
+                bound,
+            },
+        ))
+    }
+
     fn serve_enrolled(&self, request: &Request, enrolled: &Generation) -> Response {
         if request.method == "POST"
             && request.path == "/internal/v1/observe"
@@ -1514,6 +1568,9 @@ impl Service {
         }
         if request.method == "POST" && request.path == "/internal/v1/observe" && request.json_body()
         {
+            if self.kind == Kind::Program {
+                return refusal(410, "program_pull_retired", None);
+            }
             return self.observe(enrolled, &request.body).map_or_else(
                 |_| refusal(503, "source_unavailable", Some(5)),
                 |record| json(200, &record),

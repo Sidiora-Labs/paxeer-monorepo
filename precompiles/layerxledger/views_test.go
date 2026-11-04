@@ -187,7 +187,7 @@ func (f *precompileViewFixture) cases(t *testing.T) []precompileViewCase {
 		{"accountId", []interface{}{f.key, f.asset}, []interface{}{f.account}},
 		{"accountOwner", []interface{}{f.account}, []interface{}{owner}},
 		{"getPayerGrant", []interface{}{f.grantID}, nil},
-		{"nextSequence", []interface{}{f.key, f.asset}, []interface{}{sequence}},
+		{"nextSequence", []interface{}{f.account, f.asset}, []interface{}{sequence}},
 	}
 }
 

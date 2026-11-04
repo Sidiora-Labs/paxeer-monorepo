@@ -14,6 +14,7 @@ import {
   ROUTER_ADDRESS,
 } from '@/core/network/contracts';
 import { parseUnits, formatUnits, zeroAddress } from 'viem';
+import { CORE_DEPLOYMENT } from '@/core/network/deployment';
 import { formatNumber, formatCurrency, safeFixed } from '@/utils/format';
 import type { Operations } from '@kindle/sdk';
 import { useOperations } from '@/core/market/operations';
@@ -350,6 +351,101 @@ function TokenInputBox({
 
 // ── Main Swap Panel ─────────────────────────────────────────────
 
+export function useSwapQuoteExecution({ tokenIn, tokenOut, amountIn, enabled, slippageBps }: {
+  tokenIn: `0x${string}`;
+  tokenOut: `0x${string}`;
+  amountIn: bigint;
+  enabled: boolean;
+  slippageBps: number;
+}) {
+  const { address, chainId, isConnected } = useAccount();
+  const debouncedAmountIn = useDebouncedValue(amountIn, 250);
+  const { data: quoteRaw, isSuccess: quoteSuccess, isFetching: quoteFetching, dataUpdatedAt: quoteUpdatedAt } = useReadQuoterQuoteMultihop(
+    { tokenIn, tokenOut, amountIn: debouncedAmountIn },
+    enabled && debouncedAmountIn > 0n && chainId === CORE_DEPLOYMENT.chainId,
+  );
+  const quote = useMemo(() => {
+    if (!enabled || !isConnected || chainId !== CORE_DEPLOYMENT.chainId ||
+        amountIn !== debouncedAmountIn || !quoteSuccess || quoteFetching || !quoteRaw) return null;
+    const q = quoteRaw as any;
+    try {
+      // MultihopQuoteResult tuple or struct
+      if (Array.isArray(q)) {
+        return {
+          identity: { chainId, tokenIn, tokenOut, amountIn: debouncedAmountIn },
+          amountOut: BigInt(q[0]),
+          intermediateUsdl: BigInt(q[1]),
+          sellFeeAmount: BigInt(q[2]),
+          buyFeeAmount: BigInt(q[3]),
+          sellPriceImpactBps: Number(q[4]),
+          buyPriceImpactBps: Number(q[5]),
+          combinedPriceImpactBps: Number(q[6]),
+          poolA: String(q[7]),
+          poolB: String(q[8]),
+        };
+      }
+      return {
+        identity: { chainId, tokenIn, tokenOut, amountIn: debouncedAmountIn },
+        amountOut: BigInt(q.amountOut ?? 0),
+        intermediateUsdl: BigInt(q.intermediateUsdl ?? 0),
+        sellFeeAmount: BigInt(q.sellFeeAmount ?? 0),
+        buyFeeAmount: BigInt(q.buyFeeAmount ?? 0),
+        sellPriceImpactBps: Number(q.sellPriceImpactBps ?? 0),
+        buyPriceImpactBps: Number(q.buyPriceImpactBps ?? 0),
+        combinedPriceImpactBps: Number(q.combinedPriceImpactBps ?? 0),
+        poolA: String(q.poolA ?? ''),
+        poolB: String(q.poolB ?? ''),
+      };
+    } catch {
+      return null;
+    }
+  }, [quoteRaw, quoteSuccess, quoteFetching, quoteUpdatedAt, enabled, isConnected, chainId, tokenIn, tokenOut, amountIn, debouncedAmountIn]);
+
+  const minAmountOut = quote ? computeMinOut(quote.amountOut, slippageBps) : 0n;
+  const approval = useMemo(() => quote ? { quote, minAmountOut, address } : null,
+    [quote, minAmountOut, slippageBps, address]);
+  const [review, setReview] = useState<typeof approval>(null);
+  const { write, isPending, data: txHash } = useWriteRouterSwapTokenForToken();
+  const latest = useRef({ approval, isConnected, isPending });
+  latest.current = { approval, isConnected, isPending };
+
+  useEffect(() => {
+    if (review && review !== approval) setReview(null);
+  }, [review, approval]);
+
+  const executeSwap = (approved: NonNullable<typeof approval>) => {
+    const current = latest.current;
+    if (!current.isConnected || current.isPending || current.approval !== approved) return;
+    const { identity } = approved.quote;
+    write({
+      tokenIn: identity.tokenIn,
+      tokenOut: identity.tokenOut,
+      amountIn: identity.amountIn,
+      minAmountOut: approved.minAmountOut,
+      deadline: BigInt(Math.floor(Date.now() / 1000) + 300),
+    });
+  };
+
+  const requestSwap = () => {
+    const approved = latest.current.approval;
+    if (!approved || latest.current.isPending) return;
+    if (approved.quote.combinedPriceImpactBps > 500) setReview(approved);
+    else executeSwap(approved);
+  };
+  const confirmSwap = () => {
+    setReview(null);
+    if (review) executeSwap(review);
+  };
+
+  return {
+    quote, minAmountOut,
+    quoteLoading: enabled && !quote && (quoteFetching || amountIn !== debouncedAmountIn),
+    review: review === approval ? review : null,
+    cancelReview: () => setReview(null),
+    requestSwap, confirmSwap, isPending, txHash,
+  };
+}
+
 export default function SwapPanel() {
   const { address, isConnected } = useAccount();
 
@@ -362,7 +458,6 @@ export default function SwapPanel() {
   const [amountIn, setAmountIn] = useState('');
   const [selectorFor, setSelectorFor] = useState<'in' | 'out' | null>(null);
   const [slippageBps, setSlippageBps] = useState(DEFAULT_SLIPPAGE_BPS);
-  const [showHighImpact, setShowHighImpact] = useState(false);
 
   const operations = useOperations();
   // Swappable tokens from the v2 pool list (trending order) + stats batch.
@@ -418,52 +513,12 @@ export default function SwapPanel() {
   // ── Quote ─────────────────────────────────────────────────────
   const hasAmount = amountIn !== '' && parseFloat(amountIn) > 0;
   const parsedAmountIn = hasAmount ? parseUnits(amountIn, tokenInDec) : 0n;
-  const debouncedParsedAmountIn = useDebouncedValue(parsedAmountIn, 250);
-  const debouncedHasAmount = debouncedParsedAmountIn > 0n;
   const canQuote = !!tokenIn && !!tokenOut && hasAmount && tokenIn.tokenAddress !== tokenOut.tokenAddress;
-
-  const { data: quoteRaw, isLoading: quoteLoading } = useReadQuoterQuoteMultihop(
-    {
-      tokenIn: tokenInAddr,
-      tokenOut: tokenOutAddr,
-      amountIn: debouncedParsedAmountIn,
-    },
-    canQuote && debouncedHasAmount,
-  );
-
-  const quote = useMemo(() => {
-    if (!canQuote || !quoteRaw) return null;
-    const q = quoteRaw as any;
-    try {
-      // MultihopQuoteResult tuple or struct
-      if (Array.isArray(q)) {
-        return {
-          amountOut: BigInt(q[0]),
-          intermediateUsdl: BigInt(q[1]),
-          sellFeeAmount: BigInt(q[2]),
-          buyFeeAmount: BigInt(q[3]),
-          sellPriceImpactBps: Number(q[4]),
-          buyPriceImpactBps: Number(q[5]),
-          combinedPriceImpactBps: Number(q[6]),
-          poolA: String(q[7]),
-          poolB: String(q[8]),
-        };
-      }
-      return {
-        amountOut: BigInt(q.amountOut ?? 0),
-        intermediateUsdl: BigInt(q.intermediateUsdl ?? 0),
-        sellFeeAmount: BigInt(q.sellFeeAmount ?? 0),
-        buyFeeAmount: BigInt(q.buyFeeAmount ?? 0),
-        sellPriceImpactBps: Number(q.sellPriceImpactBps ?? 0),
-        buyPriceImpactBps: Number(q.buyPriceImpactBps ?? 0),
-        combinedPriceImpactBps: Number(q.combinedPriceImpactBps ?? 0),
-        poolA: String(q.poolA ?? ''),
-        poolB: String(q.poolB ?? ''),
-      };
-    } catch {
-      return null;
-    }
-  }, [quoteRaw, canQuote]);
+  const { quote, minAmountOut, quoteLoading, review, cancelReview, requestSwap, confirmSwap,
+    isPending: swapPending, txHash: swapTxHash } = useSwapQuoteExecution({
+    tokenIn: tokenInAddr, tokenOut: tokenOutAddr, amountIn: parsedAmountIn,
+    enabled: canQuote, slippageBps,
+  });
 
   const estOut = quote ? parseFloat(formatUnits(quote.amountOut, tokenOutDec)) : null;
   const intermediateUsdl = quote ? parseFloat(formatUnits(quote.intermediateUsdl, 6)) : null; // USDL is always 6
@@ -483,7 +538,6 @@ export default function SwapPanel() {
   }, [approveReceipt, refetchAllowance]);
 
   // ── Swap execution ────────────────────────────────────────────
-  const { write: writeSwap, isPending: swapPending, data: swapTxHash } = useWriteRouterSwapTokenForToken();
   // The swap trades on both legs' pools; their market.trades topics wake the receipt check.
   const { receipt: swapReceipt } = useOptimisticReceipt(swapTxHash, { poolAddresses: [tokenIn?.poolAddress, tokenOut?.poolAddress] });
 
@@ -499,37 +553,15 @@ export default function SwapPanel() {
   const insufficientBalance = hasAmount && balIn !== null && balIn < parsedAmountIn;
   const isPending = swapPending || (!!swapTxHash && !swapReceipt) || approveConfirming;
 
-  const minAmountOut = useMemo(() => {
-    if (!quote) return 0n;
-    return computeMinOut(quote.amountOut, slippageBps);
-  }, [quote, slippageBps]);
-
   const quoteUnavailable = canQuote && !quote;
 
-  const executeSwap = () => {
-    if (!canQuote || !isConnected || !quote) return;
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
-    writeSwap({
-      tokenIn: tokenInAddr,
-      tokenOut: tokenOutAddr,
-      amountIn: parsedAmountIn,
-      minAmountOut,
-      deadline,
-    });
-  };
-
   const handleSwap = () => {
-    if (!canQuote || !isConnected) return;
+    if (!canQuote || !isConnected || isPending || insufficientBalance) return;
     if (needsApproval) {
       writeApprove({ token: tokenInAddr, spender: ROUTER_ADDRESS, amount: parsedAmountIn });
       return;
     }
-    if (!quote) return;
-    if (quote.combinedPriceImpactBps > 500) {
-      setShowHighImpact(true);
-      return;
-    }
-    executeSwap();
+    requestSwap();
   };
 
   // ── Side switcher ─────────────────────────────────────────────
@@ -766,11 +798,11 @@ export default function SwapPanel() {
       )}
 
       {/* High price impact confirmation */}
-      {showHighImpact && quote && (
+      {review && (
         <HighImpactWarning
-          priceImpactBps={quote.combinedPriceImpactBps}
-          onConfirm={() => { setShowHighImpact(false); executeSwap(); }}
-          onCancel={() => setShowHighImpact(false)}
+          priceImpactBps={review.quote.combinedPriceImpactBps}
+          onConfirm={confirmSwap}
+          onCancel={cancelReview}
         />
       )}
 

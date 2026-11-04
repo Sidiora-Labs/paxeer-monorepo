@@ -51,6 +51,7 @@ typedef struct lxphost_node {
     lx_programs_transfer_runtime programs_runtime;
     uint64_t parameters;
     uint64_t epoch;
+    uint16_t programs_guest_abi;
     int store_ready;
     uint8_t arena_bytes[LXPHOST_ARENA_BYTES];
     lxp_verified_receipt_index verified_receipts;
@@ -102,7 +103,9 @@ static void lxphost_release_blobs(lxp_kernel *kernel)
     kernel->blob_count = 0U;
 }
 
-static lxphost_node *lxphost_node_new(uint64_t epoch, int32_t *status)
+static lxphost_node *lxphost_node_new(uint64_t epoch,
+                                       uint16_t programs_guest_abi,
+                                       int32_t *status)
 {
     lxphost_node *node = (lxphost_node *)calloc(1U, sizeof(lxphost_service_node));
     if (node == NULL) {
@@ -110,6 +113,7 @@ static lxphost_node *lxphost_node_new(uint64_t epoch, int32_t *status)
         return NULL;
     }
     node->epoch = epoch;
+    node->programs_guest_abi = programs_guest_abi;
     node->parameters = 1U;
     *status = lxp_kernel_create(&node->kernel, &node->store, &node->journal,
                                 &node->parameters, epoch);
@@ -137,6 +141,7 @@ static lxphost_envelope *lxphost_node_envelope(lxphost_node *node)
 static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
 {
     uint64_t epoch = node->epoch;
+    uint16_t programs_guest_abi = node->programs_guest_abi;
     int32_t status;
     lxphost_release_blobs(&node->kernel);
     if (node->store_ready != 0) {
@@ -147,6 +152,7 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     lx_account_registry_release(&node->accounts);
     (void)memset(node, 0, sizeof(*node));
     node->epoch = epoch;
+    node->programs_guest_abi = programs_guest_abi;
     node->parameters = 1U;
     status = lxp_verified_receipt_index_init(&node->verified_receipts);
     if (status != LXP_OK) return status;
@@ -172,7 +178,9 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
                                             lxp_governance_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
-                                            programs_module_registration_v4_storage_retirement());
+                                            programs_guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+                                                programs_module_registration_v5() :
+                                                programs_module_registration_v4_storage_retirement());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_asset_module_iface());
@@ -266,8 +274,8 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
     node->programs_runtime.resolve_occupancy_parameters =
         lxp_programs_fee_governance_resolve_runtime;
     node->programs_runtime.occupancy_parameter_context = &node->kernel;
-    node->kernel.module_runtime[LXP_MODULE_PROGRAMS] = &node->programs_runtime;
-    return LXP_OK;
+    return lxp_kernel_bind_module_runtime(&node->kernel, LXP_MODULE_PROGRAMS,
+                                          &node->programs_runtime);
 }
 
 static int32_t lxphost_envelope_write(
@@ -913,6 +921,7 @@ type Config struct {
 	NetworkID         uint32
 	Epoch             uint64
 	ParameterVersion  uint32
+	ProgramsGuestABI  uint16
 	TimestampWindowMs uint64
 	GasLimit          uint64
 }
@@ -1003,6 +1012,9 @@ type kvEntry struct {
 }
 
 func NewHost(cfg Config) (*Host, error) {
+	if cfg.ProgramsGuestABI != 0 && cfg.ProgramsGuestABI != 4 && cfg.ProgramsGuestABI != 5 {
+		return nil, codeNonCanonical
+	}
 	if cfg.StoreKey == nil || cfg.NetworkID == 0 || cfg.ParameterVersion == 0 || cfg.GasLimit == 0 || cfg.Workers < 0 || cfg.Workers > 16 {
 		return nil, codeNonCanonical
 	}
@@ -1012,7 +1024,7 @@ func NewHost(cfg Config) (*Host, error) {
 	h := &Host{cfg: cfg, nodes: make(chan *C.lxphost_node, cfg.Workers)}
 	for i := 0; i < cfg.Workers; i++ {
 		var status C.int32_t
-		node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), &status)
+		node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), C.uint16_t(cfg.ProgramsGuestABI), &status)
 		if node == nil {
 			for len(h.nodes) != 0 {
 				C.lxphost_node_free(<-h.nodes)

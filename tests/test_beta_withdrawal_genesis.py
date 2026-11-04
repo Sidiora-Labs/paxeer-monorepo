@@ -71,9 +71,9 @@ class WithdrawalGenesisTest(unittest.TestCase):
                 request = genesis / 'genesis-request.lxgb'
                 encoded = request.read_bytes()
                 self.assertEqual(encoded[:7], b'LXGB\x02\0\x03')
-                self.assertEqual(int.from_bytes(encoded[19:21], 'big'), 7)
                 expected = {'parameter-version': 1, 'native-fee-authority-version': 2,
                             **{'module-enable:' + name: 1 for name in PREPARE.genesis_modules()}}
+                self.assertEqual(int.from_bytes(encoded[19:21], 'big'), len(expected))
                 for index, (key, value) in enumerate(sorted(expected.items())):
                     self.assertEqual(encoded[21 + index * 66:21 + (index + 1) * 66],
                                      b'\0\x07' + key.encode().ljust(32, b'\0') + value.to_bytes(32, 'big'))

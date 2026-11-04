@@ -3,12 +3,14 @@ import {
   encodeAbiParameters,
   recoverAddress,
   recoverMessageAddress,
+  recoverTypedDataAddress,
   hashMessage,
   keccak256,
   toHex,
   toRlp,
 } from 'viem';
 import { readSequencerReceipt, waitForSequencerReceipt } from './receipt.js';
+import { parseReceiptKeyResponse } from './rpc.js';
 import {
   ChainDisconnectedError,
   DisconnectedError,
@@ -91,6 +93,7 @@ const SIGNING_METHODS = new Set([
   'eth_signTypedData_v4',
   'personal_sign',
   'eth_sign',
+  'paxeer_submitSponsored',
 ]);
 
 const QUOTE_TYPEHASH = keccak256(
@@ -121,6 +124,13 @@ export class BindingRefusedError extends ProviderRpcError {
   }
 }
 
+interface SigningContext {
+  readonly account: Hex;
+  readonly chain: number;
+  readonly generation: number;
+  readonly token: string;
+}
+
 export class PaxeerProvider implements Eip1193Provider {
   readonly isPaxeer = true;
   private readonly gatewayUrl: string;
@@ -135,6 +145,7 @@ export class PaxeerProvider implements Eip1193Provider {
   private connected = false;
   private rpcId = 0;
   private capsGeneration = 0;
+  private accountToken: string | null = null;
 
   constructor(config: PaxeerProviderConfig) {
     if (!config.gatewayUrl) throw new Error('PaxeerProvider: gatewayUrl required');
@@ -187,6 +198,7 @@ export class PaxeerProvider implements Eip1193Provider {
     const hadAccounts = this.accounts.length > 0;
     this.accounts = [];
     this.connected = false;
+    this.accountToken = null;
     if (hadAccounts) this.emit('accountsChanged', []);
     this.emit('disconnect', new DisconnectedError('the embedded wallet was disconnected'));
   }
@@ -210,17 +222,24 @@ export class PaxeerProvider implements Eip1193Provider {
       }
     }
     if (UNSUPPORTED_METHODS.has(method)) throw new UnsupportedMethodError(method);
-    if (SIGNING_METHODS.has(method) && this.confirm) {
+    const context = SIGNING_METHODS.has(method) ? await this.captureSigningContext() : undefined;
+    if (context && this.confirm) {
       const approved = await this.confirm({ method, params });
       if (!approved) throw new UserRejectedRequestError();
     }
+    if (context) await this.assertSigningContext(context);
     switch (method) {
+      case 'pax_sequencerReceipt': {
+        if (typeof params[0] !== 'string' || params.length !== 1)
+          throw new InvalidParamsError('hash', 'one transaction hash required');
+        return readSequencerReceipt(this.proxy.bind(this), params[0]);
+      }
       case 'eth_requestAccounts':
         return this.requestAccounts();
       case 'eth_accounts':
         return [...this.accounts];
       case 'paxeer_submitSponsored':
-        return this.sponsoredGateway(params, false);
+        return this.sponsoredGateway(params, false, context!);
       case 'paxeer_sponsoredStatus':
         return this.paxeer_sponsoredStatus(params);
       case 'eth_chainId':
@@ -230,24 +249,32 @@ export class PaxeerProvider implements Eip1193Provider {
       case 'wallet_switchEthereumChain':
         return this.switchChain(params);
       case 'eth_sendTransaction':
-        return this.sendTransaction(params);
+        return this.sendTransaction(params, context!);
       case 'paxeer_sendTransactionReceipted':
-        return this.paxeer_sendTransactionReceipted(params);
+        return this.paxeer_sendTransactionReceipted(params, context!);
       case 'eth_signTypedData_v4':
-        return this.signTypedData(params);
+        return this.signTypedData(params, context!);
       case 'personal_sign':
-        return this.personalSign(params);
+        return this.personalSign(params, context!);
       case 'eth_sign':
-        return this.ethSign(params);
+        return this.ethSign(params, context!);
       default:
         return this.proxy(method, args.params);
     }
   }
 
   private async requestAccounts(): Promise<Hex[]> {
+    const generation = this.capsGeneration;
+    const sessionToken = await this.token();
+    if (!sessionToken) throw new UnauthorizedError('no_token', 'no signed-in session');
     let me: { wallet: PublicWallet; chain: ChainInfo } | null;
     try {
-      me = await this.gateway<{ wallet: PublicWallet; chain: ChainInfo }>('GET', '/v1/wallet/me');
+      me = await this.gateway<{ wallet: PublicWallet; chain: ChainInfo }>(
+        'GET',
+        '/v1/wallet/me',
+        undefined,
+        sessionToken
+      );
     } catch (error) {
       if (!(error instanceof ProviderRpcError) || !isNoWallet(error)) throw error;
       me = null;
@@ -257,22 +284,29 @@ export class PaxeerProvider implements Eip1193Provider {
     if (me) {
       address = me.wallet.address;
       if (!this.activeChainSelected) chainId = me.chain.id;
-      if (needsBinding(me.wallet)) await this.completeBinding();
+      if (needsBinding(me.wallet)) await this.completeBinding(sessionToken);
     } else {
       const provisioned = await this.gateway<{ wallet: PublicWallet }>(
         'POST',
-        '/v1/wallet/provision'
+        '/v1/wallet/provision',
+        undefined,
+        sessionToken
       );
       address = provisioned.wallet.address;
       if (!this.activeChainSelected) chainId = provisioned.wallet.chain_id;
     }
     if (!ADDRESS.test(address))
       throw new InvalidParamsError('wallet.address', 'the gateway returned an invalid address');
+    const currentToken = await this.token();
+    if (sessionToken !== currentToken || generation !== this.capsGeneration)
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
     const wasConnected = this.connected;
     const accountsChanged =
       this.accounts.length !== 1 || this.accounts[0]?.toLowerCase() !== address.toLowerCase();
     const chainChanged = chainId !== this.chainId;
-    if (accountsChanged || chainChanged) this.invalidateCapsSession();
+    if (accountsChanged || chainChanged || this.accountToken !== sessionToken)
+      this.invalidateCapsSession();
+    this.accountToken = sessionToken;
     this.accounts = [address];
     this.chainId = chainId;
     this.connected = true;
@@ -282,9 +316,14 @@ export class PaxeerProvider implements Eip1193Provider {
     return [...this.accounts];
   }
 
-  private async completeBinding(): Promise<void> {
+  private async completeBinding(sessionToken: string): Promise<void> {
     try {
-      await this.gateway<{ wallet: PublicWallet }>('POST', '/v1/wallet/provision');
+      await this.gateway<{ wallet: PublicWallet }>(
+        'POST',
+        '/v1/wallet/provision',
+        undefined,
+        sessionToken
+      );
     } catch (error) {
       if (error instanceof ProviderRpcError && isBindingRefused(error)) {
         const body = (error.data as { body: Record<string, unknown> }).body;
@@ -307,13 +346,13 @@ export class PaxeerProvider implements Eip1193Provider {
     return null;
   }
 
-  private async sendTransaction(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
+  private async sendTransaction(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
     const tx = params[0];
     if (!isRecord(tx))
       throw new InvalidParamsError('tx', 'eth_sendTransaction requires a transaction object');
     if (tx.from !== undefined) this.requireSameAccount(tx.from, account, 'from');
-    const wire: Record<string, unknown> = { chainId: this.chainId };
+    const wire: Record<string, unknown> = { chainId: context.chain, from: account };
     if (tx.to !== undefined && tx.to !== null) wire.to = addressField(tx.to, 'to');
     if (tx.data !== undefined) wire.data = bytesField(tx.data, 'data');
     else if (tx.input !== undefined) wire.data = bytesField(tx.input, 'input');
@@ -328,9 +367,11 @@ export class PaxeerProvider implements Eip1193Provider {
       if (chainId !== this.chainId) throw new ChainDisconnectedError(chainId, this.chainId);
       wire.chainId = chainId;
     }
-    const response = await this.gateway<SendTxResponse>('POST', '/v1/wallet/send', { tx: wire });
+    const response = await this.signingGateway<SendTxResponse>(context, '/v1/wallet/send', {
+      tx: wire,
+    });
     try {
-      assertSendTxResponse(response, { chainId: this.chainId, account });
+      assertSendTxResponse(response, { chainId: context.chain, account });
     } catch (error) {
       throw new InvalidParamsError('response', (error as Error).message);
     }
@@ -338,14 +379,19 @@ export class PaxeerProvider implements Eip1193Provider {
   }
 
   private async paxeer_sendTransactionReceipted(
-    params: readonly unknown[]
+    params: readonly unknown[],
+    context: SigningContext
   ): Promise<SequencerReceiptAnswer> {
-    const hash = await this.sendTransaction(params);
-    return waitForSequencerReceipt(this.proxy.bind(this), hash, { rung: 'receipted' });
+    const hash = await this.sendTransaction(params, context);
+    const receipt = await waitForSequencerReceipt(this.proxy.bind(this), hash, {
+      rung: 'receipted',
+    });
+    await this.assertSigningContext(context);
+    return receipt;
   }
 
-  private async signTypedData(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
+  private async signTypedData(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
     this.requireSameAccount(params[0], account, 'address');
     const raw = params[1];
     let parsed: unknown = raw;
@@ -377,25 +423,47 @@ export class PaxeerProvider implements Eip1193Provider {
       if (chainId !== this.chainId) throw new ChainDisconnectedError(chainId, this.chainId);
     }
     const typedData = parsed as unknown as TypedDataPayload;
-    const response = await this.gateway<SignTypedDataResponse>(
-      'POST',
+    const response = await this.signingGateway<SignTypedDataResponse>(
+      context,
       '/v1/wallet/sign-typed-data',
       { typedData }
     );
-    return response.signature;
+    const signature = signatureField(response.signature);
+    this.requireSameAccount(response.address, account, 'response.address');
+    this.requireSameAccount(
+      await recoverTypedDataAddress({ ...typedData, signature } as Parameters<
+        typeof recoverTypedDataAddress
+      >[0]),
+      account,
+      'signature'
+    );
+    await this.assertSigningContext(context);
+    return signature;
   }
 
-  private async personalSign(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
+  private async personalSign(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
     const [first, second] = params;
     if (typeof first !== 'string')
       throw new InvalidParamsError('message', 'personal_sign requires a message');
     this.requireSameAccount(second, account, 'address');
     const message = decodeMessage(first);
-    const response = await this.gateway<SignMessageResponse>('POST', '/v1/wallet/sign-message', {
-      message,
-    });
-    return response.signature;
+    const response = await this.signingGateway<SignMessageResponse>(
+      context,
+      '/v1/wallet/sign-message',
+      {
+        message,
+      }
+    );
+    const signature = signatureField(response.signature);
+    this.requireSameAccount(response.address, account, 'response.address');
+    this.requireSameAccount(
+      await recoverMessageAddress({ message, signature }),
+      account,
+      'signature'
+    );
+    await this.assertSigningContext(context);
+    return signature;
   }
 
   private async paxeer_sponsoredStatus(
@@ -412,12 +480,13 @@ export class PaxeerProvider implements Eip1193Provider {
     return { ...answer, rung: receipt === null ? null : receipt.rung };
   }
 
-  private async sponsoredGateway(params: readonly unknown[], readOnly: boolean): Promise<unknown> {
-    const account = this.requireAccount();
-    const generation = this.capsGeneration;
-    const chain = this.chainId;
-    const token = await this.token();
-    if (!token) throw new UnauthorizedError('no_token', 'no signed-in session');
+  private async sponsoredGateway(
+    params: readonly unknown[],
+    readOnly: boolean,
+    captured?: SigningContext
+  ): Promise<unknown> {
+    const context = captured ?? (await this.captureSigningContext());
+    const { account } = context;
     if (params.length !== 1 || !isRecord(params[0]))
       throw new InvalidParamsError('sponsored', 'complete sponsored construction required');
     let body: Record<string, unknown>;
@@ -467,34 +536,18 @@ export class PaxeerProvider implements Eip1193Provider {
       this.requireChain(String(body.authorization.chainId));
       addressField(body.authorization.address, 'authorization.address');
     }
-    if (
-      generation !== this.capsGeneration ||
-      token !== (await this.token()) ||
-      account !== this.accounts[0] ||
-      chain !== this.chainId
-    )
-      throw new UnauthorizedError('session_changed', 'the wallet session changed');
-    const answer = await this.gateway<unknown>(
-      'POST',
+    await this.assertSigningContext(context);
+    const answer = await this.signingGateway<unknown>(
+      context,
       readOnly ? '/v1/wallet/sponsored/status' : '/v1/wallet/sponsored/submit',
       body
     );
-    if (
-      generation !== this.capsGeneration ||
-      token !== (await this.token()) ||
-      account !== this.accounts[0] ||
-      chain !== this.chainId
-    )
-      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+    await this.assertSigningContext(context);
     return answer;
   }
 
-  private async ethSign(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
-    const generation = this.capsGeneration;
-    const chain = this.chainId;
-    const sessionToken = await this.token();
-    if (!sessionToken) throw new UnauthorizedError('no_token', 'no signed-in session');
+  private async ethSign(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
     if (params.length !== 3)
       throw new InvalidParamsError(
         'params',
@@ -524,23 +577,15 @@ export class PaxeerProvider implements Eip1193Provider {
         'the supplied digest does not match its construction'
       );
     }
-    if (
-      generation !== this.capsGeneration ||
-      sessionToken !== (await this.token()) ||
-      account !== this.accounts[0] ||
-      chain !== this.chainId
-    )
-      throw new UnauthorizedError('session_changed', 'the wallet session changed');
-    const response = await this.gateway<SignDigestResponse>('POST', '/v1/wallet/sign-digest', {
-      construction: wire,
-    });
-    if (
-      generation !== this.capsGeneration ||
-      sessionToken !== (await this.token()) ||
-      account !== this.accounts[0] ||
-      chain !== this.chainId
-    )
-      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+    await this.assertSigningContext(context);
+    const response = await this.signingGateway<SignDigestResponse>(
+      context,
+      '/v1/wallet/sign-digest',
+      {
+        construction: wire,
+      }
+    );
+    await this.assertSigningContext(context);
     if (
       wire.kind === 'sponsored_batch' &&
       BigInt(wire.quote.deadline) <= BigInt(Math.floor(Date.now() / 1000))
@@ -553,6 +598,7 @@ export class PaxeerProvider implements Eip1193Provider {
       account,
       'signature'
     );
+    await this.assertSigningContext(context);
     return signature;
   }
 
@@ -579,7 +625,12 @@ export class PaxeerProvider implements Eip1193Provider {
       res = await this.fetchImpl(this.rpcUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: this.rpcId, method, params: params ?? [] }),
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: this.rpcId,
+          method,
+          params: params ?? [],
+        }),
       });
     } catch (error) {
       throw new DisconnectedError('the RPC base is unreachable', {
@@ -588,7 +639,10 @@ export class PaxeerProvider implements Eip1193Provider {
     }
     let payload: unknown;
     try {
-      payload = await res.json();
+      payload =
+        method === 'px_getReceiptKeys'
+          ? parseReceiptKeyResponse(await res.text())
+          : await res.json();
     } catch {
       throw new RpcResponseError(
         -32603,
@@ -609,12 +663,21 @@ export class PaxeerProvider implements Eip1193Provider {
     return payload.result;
   }
 
-  private async gateway<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  private async gateway<T>(
+    method: 'GET' | 'POST',
+    path: string,
+    body?: unknown,
+    expectedToken?: string,
+    context?: SigningContext
+  ): Promise<T> {
     const token = await this.token();
     if (!token) {
       this.dropAccounts();
       throw new UnauthorizedError('no_token', 'no signed-in session');
     }
+    if (expectedToken !== undefined && token !== expectedToken)
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+    if (context) this.assertSigningContextNow(context);
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     let res: Response;
@@ -625,6 +688,13 @@ export class PaxeerProvider implements Eip1193Provider {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
     } catch (error) {
+      if (error instanceof ProviderRpcError) throw error;
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error.code === 'SESSION_CHANGED' || error.code === 'NO_SESSION' || error.code === 4100)
+      )
+        throw new UnauthorizedError('session_changed', error.message);
       throw new DisconnectedError('the wallet gateway is unreachable', {
         cause: (error as Error).message,
       });
@@ -642,7 +712,49 @@ export class PaxeerProvider implements Eip1193Provider {
     return payload as T;
   }
 
+  private async captureSigningContext(): Promise<SigningContext> {
+    const account = this.requireAccount();
+    const generation = this.capsGeneration;
+    const chain = this.chainId;
+    const token = await this.token();
+    if (!token || token !== this.accountToken)
+      throw new UnauthorizedError('session_changed', 'reconnect the authenticated wallet session');
+    const context = Object.freeze({ account, generation, chain, token });
+    this.assertSigningContextNow(context);
+    return context;
+  }
+
+  private assertSigningContextNow(context: SigningContext): void {
+    if (
+      context.generation !== this.capsGeneration ||
+      context.account !== this.accounts[0] ||
+      context.chain !== this.chainId ||
+      context.token !== this.accountToken
+    )
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+  }
+
+  private async assertSigningContext(context: SigningContext): Promise<void> {
+    const token = await this.token();
+    this.assertSigningContextNow(context);
+    if (token !== context.token)
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+  }
+
+  private async signingGateway<T>(
+    context: SigningContext,
+    path: string,
+    body: unknown
+  ): Promise<T> {
+    await this.assertSigningContext(context);
+    const response = await this.gateway<T>('POST', path, body, context.token, context);
+    await this.assertSigningContext(context);
+    return response;
+  }
+
   private dropAccounts(): void {
+    this.invalidateCapsSession();
+    this.accountToken = null;
     if (this.accounts.length === 0) return;
     this.accounts = [];
     this.emit('accountsChanged', []);
@@ -716,7 +828,13 @@ export function sponsoredBatchDigest(batch: WireSponsoredBatch): Hex {
           ],
         },
       ],
-      [batch.calls.map((call) => ({ to: call.to, value: BigInt(call.value), data: call.data }))]
+      [
+        batch.calls.map((call) => ({
+          to: call.to,
+          value: BigInt(call.value),
+          data: call.data,
+        })),
+      ]
     )
   );
   return hashMessage({
@@ -882,12 +1000,14 @@ function safeInteger(value: bigint, field: string): number {
 }
 
 function decodeMessage(message: string): string {
-  if (!BYTES.test(message) || message.length <= 2) return message;
+  if (!message.startsWith('0x')) return message;
+  if (!BYTES.test(message))
+    throw new InvalidParamsError('message', 'personal_sign requires complete even-length hex');
   const bytes = new Uint8Array((message.length - 2) / 2);
   for (let i = 0; i < bytes.length; i += 1)
     bytes[i] = Number.parseInt(message.slice(2 + i * 2, 4 + i * 2), 16);
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     throw new InvalidParamsError('message', 'personal_sign bytes must be UTF-8 text');
   }

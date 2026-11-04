@@ -197,6 +197,8 @@ func (lss *FilePVLastSignState) Save() error {
 type FilePV struct {
 	Key           FilePVKey
 	LastSignState FilePVLastSignState
+
+	pendingSignState *FilePVLastSignState
 }
 
 var _ types.PrivValidator = (*FilePV)(nil)
@@ -335,12 +337,16 @@ func (pv *FilePV) Save() error {
 	if err := pv.Key.Save(); err != nil {
 		return err
 	}
+	if pv.pendingSignState != nil {
+		return pv.commitPendingSignState()
+	}
 	return pv.LastSignState.Save()
 }
 
 // Reset resets all fields in the FilePV.
 // NOTE: Unsafe!
 func (pv *FilePV) Reset() error {
+	pv.pendingSignState = nil
 	pv.LastSignState.reset()
 	return pv.Save()
 }
@@ -364,6 +370,9 @@ func (pv *FilePV) String() string {
 func (pv *FilePV) signVote(chainID string, vote *tmproto.Vote) error {
 	step, err := voteToStep(vote)
 	if err != nil {
+		return err
+	}
+	if err := pv.commitPendingSignState(); err != nil {
 		return err
 	}
 
@@ -417,6 +426,9 @@ func (pv *FilePV) signVote(chainID string, vote *tmproto.Vote) error {
 
 // signProposal checks if the proposal is good to sign and sets the proposal signature.
 func (pv *FilePV) signProposal(chainID string, proposal *tmproto.Proposal) error {
+	if err := pv.commitPendingSignState(); err != nil {
+		return err
+	}
 	height, round, step := proposal.Height, proposal.Round, stepPropose
 
 	lss := pv.LastSignState
@@ -451,12 +463,27 @@ func (pv *FilePV) signProposal(chainID string, proposal *tmproto.Proposal) error
 
 // Persist height/round/step and signature
 func (pv *FilePV) saveSigned(height int64, round int32, step int8, signBytes []byte, sig []byte) error {
-	pv.LastSignState.Height = height
-	pv.LastSignState.Round = round
-	pv.LastSignState.Step = step
-	pv.LastSignState.Signature = sig
-	pv.LastSignState.SignBytes = signBytes
-	return pv.LastSignState.Save()
+	pv.pendingSignState = &FilePVLastSignState{
+		Height:    height,
+		Round:     round,
+		Step:      step,
+		Signature: sig,
+		SignBytes: signBytes,
+		filePath:  pv.LastSignState.filePath,
+	}
+	return pv.commitPendingSignState()
+}
+
+func (pv *FilePV) commitPendingSignState() error {
+	if pv.pendingSignState == nil {
+		return nil
+	}
+	if err := pv.pendingSignState.Save(); err != nil {
+		return err
+	}
+	pv.LastSignState = *pv.pendingSignState
+	pv.pendingSignState = nil
+	return nil
 }
 
 //-----------------------------------------------------------------------------------------

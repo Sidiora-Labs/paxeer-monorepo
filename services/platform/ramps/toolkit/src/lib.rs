@@ -16,7 +16,8 @@ use layerx_types::rung::Rung;
 use sha3::Keccak256;
 
 use crate::evm::{
-    decode_ledger_payment, encode_draw, encode_pay_exact, LedgerPayment, LEDGER_ADDRESS,
+    decode_budget_spent, decode_ledger_payment, encode_budget_spend, encode_pay_exact,
+    LedgerPayment, LEDGER_ADDRESS, PAY_ADDRESS,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -78,6 +79,7 @@ pub struct QuoteTerms {
     pub context: [u8; 32],
     pub provider_token: String,
     pub payout_token: String,
+    /// Quote expiry as Unix seconds; native payment calls use checked milliseconds.
     pub expires_at: u64,
 }
 
@@ -93,6 +95,7 @@ impl QuoteTerms {
             || self.rate_denominator == 0
             || self.maximum_slippage_bps > 10_000
             || self.context == [0; 32]
+            || self.expires_at.checked_mul(1_000).is_none()
             || self.expires_at <= now
             || self.external_currency.is_empty()
             || self.external_currency.len() > MAX_CURRENCY_BYTES
@@ -113,7 +116,9 @@ impl QuoteTerms {
 pub struct CreateOrder {
     pub order_id: String,
     pub quote_id: String,
+    #[serde(rename = "customer_budget_id", alias = "payer_grant")]
     pub payer_grant: Option<[u8; 32]>,
+    #[serde(rename = "customer_budget_purpose", alias = "payer_grant_purpose")]
     pub payer_grant_purpose: Option<[u8; 32]>,
 }
 
@@ -291,46 +296,59 @@ pub struct LedgerCall {
 
 fn ledger_account(account: &str) -> Result<[u8; 32], RampError> {
     let account = AccountId::parse(account).map_err(|_| RampError::InvalidPrincipal)?;
-    layerx_wire::hash::account_id(&account).map_err(|_| RampError::Intent)
+    layerx_wire::hash::account_id_for_protocol(
+        &account,
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    )
+    .map_err(|_| RampError::Intent)
 }
 
-/// # Errors
-/// Refuses on-ramp orders and off-ramp orders without a customer payer grant.
+/// The customer's maintained budget authorization. The budget must be owned
+/// by the customer, who signs the exact spending transaction at 0x101B.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CustomerPaymentAuthorization {
+    pub budget_id: [u8; 32],
+    pub purpose_hash: [u8; 32],
+}
+
+impl RampOrder {
+    pub fn customer_payment_authorization(
+        &self,
+    ) -> Result<CustomerPaymentAuthorization, RampError> {
+        if self.direction() != RampDirection::OffRamp {
+            return Err(RampError::InvalidOrder);
+        }
+        Ok(CustomerPaymentAuthorization {
+            budget_id: self
+                .payer_grant
+                .filter(|id| *id != [0; 32])
+                .ok_or(RampError::PayerGrantRequired)?,
+            purpose_hash: self
+                .payer_grant_purpose
+                .filter(|id| *id != [0; 32])
+                .ok_or(RampError::PayerGrantRequired)?,
+        })
+    }
+}
+
+/// Compatibility entry point; compiles the maintained customer budget
+/// authority, never the retired ledger draw selector. Sequence is EVM nonce.
 pub fn compile_payer_grant_draw(
     order: &RampOrder,
-    receiver_sequence: u64,
+    _receiver_sequence: u64,
 ) -> Result<LedgerCall, RampError> {
+    compile_customer_payment(order)
+}
+
+pub fn compile_customer_payment(order: &RampOrder) -> Result<LedgerCall, RampError> {
     order.validate_bound()?;
-    if order.direction() != RampDirection::OffRamp {
-        return Err(RampError::PayerGrantRequired);
-    }
-    let grant = order
-        .payer_grant
-        .filter(|grant| *grant != [0; 32])
-        .ok_or(RampError::PayerGrantRequired)?;
-    let purpose = order
-        .payer_grant_purpose
-        .filter(|purpose| *purpose != [0; 32])
-        .ok_or(RampError::PayerGrantRequired)?;
-    let operator = order
-        .operator
-        .account
-        .strip_suffix(":main")
-        .ok_or(RampError::InvalidPrincipal)?;
-    let recipient = ledger_account(&format!(
-        "{operator}:asset:{}",
-        clients::hex(&order.quote.layerx_asset)
-    ))?;
+    let authorization = order.customer_payment_authorization()?;
     Ok(LedgerCall {
-        to: LEDGER_ADDRESS,
-        data: encode_draw(
-            grant,
-            recipient,
+        to: PAY_ADDRESS,
+        data: encode_budget_spend(
+            authorization.budget_id,
+            ledger_account(&order.operator.account)?,
             order.quote.layerx_amount,
-            order.order_digest,
-            receiver_sequence,
-            purpose,
-            order.context,
         ),
     })
 }
@@ -349,7 +367,11 @@ pub fn compile_operator_send(order: &RampOrder) -> Result<LedgerCall, RampError>
             ledger_account(&order.customer.account)?,
             order.quote.layerx_asset,
             order.quote.layerx_amount,
-            order.quote.expires_at,
+            order
+                .quote
+                .expires_at
+                .checked_mul(1_000)
+                .ok_or(RampError::InvalidOrder)?,
             order.order_digest,
         ),
     })
@@ -425,28 +447,39 @@ pub fn verify_order_receipt(
     };
     let from = ledger_account(from)?;
     let to = ledger_account(to)?;
-    let expected = match order.direction() {
-        RampDirection::OnRamp if order.payer_grant.is_none() => LedgerPayment::Exact {
-            from,
-            to,
-            reference: order.order_digest,
-            asset: order.quote.layerx_asset,
-            amount: order.quote.layerx_amount,
-        },
-        RampDirection::OffRamp => LedgerPayment::Drawn {
-            from,
-            to,
-            grant: order.payer_grant.ok_or(RampError::PayerGrantRequired)?,
-            asset: order.quote.layerx_asset,
-            amount: order.quote.layerx_amount,
-            idempotency_key: order.order_digest,
-            context: order.context,
-        },
+    match order.direction() {
+        RampDirection::OnRamp if order.payer_grant.is_none() => {
+            let expected = LedgerPayment::Exact {
+                from,
+                to,
+                reference: order.order_digest,
+                asset: order.quote.layerx_asset,
+                amount: order.quote.layerx_amount,
+            };
+            let mut payments = evidence.logs.iter().filter_map(decode_ledger_payment);
+            if payments.next() != Some(expected) || payments.next().is_some() {
+                return Err(RampError::ReceiptMismatch);
+            }
+        }
+        RampDirection::OffRamp => {
+            let (call, _) =
+                layerx_crypto::evm_transaction::decode_signed(&evidence.raw_transaction)
+                    .map_err(|_| RampError::ReceiptMismatch)?;
+            let compiled = compile_customer_payment(order)?;
+            if call.to != compiled.to || call.data != compiled.data {
+                return Err(RampError::ReceiptMismatch);
+            }
+            let expected = (
+                order.customer_payment_authorization()?.budget_id,
+                to,
+                order.quote.layerx_amount,
+            );
+            let mut payments = evidence.logs.iter().filter_map(decode_budget_spent);
+            if payments.next() != Some(expected) || payments.next().is_some() {
+                return Err(RampError::ReceiptMismatch);
+            }
+        }
         RampDirection::OnRamp => return Err(RampError::ReceiptMismatch),
-    };
-    let mut payments = evidence.logs.iter().filter_map(decode_ledger_payment);
-    if payments.next() != Some(expected) || payments.next().is_some() {
-        return Err(RampError::ReceiptMismatch);
     }
     let height = u64::from_be_bytes(
         protocol.batch_id()[24..]

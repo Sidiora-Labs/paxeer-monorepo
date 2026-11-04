@@ -1,0 +1,6 @@
+[repair.22.31.296]
+finding = "filtered-pagination-false-end"
+tests = ["TestRepair_296_CallbackSparseContinuation", "TestRepair_296_GenericSparseContinuation"]
+proof = "Real governance and authorization keepers produce sparse records; protobuf query clients follow raw-key continuations in both directions, with and without offset, and reject unbounded count_total scans."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand."
+wiring_requests = []

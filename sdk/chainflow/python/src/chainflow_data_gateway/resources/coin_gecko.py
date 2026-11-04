@@ -77,6 +77,7 @@ class CoinGeckoResource(SyncAPIResource):
         return self._get(
             "/api/v3/coins/list",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -147,6 +148,7 @@ class CoinGeckoResource(SyncAPIResource):
         return self._get(
             "/api/v3/coins/markets",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -243,6 +245,7 @@ class CoinGeckoResource(SyncAPIResource):
         return self._get(
             path_template("/api/v3/coins/{id}", **{"id": id}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -312,6 +315,7 @@ class CoinGeckoResource(SyncAPIResource):
         return self._get(
             "/api/v3/simple/price",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -376,6 +380,7 @@ class AsyncCoinGeckoResource(AsyncAPIResource):
         return await self._get(
             "/api/v3/coins/list",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -446,6 +451,7 @@ class AsyncCoinGeckoResource(AsyncAPIResource):
         return await self._get(
             "/api/v3/coins/markets",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -542,6 +548,7 @@ class AsyncCoinGeckoResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/v3/coins/{id}", **{"id": id}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -611,6 +618,7 @@ class AsyncCoinGeckoResource(AsyncAPIResource):
         return await self._get(
             "/api/v3/simple/price",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,

@@ -59,6 +59,7 @@ var (
 
 type Database struct {
 	storage      *pebble.DB
+	commitMu     sync.Mutex // serializes data/head commits and explicit head resets
 	asyncWriteWG sync.WaitGroup
 	config       config.StateStoreConfig
 	// Earliest version for db after pruning
@@ -264,11 +265,15 @@ func (db *Database) SetLatestVersion(version int64) error {
 	if version < 0 {
 		return fmt.Errorf("version must be non-negative")
 	}
-	db.latestVersion.Store(version)
+	db.commitMu.Lock()
+	defer db.commitMu.Unlock()
 	var ts [VersionSize]byte
 	binary.LittleEndian.PutUint64(ts[:], uint64(version))
-	err := db.storage.Set([]byte(latestVersionKey), ts[:], defaultWriteOpts)
-	return err
+	if err := db.storage.Set([]byte(latestVersionKey), ts[:], defaultWriteOpts); err != nil {
+		return err
+	}
+	db.latestVersion.Store(version)
+	return nil
 }
 
 func (db *Database) GetLatestVersion() int64 {
@@ -415,12 +420,19 @@ func (db *Database) ApplyChangesetSync(version int64, changeset []*proto.NamedCh
 		db.storeKeyDirty.Store(cs.Name, version)
 	}
 
+	return db.writeBatch(b)
+}
+
+// writeBatch keeps the persisted and in-memory heads at the same successful
+// high-water mark, including when synchronous and background writes overlap.
+func (db *Database) writeBatch(b *Batch) error {
+	db.commitMu.Lock()
+	defer db.commitMu.Unlock()
 	if err := b.Write(); err != nil {
 		return err
 	}
-	// Update latest version after all writes succeed (only if higher to avoid lowering it when writing out of order)
-	if version > db.latestVersion.Load() {
-		db.latestVersion.Store(version)
+	if b.version > db.latestVersion.Load() {
+		db.latestVersion.Store(b.version)
 	}
 	return nil
 }
@@ -862,7 +874,7 @@ func (db *Database) Import(version int64, ch <-chan types.SnapshotNode) (_err er
 
 			counter++
 			if counter%ImportCommitBatchSize == 0 {
-				if err := batch.Write(); err != nil {
+				if err := db.writeBatch(batch); err != nil {
 					panic(err)
 				}
 
@@ -874,7 +886,7 @@ func (db *Database) Import(version int64, ch <-chan types.SnapshotNode) (_err er
 		}
 
 		if batch.Size() > 0 {
-			if err := batch.Write(); err != nil {
+			if err := db.writeBatch(batch); err != nil {
 				panic(err)
 			}
 		}
@@ -966,7 +978,7 @@ func (db *Database) DeleteKeysAtVersion(module string, version int64) error {
 			}
 			deleteCounter++
 			if deleteCounter >= DeleteCommitBatchSize {
-				if err := batch.Write(); err != nil {
+				if err := db.writeBatch(batch); err != nil {
 					fmt.Printf("Error writing deletion batch for module %q: %v\n", module, err)
 					return true
 				}
@@ -986,7 +998,7 @@ func (db *Database) DeleteKeysAtVersion(module string, version int64) error {
 
 	// Commit any remaining deletions.
 	if batch.Size() > 0 {
-		if err := batch.Write(); err != nil {
+		if err := db.writeBatch(batch); err != nil {
 			return fmt.Errorf("error writing final deletion batch for module %q: %w", module, err)
 		}
 	}

@@ -1,0 +1,959 @@
+[audit.22.30.110]
+task = "22.30.110"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 82
+findings = 36
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["mirror_manifest_event", "relay_claim_before_send", "private_endpoint_settlement"]
+
+[file.001]
+path = "services/interop/Cargo.toml"
+lines = 63
+verdict = "clean"
+note = "Workspace members, resolver and shared dependencies agree with the edge adapter architecture; no ledger authority is introduced."
+
+[file.002]
+path = "services/interop/PORTABILITY.md"
+lines = 381
+verdict = "issues"
+note = "Current v2 format/example agree with PortableReceiptV2; retained v1 API instructions and continued-reader promise are stale."
+
+[file.003]
+path = "services/interop/README.md"
+lines = 72
+verdict = "clean"
+note = "Reviewed workspace ownership, crate/transport inventory, custody boundary, build commands and source/deployment pointers."
+
+[file.004]
+path = "services/interop/clippy.toml"
+lines = 2
+verdict = "clean"
+note = "Reviewed Clippy thresholds; no runtime input or retired service dependency is introduced."
+
+[file.005]
+path = "services/interop/contracts/ethereum-mirror/ArchiveSha256.sol"
+lines = 99
+verdict = "clean"
+note = "Reviewed streaming SHA-256 state, compression, padding and byte accounting against Ethereum archive hashing."
+
+[file.006]
+path = "services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol"
+lines = 191
+verdict = "issues"
+note = "Reviewed publisher authorization, manifest identity, ordered chunks, replay and finalization; event consumer mismatch recorded."
+
+[file.007]
+path = "services/interop/contracts/ethereum-mirror/foundry.toml"
+lines = 11
+verdict = "clean"
+note = "Reviewed Foundry compiler, optimizer and source/test paths against the Ethereum mirror package."
+
+[file.008]
+path = "services/interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol"
+lines = 315
+verdict = "clean"
+note = "Reviewed full contract tests for publisher refusal, replay, manifest conflicts, chunk order, digest failure and committed fields; cross-language event defect recorded on producer."
+
+[file.009]
+path = "services/interop/contracts/solana-mirror/Cargo.toml"
+lines = 30
+verdict = "clean"
+note = "Reviewed Solana program crate type, entrypoint and runtime-test dependencies against deployment."
+
+[file.010]
+path = "services/interop/contracts/solana-mirror/src/archive_hash.rs"
+lines = 153
+verdict = "clean"
+note = "Reviewed persistent SHA-256 serialization, compression and padding against streamed Solana account updates."
+
+[file.011]
+path = "services/interop/contracts/solana-mirror/src/lib.rs"
+lines = 406
+verdict = "issues"
+note = "Reviewed v4 instruction/accounts, publisher PDAs, chunks and recovery against Rust publisher; registry remains at v3."
+
+[file.012]
+path = "services/interop/contracts/solana-mirror/tests/runtime.rs"
+lines = 360
+verdict = "clean"
+note = "Reviewed real Solana runtime tests for signer/PDA ownership, chunk replay/order, persistence and v3 refusal with current v4 bytes."
+
+[file.013]
+path = "services/interop/crates/layerx-ap2/Cargo.toml"
+lines = 24
+verdict = "clean"
+note = "Reviewed AP2 manifest and JOSE/gateway/portable/intent dependencies against exported API and integration tests."
+
+[file.014]
+path = "services/interop/crates/layerx-ap2/src/adapter.rs"
+lines = 654
+verdict = "issues"
+note = "Reviewed authorized payment binding, log/receipt matching and signed export; replay identity and declared API gaps recorded."
+
+[file.015]
+path = "services/interop/crates/layerx-ap2/src/error.rs"
+lines = 100
+verdict = "clean"
+note = "Reviewed AP2 error variants/public codes and verification/adapter refusal call sites."
+
+[file.016]
+path = "services/interop/crates/layerx-ap2/src/jose.rs"
+lines = 525
+verdict = "clean"
+note = "Reviewed JOSE headers, signature algorithms/encodings, disclosure handling and key resolution through the mandate verifier."
+
+[file.017]
+path = "services/interop/crates/layerx-ap2/src/lib.rs"
+lines = 59
+verdict = "clean"
+note = "Reviewed public AP2 exports, pinned upstream document and caller-supplied conformance descriptor."
+
+[file.018]
+path = "services/interop/crates/layerx-ap2/src/model.rs"
+lines = 516
+verdict = "clean"
+note = "Reviewed signed mandate models, amounts, totals, merchant and payment-instrument bindings against pinned schema."
+
+[file.019]
+path = "services/interop/crates/layerx-ap2/src/portable.rs"
+lines = 106
+verdict = "clean"
+note = "Reviewed portable mandate-pair encoding and external verifier binding to original signed mandate bytes."
+
+[file.020]
+path = "services/interop/crates/layerx-ap2/src/verify.rs"
+lines = 964
+verdict = "issues"
+note = "Reviewed all root/key-binding, constraint, usage and time checks; malformed enclosing lifetime claims recorded."
+
+[file.021]
+path = "services/interop/crates/layerx-ap2/tests/mandates.rs"
+lines = 825
+verdict = "issues"
+note = "Reviewed full mandate suite; rewritten signed evidence bypasses the real mandate-derived payment producer."
+
+[file.022]
+path = "services/interop/crates/layerx-ap2/tests/pinned_spec.rs"
+lines = 43
+verdict = "clean"
+note = "Reviewed pinned vendor hash and all first-party mandate vector classifications against descriptor inputs."
+
+[file.023]
+path = "services/interop/crates/layerx-ap2/tests/portability_v2.rs"
+lines = 97
+verdict = "clean"
+note = "Reviewed AP2 v2 portable roundtrip, receipt provenance and refusal coverage against actual document API."
+
+[file.024]
+path = "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs"
+lines = 748
+verdict = "issues"
+note = "Reviewed settlement/export/replay suite; modified recorded logs are not regenerated from matching raw transactions."
+
+[file.025]
+path = "services/interop/crates/layerx-committed-proof/Cargo.toml"
+lines = 14
+verdict = "clean"
+note = "Reviewed proof package dependencies/layout against cryptographic modules and tests."
+
+[file.026]
+path = "services/interop/crates/layerx-committed-proof/scripts/record_committed_vectors.py"
+lines = 199
+verdict = "clean"
+note = "Reviewed committed-vector recorder source invocation, output location and deterministic fixture handling."
+
+[file.027]
+path = "services/interop/crates/layerx-committed-proof/src/commit.rs"
+lines = 164
+verdict = "clean"
+note = "Reviewed signed vote bytes, validator address binding, duplicate refusal, voting power arithmetic and greater-than-two-thirds threshold."
+
+[file.028]
+path = "services/interop/crates/layerx-committed-proof/src/header.rs"
+lines = 151
+verdict = "clean"
+note = "Reviewed consensus header and ordered validator hashing against Go protobuf/encoding inputs."
+
+[file.029]
+path = "services/interop/crates/layerx-committed-proof/src/lib.rs"
+lines = 762
+verdict = "issues"
+note = "Reviewed proof namespaces, canonical receipt/JSON, pin ranges, tx binding and sequence chain; registry path ambiguity recorded."
+
+[file.030]
+path = "services/interop/crates/layerx-committed-proof/src/merkle.rs"
+lines = 89
+verdict = "clean"
+note = "Reviewed RFC6962 empty/leaf/inner hashes, split point, inclusion shape and bounds against consensus tree."
+
+[file.031]
+path = "services/interop/crates/layerx-committed-proof/src/proto.rs"
+lines = 38
+verdict = "clean"
+note = "Reviewed protobuf varints, length delimiters, timestamp and signed-vote encodings against consensus consumers."
+
+[file.032]
+path = "services/interop/crates/layerx-committed-proof/tests/commit.rs"
+lines = 280
+verdict = "clean"
+note = "Reviewed commit tests for real signatures, power threshold, duplicates, unknown validators and altered votes."
+
+[file.033]
+path = "services/interop/crates/layerx-committed-proof/tests/committed.rs"
+lines = 339
+verdict = "clean"
+note = "Reviewed committed inclusion tests binding batch, receipt chain, validators and header, with corrupt-proof refusals."
+
+[file.034]
+path = "services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs"
+lines = 677
+verdict = "clean"
+note = "Reviewed generated producer corpus consumers, accepting cases and declared refusal expectations."
+
+[file.035]
+path = "services/interop/crates/layerx-committed-proof/tests/header.rs"
+lines = 151
+verdict = "clean"
+note = "Reviewed Go reference header/validator hashes, field mutation and ordering tests."
+
+[file.036]
+path = "services/interop/crates/layerx-committed-proof/tests/merkle.rs"
+lines = 122
+verdict = "clean"
+note = "Reviewed empty/singleton/uneven Merkle roots, recorded reference values and altered-aunt inclusion refusal."
+
+[file.037]
+path = "services/interop/crates/layerx-committed-proof/tests/proof_rs_committed_proof_crate.rs"
+lines = 423
+verdict = "clean"
+note = "Reviewed public proof crate integration tests and malformed receipt/proof refusal paths."
+
+[file.038]
+path = "services/interop/crates/layerx-committed-proof/tests/receipted.rs"
+lines = 538
+verdict = "clean"
+note = "Reviewed canonical receipt fixture cases for signed bytes, JSON view, tx identity, sequence and declared refusals."
+
+[file.039]
+path = "services/interop/crates/layerx-interop-service/Cargo.toml"
+lines = 38
+verdict = "clean"
+note = "Reviewed package dependencies and the layerx-interop-gateway binary target against startup/integration tests."
+
+[file.040]
+path = "services/interop/crates/layerx-interop-service/src/config.rs"
+lines = 1329
+verdict = "issues"
+note = "Reviewed bounded configuration, credential permissions, TLS, receipt pins, module registry and private URL policy; stale declared inputs recorded."
+
+[file.041]
+path = "services/interop/crates/layerx-interop-service/src/lib.rs"
+lines = 2
+verdict = "clean"
+note = "Reviewed library marker; running composition is main/config/server, with no separate ledger API."
+
+[file.042]
+path = "services/interop/crates/layerx-interop-service/src/main.rs"
+lines = 92
+verdict = "issues"
+note = "Reviewed connection bounds, I/O deadlines, TLS/plain listeners and parser; advertised readiness CLI option is absent."
+
+[file.043]
+path = "services/interop/crates/layerx-interop-service/src/payer_tx.rs"
+lines = 240
+verdict = "issues"
+note = "Reviewed canonical signed transaction target/selector, ABI bounds and sender recovery; expected chain id is not checked."
+
+[file.044]
+path = "services/interop/crates/layerx-interop-service/src/relay.rs"
+lines = 902
+verdict = "issues"
+note = "Reviewed durable journal, submission, signature/log validation and restart path; claim-before-send, retention and commitment gaps recorded."
+
+[file.045]
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+lines = 5552
+verdict = "issues"
+note = "Reviewed every mounted route, auth, durable continuation, adapter, clock and evidence path; runtime/replay/declaration findings recorded."
+
+[file.046]
+path = "services/interop/crates/layerx-interop-service/tests/plain_listener.rs"
+lines = 477
+verdict = "issues"
+note = "Reviewed plain/TLS startup and livez coverage; missing curl/openssl prints its prerequisite as req.22022.1 permits. Retired fixture inputs recorded."
+
+[file.047]
+path = "services/interop/crates/layerx-interop-service/tests/private_network.rs"
+lines = 269
+verdict = "issues"
+note = "Reviewed all private-network startup acceptance/refusal tests; no mounted settlement route exercises the accepted endpoint."
+
+[file.048]
+path = "services/interop/crates/layerx-interop-service/tests/sequencer_start.rs"
+lines = 323
+verdict = "issues"
+note = "Reviewed startup fixtures and unavailable-node/readiness tests; obsolete hosted/authority inputs obscure active configuration."
+
+[file.049]
+path = "services/interop/deny.toml"
+lines = 47
+verdict = "clean"
+note = "Reviewed license/advisory/source policy; no dependency-vulnerability gate is claimed by this audit."
+
+[file.050]
+path = "services/interop/specs/conformance/ap2/README.md"
+lines = 38
+verdict = "clean"
+note = "Reviewed AP2 vector inventory, refusal definitions and suite mapping against actual consumer paths."
+
+[file.051]
+path = "services/interop/specs/conformance/ap2/autonomous/001-line-items.json"
+lines = 27
+verdict = "clean"
+note = "Reviewed autonomous line-item vector against checkout totals and constrained payment authorization."
+
+[file.052]
+path = "services/interop/specs/conformance/ap2/constraints/001-amount-range-exceeded.json"
+lines = 18
+verdict = "clean"
+note = "Reviewed amount-range refusal vector against mandate amount limits and refusal reason."
+
+[file.053]
+path = "services/interop/specs/conformance/ap2/direct/001-minimal-valid.json"
+lines = 26
+verdict = "clean"
+note = "Reviewed minimal direct mandate vector against pinned schema and harness signature construction."
+
+[file.054]
+path = "services/interop/specs/conformance/ap2/refusals/001-expired.json"
+lines = 17
+verdict = "clean"
+note = "Reviewed expired mandate vector against explicit verification time and expected expiry refusal."
+
+[file.055]
+path = "services/interop/specs/conformance/ap2/refusals/002-invalid-signature.json"
+lines = 16
+verdict = "clean"
+note = "Reviewed invalid-signature vector against cryptographic refusal before trusting claims."
+
+[file.056]
+path = "services/interop/specs/conformance/ap2/refusals/003-binding-mismatch.json"
+lines = 16
+verdict = "clean"
+note = "Reviewed binding mismatch vector against checkout/payment merchant and amount constraints."
+
+[file.057]
+path = "services/interop/specs/conformance/committed/vector-v4-committed.json"
+lines = 1483
+verdict = "generated"
+note = "Generated Go committed-proof corpus; provenance is daemon/committed-fixture and the checked-in recorder. Reviewed recorder and full Rust consumers instead of hand-auditing generated bytes."
+
+[file.058]
+path = "services/interop/specs/conformance/fiat/README.md"
+lines = 44
+verdict = "clean"
+note = "Reviewed fiat suite documentation against token-only input, rail lifecycle and sequenced consumers."
+
+[file.059]
+path = "services/interop/specs/conformance/fiat/journeys.json"
+lines = 548
+verdict = "clean"
+note = "Reviewed fiat rail vectors for holds, settlement, reversal and duplicate identities without card/bank secrets."
+
+[file.060]
+path = "services/interop/specs/conformance/fiat/sequenced-journeys.json"
+lines = 179
+verdict = "issues"
+note = "Reviewed sequenced fiat vectors; provider-derived references are resigned while source transaction identity is retained."
+
+[file.061]
+path = "services/interop/specs/conformance/fiat/token-references.json"
+lines = 49
+verdict = "clean"
+note = "Reviewed token references for opaque public identifiers and absence of raw payment credentials."
+
+[file.062]
+path = "services/interop/specs/conformance/transport-a2a/README.md"
+lines = 48
+verdict = "clean"
+note = "Reviewed A2A envelope codec conformance scope and consumer mapping."
+
+[file.063]
+path = "services/interop/specs/conformance/transport-a2a/role-messages.json"
+lines = 211
+verdict = "issues"
+note = "Reviewed A2A wire roles; accepted Paxeer offers retain a LayerX profile refused by semantic validation."
+
+[file.064]
+path = "services/interop/specs/conformance/transport-http/README.md"
+lines = 48
+verdict = "clean"
+note = "Reviewed HTTP header/JSON role documentation against production codecs."
+
+[file.065]
+path = "services/interop/specs/conformance/transport-http/role-messages.json"
+lines = 213
+verdict = "issues"
+note = "Reviewed HTTP wire roles; accepted Paxeer offers retain a LayerX profile refused by semantic validation."
+
+[file.066]
+path = "services/interop/specs/conformance/transport-mcp/README.md"
+lines = 48
+verdict = "clean"
+note = "Reviewed MCP tool-result role documentation against production codecs."
+
+[file.067]
+path = "services/interop/specs/conformance/transport-mcp/role-messages.json"
+lines = 211
+verdict = "issues"
+note = "Reviewed MCP wire roles; accepted Paxeer offers retain a LayerX profile refused by semantic validation."
+
+[file.068]
+path = "services/interop/specs/conformance/ucp/README.md"
+lines = 39
+verdict = "clean"
+note = "Reviewed UCP suite documentation against capability/profile/checkout/idempotency/order consumers."
+
+[file.069]
+path = "services/interop/specs/conformance/ucp/capabilities.json"
+lines = 47
+verdict = "clean"
+note = "Reviewed UCP capability versions, intersections and explicit unsupported-capability refusals."
+
+[file.070]
+path = "services/interop/specs/conformance/ucp/checkout-status.json"
+lines = 32
+verdict = "clean"
+note = "Reviewed ready/incomplete/completed checkout fixtures and required payment facts."
+
+[file.071]
+path = "services/interop/specs/conformance/ucp/idempotency-keys.json"
+lines = 36
+verdict = "clean"
+note = "Reviewed canonical UUID identities, replay keys and malformed idempotency refusals."
+
+[file.072]
+path = "services/interop/specs/conformance/ucp/merchant-profiles.json"
+lines = 54
+verdict = "clean"
+note = "Reviewed merchant HTTPS profile and endpoint bindings and malformed profiles."
+
+[file.073]
+path = "services/interop/specs/conformance/ucp/payment-handlers.json"
+lines = 47
+verdict = "clean"
+note = "Reviewed payment-handler identity/version negotiation and unsupported-handler refusal."
+
+[file.074]
+path = "services/interop/specs/conformance/ucp/sequenced-order.json"
+lines = 217
+verdict = "issues"
+note = "Reviewed sequenced UCP order; receipt reference was changed while original signed transaction/hash remain."
+
+[file.075]
+path = "services/interop/specs/conformance/visa-tap/README.md"
+lines = 49
+verdict = "clean"
+note = "Reviewed TAP suite documentation against credential, target and configured trust-policy checks."
+
+[file.076]
+path = "services/interop/specs/conformance/visa-tap/credential-verification.json"
+lines = 322
+verdict = "clean"
+note = "Reviewed TAP credential fixtures for signature binding, expiry, trust status and target refusal."
+
+[file.077]
+path = "services/interop/specs/conformance/visa-tap/target-canonicalization.json"
+lines = 64
+verdict = "clean"
+note = "Reviewed TAP target normalization for origin/path/query and cross-target signature refusal."
+
+[file.078]
+path = "services/interop/specs/conformance/x402/README.md"
+lines = 83
+verdict = "issues"
+note = "Reviewed x402 wire-validation limits and recorded provenance; obsolete commitment-profile wording recorded."
+
+[file.079]
+path = "services/interop/specs/conformance/x402/payment-payload.json"
+lines = 165
+verdict = "clean"
+note = "Reviewed x402 payload versions, accepted requirements and malformed-wire refusal fixtures."
+
+[file.080]
+path = "services/interop/specs/conformance/x402/payment-required.json"
+lines = 326
+verdict = "clean"
+note = "Reviewed payment-required offers, account binding and amount/network refusal fixtures."
+
+[file.081]
+path = "services/interop/specs/conformance/x402/sequenced-settlement.json"
+lines = 89
+verdict = "clean"
+note = "Reviewed sequenced x402 responses against receipt bytes, digest, tx hash and committed-proof source cases."
+
+[file.082]
+path = "services/interop/specs/conformance/x402/settlement-response.json"
+lines = 65
+verdict = "clean"
+note = "Reviewed settlement wire fixtures for transaction identity, pending/refusal states and versioned extensions."
+
+[finding.mirror_manifest_event]
+line = 53
+class = "interface-mismatch"
+severity = "high"
+observed = "ManifestOpened emits (bytes32,uint32,uint64,bytes32,uint64,uint32,bytes32), adding committed blockHash. services/interop/crates/layerx-mirror/src/ethereum.rs:765 still hashes the old six-field signature, so a successful begin receipt fails EthereumError::Event and publication cannot advance."
+expected = "The archive event must round-trip from the deployed contract through receipt logs into the publisher, including recovery of a previously submitted manifest."
+proposal = "Update services/interop/crates/layerx-mirror/src/ethereum.rs, sdk/platform/schema/mirror-v2.kvx and registry 11.sevt-mirror-archive-manifest-opened with the seven-field ABI. Feed a real contract begin receipt through publisher verification, stop/reopen its state, and resume chunk publication."
+owner_domain = 11
+interface = "11.sevt-mirror-archive-manifest-opened"
+file = "services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol"
+
+[finding.relay_claim_before_send]
+line = 262
+class = "restart-recovery"
+severity = "high"
+observed = "ChainRelay durably claims raw bytes before send_raw_transaction. Existing claims only poll their hash; a crash or transport failure before node acceptance leaves pax_sequencerReceipt empty, and relay/recorded_evidence retries remain Unknown without rebroadcasting."
+expected = "A durably accepted payment must recover across the claim/submission boundary, safely resending identical payer-signed bytes when acceptance is uncertain without creating another debit."
+proposal = "In services/interop/crates/layerx-interop-service/src/relay.rs persist submission progress and recover unaccepted claims by rebroadcasting exactly their stored bytes. Prove process death before send and uncertain send completion through the real journal/node path, then assert one chain transaction."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/src/relay.rs"
+
+[finding.private_endpoint_settlement]
+line = 1254
+class = "wiring-gap"
+severity = "high"
+observed = "config.rs:265 accepts http://<service>.railway.internal when LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK=1. chain_relay rebuilds SequencerEndpoint::new without that policy, so startup may succeed but every settling route fails settlement_unavailable."
+expected = "The relay must use the same validated node endpoint and explicit private-network policy as startup and receipt-key discovery."
+proposal = "Carry the validated SequencerEndpoint from services/interop/crates/layerx-interop-service/src/config.rs into server.rs rather than rereading environment credentials. Extend tests/private_network.rs through an authenticated mounted payment route and reopened receipt recovery using that permitted endpoint."
+owner_domain = 11
+interface = "11.env-svc-layerx-interop-sequencer-url-j47"
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+
+[finding.payment_expiry_units]
+line = 1121
+class = "runtime-risk"
+severity = "medium"
+observed = "now() at line 3160 returns Unix seconds; payment preflight compares it directly with payExact expires_at, whose ledger producer modules/layerxledger/keeper/payexact.go:21 uses UnixMilli. It also accepts equality while the ledger rejects expiresAt <= now; injected millisecond test values hide the real clock mismatch."
+expected = "Preflight must reject at or after the ledger's millisecond expiry using the same boundary. Mandate and credential NumericDate checks continue using seconds."
+proposal = "Use explicit payment-millisecond and mandate-second clocks in services/interop/crates/layerx-interop-service/src/server.rs, rejecting expires_at <= payment_now. Prove the mounted route with its real clock and ledger-produced transactions before, at and after expiry."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+
+[finding.payer_chain_id]
+line = 119
+class = "runtime-risk"
+severity = "medium"
+observed = "decode_pay_exact checks target/selector and recovers the signer but never checks transaction.chain_id. A correctly signed payExact for a different EVM chain can pass the hosted verify path before the Paxeer node rejects submission."
+expected = "A payment accepted for eip155:125 must carry the expected chain id as well as the ledger address and authorized payer."
+proposal = "Validate the configured expected chain id in services/interop/crates/layerx-interop-service/src/payer_tx.rs and return an explicit refusal before authorization/submission. Exercise correctly signed wrong-chain and chain-125 transactions through the actual verify handler."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/src/payer_tx.rs"
+
+[finding.replayed_http_status]
+line = 3099
+class = "interface-mismatch"
+severity = "medium"
+observed = "stored_response reconstructs every non-pending operation as HTTP 200 without Retry-After. complete_operation stores response bodies/state but loses the initial 400/409 refusal status, so repeating an invalid AP2 POST changes its declared HTTP error contract after durable replay."
+expected = "Idempotent POST replay must preserve the original refusal status and applicable retry metadata. Operation polling can have a separately documented status contract."
+proposal = "Persist original HTTP metadata with completions in services/interop/crates/layerx-interop-service/src/server.rs and replay it on duplicate POSTs. Reopen the store and compare a 400 invalid_ap2_request and a 409 refusal in both body and HTTP status."
+owner_domain = 11
+interface = "11.err-svc-invalid-ap2-request"
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+
+[finding.ap2_replay_clock_digest]
+line = 486
+class = "restart-recovery"
+severity = "medium"
+observed = "authorize_payment includes execution_at in request_digest. verify.rs:729 defaults a missing signed execution_date to VerificationContext.now, so the same signed mandates reverified a second later keep their idempotency key but acquire another request digest and cause IdempotencyConflict."
+expected = "Unchanged signed mandates must recover one authorized payment and result independently of verification time and process restart."
+proposal = "In services/interop/crates/layerx-ap2/src/adapter.rs derive request identity from stable signed facts or persist/reuse the first authorized execution time. Verify identical mandates with fresh contexts at different seconds and after state reopen, asserting one submission and the same result."
+owner_domain = 11
+file = "services/interop/crates/layerx-ap2/src/adapter.rs"
+
+[finding.hosted_ap2_signed_export]
+line = 1749
+class = "wiring-gap"
+severity = "medium"
+observed = "The hosted execute path uses its own ap2_executed response with transaction/receipt digests; it never calls Ap2Adapter::execute or ReceiptSigner. Library payment_receipt_jwt, checkout_receipt_jwt and PortableReceiptV2 exports are consequently unavailable to a hosted AP2 client."
+expected = "AP2 callers need the signed protocol receipts and portable evidence implemented by the adapter, bound to their actual mandates and payment, with recoverable delivery."
+proposal = "Wire the AP2 signed export into services/interop/crates/layerx-interop-service/src/server.rs through the library adapter and configured signers. Persist the exported result and prove hosted execution plus restarted replay through the real AP2/portable verifier."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+
+[finding.outer_jwt_time_types]
+line = 346
+class = "security"
+severity = "medium"
+observed = "check_claim_time uses Value::as_u64 for enclosing JWT iat/exp and converts present string, negative, fractional or null values into absent claims. A signed root or key-binding token therefore bypasses its enclosing lifetime check on malformed claim types; typed inner mandates still receive their own checks."
+expected = "Present signed lifetime claims must either use the supported NumericDate representation or be refused, rather than silently becoming optional absent claims."
+proposal = "In services/interop/crates/layerx-ap2/src/verify.rs distinguish missing from present-invalid claims and enforce the supported time representation and expiry boundary. Test signed root and key-binding payloads with malformed types and exact expiration times."
+owner_domain = 11
+file = "services/interop/crates/layerx-ap2/src/verify.rs"
+
+[finding.relay_retention]
+line = 179
+class = "runtime-risk"
+severity = "medium"
+observed = "RelayJournal uses Redis SET with no expiry, finalized compaction or deletion. Every distinct payment permanently retains its full signed transaction, unlike the bounded gateway idempotency retention, and storage grows with payment volume."
+expected = "Uncertain payments must remain recoverable while finalized journal evidence has an explicit retention/compaction policy coordinated with the replay window."
+proposal = "Add finality-aware retention in services/interop/crates/layerx-interop-service/src/relay.rs. Preserve unresolved claims and compact finalized entries to safe replay tombstones coordinated with gateway retention; prove reopen and late replay cannot cause another debit."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/src/relay.rs"
+
+[finding.committed_claim_without_proof]
+line = 307
+class = "runtime-risk"
+severity = "medium"
+observed = "The relay promotes to SettlementRung::Committed when eth_getBlockByNumber returns the reported block hash, without verifying receipt-batch inclusion or validator commit. Hosted AP2 directly exports that rung as verificationLevel, whereas x402 downgrades missing proof."
+expected = "A portable committed verification claim must bind the payment receipt through its batch to a committed header and trusted validator set; a matching node-reported hash alone does not supply that proof."
+proposal = "In services/interop/crates/layerx-interop-service/src/relay.rs obtain and verify inclusion evidence with layerx-committed-proof, or export receipted until proof is available. Drive the hosted AP2 response with absent, unrelated and valid committed evidence."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/src/relay.rs"
+
+[finding.ap2_public_api_registry]
+line = 233
+class = "doc-drift"
+severity = "medium"
+observed = "11.rs-ap2-ap2-adapter-new declares new(resolver), while the implementation requires resolver and receipt_keys. 11.rs-ap2-portable-layerx-evidence aliases retired PortableReceipt instead of PortableReceiptV2."
+expected = "The declared AP2 constructor and portable type must describe the current public signature and supported document so an integrator can compile against them."
+proposal = "Reconcile the AP2 rows in spec/layerx-merge/interfaces.kvx with services/interop/crates/layerx-ap2/src/adapter.rs and regenerate the AP2 contract. Compile a real downstream constructor and v2 export consumer in the owning qualification."
+owner_domain = 11
+interface = "11.rs-ap2-ap2-adapter-new"
+file = "services/interop/crates/layerx-ap2/src/adapter.rs"
+
+[finding.solana_v4_registry]
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The program and Rust publisher agree on instruction version 4, LXMMAN04/LXMCHK04 and committed height/blockHash. Registry 11.fmt-solana-mirror-instruction, 11.fmt-solana-mirror-manifest-account and 11.fmt-solana-mirror-chunk-account retain version 3 and checkpoint fields."
+expected = "Deployment tooling and integrators must discover current v4 instruction and account formats; v3 is explicitly refused by the live program and runtime tests."
+proposal = "Update those three rows in spec/layerx-merge/interfaces.kvx and regenerate the mirror contract from services/interop/contracts/solana-mirror/src/lib.rs and actual publisher codecs. Retain real runtime v3 refusal and v4 recovery coverage."
+owner_domain = 11
+interface = "11.fmt-solana-mirror-instruction"
+file = "services/interop/contracts/solana-mirror/src/lib.rs"
+
+[finding.proof_namespace_registry]
+line = 110
+class = "doc-drift"
+severity = "medium"
+observed = "11.rs-committed-proof-verify-committed-j47 declares a four-argument verify_committed without its committed module. The crate-root verify_committed is a different six-argument receipt-view helper; the batch proof function is committed::verify_committed."
+expected = "The declared public Rust path must uniquely identify the intended proof verifier including namespace and arguments, so callers do not select the receipt-view helper accidentally."
+proposal = "Qualify the registry path as layerx_committed_proof::committed::verify_committed in spec/layerx-merge/interfaces.kvx and document the distinct crate-root helper. Compile a real downstream consumer of both public functions."
+owner_domain = 11
+interface = "11.rs-committed-proof-verify-committed-j47"
+file = "services/interop/crates/layerx-committed-proof/src/lib.rs"
+
+[finding.readiness_cli_declaration]
+line = 64
+class = "doc-drift"
+severity = "medium"
+observed = "run rejects every command-line argument, but 11.cli-svc-layerx-interop-gateway and contracts/interop-service.md:641 advertise --verify-readiness-receipt <path> as a receipt-verification command."
+expected = "The operational contract must list supported commands and retire removed options, or provide the current supported procedure for verifying readiness evidence."
+proposal = "Reconcile 11.cli-svc-layerx-interop-gateway and regenerate spec/layerx-merge/contracts/interop-service.md against services/interop/crates/layerx-interop-service/src/main.rs. Update operational callers to the current concrete proof workflow and qualify that invocation."
+owner_domain = 11
+interface = "11.cli-svc-layerx-interop-gateway"
+file = "services/interop/crates/layerx-interop-service/src/main.rs"
+
+[finding.obsolete_service_config]
+line = 265
+class = "config-drift"
+severity = "medium"
+observed = "Configuration uses the node endpoint and LAYERX_INTEROP_RECEIPT_KEYS_FILE, but 11.env-svc-layerx-interop-hosted-gateway-url still requires HOSTED_GATEWAY_URL and the contract advertises removed receipt-authority/individual sequencer-key inputs. Historical tests still provide them."
+expected = "Operators must configure the merged-network node and height-ranged receipt pins without depending on retired hosted submission or receipt-authority services."
+proposal = "Reconcile service environment rows and spec/layerx-merge/contracts/interop-service.md with services/interop/crates/layerx-interop-service/src/config.rs. Retire obsolete deployment/fixture inputs and prove startup/readiness with only the minimal active configuration."
+owner_domain = 11
+interface = "11.env-svc-layerx-interop-hosted-gateway-url"
+file = "services/interop/crates/layerx-interop-service/src/config.rs"
+
+[finding.readiness_component_type]
+line = 3009
+class = "doc-drift"
+severity = "medium"
+observed = "SettlementReadiness::components renders sequencer via readiness(bool) as ready or unavailable strings. Served row 11.fmt-svc-readyz-sequencer-component-j47 and its contract still describe components.sequencer as bool."
+expected = "Readiness consumers need one exact JSON type and enum consistent with the emitted response and the service's component statuses."
+proposal = "Reconcile 11.fmt-svc-readyz-sequencer-component-j47 in spec/layerx-merge/interfaces.kvx and regenerate interop-service.md with the string enum. Feed actual ready/unavailable /readyz responses into the operational consumer."
+owner_domain = 11
+interface = "11.fmt-svc-readyz-sequencer-component-j47"
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+
+[finding.legacy_plain_listener_inputs]
+line = 273
+class = "test-gap"
+severity = "medium"
+observed = "The listener fixture writes old SEQUENCER_PUBLIC_KEY files and supplies HOSTED_GATEWAY_URL and RECEIPT_AUTHORITY_URL/TOKEN_FILE although config.rs no longer reads them. Its passing result cannot establish support for those declared deployment inputs."
+expected = "Listener fixtures should model active merged-node and receipt-pin configuration and explicitly identify retired settings instead of appearing to exercise them."
+proposal = "Update services/interop/crates/layerx-interop-service/tests/plain_listener.rs to use active node/receipt-pin inputs only and prove startup without retired files/endpoints. Reconcile their service configuration declarations in the owning repair."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/tests/plain_listener.rs"
+
+[finding.private_network_route_coverage]
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "Private-network tests assert startup errors and URL acceptance far enough to encounter later missing configuration or unavailable receipt keys. None drives settlement, where server.rs reconstructs the endpoint with a different policy."
+expected = "Enabled private networking must be proven through a mounted authenticated payment request and receipt recovery, rather than URL parsing alone."
+proposal = "Extend services/interop/crates/layerx-interop-service/tests/private_network.rs with a real configured service, durable store and permitted private node endpoint. Submit signed payment bytes, restart, and recover the same result through the mounted route."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/tests/private_network.rs"
+
+[finding.legacy_sequencer_start_inputs]
+line = 148
+class = "test-gap"
+severity = "medium"
+observed = "The startup fixture creates legacy public-key files and an authority token and sets HOSTED_GATEWAY_URL/RECEIPT_AUTHORITY_URL although startup reads RECEIPT_KEYS_FILE and the node endpoint. Unused dependencies obscure the current supported configuration."
+expected = "Startup qualification must depend only on active merged-network inputs and name external prerequisites actually contacted by the implementation."
+proposal = "Remove obsolete fixture inputs from services/interop/crates/layerx-interop-service/tests/sequencer_start.rs. Verify minimal node/receipt-pin startup and unavailable-node refusal, and align operator examples in the owning repair."
+owner_domain = 11
+file = "services/interop/crates/layerx-interop-service/tests/sequencer_start.rs"
+
+[finding.mandate_fixture_rewritten_receipt]
+line = 175
+class = "test-gap"
+severity = "medium"
+observed = "sign_payment_reference rewrites the indexed PaymentExact reference inside a recorded signed receipt and resigns it under a test key while retaining the original activity hash and other receipt evidence. RecordedPaymentPlane does not produce the matching mandate-derived payer transaction."
+expected = "AP2 qualification must follow real mandate authorization through signed payExact calldata, execution logs and receipt. Changing calldata changes transaction identity and its downstream evidence."
+proposal = "Replace rewritten evidence in services/interop/crates/layerx-ap2/tests/mandates.rs with real node-produced payExact output for the mandate-derived reference. Exercise actual compilation/submission and preserve original transaction, receipt and sequence bytes as one fixture."
+owner_domain = 11
+file = "services/interop/crates/layerx-ap2/tests/mandates.rs"
+
+[finding.ap2_settlement_rewritten_receipt]
+line = 393
+class = "test-gap"
+severity = "medium"
+observed = "sign_payment_reference changes the recorded PaymentExact reference and resigns the receipt while retaining the original transaction identity. Fixed verification contexts in replay tests also hide request-digest changes when the same mandates are freshly verified later."
+expected = "AP2 replay/export qualification must use mutually consistent producer transaction, receipt and log bytes and fresh verification contexts across a persisted restart."
+proposal = "Replace rewritten evidence in services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs with actual mandate-bound payExact output. Execute the production plane, reopen gateway state, and verify portable/JWT evidence plus stable replay at distinct verification times."
+owner_domain = 11
+file = "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs"
+
+[finding.ucp_fixture_transaction_binding]
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "receipted_order rawTransaction retains source payExact reference 26fde3de..., but its signed receipt/evidence log use checkout reference d6f99442.... Resigning with testReceiptKeySeed does not make the modified log an output of the retained transaction or preserve its transaction evidence."
+expected = "A completed UCP order must bind checkout identity to the same reference in payer-signed calldata, PaymentExact log and authenticated transaction receipt."
+proposal = "Record a real checkout-bound payExact transaction and node receipt for services/interop/specs/conformance/ucp/sequenced-order.json. Derive expected order evidence from unmodified producer bytes and prove checkout completion plus durable reopened replay."
+owner_domain = 11
+file = "services/interop/specs/conformance/ucp/sequenced-order.json"
+
+[finding.fiat_fixture_transaction_binding]
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "Fiat journeys reuse V1-layerxledger-pay-exact tx hash a0d985d9... while assigning distinct payment_reference values per provider settlement and resigning with test_signing_seed. The source signed transaction contains the original reference, not these settlement-derived references."
+expected = "Each credited fiat settlement must bind its provider identity to the reference actually submitted in payer-signed calldata and emitted by the real PaymentExact producer."
+proposal = "Regenerate services/interop/specs/conformance/fiat/sequenced-journeys.json from real settlement-derived payExact submissions, retaining transaction/receipt/sequence correspondence. Prove callback, chain evidence, one credit and reopened replay through the actual adapter."
+owner_domain = 11
+file = "services/interop/specs/conformance/fiat/sequenced-journeys.json"
+
+[finding.portable_v1_instructions]
+line = 25
+class = "doc-drift"
+severity = "medium"
+observed = "PORTABILITY.md presents layerx-receipt-proof-v1 for integration, instructs PortableReceipt at line 337 and claims at line 381 that v1 documents remain readable. The current public implementation exports/parses PortableReceiptV2 and the old PortableReceipt interface is retired."
+expected = "Portable consumers must be told the currently supported v2 document and verification API; historical examples cannot be advertised as readable by the current verifier."
+proposal = "Rewrite services/interop/PORTABILITY.md around PortableReceiptV2 and height-ranged receipt-key verification. Mark historical v1 material as unsupported archival context and replace runnable snippets with examples compiled against the current public consumer."
+owner_domain = 11
+file = "services/interop/PORTABILITY.md"
+
+[finding.site_x402_retired_transport]
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The page prescribes gateway POST /rpc and lx_sendActivity, canonical 733-byte receives, executed/batched/finalised commitments and lxp:<digest> settlement identities. These describe the retired activity/batch transport rather than current signed EVM payments and tx-hash receipts."
+expected = "The merged network uses root node JSON-RPC, EVM chain id 125, signed ledger transactions and submitted/receipted/committed evidence; hosted protocol translation does not use the retired /rpc activity path."
+proposal = "Rewrite docs/site/docs/interop/x402.md from the actual layerx-interop-service routes, layerx-client transport and x402 evidence types. Show a real payExact/draw request and response with transaction hash and proof-qualified commitment, removing obsolete endpoints and canonical activity instructions."
+owner_domain = 11
+file = "docs/site/docs/interop/x402.md"
+
+[finding.wiki_x402_retired_transport]
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The page prescribes gateway POST /rpc and lx_sendActivity, canonical 733-byte receives, executed/batched/finalised commitments and lxp:<digest> settlement identities. These describe the retired activity/batch transport rather than current signed EVM payments and tx-hash receipts."
+expected = "The merged network uses root node JSON-RPC, EVM chain id 125, signed ledger transactions and submitted/receipted/committed evidence; hosted protocol translation does not use the retired /rpc activity path."
+proposal = "Rewrite docs/wiki/X402Transport.md from the actual layerx-interop-service routes, layerx-client transport and x402 evidence types. Show a real payExact/draw request and response with transaction hash and proof-qualified commitment, removing obsolete endpoints and canonical activity instructions."
+owner_domain = 11
+file = "docs/wiki/X402Transport.md"
+
+[finding.wiki_ap2_public_api]
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The table exposes model::Pisp although model is private and public reexports are selective, shows ap2_adapter_descriptor without its required conformance suite, and points at nonexistent tests/vectors rather than specs/conformance/ap2."
+expected = "AP2 integration documentation must identify accessible public exports, required descriptor inputs and the conformance files actually consumed by its suite."
+proposal = "Update docs/wiki/Ap2Mandates.md from services/interop/crates/layerx-ap2/src/lib.rs, current adapter signatures and the actual conformance directory. Compile the documented public API examples in the owning repair."
+owner_domain = 11
+file = "docs/wiki/Ap2Mandates.md"
+
+[finding.site_ap2_hosted_routes]
+line = 29
+class = "doc-drift"
+severity = "medium"
+observed = "The page says hosted AP2 URLs are absent from the copied wiki set and treats their wiring as unspecified operator configuration. Ap2Mandates.md lists /v1/http/ap2/mandates/verify and /v1/http/ap2/execute, and the service mounts both."
+expected = "Integrators need actual AP2 route paths, authentication, request, settlement/replay and evidence behavior, even when deployment origins remain configured rather than public hostnames."
+proposal = "Update docs/site/docs/interop/ap2.md from services/interop/crates/layerx-interop-service/src/server.rs to describe both mounted routes, current evidence limitations and configured origins, linking the library API and stable replay contract."
+owner_domain = 11
+file = "docs/site/docs/interop/ap2.md"
+
+[finding.wiki_binary_name]
+line = 51
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the hosted binary layerx-interop-service. Cargo.toml instead declares binary layerx-interop-gateway, and integration tests launch CARGO_BIN_EXE_layerx-interop-gateway."
+expected = "Operators must distinguish the layerx-interop-service package from the executable name actually built and deployed."
+proposal = "Correct docs/wiki/Interop.md to launch layerx-interop-gateway from the layerx-interop-service package and check the documented invocation against the Cargo target and current environment-only startup contract."
+owner_domain = 11
+file = "docs/wiki/Interop.md"
+
+[finding.proof_contract_signatures]
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The contract labels implemented APIs planned, omits the committed namespace from the batch verifier and shows verify_receipted without receipt_json or keyId in its pin tuples. The current receipt verifier and reconciled registry require both."
+expected = "Proof consumers need current namespaces and complete argument types matching public Rust functions, with receipt-view validation distinguished from consensus inclusion."
+proposal = "Regenerate spec/layerx-merge/contracts/interop-committed-proof.md from corrected registry rows and services/interop/crates/layerx-committed-proof/src/lib.rs. Document both verifier families and qualify a downstream caller using their actual signatures."
+owner_domain = 11
+file = "spec/layerx-merge/contracts/interop-committed-proof.md"
+
+[finding.service_contract_legacy_inputs]
+line = 687
+class = "doc-drift"
+severity = "medium"
+observed = "Reviewed configuration/CLI/readiness sections prescribe HOSTED_GATEWAY_URL, receipt-authority inputs and --verify-readiness-receipt, and describe components.sequencer as bool. Current startup uses node endpoint/receipt pins and readiness strings."
+expected = "The operational contract must describe active merged-network inputs, supported executable arguments and the exact emitted readiness shape."
+proposal = "Reconcile the service rows in spec/layerx-merge/interfaces.kvx with services/interop/crates/layerx-interop-service/src/config.rs, main.rs and server.rs and regenerate this page. Prove an operator can start and assess the service using only the documented current inputs."
+owner_domain = 11
+file = "spec/layerx-merge/contracts/interop-service.md"
+
+[finding.http_profile_fixture]
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "Accepted payment-required/facilitator vectors use eip155:125 plus extra.layerx account/currency/commitment metadata. PaymentRequirements::validate rejects a LayerX profile on a non-layerx network, while envelope encode/decode accepts this shape without proving a usable offer."
+expected = "Accepted role journeys need a producer-consistent offer that passes real consumer validation; envelope compatibility must be distinguished from end-to-end payment acceptance."
+proposal = "Add current eip155:125 offers without the incompatible LayerX profile to services/interop/specs/conformance/transport-http/role-messages.json and exercise semantic validation plus mounted ingress. Preserve intentional envelope-only cases with explicit semantic refusal expectations and use real payer bytes for settlement."
+owner_domain = 11
+file = "services/interop/specs/conformance/transport-http/role-messages.json"
+
+[finding.mcp_profile_fixture]
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "Accepted payment-required/facilitator vectors use eip155:125 plus extra.layerx account/currency/commitment metadata. PaymentRequirements::validate rejects a LayerX profile on a non-layerx network, while envelope encode/decode accepts this shape without proving a usable offer."
+expected = "Accepted role journeys need a producer-consistent offer that passes real consumer validation; envelope compatibility must be distinguished from end-to-end payment acceptance."
+proposal = "Add current eip155:125 offers without the incompatible LayerX profile to services/interop/specs/conformance/transport-mcp/role-messages.json and exercise semantic validation plus mounted ingress. Preserve intentional envelope-only cases with explicit semantic refusal expectations and use real payer bytes for settlement."
+owner_domain = 11
+file = "services/interop/specs/conformance/transport-mcp/role-messages.json"
+
+[finding.a2a_profile_fixture]
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "Accepted payment-required/facilitator vectors use eip155:125 plus extra.layerx account/currency/commitment metadata. PaymentRequirements::validate rejects a LayerX profile on a non-layerx network, while envelope encode/decode accepts this shape without proving a usable offer."
+expected = "Accepted role journeys need a producer-consistent offer that passes real consumer validation; envelope compatibility must be distinguished from end-to-end payment acceptance."
+proposal = "Add current eip155:125 offers without the incompatible LayerX profile to services/interop/specs/conformance/transport-a2a/role-messages.json and exercise semantic validation plus mounted ingress. Preserve intentional envelope-only cases with explicit semantic refusal expectations and use real payer bytes for settlement."
+owner_domain = 11
+file = "services/interop/specs/conformance/transport-a2a/role-messages.json"
+
+[finding.x402_profile_documentation]
+line = 74
+class = "doc-drift"
+severity = "low"
+observed = "The README says the current LayerX profile carries commitment, but the model parses account/currency only and the merged payment path uses eip155:125 with rung evidence. Obsolete commitment-selection terminology remains in otherwise accurate wire-test documentation."
+expected = "Conformance documentation must list actual profile fields and distinguish wire-validation guarantees from settlement evidence policy."
+proposal = "Update services/interop/specs/conformance/x402/README.md to match layerx-x402/src/model.rs and current eip155:125 producer requirements, retaining the accurate warning that wire validation does not authenticate receipt extensions."
+owner_domain = 11
+file = "services/interop/specs/conformance/x402/README.md"
+
+[doc.001]
+status = "stale"
+notes = "Lines 29-35 omit already-mounted AP2 routes and contradict the wiki inventory; library conformance-suite description is accurate."
+path = "docs/site/docs/interop/ap2.md"
+
+[doc.002]
+status = "stale"
+notes = "Route inventory and adapter boundary reviewed; line 51 mistakes the package name for the layerx-interop-gateway executable."
+path = "docs/wiki/Interop.md"
+
+[doc.003]
+status = "accurate"
+notes = "Adapter translation boundary, custody and no second ledger description agree with the merged architecture."
+path = "docs/site/docs/interop/index.md"
+
+[doc.004]
+status = "misleading"
+notes = "Full page reviewed; lines 26, 84-111, 175-190 and 248 onward prescribe retired activity transport, commitment rungs and lxp digest identities."
+path = "docs/site/docs/interop/x402.md"
+
+[doc.005]
+status = "misleading"
+notes = "Full page reviewed with its site counterpart; lines 28, 85-112, 176-191 and 249 onward repeat retired activity transport and settlement identities."
+path = "docs/wiki/X402Transport.md"
+
+[doc.006]
+status = "stale"
+notes = "Mounted routes are accurate; lines 31-45 contain inaccessible public API names, missing descriptor inputs and nonexistent vectors path."
+path = "docs/wiki/Ap2Mandates.md"
+
+[doc.007]
+status = "misleading"
+notes = "Current v2 format/example are accurate, but v1 API instructions and reader promise at lines 25, 337-347 and 381 are unsupported."
+path = "services/interop/PORTABILITY.md"
+
+[doc.008]
+status = "accurate"
+notes = "Full workspace ownership, current inventory, build entry points, custody boundary and source/deployment pointers reviewed."
+path = "services/interop/README.md"
+
+[doc.009]
+status = "accurate"
+notes = "Vector inventory and expected AP2 refusals match the suite and its first-party source paths."
+path = "services/interop/specs/conformance/ap2/README.md"
+
+[doc.010]
+status = "accurate"
+notes = "Fiat token-only inputs, lifecycle suite and sequenced consumer mapping reviewed; fixture identity issue is recorded separately."
+path = "services/interop/specs/conformance/fiat/README.md"
+
+[doc.011]
+status = "accurate"
+notes = "A2A envelope conformance scope and role representation match production codec use; semantic offer gap is recorded on fixtures."
+path = "services/interop/specs/conformance/transport-a2a/README.md"
+
+[doc.012]
+status = "accurate"
+notes = "HTTP header versus JSON role mapping and suite consumer documentation agree with production codecs."
+path = "services/interop/specs/conformance/transport-http/README.md"
+
+[doc.013]
+status = "accurate"
+notes = "MCP tool-result role representations and consumer mapping agree with production codec scope."
+path = "services/interop/specs/conformance/transport-mcp/README.md"
+
+[doc.014]
+status = "accurate"
+notes = "UCP profile, capability, checkout and idempotency suites map to consumers; sequenced fixture defect is recorded separately."
+path = "services/interop/specs/conformance/ucp/README.md"
+
+[doc.015]
+status = "accurate"
+notes = "TAP credential, canonical target and configured trust-policy conformance descriptions match suite inputs."
+path = "services/interop/specs/conformance/visa-tap/README.md"
+
+[doc.016]
+status = "stale"
+notes = "Wire-only limits and source provenance are accurate; LayerX Profile section retains obsolete commitment terminology."
+path = "services/interop/specs/conformance/x402/README.md"
+
+[doc.017]
+status = "stale"
+notes = "All 81 lines reviewed; API table at lines 15-16 omits current namespace and receipt_json/keyId types and marks implemented APIs planned."
+path = "spec/layerx-merge/contracts/interop-committed-proof.md"
+
+[doc.018]
+status = "stale"
+notes = "Reviewed configuration tables and relevant CLI/readiness sections at lines 641-645, 687, 761, 1802, 1832 and 2052-2056; active inputs and emitted readiness differ."
+path = "spec/layerx-merge/contracts/interop-service.md"

@@ -1,0 +1,1457 @@
+[audit.22.30.115]
+task = "22.30.115"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 129
+findings = 56
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["receipt-authentication", "receipt-fields-lost", "provider-session-binding", "default-node-hosted-methods", "swap-broadcast-recovery", "swap-speed-up-resubmits"]
+review_basis = "All 129 members read in full except the generated dependency lock, which takes a generated verdict. Compared package requirements, all 400 listed produced rows plus the remaining 343 member-owned rows, all 386 consumed rows, real node/gateway producers, live application consumers and restart state. Registry names are identifiers, not evidence that a retired runtime surface remains supported."
+qualification_scope = "This record proposes repairs only. No audited implementation, assertion or test was changed. Declared qualification is the bounded revision build and audit-record checker; production and test observations below are static review findings, not claims that those suites were executed."
+
+[file.001]
+path = "apps/wallet/src/widgets/contacts/ContactFormView.tsx"
+lines = 120
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.002]
+path = "apps/wallet/src/widgets/contacts/ContactsWidget.tsx"
+lines = 198
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.003]
+path = "apps/wallet/src/widgets/contacts/index.ts"
+lines = 1
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.004]
+path = "apps/wallet/src/widgets/discover/DiscoverCarousel.tsx"
+lines = 111
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.005]
+path = "apps/wallet/src/widgets/discover/DiscoverWidget.tsx"
+lines = 122
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.006]
+path = "apps/wallet/src/widgets/discover/RankedTokenList.tsx"
+lines = 123
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.007]
+path = "apps/wallet/src/widgets/discover/index.ts"
+lines = 1
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.008]
+path = "apps/wallet/src/widgets/pns/PNSWidget.tsx"
+lines = 1012
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings pns-registration-journal, pns-stale-search."
+
+[file.009]
+path = "apps/wallet/src/widgets/pns/index.ts"
+lines = 1
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.010]
+path = "apps/wallet/src/widgets/portfolio/ActionBento.tsx"
+lines = 66
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.011]
+path = "apps/wallet/src/widgets/portfolio/BentoTokenCard.tsx"
+lines = 125
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.012]
+path = "apps/wallet/src/widgets/portfolio/HeroBalance.tsx"
+lines = 74
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.013]
+path = "apps/wallet/src/widgets/portfolio/HoldingsFilter.tsx"
+lines = 108
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.014]
+path = "apps/wallet/src/widgets/portfolio/HoldingsGrid.tsx"
+lines = 133
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings portfolio-zero-decimals."
+
+[file.015]
+path = "apps/wallet/src/widgets/portfolio/PaxCardExpand.tsx"
+lines = 204
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.016]
+path = "apps/wallet/src/widgets/portfolio/PortfolioWidget.tsx"
+lines = 150
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings portfolio-filters-not-applied-to-cards."
+
+[file.017]
+path = "apps/wallet/src/widgets/portfolio/index.ts"
+lines = 27
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.018]
+path = "apps/wallet/src/widgets/portfolio/useApplyPendingSend.ts"
+lines = 104
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings pending-send-account-scope, pending-send-reconcile-cancelled, pending-zero-decimals."
+
+[file.019]
+path = "apps/wallet/src/widgets/portfolio/useTokenFilters.ts"
+lines = 79
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.020]
+path = "apps/wallet/src/widgets/receive/ReceiveWidget.tsx"
+lines = 106
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.021]
+path = "apps/wallet/src/widgets/receive/index.ts"
+lines = 1
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.022]
+path = "apps/wallet/src/widgets/send/ContactPickerSheet.tsx"
+lines = 236
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings recipient-search-dedup."
+
+[file.023]
+path = "apps/wallet/src/widgets/send/SendConfirmDialog.tsx"
+lines = 68
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.024]
+path = "apps/wallet/src/widgets/send/SendConfirmation.tsx"
+lines = 249
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.025]
+path = "apps/wallet/src/widgets/send/SendForm.tsx"
+lines = 146
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.026]
+path = "apps/wallet/src/widgets/send/SendWidget.test.ts"
+lines = 67
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.027]
+path = "apps/wallet/src/widgets/send/SendWidget.tsx"
+lines = 294
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings send-token-snapshot-stale, send-qr-network, send-native-qr-asset."
+
+[file.028]
+path = "apps/wallet/src/widgets/send/TokenIcon.tsx"
+lines = 21
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.029]
+path = "apps/wallet/src/widgets/send/TokenSelectorSheet.tsx"
+lines = 102
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.030]
+path = "apps/wallet/src/widgets/send/index.ts"
+lines = 21
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.031]
+path = "apps/wallet/src/widgets/send/useSendForm.ts"
+lines = 231
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings send-recovery-root-chain."
+
+[file.032]
+path = "apps/wallet/src/widgets/send/useSendableTokens.ts"
+lines = 75
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings send-zero-decimals."
+
+[file.033]
+path = "apps/wallet/src/widgets/settings/SettingsWidget.test.tsx"
+lines = 276
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.034]
+path = "apps/wallet/src/widgets/settings/SettingsWidget.tsx"
+lines = 702
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings settings-nonce-parser."
+
+[file.035]
+path = "apps/wallet/src/widgets/settings/index.ts"
+lines = 1
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.036]
+path = "apps/wallet/src/widgets/shell/ShellWidget.tsx"
+lines = 245
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.037]
+path = "apps/wallet/src/widgets/shell/index.ts"
+lines = 4
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.038]
+path = "apps/wallet/src/widgets/shell/useAppRoute.ts"
+lines = 214
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.039]
+path = "apps/wallet/src/widgets/shell/useNotificationLifecycle.ts"
+lines = 44
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.040]
+path = "apps/wallet/src/widgets/swap/PaxSwapModal.tsx"
+lines = 305
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings swap-two-quote-authorities."
+
+[file.041]
+path = "apps/wallet/src/widgets/swap/RouteInfoCard.tsx"
+lines = 50
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.042]
+path = "apps/wallet/src/widgets/swap/SwapConfirmDialog.tsx"
+lines = 118
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.043]
+path = "apps/wallet/src/widgets/swap/SwapErrorCard.tsx"
+lines = 30
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.044]
+path = "apps/wallet/src/widgets/swap/SwapMainView.tsx"
+lines = 209
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.045]
+path = "apps/wallet/src/widgets/swap/SwapSettingsView.tsx"
+lines = 97
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.046]
+path = "apps/wallet/src/widgets/swap/SwapWidget.tsx"
+lines = 254
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings swap-speed-up-resubmits."
+
+[file.047]
+path = "apps/wallet/src/widgets/swap/TokenBadge.tsx"
+lines = 30
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.048]
+path = "apps/wallet/src/widgets/swap/TokenSelectorView.tsx"
+lines = 196
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.049]
+path = "apps/wallet/src/widgets/swap/index.ts"
+lines = 40
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.050]
+path = "apps/wallet/src/widgets/swap/prettifyError.ts"
+lines = 229
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.051]
+path = "apps/wallet/src/widgets/swap/useHeldTokens.ts"
+lines = 51
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings held-zero-decimals."
+
+[file.052]
+path = "apps/wallet/src/widgets/swap/useOutputTokens.ts"
+lines = 82
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings swap-output-cache-shape."
+
+[file.053]
+path = "apps/wallet/src/widgets/swap/useSwapBalances.ts"
+lines = 74
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings swap-balance-zero-decimals."
+
+[file.054]
+path = "apps/wallet/src/widgets/swap/useSwapExecution.ts"
+lines = 87
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings swap-broadcast-recovery."
+
+[file.055]
+path = "apps/wallet/src/widgets/swap/useSwapQuotes.ts"
+lines = 167
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings swap-stale-quote-after-clear."
+
+[file.056]
+path = "apps/wallet/src/widgets/swap/util.ts"
+lines = 72
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings catalogue-zero-decimals."
+
+[file.057]
+path = "apps/wallet/src/widgets/tokenDetail/ActivityFeed.tsx"
+lines = 90
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.058]
+path = "apps/wallet/src/widgets/tokenDetail/Atoms.tsx"
+lines = 71
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.059]
+path = "apps/wallet/src/widgets/tokenDetail/InfoCard.tsx"
+lines = 128
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.060]
+path = "apps/wallet/src/widgets/tokenDetail/MarketStatsCard.tsx"
+lines = 47
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings market-stats-window."
+
+[file.061]
+path = "apps/wallet/src/widgets/tokenDetail/PerformanceCard.tsx"
+lines = 70
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.062]
+path = "apps/wallet/src/widgets/tokenDetail/PositionCard.tsx"
+lines = 32
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.063]
+path = "apps/wallet/src/widgets/tokenDetail/PriceChart.tsx"
+lines = 124
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.064]
+path = "apps/wallet/src/widgets/tokenDetail/PriceHero.tsx"
+lines = 104
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.065]
+path = "apps/wallet/src/widgets/tokenDetail/SecurityCard.tsx"
+lines = 56
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.066]
+path = "apps/wallet/src/widgets/tokenDetail/SocialLinks.tsx"
+lines = 48
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.067]
+path = "apps/wallet/src/widgets/tokenDetail/TokenActions.tsx"
+lines = 43
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.068]
+path = "apps/wallet/src/widgets/tokenDetail/TokenDetailWidget.tsx"
+lines = 283
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings token-activity-symbol-identity, wpax-address-detection, token-detail-zero-decimals."
+
+[file.069]
+path = "apps/wallet/src/widgets/tokenDetail/index.ts"
+lines = 28
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.070]
+path = "apps/wallet/src/widgets/transactions/TransactionRow.tsx"
+lines = 74
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.071]
+path = "apps/wallet/src/widgets/transactions/TransactionsWidget.tsx"
+lines = 95
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.072]
+path = "apps/wallet/src/widgets/transactions/index.ts"
+lines = 8
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.073]
+path = "apps/wallet/src/widgets/txDetail/TxDetailWidget.tsx"
+lines = 270
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings tx-detail-first-transfer, tx-detail-zero-decimals."
+
+[file.074]
+path = "apps/wallet/src/widgets/txDetail/index.ts"
+lines = 1
+verdict = "clean"
+note = "Full-file review of the exported surface and live import/re-export paths; no additional file-local interface, retired-reference or lifecycle disagreement found."
+
+[file.075]
+path = "sdk/wallet/README.md"
+lines = 96
+verdict = "issues"
+note = "Full-file review; retired API documentation and the missing registry contract source are recorded in sdk-readme-retired-api and wallet-contract-source-missing."
+
+[file.076]
+path = "sdk/wallet/package.json"
+lines = 56
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.077]
+path = "sdk/wallet/pnpm-lock.yaml"
+lines = 970
+verdict = "generated"
+note = "Generated pnpm dependency resolution and integrity lock; recorded with its exact line count instead of a source-code verdict. No generated runtime asset is treated as proof of interface behavior."
+
+[file.078]
+path = "sdk/wallet/src/agent.ts"
+lines = 301
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.079]
+path = "sdk/wallet/src/eip6963.ts"
+lines = 111
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.080]
+path = "sdk/wallet/src/endpoint.ts"
+lines = 524
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings default-node-hosted-methods."
+
+[file.081]
+path = "sdk/wallet/src/errors.ts"
+lines = 144
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.082]
+path = "sdk/wallet/src/human.ts"
+lines = 348
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.083]
+path = "sdk/wallet/src/index.test.ts"
+lines = 103
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.084]
+path = "sdk/wallet/src/index.ts"
+lines = 543
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings review-storage-environment."
+
+[file.085]
+path = "sdk/wallet/src/kernel.ts"
+lines = 210
+verdict = "clean"
+note = "Reviewed merged EVM address reads, hosted bank reads, sequence and receipt methods and deliberate removal of the separate LX activity surface; dependent endpoint and receipt defects are recorded at their implementation owners."
+
+[file.086]
+path = "sdk/wallet/src/ladder.ts"
+lines = 531
+verdict = "clean"
+note = "Reviewed chain/hash/intent persistence, validation and resumed observation. Requirement 12296.1 deliberately keeps node committed evidence at receipted until matching explorer block evidence; this downgrade is required. Shared receipt authentication defect is recorded on receipt.ts."
+
+[file.087]
+path = "sdk/wallet/src/modules/bridge.ts"
+lines = 42
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.088]
+path = "sdk/wallet/src/modules/exchange.ts"
+lines = 77
+verdict = "clean"
+note = "Reviewed precompile writes and event ABI against agent SDK and perps producer; bigint cancelOrder(uint256) follows requirement 22094.1 rather than the superseded bytes32 wording in 9363.2."
+
+[file.089]
+path = "sdk/wallet/src/modules/fee-choice.ts"
+lines = 112
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.090]
+path = "sdk/wallet/src/modules/fee-token.ts"
+lines = 45
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.091]
+path = "sdk/wallet/src/modules/gas-station.ts"
+lines = 887
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.092]
+path = "sdk/wallet/src/modules/index.ts"
+lines = 329
+verdict = "clean"
+note = "Reviewed module transport, unsupported-provider fallback, event encoding/decoding and receipt consumer. Shared incomplete receipt validation is recorded on receipt.ts; no additional independent defect found."
+
+[file.093]
+path = "sdk/wallet/src/modules/launchpad.ts"
+lines = 63
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.094]
+path = "sdk/wallet/src/modules/web-data.ts"
+lines = 257
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.095]
+path = "sdk/wallet/src/provider.ts"
+lines = 916
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings provider-session-binding."
+
+[file.096]
+path = "sdk/wallet/src/react.ts"
+lines = 313
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings react-auth-refresh."
+
+[file.097]
+path = "sdk/wallet/src/receipt.ts"
+lines = 165
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings receipt-authentication."
+
+[file.098]
+path = "sdk/wallet/src/rpc.ts"
+lines = 132
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings rpc-has-no-request-bound."
+
+[file.099]
+path = "sdk/wallet/src/types.ts"
+lines = 740
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings receipt-fields-lost."
+
+[file.100]
+path = "sdk/wallet/src/wallet.ts"
+lines = 195
+verdict = "clean"
+note = "Reviewed embedded/injected EIP-1193 adapters, immutable transaction normalization, admission and removed custody boundary. Shared embedded-provider session defect is recorded on provider.ts."
+
+[file.101]
+path = "sdk/wallet/test/account-reads.test.ts"
+lines = 129
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.102]
+path = "sdk/wallet/test/agent.test.ts"
+lines = 300
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.103]
+path = "sdk/wallet/test/assets.test.ts"
+lines = 206
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.104]
+path = "sdk/wallet/test/availability.test.ts"
+lines = 162
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.105]
+path = "sdk/wallet/test/balances.test.ts"
+lines = 122
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.106]
+path = "sdk/wallet/test/caps.test.ts"
+lines = 135
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.107]
+path = "sdk/wallet/test/client.test.ts"
+lines = 217
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.108]
+path = "sdk/wallet/test/custody-retired.test.ts"
+lines = 17
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.109]
+path = "sdk/wallet/test/eip6963.test.ts"
+lines = 147
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.110]
+path = "sdk/wallet/test/endpoint.test.ts"
+lines = 452
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings endpoint-tests-retired-shapes."
+
+[file.111]
+path = "sdk/wallet/test/errors.test.ts"
+lines = 42
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.112]
+path = "sdk/wallet/test/evm-review.test.ts"
+lines = 374
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.113]
+path = "sdk/wallet/test/fixtures.test.ts"
+lines = 97
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings receipt-fixture-third-shape."
+
+[file.114]
+path = "sdk/wallet/test/gas-station.test.ts"
+lines = 295
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings gas-fixture-invalid-signed-view."
+
+[file.115]
+path = "sdk/wallet/test/history.test.ts"
+lines = 124
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.116]
+path = "sdk/wallet/test/human-binding.test.ts"
+lines = 217
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.117]
+path = "sdk/wallet/test/kernel-reads.test.ts"
+lines = 217
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.118]
+path = "sdk/wallet/test/ladder.test.ts"
+lines = 577
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.119]
+path = "sdk/wallet/test/lx-retired.test.ts"
+lines = 53
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.120]
+path = "sdk/wallet/test/merged-types.test.ts"
+lines = 255
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings bank-types-test-nullability."
+
+[file.121]
+path = "sdk/wallet/test/modules.test.ts"
+lines = 1704
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings module-fixture-invalid-signed-view."
+
+[file.122]
+path = "sdk/wallet/test/network.test.ts"
+lines = 153
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.123]
+path = "sdk/wallet/test/proof_wallet_sdk.test.ts"
+lines = 649
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings sdk-proof-substitute-producers."
+
+[file.124]
+path = "sdk/wallet/test/provider.test.ts"
+lines = 1272
+verdict = "issues"
+note = "Full-file review; concrete disagreements and owning repair proposals are recorded in findings provider-tests-removed-custody."
+
+[file.125]
+path = "sdk/wallet/test/receipt.test.ts"
+lines = 401
+verdict = "clean"
+note = "Full-file review of the declared scenarios, assertions and imported producer/consumer types; no additional file-local disagreement found. This is a static audit verdict, not a claim that this test was run."
+
+[file.126]
+path = "sdk/wallet/tsconfig.json"
+lines = 14
+verdict = "clean"
+note = "Full-file review against package requirements, declared interfaces and current callers; no additional file-local shape, wiring, retired-reference, configuration, security or recovery disagreement found."
+
+[file.127]
+path = "services/wallet/attestor/internal/health/health.go"
+lines = 216
+verdict = "clean"
+note = "Reviewed readiness, snapshot/replica ages, refusal-label bounds and metrics. Metrics are wired by cmd/attestor/main.go and server options; older registry unwired wording is not a runtime defect."
+
+[file.128]
+path = "services/wallet/attestor/internal/health/health_test.go"
+lines = 335
+verdict = "clean"
+note = "Reviewed provider readiness, health shapes, metrics and refusal-label tests against health.go and the registered attestor server path."
+
+[file.129]
+path = "services/wallet/pnpm-workspace.yaml"
+lines = 7
+verdict = "clean"
+note = "Reviewed gateway, wallet SDK and demo workspace membership and allowed native package builds against the actual directory layout."
+
+[finding.receipt-authentication]
+file = "sdk/wallet/src/receipt.ts"
+line = 17
+class = "security"
+severity = "high"
+observed = "decodeSequencerReceipt accepts a receipted answer containing only rung, txHash and nonce; waitForSequencerReceipt returns on that rung. Optional receipt bytes, status, logs and keyId are only syntax checked. No governed receipt-key pin, signature or output-digest verification protects module and ladder consumers. rpc/sequencer_receipt.go:176-250 requires a full signed view, authenticates ReceiptKeys and binds every returned field to the receipt bytes."
+expected = "A wallet must authenticate the governed receipt signer and the transaction, execution outputs and rung before showing a receipt or consuming its logs; a committed block must cover the receipt height. Brief checks 1 and 8 require receipt verification to be non-skippable."
+proposal = "In sdk/wallet/src/receipt.ts, decode rung-specific complete views and verify the signed bytes and output digests against governed height-scoped receipt-key pins. Require that verifier in read, wait, module and ladder paths, with real node answers and tampered-answer rejection tests."
+owner_domain = 12
+interface = "12.rpc-sdk-calls-pax-sequencer-receipt-j50"
+
+[finding.receipt-fields-lost]
+file = "sdk/wallet/src/types.ts"
+line = 573
+class = "interface-mismatch"
+severity = "high"
+observed = "SequencerReceiptAnswer omits paymentDenom and signingKey. decodeSequencerReceipt in src/receipt.ts constructs a new object without either field. The real SequencerReceiptView emits both at rpc/sequencer_receipt.go:151,160; paymentDenom is needed to decode the signed fee view and signingKey is used with governed pins. The registry type mirror also describes an older, smaller view."
+expected = "The declared wallet receipt answer must preserve the complete node receipt view, including paymentDenom and the 32-byte signingKey, and distinguish the submitted shape from the receipted and committed shapes."
+proposal = "Update sdk/wallet/src/types.ts and src/receipt.ts together to preserve and validate the complete producer fields, update interface.12.ts-sdk-sequencer-receipt-answer-j50, and use node-emitted answers to prove a lossless producer-to-SDK round trip."
+owner_domain = 12
+interface = "12.ts-sdk-sequencer-receipt-answer-j50"
+
+[finding.provider-session-binding]
+file = "sdk/wallet/src/provider.ts"
+line = 310
+class = "security"
+severity = "high"
+observed = "sendTransaction validates a captured account but omits from from the gateway body, then gateway() awaits a new token at line 613. If the token supplier changes from account A to B, services/wallet/gateway/src/routes/sign.ts:650 chooses B from req.user and broadcasts at line 687 before assertSendTxResponse can reject the mismatch. request() also awaits confirmation before capturing signing context; personalSign and signTypedData return signatures without checking the recovered signer."
+expected = "A signing approval and every resulting write must remain bound to the same account, authenticated session, chain and immutable payload through approval and broadcast. A later response check cannot undo a transaction sent by the wrong account."
+proposal = "Capture account, chain, session generation and token before confirmation in sdk/wallet/src/provider.ts; invalidate stale approvals, send using that exact authenticated context, and have the wallet gateway enforce the expected sender before signing. Recover and validate message and typed-data signers before returning signatures."
+owner_domain = 12
+interface = "12.http-gw-post-v1-wallet-send"
+
+[finding.default-node-hosted-methods]
+file = "sdk/wallet/src/endpoint.ts"
+line = 24
+class = "interface-mismatch"
+severity = "high"
+observed = "EndpointClient defaults to https://api-mainnet-beta.paxeer.network but resolveAccount, getChainAccount, listBankAssets, getCapabilities, getNetwork, getBankBalances and history issue px_ methods. Those methods are dispatched by services/platform/hosted/gateway/src/paxeer.rs and are absent from the node namespace list. A default client therefore targets a producer that does not serve its declared reads."
+expected = "Brief fact 3 separates node root JSON-RPC from hosted gateway px_ methods; the SDK must route hosted account, bank, discovery and history reads to their actual hosted producer while EVM reads use the node."
+proposal = "Give sdk/wallet/src/endpoint.ts explicit hosted-gateway and node configuration, require the hosted endpoint for px_ reads or supply its declared default, and prove the default account/network path against the actual gateway and node namespaces."
+owner_domain = 12
+interface = "12.rpc-sdk-calls-px-get-account"
+
+[finding.rpc-has-no-request-bound]
+file = "sdk/wallet/src/rpc.ts"
+line = 87
+class = "runtime-risk"
+severity = "medium"
+observed = "JsonRpcClient.post awaits fetch and response.text without a deadline, AbortSignal or response-size bound. Receipt polling limits attempts in src/receipt.ts, but a single stalled fetch never completes an attempt and an arbitrarily large response is buffered before decoding."
+expected = "Brief check 4 requires bounded network operations and decoding. Wallet reads and receipt recovery should return a definite timeout or cancellation instead of waiting indefinitely or buffering unbounded input."
+proposal = "Add configurable bounded transport deadlines, cancellation and response limits in sdk/wallet/src/rpc.ts, propagate cancellation through receipt reads, and cover a stalled real HTTP response and oversized response without weakening existing envelope checks."
+owner_domain = 12
+interface = "12.ts-sdk-json-rpc-client"
+
+[finding.react-auth-refresh]
+file = "sdk/wallet/src/react.ts"
+line = 70
+class = "wiring-gap"
+severity = "medium"
+observed = "useWallet fetches only when client or tick changes and useStandardAccount likewise has no auth-state subscription when pollMs is omitted. A stable PaxeerWallet that signs in after the initial signed-out read stays empty; signing out or changing users can leave the prior public wallet visible. useSession already exposes the auth event source."
+expected = "Wallet and standard-account hooks should track the current authenticated principal, clear prior account data on sign-out and refetch after sign-in without requiring callers to manually repair auth synchronization."
+proposal = "Subscribe both account hooks in sdk/wallet/src/react.ts to the client auth lifecycle, invalidate in-flight reads by principal or generation, clear stale values, and prove sign-in, sign-out and account replacement with a stable client instance."
+owner_domain = 12
+interface = "12.ts-sdk-use-wallet"
+
+[finding.review-storage-environment]
+file = "sdk/wallet/src/index.ts"
+line = 358
+class = "restart-recovery"
+severity = "medium"
+observed = "evmStorageKey scopes persisted EVM review and approval artifacts only by principal. Two PaxeerWallet clients with the same principal and storage but different apiUrl values share paxeer:evm-review:v1:<principal>; evmLoad has no gateway-origin discriminator and evmSave updates the same collection."
+expected = "Persisted authorization review state must be isolated by the issuing environment so recovery cannot confuse approvals issued by separate wallet gateways for the same identity."
+proposal = "Namespace the EVM review store and its serialization lock by normalized gateway origin and principal in sdk/wallet/src/index.ts, preserve the artifact chain identity, and define an explicit migration or refusal for ambiguous older entries."
+owner_domain = 12
+interface = "12.key-sdk-evm-review-v1-j50"
+
+[finding.send-token-snapshot-stale]
+file = "apps/wallet/src/widgets/send/SendWidget.tsx"
+line = 117
+class = "wiring-gap"
+severity = "medium"
+observed = "The selection effect keeps the first SendableToken object forever once selectedToken is set. useSendableTokens initially supplies a zero-balance native fallback before portfolio load, so the initial native choice keeps balanceRaw 0 after real balances arrive. Account changes and later balance refreshes also retain the prior object."
+expected = "The selected asset identity may remain stable, but its balance and metadata must come from the current account and current portfolio before max amounts and spendable-balance validation are calculated."
+proposal = "Store only the selected asset key in SendWidget.tsx and derive its current object from tokens; defer initial selection until data is ready and reset or reconcile selection on account and network changes. Cover cold load with a funded native account."
+owner_domain = 12
+interface = "12.ts-app-use-sendable-tokens"
+
+[finding.send-qr-network]
+file = "apps/wallet/src/widgets/send/SendWidget.tsx"
+line = 178
+class = "config-drift"
+severity = "medium"
+observed = "handleScan checks the EIP-681 chainId against PAXEER_CONFIG.chainId rather than activeNetwork.chainId even though the widget reads useActiveNetwork. It rejects a payment request for the selected virtual network and accepts a root-network request while another network is selected."
+expected = "An EIP-681 payment request must match the actual selected network and the transaction context used by the connected wallet, including tenant virtual-network selection."
+proposal = "Validate QR requests against the active wallet chain and selected network in SendWidget.tsx, require explicit network switching when needed, and clear the request if the network changes before approval."
+owner_domain = 12
+interface = "12.ts-app-send-widget"
+
+[finding.send-native-qr-asset]
+file = "apps/wallet/src/widgets/send/SendWidget.tsx"
+line = 202
+class = "security"
+severity = "medium"
+observed = "Scanning a native EIP-681 value request calls formatEther and updates amount but leaves selectedToken unchanged. If an ERC-20 was selected first, the native PAX request becomes that token amount and form.submit sends the ERC-20 to the scanned address."
+expected = "A payment request must bind the asset as well as recipient, amount and chain. A native value request must select native PAX before a token-specific confirmation can be opened."
+proposal = "Apply a validated QR request atomically in SendWidget.tsx: select the native token for native requests, select the requested contract for token requests, convert only with that asset precision, and refuse the entire request if any field is invalid."
+owner_domain = 12
+interface = "12.ts-app-send-widget"
+
+[finding.send-recovery-root-chain]
+file = "apps/wallet/src/widgets/send/useSendForm.ts"
+line = 183
+class = "restart-recovery"
+severity = "medium"
+observed = "SubmittedTransfer construction, readSubmittedTransfer, clearTransfer and submittedTransfersRepository keys all hardcode PAXEER_CONFIG.chainId. The active-network widget and AppPaxeerProvider support virtual-network selection, but the journal records every submitted hash as root chain 125 and recovery only depends on sender."
+expected = "interface.12.key-app-paxport-v1-submitted-transfers defines chainId:sender keys; the journal must carry the actual broadcast chain and resume that identity after reload without overwriting another network for the same sender."
+proposal = "Capture the actual wallet chain together with sender before submission in useSendForm.ts, persist and read by that pair, include chain changes in recovery invalidation, and keep the exact chain/hash identity for status and explorer links."
+owner_domain = 12
+interface = "12.key-app-paxport-v1-submitted-transfers"
+
+[finding.pending-send-account-scope]
+file = "apps/wallet/src/widgets/portfolio/useApplyPendingSend.ts"
+line = 50
+class = "restart-recovery"
+severity = "medium"
+observed = "consumePendingSend returns one global record and the hook subtracts it from whichever address mounts next. useSendForm.ts:196 stores no sender or chain in that event. Switching accounts after a submitted send can subtract account A spending from account B cached portfolio and consume A recovery update."
+expected = "An optimistic transfer update must be bound to the original sending account, network and transaction so an account or tenant change cannot apply the delta to unrelated balances."
+proposal = "Extend the pending-send producer and repository identity with sender, chain and hash, then consume only matching entries in useApplyPendingSend.ts; retain unmatched entries for their account and reconcile them against their original network."
+owner_domain = 12
+interface = "12.ts-app-consume-pending-send"
+
+[finding.pending-send-reconcile-cancelled]
+file = "apps/wallet/src/widgets/portfolio/useApplyPendingSend.ts"
+line = 100
+class = "runtime-risk"
+severity = "medium"
+observed = "Effect cleanup clears the scheduled reconcile timer whenever address, loading or callback dependencies change. optimisticAppliedRef remains true, so the next effect returns at line 48 and does not schedule a replacement; the intended forced reconciliation can be lost after an intermediate loading transition."
+expected = "Once an optimistic subtraction is applied, its matching reconciliation must eventually run or remain explicitly pending through effect transitions; a one-shot guard must not suppress recovery after timer cancellation."
+proposal = "Track the applied transaction and outstanding reconciliation separately in useApplyPendingSend.ts, retain or reschedule its timer across loading changes, and reset account-scoped state when address changes."
+owner_domain = 12
+interface = "12.ts-app-use-apply-pending-send"
+
+[finding.recipient-search-dedup]
+file = "apps/wallet/src/widgets/send/ContactPickerSheet.tsx"
+line = 132
+class = "runtime-risk"
+severity = "low"
+observed = "filteredContacts removes any address present in all recentRecipients or ownAccounts, while those sections are independently filtered by search. Searching a contact name can hide the named contact because an unlabeled recent entry for that address is filtered out of the recent section but still suppresses the contact."
+expected = "Recipient search should preserve a matching contact whenever no visible account or recent row already represents that address; deduplication should not erase all matching results."
+proposal = "Deduplicate against the visible filtered recipient groups in ContactPickerSheet.tsx, or merge labels by address before applying search, so a contact-name search always retains one matching address row."
+owner_domain = 12
+interface = "12.ts-app-contact-picker-sheet"
+
+[finding.portfolio-filters-not-applied-to-cards]
+file = "apps/wallet/src/widgets/portfolio/PortfolioWidget.tsx"
+line = 123
+class = "wiring-gap"
+severity = "medium"
+observed = "PortfolioWidget computes filtered holdings but mounts PaxCardExpand with only address. PaxCardExpand independently displays the first three unfiltered token_holdings. Hidden or dust tokens remain in those cards; HoldingsGrid also repeats those holdings, and filter controls disappear entirely when allHoldings.length is at most three."
+expected = "The persisted portfolio visibility and dust settings should apply consistently to every displayed holding, including the first three cards and small portfolios."
+proposal = "Pass one filtered holdings model to PaxCardExpand and HoldingsGrid from PortfolioWidget.tsx, define whether cards and grid partition or repeat holdings, and make visibility controls available even for a small portfolio."
+owner_domain = 12
+interface = "12.ts-app-portfolio-widget"
+
+[finding.pns-registration-journal]
+file = "apps/wallet/src/widgets/pns/PNSWidget.tsx"
+line = 212
+class = "restart-recovery"
+severity = "medium"
+observed = "startRegistration keeps commitName result.registration, including the generated commitment secret, only in a local async variable while waiting minAge and then calling registerName. Closing or reloading the wallet after the commitment transaction loses the secret and cannot resume the existing registration."
+expected = "Brief check 5 requires state needed after a paid commitment to survive restart. A name registration should resume its original reveal parameters and commitment age instead of requiring another commitment."
+proposal = "Persist the registration intent and secret through the wallet private storage boundary before broadcasting the commitment, journal its chain/account/hash, and add a resumable PNSWidget flow that reconciles the commitment before revealing or expiring it."
+owner_domain = 12
+interface = "12.ts-app-commit-name"
+
+[finding.pns-stale-search]
+file = "apps/wallet/src/widgets/pns/PNSWidget.tsx"
+line = 171
+class = "runtime-risk"
+severity = "medium"
+observed = "handleSearch updates availability and price after asynchronous checks without checking whether query, duration or searchedLabel still match. Clearing the input or starting a second search only cancels the debounce timer, not the first in-flight result; its availability and price can be attached to the later searchedLabel."
+expected = "The name, duration, availability and rent price shown before commitment must belong to one current request; stale search responses must not authorize registration of another name."
+proposal = "Add request-generation or cancellation checks around search and rent-price updates in PNSWidget.tsx, invalidate them on every query/duration change and clear, and bind registration to the validated result identity."
+owner_domain = 12
+interface = "12.ts-app-check-availability"
+
+[finding.swap-broadcast-recovery]
+file = "apps/wallet/src/widgets/swap/useSwapExecution.ts"
+line = 68
+class = "restart-recovery"
+severity = "high"
+observed = "The hook records hash only after executeSwap resolves. apps/wallet/src/lib/swap/executor.ts:35 waits for a receipt before returning, and its V4 multihop path can complete one transaction before a second fails. A timeout or reload after broadcast leaves no persisted hash, nonce or completed-leg state and the hook reports a generic failure despite possible committed spending."
+expected = "A funded swap must retain every broadcast identity before waiting and recover its exact progress after errors or restart. A partially completed multitransaction route must not be treated as if nothing was submitted."
+proposal = "Introduce a durable account/chain/intent swap journal at the executor-to-useSwapExecution boundary, publish each hash before receipt waiting, record completed legs, and resume observation or only the remaining leg after restart instead of starting the route again."
+owner_domain = 12
+interface = "12.ts-app-lib-swap-executor-execute-swap"
+
+[finding.swap-speed-up-resubmits]
+file = "apps/wallet/src/widgets/swap/SwapWidget.tsx"
+line = 245
+class = "restart-recovery"
+severity = "high"
+observed = "TxTimeoutModal.onSpeedUp and RateLimitModal.onRetry both call handleConfirmSwap, which invokes execution.execute and constructs a new swap. No original nonce or transaction identity is supplied. When the previous broadcast succeeded but receipt waiting timed out, the action can spend again rather than replace or observe the original transaction."
+expected = "A speed-up must replace the same transaction nonce under explicit fee policy; recovery from an uncertain result must first reconcile the existing hash and must never silently submit a second funded swap."
+proposal = "Wire SwapWidget.tsx timeout actions to the persisted original swap identity and status recovery; expose replacement only when the signer supports an explicitly bound same-nonce replacement, and reserve fresh execution for a separately approved new intent."
+owner_domain = 12
+interface = "12.ts-app-swap-widget"
+
+[finding.swap-two-quote-authorities]
+file = "apps/wallet/src/widgets/swap/PaxSwapModal.tsx"
+line = 115
+class = "wiring-gap"
+severity = "medium"
+observed = "PaxSwapModal fetches and displays its own useSwapQuotes result while parent SwapWidget.tsx:72 independently fetches the quote passed to execution. These asynchronous requests can choose different routes and amounts for the same input, so the main swap view and the executable confirmation do not share one quote identity."
+expected = "The route and expected output displayed in the swap entry view should be the same quote that is reviewed and submitted, with one explicit refresh lifecycle."
+proposal = "Lift quote ownership into one orchestrator and pass the selected quote and refresh state into PaxSwapModal.tsx and SwapConfirmDialog; freeze or invalidate the selected quote when opening approval."
+owner_domain = 12
+interface = "12.ts-app-pax-swap-modal"
+
+[finding.swap-stale-quote-after-clear]
+file = "apps/wallet/src/widgets/swap/useSwapQuotes.ts"
+line = 154
+class = "runtime-risk"
+severity = "medium"
+observed = "The input-change effect increments requestSeqRef only after parsing a valid amount and recipient. Clearing or making the amount invalid returns before incrementing it, and clear() also leaves the generation unchanged. An earlier in-flight request therefore passes its sequence check and restores a quote after the form was cleared."
+expected = "Any input change, clear or teardown must invalidate quotes for the prior amount, recipient and token pair, including transitions to invalid input."
+proposal = "Increment the quote request generation before every early return and in clear(), cancel pending debounce work, and reject all late results whose full input identity no longer matches in useSwapQuotes.ts."
+owner_domain = 12
+interface = "12.ts-app-use-swap-quotes"
+
+[finding.swap-output-cache-shape]
+file = "apps/wallet/src/widgets/swap/useOutputTokens.ts"
+line = 78
+class = "wiring-gap"
+severity = "medium"
+observed = "queryFn loadOutputTokens merges native PAX, explorer tokens, launchpad tokens and SWAP_TOKENS, but initialData seeds the same query with only getCachedLaunchpadTokens().tokens. The cached subset is treated as fresh for LIST_TTL and refetchOnMount is false, so a warm launchpad cache can omit native and standard outputs for the whole mounted session."
+expected = "The output-token query should have one stable merged shape regardless of whether data comes from cache or the network; persisted launchpad-only data must not masquerade as the complete output list."
+proposal = "Merge the launchpad cache with native and standard tokens before using it as initialData in useOutputTokens.ts, or persist the complete merged query under its own key and preserve its actual freshness metadata."
+owner_domain = 12
+interface = "12.ts-app-use-output-tokens"
+
+[finding.market-stats-window]
+file = "apps/wallet/src/widgets/tokenDetail/MarketStatsCard.tsx"
+line = 23
+class = "runtime-risk"
+severity = "medium"
+observed = "MarketStatsCard labels the last 288 candles as 24h high/low regardless of candle timestamps. TokenDetailWidget supplies candlesQuery for the user-selected TimePeriod, so changing chart period changes the market window behind a label that remains 24h."
+expected = "A metric labeled 24h must cover the last 24 hours independently of the chart zoom and sampling interval; missing coverage should be represented explicitly."
+proposal = "Filter OHLC candles by timestamp and fetch an independent 24h series where needed in the token-detail query path; pass the actual covered window into MarketStatsCard.tsx rather than assuming five-minute candles."
+owner_domain = 12
+interface = "12.ts-app-market-stats-card"
+
+[finding.token-activity-symbol-identity]
+file = "apps/wallet/src/widgets/tokenDetail/TokenDetailWidget.tsx"
+line = 165
+class = "wiring-gap"
+severity = "medium"
+observed = "TokenDetailWidget filters normalized transfer rows only by r.symbol and discards contract identity. Two ERC-20 contracts with the same symbol appear together on either token page; the comment explicitly acknowledges that the transformed row lost the contract address."
+expected = "A token-detail activity list must identify the exact token contract and network. ERC-20 symbols are not unique identities and cannot establish which asset moved."
+proposal = "Preserve contract address and chain through the history-to-TxHistoryRow transformation, and filter TokenDetailWidget.tsx by that identity; keep native PAX handling separate from ERC-20 symbol matching."
+owner_domain = 12
+interface = "12.ts-app-use-tx-history-query"
+
+[finding.wpax-address-detection]
+file = "apps/wallet/src/widgets/tokenDetail/TokenDetailWidget.tsx"
+line = 66
+class = "wiring-gap"
+severity = "medium"
+observed = "isWpax checks whether tokenId includes the text wpax. The portfolio cards and send navigation pass ERC-20 contract addresses as tokenId, so a hexadecimal WPAX address never enters the WPAX metadata, price and candle branches."
+expected = "Wrapped PAX should be recognized by its configured contract identity on the active network so the dedicated native-price and chart path can be reached from actual portfolio holdings."
+proposal = "Compare a normalized tokenId with the configured WPAX address in TokenDetailWidget.tsx and key that mapping by active network; keep any textual route alias as an explicit separately normalized input."
+owner_domain = 12
+interface = "12.ts-app-token-detail-widget"
+
+[finding.tx-detail-first-transfer]
+file = "apps/wallet/src/widgets/txDetail/TxDetailWidget.tsx"
+line = 39
+class = "wiring-gap"
+severity = "medium"
+observed = "The headline direction uses the outer transaction sender while the amount and symbol always use tokenTransfers[0]. In a routed swap or multitransfer transaction that first log can be between a router and pool rather than the wallet; the detail view then labels an unrelated token movement as the wallet Sent or Received amount."
+expected = "Transaction details must derive wallet-relative movement from transfer endpoints for the selected account, and show multiple relevant changes when a transaction cannot be represented by one token transfer."
+proposal = "Select or aggregate token transfers involving the active address in TxDetailWidget.tsx, derive direction and counterparties from each selected transfer, and retain the outer transaction fee and status separately."
+owner_domain = 12
+interface = "12.ts-app-tx-detail-widget"
+
+[finding.settings-nonce-parser]
+file = "apps/wallet/src/widgets/settings/SettingsWidget.tsx"
+line = 482
+class = "runtime-risk"
+severity = "medium"
+observed = "handleNonceChange uses parseInt and only checks parsed >= 0. Inputs such as 1.5 or 1e3 are persisted as nonce 1, and large integers can exceed the JavaScript safe range. Invalid nonempty input also leaves a previous saved nonce active while the input displays something else."
+expected = "The manually selected transaction nonce must be an exact non-negative safe integer matching the displayed input; invalid input must not silently preserve or truncate a different nonce."
+proposal = "Validate the entire decimal string and Number.isSafeInteger before saving in SettingsWidget.tsx, expose invalid state, and clear or refuse stale manual nonce selection until the user enters a valid exact value."
+owner_domain = 12
+interface = "12.ts-app-settings-widget"
+
+[finding.send-zero-decimals]
+file = "apps/wallet/src/widgets/send/useSendableTokens.ts"
+line = 62
+class = "runtime-risk"
+severity = "medium"
+observed = "SendableToken.decimals and its balance formatting use h.decimals || 18, so sending one unit of a zero-decimal token is prepared with 18 decimal places."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/send/useSendableTokens.ts, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-use-sendable-tokens"
+
+[finding.portfolio-zero-decimals]
+file = "apps/wallet/src/widgets/portfolio/HoldingsGrid.tsx"
+line = 69
+class = "runtime-risk"
+severity = "medium"
+observed = "HoldingsGrid uses h.decimals || 18 in all three holding layouts, displaying zero-decimal raw amounts as if they had 18 decimal places."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/portfolio/HoldingsGrid.tsx, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-holdings-grid"
+
+[finding.pending-zero-decimals]
+file = "apps/wallet/src/widgets/portfolio/useApplyPendingSend.ts"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "The optimistic subtraction and formatting use h.decimals || 18, so the pending-send delta for a zero-decimal token is scaled incorrectly and may clamp the shown balance to zero."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/portfolio/useApplyPendingSend.ts, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-use-apply-pending-send"
+
+[finding.held-zero-decimals]
+file = "apps/wallet/src/widgets/swap/useHeldTokens.ts"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "useHeldTokens changes zero-decimal holdings to SwapToken.decimals 18, affecting amount entry, max values and quote input units."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/swap/useHeldTokens.ts, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-use-held-tokens"
+
+[finding.catalogue-zero-decimals]
+file = "apps/wallet/src/widgets/swap/util.ts"
+line = 24
+class = "runtime-risk"
+severity = "medium"
+observed = "paxscanToSwapToken uses Number(t.decimals) || 18, changing valid zero-decimal explorer tokens to 18-decimal swap tokens."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/swap/util.ts, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-paxscan-to-swap-token"
+
+[finding.swap-balance-zero-decimals]
+file = "apps/wallet/src/widgets/swap/useSwapBalances.ts"
+line = 39
+class = "runtime-risk"
+severity = "medium"
+observed = "tokenDisplayBalance uses holding.decimals || token.decimals, so valid zero metadata is replaced by a possibly different selected-token precision."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/swap/useSwapBalances.ts, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-use-swap-balances"
+
+[finding.token-detail-zero-decimals]
+file = "apps/wallet/src/widgets/tokenDetail/TokenDetailWidget.tsx"
+line = 115
+class = "runtime-risk"
+severity = "medium"
+observed = "The metadata precedence chain uses logical OR for public, holding and chain decimals, discarding a valid zero and eventually using 18."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/tokenDetail/TokenDetailWidget.tsx, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-token-detail-widget"
+
+[finding.tx-detail-zero-decimals]
+file = "apps/wallet/src/widgets/txDetail/TxDetailWidget.tsx"
+line = 44
+class = "runtime-risk"
+severity = "medium"
+observed = "The headline and per-transfer rows use token.decimals || 18; numeric zero-decimal metadata is displayed with the wrong unit scale."
+expected = "Token producers may legally report decimals 0; zero is an explicit precision, while null or absent metadata is unknown. The raw amount must retain its original units across display, send, optimistic update and swap paths."
+proposal = "In apps/wallet/src/widgets/txDetail/TxDetailWidget.tsx, preserve explicit zero with null-aware metadata handling, validate supported integer precision, and keep unknown precision explicit before any amount conversion or funded action. Exercise a real zero-decimal token through the affected path."
+owner_domain = 12
+interface = "12.ts-app-tx-detail-widget"
+
+[finding.endpoint-tests-retired-shapes]
+file = "sdk/wallet/test/endpoint.test.ts"
+line = 281
+class = "test-gap"
+severity = "medium"
+observed = "The endpoint suite asserts network.kernel availability, calls removed KernelClient.getActivityStatus at lines 309 and 341, supplies pre-merge account identifiers and expects lx_getAccount/lx_getBalances/lx_getSequence/lx_getReceipt. The implemented clients use merged EVM/bank reads and the real hosted getNetwork emits consensus rather than kernel."
+expected = "Tests for EndpointClient and KernelClient must drive and assert the served merged producer contract, while separate negative tests can assert that retired methods remain refused. Brief checks 3 and 7 prohibit positive tests for retired shapes."
+proposal = "Rewrite the positive endpoint scenarios in sdk/wallet/test/endpoint.test.ts around actual hosted gateway and node account/network/receipt responses, preserving meaningful refusal checks for retired methods as negative coverage rather than calling removed APIs."
+owner_domain = 12
+interface = "12.ts-sdk-endpoint-client-get-network"
+
+[finding.provider-tests-removed-custody]
+file = "sdk/wallet/test/provider.test.ts"
+line = 1239
+class = "test-gap"
+severity = "medium"
+observed = "provider_wallet_signCustody_is_refused_on_injected_providers directly calls injected.signCustody and embedded.signCustody and expects the embedded call to succeed. WalletInterface has removed signCustody; src/provider.ts refuses paxeer_signCustody before dispatch and custody-retired.test.ts asserts that removal."
+expected = "The test suite must agree with the retired custody API boundary and must not demand a successful embedded custody signature through a removed wallet method."
+proposal = "Replace the stale positive custody scenario in sdk/wallet/test/provider.test.ts with explicit unsupported-method and absent-surface assertions against the real WalletInterface/provider path, retaining the independent retired-boundary checks."
+owner_domain = 12
+interface = "12.ts-sdk-wallet-interface"
+
+[finding.bank-types-test-nullability]
+file = "sdk/wallet/test/merged-types.test.ts"
+line = 120
+class = "test-gap"
+severity = "medium"
+observed = "The compile-time assertion requires BankAsset name, symbol, decimals and supply to be non-null string/number fields. src/types.ts permits null metadata and services/platform/hosted/gateway/src/paxeer.rs emits null when bank asset metadata is unavailable, so the asserted shape contradicts the declared producer."
+expected = "Merged bank asset types and their type-level tests must represent unavailable metadata explicitly and preserve decimals 0 rather than claiming metadata is always populated."
+proposal = "Update sdk/wallet/test/merged-types.test.ts to assert the producer-supported nullable metadata shape and demonstrate actual metadata-missing and zero-decimal assets through the gateway decoder without widening other fields or weakening runtime validation."
+owner_domain = 12
+interface = "12.ts-sdk-bank-asset-j50"
+
+[finding.receipt-fixture-third-shape]
+file = "sdk/wallet/test/fixtures.test.ts"
+line = 16
+class = "test-gap"
+severity = "medium"
+observed = "receiptFields and the exact Object.keys assertion omit paymentDenom and signingKey, while the real node emits both in every full view at rpc/sequencer_receipt.go:151,160. The fixture check therefore rejects the real producer shape and certifies a smaller receipt contract."
+expected = "Receipt fixtures must be captured from the real producer and include every declared signed-view field, with cryptographically consistent bytes and governed key evidence."
+proposal = "Regenerate receipt examples from the real node, update sdk/wallet/test/fixtures.test.ts to assert the complete rung-specific producer shape, and require signature/output consistency rather than maintaining an independently invented field list."
+owner_domain = 12
+interface = "12.ts-sdk-sequencer-receipt-answer-j50"
+
+[finding.module-fixture-invalid-signed-view]
+file = "sdk/wallet/test/modules.test.ts"
+line = 466
+class = "test-gap"
+severity = "medium"
+observed = "moduleReceipted spreads the signed receipted fixture, adds committed block fields while retaining rung receipted, and replaces logs without replacing the signed receipt bytes. rpc/sequencer_receipt.go:190 rejects a block on a receipted answer and Verify binds log digests to the signed receipt."
+expected = "Module receipt tests must use answers the node can actually emit and must reject a changed log or inconsistent rung/block combination instead of treating it as a successful module result."
+proposal = "Drive the module transaction tests in sdk/wallet/test/modules.test.ts through the real receipt producer, capture valid module logs and add negative tampering/rung tests against the shared authenticated decoder."
+owner_domain = 12
+interface = "12.ts-sdk-sequencer-receipt-answer-j50"
+
+[finding.gas-fixture-invalid-signed-view]
+file = "sdk/wallet/test/gas-station.test.ts"
+line = 209
+class = "test-gap"
+severity = "medium"
+observed = "The reverted answer is made by spreading recorded.committed and changing status to 0x0 and vmError to execution reverted without regenerating its receipt bytes or signature. The real producer binds those fields to the signed receipt and would not emit this altered view."
+expected = "Sponsored-gas revert recovery must be proven with a real reverted transaction receipt whose status and error are authenticated by its signed bytes, and tampering must fail verification."
+proposal = "Obtain the reverted receipt through the actual sponsored transaction and node path for sdk/wallet/test/gas-station.test.ts, and retain this altered view only as an explicit rejection case for receipt authentication."
+owner_domain = 12
+interface = "12.ts-sdk-sequencer-receipt-answer-j50"
+
+[finding.sdk-proof-substitute-producers]
+file = "sdk/wallet/test/proof_wallet_sdk.test.ts"
+line = 179
+class = "test-gap"
+severity = "medium"
+observed = "The proof starts a handwritten HTTP createServer and JSONL Journal instead of the running wallet gateway and node. readReceipt synthesizes a committed answer with no signed receipt, governed key or paymentDenom; restarting that local server demonstrates only recovery of the test substitute, not the production producer or transport."
+expected = "Requirement 21131.1 and brief fact 7 require the real producer-to-transport-to-consumer path and a real restart when state persists. Hand-built gateway responses and unsigned receipt-shaped objects do not prove that path."
+proposal = "Replace the substitute server as qualification evidence in sdk/wallet/test/proof_wallet_sdk.test.ts with the actual wallet gateway and node producers, exercise a funded send and sponsored send through the SDK, restart the real state owner and assert unchanged transaction identity and authenticated receipt recovery."
+owner_domain = 12
+interface = "12.rpc-sdk-calls-pax-sequencer-receipt-j50"
+
+[finding.readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37 and 39 describe a separate layerxd execution domain and layerxCustody/anchor checkpoint settlement. Lines 80, 125 and the architecture diagram at 152-239 depict a running daemon, LNI server, sequencer, guarantor and lx_* gateway reads as the current product."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/readme/README.pt-BR.md and its diagram in the page language from the merged paxd architecture, remove retired live-service instructions and explain hosted gateway versus node reads consistently with the English source."
+owner_domain = 17
+
+[finding.readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37 and 39 describe a separate layerxd execution domain and layerxCustody/anchor checkpoint settlement. Lines 80, 125 and the architecture diagram at 152-239 depict a running daemon, LNI server, sequencer, guarantor and lx_* gateway reads as the current product."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/readme/README.fr.md and its diagram in the page language from the merged paxd architecture, remove retired live-service instructions and explain hosted gateway versus node reads consistently with the English source."
+owner_domain = 17
+
+[finding.readme-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37 and 39 describe a separate layerxd execution domain and layerxCustody/anchor checkpoint settlement. Lines 80, 125 and the architecture diagram at 152-239 depict a running daemon, LNI server, sequencer, guarantor and lx_* gateway reads as the current product."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/readme/README.ja.md and its diagram in the page language from the merged paxd architecture, remove retired live-service instructions and explain hosted gateway versus node reads consistently with the English source."
+owner_domain = 17
+
+[finding.readme-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37 and 39 describe a separate layerxd execution domain and layerxCustody/anchor checkpoint settlement. Lines 80, 125 and the architecture diagram at 152-239 depict a running daemon, LNI server, sequencer, guarantor and lx_* gateway reads as the current product."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/readme/README.ru.md and its diagram in the page language from the merged paxd architecture, remove retired live-service instructions and explain hosted gateway versus node reads consistently with the English source."
+owner_domain = 17
+
+[finding.readme-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37 and 39 describe a separate layerxd execution domain and layerxCustody/anchor checkpoint settlement. Lines 80, 125 and the architecture diagram at 152-239 depict a running daemon, LNI server, sequencer, guarantor and lx_* gateway reads as the current product."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/readme/README.zh-CN.md and its diagram in the page language from the merged paxd architecture, remove retired live-service instructions and explain hosted gateway versus node reads consistently with the English source."
+owner_domain = 17
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37 and 39 describe a separate layerxd execution domain and layerxCustody/anchor checkpoint settlement. Lines 80, 125 and the architecture diagram at 152-239 depict a running daemon, LNI server, sequencer, guarantor and lx_* gateway reads as the current product."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/readme/README.de.md and its diagram in the page language from the merged paxd architecture, remove retired live-service instructions and explain hosted gateway versus node reads consistently with the English source."
+owner_domain = 17
+
+[finding.readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37 and 39 describe a separate layerxd execution domain and layerxCustody/anchor checkpoint settlement. Lines 80, 125 and the architecture diagram at 152-239 depict a running daemon, LNI server, sequencer, guarantor and lx_* gateway reads as the current product."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/readme/README.es.md and its diagram in the page language from the merged paxd architecture, remove retired live-service instructions and explain hosted gateway versus node reads consistently with the English source."
+owner_domain = 17
+
+[finding.readme-english]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README.md:47 describes layerxd as a separately running daemon whose checkpoints settle through layerxAnchor. Lines 79 and 181 call the merge a draft and the current kernel separate; line 83 still lists retired custody/anchor precompiles and line 145 instructs make layerxd."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite README.md architecture, live precompile inventory and operator build examples for the finished merged network; make historical pre-merge material explicitly historical and link current node/gateway contracts."
+owner_domain = 17
+
+[finding.monorepo-architecture]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction names the kernel as layerxd, and the trust-boundary bullets at lines 70-72 describe custody, checkpoint registration, guarantor bonds, challenges and emergency exits as current settlement authorities rather than retired pre-merge flows."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Update docs/MONOREPO.md subsystem descriptions and trust boundaries to show the kernel inside paxd and the current account/receipt authority, preserving directory-layout facts only where they remain true."
+owner_domain = 17
+
+[finding.xweb-payment-recovery]
+file = "docs/site/docs/protocol/xweb.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The xweb payment instructions at line 44 submit with lx_sendActivity and recover with lx_getActivityStatus or lx_getReceipt; line 24 configures separate gateway/sequencer settlement trust and the opening links the former unified interface. These are retired live paths in the merged network."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite the payment and recovery sections of docs/site/docs/protocol/xweb.md around the served merged transaction, payer authorization and authenticated receipt path; update configuration examples while preserving the sealed-credential API details that still agree with code."
+owner_domain = 17
+
+[finding.routes-router-origin]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated page is titled Router routes, assigns all 1966 hosted routes to the canonical node origin at line 8, advertises kernel/sequencer and settlement services at lines 31 and 35, and includes retired wallet lx/custody routes around 1018-1034 as active discovery entries."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Correct tools/paxeer-x/route-catalogue.json for the actual hosted gateway routes and origins, remove retired runtime surfaces, include current EVM review and sponsored quote flows, then regenerate docs/system/routes.md with its documented generator."
+owner_domain = 17
+
+[finding.paxeer-boundary-settlement]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes a custody-boundary client at line 7 and active deployment of a settlement suite at lines 119-129, including vault, guarantor bond, checkpoint registry, challenges and emergency exit. The described RPC allowlist does not explain the merged receipt and node namespace boundary."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md for the current node root and hosted gateway boundary, its served namespaces and authenticated receipt lifecycle; move the retired deployment and genesis settlement recipe to clearly marked historical material."
+owner_domain = 17
+
+[finding.sdk-readme-retired-api]
+file = "sdk/wallet/README.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The SDK README introduction still offers a separate LayerX kernel client; API line 91 advertises reviewLxActivity, reviewLxSendAuthorization, approveLxActivity, signApprovedLxActivity and lxApprovalStatus, which have been removed. Line 92 advertises funded-account writes that now return unsupported."
+expected = "The finished product is one BFT paxd network with its integrated kernel, EVM chain 125, direct node root JSON-RPC and separately hosted gateway methods. Retired daemon, router, custody and anchor settlement paths must not be presented as the running architecture."
+proposal = "Update sdk/wallet/README.md with supported merged EVM review, approval and receipt APIs, explicitly document retired custody/LX and funded-write refusals, and show correct node and hosted gateway endpoint configuration with recoverable submission examples."
+owner_domain = 17
+
+[doc.01]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+
+[doc.02]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+
+[doc.03]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+
+[doc.04]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+
+[doc.05]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+
+[doc.06]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+
+[doc.07]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+
+[doc.08]
+path = "README.md"
+status = "stale"
+notes = "Stale at 47, 79, 83, 145 and 181: separate daemon, draft merge, retired precompiles and build instructions."
+
+[doc.09]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Stale introduction at 3 and trust boundaries 70-72 retain the separate daemon and retired settlement system."
+
+[doc.10]
+path = "docs/site/docs/protocol/xweb.md"
+status = "stale"
+notes = "Stale payment/settlement path at 5, 24 and 44-45; later sealed-credential request material was also reviewed."
+
+[doc.11]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Stale title/origin at 3-8, service inventory 31-35 and retired wallet routes 1018-1034; all route tables and denied surfaces were read."
+
+[doc.12]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Stale custody-boundary description at 7 and deployment/genesis settlement recipe 119-129; merged receipt boundary is missing."
+
+[doc.13]
+path = "sdk/wallet/README.md"
+status = "stale"
+notes = "Stale introduction and API list at 3, 91-92; missing current EVM review and authenticated receipt examples."
+
+[doc.contract-source-missing]
+path = "contracts/clients.md"
+status = "missing"
+notes = "The package interface registry repeatedly names contracts/clients.md#wallet-sdk and #wallet-app, but contracts/clients.md is absent at the audited revision. Producer code and package requirements were used to resolve the actual wallet boundary; domain 17 should restore or retarget this contract reference."
+
+[finding.wallet-contract-source-missing]
+file = "sdk/wallet/README.md"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The wallet SDK/app interface rows repeatedly cite contracts/clients.md#wallet-sdk and #wallet-app as their contract, but contracts/clients.md is absent from this revision. Integrators cannot follow those registry references to the normative wallet boundary."
+expected = "Every declared wallet interface needs a reachable current contract describing its endpoint, signed shapes, authorization and recovery lifecycle; a missing reference cannot explain the merged product to an integrator."
+proposal = "Domain 17 should restore the merged wallet contract at the referenced location or retarget the wallet interface registry contract fields to an existing maintained page, and link that contract from sdk/wallet/README.md."
+owner_domain = 17
+interface = "12.ts-sdk-sequencer-receipt-answer-j50"

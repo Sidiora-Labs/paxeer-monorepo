@@ -189,12 +189,9 @@ func (s *Store) run(ctx context.Context, credential, op, scope, reason string, f
 	}
 	t := &transaction{Tx: &contextualTx{Tx: tx, ctx: ctx}, store: s, now: now, actor: p}
 	// Quarantine is checked under the same lock as every privileged mutation.
-	var revoked bool
-	var marker map[string]any
-	if z := t.get("quarantine", p.ID, &marker); z == nil {
-		revoked = true
-	} else if z != Missing {
-		return z
+	revoked, e := t.quarantined(p.ID)
+	if e != nil {
+		return e
 	}
 	if !permission(p, op, scope) || revoked {
 		if e = t.audit(op, scope, reason, string(Denied)); e != nil {
@@ -240,8 +237,29 @@ func (t *transaction) approvalActive(a Action) bool {
 	if a.ApprovedBy == "" || a.ApprovedBy == a.RequestedBy || a.Approver.ID != a.ApprovedBy || !permission(a.Approver, "action", a.Scope) || !t.store.identity.Active(contextFor(t), a.Approver) {
 		return false
 	}
-	var marker json.RawMessage
-	return t.get("quarantine", a.ApprovedBy, &marker) == Missing
+	quarantined, err := t.quarantined(a.ApprovedBy)
+	return err == nil && !quarantined
+}
+
+func (t *transaction) quarantined(identity string) (bool, error) {
+	var marker map[string]string
+	if err := t.get("quarantine", identity, &marker); err != nil {
+		if err == Missing {
+			return false, nil
+		}
+		return true, err
+	}
+	if marker["state"] != "recovered" {
+		return true, nil
+	}
+	var incident Incident
+	if err := t.get("incident", marker["incident"], &incident); err != nil {
+		if err == Missing {
+			return true, nil
+		}
+		return true, err
+	}
+	return incident.ID != marker["incident"] || incident.ServiceIdentity != identity || incident.State != "recovered" || !text(incident.RotationReference, 256) || !text(incident.IntegrityReference, 256), nil
 }
 
 func (s *Store) Read(ctx context.Context, credential, scope, reason, kind, k string, out any) error {

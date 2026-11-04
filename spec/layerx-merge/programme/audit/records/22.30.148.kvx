@@ -1,0 +1,2276 @@
+[audit.22.30.148]
+task = "22.30.148"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 283
+findings = 45
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["verifier-base-path", "health-error-contract"]
+requirements = ["22108.1", "20007.1", "22998.1", "14991.1"]
+interface_coverage = "Reviewed all 400 package-listed producer rows and 82 consumer rows against declarations and relevant callers. Repeated environment leaves were grouped by their settings/feature consumers; lexical matches to unrelated service settings or /metrics were not assumed to be actual dependencies."
+qualification_boundary = "This is a pre-upgrade source and contract audit. Requirement 20007.1 chain-page wiring was traced; this record makes no new frozen-install, dependency-disposition, yarn typecheck or application-suite pass claim for requirements 22108.1, 14991.1 or 22998.1."
+network_basis = "One paxd BFT network, root EVM chain id 125, embedded kernel and block-commit receipt finality; root public node RPC and tenant /chain/<id> paths are distinct from hosted px_ service contracts."
+
+[file.001]
+path = "apps/explorer/configs/app/apis.ts"
+lines = 247
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.002]
+path = "apps/explorer/configs/app/app.ts"
+lines = 36
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.003]
+path = "apps/explorer/configs/app/chain.ts"
+lines = 58
+verdict = "clean"
+note = "Reviewed URL-or-array parsing, chain/currency identity and verification labels against the startup schema and Paxeer validation preset. Decimal zero is refused by the declared schema; invalid schema values are not accepted deployments."
+
+[file.004]
+path = "apps/explorer/configs/app/features/account.ts"
+lines = 65
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.005]
+path = "apps/explorer/configs/app/features/address3rdPartyWidgets.ts"
+lines = 27
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.006]
+path = "apps/explorer/configs/app/features/addressMetadata.ts"
+lines = 23
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.007]
+path = "apps/explorer/configs/app/features/addressProfileAPI.ts"
+lines = 46
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.008]
+path = "apps/explorer/configs/app/features/addressVerification.ts"
+lines = 24
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.009]
+path = "apps/explorer/configs/app/features/adsBanner.ts"
+lines = 105
+verdict = "clean"
+note = "Reviewed primary/additional provider branches and AdButler readers. Startup adsSchema requires both valid device configurations when either provider selects AdButler, preventing the suspected null-config deployment."
+
+[file.010]
+path = "apps/explorer/configs/app/features/adsText.ts"
+lines = 48
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.011]
+path = "apps/explorer/configs/app/features/advancedFilter.ts"
+lines = 23
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.012]
+path = "apps/explorer/configs/app/features/apiDocs.ts"
+lines = 37
+verdict = "clean"
+note = "Reviewed tab filtering and metadata against the yup startup schema; malformed tab shapes are rejected by the configuration validator."
+
+[file.013]
+path = "apps/explorer/configs/app/features/beaconChain.ts"
+lines = 31
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.014]
+path = "apps/explorer/configs/app/features/blockchainInteraction.ts"
+lines = 68
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.015]
+path = "apps/explorer/configs/app/features/bridgedTokens.ts"
+lines = 27
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.016]
+path = "apps/explorer/configs/app/features/celo.ts"
+lines = 22
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.017]
+path = "apps/explorer/configs/app/features/crossChainTxs.ts"
+lines = 22
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.018]
+path = "apps/explorer/configs/app/features/csvExport.ts"
+lines = 23
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.019]
+path = "apps/explorer/configs/app/features/dataAvailability.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.020]
+path = "apps/explorer/configs/app/features/deFiDropdown.ts"
+lines = 25
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.021]
+path = "apps/explorer/configs/app/features/easterEggBadge.ts"
+lines = 24
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.022]
+path = "apps/explorer/configs/app/features/easterEggPuzzleBadge.ts"
+lines = 24
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.023]
+path = "apps/explorer/configs/app/features/externalTxs.ts"
+lines = 27
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.024]
+path = "apps/explorer/configs/app/features/faultProofSystem.ts"
+lines = 22
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.025]
+path = "apps/explorer/configs/app/features/flashblocks.ts"
+lines = 37
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.026]
+path = "apps/explorer/configs/app/features/gasTracker.ts"
+lines = 41
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.027]
+path = "apps/explorer/configs/app/features/getGasButton.ts"
+lines = 35
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.028]
+path = "apps/explorer/configs/app/features/googleAnalytics.ts"
+lines = 25
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.029]
+path = "apps/explorer/configs/app/features/growthBook.ts"
+lines = 25
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.030]
+path = "apps/explorer/configs/app/features/hotContracts.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.031]
+path = "apps/explorer/configs/app/features/index.ts"
+lines = 54
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.032]
+path = "apps/explorer/configs/app/features/marketplace.ts"
+lines = 92
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.033]
+path = "apps/explorer/configs/app/features/megaEth.ts"
+lines = 29
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.034]
+path = "apps/explorer/configs/app/features/metasuites.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.035]
+path = "apps/explorer/configs/app/features/mixpanel.ts"
+lines = 36
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.036]
+path = "apps/explorer/configs/app/features/mudFramework.ts"
+lines = 22
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.037]
+path = "apps/explorer/configs/app/features/multichain.ts"
+lines = 26
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.038]
+path = "apps/explorer/configs/app/features/multichainButton.ts"
+lines = 34
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.039]
+path = "apps/explorer/configs/app/features/nameServices.ts"
+lines = 30
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.040]
+path = "apps/explorer/configs/app/features/paxeerX.ts"
+lines = 12
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.041]
+path = "apps/explorer/configs/app/features/paxeerXFeed.ts"
+lines = 23
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.042]
+path = "apps/explorer/configs/app/features/paxeerXLists.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.043]
+path = "apps/explorer/configs/app/features/pools.ts"
+lines = 24
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.044]
+path = "apps/explorer/configs/app/features/publicTagsSubmission.ts"
+lines = 24
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.045]
+path = "apps/explorer/configs/app/features/rewards.ts"
+lines = 25
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.046]
+path = "apps/explorer/configs/app/features/rollbar.ts"
+lines = 43
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.047]
+path = "apps/explorer/configs/app/features/rollup.ts"
+lines = 75
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.048]
+path = "apps/explorer/configs/app/features/safe.ts"
+lines = 33
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.049]
+path = "apps/explorer/configs/app/features/sol2uml.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.050]
+path = "apps/explorer/configs/app/features/stats.ts"
+lines = 22
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.051]
+path = "apps/explorer/configs/app/features/suave.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.052]
+path = "apps/explorer/configs/app/features/tac.ts"
+lines = 25
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.053]
+path = "apps/explorer/configs/app/features/txInterpretation.ts"
+lines = 34
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.054]
+path = "apps/explorer/configs/app/features/types.ts"
+lines = 10
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.055]
+path = "apps/explorer/configs/app/features/userOps.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.056]
+path = "apps/explorer/configs/app/features/validators.ts"
+lines = 29
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.057]
+path = "apps/explorer/configs/app/features/verifiedTokens.ts"
+lines = 21
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.058]
+path = "apps/explorer/configs/app/features/web3Wallet.ts"
+lines = 44
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.059]
+path = "apps/explorer/configs/app/features/xStarScore.ts"
+lines = 23
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.060]
+path = "apps/explorer/configs/app/features/zetachain.ts"
+lines = 29
+verdict = "clean"
+note = "Full feature configuration reviewed against environment schema, feature gate, dependent API availability and consumer payload fields; no additional disagreement or retired network reference found."
+
+[file.061]
+path = "apps/explorer/configs/app/index.ts"
+lines = 19
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.062]
+path = "apps/explorer/configs/app/meta.ts"
+lines = 18
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.063]
+path = "apps/explorer/configs/app/services.ts"
+lines = 7
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.064]
+path = "apps/explorer/configs/app/ui.ts"
+lines = 112
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.065]
+path = "apps/explorer/configs/app/ui/views/address.ts"
+lines = 79
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.066]
+path = "apps/explorer/configs/app/ui/views/block.ts"
+lines = 26
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.067]
+path = "apps/explorer/configs/app/ui/views/index.ts"
+lines = 5
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.068]
+path = "apps/explorer/configs/app/ui/views/nft.ts"
+lines = 23
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.069]
+path = "apps/explorer/configs/app/ui/views/token.ts"
+lines = 7
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.070]
+path = "apps/explorer/configs/app/ui/views/tx.ts"
+lines = 42
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.071]
+path = "apps/explorer/configs/app/utils.spec.ts"
+lines = 47
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.072]
+path = "apps/explorer/configs/app/utils.ts"
+lines = 65
+verdict = "clean"
+note = "Reviewed environment/browser overrides, quote replacement, parsing and asset path construction against validator schemas and asset downloads. The deployment validators reject wrong-shaped configured values before startup."
+
+[file.073]
+path = "apps/explorer/configs/essential-dapps-chains/config.edge.ts"
+lines = 52
+verdict = "clean"
+note = "Reviewed complete edge asset loader, origin and cached load lifecycle plus marketplace CSP reader. Its MultichainConfig assertion is broader than the essential-dapps type, but no value transformation or required-field dereference in the traced reader makes valid essential configuration fail."
+
+[file.074]
+path = "apps/explorer/configs/essential-dapps-chains/config.nodejs.ts"
+lines = 43
+verdict = "clean"
+note = "Reviewed complete node asset read and cache lifecycle against the essential-dapps consumer and deployment asset. The reused MultichainConfig assertion does not alter emitted JSON; no concrete wire disagreement found in the traced readers."
+
+[file.075]
+path = "apps/explorer/configs/essential-dapps-chains/index.ts"
+lines = 18
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.076]
+path = "apps/explorer/configs/multichain/config.edge.ts"
+lines = 52
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.077]
+path = "apps/explorer/configs/multichain/config.nodejs.ts"
+lines = 43
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.078]
+path = "apps/explorer/configs/multichain/index.ts"
+lines = 19
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.079]
+path = "apps/explorer/configs/paxeer-x/footer.json"
+lines = 10
+verdict = "clean"
+note = "Full configuration file reviewed against its schema, deployment asset or environment reader and consuming module; no additional disagreement or retired network reference found."
+
+[file.080]
+path = "apps/explorer/pages/404.tsx"
+lines = 28
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.081]
+path = "apps/explorer/pages/_app.tsx"
+lines = 136
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.082]
+path = "apps/explorer/pages/_document.tsx"
+lines = 80
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.083]
+path = "apps/explorer/pages/_error.tsx"
+lines = 54
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.084]
+path = "apps/explorer/pages/account/api-key.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.085]
+path = "apps/explorer/pages/account/custom-abi.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.086]
+path = "apps/explorer/pages/account/merits.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.087]
+path = "apps/explorer/pages/account/tag-address.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.088]
+path = "apps/explorer/pages/account/verified-addresses.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.089]
+path = "apps/explorer/pages/account/watchlist.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.090]
+path = "apps/explorer/pages/accounts/index.tsx"
+lines = 27
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.091]
+path = "apps/explorer/pages/accounts/label/[slug].tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.092]
+path = "apps/explorer/pages/address/[hash]/contract-verification.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.093]
+path = "apps/explorer/pages/address/[hash]/index.tsx"
+lines = 48
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.094]
+path = "apps/explorer/pages/advanced-filter.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.095]
+path = "apps/explorer/pages/api-docs.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.096]
+path = "apps/explorer/pages/api/config.ts"
+lines = 15
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.097]
+path = "apps/explorer/pages/api/csrf.ts"
+lines = 30
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.098]
+path = "apps/explorer/pages/api/healthz.tsx"
+lines = 5
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.099]
+path = "apps/explorer/pages/api/log.ts"
+lines = 9
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.100]
+path = "apps/explorer/pages/api/metrics.ts"
+lines = 17
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.101]
+path = "apps/explorer/pages/api/monitoring/invalid-api-schema.ts"
+lines = 37
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.102]
+path = "apps/explorer/pages/api/proxy.ts"
+lines = 63
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.103]
+path = "apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts"
+lines = 69
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.104]
+path = "apps/explorer/pages/apps/[id].tsx"
+lines = 85
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.105]
+path = "apps/explorer/pages/apps/index.tsx"
+lines = 17
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.106]
+path = "apps/explorer/pages/auth/profile.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.107]
+path = "apps/explorer/pages/batches/[number].tsx"
+lines = 42
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.108]
+path = "apps/explorer/pages/batches/celestia/[height]/[commitment].tsx"
+lines = 36
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.109]
+path = "apps/explorer/pages/batches/index.tsx"
+lines = 40
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.110]
+path = "apps/explorer/pages/blobs/[hash].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.111]
+path = "apps/explorer/pages/block/[height_or_hash].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.112]
+path = "apps/explorer/pages/block/countdown/[height].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.113]
+path = "apps/explorer/pages/block/countdown/index.tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.114]
+path = "apps/explorer/pages/blocks.tsx"
+lines = 27
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.115]
+path = "apps/explorer/pages/cc/tx/[hash].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.116]
+path = "apps/explorer/pages/chain/[chain_slug]/accounts/label/[slug].tsx"
+lines = 23
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.117]
+path = "apps/explorer/pages/chain/[chain_slug]/advanced-filter/index.tsx"
+lines = 21
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.118]
+path = "apps/explorer/pages/chain/[chain_slug]/block/[height_or_hash].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.119]
+path = "apps/explorer/pages/chain/[chain_slug]/block/countdown/[height].tsx"
+lines = 24
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.120]
+path = "apps/explorer/pages/chain/[chain_slug]/block/countdown/index.tsx"
+lines = 24
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.121]
+path = "apps/explorer/pages/chain/[chain_slug]/csv-export/index.tsx"
+lines = 21
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.122]
+path = "apps/explorer/pages/chain/[chain_slug]/op/[hash].tsx"
+lines = 24
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.123]
+path = "apps/explorer/pages/chain/[chain_slug]/token/[hash]/index.tsx"
+lines = 23
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.124]
+path = "apps/explorer/pages/chain/[chain_slug]/token/[hash]/instance/[id].tsx"
+lines = 23
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.125]
+path = "apps/explorer/pages/chain/[chain_slug]/tx/[hash]/index.tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.126]
+path = "apps/explorer/pages/chain/[chain_slug]/visualize/sol2uml.tsx"
+lines = 21
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.127]
+path = "apps/explorer/pages/chains/[id].tsx"
+lines = 22
+verdict = "clean"
+note = "Reviewed complete id validation, router readiness, remount key and SSR guard, then traced ChainDetail summary/activity/RPC/add-to-wallet delegation for requirement 20007.1."
+
+[file.128]
+path = "apps/explorer/pages/chains/index.tsx"
+lines = 11
+verdict = "clean"
+note = "Reviewed full route and SSR gate; delegates the virtual-chain list to ui/paxeerX/chains/ChainsList with the Paxeer X lists guard, preserving namespace feature gating for requirement 20007.1."
+
+[file.129]
+path = "apps/explorer/pages/chakra.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.130]
+path = "apps/explorer/pages/contract-verification.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.131]
+path = "apps/explorer/pages/cross-chain-tx/[id].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.132]
+path = "apps/explorer/pages/csv-export.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.133]
+path = "apps/explorer/pages/deposits/index.tsx"
+lines = 49
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.134]
+path = "apps/explorer/pages/dispute-games/index.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.135]
+path = "apps/explorer/pages/ecosystems.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.136]
+path = "apps/explorer/pages/epochs/[number].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.137]
+path = "apps/explorer/pages/epochs/index.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.138]
+path = "apps/explorer/pages/essential-dapps/[id].tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.139]
+path = "apps/explorer/pages/feed/index.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.140]
+path = "apps/explorer/pages/feed/market/[id].tsx"
+lines = 24
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.141]
+path = "apps/explorer/pages/feed/update/[hash].tsx"
+lines = 24
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.142]
+path = "apps/explorer/pages/gas-tracker.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.143]
+path = "apps/explorer/pages/hot-contracts.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.144]
+path = "apps/explorer/pages/index.tsx"
+lines = 30
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.145]
+path = "apps/explorer/pages/internal-txs.tsx"
+lines = 27
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.146]
+path = "apps/explorer/pages/interop-messages.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.147]
+path = "apps/explorer/pages/login.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.148]
+path = "apps/explorer/pages/mud-worlds.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.149]
+path = "apps/explorer/pages/name-services/clusters/[name].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.150]
+path = "apps/explorer/pages/name-services/domains/[name].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.151]
+path = "apps/explorer/pages/name-services/index.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.152]
+path = "apps/explorer/pages/op/[hash].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.153]
+path = "apps/explorer/pages/operation/[id].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.154]
+path = "apps/explorer/pages/operations.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.155]
+path = "apps/explorer/pages/ops.tsx"
+lines = 27
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.156]
+path = "apps/explorer/pages/output-roots/index.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.157]
+path = "apps/explorer/pages/paxeer-x/account/[hash].tsx"
+lines = 23
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.158]
+path = "apps/explorer/pages/paxeer-x/anchors.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.159]
+path = "apps/explorer/pages/paxeer-x/receipts.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.160]
+path = "apps/explorer/pages/paxeer-x/receipts/[id].tsx"
+lines = 23
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.161]
+path = "apps/explorer/pages/pools/[hash].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.162]
+path = "apps/explorer/pages/pools/index.tsx"
+lines = 19
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.163]
+path = "apps/explorer/pages/public-tags/submit.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.164]
+path = "apps/explorer/pages/search-results.tsx"
+lines = 38
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.165]
+path = "apps/explorer/pages/sprite.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.166]
+path = "apps/explorer/pages/stats/[id].tsx"
+lines = 57
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.167]
+path = "apps/explorer/pages/stats/index.tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.168]
+path = "apps/explorer/pages/token-transfers.tsx"
+lines = 27
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.169]
+path = "apps/explorer/pages/token/[hash]/index.tsx"
+lines = 50
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.170]
+path = "apps/explorer/pages/token/[hash]/instance/[id].tsx"
+lines = 47
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.171]
+path = "apps/explorer/pages/tokens.tsx"
+lines = 27
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.172]
+path = "apps/explorer/pages/tx/[hash].tsx"
+lines = 22
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.173]
+path = "apps/explorer/pages/txn-withdrawals/index.tsx"
+lines = 28
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.174]
+path = "apps/explorer/pages/txs/index.tsx"
+lines = 36
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.175]
+path = "apps/explorer/pages/txs/kettle/[hash].tsx"
+lines = 20
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.176]
+path = "apps/explorer/pages/uptime.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.177]
+path = "apps/explorer/pages/validators/[id].tsx"
+lines = 30
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.178]
+path = "apps/explorer/pages/validators/index.tsx"
+lines = 37
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.179]
+path = "apps/explorer/pages/verified-contracts.tsx"
+lines = 27
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.180]
+path = "apps/explorer/pages/visualize/sol2uml.tsx"
+lines = 18
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.181]
+path = "apps/explorer/pages/withdrawals/index.tsx"
+lines = 49
+verdict = "clean"
+note = "Full route reviewed, including parameters, page delegation, server-side gate or API handler as applicable, against the registered explorer path and caller; no additional disagreement or retired network reference found."
+
+[file.182]
+path = "apps/explorer/ui/rewards/MeritsIcon.tsx"
+lines = 21
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.183]
+path = "apps/explorer/ui/rewards/RewardsActivityTracker.tsx"
+lines = 17
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.184]
+path = "apps/explorer/ui/rewards/RewardsButton.tsx"
+lines = 64
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.185]
+path = "apps/explorer/ui/rewards/RewardsReadOnlyInputWithCopy.tsx"
+lines = 29
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.186]
+path = "apps/explorer/ui/rewards/dashboard/DailyRewardClaimButton.tsx"
+lines = 92
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.187]
+path = "apps/explorer/ui/rewards/dashboard/RewardsActivityPassCard.tsx"
+lines = 91
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.188]
+path = "apps/explorer/ui/rewards/dashboard/RewardsDashboardCard.tsx"
+lines = 82
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.189]
+path = "apps/explorer/ui/rewards/dashboard/RewardsDashboardCardValue.tsx"
+lines = 53
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.190]
+path = "apps/explorer/ui/rewards/dashboard/RewardsDashboardInfoCard.tsx"
+lines = 54
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.191]
+path = "apps/explorer/ui/rewards/dashboard/RewardsInstancesModal.tsx"
+lines = 84
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.192]
+path = "apps/explorer/ui/rewards/dashboard/RewardsTaskDetailsModal.tsx"
+lines = 41
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.193]
+path = "apps/explorer/ui/rewards/dashboard/streakModal/BadgeCard.tsx"
+lines = 99
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.194]
+path = "apps/explorer/ui/rewards/dashboard/streakModal/ProgressSegment.tsx"
+lines = 61
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.195]
+path = "apps/explorer/ui/rewards/dashboard/streakModal/RewardsStreakModal.pw.tsx"
+lines = 33
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.196]
+path = "apps/explorer/ui/rewards/dashboard/streakModal/RewardsStreakModal.tsx"
+lines = 93
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.197]
+path = "apps/explorer/ui/rewards/dashboard/tabs/ActivityTab.tsx"
+lines = 381
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.198]
+path = "apps/explorer/ui/rewards/dashboard/tabs/ReferralsTab.tsx"
+lines = 51
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.199]
+path = "apps/explorer/ui/rewards/dashboard/tabs/ResourcesTab.tsx"
+lines = 45
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.200]
+path = "apps/explorer/ui/rewards/hooks/useStreakBadges.ts"
+lines = 55
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.201]
+path = "apps/explorer/ui/rewards/login/RewardsLoginModal.tsx"
+lines = 99
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.202]
+path = "apps/explorer/ui/rewards/login/steps/CongratsStepContent.tsx"
+lines = 146
+verdict = "clean"
+note = "Full rewards component or test reviewed against query types, enabled/authentication conditions, rendered values and mutation lifecycle; no additional disagreement or retired network reference found."
+
+[file.203]
+path = "apps/explorer/ui/rewards/login/steps/LoginStepContent.tsx"
+lines = 184
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.204]
+path = "services/explorer/backend/.formatter.exs"
+lines = 12
+verdict = "clean"
+note = "Full file reviewed against its package role and referenced interfaces; no additional disagreement or retired network reference identified."
+
+[file.205]
+path = "services/explorer/backend/apps/block_scout_web/API blueprint.md"
+lines = 2102
+verdict = "issues"
+note = "Generated legacy account-controller request/response examples were additionally read in full for documentation drift; the issue verdict records their obsolete public host and v1 API publication."
+
+[file.206]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/authenticate_controller_test.exs"
+lines = 736
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.207]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/api/v2/user_controller_test.exs"
+lines = 1167
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.208]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/account/custom_abi_controller_test.exs"
+lines = 196
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.209]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/query/address_test.exs"
+lines = 596
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.210]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/query/addresses_test.exs"
+lines = 185
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.211]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/query/block_test.exs"
+lines = 108
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.212]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/query/introspection_test.exs"
+lines = 125
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.213]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/query/node_test.exs"
+lines = 211
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.214]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/query/token_transfers_test.exs"
+lines = 327
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.215]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/query/transaction_test.exs"
+lines = 560
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.216]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/graphql/schema/subscription/token_transfers_test.exs"
+lines = 117
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.217]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address.ex"
+lines = 1141
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.218]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/coin_balance.ex"
+lines = 467
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.219]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/coin_balance_daily.ex"
+lines = 77
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.220]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/counters.ex"
+lines = 607
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.221]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/current_token_balance.ex"
+lines = 411
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.222]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/metadata_preloader.ex"
+lines = 363
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.223]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/name.ex"
+lines = 92
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.224]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/reputation.ex"
+lines = 48
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.225]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/scam_badge_to_address.ex"
+lines = 101
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.226]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/token.ex"
+lines = 120
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.227]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/token_balance.ex"
+lines = 174
+verdict = "clean"
+note = "Full schema/query implementation reviewed against address/hash/amount types, database association and import readers, cursor behavior and optional metadata boundaries; no additional disagreement identified."
+
+[file.228]
+path = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/account_abstraction.ex"
+lines = 221
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.229]
+path = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/bens.ex"
+lines = 320
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.230]
+path = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/metadata.ex"
+lines = 249
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.231]
+path = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/multichain_search.ex"
+lines = 1307
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.232]
+path = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/tac_operation_lifecycle.ex"
+lines = 77
+verdict = "clean"
+note = "Full microservice adapter reviewed against configured enablement, URL construction, request/response encodings, errors and consuming explorer call paths; no additional disagreement found."
+
+[file.233]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain_spec/genesis_data_test.exs"
+lines = 53
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.234]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain_spec/geth/importer_test.exs"
+lines = 157
+verdict = "clean"
+note = "Reviewed complete test logic, assertions and the embedded opaque all-hex bytecode fixtures as data. Geth account/storage/genesis field encodings agree with the importer contract; no fixture or assertion was changed."
+
+[file.235]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain_spec/parity/importer_test.exs"
+lines = 193
+verdict = "clean"
+note = "Full test file, fixture shapes and assertions reviewed against the real router, controller, schema or genesis importer; no additional producer-shape disagreement identified. Static review does not claim execution of this suite."
+
+[file.236]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/coin_balance.ex"
+lines = 234
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.237]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/contract_code.ex"
+lines = 219
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.238]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/contract_creator.ex"
+lines = 251
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.239]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/first_trace.ex"
+lines = 82
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.240]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/internal_transaction.ex"
+lines = 735
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.241]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/neon_solana_transactions.ex"
+lines = 84
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.242]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/nft_collection_metadata_refetch.ex"
+lines = 42
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.243]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/token_balance.ex"
+lines = 323
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.244]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/token_instance_metadata_refetch.ex"
+lines = 132
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.245]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/token_total_supply.ex"
+lines = 67
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.246]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/batch.ex"
+lines = 828
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.247]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/bridge.ex"
+lines = 330
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.248]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/bridge_l1.ex"
+lines = 202
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.249]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/bridge_l2.ex"
+lines = 155
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.250]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/helper.ex"
+lines = 14
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.251]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/l1_fee_param.ex"
+lines = 355
+verdict = "clean"
+note = "Full fetcher reviewed against consumed runtime keys, RPC/HTTP shapes, task scheduling, imports and retry/reorg lifecycle where applicable; no additional disagreement found."
+
+[file.252]
+path = "services/explorer/services/libs/blockscout-service-launcher/Cargo.toml"
+lines = 133
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.253]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/database.rs"
+lines = 504
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.254]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/launcher/launch.rs"
+lines = 194
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.255]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/launcher/metrics.rs"
+lines = 62
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.256]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/launcher/mod.rs"
+lines = 11
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.257]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/launcher/router.rs"
+lines = 27
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.258]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/launcher/settings.rs"
+lines = 184
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.259]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/launcher/shutdown.rs"
+lines = 137
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.260]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/launcher/span_builder.rs"
+lines = 100
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.261]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/lib.rs"
+lines = 14
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.262]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/test_database.rs"
+lines = 239
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.263]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/test_server.rs"
+lines = 171
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.264]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/tracing/init.rs"
+lines = 99
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.265]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/tracing/mod.rs"
+lines = 8
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.266]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/tracing/request_id_layer.rs"
+lines = 275
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.267]
+path = "services/explorer/services/libs/blockscout-service-launcher/src/tracing/settings.rs"
+lines = 42
+verdict = "clean"
+note = "Full launcher source or manifest reviewed against shared settings, HTTP/gRPC mounting, database and tracing dependencies, task shutdown and included tests as applicable; no additional disagreement found."
+
+[file.268]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/Cargo.toml"
+lines = 48
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.269]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs"
+lines = 61
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.270]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v1/api_config_http.yaml"
+lines = 26
+verdict = "clean"
+note = "Reviewed historical v1 route declarations. build.rs compiles only v2, and src/lib.rs exposes v2; these v1 source definitions are archival inputs, not an active merged-network RPC route or a claim that v1 is served."
+
+[file.271]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v1/health.proto"
+lines = 64
+verdict = "clean"
+note = "Reviewed the historical v1 health declaration as archival proto source; only v2 is compiled and served by this crate."
+
+[file.272]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v1/smart-contract-verifier.proto"
+lines = 141
+verdict = "clean"
+note = "Reviewed all historical v1 message and service definitions; current build and public module use v2, so no active v1 consumer was inferred."
+
+[file.273]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/api_config_http.yaml"
+lines = 67
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.274]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/health.proto"
+lines = 63
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.275]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/smart-contract-verifier.proto"
+lines = 383
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.276]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/zksync-solidity.proto"
+lines = 80
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.277]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs"
+lines = 201
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[file.278]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/config.rs"
+lines = 63
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.279]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/mock.rs"
+lines = 120
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.280]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/mod.rs"
+lines = 34
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.281]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/lib.rs"
+lines = 27
+verdict = "clean"
+note = "Full verifier source, proto or manifest reviewed against v2 message fields, HTTP mapping, code generation and client/server consumers; no additional disagreement found beyond the linked findings elsewhere in this record."
+
+[file.282]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/swagger/v2/smart-contract-verifier.swagger.yaml"
+lines = 891
+verdict = "generated"
+note = "Generated OpenAPI output of build.rs/protoc --openapiv2_out=swagger/v2 and proto/v2/api_config_http.yaml. Classified as generated; authoritative message/route sources and actual client/server paths were reviewed separately."
+
+[file.283]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/http_client.rs"
+lines = 194
+verdict = "issues"
+note = "Full file reviewed; concrete disagreements and owning repair proposals are recorded in the finding blocks naming this path."
+
+[finding.proxy-upstream-trust]
+file = "apps/explorer/pages/api/proxy.ts"
+line = 23
+class = "security"
+severity = "medium"
+observed = "When NEXT_PUBLIC_USE_NEXT_JS_PROXY is enabled, x-endpoint supplied by the requester selects any URL origin. nextjs/utils/fetchProxy.ts forwards the recognised account cookies, authorization and CSRF headers to that origin and node-fetch follows redirects; middleware does not restrict API destinations."
+expected = "The explorer account proxy must send authenticated traffic only to the configured explorer services and approved tenant backends. A public request must not select arbitrary internal or external destinations."
+proposal = "In apps/explorer/pages/api/proxy.ts and nextjs/utils/fetchProxy.ts, resolve a server-owned upstream identifier against an allowlist, reject arbitrary origins and unsafe redirect destinations, and exercise account-cookie forwarding against both approved and refused hosts."
+owner_domain = 14
+interface = "14.cfg-fe-apis-general"
+
+[finding.nft-media-outbound-trust]
+file = "apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts"
+line = 38
+class = "security"
+severity = "medium"
+observed = "tokenInstanceMediaTypeHandler issues a server-side HEAD to apiData.image_url or animation_url, including redirects. NFT metadata controls those URLs; the ten-second abort bounds time but does not reject loopback, link-local or private destinations."
+expected = "Viewing an untrusted token instance must not let its metadata make the explorer contact private services or cloud metadata endpoints. The same destination policy must apply after redirects and DNS resolution."
+proposal = "Add a shared outbound-media policy in apps/explorer/nextjs/utils and apply it in this handler: permit HTTP(S), validate resolved addresses and each redirect destination, bound redirects and response work, and cover a token metadata URL that resolves to an internal address."
+owner_domain = 14
+interface = "14.cfg-fe-apis-general"
+
+[finding.schema-metric-cardinality]
+file = "apps/explorer/pages/api/monitoring/invalid-api-schema.ts"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "The public invalid-api-schema handler validates resource but passes the entire caller-supplied URL to invalidApiSchema.inc as a Prometheus label. Distinct paths and query strings create an unbounded number of in-process time series when metrics are enabled."
+expected = "A client schema-report endpoint must keep metric label sets bounded, so arbitrary browser reports cannot exhaust explorer memory or make metrics collection fail."
+proposal = "In apps/explorer/pages/api/monitoring/invalid-api-schema.ts, label counters with the known resource and a finite error category; retain any sanitised URL in bounded diagnostic logging, and verify that many distinct URL queries do not create new series."
+owner_domain = 14
+
+[finding.marketplace-preview-relative-url]
+file = "apps/explorer/pages/apps/[id].tsx"
+line = 59
+class = "wiring-gap"
+severity = "medium"
+observed = "The social-preview branch passes feature.configUrl directly to node-fetch. configs/app/features/marketplace.ts obtains that value through getExternalAssetFilePath, which returns /explorer/assets/configs/marketplace_config.json. node-fetch requires an absolute URL; the catch hides the failure and publishes null app metadata."
+expected = "When a configured marketplace app is shared, its server-rendered social preview must read the same downloaded app catalogue as the browser and include the selected app title."
+proposal = "In apps/explorer/pages/apps/[id].tsx, resolve the generated asset path against the trusted application origin or read the deployed asset through the existing server asset loader; cover a social-preview request using a configured catalogue and a real app id."
+owner_domain = 14
+interface = "14.cfg-fe-feature-marketplace"
+
+[finding.empty-rewards-activity]
+file = "apps/explorer/ui/rewards/dashboard/tabs/ActivityTab.tsx"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "ActivityTab checks only that activityQuery.data exists, then reads data.items[0].date and end_date. An empty items array produces an undefined item and throws during render, even though the remaining activity calculations already tolerate absent activity entries."
+expected = "An authenticated user with no activity for the current period must see an empty activity dashboard instead of a rendering failure. A list response does not by itself promise a first element."
+proposal = "In apps/explorer/ui/rewards/dashboard/tabs/ActivityTab.tsx, handle an empty items array before deriving the period, display the intended empty-period state, and cover a successful response containing items: [] and last_week: []."
+owner_domain = 14
+interface = "14.cfg-fe-feature-rewards"
+
+[finding.wallet-address-case]
+file = "apps/explorer/ui/rewards/login/steps/LoginStepContent.tsx"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "isAddressMismatch compares profileQuery.data.address_hash and the connected wallet address with case-sensitive string inequality and disables Continue. Account.API.V2.UserView emits identity.address_hash unchanged; Identity.address_hash_from_auth passes dynamic and keycloak raw address strings through, so a lowercase provider address and checksum wallet address can identify the same account yet be refused."
+expected = "Wallet login must compare the underlying EVM address while still rejecting a different address. Authentication providers and wallet connectors may use different valid hexadecimal casing for the same 20 bytes."
+proposal = "In apps/explorer/ui/rewards/login/steps/LoginStepContent.tsx, validate and compare canonical EVM address bytes or use the established address-equality helper. Cover a lowercase provider profile and checksum connector address as equal, plus a genuinely different wallet as refused."
+owner_domain = 14
+interface = "14.cfg-fe-feature-rewards"
+
+[finding.badge-cache-mutation]
+file = "apps/explorer/ui/rewards/hooks/useStreakBadges.ts"
+line = 20
+class = "runtime-risk"
+severity = "low"
+observed = "The React Query select callback calls data.items.sort before slicing. Array.sort mutates the shared fetched response, so another observer of rewards:user_badges can receive an order changed by this observer rather than the cached producer order."
+expected = "A view-specific selection of the next three streak badges should leave the shared API response intact for other badge consumers."
+proposal = "In apps/explorer/ui/rewards/hooks/useStreakBadges.ts, sort a copied items array or use toSorted, and demonstrate that selecting streak badges leaves the original response order unchanged."
+owner_domain = 14
+interface = "14.cfg-fe-feature-rewards"
+
+[finding.scam-badge-batch-recovery]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/scam_badge_to_address.ex"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "safe_add retries after a foreign-key violation only when Address.create_multiple returns a one-element returned row list, through the pattern {_number_of_inserted_addresses, [_term]}. A batch creating two or more previously unseen addresses leaves their scam mappings absent and returns {0, []}. A concurrent insertion yielding no new rows also skips the retry."
+expected = "Assigning scam badges to a valid batch must attach the badge to every address after creating missing address rows, independently of how many rows were missing or concurrently inserted."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/address/scam_badge_to_address.ex, handle the documented insert_all count/list result without requiring one returned row, bound the retry, and cover multiple missing addresses plus concurrent address creation."
+owner_domain = 14
+
+[finding.token-pagination-order]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/token.ex"
+line = 63
+class = "runtime-risk"
+severity = "medium"
+observed = "order uses type DESC and case-sensitive name ASC NULLS LAST, whereas page_tokens filters on LOWER(name) and uses inserted_at as a tie-breaker that order never includes. Mixed-case names and equal names can be omitted or repeated between cursor pages."
+expected = "The address token list must use one deterministic total ordering for SQL results and cursor continuation, including equal names and null names."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/address/token.ex and the cursor-building caller, define matching order and continuation keys, including a unique contract-address tie-breaker. Cover mixed-case, equal and null token names across multiple pages."
+owner_domain = 14
+
+[finding.created-contract-metadata]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/address/metadata_preloader.ex"
+line = 163
+class = "wiring-gap"
+severity = "medium"
+observed = "item_to_address_hash_strings for InternalTransaction extracts only to_address_hash and from_address_hash. put_meta_to_item later attempts to populate created_contract_address using created_contract_address_hash, which was never requested unless another item happened to include it."
+expected = "A contract-creation internal transaction must receive the same ENS and address-tag enrichment for its created contract as other displayed addresses."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/address/metadata_preloader.ex, include non-null created_contract_address_hash in internal-transaction address collection and cover creation with nil to_address_hash and a metadata-bearing created address."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-metadata"
+
+[finding.account-abstraction-invalid-json]
+file = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/account_abstraction.ex"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "http_get_request matches {:ok, response_json} = Jason.decode(body) for 200/404 and again for other HTTP responses at line 159. A proxy HTML 404/502 or malformed upstream body raises MatchError instead of returning the status/body tuple expected by the explorer controller."
+expected = "A failed or malformed account-abstraction upstream response must become a bounded typed unavailable response while the explorer remains able to render other chain data."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/account_abstraction.ex, explicitly handle JSON decode failure in every status branch, preserve a safe status/error category, and cover malformed success and proxy-error bodies through an actual controller request."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-accountabstraction"
+
+[finding.tag-metadata-decode]
+file = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/metadata.ex"
+line = 208
+class = "runtime-risk"
+severity = "medium"
+observed = "decode_meta_in_tag uses Jason.decode! on every tag meta string. One malformed nested tag payload raises through the metadata preload and prevents the entire address or transaction response, despite a valid outer JSON response."
+expected = "Optional third-party address metadata must be validated at its boundary; a malformed tag must produce a visible metadata error or omit that invalid annotation without taking down the core explorer response."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/metadata.ex, decode nested meta with explicit error handling and shape validation, report the upstream defect, and cover valid outer JSON containing one invalid tag meta value."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-metadata"
+
+[finding.bens-test-route-divergence]
+file = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/bens.ex"
+line = 160
+class = "test-gap"
+severity = "medium"
+observed = "batch_resolve_name_url selects :batch_resolve or :batch_resolve_names in Mix.env() == :test, but production uses :batch-resolve or :batch-resolve-names. The Bypass workaround therefore changes the actual wire route under test and cannot establish that production path mapping agrees with the BENS service."
+expected = "BENS integration tests must exercise the production URL and body in both legacy chain-id and multiprotocol modes; a differently spelled test route is not evidence of the production transport."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/bens.ex and its integration tests, preserve the production URI in all environments and use a test HTTP listener that accepts it. Assert the emitted path, protocols and address payload against the service route."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-bens"
+
+[finding.export-mixed-error-reduction]
+file = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/multichain_search.ex"
+line = 107
+class = "restart-recovery"
+severity = "medium"
+observed = "batch_import accumulates {:error, data_to_retry} as a flat map containing addresses, hashes and balances. If a later async task exits, the {:error, error} branch instead reads error.data_to_retry.addresses and its peers, raising KeyError during a multi-chunk outage. Individual chunks have been queued by on_error, but reduction and caller acknowledgement fail."
+expected = "Partial multichain export failure must return one consistent retry shape and preserve idempotent durable retry processing even when HTTP errors and task exits occur in the same batch."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/multichain_search.ex, merge the flat accumulator consistently in the exit branch, retain the durable queues, and cover two failures in both orders through the database-backed exporter and restart."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+
+[finding.export-invalid-success-body]
+file = "services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/multichain_search.ex"
+line = 941
+class = "restart-recovery"
+severity = "medium"
+observed = "http_post_request returns Jason.decode(response_body) directly on HTTP 200. Invalid JSON becomes {:error, %Jason.DecodeError{}} without url or data_to_retry. on_error ignores that value and batch_import then reads its nonexistent data_to_retry field; fresh exports cannot reach the normal durable retry insertion."
+expected = "Every failed export, including an invalid successful HTTP body, must retain the original payload in the same typed error envelope so the database queues can resume it after restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/multichain_search.ex, wrap success-body decode failures with url, original body and a bounded decode reason, persist them through on_error, and cover malformed-200 retry and process restart."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+
+[finding.coin-refresh-acknowledges-error]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/coin_balance.ex"
+line = 126
+class = "restart-recovery"
+severity = "medium"
+observed = "CoinBalance.run logs a failed fetch_balances call and falls through to :ok. BufferedTask treats that as success, so historic and daily balance requests in that batch are dropped from the in-memory work list without retry; users may continue seeing missing historical balances until another trigger occurs."
+expected = "A transient node failure during an on-demand balance request must remain retryable with the original requested address and block, rather than being acknowledged as a successful refresh."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/coin_balance.ex, return the BufferedTask retry result with the original entries on fetch failure, retain bounded backoff, and cover a real fetch failure followed by a successful historical import."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-ondemand-coinbalance"
+
+[finding.creator-pending-key-shape]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/contract_creator.ex"
+line = 87
+class = "runtime-risk"
+severity = "medium"
+observed = "pending_blocks contains maps with block_number and address_hash_string, but Enum.member? compares those maps with an integer contract_creation_block_number, so the deduplication always misses. The address cache stores :in_progress while trigger_fetch compares it with a block_number; repeated requests can enqueue duplicate searches and grow pending work before import."
+expected = "Repeated requests for the same unresolved contract must share one outstanding creator lookup and one pending import, while allowing independent contracts in the same creation block to complete."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/contract_creator.ex, give address lookup state an explicit lifecycle, deduplicate by the intended address/block key and compare map fields correctly. Cover repeated requests before import and multiple contracts created in one block."
+owner_domain = 14
+
+[finding.internal-trace-page-count]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/internal_transaction.ex"
+line = 297
+class = "runtime-risk"
+severity = "medium"
+observed = "do_fetch_for_address counts all non-parent traces returned for selected blocks before fetch_by_address applies filter_by_address and page_internal_transaction. On a cursor page whose first block has many unrelated traces or traces before the cursor, this count can reach limit while the requested address has too few remaining items, preventing a refill from older blocks."
+expected = "Address internal-transaction pagination must count the requested address and cursor-visible transactions when deciding whether another block range is needed."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/internal_transaction.ex, apply address, direction and cursor eligibility to the refill count or base refill on the filtered page; cover a busy cursor block containing unrelated traces and additional matching older blocks."
+owner_domain = 14
+
+[finding.balance-notification-address-key]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/token_balance.ex"
+line = 266
+class = "runtime-risk"
+severity = "medium"
+observed = "prepare_fetch_requests accepts multiple address_hashes, but ctb_to_key uses only token contract, token_type and token_id. Old balances for different holders overwrite each other in balances_map. filter_imported_ctbs can suppress a changed balance or broadcast an unchanged one by comparing a holder with another holder's old value."
+expected = "On-demand token refresh notifications must compare each imported holder/token/id balance with that same holder's previous balance."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/token_balance.ex, include address_hash in ctb_to_key consistently for preparation and filtering; cover two holders of one token where one new value equals the other holder's previous value."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-ondemand-tokenbalance"
+
+[finding.erc404-current-balance-kind]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/token_balance.ex"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "prepare_ctb_params sends every current balance except ERC-1155 to the fungible request list, including ERC-404 with a token_id. BalanceReader.get_balances_of_all uses balanceOf(address) for that list and balanceOf(address,uint256) for the NFT list. The historic branch at lines 176-180 already sends ERC-404 token ids to the NFT list."
+expected = "Current and historical refreshes of the same ERC-404 token id must select the same token-id-specific balance operation and must not store a holder's fungible aggregate as an individual token-id balance."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand/token_balance.ex, share token-kind classification between current and historical requests and route ERC-404 with token_id to the NFT operation. Cover both ERC-404 aggregate and id-specific balances through BalanceReader."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-ondemand-tokenbalance"
+
+[finding.scroll-unbundled-reorg]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/batch.ex"
+line = 806
+class = "restart-recovery"
+severity = "medium"
+observed = "reorg_handle selects bundle_id from batches committed after the L1 reorg and deletes by bundle_id IN that list. A committed but unfinalized batch has a null bundle_id; SQL IN (NULL) does not match it, so orphaned committed batches survive the rewind and remain available to Scroll explorer queries."
+expected = "When the optional Scroll indexer is enabled, every batch whose commit was removed by an L1 reorg must be removed or rebuilt, including batches not yet assigned to a finalized bundle."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/batch.ex, explicitly remove batches at or above the reorg commit height as well as affected bundle members in one transaction. Cover reorg before finalization and verify the rebuilt batch and bundle links."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-scroll-batch"
+
+[finding.scroll-l1-relay-reorg]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/bridge_l1.ex"
+line = 172
+class = "restart-recovery"
+severity = "medium"
+observed = "BridgeL1.reorg_handle deletes only deposits initiated in reorged L1 blocks. Bridge.prepare_events also stores L1 RelayedMessage hashes on withdrawal rows, but those relay block numbers are discarded; a reorg can leave a withdrawal carrying an orphaned l1_transaction_hash and still appearing completed."
+expected = "The optional Scroll bridge must reverse completion evidence when the destination-layer relay is reorged, as well as removing initiation events that were reorged."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/bridge.ex and bridge_l1.ex plus Explorer.Chain.Scroll.Bridge storage, retain relay block provenance and clear reorged withdrawal completion hashes before replay. Cover an L1 withdrawal relay disappearing and later being relayed again."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-scroll-bridgel1"
+
+[finding.scroll-l2-relay-reorg]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/bridge_l2.ex"
+line = 145
+class = "restart-recovery"
+severity = "medium"
+observed = "BridgeL2.reorg_handle deletes only withdrawals initiated in reorged L2 blocks. L2 RelayedMessage adds l2_transaction_hash to deposit rows without retaining its block number, so a reorged deposit relay is not cleared by this rewind or its queued replay."
+expected = "The optional Scroll deposit view must derive completion from canonical L2 relay evidence and recover when that evidence is removed by a destination-layer reorg."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll/bridge.ex and bridge_l2.ex plus bridge storage, persist relay block provenance and clear affected deposit completion fields before replay. Cover a deposit relay reorg followed by restart and successful canonical replay."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-scroll-bridgel2"
+
+[finding.postgres-component-encoding]
+file = "services/explorer/services/libs/blockscout-service-launcher/src/database.rs"
+line = 338
+class = "config-drift"
+severity = "medium"
+observed = "DatabaseKvConnection.url interpolates user, password and dbname directly into postgresql://user:password@host:port/dbname. Valid component values containing #, /, ? or reserved delimiters are interpreted as URL structure rather than credentials or a database name, causing connection failures or selection of a different URL component."
+expected = "Structured database settings must preserve the exact configured credentials and database identity when converted to the URL consumed by SeaORM."
+proposal = "In services/explorer/services/libs/blockscout-service-launcher/src/database.rs, construct the connection URL with component-aware setters or the driver's structured options, preserving query options separately. Cover reserved characters in credentials and database names against a real PostgreSQL connection."
+owner_domain = 14
+
+[finding.test-database-utf8-prefix]
+file = "services/explorer/services/libs/blockscout-service-launcher/src/test_database.rs"
+line = 142
+class = "runtime-risk"
+severity = "low"
+observed = "preprocess_database_name truncates a potentially non-ASCII test prefix with &name[..MAX_DATABASE_NAME_LEN - HASH_SUFFIX_STRING_LEN - 1]. If that byte offset splits a UTF-8 character, Rust panics before creating the isolated test database."
+expected = "Valid Unicode test names and source paths should either produce a valid bounded database name or a clear validation error, without panicking at an arbitrary byte boundary."
+proposal = "In services/explorer/services/libs/blockscout-service-launcher/src/test_database.rs, choose the greatest valid UTF-8 boundary within the byte budget or encode a safe ASCII prefix before adding the hash. Cover long multibyte names whose boundary falls inside a code point."
+owner_domain = 14
+
+[finding.verifier-base-path]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs"
+line = 46
+class = "interface-mismatch"
+severity = "high"
+observed = "Client.build_url_with_query clones the configured URL and calls set_path with an absolute method path. For a server using server.http.base_path=/verifier, configure_router mounts /verifier/api/v2/... and /verifier/health, but Config::new(http://host/verifier) sends /api/v2/... and /health, so the declared prefixed deployment cannot be used by this client."
+expected = "Registry 14.cfg-verifier-server-http-base-path declares the verifier HTTP prefix. The launcher mount, configured client base URL, verification routes and initial health probe must agree so verification requests round-trip at both root and non-root mounts."
+proposal = "In services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs, preserve a validated base path when appending method paths; retain launcher mounting semantics. Add real HTTP transport coverage using a launcher-mounted /verifier server for health, verification and compiler-version calls."
+owner_domain = 14
+interface = "14.cfg-verifier-server-http-base-path"
+
+[finding.verifier-request-deadline]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs"
+line = 18
+class = "runtime-risk"
+severity = "medium"
+observed = "Client::new builds reqwest::Client::new with no total request timeout. HTTP sends and response-body JSON decoding await that client directly; an upstream that accepts a connection and stalls can indefinitely retain a verification request or the optional startup health probe. Retry count alone does not bound a single attempt."
+expected = "Explorer contract-verification requests and startup probes must have finite request and body deadlines and return a usable upstream-timeout error when the verifier stalls."
+proposal = "In services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/config.rs and client.rs, expose and validate request/connect deadlines and use them in the reqwest builder. Cover an actual HTTP server that accepts a request but never completes its response."
+owner_domain = 14
+
+[finding.health-error-contract]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/health.proto"
+line = 43
+class = "interface-mismatch"
+severity = "high"
+observed = "Health.Check explicitly declares NOT_FOUND for an unknown requested service. The real services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs ignores HealthCheckRequest entirely and returns SERVING for every name, including a nonexistent service, over the generated gRPC and HTTP routes."
+expected = "Registry 14.grpcs-verifier-health-check must preserve its declared service-name and error semantics through the server and generated HTTP mapping; an unknown service must not be reported healthy."
+proposal = "In services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs, distinguish aggregate health from supported service names and return tonic NOT_FOUND for unknown names. Exercise known, empty and unknown names through real gRPC and generated HTTP paths and assert status-code mapping."
+owner_domain = 14
+interface = "14.grpcs-verifier-health-check"
+
+[finding.verifier-default-only-tests]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/http_client.rs"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "set_expectation compares every incoming request with Default::default and returns a default response; the tests assert only is_ok. They never establish round-trip preservation of populated source maps, compiler settings, bytecode strings, enums, optional fields, batch oneofs, prefixed mounts or typed errors, and there is no health-service case."
+expected = "Verifier transport coverage must exercise the actual protobuf-to-HTTP serialization with representative populated values and the declared failure cases. Empty fixtures cannot prove real verification payload agreement."
+proposal = "In services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/http_client.rs, add populated request and response equality checks through the generated HTTP server plus real service integration coverage for error codes, health and non-root mounting. Retain the existing default-value cases."
+owner_domain = 14
+interface = "14.grpcs-verifier-solidityverifier-verifymultipart"
+
+[finding.blueprint-account-api-version]
+file = "services/explorer/backend/apps/block_scout_web/API blueprint.md"
+line = 2
+class = "doc-drift"
+severity = "medium"
+observed = "The API blueprint advertises HOST http://blockscout.com/poa/core and account/v1 user, tags, watchlist, API-key and custom-ABI endpoints throughout lines 9-2102. The current AccountRouter mounts Account.API.V2 and the package registry declares account/v2 endpoints, so these generated examples send integrators to a different host and API generation."
+expected = "Published explorer account documentation must identify the deployed explorer origin and the supported account/v2 authentication, request and response contracts; legacy generated examples must be clearly identified as historical."
+proposal = "Regenerate services/explorer/backend/apps/block_scout_web/API blueprint.md from the current account/v2 route and controller tests, using a configurable explorer origin and current response schemas. Label or remove the historical v1 publication entry rather than presenting it as the current API."
+owner_domain = 14
+interface = "14.http-get-api-account-v2-user-info"
+
+[finding.frontend-contract-page-missing]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 576438
+class = "doc-drift"
+severity = "medium"
+observed = "The stable frontend configuration rows, including 14.cfg-fe-apis-general and 14.cfg-fe-essential-dapps-chains, link contracts/explorer-frontend-config.md and anchors, but that file is absent. The consumer lists therefore have no referenced prose contract for origin, optional features or downloaded asset shapes."
+expected = "Stable explorer frontend interfaces must have resolvable documentation describing the exact runtime configuration types, URL/base-path handling and supported defaults."
+proposal = "Create contracts/explorer-frontend-config.md in a domain-14 repair task, document the actual configs/app and essential-dapps/multichain readers and their schemas, and replace or verify every associated registry anchor."
+owner_domain = 14
+interface = "14.cfg-fe-apis-general"
+
+[finding.backend-contract-page-missing]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 575678
+class = "doc-drift"
+severity = "medium"
+observed = "The backend configuration rows such as 14.cfg-explorer-explorer-microserviceinterfaces-metadata reference contracts/explorer-config.md, which is absent. Their declared enabled/service_url and indexer settings have no linked lifecycle or error contract for backend consumers."
+expected = "Backend and indexer configuration interfaces must link a present contract with the consumed key names, accepted types, enablement rules and failure/recovery semantics."
+proposal = "Create contracts/explorer-config.md in the explorer domain, document backend runtime.exs configuration and actual microservice/indexer consumers, including retry and restart behavior, and make the registry anchors resolve."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-metadata"
+
+[finding.launcher-contract-page-missing]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 580188
+class = "doc-drift"
+severity = "medium"
+observed = "The verifier and signature-provider launcher settings link contracts/explorer-services-config.md, including server.http.base_path, but the contract page is absent. Operators cannot follow the registry to the service-prefix, CORS, timeout and HTTP/gRPC enablement requirements."
+expected = "The shared service launcher must have a resolvable deployment contract covering configuration precedence, transport settings, database inputs and non-root mounting."
+proposal = "Create contracts/explorer-services-config.md from services/explorer/services/libs/blockscout-service-launcher settings and deployed service readers, with exact environment separators and root/prefixed route examples; reconcile and verify the registry anchors."
+owner_domain = 14
+interface = "14.cfg-verifier-server-http-base-path"
+
+[finding.verifier-contract-page-missing]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 594786
+class = "doc-drift"
+severity = "medium"
+observed = "All verifier gRPC service rows reference contracts/verifier-http.md anchors such as grpc-health, but that page does not exist. The proto and HTTP mapping remain available, while the registry's promised transport/error/encoding contract is missing."
+expected = "Verifier consumers need a present contract that binds the v2 protobuf methods to their HTTP paths, JSON field encodings, response variants and gRPC-to-HTTP error semantics."
+proposal = "Create contracts/verifier-http.md in the explorer domain from proto/v2, api_config_http.yaml and the real service implementations; document bytecode and map encodings, health errors and base paths and ensure every referenced anchor exists."
+owner_domain = 14
+interface = "14.grpcs-verifier-health-check"
+
+[finding.readme-retired-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The repository overview describes layerxd as a separate running C17 daemon built from cmd/layerxd, with checkpoints settling on-chain; lines 79 and 181 retain the pre-merge/draft and standalone build narrative."
+expected = "The merged product is one paxd BFT network on chain 125 with the kernel embedded in the node and receipts final at committed block height; no separate layerxd service is part of the running topology."
+proposal = "Rewrite README.md network, build and development sections around the embedded kernel in paxd, current commands and root public RPC names. Identify any retained standalone tooling as historical or explicitly local tooling."
+owner_domain = 17
+
+[finding.unified-network-bridge-finality]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "UnifiedNetwork presents two networks connected by bridging, separately operated sequencer/layerxd components at line 11, and a staged receipt/anchor finality ladder at lines 198-206; line 212 treats the unified public endpoint as a future addition."
+expected = "The finished network has one consensus and execution lifecycle: paxd chain 125 proposes and commits the embedded kernel work, and a receipt is final when its block commits."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md architecture, custody and commitment sections for the merged node, distinguish any historical bridge examples, and document the root node RPC namespaces and tenant chain paths."
+owner_domain = 17
+
+[finding.site-beta-daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta cluster page describes the kernel node as a separately running layerxd daemon and its bring-up/custody profile as current operator practice; the site page includes layerxd --custody-profile at line 50 and the wiki equivalent at line 42."
+expected = "Operators must bring up the merged paxd BFT node and embedded kernel. Retired daemon custody profiles and standalone sequencing must not be presented as production topology."
+proposal = "Update docs/site/docs/operators/beta-cluster.md and its bring-up source references to the current merged paxd lifecycle, chain-125 genesis and block-commit receipt finality. Clearly scope any retained legacy harness instructions to their historical purpose."
+owner_domain = 8
+
+[finding.wiki-beta-daemon]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta cluster page describes the kernel node as a separately running layerxd daemon and its bring-up/custody profile as current operator practice; the site page includes layerxd --custody-profile at line 50 and the wiki equivalent at line 42."
+expected = "Operators must bring up the merged paxd BFT node and embedded kernel. Retired daemon custody profiles and standalone sequencing must not be presented as production topology."
+proposal = "Update docs/wiki/BetaCluster.md and its bring-up source references to the current merged paxd lifecycle, chain-125 genesis and block-commit receipt finality. Clearly scope any retained legacy harness instructions to their historical purpose."
+owner_domain = 8
+
+[finding.site-quickstart-rpc]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart tells clients to use public POST /rpc and GET /rpc/ws, repeats api-mainnet-beta.paxeer.network/rpc at lines 214-215 and 302, and describes gateway/sequencer receipt verification and /rpc wallet submission at lines 497-518 and 596-598."
+expected = "Public node JSON-RPC is at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network. Hosted px_ APIs have a separate declared gateway contract; the merged network has no unified /rpc or /rpc/ws surface."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md connection, funding, wallet and receipt examples against the root node RPC and committed-block finality; distinguish hosted px_ calls from node namespaces and preserve tenant /chain/<id> examples where appropriate."
+owner_domain = 8
+
+[finding.wiki-quickstart-rpc]
+file = "docs/wiki/Quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart tells clients to use public POST /rpc and GET /rpc/ws, repeats api-mainnet-beta.paxeer.network/rpc at lines 214-215 and 302, and describes gateway/sequencer receipt verification and /rpc wallet submission at lines 497-518 and 596-598."
+expected = "Public node JSON-RPC is at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network. Hosted px_ APIs have a separate declared gateway contract; the merged network has no unified /rpc or /rpc/ws surface."
+proposal = "Rewrite docs/wiki/Quickstart.md connection, funding, wallet and receipt examples against the root node RPC and committed-block finality; distinguish hosted px_ calls from node namespaces and preserve tenant /chain/<id> examples where appropriate."
+owner_domain = 8
+
+[finding.route-catalogue-retired-surface]
+file = "docs/system/routes.md"
+line = 908
+class = "doc-drift"
+severity = "medium"
+observed = "The generated route catalogue labels its platform inventory as router routes and still catalogs /rpc/evm/ws and separate sequencer-purpose services. It offers that catalogue without a merged-network retirement boundary, so route existence in the old sources reads as a current public contract."
+expected = "A route catalogue for the finished network must distinguish active root node RPC, hosted service paths and retired router/daemon routes; historical implementation routes are not public-network promises."
+proposal = "Update the source inventory/generator owning docs/system/routes.md, including tools/paxeer-x/route-catalogue.json where applicable, to classify retired routes and regenerate the page. Document active root node names and separate hosted px_ contracts."
+owner_domain = 8
+
+[finding.cli-retired-rpc-path]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc to end in /rpc and repeats the gateway /rpc contract at lines 131, 278 and 298, so an operator following it configures a retired network path."
+expected = "Public node RPC uses the root URL on the declared mainnet-beta node names, and hosted gateway operations must be identified by their own px_ contract rather than a unified LayerX /rpc surface."
+proposal = "Update docs/site/docs/platform/cli.md endpoint validation, wallet/token examples and transport descriptions to current root node RPC and explicitly named hosted operations, with tenant /chain/<id> paths when selecting virtual networks."
+owner_domain = 8
+
+[finding.cli-command-availability]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The page first lists shipped wallet/token commands with implementation citations, then says these command groups and their flags do not exist at lines 106-138; later sections again describe implemented wallet RPC behavior. Readers receive contradictory availability and credential guidance."
+expected = "The CLI reference must consistently identify which commands are shipped, their actual flags, refusals and endpoint contracts, and which historical examples are unsupported."
+proposal = "Reconcile docs/site/docs/platform/cli.md against tools/platform/cli/src/main.rs and its command modules, replace the obsolete unimplemented table with the actual command contract, and separate any genuinely planned functions by name."
+owner_domain = 8
+
+[finding.faucet-public-private-drift]
+file = "docs/site/docs/platform/faucet.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet page opens with a private-network-only restriction, but then calls the faucet a real-value mainnet-beta allocation service and advertises lx_requestFunds through a public gateway router. The two scopes and public funding instructions conflict."
+expected = "The retired public faucet must not reappear in mainnet instructions. Disposable/private funding and approved public custody-credit funding are distinct product flows with explicit contracts."
+proposal = "Rewrite docs/site/docs/platform/faucet.md to keep the faucet within private/disposable networks, remove retired public router/lx_requestFunds guidance, and link current custody-credit funding with its actual hosted authorization requirements."
+owner_domain = 8
+
+[finding.gateway-unified-endpoint-drift]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page calls api-mainnet-beta.paxeer.network the only unified router endpoint serving eth_*, lx_* and px_*, distinguishes sixteen EVM-only public RPC names, and advertises /rpc/schema and /rpc/ws. That conflates hosted ingress with the merged node interface."
+expected = "The finished network has root node RPC on api1-api14 and api-mainnet-beta with Geth client identity, no unified router path, and hosted px_ methods defined by services/platform/hosted/gateway/openrpc.json."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md public topology, transport/schema and example sections from the hosted openrpc.json contract; keep hosted authorization separate from root node namespaces and replace retired public route guidance."
+owner_domain = 8
+
+[doc.01]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Generated route inventory reviewed, including explorer forwarding and account/GraphQL routes. Lines 3-5, 31 and 908 retain router/sequencer topology and a retired RPC path; see route-catalogue-retired-surface."
+
+[doc.02]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Entire page reviewed. The separate layerxd node/custody-profile instructions at lines 3 and 50 describe the pre-merge deployment; see site-beta-daemon."
+
+[doc.03]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Entire page reviewed, including setup, funding, receipts and wallet submission. Public /rpc and /rpc/ws examples at 20, 167-168, 214-215, 302 and 596-598 conflict with the merged root RPC; see site-quickstart-rpc."
+
+[doc.04]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Entire page reviewed. Separate sequencer/daemon, bridge topology and anchor finality at lines 5, 11 and 198-212 conflict with one paxd network; see unified-network-bridge-finality."
+
+[doc.05]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Entire page reviewed. The layerxd node and custody-profile invocation at lines 3 and 42 require a merged-node rewrite; see wiki-beta-daemon."
+
+[doc.06]
+path = "docs/wiki/Quickstart.md"
+status = "stale"
+notes = "Entire page reviewed and compared with the site quickstart; differences are links/citations and local wording. The same public /rpc and /rpc/ws recipe remains at 167-168 and 214-215; see wiki-quickstart-rpc."
+
+[doc.07]
+path = "contracts/launchpad/README.md"
+status = "accurate"
+notes = "Reviewed all sections for the explorer-facing chain identity, token/pool interaction and fee/unit descriptions. Chain 125 and its EVM pool/address model agree with this slice; no additional explorer interface disagreement identified."
+
+[doc.08]
+path = "README.md"
+status = "stale"
+notes = "Entire page reviewed. Lines 47, 79 and 181 retain the separate daemon and pre-merge build narrative; see readme-retired-topology."
+
+[doc.09]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "accurate"
+notes = "Entire page reviewed. This page explicitly describes the private in-cluster hosted Paxeer boundary helper and chain-125 transport, rather than presenting it as the public RPC. That scope agrees with the explorer-facing network boundary."
+
+[doc.10]
+path = "docs/site/docs/platform/faucet.md"
+status = "misleading"
+notes = "Entire page reviewed. Its private-only opening conflicts with mainnet/public router faucet guidance at lines 13-29; see faucet-public-private-drift."
+
+[doc.11]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Entire page reviewed. Retired /rpc endpoint rules at lines 8, 131 and 278 and mutually contradictory shipped/unimplemented wallet commands at 106-138 need reconciliation; see both CLI findings."
+
+[doc.12]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Entire page reviewed. Lines 39-52 and 198-200 conflate hosted ingress, a unified router, node RPC and retired /rpc transports; see gateway-unified-endpoint-drift."
+
+[doc.13]
+path = "services/explorer/backend/apps/block_scout_web/API blueprint.md"
+status = "stale"
+notes = "Legacy generated controller examples reviewed throughout. HOST at line 2 and account/v1 examples at 9-2102 do not document the current account/v2 router; see blueprint-account-api-version."
+
+[doc.14]
+path = "contracts/explorer-frontend-config.md"
+status = "missing"
+notes = "The frontend configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+
+[doc.15]
+path = "contracts/explorer-config.md"
+status = "missing"
+notes = "The backend configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+
+[doc.16]
+path = "contracts/explorer-services-config.md"
+status = "missing"
+notes = "The shared launcher configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+
+[doc.17]
+path = "contracts/verifier-http.md"
+status = "missing"
+notes = "The verifier transport contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+
+[doc.18]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "misleading"
+notes = "Reviewed the package-listed produced and consumed rows against declarations and callers. Stable explorer registry contract links point to four missing pages; unrelated lexical caller matches were not treated as transport dependencies."

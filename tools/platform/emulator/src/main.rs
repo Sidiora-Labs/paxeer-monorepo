@@ -15,9 +15,7 @@ use std::thread;
 use std::time::Duration;
 
 use ed25519_dalek::SigningKey;
-use layerx_proof::receipt::{
-    verify as verify_receipt, verify_sequencer_signature, AuthorizedBatch,
-};
+use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::ids::Did;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -488,6 +486,7 @@ fn write_response(stream: &mut TcpStream, response: &Response) -> std::io::Resul
         404 => "Not Found",
         405 => "Method Not Allowed",
         409 => "Conflict",
+        410 => "Gone",
         413 => "Content Too Large",
         415 => "Unsupported Media Type",
         503 => "Service Unavailable",
@@ -495,88 +494,6 @@ fn write_response(stream: &mut TcpStream, response: &Response) -> std::io::Resul
     };
     write!(stream, "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n", response.status, reason, response.content_type, response.body.len())?;
     stream.write_all(&response.body)
-}
-
-fn settle(emulator: &Emulator, request: &Request, trace: u64) -> Response {
-    let media_type = request
-        .content_type
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim();
-    if media_type != "application/json" {
-        return refusal(
-            trace,
-            415,
-            "unsupported_media_type",
-            "settlement requests must carry application/json",
-        );
-    }
-    let claim = match settlement::claim(&request.body) {
-        Ok(claim) => claim,
-        Err(refused) => {
-            return refusal(
-                trace,
-                400,
-                refused.reason(),
-                "the settlement request is not the seller settlement contract",
-            )
-        }
-    };
-    let activity_id = hex_encode(&claim.activity_id());
-    let Some(retained) = emulator.receipts.get(&activity_id) else {
-        return success(
-            trace,
-            &settlement::refused("activity_not_settled").to_string(),
-        );
-    };
-    let Ok(canonical) = hex_decode(retained) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt is not canonical hexadecimal",
-        );
-    };
-    if canonical.as_slice() != claim.receipt() {
-        return success(
-            trace,
-            &settlement::refused("settlement_receipt_mismatch").to_string(),
-        );
-    }
-    let Ok(decoded) = layerx_wire::receipt::decode(&canonical) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt is not canonically encoded",
-        );
-    };
-    let Some(protocol) = decoded.protocol() else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt carries no protocol body",
-        );
-    };
-    let authorized = AuthorizedBatch::new(
-        protocol.batch_id(),
-        protocol.asset(),
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        emulator.signing_key.verifying_key().to_bytes(),
-    );
-    let Ok(verified) = verify_receipt(&canonical, &authorized) else {
-        return success(
-            trace,
-            &settlement::refused("receipt_verification_failed").to_string(),
-        );
-    };
-    success(
-        trace,
-        &settlement::settled(&claim, verified.canonical_bytes(), &authorized).to_string(),
-    )
 }
 
 fn inspect_state(emulator: &Emulator) -> Result<CoreState, i32> {
@@ -1540,7 +1457,12 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
         ("GET", "/healthz") => health(emulator, trace),
         ("GET", "/v1/sequencer") => sequencer_identity(emulator, trace),
         ("GET", "/v1/protocol/account-state/head") => current_head(emulator, trace),
-        ("POST", "/v1/settle") => settle(emulator, request, trace),
+        (_, "/v1/settle") => refusal(
+            trace,
+            410,
+            settlement::RETIRED_CODE,
+            settlement::RETIRED_DETAIL,
+        ),
         ("GET", "/v1/state") => inspect(emulator, trace),
         ("GET", path) if path.starts_with("/v1/dids/") && path.ends_with("/sequence") => {
             identity_sequence_read(emulator, path, trace)
@@ -1573,7 +1495,6 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
             _,
             "/v1/sequencer"
             | "/v1/protocol/account-state/head"
-            | "/v1/settle"
             | "/v1/state"
             | "/__emulator/accounts/prefund"
             | "/__emulator/time/set"

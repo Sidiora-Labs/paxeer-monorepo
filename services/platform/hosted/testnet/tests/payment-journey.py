@@ -17,13 +17,13 @@ from journey_common import JourneyRpc, RpcError, fixed, protected, write
 sys.path.insert(0, str(Path(__file__).resolve().parents[5] / "services/agent/sdk/python"))
 from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.evm_transaction import Type2Transaction, encode_call
-from layerx_sdk.verifier import _decode_protocol_receipt
 
 
 BANK = "0x0000000000000000000000000000000000001001"
 NATIVE_DENOM = "uhpx"
 NATIVE_SCALE = 10**12
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+EVM_CHAIN_ID = 125
 
 
 def quantity(value):
@@ -41,6 +41,8 @@ def hex_bytes(value, size=None):
 
 
 def verify_sequencer_receipt(receipt, sequencer, transaction_hash, source, nonce, value):
+    from layerx_sdk.verifier import _decode_protocol_receipt
+
     canonical = hex_bytes(receipt["receipt"])
     decoded, unsigned = _decode_protocol_receipt(canonical)
     Ed25519PublicKey.from_public_bytes(sequencer).verify(
@@ -116,7 +118,38 @@ def verify_sequencer_receipt(receipt, sequencer, transaction_hash, source, nonce
     return decoded
 
 
-def main():
+def write_payment_receipt(output, receipt):
+    write(output / "receipt.json", json.dumps({"result": receipt}, indent=2))
+
+
+def validate_evm_chain_id(evm_chain_id, rpc_chain_id):
+    assert type(evm_chain_id) is int and evm_chain_id == EVM_CHAIN_ID, (
+        "payment requires Paxeer EVM chain 125"
+    )
+    assert quantity(rpc_chain_id) == evm_chain_id, "gateway EVM chain ID mismatch"
+    return evm_chain_id
+
+
+def sign_payment(evm_chain_id, nonce, gas_price, gas, value, data, key, source):
+    assert type(evm_chain_id) is int and evm_chain_id == EVM_CHAIN_ID, (
+        "payment requires Paxeer EVM chain 125"
+    )
+    transaction = Type2Transaction(
+        evm_chain_id, nonce, 0, gas_price * 2, gas, hex_bytes(BANK, 20), value, data
+    )
+    digest = transaction.signing_digest()
+    r, s = utils.decode_dss_signature(
+        key.sign(digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))
+    )
+    s = min(s, SECP256K1_ORDER - s)
+    for recovery in (27, 28):
+        signature = r.to_bytes(32, "big") + s.to_bytes(32, "big") + bytes([recovery])
+        if transaction.recover_signer(signature).lower() == source:
+            return transaction.attach_signature(signature, source)
+    raise AssertionError("payment signer recovery failed")
+
+
+def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     for name in ["gateway", "did", "destination", "asset", "amount", "sequencer-key"]:
         parser.add_argument("--" + name, required=True)
@@ -124,9 +157,13 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--source-auth-config", type=Path)
     parser.add_argument("--destination-auth-config", type=Path)
-    parser.add_argument("--network-id", type=int, required=True)
-    args = parser.parse_args()
-    assert args.gateway.startswith("https://") and 0 < args.network_id < 2**32
+    parser.add_argument("--evm-chain-id", type=int, choices=[EVM_CHAIN_ID], required=True)
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_args()
+    assert args.gateway.startswith("https://")
     assert args.asset == NATIVE_DENOM, "native bank denomination required"
     assert args.did.startswith("did:layerx:") and args.destination.startswith("did:layerx:")
     public_key = fixed(args.did.removeprefix("did:layerx:"))
@@ -161,7 +198,9 @@ def main():
     protected(destination_auth)
     args.output.mkdir(mode=0o700, parents=True, exist_ok=True)
     client = JourneyRpc(args.gateway, args.ca, args.auth_config, args.output)
-    assert quantity(client.rpc("eth_chainId", [])) == args.network_id
+    evm_chain_id = validate_evm_chain_id(
+        args.evm_chain_id, client.rpc("eth_chainId", [])
+    )
     funding = []
     for did, public, auth in [
         (args.did, public_key, source_auth),
@@ -226,21 +265,9 @@ def main():
         "maxFeePerGas": hex(gas_price * 2),
         "maxPriorityFeePerGas": "0x0",
     }]))
-    transaction = Type2Transaction(
-        args.network_id, nonce, 0, gas_price * 2, gas, hex_bytes(BANK, 20), value, data
+    raw = sign_payment(
+        evm_chain_id, nonce, gas_price, gas, value, data, key, source
     )
-    digest = transaction.signing_digest()
-    r, s = utils.decode_dss_signature(
-        key.sign(digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))
-    )
-    s = min(s, SECP256K1_ORDER - s)
-    for recovery in (27, 28):
-        signature = r.to_bytes(32, "big") + s.to_bytes(32, "big") + bytes([recovery])
-        if transaction.recover_signer(signature).lower() == source:
-            raw = transaction.attach_signature(signature, source)
-            break
-    else:
-        raise AssertionError("payment signer recovery failed")
     write(args.output / "payment.raw", raw)
     raw_transaction = "0x" + raw.hex()
     transaction_hash = client.rpc("eth_sendRawTransaction", [raw_transaction])
@@ -293,7 +320,7 @@ def main():
     assert quantity(client.rpc("eth_getBalance", [destination, "latest"])) == destination_wei_after
     assert client.rpc("eth_getTransactionCount", [source, "latest"]) == nonce_after
     assert client.rpc("pax_sequencerReceipt", [transaction_hash]) == receipt
-    write(args.output / "receipt.json", json.dumps({"result": receipt}, indent=2))
+    write_payment_receipt(args.output, receipt)
     result = {
         "activity_id": transaction_hash,
         "funding": funding,

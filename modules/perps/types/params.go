@@ -1,8 +1,6 @@
 package types
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -162,7 +160,7 @@ func DefaultParams() Params {
 }
 
 func invalid(format string, args ...any) error {
-	return fmt.Errorf("%w: "+format, append([]any{ErrInvalidParams}, args...)...)
+	return ErrInvalidParams.Wrapf(format, args...)
 }
 
 func positive(value sdk.Int) bool { return !value.IsNil() && value.IsPositive() }
