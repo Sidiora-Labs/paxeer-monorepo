@@ -1,5 +1,5 @@
 //! Health listener of the sidecar: `/healthz`, `/readyz` within three
-//! cadences of the last accepted submission, and `/metrics` in the
+//! cadences of the last confirmed execution, and `/metrics` in the
 //! Prometheus text format.
 
 use std::collections::BTreeMap;
@@ -25,6 +25,8 @@ pub struct Metrics {
     last_accepted_height: u64,
     last_accepted_ms: u64,
     refused: bool,
+    pending_hash: String,
+    proposed_height: u64,
 }
 
 /// Locks the shared metrics; a panicked holder leaves plain counters behind.
@@ -49,20 +51,31 @@ impl Metrics {
             .insert(market.to_owned(), observed_at_ms);
     }
 
-    /// Counts one submission attempt. An accepted one at `target_height`
-    /// restarts the readiness window; a refused feed key or validator turns
-    /// the sidecar not ready until the next accepted one.
-    pub fn submission(&mut self, outcome: &Outcome, target_height: u64, now_ms: u64) {
+    /// Counts admission and execution separately. Only committed success refreshes readiness.
+    pub fn submission(&mut self, outcome: &Outcome, _target_height: u64, now_ms: u64) {
         *self.submissions.entry(outcome.label()).or_default() += 1;
         match outcome {
-            Outcome::Accepted { .. } => {
-                self.last_accepted_height = target_height;
-                self.last_accepted_ms = now_ms;
-                self.refused = false;
-            }
+            Outcome::Committed { height, .. } => self.confirmed(*height, now_ms),
             Outcome::NotValidator | Outcome::UnregisteredFeeder => self.refused = true,
             _ => {}
         }
+    }
+
+    pub fn confirmed(&mut self, height: u64, at_ms: u64) {
+        if height != 0 && (height, at_ms) != (self.last_accepted_height, self.last_accepted_ms) {
+            self.refused = false;
+        }
+        self.last_accepted_height = height;
+        self.last_accepted_ms = at_ms;
+    }
+
+    pub fn pending(&mut self, hash: &str, proposed_height: u64) {
+        self.pending_hash = hash.to_owned();
+        self.proposed_height = proposed_height;
+    }
+
+    pub fn clear_pending(&mut self) {
+        self.pending_hash.clear();
     }
 
     #[must_use]
@@ -104,6 +117,26 @@ impl Metrics {
             "price_sidecar_last_accepted_height {}",
             self.last_accepted_height
         );
+        let _ = writeln!(out, "# TYPE price_sidecar_confirmed_height gauge");
+        let _ = writeln!(
+            out,
+            "price_sidecar_confirmed_height {}",
+            self.last_accepted_height
+        );
+        let _ = writeln!(out, "# TYPE price_sidecar_proposed_target_height gauge");
+        let _ = writeln!(
+            out,
+            "price_sidecar_proposed_target_height {}",
+            self.proposed_height
+        );
+        let _ = writeln!(out, "# TYPE price_sidecar_pending_submission gauge");
+        if !self.pending_hash.is_empty() {
+            let _ = writeln!(
+                out,
+                "price_sidecar_pending_submission{{hash=\"{}\"}} 1",
+                self.pending_hash
+            );
+        }
         out
     }
 }
@@ -149,7 +182,8 @@ mod tests {
     const ACCEPTED: u64 = 1_700_000_000_000;
 
     fn accepted() -> Outcome {
-        Outcome::Accepted {
+        Outcome::Committed {
+            height: 812,
             hash: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08".to_owned(),
         }
     }
@@ -197,13 +231,18 @@ mod tests {
             "# TYPE price_sidecar_rounds_total counter\n\
              price_sidecar_rounds_total 1\n\
              # TYPE price_sidecar_submissions_total counter\n\
-             price_sidecar_submissions_total{result=\"accepted\"} 1\n\
+             price_sidecar_submissions_total{result=\"committed\"} 1\n\
              # TYPE price_sidecar_fetch_errors_total counter\n\
              price_sidecar_fetch_errors_total{market=\"BTC\",kind=\"stale\"} 1\n\
              # TYPE price_sidecar_market_age_ms gauge\n\
              price_sidecar_market_age_ms{market=\"ETH\"} 250\n\
              # TYPE price_sidecar_last_accepted_height gauge\n\
-             price_sidecar_last_accepted_height 812\n"
+             price_sidecar_last_accepted_height 812\n\
+             # TYPE price_sidecar_confirmed_height gauge\n\
+             price_sidecar_confirmed_height 812\n\
+             # TYPE price_sidecar_proposed_target_height gauge\n\
+             price_sidecar_proposed_target_height 0\n\
+             # TYPE price_sidecar_pending_submission gauge\n"
         );
         let response = respond(b"GET /metrics HTTP/1.1\r\n\r\n", &metrics, ACCEPTED, 1000);
         let body = metrics.metrics_text(ACCEPTED);

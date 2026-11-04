@@ -1,0 +1,24 @@
+[repair.22.33.1175]
+audit = "22.30.54"
+acceptance = "22998.1"
+baseline = "Not run: the explicit implementation-first gate order prohibits pre-change verification and permits verify_cmd only through hf-done; no baseline failure is claimed."
+evidence = "The runner hf-build/hf-done ledger and cg spec done record name the verified candidate revision, exact command, exit code and private evidence log."
+wiring_requests = []
+
+[finding.ascending-prune-dirty-map]
+tests = ["TestRepairM_1175_AscendingPruneDirtyMapRestart"]
+repair = "Preserve the restart-safe eligibility guard already supplied by task 22.33.1174: only a known last update below the completed pruning boundary may skip a store; unknown legacy histories must be scanned."
+proof = "Real ascending batches produce an unmarked database; stop/reopen without writes, two pruning boundaries and subsequent reopens verify exact physical versions and encoded values across two modules and both retention policies, with durable head/boundary and absent descending marker."
+
+[finding.metrics-proof-accepts-wrong-units]
+tests = ["TestRepairM_1175_MetricsProofAcceptsWrongUnits", "TestProofNodeMetrics"]
+repair = "Retain task 22.33.1174 producer fixes and correct totals; independently calculate encoded batch byte sizes and compare complete counter series before/after an unchanged production collection, including a reopened database under the continuing exporter."
+proof = "The task-filtered test executes the shared real database, sync/async writer, codec, restart, exporter and HTTP proof, preserving histogram buckets, per-level counters, stored histories, replay and rejected-input failure series."
+
+[qualification.repair-1]
+revision = "4b00616a4818ed394db933e154d2d4510ad6c569"
+command = "cg spec done 22.33.1175 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Legacy restart proof passed; the metrics comparison erroneously included advancing Go/process counters from the shared exporter, while all seven Pebble counters were unchanged."
+repair = "Assert presence, counter type and exact unchanged families for each of the seven production Pebble counters, keeping unrelated process telemetry outside the storage assertion."

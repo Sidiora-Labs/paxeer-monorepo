@@ -111,11 +111,7 @@ const AddressTokens = ({ shouldRender = true, isQueryEnabled = true, tokensCount
   );
 
   const nftItemsNum = nftDisplayType === 'list' ? nftsQuery.data?.items.length : collectionsQuery.data?.items.length;
-  const nftTitle = formatScanTableCount({
-    kind: 'total',
-    value: nftItemsNum ?? 0,
-    itemsName: nftDisplayType === 'list' ? 'NFTs' : 'collections',
-  });
+  const nftTitle = `${ (nftItemsNum ?? 0).toLocaleString() } visible ${ nftDisplayType === 'list' ? 'NFTs' : 'collections' }`;
 
   const nftActions = (
     <>

@@ -1534,7 +1534,7 @@ edge_read() {
 }
 
 edge_manifest() {
-	python3 "$repo_root/tools/bringup/edge-contract.py"
+	bringup_inspect edge-contract
 }
 
 # edge_probe <six manifest fields>: verify the actual public and upstream
@@ -1580,7 +1580,7 @@ edge_probe() {
 			echo "fail $name mode=rpc chain-id=invalid"
 			return 1
 		fi
-		members="$(python3 "$repo_root/tools/bringup/edge-contract.py" "$name" "$port" <<<"$edge_reply")" || return 1
+		members="$(bringup_inspect edge-contract "$name" "$port" <<<"$edge_reply")" || return 1
 		while read -r member; do
 			printf -v command 'curl -fsS --max-time %q -H %q --data %q %q' "$timeout" 'Content-Type: application/json' "$payload" "https://$member/"
 			direct="$(ssh_read "$EDGE_HOST" "$command")" || direct=""
@@ -1612,7 +1612,7 @@ check_ramp_edge() {
 	local ramp_name="$1" edge_reply manifest line name mode upstream port kind sni
 	edge_reply="$(edge_read)" || { echo "fail edge $ramp_name manifest=unreadable"; return 1; }
 	manifest="$(edge_manifest <<<"$edge_reply")" || { echo "fail edge $ramp_name manifest=invalid"; return 1; }
-	line="$(awk -v n="$ramp_name" '$1 == n && $2 == "http" && $4 == 443' <<<"$manifest")"
+	line="$(bringup_inspect edge-ramp "$ramp_name" <<<"$edge_reply")" || line=""
 	if [ -z "$line" ] || [ "$(wc -l <<<"$line")" != 1 ]; then
 		echo "fail edge $ramp_name route=absent-or-ambiguous"
 		return 1
@@ -2313,18 +2313,10 @@ sys.exit(0 if status == 1 and paid == amount else 1)
 	finish "$failures"
 }
 
-# check_internal: the internal app of services/platform/hosted/internal/fly.toml and
-# the internal Redis app of services/platform/hosted/internal/redis.toml hold no public
-# IP; the node's served chain at api-mainnet-beta.paxeer.network ends at
-# ISRG Root X1 or ISRG Root X2, reported as root=X1|X2; inside the payments
-# and programs machines the running layerx-event-source of that kind has the
-# node root as LAYERX_EVENTS_UPSTREAM_URL and as LAYERX_EVENTS_UPSTREAM_CA_DER a
-# self-signed root of that same name that verifies the served chain; from the
-# kernel machine of services/wallet/deploy/human.toml the five /readyz routes at
-# their <group>.process.<app>.internal names answer ready over mTLS with the
-# human-event-client identity tools/bringup/ca.sh left on the kernel volume.
-# CHECK_LIVE_ROUTER_CONNECT (host:port, default the node name on 443) is
-# where the served chain is read. One line per check.
+# check_internal resolves the Railway roles and their private domains, verifies
+# the payments/programs node-root pins, then probes every role from KERNEL_HOST
+# with the Human client retained there by ca.sh. Explicit private connect
+# targets preserve each deployed service's TLS name.
 # shellcheck disable=SC2016
 internal_pin_script='pid=
 for d in /proc/[0-9]*; do
@@ -2344,26 +2336,20 @@ fi
 env_of() { tr "\000" "\n" <"$pid/environ" | sed -n "s/^$1=//p" | head -n 1; }
 echo "@@url $(env_of LAYERX_EVENTS_UPSTREAM_URL)"
 echo "@@pin $(base64 <"$(env_of LAYERX_EVENTS_UPSTREAM_CA_DER)" 2>/dev/null | tr -d "\n")"'
-# shellcheck disable=SC2016
-internal_ready_script='for group in "$group"; do
-	status=0
-	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "${url}" ${connect:+--connect-to "$connect"} 2>&1) || status=$?
-	echo "@@$group $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
-done'
 # The kernel box must have the private route and DNS of the deployed service.
 # An explicit private connect target can override routing while preserving the
 # service URL's TLS identity. Never move the Human key to the target role.
 internal_probe() {
-	local app="$1" group="$2" variable target command
+	local app="$1" group="$2" command reply status=0 variable connect
 	variable="CHECK_LIVE_INTERNAL_CONNECT_${group^^}"
-	target="${!variable:-}"
-	if [ -n "$target" ] && ! [[ "$target" =~ ^[a-zA-Z0-9.:-]+:[0-9]+$ ]]; then
-		echo "check-live: $variable must be a private host:port" >&2
-		return 2
+	connect="${!variable:-}"
+	printf -v command '%q internal-readiness %q %q %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "https://$app.railway.internal:9443/readyz" "$tls_dir/human-event-client" "$connect"
+	reply="$(ssh_read "$KERNEL_HOST" "$command")" || status=$?
+	if [ "$status" -eq 0 ] && [ "$reply" = 'pass readiness http=200 ready=true identity=human-event-client' ]; then
+		echo "@@$group 0 200 {\"ready\":true}"
+	else
+		echo "@@$group $((status == 0 ? 1 : status)) 000 refused"
 	fi
-	[ -z "$target" ] || target="$app.railway.internal:9443:$target"
-	printf -v command 'tls=%q app=%q group=%q limit=%q url=%q connect=%q sh -c %q' "$tls_dir/human-event-client" "$app" "$group" "$timeout" "https://$app.railway.internal:9443/readyz" "$target" "$internal_ready_script"
-	ssh_read "$KERNEL_HOST" "$command"
 }
 
 check_internal() {
@@ -3580,157 +3566,24 @@ check_search() {
 # program_registry ready. CHECK_LIVE_ROUTER_URL must name the hosted gateway
 # origin for the full check. One line per check.
 check_registry() {
-	local toml=services/platform/hosted/registry/fly.toml url ingress
-	local router="${CHECK_LIVE_ROUTER_URL:-}"
-	local topic=6c782e7265662e657363726f772e637573746f6479 program="${CHECK_LIVE_REGISTRY_PROGRAM_ID:-}"
-	local app kernel answer reply line status code body anonymous from page failures=0
-	# shellcheck disable=SC2016
-	local script='status=0
-answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "$url" 2>&1) || status=$?
-echo "@@healthz $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
-status=0
-curl -sS -m "$limit" --cacert "$tls/ca.pem" -o /dev/null "$url" 2>/dev/null || status=$?
-echo "@@anonymous $status"'
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
-		exit 2
+	local row target service host_key unit health host command reply status=0
+	local program="${CHECK_LIVE_REGISTRY_PROGRAM_ID:-}"
+	row="$(bringup_inspect rollout-service "$repo_root/deploy/rollout.kvx" program-registry)" || { echo 'fail registry rollout=absent'; finish 1; }
+	read -r target service host_key unit health <<<"$row"
+	[ "$target" = box ] || { echo 'fail registry rollout=not-box'; finish 1; }
+	host="${!host_key:-}"
+	[ -n "$host" ] || { echo "fail registry host=$host_key absent"; finish 1; }
+	printf -v command 'systemctl is-active --quiet %q && %q registry-health %q' "$unit" "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$tls_dir/registry-event-client"
+	if [ "${registry_stage:-full}" != bootstrap ]; then
+		[[ "$program" =~ ^[0-9a-f]{64}$ ]] || { echo 'fail program-events program=unset want=CHECK_LIVE_REGISTRY_PROGRAM_ID'; finish 1; }
+		printf -v command 'systemctl is-active --quiet %q && %q registry-observe %q %q %q' "$unit" "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$tls_dir/registry-event-client" "$program" "${CHECK_LIVE_REGISTRY_CURSOR_DIR:-/var/lib/layerx/bringup}/registry-$program.cursor"
 	fi
-	if ! app="$(fly_app "$toml")" || ! kernel="$(fly_app services/wallet/deploy/human.toml)"; then
-		echo "fail registry toml=absent"
-		finish 1
-	fi
-
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-ms = json.load(sys.stdin)
-started = [m for m in ms if m.get("state") == "started"]
-mounts = [x for m in ms for x in (m.get("config") or {}).get("mounts") or [] if x.get("path") == "/data"]
-print(len(ms), len(started), len(mounts))
-' 2>/dev/null)" || answer=""
-	read -r status code body <<<"${answer:-none none none}"
-	if [ "$status" = 1 ] && [ "$code" = 1 ] && [ "$body" = 1 ]; then
-		echo "pass machines app=$app machines=1 started=1 volumes=1"
-	else
-		echo "fail machines app=$app machines=$status started=$code volumes=$body"
-		failures=$((failures + 1))
-	fi
-
-	if ! answer="$(python3 - "$repo_root/$toml" <<'PYCONFIG'
-import sys, tomllib
-with open(sys.argv[1], 'rb') as source:
-    config = tomllib.load(source)
-port = int(config['env']['LAYERX_REGISTRY_LISTEN'].rsplit(':', 1)[1])
-assert 1 <= port <= 65535
-private = not config.get('http_service') and not any(row.get('ports') for row in config.get('services', []))
-print('https://' + config['app'] + '.internal:' + str(port) + '/healthz', 'private' if private else 'public')
-PYCONFIG
-)"; then
-		echo "fail private-ingress app=$app configuration=invalid"
-		finish 1
-	fi
-	read -r url ingress <<<"$answer"
-	if [ "$ingress" = private ]; then
-		echo "pass private-ingress app=$app url=$url"
-	else
-		echo "fail private-ingress app=$app public-service=present"
-		failures=$((failures + 1))
-	fi
-
-	reply="$(printf '%s\n' "$script" | fly_ssh "$kernel" - "tls=$tls_dir/human-event-client url=$url limit=$timeout sh -s")" || reply=""
-	line="$(sed -n 's/^@@healthz //p' <<<"$reply" | head -n 1)"
-	anonymous="$(sed -n 's/^@@anonymous //p' <<<"$reply" | head -n 1)"
-	read -r status code body <<<"${line:-none none}"
-	if [ "$status" = 0 ] && [ "$code" = 200 ] && [[ "$body" == *'"status":"ready"'* ]] && [ -n "$anonymous" ] && [ "$anonymous" != 0 ]; then
-		echo "pass healthz url=$url from=$kernel http=200 status=ready anonymous=refused"
-	else
-		[ "${anonymous:-none}" != 0 ] || anonymous=admitted
-		echo "fail healthz url=$url from=$kernel curl=${status:-none} http=${code:-none} anonymous=${anonymous:-none}"
-		failures=$((failures + 1))
-	fi
-
-	# Serving readiness is the Fly check "serving" of the health listener, which
-	# answers the verdict of the mTLS /healthz route; the service TCP check of
-	# the mTLS port is the separate transport liveness. Both must pass on the
-	# started machine.
-	body="${url%/healthz}"
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, re, sys
-port = sys.argv[1]
-started = [m for m in json.load(sys.stdin) if m.get("state") == "started"]
-checks = {c.get("name"): c.get("status") for m in started[:1] for c in m.get("checks") or []}
-transport = [s for n, s in checks.items() if re.fullmatch(r"servicecheck-[0-9]+-tcp-" + port, n or "")]
-print(checks.get("serving") or "absent", transport[0] if len(transport) == 1 else "absent")
-' "${body##*:}" 2>/dev/null)" || answer=""
-	read -r status code <<<"${answer:-none none}"
-	if [ "$status" = passing ] && [ "$code" = passing ]; then
-		echo "pass serving app=$app serving=passing transport=passing"
-	else
-		echo "fail serving app=$app serving=$status transport=$code"
-		failures=$((failures + 1))
-	fi
-
-	if [ "${registry_stage:-full}" = bootstrap ]; then
-		finish "$failures"
-	fi
-
-	if [ -z "$router" ]; then
-		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_ROUTER_URL)" >&2
-		exit 2
-	fi
-
-	if [[ ! "$program" =~ ^[0-9a-f]{64}$ ]]; then
-		echo "fail program-events program=unset want=CHECK_LIVE_REGISTRY_PROGRAM_ID"
-		failures=$((failures + 1))
-	else
-		from=0
-		answer=""
-		for page in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
-			answer="$(curl -sS -m "$timeout" -H "content-type: application/json" \
-				-d "{\"jsonrpc\":\"2.0\",\"id\":$page,\"method\":\"lx_getProgramEvents\",\"params\":[{\"topic\":\"$topic\",\"from_sequence\":$from,\"limit\":256}]}" \
-				"$router/rpc" 2>/dev/null | python3 -c '
-import json, sys
-reply = json.load(sys.stdin)
-if "result" not in reply:
-    print("error", (reply.get("error") or {}).get("code", "none"))
-    sys.exit()
-result = reply["result"]
-found = [e["sequence"] for e in result["events"] if e["program_id"] == sys.argv[1]]
-if found:
-    print("found", found[0])
-elif result["events"] and result["next_sequence"] > int(sys.argv[2]):
-    print("next", result["next_sequence"])
-else:
-    print("end", result["next_sequence"])
-' "$program" "$from" 2>/dev/null)" || answer=""
-			[ "${answer%% *}" = next ] || break
-			from="${answer#next }"
-		done
-		case "${answer:-none}" in
-		found\ *) echo "pass program-events program=$program sequence=${answer#found }" ;;
-		end\ *)
-			echo "fail program-events program=$program events=none next_sequence=${answer#end }"
-			failures=$((failures + 1))
-			;;
-		*)
-			echo "fail program-events program=$program answer=${answer:-none}"
-			failures=$((failures + 1))
-			;;
-		esac
-	fi
-
-	answer="$(curl -sS -m "$timeout" -w "\n%{http_code}" "$router/readyz" 2>/dev/null)" || answer=""
-	code="$(tail -n 1 <<<"$answer")"
-	body="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["components"]["program_registry"])' "$(head -n 1 <<<"$answer")" 2>/dev/null)" || body=none
-	if [ "$body" = ready ]; then
-		echo "pass router-readyz url=$router/readyz http=$code program_registry=ready"
-	else
-		echo "fail router-readyz url=$router/readyz http=${code:-none} program_registry=${body:-none}"
-		failures=$((failures + 1))
-	fi
-	finish "$failures"
+	reply="$(ssh_read "$host" "$command")" || status=$?
+	[ -z "$reply" ] || printf '%s\n' "$reply"
+	if [ "$status" -ne 0 ] || ! grep -q '^pass registry ' <<<"$reply"; then echo 'fail registry observation=refused'; finish 1; fi
+	finish 0
 }
 
-# check_registry_bootstrap: the registry checks that need no router gate.
 check_registry_bootstrap() {
 	registry_stage=bootstrap
 	check_registry
@@ -4072,68 +3925,54 @@ check_kernel_value_loop() {
 	finish "$failures"
 }
 
-# check_events_upstream: the kernel app of services/wallet/deploy/human.toml
-# lists the three event-token names its [[files]] entries mount; the journeys
-# and approvals machines of the app of services/platform/hosted/internal/fly.toml each
-# hold a non-empty /data/run/producer-token, read as a byte count; the apps of
-# services/platform/hosted/webhooks/fly.toml and services/platform/hosted/registry/fly.toml
-# exist; and each webhooks trigger consumer lists its trigger name
-# (services/platform/hosted/webhooks/fly.toml, services/wallet/deploy/endpoint.toml,
-# services/wallet/deploy/human.toml, docker/platform-registry/init.sh). Prints
-# secret names and byte counts only, never a value. One line per check.
+# Event source roles and the ingress trigger follow deploy/rollout.kvx.
+# Producer credentials stay on their box or selected running role replica.
+# Select every running replica of a declared role; a missing or stale
+# deployment never turns into an unselected SSH probe.
+role_instances() {
+	railway_instance "$1" | bringup_inspect role-instances
+}
+
 check_events_upstream() {
-	local kernel internal webhooks endpoint registry group bytes apps name app listed row rest failures=0
-	local -a names=()
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
-		exit 2
-	fi
-	if ! kernel="$(fly_app services/wallet/deploy/human.toml)" || ! internal="$(fly_app services/platform/hosted/internal/fly.toml)" ||
-		! webhooks="$(fly_app services/platform/hosted/webhooks/fly.toml)" || ! endpoint="$(fly_app services/wallet/deploy/endpoint.toml)" ||
-		! registry="$(fly_app services/platform/hosted/registry/fly.toml)"; then
-		echo "fail events-upstream toml=absent"
-		finish 1
-	fi
-
-	for group in journeys approvals; do
-		bytes="$(fly_ssh "$internal" "$group" 'wc -c </data/run/producer-token 2>/dev/null || echo absent' </dev/null | tail -n 1 | tr -d ' ')" || bytes=""
-		if [[ "$bytes" =~ ^[0-9]+$ ]] && [ "$bytes" -gt 0 ]; then
-			echo "pass producer-token app=$internal group=$group bytes=$bytes"
+	local app instances instance kind executable row target service host_key unit health host command reply status failures=0
+	for row in 'journey KERNEL_HOST layerx-human' 'approval KERNEL_HOST layerx-human' 'program program-registry layerx-program-registry' 'payment router layerx-gateway'; do
+		read -r kind service executable <<<"$row"
+		printf -v command '%q event-handoff %q %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$kind" "$executable"
+		if [ "$service" = KERNEL_HOST ]; then
+			host="${KERNEL_HOST:-}"
+			[ -n "$host" ] || { echo "fail producer-handoff kind=$kind host=absent"; failures=$((failures + 1)); continue; }
+			status=0
+			reply="$(ssh_read "$host" "$command")" || status=$?
 		else
-			echo "fail producer-token app=$internal group=$group bytes=${bytes:-unreachable}"
-			failures=$((failures + 1))
-		fi
-	done
-
-	apps="$(timeout "$timeout" flyctl apps list --json 2>/dev/null | python3 -c 'import json, sys; print(" ".join(a.get("Name") or a.get("name") or "" for a in json.load(sys.stdin) or []))' 2>/dev/null)" || apps=unreadable
-	for name in "$webhooks" "$registry"; do
-		if [ "$apps" = unreadable ]; then
-			echo "fail app app=$name exists=unreadable"
-			failures=$((failures + 1))
-		elif [[ " $apps " == *" $name "* ]]; then
-			echo "pass app app=$name exists=yes"
-		else
-			echo "fail app app=$name exists=no"
-			failures=$((failures + 1))
-		fi
-	done
-
-	for row in "$kernel HUMAN_EVENTS_JOURNEY_TOKEN HUMAN_EVENTS_APPROVAL_TOKEN HUMAN_EVENTS_WEBHOOKS_TOKEN" \
-		"$webhooks WEBHOOKS_SOURCE_TRIGGER_TOKEN" "$endpoint ENDPOINT_EVENTS_WEBHOOKS_TOKEN" "$registry REGISTRY_WEBHOOKS_EVENTS_TOKEN"; do
-		read -r app rest <<<"$row"
-		read -r -a names <<<"$rest"
-		listed="$(timeout "$timeout" flyctl secrets list --app "$app" --json 2>/dev/null | python3 -c 'import json, sys; print(" ".join(s.get("Name") or s.get("name") or "" for s in json.load(sys.stdin) or []))' 2>/dev/null)" || listed=unreadable
-		for name in "${names[@]}"; do
-			if [ "$listed" = unreadable ]; then
-				echo "fail secret app=$app name=$name listed=unreadable"
-				failures=$((failures + 1))
-			elif [[ " $listed " == *" $name "* ]]; then
-				echo "pass secret app=$app name=$name listed=yes"
+			row="$(bringup_inspect rollout-service "$repo_root/deploy/rollout.kvx" "$service")" || { echo "fail producer-handoff kind=$kind rollout=absent"; failures=$((failures + 1)); continue; }
+			read -r target app host_key unit health <<<"$row"
+			if [ "$target" = box ]; then
+				host="${!host_key:-}"
+				[ -n "$host" ] || { echo "fail producer-handoff kind=$kind host=$host_key absent"; failures=$((failures + 1)); continue; }
+				status=0
+				reply="$(ssh_read "$host" "$command")" || status=$?
 			else
-				echo "fail secret app=$app name=$name listed=no"
-				failures=$((failures + 1))
+				instances="$(role_instances "$app")" || { echo "fail producer-handoff kind=$kind deployment=unreadable"; failures=$((failures + 1)); continue; }
+				while read -r instance; do
+					status=0
+					reply="$(railway_ssh "$app" "$command" "$instance" </dev/null)" || status=$?
+					if [ "$status" -eq 0 ] && grep -q "^pass producer-handoff kind=$kind " <<<"$reply"; then printf '%s instance=%s\n' "$reply" "$instance"; else echo "fail producer-handoff kind=$kind instance=$instance"; failures=$((failures + 1)); fi
+				done <<<"$instances"
+				continue
 			fi
-		done
+		fi
+		if [ "$status" -eq 0 ] && grep -q "^pass producer-handoff kind=$kind " <<<"$reply"; then printf '%s\n' "$reply"; else echo "fail producer-handoff kind=$kind"; failures=$((failures + 1)); fi
+	done
+	for row in 'journey internal-journeys' 'approval internal-approvals' 'payment internal-payments' 'program internal-programs' 'trigger webhooks-ingress'; do
+		read -r kind service <<<"$row"
+		app="$(railway_service "$service")" || { echo "fail event-role service=$service rollout=absent"; failures=$((failures + 1)); continue; }
+		instances="$(role_instances "$app")" || { echo "fail event-role service=$service deployment=unreadable"; failures=$((failures + 1)); continue; }
+		if [ "$kind" = trigger ]; then printf -v command '%q event-trigger' "${BRINGUP_INSPECT_BIN:-bringup-inspect}"; else printf -v command '%q event-role %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$kind"; fi
+		while read -r instance; do
+			status=0
+			reply="$(railway_ssh "$app" "$command" "$instance" </dev/null)" || status=$?
+			if [ "$status" -eq 0 ] && grep -q '^pass event-' <<<"$reply"; then printf '%s service=%s instance=%s\n' "$reply" "$app" "$instance"; else echo "fail event-role service=$app instance=$instance"; failures=$((failures + 1)); fi
+		done <<<"$instances"
 	done
 	finish "$failures"
 }
@@ -4190,11 +4029,11 @@ fi
 
 tools=(ssh timeout curl python3 openssl sha256sum)
 case "$mode" in
-rpc-nodes | rpc-placement | archive-node | explorer | paxeer-boundary | gas | wallet | router | ca | human | kernel-node | relay | interop | indexer | developers | search) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;;
+rpc-nodes | rpc-placement | archive-node | explorer | paxeer-boundary | gas | wallet | router | ca | human | kernel-node | relay | interop | indexer | developers | search | edge | ramp | internal | registry | registry-bootstrap | events-upstream) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;;
 esac
 [ "$mode" != explorer ] || tools=(curl python3 psql)
 case "$mode" in
-ca | identity | search-front | internal | wallet | router | ramp | indexer | developers | interop) tools+=("$railway_bin") ;;
+ca | identity | search-front | internal | wallet | router | ramp | indexer | developers | interop | events-upstream) tools+=("$railway_bin") ;;
 esac
 [ "$mode" != gas ] || tools+=("$railway_bin" cast)
 [ "$mode" != relay ] || tools=(timeout "${BRINGUP_INSPECT_BIN:-bringup-inspect}")

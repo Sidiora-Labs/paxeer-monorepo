@@ -22,6 +22,7 @@ pub mod error;
 pub mod events;
 pub mod hosted;
 pub mod http;
+pub mod routes;
 pub mod scheme;
 pub mod trusted;
 

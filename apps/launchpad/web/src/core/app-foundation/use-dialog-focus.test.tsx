@@ -93,25 +93,58 @@ describe('useDialogFocus background ownership', () => {
     expect(bg.hasAttribute('inert')).toBe(false);
   });
 
-  it('keeps the background inert until the last of two overlapping dialogs closes, in either order', () => {
-    const setters: Record<string, (value: boolean) => void> = {};
-    function Dialog({ id }: { id: string }) {
-      const [isOpen, update] = useState(false);
-      setters[id] = update;
-      const ref = useRef<HTMLDivElement>(null);
-      useDialogFocus(ref, isOpen);
-      return isOpen ? <div ref={ref} role="dialog" aria-label={id}><button type="button">{id}</button></div> : null;
-    }
-    mount(<><div data-testid="bg">page</div></>);
-    mount(<Dialog id="a" />);
-    mount(<Dialog id="b" />);
-    const bg = document.querySelector<HTMLElement>('[data-testid="bg"]')!;
+  it('keeps the background inert until the last of two overlapping dialogs closes, in either order', overlapping_dialog_focus);
+});
+
+export function overlapping_dialog_focus() {
+  const setters: Record<string, (value: boolean) => void> = {};
+  function Dialog({ id }: { id: string }) {
+    const [isOpen, update] = useState(false);
+    setters[id] = update;
+    const ref = useRef<HTMLDivElement>(null);
+    useDialogFocus(ref, isOpen);
+    return isOpen ? <div ref={ref} role="dialog" aria-label={id}><button type="button">{id} first</button><button type="button">{id} last</button></div> : null;
+  }
+  mount(<div data-testid="bg"><button type="button">Page opener</button></div>);
+  mount(<Dialog id="a" />);
+  mount(<Dialog id="b" />);
+  const bg = document.querySelector<HTMLElement>('[data-testid="bg"]')!;
+  const opener = bg.querySelector('button')!;
+  const dialog = (id: string) => document.querySelector<HTMLElement>(`[aria-label="${id}"]`)!;
+  const buttons = (id: string) => dialog(id).querySelectorAll('button');
+  function assertTop(id: string) {
+    expect(dialog(id).closest('[inert], [aria-hidden="true"]')).toBeNull();
+    expect(document.activeElement).toBe(buttons(id)[0]);
+    act(() => opener.focus());
+    expect(document.activeElement).toBe(buttons(id)[0]);
+    act(() => buttons(id)[1].focus());
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    act(() => buttons(id)[1].dispatchEvent(tab));
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(buttons(id)[0]);
+    const back = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+    act(() => buttons(id)[0].dispatchEvent(back));
+    expect(back.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(buttons(id)[1]);
+  }
+  for (const firstClosed of ['a', 'b']) {
+    act(() => opener.focus());
     act(() => setters.a(true));
+    assertTop('a');
     act(() => setters.b(true));
-    act(() => setters.a(false));
+    assertTop('b');
+    expect(dialog('a').closest('[inert]')).not.toBeNull();
+    // A lower dialog's keyboard listener cannot steal a top dialog's focus.
+    act(() => buttons('a')[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true })));
+    expect(document.activeElement).toBe(buttons('b')[1]);
+    act(() => setters[firstClosed](false));
+    const remaining = firstClosed === 'a' ? 'b' : 'a';
+    expect(document.activeElement).toBe(buttons(remaining)[1]);
+    expect(dialog(remaining).closest('[inert], [aria-hidden="true"]')).toBeNull();
     expect(bg.closest('[inert]')).not.toBeNull();
-    act(() => setters.b(false));
+    act(() => setters[remaining](false));
+    expect(document.activeElement).toBe(opener);
     expect(bg.closest('[inert]')).toBeNull();
     expect(document.querySelectorAll('body [inert], body [aria-hidden]')).toHaveLength(0);
-  });
-});
+  }
+}

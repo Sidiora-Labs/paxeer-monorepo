@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import {
   perfdbQuery,
   perfdbRestAuth,
-  getAuthToken,
 } from "@/core/perfdb/client";
+
+import { usePerfdbSelection } from "./usePerfdbSelection";
+import { requirePerfdbIdentity } from "./usePerfdbAuth";
 
 // ── Types ────────────────────────────────────────────────────────────
 // Spec defined ReferralTier with { tier:number, name, requiredReferrals, rewardBps }.
@@ -24,7 +26,7 @@ export interface ReferralTier {
 
 // Spec defined UserReferralData with { referralCode, tier:number, referralCount, totalEarned }.
 // The referral tier is nullable when no tier qualifies in the server's LEFT JOIN.
-// We make totalEarned optional (null when server doesn't provide).
+// GqlUserReferrals.totalEarned is the nullable exact BigDecimal string from storage.
 export interface UserReferralData {
   referralCode: string | null;
   tier: string | null;
@@ -44,7 +46,7 @@ interface RawUserReferrals {
   referralCode: string | null;
   tier: string | null;
   referralCount: number;
-  totalEarned?: string | null;
+  totalEarned: string | null;
 }
 
 interface ReferralsResponse {
@@ -59,6 +61,7 @@ const USER_REFERRALS_QUERY = /* GraphQL */ `
       referralCode
       tier
       referralCount
+      totalEarned
     }
     referralTiers {
       tier
@@ -127,8 +130,8 @@ export function referralTierView(
     tierName == null
       ? -1
       : tiers.findIndex(
-          (tier) => tier.tier.toLowerCase() === tierName.toLowerCase(),
-        );
+        (tier) => tier.tier.toLowerCase() === tierName.toLowerCase(),
+      );
   const status =
     !data || (data.tier !== null && index < 0)
       ? "unavailable"
@@ -144,12 +147,12 @@ export function referralTierView(
         nextTier.requiredReferrals === 0
           ? 100
           : Math.min(
-              100,
-              Math.max(
-                0,
-                (data.referralCount / nextTier.requiredReferrals) * 100,
-              ),
-            );
+            100,
+            Math.max(
+              0,
+              (data.referralCount / nextTier.requiredReferrals) * 100,
+            ),
+          );
     } else if (isMaxTier) {
       progressPct = 100;
     }
@@ -184,7 +187,7 @@ export async function fetchPerfdbReferrals(
       tiers: (res.referralTiers ?? []).map(normalizeTier),
     };
   }
-  const res = await perfdbQuery<{ referralTiers: RawReferralTier[] }>(
+  const res = await perfdbQuery<{ referralTiers: RawReferralTier[]; }>(
     REFERRAL_TIERS_QUERY,
   );
   return { data: null, tiers: (res.referralTiers ?? []).map(normalizeTier) };
@@ -203,72 +206,43 @@ export function usePerfdbReferrals(address: string | undefined): {
   generateCode: () => Promise<string>;
   applyCode: (code: string) => Promise<void>;
 } {
-  const [data, setData] = useState<UserReferralData | null>(null);
-  const [tiers, setTiers] = useState<ReferralTier[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | null>(null);
-  const mountedRef = useRef<boolean>(true);
-  const addressRef = useRef<string | undefined>(address);
-
-  useEffect(() => {
-    addressRef.current = address;
-  }, [address]);
-
-  const fetchAll = useCallback(async (): Promise<void> => {
-    try {
-      const res = await fetchPerfdbReferrals(addressRef.current);
-      if (!mountedRef.current) return;
-      setData(res.data);
-      setTiers(res.tiers);
-      setError(null);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setData(null);
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    setIsLoading(true);
-    fetchAll();
-    return () => {
-      mountedRef.current = false;
-    };
-  }, [address, fetchAll]);
+  const account = address?.toLowerCase() || null;
+  const empty = { data: null, tiers: [] as ReferralTier[] };
+  const { value, isLoading, error, run, capture } = usePerfdbSelection<{
+    data: UserReferralData | null;
+    tiers: ReferralTier[];
+  }>(account, empty);
+  const fetchAll = useCallback(() => run(() => fetchPerfdbReferrals(account ?? undefined), empty), [account, run]);
+  useEffect(() => { void fetchAll(); }, [fetchAll]);
 
   const generateCode = useCallback(async (): Promise<string> => {
-    const token = getAuthToken();
-    if (!token) {
-      throw new Error("Not authenticated. Sign in to generate a code.");
-    }
-    const res = await perfdbRestAuth<{ referralCode: string }>(
-      "/v2/referrals/generate",
-      { method: "POST" },
+    requirePerfdbIdentity(account);
+    const current = capture();
+    const res = await perfdbRestAuth<{ referralCode: string; }>(
+      "/v2/referrals/generate", { method: "POST" },
     );
+    if (!current()) throw new Error("Referral account changed.");
+    requirePerfdbIdentity(account);
     await fetchAll();
+    if (!current()) throw new Error("Referral account changed.");
     return res.referralCode;
-  }, [fetchAll]);
+  }, [account, capture, fetchAll]);
 
-  const applyCode = useCallback(
-    async (code: string): Promise<void> => {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("Not authenticated. Sign in to apply a code.");
-      }
-      const trimmed = code.trim();
-      if (!trimmed) throw new Error("Referral code is required.");
-      await perfdbRestAuth<{ ok: boolean }>("/v2/referrals/apply", {
-        method: "POST",
-        body: JSON.stringify({ code: trimmed }),
-      });
-      await fetchAll();
-    },
-    [fetchAll],
-  );
+  const applyCode = useCallback(async (code: string): Promise<void> => {
+    requirePerfdbIdentity(account);
+    const trimmed = code.trim();
+    if (!trimmed) throw new Error("Referral code is required.");
+    const current = capture();
+    await perfdbRestAuth<{ ok: boolean; }>("/v2/referrals/apply", {
+      method: "POST", body: JSON.stringify({ code: trimmed }),
+    });
+    if (!current()) throw new Error("Referral account changed.");
+    requirePerfdbIdentity(account);
+    await fetchAll();
+    if (!current()) throw new Error("Referral account changed.");
+  }, [account, capture, fetchAll]);
 
+  const { data, tiers } = value;
   const tierView = useMemo(() => referralTierView(data, tiers), [data, tiers]);
   return { data, tiers, tierView, isLoading, error, generateCode, applyCode };
 }

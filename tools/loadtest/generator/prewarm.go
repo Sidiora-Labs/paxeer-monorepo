@@ -26,13 +26,17 @@ type fixedAccountPool struct {
 	accounts []*types.Account
 }
 
-func newFixedAccountPool(cfg *types.AccountConfig) types.AccountPool {
+func newFixedAccountPool(cfg *types.AccountConfig) (types.AccountPool, error) {
+	pool, err := types.NewAccountPool(cfg)
+	if err != nil {
+		return nil, err
+	}
 	var fixed []*types.Account
 	// Fresh-only workloads have no reusable accounts to prewarm.
 	if cfg.NewAccountRate != 1 {
 		fixed = append(fixed, cfg.Accounts...)
 	}
-	return &fixedAccountPool{AccountPool: types.NewAccountPool(cfg), accounts: fixed}
+	return &fixedAccountPool{AccountPool: pool, accounts: fixed}, nil
 }
 
 func (p *fixedAccountPool) FixedAccounts() []*types.Account {

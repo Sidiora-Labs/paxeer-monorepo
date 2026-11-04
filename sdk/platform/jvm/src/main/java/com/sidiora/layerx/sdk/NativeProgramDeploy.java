@@ -10,6 +10,7 @@ public record NativeProgramDeploy(byte[] programId, int guestAbi, int policy, by
         code(programId, guestAbi, newHash, wasm); bytes32(authority);
         require(policy >= 0 && policy <= 1 && (policy == 0) == Arrays.equals(authority, new byte[32]));
         require(programInterface == null || programInterface.length > 0 && programInterface.length <= 952);
+        NativeProgramPayload.size(104L + (programInterface == null ? 0L : 4L + programInterface.length) + wasm.length);
         programId = programId.clone(); authority = authority.clone(); newHash = newHash.clone(); wasm = wasm.clone();
         programInterface = programInterface == null ? null : programInterface.clone();
     }
@@ -20,13 +21,13 @@ public record NativeProgramDeploy(byte[] programId, int guestAbi, int policy, by
     @Override public byte[] wasm() { return wasm.clone(); }
     @Override public int ordinal() { return 1; }
     @Override public byte[] encode() {
-        ByteBuffer output = ByteBuffer.allocate(104 + (programInterface == null ? 0 : 4 + programInterface.length) + wasm.length);
+        ByteBuffer output = ByteBuffer.allocate(NativeProgramPayload.size(104L + (programInterface == null ? 0L : 4L + programInterface.length) + wasm.length));
         output.put(programId).putShort((short) guestAbi).put((byte) policy).put((byte) 0).put(authority).put(newHash).putInt(wasm.length);
         if (programInterface != null) output.putInt(programInterface.length).put(programInterface);
         return output.put(wasm).array();
     }
     public static NativeProgramDeploy decode(byte[] payload) {
-        require(payload != null && payload.length >= 104 && payload[35] == 0);
+        require(payload != null && payload.length >= 104 && payload.length <= NativeProgramPayload.MAX_BYTES && payload[35] == 0);
         long wasmLength = u32(payload, 100); int offset = 104; byte[] programInterface = null;
         if (wasmLength != payload.length - 104L) {
             require(payload.length >= 108); long length = u32(payload, 104);

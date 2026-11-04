@@ -23,8 +23,10 @@ export function journeyStatusKey(state: JourneyState): StatusKey {
     case "still-checking":
       return "still_checking";
     case "refused":
+    case "closed":
       return "refused";
     case "waiting-for-you":
+    case "awaiting-approval":
       return "waiting_for_you";
   }
 }

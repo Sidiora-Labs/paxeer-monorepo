@@ -1,9 +1,13 @@
 package types
 
 import (
+	"fmt"
+
 	controllertypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/27-interchain-accounts/controller/types"
 	hosttypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/27-interchain-accounts/host/types"
 	host "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/24-host"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
 // DefaultGenesis creates and returns the interchain accounts GenesisState
@@ -107,7 +111,12 @@ func NewHostGenesisState(channels []ActiveChannel, accounts []RegisteredIntercha
 
 // Validate performs basic validation of the HostGenesisState
 func (gs HostGenesisState) Validate() error {
+	channels := make(map[string]struct{}, len(gs.ActiveChannels))
 	for _, ch := range gs.ActiveChannels {
+		if err := host.ConnectionIdentifierValidator(ch.ConnectionId); err != nil {
+			return err
+		}
+
 		if err := host.ChannelIdentifierValidator(ch.ChannelId); err != nil {
 			return err
 		}
@@ -115,20 +124,40 @@ func (gs HostGenesisState) Validate() error {
 		if err := host.PortIdentifierValidator(ch.PortId); err != nil {
 			return err
 		}
+
+		key := string(KeyActiveChannel(ch.PortId, ch.ConnectionId))
+		if _, exists := channels[key]; exists {
+			return fmt.Errorf("duplicate host active channel mapping for connection %s and port %s", ch.ConnectionId, ch.PortId)
+		}
+		channels[key] = struct{}{}
 	}
 
+	accounts := make(map[string]struct{}, len(gs.InterchainAccounts))
 	for _, acc := range gs.InterchainAccounts {
+		if err := host.ConnectionIdentifierValidator(acc.ConnectionId); err != nil {
+			return err
+		}
+
 		if err := host.PortIdentifierValidator(acc.PortId); err != nil {
 			return err
 		}
 
-		if err := ValidateAccountAddress(acc.AccountAddress); err != nil {
-			return err
+		if _, err := sdk.AccAddressFromBech32(acc.AccountAddress); err != nil {
+			return sdkerrors.Wrapf(ErrInvalidAccountAddress, "invalid host account address: %s", err)
 		}
+
+		key := string(KeyOwnerAccount(acc.PortId, acc.ConnectionId))
+		if _, exists := accounts[key]; exists {
+			return fmt.Errorf("duplicate host account mapping for connection %s and port %s", acc.ConnectionId, acc.PortId)
+		}
+		accounts[key] = struct{}{}
 	}
 
 	if err := host.PortIdentifierValidator(gs.Port); err != nil {
 		return err
+	}
+	if gs.Port != PortID {
+		return sdkerrors.Wrapf(ErrInvalidHostPort, "expected %s, got %s", PortID, gs.Port)
 	}
 
 	if err := gs.Params.Validate(); err != nil {

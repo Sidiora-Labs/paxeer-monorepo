@@ -10,6 +10,7 @@ import { PAXEER_CONFIG } from '@/lib/constants';
 
 export interface PortfolioApiOptions {
   signal?: AbortSignal;
+  accessToken?: string;
 }
 
 const baseUrl = (): string => PAXEER_CONFIG.portfolioApiBase.replace(/\/+$/, '');
@@ -39,9 +40,17 @@ const parseBody = async (res: Response): Promise<unknown> => {
 const request = async <T>(
   method: string,
   path: string,
-  init: { body?: unknown; query?: Record<string, string | number | undefined>; signal?: AbortSignal } = {},
+  init: {
+    body?: unknown;
+    query?: Record<string, string | number | undefined>;
+    signal?: AbortSignal;
+    accessToken?: string;
+  } = {}
 ): Promise<T> => {
-  const url = new URL(`${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`, typeof window === 'undefined' ? undefined : window.location.origin);
+  const url = new URL(
+    `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`,
+    typeof window === 'undefined' ? undefined : window.location.origin
+  );
   if (init.query) {
     for (const [key, value] of Object.entries(init.query)) {
       if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
@@ -49,6 +58,7 @@ const request = async <T>(
   }
 
   const headers: Record<string, string> = { Accept: 'application/json' };
+  if (init.accessToken !== undefined) headers.Authorization = `Bearer ${init.accessToken}`;
   let body: string | undefined;
   if (init.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -66,14 +76,17 @@ const request = async <T>(
 };
 
 export const portfolioApi = {
-  get:    <T>(path: string, query?: Record<string, string | number | undefined>, opts?: PortfolioApiOptions) =>
-    request<T>('GET', path, { query, signal: opts?.signal }),
-  post:   <T>(path: string, body?: unknown, opts?: PortfolioApiOptions) =>
-    request<T>('POST', path, { body, signal: opts?.signal }),
-  patch:  <T>(path: string, body?: unknown, opts?: PortfolioApiOptions) =>
-    request<T>('PATCH', path, { body, signal: opts?.signal }),
+  get: <T>(
+    path: string,
+    query?: Record<string, string | number | undefined>,
+    opts?: PortfolioApiOptions
+  ) => request<T>('GET', path, { query, signal: opts?.signal, accessToken: opts?.accessToken }),
+  post: <T>(path: string, body?: unknown, opts?: PortfolioApiOptions) =>
+    request<T>('POST', path, { body, signal: opts?.signal, accessToken: opts?.accessToken }),
+  patch: <T>(path: string, body?: unknown, opts?: PortfolioApiOptions) =>
+    request<T>('PATCH', path, { body, signal: opts?.signal, accessToken: opts?.accessToken }),
   delete: <T>(path: string, opts?: PortfolioApiOptions) =>
-    request<T>('DELETE', path, { signal: opts?.signal }),
+    request<T>('DELETE', path, { signal: opts?.signal, accessToken: opts?.accessToken }),
 };
 
 /**

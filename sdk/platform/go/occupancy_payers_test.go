@@ -57,6 +57,8 @@ func loadOccupancyPayerFixture(t *testing.T) occupancyPayerFixture {
 	return fixture
 }
 
+// Historical kernel codec coverage only. Public native verification is covered
+// separately below and explicitly refuses these unsupported payer claims.
 func TestStateCommitmentOccupancyPaysFromTheProvenPayerAccount(t *testing.T) {
 	fixture := loadOccupancyPayerFixture(t)
 	asset := fixture32(t, fixture.AssetHex)
@@ -190,4 +192,48 @@ func sameOccupancyAccounts(left [][32]byte, right [][32]byte) bool {
 		}
 	}
 	return true
+}
+
+func nativeProgramReceiptDocument(t *testing.T) ProgramExecutionDocument {
+	t.Helper()
+	for _, c := range sequencerReceiptCases(t) {
+		if c.ID != "V1-layerxprograms-call" {
+			continue
+		}
+		var view sequencerReceiptJSON
+		if err := json.Unmarshal(c.ReceiptJSON, &view); err != nil {
+			t.Fatal(err)
+		}
+		if len(view.Logs) != 1 || len(view.Logs[0].Topics) != 2 {
+			t.Fatal("recorded program outcome missing")
+		}
+		return ProgramExecutionDocument{TransactionHash: view.TxHash, Receipt: string(c.ReceiptJSON), RawTransaction: sequencerFixtureBytes(t, c.RawTransaction), ReceiptKeys: sequencerFixtureKeys(t, c), ProgramID: view.Logs[0].Topics[1][2:], GuestABIVersion: 1}
+	}
+	t.Fatal("missing recorded native program receipt")
+	return ProgramExecutionDocument{}
+}
+
+func TestNativeProgramReceiptRefusesOccupancyPayerClaims(t *testing.T) {
+	execution := nativeProgramReceiptDocument(t)
+	verified, err := VerifyProgramReceiptWithPayers(execution, nil)
+	if err != nil || verified.NativeResult == nil || verified.SequencerReceipt == nil || verified.Verification.Level != "receipted" || len(verified.OccupancyPaymentAccounts) != 0 || verified.TransferVerification != "" || verified.TerminalPayload != nil || verified.CallGraph != nil {
+		t.Fatalf("native receipt must authenticate the log without claiming payer proofs: %+v %v", verified, err)
+	}
+	fixture := loadOccupancyPayerFixture(t)
+	payer := fixture.Vectors[0].Payers[0]
+	for _, offered := range []OccupancyPayer{
+		{DID: []byte(payer.DID), Account: fixtureBytes(t, payer.MainHex)},
+		{DID: []byte(fixture.Stranger.DID), Account: fixtureBytes(t, fixture.Stranger.MainHex)},
+		{DID: []byte(payer.DID), Account: fixtureBytes(t, fixture.Stranger.MainHex)},
+	} {
+		result, err := VerifyProgramReceiptWithPayers(execution, []OccupancyPayer{offered})
+		if programErrorCode(err) != ErrorUnavailableCapability || result.SequencerReceipt != nil || result.NativeResult != nil || result.Verification.Level != "" {
+			t.Fatalf("unsupported or wrong payer claim was silently accepted: %+v %v", result, err)
+		}
+	}
+	for _, protocol := range []uint16{0, 1, 2, 3, 65535} {
+		if result, err := VerifyProgramReceiptWithPayers(execution, nil, protocol); programErrorCode(err) != ErrorUnavailableCapability || result.SequencerReceipt != nil {
+			t.Fatalf("obsolete protocol selector %d accepted: %+v %v", protocol, result, err)
+		}
+	}
 }

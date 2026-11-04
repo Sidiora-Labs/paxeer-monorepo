@@ -1,0 +1,36 @@
+[repair.22.33.152]
+audit = "spec/layerx-merge/programme/audit/records/22.30.116.kvx"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+previous_attempt_base = "caa8b41ee668274ee1e5c1df6691288455c46278"
+status = "implemented-awaiting-qualification"
+baseline = "Attempt 1 already ran cg spec done 22.33.152 -f layerx-merge --root /work/paxeer-monorepo at 5b3b809cb539c7d5503032c3208f11250166282f: exit 1, No test files found for src/repair-22-33-152.test.ts. No individual test ran. Attempt 2 follows the ruling to record during implementation and run the bounded build and verify only on the final candidate."
+qualification = "Use hf-build and hf-done only; their private ledger records the exact candidate revision, command, exit code and log."
+
+[finding.proof-positive-transport]
+status = "implemented-awaiting-qualification"
+required_test = "apps/wallet/src/repair-22-33-152.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen"
+proving_tests = ["apps/wallet/src/repair-22-33-152.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen", "apps/wallet/src/proof_wallet_app.test.ts::wallet_app_hosted_intent_plan_survives_producer_store_reopen"]
+observed = "The production planner is Rust execute_intent_plan in services/human/crates/layerx-human-service/src/server/production_components.rs; its persisted observation is written through PrincipalStore in src/store/mod.rs. No in-process TypeScript binding to that producer/store exists."
+existing_proof = "apps/wallet/src/proof_wallet_app.test.ts constructs its positive plan locally; account/test/endpoint.ts replays schema golden JSON; app/api/wallet/[...path]/route.ts POST returns HTTP 405 because it is a read-only Blockscout proxy. None proves the requested hosted producer/store success and reopen path."
+wiring_request = "Human service domain: services/human/crates/layerx-human-service/tests/support/production_fixture.rs remains the owner of production producer/store startup and reopen; wallet imports it only for implementation-time recording, with no out-of-scope service changes."
+constraint = "The declared TypeScript-only gate permits no external binary, subprocess toolchain, native artifact, live endpoint or environment configuration. Attempt 2 explicitly authorizes implementation-time cargo recording and gate-time committed transcript replay."
+disposition = "The missing test is implemented using the real Rust Fixture, ProductionComponents, Router::serve_one on one TCP listener and PrincipalStore reopen, followed by HumanClient.planIntent over loopback HTTP into legBindings and mounted FeeChoice. Existing assertions and tests are retained."
+
+[recording]
+generator = "python3 apps/wallet/src/record-22-33-152.py"
+source = "apps/wallet/src/record-22-33-152.rs"
+fixture = "apps/wallet/src/hosted-intent-22-33-152.recording.json"
+private_log = "/out/logs/record-22-33-152.log"
+recorded_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+recording_exit = 0
+provenance = "The recording carries the source revision and SHA-256 digests of the unmodified Rust fixture, production planner, HTTP router and store. Every recorded HTTP response and recovered store row carries a digest of its exact bytes."
+recovery = "After the first successful HTTP response, close_router drops ProductionComponents and waits for its provider lock; open_with_authority reopens PrincipalStore and reads the intent-observation Cache row before any subsequent plan request. Fixture::reopen then reloads ProductionComponents on the same roots and the same listener serves the second request. The recovered row remains byte-identical after replanning."
+consumer = "The replay checks request method, path and body and sends the exact recorded HTTP bytes to the unmodified HumanClient. Both successful plans produce matching action keys, authorities, nonces, signing windows and fee limits in legBindings and matching per-leg fees in mounted FeeChoice. A recorded invalid-currency response proves typed production refusal after reopen."
+evidence = "The final hf-build/hf-done ledger supplies the verified candidate revision, exact command, exit code and private log; this record does not claim qualification in advance."
+
+[task_notes]
+scope = "Changes remain under apps/wallet/src. Runner-supplied .cgignore and spec status edits are preserved; spec files, root GOTCHA.kvx, commits and pushes remain outside this task's authorized changes. The recorder uses an ephemeral Cargo manifest outside the checkout and never participates in the wallet gate."
+gotcha = "Attempt 1's TypeScript/Rust producer-interface blocker is resolved by the explicit attempt-2 recording ruling, without copying the producer/store, fabricating its output or requiring cargo inside vitest."
+recorder_gotcha = "The fixture's private IdentityTenancy constructor must be accessed from the included fixture module; its Go attestor locator also requires the original service directory depth, preserved in the temporary Cargo projection."
+formatter_gotcha = "pnpm --dir does not relocate dlx file patterns here; run Prettier with the wallet directory as the process working directory."
+test_registration_gotcha = "At 11dae5871d9accc696d9da10d2a7abde01fd6ccf, hf-done exited 0 but /out/logs/verify-1.log reported one todo and no assertions: Vitest 4 interprets test(function) as a missing-body test. Register the named function with test(function.name, function); the bounded repair build and verify must report an executed passing test. The first exit-zero run is not claimed as behavioral qualification."

@@ -42,8 +42,9 @@ type DBImpl struct {
 	coinbaseAddress    sdk.AccAddress
 	coinbaseEvmAddress common.Address
 
-	k          EVMKeeper
-	simulation bool
+	k            EVMKeeper
+	simulation   bool
+	mockBalances bool
 
 	// for cases like bank.send_native, we want to suppress transfer events
 	eventsSuppressed bool
@@ -59,6 +60,7 @@ func NewDBImpl(ctx sdk.Context, k EVMKeeper, simulation bool) *DBImpl {
 		snapshottedCtxs:    []sdk.Context{},
 		coinbaseAddress:    GetCoinbaseAddress(ctx.TxIndex()),
 		simulation:         simulation,
+		mockBalances:       mockBalancesEnabled,
 		tempState:          NewTemporaryState(),
 		journal:            []journalEntry{},
 		coinbaseEvmAddress: feeCollector,
@@ -135,7 +137,11 @@ func (s *DBImpl) Finalize() (surplus sdk.Int, err error) {
 	}
 
 	// delete state of self-destructed accounts
-	s.handleResidualFundsInDestructedAccounts(s.tempState)
+	settlementSnapshot := s.Snapshot()
+	if err = s.handleResidualFundsInDestructedAccounts(s.tempState); err != nil {
+		s.RevertToSnapshot(settlementSnapshot)
+		return
+	}
 	s.clearAccountStateIfDestructed(s.tempState)
 
 	s.flushCtxs()
@@ -195,6 +201,7 @@ func (s *DBImpl) Copy() vm.StateDB {
 		coinbaseAddress:    s.coinbaseAddress,
 		coinbaseEvmAddress: s.coinbaseEvmAddress,
 		simulation:         s.simulation,
+		mockBalances:       s.mockBalances,
 		err:                s.err,
 		precompileErr:      s.precompileErr,
 		logger:             s.logger,

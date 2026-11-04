@@ -760,14 +760,14 @@ func (state State) Update(
 	nextParams := state.ConsensusParams
 	lastHeightParamsChanged := state.LastHeightConsensusParamsChanged
 	if consensusParamUpdates != nil {
+		// Validate activation against the previous parameters: zero means disabled,
+		// so first enablement can still be scheduled for a future height.
+		if err := state.ConsensusParams.ValidateUpdate(consensusParamUpdates, header.Height); err != nil {
+			return state, fmt.Errorf("updating consensus params: %w", err)
+		}
 		// NOTE: must not mutate state.ConsensusParams
 		nextParams = state.ConsensusParams.UpdateConsensusParams(consensusParamUpdates)
 		err := nextParams.ValidateConsensusParams()
-		if err != nil {
-			return state, fmt.Errorf("updating consensus params: %w", err)
-		}
-
-		err = state.ConsensusParams.ValidateUpdate(consensusParamUpdates, header.Height)
 		if err != nil {
 			return state, fmt.Errorf("updating consensus params: %w", err)
 		}

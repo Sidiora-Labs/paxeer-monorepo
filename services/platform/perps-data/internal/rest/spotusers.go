@@ -1267,7 +1267,7 @@ type spotLeaderboardBody struct {
 func (s *SpotUsers) leaderboard(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
 	if !slices.Contains(spotLeaderboards, kind) {
-		writeError(w, http.StatusBadRequest, "unknown leaderboard "+kind)
+		writeError(w, http.StatusNotFound, "unknown leaderboard "+kind)
 		return
 	}
 	limit, err := parseLimit(r.URL.Query())
@@ -1279,13 +1279,16 @@ func (s *SpotUsers) leaderboard(w http.ResponseWriter, r *http.Request) {
 	spotWrite(w, body, err)
 }
 
-const spotLeaderboardSQL = `SELECT rank, account,
-	CASE WHEN kind = 'win-rate' THEN round(value, 4)::text ELSE value::text END
-FROM perps.spot_leaderboard WHERE kind = $1 ORDER BY rank LIMIT $2`
+// One statement gives metadata and bounded ranks the same MVCC snapshot,
+// including a metadata row when this kind has no entries.
+const spotLeaderboardSQL = `SELECT g.generated_at, g.omitted_accounts, r.rank, r.account,
+	CASE WHEN r.kind = 'win-rate' THEN round(r.value, 4)::text ELSE r.value::text END
+FROM (SELECT 1) one
+LEFT JOIN perps.spot_board_generation g ON g.singleton = true
+LEFT JOIN LATERAL (SELECT kind, rank, account, value FROM perps.spot_leaderboard
+	WHERE kind = $1 ORDER BY rank LIMIT $2) r ON true ORDER BY r.rank`
 
 func (s *SpotUsers) projectedRank(ctx context.Context, kind string, limit int) (spotLeaderboardBody, error) {
-	// The projection has no fold timestamp or omission count; as_of is the
-	// read time and omitted_accounts retains its zero value.
 	body := spotLeaderboardBody{Kind: kind, Items: []spotRankJSON{}}
 	rows, err := s.db.QueryContext(ctx, spotLeaderboardSQL, kind, limit)
 	if err != nil {
@@ -1293,19 +1296,22 @@ func (s *SpotUsers) projectedRank(ctx context.Context, kind string, limit int) (
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var item spotRankJSON
+		var at sql.NullTime
+		var omitted, rank sql.NullInt64
+		var value sql.NullString
 		var account []byte
-		if err := rows.Scan(&item.Rank, &account, &item.Value); err != nil {
+		if err := rows.Scan(&at, &omitted, &rank, &account, &value); err != nil {
 			return body, err
 		}
-		item.Address = spotHex(common.BytesToAddress(account))
-		body.Items = append(body.Items, item)
+		if at.Valid {
+			body.AsOf = spotISO(at.Time)
+		}
+		body.OmittedAccounts = int(omitted.Int64)
+		if rank.Valid {
+			body.Items = append(body.Items, spotRankJSON{Rank: int(rank.Int64), Address: spotHex(common.BytesToAddress(account)), Value: value.String})
+		}
 	}
-	if err := rows.Err(); err != nil {
-		return body, err
-	}
-	body.AsOf = spotISO(time.Now())
-	return body, nil
+	return body, rows.Err()
 }
 
 func (s *SpotUsers) rank(ctx context.Context, kind string, limit int) (spotLeaderboardBody, error) {

@@ -1,0 +1,6 @@
+[repair.22.33.1100]
+audit_record = "22.30.46"
+finding = "5"
+tests = ["TestRepairM_1100_HeightAndEvents", "TestRepairM_1100_ContradictoryHeights"]
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids a manual verification run. No baseline test failure is claimed."
+wiring_requests = []

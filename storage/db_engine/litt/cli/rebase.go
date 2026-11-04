@@ -75,6 +75,14 @@ func rebase(
 		}
 	}
 
+	if preserveOriginal {
+		for _, destination := range destinations {
+			if _, shared := sourceSet[destination]; shared {
+				return fmt.Errorf("cannot preserve original with overlapping source and destination roots: %s", destination)
+			}
+		}
+	}
+
 	destinationSet := make(map[string]struct{})
 	for _, dest := range destinations {
 		destinationSet[dest] = struct{}{}
@@ -243,6 +251,12 @@ func transferDataInDirectory(
 	lock.Release()
 
 	if !preserveOriginal {
+		// This offline source root is being retired, so its permanent guard
+		// must go with it. Release above removes the lock metadata first.
+		err = os.Remove(lockPath + ".guard")
+		if err != nil {
+			return fmt.Errorf("failed to remove retired source lock guard %s: %w", source, err)
+		}
 		// Delete the directory.
 		err = os.Remove(source)
 		if err != nil {

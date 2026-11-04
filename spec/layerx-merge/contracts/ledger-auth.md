@@ -401,3 +401,22 @@ The earlier version of this page was pinned to **`2a1033aa2`** and described imp
 | 2337 | Host prefix `0x04` records exactly successful SEND references, including rollback, restart and host-genesis recovery semantics. |
 | 2340 | Kernel receive and payer-grant issue/revoke activities are retired. Ledger compatibility grant selectors and draw refuse; `payExact` remains a SEND. |
 | 2354 | Describe surfaces at their served symbols and paths; removed auth result-by-idempotency and payer-grant interfaces are retired, not planned features. |
+
+
+## Ramp compatibility registry correction
+
+`interface.8.rs-ramp-toolkit-evm-encode-draw-j41` is retired for execution.
+Its retained Rust codec has the exact signature
+`encode_draw(grant_id: [u8; 32], recipient: [u8; 32], amount: u128,
+idempotency_key: [u8; 32], sequence: u64, purpose_hash: [u8; 32],
+context_hash: [u8; 32]) -> Vec<u8>`. Neither payer nor asset is an argument;
+the historical grant supplied them. Equal-sized identifiers are not interchangeable.
+
+Off-ramp compilation uses `compile_customer_payment` and the typed
+`CustomerPaymentAuthorization { budget_id, purpose_hash }`. It encodes
+`budgetSpend(budget_id, recipient, amount)` at 0x101B. `RampOrder::payment_accounts`
+derives the protocol-three customer source and operator **main** destination once
+through the shared account rule, used by compilers and receipt verification.
+The verifier binds exact signed calldata and exactly one authenticated
+`BudgetSpent` event to that destination, budget and amount. Legacy draw events
+cannot establish a maintained off-ramp payment.

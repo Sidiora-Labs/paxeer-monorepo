@@ -1,0 +1,85 @@
+[repair.22.33.794]
+audit = "22.30.177"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+mode = "BUILD"
+scope = "tools/bringup"
+build = "hf-build: go build ./tools/bringup/..."
+verify = "hf-done: cg spec done 22.33.794 -f layerx-merge --root /work/paxeer-monorepo"
+revision_record = "The final hf-build and hf-done entries in /out/run/gates.jsonl record the exact candidate revision, command, exit code and private log. Both gates must bind the same candidate; no qualification is claimed before they run."
+baseline = "The initial working tree contained only runner changes in .cgignore and spec/layerx-merge/spec.kvx; no earlier gate ledger or TestRepairM_794_ functions existed. Step 12 conflicts with the explicit implementation/build/done ordering and prohibition on manual verification; no baseline test run or baseline failures are claimed."
+qualification = "Only the prescribed in-process Go gate is qualified. It needs no subprocess, native executable, external service, credential or environment variable. Standalone shell harness and live deployment qualification are not claimed."
+fixtures = "The committed bundles and completed roster were emitted by actual ca.sh ca_rows, sign and derive_cmd; issuer private keys are discarded. Attestor and internal authorities are distinct. Test loopback peers speak the declared event-admission, registry and geth RPC contracts. Programs logs use the committed Programs ABI and real ABI/JSON codecs; no live chain capture or native registry execution is claimed."
+
+[finding.registry-retired-events]
+test = "TestRepairM_794_RegistryRetiredEvents"
+repair = "Resolve service.program-registry as the declared box unit and host key. Read the actual producer's configured chain URL and request authority; require authenticated registry readiness and anonymous TLS refusal, canonical paginated Programs ProgramDeployed logs and a current verified source publication for that exact program/code. Persist endpoint/program-bound cursor progress atomically and revalidate retained inclusion on reopen. No Fly registry, router /rpc or retired lx_ call remains in the check."
+proof = "Actual rollout -> production decoder; real Programs ABI event encoding -> geth JSON/RPC -> canonical block/receipt/log consumer -> durable cursor close/reopen -> authenticated registry publication. Refuse removed/foreign/out-of-range logs, noncanonical blocks, failed or mismatched receipts, stale or unpublished source records and foreign cursors."
+
+[finding.events-upstream-platform-drift]
+test = "TestRepairM_794_EventsUpstreamPlatformDrift"
+repair = "Resolve deployed roles from rollout, select every running declared role replica, inspect the exact current event-source and ingress material, retain Human and registry producer box access, and probe both source admission and webhook trigger admission from each running producer's own mTLS/PKCS12, CA and bearer files."
+proof = "All four kinds journey/approval/payment/program traverse their real credential decoder and TLS/HTTP consumer to both admission contracts. Missing identities, roots, passwords, tokens and incorrect or unready admission results fail without success output. Current rollout roles and successful single-role deployment selection are checked independently; stopped/missing replicas are refused."
+
+[finding.live-test-ca-obsolete-roster]
+test = "TestRepairM_794_CAObsoleteRoster"
+repair = "Retain the independently enumerated thirty merged identities and compare the shell harness against the frozen completed issuance roster. Replace its remaining retired relay expiry case with surviving Human KMS expiry and correct gateway ownership. Preserve foreign authority, absent/malformed material, SAN, expiry and attestor authority refusals."
+proof = "Actual ca.sh issuance and encoding recordings for every surviving row -> protected box bundle/transport decoder -> production certificate inventory with full SANs and EKUs. Assert exact thirty names and targets, independent attestor authority, malformed DER/PKCS12/password/partial refusals and explicit retired-role rejection."
+
+[finding.live-test-edge-third-shape]
+test = "TestRepairM_794_EdgeThirdShape"
+repair = "edge.sh delegates its actual map, HTTP, stream and RPC producers to the installed inspector. Edge and ramp consume the same strict six-field codec and rendered-route binding. The shell harness now builds edge and ramp inputs with edge.sh set --render-only rather than inventing Fly application rows."
+proof = "Production map/renderer -> manifest plus actual rendered sites -> real contract decoder and ramp selection. Cover Railway TLS, box TLS/plain, shared-port stream and RPC member selection; reject four-field rows, duplicate routes, disabled upstream verification, switched targets, unregistered ramp names and all-down RPC pools."
+
+[finding.live-test-internal-platform-shape]
+test = "TestRepairM_794_InternalPlatformShape"
+repair = "Probe each rollout-resolved role from KERNEL_HOST, where the issuer actually leaves human-event-client. Decode and verify the protected bundle locally; keep service TLS identity on explicit private connect routes. The shell harness uses actual CA-issued role variables, per-role deployment records and TLS peers requiring client certificates; absent custody is an explicit failure."
+proof = "Actual role configuration -> real issued client custody -> production CLI -> verified mTLS at each of the five deployed service names -> readiness consumer. Require all five authorized successes, and reject unready roles, foreign attestor authority, an absent client certificate and a partial retained bundle."
+
+[finding.docs-name-policy]
+test = "TestRepairM_794_DocsNamePolicy"
+repair = "Use the maintained public RPC declaration for fourteen numbered nodes and the canonical node root. Retain the merged public-name section for non-node names, excluding its stale router/rpc descriptions; docs-names.sh runs the shared production policy against tracked documentation. Reject unpublished names, non-root node URLs and FAUCET_URL."
+proof = "Actual maintained inventory and public-name declaration -> production name policy -> root URL acceptance and retired api15/api16, /rpc, unpublished name and faucet refusals."
+
+[finding.edge-secondary-stale-sites]
+test = "TestRepairM_794_EdgeSecondaryStaleSites"
+repair = "edge-sync.sh keeps certificate/cron transport, but transfers the manifest and owned route state through the real export/import codec under the receiver operation lock. Import snapshots the previous generation, reconciles both marker-owned available files and enabled symlinks before validation/reload, retains secondary-local health and refuses unrelated site overwrites. Acknowledged ownership receipts also identify dangling owned links."
+proof = "Real map/renderer -> primary store -> production export/JSON transport/import -> secondary store. Add/sync/remove/sync/close/reopen proves the revoked name stays absent, surviving routes and unrelated nginx configuration remain, receiver health is retained, an identical transfer is unchanged and dangling owned links are removed."
+
+[finding.edge-reload-durable-state]
+test = "TestRepairM_794_EdgeReloadDurableState"
+repair = "Persist a pre-mutation journal outside the transferred state and an explicit acknowledged generation. Serialize shell operations across render, nginx validation, reload and result consumption. Both validation and reload exit statuses drive the real transaction consumer; refused results restore manifest, sites, symlinks and pool before reporting failure. Reopen recovers interrupted transactions, while an acknowledged generation survives the journal cleanup gap."
+proof = "Real production renderer/store -> pending generation -> actual reload-result handler with refused reload status -> rollback -> close/reopen -> original serving routes, pool and generation. Also prove validation refusal, interruption without acknowledgement and successful acknowledged mutation/reopen, preserving unrelated configuration."
+
+[wiring.public_names]
+request = "spec/layerx-merge/spec.kvx — domain 16: reconcile contract_context.108.decision.public_names router/rpc descriptions with the maintained fourteen-node plus canonical-root declaration."
+
+[wiring.registry_host]
+request = "deploy/hosts.env — domain 16: provision PROGRAM_REGISTRY_HOST from service.program-registry.box_role and reconcile its REGISTRY_HOST CA-custody mapping on the same declared box."
+
+[wiring.gateway_inventory]
+request = "deploy/rollout.kvx and services/platform/hosted/gateway/railway.env.example — domains 16 and 10: coordinate the currently declared router service's migration to gateway with its live CA and credential ownership; this checker consumes the actual rollout row without inventing an alias."
+
+[wiring.inspector_installation]
+request = "docker/paxeer/Dockerfile.paxd-node and the edge/box role images — domain 16: install the source-bound bringup-inspect runtime artifact on the operator, edge and producer hosts and role services before invoking the updated checks; missing binaries are explicit refusals."
+
+[wiring.document_owners]
+request = "docs/ and services/platform/docs/ — documentation owners, domain 16: migrate any existing unpublished or routed node references reported by the stricter docs-names gate; those documents are outside this task's paths."
+
+[gotcha.scope]
+observed = "The exclusive scope forbids GOTCHA.kvx and spec task/qualification edits, commits and pushes; this in-scope record carries the finding map, wiring requests and session gotchas and the runner owns publication."
+
+[gotcha.gate_order]
+observed = "An unchanged-tree verify requested by step 12 would violate the explicit bounded gate order; implementation, formatting, hf-build, then hf-done is the authoritative order."
+
+[gotcha.retained_harness]
+observed = "The aggregate shell harness retains unrelated legacy fixtures from other audit tasks; only this task's changed behavior is reconciled and no aggregate harness pass is claimed."
+
+[gotcha.prequalification_review]
+observed = "Before qualification, manual review corrected an unterminated event-role shell loop and literal tab escapes in the stream renderer; no failing gate or baseline result is claimed for these implementation corrections."
+
+[qualification.repair_1]
+revision = "3272c591b1e3ddd7c457c671dcce9a9b0cd89fbd"
+command = "cg spec done 22.33.794 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "CA custody and internal readiness refused test bundle directories created by testing.TempDir because their mode was not exactly 0700; the fixture now establishes actual protected custody before writing its 0600 files, retaining every production check and test assertion."

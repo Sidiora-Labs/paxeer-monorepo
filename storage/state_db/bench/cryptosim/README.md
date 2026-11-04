@@ -16,7 +16,8 @@ From this directory, with the repository's Go toolchain and `make` available:
 ```
 
 [cryptosim.sh](cryptosim.sh) builds `bin/cryptosim` and `bin/configure-logger`
-through the [Makefile](Makefile), configures `PAX_LOG_*` variables from the JSON
+through the [Makefile](Makefile), stops with the build exit status on failure,
+prints the executable's Go VCS settings and SHA-256 digest as run metadata, configures `PAX_LOG_*` variables from the JSON
 file, then passes that file to the benchmark binary. Paths in the config resolve
 from the process working directory. The basic config creates `data` and `logs`
 here and allocates a 1 GiB canned random buffer, then pre-populates millions of
@@ -24,8 +25,9 @@ accounts. Choose smaller setup counts in a separate config for a small machine.
 
 `MaxRuntimeSeconds` bounds the transaction phase after setup; `0` runs until
 interrupted. Ctrl-C cancels the workload. When `EnableSuspension` is true, Enter
-toggles suspend/resume. Neither suspension nor the success banner proves that
-all pending data and receipts were durably committed; see Data Persistence.
+toggles suspend/resume. Suspension forces applied state blocks to commit. A
+successful shutdown drains accepted transactions and receipts and joins their
+workers before reporting completion; storage errors make `Close` return an error.
 
 # Configuring Cryptosim
 
@@ -60,8 +62,11 @@ Key controls include:
   turning execution back on after such a run.
 - `GenerateReceipts` enables synthetic receipts under `DataDir/receipts`.
   Receipt readers and log-filter readers have separate concurrency/rate
-  controls; the accepted read mode is `cache`. Receipt retention uses
-  `ReceiptKeepRecent` and `ReceiptPruneIntervalSeconds`.
+  controls; the accepted read mode is `recent`. Obsolete `cache` modes are
+  rejected. Receipt retention uses `ReceiptKeepRecent` and
+  `ReceiptPruneIntervalSeconds`. The active backend is PebbleDB. Its
+  `FilterLogs` API refuses range queries with `ErrRangeQueryNotSupported`;
+  enabling log readers measures these refusals, not successful log scans.
 - `MetricsAddr` serves `/metrics` (default `:9090`); an empty address disables
   the HTTP server. `LogLevel` accepts debug, info, warn or error.
 
@@ -71,50 +76,59 @@ can remove those directories; keep `DeleteDataDirOnStartup` and
 
 # Data Persistence
 
-Reopening a retained database can reuse pre-populated state, but **the current
-runner does not provide a restart-safe continuation of the whole workload**.
+A retained database supports continuation after a successful normal shutdown.
 Keep the backend, key/value layout settings, `Seed`, `CannedRandomSize` and
-`Erc20InteractionsPerAccount` unchanged. Stable key generation is necessary;
-it does not address the lifecycle limits below.
+`Erc20InteractionsPerAccount` unchanged, and keep deletion flags false. Preserve
+state and its `receipts` subdirectory together. Databases created before the
+next-unused block-counter repair require a fresh directory: their block counter
+has different semantics and their receipt identities may already overlap.
 
-[database.go](database.go) includes account, contract and block counters in each
-finalized batch as 8-byte big-endian values.
-[DataGenerator](data_generator.go) reloads them from the database. Finalization
-and durable commit are different events: state batches are applied each block,
-while `Commit` is called only after `BlocksPerCommit` blocks or a forced
-finalization with pending transactions.
+[database.go](database.go) persists the **next unused** block sequence, account ID
+and contract ID in every finalized batch as 8-byte big-endian values. Setup may
+finalize additional blocks; the builder starts from the resulting sequence after
+setup. Reopening restores account and contract counters even when setup can
+return early. Shutdown and suspension commit every applied state block, including
+a final group smaller than `BlocksPerCommit` with no current transactions.
 
-Current continuation and shutdown limits are:
+Normal shutdown stops block admission, joins the builder, drains accepted
+executor work, closes the receipt input, waits for the receipt writer to drain
+and close its store, then closes state storage. `Close` returns storage errors
+before completion can be reported as successful. Prefetched blocks that were
+never accepted by the main loop are discarded; their generated account counters
+are not persisted. Receipt heights and deterministic hashes resume from the last
+accepted block rather than from speculative generator state.
 
-- The persisted block field is the number just written, before the in-memory
-  increment. It is reloaded without adding one. Independently,
-  [NewBlockBuilder](block_builder.go) starts its block number at zero on every
-  process start. Receipt block identities therefore restart, even when state
-  counters were reloaded; receipt hashes depend on those identities.
-- If contract setup is skipped because enough contracts already exist,
-  `CryptoSim.nextERC20ContractID` is not restored on that early-return path.
-  Teardown uses that field, so a final batch can write an incorrect contract
-  counter. Do not assume account/contract continuity from startup output alone.
-- `FinalizeBlock` returns immediately when there are no transactions in the
-  current block, even when `forceCommit` is true. Since ordinary block handling
-  already finalized the block, shutdown or suspension can leave a partial group
-  of fewer than `BlocksPerCommit` blocks without an explicit final commit.
-- Cancellation lets executor flushes return before all queued work is drained.
-  The receipt simulator is started without retaining a joinable handle;
-  cancellation can leave queued receipts unwritten, and teardown does not wait
-  for its store close. State and receipt durability have no common checkpoint.
-- Errors during teardown are printed; `Close` still prints its success banner.
-  That message is not a durability assertion.
+This is a normal-stop boundary, not an atomic checkpoint shared by the two
+stores. A process crash or storage failure between state and receipt writes can
+leave different durable tips. Do not treat such a run as successful continuation
+evidence. Suspension commits state but does not promise to have drained the
+asynchronous receipt queue; successful shutdown does. Console transaction totals
+and metric counters describe this process, not a persisted transaction history.
 
-For fresh-run comparisons, use a new directory and keep receipts from different
-runs separate. `BlocksPerCommit=1` reduces the uncommitted group but does not fix
-counter restoration, receipt identity or cancellation behavior. There is no
-supported bounded reopen example that verifies all four of durable block,
-account, contract and receipt continuity in this runner. Before treating a
-retained run as continuation evidence, a lifecycle repair must demonstrate those
-counters and receipt identities through stop/reopen on the real backend. Console
-transaction totals and Prometheus counters describe the current process, not a
-persisted transaction history.
+The bounded reopen example is executable in
+[repair_m1195_test.go](repair_m1195_test.go):
+
+```bash
+# From the repository root; small MemIAVL SC + Pebble receipt stores in temp dirs.
+go test -count=1 -v -run '^TestRepairM_1195_PersistenceDoc$' ./storage/state_db/bench/cryptosim/
+```
+
+`TestRepairM_1195_PersistenceDoc` creates eight setup accounts and three contracts,
+accepts a two-transaction block, closes all participants, reopens, accepts one
+more block and closes/reopens again. It verifies the durable block, account and
+contract counters against each accepted block, verifies the receipt latest-block
+counter, and compares all four decoded receipts with the producer's originals.
+It also checks that new receipt heights and hashes do not reuse prior IDs.
+`BlocksPerCommit=8` deliberately leaves a partial commit group at each stop.
+
+Receipt metrics observe actual Pebble write/read calls: written receipts,
+receipt reads/found/not-found, operation durations, and
+`cryptosim_receipt_log_filter_reads_total` plus
+`cryptosim_receipt_log_filter_unsupported_total`. The six former cache-only
+hit/miss and timing series are retired; no cache hit rate is inferred from a
+backend operation. Reader targets come from successfully submitted writes within
+backend retention; an async write not yet visible counts as not found. External
+registry/dashboard retirement requests are listed in [repair_m1195.kvx](repair_m1195.kvx).
 
 # Transaction Model
 

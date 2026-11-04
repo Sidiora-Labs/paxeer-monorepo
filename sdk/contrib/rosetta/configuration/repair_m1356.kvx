@@ -1,0 +1,38 @@
+[repair.22.33.1356]
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+mode = "BUILD"
+qualification = "The private hf-done ledger records the exact candidate revision, command, exit and log; no qualification is claimed here before that gate passes."
+baseline = "No earlier gate ledger or repair test existed. The ordered task instructions prohibit testing before implementation and running verify by hand, so no unchanged-tree verification was run and no baseline failure is claimed."
+implementation = "The Python and shell entry points delegate to the shared native rosetta-fixture command; its HTTP handler, bank subprocess supervisor, metadata generator and pinned-snapshot restorer are tested directly without an interpreter, live node, credential or build subprocess."
+identity = "The bundled archive SHA-256 pins the existing test key and chain history; restoration reproduces that archive rather than creating a random replacement. Metadata comes from the latest committed bank IAVL root at height 4, including delegation and transfer debits."
+peer = "The existing native test executable supplies bank CLI peers. The success JSON is projected from the bundled snapshot's actual tx_index TxResult, committed as testdata/bank-tx-result.pb; explicit rejection and malformed/timeout cases exercise failure handling. No external executable is required by the gate."
+
+[finding.rosetta-bootstrap-state]
+test = "TestRepairM_1356_BootstrapState"
+proof = "Open the actual pinned snapshot LevelDB, traverse the current committed bank root, and compare the recovered account, denomination, balance and height with all committed metadata."
+
+[finding.rosetta-regeneration-contract]
+test = "TestRepairM_1356_RegenerationContract"
+proof = "Drive the restore command twice, reopen each restored bank store, compare regenerated consumers and byte-identical archives, and refuse altered archive identities and nonempty homes."
+
+[finding.faucet-input-and-process-bounds]
+test = "TestRepairM_1356_FaucetInputAndRequestBounds; TestRepairM_1356_FaucetProcessDeadlineAndCleanup"
+proof = "Drive the production server over loopback with invalid framing, oversized bodies, invalid checksummed addresses and slow headers/body; drive the actual process supervisor through a timeout and verify both child and descendant stop."
+
+[finding.faucet-transfer-outcome]
+test = "TestRepairM_1356_FaucetTransferOutcome"
+proof = "Assert successful committed response, nonzero child exit, rejected transaction despite zero process exit, missing executable, malformed/uncommitted/trailing output and output overflow; subsequent malformed requests remain isolated."
+
+[finding.rosetta-faucet-currency]
+test = "TestRepairM_1356_FaucetCurrency"
+proof = "Regenerate from the actual bank snapshot, consume the generated fixture in the real HTTP handler and process supervisor, and assert the construction currency, gas price and exact bank CLI denomination/amount/chain arguments."
+
+[wiring.container]
+request = "sdk/contrib/rosetta/node/Dockerfile — owner domain 15: build configuration/cmd/rosetta-fixture from the repository-root module with its declared Go toolchain, install it on PATH in the fixture image, and copy node/data.tar.gz to /node/data.tar.gz for data.sh's pinned restoration."
+
+[wiring.documentation]
+request = "sdk/contrib/rosetta/README.md — owner domain 15: update the historical random-key regeneration and manual synchronization description to pinned restoration, generated shared metadata and the native faucet launcher."
+
+[gotcha.scope-and-order]
+observed = "The task asks for a pre-change verify and spec task-record edits while its explicit ordered gate rules forbid pre-implementation tests and all spec edits."
+action = "Keep the baseline unclaimed and this repair mapping in the allowed configuration directory; use only hf-build followed by hf-done, with all bookkeeping left to the runner."

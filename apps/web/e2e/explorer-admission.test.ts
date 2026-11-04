@@ -14,7 +14,7 @@ test("the control plane admits its own explorer routes and none the explorer now
     assert.equal(classifyPerformanceRoute(item.href), "explorer", item.href);
   }
   const linked: readonly ExplorerLinkTarget[] = [
-    { kind: "receipt", receiptId: "c".repeat(64) },
+    { kind: "receipt", receiptId: "c".repeat(64), transactionHash: `0x${"d".repeat(64)}` },
     { kind: "transaction", transactionHash: `0x${"d".repeat(64)}` },
     { kind: "address", address: `0x${"2".repeat(40)}` },
   ];

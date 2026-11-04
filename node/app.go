@@ -1132,6 +1132,10 @@ func New(
 
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
+	// Mainnet ICA is intentionally unsupported: no controller/host keepers,
+	// stores, capabilities, module account, authentication middleware, services,
+	// genesis entry or IBC routes are mounted. The library and simapp do not
+	// enable it. Availability contract: interchain/modules/apps/27-interchain-accounts/README.md.
 	// Create static IBC router, add transfer route, then set and seal it
 	ibcRouter := ibcporttypes.NewRouter()
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferIBCModule)

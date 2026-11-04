@@ -151,8 +151,9 @@ func (db *Database) pruneAscending(version int64) (_err error) {
 			updated, ok := db.storeKeyDirty.Load(storeKey)
 			versionUpdated, typeOk := updated.(int64)
 			// Skip a store's keys if version it was last updated is less than last prune height
-			if !ok || (typeOk && versionUpdated < db.GetEarliestVersion()) {
-				itr.SeekGE(storePrefix(storeKey + "0"))
+			// Missing entries after open/import have unknown history and must be scanned.
+			if ok && typeOk && versionUpdated < db.GetEarliestVersion() {
+				itr.SeekGE(db.mvccEncode(prefixEnd(storePrefix(storeKey)), 0))
 				continue
 			}
 		}

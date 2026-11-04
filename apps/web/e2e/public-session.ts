@@ -2,16 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import type { BrowserContext } from "@playwright/test";
 
-import { createHumanApiClient, type FetchLike, type Session } from "../src/api/generated/index.ts";
+import { createHumanApiClient, type FetchLike, type HumanApiClient, type Session } from "../src/api/generated/index.ts";
 import { singleCurrentSessionId } from "../src/auth/session.ts";
 import { SoftwareAuthenticator } from "./software-authenticator.ts";
 
 const SESSION_COOKIES = ["__Host-layerx_access", "__Host-layerx_refresh", "__Host-layerx_csrf"] as const;
 
-export async function establishPublicSession(
-  context: BrowserContext,
-  baseUrl: string,
-): Promise<Readonly<{ accountId: string; session: Session }>> {
+export async function publicSessionClient(context: BrowserContext, baseUrl: string): Promise<HumanApiClient> {
   const endpoint = new URL(baseUrl);
   if (endpoint.protocol !== "https:" || endpoint.port !== "" || endpoint.pathname !== "/"
     || endpoint.search !== "" || endpoint.hash !== "" || endpoint.username !== ""
@@ -46,7 +43,21 @@ export async function establishPublicSession(
       await response.dispose();
     }
   };
-  const client = createHumanApiClient({ baseUrl: origin, fetch: transport, csrfToken: () => csrf });
+  return createHumanApiClient({ baseUrl: `${origin}/human`, fetch: transport, csrfToken: () => csrf });
+}
+
+export interface PublicSession {
+  readonly accountId: string;
+  readonly session: Session;
+  readonly client: HumanApiClient;
+  readonly authenticator: SoftwareAuthenticator;
+  readonly email: string;
+  readonly passkeyId: string;
+}
+
+export async function establishPublicSession(context: BrowserContext, baseUrl: string): Promise<PublicSession> {
+  const origin = new URL(baseUrl).origin;
+  const client = await publicSessionClient(context, baseUrl);
   const authenticator = new SoftwareAuthenticator(origin);
   const email = `browser-${randomUUID()}@paxeer.network`;
   const account = await client.accountCreate({ email, display_name: "Browser qualification" }, randomUUID());
@@ -54,18 +65,8 @@ export async function establishPublicSession(
   const passkey = await client.passkeyRegisterFinish(registration.registration_id, {
     credential: authenticator.register(registration.ceremony),
   });
-  const challenge = await client.passkeyAssertBegin({ email });
-  const assertion = await client.passkeyAssertFinish(challenge.assertion_id, {
-    credential: authenticator.assert(challenge.ceremony),
-  });
-  if (assertion.assertion_id !== challenge.assertion_id || assertion.passkey_id !== passkey.passkey_id) {
-    throw new Error("Public assertion is not bound to the registered passkey");
-  }
-  const session = await client.sessionOpen({
-    assertion_id: assertion.assertion_id,
-    device: { label: "Browser qualification", platform: "Playwright" },
-  }, randomUUID());
-  if (!session.current) throw new Error("Public API did not open the current session");
+  const session = await openPublicSession(client, email, authenticator, passkey.passkey_id);
+  const endpoint = new URL(baseUrl);
   const cookies = await context.cookies(origin);
   for (const name of SESSION_COOKIES) {
     const matches = cookies.filter((cookie) => cookie.name === name);
@@ -80,5 +81,33 @@ export async function establishPublicSession(
   if (balance.account_id !== account.account_id || singleCurrentSessionId(sessions.sessions) !== session.session_id) {
     throw new Error("Authenticated reads do not identify the newly opened account and session");
   }
-  return Object.freeze({ accountId: account.account_id, session });
+  if (passkey.passkey_id.length === 0) throw new Error("Registration returned no passkey identity");
+  return Object.freeze({ accountId: account.account_id, session, client, authenticator, email, passkeyId: passkey.passkey_id });
+}
+
+export async function openPublicSession(client: HumanApiClient, email: string, authenticator: SoftwareAuthenticator, passkeyId: string): Promise<Session> {
+  const challenge = await client.passkeyAssertBegin({ email });
+  const assertion = await client.passkeyAssertFinish(challenge.assertion_id, {
+    credential: authenticator.assert(challenge.ceremony),
+  });
+  if (assertion.assertion_id !== challenge.assertion_id || assertion.passkey_id !== passkeyId) {
+    throw new Error("Public assertion is not bound to a registered passkey");
+  }
+  const session = await client.sessionOpen({
+    assertion_id: assertion.assertion_id,
+    device: { label: "Browser qualification", platform: "Playwright" },
+  }, randomUUID());
+  if (!session.current) throw new Error("Public API did not open the current session");
+  return session;
+}
+
+export async function signInPublicSession(context: BrowserContext, baseUrl: string, first: PublicSession): Promise<PublicSession> {
+  const client = await publicSessionClient(context, baseUrl);
+  const session = await openPublicSession(client, first.email, first.authenticator, first.passkeyId);
+  const [balance, sessions] = await Promise.all([client.accountBalance(), client.sessionList()]);
+  if (balance.account_id !== first.accountId || singleCurrentSessionId(sessions.sessions) !== session.session_id
+    || session.session_id === first.session.session_id || session.device.device_id === first.session.device.device_id) {
+    throw new Error("Second device did not establish an isolated session for the same account");
+  }
+  return Object.freeze({ ...first, client, session });
 }

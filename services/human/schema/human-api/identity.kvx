@@ -48,6 +48,7 @@ json = "string"
 prefix = "chg_"
 rust = "String"
 typescript = "string"
+format = "chg_ followed by exactly 32 lowercase hexadecimal characters minted from sixteen entropy bytes. The same identifier references completed evidence for bound decisions."
 
 [scalar.AuthenticatorId]
 json = "string"
@@ -67,6 +68,7 @@ prefix = "opd_"
 rust = "String"
 typescript = "string"
 binding = "Names exactly one operation a person is confirming. A step-up ceremony answers for this one digest and for nothing else."
+format = "opd_ followed by exactly 64 lowercase hexadecimal characters encoding the canonical 32-byte operation digest."
 
 [scalar.OpaqueCredential]
 json = "string"

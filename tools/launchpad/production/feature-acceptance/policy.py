@@ -451,8 +451,9 @@ def root_capacity_references(authority, context):
     spec_ref = authority['spec']
     keys(spec_ref, {'path', 'sha256'}, 'spec authority')
     source = pathlib.Path(spec_ref['path'])
-    require(source.resolve() == pathlib.Path(__file__).resolve().parents[4]/'launchpad/spec/production-system/spec.kvx' and not source.is_symlink(), 'current root specification required')
+    require(source.resolve() == pathlib.Path(__file__).resolve().parents[4]/'spec/layerx-merge/spec.kvx' and not source.is_symlink(), 'current root specification required')
     require(hashlib.sha256(source.read_bytes()).hexdigest() == spec_ref['sha256'], 'root spec digest mismatch')
+    required_release_gates(source)
     return schemas, capture, types, workload, bindings
 
 
@@ -530,22 +531,45 @@ def validator_readiness(bundles, assignments, *, readiness_authority, inventory,
 
 
 def required_release_gates(spec_path):
-    import tomllib
-    specification = tomllib.loads(pathlib.Path(spec_path).read_text())
+    import importlib.util
+    helper_spec = importlib.util.spec_from_file_location('feature_acceptance_references', pathlib.Path(__file__).with_name('spec_references.py'))
+    helper = importlib.util.module_from_spec(helper_spec)
+    helper_spec.loader.exec_module(helper)
+    source = pathlib.Path(spec_path)
+    require(not source.is_symlink() and source.resolve() == helper.ROOT/helper.SPEC_PATH, 'current root specification required')
+    specification = helper.load_spec(source)
+    declaration = strict_json(pathlib.Path(__file__).with_name('final-integrated-gate-readiness.json').read_bytes())
+    expected = {f'{phase}.{lane:02}' for phase in range(1, 5) for lane in range(1, 51)}
+    serial = {'0.1', '0.2', '0.3', '1.99', '2.99', '3.99', '4.99', '9.1'}
+    require(set(declaration['mandatory_gates']) == expected | serial, 'historical gate inventory incomplete')
     gates = {}
-    def visit(value, prefix=''):
-        for name, task in value.items():
-            task_id = prefix+'.'+name if prefix else name
-            if type(task) is dict and 'verify_cmd' in task:
-                gates[task_id] = {'command': task['verify_cmd'], 'requires': task.get('requires', []), 'kind': task.get('kind')}
-            elif type(task) is dict:
-                visit(task, task_id)
-    visit(specification['task'])
-    require('9.1' in gates and sum(g['kind'] == 'parallel_lane' for g in gates.values()) == 200, 'final mandatory gate inventory incomplete')
+    for task_id, historical in declaration['mandatory_gates'].items():
+        require(historical['kind'] == ('serial_gate' if task_id in serial else 'parallel_lane'), 'historical gate kind mismatch: '+task_id)
+        require(historical['verify_cmd'] == 'python3 tools/launchpad/production/qualify.py --task '+task_id+' --spec '+helper.SPEC_PATH+' --require-current-source', 'historical gate command mismatch: '+task_id)
+        if task_id in {'0.1', '0.2', '0.3', '9.1'}:
+            lineage = {'0.1': [], '0.2': ['0.1'], '0.3': ['0.2'], '9.1': ['4.99']}[task_id]
+        elif task_id in serial:
+            lineage = [f'{task_id[0]}.{lane:02}' for lane in range(1, 51)]
+        else:
+            lineage = ['0.3' if task_id[0] == '1' else f'{int(task_id[0])-1}.99']
+        require(historical['requires'] == lineage, 'historical gate lineage mismatch: '+task_id)
+        ref = helper.reference(specification, 'task.'+task_id)
+        if ref['class'] == 'retired-reference':
+            # Retain the declaration and lineage for reporting, never as a current gate.
+            gates[task_id] = {'command': historical['verify_cmd'], 'requires': historical['requires'], 'kind': historical['kind'], 'reference': ref}
+            continue
+        task = specification['task.'+task_id]
+        require(task.get('kind') == historical['kind'], 'release gate identity/kind mismatch: '+task_id)
+        command = task.get('verify_cmd')
+        require(text(command, 8192) and '--require-current-source' in command, 'current-source release command required: '+task_id)
+        requires = task.get('requires')
+        require(type(requires) is list and len(set(requires)) == len(requires) and all('task.'+dependency in specification for dependency in requires), 'release gate dependency mapping required: '+task_id)
+        gates[task_id] = {'command': command, 'requires': requires, 'kind': task['kind'], 'reference': ref}
     return gates
 
 
 def verify_integrated_gate(bundle, expected, admitted, *, context, trust, artifact_root, now, capture_sha256):
+    require(expected['reference']['class'] == 'current-reference', 'retired release reference cannot qualify: '+expected['reference']['reason'])
     keys(bundle, {'gate', 'evidence', 'review'}, 'integrated gate bundle')
     gate = bundle['gate']
     evidence, review = bundle['evidence'], bundle['review']
@@ -612,6 +636,7 @@ def final_release_closure(bundles, gate_bundles, *, closure_authority, readiness
     captured_hashes = {artifact['sha256'] for artifact in manifest['artifacts']}
     require(all(result['raw_artifact_sha256'] in captured_hashes for result in acceptance['scenarios'].values()), 'shared scenario raw artifact absent')
     gates = required_release_gates(readiness_authority['spec']['path'])
+    require(all(gate['reference']['class'] == 'current-reference' for gate in gates.values()), 'retired release references cannot establish final closure')
     require(type(closure_authority['gate_authority']) is dict and set(closure_authority['gate_authority']) == set(gates), 'mandatory gate authority coverage incomplete')
     require(len(gate_bundles) == len(gates) and {b.get('gate') for b in gate_bundles if type(b) is dict} == set(gates), 'mandatory integrated gate evidence missing/duplicate')
     gate_results = [verify_integrated_gate(bundle, gates[bundle['gate']], closure_authority['gate_authority'][bundle['gate']], context=context, trust=trust, artifact_root=closure_authority['gate_artifact_root'], now=now, capture_sha256=reference['sha256']) for bundle in gate_bundles]

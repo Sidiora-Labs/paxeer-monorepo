@@ -1,46 +1,46 @@
-// Package keys provides common key management API.
+// Package keyring provides the Keyring API for local, watch-only, multisig and
+// Ledger accounts. New selects an operating-system or file secret backend;
+// NewInMemory keeps transient keys which disappear when the instance is lost.
 //
-// # The Keybase interface
+// New supports os (the operating system's credential store), file (encrypted
+// files under keyring-file), kwallet (KDE Wallet), pass (the pass utility), test
+// and memory. OS stores may remain unlocked for the user's session. The test
+// backend stores keys insecurely using a fixed public password, never prompts,
+// and must only be used for testing. NewInMemory and memory are not durable.
 //
-// The Keybase interface defines the methods that a type needs to implement to be used
-// as key storage backend. This package provides few implementations out-of-the-box.
+// Default software creation, signing and armored private-key import support
+// secp256k1 and sr25519. Import rejects other algorithm labels and respects the
+// configured supported algorithms. Watch-only SavePubKey accepts secp256k1,
+// sr25519 and ed25519 public keys, deriving the label when empty and rejecting
+// mismatches. Ed25519 is for validator public information, not wallet private
+// keys. SaveMultisig stores multisig references. Ledger advertises secp256k1
+// only; creation and signing require a configured device and a Ledger-enabled
+// executable. Unsupported algorithms are rejected before contacting the device.
 //
-// # NewLegacy
+// The file backend caches its password while the instance is in use. Its
+// keyhash verifier is versioned, uses bcrypt cost 12 with a fresh random salt,
+// and accepts backup costs only in the bounded range 4 through 16. Legacy raw
+// bcrypt verifiers (including the old effective cost 10) are upgraded atomically
+// after successful password verification; existing higher costs are retained.
+// Failed passwords never migrate the verifier. Backups must retain both the
+// encrypted entries and keyhash. The backend's own encrypted-file KDF and any
+// armored exports are separate password-checking artifacts; strengthening
+// keyhash does not re-encrypt older files or strengthen old backups. Choose a
+// strong password, restrict directory access, and protect or retire old backups.
 //
-// The NewLegacy constructor returns an on-disk implementation backed by LevelDB storage that has been
-// the default implementation used by the SDK until v0.38.0. Due to security concerns, it is
-// recommended to drop it in favor of the NewKeyring constructor as it will be removed in future releases.
+// Creates and deletes journal their intent in the same secret backend before
+// updating the name and address views. New replays an interrupted operation;
+// access and mutation also retry recovery. PendingOperationError means storage
+// must be repaired before recovery can finish. An identical create retry does
+// not replace the original account. List returns healthy records alongside a
+// structured CorruptionError identifying damaged entries. Callers must check
+// its error before displaying output; MkAccKeysOutput can accept List's two
+// results directly and propagates that error.
 //
-// # NewInMemory
-//
-// The NewInMemory constructor returns an implementation backed by an in-memory, goroutine-safe
-// map that has historically been used for testing purposes or on-the-fly key generation as the
-// generated keys are discarded when the process terminates or the type instance is garbage
-// collected.
-//
-// # New
-//
-// The New constructor returns an implementation backed by a keyring library
-// (https://github.com/99designs/keyring), whose aim is to provide a common abstraction and uniform
-// interface between secret stores available for Windows, macOS, and most GNU/Linux distributions
-// as well as operating system-agnostic encrypted file-based backends.
-//
-// The backends:
-//
-//	os		The instance returned by this constructor uses the operating system's default
-//			credentials store to handle keys storage operations securely. It should be noted
-//			that the keyring keyring may be kept unlocked for the whole duration of the user
-//			session.
-//	file	This backend more closely resembles the previous keyring storage used prior to
-//			v0.38.1. It stores the keyring encrypted within the app's configuration directory.
-//			This keyring will request a password each time it is accessed, which may occur
-//			multiple times in a single command resulting in repeated password prompts.
-//	kwallet	This backend uses KDE Wallet Manager as a credentials management application:
-//			https://github.com/KDE/kwallet
-//	pass	This backend uses the pass command line utility to store and retrieve keys:
-//			https://www.passwordstore.org/
-//	test	This backend stores keys insecurely to disk. It does not prompt for a password to
-//			be unlocked and it should be use only for testing purposes.
-//	memory	Same instance as returned by NewInMemory. This backend uses a transient storage. Keys
-//			are discarded when the process terminates or the type instance is garbage collected.
+// Recovery assumes completed backend Set calls survive a process restart and
+// one active keyring instance per persistent store. The backend does not promise
+// atomic file replacement or fsync of every secret write, so a torn journal,
+// media loss or power failure may require restoring a protected backup. A
+// corrupted journal is reported and retained rather than discarded. The
+// journal repairs interrupted name/address operations, not arbitrary damage.
 package keyring

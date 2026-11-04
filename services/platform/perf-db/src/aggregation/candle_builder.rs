@@ -1,4 +1,4 @@
-use crate::core::market::{MARKET_COUNT, MarketId};
+use crate::core::market::{MarketId, MARKET_COUNT};
 use crate::core::timeframe::Timeframe;
 use crate::core::types::{CandleRecord, PriceTick};
 
@@ -73,7 +73,12 @@ pub enum CandleOutput {
 /// For each incoming tick:
 /// 1. Compute the bucket start for all 16 timeframes
 /// 2. If same bucket → update OHLCV, emit `Live`
-/// 3. If new bucket → emit `Closed` for old bucket, start fresh, emit `Live` for new
+/// 3. If future bucket → emit `Closed` for old bucket, start fresh, emit `Live` for new
+/// 4. If past bucket → reject for that timeframe without changing or emitting candles
+///
+/// Late-tick policy: finalized buckets are immutable. Ticks in an active bucket
+/// are applied in arrival order, including its close price. A tick can be too
+/// late for a short timeframe while still updating an active longer timeframe.
 ///
 /// Persistence strategy:
 /// - `Closed` candles → `CandleStore::append` (finalized, immutable)
@@ -122,12 +127,21 @@ impl CandleBuilder {
                     buf.update(tick.price);
                     output.push(CandleOutput::Live(buf.to_record(mid, tf)));
                 }
-                Some(buf) => {
+                Some(buf) if bucket_ns > buf.bucket_start_ns => {
                     output.push(CandleOutput::Closed(buf.to_record(mid, tf)));
                     self.buffers[idx] = Some(CandleBuffer::new(bucket_ns, tick.price));
                     output.push(CandleOutput::Live(
                         self.buffers[idx].as_ref().unwrap().to_record(mid, tf),
                     ));
+                }
+                Some(buf) => {
+                    tracing::debug!(
+                        market_id = mid,
+                        timeframe = tf as u8,
+                        tick_timestamp_ns = tick.timestamp_ns,
+                        live_bucket_start_ns = buf.bucket_start_ns,
+                        "late tick rejected for finalized candle bucket"
+                    );
                 }
                 None => {
                     self.buffers[idx] = Some(CandleBuffer::new(bucket_ns, tick.price));

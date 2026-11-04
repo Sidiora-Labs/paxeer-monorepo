@@ -1,0 +1,15 @@
+{
+  "ghsa_id": "GHSA-g98v-hv3f-hcfr",
+  "summary": "atty potential unaligned read",
+  "vulnerabilities": [
+    {
+      "first_patched_version": null,
+      "package": {
+        "ecosystem": "rust",
+        "name": "atty"
+      },
+      "vulnerable_functions": [],
+      "vulnerable_version_range": "<= 0.2.14"
+    }
+  ]
+}

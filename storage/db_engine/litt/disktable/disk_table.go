@@ -728,6 +728,9 @@ func (d *DiskTable) PutBatch(batch []*types.PutRequest) error {
 	totalSize := uint64(0)
 
 	for _, kv := range batch {
+		if kv == nil {
+			return fmt.Errorf("nil batch requests are not supported")
+		}
 		if kv.Key == nil {
 			return fmt.Errorf("nil keys are not supported")
 		}
