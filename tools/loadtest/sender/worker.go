@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 
 	"github.com/paxeer-network/pax-load/stats"
@@ -52,6 +53,7 @@ type Worker struct {
 	debug          bool
 	collector      *stats.Collector
 	logger         *stats.Logger
+	inputClosed    sync.Once
 	workers        int
 	trackReceipts  bool
 	limiter        *rate.Limiter // Shared rate limiter for transaction sending
@@ -105,23 +107,25 @@ func (w *Worker) Run(ctx context.Context) error {
 	client := newHttpClient()
 	defer client.CloseIdleConnections()
 	err := service.Run(ctx, func(ctx context.Context, s service.Scope) error {
+		producers := new(errgroup.Group)
 		for range w.workers {
-			s.Spawn(func() error { return w.processTransactions(ctx, client) })
+			producers.Go(func() error { return w.processTransactions(ctx, client) })
 		}
+		s.Spawn(func() error {
+			err := producers.Wait()
+			close(w.sentTxs)
+			return err
+		})
 		return w.watchTransactions(ctx)
 	})
 	// All producers and receipt consumers have stopped before final accounting.
-	for {
-		select {
-		case <-w.sentTxs:
-			w.recordReceiptOutcome(context.Canceled)
-		default:
-			if w.trackReceipts {
-				log.Printf("Receipt outcomes for %s: %+v", w.endpoint, w.GetReceiptStats())
-			}
-			return err
-		}
+	for range w.sentTxs {
+		w.recordReceiptOutcome(context.Canceled)
 	}
+	if w.trackReceipts {
+		log.Printf("Receipt outcomes for %s: %+v", w.endpoint, w.GetReceiptStats())
+	}
+	return err
 }
 
 func (w *Worker) GetReceiptStats() ReceiptStats {
@@ -180,9 +184,12 @@ func (w *Worker) watchTransactions(ctx context.Context) error {
 		for range concurrency {
 			s.Spawn(func() error {
 				for {
-					tx, err := utils.Recv(ctx, w.sentTxs)
+					tx, ok, err := utils.RecvOrClosed(ctx, w.sentTxs)
 					if err != nil {
 						return err
+					}
+					if !ok {
+						return nil
 					}
 					itemCtx, cancel := context.WithTimeout(ctx, w.receiptTimeout)
 					err = w.waitForReceipt(itemCtx, eth, tx)
@@ -236,31 +243,36 @@ func (w *Worker) waitForReceipt(ctx context.Context, eth *ethclient.Client, tx *
 }
 
 // processTransactions is the main worker loop that processes transactions
+// CloseInput must be called only after producers have stopped sending.
+func (w *Worker) CloseInput() { w.inputClosed.Do(func() { close(w.txChan) }) }
+
 func (w *Worker) processTransactions(ctx context.Context, client *http.Client) error {
-	for ctx.Err() == nil {
-		// Apply rate limiting before getting the next transaction
+	var firstErr error
+	for {
+		tx, ok, err := utils.RecvOrClosed(ctx, w.txChan)
+		if err != nil {
+			return errors.Join(firstErr, err)
+		}
+		if !ok {
+			return firstErr
+		}
 		if w.limiter != nil {
 			if err := w.limiter.Wait(ctx); err != nil {
-				return err
+				return errors.Join(firstErr, err)
 			}
 		}
-
-		tx, err := utils.Recv(ctx, w.txChan)
-		if err != nil {
-			return err
-		}
-
 		startTime := time.Now()
 		err = w.sendTransaction(ctx, client, tx)
-		// Record statistics if collector is available
 		if w.collector != nil {
 			w.collector.RecordTransaction(tx.Scenario.Name, w.endpoint, time.Since(startTime), err == nil)
 		}
 		if err != nil {
 			log.Printf("%v", err)
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
-	return ctx.Err()
 }
 
 // sendTransaction sends a single transaction to the endpoint

@@ -464,7 +464,8 @@ func TestRepairM_821_WriterBlockLimit(t *testing.T) {
 
 func TestRepairM_821_WriterDispatcherTail(t *testing.T) {
 	cfg := &config.LoadConfig{ChainID: 125}
-	accounts := types.NewAccountPool(&types.AccountConfig{Accounts: types.GenerateAccounts(2)})
+	accounts, err := types.NewAccountPool(&types.AccountConfig{Accounts: types.GenerateAccounts(2)})
+	require.NoError(t, err)
 	scenario := scenarios.CreateScenario(config.Scenario{Name: scenarios.EVMTransfer, Weight: 1})
 	scenario.Deploy(cfg, accounts.NextAccount())
 	for _, count := range []int{1, 4} {
@@ -493,7 +494,8 @@ func TestRepairM_821_WriterDispatcherTail(t *testing.T) {
 
 func TestRepairM_821_DispatcherCompletionAndWriteFailure(t *testing.T) {
 	cfg := &config.LoadConfig{ChainID: 125}
-	accounts := types.NewAccountPool(&types.AccountConfig{Accounts: types.GenerateAccounts(2)})
+	accounts, err := types.NewAccountPool(&types.AccountConfig{Accounts: types.GenerateAccounts(2)})
+	require.NoError(t, err)
 	scenario := scenarios.CreateScenario(config.Scenario{Name: scenarios.EVMTransfer, Weight: 1})
 	scenario.Deploy(cfg, accounts.NextAccount())
 	dir := t.TempDir()

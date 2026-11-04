@@ -129,6 +129,10 @@ func NewCohort(
 
 // LoadCohort loads a cohort from the given path.
 func LoadCohort(path string) (*Cohort, error) {
+	return loadCohort(path, false)
+}
+
+func loadCohort(path string, fsync bool) (*Cohort, error) {
 
 	parentDirectory := filepath.Dir(path)
 	// Cohort file names are in the format "X.cohort", where X is the cohort index.
@@ -143,6 +147,7 @@ func LoadCohort(path string) (*Cohort, error) {
 		parentDirectory: parentDirectory,
 		cohortIndex:     cohortIndex,
 		loadedFromDisk:  true,
+		fsync:           fsync,
 	}
 
 	filePath := cohort.Path()
@@ -301,6 +306,7 @@ func (c *Cohort) MarkComplete() error {
 	c.allValuesWritten = true
 	err := c.Write()
 	if err != nil {
+		c.allValuesWritten = false
 		return fmt.Errorf("failed to mark cohort complete: %w", err)
 	}
 	return nil

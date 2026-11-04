@@ -1,0 +1,60 @@
+[task]
+id = "22.33.1384"
+audit = "22.30.76"
+base = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+status = "Implementation recorded here; qualification is exclusively the bounded hf-build/hf-done ledger."
+baseline = "Initial git status/diff contained only runner-owned .cgignore and task-start spec changes; no Go edits or previous gate ledger existed. No baseline test was run: the explicit Order prohibits testing before complete implementation and permits verification only through hf-done. No pre-change failure is claimed."
+evidence = "The terminating hf-done JSON and the runner's private /out/run/gates.jsonl record exact candidate revision, command, exit and log. This record is part of that same candidate; no post-gate source edits or self-referential revision are made."
+
+[finding.rewritten-committed-fixture]
+test = "TestRepairM_1384_rewritten_committed_fixture"
+repair = "Preserve the original daemon committed response bytes through VerifySequencerReceipt, Receipt, Activity and ActivityCommitted; receipt-only verification remains receipted, while independently pinned inclusion promotes finality and wrong checkpoint or inclusion refuses it."
+
+[finding.http-default-no-deadline]
+test = "TestRepairM_1384_http_deadlines"
+repair = "Document and enforce the 30-second default whole-exchange deadline for Human and Agent HTTP; stalled loopback peers prove the default, shorter caller deadlines, explicit client timeouts and explicitly unlimited clients with caller deadlines."
+
+[finding.deployment-payload-bound]
+test = "TestRepairM_1384_deployment_payload_boundary"
+repair = "Bound complete deploy and upgrade payloads at 524288 bytes on encoding and decoding, including 104/108 or 106/110-byte headers, migration hooks and interface attachments; test the exact limit and first oversized byte through lifecycle codec, request and EVM ABI argument decoding alongside unchanged native producer vectors."
+
+[finding.occupancy-tests-bypass-public-api]
+test = "TestRepairM_1384_occupancy_public_contract"
+repair = "Public native receipt verification authenticates recorded 0x101D log facts and explicitly refuses all offered legacy payer proofs, including substituted accounts and wrong payers; historical internal occupancy codec assertions are preserved and separately identified."
+
+[finding.portable-tests-no-external-anchor]
+test = "TestRepairM_1384_portable_external_anchor"
+repair = "Use the real daemon committed fixture with a separately stored fixed test-network checkpoint; preserve its signed receipt while replacing every validator, both headers, commits and unauthenticated coordinates coherently, and refuse that chain under the genuine checkpoint. Verify validator rotation and refuse missing history, old/new signature tampering, network changes and unauthorized transitions through portable export and verification."
+
+[finding.wind-down-test-expects-refusal]
+test = "TestRepairM_1384_wind_down_native_activity"
+repair = "Prepare native deprecate at root RPC, bind every unsigned signing field to the committed external EIP-1559 signature fixture, broadcast identical bytes, and observe that same transaction's submitted activity. Retain all nine retired REST ingress refusal cases. No committed finality claim is made for a submitted activity."
+
+[finding.program-verification-claims]
+test = "TestRepairM_1384_program_authenticated_facts"
+repair = "Expose a typed NativeProgramLogResult containing only signed 0x101D ProgramCallOutcome facts; validate ABI widths, frame, identities and supported ABI, match offered program/ABI/result assertions and refuse obsolete terminal/outcome/graph/usage/authority/protocol/payer claims. Cover genuine recorded transport results, substituted program/outcome fields, log tampering, and ordinary EVM receipts that authenticate no program facts."
+
+[finding.program-root-chain-hardcoded]
+test = "TestRepairM_1384_endpoint_chain_domain"
+repair = "Resolve canonical nonzero uint256 eth_chainId for every call/deploy/upgrade preparation at the selected endpoint and send it unchanged to estimation and signing output; refuse malformed or unavailable identity and endpoint redirects. Replay the root 125 and /chain/1 125000001 results from the domain RPC producer contract. Update existing preparation assertions to include the required identity RPC."
+
+[wiring.native-precompile-boundary]
+request = "precompiles/layerxprograms and modules/lxphost — domain 8 native Programs: carry these full-payload boundary cases into the native precompile/host gate; this SDK gate runs the real SDK codec and ABI consumer with committed native vectors, without linking the native artifact or executing the out-of-scope host."
+
+[wiring.domain-rpc-producer]
+request = "rpc/domain_scope_test.go — domain 8 RPC: retain root eth_chainId 0x7d and /chain/1 0x7735941 producer goldens; SDK loopback peers replay these pinned results without importing the node harness."
+
+[wiring.native-proof-contract]
+request = "spec/layerx-merge/contracts/platform-sdk.md and sdk/platform/{dotnet,jvm,python,rust,typescript} — domain 8 platform SDK: publish the native authenticated-log result and explicit unsupported payer/kernel projection contract; these consumer and contract paths are outside this task."
+
+[gotcha.scope]
+observed = "Task-specific scope excludes spec/ and GOTCHA.kvx, so findings, wiring requests and small implementation notes are kept in this in-scope record; runner-owned initial changes are preserved."
+
+[gotcha.native-activity]
+observed = "ProgramCallOutcome.activityId is a native activity identity, not the enclosing EVM hash; the signed EVM receipt binds the log, while the public document transaction hash is checked separately."
+
+[gotcha.chain-tests]
+observed = "Every transaction now resolves chain identity first; existing preparation peers and exact request-count assertions must include eth_chainId while retaining nonce, fee, gas and signed-envelope checks."
+
+[gotcha.parallel-go121]
+observed = "The SDK declares Go 1.21; parallel subtests explicitly capture loop values so default timeout, caller deadline and explicit client cases each exercise their declared configuration."

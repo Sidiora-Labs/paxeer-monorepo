@@ -334,7 +334,6 @@ func installPoolSurface(ctx sdk.Context, k *Keeper, evm EVMReader, pool v6120Poo
 // refuses when that ledger does not cover totalLiabilities.
 func writeAccounting(ctx sdk.Context, k *Keeper, pools []v6120Pool, accounting map[common.Address]v6120Accounting,
 	liabilities sdk.Int) error {
-	store := k.store(ctx)
 	for _, pool := range pools {
 		acc := accounting[pool.Address]
 		for _, epoch := range acc.Epochs {
@@ -343,7 +342,10 @@ func writeAccounting(ctx sdk.Context, k *Keeper, pools []v6120Pool, accounting m
 			}
 		}
 		for i, holder := range acc.Claims {
-			store.Set(poolAirdropClaimKey(pool.Address, holder, acc.ClaimEpochs[i]), []byte{1})
+			if err := k.setFeeAccountingEntry(ctx, poolAirdropClaimKey(pool.Address, holder, acc.ClaimEpochs[i]),
+				[]byte{1}, feeAccountingClaimCountKey); err != nil {
+				return err
+			}
 		}
 		if acc.OpticalSurplus.IsPositive() {
 			if err := k.setLedgerAmount(ctx, opticalSurplusKey(pool.Address), acc.OpticalSurplus); err != nil {

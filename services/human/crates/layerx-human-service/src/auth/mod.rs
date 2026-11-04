@@ -1897,6 +1897,17 @@ fn valid_machine_label(value: &str) -> bool {
         })
 }
 
+pub(crate) fn validate_step_up_challenge_id(value: &str) -> Result<(), AuthError> {
+    if value
+        .strip_prefix("chg_")
+        .is_some_and(|suffix| valid_lower_hex(suffix, IDENTIFIER_ENTROPY_BYTES * 2))
+    {
+        Ok(())
+    } else {
+        Err(AuthError::InvalidInput("invalid step-up identifier"))
+    }
+}
+
 fn valid_prefixed_id(value: &str, prefix: &str) -> bool {
     value.strip_prefix(prefix).is_some_and(|suffix| {
         valid_lower_hex(suffix, IDENTIFIER_ENTROPY_BYTES * 2)

@@ -1,5 +1,3 @@
-//go:build mock_balances
-
 package state
 
 /*
@@ -16,6 +14,7 @@ package state
 import (
 	"math/big"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,9 +26,10 @@ var TopOffAmount = new(big.Int).Mul(big.NewInt(100), big.NewInt(1_000_000_000_00
 // ensureMinimumBalance tops off the account if balance is low.
 // Called from GetBalance to ensure preCheck passes in StateTransition.
 func (s *DBImpl) ensureMinimumBalance(evmAddr common.Address) {
-	if s.ctx.ChainID() == "pacific-1" {
-		panic("FATAL: mock_balances build tag enabled on pacific-1 mainnet - this is a critical misconfiguration")
+	if !s.mockBalances {
+		return
 	}
+	s.assertMockBalancesAllowed()
 
 	paxAddr := s.getPaxAddress(evmAddr)
 	currentBalance := s.k.GetBalance(s.ctx, paxAddr)
@@ -42,6 +42,10 @@ func (s *DBImpl) ensureMinimumBalance(evmAddr common.Address) {
 // ensureSufficientBalance tops off the account if it doesn't have enough for the operation.
 // Called from SubBalance before actually subtracting.
 func (s *DBImpl) ensureSufficientBalance(evmAddr common.Address, amt *big.Int) {
+	if !s.mockBalances {
+		return
+	}
+	s.assertMockBalancesAllowed()
 	paxAddr := s.getPaxAddress(evmAddr)
 	currentBalance := s.k.GetBalance(s.ctx, paxAddr)
 
@@ -54,6 +58,7 @@ func (s *DBImpl) ensureSufficientBalance(evmAddr common.Address, amt *big.Int) {
 
 // topOffAccount mints funds to an account.
 func (s *DBImpl) topOffAccount(paxAddr sdk.AccAddress, amt *big.Int) {
+	s.assertMockBalancesAllowed()
 	// Ensure account exists
 	if !s.k.AccountKeeper().HasAccount(s.ctx, paxAddr) {
 		s.k.AccountKeeper().SetAccount(s.ctx, s.k.AccountKeeper().NewAccountWithAddress(s.ctx, paxAddr))
@@ -68,4 +73,10 @@ func (s *DBImpl) topOffAccount(paxAddr sdk.AccAddress, amt *big.Int) {
 	}
 	moduleAddr := s.k.AccountKeeper().GetModuleAddress(types.ModuleName)
 	_ = s.k.BankKeeper().SendCoinsAndWei(ctx, moduleAddr, paxAddr, uhpx, wei)
+}
+
+func (s *DBImpl) assertMockBalancesAllowed() {
+	if err := config.ValidateMockBalancesChainID(s.ctx); err != nil {
+		panic(err)
+	}
 }

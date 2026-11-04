@@ -56,6 +56,9 @@ fn beta_send_uses_native_account_ids_in_signed_payload_and_authorization() {
     );
 }
 
+#[path = "support/native_funding.rs"]
+mod native_funding;
+
 mod boundary {
     include!("../src/main.rs");
 
@@ -96,7 +99,7 @@ mod boundary {
             treasury_did: did_for_public_key(&treasury.public_key()),
             treasury: Arc::new(treasury),
             treasury_asset: [2; 32],
-            funding: chain_fund::FundingSlot::from_env(),
+            funding: chain_fund::FundingSlot::configured(Err("sender_unavailable")),
             sequencer_id: [4; 32],
             supervisor_socket: root.join("supervisor.sock"),
             state_dir: root.to_path_buf(),
@@ -165,48 +168,14 @@ mod boundary {
                 .create(root.join(directory))
                 .unwrap();
         }
-        for arguments in [
-            vec![
-                "req",
-                "-x509",
-                "-newkey",
-                "rsa:2048",
-                "-nodes",
-                "-keyout",
-                "key.pem",
-                "-out",
-                "certificate.pem",
-                "-days",
-                "1",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ],
-            vec![
-                "x509",
-                "-in",
-                "certificate.pem",
-                "-outform",
-                "DER",
-                "-out",
-                "certificate.der",
-            ],
-            vec![
-                "pkcs8", "-topk8", "-nocrypt", "-in", "key.pem", "-outform", "DER", "-out",
-                "key.der",
-            ],
-        ] {
-            let output = std::process::Command::new("openssl")
-                .args(arguments)
-                .current_dir(&root)
-                .output()
-                .unwrap();
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
+        let recorded: serde_json::Value =
+            serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json")).unwrap();
+        for (name, field) in [("certificate.der", "certificate"), ("key.der", "key")] {
+            fs::write(
+                root.join(name),
+                hex_decode(recorded["tls"][field].as_str().unwrap()).unwrap(),
+            )
+            .unwrap();
         }
         let seed = [9; 32];
         let config = test_config(&root, &seed);
@@ -236,45 +205,7 @@ mod boundary {
             },
         )
         .unwrap();
-        let (call, signature) =
-            layerx_crypto::evm_transaction::decode_signed(&signed.canonical).unwrap();
-        let transaction_hash = layerx_crypto::evm_transaction::transaction_hash(&signed.canonical);
-        let request_body = serde_json::to_vec(&command).unwrap();
-        let digest = request_digest(&Request {
-            method: "POST".into(),
-            path: "/admin/v1/testnet/fund".into(),
-            query: None,
-            headers: BTreeMap::new(),
-            body: request_body.clone(),
-        });
-        let mut intent = FundingIntent {
-            version: 1,
-            key: key.into(),
-            request_digest: digest,
-            request_body,
-            command,
-            network_id: config.network_id,
-            asset: config.treasury_asset,
-            sequencer_id: config.sequencer_id,
-            sequencer_key: [5; 32],
-            signed: PreparedFunding {
-                canonical: signed.canonical.clone(),
-                transaction_hash,
-                sender: layerx_crypto::evm_transaction::recover_sender(&call, &signature).unwrap(),
-            },
-        };
-        let body = serde_json::to_vec(&intent).unwrap();
-        let (status, response) = exchange(
-            Arc::clone(&config),
-            "POST",
-            "/admin/v1/testnet/funding-intents",
-            &body,
-        );
-        assert_eq!(status, 200, "{response}");
-        assert_eq!(
-            response["result"]["transaction_hash"],
-            hex_encode(&transaction_hash)
-        );
+        let (call, _) = layerx_crypto::evm_transaction::decode_signed(&signed.canonical).unwrap();
         let unsigned = call.encode_unsigned();
         let fee_body =
             serde_json::to_vec(&serde_json::json!({"canonical_hex": hex_encode(&unsigned)}))
@@ -295,37 +226,7 @@ mod boundary {
             &signed_fee,
         );
         assert_eq!(status, 400);
-        intent.signed.transaction_hash[0] ^= 1;
-        let (status, _) = exchange(
-            Arc::clone(&config),
-            "POST",
-            "/admin/v1/testnet/funding-intents",
-            &serde_json::to_vec(&intent).unwrap(),
-        );
-        assert_eq!(status, 400);
-        drop(config);
-        let recovered = test_config(&root, &seed);
-        let (status, archive) = exchange(
-            recovered,
-            "GET",
-            &format!("/admin/v1/testnet/funding-intents/{key}"),
-            b"",
-        );
-        assert_eq!(status, 200, "{archive}");
-        assert_eq!(
-            archive["result"]["transaction_hash"],
-            hex_encode(&transaction_hash)
-        );
-        assert_eq!(
-            archive["result"]["canonical_hex"],
-            hex_encode(&signed.canonical)
-        );
-        let archived_bytes =
-            hex_decode(archive["result"]["canonical_hex"].as_str().unwrap()).unwrap();
-        assert_eq!(
-            layerx_crypto::evm_transaction::transaction_hash(&archived_bytes),
-            transaction_hash
-        );
+        super::native_funding::native_funding_intent_producer_import_replay_and_refusals();
     }
 }
 

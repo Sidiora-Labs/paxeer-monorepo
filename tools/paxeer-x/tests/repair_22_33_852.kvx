@@ -1,0 +1,21 @@
+[task.22.33.852]
+audit = "22.30.181"
+acceptance = "22998.1"
+f030 = "test_f030_root_rpc_drives_real_https_codec; test_f030_root_websocket_drives_real_upgrade_and_masked_frames; test_f030_retained_phoenix_gateway_transport_is_connected; test_f030_retired_native_names_cannot_claim_coverage"
+f031 = "test_f031_current_reads_refuse_degradation_and_recover_after_peer_restart; test_f031_plan_runner_executes_every_current_node_observation; test_f031_rejects_invalid_connected_current_node_responses; test_f031_method_not_found_and_retired_kernel_errors_are_not_degradation; test_f031_recovered_balance_drift_is_refused; test_f031_degradation_requires_exact_typed_assertions; test_f031_old_or_incomplete_recovery_plans_are_refused; test_f031_recovery_cannot_skip_a_phase_or_change_the_target"
+baseline_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+baseline = "Not run: explicit gate order forbids pre-implementation verification; the declared repair module did not exist and the initial gate ledger had no runs. No baseline failures are claimed."
+proof = "The production route matcher, HTTP codec, JSON-RPC WebSocket codec, Phoenix codec and node recovery consumer execute over verified loopback TLS against committed producer contract examples. The peer listener is stopped and reopened at the same address; offline access raises OSError, and recovered committed state must equal the original snapshot. This proves client recovery, not paxd storage recovery."
+wiring_catalogue = "tools/paxeer-x/route-catalogue.json -> domain 16: replace retired lx_ WebSocket rows and /rpc endpoint aliases with retained node and gateway transport declarations; keep the published route corpus coverage check intact."
+wiring_plan = "tools/paxeer-x/gates/0.4.sh -> domain 16: supply node_recovery_cases with before/degraded/recovered observations of the same target and committed snapshot; control actual node degradation and reopening between observations in the deployment fixture owner."
+evidence = "The bounded hf-build and hf-done runner ledger records the qualified candidate revision, exact command, exit code and private log location; the final response copies its last evidence line."
+
+[gotcha.local-route-catalogue]
+area = "test"
+symptom = "The catalogue still publishes retired lx_ WebSocket methods and /rpc aliases although current gateway dispatch rejects lx_ and only POST / reaches RPC."
+do = "Keep those catalogue changes with domain 16; do not accept a retired name as current positive route coverage."
+
+[gotcha.local-route-gate]
+area = "tooling"
+symptom = "The catalogue consumer identifier does not name an existing gate script."
+do = "The current routed acceptance entry point is tools/paxeer-x/gates/0.4.sh."

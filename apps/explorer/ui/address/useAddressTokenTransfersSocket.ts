@@ -20,6 +20,10 @@ const matchFilters = (filters: Filters, tokenTransfer: TokenTransfer, address?: 
     return false;
   }
 
+  if (filters.token && (!tokenTransfer.token || tokenTransfer.token.address_hash.toLowerCase() !== filters.token.toLowerCase())) {
+    return false;
+  }
+
   if (filters.filter) {
     if (filters.filter === 'from' && tokenTransfer.from.hash !== address) {
       return false;

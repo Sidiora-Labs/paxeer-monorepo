@@ -1,6 +1,6 @@
 /** React hook — fetch NFTs owned by an address from Blockscout */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { getAddressNfts } from '../api/addresses';
 import type { AddressNftParams } from '../api/addresses';
 import type { PaginatedResponse } from '../types/common';
@@ -23,49 +23,82 @@ export function useNfts(): UseNftsResult {
   const [error, setError] = useState<Error | null>(null);
   const lastHashRef = useRef<string>('');
   const lastParamsRef = useRef<AddressNftParams | undefined>(undefined);
+  const requestIdRef = useRef(0);
+  const nextPageRef = useRef<Record<string, unknown> | null>(null);
+  const pendingRef = useRef(false);
 
-  const fetchData = useCallback(async (
-    addressHash: string,
-    params?: AddressNftParams,
-  ) => {
-    if (!addressHash) return;
+  useEffect(
+    () => () => {
+      requestIdRef.current += 1;
+    },
+    []
+  );
+
+  const fetchData = useCallback(async (addressHash: string, params?: AddressNftParams) => {
+    const requestId = ++requestIdRef.current;
+    if (lastHashRef.current !== addressHash) {
+      setNfts([]);
+    }
     lastHashRef.current = addressHash;
     lastParamsRef.current = params;
+    nextPageRef.current = null;
+    setNextPageParams(null);
+    pendingRef.current = Boolean(addressHash);
+    if (!addressHash) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
       const result: PaginatedResponse<TokenInstanceInList> = await getAddressNfts(
         addressHash,
-        params,
+        params
       );
+      if (requestId !== requestIdRef.current) return;
       setNfts(result.items);
+      nextPageRef.current = result.next_page_params;
       setNextPageParams(result.next_page_params);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        pendingRef.current = false;
+        setLoading(false);
+      }
     }
   }, []);
 
   const fetchNextPage = useCallback(async () => {
-    if (!lastHashRef.current || !nextPageParams) return;
+    const pageParams = nextPageRef.current;
+    if (!lastHashRef.current || !pageParams || pendingRef.current) return;
+    const requestId = ++requestIdRef.current;
+    pendingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const result: PaginatedResponse<TokenInstanceInList> = await getAddressNfts(
         lastHashRef.current,
-        { ...lastParamsRef.current, ...nextPageParams } as AddressNftParams,
+        { ...lastParamsRef.current, ...pageParams } as AddressNftParams
       );
+      if (requestId !== requestIdRef.current) return;
       setNfts((prev) => [...prev, ...result.items]);
+      nextPageRef.current = result.next_page_params;
       setNextPageParams(result.next_page_params);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        pendingRef.current = false;
+        setLoading(false);
+      }
     }
-  }, [nextPageParams]);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (lastHashRef.current) {

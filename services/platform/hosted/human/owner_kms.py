@@ -2,9 +2,80 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import selectors
+import signal
+import time
 
 from provision import fields, protected_bytes, protected_json, require, write_json
 from owner_native import protected_write, digest, span
+
+PREPARE_DEADLINE_SECONDS = 10
+PREPARE_OUTPUT_BYTES = 65536
+
+
+def prepare_child(executable, call):
+    """Bound both pipes and the lifetime of a preparation process group."""
+    deadline = time.monotonic() + PREPARE_DEADLINE_SECONDS
+    request = json.dumps(call, allow_nan=False).encode()
+    require(len(request) <= 16384, 'KMS prepare', 'bounded preparation request')
+    try:
+        child = subprocess.Popen([executable, 'prepare'], stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    except OSError as error:
+        raise ValueError('KMS prepare refused: executable unavailable; retain custody and retry the same request') from error
+    output = bytearray()
+    total = 0
+    offset = 0
+    try:
+        with selectors.DefaultSelector() as selector:
+            for pipe in (child.stdin, child.stdout, child.stderr):
+                os.set_blocking(pipe.fileno(), False)
+            selector.register(child.stdin, selectors.EVENT_WRITE)
+            selector.register(child.stdout, selectors.EVENT_READ)
+            selector.register(child.stderr, selectors.EVENT_READ)
+            while selector.get_map():
+                remaining = deadline - time.monotonic()
+                require(remaining > 0, 'KMS prepare',
+                        'preparation deadline exceeded; retain custody and retry the same request')
+                for key, _ in selector.select(remaining):
+                    pipe = key.fileobj
+                    if pipe is child.stdin:
+                        try:
+                            offset += os.write(pipe.fileno(), request[offset:])
+                        except BrokenPipeError:
+                            offset = len(request)
+                        if offset == len(request):
+                            selector.unregister(pipe)
+                            pipe.close()
+                    else:
+                        data = os.read(pipe.fileno(), min(8192, PREPARE_OUTPUT_BYTES - total + 1))
+                        if not data:
+                            selector.unregister(pipe)
+                            pipe.close()
+                            continue
+                        total += len(data)
+                        require(total <= PREPARE_OUTPUT_BYTES, 'KMS prepare',
+                                'preparation output exceeds bound; retain custody and retry the same request')
+                        if pipe is child.stdout:
+                            output.extend(data)
+            remaining = deadline - time.monotonic()
+            require(remaining > 0, 'KMS prepare', 'preparation deadline exceeded; retain custody')
+            try:
+                status = child.wait(timeout=remaining)
+            except subprocess.TimeoutExpired as error:
+                raise ValueError('KMS prepare refused: preparation deadline exceeded; retain custody') from error
+            require(status == 0, 'KMS prepare', 'real KMS sponsor preparation; retain custody')
+        return bytes(output)
+    finally:
+        # Descendants may retain a pipe or survive their immediate parent.
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        child.wait()
+        for pipe in (child.stdin, child.stdout, child.stderr):
+            if not pipe.closed:
+                pipe.close()
 
 
 def retain_json(path, value):
@@ -28,9 +99,8 @@ def prepare(work_dir, executable, config_directory):
     request = protected_json(root / 'owner-request.json')
     fields(request, 'email display_name idempotency_key now', root, 'owner provisioning request')
     call = {key: request[key] for key in ('email', 'display_name', 'idempotency_key')}
-    completed = subprocess.run([executable, 'prepare'], input=json.dumps(call).encode(), capture_output=True)
-    require(completed.returncode == 0, root, 'real KMS sponsor preparation')
-    owner = json.loads(completed.stdout)
+    from provision import strict_pairs
+    owner = json.loads(prepare_child(executable, call), object_pairs_hook=strict_pairs)
     fields(owner, 'principal did public_key pending_key recovery_root recovery_threshold recovery_delay_seconds registration_action recovery_action recipient', root, 'KMS sponsor export')
     for name in ('public_key', 'pending_key', 'recovery_root', 'registration_action', 'recovery_action'):
         require(type(owner[name]) is list and len(owner[name]) == 32

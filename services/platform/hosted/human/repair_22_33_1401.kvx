@@ -1,0 +1,75 @@
+[repair.22.33.1401]
+audit = "22.30.78"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+baseline = "The scoped sources were unchanged and the private gate ledger contained no earlier runs; the required repair test did not exist. The explicit implementation-first, hf-done-only order prohibits the conflicting pre-change verify step, so no baseline pass or pre-change test failure is claimed."
+qualification = "The private hf-build/hf-done ledger is authoritative for candidate revision, exact command, exit and evidence path. Closure requires a passing hf-done and matching build/verification candidates; implemented sources or a passing build alone do not establish closure."
+runtime_constraint = "The prescribed Go test is an adapter for the actual Python/shell implementation. Executing it requires the installed production Python/Bash runtimes and requirements-test.txt. Clarification of the no-external-binary clause was requested; qualification treats installed production interpreters as runtimes, while excluding any separately built service/helper executable or subprocess build toolchain. No alternate Go implementation, external compiler, live endpoint, credential or device is used."
+
+[finding.human-doc-custody]
+test = "TestRepairM_1401_HumanDocCustody"
+repair = "The guide describes original owner registration, signed guardian recovery, exact ledger funding, authenticated canonical receipts, actual bundle outputs and retained migration barriers. It replaces movement-source instructions and documents bounded KMS refusal and independently pinned receipt material."
+proof = "The focused case compares documented schemas/artifacts with actual merged owner production, ledger funding validation, bundle verification and installed recovery/principal policy."
+
+[finding.history-finality-material]
+test = "TestRepairM_1401_HistoryFinalityMaterial"
+repair = "History publication validates the actual merged receipt files against separately protected owner transport/funding inputs, then retains those same files for each consumer; no handover finality configuration or genesis trust transport is emitted. Pre-merge trust artifacts require explicit migration without overwriting their originals."
+proof = "Real owner producer and HTTPS RPC codec feed each consumer validator; the server is stopped and reopened, modules are reopened, receipt bytes remain identical, and independent pin changes, changed receipts and retained genesis trust refuse without publication."
+
+[finding.material-shell-trust-history]
+test = "TestRepairM_1401_MaterialShellTrustHistory"
+repair = "Shell generation no longer copies node trust-history. Policy publication invokes the current receipt producer; resumed generation validates retained inventory and legacy migration barriers without generating a new seal. The installer and Secret projection consumer compare current chain receipt material with the verified bundle."
+proof = "The actual sourced shell inventory and resumed generation run against real installed private material; receipt consumers accept the producer files, and a retained legacy history refuses while preserving the exact seal and history bytes."
+
+[finding.native-manifest-retired-input]
+test = "TestRepairM_1401_NativeManifestRetiredInput"
+repair = "The manifest adapter strictly validates HTTPS transport, CA and signing files, network/chain/funding bounds and retained configuration equality, and returns the existing workload unchanged. Retained custody inputs require explicit migration."
+proof = "The real adapter consumes real owner configuration and the committed workload, keeps all mounts/runtime/recovery bytes, reopens without configuration changes, and refuses malformed, mismatched, insecure and retired inputs before replacing retained configuration."
+
+[finding.owner-kms-prepare-bounds]
+test = "TestRepairM_1401_OwnerKmsPrepareBounds"
+repair = "Preparation uses nonblocking bounded pipes, a ten-second absolute deadline, a shared 65536-byte output budget, process-group termination and child reaping. Failed runs preserve original custody and publish no owner export."
+proof = "The production prepare wrapper runs real stalled, closed-pipe, stdout-flooding, stderr-flooding and refusing children and proves they are reaped with unchanged retained files. Its successful bounded-child path transports an actual merged-owner producer output. Existing real KMS TLS/registry success/refusal coverage also runs; no successful call to the incompatible current Rust owner-export interface is claimed."
+
+[finding.provision-movement-source]
+test = "TestRepairM_1401_ProvisionMovementSource"
+repair = "The retired movement-source function/CLI/input is replaced by live funding receipt validation. The manifest points ledger-funding at merged-owner-evidence.json; assembly and retained bundle consumers use that schema and enforce the exact account/asset adapter projection."
+proof = "Actual owner funding receipts are consumed by the real manifest, assembler and bundle verifier. Independent transport/funding mutations and retained legacy funding inputs refuse, while an identical retained evidence set remains unchanged."
+
+[finding.provision-retired-daemon]
+test = "TestRepairM_1401_ProvisionRetiredDaemon"
+repair = "The native shell stages delegate to validated merged owner configuration and real identity/recovery/account/funding transactions; no separate daemon, genesis admission edit or layerxctl command remains. Registry transfer validates an explicitly retained/imported generation and independent signer pins instead of executing the retired container."
+proof = "The actual sourced native shell stages execute twice across real loopback RPC server restarts; durable raw transactions and receipts, account balances and recovery policy remain unchanged, with no second registration or funding transfer."
+
+[finding.material-test-retired-node]
+test = "TestRepairM_1401_MaterialTestRetiredNode"
+repair = "The old custody assertions now check live ledger/payment bindings, exact merged policy fields, current producer evidence, retained bundle equality and refusal of retired custody policy fields. Bootstrap asserts paxd and absence of layerxd. Existing malformed/private-input assertions remain."
+proof = "The Go-selected case executes the updated material tests along their actual producer/bundle/bootstrap paths and checks the executed count, no skips and success; the bounds case retains the real TLS/registry refusal coverage."
+
+[wiring]
+registry_producer = "Domain 6: tools/bringup and services/platform/hosted/node/deployment.yaml must publish current chain registry/receipt-key material for registry_kernel_material; existing authenticated retained registry generations remain explicit migration inputs, and this task cannot generate a fresh compatible artifact by editing daemon genesis."
+security_consumer = "Domain 10: services/human/crates/layerx-human-security-provider and Domain 8: services/platform/hosted/node/deployment.yaml must replace SECURITY_PROVIDER_TRUST_HISTORY with the authenticated merged receipt contract; the Human publisher now emits only the current receipt files."
+agent_consumer = "Domain 10: services/agent must migrate retained HUMAN_NODE_LNI and protocol-3 journal/trust consumers to authenticated root JSON-RPC and committed receipt evidence before full cluster readiness can be qualified."
+kms_prepare = "Domain 10: services/human/crates/layerx-human-service/src/server/onboarding_sponsor.rs now accepts gas-station binding requests and returns batch/relayerSignature; coordinate its caller/export contract with hosted owner_kms.py before claiming an actual current KMS owner-export success path. No old-schema response is fabricated to conceal this mismatch."
+account_observation = "Domain 10: services/human/crates/layerx-human-identity-provider must replace validate-account-head's legacy first-batch/consumed-zero export with authenticated merged account observations before the hosted Job/assembler barrier can be removed together."
+
+[gotcha.baseline_order]
+observed = "The task requests a pre-change verify but explicitly forbids testing before complete implementation and running verify by hand."
+resolution = "Follow the explicit gate order and claim no pre-change evidence."
+
+[gotcha.toolchain]
+observed = "This scoped package contains Python/shell/manifests under a root Go module, and the Go-profile sandbox initially has no cryptography, PyYAML or pytest installed."
+resolution = "Keep real production tests in the scoped Python case module, declare their dependencies, and request runtime clarification; never replace the component with a Go clone or claim source-string checks prove runtime behavior."
+
+[gotcha.patch_targets]
+observed = "apply_patch refuses multiple operations on the same path within one patch."
+resolution = "Group hunks under one Update File operation; both rejected patches made no partial mutation."
+
+[gotcha.shell_boundaries]
+observed = "A command-substitution closing parenthesis can match a naive shell-function boundary search."
+resolution = "Use the following named function as the replacement boundary and inspect the complete resulting function before qualification."
+
+[gotcha.bytecode]
+observed = "Python imports can create untracked bytecode and change the built candidate."
+resolution = "The adapter uses -B and disables bytecode in its child environment; only source inputs are part of the candidate."
