@@ -8,6 +8,7 @@ import (
 	minttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/apptesting"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/testdata"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/query"
@@ -181,10 +182,10 @@ func (suite *IntegrationTestSuite) TestQueryParams() {
 	suite.Require().Equal(suite.app.BankKeeper.GetParams(suite.ctx), res.GetParams())
 }
 
-func (suite *IntegrationTestSuite) QueryDenomsMetadataRequest() {
+func (suite *IntegrationTestSuite) TestQueryDenomsMetadataRequest() {
 	var (
 		req         *types.QueryDenomsMetadataRequest
-		expMetadata = []types.Metadata{}
+		expMetadata []types.Metadata
 	)
 
 	testCases := []struct {
@@ -261,11 +262,41 @@ func (suite *IntegrationTestSuite) QueryDenomsMetadataRequest() {
 			},
 			true,
 		},
+		{
+			"slash-containing factory denom",
+			func() {
+				metadata := repairM665FactoryMetadata()
+				suite.Require().NoError(metadata.Validate())
+				suite.app.BankKeeper.SetDenomMetaData(suite.ctx, metadata)
+				expMetadata = []types.Metadata{metadata}
+				req = &types.QueryDenomsMetadataRequest{Pagination: &query.PageRequest{Limit: 3, CountTotal: true}}
+			},
+			true,
+		},
+		{
+			"invalid pagination",
+			func() {
+				req = &types.QueryDenomsMetadataRequest{Pagination: &query.PageRequest{Key: []byte("uatom"), Offset: 1}}
+			},
+			false,
+		},
 	}
 
 	for _, tc := range testCases {
 		suite.Run(fmt.Sprintf("Case %s", tc.msg), func() {
 			suite.SetupTest() // reset
+			// App genesis seeds metadata; each case declares its complete input.
+			store := prefix.NewStore(suite.ctx.KVStore(suite.app.BankKeeper.GetStoreKey()), types.DenomMetadataPrefix)
+			iterator := store.Iterator(nil, nil)
+			var keys [][]byte
+			for ; iterator.Valid(); iterator.Next() {
+				keys = append(keys, append([]byte(nil), iterator.Key()...))
+			}
+			suite.Require().NoError(iterator.Close())
+			for _, key := range keys {
+				store.Delete(key)
+			}
+			expMetadata = nil
 
 			tc.malleate()
 			ctx := sdk.WrapSDKContext(suite.ctx)
@@ -283,7 +314,7 @@ func (suite *IntegrationTestSuite) QueryDenomsMetadataRequest() {
 	}
 }
 
-func (suite *IntegrationTestSuite) QueryDenomMetadataRequest() {
+func (suite *IntegrationTestSuite) TestQueryDenomMetadataRequest() {
 	var (
 		req         *types.QueryDenomMetadataRequest
 		expMetadata = types.Metadata{}
@@ -313,7 +344,7 @@ func (suite *IntegrationTestSuite) QueryDenomMetadataRequest() {
 		{
 			"success",
 			func() {
-				expMetadata := types.Metadata{
+				expMetadata = types.Metadata{
 					Description: "The native staking token of the Cosmos Hub.",
 					DenomUnits: []*types.DenomUnit{
 						{
@@ -335,6 +366,16 @@ func (suite *IntegrationTestSuite) QueryDenomMetadataRequest() {
 				req = &types.QueryDenomMetadataRequest{
 					Denom: expMetadata.Base,
 				}
+			},
+			true,
+		},
+		{
+			"slash-containing factory denom",
+			func() {
+				expMetadata = repairM665FactoryMetadata()
+				suite.Require().NoError(expMetadata.Validate())
+				suite.app.BankKeeper.SetDenomMetaData(suite.ctx, expMetadata)
+				req = &types.QueryDenomMetadataRequest{Denom: expMetadata.Base}
 			},
 			true,
 		},
