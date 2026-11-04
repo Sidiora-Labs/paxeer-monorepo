@@ -1,41 +1,206 @@
 # Human owner registration
 
-The Human service consumes these configuration inputs:
+Owner registration binds a Human principal to its signing authority, account and
+recovery policy in chain state. Paxeer mainnet-beta is one BFT network, running
+`paxd` with the kernel inside the network and participating in block proposal.
+The EVM chain ID is **125** (`0x7d`). A receipt is final when its block is
+committed.
 
-| Variable | Encoding and source |
+Public Ethereum JSON-RPC requests go to the node's root URL, for example
+`https://api1.mainnet-beta.paxeer.network`. Other node names include
+`api2` through `api14.mainnet-beta.paxeer.network` and
+`https://api-mainnet-beta.paxeer.network`. See [public RPC endpoints](../reference/public-rpc.md)
+for the node list. Hosted gateway `px_` methods are a separate deployment
+capability; their presence must not be inferred from a node's Ethereum RPC.
+
+## Human configuration
+
+`ProductionComponentsConfig::from_environment` in
+`services/human/crates/layerx-human-service/src/server/production_components.rs`
+reads the following owner inputs. They describe an existing owner; setting them
+does not register an identity or establish a recovery policy.
+
+| Variable | Encoding and binding |
 | --- | --- |
-| `LAYERX_HUMAN_AGENT_ACTOR` | Exact LXIP-generated DID, admitted for its separately generated protected Ed25519 owner key before the first native execution. |
-| `LAYERX_HUMAN_AGENT_AUTHORITY` | Lowercase 64-character public-key hex, or `did:layerx:` followed by that same hex. Agentd decodes this to native key32; preparation responses preserve the validated reference so Human can compare it with the request. Uppercase, whitespace, `0x`, DID fragments and malformed lengths are refused. |
-| `LAYERX_HUMAN_AGENT_OWNER_ACCOUNT` | Canonical `agent:<actor-DID>:main` name. It must name the account actually established and authority-bound by a successful Bridge Credit, not just a locally derived name. |
-| `LAYERX_HUMAN_AGENT_RECOVERY_ROOT` | Unpadded base64url of the exact registered 32-byte recovery commitment. Random bytes or a locally supplied policy do not establish protocol recovery. |
-| `LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD` | Decimal u16 matching the registered recovery policy. |
+| `LAYERX_HUMAN_AGENT_ACTOR` | Exact owner DID. Human compares it with the principal's resolved owner identity. Retained LXIP provisioning output must preserve its DID exactly. |
+| `LAYERX_HUMAN_AGENT_AUTHORITY` | Primary public key as lowercase 64-character hex. The production sponsor check compares this text with the resolved owner's canonical public-key hex. |
+| `LAYERX_HUMAN_AGENT_OWNER_ACCOUNT` | Canonical `agent:<actor-DID>:main` account name, matching the resolved principal account. This is distinct from the H32 account identifier stored in provisioning JSON. |
+| `LAYERX_HUMAN_AGENT_RECOVERY_ROOT` | Unpadded base64url encoding of the registered 32-byte recovery commitment. |
+| `LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD` | Decimal u16 matching the nonzero threshold in committed identity state. |
 
-The node bootstrap input `LAYERX_NODE_IDENTITIES` names a file with rows `hex(DID-UTF8):hex(public-key32):next_sequence`. Bootstrap admission does not create an account, install a recovery policy or produce a registration receipt. Never place private key material in this file.
+The production owner resolver also checks the custody key's EVM binding,
+network ID, protocol version 3, primary key, revocation sequence and verified
+identity state. A locally generated DID, account name or random recovery root
+does not satisfy those checks. The configuration parser accepts nonempty actor
+and authority strings; the later owner checks establish their binding.
 
-The producer output is `$WORK_DIR/human-evidence-input/owner-registration.json`, with native H32 `owner_account`, textual `authority` and `identity`. `services/platform/hosted/human/provision.py` provides producer and validator modes. The local flow is qualified through a real vault deposit, native credit, Governance receipts, authenticated replica evidence and restart. Live cluster execution and positive checkpoint qualification remain outstanding.
+## Registration through the chain
 
-Hosted principal policy `identities[]` requires evidence `{activity_id, receipt_digest}` linked to the same principal's `activities[]`. The digest is the canonical unsigned protocol receipt digest. Retained evidence includes `receipt_hex` and `replica_document`; verification authenticates the sequencer, batch and receipt inclusion. Identity, capability, rotation and recovery assertions additionally require committed state evidence. The hosted authority requires node-verified guarantor checkpoint certificates for positive identity, capability and key-policy responses; absent or mismatched certificates remain refused.
+The current EVM entry points are:
 
-The native daemon and genesis builder register Governance ABI 1 for protocol 3 in matching order. The independent guarantor runtime still omits Governance and refuses this genesis with result -902; its snapshot check remains intact.
+| Entry point | Purpose |
+| --- | --- |
+| `addr`, `0x0000000000000000000000000000000000001004` | `bindLayerX(bytes32,bytes)` binds the EVM caller to an Ed25519 DID key. `getLayerXDid(address)` and `layerXBindNonce(address)` read the binding and its nonce. |
+| `layerxauth`, `0x000000000000000000000000000000000000101C` | `recordLifecycle(bytes,bytes32)` executes identity registration or recovery-policy registration. The second argument is the idempotency key. |
+
+`bindLayerX` requires the EVM transaction's consent and an Ed25519 signature
+over the chain ID, EVM caller and current binding nonce. The auth keeper resolves
+the persisted binding on every write, deriving the actor DID from the bound key.
+Its Governance activity uses protocol 3, module 7 and the current identity
+sequence. `recordLifecycle` accepts lifecycle payload ordinals 1 and 3; it is
+not a general dispatcher for every Governance operation. Session and capability
+operations have their own methods in `precompiles/layerxauth/abi.json`.
+
+The binding and lifecycle implementations are in `precompiles/addr/addr.go`,
+`modules/layerxauth/keeper/authority.go`,
+`modules/layerxauth/keeper/execute.go` and
+`precompiles/layerxauth/lifecycle.go`. Preserve the exact identity used by the
+consumer: an LXIP result alone does not prove that a key-derived chain DID is
+the same owner.
+
+### Current CLI transport and outcomes
+
+`cmd/layerxctl/src/main.rs` implements two commands:
+
+```text
+layerxctl read-state --rpc-url URL --to HEX40 --data HEX [--block-height N] [--ca-cert DER_FILE]
+layerxctl submit --rpc-url URL --transaction FILE [--ca-cert DER_FILE]
+```
+
+`read-state` performs `eth_call`. It defaults to `pending`; `--block-height`
+selects a decimal block height and produces an explicit hexadecimal block tag.
+Addresses and calldata require a `0x` prefix. A pending read is useful for
+preparation, but does not establish committed registration.
+
+`submit` reads binary signed EIP-1559 type-2 transaction bytes, sends them with
+`eth_sendRawTransaction`, then looks up `pax_sequencerReceipt` and
+`px_getReceiptKeys` at the configured URL. HTTPS requires a pinned DER root
+certificate via `--ca-cert`. The CLI does not create or sign the transaction.
+Because `px_getReceiptKeys` belongs to the hosted gateway contract, a public
+node URL alone does not guarantee that this CLI can finish receipt verification.
+
+Successful signature and receipt-field verification yields `state: receipted`.
+Exit 0 additionally requires protocol result code 0; a verified nonzero result
+exits 1. Missing or unverifiable receipt evidence leaves `state: submitted`
+and exit 3. An interrupted send can report `outcome: unknown` with the locally
+computed transaction hash. Retain the exact signed bytes, hash and idempotency
+key for reconciliation. Neither a submitted hash nor the CLI's `receipted`
+label proves block commitment; confirm the transaction's committed block before
+treating registration as final.
 
 ## Native Governance registration encoding
 
-Governance ABI 1 registers module 7 ordinals 1, 2, 3, 5 and 6. The exact LXIP actor and its custody key must already be admitted through the protected native identity file. Registration certifies that existing actor/key into committed Governance state; it does not create an arbitrary new bootstrap identity.
+The kernel's Governance implementation remains in
+`src/modules/governance/lxp_governance.c`. These retained protocol-3 encodings
+are useful for decoding registration material and constructing the corresponding
+ABI payloads. Integers are big-endian; concatenation is written as `||`, and
+`did_id32` is the protocol DID hash, not a textual DID.
 
-Payloads use big-endian integers: `7101 0002 || did_id32 || primary_key32`; `7102 0004 || did_id32 || pending_key32 || not_before_ms:u64 || not_after_ms:u64 || effective_sequence:u64`; `7103 0003 || did_id32 || recovery_root32 || threshold:u16`. Recovery additionally accepts `7103 0005` followed by the same fields and explicit `required_delay_seconds:u64 || maximum_delay_seconds:u64`. The three-field form establishes no delay-policy evidence. Rotation is an announcement through the existing pending-key admission semantics.
+| Operation | Payload |
+| --- | --- |
+| Identity, ordinal 1, version 0 | `7101 0002 \|\| did_id32 \|\| primary_key32` |
+| Rotation announcement, ordinal 2, version 0 | `7102 0004 \|\| did_id32 \|\| pending_key32 \|\| not_before_ms:u64 \|\| not_after_ms:u64 \|\| effective_sequence:u64` |
+| Recovery, ordinal 3, three fields | `7103 0003 \|\| did_id32 \|\| recovery_root32 \|\| threshold:u16` |
+| Recovery, ordinal 3, five fields | `7103 0005 \|\| did_id32 \|\| recovery_root32 \|\| threshold:u16 \|\| required_delay_seconds:u64 \|\| maximum_delay_seconds:u64` |
+| Session registration, ordinal 5, version 1 | `7105 0103 \|\| length:u32 \|\| canonical_grant \|\| expiry_sequence:u64 \|\| 00000020 \|\| action_key32` |
+| Revoke, ordinal 6 | `7106 0003 \|\| grant_id32 \|\| reason:u8 \|\| effective_sequence:u64` |
 
-Session registration is versioned: `7105 0103 || u32be(length) || canonical_2001_grant || expiry_sequence:u64 || u32be(32) || action_key32`. The old `7105 0001` shape is refused. Expiry must exceed execution sequence and the action key must be nonzero. Only canonical session-key grants are accepted, bound to the actor's current revocation generation and signed by the owner envelope. Revoke is `7106 0003 || grant_id32 || reason:u8 || effective_sequence:u64`; its effective sequence must equal execution's sequence. No grant or policy mutation is accepted from an unrelated owner.
+This table lists the retained forms, not every version the kernel accepts.
+Identity registration checks that the supplied canonical primary key matches
+the resolved owner authority. The three-field recovery form sets no delay
+policy; the five-field form requires a positive minimum and a maximum at least
+that minimum. A rotation announcement requires a distinct canonical pending
+key, a future window and an effective sequence later than execution.
 
-Governance stages its state through module KV writes. The identity key is did_id32. Session and revoke keys are respectively `05 || grant_id32` and `06 || grant_id32`. Versioned session metadata is stored at `15 || grant_id32` and emitted in `7145` as the `LXGS2` summary documented in [the provisioning details](owner-registration-details.md). Event `7110` contains the exact 223-byte committed identity value: `LXGI1`, DID32, primary32, revocation:u64, recovery_root32, threshold:u16, pending32, rotation_begin:u64, rotation_end:u64, rotation_effective_sequence:u64, rotation_revision:u64, recovery_revision:u64, recovery_delay_seconds:u64, recovery_maximum_seconds:u64, rotation_delay_ms:u64, rotation_maximum_ms:u64, execution_sequence:u64. Session bytes are split across events `7105` and `7125` to preserve the existing 256-byte effect bound; revoke emits `7106`.
+Session registration requires a canonical session-key grant bound to the owner
+and current revocation generation, an expiry later than execution and a nonzero
+action key. Version 0 is refused. Version 2 adds predecessor-grant and expected
+fee-commitment fields for succession. Revoke requires the grant's owner, a
+reason in 1 through 5, and an effective sequence equal to execution's sequence.
 
-`provision.py --produce-owner-registration --work-dir PATH` consumes protected `human-evidence-input/owner-native.json`, custody key references, `custody-credit.bin`, `recovery-policy.json`, `recovery-guardians.json` and the LXIP `human-owner-result.json`. It uses the real `layerxctl read-state`/`submit` client, checks successful signed native receipts, asks the HTTPS receipt authority to verify and retain their authorized batches, and validates the output with the existing owner-registration contract. Preserve its exclusive `owner-native-run` directory for reconciliation after failure. The cluster script generates and mounts these inputs in the ordered provisioning flow; its live rollout has not run on this build server.
+Governance stores identity state under `did_id32`, session grants under
+`05 || grant_id32`, revocations under `06 || grant_id32` and session summaries
+under `15 || grant_id32`. Event `0x7110` contains the 223-byte `LXGI1` identity
+value in this order:
 
-The hosted identity verifier reports `checkpoint_finalised` only for matching native snapshots, complete retained receipt coverage and authenticated native checkpoint evidence. The positive test is blocked by the guarantor runtime's missing Governance registration; registration JSON validation alone does not prove this level.
+```text
+LXGI1, DID32, primary32, revocation:u64, recovery_root32, threshold:u16,
+pending32, rotation_begin:u64, rotation_end:u64, rotation_effective_sequence:u64,
+rotation_revision:u64, recovery_revision:u64, recovery_delay_seconds:u64,
+recovery_maximum_seconds:u64, rotation_delay_ms:u64, rotation_maximum_ms:u64,
+execution_sequence:u64
+```
 
-`owner-native.json` has exactly `node_socket`, `network_id`, `owner_seed_file`, `pending_seed_file`, `sequencer_public_key`, `layerxctl`, `fee_limit`, `authority_url`, `authority_token_file`, `authority_ca_file` and `authority_state_root`. The producer requires owner-only regular input files (0600), a real local node socket, an absolute CLI path and HTTPS authority with a trusted CA. Key files contain custody-produced seed32 and must already match the exact post-LXIP admission binding. The LXIP result and recovery-policy file must agree exactly.
+Event `0x7145` carries the 209-byte `LXGS2` session summary: grant ID, grantor
+DID hash, owner public key, action key, session key, expiry sequence, module
+mask, ordinal minimum and maximum, not-before and not-after milliseconds, and
+revocation sequence. Hashes and keys are 32 bytes, ordinals are u16 and other
+numbers are u64. Grant bytes are emitted in chunks of at most 256 bytes through
+`0x7105` and `0x7125`; revoke emits `0x7106`.
 
-`recovery-guardians.json` contains `version`, `threshold`, `public_keys` and the signed `members`, and is the only guardian document the native producer input Secret and the container input list mount. `public_keys` remains a unique list of real lowercase H32 guardian public keys, and its root is SHA-256 of `LX:HUMAN:RECOVERY:v1` followed by NUL, threshold u16be, guardian-count u16be, then sorted public-key32 values. The threshold must not exceed the guardian count. Each member carries `role` (`guarantor-1`, `guarantor-2` or `sequencer`), the H32 operator `identity`, the H32 `public_key`, the u16 `epoch`, the absolute `custody` directory `<secrets>/human-guardians/<role>-e<epoch>` holding only that guardian's mode-0600 seed, the `signature` over `LX:HUMAN:GUARDIAN:BINDING:v1` plus NUL, epoch u16be, role-length u16be, role, identity32 and public-key32, and `rotation`, which is `null` at epoch one and otherwise the preceding member document with the `LX:HUMAN:GUARDIAN:ROTATION:v1` signature that authorized the successor. `version` equals the highest member epoch. `owner_native.guardian_set` verifies every binding and the whole rotation chain before the producer uses any key, and requires distinct roles, operator identities, public keys and custody directories, a custody directory whose name matches the role and epoch it claims, a `public_keys` manifest equal to the verified member keys sorted, and a document threshold equal to the recovery policy threshold. `recovery-guardian-bindings.json` holds the identical document and remains the ConfigMap copy. [The provisioning details](owner-registration-details.md) describe the per-guardian enrollment, rotation and publication flow. The real custody attestation producer supplies `custody-credit.bin`, bound to this owner account/key and the node's immutable custody profile.
+## Retained hosted provisioning material
+
+`services/platform/hosted/human/provision.py` validates
+`$WORK_DIR/human-evidence-input/owner-registration.json`. Its top-level fields
+are exactly `owner_account`, `authority` and `identity`. The account is a
+nonzero lowercase H32 identifier; the authority is text. `identity` carries
+`did`, `authorities`, `revocation_sequence`, `frozen`, `evidence`,
+`capabilities`, `rotation` and `recovery`.
+
+Evidence references have exactly `{activity_id, receipt_digest}`, both nonzero
+lowercase H32 values. When an activity set or owner DID is supplied to the
+validator, references must belong to that activity set and the DID must match.
+Rotation and recovery records contain `policy_revision`,
+`required_delay_seconds`, `maximum_delay_seconds`, `effective_sequence` and
+`evidence`. Validation checks their shape and bounds; it does not submit a
+transaction, authenticate chain state or establish finality.
+
+The producer selected by `provision.py --produce-owner-registration --work-dir PATH`
+still calls `owner_native.py`, which builds socket-based CLI arguments and
+expects an `acknowledged` native activity response. These are pre-merge inputs
+and do not match the current `layerxctl --rpc-url` commands above. Its
+`owner-native.json`, `owner-admission.txt`, `custody-credit.bin` and receipt
+authority setup must not be treated as current network registration steps.
+The old custody precompile at `0x0000000000000000000000000000000000001013`
+is retired and refuses calls with `LXP_MODULE_DISABLED`; a Bridge Credit is
+not a registration prerequisite for the merged network. Preserve any existing
+`owner-native-run` directory and partial output for reconciliation after an
+interrupted legacy run.
+
+The guardian document format remains useful for checking retained recovery
+material. `recovery-guardians.json` and `recovery-guardian-bindings.json` contain
+`version`, `threshold`, `public_keys` and signed `members`. Each member has
+`role`, operator `identity`, `public_key`, `epoch`, `custody`, `signature` and
+`rotation`. `owner_native.guardian_set` verifies bindings and predecessor
+signatures, distinct roles, identities, keys and custody directories, and the
+manifest's agreement with the verified keys. The legacy role names
+`guarantor-1`, `guarantor-2` and `sequencer` identify guardian records only;
+they do not establish consensus finality.
+
+The recovery commitment is SHA-256 of `LX:HUMAN:RECOVERY:v1` followed by NUL,
+threshold u16be, guardian-count u16be and sorted public-key32 values. Threshold
+must not exceed the guardian count. Binding signatures use
+`LX:HUMAN:GUARDIAN:BINDING:v1` plus NUL, epoch u16be, role-length u16be, role,
+identity32 and public-key32. Rotation signatures use
+`LX:HUMAN:GUARDIAN:ROTATION:v1` with the same prefix fields, outgoing key32 and
+successor key32. Seeds remain private in per-guardian mode-0700 directories
+with mode-0600 seed files. [The provisioning details](owner-registration-details.md)
+retain the enrollment and rotation document descriptions; their pre-merge
+bootstrap and checkpoint instructions are historical.
 
 ## Hosted provisioning tests
 
-`make human-test-hosted-provisioning` builds `layerx-human-identity-provider` from the separate `human/` Cargo workspace into `$(HUMAN_TARGET_DIR)/debug` and then runs `python3 -m pytest services/platform/hosted/human -q` with `LAYERX_HUMAN_IDENTITY_PROVIDER_BIN` set to that binary. `HUMAN_TARGET_DIR` is `CARGO_TARGET_DIR` when the environment sets one and `services/human/target` otherwise, and it may be overridden on the make command line; the target points the tests at whichever directory it built. `LAYERX_HUMAN_IDENTITY_PROVIDER_BIN` is the one variable `services/platform/hosted/human/test_provision.py` and `services/platform/hosted/human/test_owner_request.py` use to locate the provider; its default is `services/human/target/debug/layerx-human-identity-provider`, and an absent or non-regular binary refuses with that path instead of skipping the three tests that drive the real provider. `make human-test` runs this target, so the hosted Human provisioning suite is reachable from the aggregate Human test gate and from `workspace-test`; the target requires `pytest`, `PyYAML` and `cryptography` in the invoking `python3` and refuses with that list when any of them is absent.
+`make human-test-hosted-provisioning` builds `layerx-human-identity-provider`
+from `services/human/Cargo.toml` into `$(HUMAN_TARGET_DIR)/debug`, checks that
+the binary is executable, and runs
+`python3 -m pytest services/platform/hosted/human -q` through
+`tools/runtime/run-with-clock.sh`. It supplies the built binary through
+`LAYERX_HUMAN_IDENTITY_PROVIDER_BIN`. `HUMAN_TARGET_DIR` defaults to
+`CARGO_TARGET_DIR` when set, otherwise `services/human/target`, and can be
+overridden on the make command line.
+
+The target checks for `pytest`, `PyYAML`, `cryptography`, `Crypto.Hash.keccak`,
+`eth_account` and `eth_utils`; the bridge dependencies are declared in
+`tests/bridge/requirements.txt`. It is a prerequisite of `make human-test`.
+These are hosted provisioning checks, not evidence of a live deployment or
+successful registration against the merged network.

@@ -1,17 +1,51 @@
 # PBTS: System Model and Properties
 
+This is the retained **second upstream PBTS research model**. It gives
+conditional properties of the classic Tendermint algorithm, using the
+[second algorithm draft][algorithm]. It does not establish timing guarantees
+for Paxeer's running network or for Autobahn. The kernel participates in the
+same network and proposes blocks; the processes below model validators, not
+separate execution and settlement networks.
+
+## Runtime applicability
+
+Read the [current runtime map](./README.md#current-runtime) before applying
+these assumptions. Classic consensus uses
+[`Proposal.IsTimely`](../../../types/proposal.go) with
+`SynchronyParams.Precision` and `SynchronyParams.MessageDelay`, including a
+round-based delay increase absent from this fixed-delay model. Its timeliness
+check applies to a fresh proposal at an unlocked validator. Strict block-time
+ordering after the initial height is checked separately in
+[block validation](../../../internal/state/validation.go).
+
+Autobahn's [proposal verification](../../../autobahn/types/proposal.go) checks
+fresh proposals against a one-second future-clock bound, assigns block times
+in one-microsecond steps and preserves verified prepared reproposals. It does
+not evaluate the classic PBTS reception predicate below. That bound assumes
+clock synchronization; it does not supply a measured `ACCURACY`, a bound on
+proposal delivery, or a proof of this model's liveness properties.
+
+All clock bounds and protocol arguments below belong to this research model.
+A synchronized clock need not be accurate relative to UTC, and configuration
+values alone do not establish either synchronization or bounded network delay.
+The model also abstracts proposal delivery; it is not a separate specification
+of proposal/block-part transport. Application-visible block time affects
+[classic evidence expiry](../evidence.md#verification), so monotonicity and
+real-time accuracy must not be conflated.
+
 ## Outline
 
- - [System model](#system-model)
-   - [Synchronized clocks](#synchronized-clocks)
-   - [Message delays](#message-delays)
- - [Problem Statement](#problem-statement)
- - [Protocol Analysis - Timely Proposals](#protocol-analysis---timely-proposals)
-    - [Timely Proof-of-Locks](#timely-proof-of-locks)
-    - [Derived Proof-of-Locks](#derived-proof-of-locks)
- - [Temporal Analysis](#temporal-analysis)
-    - [Safety](#safety)
-    - [Liveness](#liveness)
+- [Runtime applicability](#runtime-applicability)
+- [System model](#system-model)
+  - [Synchronized clocks](#synchronized-clocks)
+  - [Message delays](#message-delays)
+- [Problem Statement](#problem-statement)
+- [Protocol Analysis - Timely Proposals](#protocol-analysis---timely-proposals)
+  - [Timely Proof-of-Locks](#timely-proof-of-locks)
+  - [Derived Proof-of-Locks](#derived-proof-of-locks)
+- [Temporal Analysis](#temporal-analysis)
+  - [Safety](#safety)
+  - [Liveness](#liveness)
 
 ## System Model
 
@@ -101,8 +135,9 @@ indicates that the size of proposal messages is either fixed or upper bounded.
 
 ## Problem Statement
 
-In this section we define the properties of Tendermint consensus
-(cf. the [arXiv paper][arXiv]) in this system model.
+In this section we define the research properties of classic Tendermint consensus
+(cf. the [arXiv paper][arXiv]) under this system model. They are conditional
+properties, not a claim that the current runtime has been qualified against them.
 
 ### **[PBTS-PROPOSE.0]**
 
@@ -216,8 +251,11 @@ Then, let `p` is a such correct process:
 - the `PROPOSAL` message contained a proposal `(v, v.time, v.round)`, and
 - `p` was in round `v.round` and evaluated the proposal time `v.time` as `timely`.
 
-The existence of a such correct process `p` is guaranteed provided that the
-voting power of Byzantine processes is bounded by `2f`.
+The existence of such a correct process `p` in a `2f + 1` proof is guaranteed
+when Byzantine voting power is at most `2f`. This only establishes an honest
+witness inside that proof. Consensus agreement and liveness still require
+the classic BFT assumption of less than one third Byzantine voting power;
+the weaker witness argument does not raise that fault-tolerance threshold.
 
 ### Derived Proof-of-Locks
 
@@ -266,7 +304,7 @@ observed a `POL(v,vr)`.
 
 Thus, if there is a `POL(v,r)` with `r > v.round`, then there is a valid
 `POL(v,vr)` with `v.round <= vr < r`.
-If `vr = v.round` then `POL(vr,v)` is a timely proof-of-lock and we are done.
+If `vr = v.round` then `POL(v,vr)` is a timely proof-of-lock and we are done.
 Otherwise, there is another valid `POL(v,vr')` with `v.round <= vr' < vr`,
 and the above reasoning can be recursively applied until we get `vr' = v.round`
 and observe a timely proof-of-lock.
@@ -323,7 +361,7 @@ If
 - the proposer of a round `r` of consensus is correct
 - and it proposes a value `v` for the first time, with associated proposal time `v.time`
 
-then the proposal `(v, v.time, r)` is accepted by every correct process provided that:
+then the proposal `(v, v.time, r)` satisfies the timing requirements for acceptance by every correct process provided that:
 
 - `min{p is correct : beginRound(p,r)} <= v.time <= max{p is correct : beginRound(p,r)}` and
 - `max{p is correct : beginRound(p,r)} <= v.time + MSGDELAY + PRECISION <= min{p is correct : beginRound(p,r+1)}`
