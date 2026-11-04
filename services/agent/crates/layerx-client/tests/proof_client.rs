@@ -462,6 +462,45 @@ use layerx_client::rpc::history as consumer_history;
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
 
+#[allow(dead_code)]
+#[path = "../../../../platform/hosted/gateway/src/evm.rs"]
+mod gateway_evm;
+
+fn gateway_recorded_coins() -> Value {
+    let vectors: Value = must(serde_json::from_str(include_str!(
+        "../../../../platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
+    )));
+    let vector = vectors["cases"]
+        .as_array()
+        .expect("ABI cases")
+        .iter()
+        .find(|v| v["name"] == "bank.all_balances")
+        .expect("bank producer");
+    let raw = vector["result"]
+        .as_str()
+        .expect("ABI result")
+        .trim_start_matches("0x");
+    let bytes: Vec<_> = raw
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|p| must(u8::from_str_radix(must(std::str::from_utf8(p)), 16)))
+        .collect();
+    let coins = must(gateway_evm::decode_coins(&bytes));
+    let result = json!(coins
+        .iter()
+        .map(|(denom, amount)| json!({"denom":denom,"amount":gateway_evm::uint256_decimal(amount)}))
+        .collect::<Vec<_>>());
+    assert_eq!(result, vector["out"]["response"]);
+    result
+}
+
+fn gateway_recorded_freshness() -> Value {
+    let transcript: Value = must(serde_json::from_str(include_str!(
+        "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
+    )));
+    transcript["result"]["freshness"].clone()
+}
+
 #[derive(Clone, Debug)]
 struct Exchange {
     method: String,
@@ -480,7 +519,7 @@ struct RecordedProducer {
 
 impl RecordedProducer {
     fn from_repository_records() -> Self {
-        let records = must(serde_json::from_str(include_str!(
+        let records: Vec<Value> = must(serde_json::from_str(include_str!(
             "../../../../../sdk/wallet/test/fixtures/endpoint/available.json"
         )));
         let chain: Value = must(serde_json::from_str(include_str!(
@@ -509,7 +548,9 @@ impl RecordedProducer {
                     {"kind": "call"}
                 ],
                 "next_cursor": "000000000000abce0000000100000002",
-                "indexedHeight": 43982
+                "indexedHeight": 43982, "chainHeight": 44000,
+                "account": "0x1111111111111111111111111111111111111111",
+                "freshness": gateway_recorded_freshness()
             }),
         }
     }
@@ -529,6 +570,22 @@ impl RecordedProducer {
                 assert_eq!(*params, json!([account, null, 2]));
                 self.history.clone()
             }
+            "px_getBalances" => {
+                assert_eq!(*params, json!([account]));
+                let recorded = self
+                    .records
+                    .iter()
+                    .find(|r| r["request"]["method"] == "px_getAccount")
+                    .expect("identity transcript");
+                json!({"account":recorded["response"]["result"]["account"], "height":150,
+                    "balances": gateway_recorded_coins()})
+            }
+            "px_listAssets" => {
+                assert_eq!(*params, json!([]));
+                json!({"height":150,"joined_limit":16,"assets":[{
+                    "asset_id":"bank:ulxp","kind":"bank","denom":"ulxp", "name":"LayerX",
+                    "symbol":"LXP", "decimals":18,"supply":"250000000"}]})
+            }
             _ => {
                 let record = self
                     .records
@@ -541,10 +598,14 @@ impl RecordedProducer {
                 } else {
                     assert_eq!(*params, record["request"]["params"]);
                 }
-                record["response"]
+                let mut result = record["response"]
                     .get("result")
                     .unwrap_or_else(|| panic!("recorded producer refused: {method}"))
-                    .clone()
+                    .clone();
+                if method == "px_getAccount" {
+                    result["paxeer"]["height"] = json!(150);
+                }
+                result
             }
         }
     }
@@ -706,7 +767,7 @@ fn px_getNetwork() {
     let px = must(PxEndpoint::new(&crossing.url, &[]));
     let address = [0x11; 20];
     let account = format!("0x{}", "11".repeat(20));
-    // Each iteration must reach the real producer again, including the history head.
+    // Each iteration must reach the producer again, preserving the gateway history head.
     for iteration in 1..=2 {
         let chain = must(sequencer.chain_id());
         assert_eq!(chain, number(&crossing.latest("eth_chainId").result));
@@ -734,7 +795,8 @@ fn px_getNetwork() {
         );
         let paxeer = joined.paxeer.as_ref().expect("recorded Paxeer account");
         assert_eq!(paxeer.address, address);
-        assert_eq!(paxeer.balance, 1_000_000_000_000_000_000);
+        assert_eq!(paxeer.balance.decimal(), "1000000000000000000");
+        assert_eq!(paxeer.height, exchange.result["paxeer"]["height"]);
         assert_eq!(paxeer.nonce, 3);
         assert_eq!(
             joined.layerx.as_ref(),
@@ -750,20 +812,19 @@ fn px_getNetwork() {
                 .unwrap_or_else(|| panic!("balance rows"))
                 .len()
         );
-        assert_eq!(
-            balances.joined_limit,
-            number(&exchange.result["joined_limit"])
-        );
+        assert_eq!(balances.height, number(&exchange.result["height"]));
         assert_eq!(balances.account, joined.account);
         let row = balances.balances.first().expect("recorded balance row");
-        assert_eq!(row.asset_id, [0xaa; 32]);
-        let native_balance = row.paxeer.as_ref().expect("recorded Paxeer balance");
-        assert_eq!(native_balance.denom, "ulxp");
-        assert_eq!(native_balance.amount, 125_000);
-        assert_eq!(
-            row.layerx.as_ref(),
-            exchange.result["balances"][0]["layerx"].as_object()
-        );
+        assert_eq!(row.denom, "ulxp");
+        assert_eq!(row.amount.decimal(), "123456789");
+        for (row, produced) in balances
+            .balances
+            .iter()
+            .zip(exchange.result["balances"].as_array().expect("coins"))
+        {
+            assert_eq!(row.denom, produced["denom"]);
+            assert_eq!(row.amount.decimal(), produced["amount"]);
+        }
         let assets = must(px.list_assets());
         let exchange = crossing.latest("px_listAssets");
         assert_eq!(exchange.params, json!([]));
@@ -779,19 +840,28 @@ fn px_getNetwork() {
             number(&exchange.result["joined_limit"])
         );
         let asset = assets.assets.first().expect("recorded asset");
-        assert_eq!(asset.asset_id, [0xaa; 32]);
+        assert_eq!(assets.height, number(&exchange.result["height"]));
+        assert_eq!(asset.asset_id, "bank:ulxp");
+        assert_eq!(asset.kind, "bank");
+        assert_eq!(asset.denom.as_deref(), Some(row.denom.as_str()));
         assert_eq!(
-            asset.layerx.as_ref(),
-            exchange.result["assets"][0]["layerx"].as_object()
+            asset.name.as_deref(),
+            exchange.result["assets"][0]["name"].as_str()
         );
-        let custody = asset.paxeer.as_ref().expect("recorded custody");
         assert_eq!(
-            custody,
-            row.custody.as_ref().expect("recorded balance custody")
+            asset.symbol.as_deref(),
+            exchange.result["assets"][0]["symbol"].as_str()
         );
-        assert_eq!(custody.pointer, [0x22; 20]);
-        assert_eq!(custody.minimum_deposit, 1000);
-        assert_eq!(custody.custodied, 250_000_000);
+        assert_eq!(
+            asset.decimals.map(u64::from),
+            exchange.result["assets"][0]["decimals"].as_u64()
+        );
+        assert_eq!(
+            asset.supply.expect("recorded supply").decimal(),
+            exchange.result["assets"][0]["supply"]
+        );
+        assert_eq!(asset.paused, None);
+        assert_eq!(asset.verification, None);
         let head = must(px.network());
         let exchange = crossing.latest("px_getNetwork");
         assert_eq!(exchange.params, json!([]));
@@ -829,9 +899,14 @@ fn px_getNetwork() {
         );
         assert_eq!(
             history.chain_height,
-            Some(number(&crossing.latest("eth_blockNumber").result))
+            exchange.result["chainHeight"].as_u64()
         );
+        assert_eq!(history.account, account);
+        assert_eq!(history.freshness, exchange.result["freshness"]);
         let exchanges = must(crossing.exchanges.lock());
+        assert!(exchanges
+            .iter()
+            .all(|exchange| exchange.method != "eth_blockNumber"));
         for method in [
             "eth_chainId",
             "eth_getBalance",
@@ -840,7 +915,6 @@ fn px_getNetwork() {
             "px_listAssets",
             "px_getNetwork",
             "px_getHistory",
-            "eth_blockNumber",
         ] {
             assert_eq!(
                 exchanges
