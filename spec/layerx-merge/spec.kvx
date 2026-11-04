@@ -150325,7 +150325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.447]
 title = "Declare the in-process PostgreSQL test database packages of the wallet gateway in its own manifest and workspace lockfile instead of a nested manifest inside the source tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.480"]
@@ -155578,7 +155578,7 @@ do_11 = "Attempt 5 (requalify): attempt 4 passed its build and verify and was he
 
 [task.22.33.194]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/spot (part 1 of 1): doc-drift, restart-recovery, runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
