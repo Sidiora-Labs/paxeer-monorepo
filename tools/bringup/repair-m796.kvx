@@ -1,0 +1,92 @@
+[repair.22.33.796]
+audit = "22.30.177"
+base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+mode = "BUILD"
+scope = "tools/bringup"
+build = "hf-build: go build ./tools/bringup/..."
+verify = "hf-done: cg spec done 22.33.796 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "The last hf-build and hf-done records in /out/run/gates.jsonl bind the exact candidate revision, command, exit code and private evidence location. Qualification is claimed only when hf-done passes on the same candidate as hf-build."
+baseline = "Continued the existing partial implementation; no gate had run and builds_used/verify_runs_used were both zero. Step 12 requests a baseline verify, but the explicit ordered gate instructions forbid verification before full implementation and forbid running verify_cmd manually. No baseline failing tests or baseline success is claimed."
+
+[finding.fleet-unbounded-transports]
+task_alias = "set (runtime-risk)"
+test = "TestRepairM_796_FleetTransportDeadlines"
+repair = "Bound release connection, headers, body and total transfer; verify checksums before atomic publication. Bound SSH dial/handshake/session and scp, propagate operator cancellation to transports and remote process groups, and fence remote operations with flock so recovery cannot race an abandoned mutation. Timeouts name durable recovery."
+proof = "Real HTTP release producer and SSH transport against loopback peers: successful checksummed release, stalled headers/body/handshake/command, caller cancellation, corrupt and ambiguous checksum refusal, no incomplete publication."
+
+[finding.fleet-test-missing-interruption-recovery]
+task_alias = "set (test-gap)"
+test = "TestRepairM_796_FleetInterruptionRecovery"
+integration_target = "tools/bringup/repair_m796_test.go; the declared Go gate runs the service lifecycle cases directly, without the historical shell harness's always-active systemctl stand-in."
+repair = "FleetOwner journals original source and target active states and binary hashes before source stop; streams data through bounded SSH; retains rollback material before swap; restores source and original target generation on reopen. State qualification binds active MainPID's /proc executable hash to its installed binary. Failed recovery blocks new admission."
+proof = "Real owner/store/flock/SSH/tar path with disposable service generations: stop owner mid-copy and mid-swap, close outstanding streams, reopen, restore source and original target executable/data, preserve originally inactive targets, then complete a new generation and reopen again; refuse competing owners and failed restoration."
+
+[finding.ca-test-obsolete-count]
+test = "TestRepairM_796_CAApprovedRoster"
+repair = "Replace obsolete count with exact six-field comparison to the independently approved thirty-member merged roster, retaining actual CA issuance and SAN checks."
+proof = "Maintained base roster and name completion agree in all six fields with the approved roster; every real issued CA bundle crosses production base64 custody/report codecs and certificate validation; foreign common names, SANs, malformed rows, duplicate and retired identities are refused."
+
+[finding.edge-test-router-routing]
+test = "TestRepairM_796_EdgeAggregateRoutes"
+repair = "Render maintained fourteen-node aggregate pool and current hosted gateway route. Preserve upstream TLS, SNI, forwarding headers, box/stream routes and actual manifest consumption."
+proof = "Production map and renderers -> six-field manifest plus actual nginx sites -> production contract consumer; all fourteen member names and independent TLS/header checks pass through the same path, while legacy rows, disabled verification and all-down pools are refused."
+
+[finding.foundation-artifact-inventory]
+test = "TestRepairM_796_FoundationArtifactInventory"
+repair = "Use paxd, attestor and bringup-inspect outputs with their source and runtime-library closure; retain layerxproof as the actual linked sequencer verifier library, excluding retired executables and settlement manifests. Compute the production import graph with go list -deps for paxd (netgo,ledger), bringup-inspect and the nested attestor module (CGO_ENABLED=0); validate recorded package edges, source/module digests and native build inputs without spawning a toolchain in the gate."
+proof = "Embedded declaration -> actual CLI plan codec -> source closure over maintained repository files -> production fixture manifest consumer wiring; missing linked dependencies, retired outputs/version/source paths and foreign runtime libraries are refused. Native build provenance and artifact hashes remain required by the standalone consumer."
+
+[finding.genesis-test-rejected-guarantor-input]
+test = "TestRepairM_796_NativeGenesisInputs"
+repair = "Replace rejected LXGB guarantor fixture with actual paxd genesis, bank/sequencer/lxphost inputs and the native receipt seed; preserve module, asset, malformed-input and signature checks."
+proof = "Committed disposable native inputs -> real consensus genesis codec, bank validator, sequencer validator and pinned receipt signer -> file/CLI report; genuine consensus vote/signature generation verifies native committed output. Refuse retired modules, negative assets, receipt ranges, unknown fields, foreign signer/chain and malformed JSON."
+
+[finding.mint-test-retired-contract]
+test = "TestRepairM_796_MintCurrentConsumers"
+repair = "Mint only current service owners and least-privilege webhooks roles; identity and registry tokens stay plain as their actual entrypoints expect, file secrets are base64 encoded; remove kernel replicas and separate authority routing."
+proof = "Real cryptographic mint producer -> private atomically published files -> closed-schema delivery decoder -> maintained image files.tsv destinations; validate all nineteen consumers, thirty-one files, twenty-five distinct token boundaries and shared ends, real five-certificate SPKI-pinned ES256 inventory, modes, malformed inputs, foreign schemas and overwrite refusal. Actual deployment input reader and CLI mint are also exercised."
+
+[finding.foundation-fixture-retired-producers]
+test = "TestRepairM_796_FoundationCommittedRestart"
+repair = "Initialize and validate with paxd, launch its integrated kernel, consume actual canonical Comet signatures and same-height EVM results, and retain native genesis, validator/receipt identities and cryptographically checked committed state across restart. Manifest v2 refuses retired foundation shape."
+proof = "Real consensus signed header/vote producer -> loopback Comet/EVM JSON-RPC transport -> production durable FoundationState -> close/reopen and CLI consumer. Reject rollback, same-height divergence, wrong signatures, chain/block mismatch and retained genesis mismatch; preserve durable floor after every refusal."
+
+[wiring.deployment]
+request = "deploy/rollout.kvx — domain 16 with domain 10 gateway: coordinate router-to-gateway deployment naming with the current CA and minted credential owner."
+[wiring.entrypoints]
+request = "docker/platform-gateway/files.tsv, docker/platform-webhooks/files.tsv and services/platform/hosted/{gateway,webhooks,registry} entrypoints — owner domains 10, 11 and 12: remove remaining mandatory separate authority/component and kernel-generation inputs; mint does not invent retired credentials."
+[wiring.native_inputs]
+request = "services/platform/hosted/node and native initialization provisioning — domain 5: supply explicit private disposable genesis/config/validator/receipt inputs for PAXEER_X_NATIVE_INPUTS using the merged chain's approved asset and module roster."
+[wiring.inspector]
+request = "docker/kernel, native node/operator/edge images and deployment installation — domain 16: install source-bound bringup-inspect alongside the actual runtime artifacts before calling the migrated scripts."
+[wiring.fixture_consumers]
+request = "services/platform downstream foundation-manifest consumers — owning platform domains: migrate to manifest v2 native initialization and signed committed results instead of custody/anchor snapshots and separate kernel output."
+
+[gotcha.scope]
+observed = "Exclusive scope forbids GOTCHA.kvx and spec edits, commits and pushes; preserve runner metadata changes and keep finding maps, wiring requests and session gotchas in this task record. The runner owns publication."
+[gotcha.inventory]
+observed = "The audit calls layerxproof retired, but current modules/sequencer directly imports layerxproof/verify; removing that real dependency would falsify source provenance. Retain and positively assert the linked library while refusing retired executable products."
+[gotcha.qualification]
+observed = "The declared Go gate uses no credentials, environment variables, subprocesses or native artifacts. Standalone shell/Python/container qualifications retain their actual external prerequisites and are not claimed as executed by this bounded gate."
+
+[gotcha.formatting]
+observed = "Formatting caught a Go test string written with single quotes; corrected the string, matched certificate refusal assertions to the existing exact incompatible state, and selected the actual stream listener port before verification. The production build passed; a fresh build binds the corrected candidate before hf-done."
+
+[qualification.verify_1]
+revision = "d40b89a7af0026fa313007c913bc7994654de90a"
+command = "cg spec done 22.33.796 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m796.log"
+observed = "Seven cases passed; artifact closure incorrectly treated the attestor module namespace human/wallet/attestor as a checkout directory. Resolve the actual producer go.mod declarations with the real module codec and follow package imports from the three executable roots."
+
+[continuation.2]
+base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+baseline = "The earlier attempt recorded FoundationArtifactInventory failing; the supplied current gate ledger started with zero builds and verifications. The explicit ordered qualification instructions take precedence over the contradictory unchanged-tree baseline step."
+conflicts = "Preserved qualification and m795 inspector dispatch, retired mint migration, durable fleet journal configuration, exact surviving secret targets and twenty-five distinct capabilities, explicit offline genesis checks, and shared foundation provenance verification while integrating native producers."
+source_graph = "tools/bringup/tests/runtime-dependencies.py records actual go list -deps output in runtime-dependencies.json, retaining resolved local paths rather than guessing them from namespaces. Validation rejects stale source/module digests, absent transitive packages, incorrect producer roots and incomplete declared source coverage. Regenerate after changes to producer sources or go.mod."
+native_handoff = "The merged v2 fixture uses native-foundation-provenance, which retains every shared provenance and artifact assertion and additionally checks native initialization, receipt seed binding and the persisted cryptographically verified canonical commit; the existing v1 command remains unchanged for its existing consumers."
+mint_handoff = "Public webhooks retain identity-only credentials; native mint scripts derive gateway Railway service names from the current NewSecretPlan rollout producer. Identity tokens remain plain for the maintained env-init consumer."
+evidence = "The current continuation's last hf-build/hf-done entries in /out/run/gates.jsonl are the authoritative exact candidate revision, command, exit code and private log. This record is written before qualification to preserve the build/verify candidate identity."
+
+[gotcha.continuation]
+observed = "Module namespace and directory differ for the attestor; use go list -deps in each producer module. The paxd build uses netgo,ledger and the attestor build disables CGO, so record the union of their actual build configurations. The merged foundation producer emits v2 while the retained legacy provenance command requires v1; keep a strict native handoff with all original byte/provenance checks."
