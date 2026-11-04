@@ -582,7 +582,7 @@ impl ProductionComponents {
         )
         .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(BackendResponse {
-            result: json!({"confirms": format!("opd_{}", URL_SAFE_NO_PAD.encode(digest.bytes()))}),
+            result: json!({"confirms": digest.to_schema()}),
             session: None,
         })
     }
