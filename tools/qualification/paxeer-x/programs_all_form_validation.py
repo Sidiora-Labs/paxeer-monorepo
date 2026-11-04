@@ -14,6 +14,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(0, str(Path(__file__).parent))
+from programs_language_abi import admitted_abis, unallocated_abi
+
 ROOT = Path(__file__).resolve().parents[3]
 COMMAND = ["timeout", "30m", "python3",
            "tools/qualification/paxeer-x/programs_all_form_validation.py"]
@@ -189,10 +192,10 @@ def required_native_cases():
     required = {}
     for phase in ("initial", "snapshot_replay"):
         for form in ("legacy", "framed"):
-            for abi in range(1, 5):
+            for abi in admitted_abis():
                 for name in ("malformed_body", "float_type", "ambient_import", "valid"):
                     required[(name, form, abi, phase)] = 0 if name == "valid" else -3
-            required[("unsupported_abi", form, 5, phase)] = -101
+            required[("unsupported_abi", form, unallocated_abi(), phase)] = -101
             for name in ("module_bytes", "function_count", "local_stack", "operand_stack", "call_depth"):
                 required[(name, form, 1, phase)] = -3
         required[("invalid_capability", "framed", 1, phase)] = -3

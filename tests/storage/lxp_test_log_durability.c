@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "layerx/lxp_storage.h"
+#include "layerx/lxp_fault.h"
 
 #include <stdint.h>
 #include <fcntl.h>
@@ -323,6 +324,58 @@ static int existing_activity_restart(void)
     return 0;
 }
 
+static lxp_result segment_restart_workload(void *context)
+{
+    const char *directory = (const char *)context;
+    const uint8_t activity[] = { 0x21U, 0x81U };
+    const uint8_t receipt[] = { 0x31U, 0x91U };
+    lxp_log log;
+    lxp_result status = lxp_log_segment_create(&log, directory, 9U, 4096U);
+    if (status == LXP_OK)
+        status = lxp_log_append(&log, LXP_LOG_ACTIVITY, 12U, activity,
+                                sizeof(activity), NULL);
+    if (status == LXP_OK) status = lxp_log_sync(&log);
+    if (status == LXP_OK)
+        status = lxp_log_append(&log, LXP_LOG_RECEIPT, 12U, receipt,
+                                sizeof(receipt), NULL);
+    if (status == LXP_OK) status = lxp_log_sync(&log);
+    if (status == LXP_OK) status = lxp_log_close(&log);
+    return status;
+}
+
+static int test_segment_create_sync_restart(void)
+{
+    char directory[] = "/tmp/lxp-segment-restart-XXXXXX";
+    char path[128];
+    lxp_log log;
+    lxp_log_record_header header;
+    uint8_t bytes[2];
+    uint64_t durable;
+    int child_status;
+    if (mkdtemp(directory) == NULL ||
+        lxp_fault_crash_at_boundary(LXP_FAULT_LOG_SYNCED, 2U,
+            segment_restart_workload, directory, &child_status) != LXP_OK ||
+        snprintf(path, sizeof(path), "%s/%020u.lxp", directory, 9U) < 0 ||
+        lxp_log_open(&log, path) != LXP_OK ||
+        !log.has_durable_marker ||
+        lxp_log_recover(&log, NULL, NULL) != LXP_OK ||
+        lxp_log_resume_sequence(&log) != 13U ||
+        lxp_log_durable_head(&log, &durable) != LXP_OK || durable != 12U ||
+        lxp_log_read(&log, 0U, &header, bytes, sizeof(bytes)) != LXP_OK ||
+        header.record_kind != (uint8_t)LXP_LOG_ACTIVITY ||
+        header.global_sequence != 12U || bytes[0] != 0x21U ||
+        bytes[1] != 0x81U ||
+        lxp_log_read(&log, LXP_LOG_HEADER_BYTES + sizeof(bytes), &header,
+                      bytes, sizeof(bytes)) != LXP_OK ||
+        header.record_kind != (uint8_t)LXP_LOG_RECEIPT ||
+        header.global_sequence != 12U || bytes[0] != 0x31U ||
+        bytes[1] != 0x91U ||
+        lxp_log_close(&log) != LXP_OK || unlink(path) != 0 ||
+        rmdir(directory) != 0)
+        return 1;
+    return 0;
+}
+
 int main(void)
 {
     uint32_t boundary;
@@ -452,6 +505,11 @@ int main(void)
             unlink(path) != 0 || rmdir(directory) != 0)
             return 1;
     }
+    if (test_segment_create_sync_restart() != 0) {
+        (void)fprintf(stderr, "segment creation/sync restart failed\n");
+        return 1;
+    }
+    (void)printf("PASS test_segment_create_sync_restart\n");
     if (checkpointed_canonical_restart() != 0 ||
         existing_activity_restart() != 0)
         return 1;

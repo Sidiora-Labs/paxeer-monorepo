@@ -1,0 +1,10 @@
+[repair.22.31.485]
+requirement = "22998.1"
+retiring_tasks = ["22.31.221", "9.25.1"]
+base_revision = "ce9baf3e8cecae9b66f2a415274c84e931b21920"
+public_reads = "src/public_reads.rs original lines 96, 105, 137, 384: compare the full Uint256 bytes; retain account metadata and decimal wire values; project flat optional asset metadata, supply as total_units, paused and string identity; encode the current network head with the existing capabilities key. Convert the route's byte asset selector to hex for payments::get_asset."
+agent_read = "services/agent/crates/layerx-agent-api/src/read.rs original line 715: from_observation delegates to from_committed_snapshot using the actual RPC Head.chain_sequence and CommittedSnapshot.observed_sequence; stale and future snapshots remain refused."
+current_interfaces = "This base has PxAssetEntry.asset_id: String and PxNetworkHead.layerx, not byte IDs or a capabilities member. FeeObservation exposes rpc::Head, not CommittedBlockContext; no retired client fields are added. Unavailable custody, issuer, salt and supply-cap facts are not invented."
+checks_unblocked = ["22.33.1544", "22.33.1545", "22.33.1547", "22.33.222", "22.33.249"]
+tests = ["services/platform/hosted/core/tests/repair_22_31_485.rs", "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"]
+evidence = "The runner's private /out/run/gates.jsonl records the exact verified candidate revision, command, exit code and log; the final evidence JSON copies that revision. No pre-implementation gate was run."

@@ -17,6 +17,31 @@ ramp = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ramp)
 
 
+spec = importlib.util.spec_from_file_location('committed_funded_operator', Path(__file__).with_name('migration-funded-operator.py'))
+funded = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(funded)
+
+
+def validate_connected_mapping(mapping, binding):
+    funded.C.require(mapping['version'] == 'account-mapping-v2'
+                     and mapping['source_network'] == binding['source_network']
+                     and mapping['source_address'] == binding['source_address']
+                     and mapping['principal'] == binding['principal']
+                     and mapping['layerx_identity'] == binding['layerx_identity']
+                     and mapping['evm_address'] == binding['evm_address']
+                     and mapping['provenance'] == 'paxeer-binding' and mapping['layerx_receipt'] is False
+                     and type(mapping['paxeer_block_number']) is int and mapping['paxeer_block_number'] > 0,
+                     'connected source ownership or native destination binding differs')
+    ramp.byte32(mapping['paxeer_block_hash'])
+    return mapping
+
+
+class ConnectedDestinationConsumer(funded.DestinationReceiptConsumer):
+    def connected(self, mapping, source, transaction_hash, binding):
+        validate_connected_mapping(mapping, binding)
+        return self.observe(source, transaction_hash, binding)
+
+
 def fixed_hex(value, size):
     ramp.require(isinstance(value, str) and len(value) == size * 2
                  and re.fullmatch("[0-9a-f]+", value) is not None
@@ -25,6 +50,9 @@ def fixed_hex(value, size):
 
 
 class MigrationContract(ramp.Contract):
+    def receipt(self, case, order, activity, output, expected_success=True):
+        return funded.current_destination_receipt(self, case, order, activity, output, expected_success)
+
     def __init__(self, document):
         ramp.closed(document, ("version", "execution_domain", "ramp_fixture_file",
                                "accepted_mappings", "refused_mappings", "pending_mapping"),
@@ -100,6 +128,10 @@ class MigrationContract(ramp.Contract):
                      and type(result["paxeer_block_number"]) is int and result["paxeer_block_number"] > 0,
                      "actual finalized protocol mapping mismatch")
         ramp.byte32(result["paxeer_block_hash"])
+        validate_connected_mapping(result, {
+            'source_network': network, 'source_address': case['expected_source_address'],
+            'principal': result['principal'], 'layerx_identity': list(bytes.fromhex(self.fixture['expected_did'])),
+            'evm_address': list(bytes.fromhex(case['expected_evm_address']))})
 
     def mapping_cases(self):
         cases = self.migration["accepted_mappings"]

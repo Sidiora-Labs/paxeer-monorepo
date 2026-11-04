@@ -14,11 +14,11 @@ export const getNextSortValue = (getNextSortValueShared<SortField, Sort>).bind(u
 export const sortFn = (sort: Sort | undefined) => (a: bens.DomainEvent, b: bens.DomainEvent) => {
   switch (sort) {
     case 'timestamp-asc': {
-      return b.timestamp.localeCompare(a.timestamp);
+      return a.timestamp.localeCompare(b.timestamp);
     }
 
     case 'timestamp-desc': {
-      return a.timestamp.localeCompare(b.timestamp);
+      return b.timestamp.localeCompare(a.timestamp);
     }
 
     default:

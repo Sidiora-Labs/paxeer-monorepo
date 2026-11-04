@@ -14,12 +14,22 @@
           "name": "signer_public_key",
           "required": true,
           "schema": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         },
         {
           "name": "registration_signature",
           "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          }
+        },
+        {
+          "name": "email_or_verification_token",
+          "required": false,
+          "description": "An email address to begin signup, or the vfy_ token followed by 64 lowercase hexadecimal digits to verify signup. Omit for direct principal registration.",
           "schema": {
             "type": "string"
           }
@@ -31,7 +41,7 @@
           "type": "object"
         }
       },
-      "description": "Creates one self-service identity principal in the beta tenant. Both arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as beta.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. The result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
+      "description": "Creates one self-service identity principal in the beta tenant. The first two arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as beta.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. Without the optional third argument the result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. An email address starts signup and returns a pending result; a verification token completes signup and returns the identity session. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
       "errors": [
         {
           "code": -32602,
@@ -1616,8 +1626,12 @@
                   "asset",
                   "amount",
                   "tx_id",
+                  "tx_hash",
                   "ordinal",
                   "final",
+                  "final_basis",
+                  "stability",
+                  "settlement",
                   "decoded",
                   "asset_metadata",
                   "blockHeight",
@@ -1682,6 +1696,74 @@
                   "final": {
                     "type": "boolean",
                     "description": "True once the row is below its chain's finalized boundary."
+                  },
+                  "final_basis": {
+                    "type": "string",
+                    "enum": [
+                      "block_commit",
+                      "explorer_api"
+                    ],
+                    "description": "Provenance of the indexer stability classification; this does not imply verified settlement."
+                  },
+                  "stability": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "finalized_boundary"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "depth_stable",
+                          "reversible",
+                          "explorer_recorded"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "block_commit",
+                          "explorer_api"
+                        ]
+                      },
+                      "finalized_boundary": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^(0|[1-9][0-9]*)$"
+                      }
+                    }
+                  },
+                  "settlement": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "unverified"
+                        ]
+                      },
+                      "source": {
+                        "type": "null"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no_verified_checkpoint_evidence"
+                        ]
+                      }
+                    },
+                    "description": "The indexer has no verified checkpoint evidence for this row. Stability alone is not settlement."
                   },
                   "decoded": {
                     "description": "The indexer's decoded payload for the row."
@@ -1793,6 +1875,11 @@
                   "log_index": {
                     "type": "string",
                     "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "tx_hash": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-f]{64}$",
+                    "description": "Transaction hash, exactly equal to tx_id."
                   }
                 }
               }
@@ -1952,8 +2039,12 @@
                   "asset",
                   "amount",
                   "tx_id",
+                  "tx_hash",
                   "ordinal",
                   "final",
+                  "final_basis",
+                  "stability",
+                  "settlement",
                   "decoded",
                   "asset_metadata",
                   "side",
@@ -2019,6 +2110,74 @@
                   "final": {
                     "type": "boolean",
                     "description": "True once the row is below its chain's finalized boundary."
+                  },
+                  "final_basis": {
+                    "type": "string",
+                    "enum": [
+                      "block_commit",
+                      "explorer_api"
+                    ],
+                    "description": "Provenance of the indexer stability classification; this does not imply verified settlement."
+                  },
+                  "stability": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "finalized_boundary"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "depth_stable",
+                          "reversible",
+                          "explorer_recorded"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "block_commit",
+                          "explorer_api"
+                        ]
+                      },
+                      "finalized_boundary": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^(0|[1-9][0-9]*)$"
+                      }
+                    }
+                  },
+                  "settlement": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "unverified"
+                        ]
+                      },
+                      "source": {
+                        "type": "null"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no_verified_checkpoint_evidence"
+                        ]
+                      }
+                    },
+                    "description": "The indexer has no verified checkpoint evidence for this row. Stability alone is not settlement."
                   },
                   "decoded": {
                     "description": "The indexer's decoded payload for the row."
@@ -2138,6 +2297,11 @@
                   "log_index": {
                     "type": "string",
                     "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "tx_hash": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-f]{64}$",
+                    "description": "Transaction hash, exactly equal to tx_id."
                   }
                 }
               }

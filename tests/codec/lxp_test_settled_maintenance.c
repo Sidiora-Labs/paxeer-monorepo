@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "lxp_kernel_case.h"
 
 #include "layerx/lx_asset.h"
@@ -8,10 +10,12 @@
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_maintenance.h"
+#include "layerx/lxp_storage.h"
 #include "layerx/programs.h"
 
 #include <openssl/evp.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 static const uint8_t settled_sequencer_seed[32] = {0x45U};
 static const uint8_t settled_actor_seed[32] = {0x51U};
@@ -42,6 +46,13 @@ typedef struct settled_fixture {
     uint8_t actor_public_key[32];
     uint8_t actor_id[32];
     uint8_t recipient_id[32];
+    lxp_log publication;
+    lxp_arena publication_arena;
+    uint8_t publication_bytes[LXP_BATCH_MAINTENANCE_MAX_BYTES];
+    uint8_t published_root[32];
+    uint64_t published_sequence;
+    size_t published_count;
+    char directory[128];
 } settled_fixture;
 
 static int settled_public_key(const uint8_t seed[32], uint8_t public_key[32])
@@ -126,12 +137,72 @@ static int settled_sign(const uint8_t seed[32], const uint8_t *message,
     return ok ? 0 : 1;
 }
 
+static lxp_result settled_publish_receipt(void *context, const lxp_kernel *kernel,
+    const lxp_activity *activity, const lxp_receipt *receipt)
+{
+    settled_fixture *f = context;
+    lxp_byte_span encoded;
+    lxp_result status;
+    uint64_t offset;
+    if (!kernel->batch_publication_pending ||
+        receipt->global_sequence != f->published_sequence + 1U ||
+        memcmp(receipt->previous_state_root, f->published_root, 32U) != 0 ||
+        activity->activity_type != LX_ASSET_SEND)
+        return LXP_ERR_CONTEXT_MISMATCH;
+    status = lxp_arena_reset(&f->publication_arena, 0U);
+    if (status == LXP_OK)
+        status = lxp_receipt_encode(receipt, true, &f->publication_arena, &encoded);
+    if (status == LXP_OK && encoded.length > UINT32_MAX)
+        status = LXP_ERR_LENGTH_LIMIT;
+    if (status == LXP_OK)
+        status = lxp_log_append(&f->publication, LXP_LOG_RECEIPT,
+            receipt->global_sequence, encoded.bytes, (uint32_t)encoded.length, &offset);
+    if (status == LXP_OK) status = lxp_log_write_boundary(&f->publication);
+    if (status == LXP_OK) {
+        memcpy(f->published_root, receipt->resulting_state_root, 32U);
+        f->published_sequence = receipt->global_sequence;
+        ++f->published_count;
+    }
+    return status;
+}
+
+static lxp_result settled_publish_maintenance(void *context, const lxp_kernel *kernel,
+    lxp_byte_span encoded, uint64_t timestamp_ms)
+{
+    settled_fixture *f = context;
+    lxp_batch_maintenance envelope;
+    lxp_programs_occupancy_receipt sweep;
+    uint64_t offset;
+    lxp_result status = lxp_batch_maintenance_decode(encoded.bytes, encoded.length,
+        &envelope);
+    if (status == LXP_OK)
+        status = lxp_programs_occupancy_receipt_decode(envelope.occupancy.bytes,
+            envelope.occupancy.length, &sweep);
+    if (status != LXP_OK) return status;
+    if (envelope.timestamp_ms != timestamp_ms ||
+        sweep.global_sequence != f->published_sequence + 1U ||
+        memcmp(sweep.previous_state_root, f->published_root, 32U) != 0 ||
+        memcmp(sweep.resulting_state_root, kernel->current_state_root, 32U) != 0)
+        return LXP_ERR_CONTEXT_MISMATCH;
+    if (encoded.length > UINT32_MAX) return LXP_ERR_LENGTH_LIMIT;
+    status = lxp_log_append(&f->publication, LXP_LOG_BATCH_BODY,
+        sweep.global_sequence, encoded.bytes, (uint32_t)encoded.length, &offset);
+    if (status == LXP_OK) status = lxp_log_write_boundary(&f->publication);
+    if (status == LXP_OK) {
+        memcpy(f->published_root, sweep.resulting_state_root, 32U);
+        f->published_sequence = sweep.global_sequence;
+        ++f->published_count;
+    }
+    return status;
+}
+
 static int settled_fixture_open(settled_fixture *f)
 {
     static const uint64_t parameters = 1U;
     uint8_t treasury_id[32], grant[32] = {0};
     lxp_genesis_manifest manifest = {0};
     lx_programs_fee_genesis_parameters fees = {0};
+    char path[192];
     memset(f, 0, sizeof(*f));
     f->storage = malloc(4U * LXP_MAX_BATCH_BODY_BYTES);
     LXP_CASE_CHECK(f->storage != NULL);
@@ -210,6 +281,17 @@ static int settled_fixture_open(settled_fixture *f)
         f->authority.authority_hash) == LXP_OK);
     f->fees.version = 1U;
     f->fees.multiplier_basis_points = 10000U;
+    strcpy(f->directory, "/tmp/lxp-settled-maintenance-XXXXXX");
+    LXP_CASE_CHECK(mkdtemp(f->directory) != NULL);
+    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/publication.log", f->directory) > 0);
+    LXP_CASE_CHECK(lxp_log_open_or_create(&f->publication, path,
+        LXP_MAX_BATCH_BODY_BYTES) == LXP_OK);
+    LXP_CASE_CHECK(lxp_arena_init(&f->publication_arena, f->publication_bytes,
+        sizeof(f->publication_bytes)) == LXP_OK);
+    memcpy(f->published_root, f->kernel.current_state_root, 32U);
+    LXP_CASE_CHECK(lxp_kernel_set_commit_observer(&f->kernel,
+        settled_publish_receipt, f) == LXP_OK);
+    f->kernel.observe_maintenance = settled_publish_maintenance;
     return 0;
 }
 
@@ -303,10 +385,10 @@ static int settled_first_batch(settled_fixture *f)
     size_t payload_length;
 
     LXP_CASE_CHECK(f->state.next_sequence == 1U);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
-    LXP_CASE_CHECK(f->state.idempotency == NULL);
-    LXP_CASE_CHECK(f->runtime.state_feed == NULL);
-    LXP_CASE_CHECK(f->kernel.observe_commit == NULL);
+    LXP_CASE_CHECK(f->state.count == 0U);
+    LXP_CASE_CHECK(!f->journal.open);
+    LXP_CASE_CHECK(f->kernel.observe_commit == settled_publish_receipt);
+    LXP_CASE_CHECK(f->published_count == 0U);
     LXP_CASE_CHECK(settled_build_send(f, &activity, payload, &payload_length) == 0);
     LXP_CASE_CHECK(settled_execution(f, &activity, &execution, 1U, 1U) == 0);
     LXP_CASE_CHECK(lxp_kernel_prepare_terminal_rejection(&f->kernel, &activity,
@@ -323,20 +405,29 @@ static int settled_first_batch(settled_fixture *f)
     LXP_CASE_CHECK(f->state.next_sequence == 3U);
     LXP_CASE_CHECK(memcmp(f->kernel.current_state_root,
         lxp_kernel_prepared_batch_final_root(prepared), 32U) == 0);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
-    LXP_CASE_CHECK(f->state.idempotency == NULL);
+    LXP_CASE_CHECK(f->state.count == 0U);
+    LXP_CASE_CHECK(!f->journal.open);
     LXP_CASE_CHECK(lxp_kernel_finalize_prepared_batch_publication(&f->kernel,
         &activity, prepared, digest) == LXP_OK);
     LXP_CASE_CHECK(!f->kernel.publication_poisoned);
+    LXP_CASE_CHECK(!f->kernel.batch_publication_pending);
+    LXP_CASE_CHECK(f->published_count == 2U && f->published_sequence == 2U);
+    LXP_CASE_CHECK(memcmp(f->published_root, f->kernel.current_state_root, 32U) == 0);
     lxp_kernel_prepared_batch_destroy(prepared);
     return 0;
 }
 
 static int settled_fixture_close(settled_fixture *f)
 {
+    char path[192];
+    LXP_CASE_CHECK(lxp_log_close(&f->publication) == LXP_OK);
+    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/publication.log", f->directory) > 0);
+    LXP_CASE_CHECK(unlink(path) == 0);
+    LXP_CASE_CHECK(rmdir(f->directory) == 0);
     while (f->kernel.blob_count != 0U)
         free(f->kernel.blobs[--f->kernel.blob_count].bytes);
     LXP_CASE_CHECK(lxp_state_store_destroy(&f->state) == LXP_OK);
+    lx_account_registry_release(&f->accounts);
     free(f->storage);
     free(f);
     return 0;
@@ -401,11 +492,194 @@ static int second_maintenance_batch_chains(void)
         sweep.resulting_state_root, 32U) == 0);
     LXP_CASE_CHECK(memcmp(f->kernel.current_state_root,
         lxp_kernel_prepared_batch_final_root(prepared), 32U) == 0);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
-    LXP_CASE_CHECK(f->state.idempotency == NULL);
+    LXP_CASE_CHECK(f->state.count == 0U);
+    LXP_CASE_CHECK(!f->journal.open);
     LXP_CASE_CHECK(lxp_kernel_finalize_prepared_batch_publication(&f->kernel,
         &activity, prepared, digest) == LXP_OK);
+    LXP_CASE_CHECK(f->published_count == 4U && f->published_sequence == 4U);
+    LXP_CASE_CHECK(memcmp(f->published_root, sweep.resulting_state_root, 32U) == 0);
     lxp_kernel_prepared_batch_destroy(prepared);
+    return settled_fixture_close(f);
+}
+
+static int maintenance_refusal_is_atomic(void)
+{
+    settled_fixture *f = calloc(1U, sizeof(*f));
+    lxp_activity activity;
+    lxp_kernel_execution execution;
+    lxp_kernel_prepared_batch *prepared = NULL;
+    uint8_t payload[512], root[32], after[32], digest[32], wrong_digest[32];
+    size_t payload_length;
+    uint64_t identity_sequence, account_sequence, log_offset;
+
+    LXP_CASE_CHECK(f != NULL);
+    LXP_CASE_CHECK(settled_fixture_open(f) == 0);
+    memcpy(root, f->kernel.current_state_root, 32U);
+    identity_sequence = f->identity->next_sequence;
+    account_sequence = f->actor->next_sequence;
+    log_offset = f->publication.write_offset;
+    LXP_CASE_CHECK(settled_build_send(f, &activity, payload, &payload_length) == 0);
+    LXP_CASE_CHECK(settled_execution(f, &activity, &execution, 1U, 1U) == 0);
+    LXP_CASE_CHECK(lxp_kernel_prepare_terminal_rejection(&f->kernel, &activity,
+        &execution, LXP_ERR_SEQUENCE_MISMATCH, &prepared) == LXP_OK);
+    LXP_CASE_CHECK(lxp_kernel_prepare_batch_maintenance(prepared, &activity,
+        &execution) == LXP_OK);
+    memcpy(digest, lxp_kernel_prepared_batch_publication_digest(prepared), 32U);
+    memcpy(wrong_digest, digest, 32U);
+    wrong_digest[0] ^= 1U;
+    LXP_CASE_CHECK(lxp_kernel_commit_prepared_batch(&f->kernel, &f->identities,
+        prepared, wrong_digest) == LXP_ERR_CONTEXT_MISMATCH);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(root, after, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(root, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(f->state.next_sequence == 1U && !f->journal.open);
+    LXP_CASE_CHECK(f->identity->next_sequence == identity_sequence);
+    LXP_CASE_CHECK(f->actor->next_sequence == account_sequence);
+    LXP_CASE_CHECK(f->publication.write_offset == log_offset && f->published_count == 0U);
+    LXP_CASE_CHECK(!f->kernel.publication_poisoned && !f->kernel.batch_publication_pending);
+    LXP_CASE_CHECK(lxp_kernel_commit_prepared_batch(&f->kernel, &f->identities,
+        prepared, digest) == LXP_OK);
+    log_offset = f->publication.write_offset;
+    LXP_CASE_CHECK(lxp_kernel_finalize_prepared_batch_publication(&f->kernel,
+        &activity, prepared, wrong_digest) == LXP_ERR_CONTEXT_MISMATCH);
+    LXP_CASE_CHECK(f->publication.write_offset == log_offset && f->published_count == 0U);
+    LXP_CASE_CHECK(f->kernel.publication_poisoned && f->kernel.batch_publication_pending);
+    LXP_CASE_CHECK(lxp_kernel_finalize_prepared_batch_publication(&f->kernel,
+        &activity, prepared, digest) == LXP_OK);
+    LXP_CASE_CHECK(f->published_count == 2U && f->state.next_sequence == 3U);
+    lxp_kernel_prepared_batch_destroy(prepared);
+    return settled_fixture_close(f);
+}
+
+static int expired_activity_leaves_maintenance_state_unchanged(void)
+{
+    settled_fixture *f = calloc(1U, sizeof(*f));
+    lxp_activity activity;
+    lxp_kernel_execution execution;
+    lxp_receipt receipt;
+    uint8_t payload[512], signature[64], digest[32], before[32], after[32];
+    size_t payload_length;
+    uint64_t identity_sequence, account_sequence, log_offset;
+    lxp_u128 actor_balance, recipient_balance;
+
+    LXP_CASE_CHECK(f != NULL);
+    LXP_CASE_CHECK(settled_fixture_open(f) == 0);
+    LXP_CASE_CHECK(settled_first_batch(f) == 0);
+    memcpy(before, f->kernel.current_state_root, 32U);
+    identity_sequence = f->identity->next_sequence;
+    account_sequence = f->actor->next_sequence;
+    actor_balance = f->actor->balance;
+    recipient_balance = f->recipient->balance;
+    log_offset = f->publication.write_offset;
+    LXP_CASE_CHECK(settled_build_send(f, &activity, payload, &payload_length) == 0);
+    activity.timestamp_bound.not_after = 9U;
+    LXP_CASE_CHECK(lxp_activity_signing_preimage(&activity, digest) == LXP_OK);
+    LXP_CASE_CHECK(settled_sign(settled_actor_seed, digest, sizeof(digest), signature) == 0);
+    activity.signature = (lxp_byte_span){signature, sizeof(signature)};
+    LXP_CASE_CHECK(lxp_activity_verify_signature(&activity) == LXP_OK);
+    LXP_CASE_CHECK(settled_execution(f, &activity, &execution,
+        f->state.next_sequence, 2U) == 0);
+    LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &activity,
+        &execution, &receipt) == LXP_ERR_EXPIRED);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(before, after, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(before, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(f->state.next_sequence == 3U && !f->journal.open);
+    LXP_CASE_CHECK(f->identity->next_sequence == identity_sequence);
+    LXP_CASE_CHECK(f->actor->next_sequence == account_sequence);
+    LXP_CASE_CHECK(lxp_u128_cmp(f->actor->balance, actor_balance) == 0);
+    LXP_CASE_CHECK(lxp_u128_cmp(f->recipient->balance, recipient_balance) == 0);
+    LXP_CASE_CHECK(f->publication.write_offset == log_offset && f->published_count == 2U);
+    LXP_CASE_CHECK(!f->kernel.publication_poisoned && !f->kernel.batch_publication_pending);
+    return settled_fixture_close(f);
+}
+
+typedef struct settled_recovery {
+    uint64_t sequence;
+    uint8_t root[32];
+} settled_recovery;
+
+static lxp_result settled_recover_publication(void *context,
+    const lxp_log_record_header *header, const uint8_t *body)
+{
+    settled_recovery *recovery = context;
+    lxp_result status;
+    const uint8_t *previous_root;
+    const uint8_t *resulting_root;
+    uint64_t sequence;
+    lxp_receipt receipt;
+    lxp_batch_maintenance envelope;
+    lxp_programs_occupancy_receipt sweep;
+
+    if (header->record_kind == LXP_LOG_RECEIPT) {
+        status = lxp_receipt_decode(body, header->body_length, true, &receipt);
+        if (status != LXP_OK) return status;
+        sequence = receipt.global_sequence;
+        previous_root = receipt.previous_state_root;
+        resulting_root = receipt.resulting_state_root;
+    } else if (header->record_kind == LXP_LOG_BATCH_BODY) {
+        status = lxp_batch_maintenance_decode(body, header->body_length, &envelope);
+        if (status == LXP_OK)
+            status = lxp_programs_occupancy_receipt_decode(envelope.occupancy.bytes,
+                envelope.occupancy.length, &sweep);
+        if (status != LXP_OK) return status;
+        sequence = sweep.global_sequence;
+        previous_root = sweep.previous_state_root;
+        resulting_root = sweep.resulting_state_root;
+    } else {
+        return LXP_ERR_CONTEXT_MISMATCH;
+    }
+    if (sequence != recovery->sequence + 1U || sequence != header->global_sequence ||
+        memcmp(previous_root, recovery->root, 32U) != 0)
+        return LXP_ERR_CONTEXT_MISMATCH;
+    recovery->sequence = sequence;
+    memcpy(recovery->root, resulting_root, 32U);
+    return LXP_OK;
+}
+
+static int maintenance_publication_survives_reopen(void)
+{
+    settled_fixture *f = calloc(1U, sizeof(*f));
+    lxp_log_record_header header;
+    lxp_receipt receipt;
+    lxp_batch_maintenance envelope;
+    lxp_programs_occupancy_receipt sweep;
+    uint64_t offset, durable_offset;
+    settled_recovery recovery = {0};
+    char path[192];
+
+    LXP_CASE_CHECK(f != NULL);
+    LXP_CASE_CHECK(settled_fixture_open(f) == 0);
+    LXP_CASE_CHECK(settled_first_batch(f) == 0);
+    durable_offset = f->publication.durable_offset;
+    LXP_CASE_CHECK(durable_offset == f->publication.write_offset);
+    LXP_CASE_CHECK(lxp_log_close(&f->publication) == LXP_OK);
+    LXP_CASE_CHECK(snprintf(path, sizeof(path), "%s/publication.log", f->directory) > 0);
+    LXP_CASE_CHECK(lxp_log_open(&f->publication, path) == LXP_OK);
+    LXP_CASE_CHECK(f->publication.durable_offset == durable_offset);
+    LXP_CASE_CHECK(lxp_log_read(&f->publication, 0U, &header,
+        f->publication_bytes, sizeof(f->publication_bytes)) == LXP_OK);
+    LXP_CASE_CHECK(header.record_kind == LXP_LOG_RECEIPT && header.global_sequence == 1U);
+    LXP_CASE_CHECK(lxp_receipt_decode(f->publication_bytes, header.body_length,
+        true, &receipt) == LXP_OK);
+    LXP_CASE_CHECK(receipt.result_code == LXP_ERR_SEQUENCE_MISMATCH);
+    memcpy(recovery.root, receipt.previous_state_root, 32U);
+    LXP_CASE_CHECK(lxp_log_recover_complete_records(&f->publication,
+        settled_recover_publication, &recovery) == LXP_OK);
+    LXP_CASE_CHECK(f->publication.write_offset == durable_offset);
+    LXP_CASE_CHECK(recovery.sequence == 2U);
+    LXP_CASE_CHECK(memcmp(recovery.root, f->kernel.current_state_root, 32U) == 0);
+    offset = LXP_LOG_HEADER_BYTES + header.body_length;
+    LXP_CASE_CHECK(lxp_log_read(&f->publication, offset, &header,
+        f->publication_bytes, sizeof(f->publication_bytes)) == LXP_OK);
+    LXP_CASE_CHECK(header.record_kind == LXP_LOG_BATCH_BODY && header.global_sequence == 2U);
+    LXP_CASE_CHECK(lxp_batch_maintenance_decode(f->publication_bytes,
+        header.body_length, &envelope) == LXP_OK);
+    LXP_CASE_CHECK(lxp_programs_occupancy_receipt_decode(envelope.occupancy.bytes,
+        envelope.occupancy.length, &sweep) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(sweep.previous_state_root, receipt.resulting_state_root, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(sweep.resulting_state_root, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(offset + LXP_LOG_HEADER_BYTES + header.body_length == durable_offset);
     return settled_fixture_close(f);
 }
 
@@ -413,7 +687,10 @@ int main(int argc, char **argv)
 {
     const lxp_kernel_case cases[] = {
         { "fresh_genesis_maintenance_batch_commits", fresh_genesis_maintenance_batch_commits },
-        { "second_maintenance_batch_chains", second_maintenance_batch_chains }
+        { "second_maintenance_batch_chains", second_maintenance_batch_chains },
+        { "maintenance_refusal_is_atomic", maintenance_refusal_is_atomic },
+        { "expired_activity_leaves_maintenance_state_unchanged", expired_activity_leaves_maintenance_state_unchanged },
+        { "maintenance_publication_survives_reopen", maintenance_publication_survives_reopen }
     };
 
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]),

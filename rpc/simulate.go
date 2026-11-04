@@ -88,7 +88,7 @@ func (s *SimulationAPI) CreateAccessList(ctx context.Context, args export.Transa
 	defer func() {
 		recordMetricsWithError(ctx, "eth_createAccessList", s.connectionType, startTime, returnErr, recover())
 	}()
-	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	bNrOrHash := s.backend.defaultEstimateTag()
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
@@ -312,8 +312,10 @@ func (b *Backend) SetTraceContextProvider(provider TraceContextProvider) {
 	}
 }
 
-// defaultEstimateTag is pending on the sequencer and standby, which hold the
-// open block, and latest on every other node.
+// defaultEstimateTag is the shared default for call, gas estimation and access
+// list simulation: pending when an open-state provider is wired, latest otherwise.
+// Provider capability persists during the idle seal-to-open interval; pending
+// resolution then applies its bounded wait and committed-state fallback.
 func (b *Backend) defaultEstimateTag() rpc.BlockNumberOrHash {
 	if b.watermarks != nil && b.watermarks.pending != nil {
 		return rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)

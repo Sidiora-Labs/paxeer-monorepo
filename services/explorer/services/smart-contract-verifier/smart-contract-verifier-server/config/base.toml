@@ -54,12 +54,3 @@ agent_endpoint = "localhost:6831"
 [compilers]
 # if omitted, number of CPU cores would be used
 max_threads = 8
-
-# [extensions.solidity.sig_provider]
-# url = "http://127.0.0.1:8051/"
-
-# [extensions.vyper.sig_provider]
-# url = "http://127.0.0.1:8051/"
-
-# [extensions.sourcify.sig_provider]
-# url = "http://127.0.0.1:8051/"

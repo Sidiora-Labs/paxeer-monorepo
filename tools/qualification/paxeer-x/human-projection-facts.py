@@ -9,6 +9,11 @@ import sys
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import human_native_custody as build_contract
+
+TARGETS = ('human_projection_facts',)
+BUILD_PROFILE = 'human-projection-facts'
 SOURCES = (
     'services/agent/crates/layerx-agentd/src/approval/mod.rs',
     'services/agent/crates/layerx-agentd/src/approval/events.rs',
@@ -27,7 +32,25 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+
+def build_manifest_path():
+    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/human-facts'))
+    return Path(os.environ.get('PAXEER_X_HUMAN_PROJECTION_FACTS_BUILD_MANIFEST',
+                               str(target / 'paxeer-x' / (BUILD_PROFILE + '.json'))))
+
+
+def admit_build_manifest(path, source=None, root=ROOT):
+    if source is None:
+        source = build_contract.BUILD.source_identity(root)
+    return build_contract.admit_test_manifest(path, source, TARGETS, root)
+
+
 def main():
+    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/human-facts'))
+    if sys.argv[1:] == ['--build']:
+        build_contract.build_test_targets(build_manifest_path(), TARGETS, target)
+        return
+    require(not sys.argv[1:], 'unsupported gate arguments')
     path = os.environ.get('PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE')
     require(path, 'genuine authenticated approval, budget and managed receipt fixture required')
     path = Path(path)
@@ -39,11 +62,8 @@ def main():
     hashes = fixture.get('source_hashes', {})
     require(all(hashes.get(source) == hashlib.sha256((ROOT / source).read_bytes()).hexdigest()
                 for source in SOURCES), 'fixture does not bind final producer and consumer sources')
-    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/human-facts'))
-    binaries = [path for path in (target / 'debug/deps').glob('human_projection_facts-*')
-                if path.is_file() and os.access(path, os.X_OK) and not path.name.endswith('.d')]
-    require(len(binaries) == 1, 'exact current prebuilt projection test binary required')
-    result = subprocess.run([str(binaries[0]), '--test-threads=1'], cwd=ROOT, env=os.environ,
+    binaries = admit_build_manifest(build_manifest_path())
+    result = subprocess.run([str(binaries[TARGETS[0]]), '--test-threads=1'], cwd=ROOT, env=os.environ,
                             timeout=480, capture_output=True, check=False)
     sys.stdout.buffer.write(result.stdout)
     sys.stderr.buffer.write(result.stderr)
