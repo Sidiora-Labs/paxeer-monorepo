@@ -717,9 +717,16 @@ impl AuthorityReceiptVerifier {
             .and_then(serde_json::Value::as_str)
         {
             let bytes = hex_decode(header)?;
-            let header = layerx_wire::receipt::decode_batch_header(&bytes)
-                .map_err(|_| WebhookError::VerificationRequired)?;
-            if header.network_id() != self.protocol_network_id {
+            let signature = raw["batch_evidence"]["header_signature"]
+                .as_str()
+                .ok_or(WebhookError::VerificationRequired)?;
+            let header = layerx_proof::inclusion::verify_header(
+                &bytes,
+                &fixed_hex::<64>(signature)?,
+                &self.sequencer_authorization,
+            )
+            .map_err(|_| WebhookError::VerificationRequired)?;
+            if header.header().network_id() != self.protocol_network_id {
                 return Err(WebhookError::VerificationRequired);
             }
         }
@@ -1040,17 +1047,17 @@ impl ReceiptVerifier {
                 .and_then(|v| v.strip_prefix("0x"))
                 .ok_or(WebhookError::VerificationRequired)?,
         )?;
-        let decoded = layerx_wire::receipt::decode(&receipt)
-            .map_err(|_| WebhookError::VerificationRequired)?;
-        let protocol = decoded
-            .protocol()
-            .ok_or(WebhookError::VerificationRequired)?;
-        let height = u64::from_be_bytes(
-            protocol.batch_id()[24..]
-                .try_into()
-                .map_err(|_| WebhookError::VerificationRequired)?,
-        );
-        if height <= 1 || protocol.batch_id()[..24] != [0; 24] {
+        // The node's height selects evidence to fetch; only the signed receipt
+        // and authenticated commit can establish that height below.
+        let height = u64::from_str_radix(
+            receipt_json["height"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .ok_or(WebhookError::VerificationRequired)?,
+            16,
+        )
+        .map_err(|_| WebhookError::VerificationRequired)?;
+        if height <= 1 {
             return Err(WebhookError::VerificationRequired);
         }
         let commit_json = self.rpc(
@@ -1059,6 +1066,9 @@ impl ReceiptVerifier {
             serde_json::json!({"height":height.to_string()}),
         )?;
         let commit = crate::chain::CommitCertificate::from_comet(&commit_json)?;
+        if commit.height()? != height {
+            return Err(WebhookError::VerificationRequired);
+        }
         let block = self.rpc(
             &self.comet,
             "block",

@@ -1,0 +1,49 @@
+[repair.22.33.1302]
+opaque-genesis = "TestRepairM_1302_OpaqueGenesis mutates real kernel/keeper exports, requires version/key/body and delivery-item/metadata-link refusals without changing any store, and imports JSON into a fresh keeper before committing, closing the host, reopening and checking repeated public views."
+escrow-root-proof-gap = "TestRepairM_1302_EscrowRootProof runs the strengthened TestProofViews path through the real keeper publication binder, matches nonzero receipt/result roots and exact transfer amounts and balances, and replays partial capture twice across committed-store/host reopens without transferring again. The native binder validates the event identifier, ordinal and state before copying its economic root."
+baseline = "The unchanged continuation tree built at 6927e69c7bd6533eabdfd60c874961fd88500df4; hf-done failed during package setup because ./types/ was resolved from the repository root. No test executed and no pre-change behavioral failure is claimed."
+evidence = "The bounded gate ledger /out/run/gates.jsonl records the verified candidate revision, exact command, exit and private log; no gate is claimed before execution."
+
+[wiring.recovery]
+request = "Domain 2: modules/layerxpay/keeper/genesis.go RecoveryGenesis.Validate must validate owned-record and metadata/delivery links over the complete reassembled envelope, rather than invoking full GenesisState.Validate separately on each chunk; InitGenesis already invokes the strengthened validation before every write."
+
+[wiring.metadata]
+request = "Domain 2: modules/layerxpay/keeper/genesis.go must additionally check agent metadata addresses/token against the restored EVM bindings and custody mapping before writes; those external-domain records are not carried by types.GenesisState."
+
+[wiring.kernel]
+request = "Domain 1: src/protocol/lxp_kernel.c receipt_bind_ledger_projection must invoke lx_escrow_bind_economic_receipt before hashing/signing for raw kernel receipts, and include/layerx/lx_escrow.h must declare it; this task proves the existing production keeper publication path, whose Submit already invokes that binder."
+
+[wiring.legacy_tests]
+request = "Domain 2: modules/layerxpay/keeper/proof_pay_genesis_test.go must replace its defect-pinning acceptance of truncated offers with atomic refusal; keeper/genesis_test.go metadata-only fixtures must supply their linked streams under the stricter genesis contract."
+
+[gotcha]
+observed = "ReadLastSequence requires a nonempty canonical actor DID even though its result is the shared host sequence; synchronize the proof producer using the real keeper authority after agent-stream activities."
+
+[qualification.first]
+revision = "050f4ce3b84f94e5f3cbfb6e83fcad5f85d3b7ae"
+command = "cg spec done 22.33.1302 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The agent-stream fixture omitted its required transaction hash, and the partial-capture fixture submitted as owner rather than beneficiary; nonzero receipt/result root equality passed."
+repair = "Supply a concrete transaction hash and the real bound beneficiary, retaining the original execution state-root-change assertion for the keeper path."
+
+[qualification.second]
+revision = "92a0f5c7315e7bb0e165d19a85538f0f04bd81a3"
+command = "cg spec done 22.33.1302 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "TestRepairM_1302_EscrowRootProof passed; the agent-stream fixture refused creation because its required EVM transient store was not mounted."
+repair = "Mount the real evm_transient store before loading the harness multistore, retaining every assertion and the production ordinal implementation."
+
+[qualification.continuation]
+revision = "6927e69c7bd6533eabdfd60c874961fd88500df4"
+command = "cg spec done 22.33.1302 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The verify command resolved ./types/ from the repository root and failed with stat /work/paxeer-monorepo/types: directory not found; the runner must execute it from modules/layerxpay."
+
+[continuation.api]
+repair = "Escrow proof and recovery readers consume the current three-result getters; service proofs and recovery reads consume ServiceViews. Corrupt stored producer records must return a canonicality error, false and a zero record, and successful and absent reads must return nil errors. All root, amount, replay and recovery assertions are retained."
+
+[gotcha.continuation]
+observed = "Task verify_cmd uses a relative ./types/ path but hf-done starts it at the repository root; correct the runner working directory before consuming another verify attempt."

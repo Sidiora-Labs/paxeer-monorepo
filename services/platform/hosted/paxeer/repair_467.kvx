@@ -1,0 +1,28 @@
+[repair.22.31.467]
+requirement = "22998.1"
+base_revision = "b06a8e8502aeb3eee0ed79afb1979f134a140ff1"
+source_revision = "065d0370da^"
+decision = "2524"
+scope = "services/platform/hosted/paxeer"
+restored = ["evm.py", "custody-genesis.py", "deploy-contracts.sh", "deployment.yaml", "deployment-input.beta.json"]
+implementation = "Restore the five original blobs and their regular-file modes; retain the Cargo.toml restored by 22.31.465. Replace only the obsolete file-absence assertions with exact historical-content assertions, preserving every native handoff behavior check."
+consumer_paths_changed = false
+
+[consumers.human]
+checked = ["services/platform/hosted/human/merged_owner.py:19", "services/platform/hosted/human/test_material.py:355"]
+observed = "The merged owner loads sibling paxeer/evm.py using Path(__file__).parents[1]; the material test reads the paxeer deployment.yaml. The focused loader test imports the real merged owner and exercises its restored EVM module through rlp_decode."
+
+[consumers.qualification]
+checked = ["tools/qualification/paxeer-x/fixtures/xweb_fixture.py:39", "tools/release/rehearsal/programme.py:668", "tools/bringup/tests/paxeer-x-runtime-contract.py:1707"]
+observed = "The xweb fixture and release rehearsal import the original paxeer/evm.py path; the bringup runtime contract binds that file into its runtime layout. The foundation fixture was also inspected; it currently uses native node artifacts rather than importing evm.py."
+
+[consumers.platform]
+checked = ["services/platform/Makefile.inc:143", "services/platform/hosted/tests/beta-cluster.sh:250", "services/platform/hosted/tests/topology-check.sh:21", "services/platform/hosted/tests/topology-check.sh:105"]
+observed = "The Makefile parses deploy-contracts.sh, beta-cluster.sh selects paxeer/evm.py, and topology-check.sh reads paxeer/deployment.yaml. All consumer paths remain unchanged."
+
+[qualification]
+build_cmd = "python3 -m py_compile services/platform/hosted/paxeer/evm.py services/platform/hosted/paxeer/custody-genesis.py && bash -n services/platform/hosted/paxeer/deploy-contracts.sh && go vet ./services/platform/hosted/paxeer/"
+verify_cmd = "go test -count=1 -run '^TestRepair(M_1319_|467_)' ./services/platform/hosted/paxeer/"
+tests = ["TestRepair467_RestoredContent", "TestRepair467_PythonCompile", "TestRepair467_DeployerParses", "TestRepair467_MergedOwnerLoader"]
+evidence = "Run hf-build then hf-done on the unchanged candidate; the final hf-done JSON and private gate ledger name the exact verified revision, command, exit code and log. This record claims no gate result before execution."
+limits = "Only the declared syntax, Go vet and focused Go test gates qualify this repair; no deployment, cluster, signing transaction or full consumer suite was run."

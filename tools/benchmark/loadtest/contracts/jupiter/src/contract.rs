@@ -1,15 +1,12 @@
-use cosmwasm_std::{
-    entry_point, Binary, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, Decimal,
-};
-use crate::state::{MARS_ADDR};
 use crate::msg::{
     BulkOrderPlacementsResponse, DepositInfo, InstantiateMsg, LiquidationRequest,
     LiquidationResponse, SettlementEntry, SudoMsg,
 };
-use pax_cosmwasm::{
-    Order, PaxMsg, PaxQueryWrapper, PositionDirection, OrderType,
+use crate::state::MARS_ADDR;
+use cosmwasm_std::{
+    entry_point, Binary, Decimal, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
+use pax_cosmwasm::{Order, OrderType, PaxMsg, PaxQueryWrapper, PositionDirection};
 
 #[entry_point]
 pub fn instantiate(
@@ -23,7 +20,11 @@ pub fn instantiate(
 }
 
 #[entry_point]
-pub fn sudo(deps: DepsMut<PaxQueryWrapper>, env: Env, msg: SudoMsg) -> Result<Response<PaxMsg>, StdError> {
+pub fn sudo(
+    deps: DepsMut<PaxQueryWrapper>,
+    env: Env,
+    msg: SudoMsg,
+) -> Result<Response<PaxMsg>, StdError> {
     match msg {
         SudoMsg::Settlement { epoch, entries } => process_settlements(deps, entries, epoch),
         SudoMsg::NewBlock { epoch } => handle_new_block(deps, env, epoch),
@@ -91,7 +92,7 @@ pub fn process_bulk_order_placements(
             orders: vec![order_placement],
             contract_address: MARS_ADDR.load(deps.storage)?,
         };
-        response = Response::new().add_message(order);
+        response = response.add_message(order);
     }
 
     Ok(response)
