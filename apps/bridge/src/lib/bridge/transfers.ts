@@ -5,6 +5,7 @@
  * this store. v1 shape; bump the key to migrate.
  */
 import { isAddress, type Address, type Hex } from 'viem';
+import type { SettlementStatus } from './settlement';
 
 export type TransferDirection = 'in' | 'out';
 
@@ -51,6 +52,8 @@ export type BridgeTransfer = {
   bridgeOutNonce?: string;
   releaseTxHash?: Hex;
   releasedAt?: number;
+  settlementSubmittedAt?: number;
+  settlementStatus?: SettlementStatus;
 };
 
 const STORAGE_KEY = 'paxeer-bridge:transfers:v1';
@@ -84,8 +87,9 @@ function isBridgeTransfer(value: unknown): value is BridgeTransfer {
     (transfer.vault === undefined || (typeof transfer.vault === 'string' && isAddress(transfer.vault, { strict: false }))) &&
     [ 'logIndex', 'nonce', 'bridgeOutNonce' ].every((field) => transfer[field] === undefined || (isDecimal(transfer[field]) && BigInt(transfer[field]) < (1n << 64n))) &&
     [ 'claimTxHash', 'releaseTxHash' ].every((field) => transfer[field] === undefined || isHash(transfer[field])) &&
-    [ 'claimedAt', 'releasedAt' ].every((field) => transfer[field] === undefined ||
+    [ 'claimedAt', 'releasedAt', 'settlementSubmittedAt' ].every((field) => transfer[field] === undefined ||
       (typeof transfer[field] === 'number' && Number.isSafeInteger(transfer[field]) && transfer[field] >= 0)) &&
+    (transfer.settlementStatus === undefined || [ 'pending', 'dropped', 'reverted', 'confirmed' ].includes(String(transfer.settlementStatus))) &&
     (transfer.destinationHeldBack === undefined || typeof transfer.destinationHeldBack === 'boolean')
   );
 }
