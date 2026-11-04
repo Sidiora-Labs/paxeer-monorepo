@@ -1,0 +1,32 @@
+[repair.22.31.402]
+audit = "22.30.152"
+finding = "attestor-manifest"
+base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+source_attempt_revision = "79bae11cf474e594fd2085f780a5f17e7e8eddeb"
+status = "structure-repaired-pending-governance"
+implementation = "Continue the existing source checks and record. Replace address-shaped repeated-byte identities with the exact named signer slots already committed in all nine chain configurations, retain threshold 3, and explicitly mark pending_governance true. Update the committed-manifest Go refusal test to require the unknown pending_governance field refusal; production validation remains unchanged."
+proving_tests = ["test_attestor_manifest_contains_live_canonical_signers", "test_pending_governance_manifest_uses_named_slots", "test_pending_governance_requires_explicit_true", "test_signer_checks_remain_strict_without_pending_governance", "test_attestor_manifest_matches_every_committed_chain", "test_manifest_loader_retains_placeholder_and_threshold_refusals", "test_proposal_source_checks_manifest_before_emitting_attestors"]
+closure = "attestor-manifest: the Attempt 2 structural mismatch repair is proven by test_pending_governance_manifest_uses_named_slots and test_attestor_manifest_matches_every_committed_chain; test_manifest_loader_retains_placeholder_and_threshold_refusals and test_proposal_source_checks_manifest_before_emitting_attestors prove retained source guards. Governance approval and bridge deployment readiness remain open."
+owner_decision = "OPEN — bridge governance owners, domain 14, must supply approved public signer addresses, threshold and approval provenance; the repository cannot invent these identities. Remove pending_governance only together with approved live canonical signers and reconciled chain configurations."
+source_proof = "The pytest module parses the production manifest and nine committed chain configurations with duplicate-field rejection and compares both attestors and threshold exactly. Only an explicit boolean-true pending_governance permits named slots or repeated-byte placeholders in the data assertions; absent that field, live address, nonzero, non-placeholder, canonical order, uniqueness and threshold checks apply. Negative cases prove the pending exception cannot silently become deployment readiness."
+runtime_proof = "Not executed: the Python-only gate cannot execute production Go LoadAttestorManifest, manifest.Check or proposal emission without a prohibited subprocess toolchain/native artifact. Tests inspect the real loader, chain conversion, set comparison, message validation and output ordering source; they do not substitute a Python loader or claim runtime transport proof."
+review_only = "The unchanged production decoder rejects unknown fields, including pending_governance, before parsing signers or generating proposals. Placeholder and threshold refusals remain intact. The existing Go committed-manifest test now asserts that exact document refusal; Go tests are not run by this gate. Governance approval, successful Go loading of a future approved manifest, and proposal transport must be proven before opening the bridge."
+baseline = "The supplied Attempt 1 outcome at source_attempt_revision reports test_attestor_manifest_contains_live_canonical_signers and test_attestor_manifest_matches_every_committed_chain failed, with the two source-guard tests passed (2 failed, 2 passed). No new baseline verify was run: the explicit gate order requires complete implementation then hf-build then hf-done. The continuation has no gates.jsonl at entry and gate.json records zero current runs."
+qualification = "The runner's private hf-build/hf-done ledger records the exact verified candidate revision, command, exit and log path; final task evidence copies the last gate JSON. The qualified source tree is not edited to insert its own revision."
+wiring_requests = ["services/bridge/deploy/attestors.json — bridge governance owners (domain 14): supply the approved public signer addresses, threshold and approval reference, replacing named slots and removing pending_governance only at approval.", "contracts/bridge/evm/chains/{ethereum,base,arbitrum,optimism,bnb,polygon,avalanche,hyperevm}/config.json and contracts/bridge/solana/chains/solana/config.json — owning bridge contracts domain 14: replace the currently matching named slots and threshold with the same governance-approved manifest values; these paths remain outside this task's write scope.", "contracts/bridge/README.md — owning bridge documentation domain 14: reconcile the manifest/chain signer instructions after governance approval and chain configuration wiring."]
+
+[gotcha.baseline-order]
+observed = "The baseline verification step contradicts the explicit implementation-first gate order and bounded run budget."
+resolution = "Follow the explicit order and record the absent baseline evidence here; root GOTCHA.kvx and spec ledgers are outside scope."
+
+[gotcha.missing-authority]
+observed = "The non-placeholder signer lists in proposals/testdata and deploy/tests/fixtures are test data; the runbook explicitly states the production identities are unfilled."
+resolution = "Request governance-approved public inputs rather than inventing identities or treating test fixtures as approval; retain the production refusal and leave the finding unresolved."
+
+[gotcha.pending-marker]
+observed = "Adding pending_governance intentionally moves the committed manifest refusal from attestors[0] to the strict JSON document decoder; the existing Go test asserted the old refusal location."
+resolution = "Keep the production decoder and placeholder refusal unchanged, assert the exact new unknown-field refusal in the existing Go test, and verify its source in the declared Python gate."
+
+[gotcha.candidate-cache]
+observed = "A Python gate can generate bytecode caches in source directories and change the candidate after hf-build."
+resolution = "Set PYTHONDONTWRITEBYTECODE=1 for both declared gate wrappers and remove any inherited cache under the task paths before qualification; never edit the qualified tree."

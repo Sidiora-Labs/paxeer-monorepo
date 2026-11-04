@@ -351,11 +351,11 @@ func TestCommittedManifestCarriesPlaceholdersEveryToolRefuses(t *testing.T) {
 		t.Fatal("the committed attestor manifest was accepted")
 	}
 	refusal := fieldError(t, err)
-	if refusal.Field != "attestors[0]" {
-		t.Fatalf("the refusal names %q, want attestors[0]", refusal.Field)
+	if refusal.Field != fieldDocument {
+		t.Fatalf("the refusal names %q, want %s", refusal.Field, fieldDocument)
 	}
-	if !strings.Contains(refusal.Msg, "placeholder address") {
-		t.Fatalf("the refusal reads %q, want a placeholder address", refusal.Msg)
+	if !strings.Contains(refusal.Msg, `unknown field "pending_governance"`) {
+		t.Fatalf("the refusal reads %q, want the pending governance field refused", refusal.Msg)
 	}
 }
 
