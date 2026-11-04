@@ -6,8 +6,9 @@
 //! decoder, so every row is exactly what live ingestion writes. A height
 //! Blockscout does not have is fetched with its receipts from the node.
 //! Every Blockscout block is checked against the node's block at the same
-//! height (hash and transaction list) before any unit of its range is
-//! committed. Progress is a backfill cursor separate from the live cursor;
+//! height (hash and transaction list). Transaction bodies and receipts always
+//! come from the trusted node, including chainId, before any unit is committed.
+//! Progress is a backfill cursor separate from the live cursor;
 //! at the cutover the live cursor is written at exactly the cutover, so
 //! live ingestion resumes at `cutover + 1` with no overlap and no gap.
 
@@ -200,10 +201,11 @@ impl<'a> Backfill<'a> {
         let mut units: Vec<Unit> = Vec::new();
         let mut filled = 0;
         for height in from..=to {
-            let (block, receipts) = if let Some(paxscan) = converted.remove(&height) {
-                let header = self.node.header(height)?.ok_or_else(|| {
-                    IndexError::Source(format!("the node has no block {height} to verify"))
-                })?;
+            let (block, receipts) = self.node.block_with_receipts(height)?.ok_or_else(|| {
+                IndexError::Source(format!("the node has no block {height} to verify or fill"))
+            })?;
+            if let Some(paxscan) = converted.remove(&height) {
+                let header = &block;
                 let node_hash = hash_of(header.get("hash").unwrap_or(&Value::Null), "hash")?;
                 let paxscan_hash =
                     hash_of(paxscan.block.get("hash").unwrap_or(&Value::Null), "hash")?;
@@ -217,13 +219,9 @@ impl<'a> Backfill<'a> {
                         "paxscan block {height} transactions differ from the node's"
                     )));
                 }
-                (paxscan.block, paxscan.receipts)
             } else {
                 filled += 1;
-                self.node.block_with_receipts(height)?.ok_or_else(|| {
-                    IndexError::Source(format!("the node has no block {height} to fill"))
-                })?
-            };
+            }
             let unit = self.node.decode(
                 &block,
                 &receipts,
