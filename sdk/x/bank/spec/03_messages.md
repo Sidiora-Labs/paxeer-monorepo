@@ -95,3 +95,12 @@ Definitions: [bank errors](../types/errors.go) and
 [SDK errors](../../../types/errors/errors.go). In particular, allowlist failures
 and blocklisted recipients share `ErrUnauthorized`; they are distinct from a
 send-disabled error in the `bank` codespace.
+
+These examples apply to a single-input/single-output `MsgMultiSend` as well as
+`MsgSend`. In a larger multi-send, an unauthorized second input or second output
+also rejects the message before any debit. Removing the list or storing an empty
+one allows Carol to participate, subject to the remaining checks.
+`TestRepairM_669_MessageAllowlist` in
+[repair_m669_test.go](../repair_m669_test.go) encodes the real message types,
+decodes them into the message server, and checks balances and error identities
+for these cases, including later inputs and outputs.

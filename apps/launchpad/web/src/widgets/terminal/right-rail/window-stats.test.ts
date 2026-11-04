@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import type { Candle, PoolStats, Price, Trade } from '../../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { comparePositions, deriveWindowStats, windowRange } from './window-stats';
 
@@ -46,6 +46,55 @@ const candles = [
 ];
 const allFills = [fill(106, 'sell', '1000000'), fill(105, 'buy', '3000000'), fill(102, 'sell', '2000000'), fill(101, 'buy', '2000000'), fill(100, 'buy', '3000000'), fill(97, 'buy', '9000000')];
 const from = Date.parse('2026-10-13T12:00:00.000Z');
+
+export function windowSnapshotExcludesNewerLiveFills() {
+  const laterInLastBlock = { ...fill(106, 'buy', '9000000'), eventId: 'later-in-last-block', position: position(106, 0, 1) };
+  const earlierInFirstBlock = { ...fill(100, 'buy', '9000000'), eventId: 'earlier-in-first-block', position: position(100, 0, 0) };
+  const boundedCandles = [candles[0], { ...candles[1], firstPosition: position(100, 0, 1) }];
+  const boundedFills = allFills.map(row => row.position.height === '100' ? { ...row, position: position(100, 0, 1) } : row);
+  const atPositionBoundaries = deriveWindowStats('5m', boundedCandles, [laterInLastBlock, earlierInFirstBlock, ...boundedFills], null, from);
+  expect(atPositionBoundaries.counts).toMatchObject({ buys: 3, sells: 2, retained: 5, complete: true });
+  expect(atPositionBoundaries.volumeRaw).toBe(11_000_000n);
+  expect(atPositionBoundaries.trades).toBe(5n);
+  const result = deriveWindowStats('5m', candles, [fill(107, 'buy', '9000000'), laterInLastBlock, ...allFills], null, from);
+  expect(result.counts).toMatchObject({ buys: 3, sells: 2, retained: 5, complete: true });
+  expect(result.volumeRaw).toBe(11_000_000n);
+  expect(result.trades).toBe(5n);
+  const missing = deriveWindowStats('5m', candles, [fill(107, 'buy', '9000000'), ...allFills.filter(row => row.position.height !== '100' && row.position.height !== '97')], null, from);
+  expect(missing.counts).toMatchObject({ buys: 2, sells: 2, retained: 4, complete: false, oldestHeight: '101' });
+  expect(missing.volumeRaw).toBe(11_000_000n);
+}
+
+export function windowSnapshotDeduplicatesEvents() {
+  const result = deriveWindowStats('5m', candles, [...allFills, { ...allFills[0] }, { ...allFills[1] }], null, from);
+  expect(result.counts).toMatchObject({ buys: 3, sells: 2, retained: 5, complete: true });
+  const missing = deriveWindowStats('5m', candles, [allFills[0], { ...allFills[0] }, allFills[1], allFills[2], allFills[4]], null, from);
+  expect(missing.counts).toMatchObject({ buys: 2, sells: 2, retained: 4, complete: false });
+  expect(missing.trades).toBe(5n);
+}
+
+export function windowSnapshotMissingInRangeHistoryStaysPartial() {
+  const result = deriveWindowStats('5m', candles, allFills.filter(row => row.position.height !== '101'), null, from);
+  expect(result.counts).toMatchObject({ buys: 2, sells: 2, retained: 4, complete: false, oldestHeight: '100', coveredSince: '2026-10-13T12:00:00.000Z' });
+  expect(result.volumeRaw).toBe(11_000_000n);
+  expect(result.buyUsdlRaw).toBe(8_000_000n);
+  expect(result.sellUsdlRaw).toBe(3_000_000n);
+  expect(result.netRaw).toBe(5_000_000n);
+  expect(result.trades).toBe(5n);
+}
+
+export function windowSnapshotExcludesGapsAndPartialCoverage() {
+  const gap = deriveWindowStats('5m', candles, [fill(103, 'buy', '9000000'), ...allFills.filter(row => row.position.height !== '101')], null, from);
+  expect(gap.counts).toMatchObject({ buys: 2, sells: 2, retained: 4, complete: false });
+  const partial = deriveWindowStats('5m', [{ ...candles[0], coverage: 'partial' }, candles[1]], allFills, null, from);
+  expect(partial.counts).toMatchObject({ buys: 3, sells: 2, retained: 5, complete: false });
+  expect(partial.partialCandles).toBe(1);
+}
+
+test(windowSnapshotExcludesNewerLiveFills.name, windowSnapshotExcludesNewerLiveFills);
+test(windowSnapshotDeduplicatesEvents.name, windowSnapshotDeduplicatesEvents);
+test(windowSnapshotMissingInRangeHistoryStaysPartial.name, windowSnapshotMissingInRangeHistoryStaysPartial);
+test(windowSnapshotExcludesGapsAndPartialCoverage.name, windowSnapshotExcludesGapsAndPartialCoverage);
 
 describe('windowRange', () => {
   it('is bucket aligned and includes the current bucket', () => {

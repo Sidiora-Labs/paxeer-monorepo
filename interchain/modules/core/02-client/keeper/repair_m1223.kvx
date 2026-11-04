@@ -1,0 +1,8 @@
+[repair.22.33.1223]
+audit = "22.30.58"
+aggregate-query-test-gap = ["TestRepairM_1223_AppModuleService", "TestRepairM_1223_AppModuleGateway"]
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and direct invocation of verify_cmd. No pre-change test failure is claimed."
+fixture_repair = "The initial chain header has an empty application hash; commit another block through Coordinator.CommitBlock before deriving the consensus state so ValidateBasic remains enforced. Initial evidence: be6b2ecf90eefa9eba9ffe89680baec3116920eb, cg spec done 22.33.1223 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log."
+repair = "Preserve the focused client tests; register the real aggregate keeper through AppModule.RegisterServices, query over in-memory gRPC and the generated HTTP gateway, decode the stored consensus Any, and assert exact NotFound/InvalidArgument codes plus Internal for corrupt store bytes."
+wiring_request = "None: production aggregate forwarding already exists; all new coverage and the repair record are within the keeper scope."
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."

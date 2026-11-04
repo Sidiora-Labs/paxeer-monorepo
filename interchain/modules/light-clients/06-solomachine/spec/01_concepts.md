@@ -116,13 +116,13 @@ func clientStateProof(
 	}
 	sigData := &signing.SingleSignatureData{Signature: sig}
 	protoSigData := signing.SignatureDataToProto(sigData)
-	sigDataBz, err := cdc.Marshal(protoSigData)
+	bz, err := cdc.Marshal(protoSigData)
 	if err != nil {
 		return nil, err
 	}
 
 	return cdc.Marshal(&solomachinetypes.TimestampedSignatureData{
-		SignatureData: sigDataBz,
+		SignatureData: bz,
 		Timestamp:     timestamp,
 	})
 }
@@ -131,6 +131,13 @@ func clientStateProof(
 `SignatureData` is a byte slice containing the encoded signature descriptor, not
 the `SingleSignatureData` object or just the raw signature. The verifier decodes
 it through [`UnmarshalSignatureData`](../types/codec.go).
+
+The executable example in
+[`TestRepairM_1234_DocumentedProofRoundTrip`](../repair_m1234_test.go) compiles
+this helper and passes its wrapper bytes to `ClientState.VerifyClientState`,
+then checks the sequence and timestamp persisted by the verifier. The companion
+rejection test covers a changed wrapper timestamp and raw signature bytes in
+place of the encoded signature descriptor.
 
 Coordinate proof generation with consumption: each successful verification
 advances the stored sequence, so the next distinct proof uses that next sequence.

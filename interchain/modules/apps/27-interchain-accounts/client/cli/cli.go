@@ -5,6 +5,7 @@ import (
 
 	controllercli "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/27-interchain-accounts/controller/client/cli"
 	hostcli "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/27-interchain-accounts/host/client/cli"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/27-interchain-accounts/types"
 )
 
 // GetQueryCmd returns the query commands for the interchain-accounts submodule
@@ -13,6 +14,7 @@ func GetQueryCmd() *cobra.Command {
 		Use:                        "interchain-accounts",
 		Aliases:                    []string{"ica"},
 		Short:                      "interchain-accounts subcommands",
+		Long:                       types.AvailabilityGuidance,
 		DisableFlagParsing:         true,
 		SuggestionsMinimumDistance: 2,
 	}

@@ -1,0 +1,80 @@
+[repair.22.33.328]
+audit = "22.30.137"
+scope = "apps/explorer/ui/shared/nft"
+proof = "repair-22-33-328.spec.ts renders production components and hooks with real Chakra/query providers, a verified-fetch module boundary fixture backed by content-addressed memory blocks, existing JPEG bytes, the production HTML shell, and loopback media-probe transcripts."
+baseline = "Not executed: the explicit Order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand. No pre-change failure or pass is claimed."
+qualification = "The authoritative candidate revision, exact command, exit code and private log are emitted by hf-build and hf-done; the final response copies the last bounded-gate evidence. No verified revision is claimed until hf-done passes with eight executed tests."
+continuation = "Preserved and reviewed all eight prior repairs; replayed the real HTML producer's message, strengthened the request-order assertion and waited for a fresh IPFS poster read to start before testing unmount abandonment."
+attempt_3 = "Preserved attempt 2 and its eight asserting tests; wait for the replacement poster identity as well as its blob scheme before checking revocation. The two inherited IPFS image failures remain subject to the bounded gates."
+inherited_baseline = "Attempt 2 reported six passing tests and two failures before this continuation; the provided evidence identifies ipfs_blob_lifecycle timing out on an empty image source. No original pre-repair gate is claimed."
+transport_proof = "The gallery fixture also checks an independent content-addressed block through the verified-fetch boundary fixture response and asserts its status and complete JPEG bytes before driving consumer lifecycles."
+native_import_repair = "Attempt 4 explicitly authorizes a verified-fetch import-boundary module mock because its TypeScript error class static initializer throws under Node. The fixture returns recorded JPEG bytes and range errors from content-addressed blocks; production components and the dynamically importing IPFS hook retain every lifecycle assertion."
+attempt_4 = "Preserved all eight named test functions and their lifecycle assertions; removed the dependency-source import and injected client so the suite exercises the production hook through its dynamic import boundary. Object URLs still use the real Node blob store and are checked for revocation by fetching them."
+wiring_requests = []
+
+[finding.nft_embed_basepath]
+test = "nft_embed_basepath"
+repair = "Prefix the trusted shell with config.app.basePath; drive the production shell and preserve origin, source, source-URL and nested-sandbox checks."
+
+[finding.nft_image_async_race]
+test = "nft_image_async_race"
+repair = "Abort obsolete image lifecycles, suppress stale completions/errors and reset visibility and the underlying image on source replacement; release the second IPFS read before the first."
+
+[finding.nft_test_api_path]
+test = "nft_test_api_path"
+repair = "Use /explorer in both Playwright interceptions and await the matching response before the screenshot; replay those exact interception paths through the production media hook and viewer."
+
+[finding.nft_media_replacement]
+test = "nft_media_replacement"
+repair = "Key the stateful viewer by chain, contract and token; replace a failed NFT with a valid animation independently across each identity dimension."
+
+[finding.nft_fullscreen_failure]
+test = "nft_fullscreen_failure"
+repair = "Display loading and accessible terminal failure states, cover source exhaustion and absent sources, then close and reopen the viewer to prove a fresh selection lifecycle."
+
+[finding.nft_http_poster]
+test = "nft_http_poster"
+repair = "Populate the first poster on a fresh video; the shared production poster loader registers handlers before src and is exercised with real image load/error events and HTTP JPEG bytes."
+
+[finding.ipfs_blob_lifecycle]
+test = "ipfs_blob_lifecycle"
+repair = "The IPFS hook owns each blob URL; consumer request signals release it on replacement, hook cleanup releases it on unmount, and abandoned requests cannot allocate new URLs. Gallery and poster paging prove revoked URLs are no longer fetchable."
+
+[finding.nft_cache_identity]
+test = "nft_cache_identity"
+repair = "Include chain, collection, token, field, MIME inputs, metadata, thumbnails and verified-fetch selection in the query identity; cover concurrent collections, source revisions and chain changes under an infinitely fresh cache."
+
+[environment]
+initial_dependency_setup = "The sandbox setup log reported a pre-existing root npm-lock mismatch and a pnpm package-manager mismatch for this Yarn application; dependency installation uses the application's committed Yarn lock without changing manifests."
+restored_dependencies = "Restoring the committed Yarn lock allowed the complete explorer typecheck to pass; the previously recorded ganache resolution failure did not recur."
+
+[qualification.unrelated]
+revision = "955185f159a7f0cfcd186cd0ed97747b7fb1c968"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The pre-existing marketplace repair-22-31-381.spec.ts imports ganache, which cannot be resolved; the task-local JPEG Buffer conversion is repaired separately."
+assumption = "The explorer marketplace domain owns that dependency; its files and manifests remain outside this repair scope."
+
+[qualification.registration]
+revision = "8dfc2e780da99e555864d69d64e6d2c203149fdc"
+command = "cg spec done 22.33.328 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "Vitest treated test(functionName) as a name-only declaration and reported eight todo tests, so no repair assertions ran."
+assumption = "Pass the same named function as Vitest's explicit body before claiming qualification; all eight proving assertions remain required."
+
+[qualification.formatting]
+command = "cd apps/explorer && yarn eslint --fix --fix-type layout ui/shared/nft/NftHtml.tsx ui/shared/nft/NftImage.tsx ui/shared/nft/NftMedia.pw.tsx ui/shared/nft/NftMedia.tsx ui/shared/nft/NftMediaFullscreenModal.tsx ui/shared/nft/NftVideo.tsx ui/shared/nft/useLoadImageViaIpfs.tsx ui/shared/nft/useNftMediaIdentity.ts ui/shared/nft/useNftMediaInfo.tsx ui/shared/nft/repair-22-33-328.spec.ts"
+exit = 1
+log = "/out/logs/format-nft.log"
+observed = "Layout formatting completed; inherited non-layout Vitest lint diagnostics reject the explicitly required named function registrations, diagnostic expect message and a rejection assertion awaited later in its lifecycle test."
+assumption = "The declared qualification gates are hf-build and hf-done; assertions and required named functions remain intact, with no lint rule disabled."
+
+[qualification.attempt_4_repair]
+revision = "b8b19989c2cb2af1a58001def0f2e19d157601f5"
+command = "cg spec done 22.33.328 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six cases passed; both IPFS consumers lacked a blob URL because Node Response.blob uses the global Blob constructor, replaced by jsdom, while the real object URL store requires a Node Blob."
+repair = "Install the native node:buffer Blob constructor for the suite and restore its original global descriptor afterward; preserve the strict NodeBlob guard and all lifecycle assertions."

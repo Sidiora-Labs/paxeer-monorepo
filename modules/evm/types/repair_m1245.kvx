@@ -1,0 +1,27 @@
+[task]
+id = "22.33.1245"
+audit = "22.30.60"
+baseline = "Not run: the ordered instructions prohibit tests before complete implementation and prohibit invoking verify_cmd outside hf-done. No baseline failures are claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final hf-done record is the qualification authority."
+
+[finding.027]
+tests = ["TestRepairM_1245_027_EnvelopeTransport", "TestRepairM_1245_027_RejectUnknownAndMismatchedTypes"]
+repair = "Use the registered TxData type URL for decoding and reject unknown URLs and mismatched caches; prove all six envelope types through protobuf and JSON transport into the production message consumer."
+
+[finding.021]
+tests = ["TestRepairM_1245_021_GenesisEntries", "TestRepairM_1245_021_StreamTransport"]
+repair = "Validate all supplied entries and populated parameter sets; drain streams, preserve parameterless chunks, and require at least one valid parameter set. Fixtures originate in the real keeper's genesis export."
+
+[finding.023]
+tests = ["TestRepairM_1245_023_MessageServiceRecipient"]
+repair = "Validate the exact 20-byte hexadecimal destination before normalization; the production message-service router refuses malformed transported messages without changing sender or destination balances, and valid destinations reach the real keeper and bank."
+wiring_cli = "modules/evm/client/cli/tx.go — owner domain 6 (fm-chain-modules): validate CmdSend and other destination-taking CLI arguments with ethtx.ValidateAddress before common.HexToAddress, key lookup, RPC calls or signing."
+wiring_keeper = "modules/evm/keeper/msg_server.go — owner domain 6 (fm-chain-modules): direct Send callers bypass the message-service router; call msg.ValidateBasic before normalizing the recipient or invoking the bank."
+
+[gotcha.stream]
+observed = "Returning early from ValidateStream can block AppModuleBasic.ValidateGenesisStream's unbuffered producer; missing decimal parameters can panic inside Params.Validate."
+repair = "Drain every chunk and preserve the first validation error; check decimal initialization before validating populated parameters."
+
+[gotcha.comparison]
+observed = "gogo proto.Equal cannot compare the SDK custom Int fields, even when comparing the original cached envelope with itself."
+repair = "Compare the complete producer and consumer protobuf encodings and retain concrete-type, validation and native transaction-hash assertions."

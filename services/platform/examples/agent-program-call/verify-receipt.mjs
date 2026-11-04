@@ -8,6 +8,9 @@ import {
   SequencerReceiptClient,
 } from "../support/runtime.mjs";
 
+export const RAW_TRANSACTION_TIMEOUT_MS = 10000;
+export const RAW_TRANSACTION_RESPONSE_BYTES = 2 * 1024 * 1024 + 1024;
+
 export async function verifyCalledReceipt(rpcUrl, txHash, receiptKeys) {
   if (typeof txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/u.test(txHash)) {
     throw new LayerXApplicationStateError("refused", "invalid_transaction_hash");
@@ -16,15 +19,33 @@ export async function verifyCalledReceipt(rpcUrl, txHash, receiptKeys) {
   const client = new SequencerReceiptClient(rpcUrl, receiptKeys);
   let response;
   let body;
+  let reader;
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), RAW_TRANSACTION_TIMEOUT_MS);
   try {
     response = await fetch(client.rpcUrl, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getRawTransactionByHash", params: [transactionHash] }),
+      signal: controller.signal,
     });
-    body = await response.json();
+    reader = response.body.getReader();
+    const chunks = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > RAW_TRANSACTION_RESPONSE_BYTES) throw new Error("transaction_response_too_large");
+      chunks.push(value);
+    }
+    body = JSON.parse(Buffer.concat(chunks, size).toString("utf8"));
   } catch {
     throw new LayerXApplicationStateError("unknown", "transaction_unreachable");
+  } finally {
+    clearTimeout(deadline);
+    controller.abort();
+    reader?.releaseLock();
   }
   if (body === null || typeof body !== "object" || Array.isArray(body)
     || body.jsonrpc !== "2.0" || body.id !== 1) {

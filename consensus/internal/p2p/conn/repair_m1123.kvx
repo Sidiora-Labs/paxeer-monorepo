@@ -1,0 +1,14 @@
+[repair.22.33.1123]
+audit = "22.30.49"
+finding = "002"
+tests = ["TestRepairM_1123_MaxPayloadRoundTrip", "TestRepairM_1123_OversizedPayloadRejected"]
+path = "Send -> packet producer -> protobuf size-prefixed TCP loopback transport -> receive envelope -> Recv -> return trip"
+coverage = "Maximum configured payloads of 120, 1400 and 16384 bytes on channels 127, 128, 255, 16383, 16384 and 65535; maximum-ID packets exceeding the receive envelope remain rejected."
+baseline = "Not run: the task's ordered gate rules require implementation before hf-build and hf-done and prohibit running verify_cmd by hand. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's /out/run/gates.jsonl records the exact candidate revision, command, exit code and private log for hf-build and hf-done."
+
+[gotcha.tcp_shutdown]
+symptom = "TCP fixture Run can report EOF during scope cancellation after successful delivery or expected envelope rejection."
+cause = "Canceling pending TCP reads closes the socket; the transport goroutine can observe the resulting disconnect before its context error."
+fix = "Classify a disconnect as cancellation only when the parent scope is already canceled; preserve unexpected disconnects and deadline failures."

@@ -109,6 +109,8 @@ func (t *Tree) Copy() *Tree {
 	}
 	newTree := *t
 	newTree.mtx = &sync.RWMutex{}
+	newTree.pendingChanges = nil
+	newTree.pendingWg = &sync.WaitGroup{}
 	if newTree.snapshot != nil {
 		newTree.snapshot.Acquire()
 	}
@@ -305,15 +307,13 @@ func (t *Tree) Export() *Exporter {
 }
 
 func (t *Tree) Close() error {
+	t.WaitToCompleteAsyncWrite()
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	var err error
 	if t.snapshot != nil {
 		err = t.snapshot.Close()
 		t.snapshot = nil
-	}
-	if t.pendingChanges != nil {
-		close(t.pendingChanges)
 	}
 	t.root = nil
 	return err

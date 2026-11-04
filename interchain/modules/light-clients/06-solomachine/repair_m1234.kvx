@@ -1,0 +1,9 @@
+[task.22.33.1234]
+audit = "22.30.59"
+finding = "35"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+repair = "Keep serialized SignatureDescriptor_Data bytes in TimestampedSignatureData.SignatureData as bz, with one timestamp parameter throughout; bind the documented helper to a compiled producer and real verifier."
+proving_tests = ["TestRepairM_1234_DocumentedProofRoundTrip", "TestRepairM_1234_RejectInvalidProofEncoding"]
+baseline = "No baseline verification ran: the explicit gate order requires complete implementation before hf-build and hf-done, and forbids running verify_cmd by hand. The base already encodes signature descriptor bytes and scopes timestamp correctly; this task adds executable regression evidence."
+evidence = "The runner's hf-build/hf-done ledger records the qualified candidate revision, exact command, exit code and private log; no qualification is claimed before those gates run."
+wiring_requests = "None; all repair and proof changes are inside the solo-machine scope."
