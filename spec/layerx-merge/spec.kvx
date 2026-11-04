@@ -206300,7 +206300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.92]
 title = "Repair the kernel make target test-tests-python of the c-kernel-make sweep"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.158"]
@@ -244790,7 +244790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.92]
 title = "Pre-upgrade audit of agent: services/agent/crates/layerx-agentd/src/budget (51 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -245270,7 +245270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.77]
 title = "Pre-upgrade audit of platform: sdk/platform/jvm (63 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -247478,7 +247478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.8]
 title = "Pre-upgrade audit of ledger-auth-pay: precompiles/layerxagent (180 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
