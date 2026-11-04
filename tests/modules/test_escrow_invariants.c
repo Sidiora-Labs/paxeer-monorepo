@@ -1,3 +1,7 @@
+#define ASSET_NATIVE_HARNESS_ONLY
+#include "test_asset_withdraw_activity.c"
+#undef ASSET_NATIVE_HARNESS_ONLY
+
 #include "layerx/lx_escrow.h"
 #include "layerx/lxp_kernel.h"
 
@@ -278,51 +282,127 @@ static int property_sequences(lxp_kernel *kernel, lxp_arena *arena,
     return 0;
 }
 
-static int reserve_lines(const uint8_t asset_id[32])
+typedef struct native_hold_scan {
+    lx_account_registry *accounts;
+    uint8_t previous[32];
+    uint8_t custody_ids[2][32];
+    lxp_u128 total;
+    size_t count;
+} native_hold_scan;
+
+static lxp_result scan_native_holds(const lx_escrow_record *record, void *opaque)
 {
-    lx_account_registry accounts;
+    native_hold_scan *scan = opaque;
+    size_t slot;
+    uint64_t expected = scan->count == 0U ? 20U : 30U;
+    if (scan->count >= 2U ||
+        (scan->count != 0U && memcmp(scan->previous, record->escrow_id, 32U) >= 0) ||
+        memcmp(record->escrow_account, scan->custody_ids[scan->count], 32U) != 0 ||
+        record->locked_amount.hi != 0U || record->locked_amount.lo != expected ||
+        lx_account_registry_index_lookup(scan->accounts, record->escrow_account, &slot) != LXP_OK ||
+        lx_escrow_invariant_check(record, &scan->accounts->accounts[slot]) != LXP_OK ||
+        lxp_u128_add(scan->total, record->locked_amount, &scan->total) != LXP_OK)
+        return LXP_FATAL_INVARIANT;
+    memcpy(scan->previous, record->escrow_id, 32U);
+    ++scan->count;
+    return LXP_OK;
+}
+
+static int reserve_lines(void)
+{
+    native_repair_fixture *f = calloc(1U, sizeof(*f));
     lx_account *main_account;
-    lx_account *first;
-    lx_account *second;
-    lx_asset_custody_attestation attestation;
-    lx_asset_reserve_report_record report;
-    uint8_t encoded[370];
+    lx_account *holds[2];
+    lx_asset_record *asset;
+    lx_escrow_runtime runtime;
+    lx_asset_native_supply_report report;
+    lx_asset_reserve_report_record historical_v1 = {0};
+    native_hold_scan scan = {0};
+    lxp_send send;
+    lxp_result outcome;
+    lxp_module_ctx context;
+    lxp_arena memory;
+    uint8_t bytes[4096], encoded_v1[370], idempotency[32] = {90U};
+    uint8_t burn[82] = {0U, 1U};
+    const uint8_t seed[32] = {31U};
+    const char *owner_name = "agent:did:key:native-a:main";
     size_t length;
-    const char *names[3] = { "agent:did:key:a:main",
-                             "agent:did:key:a:escrow:first",
-                             "agent:did:key:a:escrow:second" };
-    lx_account **opened[3] = { &main_account, &first, &second };
-    size_t i;
-    if (lx_account_registry_init(&accounts) != LXP_OK) return 1;
-    for (i = 0U; i < 3U; ++i) {
-        uint8_t id[32];
-        if (lx_account_id_from_string((const uint8_t *)names[i],
-                                      strlen(names[i]), id) != LXP_OK ||
-            lx_account_open(&accounts, (const uint8_t *)names[i],
-                            strlen(names[i]), id, i + 1U,
-                            LX_ACCOUNT_OPEN_CREDIT, NULL, opened[i]) != LXP_OK)
-            return 1;
+    NATIVE_CHECK(f != NULL && native_fixture_init(f) == 0 && native_issue(f, 0U) == 0);
+    NATIVE_CHECK(lx_account_registry_reserve(&f->accounts, f->accounts.count + 3U) == LXP_OK);
+    NATIVE_CHECK(lx_asset_lookup(&f->assets, f->asset_ids[0], &asset) == LXP_OK);
+    NATIVE_CHECK(lx_asset_account_open(&f->assets, &f->accounts, asset->asset_id,
+        (const uint8_t *)owner_name, strlen(owner_name), f->state.next_sequence,
+        LX_ACCOUNT_OPEN_CREDIT, NULL, &main_account) == LXP_OK);
+    NATIVE_CHECK(native_make_send(f, 0U, 0U, main_account->id, 60U, 90U, &send) == 0);
+    NATIVE_CHECK(native_send_submit(f, &send, 0U, false, &outcome) == 0 && outcome == LXP_OK);
+    memcpy(burn + 2U, asset->asset_id, 32U);
+    memcpy(burn + 34U, f->holder_ids[0][0], 32U);
+    burn[81] = 40U;
+    ++idempotency[0];
+    NATIVE_CHECK(native_submit(f, "did:key:native-a", seed, LX_ASSET_BURN,
+        burn, sizeof(burn), idempotency, native_holder(f, 0U, 0U)->next_sequence,
+        f->holder_ids[0][0], false, &outcome) == 0 && outcome == LXP_OK);
+    NATIVE_CHECK(asset->total_units.lo == 60U);
+    NATIVE_CHECK(lxp_kernel_register_module(&f->kernel, lx_escrow_module_iface()) == LXP_OK);
+    runtime.accounts = &f->accounts;
+    runtime.assets = &f->assets;
+    NATIVE_CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ESCROW, &runtime) == LXP_OK);
+    /* Insert in reverse identifier order; the committed iterator must sort. */
+    for (size_t reverse = 2U; reverse > 0U; --reverse) {
+        size_t i = reverse - 1U;
+        lx_escrow_record record;
+        uint8_t payload[LX_ESCROW_OPEN_PAYLOAD_BYTES];
+        char name[LX_ACCOUNT_NAME_MAX];
+        int count = snprintf(name, sizeof(name),
+            "agent:did:key:native-a:escrow:%02x%062u", (unsigned)(i + 1U), 0U);
+        NATIVE_CHECK(count > 0 && (size_t)count < sizeof(name));
+        NATIVE_CHECK(lx_asset_account_open(&f->assets, &f->accounts, asset->asset_id,
+            (const uint8_t *)name, (size_t)count, f->state.next_sequence,
+            LX_ACCOUNT_OPEN_CREDIT, NULL, &holds[i]) == LXP_OK);
+        record_init(&record, i, main_account, holds[i], main_account, asset,
+                    i == 0U ? 20U : 30U, 10U);
+        memset(record.escrow_id, 0, 32U);
+        record.escrow_id[0] = (uint8_t)(i + 1U);
+        escrow_audit_open_payload(&record, payload);
+        ++idempotency[0];
+        NATIVE_CHECK(native_submit(f, "did:key:native-a", seed, LX_ESCROW_OPEN,
+            payload, sizeof(payload), idempotency, main_account->next_sequence,
+            main_account->id, false, &outcome) == 0);
+        NATIVE_CHECK(TEST_EQ(outcome, LXP_OK));
+        NATIVE_CHECK(holds[i]->balance.lo == (i == 0U ? 20U : 30U));
     }
-    if (lxp_ledger_bootstrap_balance(main_account, asset_id,
-                                     (lxp_u128){ 0U, 10U }, 0U) != LXP_OK ||
-        lxp_ledger_bootstrap_balance(first, asset_id,
-                                     (lxp_u128){ 0U, 20U }, 0U) != LXP_OK ||
-        lxp_ledger_bootstrap_balance(second, asset_id,
-                                     (lxp_u128){ 0U, 30U }, 0U) != LXP_OK)
-        return 1;
-    (void)memset(&attestation, 0, sizeof(attestation));
-    (void)memcpy(attestation.asset_id, asset_id, 32U);
-    attestation.custody_amount = (lxp_u128){ 0U, 60U };
-    attestation.finalized = true;
-    if (lx_asset_historical_reserve_report_v1(&accounts, &attestation, &report) != LXP_OK ||
-        report.escrow.lo != 50U || report.escrow_line_count != 2U ||
-        memcmp(report.escrow_lines[0].account_id, first->id, 32U) != 0 ||
-        report.escrow_lines[0].balance.lo != 20U ||
-        memcmp(report.escrow_lines[1].account_id, second->id, 32U) != 0 ||
-        report.escrow_lines[1].balance.lo != 30U ||
-        lx_asset_historical_reserve_encode_v1(&report, encoded, sizeof(encoded),
-                                       &length) != LXP_OK || length != 370U)
-        return 1;
+    NATIVE_CHECK(lxp_arena_init(&memory, bytes, sizeof(bytes)) == LXP_OK);
+    NATIVE_CHECK(lxp_module_ctx_init(&context, &f->kernel, LXP_MODULE_ESCROW, 10U,
+        0U, f->state.next_sequence, 100000U, &memory, true) == LXP_OK);
+    context.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    scan.accounts = &f->accounts;
+    memcpy(scan.custody_ids[0], holds[0]->id, 32U);
+    memcpy(scan.custody_ids[1], holds[1]->id, 32U);
+    NATIVE_CHECK(lx_escrow_state_iter(&context, scan_native_holds, &scan) == LXP_OK);
+    NATIVE_CHECK(scan.count == 2U && scan.total.hi == 0U && scan.total.lo == 50U &&
+        main_account->balance.lo == 10U && main_account->balance.hi == 0U);
+    NATIVE_CHECK(lx_asset_native_reconcile(asset, &f->accounts, &report) == LXP_OK &&
+        report.bank_units.hi == 0U && report.bank_units.lo == 60U &&
+        report.registered_units.lo == 60U && report.issuance_remaining.lo == 40U);
+    NATIVE_CHECK(lx_asset_native_supply_check(&f->assets, &f->accounts) == LXP_OK);
+    /* Retired reserve-report encoding v1 only; no custody attestation is an
+     * input to the live reconciliation above. */
+    memcpy(historical_v1.asset_id, asset->asset_id, 32U);
+    historical_v1.agent_main.lo = 10U;
+    historical_v1.escrow = scan.total;
+    historical_v1.raw_total.lo = 60U;
+    historical_v1.escrow_line_count = 2U;
+    for (size_t i = 0U; i < 2U; ++i) {
+        memcpy(historical_v1.escrow_lines[i].account_id, holds[i]->id, 32U);
+        historical_v1.escrow_lines[i].balance = holds[i]->balance;
+    }
+    NATIVE_CHECK(lx_asset_historical_reserve_encode_v1(&historical_v1,
+        encoded_v1, sizeof(encoded_v1), &length) == LXP_OK && length == 370U);
+    NATIVE_CHECK(memcmp(encoded_v1 + 274U, holds[0]->id, 32U) == 0 &&
+        encoded_v1[321] == 20U && memcmp(encoded_v1 + 322U, holds[1]->id, 32U) == 0 &&
+        encoded_v1[369] == 30U);
+    NATIVE_CHECK(native_fixture_destroy(f) == 0);
+    free(f);
     return 0;
 }
 
@@ -351,7 +431,7 @@ int main(void)
         lxp_kernel_set_capabilities(&kernel, NULL, apply_capability) != LXP_OK ||
         lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
         property_sequences(&kernel, &arena, &asset, &asset_state) != 0 ||
-        reserve_lines(asset.asset_id) != 0)
+        reserve_lines() != 0)
         return 1;
 
     (void)memset(&terminal_account, 0, sizeof(terminal_account));
