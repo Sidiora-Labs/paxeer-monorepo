@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use layerx_bridge_relayer::attestation_api::{serve, AttestationView};
+use layerx_bridge_relayer::attestation_api::serve;
 use layerx_bridge_relayer::config::RelayerConfig;
 use layerx_bridge_relayer::relayer::{Relayer, RelayerError, StepReport, OUTBOUND_STREAM};
 
@@ -36,7 +36,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let view = Arc::new(RwLock::new(AttestationView::default()));
+    let view = Arc::new(RwLock::new(relayer.attestation_snapshot()));
     if let Some(address) = config.attestation_listen {
         let listener = match TcpListener::bind(address) {
             Ok(listener) => listener,
@@ -51,7 +51,7 @@ fn main() -> ExitCode {
             }
         }
         if let Ok(mut shared) = view.write() {
-            *shared = relayer.attestation_view();
+            *shared = relayer.attestation_snapshot();
         } else {
             eprintln!("layerx-bridge-relayer: attestation view lock poisoned");
             return ExitCode::FAILURE;
@@ -82,7 +82,7 @@ fn main() -> ExitCode {
                     eprintln!("layerx-bridge-relayer: attestation policy unavailable: {error}");
                 }
             }
-            let snapshot = relayer.attestation_view();
+            let snapshot = relayer.attestation_snapshot();
             match view.write() {
                 Ok(mut shared) => *shared = snapshot,
                 Err(_) => {
