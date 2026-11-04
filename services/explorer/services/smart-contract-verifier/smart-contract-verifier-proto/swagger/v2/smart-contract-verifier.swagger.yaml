@@ -259,7 +259,7 @@ paths:
     get:
       summary: |-
         If the requested service is unknown, the call will fail with status
-        NOT_FOUND.
+        NOT_FOUND (HTTP 404 on GET /health?service=<name>).
       operationId: Health_Check
       responses:
         "200":
@@ -272,6 +272,9 @@ paths:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
         - name: service
+          description: |-
+            Empty selects aggregate server health. The always-registered health service
+            is named blockscout.smartContractVerifier.v2.Health.
           in: query
           required: false
           type: string
