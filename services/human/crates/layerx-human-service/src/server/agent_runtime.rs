@@ -3227,7 +3227,7 @@ fn encode_finalization(
         || value.activity_id == [0; 32]
         || value.receipt_digest == [0; 32]
         || value.observed_sequence == 0
-        || !(4..=5).contains(&value.verification)
+        || !super::finalization::committed(value.verification)
         || value.finalized_at == 0
     {
         return Err(AgentBoundaryError::Refused);

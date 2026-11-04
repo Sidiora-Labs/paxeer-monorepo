@@ -1,0 +1,33 @@
+[task.22.31.361]
+audit = "22.30.86"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+acceptance = "22998.1"
+qualification = "hf-build and hf-done record the candidate revision, exact command, exit and private log; the final evidence line is the qualification record."
+baseline = "UNRUN: the ordered implementation-first and bounded-gate instructions prohibit the unchanged-tree verify requested by do_8; no pre-change failures are claimed."
+
+[finding.js-gateway-node-conflation]
+test = "test_gateway_node_origins_and_authentication[js]"
+negative_test = "test_origin_authentication_is_required[js]"
+repair = "Independent --gateway /rpc and --rpc node root, with LAYERX_GATEWAY_TOKEN and LAYERX_RPC_TOKEN scoped to their origins."
+
+[finding.py-gateway-node-conflation]
+test = "test_gateway_node_origins_and_authentication[py]"
+negative_test = "test_origin_authentication_is_required[py]"
+repair = "Independent gateway and node transports retain endpoint security, envelope, nonce, receipt and transaction validation."
+
+[finding.python-purpose-optional]
+test = "test_exact_purpose_optional_and_bound_when_present"
+negative_test = "test_receipt_pins_and_signature_remain_required"
+repair = "The same authentic signed exact receipt is accepted without purpose by both languages and refused for a mismatched present purpose; Python still refuses unsupported grant verification."
+
+[finding.live-python-deleted-flag]
+test = "test_live_python_receipt_keys_invocation"
+contract_test = "test_live_environment_requires_python_receipt_pin_file"
+repair = "The live Python command and environment checker use LAYERX_EXAMPLE_PYTHON_RECEIPT_KEYS_FILE and --receipt-keys with keyId, publicKey, firstHeight and lastHeight pins."
+
+[wiring.hosted-cluster]
+request = "services/platform/hosted/tests/beta-cluster.sh (owning domain 8): supply the independent LAYERX_RPC_URL node root and LAYERX_TEST_NODE_AUTH_TOKEN_FILE for the live example runner; retain the hosted gateway/faucet token file."
+
+[qualification.setup]
+node = "The focused Python gate interprets real SDK and seller TypeScript source with a Node source loader, avoiding an undeclared TypeScript build and stale dist artifacts."
+legacy_tests = "Existing Python and JavaScript public RPC test listeners now enforce separate gateway /rpc and node root contracts; their assertions are retained."

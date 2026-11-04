@@ -139,17 +139,26 @@ func NormalizeDecCoin(coin DecCoin) DecCoin {
 	return newCoin
 }
 
-// NormalizeCoins normalize and truncate a list of decimal coins
+// NormalizeCoins converts decimal coins using the SDK's 18-place decimal
+// precision and sums amounts by normalized denomination before truncating each
+// total toward zero. The result contains only nonzero coins, sorted by denom.
 func NormalizeCoins(coins []DecCoin) Coins {
 	if coins == nil {
 		return nil
 	}
-	result := make([]Coin, 0, len(coins))
-
+	totals := make(map[string]Dec, len(coins))
 	for _, coin := range coins {
-		newCoin, _ := NormalizeDecCoin(coin).TruncateDecimal()
-		result = append(result, newCoin)
+		normalized := NormalizeDecCoin(coin)
+		if total, ok := totals[normalized.Denom]; ok {
+			totals[normalized.Denom] = total.Add(normalized.Amount)
+		} else {
+			totals[normalized.Denom] = normalized.Amount
+		}
 	}
 
-	return result
+	result := make([]Coin, 0, len(totals))
+	for denom, amount := range totals {
+		result = append(result, NewCoin(denom, amount.TruncateInt()))
+	}
+	return NewCoins(result...)
 }

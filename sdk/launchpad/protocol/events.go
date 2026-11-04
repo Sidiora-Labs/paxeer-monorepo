@@ -55,6 +55,13 @@ func buildEventRegistry() map[common.Hash]*EventDef {
 		}
 		for name := range parsed.Events {
 			ev := parsed.Events[name]
+			if ev.Sig == "FeeStrategyChanged(uint256,uint8,uint8)" {
+				// Both role events describe the same NFT. The indexer consumes
+				// nftId; preserve the role bindings while exposing one schema.
+				inputs := slices.Clone(ev.Inputs)
+				inputs[0].Name = "nftId"
+				ev = abi.NewEvent(ev.Name, ev.RawName, ev.Anonymous, inputs)
+			}
 			if d, ok := reg[ev.ID]; ok {
 				d.Contracts = appendUnique(d.Contracts, src.Name)
 				continue
@@ -82,6 +89,8 @@ func appendUnique(s []string, v string) []string {
 
 // LookupEvent returns the event definition for a log's first topic (topic0), and
 // whether it is a known launchpad event. The returned definition belongs to the caller.
+// FeeStrategyChanged(uint256,uint8,uint8) uses the canonical nftId argument for
+// both SidioraNFT and FeesRouter, independently of their binding argument names.
 func LookupEvent(topic0 common.Hash) (*EventDef, bool) {
 	d, ok := eventRegistry[topic0]
 	if !ok {

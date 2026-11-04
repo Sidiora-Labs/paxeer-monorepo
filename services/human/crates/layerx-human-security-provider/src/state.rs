@@ -28,6 +28,10 @@ const MAX_RECORDS: u64 = 4096;
 const SETUP_LIFETIME: u64 = 300;
 const REMASK: u64 = 60;
 
+#[path = "recovery.rs"]
+mod recovery;
+pub use recovery::RecoveryTransactionEvidence;
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryReceipt {
@@ -40,8 +44,31 @@ pub struct RecoveryReceipt {
     pub transaction_proof: String,
 }
 impl RecoveryReceipt {
+    pub fn with_transaction_evidence(
+        mut self,
+        evidence: &RecoveryTransactionEvidence,
+    ) -> Result<Self> {
+        self.version = 2;
+        self.transaction_proof =
+            STANDARD.encode(serde_json::to_vec(evidence).map_err(|_| Error::Refused)?);
+        Ok(self)
+    }
+
+    pub fn transaction_evidence(&self) -> Result<RecoveryTransactionEvidence> {
+        if self.version != 2 {
+            return Err(Error::Refused);
+        }
+        let bytes = decode64(&self.transaction_proof)?;
+        let evidence: RecoveryTransactionEvidence =
+            serde_json::from_slice(&bytes).map_err(|_| Error::Refused)?;
+        if serde_json::to_vec(&evidence).map_err(|_| Error::Refused)? != bytes {
+            return Err(Error::Refused);
+        }
+        Ok(evidence)
+    }
+
     fn verify(&self, trust: &Path) -> Result<()> {
-        if self.version != 1 {
+        if self.version != 2 {
             return Err(Error::Refused);
         }
         PrincipalId::new(self.principal.clone()).map_err(|_| Error::Refused)?;
@@ -57,18 +84,21 @@ impl RecoveryReceipt {
         }
         let header = ChainHeader::decode(&decode64(&self.header)?).map_err(|_| Error::Refused)?;
         let commit = decode_commit(&decode64(&self.commit)?).map_err(|_| Error::Refused)?;
-        let proof = decode_transaction_proof(&decode64(&self.transaction_proof)?)
-            .map_err(|_| Error::Refused)?;
         let root = read_trust_root(trust).map_err(|_| Error::Refused)?;
         let verifier = ChainProofVerifier {
-            chain_id: root.chain_id,
-            validators: root.validators,
+            chain_id: root.chain_id.clone(),
+            validators: root.validators.clone(),
         };
         let head = verifier
             .verify_head(&header, &commit)
             .map_err(|_| Error::Refused)?;
-        layerx_programs::verify_tx(&head, &receipt, &proof).map_err(|_| Error::Refused)?;
-        Ok(())
+        self.transaction_evidence()?.verify(
+            &verifier,
+            &head,
+            &header,
+            &receipt,
+            decoded.protocol().ok_or(Error::Refused)?,
+        )
     }
 }
 fn read_trust_root(path: &Path) -> Result<TrustRoot> {

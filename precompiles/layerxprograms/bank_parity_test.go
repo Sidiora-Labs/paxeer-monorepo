@@ -86,7 +86,10 @@ func TestProgramsValueAccountMatchesBankBalance(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, values, 2)
 			require.Zero(t, balance.BigInt().Cmp(values[0].(*big.Int)), "EVM/bank parity for %s (%x), asset %x", seeds[i], account, asset)
-			require.Equal(t, true, values[1], "registered value account %s (%x) must exist", seeds[i], account)
+			value, err := h.host.ReadValueAccount(h.stateDB.Ctx(), program, account)
+			require.NoError(t, err)
+			require.False(t, value.Frozen)
+			require.Equal(t, value.Frozen, values[1], "freeze flag for %s (%x)", seeds[i], account)
 		}
 		balance, err := h.host.ReadBalance(h.stateDB.Ctx(), source, asset)
 		require.NoError(t, err)

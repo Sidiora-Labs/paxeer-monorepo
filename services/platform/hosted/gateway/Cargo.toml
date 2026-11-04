@@ -33,6 +33,9 @@ subtle.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+rcgen = "=0.14.10"
+serde_yaml = "=0.9.34"
+serde_json = { workspace = true, features = ["raw_value"] }
 layerx-platform-authority = { path = "../authority" }
 signal-hook = "=0.3.18"
 tempfile = "3.27.0"
