@@ -97,16 +97,17 @@ func (d DeadLetters) Handler() http.Handler {
 		_ = json.NewEncoder(w).Encode(map[string]any{"entries": rows, "nextCursor": nextCursor})
 	})
 	inspect := Authorize(d.Verifier, d.Journal, d.Audience, "inspect", d.PolicyVersion, mux)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/status/dead-letter/drain" {
-			Authorize(d.Verifier, d.Journal, d.Audience, "retention-delete", d.PolicyVersion, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				http.Error(w, "separate retention approval required", 403)
-			})).ServeHTTP(w, r)
-			return
-		}
-		inspect.ServeHTTP(w, r)
-	})
+	// Scoped retention authority alone never approves deletion. The separately
+	// audited retention operation must establish its own approval and evidence.
+	retention := Authorize(d.Verifier, d.Journal, d.Audience, "retention-delete", d.PolicyVersion, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "separate retention approval required", http.StatusForbidden)
+	}))
+	routes := http.NewServeMux()
+	routes.Handle("GET /status/dead-letter", inspect)
+	routes.Handle("POST /status/dead-letter/drain", retention)
+	return routes
 }
+
 func (d DeadLetters) RequestRedrive(ctx context.Context, request *http.Request, consumer, generation, envelopeHash, reason string) (string, error) {
 	if request == nil {
 		return "", ErrDenied

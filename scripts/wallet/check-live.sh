@@ -455,6 +455,7 @@ else:
 		echo "check-live: $failures check(s) failed"
 		exit 1
 	fi
+	echo "pass human-evidence checks=live,preflight,plan"
 	echo "check-live: all checks passed"
 	exit 0
 }

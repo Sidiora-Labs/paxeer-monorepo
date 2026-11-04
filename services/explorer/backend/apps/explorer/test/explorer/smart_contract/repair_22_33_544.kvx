@@ -1,0 +1,23 @@
+[repair.22.33.544]
+audit = "22.30.157"
+baseline_revision = "6844f3bcda4fa174457d9bcbe634600ccf9ebc91"
+baseline = "The previous attempt's declared verification ran 3 tests with 1 failure: disabled-binary-getter-regression returned 0x123456789@ABCD instead of 0x30783132333435363738394041424344 (exit 2); both compiler-url-leak cases passed."
+qualification = "The runner retains the verified candidate revision, command, exit code and private log in its hf-build/hf-done ledger; this record does not claim closure of the unresolved producer-recording requests below."
+
+[finding.compiler-url-leak]
+test = "Explorer.Repair.Repair2233544Test: compiler-url-leak restores the ordinary compiler lookup after the fixture closes; compiler-url-leak deletes the fixture key when the original key was absent"
+change = "The original compiler suite and repair tests use the same fixture, which restores both configuration presence and value through on_exit; a real HTTP lookup follows fixture shutdown and cleanup."
+
+[finding.disabled-binary-getter-regression]
+test = "Explorer.Repair.Repair2233544Test: disabled-binary-getter-regression preserves bytes beginning with ASCII 0x over real HTTP; Explorer.SmartContract.HelperTest: returns bytes starting from 0x"
+change = "Restored the original expected value; ABI.TypeEncoder produces the bytes16 return, real HTTP carries it through EthereumJSONRPC and Reader into the production Helper, which now always hex-encodes raw binary results regardless of their content; no skip or expected failure."
+
+[finding.rpc-error-code-fixture]
+test = "Explorer.SmartContract.ReaderTest: handles standardize errors returned from RPC requests"
+change = "Retained the original error assertion and changed its fixture code from a string to the JSON-RPC numeric code 12345."
+wiring_request = "Domain 14: services/explorer/backend/apps/explorer/test/support/fixture must supply recorded eth_call node failures with and without optional error.data for replay through EthereumJSONRPC.HTTP and Reader.query_contract; no such captures were found and no producer proof is claimed."
+
+[finding.token-uri-producer-coverage]
+test = "Explorer.SmartContract.ReaderTest: fetches json metadata; fetches json metadata for ERC-1155 token (retained unit decoding coverage only)."
+status = "Open: the existing foreign-contract fixture is not a recording of either named producer."
+wiring_request = "Domain 6: contracts/src/ERC721.sol and contracts/src/CW721ERC721Pointer.sol owners must supply recorded node eth_call request/response captures for a uint256 token ID and string result from both deployed producers, including the pointer Wasmd/Json precompile path and missing-token refusal, for replay by the explorer tests."

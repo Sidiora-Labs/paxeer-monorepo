@@ -2,15 +2,18 @@ package migration
 
 import (
 	"context"
+	"encoding/hex"
 	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
 	commonmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/metrics"
 )
+
+// All migration builders sample exact cursors in logs at this interval.
+const migrationBoundarySnapshotInterval = 10 * time.Second
 
 // migrationRunStats holds the in-process aggregate counts for a single
 // MigrationManager run. Populated by MigrationMetrics.RecordBatch and
@@ -72,7 +75,7 @@ type MigrationMetrics struct {
 
 	// targetVersion is captured at construction time so the boundary
 	// snapshot goroutine can tell, without any DB access, when the
-	// migration has completed and it can stop emitting labeled series.
+	// migration has completed and it can stop logging cursor snapshots.
 	targetVersion uint64
 
 	keysMigratedTotal             metric.Int64Counter
@@ -86,6 +89,8 @@ type MigrationMetrics struct {
 	applyDuration                 metric.Float64Histogram
 	version                       metric.Int64Gauge
 	boundarySnapshot              metric.Int64Gauge
+	keysProgress                  metric.Int64Gauge
+	bytesProgress                 metric.Int64Gauge
 
 	// startedAt is captured when the metrics object is constructed and
 	// reported as the elapsed-time anchor in the completion summary.
@@ -102,8 +107,8 @@ type MigrationMetrics struct {
 // Prometheus or other exporter before calling this.
 //
 // targetVersion is the version the associated migration is transitioning
-// to; it is used solely by the boundary-snapshot goroutine to decide when
-// to stop emitting labeled series.
+// to; the boundary-snapshot goroutine stops logging once that version
+// is observed. All gauges use a fixed, unlabeled series.
 //
 // When boundarySnapshotInterval <= 0 the snapshot goroutine is not started;
 // everything else still works. When ctx is cancelled, or Close is called,
@@ -170,9 +175,19 @@ func NewMigrationMetrics(
 	)
 	boundarySnapshot, _ := meter.Int64Gauge(
 		"paxdb_migration_boundary_snapshot",
-		metric.WithDescription("Periodic snapshot of the live migration boundary. Value is always 1; inspect the "+
-			"boundary_hex label for the boundary itself."),
-		metric.WithUnit("{boundary}"),
+		metric.WithDescription("Migration status: 0 not started, 1 in progress, 2 complete. Exact cursors are logged."),
+		metric.WithUnit("{status}"),
+	)
+
+	keysProgress, _ := meter.Int64Gauge(
+		"paxdb_migration_keys_migrated",
+		metric.WithDescription("Keys migrated in this process run; resets on restart, not a completion percentage"),
+		metric.WithUnit("{count}"),
+	)
+	bytesProgress, _ := meter.Int64Gauge(
+		"paxdb_migration_bytes_migrated",
+		metric.WithDescription("Key and value bytes migrated in this process run; resets on restart"),
+		metric.WithUnit("By"),
 	)
 
 	m := &MigrationMetrics{
@@ -190,6 +205,8 @@ func NewMigrationMetrics(
 		applyDuration:                 applyDuration,
 		version:                       version,
 		boundarySnapshot:              boundarySnapshot,
+		keysProgress:                  keysProgress,
+		bytesProgress:                 bytesProgress,
 		startedAt:                     time.Now(),
 	}
 
@@ -210,6 +227,7 @@ func (m *MigrationMetrics) SetBoundary(b MigrationBoundary) {
 	}
 	m.mu.Lock()
 	m.currentBoundary = b
+	m.recordProgressLocked()
 	m.mu.Unlock()
 }
 
@@ -222,10 +240,8 @@ func (m *MigrationMetrics) SetVersion(v uint64) {
 	}
 	m.mu.Lock()
 	m.currentVersion = v
+	m.recordProgressLocked()
 	m.mu.Unlock()
-	if m.version != nil {
-		m.version.Record(context.Background(), int64(v)) //nolint:gosec // version is monotonic and bounded
-	}
 }
 
 // newLocalMigrationMetrics returns a *MigrationMetrics with no OTel
@@ -256,6 +272,7 @@ func (m *MigrationMetrics) RecordBatch(batch migrationBatchStats) {
 	m.runStats.originalPairsRoutedNewDB += batch.originalPairsRoutedNewDB
 	m.runStats.oldDBPairsWritten += batch.oldDBPairsWritten
 	m.runStats.newDBPairsWritten += batch.newDBPairsWritten
+	m.recordProgressLocked()
 	m.mu.Unlock()
 
 	ctx := context.Background()
@@ -328,15 +345,10 @@ func (m *MigrationMetrics) snapshot() (MigrationBoundary, uint64) {
 	return m.currentBoundary, m.currentVersion
 }
 
-// startBoundarySnapshotLoop starts the background goroutine that
-// periodically emits the labeled boundary snapshot gauge. The loop exits
-// on ctx cancellation, or after emitting a single "complete" sentinel
-// once currentVersion reaches targetVersion.
-//
-// Cardinality rationale: at a 10-minute interval a month-long migration
-// tops out at ~4k unique boundary_hex label values — well within
-// Prometheus' comfort zone — and the OTel exporter's staleness markers
-// keep only the most recent label active in the scrape set.
+// startBoundarySnapshotLoop refreshes fixed-series gauges and logs the exact
+// cursor every interval. No cursor or version is a metric label. Cardinality
+// stays constant regardless of migration duration or collector retention.
+// The loop exits after logging completion, on cancellation, or on Close.
 func (m *MigrationMetrics) startBoundarySnapshotLoop(interval time.Duration) {
 	if m == nil || m.boundarySnapshot == nil {
 		return
@@ -346,20 +358,16 @@ func (m *MigrationMetrics) startBoundarySnapshotLoop(interval time.Duration) {
 		defer m.wg.Done()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
-		completedEmitted := false
 		for {
 			select {
 			case <-m.ctx.Done():
 				return
 			case <-ticker.C:
 				boundary, version := m.snapshot()
+				m.recordBoundarySnapshot(boundary, version)
 				if version == m.targetVersion {
-					if !completedEmitted {
-						m.recordBoundarySnapshot("complete")
-					}
 					return
 				}
-				m.recordBoundarySnapshot(boundary.String())
 			}
 		}
 	}()
@@ -379,12 +387,38 @@ func (m *MigrationMetrics) Close() {
 	m.wg.Wait()
 }
 
-// recordBoundarySnapshot emits the labeled snapshot gauge with value 1.
-// The label is the only payload — the value itself is unused.
-func (m *MigrationMetrics) recordBoundarySnapshot(label string) {
-	m.boundarySnapshot.Record(
-		context.Background(),
-		1,
-		metric.WithAttributes(attribute.String("boundary_hex", label)),
-	)
+// recordProgressLocked records numeric values only. The caller holds mu so
+// a ticker cannot overwrite a newer progress value with an older snapshot.
+func (m *MigrationMetrics) recordProgressLocked() {
+	ctx := context.Background()
+	if m.version != nil {
+		m.version.Record(ctx, int64(m.currentVersion)) //nolint:gosec // migration versions are bounded
+	}
+	status := m.currentBoundary.Status()
+	if m.currentVersion == m.targetVersion {
+		status = MigrationComplete
+	}
+	if m.boundarySnapshot != nil {
+		m.boundarySnapshot.Record(ctx, int64(status))
+	}
+	if m.keysProgress != nil {
+		m.keysProgress.Record(ctx, m.runStats.keysMigrated)
+	}
+	if m.bytesProgress != nil {
+		m.bytesProgress.Record(ctx, m.runStats.keyBytesMigrated+m.runStats.valueBytesMigrated)
+	}
+}
+
+// recordBoundarySnapshot keeps the exact cursor in structured logs rather than
+// in exporter labels. These are observations of applied state, not commit proofs.
+func (m *MigrationMetrics) recordBoundarySnapshot(boundary MigrationBoundary, version uint64) {
+	m.mu.Lock()
+	m.recordProgressLocked()
+	m.mu.Unlock()
+	logger.Info("migration boundary snapshot",
+		"version", version,
+		"targetVersion", m.targetVersion,
+		"status", boundary.Status().String(),
+		"module", boundary.ModuleName(),
+		"boundary_hex", hex.EncodeToString(boundary.Serialize()))
 }

@@ -8,8 +8,9 @@ import (
 	"reflect"
 )
 
-// Unmarshal unmarshals JSON into the given value, using Amino-compatible JSON encoding (strings
-// for 64-bit numbers, and type wrappers for registered types).
+// Unmarshal unmarshals JSON into a pointer to a concrete value, using
+// Amino-compatible string encoding for 64-bit integers. It does not decode
+// non-null interface values or interpret type wrappers.
 func Unmarshal(bz []byte, v interface{}) error {
 	return decode(bz, v)
 }

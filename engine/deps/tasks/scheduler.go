@@ -139,35 +139,42 @@ func (s *scheduler) invalidateTask(task *deliverTxTask) {
 	}
 }
 
-func start(ctx context.Context, ch chan func(), workers int) {
+func start(ch chan func(), workers int) *sync.WaitGroup {
+	wg := &sync.WaitGroup{}
+	wg.Add(workers)
 	for i := 0; i < workers; i++ {
 		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case work := <-ch:
-					work()
-				}
+			defer wg.Done()
+			for work := range ch {
+				work()
 			}
 		}()
 	}
+	return wg
 }
 
-func (s *scheduler) DoValidate(work func()) {
+func (s *scheduler) doWork(ctx context.Context, ch chan func(), work func()) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if s.synchronous {
 		work()
-		return
+		return nil
 	}
-	s.validateCh <- work
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ch <- work:
+		return nil
+	}
 }
 
-func (s *scheduler) DoExecute(work func()) {
-	if s.synchronous {
-		work()
-		return
-	}
-	s.executeCh <- work
+func (s *scheduler) DoValidate(ctx context.Context, work func()) error {
+	return s.doWork(ctx, s.validateCh, work)
+}
+
+func (s *scheduler) DoExecute(ctx context.Context, work func()) error {
+	return s.doWork(ctx, s.executeCh, work)
 }
 
 func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int, []string) {
@@ -285,6 +292,9 @@ func (s *scheduler) emitMetrics() {
 }
 
 func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]types.ResponseDeliverTx, error) {
+	if err := ctx.Context().Err(); err != nil {
+		return nil, err
+	}
 	startTime := time.Now()
 	var iterations int
 	// initialize mutli-version stores if they haven't been initialized yet
@@ -303,14 +313,17 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]t
 		workers = len(tasks)
 	}
 
-	workerCtx, cancel := context.WithCancel(ctx.Context())
-	defer cancel()
-
 	// execution tasks are limited by workers
-	start(workerCtx, s.executeCh, workers)
+	executionWorkers := start(s.executeCh, workers)
 
 	// validation tasks uses length of tasks to avoid blocking on validation
-	start(workerCtx, s.validateCh, len(tasks))
+	validationWorkers := start(s.validateCh, len(tasks))
+	defer func() {
+		close(s.executeCh)
+		close(s.validateCh)
+		executionWorkers.Wait()
+		validationWorkers.Wait()
+	}()
 
 	toExecute := tasks
 	for !allValidated(tasks) {
@@ -342,6 +355,9 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]t
 		iterations++
 	}
 
+	if err := ctx.Context().Err(); err != nil {
+		return nil, err
+	}
 	for _, mv := range s.multiVersionStores {
 		mv.WriteLatestToStore()
 	}
@@ -436,15 +452,18 @@ func (s *scheduler) validateAll(ctx sdk.Context, tasks []*deliverTxTask) ([]*del
 	startIdx, anyLeft := s.findFirstNonValidated()
 
 	if !anyLeft {
-		return nil, nil
+		return nil, ctx.Context().Err()
 	}
 
 	wg := &sync.WaitGroup{}
 	for i := startIdx; i < len(tasks); i++ {
 		wg.Add(1)
 		t := tasks[i]
-		s.DoValidate(func() {
+		if err := s.DoValidate(ctx.Context(), func() {
 			defer wg.Done()
+			if ctx.Context().Err() != nil {
+				return
+			}
 			if !s.validateTask(ctx, t) {
 				mx.Lock()
 				defer mx.Unlock()
@@ -456,17 +475,20 @@ func (s *scheduler) validateAll(ctx sdk.Context, tasks []*deliverTxTask) ([]*del
 				}
 				res = append(res, t)
 			}
-		})
+		}); err != nil {
+			wg.Done()
+			break
+		}
 	}
 	wg.Wait()
 
-	return res, nil
+	return res, ctx.Context().Err()
 }
 
 // ExecuteAll executes all tasks concurrently
 func (s *scheduler) executeAll(ctx sdk.Context, tasks []*deliverTxTask) error {
 	if len(tasks) == 0 {
-		return nil
+		return ctx.Context().Err()
 	}
 	ctx, span := s.traceSpan(ctx, "SchedulerExecuteAll", nil)
 	span.SetAttributes(attribute.Bool("synchronous", s.synchronous))
@@ -475,18 +497,25 @@ func (s *scheduler) executeAll(ctx sdk.Context, tasks []*deliverTxTask) error {
 	// validationWg waits for all validations to complete
 	// validations happen in separate goroutines in order to wait on previous index
 	wg := &sync.WaitGroup{}
-	wg.Add(len(tasks))
 
 	for _, task := range tasks {
+		wg.Add(1)
 		t := task
-		s.DoExecute(func() {
+		if err := s.DoExecute(ctx.Context(), func() {
+			if ctx.Context().Err() != nil {
+				wg.Done()
+				return
+			}
 			s.prepareAndRunTask(wg, ctx, t)
-		})
+		}); err != nil {
+			wg.Done()
+			break
+		}
 	}
 
 	wg.Wait()
 
-	return nil
+	return ctx.Context().Err()
 }
 
 func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task *deliverTxTask) {

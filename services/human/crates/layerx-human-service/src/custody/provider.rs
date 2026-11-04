@@ -30,6 +30,7 @@ const DESTROY: Contract = Contract::new(1, 4);
 const SIGN: Contract = Contract::new(7, 5);
 const EXPORT: Contract = Contract::new(8, 14);
 const ACKNOWLEDGE_EXPORT: Contract = Contract::new(8, 16);
+const EXPORT_HANDOFF: Contract = Contract::new(9, 14);
 const EXECUTOR_PROBE: Contract = Contract::new(6, 15);
 const STATUS_OK: u8 = 0;
 const STATUS_REFUSED: u8 = 1;
@@ -634,6 +635,35 @@ pub trait KmsProvider: Debug + Send + Sync {
         _binding: &PrincipalKeyBinding,
         _reference: &ProviderKeyReference,
         _acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<(), KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Refuses providers without durable, principal-bound export recovery.
+    fn check_export_handoff(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+    ) -> Result<(), KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Retries the same durable handoff, retaining encrypted material until acknowledgement.
+    fn recover_export_handoff(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _id: [u8; 32],
+    ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Idempotently erases only the acknowledged handoff, never resuming signing.
+    fn acknowledge_export_handoff(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _id: [u8; 32],
     ) -> Result<(), KmsError> {
         Err(KmsError::Refused)
     }
@@ -1245,6 +1275,70 @@ impl KmsProvider for RemoteKmsProvider {
         Err(KmsError::Refused)
     }
 
+    fn check_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+    ) -> Result<(), KmsError> {
+        let mut request = encode_key_request(
+            EXPORT_HANDOFF,
+            &self.provider_reference,
+            binding,
+            Some(reference),
+        )?;
+        request.push(0);
+        let response = self.call(EXPORT_HANDOFF, &request)?;
+        if response.is_empty() {
+            Ok(())
+        } else {
+            Err(KmsError::InvalidResponse)
+        }
+    }
+
+    fn recover_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        id: [u8; 32],
+    ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
+        let mut request = encode_key_request(
+            EXPORT_HANDOFF,
+            &self.provider_reference,
+            binding,
+            Some(reference),
+        )?;
+        request.push(1);
+        request.extend_from_slice(&id);
+        let response = Zeroizing::new(self.call(EXPORT_HANDOFF, &request)?);
+        let seed = response
+            .as_slice()
+            .try_into()
+            .map_err(|_| KmsError::InvalidResponse)?;
+        Ok(Zeroizing::new(seed))
+    }
+
+    fn acknowledge_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        id: [u8; 32],
+    ) -> Result<(), KmsError> {
+        let mut request = encode_key_request(
+            EXPORT_HANDOFF,
+            &self.provider_reference,
+            binding,
+            Some(reference),
+        )?;
+        request.push(2);
+        request.extend_from_slice(&id);
+        let response = self.call(EXPORT_HANDOFF, &request)?;
+        if response.is_empty() {
+            Ok(())
+        } else {
+            Err(KmsError::InvalidResponse)
+        }
+    }
+
     fn destroy_key(
         &self,
         binding: &PrincipalKeyBinding,
@@ -1591,6 +1685,33 @@ impl KmsProvider for EnvelopeKms {
                 Zeroizing::new(*seed)
             })
             .map_err(seal_refusal)
+    }
+
+    fn check_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+    ) -> Result<(), KmsError> {
+        self.describe_key(binding, reference).map(|_| ())
+    }
+
+    fn recover_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        _id: [u8; 32],
+    ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
+        // The authenticated envelope is the development provider's durable recovery material.
+        self.export_primary_key(binding, reference)
+    }
+
+    fn acknowledge_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        _id: [u8; 32],
+    ) -> Result<(), KmsError> {
+        self.describe_key(binding, reference).map(|_| ())
     }
 
     fn destroy_key(

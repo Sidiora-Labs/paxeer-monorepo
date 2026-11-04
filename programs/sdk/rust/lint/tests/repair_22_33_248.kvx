@@ -1,0 +1,9 @@
+[repair.22.33.248]
+audit = "22.30.129"
+finding = "016"
+status = "implemented-awaiting-qualification"
+proof = "repair_22_33_248::finding_016_v5_market_guest_reaches_import_validation; finding_016_market_import_is_refused_before_v5; finding_016_v5_rejects_wrong_market_signature; finding_016_v5_preserves_determinism_and_namespace_refusals; finding_016_unsupported_versions_remain_explicit"
+baseline = "Attempt 1 reported three failures: finding_016_v5_market_guest_reaches_import_validation, finding_016_v5_rejects_wrong_market_signature and finding_016_v5_preserves_determinism_and_namespace_refusals; finding_016_market_import_is_refused_before_v5 and finding_016_unsupported_versions_remain_explicit passed. No additional baseline gate was run."
+implementation = "The linter dispatches ABI v5 to WasmEngine::validate_v5 while retaining its admitted-version policy, exact import namespace checks, SDK/runtime surface parity and existing validation for earlier versions."
+wiring_request = "None: programs/sdk/rust/lint/src is now in scope and the ABI v5 runtime validator already exists."
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-build/hf-done gate ledger; completion requires passing hf-done on the built revision."

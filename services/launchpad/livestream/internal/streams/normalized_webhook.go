@@ -2,6 +2,7 @@ package streams
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
@@ -109,35 +110,81 @@ func marshalNormalizedWebhook(event ProviderEvent) ([]byte, error) {
 	return raw, nil
 }
 
-func (h *Handlers) normalizedWebhook(w http.ResponseWriter, r *http.Request) {
-	if h.lifecycle == nil || len(h.webhookSecret) < 32 {
-		h.lifecycleError(w, ErrUnavailable)
+type ProviderEventObserver interface {
+	Observe(context.Context, ProviderEvent) (string, error)
+}
+
+// ProviderWebhookAdapter is the production Studio ingress and frozen consumer.
+// The observer owns the transactional inbox; the adapter owns authentication,
+// decoding and the declared response schema.
+type ProviderWebhookAdapter struct {
+	Observer       ProviderEventObserver
+	Secret         string
+	Clock          func() time.Time
+	ObserveOutcome func(string)
+}
+
+func (a ProviderWebhookAdapter) Studio(w http.ResponseWriter, r *http.Request) {
+	if a.Observer == nil || a.Clock == nil {
+		new(Handlers).lifecycleError(w, ErrUnavailable)
 		return
 	}
-	now := h.clock()
-	event, ok := VerifyNormalizedProviderWebhook(w, r, h.webhookSecret, now)
+	wire, ok := NormalizeStudioWebhook(w, r, a.Secret, a.Clock())
 	if !ok {
 		return
 	}
-	outcome, err := h.lifecycle.Observe(r.Context(), event)
-	if err != nil {
-		h.lifecycleError(w, err)
+	normalized := r.Clone(r.Context())
+	normalized.Header = r.Header.Clone()
+	normalized.Header.Set("Content-Type", "application/json")
+	normalized.Header.Set(NormalizedWebhookTimestampHeader, wire.Timestamp)
+	normalized.Header.Set(NormalizedWebhookSignatureHeader, wire.Signature)
+	normalized.Body = io.NopCloser(bytes.NewReader(wire.Body))
+	normalized.ContentLength = int64(len(wire.Body))
+	a.Normalized(w, normalized)
+}
+
+func (a ProviderWebhookAdapter) Normalized(w http.ResponseWriter, r *http.Request) {
+	fail := func(err error) { new(Handlers).lifecycleError(w, err) }
+	if a.Observer == nil || a.Clock == nil || len(a.Secret) < 32 {
+		fail(ErrUnavailable)
 		return
 	}
-	if h.observeOutcome != nil {
-		h.observeOutcome(outcome)
+	now := a.Clock()
+	event, ok := VerifyNormalizedProviderWebhook(w, r, a.Secret, now)
+	if !ok {
+		return
+	}
+	outcome, err := a.Observer.Observe(r.Context(), event)
+	if err != nil {
+		fail(err)
+		return
+	}
+	if a.ObserveOutcome != nil {
+		a.ObserveOutcome(outcome)
 	}
 	requestID, err := randomID()
 	if err != nil {
-		h.lifecycleError(w, err)
+		fail(err)
 		return
 	}
 	response, err := AdaptV2LiveWebhook(requestID, now)
 	if err != nil {
-		h.lifecycleError(w, err)
+		fail(err)
 		return
 	}
 	writeJSON(w, http.StatusOK, json.RawMessage(response))
+}
+
+func (h *Handlers) providerWebhookAdapter() ProviderWebhookAdapter {
+	var observer ProviderEventObserver
+	if h.lifecycle != nil {
+		observer = h.lifecycle
+	}
+	return ProviderWebhookAdapter{Observer: observer, Secret: h.webhookSecret, Clock: h.clock, ObserveOutcome: h.observeOutcome}
+}
+
+func (h *Handlers) normalizedWebhook(w http.ResponseWriter, r *http.Request) {
+	h.providerWebhookAdapter().Normalized(w, r)
 }
 
 // VerifyNormalizedProviderWebhook authenticates the transport before interpreting

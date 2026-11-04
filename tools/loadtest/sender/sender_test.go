@@ -178,3 +178,9 @@ func TestShardDistribution(t *testing.T) {
 		assert.Less(t, shardID, len(endpoints))
 	}
 }
+
+func TestSender_SignedRPCAndReceiptTransport(t *testing.T) {
+	TestRepairM_821_SubmissionAndReceipts(t)
+	TestRepairM_821_RPCRefusal(t)
+	TestRepairM_821_TrackingSaturationAndShutdown(t)
+}

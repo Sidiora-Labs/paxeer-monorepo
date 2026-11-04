@@ -24,9 +24,6 @@ func NewNonceAdmission(cfg Config, nonces NextNonceReader, accept AcceptFunc, li
 
 func (a *NonceAdmission) Send(sender common.Address, nonce uint64, tx []byte) (bool, error) {
 	held, err := a.queue.Hold(sender, nonce, append([]byte(nil), tx...))
-	if err == nil && !held {
-		a.Receipted(sender)
-	}
 	return held, err
 }
 

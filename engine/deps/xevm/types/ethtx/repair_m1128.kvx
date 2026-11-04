@@ -1,0 +1,11 @@
+[task.22.33.1128]
+findings = ["22.30.49/015", "22.30.49/017"]
+proof_015 = ["TestRepairM_1128_BlobMalformedMessage", "TestRepairM_1128_BlobUninitializedCap", "TestRepairM_1128_BlobRoundTrip"]
+proof_017 = ["TestRepairM_1128_AuthDomains", "TestRepairM_1128_AuthMalformedMessage", "TestRepairM_1128_AuthOversizedDomain"]
+repair_015 = "Validate initialized nonnegative blob fee cap before fee arithmetic; require nonempty version-1 32-byte hashes and matching sidecar counts with exact blob, commitment and proof widths before fixed-array conversion. An absent sidecar remains valid for block transactions. Fork-dependent maximum blob counts require chain context and remain the consensus validator's responsibility."
+repair_017 = "Reject nil, uninitialized, negative and oversized authorization domains; add error-returning ToEthAuthListChecked and route the existing validated-input conversion through it. Preserve EIP-7702 zero, chain 125 and maximum uint256 domains exactly."
+path = "Signed geth blob and populated set-code transactions -> production constructors -> NewMsgEVMTransaction -> protobuf marshal/unmarshal -> ValidateBasic with wire-only and registry-unpacked Any -> AsTransaction. Accepted messages retain transaction bytes, hash, sender, authorization authority and sidecar contents; malformed transported fields return errors without panicking. Blob fixtures contain real locally computed KZG commitments and proofs."
+baseline = "Not run: explicit gate order requires complete implementation before qualification and forbids a separate verify_cmd run. Initial ledger has zero builds and zero verifications; no pre-change test failures are claimed."
+wiring_requests = []
+gotcha = "sdk.Int's uninitialized value serializes as zero, so uninitialized-pointer checks are proven on the original cached message; nil, negative, malformed-width and mismatched-count fields are also proven after protobuf transport. sdk.Int retains its constructor's big.Int pointer, permitting an oversized in-memory value after producer mutation; protobuf independently rejects that value on decode."
+evidence = "Runner gate ledger records the verified candidate revision, exact commands, exits and private log paths. Qualification requires hf-done passing at the same candidate as hf-build."

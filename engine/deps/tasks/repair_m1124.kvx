@@ -1,0 +1,8 @@
+[repair.22.33.1124]
+mode = "BUILD"
+findings = ["006"]
+006 = "TestRepairM_1124_BeforeExecution, TestRepairM_1124_QueueAdmission, TestRepairM_1124_MidBatch, TestRepairM_1124_DuringValidation and TestRepairM_1124_DuringRetryValidation prove cancellation-aware admission, completion and worker joining through the production scheduler and real in-memory stores; TestRepairM_1124_CompletedBatch proves successful execution and publication."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids a manual verify run. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-done record supplies the exact verified candidate revision, command, exit code and private log location."
+gotcha = "Queue workers must drain accepted closures even after cancellation: each closure owns completion bookkeeping, and simply exiting on context cancellation strands ProcessAll."

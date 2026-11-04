@@ -1,0 +1,18 @@
+[task.22.33.1162]
+audit = "22.30.53"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, commands, exit codes and private log locations."
+baseline = "Not run: the explicit implementation-first order and prohibition on manual verification conflict with the unchanged-tree baseline step; no pre-change test failure is claimed."
+
+[finding.key-descriptor-lifecycle]
+tests = ["TestRepairM_1162_Rotation", "TestRepairM_1162_SealErrors", "TestRepairM_1162_ConstructorErrors"]
+repair = "Keep the existing retained key handle, durable flush and constructor sync-error close; always close and clear the handle and writer after a seal attempt, preserve both flush and close errors, and close the key handle if segment construction subsequently fails."
+proof = "Rotate 32 real two-shard segments per durability mode through Write/Flush/Seal, retain closed handles to exclude finalizer cleanup, reopen each segment and read its keys and values; assert zero segment descriptors after every rotation and constructor failure; real read-only and closed files exercise flush, sync and close failures."
+
+[finding.truncated-key-tautology]
+tests = ["TestRepairM_1162_TruncatedKeys", "TestReadingTruncatedKeyFile"]
+repair = "Retain the producer inputs and compare independent decoded key bytes, kinds and addresses for every truncation of the final record in the existing test."
+proof = "The focused repair test writes all four key kinds through the production codec and seals it, then reopens every byte prefix including partial headers, keys and addresses and compares every complete surviving record against the original inputs."
+
+[wiring]
+request = "None: both findings and their tests are contained in storage/db_engine/litt/disktable/segment; the public Segment API is unchanged."
