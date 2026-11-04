@@ -101,7 +101,11 @@ func (privKey *PrivKey) UnmarshalAmino(bz []byte) error {
 	if len(bz) != PrivKeySize {
 		return fmt.Errorf("invalid privkey size")
 	}
-	privKey.Key = bz
+	canonical := ed25519.NewKeyFromSeed(bz[:SeedSize])
+	if subtle.ConstantTimeCompare(bz[SeedSize:], canonical[SeedSize:]) != 1 {
+		return fmt.Errorf("invalid privkey public suffix")
+	}
+	privKey.Key = canonical
 
 	return nil
 }

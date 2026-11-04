@@ -179,6 +179,10 @@ pub struct AuthenticatedCatalogue {
     modules: BTreeMap<ProgramId, CatalogueEntry>,
 }
 impl AuthenticatedCatalogue {
+    /// Validate program records from verified [`crate::AdmissionEvidence`] and
+    /// the corresponding code blobs, including code hashes and ABI/interface data.
+    /// For a [`VerifiedReplay`] consumer use [`Self::verify_with_module`], which
+    /// also authenticates transported code proofs and binds the app hash.
     pub fn verify(
         admission: &crate::AdmissionEvidence,
         code_blobs: &BTreeMap<[u8; 32], Vec<u8>>,
@@ -280,6 +284,12 @@ impl AuthenticatedCatalogue {
             modules,
         })
     }
+    /// Reconstruct the catalogue from verified admission and transported chain
+    /// code proofs. `host_store_root` and `host_multistore_proof` authenticate
+    /// lxphost under the caller-trusted `commit.app_hash`; each ICS23 code proof
+    /// binds `[5, 0, 9] || code_hash` to the exact blob. Admission must first pass
+    /// [`crate::AdmissionEvidence::verify_under_app_hash`]. The commit's sequencer
+    /// proof is checked when authority/replay verifies the receipt.
     pub fn verify_with_module(
         admission: &crate::AdmissionEvidence,
         commit: &ChainCommitProof,
@@ -465,6 +475,11 @@ impl VerifiedStep {
 impl VerifiedReplay {
     /// Authenticate the signed batch and independently derived native authority
     /// before returning a replay consumer for the committed boundary proofs.
+    /// Reconstruct admission and catalogue from transported chain proofs first.
+    /// `commit` is a [`ChainCommitProof`], and `metadata_proof` is an ICS23 proof
+    /// under the lxphost root authenticated by `host_multistore_proof` against
+    /// the caller-trusted `commit.app_hash`. This also derives batch authority
+    /// with [`crate::VerifiedReplayAuthority::derive`] and checks native bytes.
     pub fn verify_with_batch_context(
         receipt: &VerifiedReceipt,
         admission: &crate::AdmissionEvidence,
@@ -495,6 +510,12 @@ impl VerifiedReplay {
 
     /// Consume chain-authenticated replay artifacts and construct fresh runtime inputs.
     /// Call `verify_with_batch_context` when independent batch authority is required.
+    /// Supply verified [`crate::AdmissionEvidence`], a [`ChainCommitProof`], the
+    /// lxphost root and multistore proof bytes, and an ICS23 metadata proof at
+    /// `[1, 0, 9] || b"progreplay/v1/" || activity_id`. The receipt-key proof,
+    /// metadata, code catalogue and native input digests are authenticated before
+    /// consumption. The catalogue must come from
+    /// [`AuthenticatedCatalogue::verify_with_module`] at `commit.app_hash`.
     pub fn verify(
         receipt: &VerifiedReceipt,
         admission: &crate::AdmissionEvidence,

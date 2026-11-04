@@ -1,0 +1,96 @@
+{
+  "classification": "chain-125 node pending-tag refusal and committed block evidence",
+  "source_url": "https://api1.mainnet-beta.paxeer.network/",
+  "captured_at": "2026-11-04T09:47:06.110747+00:00",
+  "source_revision": null,
+  "revision_note": "The public node does not advertise its source revision; no local revision is attributed to it.",
+  "pending_outcome": "refused",
+  "producer": "node root eth_getBlockByNumber; pending is refused before BlockAPI.pendingBlock",
+  "restart_note": "No public node restart was performed. Tests restart their production HTTP connection pool and replay the same recorded immutable block.",
+  "exchanges": [
+    {
+      "phase": "chain_identity",
+      "request": {
+        "method": "post",
+        "url": "https://api1.mainnet-beta.paxeer.network/",
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_chainId\",\"params\":[]}"
+      },
+      "response": {
+        "status_code": 200,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x7d\"}\n"
+      }
+    },
+    {
+      "phase": "client_version",
+      "request": {
+        "method": "post",
+        "url": "https://api1.mainnet-beta.paxeer.network/",
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"web3_clientVersion\",\"params\":[]}"
+      },
+      "response": {
+        "status_code": 200,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":\"Geth/linux-amd64/go1.25.6\"}\n"
+      }
+    },
+    {
+      "phase": "pending_hashes",
+      "request": {
+        "method": "post",
+        "url": "https://api1.mainnet-beta.paxeer.network/",
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"eth_getBlockByNumber\",\"params\":[\"pending\",false]}"
+      },
+      "response": {
+        "status_code": 200,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":3,\"error\":{\"code\":-32000,\"message\":\"pending served by sequencer\"}}\n"
+      }
+    },
+    {
+      "phase": "pending_full_transactions",
+      "request": {
+        "method": "post",
+        "url": "https://api1.mainnet-beta.paxeer.network/",
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"eth_getBlockByNumber\",\"params\":[\"pending\",true]}"
+      },
+      "response": {
+        "status_code": 200,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":4,\"error\":{\"code\":-32000,\"message\":\"pending served by sequencer\"}}\n"
+      }
+    },
+    {
+      "phase": "committed_head",
+      "request": {
+        "method": "post",
+        "url": "https://api1.mainnet-beta.paxeer.network/",
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"eth_blockNumber\",\"params\":[]}"
+      },
+      "response": {
+        "status_code": 200,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":5,\"result\":\"0x289f51d\"}\n"
+      }
+    },
+    {
+      "phase": "committed_hashes",
+      "request": {
+        "method": "post",
+        "url": "https://api1.mainnet-beta.paxeer.network/",
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"eth_getBlockByNumber\",\"params\":[\"0x289f51d\",false]}"
+      },
+      "response": {
+        "status_code": 200,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":6,\"result\":{\"baseFeePerGas\":\"0x3b9aca00\",\"difficulty\":\"0x0\",\"extraData\":\"0x\",\"gasLimit\":\"0x5f5e100\",\"gasUsed\":\"0x0\",\"hash\":\"0x3237a33129c272ea1800bdc804964533b471c8ee9b9a8ab53883cddc85f7bc55\",\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"miner\":\"0xbda054310d37fd9dccc84a067de56297b0dd69da\",\"mixHash\":\"0x0000000000000000000000000000000000000000000000000000000000000000\",\"nonce\":\"0x0000000000000000\",\"number\":\"0x289f51d\",\"parentHash\":\"0xbb96e8711f62e9bee7c3904e725b79da6fef5118b24486870a911e7f0a680112\",\"receiptsRoot\":\"0x162012c8713b498a6ce5fafa61eb08b78127e3912787e5a86514a5c13b2d2e45\",\"sha3Uncles\":\"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347\",\"size\":\"0x12fe\",\"stateRoot\":\"0x1879ef0e39129aee9d709d614a1b6f06d7c073e16ff8f36e95c7a117df75f8bc\",\"timestamp\":\"0x6aeaff18\",\"transactions\":[],\"transactionsRoot\":\"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421\",\"uncles\":[]}}\n"
+      }
+    },
+    {
+      "phase": "committed_full_transactions",
+      "request": {
+        "method": "post",
+        "url": "https://api1.mainnet-beta.paxeer.network/",
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"eth_getBlockByNumber\",\"params\":[\"0x289f51d\",true]}"
+      },
+      "response": {
+        "status_code": 200,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":7,\"result\":{\"baseFeePerGas\":\"0x3b9aca00\",\"difficulty\":\"0x0\",\"extraData\":\"0x\",\"gasLimit\":\"0x5f5e100\",\"gasUsed\":\"0x0\",\"hash\":\"0x3237a33129c272ea1800bdc804964533b471c8ee9b9a8ab53883cddc85f7bc55\",\"logsBloom\":\"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"miner\":\"0xbda054310d37fd9dccc84a067de56297b0dd69da\",\"mixHash\":\"0x0000000000000000000000000000000000000000000000000000000000000000\",\"nonce\":\"0x0000000000000000\",\"number\":\"0x289f51d\",\"parentHash\":\"0xbb96e8711f62e9bee7c3904e725b79da6fef5118b24486870a911e7f0a680112\",\"receiptsRoot\":\"0x162012c8713b498a6ce5fafa61eb08b78127e3912787e5a86514a5c13b2d2e45\",\"sha3Uncles\":\"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347\",\"size\":\"0x12fe\",\"stateRoot\":\"0x1879ef0e39129aee9d709d614a1b6f06d7c073e16ff8f36e95c7a117df75f8bc\",\"timestamp\":\"0x6aeaff18\",\"totalDifficulty\":\"0x0\",\"transactions\":[],\"transactionsRoot\":\"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421\",\"uncles\":[]}}\n"
+      }
+    }
+  ]
+}

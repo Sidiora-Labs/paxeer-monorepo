@@ -1,0 +1,67 @@
+[task]
+id = "22.33.1456"
+audit = "22.30.83"
+acceptance = "22998.1"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+revision_source = "The last hf-done row in private /out/run/gates.jsonl records the exact verified candidate revision, command, exit and private log; the runner publishes that unchanged candidate."
+status = "implementation-qualified-only-by-declared-private-gate-evidence"
+baseline = "No prior gate ledger or scoped edits existed at entry; test_repair_22_33_1456.py did not exist. No pre-change test was executed or claimed: the explicit implement-first hf-build/hf-done order and prohibition on manual verification take precedence over the contradictory unchanged-tree verification sentence."
+proof_boundary = "The unchanged production native bootstrap/publication, committed-health RPC client, reset Store, directory exchange, broker, generation_client child supervision, signer and signer client run with committed native input/command/RPC peers. The focused Python gate requires no live endpoint, credential, environment configuration, compiler, paxd binary or container image."
+fixture_provenance = "Module overlays use modules/layerxpay/types/params.go and keys.go native GenesisState/kernel-gate schema and modules/layerxexchange/types/genesis.pb.go. They are authoritative inputs to the production native bootstrap; ModuleGenesisPeer binds init/validate/start and genesis JSON-RPC replies to those committed inputs. Other native CLI/RPC exchanges and TLS use the committed repair_22_31_355 fixtures."
+
+[finding.genesis-test-retired-tools]
+test = "test_genesis_test_retired_tools"
+source = "genesis-modules-test.py"
+repair = "Migrate all three original scenarios to native JSON module parameters, kernel gate records, canonical native bootstrap, committed node/genesis reads and generation_client adoption; assert byte-identical reconstruction, reopen stability, default module registry identities and refusal of obsolete module CLI selections before generation."
+
+[finding.lost-ack-retired-lni]
+test = "test_lost_ack_retired_lni"
+bounds_test = "test_native_lost_response_proxy_enforces_bounds"
+source = "lni-drop-ack.py"
+repair = "Replace LNI framing with a root HTTP JSON-RPC relay bounded by body size, request count and deadline; lose the real successful eth_sendRawTransaction reply, recover by the precomputed signed identity, refuse duplicate submission before upstream, and reopen the owner while retaining the receipt and single balance change."
+
+[finding.topology-test-retired-roles]
+test = "test_topology_test_retired_roles"
+source = "node-topology-test.py"
+repair = "Require native paxd supervision/listeners and service targets, persistent generation storage, gateway namespace ownership, separate process namespace, exact identities, isolated native/treasury/funding mounts and privilege constraints; retain every service, selector, listener and policy refusal scenario."
+
+[finding.activation-success-test-gap]
+test = "test_activation_success_test_gap"
+source = "test_data_directory.py"
+repair = "Publish and seal all native artifacts, execute real RENAME_EXCHANGE, kill the activation process at each post-rename parent fsync barrier, require broker refusal before durability, reopen in a fresh interpreter, and prove inode selection, old-generation preservation and actual descriptor consumer bytes. Existing filesystem and incomplete-input refusals remain executed."
+
+[finding.generation-test-retired-operation]
+test = "test_generation_test_retired_operation"
+refusal_test = "test_generation_transport_refusals"
+source = "test_generation_transport.py"
+repair = "Default requests use v2 core; assert peer/path and retired slot/capability refusals, real published native artifacts through the broker socket and generation_client.supervise to an actual child, stop/reopen the broker and consumer, check adopted RPC/signer/hash identity, and refuse identity on both broker and client without descriptor leakage."
+
+[finding.retirement-test-requires-lni]
+test = "test_retirement_test_requires_lni"
+source = "test_node_without_guarantor.py"
+repair = "Require native root chain RPC, gateway trust and private funding input, generated treasury signer and v2 core adoption; exercise native committed reads and an actual signer signature. Preserve all guarantor, retired socket and retired secret exclusions and require no LNI environment in any container."
+
+[finding.reset-staged-success-test-gap]
+test = "test_reset_staged_success_test_gap"
+corruption_test = "test_reset_staged_corrupt_generation_is_not_completed"
+refusal_test = "test_existing_reset_authorization_transition_and_corruption_refusals"
+source = "test_reset_state.py"
+repair = "Add native staged bootstrap/seal/exchange and post-rename crash recovery, reopen Store before committed readiness, deny forced completion, start the actual native process peer, require health for durable completion, adopt the generation, stop/reopen again and retain the original outcome. Corrupt native artifacts cannot complete; all original authorization, transition, capacity and corruption scenarios remain executed."
+
+[wiring.native_module_validation]
+request = "daemon/paxd/cmd and modules/layerxpay/integration — native chain/module domain: qualify the committed native module selections through the compiled validate-genesis/InitChain/export path and module reads; the bounded Python gate qualifies the hosted producer, transport and consumer with a committed native command/RPC peer."
+
+[wiring.native_images]
+request = "services/platform/hosted/node/deployment.yaml and native node image packaging — hosted node/runtime domain: qualify packaged paxd, supervisor, generation broker/client and native committed-health startup using the maintained native image; this task does not build or deploy images."
+
+[gotcha.baseline_order]
+observed = "The task asks for baseline verification while its explicit order forbids pre-implementation tests and manual verify_cmd runs."
+action = "Follow the explicit bounded gate order and record that no baseline failure was run."
+
+[gotcha.retired_capabilities]
+observed = "The current broker accepts only closed v2 core requests and rejects retired identity/slot/capability fields before filesystem access."
+action = "Assert exact invalid_request refusals for retired capabilities, including incorrectly encoded and unsafe-permission capability files; use SO_PEERCRED and real native descriptor adoption for the active core boundary."
+
+[gotcha.manifest_scalars]
+observed = "The topology checker's built-in YAML parser retains boolean scalars as strings."
+action = "Compare the checker's normalized text to exact true/false values so a nonempty false string cannot satisfy an isolation assertion."

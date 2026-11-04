@@ -1,0 +1,59 @@
+{
+  "modules": [
+    "budget",
+    "escrow",
+    "perps",
+    "service",
+    "spot",
+    "stream"
+  ],
+  "app_state": {
+    "layerxpay": {
+      "params": {
+        "paused": false,
+        "escrow_enabled": true,
+        "budget_enabled": true,
+        "stream_enabled": true,
+        "service_enabled": true
+      },
+      "kernel_records": [
+        {
+          "key": "AQAHbW9kdWxlLWVuYWJsZTpidWRnZXQAAAAAAAAAAAAAAAA=",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="
+        },
+        {
+          "key": "AQAHbW9kdWxlLWVuYWJsZTplc2Nyb3cAAAAAAAAAAAAAAAA=",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="
+        },
+        {
+          "key": "AQAHbW9kdWxlLWVuYWJsZTpwZXJwcwAAAAAAAAAAAAAAAAA=",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="
+        },
+        {
+          "key": "AQAHbW9kdWxlLWVuYWJsZTpzZXJ2aWNlAAAAAAAAAAAAAAA=",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="
+        },
+        {
+          "key": "AQAHbW9kdWxlLWVuYWJsZTpzcG90AAAAAAAAAAAAAAAAAAA=",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="
+        },
+        {
+          "key": "AQAHbW9kdWxlLWVuYWJsZTpzdHJlYW0AAAAAAAAAAAAAAAA=",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="
+        }
+      ],
+      "agent_stream_metadata": []
+    },
+    "layerxexchange": {
+      "params": {
+        "authority": "",
+        "paused": false,
+        "time_in_force": false,
+        "markets": []
+      },
+      "intent_count": "0",
+      "intents": [],
+      "owner_nonces": []
+    }
+  }
+}

@@ -12,14 +12,22 @@ pub fn upper_bound_ticks(ticks: &[PriceTick], target_ns: u64) -> usize {
 }
 
 /// Zero-copy slice of ticks in `[start_ns, end_ns)`.
+/// Returns an empty slice if `start_ns > end_ns`.
 pub fn query_tick_range(ticks: &[PriceTick], start_ns: u64, end_ns: u64) -> &[PriceTick] {
+    if start_ns > end_ns {
+        return &ticks[..0];
+    }
     let lo = lower_bound_ticks(ticks, start_ns);
     let hi = lower_bound_ticks(ticks, end_ns);
     &ticks[lo..hi]
 }
 
 /// Zero-copy slice of ticks in `[start_ns, end_ns]` (inclusive both ends).
+/// Returns an empty slice if `start_ns > end_ns`.
 pub fn query_tick_range_inclusive(ticks: &[PriceTick], start_ns: u64, end_ns: u64) -> &[PriceTick] {
+    if start_ns > end_ns {
+        return &ticks[..0];
+    }
     let lo = lower_bound_ticks(ticks, start_ns);
     let hi = upper_bound_ticks(ticks, end_ns);
     &ticks[lo..hi]
@@ -42,18 +50,26 @@ pub fn upper_bound_candles(candles: &[CandleRecord], target_ns: u64) -> usize {
 }
 
 /// Zero-copy slice of candles in `[start_ns, end_ns)`.
+/// Returns an empty slice if `start_ns > end_ns`.
 pub fn query_candle_range(candles: &[CandleRecord], start_ns: u64, end_ns: u64) -> &[CandleRecord] {
+    if start_ns > end_ns {
+        return &candles[..0];
+    }
     let lo = lower_bound_candles(candles, start_ns);
     let hi = lower_bound_candles(candles, end_ns);
     &candles[lo..hi]
 }
 
 /// Zero-copy slice of candles in `[start_ns, end_ns]` (inclusive both ends).
+/// Returns an empty slice if `start_ns > end_ns`.
 pub fn query_candle_range_inclusive(
     candles: &[CandleRecord],
     start_ns: u64,
     end_ns: u64,
 ) -> &[CandleRecord] {
+    if start_ns > end_ns {
+        return &candles[..0];
+    }
     let lo = lower_bound_candles(candles, start_ns);
     let hi = upper_bound_candles(candles, end_ns);
     &candles[lo..hi]

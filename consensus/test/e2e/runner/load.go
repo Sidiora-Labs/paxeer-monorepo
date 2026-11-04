@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmrand "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/rand"
 	rpchttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
 	e2e "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/test/e2e/pkg"
@@ -181,7 +182,13 @@ func loadProcess(ctx context.Context, testnet *e2e.Testnet, chTx <-chan types.Tx
 				continue
 			}
 
-			if _, err := client.BroadcastTxSync(ctx, tx); err != nil {
+			result, err := client.BroadcastTxSync(ctx, tx)
+			if err != nil {
+				continue
+			}
+			if result.Code != abci.CodeTypeOK {
+				logger.Error("transaction rejected", "code", result.Code,
+					"codespace", result.Codespace, "log", result.Log, "hash", result.Hash)
 				continue
 			}
 			successes++

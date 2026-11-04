@@ -1,0 +1,11 @@
+[task.22.33.717]
+finding = "qualification_partial_record_recovery"
+proving_tests = ["TestRepairM_717_InterruptedInitialPublication", "TestRepairM_717_InterruptedTailRecovery", "TestRepairM_717_RetryInitialWriteWithoutRestart", "TestRepairM_717_PublishedIntentIsNeverRedispatched", "TestRepairM_717_AtomicPublicationDoesNotReplace", "TestRepairM_717_RecoveryRetainsCorruptionChecks"]
+baseline = "Not run: the explicit gate order requires the complete implementation before formatting, building or testing and permits verification only through hf-done; no baseline failure is claimed."
+publication = "Private same-directory staging file, complete write, file fsync and close, Linux renameat2 RENAME_NOREPLACE, directory fsync; no replacement or fallback on unsupported publication."
+recovery = "Under the registry lock, reopening removes only private single-link staging files and empty pre-record directories, syncs directories, and retains every published record byte; submit also recovers an interrupted initial write without requiring reopen."
+intent = "An uncommitted tail grants no dispatch; any published dispatch_intent remains durable and the real qTick moves it to acknowledgement_unknown without dispatching, including after an interrupted acknowledgement write."
+corruption = "Final-name records are committed and never discarded as temporary tails: malformed JSON, sequence gaps, unknown entries and unsafe staging paths remain errors."
+interruption_proof = "Tests stop the production staging, preparation and rename operations at filesystem boundaries, close descriptors and reopen the real registry; payloads use production submit/advance records and canonical codec, with no external process or service."
+wiring_requests = []
+verified_revision = "The immutable candidate revision, exact gate command, exit and private evidence path are supplied by hf-done in the runner gate ledger and final task evidence; no unrun revision is claimed here."

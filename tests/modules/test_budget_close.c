@@ -1048,6 +1048,165 @@ static int audit_delegate_codec_reopen(void)
     return 0;
 }
 
+static int audit_delegate_state_put_reopen(void)
+{
+    uint8_t id[32];
+    uint8_t source_id[32];
+    uint8_t delegate[LX_BUDGET_DELEGATE_PAYLOAD_BYTES] = {0U, 1U};
+    uint8_t key[LX_BUDGET_STATE_KEY_BYTES];
+    uint8_t encoded[LX_BUDGET_RECORD_MAX_BYTES];
+    uint8_t output[LX_BUDGET_RECORD_MAX_BYTES];
+    uint8_t before[32];
+    static uint8_t arena_bytes[262144];
+    lx_budget_record record;
+    lx_budget_record invalid;
+    lx_budget_record decoded;
+    lx_budget_record sentinel;
+    lx_budget_store store = {0};
+    lx_budget_store saved_store;
+    lx_budget_fund_request request = {0};
+    lxp_receipt receipt = {0};
+    lxp_receipt saved_receipt;
+    lxp_module_ctx ctx;
+    lxp_arena arena;
+    budget_call call;
+    lxp_effect_buffer effects;
+    lxp_result result;
+    size_t length;
+    size_t output_length;
+    size_t i;
+    unsigned populated;
+    unsigned kind;
+    uint64_t owner_sequence;
+    uint64_t budget_sequence;
+    CHECK(audit_create(false, &call, id, source_id) == 0);
+    (void)memcpy(delegate + 2U, id, 32U);
+    call.activity_type = LX_BUDGET_DELEGATE_ADD;
+    call.payload = delegate;
+    call.payload_length = sizeof(delegate);
+    for (i = LX_BUDGET_MAX_DELEGATES; i != 0U; --i) {
+        delegate[65] = (uint8_t)i;
+        call.sequence = env.owner->next_sequence;
+        CHECK(submit(&call, &effects, &result) == 0 && result == LXP_OK);
+    }
+    CHECK(read_record(id, &record) == 0);
+    CHECK(record.delegate_count == LX_BUDGET_MAX_DELEGATES);
+    CHECK(lx_budget_record_encode(&record, encoded, sizeof(encoded),
+                                  &length) == LXP_OK);
+    CHECK(audit_seal_sequence() == 0);
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    owner_sequence = env.owner->next_sequence;
+    budget_sequence = env.budget_account->next_sequence;
+    ++env.global_sequence;
+    CHECK(lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) == LXP_OK);
+    CHECK(lxp_module_ctx_init(&ctx, &env.kernel, LXP_MODULE_BUDGET,
+                              500U, 0U, env.global_sequence, 1000000U,
+                              &arena, true) == LXP_OK);
+    request.store = &store;
+    request.owner = env.owner;
+    request.budget_account = env.budget_account;
+    request.asset = &env.asset;
+    request.amount = (lxp_u128){0U, 50U};
+    request.context.assets = &env.asset_state;
+    request.context.asset_count = 1U;
+    request.context.sequence_account = env.owner;
+    request.context.actor_sequence = owner_sequence;
+    saved_receipt = receipt;
+    for (populated = 0U; populated < 2U; ++populated) {
+        if (populated != 0U)
+            CHECK(lx_budget_state_put(&store, &record) == LXP_OK);
+        saved_store = store;
+        for (kind = 0U; kind < 6U; ++kind) {
+            invalid = record;
+            invalid.budget_id[0] = 0x83U;
+            if (kind == 0U) {
+                invalid.delegate_count = 1U;
+                (void)memset(invalid.delegates[0], 0, 32U);
+            } else if (kind < 4U) {
+                size_t position = kind == 1U ? 0U :
+                    (kind == 2U ? record.delegate_count / 2U :
+                                  record.delegate_count - 1U);
+                (void)memset(invalid.delegates[position], 0, 32U);
+            } else if (kind == 4U) {
+                (void)memcpy(invalid.delegates[0], record.delegates[1], 32U);
+                (void)memcpy(invalid.delegates[1], record.delegates[0], 32U);
+            } else {
+                (void)memcpy(invalid.delegates[1], record.delegates[0], 32U);
+            }
+            CHECK(lx_budget_record_validate(&invalid) == LXP_ERR_NON_CANONICAL);
+            CHECK(lx_budget_state_put(&store, &invalid) == LXP_ERR_NON_CANONICAL);
+            request.record = invalid;
+            CHECK(lx_budget_create_execute(&ctx, &request, &receipt) ==
+                  LXP_ERR_NON_CANONICAL);
+            CHECK(memcmp(&store, &saved_store, sizeof(store)) == 0);
+            CHECK(memcmp(&receipt, &saved_receipt, sizeof(receipt)) == 0);
+            CHECK(!ctx.transfer_applied && ctx.transfer_snapshot_count == 0U);
+            CHECK(env.owner->balance.lo == 700U &&
+                  env.budget_account->balance.lo == 300U &&
+                  env.owner->next_sequence == owner_sequence &&
+                  env.budget_account->next_sequence == budget_sequence &&
+                  unchanged(before));
+            (void)memset(output, 0xA5, sizeof(output));
+            output_length = 17U;
+            CHECK(lx_budget_record_encode(&invalid, output, sizeof(output),
+                                          &output_length) ==
+                  LXP_ERR_NON_CANONICAL);
+            CHECK(output_length == 17U);
+            for (i = 0U; i < sizeof(output); ++i) CHECK(output[i] == 0xA5U);
+            (void)memcpy(output, encoded, length);
+            output[277] = (uint8_t)invalid.delegate_count;
+            (void)memcpy(output + LX_BUDGET_RECORD_FIXED_BYTES,
+                         invalid.delegates, invalid.delegate_count * 32U);
+            (void)memset(&decoded, 0xA5, sizeof(decoded));
+            sentinel = decoded;
+            CHECK(lx_budget_record_decode(output,
+                      LX_BUDGET_RECORD_FIXED_BYTES + invalid.delegate_count * 32U,
+                      &decoded) == LXP_ERR_NON_CANONICAL);
+            CHECK(memcmp(&decoded, &sentinel, sizeof(decoded)) == 0);
+        }
+    }
+    record.budget_id[0] = 0x83U;
+    request.record = record;
+    CHECK(lx_budget_create_execute(&ctx, &request, &receipt) == LXP_OK);
+    CHECK(store.count == 2U && env.owner->balance.lo == 650U &&
+          env.budget_account->balance.lo == 350U);
+    CHECK(memcmp(receipt.transfer_set_root, (uint8_t[32]){0}, 32U) != 0);
+    CHECK(lx_budget_record_encode(&store.records[1], encoded, sizeof(encoded),
+                                  &length) == LXP_OK);
+    CHECK(lx_budget_state_key(record.budget_id, key) == LXP_OK);
+    CHECK(lxp_ctx_kv_put(&ctx, key, sizeof(key), encoded, length) == LXP_OK);
+    CHECK(lxp_module_ctx_commit(&ctx) == LXP_OK);
+    CHECK(audit_seal_sequence() == 0);
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    (void)memset(&store, 0, sizeof(store));
+    CHECK(audit_reopen(false) == 0);
+    CHECK(read_record(record.budget_id, &decoded) == 0);
+    CHECK(lx_budget_state_put(&store, &decoded) == LXP_OK && store.count == 1U);
+    CHECK(lx_budget_record_encode(&store.records[0], output, sizeof(output),
+                                  &output_length) == LXP_OK);
+    CHECK(output_length == length && memcmp(encoded, output, length) == 0);
+    CHECK(unchanged(before) && env.owner->balance.lo == 650U &&
+          env.budget_account->balance.lo == 350U);
+    for (i = 0U; i < record.delegate_count; ++i) {
+        CHECK(record.delegates[i][31] == (uint8_t)(i + 1U));
+        CHECK(lx_budget_delegate_present(&store.records[0],
+                                         record.delegates[i]));
+    }
+    CHECK(!lx_budget_delegate_present(&store.records[0], (uint8_t[32]){0}));
+    (void)memcpy(delegate + 2U, record.budget_id, 32U);
+    delegate[65] = LX_BUDGET_MAX_DELEGATES;
+    call.activity_type = LX_BUDGET_DELEGATE_REMOVE;
+    call.sequence = env.owner->next_sequence;
+    CHECK(submit(&call, &effects, &result) == 0 && result == LXP_OK);
+    CHECK(read_record(record.budget_id, &decoded) == 0);
+    CASE("audit-22.30.5.3-delegate-state-put-reopen",
+         decoded.delegate_count == LX_BUDGET_MAX_DELEGATES - 1U &&
+         !lx_budget_delegate_present(&decoded, delegate + 34U));
+    CHECK(lxp_state_store_destroy(&env.state) == LXP_OK);
+    lx_account_registry_release(&env.accounts);
+    return 0;
+}
+
 static int audit_zero_spend_exit_reopen(bool native, uint32_t operation)
 {
     uint8_t id[32];
@@ -1062,6 +1221,7 @@ static int audit_zero_spend_exit_reopen(bool native, uint32_t operation)
     size_t recovered_length;
     lx_account *source;
     lx_budget_record record;
+    lxp_u128 remaining;
     budget_call call;
     lxp_effect_buffer effects;
     lxp_result result;
@@ -1086,12 +1246,15 @@ static int audit_zero_spend_exit_reopen(bool native, uint32_t operation)
     CHECK(source->balance.lo == 1000U && env.budget_account->balance.lo == 0U);
     CHECK(read_record(id, &record) == 0);
     CHECK(lxp_u128_is_zero(record.spent_this_period));
-    CHECK(record.configured_period_limit.lo == 200U);
+    CHECK(record.configured_period_limit.hi == 0U &&
+          record.configured_period_limit.lo == 200U);
     CHECK(record.revoked == (operation == LX_BUDGET_REVOKE));
     CHECK(record.closed == (operation == LX_BUDGET_CLOSE));
     CHECK(record.revocation_sequence == (defund ? 1U : 2U));
-    if (operation != LX_BUDGET_CLOSE)
-        CHECK(lxp_u128_is_zero(record.per_period_limit));
+    CHECK(record.per_period_limit.hi == 0U &&
+          record.per_period_limit.lo == (defund ? 0U : 200U));
+    CHECK(lx_budget_remaining(&record, env.budget_account, &remaining) == LXP_OK &&
+          lxp_u128_is_zero(remaining));
     CHECK(lx_budget_record_encode(&record, encoded, sizeof(encoded),
                                   &length) == LXP_OK);
     CHECK(audit_reopen(native) == 0);
@@ -1101,6 +1264,8 @@ static int audit_zero_spend_exit_reopen(bool native, uint32_t operation)
     CHECK(length == recovered_length && memcmp(encoded, recovered, length) == 0);
     CHECK(audit_account(source_id, &source) == 0);
     CHECK(source->balance.lo == 1000U && env.budget_account->balance.lo == 0U);
+    CHECK(lx_budget_remaining(&record, env.budget_account, &remaining) == LXP_OK &&
+          lxp_u128_is_zero(remaining));
     CHECK(env.recipient->balance.lo == 0U);
     CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
     (void)memcpy(spend + 2U, id, 32U);
@@ -1236,6 +1401,7 @@ static int audit_record_regressions(void)
     };
     size_t i;
     CHECK(audit_delegate_codec_reopen() == 0);
+    CHECK(audit_delegate_state_put_reopen() == 0);
     for (i = 0U; i < sizeof(operations) / sizeof(operations[0]); ++i) {
         CHECK(audit_zero_spend_exit_reopen(false, operations[i]) == 0);
         CHECK(audit_zero_spend_exit_reopen(true, operations[i]) == 0);

@@ -117,7 +117,7 @@ else
 	edge set "$env"
 fi
 manifest="$state/manifest"
-[ -s "$manifest" ] || die "no manifest at $manifest after edge.sh set"
+[ -r "$manifest" ] || die "no manifest at $manifest after edge.sh set"
 
 renewed=0
 while read -r name mode _; do
@@ -148,25 +148,21 @@ else
 	edge rerender
 fi
 
-sites=()
-for f in "$nginx_dir"/sites-available/* "$nginx_dir"/sites-enabled/*; do
-	[ -e "$f" ] || [ -L "$f" ] || continue
-	head -n 1 "$f" 2>/dev/null | grep -qxF "$marker" && sites+=("$f")
-done
+# Certificates and cron retain their existing transport. The route generation
+# travels through a manifest-bound codec and a durable receiver transaction;
+# no primary generation or secondary-local health state is copied by rsync.
 extra=()
-[ ! -e "$nginx_dir/modules-enabled/99-edge-stream.conf" ] || extra+=("$nginx_dir/modules-enabled/99-edge-stream.conf")
 [ ! -e "$cron_dir/edge-rpc-health" ] || extra+=("$cron_dir/edge-rpc-health")
-
+transfer="$(mktemp)"
+trap 'rm -f -- "$transfer"' EXIT
+"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-export "$nginx_dir" >"$transfer"
 for dest in ${EDGE_SECONDARIES:-}; do
 	changes="$(rsync -aR --delete --itemize-changes ${dry:+--dry-run} -e 'ssh -o BatchMode=yes' \
-		--exclude "$state/rpc-down" --exclude "$state/renewed" --exclude "$state/rpc-health.lock" \
-		"$le_dir/" "$state/" "${sites[@]}" "${extra[@]}" "$dest:/")" ||
-		die "rsync to $dest failed"
-	if [ -z "$changes" ] && [ "$renewed" -eq 0 ]; then
-		echo "unchanged $dest"
-		continue
-	fi
-	run ssh -o BatchMode=yes -- "$dest" "EDGE_LOCAL=1 EDGE_NGINX_DIR=$(printf '%q' "$nginx_dir") EDGE_CERT_DIR=$(printf '%q' "$cert_dir") $(printf '%q' "$state/edge.sh") rerender" ||
-		die "rerender on $dest failed"
+		"$le_dir/" "${extra[@]}" "$dest:/")" || die "rsync to $dest failed"
+	# A certificate-only change still starts a transaction before its rerender.
+	printf -v receiver 'result=$(%q edge-import %q) || exit; if [ "$result" = changed ]; then EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q %q rerender --imported; elif [ %q = 1 ] || [ %q = 1 ]; then EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q %q rerender --locked; else echo unchanged; fi' \
+		"${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$nginx_dir" "$nginx_dir" "$cert_dir" "$state/edge.sh" "$renewed" "$([ -z "$changes" ] || echo 1)" "$nginx_dir" "$cert_dir" "$state/edge.sh"
+	printf -v command 'mkdir -p %q && flock -x %q sh -c %q' "$nginx_dir" "$nginx_dir/.edge-operation.lock" "$receiver"
+	run ssh -o BatchMode=yes -- "$dest" "$command" <"$transfer" || die "generation transfer or reload on $dest failed"
 	echo "synced $dest"
 done

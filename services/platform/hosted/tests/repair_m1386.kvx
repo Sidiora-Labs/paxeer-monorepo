@@ -1,0 +1,57 @@
+[repair]
+task = "22.33.1386"
+audit = "22.30.76"
+acceptance = "22998.1"
+qualification = "Only hf-build and hf-done qualify this candidate; their private ledger records the exact candidate revision, command, exit and log. No gate is claimed before that evidence exists."
+baseline = "Not run: step 12 conflicts with the explicit order prohibiting verification before complete implementation and requiring hf-done as the only verifier. No pre-change failure is claimed."
+
+[finding.beta-dirty-image-provenance]
+test = "TestRepairM_1386_DirtyImageProvenance"
+repair = "Snapshot the actual tracked working bytes once, use deterministic tar identity and dirty tag, and bind global/context identities in image labels; cover services/platform and sdk/platform."
+
+[finding.beta-build-contexts]
+test = "TestRepairM_1386_ImageBuildContexts"
+repair = "Project explorer COPY inputs at backend root and reuse the registry owner's verified context producer, with context-relative Dockerfiles and bounded required context members."
+
+[finding.beta-retired-bootstrap]
+test = "TestRepairM_1386_NativeBootstrapCommittedReadiness"
+repair = "Reachable up/render select paxd-native genesis and protected native home inputs. Root JSON-RPC readiness requires the native canonical consensus commit, EVM block identity and an authenticated committed sequence receipt, with a persisted recovery floor."
+
+[finding.beta-retained-publication-file]
+test = "TestRepairM_1386_RetainedNativeMaterial"
+repair = "Fresh save, Secret transport and retained reopen bind native chain identity, genesis pins, signing seed, validators and funded treasury policy; no checkpoint publication-authorization file is required."
+
+[finding.beta-image-retired-components]
+test = "TestRepairM_1386_NativeImageSelection"
+repair = "Remove retired node, core-boundary and receipt-authority selections; retain native paxd/kernel images and hosted adapters with existing declared contexts."
+
+[finding.mirror-keypair-not-derived]
+test = "TestRepairM_1386_MirrorKeypairDerived"
+repair = "Strict integer bytes and real Ed25519 derivation compare the complete seed/public pair, including an RFC8032 keypair and substituted-public-half refusals."
+
+[finding.pin-tests-no-consumer]
+test = "TestRepairM_1386_GatewayPinsPersistedRotation"
+repair = "Real native keeper pins persist across a LevelDB close/reopen, project into gateway-native configuration and verify node-signed receipts at both inclusive rotation boundaries, refusing wrong heights. The Python suite additionally projects actual gateway manifests and restarts the real Rust gateway consumer against the committed conformance corpus; all 18 original cases remain."
+
+[finding.topology-short-dns-bypass]
+test = "TestRepairM_1386_TopologyShortDNSRefusals"
+repair = "Resolve short names using caller namespace, require explicit external declarations, and check Service selection, target ports, ingress, egress and DNS. Both Python YAML parsers exercise the same denied short-name fixtures in topology-regressions.py."
+
+[wiring]
+request_1 = "services/platform/hosted/gateway/deployment.yaml; owning domain fm-platform: migrate adapter upstream configuration to native root RPC and governed receipt keys before adding gateway to the native beta deployment."
+request_2 = "services/platform/hosted/testnet/deployment.yaml and services/platform/hosted/registry/deployment.yaml; owning domain fm-platform: migrate retired authority/core endpoints and treasury policy consumers before adding these hosted adapters to native beta up."
+request_3 = "services/platform/hosted/internal/deployment.yaml and services/platform/hosted/webhooks/deployment.yaml; owning domain fm-platform: migrate remaining historical producer/authority contracts before enabling the legacy boundary smoke matrix; --boundary-checks explicitly refuses this unsupported matrix."
+
+request_4 = "docker/kernel/Dockerfile native artifact producers; owning domain fm-kernel: produce source-bound merged paxd artifacts before operational Docker assembly; this task qualifies only its declared Go build and focused tests."
+
+[gotcha.1]
+observed = "The task permits only the hosted tests subtree and node deployment, while the general workflow asks for root GOTCHA/spec writes."
+resolution = "Record task gotchas here and keep those out-of-scope files unchanged."
+
+[gotcha.2]
+observed = "The existing topology-regressions.py aggregate inventories retired core/receipt-authority and handover edges from other hosted manifests; the part-two audit finding topology-retired-baseline owns that inventory."
+resolution = "Add independent short-DNS regressions without weakening or deleting historical assertions; no aggregate topology gate is claimed or run here."
+
+[gotcha.3]
+observed = "The previous retained-material shell test expected historical credential-inventory refusal from up/render, whose native startup contract has changed."
+resolution = "Assert native missing-manifest refusal without generating replacement state; focused Go coverage proves real fresh save, Secret transport and reopen."
