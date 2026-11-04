@@ -1,0 +1,8 @@
+{
+  "name": "@paxeer/explorer-revoke-regression",
+  "private": true,
+  "devDependencies": {
+    "ganache": "7.9.2",
+    "solc": "0.8.30"
+  }
+}
