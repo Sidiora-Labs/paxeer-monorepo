@@ -352,6 +352,7 @@ defmodule Explorer.Chain.Transaction do
     InternalTransaction,
     MethodIdentifier,
     SmartContract.Proxy,
+    Token,
     TokenTransfer,
     Wei
   }
@@ -2683,7 +2684,7 @@ defmodule Explorer.Chain.Transaction do
         |> filter_contract_call_dynamic()
         |> apply_filter_by_type_to_transactions_inner(
           remain,
-          join(query, :inner, [transaction], address in assoc(transaction, :to_address), as: :to_address)
+          join(query, :left, [transaction], address in assoc(transaction, :to_address), as: :to_address)
         )
 
       :contract_creation ->
@@ -2706,7 +2707,7 @@ defmodule Explorer.Chain.Transaction do
         |> filter_token_creation_dynamic()
         |> apply_filter_by_type_to_transactions_inner(
           remain,
-          join(query, :inner, [transaction], token in Token,
+          join(query, :left, [transaction], token in Token,
             on: token.contract_address_hash == transaction.created_contract_address_hash,
             as: :created_token
           )
