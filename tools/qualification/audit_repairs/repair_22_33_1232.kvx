@@ -1,0 +1,49 @@
+[meta]
+task = "22.33.1232"
+acceptance = "22998.1"
+audit_record = "spec/layerx-merge/programme/audit/records/22.30.59.kvx"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Choose finding 18's retirement alternative: mark the Dockerfile and final image metadata as historical and retired from supported generation. Rewrite the README around the authoritative root script and remove historical Docker build/run recipes, eliminating the alternate image tag and SDK mount interface. Preserve historical tool versions as provenance, not supported tooling."
+
+[finding.18]
+file = "wasm/contrib/prototools-docker/Dockerfile"
+class = "config-drift"
+severity = "medium"
+owner_domain = 16
+tests = ["test_finding_18_dockerfile_explicitly_retires_the_alternate_image", "test_findings_18_19_root_toolchain_produces_the_documented_generator", "test_findings_18_19_root_config_routes_local_sdk_types_and_generated_output"]
+resolution = "The Dockerfile header and final-stage OCI description explicitly retire this incompatible image and point to bash scripts/protoc.sh from the repository root; no alternate generator is advertised as supported."
+
+[finding.19]
+file = "wasm/contrib/prototools-docker/README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 16
+tests = ["test_finding_19_readme_has_one_supported_root_generation_recipe", "test_findings_18_19_root_toolchain_produces_the_documented_generator", "test_findings_18_19_root_config_routes_local_sdk_types_and_generated_output"]
+resolution = "The sole executable example invokes the root script from the repository root using root Go, Buf and gocosmos versions and mappings. No historical helper invocation remains, so there is no supported helper image tag, mount, environment or working-directory interface to mismatch."
+
+[proof]
+source_facts = "The Python-only module parses the real Dockerfile instructions and final image LABEL, the README command with shlex and all local Markdown links, root Buf YAML with PyYAML, root Go version, and production script commands and their order. It checks root plugin production, Buf plugin path and SDK mapping transport, and copy-back into real SDK/wasm/consensus consumer trees. It also parses this KVX record and checks finding-to-test coverage. PyYAML is present in the qualification environment; no install is required."
+review_only = "Docker builds, historical image availability, Go builds, Buf execution, plugin execution and generated-code compilation are not executed. These are source facts rather than runtime certification of generation. No shell script, unit file or manifest is repaired; the unchanged root script is inspected as source without subprocesses, not parsed by bash -n. No restart-recovery or interface-mismatch finding applies to these config-drift and doc-drift repairs."
+wiring_requests = []
+wiring = "No out-of-path proposal step is needed: existing scripts/protoc.sh, buf.yaml, buf.gen.yaml, go.mod and consensus templates supply the authoritative generation workflow and are read without changes."
+
+[baseline]
+inspection = "Initial Git status/diff showed only runner-prepared .cgignore and spec task-start bookkeeping. No scoped file had an inherited change; the new test and record were absent. /out/run/gate.json recorded zero builds and verifies, and /out/run/gates.jsonl was absent. The inherited README already redirected to root generation but still offered commands for the incompatible image."
+verification = "No pre-change verification was run: the explicit implementation-first order, hf-build before hf-done and prohibition on hand-running verify_cmd override the older unchanged-tree baseline clause. No pre-existing failed test is claimed."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1232.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified content-derived candidate revision, command, exit code and private log. Build and verify must pass on the same candidate revision. This record is finalized before qualification: embedding its own candidate hash would change the hash. The runner retains exact revision evidence and commits the result; no manual commit or push is performed."
+
+[format]
+policy = "No formatter is configured for these Python, KVX, Markdown or Dockerfile paths. Apply the repository .editorconfig UTF-8, LF and final-newline conventions to touched files only after implementation."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and record no baseline run or claimed failure; the repository GOTCHA ledger and spec files are outside scope."
+
+[gotcha.2]
+observed = "Codify brief and survey report stale unrelated task information, while unbounded repository ledger reads exceed output limits."
+resolution = "Use the exact task block, Git status/diff, scoped context and private gate state as task authority, with bounded source reads; preserve inherited bookkeeping."
