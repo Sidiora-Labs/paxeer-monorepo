@@ -155080,7 +155080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.188]
 title = "Repair audit record 22.30.12 medium findings in apps/perps (part 1 of 1): doc-drift, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9"]
@@ -198733,7 +198733,7 @@ do_17 = "The gate correction of gotcha 2984 is withdrawn for this task: attempt 
 
 [task.22.33.1316]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/grpc (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187", "22.31.463"]
@@ -199465,7 +199465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1279]
 title = "Repair audit record 22.30.64 medium findings in interchain/testing/simapp/simd/cmd (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -207857,7 +207857,7 @@ do_11 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.879]
 title = "Repair audit record 22.30.183 medium findings in tools/benchmark/loadtest (part 1 of 2): runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330", "22.31.463"]
