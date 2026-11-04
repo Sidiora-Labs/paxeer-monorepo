@@ -4,6 +4,7 @@ umask 077
 export LC_ALL=C
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$root/tools/release/stage.sh"
 role=
 manager=systemd
 verify=false
@@ -82,8 +83,7 @@ if len(set(homes)) != len(homes):
     sys.exit("swap: duplicate node home")
 PY
 
-exec 9>"$BIN_DIR/.paxd-swap.lock"
-flock -n 9 || fail "another swap is in progress"
+release_operation_lock "$BIN_DIR" || fail "another release operation is in progress"
 new_owned=false
 cleanup() {
   if [[ "$new_owned" == true ]]; then
@@ -105,72 +105,7 @@ check_binary() {
 }
 
 node_process() {
-  python3 - "$@" <<'PY'
-import hashlib
-import os
-from pathlib import Path
-import select
-import signal
-import subprocess
-import sys
-
-mode, home = sys.argv[1:3]
-home = os.path.realpath(home)
-result = subprocess.run(["pgrep", "-a", "-x", "paxd"], capture_output=True, text=True)
-if result.returncode not in (0, 1):
-    sys.exit("swap: process inspection failed")
-matched = []
-for line in result.stdout.splitlines():
-    pid = int(line.split(maxsplit=1)[0])
-    try:
-        raw_args = Path(f"/proc/{pid}/cmdline").read_bytes()
-        args = raw_args.split(b"\0")
-        args = [os.fsdecode(arg) for arg in args if arg]
-        values = []
-        for index, arg in enumerate(args):
-            if arg == "--home" and index + 1 < len(args):
-                values.append(args[index + 1])
-            elif arg.startswith("--home="):
-                values.append(arg.partition("=")[2])
-        for value in values:
-            candidate = Path(value)
-            if not candidate.is_absolute():
-                candidate = Path(f"/proc/{pid}/cwd").resolve() / candidate
-            if os.path.realpath(candidate) == home:
-                matched.append((pid, raw_args))
-                break
-    except FileNotFoundError:
-        continue
-if mode == "list":
-    for pid, raw_args in matched:
-        print(pid)
-elif mode == "stop":
-    for pid, raw_args in matched:
-        try:
-            fd = os.pidfd_open(pid)
-        except ProcessLookupError:
-            continue
-        try:
-            current = Path(f"/proc/{pid}/cmdline").read_bytes()
-            if current != raw_args:
-                sys.exit("swap: process changed during stop")
-            signal.pidfd_send_signal(fd, signal.SIGTERM)
-            poller = select.poll()
-            poller.register(fd, select.POLLIN)
-            if not poller.poll(60000):
-                sys.exit("swap: node did not stop cleanly")
-        finally:
-            os.close(fd)
-elif mode == "verify":
-    if len(matched) != 1:
-        sys.exit("swap: expected exactly one running paxd for home")
-    with open(f"/proc/{matched[0][0]}/exe", "rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    if digest != sys.argv[3]:
-        sys.exit("swap: running paxd sha256 mismatch")
-else:
-    sys.exit("swap: invalid process operation")
-PY
+  release_node_process "$@"
 }
 
 check_home() {
