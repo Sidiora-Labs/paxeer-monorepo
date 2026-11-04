@@ -1,0 +1,90 @@
+package processor
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+)
+
+func TestRepair_61_real_consumer(t *testing.T) {
+	raw, err := os.ReadFile(os.Getenv("REPAIR61_LOGS"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observations []struct {
+		Role     string
+		Log      types.Log
+		Old, New uint8
+	}
+	if err = json.Unmarshal(raw, &observations); err != nil {
+		t.Fatal(err)
+	}
+	if len(observations) != 3 {
+		t.Fatalf("received %d producer observations", len(observations))
+	}
+	ctx := context.Background()
+	_, pool := internaltest.NewPostgres(t)
+	decoder := decode.NewDecoder()
+	processor := New(Deps{Store: store.New(pool), Decoder: decoder, ChainID: 125})
+	for _, observation := range observations {
+		log := observation.Log
+		event, err := decoder.Decode(log)
+		if err != nil || event == nil {
+			t.Fatalf("%s decode: %+v, %v", observation.Role, event, err)
+		}
+		want := map[string]any{"nftId": "1", "oldStrategy": observation.Old, "newStrategy": observation.New}
+		if event.EventName != "FeeStrategyChanged" || event.Sig != "FeeStrategyChanged(uint256,uint8,uint8)" || !reflect.DeepEqual(event.Args, want) || event.BlockNumber != log.BlockNumber || event.LogIndex != log.Index || event.TxHash != strings.ToLower(log.TxHash.Hex()) {
+			t.Fatalf("%s decoded interface: %+v, want %+v", observation.Role, event, want)
+		}
+		for replay := 0; replay < 2; replay++ {
+			webhook, err := processor.processEvent(ctx, event, 1700000000, nil)
+			if err != nil {
+				t.Fatalf("%s handler rejected real log: %v", observation.Role, err)
+			}
+			if webhook == nil || webhook.EventName != event.EventName || !reflect.DeepEqual(webhook.Args, want) {
+				t.Fatalf("%s webhook lost canonical arguments: %+v", observation.Role, webhook)
+			}
+		}
+		id := fmt.Sprintf("%s-%d", event.TxHash, event.LogIndex)
+		var nft, block, timestamp int64
+		var old, next, index int32
+		var tx string
+		err = pool.QueryRow(ctx, `SELECT nft_id,old_strategy,new_strategy,block_number,block_timestamp,tx_hash,log_index FROM indexer.fee_strategy_changes WHERE id=$1`, id).Scan(&nft, &old, &next, &block, &timestamp, &tx, &index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if nft != 1 || old != int32(observation.Old) || next != int32(observation.New) || block != int64(log.BlockNumber) || timestamp != 1700000000 || tx != event.TxHash || index != int32(log.Index) {
+			t.Fatalf("%s persisted wrong row: %d %d %d %d %d %s %d", observation.Role, nft, old, next, block, timestamp, tx, index)
+		}
+		malformed := log
+		malformed.Topics = log.Topics[:1]
+		if decoded, err := decoder.Decode(malformed); err == nil || decoded != nil {
+			t.Fatal("missing indexed NFT accepted")
+		}
+		malformed = log
+		malformed.Data = log.Data[:len(log.Data)-1]
+		if decoded, err := decoder.Decode(malformed); err == nil || decoded != nil {
+			t.Fatal("truncated strategy accepted")
+		}
+	}
+	var count int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM indexer.fee_strategy_changes`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Fatalf("replay persisted %d rows, want 3", count)
+	}
+	if decoded, err := decoder.Decode(types.Log{Topics: []common.Hash{common.HexToHash("0xdeadbeef")}}); err != nil || decoded != nil {
+		t.Fatal("unknown topic accepted")
+	}
+}

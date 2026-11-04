@@ -15,7 +15,43 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-var protoCodec = encoding.GetCodec(proto.Name)
+// sdkProtoCodec uses the generated SDK wire methods for custom protobuf
+// fields, whose Go representation is not understood by protobuf reflection.
+// Other protobuf implementations retain the standard codec behavior.
+type sdkProtoCodec struct {
+	standard encoding.Codec
+}
+
+func (c sdkProtoCodec) Name() string { return proto.Name }
+
+func (c sdkProtoCodec) Marshal(value interface{}) ([]byte, error) {
+	if message, ok := value.(interface {
+		ProtoMessage()
+		Marshal() ([]byte, error)
+	}); ok {
+		return message.Marshal()
+	}
+	return c.standard.Marshal(value)
+}
+
+func (c sdkProtoCodec) Unmarshal(data []byte, value interface{}) error {
+	if message, ok := value.(interface {
+		ProtoMessage()
+		Reset()
+		Unmarshal([]byte) error
+	}); ok {
+		message.Reset()
+		return message.Unmarshal(data)
+	}
+	return c.standard.Unmarshal(data, value)
+}
+
+var protoCodec encoding.Codec = sdkProtoCodec{standard: encoding.GetCodec(proto.Name)}
+
+func init() {
+	// Share the same wire codec between ABCI queries, gRPC servers and clients.
+	encoding.RegisterCodec(protoCodec)
+}
 
 // GRPCQueryRouter routes ABCI Query requests to GRPC handlers
 type GRPCQueryRouter struct {

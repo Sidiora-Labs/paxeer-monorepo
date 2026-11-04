@@ -867,12 +867,10 @@ fn blank_row() -> ViewResult<ParticipantRow> {
     })
 }
 
-/// Current F02 worker rows of the exact state. Evaluator rows join only through a frozen
-/// roster whose digest the binding carries; until a producer records it the binding's roster
-/// is absent, so no evaluator row is joined and F03 stays not-yet-produced.
-fn rows_of(state: &[u8]) -> ViewResult<Vec<ParticipantRow>> {
+/// Complete captured producer projection, checked against the saved transport binding.
+fn rows_of(state: &[u8], binding: &SnapshotBinding) -> ViewResult<Vec<ParticipantRow>> {
     let mut rows = vec![blank_row()?; PARTICIPANT_ROWS_MAX];
-    let n = queries::participant_rows(state, None, &mut rows)?;
+    let (_, n) = queries::project_capture(state, binding, &mut rows)?;
     rows.truncate(n);
     Ok(rows)
 }
@@ -1285,7 +1283,7 @@ impl ProjectionStore {
                 return Err(ViewError::WrongDomain);
             }
             let availability = queries::feature_availability(observation.state)?;
-            let rows = rows_of(observation.state)?;
+            let rows = rows_of(observation.state, &binding)?;
             Ok((snapshot_id, binding, availability, rows))
         })();
         let (snapshot_id, binding, availability, rows) = match checked {
@@ -1921,7 +1919,7 @@ impl ProjectionStore {
         };
         let conn = self.lock()?;
         let (record, state, binding) = Self::resolve(&conn, &request.market, selector.as_ref())?;
-        let rows = rows_of(&state)?;
+        let rows = rows_of(&state, &binding)?;
         let selected = rows
             .iter()
             .filter(|r| {
@@ -2064,6 +2062,9 @@ fn rebind(record: &SnapshotRecord, state: &[u8]) -> ViewResult<SnapshotBinding> 
     let binding = SnapshotBinding::decode(bytes)?;
     binding.verify_capture(state, &record.facts())?;
     binding.finalized_head()?;
+    if queries::feature_availability(state)? != record.availability {
+        return Err(ViewError::IntegrityFailure);
+    }
     if record.checkpoint != Some(binding.store_proof_digest)
         || record.rank != binding.rank
         || record.publication_time_ms != Some(binding.publication_time_ms)

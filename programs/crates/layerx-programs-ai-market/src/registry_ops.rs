@@ -593,7 +593,13 @@ fn create<'a>(
         return Err(NON_CANONICAL);
     }
     let n = section.encode(section_out)?;
-    let frozen: &'a [u8] = section_out;
+    let (policy_out, reputation_out) = section_out.split_at_mut(n);
+    let region = crate::reputation_transition::Region {
+        state: crate::reputation::ReputationState::new(market),
+        seal: Presence::Absent,
+    };
+    let reputation_len = crate::reputation_transition::encode_joint(&region, &[], reputation_out)?;
+    let frozen: &'a [u8] = policy_out;
     let receipt = build_receipt(
         market,
         1,
@@ -604,7 +610,13 @@ fn create<'a>(
     )?;
     let state = SharedState {
         revision: 1,
-        feature_sections: [&frozen[..n], &[], &[], &[], &[]],
+        feature_sections: [
+            &frozen[..n],
+            &[],
+            &[],
+            &[],
+            &reputation_out[..reputation_len],
+        ],
         control: Control {
             replay: created_replay(owner, treasury, &request, receipt.digest)?,
             feature_bytes: &[],

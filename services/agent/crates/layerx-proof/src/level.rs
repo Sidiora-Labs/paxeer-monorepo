@@ -35,10 +35,6 @@ impl Achieved {
         Self(VerificationLevel::STATE_PROVEN, false)
     }
 
-    pub(crate) const fn checkpoint_finalised() -> Self {
-        Self(VerificationLevel::CHECKPOINT_FINALISED, false)
-    }
-
     pub(crate) const fn level(self) -> VerificationLevel {
         self.0
     }

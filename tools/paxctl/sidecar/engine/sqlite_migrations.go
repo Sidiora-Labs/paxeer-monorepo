@@ -147,5 +147,28 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
+	if version < 6 {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if _, err := tx.Exec(`
+			ALTER TABLE task_results ADD COLUMN generation TEXT NOT NULL DEFAULT '';
+			UPDATE task_results SET generation = lower(hex(randomblob(16)));
+			CREATE TABLE task_cancellations (
+				id TEXT NOT NULL,
+				generation TEXT NOT NULL,
+				PRIMARY KEY (id, generation)
+			);
+			PRAGMA user_version = 6;
+		`); err != nil {
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

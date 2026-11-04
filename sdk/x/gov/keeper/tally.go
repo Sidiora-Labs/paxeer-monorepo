@@ -66,7 +66,9 @@ func (keeper Keeper) Tally(ctx sdk.Context, proposal types.Proposal) (passes boo
 			return false
 		})
 
-		keeper.deleteVote(ctx, vote.ProposalId, voter)
+		if !proposal.IsExpedited {
+			keeper.deleteVote(ctx, vote.ProposalId, voter)
+		}
 		return false
 	})
 
@@ -117,6 +119,12 @@ func (keeper Keeper) Tally(ctx sdk.Context, proposal types.Proposal) (passes boo
 	// default value for regular proposals is 1/2. For expedited 2/3
 	voteYesThreshold := tallyParams.GetThreshold(proposal.IsExpedited)
 	if results[types.OptionYes].Quo(totalVotingPower.Sub(results[types.OptionAbstain])).GT(voteYesThreshold) {
+		if proposal.IsExpedited {
+			keeper.IterateVotes(ctx, proposal.ProposalId, func(vote types.Vote) bool {
+				keeper.deleteVote(ctx, vote.ProposalId, sdk.MustAccAddressFromBech32(vote.Voter))
+				return false
+			})
+		}
 		return true, false, tallyResults
 	}
 
