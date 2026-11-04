@@ -152893,7 +152893,7 @@ do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.315]
 title = "Repair audit record 22.30.136 medium findings in apps/explorer/ui/pages (part 2 of 2): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.382"]
@@ -156411,7 +156411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.122]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/lib (part 1 of 2): config-drift, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
@@ -173248,7 +173248,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1561]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-crypto/tests/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -196808,7 +196808,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.459]
 title = "Serve the account-bearing placeOrder overload of the exchange precompile that the ABI and the agent SDKs already define"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -201639,7 +201639,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1171]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt/benchmark (part 2 of 2): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.110", "22.31.111", "22.31.112", "22.31.113", "22.31.114", "22.31.115", "22.31.116", "22.31.117", "22.31.118"]
@@ -277917,7 +277917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1227]
 title = "Repair audit record 22.30.59 medium findings in modules/tokenfactory/keeper (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.338", "22.31.463"]
