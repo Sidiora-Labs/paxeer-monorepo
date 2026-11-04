@@ -1,6 +1,4 @@
-import ERC20Artifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
-import NftArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
-import { waitForTransactionReceipt } from '@wagmi/core';
+import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
 import { useCallback } from 'react';
 import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
 
@@ -10,6 +8,8 @@ import useRewardsActivity from 'lib/hooks/useRewardsActivity';
 import * as mixpanel from 'lib/mixpanel/index';
 import wagmiConfig from 'lib/web3/wagmiConfig';
 import { toaster } from 'toolkit/chakra/toaster';
+
+import { getRevokeContractParameters, verifyNftRevocation } from './revokeApproval';
 
 export default function useRevoke() {
   const { address: userAddress } = useAccount();
@@ -25,14 +25,9 @@ export default function useRevoke() {
 
       const activityResponse = await trackTransaction(userAddress, approval.address, String(chainId));
 
-      const isErc20 = approval.type === 'ERC-20';
-
       const hash = await writeContractAsync({
+        ...getRevokeContractParameters(approval),
         account: userAddress,
-        address: approval.address,
-        abi: isErc20 ? ERC20Artifact.abi : NftArtifact.abi,
-        functionName: isErc20 ? 'approve' : 'setApprovalForAll',
-        args: [ approval.spender, isErc20 ? 0 : false ],
         chainId,
       });
 
@@ -52,6 +47,15 @@ export default function useRevoke() {
 
       if (receipt.status === 'reverted') {
         throw new Error('Failed to revoke approval.');
+      }
+
+      if (approval.type !== 'ERC-20') {
+        const publicClient = getPublicClient(wagmiConfig.config, { chainId });
+        if (!publicClient) {
+          throw new Error('Unable to verify the revoked approval on this chain.');
+        }
+
+        await verifyNftRevocation(approval, userAddress, receipt.blockNumber, publicClient);
       }
 
       toaster.success({

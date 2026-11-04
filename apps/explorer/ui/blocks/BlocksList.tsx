@@ -17,7 +17,7 @@ interface Props {
 const BlocksList = ({ data, isLoading, page, chainData }: Props) => {
   const initialList = useInitialList({
     data: data ?? [],
-    idFn: (item) => item.height,
+    idFn: (item) => item.hash,
     enabled: !isLoading,
   });
 
@@ -25,7 +25,7 @@ const BlocksList = ({ data, isLoading, page, chainData }: Props) => {
     <Box>
       { data.map((item, index) => (
         <BlocksListItem
-          key={ item.height + (isLoading ? String(index) : '') }
+          key={ item.hash + (isLoading ? String(index) : '') }
           data={ item }
           isLoading={ isLoading }
           enableTimeIncrement={ page === 1 && !isLoading }

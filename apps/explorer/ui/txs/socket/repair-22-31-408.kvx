@@ -1,0 +1,12 @@
+[repair.22.31.408]
+finding = "address-case"
+test = "repair-22-31-408.spec.ts: addressCaseUpdatesReachFilteredCache"
+change = "Compare both transaction endpoint hashes and the router address in lowercase, retaining the original URL cache key and lowercase subscription topic."
+proof = "The real Next router, React Query cache, SocketProvider, Phoenix client and address transaction hook receive confirmed and pending updates over a loopback WebSocket connection for lowercase and checksummed URLs and payload addresses."
+baseline = "Not run: the explicit gate order requires complete implementation, hf-build, then hf-done and forbids a manual verify run. Before the change, lowercase URL/checksummed payload and checksummed URL/lowercase payload direction-filter cases compare unequal."
+previous_attempt = "Candidate 145b128c623a90aea44001f929258e8ae1a65cc0 did not reach TypeScript or the regression: pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json refused the root npm package-manager pin. No failing baseline test execution is claimed."
+tooling = "Install explorer dependencies with its pinned Yarn lockfile; pnpm 8 supports the prescribed exec command for this Yarn application without changing any repository manifest or verification command."
+formatting = "ESLint --fix formatted the touched TypeScript files; its vitest/valid-title and vitest/expect-expect rules reject the explicitly required test(namedFunction) registration, so that registration and its assertions remain intact."
+qualification_repair = "The first hf-build at ad432b19c0ccbd5ba1c756ba2d9e5f20bcb8da11 exited 2 (/out/logs/build-1.log): Phoenix implements isJoined but its installed Channel type exposes state instead; assert state equals joined, the identical production condition, without widening the type."
+wiring_request = "Domain 14 (explorer backend): services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/address_channel_test.exs must export a notifier-produced transaction/pending_transaction transcript for incoming, outgoing and self-transfer updates to this frontend regression; the sandbox has no Elixir runtime or backend dependencies, so this test does not claim a real notifier execution."
+evidence = "The private hf-build/hf-done ledger records the qualified candidate revision, command, exit and log; no gate result is claimed in this source record."
