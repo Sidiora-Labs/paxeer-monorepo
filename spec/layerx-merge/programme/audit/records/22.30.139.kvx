@@ -1,0 +1,1742 @@
+# Pre-upgrade audit of the web/explorer bridge slice at the source revision below.
+
+[audit.22.30.139]
+task = "22.30.139"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 188
+findings = 51
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["explorer-retired-transport", "native-unified-shape", "approval-operation-digest", "stepup-reference-rewrite", "stepup-webauthn-shape", "stepup-timestamp-types", "onboarding-journey-shape", "activity-detail-shape", "support-report-route-template", "health-response-shape"]
+review_basis = "Decision 2515 and BRIEF network facts/checks; package requirements, registry declarations, current sources, native explorer controller/router, human API schema/production projections, SDK/precompile ABIs and listed documentation. This is an audit and repair proposal record, not a claim that product gates or repairs ran."
+coverage = "All 188 members reviewed in full, with generated/vendored provenance recorded separately. Issues are attributed at their owning declaration/consumer; wrapper notes identify shared upstream findings rather than asserting those broken paths work. Documentation scope is stated per page."
+requirements = ["14054.1", "17054.2", "22108.1", "22095.1", "21163.1", "21157.1", "21143.1", "21142.1", "21138.1", "21131.1", "84505.1", "8354.1", "9363.2", "14034.1", "14034.2", "14054.2", "14038.1", "14038.2", "14035.1", "14035.2", "14036.1", "14036.2", "14037.1", "14037.2", "14039.1", "14039.2", "14040.1", "14040.2", "14041.1", "14041.2", "14042.1", "14042.2", "14060.1", "14060.2", "14045.1", "14046.1", "14046.2", "14043.1", "14043.2", "14047.1", "14049.1", "14049.2", "14050.1", "14050.2", "14051.1", "14051.2", "14048.1", "14048.2", "14053.1", "14053.2", "14052.1", "14052.2", "14005.1", "14005.2", "14055.1", "14055.2", "14056.1", "14056.2", "14057.1", "14057.2", "14058.1", "14058.2", "14059.1", "14059.2", "14003.1", "14003.2", "14004.1", "14004.2", "18962.1", "18962.2", "18752.1", "18758.1", "18851.1", "18851.2", "18853.1", "18894.1", "18923.1"]
+package_registry_note = "The package stores 400 produced and 400 consumed row identifiers while its inventory totals are 1603 and 559. Retired rows pointing at removed paths are historical declarations, not evidence those components still run. Current live callers and producers were compared at their source boundaries."
+
+[file.001]
+path = "apps/web/src/api/abi-read.ts"
+lines = 233
+verdict = "issues"
+note = "Full ABI decoder read: scalar widths, dynamic offsets, tuples and array handling; allocation finding recorded."
+
+[file.002]
+path = "apps/web/src/api/gas-station.ts"
+lines = 138
+verdict = "clean"
+note = "Full gas quote, first-use submission and status adapter read against SDK sponsorship types; errors remain explicit and current chain metadata is checked."
+
+[file.003]
+path = "apps/web/src/api/gateway.ts"
+lines = 457
+verdict = "issues"
+note = "Full RPC envelope, capabilities, history, account resolution, logs and receipt decoders read; byte-bound finding recorded."
+
+[file.004]
+path = "apps/web/src/api/index.ts"
+lines = 29
+verdict = "clean"
+note = "Full API barrel read; type and runtime exports agree with their implementation declarations."
+
+[file.005]
+path = "apps/web/src/api/performance-client.ts"
+lines = 26
+verdict = "clean"
+note = "Full browser performance transport read; redacted payload, same-origin submission and explicit sink health contract agree."
+
+[file.006]
+path = "apps/web/src/api/performance-sink.ts"
+lines = 398
+verdict = "issues"
+note = "Full durable sink read including private directory checks, fsync/rename, retention and reopen; orphan recovery finding recorded."
+
+[file.007]
+path = "apps/web/src/api/precompiles.ts"
+lines = 652
+verdict = "issues"
+note = "Full precompile read adapters and event decoding read against bridge/launchpad/perps ABIs; broad log scan finding recorded."
+
+[file.008]
+path = "apps/web/src/api/provider.ts"
+lines = 15
+verdict = "clean"
+note = "Full wallet provider adapter read; current EIP-1193 boundary and provider availability handling agree with SDK exports."
+
+[file.009]
+path = "apps/web/src/api/sdk.ts"
+lines = 61
+verdict = "clean"
+note = "Full SDK export adapter read; exported precompile, sponsorship and provider symbols resolve to real SDK implementations."
+
+[file.010]
+path = "apps/web/src/api/server.ts"
+lines = 38
+verdict = "clean"
+note = "Full server API context read; service/web origins, cookie forwarding and server-only trust boundary reviewed."
+
+[file.011]
+path = "apps/web/src/api/stream.ts"
+lines = 105
+verdict = "clean"
+note = "Full stream lifecycle read; cursor resumption, terminal auth refusal, expiry and cancellation mapped to current API errors."
+
+[file.012]
+path = "apps/web/src/api/wallet.ts"
+lines = 507
+verdict = "clean"
+note = "Full wallet signing/submission module read; chain-125 SDK boundary, sponsorship, capability gating and receipt outcome semantics reviewed."
+
+[file.013]
+path = "apps/web/src/app/_markets/activity-feed.tsx"
+lines = 118
+verdict = "clean"
+note = "Full unified/paxeer activity feed read; bounded paging, filters, stable row identity and gateway-reported source labels reviewed."
+
+[file.014]
+path = "apps/web/src/app/_markets/availability.ts"
+lines = 7
+verdict = "clean"
+note = "Full availability state helpers read; errors remain explicit rather than inventing available market data."
+
+[file.015]
+path = "apps/web/src/app/_markets/capability-action.ts"
+lines = 15
+verdict = "clean"
+note = "Full capability-to-action adapter read; unavailable surfaces prevent sends and preserve the declared refusal detail."
+
+[file.016]
+path = "apps/web/src/app/_markets/capability.tsx"
+lines = 74
+verdict = "clean"
+note = "Full capability presentation read; live/unavailable states agree with the hosted capability adapter."
+
+[file.017]
+path = "apps/web/src/app/_markets/format.ts"
+lines = 54
+verdict = "clean"
+note = "Full market formatting helpers read; exact integer amounts and validation paths checked."
+
+[file.018]
+path = "apps/web/src/app/_markets/frame.tsx"
+lines = 30
+verdict = "clean"
+note = "Full market frame read; active-account navigation and accessible layout agree with callers."
+
+[file.019]
+path = "apps/web/src/app/_markets/navigation.tsx"
+lines = 20
+verdict = "clean"
+note = "Full market navigation read; live destinations match the current app route tree."
+
+[file.020]
+path = "apps/web/src/app/_markets/select.tsx"
+lines = 29
+verdict = "clean"
+note = "Full market selector read; controlled values, labels and disabled behavior checked."
+
+[file.021]
+path = "apps/web/src/app/_markets/send-outcome.tsx"
+lines = 60
+verdict = "clean"
+note = "Full send outcome component read; submission, pending, refusal and committed receipt states remain distinct."
+
+[file.022]
+path = "apps/web/src/app/_markets/wallet-connect.tsx"
+lines = 50
+verdict = "clean"
+note = "Full wallet connection component read; active-account selection and provider errors handled without fabricated connection state."
+
+[file.023]
+path = "apps/web/src/app/api/performance/vitals/route.ts"
+lines = 125
+verdict = "clean"
+note = "Full vitals API handler read; authentication/origin, payload redaction, durable delivery status and retrieval authority reviewed."
+
+[file.024]
+path = "apps/web/src/app/api/support/reports/[traceId]/route.ts"
+lines = 50
+verdict = "clean"
+note = "Full report trace retrieval route read; verified session/principal and operator retrieval authorization reviewed."
+
+[file.025]
+path = "apps/web/src/app/api/support/reports/route.ts"
+lines = 86
+verdict = "clean"
+note = "Full report POST route read; session-derived principal, same-origin/CSRF guards and exact redacted body reviewed; browser attribution issue recorded at outbox."
+
+[file.026]
+path = "apps/web/src/app/app/activity/[entryId]/page.tsx"
+lines = 7
+verdict = "clean"
+note = "Full activity-detail route adapter read; parameter forwarding and shared shell composition agree with the detail component."
+
+[file.027]
+path = "apps/web/src/app/app/activity/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full activity-list route adapter read; it mounts the current activity journey."
+
+[file.028]
+path = "apps/web/src/app/app/agents/[agentId]/error.tsx"
+lines = 10
+verdict = "clean"
+note = "Full agent error boundary read; emits /app/agents/[agentId], the producer side of support-report-route-template."
+
+[file.029]
+path = "apps/web/src/app/app/agents/[agentId]/loading.tsx"
+lines = 5
+verdict = "clean"
+note = "Full agent-detail loading boundary read; accessible loading state and shared state surface reviewed."
+
+[file.030]
+path = "apps/web/src/app/app/agents/[agentId]/page.tsx"
+lines = 14
+verdict = "clean"
+note = "Full agent-detail route read; server platform selection and agent identifier forwarding reviewed."
+
+[file.031]
+path = "apps/web/src/app/app/agents/error.tsx"
+lines = 10
+verdict = "clean"
+note = "Full agent-list error boundary read; reset and report route wiring reviewed."
+
+[file.032]
+path = "apps/web/src/app/app/agents/loading.tsx"
+lines = 5
+verdict = "clean"
+note = "Full agent-list loading boundary read; shared loading presentation and labels reviewed."
+
+[file.033]
+path = "apps/web/src/app/app/agents/new/error.tsx"
+lines = 10
+verdict = "clean"
+note = "Full agent-create error boundary read; current route, reset and report wiring reviewed."
+
+[file.034]
+path = "apps/web/src/app/app/agents/new/loading.tsx"
+lines = 5
+verdict = "clean"
+note = "Full agent-create loading boundary read; current creation loading surface reviewed."
+
+[file.035]
+path = "apps/web/src/app/app/agents/new/page.tsx"
+lines = 7
+verdict = "clean"
+note = "Full agent-create route read; server-selected shell and actual creation component wired."
+
+[file.036]
+path = "apps/web/src/app/app/agents/page.tsx"
+lines = 7
+verdict = "clean"
+note = "Full agents route read; server session/platform selection and current agent surface mounted."
+
+[file.037]
+path = "apps/web/src/app/app/approvals/[approvalId]/page.tsx"
+lines = 15
+verdict = "clean"
+note = "Full approval-detail route read; identifier and initial detail entrypoint agree with shared journey screen."
+
+[file.038]
+path = "apps/web/src/app/app/approvals/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full approval inbox route read; mounts the current approval journey entrypoint."
+
+[file.039]
+path = "apps/web/src/app/app/error.tsx"
+lines = 10
+verdict = "clean"
+note = "Full authenticated app error boundary read; reset and canonical report route forwarded."
+
+[file.040]
+path = "apps/web/src/app/app/layout.tsx"
+lines = 30
+verdict = "clean"
+note = "Full authenticated app layout read; server session gate, active platform and app shell composition reviewed."
+
+[file.041]
+path = "apps/web/src/app/app/loading.tsx"
+lines = 8
+verdict = "clean"
+note = "Full app loading boundary read; accessible shared loading state mounted."
+
+[file.042]
+path = "apps/web/src/app/app/move/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full move route read; shared move entrypoint and current route mount agree."
+
+[file.043]
+path = "apps/web/src/app/app/notifications/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full notifications route read; current notifications screen entrypoint mounted."
+
+[file.044]
+path = "apps/web/src/app/app/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full app home route read; current account home entrypoint mounted."
+
+[file.045]
+path = "apps/web/src/app/app/security/devices/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full security-device alias route read; navigation resolves to the current settings destination."
+
+[file.046]
+path = "apps/web/src/app/app/security/recovery/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full recovery alias route read; navigation resolves to the current security destination."
+
+[file.047]
+path = "apps/web/src/app/app/settings/devices/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full settings-device route read; real device/security screen and platform selection reviewed."
+
+[file.048]
+path = "apps/web/src/app/app/settings/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full settings index route read; current settings screen mounted."
+
+[file.049]
+path = "apps/web/src/app/app/settings/security/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full security settings route read; server platform selection and actual security screen reviewed."
+
+[file.050]
+path = "apps/web/src/app/app/settings/wallet/page.tsx"
+lines = 5
+verdict = "clean"
+note = "Full wallet settings route read; current wallet settings entrypoint mounted."
+
+[file.051]
+path = "apps/web/src/app/app/support/error.tsx"
+lines = 10
+verdict = "clean"
+note = "Full support error boundary read; reset and current report route forwarded."
+
+[file.052]
+path = "apps/web/src/app/app/support/loading.tsx"
+lines = 5
+verdict = "clean"
+note = "Full support loading boundary read; shared accessible loading presentation mounted."
+
+[file.053]
+path = "apps/web/src/app/app/support/page.tsx"
+lines = 19
+verdict = "clean"
+note = "Full support route read; server platform selection and support UI mount reviewed."
+
+[file.054]
+path = "apps/web/src/app/bridge/bridge-client.tsx"
+lines = 157
+verdict = "clean"
+note = "Full bridge client read; wallet/account checks, quotes, native sends and receipt outcome handling reviewed against bridge ABI."
+
+[file.055]
+path = "apps/web/src/app/bridge/page.tsx"
+lines = 269
+verdict = "clean"
+note = "Full bridge page read; capability/refusal handling and real precompile configuration/history wiring reviewed; scan risk recorded at adapter."
+
+[file.056]
+path = "apps/web/src/app/error.tsx"
+lines = 10
+verdict = "clean"
+note = "Full root route error boundary read; retry and canonical route report wiring reviewed."
+
+[file.057]
+path = "apps/web/src/app/exchange/page.tsx"
+lines = 182
+verdict = "clean"
+note = "Full exchange page read; capability checks, account position reads and current exchange action wiring agree with perps ABI."
+
+[file.058]
+path = "apps/web/src/app/explorer/accounts/[accountId]/page.tsx"
+lines = 296
+verdict = "issues"
+note = "Read in full: identity, balance, settlement and both activity panels; retired split-balance/settlement presentation recorded alongside the native model/transport findings."
+
+[file.059]
+path = "apps/web/src/app/explorer/error.tsx"
+lines = 10
+verdict = "clean"
+note = "Full explorer error boundary read; reset and canonical route report wiring reviewed."
+
+[file.060]
+path = "apps/web/src/app/explorer/layout.tsx"
+lines = 8
+verdict = "clean"
+note = "Full explorer layout read; static shell and revalidation configuration reviewed against dynamic child readers."
+
+[file.061]
+path = "apps/web/src/app/explorer/loading.tsx"
+lines = 8
+verdict = "clean"
+note = "Full explorer loading boundary read; shared accessible explorer loading state mounted."
+
+[file.062]
+path = "apps/web/src/app/explorer/lookup/route.ts"
+lines = 58
+verdict = "clean"
+note = "Full lookup route read; account/program/name grammar, local redirect construction and error paths reviewed; naming producer removal recorded at client."
+
+[file.063]
+path = "apps/web/src/app/explorer/page.tsx"
+lines = 48
+verdict = "clean"
+note = "Full explorer index page read; search, canonical local lookup action and current navigation reviewed."
+
+[file.064]
+path = "apps/web/src/app/explorer/programs/[programId]/page.tsx"
+lines = 122
+verdict = "issues"
+note = "Full program page read; decoded metadata, value rows, provenance, observation display and receipt link reviewed; unsupported finality finding recorded."
+
+[file.065]
+path = "apps/web/src/app/explorer/receipts/[receiptId]/page.tsx"
+lines = 71
+verdict = "issues"
+note = "Read in full: receipt identity, provenance, canonical bytes and displayed coordinates; live sealed-batch presentation recorded."
+
+[file.066]
+path = "apps/web/src/app/global-error.tsx"
+lines = 14
+verdict = "clean"
+note = "Full global error boundary read; minimal document and retry/report surface reviewed."
+
+[file.067]
+path = "apps/web/src/app/launchpad/actions.ts"
+lines = 36
+verdict = "clean"
+note = "Full launchpad server actions read; real ABI writes, validation, account scope and transaction preparation reviewed."
+
+[file.068]
+path = "apps/web/src/app/launchpad/launchpad-client.tsx"
+lines = 297
+verdict = "clean"
+note = "Full launchpad client read; quotes, limits, wallet actions and receipt outcome presentation reviewed; market reachability issue recorded at page."
+
+[file.069]
+path = "apps/web/src/app/launchpad/page.tsx"
+lines = 144
+verdict = "issues"
+note = "Full launchpad page read; capability/configuration/market reads and selection reviewed; first-page-only finding recorded."
+
+[file.070]
+path = "apps/web/src/app/layout.tsx"
+lines = 30
+verdict = "clean"
+note = "Full root layout read; document attributes, fonts, common styling and performance observer lifecycle reviewed."
+
+[file.071]
+path = "apps/web/src/app/loading.tsx"
+lines = 5
+verdict = "clean"
+note = "Full root loading boundary read; accessible shared loading presentation reviewed."
+
+[file.072]
+path = "apps/web/src/app/page.tsx"
+lines = 41
+verdict = "clean"
+note = "Full landing page read; current account/session entrypoints and live navigation reviewed."
+
+[file.073]
+path = "apps/web/src/app/scaffold.ts"
+lines = 8
+verdict = "clean"
+note = "Full scaffold route declarations read against currently mounted root, app and explorer surfaces."
+
+[file.074]
+path = "apps/web/src/auth/native-fee-budget-fields.tsx"
+lines = 70
+verdict = "clean"
+note = "Full native fee budget input component read; controlled asset/count/expiry validation and disclosure fields reviewed."
+
+[file.075]
+path = "apps/web/src/auth/native-fee-budget.ts"
+lines = 51
+verdict = "clean"
+note = "Full native fee budget model read; integer units, supported asset validation, bounds and request encoding reviewed."
+
+[file.076]
+path = "apps/web/src/auth/server-session.ts"
+lines = 35
+verdict = "clean"
+note = "Full server session gate read; cookie/CSRF handling and authoritative session context reviewed."
+
+[file.077]
+path = "apps/web/src/auth/session.ts"
+lines = 27
+verdict = "clean"
+note = "Full browser session helpers read; active principal/account state and sign-in/out boundary reviewed."
+
+[file.078]
+path = "apps/web/src/auth/use-active-account.ts"
+lines = 37
+verdict = "clean"
+note = "Full active-account hook read; browser account selection subscription and cleanup reviewed."
+
+[file.079]
+path = "apps/web/src/design/tokens.ts"
+lines = 36
+verdict = "clean"
+note = "Full design tokens read; declared colors, spacing and semantic token exports reviewed against consumers."
+
+[file.080]
+path = "apps/web/src/explorer/client.ts"
+lines = 292
+verdict = "issues"
+note = "Full explorer client read including all reader paths, naming, identifier binding and origin validation; retired transport finding recorded."
+
+[file.081]
+path = "apps/web/src/explorer/components.tsx"
+lines = 124
+verdict = "issues"
+note = "Full explorer components read including freshness, badges, links and unavailable states; retired freshness presentation finding recorded."
+
+[file.082]
+path = "apps/web/src/explorer/index.ts"
+lines = 33
+verdict = "issues"
+note = "Read in full: public client/model/components/links exports; unused retired batch/checkpoint type exports recorded."
+
+[file.083]
+path = "apps/web/src/explorer/links.ts"
+lines = 76
+verdict = "issues"
+note = "Full explorer link/origin module read; native transaction/address URLs and strict origin admission agree, obsolete receipt target recorded."
+
+[file.084]
+path = "apps/web/src/explorer/model.ts"
+lines = 928
+verdict = "issues"
+note = "Full explorer model read including every decoder and encoder; identifier/provenance/availability validations reviewed, native schema/finality findings recorded."
+
+[file.085]
+path = "apps/web/src/explorer/program-contract.test.ts"
+lines = 41
+verdict = "issues"
+note = "Full program contract test read; strict malformed/cross-program refusals retained, missing real producer proof recorded."
+
+[file.086]
+path = "apps/web/src/journeys/activity/activity.tsx"
+lines = 355
+verdict = "issues"
+note = "Full feed/filter/pagination/export wiring read; response-generation and export identity findings recorded."
+
+[file.087]
+path = "apps/web/src/journeys/activity/detail.tsx"
+lines = 277
+verdict = "issues"
+note = "Full detail loading, verification, polling and technical evidence read; real producer projection mismatch recorded."
+
+[file.088]
+path = "apps/web/src/journeys/activity/index.ts"
+lines = 3
+verdict = "clean"
+note = "Full activity public barrel read; exports match actual implementations."
+
+[file.089]
+path = "apps/web/src/journeys/activity/model.ts"
+lines = 522
+verdict = "issues"
+note = "Full activity state, grouping, filters, evidence and error mappings read; dead evidence destinations recorded."
+
+[file.090]
+path = "apps/web/src/journeys/agents/controls.tsx"
+lines = 674
+verdict = "clean"
+note = "Full pause/resume/fund/reclaim/archive/rotation/recovery controls read; shared ceremony blockers and model recovery finding apply."
+
+[file.091]
+path = "apps/web/src/journeys/agents/create.tsx"
+lines = 377
+verdict = "clean"
+note = "Full three-decision creation and receipt-backed progress read; uncertain create recovery is part of agent-uncertain-reopen."
+
+[file.092]
+path = "apps/web/src/journeys/agents/detail.tsx"
+lines = 268
+verdict = "clean"
+note = "Full agent detail read; polling, spend display and state-based controls agree with shared Agents model."
+
+[file.093]
+path = "apps/web/src/journeys/agents/index.ts"
+lines = 7
+verdict = "clean"
+note = "Full agent barrel read; exports agree with concrete implementations."
+
+[file.094]
+path = "apps/web/src/journeys/agents/model.ts"
+lines = 776
+verdict = "issues"
+note = "Full agent state/control/progress/mutation model read; volatile uncertain operation identity finding recorded."
+
+[file.095]
+path = "apps/web/src/journeys/agents/progress.tsx"
+lines = 33
+verdict = "clean"
+note = "Full agent progress view read; accessible receipt-aware stages match model output."
+
+[file.096]
+path = "apps/web/src/journeys/agents/shell.ts"
+lines = 8
+verdict = "clean"
+note = "Full agent shell adapter read; mobile/desktop selection matches shell contract."
+
+[file.097]
+path = "apps/web/src/journeys/agents/surface.tsx"
+lines = 223
+verdict = "clean"
+note = "Full agent listing read; account-bound load, refresh/polling, selection and failure handling reviewed."
+
+[file.098]
+path = "apps/web/src/journeys/approvals/ceremony.ts"
+lines = 79
+verdict = "issues"
+note = "Full step-up binding/expiry ceremony read; verifier shape and timestamp producer blockers recorded."
+
+[file.099]
+path = "apps/web/src/journeys/approvals/controller.ts"
+lines = 216
+verdict = "clean"
+note = "Full ordinary/program approval controller read; disclosure/budget and release lookup reviewed, model reference/digest blockers apply."
+
+[file.100]
+path = "apps/web/src/journeys/approvals/index.ts"
+lines = 5
+verdict = "clean"
+note = "Full approval barrel read; concrete public exports match declarations."
+
+[file.101]
+path = "apps/web/src/journeys/approvals/journey-screen.tsx"
+lines = 280
+verdict = "clean"
+note = "Full approval journey screen read; inbox/detail routing, polling and durable decision keys reviewed."
+
+[file.102]
+path = "apps/web/src/journeys/approvals/model.ts"
+lines = 388
+verdict = "issues"
+note = "Full approval state/disclosure/amount/outcome/reference model read; digest and evidence representation findings recorded."
+
+[file.103]
+path = "apps/web/src/journeys/approvals/programs.tsx"
+lines = 180
+verdict = "clean"
+note = "Full program approval presentation read; retained material downloads and authoritative disclosure/budget reviewed."
+
+[file.104]
+path = "apps/web/src/journeys/approvals/screens.tsx"
+lines = 482
+verdict = "clean"
+note = "Full decision/confirmation/expiry/receipt UI read; model held-digest defect hides real controls as described in approval-operation-digest."
+
+[file.105]
+path = "apps/web/src/journeys/home/home.tsx"
+lines = 232
+verdict = "clean"
+note = "Full home read; concurrent loading, generation guards, unread summaries and navigation reviewed."
+
+[file.106]
+path = "apps/web/src/journeys/home/model.ts"
+lines = 212
+verdict = "clean"
+note = "Full home summary model read; balance, agent and activity summaries agree with consumed local types."
+
+[file.107]
+path = "apps/web/src/journeys/index.ts"
+lines = 2
+verdict = "clean"
+note = "Full root journey barrel read; concrete exports match declarations."
+
+[file.108]
+path = "apps/web/src/journeys/move/model.ts"
+lines = 571
+verdict = "issues"
+note = "Full move validation/quote/commit and persisted uncertain attempt model read; accepted amount render boundary finding recorded."
+
+[file.109]
+path = "apps/web/src/journeys/move/move.tsx"
+lines = 648
+verdict = "clean"
+note = "Full three-step move read; quote generations, native access and durable uncertain recovery reviewed; shared step-up blockers apply."
+
+[file.110]
+path = "apps/web/src/journeys/notifications/controller.ts"
+lines = 75
+verdict = "clean"
+note = "Full notification fetch/read/preferences and approved deep-link calls read against current generated API."
+
+[file.111]
+path = "apps/web/src/journeys/notifications/index.ts"
+lines = 11
+verdict = "clean"
+note = "Full notification public barrel read; exports match implementations."
+
+[file.112]
+path = "apps/web/src/journeys/notifications/model.ts"
+lines = 117
+verdict = "clean"
+note = "Full notification recency/deduplication/unread and safe local deep-link validation read."
+
+[file.113]
+path = "apps/web/src/journeys/notifications/screens.tsx"
+lines = 109
+verdict = "clean"
+note = "Full archive loading/error/empty/read screens read against notification center state."
+
+[file.114]
+path = "apps/web/src/journeys/notifications/store.tsx"
+lines = 158
+verdict = "clean"
+note = "Full notification provider read; refresh/read/preferences updates and generation checks reviewed."
+
+[file.115]
+path = "apps/web/src/journeys/onboarding/ceremony.ts"
+lines = 228
+verdict = "clean"
+note = "Full onboarding registration/assertion option validation and explicit flat credential encoding read; serializer agrees with pinned verifier."
+
+[file.116]
+path = "apps/web/src/journeys/onboarding/devices.tsx"
+lines = 98
+verdict = "clean"
+note = "Full device/session/passkey presentation read; current-device labeling and authoritative data use reviewed."
+
+[file.117]
+path = "apps/web/src/journeys/onboarding/index.ts"
+lines = 14
+verdict = "clean"
+note = "Full onboarding public barrel read; ceremony/model/screen exports match declarations."
+
+[file.118]
+path = "apps/web/src/journeys/onboarding/model.ts"
+lines = 74
+verdict = "clean"
+note = "Full receipt-backed onboarding activation/stage mapping read; production Journey mismatch recorded at the screen consumer."
+
+[file.119]
+path = "apps/web/src/journeys/onboarding/onboarding.tsx"
+lines = 640
+verdict = "issues"
+note = "Full account registration/sign-in/session restore, persisted pending onboarding, polling and resume read; producer Journey mismatch recorded."
+
+[file.120]
+path = "apps/web/src/kit/a11y.ts"
+lines = 180
+verdict = "clean"
+note = "Read in full: focus restoration, live regions and accessible announcement helpers."
+
+[file.121]
+path = "apps/web/src/kit/activity.tsx"
+lines = 165
+verdict = "clean"
+note = "Read in full: activity row/list/receipt presentation and accessible status semantics."
+
+[file.122]
+path = "apps/web/src/kit/collection.tsx"
+lines = 6
+verdict = "clean"
+note = "Read in full: list/grid selection and empty-state composition."
+
+[file.123]
+path = "apps/web/src/kit/confirm.tsx"
+lines = 110
+verdict = "clean"
+note = "Read in full: confirmation disclosure and disabled action semantics."
+
+[file.124]
+path = "apps/web/src/kit/control.tsx"
+lines = 49
+verdict = "clean"
+note = "Read in full: button/control types, events and disabled behavior."
+
+[file.125]
+path = "apps/web/src/kit/device-list.tsx"
+lines = 30
+verdict = "clean"
+note = "Read in full: device/session labeling and action boundaries."
+
+[file.126]
+path = "apps/web/src/kit/display.tsx"
+lines = 150
+verdict = "clean"
+note = "Read in full: labels, timestamps, verification words and display composition."
+
+[file.127]
+path = "apps/web/src/kit/explorer.tsx"
+lines = 166
+verdict = "clean"
+note = "Read in full: explorer tables, badges, navigation, freshness and safe links."
+
+[file.128]
+path = "apps/web/src/kit/field.tsx"
+lines = 37
+verdict = "clean"
+note = "Read in full: field labels, errors, hints and controlled input semantics."
+
+[file.129]
+path = "apps/web/src/kit/index.ts"
+lines = 159
+verdict = "clean"
+note = "Read in full: public exports and their actual declarations."
+
+[file.130]
+path = "apps/web/src/kit/model.ts"
+lines = 113
+verdict = "issues"
+note = "Read in full: verification/status/money mappings; unused statuses for retired custody credit/claim flow recorded."
+
+[file.131]
+path = "apps/web/src/kit/money.tsx"
+lines = 242
+verdict = "clean"
+note = "Read in full: declared monetary value/direction presentation contracts."
+
+[file.132]
+path = "apps/web/src/kit/pattern-code-entry.tsx"
+lines = 14
+verdict = "clean"
+note = "Read in full: bounded code input, labels and confirmation behavior."
+
+[file.133]
+path = "apps/web/src/kit/pattern-detail.tsx"
+lines = 14
+verdict = "clean"
+note = "Read in full: detail heading, sections and technical disclosure."
+
+[file.134]
+path = "apps/web/src/kit/pattern-filters.tsx"
+lines = 14
+verdict = "clean"
+note = "Read in full: controlled filters, query and reset behavior."
+
+[file.135]
+path = "apps/web/src/kit/pattern-money-list.tsx"
+lines = 14
+verdict = "clean"
+note = "Read in full: money list state and stable row identities."
+
+[file.136]
+path = "apps/web/src/kit/pattern-navigation.tsx"
+lines = 18
+verdict = "clean"
+note = "Read in full: current navigation, active state and accessible labels."
+
+[file.137]
+path = "apps/web/src/kit/pattern-notifications.tsx"
+lines = 26
+verdict = "clean"
+note = "Read in full: notification classes, unread controls and preference input."
+
+[file.138]
+path = "apps/web/src/kit/pattern-primary-action.tsx"
+lines = 43
+verdict = "clean"
+note = "Read in full: primary action state and duplicate-action prevention."
+
+[file.139]
+path = "apps/web/src/kit/pattern-search.tsx"
+lines = 14
+verdict = "clean"
+note = "Read in full: search query, submit and accessible state."
+
+[file.140]
+path = "apps/web/src/kit/pattern-wizard.tsx"
+lines = 14
+verdict = "clean"
+note = "Read in full: wizard progression and confirmation boundaries."
+
+[file.141]
+path = "apps/web/src/kit/patterns.tsx"
+lines = 9
+verdict = "clean"
+note = "Read in full: pattern public exports and actual component declarations."
+
+[file.142]
+path = "apps/web/src/kit/performance.tsx"
+lines = 20
+verdict = "clean"
+note = "Read in full: budget status, metrics and reported sink health presentation."
+
+[file.143]
+path = "apps/web/src/kit/plane-route-action.tsx"
+lines = 29
+verdict = "clean"
+note = "Read in full: current local route action construction."
+
+[file.144]
+path = "apps/web/src/kit/qr-code.tsx"
+lines = 31
+verdict = "clean"
+note = "Read in full: QR payload encoding, bounded data and accessible presentation."
+
+[file.145]
+path = "apps/web/src/kit/settings.tsx"
+lines = 41
+verdict = "clean"
+note = "Read in full: settings controls, labels and section composition."
+
+[file.146]
+path = "apps/web/src/kit/surface.tsx"
+lines = 105
+verdict = "clean"
+note = "Read in full: shared cards, layout and accessible loading/error surfaces."
+
+[file.147]
+path = "apps/web/src/perf/budgets.ts"
+lines = 139
+verdict = "issues"
+note = "Read in full: route classification and budget units; missing explorer detail coverage recorded."
+
+[file.148]
+path = "apps/web/src/perf/rum-store.ts"
+lines = 101
+verdict = "clean"
+note = "Read in full: bounded aggregate retention, redaction and percentile calculations."
+
+[file.149]
+path = "apps/web/src/perf/web-vitals-rum.tsx"
+lines = 30
+verdict = "clean"
+note = "Read in full: observer lifecycle, route redaction and sink submission."
+
+[file.150]
+path = "apps/web/src/proxy.ts"
+lines = 30
+verdict = "clean"
+note = "Read in full: current authenticated route matcher, session and CSRF boundary."
+
+[file.151]
+path = "apps/web/src/security/csp.ts"
+lines = 27
+verdict = "clean"
+note = "Read in full: CSP directives and admitted resource origins."
+
+[file.152]
+path = "apps/web/src/security/origin.ts"
+lines = 20
+verdict = "clean"
+note = "Read in full: strict origin admission and normalized web/service origins."
+
+[file.153]
+path = "apps/web/src/server/support-reports.ts"
+lines = 206
+verdict = "clean"
+note = "Read in full: private durable storage, validated redacted data, principal lookup and retention."
+
+[file.154]
+path = "apps/web/src/settings/index.ts"
+lines = 27
+verdict = "clean"
+note = "Read in full: settings public exports and concrete declarations."
+
+[file.155]
+path = "apps/web/src/settings/model.ts"
+lines = 105
+verdict = "clean"
+note = "Read in full: setting state, preferences and current API request mappings."
+
+[file.156]
+path = "apps/web/src/settings/privacy.tsx"
+lines = 125
+verdict = "clean"
+note = "Read in full: consented privacy preference controls and disclosure."
+
+[file.157]
+path = "apps/web/src/settings/security/index.ts"
+lines = 2
+verdict = "clean"
+note = "Read in full: security barrel exports and actual implementations."
+
+[file.158]
+path = "apps/web/src/settings/security/model.ts"
+lines = 80
+verdict = "issues"
+note = "Read in full: recovery readiness, secret expiry and step-up binding; retired-rung finding recorded."
+
+[file.159]
+path = "apps/web/src/settings/security/secret.tsx"
+lines = 146
+verdict = "clean"
+note = "Read in full: explicit reveal, remasking deadline and secret presentation lifecycle."
+
+[file.160]
+path = "apps/web/src/settings/security/security-screen.tsx"
+lines = 631
+verdict = "clean"
+note = "Read in full: real device/passkey/recovery actions, confirmation and error handling."
+
+[file.161]
+path = "apps/web/src/settings/server.ts"
+lines = 6
+verdict = "clean"
+note = "Read in full: server settings/session context and current generated API use."
+
+[file.162]
+path = "apps/web/src/settings/settings-screen.tsx"
+lines = 439
+verdict = "clean"
+note = "Read in full: settings load/save, privacy/notification controls and error states."
+
+[file.163]
+path = "apps/web/src/settings/wallet/index.ts"
+lines = 2
+verdict = "clean"
+note = "Read in full: wallet settings public exports and actual declarations."
+
+[file.164]
+path = "apps/web/src/settings/wallet/model.ts"
+lines = 42
+verdict = "clean"
+note = "Read in full: wallet/provider metadata and declared current chain handling."
+
+[file.165]
+path = "apps/web/src/settings/wallet/wallet-screen.tsx"
+lines = 49
+verdict = "clean"
+note = "Read in full: wallet state, account controls and provider errors."
+
+[file.166]
+path = "apps/web/src/shell/app-shell.tsx"
+lines = 226
+verdict = "clean"
+note = "Read in full: mobile/desktop shell, live navigation and unread presentation."
+
+[file.167]
+path = "apps/web/src/shell/selector.ts"
+lines = 102
+verdict = "clean"
+note = "Read in full: deterministic platform selection and supported shells."
+
+[file.168]
+path = "apps/web/src/shell/server.ts"
+lines = 41
+verdict = "clean"
+note = "Read in full: server platform/session selection without client trust escalation."
+
+[file.169]
+path = "apps/web/src/states/application.tsx"
+lines = 24
+verdict = "clean"
+note = "Read in full: shared application state selection and accessible status presentation."
+
+[file.170]
+path = "apps/web/src/states/error.tsx"
+lines = 303
+verdict = "clean"
+note = "Read in full: error reset/report boundary and trace mapping."
+
+[file.171]
+path = "apps/web/src/states/index.ts"
+lines = 57
+verdict = "clean"
+note = "Read in full: state public exports and concrete declarations."
+
+[file.172]
+path = "apps/web/src/states/matrix.ts"
+lines = 186
+verdict = "issues"
+note = "Read in full: screen states and coverage inventory; stale inventory finding recorded."
+
+[file.173]
+path = "apps/web/src/states/offline.tsx"
+lines = 41
+verdict = "clean"
+note = "Read in full: browser connectivity subscription and lifecycle cleanup."
+
+[file.174]
+path = "apps/web/src/states/queue.ts"
+lines = 53
+verdict = "clean"
+note = "Read in full: duplicate action locking and pending operation semantics."
+
+[file.175]
+path = "apps/web/src/states/report-schema.ts"
+lines = 121
+verdict = "issues"
+note = "Read in full: exact report body, trace/route/shell validators; real route template mismatch recorded."
+
+[file.176]
+path = "apps/web/src/states/report.ts"
+lines = 177
+verdict = "issues"
+note = "Read in full: consent, redaction, durable outbox and replay; principal scope finding recorded."
+
+[file.177]
+path = "apps/web/src/states/surfaces.tsx"
+lines = 134
+verdict = "clean"
+note = "Read in full: loading/empty/error/offline/degraded/still-checking accessible surfaces."
+
+[file.178]
+path = "apps/web/src/support/chat.tsx"
+lines = 313
+verdict = "issues"
+note = "Read in full: conversation rendering and connectivity lifecycle; idle authoritative refresh finding recorded."
+
+[file.179]
+path = "apps/web/src/support/conversation.ts"
+lines = 302
+verdict = "issues"
+note = "Read in full: create/reply/read/feedback and retry state; immutable operation, durable pending and test gaps recorded."
+
+[file.180]
+path = "apps/web/src/support/index.ts"
+lines = 13
+verdict = "clean"
+note = "Read in full: support barrel exports and actual implementations."
+
+[file.181]
+path = "apps/web/src/support/model.ts"
+lines = 12
+verdict = "clean"
+note = "Read in full: support state/copy mappings and current public types."
+
+[file.182]
+path = "apps/web/src/support/topics.ts"
+lines = 23
+verdict = "clean"
+note = "Read in full: declared support topics, seed keys and topic validation."
+
+[file.183]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/transaction_log_controller_test.exs"
+lines = 176
+verdict = "clean"
+note = "Read in full against the actual transaction log controller: HTML response, topic/address filtering and not-found behavior agree with the tested producer."
+
+[file.184]
+path = "services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml"
+lines = 4109
+verdict = "generated"
+note = "Generated by ts-src/merge-overrides.ts from the imported Blockscout source and sorted local overlays using lodash.merge and removal markers. Overlay health/required-list defects are recorded at their owning source overlays; generated output is not independently edited."
+
+[file.185]
+path = "services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-v2.yaml"
+lines = 3977
+verdict = "vendored"
+note = "Vendored upstream Blockscout v2 Swagger imported by ts-src/get-api-v2.ts with local /api/v2 path/server normalization. Local schema adaptations belong to the overlays and generation owner rather than hand-edits to this upstream input."
+
+[file.186]
+path = "services/explorer/services/libs/blockscout-client/swaggers/overrides/001_email.yaml"
+lines = 3
+verdict = "clean"
+note = "Read in full: the email-required override agrees with the owning schema adaptation and is merged through the existing overlay generator."
+
+[file.187]
+path = "services/explorer/services/libs/blockscout-client/swaggers/overrides/002_health.yaml"
+lines = 74
+verdict = "issues"
+note = "Read in full against API.HealthController and routing: current health response hierarchy and obsolete v1 operation findings recorded."
+
+[file.188]
+path = "services/explorer/services/libs/blockscout-client/swaggers/overrides/003_fix_types.yaml"
+lines = 153
+verdict = "issues"
+note = "Read in full against the merged output and lodash overlay behavior: null required-array entries survive into invalid OpenAPI."
+
+[finding.explorer-retired-transport]
+file = "apps/web/src/explorer/client.ts"
+line = 109
+class = "interface-mismatch"
+severity = "high"
+observed = "receiptRecord, accountActivityPage, programRecord, unifiedAccount and resolveName request /v1/explorer/receipts, /v1/explorer/accounts, /v1/programs, /v1/accounts/{id}/unified and /v1/programs/{id}/reads/resolve. Their layerx-explorer-index producer is deleted and registry rows 10.http-explorer-account-unified and 10.http-explorer-program-resolve are retired. The configured native explorer instead registers /api/v2/addresses/:address_hash_param/unified in api_router.ex:262; its archive receipts are under /api/v2/paxeer-x/archive. Changing the configured origin cannot make these paths round-trip."
+expected = "The web explorer must read the native merged-network explorer and registered program/transaction interfaces. Requirement 14041 preserves an origin rule but its frozen /v1 path conflicts with the retired producer; origin tests alone do not establish a live transport."
+proposal = "In apps/web/src/explorer/client.ts and the native explorer routing owner, replace each removed index call with an explicitly declared native address, transaction or program read. Carry actual not-found, unavailable and cursor refusal responses into the page model; resolve naming through a registered program read. Update the conflicting 14041/14042 contract paths and prove every reader against the real native HTTP producer. Do not restore a separate explorer-index service."
+owner_domain = 14
+interface = "14.ts-web-explorer-client-receiptrecord"
+related_interfaces = ["10.http-explorer-account-unified", "10.http-explorer-program-resolve", "14.ts-web-explorer-client-programrecord", "14.ts-web-explorer-client-unifiedaccountavailability", "14.ts-web-explorer-client-resolvename"]
+
+[finding.native-unified-shape]
+file = "apps/web/src/explorer/model.ts"
+line = 563
+class = "interface-mismatch"
+severity = "high"
+observed = "UnifiedAccountRecord and its availability decoder require requested/canonical/evidence, balances.items, split paxeer_activity and layerx_activity, settlement and batch/checkpoint freshness. The real unified_account_controller.ex emits identities {evm,pax,did}, balances [{asset,total}], committed activity rows and next_page_params.cursor plus page_cursor/first_page_cursor/page_number/activity_total. A successful native response is rejected; numeric before/before_block pagination also cannot preserve the native account-bound signed cursor, one-hour expiry, snapshot and reorg checks."
+expected = "The model, transport query, page rendering and native unified account projection must share names, types, amount encodings, committed status, opaque cursor lifecycle and refusal semantics end to end."
+proposal = "In apps/web/src/explorer/model.ts, client.ts and app/explorer/accounts/[accountId]/page.tsx, introduce the native unified-account contract and map balances and committed activity without inventing split settlement facts. Forward opaque next_page_params cursors unchanged, reset expired or invalidated snapshots explicitly, and prove native producer to HTTP to decoded account page including expiry, restart and reorg refusal."
+owner_domain = 14
+interface = "14.ts-web-explorer-model-decodeunifiedaccountavailability"
+related_interfaces = ["10.http-explorer-account-unified"]
+
+[finding.explorer-retired-finality]
+file = "apps/web/src/explorer/model.ts"
+line = 5
+class = "retired-reference"
+severity = "medium"
+observed = "ExplorerFreshness, CheckpointRecord, BatchRecord and UnifiedSettlement model observedSealedBatch, observedFinalisedCheckpoint, batchesBehind, finalizedBatch and anchorStatus as live network facts. UnifiedBalanceRecord also keeps custody/paxeer/layerx partitions. Retired explorer-kernel-views and the old index no longer supply this live settlement model."
+expected = "A live merged-network receipt is final when its block commits. Historical pre-merge batch and settlement evidence must be explicitly archived and must not define current account freshness or funding partitions."
+proposal = "Replace the live types and encoders in apps/web/src/explorer/model.ts with committed block/address facts from the native explorer; move genuine old batch/checkpoint and custody records behind an explicit historical archive contract, and migrate active page consumers together."
+owner_domain = 14
+
+[finding.retired-explorer-receipt-link]
+file = "apps/web/src/explorer/links.ts"
+line = 29
+class = "retired-reference"
+severity = "medium"
+observed = "explorerLinkPath still returns /paxeer-x/receipts/{receiptId} for a valid receipt target. The native explorer removed this public receipt surface with explorer-kernel-views; current native links use transaction/address pages and explicit archive API paths. No live application importer beyond the client helper was found, so this is an exported broken link contract rather than evidence of failed transaction execution."
+expected = "An exported explorer link must land on a registered native page with the correct identifier, and historical receipt navigation must identify an actual archive destination."
+proposal = "In apps/web/src/explorer/links.ts and its client helper, resolve a current receipt to its transaction hash and native /tx route. If historical receipt browsing is retained, declare and implement an explicit archive destination before emitting its URL; retain the existing identifier and origin checks."
+owner_domain = 14
+interface = "14.ts-web-explorer-links-explorerlinkpath"
+
+[finding.retired-freshness-presentation]
+file = "apps/web/src/explorer/components.tsx"
+line = 59
+class = "retired-reference"
+severity = "medium"
+observed = "FreshnessDisplay presents observed sealed batches, batchesBehind and indexed checkpoints as current freshness. MirrorFreshnessDisplay at line 68 additionally exposes batch lag and checkpoint canonicality after the mirror-verification route was retired. The active unavailable/not-found components reuse this vocabulary."
+expected = "Current explorer freshness should describe indexed committed blocks and genuine source availability; archived settlement or mirror facts should only appear in an explicitly historical context."
+proposal = "Update apps/web/src/explorer/components.tsx and its copy keys to present native committed/indexed positions and explicit stale/unavailable states, and remove the unused mirror display or place it under a genuine archive consumer."
+owner_domain = 14
+
+[finding.program-unearned-finality]
+file = "apps/web/src/app/explorer/programs/[programId]/page.tsx"
+line = 41
+class = "security"
+severity = "medium"
+observed = "Every decoded program fact and value account receives a hardcoded checkpoint-finalised badge, and ExplorerFreshness is always current at line 55. ProgramRecord supplies observed_at, sequence, receipt digest and state root but no independently established achieved verification level or comparison establishing currentness. The HTTP decoder alone does not perform receipt verification."
+expected = "The page must distinguish reported program observations from verified committed evidence and must not assign stronger finality or freshness than the producer and verification path establish."
+proposal = "In apps/web/src/app/explorer/programs/[programId]/page.tsx, derive verification and currentness from authenticated committed evidence and the observed head. Until such evidence exists, label the data as reported and show its observation position and age without a finality badge."
+owner_domain = 14
+
+[finding.abi-array-allocation]
+file = "apps/web/src/api/abi-read.ts"
+line = 189
+class = "runtime-risk"
+severity = "medium"
+observed = "tail decodes a dynamic array count with offset and allocates Array.from({length}) before verifying that count times the element head size fits the remaining response. offset bounds the count only by the entire byte buffer, allowing a malformed but bounded RPC response to allocate millions of entries before sequence detects truncated elements."
+expected = "Untrusted ABI lengths must be checked against the available element head and safe arithmetic before allocation or iteration, with canonical offsets and bounded decoding work."
+proposal = "In apps/web/src/api/abi-read.ts, validate the array head extent with overflow-safe multiplication and remaining-byte bounds before constructing entries; apply a declared decoding work bound and canonical offset checks, and exercise malformed dynamic arrays through the real view decoder."
+owner_domain = 14
+interface = "14.ts-web-api-abi-read-decodeabiresult"
+
+[finding.rpc-response-memory-bound]
+file = "apps/web/src/api/gateway.ts"
+line = 91
+class = "runtime-risk"
+severity = "medium"
+observed = "rpc awaits response.text() in full and checks MAX_RESPONSE_BYTES only afterwards. The comparison uses JavaScript string length instead of received UTF-8 bytes, so a large upstream response consumes memory before the advertised nine-MiB boundary is enforced and multibyte text is counted inconsistently."
+expected = "The RPC adapter must enforce its byte boundary while receiving the body and cancel oversized responses within the request deadline, before JSON parsing and large allocations."
+proposal = "Read the response body as a bounded byte stream in apps/web/src/api/gateway.ts, cancel when the byte budget is exceeded, retain the deadline across body consumption, and then decode UTF-8 and JSON with the existing envelope and identifier checks."
+owner_domain = 14
+
+[finding.rum-orphaned-temporary]
+file = "apps/web/src/api/performance-sink.ts"
+line = 353
+class = "restart-recovery"
+severity = "medium"
+observed = "persistDurably writes and syncs a private .json.tmp before rename. Process death can leave that file behind. durableSnapshot ignores it only for ACTIVE_TEMPORARY_MS, then throws on every snapshot; performanceSinkSnapshot returns degraded health and empty aggregates. pruneSeries only prunes final records and never recovers the stale temporary, so committed observations remain unreadable indefinitely after this crash window."
+expected = "Reopening the durable sink after a crash must retain committed observations and handle incomplete private temporary files without permanently suppressing all aggregates."
+proposal = "Add safe orphan recovery in apps/web/src/api/performance-sink.ts that validates ownership and distinguishes active writes from abandoned temporaries, quarantines or removes only incomplete records, and continues reading committed records. Prove recovery after termination before rename and after reopening the same private directory."
+owner_domain = 14
+
+[finding.bridge-wide-log-scan]
+file = "apps/web/src/api/precompiles.ts"
+line = 44
+class = "runtime-risk"
+severity = "medium"
+observed = "recentLogs requests one eth_getLogs range covering up to 50,000 blocks. BridgeOut history scans all events before recipient filtering, while the gateway deadline is eight seconds. Large scans are already a recorded RPC pitfall in GOTCHA.kvx and can repeatedly make otherwise available bridge history appear unavailable as chain traffic grows."
+expected = "Account history reads must have bounded per-request work and resumable coverage rather than requiring a single large node log scan to finish inside a short UI deadline."
+proposal = "In apps/web/src/api/precompiles.ts, query supported indexed account history or chunk logs into bounded block windows with explicit upper boundaries, stable ordering, deduplication and a continuation cursor. Preserve visible partial/unavailable states and verify the real node query behavior on a busy range."
+owner_domain = 14
+
+[finding.launchpad-first-page-only]
+file = "apps/web/src/app/launchpad/page.tsx"
+line = 68
+class = "wiring-gap"
+severity = "medium"
+observed = "The page always calls launchpadMarkets(0n, PAGE_SIZE), where PAGE_SIZE is 50, and shows the full market count. No offset, cursor, search or next-page control reaches later markets, and LaunchpadActions receives only that first set. Existing markets after the first fifty cannot be selected from this page."
+expected = "Users must be able to discover and act on every listed launchpad market through bounded navigation while the displayed count describes the same reachable collection."
+proposal = "Add stable market pagination or indexed search in apps/web/src/app/launchpad/page.tsx and launchpad-client.tsx, preserving the active account and query when navigating; expose subsequent pools and verify selecting a pool beyond the first fifty against the real producer."
+owner_domain = 14
+
+[finding.program-fixture-proof]
+file = "apps/web/src/explorer/program-contract.test.ts"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "projection constructs a program response entirely inside the decoder test, including verified source metadata, timestamps and digests. It never starts or calls the real program producer. The separate proof_explorer server also hand-builds the old explorer response, so these assertions cannot expose the removed /v1 producer or establish requirement 21142 real-path agreement."
+expected = "Program interface qualification must drive the real registered producer through HTTP into the client and rendered observable result; local malformed-input assertions remain useful but do not establish that path."
+proposal = "Keep the strict decoder assertions in apps/web/src/explorer/program-contract.test.ts and add the owning real native program HTTP-to-client-to-page proof, covering source metadata, cross-program refusal, malformed commitments and actual not-found responses without a test-owned substitute producer."
+owner_domain = 14
+
+[finding.approval-operation-digest]
+file = "apps/web/src/journeys/approvals/model.ts"
+line = 185
+class = "interface-mismatch"
+severity = "high"
+observed = "heldDigest requires approval-hold evidence with evd_ plus 26 lowercase alphanumeric characters and rewrites it to opd_. The native production_components.rs:2823-2840 producer uses projection.rs:257-262 to emit evd_ plus 64 SHA-256 hex characters; the managed approval projection supplies no approval-hold. Real holds therefore have no accepted digest, canApprove is false and screens.tsx hides their decision controls as defective."
+expected = "An ordinary approval must expose an authoritative operation digest bound to the held operation, and the browser must transmit that declared digest without manufacturing identity from evidence names."
+proposal = "Add an explicit operation-bound digest/disclosure to the production approval projection and schema, then consume it in apps/web/src/journeys/approvals/model.ts and controller.ts. Prove a real pending approval through HTTP into an approve/reject decision, retaining all hold and operation-binding checks."
+owner_domain = 14
+interface = "14.ts-web-journeys-approvals-model-helddigest"
+
+[finding.stepup-reference-rewrite]
+file = "apps/web/src/journeys/approvals/model.ts"
+line = 194
+class = "interface-mismatch"
+severity = "high"
+observed = "stepUpEvidenceReference requires chg_ plus 26 characters and replaces chg_ with evd_. auth/mod.rs mints chg_ plus 32 hex characters from sixteen entropy bytes. production_components.rs:864-879 passes step_up_evidence directly to auth/stepup.rs load_step_up_evidence, which expects the original challenge identifier. Genuine output is either refused by the browser or rewritten into a nonexistent reference."
+expected = "Step-up begin, finish and bound decision consumers must use one authentic reference representation accepted by the server, preserving identity and operation binding unchanged."
+proposal = "Align the declared evidence reference with the actual challenge identifier in the human API schema and apps/web/src/journeys/approvals/model.ts; remove prefix/suffix inference and pass the authoritative reference unchanged. Prove both ordinary and program decisions using real step-up output."
+owner_domain = 14
+interface = "14.ts-web-journeys-approvals-model-stepupevidencereference"
+
+[finding.stepup-webauthn-shape]
+file = "apps/web/src/journeys/approvals/ceremony.ts"
+line = 48
+class = "interface-mismatch"
+severity = "high"
+observed = "browserPasskeyAuthenticator serializes PublicKeyCredential.toJSON(), whose authenticatorData, signature and clientDataJSON are nested under response. The pinned passkey-auth 0.1.3 AuthenticationResponse consumed by the service requires those fields at the top level with id and userHandle. In-repo event_producer_tls.rs:151-163 and the onboarding serializer use that flat form. Shared approval, agent rotation, move authorization and security ceremonies cannot authenticate the nested response."
+expected = "The browser assertion must match the verifier input exactly while preserving challenge, origin, relying-party and signature validation through the actual HTTP boundary."
+proposal = "Share the explicit flat assertion serializer already used by apps/web/src/journeys/onboarding/ceremony.ts with approvals/ceremony.ts, matching the pinned server verifier. Add a browser assertion-to-real-stepupFinish proof without substituting a verifier or bypassing signature checks."
+owner_domain = 14
+interface = "14.ts-web-journeys-approvals-ceremony-browserpasskeyauthenticator"
+
+[finding.stepup-timestamp-types]
+file = "apps/web/src/journeys/approvals/ceremony.ts"
+line = 58
+class = "interface-mismatch"
+severity = "high"
+observed = "identity_dispatch.rs:344-352 emits expires_at and completed_at directly as u64 Unix timestamps for step-up begin and finish. Generated StepUpChallenge and StepUpEvidence decoders require strings, and performStepUp calls Date.parse on expiry at lines 59 and 69. Actual HTTP output is rejected before the ceremony can complete even with a correctly shaped credential."
+expected = "Both step-up endpoints must produce the declared timestamp representation and a consistent expiry lifecycle understood by generated clients and the browser."
+proposal = "Normalize the projections in services/human/crates/layerx-human-service/src/server/identity_dispatch.rs to the declared RFC3339 timestamps, or coherently version schema and all consumers if the contract changes. Prove begin, finish, expiry and a bound decision through the real producer and client."
+owner_domain = 10
+interface = "10.http-human-stepup-begin"
+related_interfaces = ["10.http-human-stepup-finish"]
+
+[finding.onboarding-journey-shape]
+file = "apps/web/src/journeys/onboarding/onboarding.tsx"
+line = 242
+class = "interface-mismatch"
+severity = "high"
+observed = "onboardingStatus decodes Journey, but identity_dispatch.rs:355-373 emits kind/state/account_active/stages with stage names rather than stage_id/copy_key, local-complete or receipt-verified stage states and complete/queued top-level states. It omits journey_id, state_copy_key, timestamps and top-level evidence. onboarding/model.ts additionally requires a done, receipt-backed protocol-identity copy key that this projection never supplies. Status and resume cannot activate the real client."
+expected = "Onboarding status and resume must expose the durable declared Journey and stage contract, with receipt-backed activation and recovery after service or browser restart."
+proposal = "Project the real onboarding state into the public Journey schema in services/human/crates/layerx-human-service/src/server/identity_dispatch.rs, preserving stable identities, declared states, copy keys, timestamps and genuine evidence. Prove initial activation, pending resumption and receipt-backed completion through HTTP into the web after restart."
+owner_domain = 10
+interface = "10.http-human-onboarding-status"
+related_interfaces = ["10.http-human-onboarding-resume"]
+
+[finding.activity-detail-shape]
+file = "apps/web/src/journeys/activity/detail.tsx"
+line = 137
+class = "interface-mismatch"
+severity = "high"
+observed = "The real activity_entry_json in production_reads.rs:88-114 emits numeric occurred_at, null for absent money/fees and 64-character asset hashes as currency. Generated ActivityEntryDetail requires a timestamp string and omission of absent optional objects; a present null reaches decodeMoney and fails. Web money formatting also requires three uppercase currency letters. Direction and catalog copy-key projection differ as well. proof_journeys constructs RFC3339/LXP objects locally and hides these actual producer failures."
+expected = "Real activity detail must satisfy the declared timestamp, optionality, display asset/units, direction and catalog-key contract accepted by the generated client and the page."
+proposal = "Align services/human/crates/layerx-human-service/src/server/production_reads.rs with the declared detail schema, omit absent optional objects, serialize real timestamps and supply declared asset display metadata/units. Drive genuine HTTP detail output through the generated decoder and rendered detail for monetary and nonmonetary activities."
+owner_domain = 10
+interface = "10.http-human-activity-entry"
+
+[finding.agent-uncertain-reopen]
+file = "apps/web/src/journeys/agents/model.ts"
+line = 610
+class = "restart-recovery"
+severity = "medium"
+observed = "Agents keeps pending mutation idempotency keys, owner-rotation requests and funding authorization identifiers in instance-local Maps. Its mutation helper retains uncertain keys only for that object lifetime; create/control uncertainty markers also live in components. Navigation or reload discards the identity needed to reconcile an accepted request whose response was lost. Duplicate backend execution was not independently established."
+expected = "An uncertain agent operation must retain its principal-bound identity and reconcile the original authoritative result after reopening before an equivalent new mutation is issued."
+proposal = "Persist private principal-scoped operation identity and reconciliation state before submission in apps/web/src/journeys/agents/model.ts and the creation/control owners. On reopen, recover the existing journey/result before enabling a replacement operation, and prove accepted-but-response-lost reload recovery with the real backend."
+owner_domain = 14
+
+[finding.large-move-amount-render]
+file = "apps/web/src/journeys/move/model.ts"
+line = 136
+class = "runtime-risk"
+severity = "medium"
+observed = "parseMoveAmount accepts positive values with up to 38 decimal digits, but moneyAmountNumber throws above Number.MAX_SAFE_INTEGER. moveSummary formats every accepted amount during render, so typing 9007199254740992 passes parsing and throws before a quote can be requested. Activity and approval display helpers share this conversion boundary."
+expected = "Every protocol-valid integer amount must remain renderable with its declared asset units; invalid input must produce a field-level validation error rather than crash the journey."
+proposal = "Use exact integer money formatting in apps/web/src/journeys/move/model.ts and the shared activity/approval amount displays, respecting declared asset decimals and limits. Cover safe-integer boundaries and the maximum accepted input through the actual rendered input and review path."
+owner_domain = 14
+
+[finding.activity-filter-response-race]
+file = "apps/web/src/journeys/activity/activity.tsx"
+line = 151
+class = "runtime-risk"
+severity = "medium"
+observed = "Refresh and pagination have no request-generation guard. An older loadMore captures its page and unconditionally replaces load at line 186 after a newer filter has already loaded; overlapping refreshes can resolve out of order as well. Displayed rows and filter echo can revert while applied still names the new filter."
+expected = "Only responses belonging to the currently applied filter and account may update that filter's visible rows, pagination or failure state."
+proposal = "Bind refresh and pagination to an account/filter generation in apps/web/src/journeys/activity/activity.tsx, abort or discard obsolete requests, and verify reversed response completion ordering through the actual controller and rendered filter results."
+owner_domain = 14
+
+[finding.activity-export-payload-key]
+file = "apps/web/src/journeys/activity/activity.tsx"
+line = 196
+class = "runtime-risk"
+severity = "medium"
+observed = "A failed or uncertain export retains its idempotency key in a Map indexed only by export kind. Applying a different filter does not rescope that entry; the next export of the same kind reuses the retained key with a changed filter payload, violating immutable request identity."
+expected = "One idempotency key must identify one immutable principal-bound export payload; a new filter is a new request and must not overwrite reconciliation of an uncertain earlier export."
+proposal = "In apps/web/src/journeys/activity/activity.tsx, retain the exact principal, kind and filter alongside each export attempt. Reconcile an uncertain original operation separately and issue a new key for a distinct payload; prove response-loss retry across a filter change against the real export service."
+owner_domain = 14
+
+[finding.activity-evidence-dead-route]
+file = "apps/web/src/journeys/activity/model.ts"
+line = 183
+class = "wiring-gap"
+severity = "medium"
+observed = "explorerPath emits /explorer/checkpoints/{evidence_id} for checkpoint-proof even though the checkpoint routes are retired and absent. It also inserts evd_ evidence identifiers directly into /explorer/receipts, whose reader requires a receipt digest grammar rather than an evidence reference. The detail page uses these links for technical evidence."
+expected = "Evidence navigation must resolve the evidence resource into an actual native transaction or explicit historical archive location with that location's correct identifier."
+proposal = "Resolve EvidenceRef through the declared evidence/material contract in apps/web/src/journeys/activity/model.ts before offering an explorer link. Emit a registered native transaction URL or explicit archive route, and show no link when no such destination exists."
+owner_domain = 14
+interface = "14.ts-web-journeys-activity-model-explorerpath"
+
+[finding.support-report-route-template]
+file = "apps/web/src/states/report-schema.ts"
+line = 68
+class = "interface-mismatch"
+severity = "high"
+observed = "supportReportRoute rejects square brackets, while app/app/agents/[agentId]/error.tsx:9 produces route /app/agents/[agentId]. RouteErrorBoundary passes it through ErrorSurface and BrowserSupportReportOutbox into redactErrorReport and parseSupportReportRequest, which throws before either POST or durable queueing. A real declared route error cannot be reported or retrieved by support."
+expected = "Route boundaries, the privacy redactor, queued report schema and POST/retrieval endpoint must agree on canonical privacy-safe route templates used by the actual app."
+proposal = "Define an explicit template inventory shared by the route boundaries and apps/web/src/states/report-schema.ts, preserving redaction of user identifiers and path traversal refusal. Prove the genuine dynamic-agent error boundary through POST and durable trace retrieval after reopening."
+owner_domain = 14
+interface = "14.ts-web-states-report-schema-parsesupportreportrequest"
+
+[finding.explorer-rum-route-drop]
+file = "apps/web/src/perf/budgets.ts"
+line = 96
+class = "wiring-gap"
+severity = "medium"
+observed = "classifyPerformanceRoute recognizes explorer only when EXPLORER_NAVIGATION contains the exact pathname, currently /explorer. Live account, program and receipt detail paths return undefined, so WebVitalsRum discards their observations and the explorer performance budgets omit the important detail reads."
+expected = "Performance collection must classify every live explorer detail route while retaining explicit exclusions for retired surfaces and redacting dynamic identifiers."
+proposal = "Update apps/web/src/perf/budgets.ts to classify the actual explorer account/program/receipt route templates into the explorer budget, keep retired prefixes excluded, and exercise collection from real detail paths through redaction and the vitals sink."
+owner_domain = 14
+
+[finding.state-matrix-stale-inventory]
+file = "apps/web/src/states/matrix.ts"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "CURRENT_ROUTES includes removed checkpoint and batch pages but omits bridge, exchange, launchpad, program detail and current security settings routes. A second hardcoded currentTargets inventory and assertComplete compare maintained lists to each other, so they can certify completeness without covering the running route set."
+expected = "The screen-state matrix must cover actual current route and shell boundaries, including loading, empty, error, offline, degraded and still-checking states, and must reject removed routes."
+proposal = "Derive the route inventory from apps/web/src/app or a single authoritative manifest in apps/web/src/states/matrix.ts and verify real state wiring for both mobile and desktop. Remove retired targets and require the omitted live market/program/security surfaces instead of comparing duplicate hand-maintained lists."
+owner_domain = 14
+
+[finding.support-report-principal-replay]
+file = "apps/web/src/states/report.ts"
+line = 27
+class = "security"
+severity = "medium"
+observed = "PENDING_REPORTS_KEY is global localStorage state with no principal binding. drainPending posts entries with the current cookie and CSRF token, and the POST owner derives principalScope from that current verified session. A report queued by principal A can be replayed and stored as principal B after account switching in the same browser."
+expected = "Consented private support reports must remain associated with the principal that created them, and an authentication change must not silently reattribute queued observations."
+proposal = "Scope the private outbox and immutable report attempts to the originating principal in apps/web/src/states/report.ts and the authenticated report flow. Refuse cross-principal replay, define logout cleanup explicitly, and prove offline queue, account switch and reopen without weakening server authorization."
+owner_domain = 14
+
+[finding.recovery-retired-evidence-rungs]
+file = "apps/web/src/settings/security/model.ts"
+line = 26
+class = "retired-reference"
+severity = "medium"
+observed = "recoveryPresentation accepts every layerx-receipt whose verification is not unverified. The generated wire decoder still accepts paxeer-finalised and settlement-anchored for compatibility, while the current kit verificationRung maps those retired rungs to unverified. A completed stage carrying either old value can be presented as recovery-ready by this looser predicate."
+expected = "Recovery readiness must be based only on the current declared receipt verification states and genuine completed recovery evidence, with historical wire values explicitly refused or migrated."
+proposal = "Use the current verification-rung predicate in apps/web/src/settings/security/model.ts and restrict readiness to receipt-verified/checkpoint-finalised as declared. Preserve compatibility decoding without promoting retired settlement evidence into current recovery readiness."
+owner_domain = 14
+interface = "14.ts-web-settings-security-model-recoverypresentation-2"
+
+[finding.support-idle-reply-refresh]
+file = "apps/web/src/support/chat.tsx"
+line = 167
+class = "wiring-gap"
+severity = "medium"
+observed = "SupportChat initializes on mount and retries on browser online events, but installs no polling, subscription or ready-state refresh action. A support operator's record_support_reply changes the authoritative conversation while an idle connected customer continues seeing the old snapshot until reload or another local request."
+expected = "A connected support conversation must receive authoritative operator replies and state transitions while the customer waits, with lifecycle cleanup and explicit connection failures."
+proposal = "Add a bounded authoritative polling or subscription lifecycle in apps/web/src/support/chat.tsx and conversation.ts, cancel it on unmount/account change, preserve pending messages while refreshing, and prove an operator reply becomes visible without another customer message or page reload."
+owner_domain = 14
+
+[finding.support-retry-operation-target]
+file = "apps/web/src/support/conversation.ts"
+line = 193
+class = "restart-recovery"
+severity = "medium"
+observed = "PendingMessage retains a key/body/topic but not its original create-or-reply operation or conversation target. If create K1 commits but its response is lost, another create K2 can succeed; retrying K1 then takes the current reply branch and posts its first message into K2. support.rs deduplicates create by principal/key and replies by conversation/key, so the changed operation evades the original idempotency record."
+expected = "Retry must preserve the exact operation, target, body and principal associated with an idempotency key and reconcile an uncertain conversation creation before moving to another target."
+proposal = "Store immutable operation and conversation identity with each attempt in apps/web/src/support/conversation.ts. Replay an uncertain create as that same create and recover its authoritative conversation before a new create/reply; prove response loss followed by another send and retry through the real support service."
+owner_domain = 14
+related_interfaces = ["10.http-human-support-create", "10.http-human-support-reply"]
+
+[finding.support-pending-message-loss]
+file = "apps/web/src/support/conversation.ts"
+line = 68
+class = "restart-recovery"
+severity = "medium"
+observed = "The pending message array and draft exist only in memory. send clears the draft at lines 139-141 before delivery completes, while initialize restores server conversations only. Failed/offline message bodies and their idempotency keys vanish on reload or unmount, leaving no recoverable customer attempt."
+expected = "A customer message accepted into the send queue must remain privately recoverable after reopening, and its original operation identity must survive until authoritative acknowledgement."
+proposal = "Persist a private principal-scoped pending operation/body/key before clearing the draft in apps/web/src/support/conversation.ts. Restore and reconcile pending attempts on reopen, delete only after authoritative acknowledgement, and prove offline and accepted-but-response-lost recovery without duplicating delivery."
+owner_domain = 14
+
+[finding.support-fixture-contract]
+file = "apps/web/src/support/conversation.ts"
+line = 96
+class = "test-gap"
+severity = "medium"
+observed = "The consumer calls supportList on /human/v1/support/conversations and decodes shell, created_at, updated_at and waiting-for-support/waiting-for-you/resolved states. apps/web/e2e/support.spec.ts instead intercepts retired /api/human/v1/support/list and returns state open with conv_test123 and missing required metadata. That fixture does not demonstrate the real list-to-chat path or operator delivery."
+expected = "Support journey proof must use the registered route and genuine server conversation shape, including private principal scope, state transitions and restart/refusal behavior."
+proposal = "Replace the stale proof setup owned by apps/web/e2e/support.spec.ts with the real support producer and operator reply path, exercising this conversation.ts decoder, reopen and refusal cases. Retain strict generated schema checks and do not invent an alternate open-state response."
+owner_domain = 14
+
+[finding.health-response-shape]
+file = "services/explorer/services/libs/blockscout-client/swaggers/overrides/002_health.yaml"
+line = 55
+class = "interface-mismatch"
+severity = "high"
+observed = "The override declares metadata.latest_block and LatestBlock.cache.mber. The real API.HealthController.health at controllers/api/health_controller.ex:39-40 emits metadata.blocks containing healthy/latest_block/error, and Health.Helper emits cache.number plus node details. Generated HealthCheckResponseMetadata silently drops the real blocks payload instead of round-tripping it; only HTTP 200 is declared even though unhealthy output is 500."
+expected = "The OpenAPI overlay and generated Rust client must preserve the actual health hierarchy, cache block number, node/error details and healthy/unhealthy response lifecycle."
+proposal = "Correct the health hierarchy and number spelling in services/explorer/services/libs/blockscout-client/swaggers/overrides/002_health.yaml, describe the real unhealthy response, regenerate the merged schema/client, and deserialize genuine controller health responses through the generated Rust consumer."
+owner_domain = 14
+interface = "14.http-get-api-health"
+
+[finding.health-v1-dead-operation]
+file = "services/explorer/services/libs/blockscout-client/swaggers/overrides/002_health.yaml"
+line = 14
+class = "wiring-gap"
+severity = "medium"
+observed = "The overlay declares /api/v1/health and generates HealthV1, which the generated client integration test still calls. api_router.ex registers /api/health and the early HealthRouter serves that path; there is no /api/v1/health handler in the current router."
+expected = "Every generated health operation and its integration test must address a registered producer or an explicitly maintained compatibility endpoint."
+proposal = "Retire the obsolete v1 health operation in services/explorer/services/libs/blockscout-client/swaggers/overrides/002_health.yaml and migrate its client/test to /api/health, or declare and implement a supported compatibility contract before continuing to publish HealthV1."
+owner_domain = 14
+
+[finding.openapi-null-required]
+file = "services/explorer/services/libs/blockscout-client/swaggers/overrides/003_fix_types.yaml"
+line = 4
+class = "config-drift"
+severity = "medium"
+observed = "The override writes YAML null markers into required arrays to remove upstream fields. ts-src/merge-overrides.ts uses lodash.merge and its removal pass does not remove these array nulls, so blockscout-api-final.yaml contains required entries that are null instead of property-name strings. Generation bypasses schema validation, allowing this invalid OpenAPI to persist."
+expected = "The merged OpenAPI must use valid required arrays of property names, and overlay removal semantics must not produce an invalid schema consumed by client generators."
+proposal = "Replace null array entries with the actual valid required-property lists in services/explorer/services/libs/blockscout-client/swaggers/overrides/003_fix_types.yaml and use explicit array replacement/removal in merge-overrides.ts where needed. Validate the final OpenAPI and regenerate the Rust client from that valid schema."
+owner_domain = 14
+
+[finding.doc-01]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview describes a separate layerxd and checkpoint settlement, with further pre-merge running-kernel claims around lines 79 and 181."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite README.md: Describe one paxd BFT network, integrated kernel execution and committed-block finality; distinguish historical directory/source names from running components."
+owner_domain = 17
+
+[finding.doc-02]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening architecture and lines 70-72 retain a separate daemon and custody boundary as the current monorepo operating model."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/MONOREPO.md: Rewrite the repository map around integrated paxd and the current hosted and native explorer ownership; remove the separate runtime/custody-hop guidance."
+owner_domain = 17
+
+[finding.doc-03]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart uses a router and /rpc endpoint and later directs custody-credit funding at lines 167-168 and 214-217."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md: Show the root public RPC on chain 125 or the hosted px gateway as appropriate, and direct account funding on the merged network without a custody credit hop."
+owner_domain = 17
+
+[finding.doc-04]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary page describes a separate LayerX runtime, removed layerx-paxeer-client and the old settlement/checkpoint/challenge/exit integration suite, including line 119."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md: Explain the integrated execution and committed-block boundary, current native interfaces and genuine compatibility archives; identify removed client and exit machinery as historical."
+owner_domain = 17
+
+[finding.doc-05]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The operator guide retains custody-credit/router instructions and a separate hosted LayerX plane at lines 5 and 8."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md: Replace the operating model with current paxd and hosted gateway responsibilities and actual root RPC namespaces; remove custody-hop and router procedures."
+owner_domain = 17
+
+[finding.doc-06]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster guide describes the chain plus a standalone LayerX daemon as running services; the architecture and line 50 retain the pre-merge topology."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md: Document the current paxd BFT node topology, integrated kernel and hosted services, with real readiness/recovery procedures and no standalone layerxd deployment."
+owner_domain = 17
+
+[finding.doc-07]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet guide sends the reader through a router, custody-credit operation and lx_requestFunds, including line 24."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/platform/faucet.md: Document only a currently registered faucet/funding path with its actual request, refusal and account-credit semantics; use direct merged-network account balances."
+owner_domain = 17
+
+[finding.doc-08]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires /rpc at line 8, then declares wallet/token groups unimplemented at lines 106-108 and global RPC/credential flags nonexistent at lines 131-135. tools/platform/cli/src/main.rs actually declares Wallet and Token groups and both global flags; the page also lists these implemented commands at lines 25-28. Its availability guidance contradicts the executable and its own command table."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/platform/cli.md: Align executable command groups, flags and examples with the current CLI entrypoint and root/hosted RPC contracts, clearly separating planned features from available commands."
+owner_domain = 17
+
+[finding.doc-09]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-51 advertise sixteen numbered public RPC nodes and an eth/lx/px router at /rpc, /rpc/schema and /rpc/ws; lines 198-200 repeat the removed interface split."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md: List api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network at root, document public node namespaces and hosted px methods separately, and use gateway/openrpc.json for hosted behavior."
+owner_domain = 17
+
+[finding.doc-10]
+file = "docs/site/docs/platform/registry.md"
+line = 136
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes TCP-only readiness and an unconditional ready state at lines 136-138, while the deployment uses HTTP health on port 9421 for readiness and TCP for liveness; replica identity guidance also disagrees with current deployment wiring."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/platform/registry.md: Match registry deployment documentation to the actual HTTP readiness, TCP liveness, health failure semantics and current replica identity configuration, including restart and stale-registration behavior."
+owner_domain = 17
+
+[finding.doc-11]
+file = "docs/site/docs/programs/index.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The page says payments-merchant and LXT20 are absent despite the existing merchant example manifest and programs/sdk/rust/src/lxt20.rs; its own later merchant build example around line 244 contradicts the absence claim at line 145."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite docs/site/docs/programs/index.md: Describe the current example programs and real build/deploy entrypoints, distinguish examples from supported production features, and retain guest ABI/domain/payload constraints."
+owner_domain = 17
+
+[finding.doc-13]
+file = "services/explorer/services/libs/blockscout-client/README.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The client generation overview is coherent, but the record-stubs example still instructs recording /api/v1/health, an operation absent from the current backend router."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+proposal = "Rewrite services/explorer/services/libs/blockscout-client/README.md: Use /api/health in the stub-recording example and align the generated client health contract with actual controller output rather than preserving the obsolete operation."
+owner_domain = 14
+
+[finding.account-retired-settlement-ui]
+file = "apps/web/src/app/explorer/accounts/[accountId]/page.tsx"
+line = 85
+class = "retired-reference"
+severity = "medium"
+observed = "BalancesPanel labels separate on_paxeer, on_layerx and in_custody columns, and SettlementPanel at line 106 presents instant, sealed and final/anchor stages as current account facts. Even when unavailable it preserves the split funding and settlement model retired by the integrated network."
+expected = "The current account page must present native account totals and committed-block evidence; historical custody and batch-anchor stages must be explicitly archived rather than described as the current funding lifecycle."
+proposal = "Replace the balance/settlement panels in apps/web/src/app/explorer/accounts/[accountId]/page.tsx with the native unified-account totals, committed activity and observation position, coordinated with native-unified-shape. Place any genuine pre-merge history behind an explicit archive presentation."
+owner_domain = 14
+
+[finding.receipt-retired-batch-ui]
+file = "apps/web/src/app/explorer/receipts/[receiptId]/page.tsx"
+line = 56
+class = "retired-reference"
+severity = "medium"
+observed = "The active ReceiptPage displays receipt.batchNumber as its primary location alongside ordinal and uses the old batch/checkpoint FreshnessDisplay. The reader is the removed index transport, so the page still defines a current receipt by the historical sealed-batch projection rather than its committed native transaction/block."
+expected = "Current receipt navigation and evidence should identify a native transaction and its committed block, while old batch coordinates should be labeled and reachable only as historical archive evidence."
+proposal = "Migrate apps/web/src/app/explorer/receipts/[receiptId]/page.tsx with the native receipt/transaction reader and render the real committed block position. Retain canonical receipt bytes only through a declared authentic receipt source; expose historical batch coordinates in a clearly identified archive if supported."
+owner_domain = 14
+
+[finding.explorer-retired-barrel]
+file = "apps/web/src/explorer/index.ts"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "The public barrel continues exporting BatchRecord and CheckpointRecord even though their explorer pages/readers are retired and no active application importer of those types was found. These exports advertise the removed live batch/checkpoint surface and keep its obsolete model reachable."
+expected = "The live explorer public API should expose only current native capabilities; compatibility or archive types should have an explicit owning consumer and historical boundary."
+proposal = "Remove the unused retired exports from apps/web/src/explorer/index.ts when migrating explorer/model.ts, or move them to a declared archive-only module with an actual historical consumer. Keep current program/address/transaction declarations in the public barrel."
+owner_domain = 14
+
+[finding.kit-retired-custody-statuses]
+file = "apps/web/src/kit/model.ts"
+line = 31
+class = "dead-code"
+severity = "low"
+observed = "STATUS_PRESENTATIONS still exports confirming_on_paxeer, waiting_for_settlement and ready_to_claim for the removed custody/settlement/claim journey. Searching current non-generated web source finds no consumer of those status identifiers outside this declaration, although they remain part of StatusKey."
+expected = "The current shared status vocabulary should describe reachable merged-network flows; unused pre-merge funding stages should not remain advertised as current screen capabilities."
+proposal = "Remove the unused retired custody-stage presentation entries and their derived public status cases from apps/web/src/kit/model.ts, or isolate them behind an explicitly historical archive consumer; retain only states backed by current journey producers."
+owner_domain = 14
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "The network overview describes a separate layerxd and checkpoint settlement, with further pre-merge running-kernel claims around lines 79 and 181. Rewrite: Describe one paxd BFT network, integrated kernel execution and committed-block finality; distinguish historical directory/source names from running components."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "The opening architecture and lines 70-72 retain a separate daemon and custody boundary as the current monorepo operating model. Rewrite: Rewrite the repository map around integrated paxd and the current hosted and native explorer ownership; remove the separate runtime/custody-hop guidance."
+
+[doc.03]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "The quickstart uses a router and /rpc endpoint and later directs custody-credit funding at lines 167-168 and 214-217. Rewrite: Show the root public RPC on chain 125 or the hosted px gateway as appropriate, and direct account funding on the merged network without a custody credit hop."
+
+[doc.04]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "The boundary page describes a separate LayerX runtime, removed layerx-paxeer-client and the old settlement/checkpoint/challenge/exit integration suite, including line 119. Rewrite: Explain the integrated execution and committed-block boundary, current native interfaces and genuine compatibility archives; identify removed client and exit machinery as historical."
+
+[doc.05]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "The operator guide retains custody-credit/router instructions and a separate hosted LayerX plane at lines 5 and 8. Rewrite: Replace the operating model with current paxd and hosted gateway responsibilities and actual root RPC namespaces; remove custody-hop and router procedures."
+
+[doc.06]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "The cluster guide describes the chain plus a standalone LayerX daemon as running services; the architecture and line 50 retain the pre-merge topology. Rewrite: Document the current paxd BFT node topology, integrated kernel and hosted services, with real readiness/recovery procedures and no standalone layerxd deployment."
+
+[doc.07]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "The faucet guide sends the reader through a router, custody-credit operation and lx_requestFunds, including line 24. Rewrite: Document only a currently registered faucet/funding path with its actual request, refusal and account-credit semantics; use direct merged-network account balances."
+
+[doc.08]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "The CLI page requires /rpc at line 8, then declares wallet/token groups unimplemented at lines 106-108 and global RPC/credential flags nonexistent at lines 131-135. tools/platform/cli/src/main.rs actually declares Wallet and Token groups and both global flags; the page also lists these implemented commands at lines 25-28. Its availability guidance contradicts the executable and its own command table. Rewrite: Align executable command groups, flags and examples with the current CLI entrypoint and root/hosted RPC contracts, clearly separating planned features from available commands."
+
+[doc.09]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Lines 39-51 advertise sixteen numbered public RPC nodes and an eth/lx/px router at /rpc, /rpc/schema and /rpc/ws; lines 198-200 repeat the removed interface split. Rewrite: List api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network at root, document public node namespaces and hosted px methods separately, and use gateway/openrpc.json for hosted behavior."
+
+[doc.10]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "The page describes TCP-only readiness and an unconditional ready state at lines 136-138, while the deployment uses HTTP health on port 9421 for readiness and TCP for liveness; replica identity guidance also disagrees with current deployment wiring. Rewrite: Match registry deployment documentation to the actual HTTP readiness, TCP liveness, health failure semantics and current replica identity configuration, including restart and stale-registration behavior."
+
+[doc.11]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "The page says payments-merchant and LXT20 are absent despite the existing merchant example manifest and programs/sdk/rust/src/lxt20.rs; its own later merchant build example around line 244 contradicts the absence claim at line 145. Rewrite: Describe the current example programs and real build/deploy entrypoints, distinguish examples from supported production features, and retain guest ABI/domain/payload constraints."
+
+[doc.12]
+path = "docs/site/docs/programs/workspace.md"
+status = "accurate"
+notes = "The workspace layout, source ownership and declared program gate references agree with the current tree. References to cmd/layerxd identify source/build locations rather than instructions to run a separate daemon."
+
+[doc.13]
+path = "services/explorer/services/libs/blockscout-client/README.md"
+status = "stale"
+notes = "The client generation overview is coherent, but the record-stubs example still instructs recording /api/v1/health, an operation absent from the current backend router. Rewrite: Use /api/health in the stub-recording example and align the generated client health contract with actual controller output rather than preserving the obsolete operation."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/web-client.md"
+status = "accurate"
+notes = "Consulted the relevant API, origin, explorer model and acceptance clauses as a pinned declaration reference, not a current deployment guide. Its header explicitly freezes source revision 2a1033aa2 and marks qualification UNRUN. The retired-producer and native-shape disagreements against those frozen declarations are findings explorer-retired-transport and native-unified-shape. The complete generated catalogue was not used as evidence of current implementation."
+

@@ -1,0 +1,962 @@
+[audit.22.30.152]
+task = "22.30.152"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 84
+findings = 33
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["attestor-manifest", "health-shape", "migration-preview"]
+requirements_reviewed = ["22108.1", "22998.1", "14991.1", "14253.1", "14504.1", "14504.2", "14507.1", "14507.2"]
+interfaces_produced = ["14.cli-bridge-paxeer-bridge-app-env-flag-check-j55", "14.cli-bridge-paxeer-bridge-app-env-j55", "14.env-account-cloak-key", "14.fmt-bridge-attestor-manifest-j55", "14.http-get-api-health", "14.http-get-api-health-liveness", "14.http-get-api-health-readiness", "14.http-get-metrics", "14.http-get-public-metrics", "14.met-explorer-event-handler-queue-length"]
+interfaces_consumed = ["14.cfg-explorer-coin", "14.cfg-explorer-coin-name", "14.cfg-explorer-http-client", "14.cfg-explorer-mode", "14.cfg-fe-essential-dapps-chains", "14.cfg-fe-feature-marketplace", "14.cfg-fe-feature-multichain", "14.cfg-fe-multichain", "14.cfg-indexer-indexer-tokentransferblockconsensussanitizer", "14.cfg-indexer-indexer-tracer", "14.cfg-indexer-indexer-utils-eventnotificationscleaner", "14.cfg-logger-api", "14.cfg-logger-explorer", "14.cfg-logger-indexer", "14.cfg-logger-web", "14.cfg-nft-media-handler-standalone-media-worker", "14.cfg-prometheus-web-prometheus-publicexporter", "14.cfg-web-api-rate-limit", "14.cfg-web-checksum-address-hashes", "14.cfg-web-json-rpc", "14.cfg-web-sensitive-endpoints-api-key", "14.cfg-web-web-cspheader", "14.cfg-web-web-endpoint", "14.cfg-web-web-gettext", "14.cfg-web-web-healthendpoint", "14.cfg-web-web-socialmedia", "14.env-port", "14.env-smart-contract-verifier-config", "14.http-get-api-health-l564", "14.http-get-api-v2-blocks", "16.fmt-dock-explorer-smart-contract-verifier-dockerfile", "16.http-bench-benchmark-loadtest-metrics-metrics", "16.http-paxload-loadtest-main-metrics", "8.http-ai-evaluator-get-metrics", "8.http-gateway-get-metrics", "8.http-registry-get-metrics"]
+note = "Static pre-upgrade review of every member in full against the brief, requirements, interface producer/transport/consumer paths, retired inventory and documentation. This record proposes repairs only. No frozen install, application build, application test, browser, cluster or migration execution is claimed for reqs.22108.1,22998.1 or14991.1; qualification is limited to the task-declared hf-build and hf-done evidence."
+
+[file.1]
+path = "apps/explorer/.devcontainer/devcontainer.json"
+lines = 32
+verdict = "clean"
+note = "Development container uses the TypeScript/Node20 image, forwards port3000 and installs editor/zsh features; it contains no RPC default or retired component."
+
+[file.2]
+path = "apps/explorer/RELEASE_NOTES.md"
+lines = 50
+verdict = "issues"
+note = "Release notes contain unlabelled template features, dependency versions, environment names and compatibility placeholders; see release-template."
+
+[file.3]
+path = "apps/explorer/prometheus.yml"
+lines = 16
+verdict = "issues"
+note = "Frontend scrape target and /node-api/metrics do not establish the five unrelated metrics dependencies attributed to this slice; see metrics-edges."
+
+[file.4]
+path = "apps/explorer/startup.node.ts"
+lines = 10
+verdict = "issues"
+note = "Startup loads both optional chain files, but the essential-dapps Node cache has no server accessor in the shared consumer; see essential-chains."
+
+[file.5]
+path = "apps/explorer/svgo.config.format.js"
+lines = 22
+verdict = "clean"
+note = "SVGO formatting retains viewBox and hidden elements, removes dimensions and applies prefixIds to prevent icon ID collisions; pretty serialization matches the separate formatting purpose."
+
+[file.6]
+path = "apps/explorer/svgo.config.js"
+lines = 18
+verdict = "clean"
+note = "SVGO sprite configuration retains viewBox and hidden elements, removes dimensions and uses preset-default without the formatting-only prefixIds plugin."
+
+[file.7]
+path = "apps/explorer/tsconfig.jest.json"
+lines = 21
+verdict = "clean"
+note = "Standalone Jest TypeScript configuration uses strict noEmit checking, JSX react and application/test source includes; it neither extends the production config nor declares a network endpoint."
+
+[file.8]
+path = "apps/explorer/tsconfig.json"
+lines = 22
+verdict = "clean"
+note = "Application TypeScript paths, strict checking and generated/deploy-tool exclusions reviewed against req.14991.1; no typecheck execution claimed."
+
+[file.9]
+path = "apps/explorer/vitest.config.ts"
+lines = 21
+verdict = "clean"
+note = "Vitest config loads TypeScript path resolution and SVGR, global/setup files and spec.ts/spec.tsx includes, excluding dependency directories. No task test was skipped or weakened."
+
+[file.10]
+path = "apps/web/eslint.config.mjs"
+lines = 20
+verdict = "clean"
+note = "Flat ESLint configuration enables strict type-checked TypeScript rules, projectService, explicit-any prohibition and exhaustive switches, with only dependency and .next ignores."
+
+[file.11]
+path = "apps/web/playwright.perf.config.ts"
+lines = 11
+verdict = "clean"
+note = "Performance Playwright configuration copies the base configuration, removes webServer and selects e2e/perf.spec.ts. It expects an already running application; it does not start one itself."
+
+[file.12]
+path = "apps/web/postcss.config.mjs"
+lines = 5
+verdict = "clean"
+note = "PostCSS configuration registers the existing Tailwind plugin without changing runtime transport or custody behavior."
+
+[file.13]
+path = "apps/web/tsconfig.json"
+lines = 52
+verdict = "clean"
+note = "Web TypeScript configuration enables strict and exact optional/indexed access checks, aliases wallet SDK sources and includes Next generated types plus source/copy/e2e files; no retired module import."
+
+[file.14]
+path = "services/bridge/deploy/attestors.json"
+lines = 10
+verdict = "issues"
+note = "Deliberate placeholder public attestors make the default deployment manifest fail closed in its real consumer; see attestor-manifest."
+
+[file.15]
+path = "services/bridge/deploy/cmd/paxeer-bridge-app-env/main.go"
+lines = 19
+verdict = "clean"
+note = "CLI delegates to appenv.Run, writes diagnostic errors to stderr and exits 1. Reviewed appenv chain ordering, empty-directory refusal and case-insensitive vault checks against reqs.14504.1,14504.2,14507.1,14507.2 and both CLI registry rows."
+
+[file.16]
+path = "services/explorer/backend/.dialyzer_ignore.exs"
+lines = 13
+verdict = "clean"
+note = "Dialyzer ignore entries were read as existing diagnostic dispositions; no code, test or gate was disabled by this audit."
+
+[file.17]
+path = "services/explorer/backend/FUNDING.json"
+lines = 10
+verdict = "clean"
+note = "Funding metadata records Drips Filecoin ownership and an Optimism retro project identifier; these public identifiers are not runtime endpoints or key material."
+
+[file.18]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/authentication_helper.ex"
+lines = 15
+verdict = "clean"
+note = "Sensitive-endpoint key validation succeeds only for a configured, matching value and returns tagged mismatch tuples otherwise; agrees with 14.cfg-web-sensitive-endpoints-api-key."
+
+[file.19]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/checksum_address.ex"
+lines = 65
+verdict = "clean"
+note = "Checksum plug parses id/address_id when checksum_address_hashes is enabled, rebuilds checksummed request paths with preserved query strings and redirects via full_path. The shared mount-prefix defect is recorded on controller.ex."
+
+[file.20]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/cldr.ex"
+lines = 13
+verdict = "clean"
+note = "CLDR backend declares the locale/provider configuration used by the web application; no transport or durable state."
+
+[file.21]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controller.ex"
+lines = 68
+verdict = "issues"
+note = "Shared AJAX header and endpoint-prefix handling have concrete edge cases; see duplicate-ajax-header and endpoint-prefix, including 14.cfg-web-web-endpoint."
+
+[file.22]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/csp_header.ex"
+lines = 38
+verdict = "issues"
+note = "CSP consumes the configured JSON-RPC and analytics origins but permits inline scripts and eval; see script-policy."
+
+[file.23]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/gettext.ex"
+lines = 24
+verdict = "clean"
+note = "Gettext backend and configured locale handling agree with 14.cfg-web-web-gettext; no obsolete service endpoint."
+
+[file.24]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/health_endpoint.ex"
+lines = 17
+verdict = "clean"
+note = "Indexer-only/media-worker health endpoint mounts HealthRouter and reads PORT when load_from_system_env is set, refusing an absent port. It consumes the declared HealthEndpoint configuration and does not mount the ordinary web router."
+
+[file.25]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/health_router.ex"
+lines = 13
+verdict = "issues"
+note = "All three health routes reach the real controller. Liveness emits OK; readiness queries latest database block status except in media mode. Health JSON disagrees with the Rust client; see health-shape and the duplicate 14.http-get-api-health-l564 declaration."
+
+[file.26]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/prometheus/exporter.ex"
+lines = 9
+verdict = "clean"
+note = "Prometheus default exporter is mounted before the Phoenix router and exposes GET /metrics as declared by 14.http-get-metrics."
+
+[file.27]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/prometheus/instrumenter.ex"
+lines = 17
+verdict = "clean"
+note = "event_handler_queue_length is a gauge labelled handler in the default registry, matching 14.met-explorer-event-handler-queue-length and its live event-handler callers."
+
+[file.28]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/prometheus/public_exporter.ex"
+lines = 9
+verdict = "clean"
+note = "Public exporter consumes 14.cfg-prometheus-web-prometheus-publicexporter: /public-metrics, text format, public registry, authentication disabled by declaration."
+
+[file.29]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/rate_limit/hammer.ex"
+lines = 38
+verdict = "issues"
+note = "Hammer dispatch and child setup consistently use api_rate_limit nested backend/redis_url configuration; only its module documentation names an obsolete top-level key. See rate-limit-doc and 14.cfg-web-api-rate-limit."
+
+[file.30]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/social_media.ex"
+lines = 25
+verdict = "clean"
+note = "Social-media reader filters to the supported services and prepends their fixed URLs, matching 14.cfg-web-web-socialmedia and the producer configuration."
+
+[file.31]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/specs.ex"
+lines = 24
+verdict = "clean"
+note = "Route-spec helper transforms real router.__routes__ entries with an explicit prefix; it neither invents controller shapes nor registers obsolete routes."
+
+[file.32]
+path = "services/explorer/backend/apps/block_scout_web/lib/phoenix/html/safe.ex"
+lines = 32
+verdict = "clean"
+note = "Phoenix.HTML.Safe implementations render addresses through checksum, transactions through their hash, blocks through number, and Data/Hash through the established chain iodata encoders. No arbitrary markup decoder is added."
+
+[file.33]
+path = "services/explorer/backend/apps/block_scout_web/lib/phoenix/param.ex"
+lines = 35
+verdict = "clean"
+note = "Phoenix.Param renders consensus blocks by number and nonconsensus blocks by hash, addresses by checksum, transaction/hash values through their hash string and Decimal through its decimal string."
+
+[file.34]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_coin_balance_by_day_controller_test.exs"
+lines = 27
+verdict = "clean"
+note = "Coin-balance-by-day test seeds actual blocks, balances and daily rows, invokes the real JSON route and asserts date/value entries with the expected 18-decimal coin conversion."
+
+[file.35]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_token_balance_controller_test.exs"
+lines = 46
+verdict = "clean"
+note = "Token-balance controller tests issue actual AJAX/non-AJAX requests for invalid, valid absent and persisted addresses, asserting the controller HTML 404/200 responses without a fake token payload."
+
+[file.36]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api_docs_controller_test.exs"
+lines = 18
+verdict = "clean"
+note = "API documentation controller test exercises the real route and expected documentation response; no assertion of retired Anchor or Receipt controllers."
+
+[file.37]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/metrics_contoller_test.exs"
+lines = 11
+verdict = "clean"
+note = "Metrics controller test performs GET /metrics through the endpoint and requires a 200 text response; it proves availability only, not gauge values."
+
+[file.38]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/page_not_found_controller_test.exs"
+lines = 11
+verdict = "clean"
+note = "Page-not-found controller test exercises the missing route through ConnCase and requires the actual 404 page."
+
+[file.39]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/recent_transactions_controller_test.exs"
+lines = 54
+verdict = "clean"
+note = "Recent-transactions tests assert mined transaction inclusion, unmined transaction exclusion and HTTP422 for non-AJAX requests through the real controller. Duplicate AJAX header handling is recorded on the shared helper."
+
+[file.40]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/withdrawal_controller_test.exs"
+lines = 56
+verdict = "clean"
+note = "Withdrawal tests seed actual EVM withdrawals, request JSON pages and verify count, index continuation and next_page_path presence/absence. These are EVM withdrawals, not retired custody-credit settlement views."
+
+[file.41]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/paxeer_x_retired_modules_test.exs"
+lines = 10
+verdict = "clean"
+note = "Negative module-loading test requires retired Anchor/Receipt controllers and views to stay absent, directly matching req.14253.1; names occur only as absence assertions."
+
+[file.42]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/social_media_test.exs"
+lines = 25
+verdict = "issues"
+note = "Social-media tests alter application-global configuration without restoration; see social-config-isolation."
+
+[file.43]
+path = "services/explorer/backend/apps/block_scout_web/test/phoenix/param/explorer/chain/block_test.exs"
+lines = 17
+verdict = "clean"
+note = "Phoenix.Param block tests exercise the real protocol with consensus=false/hash and consensus=true/number and assert the respective string encoding."
+
+[file.44]
+path = "services/explorer/backend/apps/explorer/lib/explorer.ex"
+lines = 51
+verdict = "clean"
+note = "Explorer public coin/coin_name and API/indexer mode helpers agree with runtime.exs and 14.cfg-explorer-coin, 14.cfg-explorer-coin-name and 14.cfg-explorer-mode."
+
+[file.45]
+path = "services/explorer/backend/apps/explorer/lib/explorer/admin.ex"
+lines = 76
+verdict = "clean"
+note = "Owner registration uses Repo.transaction with rollback on registration/promotion failure and owner-role uniqueness; existing account changesets validate credentials. No default owner is inserted."
+
+[file.46]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/decoding_helper.ex"
+lines = 72
+verdict = "clean"
+note = "ABI decoder recursively renders arrays/tuples, checks address casts, hex-encodes bytes and logs decoding errors rather than accepting a third protocol shape."
+
+[file.47]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/gas.ex"
+lines = 10
+verdict = "clean"
+note = "Gas is a Decimal-compatible domain type; its false/nil sentinels describe unavailable gas estimates rather than consensus gas changes."
+
+[file.48]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/method_identifier.ex"
+lines = 42
+verdict = "clean"
+note = "Method identifier type reversibly maps four ABI selector bytes to the database signed 32-bit representation; cast/load/dump and negative values agree."
+
+[file.49]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/neon/linked_solana_transactions.ex"
+lines = 40
+verdict = "clean"
+note = "Neon relation schema uses an EVM hash and Solana signature string with the corresponding foreign/unique constraints; optional chain-specific data is not Paxeer custody state."
+
+[file.50]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/supply.ex"
+lines = 32
+verdict = "clean"
+note = "Supply behaviour declares total and circulating nonnegative supply and a supply_for_days callback. Its __using__ macro provides an overridable :ok daily-supply default; there is no market-cap callback in this file."
+
+[file.51]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction_error.ex"
+lines = 46
+verdict = "clean"
+note = "TransactionError schema stores unique error messages. find_or_create_multiple deduplicates input, queries existing ids and upserts missing messages on the message conflict target before returning the combined message-to-id map."
+
+[file.52]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/user_operation.ex"
+lines = 66
+verdict = "clean"
+note = "User-operation schema is a read projection over the account-abstraction service database: full 32-byte hashes and block number are required; API repo selection and not-found tuples agree with consumers. Extra upstream columns need not be declared for this projection."
+
+[file.53]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/validator.ex"
+lines = 56
+verdict = "clean"
+note = "POA validator schema validates address_hash and uses the configured read repository; this optional POA display model does not claim to define Paxeer BFT consensus validators."
+
+[file.54]
+path = "services/explorer/backend/apps/explorer/lib/explorer/custom_contracts_helper.ex"
+lines = 18
+verdict = "issues"
+note = "Custom-address configuration lowercases comma-separated values but keeps whitespace and empty entries; see custom-addresses."
+
+[file.55]
+path = "services/explorer/backend/apps/explorer/lib/explorer/env_var_translator.ex"
+lines = 24
+verdict = "issues"
+note = "Environment JSON translator accepts arbitrary JSON types and silently replaces parse errors with an empty list; see tag-config."
+
+[file.56]
+path = "services/explorer/backend/apps/explorer/lib/explorer/http_client.ex"
+lines = 27
+verdict = "clean"
+note = "HTTP facade delegates request(method,url,headers,body,options) and get/get!/post/head to the configured adapter. The Tesla adapter accepts this exact argument order and normalizes status_code; agrees with 14.cfg-explorer-http-client."
+
+[file.57]
+path = "services/explorer/backend/apps/explorer/lib/explorer/logger.ex"
+lines = 19
+verdict = "clean"
+note = "Logger metadata wrapper restores all prior metadata in after, including exceptional calls; reviewed 14.cfg-logger-explorer and the api/web logger metadata associations."
+
+[file.58]
+path = "services/explorer/backend/apps/explorer/lib/explorer/mailer.ex"
+lines = 12
+verdict = "clean"
+note = "Explorer.Mailer uses Bamboo.Mailer with otp_app explorer and documents deliver_now!, matching the configured mail adapter rather than supplying SMTP defaults or secrets."
+
+[file.59]
+path = "services/explorer/backend/apps/explorer/lib/explorer/paging_options.ex"
+lines = 44
+verdict = "clean"
+note = "Paging default requests 51 rows for a 50-item page so callers can derive a next-page key; field types and ascending/pending flags agree with pagination consumers."
+
+[file.60]
+path = "services/explorer/backend/apps/explorer/lib/explorer/schema.ex"
+lines = 13
+verdict = "clean"
+note = "Shared Ecto schema macro supplies UTC microsecond timestamps consistently with migrations and changesets."
+
+[file.61]
+path = "services/explorer/backend/apps/explorer/lib/explorer/tuple_encoder.ex"
+lines = 14
+verdict = "clean"
+note = "Jason tuple encoder deliberately converts tuples to JSON arrays using the standard list encoder; callers receive the intended array shape."
+
+[file.62]
+path = "services/explorer/backend/apps/explorer/lib/explorer/vault.ex"
+lines = 22
+verdict = "clean"
+note = "Vault reads ACCOUNT_CLOAK_KEY as base64 for AES.GCM.V1, matching 14.env-account-cloak-key; fixed test key is confined to Mix.env test and :mix remains an included release application. No key value is reproduced in this record."
+
+[file.63]
+path = "services/explorer/backend/apps/explorer/lib/mix/tasks/auth0_to_keycloak_migrate.ex"
+lines = 42
+verdict = "issues"
+note = "Migration command delegates to the live account service; dry-run mutates duplicate identities, invalid arguments are ignored and failures are not reflected in exit status; see migration-preview, migration-options and migration-status."
+
+[file.64]
+path = "services/explorer/backend/apps/explorer/test/explorer/helper_test.exs"
+lines = 26
+verdict = "clean"
+note = "Helper tests preserve the leading 0x byte content for both hex and Data inputs and assert the same ABI-decoded integer from the real helper."
+
+[file.65]
+path = "services/explorer/backend/apps/explorer/test/explorer/repo_test.exs"
+lines = 53
+verdict = "clean"
+note = "Repository test exercises real PostgreSQL duplicate-row cardinality failure, asserts contextual logging and re-raising, and retains every assertion."
+
+[file.66]
+path = "services/explorer/backend/apps/explorer/test/explorer/tags/address_to_tag_test.exs"
+lines = 25
+verdict = "clean"
+note = "Address-to-tag test exercises the real set_tag_to_addresses call and database row, asserting an existing association retains its original inserted_at instead of being deleted and reinserted."
+
+[file.67]
+path = "services/explorer/backend/apps/explorer/test/string/chars/explorer/chain/address_test.exs"
+lines = 5
+verdict = "clean"
+note = "Address String.Chars protocol test runs the real documented examples; no manually shaped API substitute."
+
+[file.68]
+path = "services/explorer/backend/apps/explorer/test/string/chars/explorer/chain/data_test.exs"
+lines = 5
+verdict = "clean"
+note = "Data String.Chars protocol test runs the real documented hex examples and preserves the established binary encoding."
+
+[file.69]
+path = "services/explorer/backend/apps/explorer/test/support/benchmark_case.ex"
+lines = 54
+verdict = "issues"
+note = "Benchmark macro provides factory imports and output path, but its documented reset only checks out a sandbox connection; see benchmark-reset."
+
+[file.70]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/blackfort/validator.ex"
+lines = 54
+verdict = "issues"
+note = "Blackfort-only fetcher deletes old validators and inserts replacements separately; see validator-replacement. It is chain-type gated and is not a Paxeer BFT validator updater."
+
+[file.71]
+path = "services/explorer/backend/apps/indexer/lib/indexer/logger.ex"
+lines = 33
+verdict = "issues"
+note = "Logger metadata restoration is safe, but process/1 crashes when a monitored worker exits between selection and inspection; see dead-worker-log."
+
+[file.72]
+path = "services/explorer/backend/apps/indexer/lib/indexer/pending_ops_cleaner.ex"
+lines = 45
+verdict = "clean"
+note = "Pending-operations cleaner schedules recurring cleanup of non-consensus blocks through Block.remove_nonconsensus_blocks_from_pending_ops; work is database-derived and rescheduled after restart."
+
+[file.73]
+path = "services/explorer/backend/apps/indexer/lib/indexer/token_transfer_block_consensus_sanitizer.ex"
+lines = 61
+verdict = "issues"
+note = "Consensus sanitizer is supervised and writes durable refetch markers, but builds an unbounded mismatch list with an infinite query timeout; see consensus-scan."
+
+[file.74]
+path = "services/explorer/backend/apps/indexer/lib/indexer/tracer.ex"
+lines = 5
+verdict = "clean"
+note = "Spandex tracer uses the Indexer.Tracer application settings, including disabled mode, matching 14.cfg-indexer-indexer-tracer."
+
+[file.75]
+path = "services/explorer/backend/apps/indexer/lib/indexer/utils/event_notifications_cleaner.ex"
+lines = 50
+verdict = "issues"
+note = "Event cleaner reads interval and max_age and removes stored notifications without consumer progress; compare real DBSender/Listener restart flow in notification-recovery."
+
+[file.76]
+path = "services/explorer/backend/appspec.yml"
+lines = 20
+verdict = "clean"
+note = "CodeDeploy manifest references existing stop/build/migrate/start/health hooks; migrations precede service start. It is an ancillary deployment manifest, separate from current Railway image deployment."
+
+[file.77]
+path = "services/explorer/backend/coveralls.json"
+lines = 9
+verdict = "clean"
+note = "Coveralls settings retain minimum coverage70, no-relevant-lines handling and terminal width120; this metadata does not skip any executable test or change an API."
+
+[file.78]
+path = "services/explorer/backend/prometheus.yml"
+lines = 6
+verdict = "clean"
+note = "Backend Prometheus scrape selects HTTP localhost:4000 on /metrics by the Prometheus default; matches the backend exporter and introduces none of the unrelated hosted metrics transports."
+
+[file.79]
+path = "services/explorer/services/libs/Cargo.toml"
+lines = 21
+verdict = "clean"
+note = "Rust libraries workspace enumerates the client, launcher and shared support crates with resolver 2; paths exist within the relocated explorer services tree."
+
+[file.80]
+path = "services/explorer/services/libs/blockscout-client/README.md"
+lines = 47
+verdict = "issues"
+note = "Client README describes generated API and remote stub workflow, which does not prove the current local Phoenix producer; see client-contract-tests."
+
+[file.81]
+path = "services/explorer/services/libs/blockscout-client/crate/Cargo.toml"
+lines = 79
+verdict = "generated"
+note = "Generated client Cargo manifest: package/version, Rust edition, reqwest/serde features and dependencies are generator output. Reviewed as generated metadata, not as hand-maintained request/model implementation."
+
+[file.82]
+path = "services/explorer/services/libs/blockscout-client/openapi-generator-config.json"
+lines = 13
+verdict = "clean"
+note = "Generator options select reqwest-trait, serde, middleware and multiple response models with package version 0.2.0-blockscout-9.0.0; effective generator version drift is recorded on openapitools.json."
+
+[file.83]
+path = "services/explorer/services/libs/blockscout-client/openapitools.json"
+lines = 7
+verdict = "issues"
+note = "Nominal generator version 7.6.0 is bypassed by the untagged Docker generation script; see generator-pin."
+
+[file.84]
+path = "services/explorer/services/smart-contract-verifier/docker-compose.yml"
+lines = 22
+verdict = "clean"
+note = "Compose context ../../../.. resolves to the repository root and finds docker/explorer-smart-contract-verifier/Dockerfile with matching COPY paths. SMART_CONTRACT_VERIFIER__CONFIG, the /app/config.toml mount, environment overlay and compiler cache are aligned with the real launcher and 16.fmt-dock-explorer-smart-contract-verifier-dockerfile."
+
+[finding.attestor-manifest]
+file = "services/bridge/deploy/attestors.json"
+line = 3
+class = "interface-mismatch"
+severity = "high"
+observed = "The committed attestors.json carries repeated-byte placeholder addresses 0x11 through 0x55 and threshold 3. proposals.LoadAttestorManifest calls parseSignerList/liveAddress and rejects the first entry; the default proposals/checklist path cannot consume this declared stable manifest. proposals_test.go explicitly confirms this deliberate refusal."
+expected = "The deployment attestor manifest must contain an approved public signer set and threshold that the real loader accepts and every chain configuration reproduces; a bridge opening cannot proceed with invented identities."
+proposal = "Bridge governance owners must record the approved public attestor addresses and threshold in services/bridge/deploy/attestors.json and reconcile all chain configurations and proposal inputs. Preserve placeholder rejection and prove the actual approved manifest passes the loader and chain comparisons before enabling bridge deployment."
+owner_domain = 14
+interface = "14.fmt-bridge-attestor-manifest-j55"
+
+[finding.health-shape]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/health_router.ex"
+line = 9
+class = "interface-mismatch"
+severity = "high"
+observed = "GET /api/health reaches API.HealthController.health, whose non-media response places healthy/latest_block/error inside metadata.blocks and includes latest_block.node. The Rust client models/health_check_response_metadata.rs accepts only metadata.latest_block, and models/latest_block.rs has db/cache only. Its serde decoder ignores blocks, returning latest_block=None while accepting healthy=true; unhealthy 500 bodies have only an untyped error model."
+expected = "The same health response must round-trip through the real Phoenix HTTP route and typed Rust client without dropping block progress, node height or error information; standalone media-worker health must be distinguished intentionally."
+proposal = "In services/explorer/services/libs/blockscout-client, update the source OpenAPI overrides and generated health models to the current Phoenix payload and status variants. Add a real Phoenix-to-HTTP-to-Rust contract check for healthy, unhealthy, readiness and standalone-media cases, and preserve all block and error fields."
+owner_domain = 14
+interface = "14.http-get-api-health"
+
+[finding.migration-preview]
+file = "services/explorer/backend/apps/explorer/lib/mix/tasks/auth0_to_keycloak_migrate.ex"
+line = 40
+class = "runtime-risk"
+severity = "high"
+observed = "The advertised --dry-run reaches Auth0ToKeycloakMigration.run(dry_run: true), but account/auth0_to_keycloak_migration.ex:119 calls build_migration_items before execute_or_dry_run checks the flag. That builder calls merge_duplicate_emails at line339, which calls Account.merge at line375. account.ex:67-80 moves related user records and deletes duplicate Identity rows in a committed transaction even during the preview."
+expected = "Previewing an account migration must leave identities, API keys, tags, ABIs and watchlists unchanged, including accounts sharing an email address; users must not lose identity records through a dry-run command."
+proposal = "Split planning from writes in Explorer.Account.Auth0ToKeycloakMigration. Compute proposed duplicate groups without Account.merge, and perform all merge/delete/import writes only in the explicitly selected execution phase. Prove the real CLI dry-run leaves database identities and associations unchanged for duplicate-email accounts and verify explicit execution separately."
+owner_domain = 14
+
+[finding.migration-options]
+file = "services/explorer/backend/apps/explorer/lib/mix/tasks/auth0_to_keycloak_migrate.ex"
+line = 32
+class = "runtime-risk"
+severity = "medium"
+observed = "OptionParser.parse returns options, positional arguments and invalid switches, but the command discards the latter two. A misspelled --dryrun is ignored, leaving the migration service default dry_run=false; zero or negative batch_size is also accepted before app.start."
+expected = "A migration command must reject unknown switches, unexpected positional arguments and invalid batch sizes before starting a write-capable operation; a preview typo must not select execution."
+proposal = "In lib/mix/tasks/auth0_to_keycloak_migrate.ex, validate the complete parse result and require a positive bounded batch size before app.start, returning a nonzero diagnostic for any invalid argument. Add command-path coverage for misspelled preview switches, positional input and invalid batch sizes."
+owner_domain = 14
+
+[finding.migration-status]
+file = "services/explorer/backend/apps/explorer/lib/mix/tasks/auth0_to_keycloak_migrate.ex"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "The Mix command ignores the migration outcome. The service run/1 logs missing Auth0/Keycloak configuration and returns []; do_run/1 also logs a phase error and returns []. The command therefore finishes normally when no migration could be performed. Its option documentation additionally says batch-size defaults to 50 while the service defines 500."
+expected = "Operators need a nonzero failure status and a distinct successful no-op result when migration prerequisites or phases fail, with the documented default matching the effective service default."
+proposal = "Give Explorer.Account.Auth0ToKeycloakMigration an explicit success/error result and make Mix.Tasks.Auth0ToKeycloakMigrate surface errors through Mix.raise or an equivalent nonzero exit. Correct the CLI default documentation and test missing configuration and failed phases through the real command."
+owner_domain = 14
+
+
+[finding.endpoint-prefix]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controller.ex"
+line = 49
+class = "runtime-risk"
+severity = "medium"
+observed = "full_path tests path =~ network_path, which is a substring match over the whole request path including query data. With NETWORK_PATH=/explorer, /address/explorer-token or a query containing /explorer is treated as already mounted; /explorer-other also passes. Redirects and generated links omit the required mount prefix."
+expected = "The configured endpoint path must be recognized only at the beginning of the URI path with a segment boundary, and its occurrence in a query or address suffix must not alter routing."
+proposal = "In BlockScoutWeb.Controller.full_path, compare a normalized URI path prefix on segment boundaries, preserve query encoding and join exactly one mount prefix. Cover nested paths, query occurrences, similarly named prefixes and trailing slashes through a real mounted endpoint redirect."
+owner_domain = 14
+interface = "14.cfg-web-web-endpoint"
+
+[finding.duplicate-ajax-header]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controller.ex"
+line = 32
+class = "runtime-risk"
+severity = "medium"
+observed = "ajax?/1 matches only [] and [value] from get_req_header. Plug allows multiple x-requested-with header entries; a repeated header produces an unmatched case and a CaseClauseError on routes such as RecentTransactionsController instead of the normal non-AJAX refusal."
+expected = "Public controller helpers must handle the complete request-header list and reject malformed or ambiguous AJAX markers without turning an untrusted header into an HTTP 500."
+proposal = "Make BlockScoutWeb.Controller.ajax?/1 total over header multiplicity and enforce one recognized marker. Exercise duplicate, mixed-case, absent and invalid headers through the actual AJAX-protected controller, preserving its existing refusal status."
+owner_domain = 14
+
+[finding.tag-config]
+file = "services/explorer/backend/apps/explorer/lib/explorer/env_var_translator.ex"
+line = 15
+class = "config-drift"
+severity = "medium"
+observed = "map_array_env_var_to_list parses with Poison keys: :atoms! and rescues every exception to []. Malformed NEW_TAGS silently removes all configured tags, while valid JSON objects/scalars return unchanged despite the list spec. Explorer.Tags.AddressTagCataloger.create_new_tags then enumerates entries matching %{tag: tag, title: title} and can fail on those accepted shapes."
+expected = "NEW_TAGS must be validated as the exact list of tag/title records its cataloger consumes, and invalid configuration must identify the setting rather than silently becoming an empty successful configuration."
+proposal = "Validate string-key JSON and the full list/entry schema in Explorer.EnvVarTranslator or its configuration boundary. Report NEW_TAGS validation errors explicitly before cataloger startup and test the actual configuration-to-cataloger path with valid tags, objects, scalars, unknown keys and malformed JSON."
+owner_domain = 14
+
+[finding.dead-worker-log]
+file = "services/explorer/backend/apps/indexer/lib/indexer/logger.ex"
+line = 26
+class = "runtime-risk"
+severity = "medium"
+observed = "Indexer.Logger.process/1 destructures {:registered_name, name} from Process.info. It returns nil for a PID that has exited. Memory.Monitor and BufferedTask call this helper while inspecting workers, so normal worker termination between enumeration and logging raises MatchError in a diagnostic/recovery path."
+expected = "Logging a worker that terminates during memory monitoring must still produce its PID and must not crash the monitor or interrupt cleanup and restart handling."
+proposal = "Handle nil explicitly in Indexer.Logger.process/1 and return the PID-only diagnostic when the worker is gone. Exercise a real terminated PID and a registered live PID through the helper and a memory-monitor diagnostic path."
+owner_domain = 14
+
+[finding.consensus-scan]
+file = "services/explorer/backend/apps/indexer/lib/indexer/token_transfer_block_consensus_sanitizer.ex"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "The recurring sanitizer collects every distinct mismatching token-transfer block number with Repo.all(timeout: :infinity), then passes the entire list to Block.set_refetch_needed. A large inconsistent history can monopolize the worker/query and materialize an unbounded list; supervisor restart simply schedules the same whole-history work again."
+expected = "Consensus repair discovery must have bounded memory, query duration and update size, and must resume idempotently from persisted refetch state after a restart."
+proposal = "In Indexer.TokenTransferBlockConsensusSanitizer, scan mismatches in bounded keyset batches with finite query deadlines and bounded Block.set_refetch_needed calls. Preserve durable refetch markers and verify interruption/restart against actual PostgreSQL data larger than one batch."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-tokentransferblockconsensussanitizer"
+
+[finding.notification-recovery]
+file = "services/explorer/backend/apps/indexer/lib/indexer/utils/event_notifications_cleaner.ex"
+line = 33
+class = "restart-recovery"
+severity = "medium"
+observed = "Cleaner deletes all stored EventNotification rows older than max_age (runtime default five minutes) without consumer progress. DBSender commits a row then sends its id by pg_notify; Listener subscribes only to future notifications and fetches individual ids, with no restart cursor or startup replay. An API listener outage loses live explorer updates even when rows were initially persisted; expiry removes the remaining payloads."
+expected = "Explorer event delivery must define recovery after listener disconnects and restarts. Persisting notification bodies alone must not imply replay, and clients need either acknowledged delivery or an explicit state reconciliation path."
+proposal = "Define the event-delivery guarantee in the explorer event service. If replay is required, add durable consumer progress and retention tied to acknowledgement; if events are disposable, add explicit startup/reconnect state reconciliation. Prove the chosen real PostgreSQL sender/listener/cleaner path across an outage exceeding max_age without claiming loss of authoritative chain state."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-utils-eventnotificationscleaner"
+
+[finding.validator-replacement]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/blackfort/validator.ex"
+line = 37
+class = "restart-recovery"
+severity = "medium"
+observed = "The optional Blackfort fetcher deletes validators absent from the remote snapshot, then calls insert_validators separately and ignores its result. An insert failure after deletion leaves a partially replaced explorer validator list until another trigger; a failed fetch is also silently ignored. This fetcher is chain-type gated and does not manage Paxeer BFT consensus."
+expected = "When the optional Blackfort indexer is enabled, readers must observe the previous complete validator snapshot or the next complete snapshot, with failed replacement recoverable and visible to operators."
+proposal = "In Indexer.Fetcher.Blackfort.Validator and Explorer.Chain.Blackfort.Validator, apply delete/upsert as one database transaction, propagate failure diagnostics and schedule a bounded retry. Exercise actual database failure and process restart without exposing a partially replaced snapshot."
+owner_domain = 14
+
+[finding.social-config-isolation]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/social_media_test.exs"
+line = 7
+class = "test-gap"
+severity = "low"
+observed = "Both SocialMedia tests replace Application environment for BlockScoutWeb.SocialMedia and never restore its previous value. Explorer.DataCase manages the SQL sandbox, not application environment, so later tests can inherit MyTwitterProfile and lose the configured services."
+expected = "Tests of a global configuration reader must restore the exact prior configuration, including the case where the key was absent, so ordering does not change another test or route response."
+proposal = "In social_media_test.exs, save the prior environment value and register on_exit restoration or deletion before either replacement. Preserve all current assertions and verify neighboring configuration-reader tests in different orders."
+owner_domain = 14
+
+[finding.benchmark-reset]
+file = "services/explorer/backend/apps/explorer/test/support/benchmark_case.ex"
+line = 41
+class = "test-gap"
+severity = "low"
+observed = "The macro documents reset_db as resetting the database, but the function only Sandbox.checkout. It neither checks in an existing owner nor rolls back prior inserts. A repeated call in one owner returns {:already, :owner} rather than :ok, so the documented utility cannot provide a fresh scenario. The current Explorer token benchmark performs its own checkout/delete and does not call this helper."
+expected = "A benchmark reset utility must provide a fresh isolated database scenario on repeated calls and make ownership cleanup explicit; its documentation must not promise cleanup that checkout alone does not perform."
+proposal = "Implement a real checkin/checkout scenario lifecycle in Explorer.BenchmarkCase and its web benchmark counterpart, or replace the misleading reset API with explicit ownership setup/cleanup. Demonstrate repeated scenarios with real inserts and prove no data or sandbox ownership leaks between them."
+owner_domain = 14
+
+[finding.generator-pin]
+file = "services/explorer/services/libs/blockscout-client/openapitools.json"
+line = 5
+class = "config-drift"
+severity = "medium"
+observed = "openapitools.json declares generator-cli version 7.6.0, but package.json generate invokes docker run openapitools/openapi-generator-cli with no tag or digest. That path does not read the npm CLI version pin, so generate-from-remote can regenerate the crate with a different generator and templates over time."
+expected = "The checked-in generator configuration and the command used to regenerate the Rust client must select the same reproducible tool version, preserving the intended model and error behavior."
+proposal = "Pin the Docker generator version or digest in services/explorer/services/libs/blockscout-client/package.json and make openapitools.json agree with the effective executable. Record the resolved generator and input schema revision when qualifying a regenerated client."
+owner_domain = 14
+
+[finding.client-contract-tests]
+file = "services/explorer/services/libs/blockscout-client/README.md"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "The README test procedure records remote mocks through ts-src/record-stubs.ts. That recorder hardcodes eth.blockscout.com and writes status:200 regardless of the actual HTTP status. It cannot prove the local Phoenix health or blocks producer, including unhealthy 500 responses; the health model disagreement remains accepted by the generated client."
+expected = "Client compatibility needs a real local producer-to-HTTP-to-Rust check with response status and full payload preserved; remote snapshots may supplement that check but cannot establish this revision's interface agreement."
+proposal = "Add and document a local backend contract-test command in the blockscout-client README and test harness. Drive /api/health and /api/v2/blocks from actual backend state, assert typed fields and real error statuses, and make any supplementary recorder preserve response.status and the source revision."
+owner_domain = 14
+interface = "14.http-get-api-v2-blocks"
+
+[finding.release-template]
+file = "apps/explorer/RELEASE_NOTES.md"
+line = 2
+class = "doc-drift"
+severity = "low"
+observed = "RELEASE_NOTES.md presents Description of the new feature, PackageName, ENV_VARIABLE_NAME, compatibility versions ... and upstream v1.2.3 links as the release notes without labelling the file a template. It provides no actual merged explorer version or supported backend/API versions."
+expected = "A release page must distinguish reusable template text from published release information and give operators real compatibility and environment changes for the shipped explorer revision."
+proposal = "Label and relocate the reusable template in apps/explorer, and publish actual revisioned release notes with backend/API compatibility, dependency dispositions and environment changes derived from the qualified explorer release."
+owner_domain = 14
+
+[finding.script-policy]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/csp_header.ex"
+line = 24
+class = "security"
+severity = "low"
+observed = "The legacy Phoenix web CSP includes script-src unsafe-inline and unsafe-eval for every rendered page, so the policy does not block inline script injection or eval execution. This is a defense-in-depth weakness; this review does not claim an independently demonstrated injection exploit."
+expected = "The explorer browser security policy should authorize required scripts narrowly while retaining working account and wallet flows, with exceptions tied to an identified dependency rather than blanket execution permissions."
+proposal = "In BlockScoutWeb.CSPHeader and its legacy web templates, inventory inline/eval-dependent scripts, replace them with nonces, hashes or external assets and remove the blanket script exceptions when dependencies permit. Qualify real account and wallet pages under the resulting policy."
+owner_domain = 14
+interface = "14.cfg-web-web-cspheader"
+
+[finding.custom-addresses]
+file = "services/explorer/backend/apps/explorer/lib/explorer/custom_contracts_helper.ex"
+line = 8
+class = "config-drift"
+severity = "low"
+observed = "get_custom_addresses_list splits on commas and lowercases each fragment without trimming it. A normal comma-space configuration such as address1, address2 retains a leading space on the second address, so exact membership checks fail and the configured custom contract theme is not applied."
+expected = "A comma-separated custom-address list should normalize surrounding whitespace and reject malformed or empty address entries before consumers compare canonical address strings."
+proposal = "Normalize and validate entries in Explorer.CustomContractsHelper, retaining lowercase canonical address values and reporting invalid configuration. Cover comma-space, trailing separators and mixed-case addresses through the actual theme membership consumer."
+owner_domain = 14
+
+[finding.essential-chains]
+file = "apps/explorer/startup.node.ts"
+line = 9
+class = "wiring-gap"
+severity = "medium"
+observed = "Startup loads essential-dapps config.nodejs, but configs/essential-dapps-chains/index.ts returns only window.__essentialDappsChains in browsers and has no server getValue branch. Its Node getValue has no caller. lib/web3/chains.ts and wagmiConfig.ts build module-level chain and transport sets with ssr:true from this shared accessor, so configured essential dapp chains are omitted server-side while browsers receive them."
+expected = "Enabling essential dapps must give server rendering and browser wallet configuration the same declared chain list and transports; loading a Node cache must connect it to the server consumer."
+proposal = "Wire configs/essential-dapps-chains/index.ts to the Node cache in server runtime, use EssentialDappsChainConfig rather than the unrelated MultichainConfig cast in its loader, and await required startup loading. Prove the actual startup-to-shared-accessor-to-wagmi path yields matching server/browser chain ids and RPC transports."
+owner_domain = 14
+interface = "14.cfg-fe-essential-dapps-chains"
+
+[finding.metrics-edges]
+file = "apps/explorer/prometheus.yml"
+line = 14
+class = "wiring-gap"
+severity = "medium"
+observed = "The package declares consumption of 16.http-bench-benchmark-loadtest-metrics-metrics, 16.http-paxload-loadtest-main-metrics, 8.http-ai-evaluator-get-metrics, 8.http-gateway-get-metrics and 8.http-registry-get-metrics. This scrape file actually selects localhost:9090 and host.docker.internal:3000/node-api/metrics; backend/prometheus.yml selects localhost:4000. Neither file selects those five producers. A matching /metrics string does not establish a transport edge."
+expected = "Each metrics dependency in the registry must identify the actual producer host, port, path and deployment network used by this consumer; unrelated exporters must not be treated as verified slice dependencies."
+proposal = "Correct the caller associations in spec/layerx-merge/interfaces.kvx and the audit-package source to reflect the explorer frontend/backend exporters. Keep benchmark, loadtest and hosted exporters attached only to their actual scrape consumers, and verify target-to-exporter wiring in the owning deployment."
+owner_domain = 16
+
+[finding.hosted-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines39-51 describe one unified router endpoint, sixteen EVM-only origins and /rpc, /rpc/schema and /rpc/ws. Lines198-213 and443-470 route activity/program writes through retired boundaries and authorized-batch receipt authority; lines617-632 require a daemon module-registry/LNI preparation path."
+expected = "The merged network has paxd with an integrated kernel, JSON-RPC at public node root origins api1 through api14 plus api-mainnet-beta, commit finality and hosted px_* methods owned by the gateway openrpc contract; no separate router or layerxd is a live prerequisite."
+proposal = "Rewrite this hosted-gateway page from the merged gateway openrpc contract and native node root API, removing retired submission, authority and LNI operator instructions. Distinguish hosted px_* authorization from node namespaces and document finality at committed blocks; regenerate its site/wiki counterpart from the same source."
+owner_domain = 8
+
+[finding.hosted-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines39-51 describe one unified router endpoint, sixteen EVM-only origins and /rpc, /rpc/schema and /rpc/ws. Lines198-213 and443-470 route activity/program writes through retired boundaries and authorized-batch receipt authority; lines617-632 require a daemon module-registry/LNI preparation path."
+expected = "The merged network has paxd with an integrated kernel, JSON-RPC at public node root origins api1 through api14 plus api-mainnet-beta, commit finality and hosted px_* methods owned by the gateway openrpc contract; no separate router or layerxd is a live prerequisite."
+proposal = "Rewrite this hosted-gateway page from the merged gateway openrpc contract and native node root API, removing retired submission, authority and LNI operator instructions. Distinguish hosted px_* authorization from node namespaces and document finality at committed blocks; regenerate its site/wiki counterpart from the same source."
+owner_domain = 8
+
+[finding.route-catalogue]
+file = "docs/system/routes.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalogue calls itself Router routes at line3, advertises a sequencer service at31 and replica-authority at41, lists retired live explorer anchors/receipts at409-414, /rpc/evm/ws at908 and old Programs activity REST writes at927-937. These are published as current service discovery and consumer routes."
+expected = "Published routes must describe the single merged Paxeer network, native transaction/address/program surfaces and root node RPC. Retained frozen archive paths must be explicitly distinguished from removed live Anchor/Receipt surfaces."
+proposal = "Correct tools/paxeer-x/route-catalogue.json and the generator inputs, then regenerate docs/system/routes.md with tools/docs/gen-system-docs.sh. Remove retired service discovery and live paths, retain labelled archive reads, and derive active transport/authentication rows from the real mounted services."
+owner_domain = 16
+
+[finding.beta-site]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines3-5 instruct operators to run a Paxeer chain plus a LayerX daemon, core/agent boundaries and a separate receipt authority. The bring-up narrative uses guarantor/checkpoint settlement and custody-profile preparations rather than the integrated paxd kernel and native account state."
+expected = "The disposable cluster must model one BFT network with kernel execution inside paxd, transaction finality at block commit and native bank/subaccounts; retired daemon, settlement and boundary services must not be deployment requirements."
+proposal = "Rewrite the beta-cluster runbook from the current merged bring-up entrypoint and image table. Describe native node readiness, committed transaction evidence, bank/subaccount setup and restart recovery, removing daemon, receipt-authority and old settlement checks from the operator path."
+owner_domain = 8
+
+[finding.beta-wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines3-5 instruct operators to run a Paxeer chain plus a LayerX daemon, core/agent boundaries and a separate receipt authority. The bring-up narrative uses guarantor/checkpoint settlement and custody-profile preparations rather than the integrated paxd kernel and native account state."
+expected = "The disposable cluster must model one BFT network with kernel execution inside paxd, transaction finality at block commit and native bank/subaccounts; retired daemon, settlement and boundary services must not be deployment requirements."
+proposal = "Rewrite the beta-cluster runbook from the current merged bring-up entrypoint and image table. Describe native node readiness, committed transaction evidence, bank/subaccount setup and restart recovery, removing daemon, receipt-authority and old settlement checks from the operator path."
+owner_domain = 8
+
+[finding.boundary-site]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening sections present services/platform/hosted/paxeer as a live settlement boundary and line7 names layerx-paxeer-client. The page describes a separate boundary/guarantor settlement architecture, including its later settlement stack, although those components are retired by the merged-network brief."
+expected = "Integrators must use the merged native Paxeer node root API and committed blocks, without deploying a separate Paxeer settlement boundary, relay or guarantor service."
+proposal = "Replace this boundary guide with a clear retirement and migration page linking current native node APIs, chain id125 and commit-finality behavior. Map the old settlement concepts to native transactions and bank/subaccounts and remove instructions for the retired boundary clients."
+owner_domain = 8
+
+[finding.boundary-wiki]
+file = "docs/wiki/PaxeerBoundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening sections present services/platform/hosted/paxeer as a live settlement boundary and line7 names layerx-paxeer-client. The page describes a separate boundary/guarantor settlement architecture, including its later settlement stack, although those components are retired by the merged-network brief."
+expected = "Integrators must use the merged native Paxeer node root API and committed blocks, without deploying a separate Paxeer settlement boundary, relay or guarantor service."
+proposal = "Replace this boundary guide with a clear retirement and migration page linking current native node APIs, chain id125 and commit-finality behavior. Map the old settlement concepts to native transactions and bank/subaccounts and remove instructions for the retired boundary clients."
+owner_domain = 8
+
+[finding.cli-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires the unified /rpc at line8 and later describes Programs writes through /v1/programs and /rpc around294-298 plus authorized-batch verification around334. Its not-implemented table at106-139 also conflicts with wallet commands described earlier on the same page."
+expected = "CLI instructions must target the merged node root RPC and active hosted gateway contract, report committed block finality and accurately distinguish implemented commands from future commands."
+proposal = "Update the CLI documentation from tools/cli command registration and the current native/gateway contracts. Remove retired router, activity REST and authorized-batch workflows, reconcile the wallet command table and publish runnable native transaction/program examples for chain125."
+owner_domain = 16
+
+[finding.cli-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires the unified /rpc at line8 and later describes Programs writes through /v1/programs and /rpc around294-298 plus authorized-batch verification around334. Its not-implemented table at106-139 also conflicts with wallet commands described earlier on the same page."
+expected = "CLI instructions must target the merged node root RPC and active hosted gateway contract, report committed block finality and accurately distinguish implemented commands from future commands."
+proposal = "Update the CLI documentation from tools/cli command registration and the current native/gateway contracts. Remove retired router, activity REST and authorized-batch workflows, reconcile the wallet command table and publish runnable native transaction/program examples for chain125."
+owner_domain = 16
+
+[finding.programs-site]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The simulate section describes lxp_daemon_lni_simulate and hosted /v1/programs/call and /simulate over LNI, with sources under cmd/layerxd. The guide also recommends lx_sendActivity and describes CALL settlement in batch-finality terms (site404 onward, wiki445 onward), presenting pre-merge execution as current integration behavior."
+expected = "Programs execute in the integrated network kernel through the native Programs precompile, with simulation via the node API and finality at block commit. Guest ABI versions and the 524288-byte total deployment envelope limit must agree with the host."
+proposal = "Rewrite the integration portions of the Programs guide around native EVM deployment/call/simulation through the Programs precompile and node root RPC. State commit finality and the guest build/ABI/payload constraints; retain useful frozen ABI details only where they match current host code and label historical daemon protocols."
+owner_domain = 13
+
+[finding.programs-wiki]
+file = "docs/wiki/Programs.md"
+line = 118
+class = "doc-drift"
+severity = "medium"
+observed = "The simulate section describes lxp_daemon_lni_simulate and hosted /v1/programs/call and /simulate over LNI, with sources under cmd/layerxd. The guide also recommends lx_sendActivity and describes CALL settlement in batch-finality terms (site404 onward, wiki445 onward), presenting pre-merge execution as current integration behavior."
+expected = "Programs execute in the integrated network kernel through the native Programs precompile, with simulation via the node API and finality at block commit. Guest ABI versions and the 524288-byte total deployment envelope limit must agree with the host."
+proposal = "Rewrite the integration portions of the Programs guide around native EVM deployment/call/simulation through the Programs precompile and node root RPC. State commit finality and the guest build/ABI/payload constraints; retain useful frozen ABI details only where they match current host code and label historical daemon protocols."
+owner_domain = 13
+
+[finding.rate-limit-doc]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/rate_limit/hammer.ex"
+line = 13
+class = "doc-drift"
+severity = "low"
+observed = "The Hammer module documentation tells maintainers that backend selection reads Application.get_env(:block_scout_web, :rate_limit_backend). The generated wrapper functions actually read Application.get_env(:block_scout_web, :api_rate_limit)[:rate_limit_backend], and runtime.exs sets that nested key. Following the documented top-level key has no effect."
+expected = "The documented rate-limit configuration location must match the key both the dispatcher and its supervision setup consume, especially when selecting a shared Redis limiter for multiple replicas."
+proposal = "Correct the module documentation in BlockScoutWeb.RateLimit.Hammer to show the nested api_rate_limit backend key and API_RATE_LIMIT_HAMMER_REDIS_URL selection. Retain the functioning dispatcher and child configuration and align any operator examples with that actual nested setting."
+owner_domain = 14
+interface = "14.cfg-web-api-rate-limit"
+
+[doc.1]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Lines39-51,198-213,443-470 and617-632 retain unified /rpc, retired authority submission and daemon preparation instructions; see the corresponding hosted documentation finding."
+
+[doc.2]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Lines39-51,198-213,443-470 and617-632 retain unified /rpc, retired authority submission and daemon preparation instructions; see the corresponding hosted documentation finding."
+
+[doc.3]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Full catalogue reviewed, including GET/HEAD pairs and public assets. Lines3,31,41,409-414,908 and927-937 publish retired router/sequencer/authority/live explorer/Programs routes; regenerate from corrected catalogue inputs."
+
+[doc.4]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "Reviewed the full bridge runbook: lines52-58 explicitly describe the fail-closed placeholder attestors; caps, chain overlays, governance checks and Solana authority/restart instructions match the reviewed deployment consumers. Approved values remain an upgrade prerequisite, recorded in attestor-manifest."
+
+[doc.5]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines3-5 and the later guarantor/checkpoint/custody-profile bring-up narrative describe the separate daemon and boundary cluster; see the corresponding beta documentation finding."
+
+[doc.6]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines3-7 and the later settlement stack describe retired paxeer-boundary/layerx-paxeer-client components; native merged-node migration guidance is required."
+
+[doc.7]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Lines8,106-139,294-298 and334 retain unified router/authorized-batch workflows and conflicting command availability; see the corresponding CLI documentation finding."
+
+[doc.8]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Simulation section lines118-138 uses the retired daemon/LNI and hosted Programs REST. Later CALL settlement section (site404, wiki445) needs native committed-block semantics and current guest ABI/payload limits."
+
+[doc.9]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Simulation section lines118-138 uses the retired daemon/LNI and hosted Programs REST. Later CALL settlement section (site404, wiki445) needs native committed-block semantics and current guest ABI/payload limits."
+
+[doc.10]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+notes = "Lines3-7 and the later settlement stack describe retired paxeer-boundary/layerx-paxeer-client components; native merged-node migration guidance is required."
+
+[doc.11]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Lines3-5 and the later guarantor/checkpoint/custody-profile bring-up narrative describe the separate daemon and boundary cluster; see the corresponding beta documentation finding."
+
+[doc.12]
+path = "docs/wiki/Cli.md"
+status = "stale"
+notes = "Lines8,106-139,294-298 and334 retain unified router/authorized-batch workflows and conflicting command availability; see the corresponding CLI documentation finding."
+
+[doc.13]
+path = "apps/explorer/RELEASE_NOTES.md"
+status = "misleading"
+notes = "Lines2-50 are release-template placeholders, including ENV_VARIABLE_NAME, unknown compatibility versions and v1.2.3 upstream links; see release-template."
+
+[doc.14]
+path = "services/explorer/services/libs/blockscout-client/README.md"
+status = "stale"
+notes = "Lines33-47 describe remote mock recording as the test workflow, with a health example; they omit a current local backend-to-Rust contract check and actual error-status recording. See client-contract-tests."
+
+[doc.15]
+path = "services/explorer/deploy/railway/README.md"
+status = "accurate"
+notes = "Reviewed the full page for health routing, PORT and image deployment. It correctly uses /api/health/liveness, /explorer/api/healthz, shared published image tags, explicit database/migration setup and documented Redis requirements when scaling."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/bridge-deploy.md"
+status = "accurate"
+notes = "Reviewed app-env and manifest/proposals contract rows and linked frozen acceptance context. The page explicitly pins historical source revision2a1033aa2; its planned status is historical, not evidence of current qualification. Live manifest readiness is separately blocked by attestor-manifest."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "accurate"
+notes = "Reviewed the slice-linked cfg-explorer/indexer/logger/web/prometheus/nft-media-handler and env-account/env-port rows as pinned contract references. Names agree with live configuration; runtime input/recovery risks are recorded separately, and this status does not certify unrelated sections."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/explorer-http-api.md"
+status = "accurate"
+notes = "Reviewed the slice-linked health and /api/v2/blocks rows as pinned route declarations, plus explicit frozen-archive context. These rows identify live handlers but do not define a current typed health response; health-shape records the producer/client disagreement. Historical router context is not a live deployment instruction."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "accurate"
+notes = "Reviewed slice gauge and exporter rows: handler-labelled event_handler_queue_length, default /metrics and public /public-metrics agree with source. The page explicitly distinguishes the upstream /public_metrics comment from the configured route."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/explorer-frontend-config.md"
+status = "accurate"
+notes = "Reviewed cfg-essential-dapps-chains, marketplace, multichain feature and multichain accessor rows as pinned declarations. They identify the intended shared configuration; essential-chains records the unconnected server cache in live consumers."
+
+[doc.21]
+path = "spec/layerx-merge/contracts/explorer-services-config.md"
+status = "accurate"
+notes = "Reviewed env-verifier and launcher precedence: SMART_CONTRACT_VERIFIER__CONFIG selects the file read before the double-underscore environment overlay. The compose config mount and file/environment precedence agree with this declaration."
+
