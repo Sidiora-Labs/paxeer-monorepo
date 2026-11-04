@@ -1,0 +1,29 @@
+[repair.22.31.236]
+audit = "22.30.114"
+finding_ids = ["4"]
+tests = ["finding_4_atomic_bridge_calldata_preserves_the_confirmed_final_minimum", "finding_4_confirmation_cannot_change_while_approval_is_pending", "finding_4_expiry_is_absolute_and_default_is_captured_once", "finding_4_executor_rejects_expired_or_unprotected_confirmation_before_approval", "finding_4_atomic_route_rejects_native_or_non_bridge_pairs"]
+implementation = "Both ERC20/Sidiora directions use PECORRouter.swapMultiHop with USDL between the canonical vault and Sidiora adapters. The confirmed final minimum is frozen in the final hop and route bound before allowance reads or approval; the same absolute expiry covers the whole atomic swap. The router reverts both hops if output is below that minimum or expiry passes, leaving no partially settled bridge asset. Approval targets PECORRouter rather than the separate vault or Sidiora router."
+proof = "The production executor's preparation method creates actual ethers calldata, consumed and independently reproduced by the canonical MetaAGRouter ABI through viem for both directions. Tests assert exact large-integer minimums, adverse price-bound separation, immutable approval-time arguments, absolute/default expiry, and executeSwap rejection before approval for invalid authorizations. This is real codec proof; funded chain execution is not claimed."
+baseline = "Not run: the explicit numbered gate order requires complete implementation before hf-build/hf-done and forbids running verify_cmd by hand. No pre-change execution result is claimed. The original sequential executor never uses quote.amountOut and has no atomic preparation method."
+evidence = "The final hf-done evidence line and private gate ledger identify the verified candidate revision, exact command, exit code and log location; this record makes no advance qualification claim."
+
+[wiring.domain12]
+funded_execution = "Domain 12, contracts/launchpad/test/meta-ag/router/: run the wallet-generated calldata against funded canonical VaultAdapter/SidioraAdapter markets, move the second-leg price below the confirmed minimum, and assert atomic rollback of both hops and unchanged user bridge balance; the chain harness and Solidity artifacts are outside this task scope."
+
+[gotcha.scoped]
+area = "test"
+symptom = "The unchanged-tree verification step conflicts with the explicit gate order and one-run budget, and the sandbox has no anvil binary or compiled launchpad artifacts."
+do = "Follow the explicit numbered order; qualify the real production calldata with the independent canonical ABI codec, record the unrun baseline honestly, and request funded chain wiring from its owner."
+
+[qualification.verify_1]
+revision = "7ef914e2473cc95cb9ef47360d555637706fa47f"
+command = "cg spec done 22.31.236 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "The wrapper returned zero, but Vitest 4 registered all five test(function) calls as TODOs and executed no assertions; this is not valid behavioral evidence."
+repair = "Keep all five named functions and their assertions; register each with test(function.name, function) so Vitest executes it."
+
+[gotcha.vitest_registration]
+area = "test"
+symptom = "Vitest 4 treats the prescribed single-function test registration as a title with no implementation and reports TODOs while exiting zero."
+do = "Declare named test functions for graph visibility and pass both function.name and function to test; a zero exit with no executed tests does not qualify the repair."

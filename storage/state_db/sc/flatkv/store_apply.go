@@ -70,27 +70,28 @@ func (s *CommitStore) ApplyChangeSets(changeSets []*proto.NamedChangeSet) (err e
 	}
 	newAccountValues := deriveNewAccountValues(accountWrites, accountOld, blockHeight)
 	accountPairs := gatherLTHashPairs(newAccountValues, accountOld)
-	maps.Copy(s.accountWrites, newAccountValues)
 
 	storageWrites, err := processStorageChanges(changesByType[keys.EVMKeyStorage], blockHeight)
 	if err != nil {
 		return fmt.Errorf("failed to parse storage changes: %w", err)
 	}
 	storagePairs := gatherLTHashPairs(storageWrites, storageOld)
-	maps.Copy(s.storageWrites, storageWrites)
 
 	codeWrites, err := processCodeChanges(changesByType[keys.EVMKeyCode], blockHeight)
 	if err != nil {
 		return fmt.Errorf("failed to parse code changes: %w", err)
 	}
 	codePairs := gatherLTHashPairs(codeWrites, codeOld)
-	maps.Copy(s.codeWrites, codeWrites)
 
 	legacyWrites, err := processLegacyChanges(changesByType[keys.EVMKeyLegacy], blockHeight)
 	if err != nil {
 		return fmt.Errorf("failed to parse legacy changes: %w", err)
 	}
 	legacyPairs := gatherLTHashPairs(legacyWrites, legacyOld)
+
+	maps.Copy(s.accountWrites, newAccountValues)
+	maps.Copy(s.storageWrites, storageWrites)
+	maps.Copy(s.codeWrites, codeWrites)
 	maps.Copy(s.legacyWrites, legacyWrites)
 
 	addKVPairs(s.ctx, accountDBDir, len(newAccountValues))

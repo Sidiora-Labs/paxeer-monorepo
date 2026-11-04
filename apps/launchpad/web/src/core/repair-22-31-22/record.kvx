@@ -1,0 +1,13 @@
+[repair.22.31.22]
+finding = "surface_authority"
+tests = ["surfaceAuthorityRoundTripsCurrentAttestation", "surfaceAuthorityRejectsUnreviewedIdentities"]
+path = "apps/launchpad/web/src/core/repair-22-31-22.test.ts"
+proof = "Current deployment -> real pinned public RPC reader -> deployment.Attest -> ExportRevision -> generated v2 codec -> HTTPS -> loadRuntimeAuthority; altered runtime and implementation identities must be refused."
+continuation_repair = "Prefetch independent current-manifest code, storage and getter reads concurrently through the real PinnedRPCReader at the same block hash, then pass their unchanged results and errors into Attest; prefetch and attestation share the original 10-second read deadline, with no synthetic values or unpinned reads."
+previous_attempt = "revision=e176076cc8137b9b6a6b756c168115c522064d9f command=cg spec done 22.31.22 -f layerx-merge --root /work/paxeer-monorepo exit=1; both proving tests were blocked by beforeAll attestation_canceled during ProtocolConfig reads, before the web consumer executed."
+registration_repair = "revision=513ee9605db64d55de5b69be5a1ccd7fc9839f08 command=cg spec done 22.31.22 -f layerx-merge --root /work/paxeer-monorepo exit=0 log=/out/logs/verify-1.log is NOT behavioral qualification: Vitest 4 registered test(function) as TODO. Restore explicit function name plus function callback so both tests execute."
+setup_repair = "The first verification could not execute either test because sequential upstream HTTP reads exceeded the attestation deadline; use the same node's persistent WebSocket RPC transport without changing the 10-second deadline or assertions."
+setup_failure = "revision=85face441a15b802a76da176f3fb03b5fb0bbb57 command=cg spec done 22.31.22 -f layerx-merge --root /work/paxeer-monorepo exit=1 log=/out/logs/verify-1.log"
+baseline = "No baseline gate was run: the explicit gate order forbids testing before the complete implementation and reserves verification for hf-done. The prior code rejects producer-emitted surface roles because implementation fields are absent."
+wiring_request = "Domain 4: tools/launchpad/production/interfaces/contracts/client-deployment.cjs must emit roleIdentity.usdl from sdk/launchpad/shared/config/deployment/current.json to preserve the reviewed direct settlement identity when regenerating apps/launchpad/web/src/core/network/deployment.ts."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence location."
