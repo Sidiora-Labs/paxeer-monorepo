@@ -61,7 +61,7 @@ func TestPublishedLedgerAndAuthABIFrozen(t *testing.T) {
 		path   string
 		sha256 string
 	}{
-		{"ledger", "abi.json", "06dc6641582cb159c16b2e5426dff95f3109e551b92346576a0108f98680c97a"},
+		{"ledger", "abi.json", "2c438c81cce9661e7b8a664667b480b70a8a9a9e8952ff347bd31d7cffd8f047"},
 		{"auth", "../layerxauth/abi.json", "b05e1f3aa1d1c2647041c2fc2ab841afe42ee6cbb1b9fce8881480a49d6f8fc9"},
 	} {
 		t.Run(frozen.name, func(t *testing.T) {

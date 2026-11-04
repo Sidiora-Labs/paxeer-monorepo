@@ -1,0 +1,8 @@
+[repair.22.31.159]
+finding = "approval-asset-currency-domain"
+tests = ["approval_asset_currency_domain_bank_denoms_route_and_recover", "approval_asset_currency_domain_native_ids_route_and_recover", "approval_asset_currency_domain_does_not_infer_display_metadata"]
+implementation = "ApprovalNotification persists exact base units, stable asset ID and disclosure digest under the approval subject before dispatch; approval links retain the binding through store reopen and event replay without inferring currency metadata."
+baseline = "Not run: the explicit gate order prohibits verification before implementation and prohibits invoking verify_cmd directly; no baseline failure is claimed."
+wiring = "Human notifications (domain 10), services/human/crates/layerx-human-service/src/notify/{event,content}.rs: expose ApprovalNotification amount/asset fields in full-detail payloads independently of Money currency metadata, retaining summary/minimal redaction."
+existing_test_wiring = "Human tests (domain 10), services/human/crates/layerx-human-service/tests/approvals.rs: its legacy full-payload amount assertion must consume the distinct approval amount/asset binding instead of assuming an asset identifier is authenticated currency metadata."
+evidence = "The bounded runner records the candidate revision, exact build and verify commands, exit codes and private log locations; no baseline or unrun gate is asserted here."

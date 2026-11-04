@@ -198,12 +198,20 @@ func newKeystore(kr keyring.Keyring, opts ...Option) keystore {
 	// Default options for keybase
 	options := Options{
 		SupportedAlgos:       SigningAlgoList{hd.Sr25519, hd.Secp256k1},
-		SupportedAlgosLedger: SigningAlgoList{hd.Sr25519, hd.Secp256k1},
+		SupportedAlgosLedger: SigningAlgoList{hd.Secp256k1},
 	}
 
 	for _, optionFn := range opts {
 		optionFn(&options)
 	}
+
+	ledgerAlgos := make(SigningAlgoList, 0, len(options.SupportedAlgosLedger))
+	for _, algo := range options.SupportedAlgosLedger {
+		if algo.Name() == hd.Secp256k1Type {
+			ledgerAlgos = append(ledgerAlgos, algo)
+		}
+	}
+	options.SupportedAlgosLedger = ledgerAlgos
 
 	return keystore{kr, options}
 }
@@ -352,7 +360,7 @@ func (ks keystore) SignByAddress(address sdk.Address, msg []byte) ([]byte, types
 }
 
 func (ks keystore) SaveLedgerKey(uid string, algo SignatureAlgo, hrp string, coinType, account, index uint32) (Info, error) {
-	if !ks.options.SupportedAlgosLedger.Contains(algo) {
+	if algo.Name() != hd.Secp256k1Type || !ks.options.SupportedAlgosLedger.Contains(algo) {
 		return nil, fmt.Errorf(
 			"%w: signature algo %s is not defined in the keyring options",
 			ErrUnsupportedSigningAlgo, algo.Name(),

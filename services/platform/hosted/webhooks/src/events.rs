@@ -648,15 +648,20 @@ pub struct PaymentDraft<'a> {
 /// receipt bytes or a level weaker than a verified `LayerX` receipt, and
 /// [`WebhookError::InvalidRequest`] for an invalid amount or asset.
 pub fn settled_payment(draft: PaymentDraft<'_>) -> Result<ProtocolEvent, WebhookError> {
+    let level = Verification::parse(draft.operation.verification_level())?;
+    settled_payment_at(draft, level)
+}
+
+pub(crate) fn settled_payment_at(
+    draft: PaymentDraft<'_>,
+    verification: Verification,
+) -> Result<ProtocolEvent, WebhookError> {
     if draft.operation.receipt().is_empty() {
         return Err(WebhookError::VerificationRequired);
     }
     if draft.operation.result_code() != 0 {
         return Err(WebhookError::VerificationRequired);
     }
-    let verification = Verification::parse(
-        layerx_platform_gateway::VerifiedOperation::verification_level(draft.operation),
-    )?;
     if !verification.at_least(Verification::ReceiptVerified) {
         return Err(WebhookError::VerificationRequired);
     }
