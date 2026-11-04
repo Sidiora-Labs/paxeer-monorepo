@@ -41,7 +41,7 @@ tests:
         values: '10x10'
       - series: 'node_filesystem_size_bytes{job="node",host="f1",mountpoint="/",fstype="ext4"}'
         values: '100x10'
-      - series: 'probe_success{job="kernel-readyz",instance="https://k/readyz"}'
+      - series: 'probe_success{__target__="node-readyz:0"}'
         values: '0x5'
     alert_rule_test:
       - eval_time: 6m
@@ -51,56 +51,91 @@ tests:
             exp_annotations:
               summary: "f1 / is 90 percent full"
       - eval_time: 2m
-        alertname: KernelReadyzDown
+        alertname: NodeNotReady
         exp_alerts:
-          - exp_labels: {severity: critical, job: kernel-readyz, instance: "https://k/readyz"}
+          - exp_labels: {severity: critical, __target__: "node-readyz:0"}
             exp_annotations:
-              summary: "kernel readiness https://k/readyz is failing"
+              summary: "node consensus readiness @instance@ is failing"
 
   - interval: 15s
     input_series:
-      - series: 'probe_success{job="sequencer-readyz",role="primary",instance="primary"}'
+      - series: 'probe_success{__target__="node-health:0"}'
         values: '0x8 1x3'
-      - series: 'probe_success{job="sequencer-readyz",role="standby",instance="standby"}'
+      - series: 'probe_success{__target__="node-readyz:0"}'
         values: '1x12'
     alert_rule_test:
       - eval_time: 1m45s
-        alertname: SequencerNotReady
+        alertname: NodeRPCDown
         exp_alerts: []
       - eval_time: 2m
-        alertname: SequencerNotReady
+        alertname: NodeRPCDown
         exp_alerts:
-          - exp_labels: {severity: critical, job: sequencer-readyz, role: primary, instance: primary}
+          - exp_labels: {severity: critical, __target__: "node-health:0"}
             exp_annotations:
-              summary: "sequencer readiness primary is failing"
+              summary: "node RPC health @instance@ is failing"
       - eval_time: 2m15s
-        alertname: SequencerNotReady
+        alertname: NodeRPCDown
         exp_alerts: []
       - eval_time: 2m
-        alertname: StandbyNotReady
+        alertname: NodeNotReady
         exp_alerts: []
 
   - interval: 15s
     input_series:
-      - series: 'probe_success{job="sequencer-readyz",role="primary",instance="primary"}'
+      - series: 'up{__target__="node-readyz:0"}'
+        values: '0x8 1x3'
+      - series: 'up{__target__="node-health:0"}'
         values: '1x12'
-      - series: 'probe_success{job="sequencer-readyz",role="standby",instance="standby"}'
+    alert_rule_test:
+      - eval_time: 1m45s
+        alertname: NodeReadinessProbeDown
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: NodeReadinessProbeDown
+        exp_alerts:
+          - exp_labels: {severity: critical, __target__: "node-readyz:0"}
+            exp_annotations:
+              summary: "node readiness probe @instance@ is failing"
+      - eval_time: 2m15s
+        alertname: NodeReadinessProbeDown
+        exp_alerts: []
+
+  - interval: 15s
+    input_series:
+      - series: 'up{__target__="node-readyz:0"}'
+        values: '1x12'
+      - series: 'up{__target__="node-health:0"}'
         values: '0x8 1x3'
     alert_rule_test:
       - eval_time: 1m45s
-        alertname: StandbyNotReady
+        alertname: NodeReadinessProbeDown
         exp_alerts: []
       - eval_time: 2m
-        alertname: StandbyNotReady
+        alertname: NodeReadinessProbeDown
         exp_alerts:
-          - exp_labels: {severity: critical, job: sequencer-readyz, role: standby, instance: standby}
+          - exp_labels: {severity: critical, __target__: "node-health:0"}
             exp_annotations:
-              summary: "standby readiness standby is failing"
+              summary: "node readiness probe @instance@ is failing"
       - eval_time: 2m15s
-        alertname: StandbyNotReady
+        alertname: NodeReadinessProbeDown
         exp_alerts: []
-      - eval_time: 2m
-        alertname: SequencerNotReady
+
+  - interval: 15s
+    input_series:
+      - series: 'probe_success{__target__="node-readyz:0"}'
+        values: '0x4 1x7'
+    alert_rule_test:
+      - eval_time: 45s
+        alertname: NodeNotReady
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: NodeNotReady
+        exp_alerts:
+          - exp_labels: {severity: critical, __target__: "node-readyz:0"}
+            exp_annotations:
+              summary: "node consensus readiness @instance@ is failing"
+      - eval_time: 1m15s
+        alertname: NodeNotReady
         exp_alerts: []
 
   - interval: 15s
