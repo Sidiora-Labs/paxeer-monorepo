@@ -17,6 +17,7 @@ use std::os::unix::fs::{
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_programs::hex;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
@@ -53,6 +54,7 @@ const LISTENER_MODE_MASK: u32 = 0o660;
 const LISTENER_OWNER_ACCESS: u32 = 0o600;
 const MAX_WEB_TIMEOUT_MS: u64 = 60_000;
 const MAX_WEB_PENDING_ATTEMPTS: u8 = 10;
+const MAX_WEB_RECEIPT_KEYS: usize = 64;
 
 /// Deployment mode the binding document declares.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -402,13 +404,82 @@ impl ListenerDeclaration {
 pub struct WebDeclaration {
     endpoint: String,
     network: String,
-    payer_address: [u8; 20],
-    receiver_address: [u8; 20],
-    receipt_key_index: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
-    selected_key: usize,
+    receipt_public_key: [u8; 32],
+    authority: Option<WebAuthority>,
     timeout_ms: u64,
     pending_attempts: u8,
     approval_threshold: u128,
+}
+
+/// Explicit payment parties and the bounded receipt authority resolved from the node.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebAuthority {
+    payer_address: [u8; 20],
+    receiver_address: [u8; 20],
+    receipt_key_index: Vec<ReceiptKeyEntry>,
+    sequencer_id: [u8; 32],
+    first_batch_number: u64,
+    last_batch_number: u64,
+}
+
+impl WebAuthority {
+    /// Validates the complete node key index and the selected inclusive receipt range.
+    ///
+    /// # Errors
+    ///
+    /// Refuses zero payment addresses, empty, oversized, repeated or invalid keys,
+    /// and an uncovered or reversed range.
+    pub fn new(
+        payer_address: [u8; 20],
+        receiver_address: [u8; 20],
+        receipt_key_index: Vec<ReceiptKeyEntry>,
+        sequencer_id: [u8; 32],
+        first_batch_number: u64,
+        last_batch_number: u64,
+    ) -> Result<Self, EnrolmentError> {
+        if payer_address == [0; 20] || receiver_address == [0; 20] {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web payment addresses must be nonzero",
+            ));
+        }
+        if receipt_key_index.is_empty() || receipt_key_index.len() > MAX_WEB_RECEIPT_KEYS {
+            return Err(EnrolmentError::InvalidWeb(
+                "the receipt key index must name 1 to 64 keys",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for key in &receipt_key_index {
+            if key.key_id == [0; 32]
+                || key.public_key == [0; 32]
+                || key.first_height > key.last_height
+                || !seen.insert(key.key_id)
+            {
+                return Err(EnrolmentError::InvalidWeb(
+                    "the receipt key index has an invalid or repeated key",
+                ));
+            }
+        }
+        if sequencer_id == [0; 32]
+            || first_batch_number > last_batch_number
+            || !receipt_key_index.iter().any(|key| {
+                key.key_id == sequencer_id
+                    && key.first_height <= first_batch_number
+                    && key.last_height >= last_batch_number
+            })
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the receipt key index does not cover the selected receipt range",
+            ));
+        }
+        Ok(Self {
+            payer_address,
+            receiver_address,
+            receipt_key_index,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
+        })
+    }
 }
 
 impl WebDeclaration {
@@ -424,7 +495,7 @@ impl WebDeclaration {
         network: String,
         payer_address: [u8; 20],
         receiver_address: [u8; 20],
-        receipt_key_index: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+        receipt_key_index: Vec<ReceiptKeyEntry>,
         selected_key: usize,
         timeout_ms: u64,
         pending_attempts: u8,
@@ -436,7 +507,14 @@ impl WebDeclaration {
                 "the web endpoint is not an HTTP sidecar authority",
             ));
         }
-        if network != "eip155:125" {
+        if network != "eip155:125"
+            || !network.strip_prefix("eip155:").is_some_and(|chain_id| {
+                !chain_id.is_empty()
+                    && chain_id.len() <= 64
+                    && !chain_id.starts_with('0')
+                    && chain_id.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        {
             return Err(EnrolmentError::InvalidWeb(
                 "the web network must be eip155:125",
             ));
@@ -447,24 +525,12 @@ impl WebDeclaration {
             ));
         }
         if receipt_key_index.is_empty()
-            || receipt_key_index.len() > 64
+            || receipt_key_index.len() > MAX_WEB_RECEIPT_KEYS
             || selected_key >= receipt_key_index.len()
         {
             return Err(EnrolmentError::InvalidWeb(
                 "the web receipt key index or selection is invalid",
             ));
-        }
-        let mut seen = BTreeSet::new();
-        for key in &receipt_key_index {
-            if key.key_id == [0; 32]
-                || key.public_key == [0; 32]
-                || key.first_height > key.last_height
-                || !seen.insert(key.key_id)
-            {
-                return Err(EnrolmentError::InvalidWeb(
-                    "the web receipt key index has an invalid or repeated key",
-                ));
-            }
         }
         if timeout_ms == 0 || timeout_ms > MAX_WEB_TIMEOUT_MS {
             return Err(EnrolmentError::InvalidWeb(
@@ -476,22 +542,64 @@ impl WebDeclaration {
                 "the web pending attempts must be 1 to 10",
             ));
         }
-        Ok(Self {
-            endpoint,
-            network,
+        let key = &receipt_key_index[selected_key];
+        let receipt_public_key = key.public_key;
+        let (sequencer_id, first, last) = (key.key_id, key.first_height, key.last_height);
+        let authority = WebAuthority::new(
             payer_address,
             receiver_address,
             receipt_key_index,
-            selected_key,
+            sequencer_id,
+            first,
+            last,
+        )?;
+        Ok(Self {
+            endpoint,
+            network,
+            receipt_public_key,
+            authority: Some(authority),
             timeout_ms,
             pending_attempts,
             approval_threshold,
         })
     }
 
-    fn document(&self) -> Value {
-        let key = &self.receipt_key_index[self.selected_key];
-        let keys: Vec<_> = self
+    /// Narrows the selected receipt range while retaining the enrolled payment authority.
+    ///
+    /// # Errors
+    ///
+    /// Refuses changed payment parties, governed keys, selection, or an expanded range.
+    pub fn with_authority(mut self, authority: WebAuthority) -> Result<Self, EnrolmentError> {
+        if !authority.receipt_key_index.iter().any(|key| {
+            key.key_id == authority.sequencer_id && key.public_key == self.receipt_public_key
+        }) {
+            return Err(EnrolmentError::InvalidWeb(
+                "the selected receipt key differs from the resolved key",
+            ));
+        }
+        let current = self.authority.as_ref().ok_or(EnrolmentError::InvalidWeb(
+            "the web payer, receiver and governed receipt authority are required",
+        ))?;
+        if authority.payer_address != current.payer_address
+            || authority.receiver_address != current.receiver_address
+            || authority.receipt_key_index != current.receipt_key_index
+            || authority.sequencer_id != current.sequencer_id
+            || authority.first_batch_number < current.first_batch_number
+            || authority.last_batch_number > current.last_batch_number
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web authority differs from the enrolled authority",
+            ));
+        }
+        self.authority = Some(authority);
+        Ok(self)
+    }
+
+    fn document(&self) -> Result<Value, EnrolmentError> {
+        let authority = self.authority.as_ref().ok_or(EnrolmentError::InvalidWeb(
+            "the web payer, receiver and governed receipt authority are required",
+        ))?;
+        let receipt_key_index: Vec<Value> = authority
             .receipt_key_index
             .iter()
             .map(|key| {
@@ -503,19 +611,19 @@ impl WebDeclaration {
                 })
             })
             .collect();
-        json!({
+        Ok(json!({
             "endpoint": self.endpoint,
-            "payer_address": format!("0x{}", hex::encode(&self.payer_address)),
-            "receiver_address": format!("0x{}", hex::encode(&self.receiver_address)),
             "network": self.network,
-            "receipt_key_index": keys,
-            "sequencer_id": hex::encode(&key.key_id),
-            "first_batch_number": key.first_height,
-            "last_batch_number": key.last_height,
+            "payer_address": format!("0x{}", hex::encode(&authority.payer_address)),
+            "receiver_address": format!("0x{}", hex::encode(&authority.receiver_address)),
+            "receipt_key_index": receipt_key_index,
+            "sequencer_id": hex::encode(&authority.sequencer_id),
+            "first_batch_number": authority.first_batch_number,
+            "last_batch_number": authority.last_batch_number,
             "timeout_ms": self.timeout_ms,
             "pending_attempts": self.pending_attempts,
             "approval_threshold": self.approval_threshold.to_string(),
-        })
+        }))
     }
 }
 
@@ -941,7 +1049,11 @@ impl BindingPublisher {
                 .as_ref()
                 .map(ListenerDeclaration::document)
                 .transpose()?,
-            web: self.web.as_ref().map(WebDeclaration::document),
+            web: self
+                .web
+                .as_ref()
+                .map(WebDeclaration::document)
+                .transpose()?,
         };
         serde_json::to_value(document)
             .map_err(|_| EnrolmentError::Encoding("the binding cannot be encoded"))
@@ -1637,7 +1749,6 @@ impl VerifiedProgramBudgetDenominations {
     }
 }
 
-
 #[cfg(test)]
 mod web_payment_binding_tests {
     use super::WebDeclaration;
@@ -1673,7 +1784,7 @@ mod web_payment_binding_tests {
             100,
         )
         .expect("valid governed web declaration");
-        let published = declaration.document();
+        let published = declaration.document().expect("validated web authority");
         assert_eq!(published["network"], "eip155:125");
         assert_eq!(
             published["payer_address"],
