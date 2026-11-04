@@ -43,6 +43,14 @@ func TestEmpty(t *testing.T) {
 	statedb := state.NewDBImpl(ctx, k, false)
 	require.True(t, statedb.Empty(addr))
 
+	// The keeper stores EmptyCodeHash for both nil and cleared code.
+	statedb.SetCode(addr, nil)
+	require.True(t, statedb.Empty(addr))
+	statedb.SetCode(addr, []byte{1})
+	require.False(t, statedb.Empty(addr))
+	require.Equal(t, []byte{1}, statedb.SetCode(addr, nil))
+	require.True(t, statedb.Empty(addr))
+
 	// has balance
 	statedb.AddBalance(addr, uint256.NewInt(1000000000000), tracing.BalanceChangeUnspecified)
 	require.False(t, statedb.Empty(addr))
@@ -56,4 +64,6 @@ func TestEmpty(t *testing.T) {
 	statedb.SetNonce(addr, 0, tracing.NonceChangeEoACall)
 	statedb.SetCode(addr, []byte{1})
 	require.False(t, statedb.Empty(addr))
+
+	t.Run("persisted empty code", checkEmptyCodeReloadM1127)
 }

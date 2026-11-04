@@ -248,6 +248,26 @@ static void call_activity_release(void *state)
     value->terminal.events = NULL;
 }
 
+extern lxp_result layerx_programs_call_sandbox_execution_principal(
+    uint64_t token, const uint8_t program[32], uint8_t principal[32]);
+extern int32_t layerx_programs_call_payload_offset(const uint8_t *payload, size_t length);
+extern int32_t layerx_programs_event_envelope_validate(const uint8_t *evidence,
+    size_t length, const uint8_t principal[32], uint32_t count);
+
+static lxp_result call_execution_principal(const lxp_programs_call_activity *value,
+                                           uint8_t principal[32])
+{
+    lxp_result status;
+    if (value == NULL || value->authority == NULL) return LXP_ERR_NON_CANONICAL;
+    status = layerx_programs_call_sandbox_execution_principal(
+        (uint64_t)(uintptr_t)value, value->program_id, principal);
+    if (status == LXP_ERR_UNKNOWN_FIELD) {
+        (void)memcpy(principal, value->authority->principal, 32U);
+        return LXP_OK;
+    }
+    return status;
+}
+
 static lxp_result call_namespace_for_program(const lxp_programs_call_activity *value,
                                              const uint8_t program_id[32],
                                  uint16_t selector, uint8_t bytes[65],
@@ -261,7 +281,8 @@ static lxp_result call_namespace_for_program(const lxp_programs_call_activity *v
     (void)memcpy(bytes, program_id, 32U);
     bytes[32] = (uint8_t)(selector == 0U ? 0U : 1U);
     if (selector == 0U) {
-        (void)memcpy(bytes + 33U, value->authority->principal, 32U);
+        lxp_result status = call_execution_principal(value, bytes + 33U);
+        if (status != LXP_OK) return status;
         *length = 65U;
     } else *length = 33U;
     return LXP_OK;
@@ -1591,6 +1612,15 @@ lxp_result layerx_programs_call_terminal_publish(uint64_t token)
         status = terminal_wrap_applied(value);
         if (status != LXP_OK) return status;
     }
+    if (value->terminal.terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS) {
+        uint8_t execution_principal[32];
+        status = call_execution_principal(value, execution_principal);
+        if (status != LXP_OK) return status;
+        if (layerx_programs_event_envelope_validate(value->terminal.events,
+                value->terminal.events_length, execution_principal,
+                value->emitted_event_count) != 0)
+            return LXP_ERR_NON_CANONICAL;
+    }
     status = lxp_hash_sha256(value->terminal.graph, value->terminal.graph_length, graph_root);
     if (status == LXP_OK) status = lxp_hash_sha256(value->terminal.terminal,
                                                     value->terminal.terminal_length,
@@ -1664,7 +1694,10 @@ lxp_result layerx_programs_call_terminal_publish(uint64_t token)
         value->terminal.events, value->terminal.events_length
     };
     event.program_id = value->program_id;
-    event.principal = value->authority->principal;
+    uint8_t execution_principal[32];
+    status = call_execution_principal(value, execution_principal);
+    if (status != LXP_OK) return status;
+    event.principal = execution_principal;
     event.activity_id = activity_id;
     event.frame_path = frame;
     event.frame_depth = 0U;
@@ -1693,6 +1726,57 @@ static bool catalog_contains(const lxp_programs_call_activity *value,
     return false;
 }
 
+lxp_result layerx_programs_call_dispute_artifact_open(
+    uint64_t token, const uint8_t program[32], const uint8_t hash[32],
+    const uint8_t **wasm, size_t *length)
+{
+    lxp_programs_call_activity *value = (lxp_programs_call_activity *)(uintptr_t)token;
+    uint8_t digest[32];
+    lxp_result status;
+    if (value == NULL || value->ctx == NULL || program == NULL || hash == NULL ||
+        wasm == NULL || length == NULL || !catalog_contains(value, program) ||
+        lxp_ct_is_zero(hash, 32U)) return LXP_ERR_NON_CANONICAL;
+    /* The authenticated market profile binds this immutable content hash. The
+     * current deployment manifest is deliberately not used to select its bytes. */
+    status = lxp_ctx_blob_get(value->ctx, hash, wasm, length);
+    if (status != LXP_OK) return status;
+    if (*length == 0U || *length > LXP_KERNEL_MAX_BLOB_BYTES) return LXP_ERR_LENGTH_LIMIT;
+    status = lxp_hash_sha256(*wasm, *length, digest);
+    if (status != LXP_OK) return status;
+    return lxp_ct_memcmp(hash, digest, 32U) == 0 ? LXP_OK : LXP_FATAL_INVARIANT;
+}
+
+lxp_result layerx_programs_call_dispute_schedule(
+    uint64_t token, uint16_t kind, uint32_t version, uint8_t *output)
+{
+    lxp_programs_call_activity *value = (lxp_programs_call_activity *)(uintptr_t)token;
+    lxp_result status;
+    size_t index;
+    if (value == NULL || value->ctx == NULL || output == NULL || version == 0U)
+        return LXP_ERR_NON_CANONICAL;
+    if (kind == 0U) {
+        lx_programs_fee_schedule schedule;
+        uint8_t asset[32];
+        uint64_t coefficients[7];
+        status = lxp_programs_fee_schedule_at(value->ctx, version, &schedule, asset);
+        if (status != LXP_OK) return status;
+        coefficients[0] = schedule.cpu; coefficients[1] = schedule.memory_byte;
+        coefficients[2] = schedule.storage_read_byte; coefficients[3] = schedule.storage_write_byte;
+        coefficients[4] = schedule.output_value; coefficients[5] = schedule.output_byte;
+        coefficients[6] = schedule.occupancy_byte_batch;
+        terminal_write_u32(output, schedule.version);
+        for (index = 0U; index < 7U; ++index) write_u64(output + 4U + index * 8U, coefficients[index]);
+    } else if (kind == 1U) {
+        lx_programs_metering_schedule schedule;
+        status = lxp_programs_metering_schedule_at(value->ctx->kernel, version,
+            lxp_ctx_batch_number(value->ctx), &schedule);
+        if (status != LXP_OK) return status;
+        terminal_write_u32(output, schedule.version);
+        for (index = 0U; index < 9U; ++index) write_u64(output + 4U + index * 8U, schedule.coefficients[index]);
+    } else return LXP_ERR_UNKNOWN_FIELD;
+    return LXP_OK;
+}
+
 static bool event_frame_valid(const uint8_t path[8], uint8_t depth)
 {
     size_t index;
@@ -1714,6 +1798,7 @@ lxp_result layerx_programs_call_event_begin(
         (lxp_programs_call_activity *)(uintptr_t)token;
     const lxp_call_admission_facts *admission;
     void *topic, *data;
+    uint8_t execution_principal[32];
     lxp_result status;
     if (value == NULL || value->ctx == NULL || value->event.active ||
         event_index != value->emitted_event_count ||
@@ -1732,8 +1817,10 @@ lxp_result layerx_programs_call_event_begin(
     write_u64(value->event.principal + 16U, r2);
     write_u64(value->event.principal + 24U, r3);
     write_u64(value->event.frame_path, frame_path);
+    status = call_execution_principal(value, execution_principal);
+    if (status != LXP_OK) return status;
     if (!catalog_contains(value, value->event.program_id) ||
-        lxp_ct_memcmp(value->event.principal, value->authority->principal, 32U) != 0 ||
+        lxp_ct_memcmp(value->event.principal, execution_principal, 32U) != 0 ||
         !event_frame_valid(value->event.frame_path, frame_depth))
         return LXP_ERR_NON_CANONICAL;
     status = lxp_ctx_arena_alloc(value->ctx, topic_length == 0U ? 1U : topic_length,
@@ -2539,7 +2626,13 @@ lxp_result lxp_programs_call_schedule_decode(
     if (activity->payload.length > UINTPTR_MAX - payload_begin)
         return LXP_ERR_LENGTH_LIMIT;
     payload_end = payload_begin + activity->payload.length;
-    capabilities_offset = PROGRAM_CALL_FIXED_BYTES + value->replay_prefix_length;
+    {
+        int32_t payload_offset = layerx_programs_call_payload_offset(
+            activity->payload.bytes, activity->payload.length);
+        if (payload_offset < 0 || (uint32_t)payload_offset != value->replay_prefix_length)
+            return LXP_ERR_NON_CANONICAL;
+        capabilities_offset = PROGRAM_CALL_FIXED_BYTES + (size_t)payload_offset;
+    }
     if (!checked_size_add(capabilities_offset, value->entrypoint_length,
                           &capabilities_offset) ||
         !checked_size_add(capabilities_offset, value->calldata_length,
@@ -2656,9 +2749,13 @@ lxp_result lxp_programs_call_execute(
     value->occupancy = (lxp_programs_occupancy_bridge *)allocation;
     status = lxp_programs_occupancy_bridge_init(value->occupancy, ctx);
     if (status == LXP_OK &&
-        lxp_protocol_version_uses_occupancy(ctx->protocol_version))
-        status = lxp_programs_occupancy_bind_call(
-            value->occupancy, value->program_id, authority->principal, value->budget);
+        lxp_protocol_version_uses_occupancy(ctx->protocol_version)) {
+        uint8_t execution_principal[32];
+        status = call_execution_principal(value, execution_principal);
+        if (status == LXP_OK)
+            status = lxp_programs_occupancy_bind_call(
+                value->occupancy, value->program_id, execution_principal, value->budget);
+    }
     if (status != LXP_OK) return status;
     /* The Rust boundary consumes this exact arena-owned activity once. It must
      * publish into the existing C journal before reporting success. */
@@ -2822,7 +2919,7 @@ lxp_result lxp_programs_call_profile_decode(lxp_module_ctx *ctx,
     maximum_boundaries = read_u32(payload + cursor); cursor += 4U;
     maximum_bytes = read_u32(payload + cursor); cursor += 4U;
     original_length = read_u32(payload + cursor); cursor += 4U;
-    if (maximum_boundaries == 0U || maximum_boundaries > LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES ||
+    if (maximum_boundaries < 2U || maximum_boundaries > LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES ||
         maximum_bytes < 512U || maximum_bytes > LXP_PROGRAMS_REPLAY_MAX_BYTES ||
         original_length != payload_length - cursor)
         return LXP_ERR_NON_CANONICAL;

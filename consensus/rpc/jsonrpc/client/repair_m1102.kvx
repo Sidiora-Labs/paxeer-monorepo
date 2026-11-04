@@ -1,0 +1,29 @@
+[repair.22.33.1102]
+audit = "22.30.46"
+findings = ["17", "30", "18"]
+baseline = "Not run: the explicit gate order prohibits tests before complete implementation and permits verification only through hf-done after hf-build; the initial gate ledger was absent. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger identifies the exact candidate revision, command, exit code and evidence log; the final response copies its last gate record."
+
+[finding.17]
+tests = ["TestRepairM_1102_ResponseBounds", "TestRepairM_1102_ResponseLimitConfiguration"]
+implementation = "Bound both single and batch response reads to the configured limit plus one byte; reject oversized Content-Length before reading, and return ErrResponseTooLarge before decoding. Defaults allow 8 MiB ordinary, 32 MiB block, 128 MiB genesis and 128 MiB total batch responses; synchronized configuration rejects nonpositive and overflowing limits."
+proof = "Real registered RPC functions and response codec through loopback HTTP to Call and RequestBatch.Send; known-length, chunked, compressed and stalled producer streams are rejected without changing destinations, exact block boundaries and larger genesis and batch budgets succeed."
+
+[finding.30]
+tests = ["TestRepairM_1102_ReconnectWithJitter"]
+implementation = "The release TestWSClientReconnectWithJitter shares the measured lifecycle proof with eight clients and three configured retries; the focused gate uses four clients and one configured retry."
+proof = "Start real WebSocket connections, stop the loopback listener, record actual completed network dials, wait for every client to finish recovery, assert the exact nonzero attempt count, exponential bounds and distinct measured jitter, and observe closed response streams after exhaustion."
+
+[finding.18]
+tests = ["TestRepairM_1102_ServerRestartRestoresSubscription", "TestRepairM_1102_ReconnectWithJitter", "TestRepairM_1102_CancelDuringReconnect"]
+implementation = "Every reader exit signals the idle writer; every read close requests reconnect. Concurrent reader and writer errors coalesce into one pending recovery. A lifecycle completion channel keeps Stop waiting across retries; exhaustion or cancellation stops both routines and closes ResponsesCh exactly once."
+proof = "Consume a subscription event, stop the listener and close the socket, reopen the server on the same address, and recover the same query through OnReconnect into a second-generation event without caller traffic or pings. Cover normal, going-away, protocol-error and abrupt closes, terminal retry exhaustion and cancellation during recovery."
+
+[gotcha.scope]
+observed = "The baseline request conflicts with the mandated gate order, and root gotcha/spec edits conflict with the task's exclusive scope."
+resolution = "Follow the explicit gate order; retain the baseline and scope decision in this in-scope task record instead of editing root or spec ledgers."
+
+[gotcha.codec]
+observed = "The first focused verification rejected the subscription fixture's integer field because RPCRequest.MakeResponse uses the production codec, which encodes integers as JSON strings."
+resolution = "Decode the event with consensus/libs/json, preserving the typed generation assertion and the actual producer encoding."

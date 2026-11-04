@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
@@ -34,21 +35,17 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/internaltest"
 )
 
-// The development v2 fixture builds the whole service with app.New in
-// development mode (NODE_ENV=development, the Railway configuration) against
-// a real Postgres, a real Redis and an in-process geth node (go-ethereum
-// simulated backend) served over HTTP JSON-RPC. The indexer.pools table is
-// created from core/indexer's own goose migration, and the token is created
-// by a real transaction whose receipt carries the factory's TokenDeployed log.
+// The development v2 fixture builds app.New against Postgres and Redis,
+// replaying the deployed chain-125 factory receipt and its real indexer output.
+// Other creator-flow tests use the in-process geth helper below for wallets
+// created during the test.
 
 const (
-	devToken   = "0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
-	devPool    = "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
-	devCreator = "0xcececececececececececececececececececece"
+	devToken   = "0x0f92fdd087c96dd3413ef98646b94d0d986192fa"
+	devPool    = "0xce20da50f92d21d8bee497910c782e9aa25b6263"
+	devCreator = "0x1dae78b53c9f39930a2ff2b6b7aac12ec75fb154"
 	devOrigin  = "https://app.sidiora.test"
 )
-
-const tokenDeployedABI = `[{"type":"event","name":"TokenDeployed","anonymous":false,"inputs":[{"name":"token","type":"address","indexed":true},{"name":"pool","type":"address","indexed":true},{"name":"creator","type":"address","indexed":true},{"name":"salt","type":"bytes32","indexed":false},{"name":"name","type":"string","indexed":false},{"name":"symbol","type":"string","indexed":false},{"name":"decimals","type":"uint8","indexed":false},{"name":"totalSupply","type":"uint256","indexed":false},{"name":"timestamp","type":"uint256","indexed":false},{"name":"blockNumber","type":"uint256","indexed":false}]}]`
 
 type devChain struct {
 	backend *simulated.Backend
@@ -97,7 +94,11 @@ func (c *devChain) emitTokenDeployed(t *testing.T, token, pool, creator string, 
 		t.Fatal(err)
 	}
 	height := new(big.Int).Add(head.Number, big.NewInt(1))
-	parsed, err := abi.JSON(strings.NewReader(tokenDeployedABI))
+	rawABI, err := os.ReadFile("../../../../../precompiles/launchpad/abi/EventEmitter.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := abi.JSON(bytes.NewReader(rawABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,9 +193,8 @@ func newDevFixture(t *testing.T) devFixture {
 	pool, dsn := internaltest.NewPostgresURL(t)
 	redisURL := internaltest.NewRedisURL(t)
 	applyIndexerPools(t, pool)
-	chain := newDevChain(t)
+	chainURL, receipt := trackedDevFactory(t)
 	supply, _ := new(big.Int).SetString("1000000000000000", 10)
-	receipt := chain.emitTokenDeployed(t, devToken, devPool, devCreator, supply)
 	// Mixed-case addresses, as the development indexer may store them.
 	seedDevPool(t, pool, common.HexToAddress(devPool).Hex(), common.HexToAddress(devToken).Hex(), common.HexToAddress(devCreator).Hex(), receipt.TxHash.Hex(), receipt.BlockNumber.Int64())
 	if err := sqlcdb.New(pool).UpsertTokenMetadata(context.Background(), sqlcdb.UpsertTokenMetadataParams{
@@ -208,7 +208,7 @@ func newDevFixture(t *testing.T) devFixture {
 		t.Fatal(err)
 	}
 	cfg := config.Config{
-		NodeEnv: "development", DatabaseURL: dsn, RedisURL: redisURL, RPCURL: chain.url,
+		NodeEnv: "development", DatabaseURL: dsn, RedisURL: redisURL, RPCURL: chainURL,
 		// The v2 reads never touch object storage; storage.New does not dial.
 		S3Endpoint: "http://127.0.0.1:9", S3Bucket: "dev-assets", S3AccessKeyID: "dev", S3SecretAccessKey: "dev", S3Region: "us-east-1",
 		LogLevel: "info", Port: 3000, MaxLogoSizeBytes: 2 << 20, MaxBannerSizeBytes: 5 << 20,
@@ -288,11 +288,11 @@ func checkMetadataContract(t *testing.T, f devFixture) {
 		t.Fatal(err)
 	}
 	token := got.Data.Token
-	if token.Address != devToken || token.Name != "Dev Falcon" || token.Symbol != "DFAL" || token.Decimals == nil || *token.Decimals != 6 || token.DecimalsQuality != "verified" || token.SupplyQuality != "verified" || token.TotalSupplyRaw == nil || string(*token.TotalSupplyRaw) != f.supply.String() {
+	if token.Address != devToken || token.Name != "LiveTest549002" || token.Symbol != "LT549002" || token.Decimals == nil || *token.Decimals != 6 || token.DecimalsQuality != "verified" || token.SupplyQuality != "verified" || token.TotalSupplyRaw == nil || string(*token.TotalSupplyRaw) != f.supply.String() {
 		t.Fatalf("token %+v", token)
 	}
 	position := token.SourcePosition
-	logEntry := f.receipt.Logs[0]
+	logEntry := f.receipt.Logs[11]
 	if position == nil || position.ChainId != "125" || string(position.Height) != f.receipt.BlockNumber.String() || position.BlockHash != strings.ToLower(f.receipt.BlockHash.Hex()) || position.TransactionHash != strings.ToLower(f.receipt.TxHash.Hex()) || string(position.LogIndex) != strconv.FormatUint(uint64(logEntry.Index), 10) || string(position.TransactionIndex) != strconv.FormatUint(uint64(f.receipt.TransactionIndex), 10) {
 		t.Fatalf("source position %+v, receipt block %v tx %s", position, f.receipt.BlockNumber, f.receipt.TxHash.Hex())
 	}
@@ -342,4 +342,67 @@ func checkMediaContract(t *testing.T, f devFixture) {
 	if got.Data.Image != nil || m.ChainId != 125 || m.TokenAddress != devToken || m.PoolAddress != devPool || m.Revision != "1760000123456" || m.ModerationStatus != "allowed" || m.LogoAssetId != nil {
 		t.Fatalf("media %+v", got.Data)
 	}
+}
+
+// trackedDevFactory replays the deployed factory's receipt together with the
+// real indexer's retained creation output.
+func trackedDevFactory(t *testing.T) (string, *types.Receipt) {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/repair_m1006_factory.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence struct{ Receipt json.RawMessage }
+	if err = json.Unmarshal(raw, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	var receipt types.Receipt
+	if err = json.Unmarshal(evidence.Receipt, &receipt); err != nil {
+		t.Fatal(err)
+	}
+	indexed, err := os.ReadFile("testdata/repair_m1006_indexer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var records map[string][]struct {
+		Token, Pool, Creator string
+		TransactionHash      string `json:"transaction_hash"`
+	}
+	if err = json.Unmarshal(indexed, &records); err != nil {
+		t.Fatal(err)
+	}
+	rows := records["indexer.indexer_canonical_creations"]
+	if len(rows) != 1 || rows[0].Token != devToken || rows[0].Pool != devPool || rows[0].Creator != devCreator || rows[0].TransactionHash != receipt.TxHash.Hex() {
+		t.Fatal("factory receipt differs from the real indexer's retained creation")
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var call struct {
+			ID     json.RawMessage
+			Method string
+			Params []json.RawMessage
+		}
+		if json.NewDecoder(r.Body).Decode(&call) != nil {
+			http.Error(w, "bad RPC request", 400)
+			return
+		}
+		var result any
+		switch call.Method {
+		case "eth_chainId":
+			result = "0x7d"
+		case "eth_getTransactionReceipt":
+			var hash string
+			if len(call.Params) == 1 {
+				_ = json.Unmarshal(call.Params[0], &hash)
+			}
+			if hash == receipt.TxHash.Hex() {
+				result = evidence.Receipt
+			}
+		default:
+			t.Errorf("unexpected fixture RPC method %s", call.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": call.ID, "result": result})
+	}))
+	t.Cleanup(server.Close)
+	return server.URL, &receipt
 }

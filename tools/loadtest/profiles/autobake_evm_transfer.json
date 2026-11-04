@@ -1,12 +1,12 @@
 {
-    "chainId": 713714,
+    "chainId": 125,
     "bounds": {
       "minAverageTps": 50,
       "maxP99LatencyMs": 10000
     },
-    "paxChainId": "pax-autobake",
+    "paxChainId": "qualification-chain-125-autobake_evm_transfer",
     "endpoints": [
-      "https://evm-rpc.pax-autobake.paxnetwork.io"
+      "http://127.0.0.1:8545"
     ],
     "accounts": {
       "count": 5000,
@@ -30,6 +30,6 @@
       "trackUserLatency": false,
       "prewarm": false,
       "rampUp": false,
-      "reportPath": "/home/ubuntu/evm_transfer_report.txt"
+      "reportPath": "evm_transfer_report.json"
     }
   }

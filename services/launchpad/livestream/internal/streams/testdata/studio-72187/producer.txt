@@ -1,0 +1,12 @@
+source = https://raw.githubusercontent.com/livepeer/studio/72187ec428cdd41c81ff75556d77a609b2990695/packages/api/src/webhooks/cannon.ts
+source_sha256 = 47a5bd10e40ad762db5e6527a848fdb8375f3fa9630f42c440ccc62e5112b9c2
+lines = 390-398
+body: JSON.stringify({
+          id: event.id, // allows receiver to check if they have already processed the same event (possible when retrying)
+          webhookId: webhook.id,
+          createdAt: event.timestamp, // allows receiver to know how long ago event was emitted
+          timestamp,
+          event: event.event,
+          stream,
+          payload,
+        })

@@ -68,6 +68,7 @@ func (i *identities) Active(ctx context.Context, p Principal) bool {
 func (i *identities) remove(c string) { i.Lock(); defer i.Unlock(); delete(i.users, c) }
 func fixture(t *testing.T, verifier EvidenceVerifier) (*Store, *identities) {
 	t.Helper()
+	ensureControlFixtures(t)
 	ctx := context.Background()
 	pool, e := pgxpool.New(ctx, fixtureDSN)
 	if e != nil {
@@ -385,6 +386,7 @@ func (fixtureAward) VerifyAward(ctx context.Context, b Bounty, evidence, dest st
 }
 func chain(t *testing.T, awards AwardAuthority) *ChainVerifier {
 	t.Helper()
+	ensureControlFixtures(t)
 	url := os.Getenv("L47_ANVIL_URL")
 	if url == "" {
 		t.Fatal("owned Anvil required; use check.py")

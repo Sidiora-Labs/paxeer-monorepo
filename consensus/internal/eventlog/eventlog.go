@@ -97,7 +97,7 @@ func (lg *Log) WaitScan(ctx context.Context, c cursor.Cursor, f func(*Item) erro
 	st := lg.state()
 	for st.head == nil || st.head.item.Cursor == c {
 		var err error
-		st, err = lg.waitStateChange(ctx)
+		st, err = lg.waitStateChange(ctx, st)
 		if err != nil {
 			return st.info(), err
 		}
@@ -148,6 +148,7 @@ type logState struct {
 	newest cursor.Cursor
 	size   int
 	head   *logEntry
+	ready  <-chan struct{}
 }
 
 func (st logState) info() Info {
@@ -161,27 +162,26 @@ func (lg *Log) state() logState {
 	lg.mu.Lock()
 	defer lg.mu.Unlock()
 	if lg.head == nil {
-		return logState{} // empty
+		return logState{ready: lg.ready} // empty
 	}
 	return logState{
 		oldest: lg.oldestCursor,
 		newest: lg.head.item.Cursor,
 		size:   lg.numItems,
 		head:   lg.head,
+		ready:  lg.ready,
 	}
 }
 
 // waitStateChange blocks until either ctx ends or the head of the log is
 // modified, then returns the state of the log.  An error is reported only if
 // ctx terminates before head changes.
-func (lg *Log) waitStateChange(ctx context.Context) (logState, error) {
-	lg.mu.Lock()
-	ch := lg.ready // capture
-	lg.mu.Unlock()
+// The notification channel belongs to st, captured with its head under mu.
+func (lg *Log) waitStateChange(ctx context.Context, st logState) (logState, error) {
 	select {
 	case <-ctx.Done():
 		return lg.state(), ctx.Err()
-	case <-ch:
+	case <-st.ready:
 		return lg.state(), nil
 	}
 }

@@ -246,6 +246,7 @@ func TestProofLaunchpadLivestream(t *testing.T) {
 	var store *LifecycleStore
 	var database *pgxpool.Pool
 	var server *httptest.Server
+	var webhookOutcome string
 	open := func() {
 		t.Helper()
 		var err error
@@ -286,11 +287,9 @@ func TestProofLaunchpadLivestream(t *testing.T) {
 				}
 				return Authorization{Wallet: e.Actor, Pool: o.Pool, Allowed: true, ExpiresAt: time.Unix(e.ExpiresAt, 0)}, nil
 			},
-			DecodeWebhook: func(raw []byte) (ProviderEvent, error) {
-				var event ProviderEvent
-				err := json.Unmarshal(raw, &event)
-				return event, err
-			},
+			StudioWebhook:       true,
+			WebhookMilliseconds: true,
+			ObserveOutcome:      func(outcome string) { webhookOutcome = outcome },
 		})
 		router := chi.NewRouter()
 		handlers.RegisterRoutes(router)
@@ -441,39 +440,41 @@ func TestProofLaunchpadLivestream(t *testing.T) {
 	action("start", "StreamStartResponse", "ready")
 	webhook := func(event ProviderEvent, valid bool, wantStatus int) []byte {
 		t.Helper()
-		wire := struct {
-			ProviderEvent
-			Timestamp int64 `json:"timestamp"`
-		}{event, time.Now().Unix()}
-		raw, err := json.Marshal(wire)
-		if err != nil {
-			t.Fatal(err)
+		deliveredAt := time.Now().UTC().Truncate(time.Millisecond)
+		kind := "stream.started"
+		if event.State == "ENDED" {
+			kind = "stream.idle"
 		}
+		raw := repairM1001StudioBody(t, event.EventID, event.ProviderID, kind, event.ObservedAt, deliveredAt)
 		signingSecret := secret
 		if !valid {
 			signingSecret = strings.Repeat("x", 32)
 		}
 		mac := hmac.New(sha256.New, []byte(signingSecret))
 		_, _ = mac.Write(raw)
-		return exchange("POST", "/webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": fmt.Sprintf("t=%d,v1=%s", wire.Timestamp, hex.EncodeToString(mac.Sum(nil)))}, wantStatus)
+		return exchange("POST", "/webhooks/livepeer", raw, map[string]string{"Livepeer-Signature": fmt.Sprintf("t=%d,v1=%s", deliveredAt.UnixMilli(), hex.EncodeToString(mac.Sum(nil)))}, wantStatus)
 	}
-	event := ProviderEvent{EventID: "proof_live", ProviderID: operation.ProviderID, State: "LIVE", ObservedAt: time.Now().UTC().Truncate(time.Microsecond)}
+	event := ProviderEvent{EventID: "proof_live", ProviderID: operation.ProviderID, State: "LIVE", ObservedAt: time.Now().UTC().Truncate(time.Millisecond)}
 	denied := proofLivestreamConsume[v2.Error](t, "Error", webhook(event, false, http.StatusUnauthorized))
 	if denied.Code != "AUTH_EXPIRED" {
 		t.Fatal(denied)
 	}
+	beforeWebhookRevision := operation.Revision
 	for i, want := range []string{"applied", "duplicate"} {
-		raw := webhook(event, true, http.StatusOK)
-		var observed struct {
-			Outcome string `json:"outcome"`
+		if i > 0 {
+			server.Close()
+			database.Close()
+			open()
 		}
-		if err = json.Unmarshal(raw, &observed); err != nil || observed.Outcome != want {
-			t.Fatalf("webhook %d: %s, %v", i, raw, err)
+		raw := webhook(event, true, http.StatusOK)
+		observed := proofLivestreamConsume[v2.LiveWebhookResponse](t, "LiveWebhookResponse", raw)
+		if !observed.Data.Accepted || webhookOutcome != want {
+			t.Fatalf("webhook %d: outcome=%s body=%s", i, webhookOutcome, raw)
 		}
 	}
 	operation, err = store.Get(ctx, operation.ID)
-	if err != nil || operation.State != "LIVE" {
-		t.Fatalf("webhook did not produce LIVE: %+v %v", operation, err)
+	if err != nil || operation.State != "LIVE" || operation.Revision != beforeWebhookRevision+1 || operation.ProviderTime == nil || !operation.ProviderTime.Equal(event.ObservedAt) {
+		t.Fatalf("webhook did not durably produce LIVE exactly once: %+v %v", operation, err)
 	}
 	counter, err := NewViewerCounter(redis, "proof_livestream", 100)
 	if err != nil {

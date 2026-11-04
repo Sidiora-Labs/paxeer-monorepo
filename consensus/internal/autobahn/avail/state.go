@@ -18,6 +18,9 @@ import (
 // ErrBadLane .
 var ErrBadLane = errors.New("bad lane")
 
+// ErrInvalidPruneAnchor indicates that persisted pruning authority is invalid.
+var ErrInvalidPruneAnchor = errors.New("invalid prune anchor")
+
 const BlocksPerLane = 3 * BlocksPerLanePerCommit
 const BlocksPerLanePerCommit = 10
 
@@ -92,10 +95,30 @@ var PruneAnchorConv = protoutils.Conv[*PruneAnchor, *pb.PersistedAvailPruneAncho
 // any existing state from disk. When dir is None, all persisters are no-op
 // and no state is loaded. When a prune anchor is present, stale commitQCs and
 // blocks below the anchor are filtered out before returning.
-func loadPersistedState(dir utils.Option[string]) (utils.Option[*loadedAvailState], persisters, error) {
+func loadPersistedState(c *types.Committee, dir utils.Option[string]) (utils.Option[*loadedAvailState], persisters, error) {
 	prunePersister, persistedPruneAnchor, err := persist.NewPersister[*pb.PersistedAvailPruneAnchor](dir, innerFile)
 	if err != nil {
 		return utils.None[*loadedAvailState](), persisters{}, fmt.Errorf("NewPersister %s: %w", innerFile, err)
+	}
+
+	// Validate pruning authority before opening WALs, whose recovery may truncate
+	// corrupt tails, and before filtering any retained entries.
+	var pruneAnchor utils.Option[*PruneAnchor]
+	if raw, ok := persistedPruneAnchor.Get(); ok {
+		anchor, err := PruneAnchorConv.Decode(raw)
+		if err != nil {
+			return utils.None[*loadedAvailState](), persisters{}, fmt.Errorf("%w: decode: %w", ErrInvalidPruneAnchor, err)
+		}
+		if err := anchor.AppQC.Verify(c); err != nil {
+			return utils.None[*loadedAvailState](), persisters{}, fmt.Errorf("%w: AppQC: %w", ErrInvalidPruneAnchor, err)
+		}
+		if err := anchor.CommitQC.Verify(c); err != nil {
+			return utils.None[*loadedAvailState](), persisters{}, fmt.Errorf("%w: CommitQC: %w", ErrInvalidPruneAnchor, err)
+		}
+		if err := anchor.AppQC.Proposal().Verify(c, anchor.CommitQC); err != nil {
+			return utils.None[*loadedAvailState](), persisters{}, fmt.Errorf("%w: certificate pair: %w", ErrInvalidPruneAnchor, err)
+		}
+		pruneAnchor = utils.Some(anchor)
 	}
 
 	bp, blocks, err := persist.NewBlockPersister(dir)
@@ -116,12 +139,8 @@ func loadPersistedState(dir utils.Option[string]) (utils.Option[*loadedAvailStat
 
 	loaded := &loadedAvailState{commitQCs: commitQCs, blocks: blocks}
 
-	if raw, ok := persistedPruneAnchor.Get(); ok {
-		anchor, err := PruneAnchorConv.Decode(raw)
-		if err != nil {
-			return utils.None[*loadedAvailState](), persisters{}, fmt.Errorf("decode prune anchor: %w", err)
-		}
-		loaded.pruneAnchor = utils.Some(anchor)
+	if anchor, ok := pruneAnchor.Get(); ok {
+		loaded.pruneAnchor = pruneAnchor
 
 		anchorIdx := anchor.AppQC.Proposal().RoadIndex()
 		filtered := commitQCs[:0]
@@ -151,7 +170,7 @@ func loadPersistedState(dir utils.Option[string]) (utils.Option[*loadedAvailStat
 // stateDir is None when persistence is disabled (testing only); a no-op
 // persist goroutine still runs to bump cursors without disk I/O.
 func NewState(key types.SecretKey, data *data.State, stateDir utils.Option[string]) (*State, error) {
-	loaded, pers, err := loadPersistedState(stateDir)
+	loaded, pers, err := loadPersistedState(data.Committee(), stateDir)
 	if err != nil {
 		return nil, err
 	}

@@ -45,8 +45,8 @@ type WSClient struct {
 	Endpoint string // /websocket/url/endpoint
 	Dialer   func(string, string) (net.Conn, error)
 
-	// Single user facing channel to read RPCResponses from, closed only when the
-	// client is being stopped.
+	// Single user facing channel to read RPCResponses from, closed when the
+	// context ends or reconnect attempts are exhausted.
 	ResponsesCh chan rpctypes.RPCResponse
 
 	// Callback, which will be called each time after successful reconnect.
@@ -64,7 +64,8 @@ type WSClient struct {
 	// Support both ws and wss protocols
 	protocol string
 
-	wg sync.WaitGroup
+	wg   sync.WaitGroup
+	done chan struct{}
 
 	mtx          sync.RWMutex
 	reconnecting bool
@@ -129,13 +130,15 @@ func (c *WSClient) String() string {
 }
 
 // Start dials the specified service address and starts the I/O routines.  The
-// service routines run until ctx terminates. To wait for the client to exit
+// service routines run until ctx terminates or recovery is exhausted. To wait for the client to exit
 // after ctx ends, call Stop.
 func (c *WSClient) Start(ctx context.Context) error {
 	if err := c.dial(); err != nil {
 		return err
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	c.done = make(chan struct{})
 	c.ResponsesCh = make(chan rpctypes.RPCResponse)
 
 	c.send = make(chan rpctypes.RPCRequest)
@@ -147,7 +150,16 @@ func (c *WSClient) Start(ctx context.Context) error {
 	c.backlog = make(chan rpctypes.RPCRequest, 1)
 
 	c.startReadWriteRoutines(ctx)
-	go c.reconnectRoutine(ctx)
+	go func() {
+		defer close(c.done)
+		defer close(c.ResponsesCh)
+		defer func() {
+			cancel()
+			c.wg.Wait()
+			_ = c.conn.Close()
+		}()
+		c.reconnectRoutine(ctx)
+	}()
 
 	return nil
 }
@@ -157,9 +169,7 @@ func (c *WSClient) Start(ctx context.Context) error {
 // TODO(creachadair): This method exists for compatibility with the original
 // service plumbing. Give it a better name (e.g., Wait).
 func (c *WSClient) Stop() error {
-	// only close user-facing channels when we can't write to them
-	c.wg.Wait()
-	close(c.ResponsesCh)
+	<-c.done
 	return nil
 }
 
@@ -245,7 +255,7 @@ func (c *WSClient) reconnect(ctx context.Context) error {
 		timer.Reset(backoffDuration)
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-timer.C:
 		}
 
@@ -285,7 +295,7 @@ func (c *WSClient) processBacklog() error {
 		}
 		if err := c.conn.WriteJSON(request); err != nil {
 			logger.Error("failed to resend request", "err", err)
-			c.reconnectAfter <- err
+			c.requestReconnect(err)
 			// requeue request
 			c.backlog <- request
 			return err
@@ -294,6 +304,15 @@ func (c *WSClient) processBacklog() error {
 	default:
 	}
 	return nil
+}
+
+// Reader and writer failures request the same recovery; coalesce simultaneous
+// failures so neither I/O routine can block shutdown on a full notification queue.
+func (c *WSClient) requestReconnect(err error) {
+	select {
+	case c.reconnectAfter <- err:
+	default:
+	}
 }
 
 func (c *WSClient) reconnectRoutine(ctx context.Context) {
@@ -306,10 +325,6 @@ func (c *WSClient) reconnectRoutine(ctx context.Context) {
 			c.wg.Wait()
 			if err := c.reconnect(ctx); err != nil {
 				logger.Error("failed to reconnect", "err", err, "original_err", originalError)
-				if err = c.Stop(); err != nil {
-					logger.Error("failed to stop conn", "error", err)
-				}
-
 				return
 			}
 			// drain reconnectAfter
@@ -359,7 +374,7 @@ func (c *WSClient) writeRoutine(ctx context.Context) {
 			}
 			if err := c.conn.WriteJSON(request); err != nil {
 				logger.Error("failed to send request", "err", err)
-				c.reconnectAfter <- err
+				c.requestReconnect(err)
 				// add request to the backlog, so we don't lose it
 				c.backlog <- request
 				return
@@ -372,7 +387,7 @@ func (c *WSClient) writeRoutine(ctx context.Context) {
 			}
 			if err := c.conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				logger.Error("failed to write ping", "err", err)
-				c.reconnectAfter <- err
+				c.requestReconnect(err)
 				return
 			}
 		case <-c.readRoutineQuit:
@@ -393,6 +408,7 @@ func (c *WSClient) writeRoutine(ctx context.Context) {
 // executing all reads from this goroutine.
 func (c *WSClient) readRoutine(ctx context.Context) {
 	defer func() {
+		close(c.readRoutineQuit)
 		_ = c.conn.Close()
 		c.wg.Done()
 	}()
@@ -406,13 +422,8 @@ func (c *WSClient) readRoutine(ctx context.Context) {
 		}
 		_, data, err := c.conn.ReadMessage()
 		if err != nil {
-			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
-				return
-			}
-
 			logger.Error("failed to read response", "err", err)
-			close(c.readRoutineQuit)
-			c.reconnectAfter <- err
+			c.requestReconnect(err)
 			return
 		}
 

@@ -696,6 +696,9 @@ fn validate_restore<'a>(
     module: &ValidatedModule,
     activation: &LeaseTransition,
 ) -> Result<ValidatedRestore<'a>, SnapshotRefusal> {
+    if !module.supports_continuation() {
+        return Err(SnapshotRefusal::IncompatibleTarget);
+    }
     let record = source
         .snapshot_records()
         .iter()

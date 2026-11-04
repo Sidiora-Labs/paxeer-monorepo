@@ -406,6 +406,160 @@ func TestReconcileCase1Empty(t *testing.T) {
 	require.NoError(t, dw.Close())
 }
 
+func TestFirstBatchPersistenceInterruption(t *testing.T) {
+	testFirstBatchPersistenceInterruption(t)
+}
+
+func testFirstBatchPersistenceInterruption(t *testing.T) {
+	for _, boundary := range []string{"before_certificate", "after_certificate", "partial_blocks", "after_blocks"} {
+		t.Run(boundary, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			defer cancel()
+			rng := utils.TestRng()
+			committee, keys := types.GenCommittee(rng, 3)
+			qc, blocks := TestCommitQC(rng, committee, keys, utils.None[*types.CommitQC]())
+			// Use the producer's wire representation so timestamp locations
+			// and process-local monotonic clocks match the persisted data.
+			qc, err := types.FullCommitQCConv.Unmarshal(types.FullCommitQCConv.Marshal(qc))
+			require.NoError(t, err)
+			for j, block := range blocks {
+				blocks[j], err = types.BlockConv.Unmarshal(types.BlockConv.Marshal(block))
+				require.NoError(t, err)
+			}
+			gr := qc.QC().GlobalRange(committee)
+			require.NoError(t, qc.Verify(committee))
+			require.Equal(t, committee.FirstBlock(), gr.First)
+			require.Greater(t, len(blocks), 1)
+			cfg := &Config{Committee: committee}
+			dir := t.TempDir()
+			dw, err := NewDataWAL(utils.Some(dir), committee)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, dw.Close()) })
+			state, err := NewState(cfg, dw)
+			require.NoError(t, err)
+			require.NoError(t, state.PushQC(ctx, qc, blocks))
+
+			// Stop the first batch at an actual synchronous WAL boundary.
+			// These are the same fsyncing writes used by runPersist.
+			persisted := 0
+			qcEnd := gr.First
+			if boundary != "before_certificate" {
+				require.NoError(t, dw.CommitQCs.PersistQC(qc))
+				qcEnd = gr.Next
+			}
+			switch boundary {
+			case "partial_blocks":
+				persisted = len(blocks) / 2
+			case "after_blocks":
+				persisted = len(blocks)
+			}
+			for j := range persisted {
+				require.NoError(t, dw.Blocks.PersistBlock(gr.First+types.GlobalBlockNumber(j), blocks[j]))
+			}
+			require.NoError(t, dw.Close())
+
+			// Reopen twice before refetching: reconciliation itself must be
+			// durable and must preserve every certified block in the prefix.
+			var recovered *State
+			var reopened *DataWAL
+			for range 2 {
+				reopened, err = NewDataWAL(utils.Some(dir), committee)
+				require.NoError(t, err)
+				current := reopened
+				t.Cleanup(func() { require.NoError(t, current.Close()) })
+				require.Equal(t, qcEnd, reopened.CommitQCs.Next())
+				require.Equal(t, gr.First+types.GlobalBlockNumber(persisted), reopened.Blocks.Next())
+				recovered, err = NewState(cfg, reopened)
+				require.NoError(t, err)
+				require.Equal(t, gr.First, recovered.FirstBlock())
+				require.Equal(t, gr.First+types.GlobalBlockNumber(persisted), recovered.NextBlock())
+				for j, block := range blocks {
+					n := gr.First + types.GlobalBlockNumber(j)
+					got, err := recovered.TryBlock(n)
+					if j < persisted {
+						require.NoError(t, err)
+						require.Equal(t, block, got)
+					} else {
+						require.ErrorIs(t, err, ErrNotFound)
+					}
+					if qcEnd == gr.Next {
+						gotQC, err := recovered.QC(ctx, n)
+						require.NoError(t, err)
+						require.Equal(t, qc, gotQC)
+					}
+				}
+				require.NoError(t, reopened.Close())
+			}
+
+			reopened, err = NewDataWAL(utils.Some(dir), committee)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, reopened.Close()) })
+			recovered, err = NewState(cfg, reopened)
+			require.NoError(t, err)
+			if boundary == "before_certificate" {
+				require.NoError(t, recovered.PushQC(ctx, qc, nil))
+			}
+			for j := persisted; j < len(blocks); j++ {
+				require.NoError(t, recovered.PushBlock(ctx, gr.First+types.GlobalBlockNumber(j), blocks[j]))
+			}
+			qc2, blocks2 := TestCommitQC(rng, committee, keys, utils.Some(qc.QC()))
+			qc2, err = types.FullCommitQCConv.Unmarshal(types.FullCommitQCConv.Marshal(qc2))
+			require.NoError(t, err)
+			for j, block := range blocks2 {
+				blocks2[j], err = types.BlockConv.Unmarshal(types.BlockConv.Marshal(block))
+				require.NoError(t, err)
+			}
+			gr2 := qc2.QC().GlobalRange(committee)
+			require.NoError(t, recovered.PushQC(ctx, qc2, blocks2))
+			allBlocks := append(append([]*types.Block{}, blocks...), blocks2...)
+
+			// Resume the production worker and its execution durability
+			// barrier, including an entire subsequent consensus batch.
+			require.NoError(t, scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+				s.SpawnBg(func() error { return utils.IgnoreCancel(recovered.Run(ctx)) })
+				for j, block := range allBlocks {
+					n := gr.First + types.GlobalBlockNumber(j)
+					got, err := recovered.GlobalBlock(ctx, n)
+					if err != nil {
+						return err
+					}
+					require.Equal(t, block.Header(), got.Header)
+					require.Equal(t, block.Payload(), got.Payload)
+					hash := types.GenAppHash(rng)
+					if err := recovered.PushAppHash(ctx, n, hash); err != nil {
+						return err
+					}
+					proposal, err := recovered.AppProposal(ctx, n)
+					if err != nil {
+						return err
+					}
+					wantQC := qc
+					if n >= gr2.First {
+						wantQC = qc2
+					}
+					require.Equal(t, types.NewAppProposal(n, wantQC.QC().Proposal().Index(), hash), proposal)
+				}
+				return nil
+			}))
+			require.Equal(t, gr2.Next, reopened.Blocks.Next())
+			require.Equal(t, gr2.Next, reopened.CommitQCs.Next())
+			require.NoError(t, reopened.Close())
+
+			finalWAL, err := NewDataWAL(utils.Some(dir), committee)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, finalWAL.Close()) })
+			finalState, err := NewState(cfg, finalWAL)
+			require.NoError(t, err)
+			require.Equal(t, gr2.Next, finalState.NextBlock())
+			for j, block := range allBlocks {
+				got, err := finalState.TryBlock(gr.First + types.GlobalBlockNumber(j))
+				require.NoError(t, err)
+				require.Equal(t, block, got)
+			}
+		})
+	}
+}
+
 // TestReconcileCase2Corrupted verifies that when blocks are persisted but
 // QCs WAL is deleted (corruption), NewDataWAL returns a corruption error.
 func TestReconcileCase2Corrupted(t *testing.T) {
