@@ -28,7 +28,25 @@ set -uo pipefail
 
 # ── Paths / binary ────────────────────────────────────────────────────────────
 readonly SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly ENV_FILE="${HPX_ENV_FILE:-${SELF_DIR}/../../.env}"
+readonly REPO_ROOT="$(cd "${SELF_DIR}/../.." && pwd)"
+readonly ENV_FILE="${HPX_ENV_FILE:-${REPO_ROOT}/.env}"
+# The selected trusted shell configuration is loaded first. Explicit shell
+# variables take precedence over file values, which take precedence over defaults.
+declare -A shell_overrides=()
+for name in ${!HPX_@} PAXD SERVERS SERVERS_FILE CONFIRM MNEMONIC_PHRASE; do
+    if [[ -v "$name" ]]; then shell_overrides["$name"]="${!name}"; fi
+done
+if [ -f "$ENV_FILE" ]; then
+    . "$ENV_FILE" || { echo "cannot load selected env file: $ENV_FILE" >&2; exit 1; }
+elif [ -n "${HPX_ENV_FILE:-}" ]; then
+    echo "selected env file not found: $ENV_FILE" >&2; exit 1
+fi
+for name in "${!shell_overrides[@]}"; do
+    printf -v "$name" '%s' "${shell_overrides[$name]}"
+done
+unset shell_overrides name
+if [[ -v MNEMONIC_PHRASE ]]; then export -n MNEMONIC_PHRASE; fi
+readonly STATE="${SELF_DIR}/fleet_state.py"
 readonly PAXD="${PAXD:-/usr/local/bin/paxd}"
 readonly WORKDIR="${HPX_WORKDIR:-${SELF_DIR}/.fleet}"
 readonly KDIR="${HPX_KEYRING_DIR:-${WORKDIR}/keyring}"
@@ -43,7 +61,8 @@ readonly EVM_RPC="${HPX_EVM_RPC:-http://31.220.74.140:8545}"
 readonly DENOM="uhpx"
 readonly UHPX_PER_PAX=1000000                 # 1 PAX = 10^6 uhpx (6-dec cosmos base)
 readonly GAS_PRICES="${HPX_GAS_PRICES:-0.1uhpx}"
-readonly KB=(--keyring-backend test --keyring-dir "$KDIR")
+readonly KEYRING_BACKEND="${HPX_KEYRING_BACKEND:-file}"
+readonly KB=(--keyring-backend "$KEYRING_BACKEND" --keyring-dir "$KDIR")
 
 # ── Key names inside the local temp keyring ───────────────────────────────────
 readonly SRC_KEY="founder-src"                # founder wallet (81M), coin-type 60 (EVM)
@@ -72,13 +91,11 @@ broadcasting(){ [ "$YES" = 1 ]; }
 
 need(){ command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"; }
 preflight(){
-    need jq; need curl; need ssh
+    need jq; need curl; need ssh; need python3; need flock
     [ -x "$PAXD" ] || die "paxd not found at $PAXD (set PAXD=)"
-    [ -f "$ENV_FILE" ] || die "env file not found: $ENV_FILE"
     mkdir -p "$WORKDIR" "$KDIR"; chmod 700 "$WORKDIR"
-    # shellcheck disable=SC1090
-    set -a; . "$ENV_FILE"; set +a
-    [ -n "${MNEMONIC_PHRASE:-}" ] || die "MNEMONIC_PHRASE (founder 81M seed) missing in $ENV_FILE"
+    exec 9>"${WORKDIR}/workflow.lock"
+    flock -n 9 || die "another fleet workflow owns $WORKDIR"
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -99,7 +116,18 @@ phase_fund_wallet(){
     hr; info "${C_B}PHASE 1 — funding wallet setup${C_RST}"; hr
 
     # 1a. import founder (81M) as coin-type 60 (matches Paxport m/44'/60'/0'/0/0)
+    if ! broadcasting; then
+        local public_src
+        public_src=$(key_addr "$SRC_KEY") || die "import founder into the protected keyring before preview"
+        info "[dry-run] founder ${public_src}; cosmos balance $(bank_uhpx "$public_src") ${DENOM}"
+        if key_exists "$W_KEY"; then
+            local public_w; public_w=$(key_addr "$W_KEY")
+            info "[dry-run] funding wallet ${public_w}; balance $(bank_uhpx "$public_w") ${DENOM}"
+        fi
+        return 0
+    fi
     if key_exists "$SRC_KEY"; then ok "founder key already imported"; else
+        [ -n "${MNEMONIC_PHRASE:-}" ] || die "MNEMONIC_PHRASE missing for initial founder import"
         info "importing founder wallet (coin-type 60)"
         printf '%s\n' "$MNEMONIC_PHRASE" | "$PAXD" keys add "$SRC_KEY" --recover --coin-type 60 "${KB[@]}" >/dev/null 2>&1 \
             || die "founder import failed"
@@ -107,14 +135,6 @@ phase_fund_wallet(){
     fi
     local src; src=$(key_addr "$SRC_KEY")
     info "founder pax1 (cosmos): ${C_B}${src}${C_RST}"
-
-    # 1b. EVM balance sanity (must hold ~81M before we associate)
-    local hex evmbal_hex
-    hex=$(printf '%s\n' y | "$PAXD" keys export "$SRC_KEY" --unarmored-hex --unsafe "${KB[@]}" 2>/dev/null | tail -n1)
-    [ -n "$hex" ] || die "could not export founder hex for association"
-    local evm0x; evm0x=$(curl -fsS --max-time 8 -X POST -H 'content-type: application/json' \
-        --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["ADDR","latest"],"id":1}' "$EVM_RPC" 2>/dev/null)
-    info "founder EVM-native balance present (see association gate below)"
 
     # 1c. associate founder so the 81M becomes cosmos-spendable
     local before; before=$(bank_uhpx "$src")
@@ -124,11 +144,11 @@ phase_fund_wallet(){
         warn "founder cosmos balance is 0 — needs association (EVM-native -> cosmos)"
         if broadcasting; then
             info "broadcasting associate-address (EVM tx, gas from founder EVM balance)"
-            "$PAXD" tx evm associate-address "$hex" --evm-rpc "$EVM_RPC" 2>&1 | tail -3 \
+            "$PAXD" tx evm associate-address --from "$SRC_KEY" "${KB[@]}" --evm-rpc "$EVM_RPC" 2>&1 | tail -3 \
                 || die "associate-address failed"
             info "waiting for association to settle..."; sleep 8
         else
-            warn "[dry-run] would run: paxd tx evm associate-address <founder-hex> --evm-rpc $EVM_RPC"
+            warn "[dry-run] would run: paxd tx evm associate-address --from $SRC_KEY --evm-rpc $EVM_RPC"
         fi
     fi
 
@@ -191,23 +211,21 @@ discover_servers(){
 phase_keygen(){
     preflight
     hr; info "${C_B}PHASE 2 — operator keygen across fleet${C_RST}"; hr
-    local -a servers; mapfile -t servers < <(discover_servers | sort -u)
-    [ "${#servers[@]}" -gt 0 ] || die "no servers (set SERVERS='ip ip ...' or SERVERS_FILE=, or ensure registry reachable)"
-    info "targets (${#servers[@]}): ${servers[*]}"
-    : > "${OPERATORS_FILE}.tmp"
-    local ip line
+    local -a servers
+    local discovered ip line
+    discovered=$(discover_servers) || die "server discovery failed"
+    mapfile -t servers < <(printf '%s\n' "$discovered" | sed '/^$/d' | sort -u)
+    [ "${#servers[@]}" -gt 0 ] || die "no discovered servers"
+    discovered=$(python3 "$STATE" "$WORKDIR" begin "${servers[@]}") || die "cannot persist intended roster"
+    mapfile -t servers <<<"$discovered"
     for ip in "${servers[@]}"; do
-        printf "  %-16s " "$ip"
-        line=$($SSH "${SSH_USER}@${ip}" 'hpx validator keygen 2>/dev/null | grep "^OPERATOR "' 2>/dev/null)
-        if [ -z "$line" ]; then printf "%b\n" "${C_R}unreachable / no OPERATOR line${C_RST}"; continue; fi
-        # line: OPERATOR <moniker> <pax1> <valoper> <hex>
-        local mon acc val
-        mon=$(awk '{print $2}' <<<"$line"); acc=$(awk '{print $3}' <<<"$line"); val=$(awk '{print $4}' <<<"$line")
-        printf '%s\t%s\t%s\t%s\n' "$mon" "$ip" "$acc" "$val" >> "${OPERATORS_FILE}.tmp"
-        printf "%b\n" "${C_G}${acc}${C_RST}"
+        line=$($SSH "${SSH_USER}@${ip}" "bash -o pipefail -c 'hpx validator keygen 2>/dev/null | grep \"^OPERATOR \"'" 2>/dev/null)
+        if [ "$?" -ne 0 ] || ! python3 "$STATE" "$WORKDIR" record "$ip" "$line"; then
+            warn "$ip unresolved; established identity retained"
+        fi
     done
-    sort -u "${OPERATORS_FILE}.tmp" > "$OPERATORS_FILE"; rm -f "${OPERATORS_FILE}.tmp"
-    hr; ok "collected $(wc -l < "$OPERATORS_FILE") operators -> ${OPERATORS_FILE}"
+    python3 "$STATE" "$WORKDIR" complete || die "incomplete roster; funding and staking blocked"
+    ok "full intended roster verified -> $OPERATORS_FILE"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -216,36 +234,13 @@ phase_keygen(){
 phase_fund(){
     preflight
     hr; info "${C_B}PHASE 3 — fund operator wallets from W${C_RST}"; hr
-    [ -f "$OPERATORS_FILE" ] || die "no operators file — run 'keygen' first"
+    python3 "$STATE" "$WORKDIR" complete || die "incomplete roster; run keygen"
     key_exists "$W_KEY" || die "no funding wallet W — run 'fund-wallet' first"
-    local w wbal n buf_u dist per
-    w=$(key_addr "$W_KEY"); wbal=$(bank_uhpx "$w"); wbal=${wbal:-0}
-    n=$(wc -l < "$OPERATORS_FILE")
-    [ "$n" -gt 0 ] || die "operators file empty"
-    buf_u=$(pax_to_uhpx "$BUFFER_PAX")
-    dist=$(( wbal - buf_u )); [ "$dist" -gt 0 ] 2>/dev/null || die "W balance ${wbal} too low after buffer"
-    per=$(( dist / n ))
-    info "W balance ${wbal} ${DENOM}; validators ${n}; per-validator ${per} ${DENOM} ($(( per / UHPX_PER_PAX )) PAX)"
-    hr
-    local mon ip acc val bal
-    while IFS=$'\t' read -r mon ip acc val; do
-        [ -n "$acc" ] || continue
-        bal=$(bank_uhpx "$acc"); bal=${bal:-0}
-        if [ "$bal" -ge "$per" ] 2>/dev/null; then
-            printf "  %-18s %-45s %b\n" "$mon" "$acc" "${C_D}already funded (${bal})${C_RST}"; continue
-        fi
-        if broadcasting; then
-            "$PAXD" tx bank send "$W_KEY" "$acc" "${per}${DENOM}" \
-                --from "$W_KEY" --node "$RPC" --chain-id "$CHAIN_ID" \
-                --gas auto --gas-adjustment 1.5 --gas-prices "$GAS_PRICES" "${KB[@]}" -y >/dev/null 2>&1 \
-                && printf "  %-18s %-45s %b\n" "$mon" "$acc" "${C_G}funded ${per}${C_RST}" \
-                || printf "  %-18s %-45s %b\n" "$mon" "$acc" "${C_R}send FAILED${C_RST}"
-            sleep 2
-        else
-            printf "  %-18s %-45s %b\n" "$mon" "$acc" "${C_Y}[dry-run] would send ${per}${C_RST}"
-        fi
-    done < "$OPERATORS_FILE"
-    hr; ok "PHASE 3 done"
+    local w; w=$(key_addr "$W_KEY") || die "cannot read funding identity"
+    python3 "$STATE" "$WORKDIR" fund "$PAXD" "$RPC" "$CHAIN_ID" "$W_KEY" "$KDIR" \
+        "$GAS_PRICES" "$KEYRING_BACKEND" "$w" "$(pax_to_uhpx "$BUFFER_PAX")" "$YES" \
+        || die "funding incomplete; retained plan and signed payment journal for recovery"
+    ok "funding phase finished"
     broadcasting || warn "dry-run only — re-run with --yes to broadcast"
 }
 
@@ -254,7 +249,7 @@ phase_fund(){
 # ─────────────────────────────────────────────────────────────────────────────
 phase_stake_cmds(){
     preflight
-    [ -f "$OPERATORS_FILE" ] || die "no operators file — run 'keygen' first"
+    python3 "$STATE" "$WORKDIR" complete || die "incomplete intended roster; run keygen"
     hr; info "${C_B}PHASE 4 — run these per server (restarts node as validator + stakes)${C_RST}"; hr
     echo "# Each command: switches the node to validator mode, restarts it, then"
     echo "# broadcasts create-validator self-delegating its funded balance (minus 1 PAX fee reserve)."
@@ -276,7 +271,7 @@ phase_stake_cmds(){
 # ─────────────────────────────────────────────────────────────────────────────
 phase_stake(){
     preflight
-    [ -f "$OPERATORS_FILE" ] || die "no operators file — run 'keygen' first"
+    python3 "$STATE" "$WORKDIR" complete || die "incomplete intended roster; run keygen"
     local rounds="${HPX_STAKE_ROUNDS:-10}" settle="${HPX_STAKE_SETTLE:-8}"
     local doneline=$(( 2 * UHPX_PER_PAX ))   # a validator is "done" when <=2 PAX left to stake
     hr; info "${C_B}PHASE 5 — staged validator ramp (max_voting_power_ratio)${C_RST}"; hr

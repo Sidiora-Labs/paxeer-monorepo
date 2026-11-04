@@ -10,7 +10,17 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 syncer="$root/tools/bringup/sync-fleet.sh"
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+cleanup() {
+ local pidfile pid
+ for pidfile in "$work"/hosts/*/upgrade-*.pid; do
+  [ -f "$pidfile" ] || continue
+  read -r pid <"$pidfile"
+  kill "$pid" 2>/dev/null || true
+ done
+ [ -z "${upgrade_peer_pid:-}" ] || kill "$upgrade_peer_pid" 2>/dev/null || true
+ rm -rf "$work"
+}
+trap cleanup EXIT
 
 for tool in timeout curl rsync tar sha256sum; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
@@ -98,6 +108,27 @@ set -eu
 printf '%s unit %s\n' "${SYNC_FLEET_TEST_DEST:-local}" "$*" >>"$SYNC_FLEET_TEST_CALLS"
 n="${SYNC_FLEET_TEST_DEST#*-rpc-}"
 n="${n%%-*}"
+if [ "${SYNC_FLEET_TEST_UPGRADE:-0}" = 1 ]; then
+ unit="${*: -1}"
+ case "$1" in
+ show)
+  unit="$2"
+  pidfile="$SYNC_FLEET_TEST_ROOT/$SYNC_FLEET_TEST_DEST/upgrade-$unit.pid"
+  if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+   printf 'ActiveState=active\nMainPID=%s\n' "$(cat "$pidfile")"
+  else printf 'ActiveState=inactive\nMainPID=0\n'; fi
+  exit 0 ;;
+ restart)
+  case " ${SYNC_FLEET_TEST_UNIT_FAIL:-} " in
+  *" ${SYNC_FLEET_TEST_DEST:-} "*) exit 1 ;;
+  esac
+  # A real executable process supplies the installed inode and /proc identity.
+  # RPC progress comes from the independent recorded loopback peers below.
+  "$SYNC_FLEET_TEST_ROOT/$SYNC_FLEET_TEST_DEST/paxd" 600 </dev/null >/dev/null 2>&1 &
+  printf '%s\n' "$!" >"$SYNC_FLEET_TEST_ROOT/$SYNC_FLEET_TEST_DEST/upgrade-$unit.pid"
+  exit 0 ;;
+ esac
+fi
 case "$1" in
 show) echo active ;;
 is-active) echo active ;;
@@ -446,7 +477,7 @@ expect sync_fleet_restart_passing "$work/hosts-good.env" 0 restart -- \
 	"skip RPC_HOSTS[3] api4 lag=529862 beyond the retain window" \
 	"skip RPC_HOSTS[5] api6 lag=1961298 beyond the retain window" \
 	"sync-fleet: all hosts passed"
-check sync_fleet_restart_only_the_trailing_node bash -c "[ \"\$(grep -c ' unit restart paxd.service$' '$SYNC_FLEET_TEST_CALLS')\" -eq 1 ] && grep -q '^up-rpc-2 unit restart paxd.service$' '$SYNC_FLEET_TEST_CALLS' && ! grep -q 'paxd-a' '$SYNC_FLEET_TEST_CALLS'"
+check sync_fleet_restart_only_the_trailing_node bash -c "[ \"\$(grep -c ' unit restart --no-block paxd.service$' '$SYNC_FLEET_TEST_CALLS')\" -eq 1 ] && grep -q '^up-rpc-2 unit restart --no-block paxd.service$' '$SYNC_FLEET_TEST_CALLS' && ! grep -q 'paxd-a' '$SYNC_FLEET_TEST_CALLS'"
 check sync_fleet_restart_asks_every_name_at_once bash -c "[ \"\$(grep -c ' curl\$' '$SYNC_FLEET_TEST_CALLS')\" -eq 16 ]"
 
 expect sync_fleet_restart_failing "$work/hosts-bad.env" 1 restart -- \
@@ -600,7 +631,7 @@ c="$SYNC_FLEET_TEST_CALLS"
 check sync_fleet_rollout_installs_the_binary_everywhere [ "$(binaries)" -eq 3 ]
 check sync_fleet_rollout_keeps_the_previous_binary bash -c "for h in up-rpc-1 up-rpc-2 up-rpc-3; do [ \"\$(cat '$hosts'/\$h/paxd.pre-*)\" = 'release binary' ] || exit 1; done; ! ls '$hosts'/*/paxd.new-* >/dev/null 2>&1"
 check sync_fleet_rollout_stages_everywhere_before_the_first_swap bash -c "s=\$(grep -n '^local scp' '$c' | tail -n 1 | cut -d: -f1); r=\$(grep -n ' unit restart ' '$c' | head -n 1 | cut -d: -f1); [ \"\$(grep -c '^local scp' '$c')\" -eq 3 ] && [ \"\$s\" -lt \"\$r\" ]"
-check sync_fleet_rollout_restarts_one_host_at_a_time_in_order bash -c "[ \"\$(grep ' unit restart ' '$c' | cut -d' ' -f1 | tr '\n' ' ')\" = 'up-rpc-1 up-rpc-2 up-rpc-3 ' ] && grep -q '^up-rpc-2 unit restart paxd.service\$' '$c'"
+check sync_fleet_rollout_restarts_one_host_at_a_time_in_order bash -c "[ \"\$(grep ' unit restart ' '$c' | cut -d' ' -f1 | tr '\n' ' ')\" = 'up-rpc-1 up-rpc-2 up-rpc-3 ' ] && grep -q '^up-rpc-2 unit restart --no-block paxd.service\$' '$c'"
 check sync_fleet_rollout_waits_for_each_node_before_the_next bash -c "a=\$(grep -n '^up-rpc-2 unit restart' '$c' | cut -d: -f1); b=\$(grep -n '^up-rpc-3 unit restart' '$c' | cut -d: -f1); [ \"\$(sed -n \"\${a},\${b}p\" '$c' | grep -c ' curl\$')\" -eq 16 ]"
 check sync_fleet_rollout_records_every_host bash -c "[ \"\$(grep -c '^RPC_HOSTS.* sha256=$rollout_sha\$' '$SYNC_FLEET_REPORT')\" -eq 3 ] && grep -q '^RPC_HOSTS\[1\] api2 sha256=$rollout_sha\$' '$SYNC_FLEET_REPORT' && ! grep -qE '\b(up|down|hang)-' '$SYNC_FLEET_REPORT'"
 check sync_fleet_rollout_never_touches_a_validator_unit bash -c "! grep -q 'paxd-a' '$c' && ! grep -q '^up-validator' '$c'"
@@ -645,7 +676,7 @@ check sync_fleet_rollout_unreachable_host_stages_nothing bash -c "! grep -q '^lo
 up_version=v6.12.0
 up_asset="paxd-$up_version-linux-amd64"
 mkdir -p "$work/dl" "$work/dl-bad"
-printf 'upgrade binary' >"$work/dl/$up_asset"
+cp "$(command -v sleep)" "$work/dl/$up_asset"
 cp "$work/dl/$up_asset" "$work/dl-bad/$up_asset"
 up_sha="$("$SYNC_FLEET_TEST_REAL_SHA256SUM" "$work/dl/$up_asset" | cut -d' ' -f1)"
 printf '%s  %s\n' "$up_sha" "$up_asset" >"$work/dl/SHA256SUMS"
@@ -656,7 +687,7 @@ expect sync_fleet_release_verifies_and_rolls "$work/hosts-rollout.env" 0 --dry-r
 	"verified $up_asset sha256=$up_sha" \
 	"scp -q -- $work/fetched/$up_asset RPC_HOSTS[0]:$PAXD.new-" \
 	"sync-fleet: all hosts passed"
-check sync_fleet_release_keeps_the_verified_asset [ "$(cat "$work/fetched/$up_asset")" = "upgrade binary" ]
+check sync_fleet_release_keeps_the_verified_asset cmp "$work/fetched/$up_asset" "$work/dl/$up_asset"
 
 PAXD_RELEASE_URL="file://$work/dl-bad" expect sync_fleet_release_refuses_an_asset_off_its_sums "$work/hosts-rollout.env" 2 release "$up_version" -- \
 	"sync-fleet: $up_asset has sha256 $up_sha, SHA256SUMS lists $release_sha256"
@@ -666,7 +697,7 @@ PAXD_RELEASE_URL="file://$work/absent" expect sync_fleet_release_unfetchable "$w
 	"sync-fleet: could not fetch SHA256SUMS of $up_version"
 
 # The upgrade halt line: the plan's name at exactly the plan height.
-up_height=26500000
+up_height=23869862
 cat >"$work/halt.log" <<LOG
 9:59AM INF committed state height=26499999 module=state
 9:59AM ERR UPGRADE "v6.12.0" NEEDED at height: $up_height: {"binaries":{}}
@@ -680,8 +711,8 @@ check upgrade_fleet_halt_line_at_the_height halt v6.12.0 "$up_height" "$work/hal
 no_halt() {
 	! halt "$@"
 }
-check upgrade_fleet_halt_line_shorter_height no_halt v6.12.0 2650000 "$work/halt.log"
-check upgrade_fleet_halt_line_longer_height no_halt v6.12.0 265000001 "$work/halt.log"
+check upgrade_fleet_halt_line_shorter_height no_halt v6.12.0 2386986 "$work/halt.log"
+check upgrade_fleet_halt_line_longer_height no_halt v6.12.0 238698621 "$work/halt.log"
 check upgrade_fleet_halt_line_other_plan no_halt v6.1 "$up_height" "$work/halt.log"
 check upgrade_fleet_halt_line_absent no_halt v6.12.0 "$up_height" /dev/null
 
@@ -703,6 +734,24 @@ cat "$SYNC_FLEET_TEST_ROOT/$SYNC_FLEET_TEST_DEST/journal/$unit" 2>/dev/null || t
 SH
 chmod +x "$work/bin/journalctl"
 
+# The optional shell integration uses actual executable processes as systemd
+# peers and recorded native RPC loopback transports. The focused Go gate needs
+# neither these external tools nor a systemd deployment.
+export SYNC_FLEET_TEST_UPGRADE=1 UPGRADE_POLL=1 UPGRADE_RECOVERY_TIMEOUT=10
+export UPGRADE_JOURNAL="$work/upgrade.json"
+python3 "$root/tools/bringup/tests/fixtures/repair_m798/upgrade_peers.py" \
+ "$root/services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json" "$work/upgrade-endpoints" &
+upgrade_peer_pid=$!
+for ((attempt=0; attempt<100; attempt++)); do
+ [ ! -s "$work/upgrade-endpoints" ] || break
+ sleep 0.1
+done
+[ -s "$work/upgrade-endpoints" ] || { echo "upgrade peer did not start" >&2; exit 1; }
+mapfile -t upgrade_endpoints <"$work/upgrade-endpoints"
+read -r up_node0 up_comet0 <<<"${upgrade_endpoints[0]}"
+read -r up_node1 up_comet1 <<<"${upgrade_endpoints[1]}"
+read -r up_node2 up_comet2 <<<"${upgrade_endpoints[2]}"
+
 # One full node unit and two validator units sharing one binary on one host.
 cat >"$work/hosts-upgrade.env" <<ENV
 EDGE_HOST=up-edge
@@ -710,7 +759,7 @@ ARCHIVE_HOST=up-rpc-2
 VALIDATOR_HOSTS="up-validator-a up-validator-b"
 RPC_HOSTS="up-rpc-1 up-rpc-2"
 OLD_WALLET_HOST=up-old-wallet
-UPGRADE_UNITS="up-rpc-1,paxd.service up-validator-a,paxd-a1,$hosts/paxd up-validator-a,paxd-a2,$PAXD"
+UPGRADE_UNITS="up-rpc-1,paxd.service,$PAXD,$up_node0,$up_comet0 up-validator-a,paxd-a1,$hosts/paxd,$up_node1,$up_comet1 up-validator-a,paxd-a2,$PAXD,$up_node2,$up_comet2"
 ENV
 for h in up-rpc-1 up-validator-a; do
 	rm -f "${hosts:?}/$h/paxd".*
@@ -734,7 +783,7 @@ syncer="$upgrader" expect upgrade_fleet_stage_only "$work/hosts-upgrade.env" 0 -
 	"staged UPGRADE_UNITS[0] paxd.service sha256=$up_sha" \
 	"staged UPGRADE_UNITS[1] paxd-a1 sha256=$up_sha" \
 	"upgrade-fleet: all units passed"
-check upgrade_fleet_stages_beside_the_running_binary bash -c "for h in up-rpc-1 up-validator-a; do [ \"\$(cat '$hosts'/\$h/paxd.new-$up_version)\" = 'upgrade binary' ] && [ \"\$(cat '$hosts'/\$h/paxd)\" = 'release binary' ] || exit 1; done"
+check upgrade_fleet_stages_beside_the_running_binary bash -c "for h in up-rpc-1 up-validator-a; do cmp '$hosts'/\$h/paxd.new-$up_version '$work/dl/$up_asset'  && [ \"\$(cat '$hosts'/\$h/paxd)\" = 'release binary' ] || exit 1; done"
 check upgrade_fleet_stages_once_per_binary [ "$(grep -c '^local scp' "$u")" -eq 2 ]
 check upgrade_fleet_stage_only_restarts_nothing bash -c "! grep -q ' unit restart ' '$u'"
 
@@ -744,8 +793,8 @@ UPGRADE_WATCH_TIMEOUT=0 syncer="$upgrader" expect upgrade_fleet_swaps_only_the_h
 	"UPGRADE_UNITS[2]   paxd-a2              waiting" \
 	"upgrade-fleet: 2 unit(s) not upgraded"
 check upgrade_fleet_watch_only_copies_nothing bash -c "! grep -q '^local scp' '$u'"
-check upgrade_fleet_swap_keeps_the_previous_binary bash -c "[ \"\$(cat '$hosts/up-rpc-1/paxd')\" = 'upgrade binary' ] && [ \"\$(cat '$hosts/up-rpc-1/paxd.pre-$up_version')\" = 'release binary' ] && [ ! -e '$hosts/up-rpc-1/paxd.new-$up_version' ]"
-check upgrade_fleet_restarts_the_halted_unit_once bash -c "[ \"\$(grep -c ' unit restart ' '$u')\" -eq 1 ] && grep -q '^up-rpc-1 unit restart paxd.service\$' '$u' && [ \"\$(cat '$hosts/up-validator-a/paxd')\" = 'release binary' ]"
+check upgrade_fleet_swap_keeps_the_previous_binary bash -c "cmp '$hosts/up-rpc-1/paxd' '$work/dl/$up_asset'  && [ \"\$(cat '$hosts/up-rpc-1/paxd.pre-$up_version')\" = 'release binary' ] && [ ! -e '$hosts/up-rpc-1/paxd.new-$up_version' ]"
+check upgrade_fleet_restarts_the_halted_unit_once bash -c "[ \"\$(grep -c ' unit restart ' '$u')\" -eq 1 ] && grep -q '^up-rpc-1 unit restart --no-block paxd.service\$' '$u' && [ \"\$(cat '$hosts/up-validator-a/paxd')\" = 'release binary' ]"
 
 cat "$work/halt.log" >>"$hosts/up-validator-a/journal/paxd-a1"
 cat "$work/halt.log" >>"$hosts/up-validator-a/journal/paxd-a2"
@@ -754,7 +803,12 @@ UPGRADE_WATCH_TIMEOUT=0 syncer="$upgrader" expect upgrade_fleet_swaps_the_rest_o
 	"swapped UPGRADE_UNITS[1] paxd-a1 unit=active" \
 	"swapped UPGRADE_UNITS[2] paxd-a2 unit=active" \
 	"upgrade-fleet: all units passed"
-check upgrade_fleet_restarts_each_unit_once bash -c "[ \"\$(grep ' unit restart ' '$u' | tr '\n' ' ')\" = 'up-validator-a unit restart paxd-a1 up-validator-a unit restart paxd-a2 ' ] && [ \"\$(cat '$hosts/up-validator-a/paxd')\" = 'upgrade binary' ] && [ \"\$(cat '$hosts/up-validator-a/paxd.pre-$up_version')\" = 'release binary' ]"
+check upgrade_fleet_restarts_each_unit_once bash -c "[ \"\$(grep ' unit restart ' '$u' | tr '\n' ' ')\" = 'up-validator-a unit restart --no-block paxd-a1 up-validator-a unit restart --no-block paxd-a2 ' ] && cmp '$hosts/up-validator-a/paxd' '$work/dl/$up_asset'  && [ \"\$(cat '$hosts/up-validator-a/paxd.pre-$up_version')\" = 'release binary' ]"
+
+for entry in 'up-rpc-1 paxd.service' 'up-validator-a paxd-a1' 'up-validator-a paxd-a2'; do
+ read -r fixture_host fixture_unit <<<"$entry"
+ check "upgrade_fleet_running_target_$fixture_unit" bash -c 'pid=$(cat "$1/upgrade-$2.pid"); cmp "/proc/$pid/exe" "$3"' _ "$hosts/$fixture_host" "$fixture_unit" "$work/dl/$up_asset"
+done
 
 if [ "$failures" -ne 0 ]; then
 	echo "sync-fleet.test: $failures case(s) failed"

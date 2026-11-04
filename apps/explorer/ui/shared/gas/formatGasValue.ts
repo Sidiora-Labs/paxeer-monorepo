@@ -6,7 +6,7 @@ import { currencyUnits } from 'lib/units';
 export default function formatGasValue(data: GasPriceInfo, unit: GasUnit) {
   switch (unit) {
     case 'gwei': {
-      if (!data.price) {
+      if (data.price == null) {
         return `N/A ${ currencyUnits.gwei }`;
       }
 
@@ -18,7 +18,7 @@ export default function formatGasValue(data: GasPriceInfo, unit: GasUnit) {
     }
 
     case 'usd': {
-      if (!data.fiat_price) {
+      if (data.fiat_price == null) {
         return `$N/A`;
       }
 

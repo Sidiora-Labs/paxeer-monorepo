@@ -1,0 +1,51 @@
+[repair]
+id = "22.33.1358"
+audit = "22.30.74"
+acceptance = "22998.1"
+base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+implementation = "Map the withdrawn node/Dockerfile to the explicit node/Dockerfile.paxd recipe in the same module. Build root chain.mk with Go 1.25.8, Rust 1.91.1 and native dependencies; transport build/paxd and both versioned Wasm VM libraries into a Debian runtime; use the registered paxd start path with Rosetta enabled. Copy explicit configuration inputs and isolate the unchanged key-bearing archive in an optional target excluded from the default image. Preserve all historical recipes and existing tests."
+source_proof = "The pytest module parses every Docker instruction and stage, compares toolchain versions to root manifests, traces chain.mk to the native archive producers and real daemon package, follows binary/library/configuration copies, checks runtime UID and private home, traces PAXD environment settings through Viper and GetConfig to the real Rosetta startup and CLI consumer identifiers, and checks archive identity and key-bearing membership without extracting or printing keys."
+review_only = "Docker image builds, Go/Rust/native compilation, dynamic loader execution, fresh chain initialization, consensus startup, Rosetta HTTP and data/construction checks are not executed or certified by this Python source gate. The image requires a separately initialized compatible local paxd home; it does not import the incompatible simd archive. No restart-recovery or interface-mismatch finding is claimed. No shell script or unit file is changed, so bash -n subprocess checks do not apply. The gate needs only Python, pytest and committed sources."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1358.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The successful hf-done row in the private ledger names the exact content-derived verified revision, command, exit code and log; hf-build must qualify the same revision. The record itself belongs to that candidate, so its own revision cannot be embedded without changing it. The runner retains the receipt and publishes the task."
+
+[finding.rosetta-node-image-source]
+class = "wiring-gap"
+severity = "medium"
+original_path = "sdk/contrib/rosetta/node/Dockerfile"
+source = "sdk/contrib/rosetta/node/Dockerfile.paxd"
+resolution = "The absent simapp image remains withdrawn; its explicit replacement builds the actual root chain and starts paxd with Rosetta configuration, without restoring public archived keys into the node home."
+tests = ["test_rosetta_node_image_source_builds_root_chain_and_native_dependencies", "test_rosetta_node_image_source_transports_binary_libraries_and_configuration", "test_rosetta_node_image_source_starts_registered_paxd_rosetta_path", "test_rosetta_node_image_source_isolates_archived_test_keys", "test_rosetta_node_image_source_preserves_withdrawal_and_records_limits"]
+closure = "Source facts are proven by the named tests only when hf-done passes. Runtime integration and main-line inventory qualification remain outside this declared source-only gate."
+
+[baseline]
+tree = "Initial git status and diff contained only runner-prepared .cgignore and spec task-status changes. No scoped implementation or earlier gate ledger existed; gate.json recorded zero build and verification runs."
+verify = "Not run on the unchanged tree: the ordered implementation-first and hf-done-only instructions override the contradictory pre-change verify clause. No baseline failure is claimed."
+observation = "Inspection found the old Dockerfile removed by 22.33.1357, whose unchanged tests enforce absence and historical bytes. The historical source still assumes Go 1.18, absent simapp and sdk-root paths. This is inspection, not an executed baseline failure."
+
+[wiring.sdk_makefile]
+path = "sdk/Makefile"
+owner_domain = 15
+request = "sdk/Makefile — owning domain 15: retire test-rosetta and rosetta-data callers of the withdrawn Dockerfile; any new image caller must explicitly select node/Dockerfile.paxd with repository-root context and undergo separate integration qualification."
+
+[wiring.compose]
+path = "sdk/contrib/rosetta/docker-compose.yaml.historical"
+owner_domain = 15
+request = "sdk/contrib/rosetta/docker-compose.yaml.historical — owning domain 15: keep the simd example historical; separately qualify any replacement paxd orchestration using fresh compatible test state and the integrated Rosetta startup, rather than reviving the archived keys."
+
+[format]
+policy = "No Python, Dockerfile or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files only; preserve historical bytes."
+
+[gotcha.withdrawal]
+observed = "Restoring node/Dockerfile would contradict the already-published 22.33.1357 absence assertions and its withdrawn orchestration."
+resolution = "Use the explicitly named Dockerfile.paxd in the same node module and retain all old entry-point absence assertions and historical content unchanged; record external callers as wiring requests."
+
+[gotcha.startup]
+observed = "RosettaCommand exists in sdk/server/rosetta.go but server.AddCommands does not register it on paxd; Go-only compilation also omits required native archives."
+resolution = "Use chain.mk build including native producers, package versioned runtime Wasm libraries, and start the registered paxd start command with real PAXD_ROSETTA configuration."
+
+[gotcha.scope_and_order]
+observed = "The baseline-run clause conflicts with the exclusive ordered gates, and GOTCHA.kvx and spec files are outside the authorized scope."
+resolution = "Record the unrun baseline and task gotchas here; execute only hf-build then hf-done after full implementation and formatting, without committing or pushing."

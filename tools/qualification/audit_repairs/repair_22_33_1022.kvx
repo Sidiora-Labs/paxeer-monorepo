@@ -1,0 +1,41 @@
+[task.22.33.1022]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace the obsolete single-artifact root with a reference to the existing releaseManifestV4 definition. Preserve all v4 definition constraints and the release harness unchanged. Pin the Python JSON Schema validator used by the offline proof."
+source_proof = "Parse and validate the actual Draft 2020-12 schema; assert the v4 root, exact required source/release/platform fields, legacy rejection, closed object keys, artifact path/hash restrictions and unchanged matrix bounds. Parse the actual production consumer and CLI to check every bundle field and its real validation calls."
+runtime_proof = "Production Capture.write emits current repository source bytes and a JSON contract specimen; production digest/reference/load transport those bytes into the unmodified validate_release. Its source/release/backend/run prefix accepts the current binding and stops at the absent native signature, as required. Both schema and harness reject wrong version/environment/synthetic-account/wallet flags and malformed artifact references. Well-shaped but mismatched source/release/backend/run bindings are rejected by the real harness, independently of JSON Schema."
+review_only = "Positive full-release acceptance through both schema and validate_release is not proven: no committed actual current-release bundle or signing/physical-device/browser capture transcripts exist in the task inputs. The shape specimen intentionally references absent observations, is not recorded release evidence, and cannot qualify. No signature, physical measurement, browser observation or successful financial receipt is fabricated. Real native signing, measurement qualification, complete recorded journeys/responsive/accessibility matrices and the final serial release gate require independent release evidence; source inspection alone cannot establish them."
+baseline = "No baseline verification was run: the explicit implementation-first order requires hf-build before hf-done and forbids running verify_cmd by hand. No baseline failing-test result is claimed. Initial git status/diff showed runner-prepared .cgignore and spec task-start bookkeeping only; /out/run/gates.jsonl did not exist. Preserve those changes."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1022.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final wrapper JSON and private ledger identify the exact content-derived candidate revision, command, exit and log location. Build and verification must use the same candidate. The runner retains the receipt and commits the result; no self-changing candidate hash is embedded in this record. No gate result is claimed before execution."
+wiring_requests = ["wiring.current-release-capture"]
+
+[finding.mobile-v4-schema-root]
+audit = "22.30.38"
+file = "apps/launchpad/qualification/mobile/evidence-manifest.schema.json"
+class = "config-drift"
+severity = "medium"
+closure = "The advertised root now resolves to the exact existing v4 contract consumed by the production harness. The root defect is repaired; the proposal's additional positive actual-release acceptance proof remains unavailable pending the recorded capture bundle. A passing offline gate proves only the explicitly listed source/transport/rejection facts."
+tests = ["test_mobile_v4_schema_root_is_the_advertised_contract", "test_v4_contract_shape_survives_real_capture_transport", "test_schema_and_harness_reject_wrong_release_contract", "test_real_harness_rejects_other_source_release_backend_or_run", "test_legacy_root_and_unapproved_fields_are_rejected", "test_schema_and_real_reference_reader_reject_invalid_artifact_references", "test_harness_reads_the_same_v4_root_fields_and_keeps_release_checks", "test_repair_record_maps_proofs_and_records_full_release_limit"]
+
+[wiring.current-release-capture]
+path = "private/launchpad/mobile/current-release-v4/manifest.json"
+owner_domain = 4
+request = "private/launchpad/mobile/current-release-v4/manifest.json; owning domain 4: supply an actual source-bound current release bundle and recorded signed-platform/device/browser peers emitted by release_harness.py for a positive schema plus validate_release acceptance proof, retaining raw qualification material in private evidence storage."
+status = "Missing external evidence; no out-of-scope file is created or changed. The offline task gate requires no native artifact, device, environment variable, credential, endpoint or subprocess toolchain."
+
+[gotcha.1]
+observed = "The unchanged-tree verify clause contradicts the explicit implementation-first, hf-build then hf-done, wrapper-only qualification order."
+resolution = "Follow the explicit order and claim no baseline execution; record this in scope because GOTCHA.kvx and spec files are excluded."
+
+[gotcha.2]
+observed = "The Python qualification environment initially has pytest but lacks a Draft 2020-12 JSON Schema validator."
+resolution = "Declare jsonschema 4.25.1 in the scoped requirements-schema.txt and install it before qualification; the test imports it directly without a fallback, subprocess or network request."
+
+[gotcha.3]
+observed = "Broad GOTCHA/Codify context reads exceed tool output limits."
+resolution = "Use bounded task, audit, consumer and gotcha excerpts and preserve existing runner bookkeeping."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After full implementation apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules to touched files; JSON uses two-space indentation."

@@ -1,0 +1,36 @@
+[repair.22.33.1564]
+audit = "22.30.99"
+status = "implementation-awaiting-bounded-qualification"
+unbounded-stream-identities = "repair_22_33_1564::unbounded_stream_identities_are_bounded_atomic_and_resume_from_persisted_cursor"
+discovery-lifecycle-binding = "repair_22_33_1564::discovery_lifecycle_binding_authenticates_transitions_and_every_supported_profile; repair_22_33_1564::discovery_live_node_read_requires_independent_state_authority"
+default-unified-route = "repair_22_33_1564::default_unified_route_uses_exact_node_and_hosted_paths_including_private_ca"
+receipt-key-range = "repair_22_33_1564::receipt_key_range_checks_same_real_receipt_at_boundaries_and_after_rotation"
+wallet-ambient-clock = "repair_22_33_1564::wallet_ambient_clock_is_replaced_by_injected_deadline_and_bounded_polling; repair_22_33_1564::wallet_clock_unavailability_regression_and_late_success_are_refused"
+baseline = "No earlier gate ledger exists and the integration target was absent at session start; no unchanged-tree test failures are claimed. The explicit implementation-first hf-build/hf-done-only order overrides the task step requesting an unchanged-tree verify."
+prerequisite_repairs = "The base already routes Wallet::wait_for to the RPC client's injected Deadline and passes SequencerAuthorization to verify_node_receipt; this task makes ranged selection explicit and proves both paths with the declared integration target."
+evidence = "The runner records candidate revision, exact command, exit code and private log in /out/run/gates.jsonl; only a passing hf-done record qualifies the findings."
+
+[policy.stream-replay]
+retention = "Keep at most 1024 identities of at most 512 bytes, admit at most 1024 events per page, and reject pages atomically before changing the cursor or retention."
+producer_contract = "A producer keeps each event at its immutable, strictly increasing log position. The recent identity window detects relabelling within its horizon; the durable cursor rejects replay at any older position, including after restart. Reassigning an evicted identifier to a new position is outside this cursor contract."
+recovery = "Persist the cursor only after processing the accepted page. Reopen ResumableStream with that exact cursor; the bounded recent-identity cache is disposable."
+
+[wiring.registry-producer]
+request = "Hosted gateway / registry domain: services/platform/hosted/gateway/src/main.rs program_discovery_proof_digest and ProgramDiscoveryHead must encode actual lifecycle as active=1, deprecated=2, tombstoned=3 and require independently pinned signatures on all supported guest profiles; active v1 bytes remain compatible, while SDK verified live node discovery stays closed until independently authenticated registry state evidence is supplied."
+
+[wiring.node-state-authority]
+request = "Node RPC / Programs domain: precompiles/layerxprograms and rpc/ must expose authenticated current registry state evidence for VerifiedProgramDiscovery; the existing node adapter returns MissingNodeReadAuthority after its block-consistent read and does not infer state trust from JSON."
+
+[wiring.legacy-route-tests]
+request = "Agent SDK test domain: services/agent/crates/layerx-sdk/tests/rpc_node.rs, wallet_calls.rs and wallet_rpc_bin.rs must update retired implicit /rpc expectations to the explicit served URL; these out-of-scope files are left intact and the task integration target proves root and supplied hosted paths over HTTP and private-CA TLS."
+
+[gotcha.context-graph]
+observed = "cg brief reported stale graph-wide uncommitted paths while git status showed only runner setup changes."
+action = "Use the actual working tree and bounded gate ledger for candidate state, and leave runner-owned setup unchanged."
+
+[gotcha.source-layout]
+observed = "The generic resumable cursor is in production.rs, live subscription replay is in rpc_subscription.rs, and receipt signature selection is in layerx-proof/src/receipt.rs."
+action = "Inspect those existing modules directly rather than assuming a separate stream or receipt/signature module."
+
+[fixture.ca]
+source = "repair_22_33_1564_fixture/ca.der is the byte-preserving PEM-to-DER conversion of repair_22_31_227_fixture/ca.pem; the test uses the existing committed leaf certificate and private test key."

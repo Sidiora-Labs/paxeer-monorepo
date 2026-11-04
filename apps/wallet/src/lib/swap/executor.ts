@@ -18,6 +18,9 @@ import {
   SIDIORA_ADAPTER_ID,
 } from './constants';
 import type { SwapQuote, SwapParams } from './types';
+import { assertQuoteNetwork, getSwapNetwork } from './network';
+import { SwapRecovery } from './recovery';
+import type { SwapStorage } from './storage';
 
 export interface SwapResult {
   hash: string;
@@ -36,9 +39,14 @@ function swapResult(receipt: ethers.TransactionReceipt): SwapResult {
   return { hash: receipt.hash, receipt };
 }
 
-async function awaitSwapReceipt(tx: ethers.TransactionResponse): Promise<SwapResult> {
+async function awaitSwapReceipt(
+  tx: ethers.TransactionResponse,
+  recovery?: SwapRecovery
+): Promise<SwapResult> {
+  recovery?.submitted(tx.hash);
   const receipt = await tx.wait();
   if (!receipt) throw new Error(`Swap transaction has no receipt: ${tx.hash}`);
+  if (recovery) await recovery.reconcile();
   return swapResult(receipt);
 }
 
@@ -59,18 +67,36 @@ export async function ensureApproval(
 export async function executeSwap(
   signer: ethers.Signer,
   quote: SwapQuote,
-  params: SwapParams
+  params: SwapParams,
+  options: { storage?: SwapStorage } = {}
 ): Promise<SwapResult> {
+  let recovery: SwapRecovery | undefined;
+  if (quote.network) {
+    assertQuoteNetwork(quote.network);
+    const wallet = await signer.getAddress();
+    if (
+      wallet.toLowerCase() !== params.recipient.toLowerCase() ||
+      !signer.provider ||
+      signer.provider !== getSwapNetwork().provider ||
+      (await signer.provider.getNetwork()).chainId !== BigInt(quote.network.chainId)
+    ) {
+      throw new Error('Swap signer does not match the confirmed wallet and chain');
+    }
+    recovery = new SwapRecovery(wallet, quote.network, options.storage);
+    const confirmed = recovery.begin(quote, params);
+    quote = confirmed.quote;
+    params = confirmed.params;
+  }
   try {
     switch (quote.protocol) {
       case 'pecor':
-        return await executePecorSwap(signer, quote, params);
+        return await executePecorSwap(signer, quote, params, recovery);
       case 'sidiora':
-        return await executeSidioraSwap(signer, quote, params);
+        return await executeSidioraSwap(signer, quote, params, recovery);
       case 'sidiora-multihop':
-        return await executeSidioraMultihop(signer, quote, params);
+        return await executeSidioraMultihop(signer, quote, params, recovery);
       case 'pecor-v4-multihop':
-        return await executeV4Multihop(signer, quote, params);
+        return await executeV4Multihop(signer, quote, params, recovery);
       default:
         throw new Error(`Unknown swap protocol: ${(quote as SwapQuote).protocol}`);
     }
@@ -87,13 +113,14 @@ export async function executeSwap(
 async function executePecorSwap(
   signer: ethers.Signer,
   quote: SwapQuote,
-  params: SwapParams
+  params: SwapParams,
+  recovery?: SwapRecovery
 ): Promise<SwapResult> {
   const tokenIn = toCentralSwapAddress(quote.tokenIn);
   const tokenOut = toCentralSwapAddress(quote.tokenOut);
   const amountIn = BigInt(quote.amountIn);
   const slipBps = params.slippageBps;
-  const dl = BigInt(Math.floor(Date.now() / 1000) + (params.deadline ?? 300));
+  const dl = swapDeadline(quote, params);
   const isNativeIn = tokenIn === NATIVE_TOKEN.address;
   const isNativeOut = tokenOut === NATIVE_TOKEN.address;
   const actualIn = isNativeIn ? NATIVE_TOKEN.wrappedAddress : tokenIn;
@@ -105,17 +132,20 @@ async function executePecorSwap(
   let tx: ethers.TransactionResponse;
   if (isNativeIn) {
     // Native PAX → ERC20: PECOR contract handles payable native swaps
+    await beforeSwapSubmission(quote, recovery);
     tx = await pecor.swapExactInNative(actualOut, amountOutMin, dl, { value: amountIn });
   } else if (isNativeOut) {
     // ERC20 → Native PAX: PECOR contract handles native output
     await approveVault(tokenIn, signer, amountIn);
+    await beforeSwapSubmission(quote, recovery);
     tx = await pecor.swapExactInToNative(tokenIn, amountIn, amountOutMin, dl);
   } else {
     // ERC20 → ERC20: use PECOR.swapExactIn — same path as PECORQuoter.quoteExactIn
     await approveVault(tokenIn, signer, amountIn);
+    await beforeSwapSubmission(quote, recovery);
     tx = await pecor.swapExactIn(actualIn, actualOut, amountIn, amountOutMin, dl);
   }
-  return awaitSwapReceipt(tx);
+  return awaitSwapReceipt(tx, recovery);
 }
 
 // ── Sidiora direct buy/sell ───────────────────────────────────────────────
@@ -123,27 +153,30 @@ async function executePecorSwap(
 async function executeSidioraSwap(
   signer: ethers.Signer,
   quote: SwapQuote,
-  params: SwapParams
+  params: SwapParams,
+  recovery?: SwapRecovery
 ): Promise<SwapResult> {
   const pool = quote.poolAddress;
   if (!pool) throw new Error('Sidiora quote missing pool address');
-  const dl = BigInt(Math.floor(Date.now() / 1000) + (params.deadline ?? 300));
+  const dl = swapDeadline(quote, params);
   const amountIn = BigInt(quote.amountIn);
   const slipBps = params.slippageBps;
   const minOut = (BigInt(quote.amountOut) * BigInt(10000 - slipBps)) / 10000n;
   const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
 
   let tx: ethers.TransactionResponse;
-  if (isSidioraToken(quote.tokenIn)) {
+  if (launchpadInQuote(quote, quote.tokenIn)) {
     // Sell: Sidiora token → USDL
     await sidioraApproveRouter(quote.tokenIn.address, signer);
+    await beforeSwapSubmission(quote, recovery);
     tx = await router.sell(pool, amountIn, minOut, dl);
   } else {
     // Buy: USDL → Launchpad
     await sidioraApproveRouter(TOKENS.USDL.address, signer);
+    await beforeSwapSubmission(quote, recovery);
     tx = await router.buy(pool, amountIn, minOut, dl);
   }
-  return awaitSwapReceipt(tx);
+  return awaitSwapReceipt(tx, recovery);
 }
 
 // ── Sidiora token-to-token multihop ────────────────────────────────────────────
@@ -171,7 +204,7 @@ export function prepareSidioraMultihop(
     quote.tokenOut.address,
     BigInt(quote.amountIn),
     (BigInt(quote.amountOut) * BigInt(10000 - params.slippageBps)) / 10000n,
-    BigInt(Math.floor(Date.now() / 1000) + (params.deadline ?? 300)),
+    swapDeadline(quote, params),
   ];
   return { router, method, args };
 }
@@ -179,12 +212,14 @@ export function prepareSidioraMultihop(
 async function executeSidioraMultihop(
   signer: ethers.Signer,
   quote: SwapQuote,
-  params: SwapParams
+  params: SwapParams,
+  recovery?: SwapRecovery
 ): Promise<SwapResult> {
   const { method, args } = prepareSidioraMultihop(signer, quote, params);
   await sidioraApproveRouter(quote.tokenIn.address, signer);
+  await beforeSwapSubmission(quote, recovery);
   const tx = await method.send(...args);
-  return awaitSwapReceipt(tx);
+  return awaitSwapReceipt(tx, recovery);
 }
 
 // ── Atomic Sidiora ↔ PECOR swap via the USDL bridge ────────────────────────
@@ -208,8 +243,8 @@ export function prepareV4Multihop(
   quote: SwapQuote,
   params: SwapParams
 ) {
-  const inIsSidiora = isSidioraToken(quote.tokenIn);
-  const outIsSidiora = isSidioraToken(quote.tokenOut);
+  const inIsSidiora = launchpadInQuote(quote, quote.tokenIn);
+  const outIsSidiora = launchpadInQuote(quote, quote.tokenOut);
   const tokenIn = toCentralSwapAddress(quote.tokenIn);
   const tokenOut = toCentralSwapAddress(quote.tokenOut);
   if (
@@ -268,7 +303,8 @@ export function prepareV4Multihop(
 async function executeV4Multihop(
   signer: ethers.Signer,
   quote: SwapQuote,
-  params: SwapParams
+  params: SwapParams,
+  recovery?: SwapRecovery
 ): Promise<SwapResult> {
   const { method, args } = prepareV4Multihop(signer, quote, params);
   const [hops, amountIn, , expiry] = args;
@@ -281,5 +317,26 @@ async function executeV4Multihop(
   if (BigInt(Math.floor(Date.now() / 1000)) > expiry) {
     throw new Error('V4 multihop confirmation expired during approval');
   }
-  return awaitSwapReceipt(await method.send(...args));
+  await beforeSwapSubmission(quote, recovery);
+  return awaitSwapReceipt(await method.send(...args), recovery);
+}
+
+function launchpadInQuote(quote: SwapQuote, token: SwapQuote['tokenIn']): boolean {
+  return quote.network ? isSidioraToken(token) : token.isLaunchpad === true;
+}
+
+async function beforeSwapSubmission(quote: SwapQuote, recovery?: SwapRecovery): Promise<void> {
+  if (quote.network) assertQuoteNetwork(quote.network);
+  recovery?.submitting();
+}
+
+function swapDeadline(quote: SwapQuote, params: SwapParams): bigint {
+  return quote.network
+    ? BigInt(
+        Math.min(
+          params.deadline ?? Math.floor(quote.network.expiresAt / 1000),
+          Math.floor(quote.network.expiresAt / 1000)
+        )
+      )
+    : BigInt(Math.floor(Date.now() / 1000) + (params.deadline ?? 300));
 }

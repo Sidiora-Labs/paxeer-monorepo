@@ -81,6 +81,14 @@ pub struct TransactionRow {
     pub created_contract_address_hash: Option<Vec<u8>>,
 }
 
+impl TransactionRow {
+    /// Replace a database hint only with a domain obtained from the trusted node's
+    /// transaction at this row's verified hash, block height and index.
+    pub(crate) fn set_verified_domain(&mut self, domain: u64) {
+        self.chain_id = Some(domain.to_string());
+    }
+}
+
 /// One `logs` row. `index` is the block-wide log index.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct LogRow {

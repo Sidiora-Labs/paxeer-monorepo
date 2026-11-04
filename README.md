@@ -259,6 +259,12 @@ make paxd-build        # build/paxd, linked native libraries and release version
 
 `paxd-build` builds `build/liblayerx.a` and `programs/target/release/liblayerx_programs_sandbox.a` before invoking `chain.mk`. It stamps the version from [`tools/release/version.json`](tools/release/version.json). `make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version defaults.
 
+For a checksummed operator package, use `tools/release/build-paxd.sh` with the pinned toolchains.
+It packages the merged `paxd`, the price sidecar and the required shared libraries; the kernel and
+programs archives remain linked into the node. [RELEASE.md](RELEASE.md) lists the artifacts,
+release verification and recovery procedure. The package version and governance activation plan
+must agree before an operator applies it to a network.
+
 For an operator-provisioned, initialized node home containing the network genesis and configuration, the runtime command is:
 
 ```sh

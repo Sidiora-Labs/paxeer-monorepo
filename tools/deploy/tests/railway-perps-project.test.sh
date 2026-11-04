@@ -4,6 +4,7 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 tool="$root/tools/deploy/railway-perps-project.py"
+python3 "$here/railway-perps-readiness.test.py"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -252,7 +253,8 @@ for name, status in (("crash", "CRASHED"), ("apply", "SUCCESS")):
     json.dump(out, open(f"{tmp}/{name}-replay.json", "w"))
 
 # Rerun replay: every service already runs the manifest with nothing to
-# change, but the indexer's latest deployment CRASHED and the explorer sleeps.
+# change, but the indexer's latest deployment CRASHED. Sleeping explorer
+# refusal and confirmed wake-up are exercised by railway-perps-readiness.test.py.
 node = copy.deepcopy(page2)
 node["services"]["edges"] = [{"node": {"id": "s-pg", "name": "Postgres"}}] + [
     {"node": {"id": f"s-{n}", "name": n}} for n in ["nats", *created]]
@@ -262,7 +264,7 @@ node["volumes"]["edges"] += [{"node": {"id": f"v-{n}", "volumeInstances": {"edge
 rerun = [base[0], copy.deepcopy(base[1]), base[2], base[3]]
 rerun[1]["data"]["projects"]["edges"][0]["node"] = node
 latest = {"nats": "SUCCESS", "nats-2": "SUCCESS", "nats-3": "SUCCESS", "indexer": "CRASHED", "gateway": "SUCCESS",
-          "explorer": "SLEEPING", "portal": "SUCCESS", "web": "SUCCESS"}
+          "explorer": "SUCCESS", "portal": "SUCCESS", "web": "SUCCESS"}
 for name, (img, n, health, replicas) in {"nats": ("perps-data-nats", 1, "/healthz", 1), **created}.items():
     sid, pv = f"s-{name}", {"p": "p1", "e": "e1", "s": f"s-{name}"}
     instance = {k: v for k, v in inst(img, n, health, replicas).items() if k != "registryCredentials"}
@@ -338,7 +340,7 @@ grep -E '^(applied|deployed|wave) ' "$tmp/out" >"$tmp/applied"
 	echo "deployed indexer deployment=dep-indexer-1"
 	echo "wave 3 indexer SUCCESS"
 	echo "wave 4 gateway SUCCESS"
-	echo "wave 5 explorer SLEEPING"
+	echo "wave 5 explorer SUCCESS"
 	echo "wave 5 portal SUCCESS"
 	echo "wave 6 web SUCCESS"
 } >"$tmp/want-applied"
@@ -381,7 +383,7 @@ for st in skipped removing; do
 	[ "$code" -eq 0 ] || { cat "$tmp/out" "$tmp/err" >&2; fail "rerun apply with a $ST indexer exited $code"; }
 	grep -q '^deployed indexer deployment=dep-indexer-1$' "$tmp/out" || fail "$ST unchanged indexer was not redeployed"
 	grep -q '^wave 3 indexer SUCCESS$' "$tmp/out" || fail "redeployed $ST indexer did not pass wave 3"
-	grep -q '^wave 5 explorer SLEEPING$' "$tmp/out" || fail "sleeping explorer did not pass wave 5"
+	grep -q '^wave 5 explorer SUCCESS$' "$tmp/out" || fail "ready explorer did not pass wave 5"
 	grep -q '^wave 6 web SUCCESS$' "$tmp/out" || fail "rerun with a $ST indexer did not reach wave 6"
 done
 

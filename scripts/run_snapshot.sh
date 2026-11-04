@@ -1,80 +1,68 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check if the correct number of arguments is provided
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 INITIAL_HALT_HEIGHT SNAPSHOT_INTERVAL CHAIN_ID"
-    exit 1
+if [[ $# != 3 ]]; then
+    echo "Usage: $0 INITIAL_HALT_HEIGHT SNAPSHOT_INTERVAL CHAIN_ID" >&2
+    exit 2
 fi
-
-INITIAL_HALT_HEIGHT=$1
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PAX_DIR="${PAX_HOME:-$HOME/.pax}"
+SNAPSHOT_DIR="${SNAPSHOT_DIR:-$HOME/snapshots}"
+PAXD_BIN="${PAXD_BIN:-$HOME/go/bin/paxd}"
+CONTROLLER="${PAXD_CONTROLLER:-$SCRIPT_DIR/paxd-service.sh}"
+[[ -x "$PAXD_BIN" && -d "$PAX_DIR" ]]
+PAXD_BIN="$(cd -- "$(dirname -- "$PAXD_BIN")" && pwd)/$(basename -- "$PAXD_BIN")"
+mkdir -p -- "$SNAPSHOT_DIR"
+exec 9>"$PAX_DIR/.snapshot-cycle.lock"
+flock -n 9
+HALT_HEIGHT=$(python3 "$SCRIPT_DIR/snapshot_cycle.py" resume "$SNAPSHOT_DIR" "$1" "$2" "$3")
 SNAPSHOT_INTERVAL=$2
 CHAIN_ID=$3
+PAXD_PID=
+STAGING=
+cleanup() {
+    status=$?
+    trap - EXIT INT TERM
+    if [[ -n "$PAXD_PID" ]]; then
+        kill -TERM "$PAXD_PID" 2>/dev/null || true
+        wait "$PAXD_PID" || true
+    fi
+    if [[ -n "$STAGING" ]]; then
+        rm -rf -- "$STAGING"
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-# Define variables for paths based on the home directory
-PAX_DIR="$HOME/.pax"
-CONFIG_FILE="$PAX_DIR/config/app.toml"
-SNAPSHOT_DIR="$HOME/snapshots"
-PAXD_BIN="$HOME/go/bin/paxd"
-
-# Ensure the paxd binary exists
-if [ ! -x "$PAXD_BIN" ]; then
-    echo "Error: paxd binary not found at $PAXD_BIN"
-    exit 1
-fi
-
-# Stop the paxd service if it's managed by systemd
-if systemctl is-active --quiet paxd; then
-    systemctl stop paxd
-    echo "Stopped paxd service."
-else
-    echo "paxd service is not running."
-fi
-
-# Update pruning settings in the configuration file
-if [ -f "$CONFIG_FILE" ]; then
-    sed -i -e 's/pruning = .*/pruning = "custom"/' "$CONFIG_FILE"
-    sed -i -e 's/pruning-keep-recent = .*/pruning-keep-recent = "1"/' "$CONFIG_FILE"
-    sed -i -e 's/pruning-keep-every = .*/pruning-keep-every = "0"/' "$CONFIG_FILE"
-    sed -i -e 's/pruning-interval = .*/pruning-interval = "1"/' "$CONFIG_FILE"
-    echo "Updated pruning settings in $CONFIG_FILE."
-else
-    echo "Error: Configuration file $CONFIG_FILE not found."
-    exit 1
-fi
-
-# Create the snapshots directory if it doesn't exist
-mkdir -p "$SNAPSHOT_DIR"
-echo "Ensured snapshot directory exists at $SNAPSHOT_DIR."
-
-# Initialize halt height
-HALT_HEIGHT=$INITIAL_HALT_HEIGHT
-
-# Start the snapshot loop
-while true
-do
-    # Update the halt height in the configuration file
-    sed -i -e "s/halt-height = .*/halt-height = $HALT_HEIGHT/" "$CONFIG_FILE"
-    echo "Set halt-height to $HALT_HEIGHT in $CONFIG_FILE."
-
-    # Start the paxd node with tracing
-    echo "Starting paxd node with chain ID $CHAIN_ID and halt height $HALT_HEIGHT."
-    "$PAXD_BIN" start --trace --chain-id "$CHAIN_ID" &
+# The controller owns all writers and must suppress external restarts.
+"$CONTROLLER" stop "$PAX_DIR"
+"$CONTROLLER" check-stopped "$PAX_DIR"
+while true; do
+    python3 "$SCRIPT_DIR/snapshot_cycle.py" configure "$PAX_DIR/config/app.toml" "$HALT_HEIGHT"
+    STAGING=$(mktemp -d "$SNAPSHOT_DIR/.snapshot-$HALT_HEIGHT.XXXXXXXX")
+    "$CONTROLLER" check-stopped "$PAX_DIR"
+    "$PAXD_BIN" start --trace --home "$PAX_DIR" --chain-id "$CHAIN_ID" \
+        --halt-height "$HALT_HEIGHT" >"$STAGING/node.log" 2>&1 9>&- &
     PAXD_PID=$!
-
-    # Wait for the node to initialize (you might need to adjust the sleep duration)
-    sleep 10
-
-    # Take a snapshot at the current halt height
-    start_time=$(date +%s)
-    "$PAXD_BIN" tendermint snapshot "$HALT_HEIGHT"
-    end_time=$(date +%s)
-    elapsed=$(( end_time - start_time ))
-    echo "Backed up snapshot for height $HALT_HEIGHT which took $elapsed seconds."
-
-    # Increment the halt height for the next snapshot
-    HALT_HEIGHT=$(( HALT_HEIGHT + SNAPSHOT_INTERVAL ))
-    echo "Next halt height set to $HALT_HEIGHT."
-
-    # Navigate back to the home directory
-    cd "$HOME"
+    # A nonzero child exit aborts. No timer or live writer can trigger a snapshot.
+    if wait "$PAXD_PID"; then
+        PAXD_PID=
+    else
+        child_status=$?
+        PAXD_PID=
+        exit "$child_status"
+    fi
+    grep -Fq 'halting node per configuration' "$STAGING/node.log"
+    "$CONTROLLER" check-stopped "$PAX_DIR"
+    "$PAXD_BIN" export --home "$PAX_DIR" --height -1 --streaming=false \
+        >"$STAGING/committed.json" 9>&-
+    python3 "$SCRIPT_DIR/snapshot_cycle.py" committed "$STAGING/committed.json" "$HALT_HEIGHT" "$CHAIN_ID"
+    "$PAXD_BIN" snapshot --height "$HALT_HEIGHT" --home "$PAX_DIR" \
+        --chain-id "$CHAIN_ID" --snapshot-dir "$STAGING/snapshot" \
+        >"$STAGING/snapshot.log" 2>&1 9>&-
+    # Publish a checked, durable receipt; advance only after snapshot success.
+    HALT_HEIGHT=$(python3 "$SCRIPT_DIR/snapshot_cycle.py" publish "$STAGING" "$SNAPSHOT_DIR" "$HALT_HEIGHT" "$SNAPSHOT_INTERVAL" "$CHAIN_ID")
+    STAGING=
 done

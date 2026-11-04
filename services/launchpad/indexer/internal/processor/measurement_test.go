@@ -2,12 +2,8 @@ package processor
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -18,35 +14,10 @@ import (
 )
 
 func TestMeasurementRejectsAbsentActualProviders(t *testing.T) {
-	_, ownFile, _, _ := runtime.Caller(0)
-	body, err := os.ReadFile(filepath.Join(filepath.Dir(ownFile), "measurement.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), "candidate.go")
-	if err := os.WriteFile(path, body, 0600); err != nil {
-		t.Fatal(err)
-	}
-	fileHash := sha256.Sum256(body)
-	source := hex.EncodeToString(fileHash[:])
-	candidate := sha256.Sum256([]byte(fmt.Sprintf("%d:%s:%s\n", len(path), path, source)))
-
-	spec := IngestMeasurementSpec{CaptureMaxBytes: 16 << 20, RunID: "missing-real-providers", CandidateSHA256: hex.EncodeToString(candidate[:]), Profile: "steady", Region: "local-fixture", SourceFiles: map[string]string{path: source}, Duration: 5 * time.Minute, BatchBlocks: 1, MaxMemoryBytes: 1 << 30, MaxDatabaseConnections: 6, DeliverySchema: "indexer", HotPool: "0x" + strings.Repeat("2", 40), OutputPath: filepath.Join(t.TempDir(), "capture.ndjson")}
-	if err := validateCandidateFiles(spec.SourceFiles, spec.CandidateSHA256); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := (&IngestMeasurementHarness{}).Run(context.Background(), spec); err == nil {
-		t.Fatal("missing guarded providers generated measurement success")
-	}
-	if _, err := os.Stat(spec.OutputPath); !os.IsNotExist(err) {
-		t.Fatal("absent provider generated evidence")
-	}
-	if err := os.WriteFile(path, append(body, []byte("\n")...), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateCandidateFiles(spec.SourceFiles, spec.CandidateSHA256); err == nil {
-		t.Fatal("changed candidate retained measurement admission")
-	}
+	repairM1000MeasurementRefusals(t)
+}
+func TestMeasurementRejectsChangedCandidate(t *testing.T) {
+	repairM1000ChangedCandidate(t)
 }
 func TestMeasurementStorageAndTraceUseActualPostgres(t *testing.T) {
 	ctx, dsn, pool := replayPostgres(t)

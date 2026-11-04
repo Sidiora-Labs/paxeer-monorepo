@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-pub const MANIFEST_PATH: &str = "services/platform/tools/workspace-gate/src/workspace.kvx";
+pub const MANIFEST_PATH: &str = "services/platform/workspace.kvx";
 
 const REQUIRED_DIRECTORIES: [&str; 9] = [
     "sdk-generators",

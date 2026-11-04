@@ -46,6 +46,7 @@ from .verifier import (
 )
 
 if TYPE_CHECKING:
+    from .committed import CommitTrust
     from .exchange import WalletRequest
 
 FINALIZED_RANK = 4
@@ -1538,10 +1539,15 @@ class OperationRecord:
             or (
                 self.receipt_block_hash is not None
                 and (
-                    self.rung is not Rung.COMMITTED
+                    not receipted
                     or self.receipt_block_hash == bytes(32)
                 )
             )
+            or (self.rung is Rung.COMMITTED and (
+                self.state is not SdkState.FINALIZED
+                or self.receipt_block_hash is None
+                or self.checkpoint != self.receipt_block_hash
+            ))
         ):
             return False
         pristine = (
@@ -1591,9 +1597,13 @@ class MarketRpc(Protocol):
 
 
 class OperationJournal:
-    def __init__(self, directory: Path, signatures: LocalSignatureVerifier) -> None:
+    def __init__(self, directory: Path, signatures: LocalSignatureVerifier, *, commit_trust: CommitTrust | None = None) -> None:
+        from .committed import CommitTrust
+        if commit_trust is not None and not isinstance(commit_trust, CommitTrust):
+            raise AiMarketError("FinalityUnavailable")
         directory.mkdir(parents=True, exist_ok=True)
         self._directory = directory
+        self._commit_trust = commit_trust
         self._signatures = signatures
 
     def record_path(self, activity_id: bytes) -> Path:
@@ -1605,7 +1615,15 @@ class OperationJournal:
         partial = path.with_suffix(".partial")
         descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            os.write(descriptor, data)
+            remaining = memoryview(data)
+            while remaining:
+                try:
+                    written = os.write(descriptor, remaining)
+                except InterruptedError:
+                    continue
+                if written <= 0:
+                    raise OSError("journal write made no progress")
+                remaining = remaining[written:]
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
@@ -1701,7 +1719,6 @@ class OperationJournal:
             receipt_height, receipt_block_hash = _transaction_landing(
                 record, transaction_receipt, verified.height, execution.result_code
             )
-            rung = Rung.COMMITTED
         record.result_code = execution.result_code
         record.global_sequence = execution.global_sequence
         record.receipt_height = receipt_height
@@ -1711,20 +1728,22 @@ class OperationJournal:
         self.persist(record)
         return record.state
 
-    def finalize(self, record: OperationRecord, finality: CommitFinality) -> SdkState:
+    def finalize(self, record: OperationRecord, finality: Mapping[str, object]) -> SdkState:
         _require(record, SdkState.EXECUTED)
         OperationRecord.decode(record.encode(), self._signatures)
-        if (
-            record.receipt_height is None
-            or record.receipt_height > finality.block_height
-            or (
-                record.receipt_height == finality.block_height
-                and record.receipt_block_hash is not None
-                and record.receipt_block_hash != finality.block_hash
-            )
-        ):
+        if self._commit_trust is None or not isinstance(finality, Mapping) or record.receipt_height is None:
+            raise AiMarketError("FinalityUnavailable")
+        try:
+            verified = self._commit_trust.verify(record.signed_bytes, record.receipt_height, finality)
+        except Exception as error:
+            raise AiMarketError("FinalityUnavailable") from error
+        if (verified.transaction_hash != record.activity_id
+                or record.receipt_block_hash is not None and record.receipt_block_hash != verified.block_hash
+                or record.receipt_block_hash is not None and record.receipt_height != verified.height):
             raise AiMarketError("FinalityMismatch")
-        record.checkpoint = finality.block_hash
+        record.receipt_height = verified.height
+        record.receipt_block_hash = verified.block_hash
+        record.checkpoint = verified.block_hash
         record.rung = Rung.COMMITTED
         _move(record, SdkState.FINALIZED)
         self.persist(record)

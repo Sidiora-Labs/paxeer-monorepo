@@ -158,6 +158,9 @@ pub struct GetNftInstanceTransfersParams {
 
     /// integer id
     pub id: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_nft_instance_transfers_count`]
@@ -177,6 +180,9 @@ pub struct GetNftInstanceTransfersCountParams {
 pub struct GetNftInstancesParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_token`]
@@ -201,6 +207,9 @@ pub struct GetTokenCountersParams {
 pub struct GetTokenHoldersParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_token_instance_holders`]
@@ -212,6 +221,9 @@ pub struct GetTokenInstanceHoldersParams {
 
     /// integer id
     pub id: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_token_token_transfers`]
@@ -220,6 +232,9 @@ pub struct GetTokenInstanceHoldersParams {
 pub struct GetTokenTokenTransfersParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_tokens_list`]
@@ -229,6 +244,9 @@ pub struct GetTokensListParams {
     pub q: Option<String>,
 
     pub r#type: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`refetch_token_instance_metadata`]
@@ -312,7 +330,11 @@ impl TokensApi for TokensApiClient {
         params: GetNftInstanceTransfersParams,
     ) -> Result<ResponseContent<GetNftInstanceTransfersSuccess>, Error<GetNftInstanceTransfersError>>
     {
-        let GetNftInstanceTransfersParams { address_hash, id } = params;
+        let GetNftInstanceTransfersParams {
+            address_hash,
+            id,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -335,7 +357,7 @@ impl TokensApi for TokensApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -426,7 +448,10 @@ impl TokensApi for TokensApiClient {
         &self,
         params: GetNftInstancesParams,
     ) -> Result<ResponseContent<GetNftInstancesSuccess>, Error<GetNftInstancesError>> {
-        let GetNftInstancesParams { address_hash } = params;
+        let GetNftInstancesParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -448,7 +473,7 @@ impl TokensApi for TokensApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -588,7 +613,10 @@ impl TokensApi for TokensApiClient {
         &self,
         params: GetTokenHoldersParams,
     ) -> Result<ResponseContent<GetTokenHoldersSuccess>, Error<GetTokenHoldersError>> {
-        let GetTokenHoldersParams { address_hash } = params;
+        let GetTokenHoldersParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -610,7 +638,7 @@ impl TokensApi for TokensApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -645,7 +673,11 @@ impl TokensApi for TokensApiClient {
         params: GetTokenInstanceHoldersParams,
     ) -> Result<ResponseContent<GetTokenInstanceHoldersSuccess>, Error<GetTokenInstanceHoldersError>>
     {
-        let GetTokenInstanceHoldersParams { address_hash, id } = params;
+        let GetTokenInstanceHoldersParams {
+            address_hash,
+            id,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -668,7 +700,7 @@ impl TokensApi for TokensApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -703,7 +735,10 @@ impl TokensApi for TokensApiClient {
         params: GetTokenTokenTransfersParams,
     ) -> Result<ResponseContent<GetTokenTokenTransfersSuccess>, Error<GetTokenTokenTransfersError>>
     {
-        let GetTokenTokenTransfersParams { address_hash } = params;
+        let GetTokenTokenTransfersParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -725,7 +760,7 @@ impl TokensApi for TokensApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -759,7 +794,7 @@ impl TokensApi for TokensApiClient {
         &self,
         params: GetTokensListParams,
     ) -> Result<ResponseContent<GetTokensListSuccess>, Error<GetTokensListError>> {
-        let GetTokensListParams { q, r#type } = params;
+        let GetTokensListParams { q, r#type, cursor } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -787,7 +822,7 @@ impl TokensApi for TokensApiClient {
         let mut local_var_req = local_var_req_builder
             .timeout(local_var_configuration.request_timeout)
             .build()?;
-        if let Some(cursor) = &self.cursor {
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;

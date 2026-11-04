@@ -7,10 +7,9 @@ use layerx_crypto::disclosure::{
     AmountRole, CounterpartyRole, DisclosedEvmPayoutBinding, Disclosure, DisclosureError,
 };
 use layerx_types::payload::{ActivityType, ModuleId};
-use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
-use super::VerifiedBudgetAfter;
+use super::{BudgetVerification, VerifiedBudgetAfter};
 
 const MOVE_MONEY_KEY: &str = "approval.activity.move_money";
 const ADD_MONEY_KEY: &str = "approval.activity.add_money";
@@ -89,7 +88,7 @@ pub struct RenderedApprovalFacts {
     pub expires_at: u64,
 }
 
-/// Plain approval content plus separately-labelled verified budget context.
+/// Plain approval content plus budget context labelled by its evidence strength.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderedApproval {
     pub class: ApprovalActivityClass,
@@ -108,7 +107,7 @@ pub struct UnrenderableApproval {
     pub plain_copy: &'static str,
 }
 
-/// Total renderer outcome. Only a validated known class is approvable.
+/// Total renderer outcome. Approval also requires committed budget context.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ApprovalPresentation {
     Rendered(Box<RenderedApproval>),
@@ -117,8 +116,9 @@ pub enum ApprovalPresentation {
 
 impl ApprovalPresentation {
     #[must_use]
-    pub const fn can_approve(&self) -> bool {
-        matches!(self, Self::Rendered(_))
+    pub fn can_approve(&self) -> bool {
+        matches!(self, Self::Rendered(value)
+            if value.budget_after.verification() == BudgetVerification::Verified)
     }
 }
 
@@ -134,7 +134,7 @@ impl DisclosureRenderer {
     /// # Errors
     ///
     /// Returns a typed defect for changed disclosure fields, a mismatched held
-    /// digest, malformed class facts, or budget context without verified agent
+    /// digest, malformed class facts, or budget context without agent
     /// evidence.
     pub fn render(
         disclosure: &Disclosure,
@@ -160,7 +160,7 @@ impl DisclosureRenderer {
         if observed_digest != held_digest {
             return Err(DisclosureRenderError::DigestMismatch);
         }
-        if budget_after.rung < Rung::Committed || budget_after.evidence_digest == [0; 32] {
+        if budget_after.evidence_digest == [0; 32] {
             return Err(DisclosureRenderError::UnverifiedBudget);
         }
 

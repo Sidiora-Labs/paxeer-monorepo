@@ -13,6 +13,14 @@ use layerx_types::rung::Rung;
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 
+#[path = "support/repair_22_33_1490.rs"]
+mod repair_1490;
+
+#[test]
+fn engine_written_v2_journal_uses_production_settlement_recovery() {
+    repair_1490::engine_restart();
+}
+
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 const WORKER: &str = "journal-worker";
 

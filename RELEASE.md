@@ -42,13 +42,13 @@ bridge module account; they ship together in the v6.12.0 release.
 metadata and commit-date source) and `SOURCE_DATE_EPOCH` from the environment. `PAXD_COMMIT` does
 not check out that revision: build from the intended tag's checkout.
 
-The separate `layerxd` binary is retired; the kernel and program runtime are linked into `paxd`.
-The script retains the pre-merge `PAXD_RELEASE_LAYERXD` opt-in branch. Leave it unset when building
-the merged package, including when running the reproducibility check:
+The kernel and program runtime are linked into `paxd`; no separate kernel-daemon artifact is
+built or published. A nonzero legacy `PAXD_RELEASE_LAYERXD` setting is refused before toolchain
+checks or output replacement. Remove that setting from callers and build the merged package:
 
 ```sh
-env -u PAXD_RELEASE_LAYERXD tools/release/build-paxd.sh
-env -u PAXD_RELEASE_LAYERXD tools/release/reproducible-check.sh
+tools/release/build-paxd.sh
+tools/release/reproducible-check.sh
 ```
 
 - Toolchains are pinned and checked before anything builds: Go must equal the `go` line of `go.mod`
@@ -85,9 +85,9 @@ linux/amd64 build host for the complete release package.
 ## Publishing
 
 1. Before publishing a merged-network release, align the release workflows with the package above.
-   The checked-in check and publish workflows still set `PAXD_RELEASE_LAYERXD=1`, a pre-merge
-   setting for the retired daemon. Their current configuration is not the merged package recipe.
-   A passing run with that setting does not establish that only the merged assets were built.
+   The checked-in check and publish workflows still enable the retired daemon option and will be
+   refused by the builder until their environment is updated. The release build test also expects
+   that retired artifact. These callers must use the merged package recipe before publication.
 2. Open a pull request that sets `version` and `upgrade` in `tools/release/version.json`, with the
    upgrade handler registered under that name. `Paxeer / Release Check` validates the identity and
    runs the reproducibility check.
@@ -123,7 +123,7 @@ script and asset list first; its package may include retired components.
 git clone https://github.com/Sidiora-Labs/Paxeer-X-Network.git
 cd Paxeer-X-Network
 git checkout paxeer-network/vX.Y.Z
-env -u PAXD_RELEASE_LAYERXD tools/release/build-paxd.sh
+tools/release/build-paxd.sh
 gh release download paxeer-network/vX.Y.Z --pattern SHA256SUMS --dir published
 diff published/SHA256SUMS dist/paxeer-network/vX.Y.Z/SHA256SUMS
 ```
@@ -233,8 +233,8 @@ the operator-input and receipt checks.
 - [ ] `version` and `upgrade` in `tools/release/version.json` are correct and the upgrade handler for
       `upgrade` is registered in `node/upgrades.go`.
 - [ ] `Paxeer / Release Check` passed on the release commit.
-- [ ] Release workflow configuration builds the merged package with the retired daemon option unset,
-      and the plan validation matches the intended upgrade handler.
+- [ ] Release workflow and build-test configuration use only the merged artifact set, and the plan
+      validation matches the intended upgrade handler.
 - [ ] `Paxeer / Release Publish` is green and the release carries `paxd`, the price sidecar,
       the three linux/amd64 libwasmvm libraries, `native-libs.sha256`, `upgrade-info.json` and
       `SHA256SUMS`.

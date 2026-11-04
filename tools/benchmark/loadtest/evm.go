@@ -99,9 +99,13 @@ func NewEvmTxClient(
 }
 
 func (txClient *EvmTxClient) GetTxForMsgType(msgType string) (*ethtypes.Transaction, error) {
+	return txClient.getTxForMsgTypeContext(context.Background(), msgType)
+}
+
+func (txClient *EvmTxClient) getTxForMsgTypeContext(ctx context.Context, msgType string) (*ethtypes.Transaction, error) {
 	txClient.mtx.Lock()
 	defer txClient.mtx.Unlock()
-	if err := txClient.prepareLocked(); err != nil {
+	if err := txClient.prepareLockedContext(ctx); err != nil {
 		return nil, err
 	}
 	switch msgType {
@@ -253,11 +257,15 @@ func (txClient *EvmTxClient) sign(tx *ethtypes.Transaction) *ethtypes.Transactio
 }
 
 func (txClient *EvmTxClient) callContext() (context.Context, context.CancelFunc) {
+	return txClient.callContextFrom(context.Background())
+}
+
+func (txClient *EvmTxClient) callContextFrom(parent context.Context) (context.Context, context.CancelFunc) {
 	timeout := txClient.rpcTimeout
 	if timeout <= 0 {
 		timeout = 5 * time.Second
 	}
-	return context.WithTimeout(context.Background(), timeout)
+	return context.WithTimeout(parent, timeout)
 }
 
 func (txClient *EvmTxClient) nextNonce() uint64 {
@@ -273,14 +281,14 @@ func (txClient *EvmTxClient) PrepareNext() error {
 	return txClient.prepareLocked()
 }
 
-func (txClient *EvmTxClient) pendingNonce(peer *ethclient.Client) (uint64, error) {
-	ctx, cancel := txClient.callContext()
+func (txClient *EvmTxClient) pendingNonce(ctx context.Context, peer *ethclient.Client) (uint64, error) {
+	ctx, cancel := txClient.callContextFrom(ctx)
 	defer cancel()
 	return peer.PendingNonceAt(ctx, txClient.accountAddress)
 }
 
-func (txClient *EvmTxClient) knownTransaction(peer *ethclient.Client, tx *ethtypes.Transaction) (bool, error) {
-	ctx, cancel := txClient.callContext()
+func (txClient *EvmTxClient) knownTransaction(ctx context.Context, peer *ethclient.Client, tx *ethtypes.Transaction) (bool, error) {
+	ctx, cancel := txClient.callContextFrom(ctx)
 	defer cancel()
 	found, _, err := peer.TransactionByHash(ctx, tx.Hash())
 	if errors.Is(err, ethereum.NotFound) {
@@ -296,6 +304,10 @@ func (txClient *EvmTxClient) knownTransaction(peer *ethclient.Client, tx *ethtyp
 }
 
 func (txClient *EvmTxClient) prepareLocked() error {
+	return txClient.prepareLockedContext(context.Background())
+}
+
+func (txClient *EvmTxClient) prepareLockedContext(ctx context.Context) error {
 	if !txClient.needsReconcile {
 		return nil
 	}
@@ -305,7 +317,7 @@ func (txClient *EvmTxClient) prepareLocked() error {
 	}
 	accepted := false
 	if txClient.uncertain != nil {
-		known, err := txClient.knownTransaction(peer, txClient.uncertain)
+		known, err := txClient.knownTransaction(ctx, peer, txClient.uncertain)
 		if err != nil {
 			return fmt.Errorf("unresolved EVM submission: %w", err)
 		}
@@ -314,7 +326,7 @@ func (txClient *EvmTxClient) prepareLocked() error {
 		}
 		accepted = known
 	}
-	nonce, err := txClient.pendingNonce(peer)
+	nonce, err := txClient.pendingNonce(ctx, peer)
 	if err != nil {
 		return fmt.Errorf("reconcile pending nonce: %w", err)
 	}
@@ -351,9 +363,13 @@ func definitiveEVMRefusal(err error) bool {
 
 // SendEvmTx serializes sends with generation and invalidates queued work on failure.
 func (txClient *EvmTxClient) SendEvmTx(tx *ethtypes.Transaction, onSuccess func()) error {
+	return txClient.sendEvmTxContext(context.Background(), tx, onSuccess)
+}
+
+func (txClient *EvmTxClient) sendEvmTxContext(ctx context.Context, tx *ethtypes.Transaction, onSuccess func()) error {
 	txClient.mtx.Lock()
 	defer txClient.mtx.Unlock()
-	if err := txClient.prepareLocked(); err != nil {
+	if err := txClient.prepareLockedContext(ctx); err != nil {
 		return err
 	}
 	if tx == nil {
@@ -363,8 +379,8 @@ func (txClient *EvmTxClient) SendEvmTx(tx *ethtypes.Transaction, onSuccess func(
 		return errors.New("discarding stale queued EVM transaction")
 	}
 	peer := GetNextEthClient(txClient.ethClients)
-	ctx, cancel := txClient.callContext()
-	err := peer.SendTransaction(ctx, tx)
+	sendCtx, cancel := txClient.callContextFrom(ctx)
+	err := peer.SendTransaction(sendCtx, tx)
 	cancel()
 	if err == nil {
 		delete(txClient.queued, tx.Hash())
@@ -378,14 +394,14 @@ func (txClient *EvmTxClient) SendEvmTx(tx *ethtypes.Transaction, onSuccess func(
 	txClient.needsReconcile = true
 	txClient.uncertainPeer = peer
 	txClient.queued = make(map[common.Hash]*ethtypes.Transaction)
-	known, lookupErr := txClient.knownTransaction(peer, tx)
+	known, lookupErr := txClient.knownTransaction(ctx, peer, tx)
 	refused := definitiveEVMRefusal(err)
 	if lookupErr != nil || known || !refused {
 		txClient.uncertain = tx
 		txClient.uncertainSuccess = onSuccess
 		txClient.uncertainRefused = refused
 	}
-	if reconcileErr := txClient.prepareLocked(); reconcileErr != nil {
+	if reconcileErr := txClient.prepareLockedContext(ctx); reconcileErr != nil {
 		return fmt.Errorf("send failed (%v); %w", err, reconcileErr)
 	}
 	if known {

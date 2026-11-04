@@ -1,0 +1,36 @@
+[repair.22.33.1434]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+acceptance = "22998.1"
+disposition = "Retire the residual legacy wire consumers consistently with existing local transaction and settlement retirement. Remove layerx-wire and the now-unused layerx-proof dependency (which transitively requires layerx-wire); preserve host-ffi runtime/sandbox linkage, state inspection and the complete snapshot format including opaque historical receipts. Head evidence always refuses with 503 principal_state_proof_unavailable; a retained receipt and any syntactically valid legacy evidence lookup refuse with 410 legacy_receipt_verification_retired. Missing receipts retain 404 and malformed evidence IDs retain 400. Discovery explicitly names these dispositions and the merged replacement."
+source_proof = "Parse the production Cargo manifest and discovery JSON, check absence of retired Rust consumers and transitive layerx-proof dependency, trace HTTP dispatch to terminal refusals, and trace state/snapshot FFI calls and preserved receipt serialization through the unchanged C declarations/implementation and native link directives."
+encoding_proof = "Execute the real Python SDK EIP-1559 decoder, canonical encoder, signer recovery and signature attachment against all six positive/revert node-produced recordings. Round-trip their actual RPC receipt JSON, verify the transported signed receipt with the real SDK's pinned Ed25519 verifier, and assert transaction hash, canonical bytes, digest, height, sequence chain, status, timestamp, fees and return-data commitment. Four recorded invalid receipts prove unpinned keys, key-height bounds, mismatched transaction hashes and noncanonical encoding refuse. The committed producer uses go-ethereum SignTx/MarshalBinary, seqnode.BuildReceipt/SignReceipt and the real RPC server; its recording is consumed without regeneration or fabricated messages."
+review_only = "Rust/C compilation, native linking, live emulator HTTP behavior, snapshot restart/recovery, node execution and consensus are not executed by this Python-only gate. Source assertions prove retirement and preservation of those code paths, not native runtime success. This retired-reference finding introduces no replacement local transaction interface or snapshot format change and is not a restart-recovery or interface-mismatch finding. Cryptographic verification and EIP-1559 byte round-trips execute the actual production Python SDK in process using the installed cryptography dependency; no external binary, subprocess toolchain, native emulator artifact, credential, environment variable, live endpoint or device is required. Receipted evidence does not establish committed finality."
+baseline = "No baseline verification ran: the named pytest target was absent, the initial tree contained only runner-prepared .cgignore/spec task-start changes, and the private configuration reported zero build/verify runs with no gates.jsonl. The task's explicit implementation-first, hf-build then hf-done order forbids the conflicting unchanged-tree verification step. No baseline failures are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1434.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The private runner ledger and final hf-done JSON record the exact content-derived revision, command, exit code and log path; build and verification must pass on the same candidate revision. This source record is finalized before qualification and does not embed its own content hash. No gate success is claimed until hf-done passes. Publication belongs to the runner; no manual commit or push."
+
+[finding.emulator-retired-wire-dependency]
+audit = "22.30.80"
+file = "tools/platform/emulator/Cargo.toml"
+line = 21
+class = "retired-reference"
+severity = "medium"
+owner_domain = 8
+tests = ["test_retired_wire_dependency_and_consumers_are_removed", "test_head_and_receipt_evidence_fail_closed_through_dispatch", "test_discovery_declares_retirement_and_merged_replacement", "test_state_snapshot_host_linkage_and_receipt_preservation_remain", "test_merged_transaction_and_portable_receipt_encoding", "test_merged_receipt_refuses_invalid_recorded_evidence"]
+
+[wiring.contracts]
+owner_domain = 8
+request = "Platform domain 8: reconcile spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/platform-cli.md with the emulator discovery's retired historical receipt verification and unavailable legacy head evidence; merged submissions and portable receipts use eth_sendRawTransaction and pax_sequencerReceipt with pinned keys and independent block-commit verification."
+
+[format]
+policy = "Run rustfmt only on the touched Rust files, without traversing child modules; no Python, Cargo TOML or KVX formatter is configured for these paths; follow .editorconfig whitespace and final-newline conventions."
+
+[gotcha.baseline_order]
+observed = "The generated baseline instruction contradicts the explicit implementation-first wrapper-only bounded gate order."
+resolution = "Follow the explicit order and state that no baseline ran; GOTCHA.kvx and spec edits are outside this task's allowed scope."
+
+[gotcha.context]
+observed = "Codify brief reports stale unrelated task/change inventory; broad ledger/context reads overflow output limits and guessed optional configuration paths are absent."
+resolution = "Use actual git status/diff, the exact task/audit sections, private gate configuration, discovered production files and bounded reads; preserve runner bookkeeping."

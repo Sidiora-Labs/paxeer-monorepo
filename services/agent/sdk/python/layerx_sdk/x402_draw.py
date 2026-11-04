@@ -1,9 +1,6 @@
 import sqlite3
-import time
 
-from .x402_activity import bind_receive_activity
-from .x402_grant import validate_grant_draw
-from .x402_rpc import PaymentRpcError, _transaction_bytes, rpc_hex, verify_rpc_payment
+from .x402 import refuse_payer_grant
 
 
 class PreparedGrantDraws:
@@ -19,101 +16,10 @@ class PreparedGrantDraws:
     def register(
         self, principal, request_digest, canonical, receive, key, period_key=None
     ):
-        rpc_hex(request_digest, 32)
-        if not principal or period_key is not None and not period_key:
-            raise ValueError("invalid-draw-registration")
-        activity = bind_receive_activity(
-            canonical, receive, self.actor, self.network, key
-        )
-        with sqlite3.connect(self.path, timeout=30) as db:
-            db.execute("BEGIN IMMEDIATE")
-            existing = db.execute(
-                "SELECT principal, request_digest, activity_id, period_key FROM grant_draws WHERE idempotency_key = ?",
-                (key,),
-            ).fetchone()
-            if existing:
-                if existing != (principal, request_digest, activity, period_key):
-                    raise ValueError("draw-registration-conflict")
-                return
-            db.execute(
-                "INSERT INTO grant_draws (idempotency_key, principal, request_digest, canonical, receive, activity_id, period_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    key,
-                    principal,
-                    request_digest,
-                    canonical,
-                    receive,
-                    activity,
-                    period_key,
-                ),
-            )
+        refuse_payer_grant()
 
     def _resolve(self, claimed, row, offer):
-        if claimed:
-            return self.rpc.send(
-                row["canonical"].hex(), offer["extra"]["layerx"]["commitment"]
-            )
-        return self.rpc.receipt(row["activity_id"])
+        refuse_payer_grant()
 
     def __call__(self, principal, request_digest, body, offer):
-        key = body["idempotencyKey"]
-        with sqlite3.connect(self.path, timeout=30) as db:
-            db.row_factory = sqlite3.Row
-            row = db.execute(
-                "SELECT * FROM grant_draws WHERE idempotency_key = ?", (key,)
-            ).fetchone()
-        if (
-            row is None
-            or row["principal"] != principal
-            or row["request_digest"] != request_digest
-            or row["receive"].hex() != body["receive"]
-        ):
-            raise ValueError("unregistered-grant-draw")
-        receive = validate_grant_draw(
-            row["receive"],
-            offer,
-            key,
-            self.network,
-            row["attempted_at"]
-            if row["attempted_at"] is not None
-            else int(time.time()),
-        )
-        if offer["scheme"] == "subscription" and row["period_key"] is None:
-            raise ValueError("subscription-period-required")
-        with sqlite3.connect(self.path, timeout=30) as db:
-            claimed = db.execute(
-                "UPDATE grant_draws SET attempted = 1, attempted_at = ? WHERE idempotency_key = ? AND attempted = 0",
-                (int(time.time()), key),
-            ).rowcount
-        try:
-            result = self._resolve(claimed, row, offer)
-        except PaymentRpcError as error:
-            if (
-                error.code == -32001
-                and isinstance(error.data, dict)
-                and error.data.get("state") == "pending"
-            ):
-                return None
-            raise
-        if result.get("txHash") != row["activity_id"]:
-            raise ValueError("draw-activity-mismatch")
-        if result.get("rung") == "submitted":
-            return None
-        receipt = _transaction_bytes(result.get("receipt"))
-        evidence = self.authority(receipt, offer)
-        verified = verify_rpc_payment(
-            result,
-            row["activity_id"],
-            "0x" + receive["from"],
-            receipt_keys=self.receipt_keys,
-            raw_transaction=evidence.raw_transaction,
-            amount=offer["amount"],
-            asset=offer["asset"],
-            pay_to=offer["payTo"],
-            commitment=offer["extra"]["layerx"]["commitment"],
-        )
-        if verified["rung"] == "pending":
-            return None
-        if evidence.canonical_receipt != receipt:
-            raise ValueError("draw-receipt-mismatch")
-        return evidence
+        refuse_payer_grant()

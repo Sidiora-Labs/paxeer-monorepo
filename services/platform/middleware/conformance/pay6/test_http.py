@@ -1,5 +1,4 @@
 import base64
-import hashlib
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -16,6 +15,7 @@ from layerx_sdk.x402_http import (
     validate_required,
 )
 from layerx_sdk.x402_rpc import PaymentRpc
+from node_peer import node_peer, exchange
 
 
 class HttpTests(unittest.TestCase):
@@ -25,31 +25,13 @@ class HttpTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         f = self.fixture
-        self.offer = dict(
-            scheme="exact",
-            network="layerx:beta",
-            amount=f.offer["amount"],
-            asset=f.offer["asset"],
-            payTo=f.offer["pay_to"],
-            maxTimeoutSeconds=30,
-        )
-        self.required = dict(
-            x402Version=2,
-            resource={"url": "https://example.com/paid"},
-            accepts=[self.offer],
-        )
-        self.payload = dict(
-            x402Version=2,
-            resource=self.required["resource"],
-            accepted=self.offer,
-            payload={
-                "receipt": base64.b64encode(f.wire).decode(),
-                "receiptDigest": hashlib.sha256(
-                    b"LXP/v1/merkle-leaf\0" + f.wire
-                ).hexdigest(),
-                "verificationLevel": "sequencer-signed",
-            },
-        )
+        self.node, produced = self.enterContext(node_peer())
+        self.required = produced["required"]
+        self.offer = self.required["accepts"][0]
+        self.payload = decode_header(produced["header"])
+        self.assertEqual(self.payload["payload"]["format"], "layerx-receipt-proof-v2")
+        self.assertEqual(self.payload["payload"]["verificationLevel"], "receipted")
+        self.assertEqual(self.payload["payload"]["signedReceipt"], test_commitment.FIXTURE["receipt"]["signedReceipt"])
         self.authority = ConfiguredReceiptAuthority(f.raw_transaction)
         self.seller = SellerMiddleware(
             self.required,
@@ -68,15 +50,18 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(first, retry)
         self.assertEqual(first[0], 200)
         buyer = BuyerMiddleware(
-            PaymentRpc("http://127.0.0.1:1/rpc"),
+            PaymentRpc(self.node),
             self.fixture.receipt_keys,
             self.authority,
-            [("exact", "layerx:beta")],
+            [("exact", "eip155:125")],
         )
         verified = buyer.capture_settlement(first[1]["PAYMENT-RESPONSE"], header)
         self.assertEqual(verified.canonical_bytes, self.fixture.wire)
         self.assertEqual(verified.receipt.activity_id.hex(), test_commitment.FIXTURE["txHash"][2:])
         self.assertEqual(verified.height, int(test_commitment.FIXTURE["rpcResult"]["height"], 16))
+        captured = exchange(self.node + "capture", {"settlement": first[1]["PAYMENT-RESPONSE"]})
+        self.assertEqual(captured["txHash"], test_commitment.FIXTURE["txHash"])
+        self.assertEqual(captured["receiptDigest"], self.payload["payload"]["receiptDigest"])
         settlement = decode_header(first[1]["PAYMENT-RESPONSE"])
         settlement["payer"] = "01" * 32
         with self.assertRaises(ValueError):
@@ -94,13 +79,17 @@ class HttpTests(unittest.TestCase):
                 )
             )
         self.assertTrue(all(response == responses[0] for response in responses))
+        self.assertEqual(responses[0][0], 200)
+        reopened = SellerMiddleware(self.required, self.fixture.receipt_keys, self.authority,
+            FulfillmentStore(str(Path(self.directory.name) / "payments.sqlite")))
+        self.assertEqual(reopened.handle("payer", header, lambda: self.fail("second release")), responses[0])
 
     def test_offer_commitment_uses_rung_ladder(self):
-        for rung in ("submitted", "receipted", "committed"):
+        for rung in ("receipted", "committed"):
             offer = self.offer | {"extra": {"layerx": {"commitment": rung}}}
             required = self.required | {"accepts": [offer]}
             self.assertEqual(validate_required(required), required)
-        for retired in ("executed", "batched", "finalised"):
+        for retired in ("submitted", "executed", "batched", "finalised"):
             with self.assertRaisesRegex(ValueError, "invalid-payment-terms"):
                 validate_required(self.required | {"accepts": [
                     self.offer | {"extra": {"layerx": {"commitment": retired}}}
@@ -167,10 +156,10 @@ class HttpTests(unittest.TestCase):
         thread.start()
         try:
             buyer = BuyerMiddleware(
-                PaymentRpc("http://127.0.0.1:1/rpc"),
+                PaymentRpc(self.node),
                 self.fixture.receipt_keys,
                 self.authority,
-                [("exact", "layerx:beta")],
+                [("exact", "eip155:125")],
             )
             response = buyer.fetch(
                 f"http://127.0.0.1:{server.server_port}/paid",
@@ -182,3 +171,21 @@ class HttpTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join()
+
+    def test_python_buyer_captures_typescript_seller(self):
+        buyer = BuyerMiddleware(PaymentRpc(self.node), self.fixture.receipt_keys,
+            self.authority, [("exact", "eip155:125")])
+        status, headers, body = buyer.fetch(self.node + "paid", encode_header(self.payload))
+        self.assertEqual((status, body), (200, b"resource"))
+        self.assertEqual(exchange(self.node + "metrics")["releases"], 1)
+        exchange(self.node + "reopen", {})
+        repeated = buyer.fetch(self.node + "paid", encode_header(self.payload))
+        self.assertEqual(repeated, (status, headers, body))
+        self.assertEqual(exchange(self.node + "metrics")["releases"], 1)
+
+    def test_submitted_offer_never_releases(self):
+        required = self.required | {"accepts": [self.offer | {"extra": {"layerx": {"commitment": "submitted"}}}]}
+        with self.assertRaises(ValueError):
+            SellerMiddleware(required, self.fixture.receipt_keys, self.authority,
+                FulfillmentStore(str(Path(self.directory.name) / "submitted.sqlite")))
+        self.assertEqual(exchange(self.node + "metrics")["releases"], 0)

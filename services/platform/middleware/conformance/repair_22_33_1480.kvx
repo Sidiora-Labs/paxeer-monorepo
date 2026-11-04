@@ -1,0 +1,72 @@
+[repair.22.33.1480]
+requirement = "22998.1"
+node_finding = "conformance-node-router-fixture"
+node_test = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_node_router_fixture_uses_root_and_separate_hosted_identity"
+node_path = "Conformance signed EIP-1559 payment -> real merchant application server, settlement and node root JSON-RPC -> receipt verification and buyer settlement capture; independent hosted /rpc resolves identity. Close and reopen the merchant server on the same durable orders and fulfillments, then verify replay and unchanged bytes without a second settlement."
+daemon_finding = "conformance-daemon-fixture"
+daemon_test = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs::conformance_daemon_fixture_tracks_and_recovers_real_serializer_output"
+daemon_path = "Committed Rust dispatcher transcript -> loopback agent envelope HTTP -> authenticatedAgentTransport, LayerXAgentTransport, ProductionClient and AgentMiddleware; concrete signer, receipt and budget HTTP clients. Lost submit and unresolved Unknown/submitted observation retain the reservation; stop the peer and destroy clients, reopen on the same budget file, resume the exact Committed/committed observation and verify the signed receipt before committing once."
+provenance = "fixtures/daemon-submission.json is byte-value identical to MIDDLEWARE_SUBMISSION_TRANSCRIPT in services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs; its producer tests middleware_submit_transcript_is_produced_by_dispatch and middleware_observation_transcripts_are_produced_by_dispatch establish the serde output. The repair test asserts equality without requiring Rust or a native binary. Terminal failure uses the same decode_observation/decode_tracked fields with state Failed and result_code."
+commitment = "Committed is an observation state. These spend requests require receipted evidence and verify the signed receipt at receipted; a label alone never establishes cryptographic commitment."
+baseline_revision = "8c4a3e7e0bd8b236f61b0f9e0dd18f3cfc360fce"
+baseline_tests = "No baseline behavioral failures claimed. The unchanged tree had no repair test and the initial gate ledger was empty; the explicit implementation-first order and prohibition on running verify_cmd manually preclude the contradictory step requesting a baseline verify."
+qualification = "The task's hf-build/hf-done private gate ledger and cg spec done record name the exact verified candidate revision, command, exit code and evidence log; no qualification is claimed before hf-done passes."
+wiring_requests = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs::Operation::Track (fm-agent): align the live track route, currently dispatching decode_tracked, with the observation envelope consumed by AgentMiddleware.resume; this conformance task uses the exact committed decode_observation transcript and does not alter the daemon route."
+gotcha = "The amended gates build dependencies and conformance before verification; the repair test additionally loads the actual TypeScript production sources in-process and never launches a toolchain from the test."
+
+[qualification.build_1]
+revision = "18063a05877079af0b6617bfc1d283feb9768a62"
+command = "npm --prefix services/platform/middleware/conformance install --no-audit --no-fund && node --check services/platform/middleware/conformance/service.mjs"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The pre-existing version-only workspace dependencies resolve against the public registry under npm --prefix and return E404; use explicit local file dependencies in this scoped manifest so the declared gate can install the committed peers."
+
+[qualification.verify_1]
+revision = "5b48a17cc94292f3b93f06c1eafe89b9de390bcd"
+command = "cg spec done 22.33.1480 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Import failed before behavioral tests because HostedGatewayRpc is declared in seller/rpc but is not re-exported by seller/index; import that real module directly. The runner also force-captured npm node_modules artifacts, making the first build and verify candidates differ; they remain generated install output, not intended source changes."
+
+[continuation.2]
+base_revision = "13d941baae20489831996ea7db5fde01ad1e253d"
+inherited_failure = "The preceding verify failed at module instantiation, before either named behavioral test executed; retain its qualification.verify_1 evidence above rather than rerunning the recorded failure."
+implementation = "Import both RPC classes from the real seller RPC module; configure authenticated merchant customer identity and keep the declared example environment through request handling and restart; resolve the canonical payee account on the independent hosted origin; bind approval preparation references to their canonical signing digest while preserving the exact recorded successful daemon submit and observation messages."
+gate_evidence = "The private hf-build/hf-done ledger for this continuation records the exact candidate revision and command results; the final response copies its last evidence line."
+gotcha = "The merchant example resolves catalog environment values per request and requires customerCredentialsEnvironment; an in-process walkthrough must retain its declared environment until all requests and restart replay finish, then restore it."
+
+[qualification.continuation_verify_1]
+revision = "ec48318ccca2a61e5878a3764a2090e25c4698db"
+command = "cg spec done 22.33.1480 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Merchant restart replay failed on a pooled closed HTTP connection; use an explicit Connection: close for the walkthrough's requests, retaining the real server stop and reopen and all payment assertions."
+
+[wiring.daemon_receipt_proof]
+path = "services/platform/middleware/agent/src/daemon.ts::resolveDaemonReceipt"
+owner = "fm-platform"
+request = "Separate the tracked observation rung from signed-receipt proof strength: when only a sequencer signature is available, preserve receipted proof rather than promoting it to committed from the observation label; genuine committed proof still requires authenticated commitment evidence."
+observed = "The production resolver assigns verificationLevel committed solely from submission.verification_level; AgentMiddleware then passes this proof to verifyPaymentReceipt, which requires a commitment resolver and returns an unknown result with the budget reserved when it is absent. The conformance recovery assertions remain intact."
+revision = "ec48318ccca2a61e5878a3764a2090e25c4698db"
+evidence = "/out/logs/verify-1.log"
+
+[continuation.3]
+inherited_failure = "The previous restart scenario observed Committed/committed but returned unknown with a reserved budget because resolveDaemonReceipt promoted signature-only evidence to committed proof."
+implementation = "resolveDaemonReceipt verifies the configured sequencer signature and emits receipted proof while preserving the exact Committed observation. AgentMiddleware.resume then verifies the actual payment and commits its existing reservation through the ordinary settlement path; failed observations still release it."
+proof = "conformance_daemon_fixture_tracks_and_recovers_real_serializer_output asserts the exact producer transcript over HTTP, pending reservation across stop/reopen, original receipt and transaction bytes, independent observation and proof rungs, durable budget commit and replay without a second commit."
+resolved_wiring = "The historical wiring.daemon_receipt_proof request is fulfilled in services/platform/middleware/agent/src/daemon.ts, now explicitly in task scope; wiring_requests for the Rust track dispatcher remains owned by fm-agent."
+gate_evidence = "The final hf-done ledger records the exact verified candidate revision, command, exit and private evidence log; no success is claimed before that bounded gate passes."
+
+[qualification.continuation_3_build_1]
+revision = "8314722794a3e5b97c30254e97a1014bcd088c73"
+command = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build && node --check services/platform/middleware/conformance/service.mjs"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Root npm ci exits EUSAGE before compilation because the root package-lock.json omits viem, @supabase/supabase-js and their dependencies declared by services/platform/examples/agent-spend/package.json."
+assumption = "The unrelated example manifest and root lock mismatch require their owning domain to synchronize dependencies; preserve the task's implementation, do not chase or rerun the recorded unrelated failure, and claim no build, verification or completion."
+
+[continuation.4]
+base_revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+implementation = "Retain the receipt-proof repair and both real transport/restart tests from attempt 3 on the main head containing prerequisites 22.31.477 and 22.31.479."
+dependencies = "Synchronize the conformance manifest's six local workspace dependency specifiers into the root package-lock.json with npm install --package-lock-only -w services/platform/middleware/conformance --ignore-scripts --no-audit --no-fund; no dependency is added."
+qualification = "Run only hf-build followed by hf-done on this candidate; their private gate ledger records the exact revision, commands, exit codes and evidence locations."

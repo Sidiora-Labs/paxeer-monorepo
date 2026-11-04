@@ -26,16 +26,44 @@
     - cmd: paxd q gov proposal $PROPOSAL_ID --output json | jq -r .status
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait node_admin gov vote $PROPOSAL_ID yes --fees 2000uhpx
       node: pax-node-3
-    # since expedited quorum is 0.9, we only need 4/4 votes and expect expedited proposal to pass after 20 seconds
-    - cmd: sleep 20
-    - cmd: paxd q gov proposal $PROPOSAL_ID --output json | jq -r .status
+    # Poll this proposal at committed heights until execution succeeds.
+    - cmd: |
+        set -euo pipefail
+        deadline=$((SECONDS + 90))
+        query() {
+          remaining=$((deadline - SECONDS))
+          if (( remaining <= 0 )); then
+            echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+            exit 1
+          fi
+          timeout "${remaining}s" paxd "$@"
+        }
+        while (( SECONDS < deadline )); do
+          height=$(query status | jq -er '.SyncInfo.latest_block_height | tonumber | select(. > 0)')
+          status=$(query q gov proposal "$PROPOSAL_ID" --height "$height" --output json | jq -er .status)
+          case "$status" in
+            PROPOSAL_STATUS_PASSED) printf '%s\n' "$height"; exit 0 ;;
+            PROPOSAL_STATUS_REJECTED|PROPOSAL_STATUS_FAILED)
+              echo "Proposal $PROPOSAL_ID reached unexpected $status" >&2
+              exit 1 ;;
+            PROPOSAL_STATUS_DEPOSIT_PERIOD|PROPOSAL_STATUS_VOTING_PERIOD) ;;
+            *) echo "Unknown proposal status: $status" >&2; exit 1 ;;
+          esac
+          sleep 1
+        done
+        echo "Deadline exceeded for proposal $PROPOSAL_ID" >&2
+        exit 1
+      env: POST_EXECUTION_HEIGHT
+    - cmd: paxd q gov proposal "$PROPOSAL_ID" --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .status
       env: PROPOSAL_STATUS
     # Get the params again after proposal is passed
-    - cmd: paxd q params subspace staking UnbondingTime --output json | jq -r .value | tr -d "\""
+    - cmd: paxd q params subspace staking UnbondingTime --height "$POST_EXECUTION_HEIGHT" --output json | jq -r .value | tr -d "\""
       env: NEW_PARAM
-    - cmd: paxd q staking params --output json | jq .unbonding_time | tr -d "\""
+    - cmd: paxd q staking params --height "$POST_EXECUTION_HEIGHT" --output json | jq .unbonding_time | tr -d "\""
       env: NEW_PARAM_FROM_STAKING
   verifiers:
+    - type: eval
+      expr: PROPOSAL_STATUS == "PROPOSAL_STATUS_PASSED"
     # Check if the new params is the expected value after proposal
     - type: eval
       expr: NEW_PARAM == 1814400000000000

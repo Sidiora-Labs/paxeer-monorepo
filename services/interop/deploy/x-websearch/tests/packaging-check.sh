@@ -19,6 +19,7 @@ EXAMPLE="$DEPLOY_DIR/config.example.json"
 COMPOSE="$REPO_ROOT/docker/docker-compose.yml"
 NODE_DOCKERFILE="$REPO_ROOT/docker/layerx/Dockerfile"
 VALID_FIXTURE="$REPO_ROOT/services/interop/crates/x-websearch/tests/fixtures/config/valid.json"
+FLY_INIT="$REPO_ROOT/docker/x-websearch/entrypoint.sh"
 
 RUST_BASE='rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33'
 DEBIAN_BASE='debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171'
@@ -29,7 +30,7 @@ KEY_NAMES=(attestor submitter receiver)
 fail() { printf 'packaging-check: error: %s\n' "$*" >&2; exit 1; }
 pass() { printf 'packaging-check: ok: %s\n' "$*"; }
 
-for file in "$IMAGE_DOCKERFILE" "$UNIT" "$EXAMPLE" "$COMPOSE" "$NODE_DOCKERFILE" "$VALID_FIXTURE"; do
+for file in "$IMAGE_DOCKERFILE" "$UNIT" "$EXAMPLE" "$COMPOSE" "$NODE_DOCKERFILE" "$VALID_FIXTURE" "$FLY_INIT"; do
     [ -f "$file" ] || fail "missing $file"
 done
 
@@ -79,7 +80,28 @@ every_from_pinned "$IMAGE_DOCKERFILE"
 IMAGE_TEXT=$(cat "$IMAGE_DOCKERFILE")
 has_line "$IMAGE_TEXT" "FROM $RUST_BASE AS build" "sidecar image build base"
 has_line "$IMAGE_TEXT" "FROM $DEBIAN_BASE" "sidecar image runtime base"
-[ "$(grep -Ec '^FROM ' "$IMAGE_DOCKERFILE")" -eq 2 ] || fail "sidecar image: expected exactly two stages"
+# Check the supported targets by identity, including the unnamed default target.
+[ "$(grep -E '^FROM ' "$IMAGE_DOCKERFILE" | sed -n '1p')" = "FROM $RUST_BASE AS build" ] || fail "sidecar image: first target must be build"
+[ "$(grep -E '^FROM ' "$IMAGE_DOCKERFILE" | sed -n '2p')" = "FROM $DEBIAN_BASE AS fly" ] || fail "sidecar image: second target must be fly"
+[ "$(grep -E '^FROM ' "$IMAGE_DOCKERFILE" | tail -n 1)" = "FROM $DEBIAN_BASE" ] || fail "sidecar image: final target must be the default runtime"
+FLY_STAGE=$(named_stage "$IMAGE_DOCKERFILE" fly)
+[ -n "$FLY_STAGE" ] || fail "sidecar image: no fly target"
+has_line "$FLY_STAGE" "COPY --from=build /src/.x-websearch-target/release/x-websearch /usr/local/bin/x-websearch" "fly binary"
+has_line "$FLY_STAGE" "COPY docker/x-websearch/entrypoint.sh /usr/local/bin/x-websearch-fly-init" "fly init"
+has_line "$FLY_STAGE" 'ENTRYPOINT ["/usr/local/bin/x-websearch-fly-init"]' "fly entrypoint"
+has_line "$FLY_STAGE" 'CMD ["--config", "/data/config.json"]' "fly configuration"
+has_line "$FLY_STAGE" 'EXPOSE 8480' "fly port"
+has_line "$FLY_STAGE" "    && apt-get install --yes --no-install-recommends ca-certificates libssl3 socat \\" "fly runtime packages"
+has_line "$FLY_STAGE" "    && groupadd --system --gid 65532 x-websearch \\" "fly group"
+has_line "$FLY_STAGE" "    && useradd --system --uid 65532 --gid 65532 --home-dir /nonexistent --shell /usr/sbin/nologin x-websearch" "fly user"
+# Fly init needs root to hand over the volume; every long-lived child drops it.
+FLY_INIT_TEXT=$(cat "$FLY_INIT")
+has_line "$FLY_INIT_TEXT" 'drop=(setpriv --reuid=65532 --regid=65532 --clear-groups --inh-caps=-all --no-new-privs)' "fly privilege drop"
+has_line "$FLY_INIT_TEXT" '	"${drop[@]}" socat "TCP-LISTEN:${hop%%=*},bind=127.0.0.1,reuseaddr,fork" "TCP6:${hop#*=}:8480" &' "fly unprivileged proxy"
+has_line "$FLY_INIT_TEXT" '"${drop[@]}" /usr/local/bin/x-websearch "$@" &' "fly unprivileged sidecar"
+for target in "$FLY_STAGE" "$(final_stage "$IMAGE_DOCKERFILE")"; do
+    lacks_match "$target" 'X_WEBSEARCH_[A-Z]+_KEY_FILE|\.key( |$)|config\.json /' "deployable target carries no secrets"
+done
 BUILD_STAGE=$(named_stage "$IMAGE_DOCKERFILE" build)
 has_line "$BUILD_STAGE" "ENV CARGO_BUILD_JOBS=4 CARGO_TARGET_DIR=/src/.x-websearch-target" "sidecar image build stage"
 has_line "$BUILD_STAGE" "RUN $BUILD_LINE" "sidecar image build stage"
@@ -272,44 +294,54 @@ def expect(config, step, message):
 
 def pointer_get(document, pointer):
     for part in pointer.strip("/").split("/"):
-        document = document[part]
+        document = document[int(part) if isinstance(document, list) else part]
     return document
 
 
 def pointer_set(document, pointer, value):
     parts = pointer.strip("/").split("/")
     for part in parts[:-1]:
-        document = document[part]
-    document[parts[-1]] = copy.deepcopy(value)
+        document = document[int(part) if isinstance(document, list) else part]
+    document[int(parts[-1]) if isinstance(document, list) else parts[-1]] = copy.deepcopy(value)
 
 
-placeholders = [
-    ("/seeds", "seeds"),
-    ("/assets/SID/asset_id", "assets.SID.asset_id"),
-    ("/assets/SID/price", "assets.SID.price"),
-    ("/assets/PAX/asset_id", "assets.PAX.asset_id"),
-    ("/assets/PAX/price", "assets.PAX.price"),
-    ("/assets/USDC/asset_id", "assets.USDC.asset_id"),
-    ("/assets/USDC/price", "assets.USDC.price"),
-    ("/assets/USDL/asset_id", "assets.USDL.asset_id"),
-    ("/assets/USDL/price", "assets.USDL.price"),
-    ("/gateway/endpoint", "gateway.endpoint"),
-    ("/gateway/sequencer_id", "gateway.sequencer_id"),
-    ("/gateway/sequencer_public_key", "gateway.sequencer_public_key"),
-    ("/evm/endpoint", "evm.endpoint"),
-    ("/evm/chain_id", "evm.chain_id"),
-    ("/kernel_network_id", "kernel_network_id"),
-]
+# Keep the valid producer fixture as the baseline for each independent refusal.
+# Numeric placeholders are invalid in the production loader; zero chain_id
+# is a placeholder. Do not turn either refusal into the other.
+def placeholder_cases(example):
+    cases = [("/seeds", "seeds", "a placeholder")]
+    for symbol in ("SID", "PAX", "USDC", "USDL"):
+        for field in ("asset_id", "price"):
+            cases.append((f"/assets/{symbol}/{field}", f"assets.{symbol}.{field}", "a placeholder"))
+    cases.append(("/gateway/endpoint", "gateway.endpoint", "a placeholder"))
+    for index, entry in enumerate(example["gateway"]["receipt_keys"]):
+        assert set(entry) == {"key_id", "public_key", "first_height", "last_height"}
+        for field in ("key_id", "public_key", "first_height", "last_height"):
+            refusal = "invalid" if field.endswith("height") else "a placeholder"
+            cases.append((f"/gateway/receipt_keys/{index}/{field}",
+                          f"gateway.receipt_keys[{index}].{field}", refusal))
+    cases.extend([("/evm/endpoint", "evm.endpoint", "a placeholder"),
+                  ("/evm/chain_id", "evm.chain_id", "a placeholder")])
+    return cases
 
+
+placeholders = placeholder_cases(example)
+baseline = copy.deepcopy(valid)
+baseline.pop("kernel_network_id", None)
+expect(baseline, "valid", "key refused: X_WEBSEARCH_RECEIVER_KEY_FILE is not set")
+for step, (pointer, field, refusal) in enumerate(placeholders):
+    config = copy.deepcopy(baseline)
+    pointer_set(config, pointer, pointer_get(example, pointer))
+    expect(config, step, f"configuration refused: {field} is {refusal}")
+
+# Also prove that filling every real example field yields a valid deployment.
 config = copy.deepcopy(example)
-for step, (pointer, field) in enumerate(placeholders):
-    expect(config, step, f"configuration refused: {field} is a placeholder")
+for pointer, _, _ in placeholders:
     pointer_set(config, pointer, pointer_get(valid, pointer))
-
-step = len(placeholders)
-expect(config, step, "configuration refused: note is not a known field")
+expect(config, "note", "configuration refused: note is not a known field")
 del config["note"]
-expect(config, step + 1, "key refused: X_WEBSEARCH_RECEIVER_KEY_FILE is not set")
+expect(config, "filled", "key refused: X_WEBSEARCH_RECEIVER_KEY_FILE is not set")
+
 PY
 pass "config example: every placeholder and the note are refused by the built loader, allow_loopback is false"
 

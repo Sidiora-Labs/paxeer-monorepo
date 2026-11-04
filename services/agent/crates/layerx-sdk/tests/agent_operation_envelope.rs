@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
+use layerx_agent_api::error::{ErrorClass, RequestId};
 use layerx_agent_api::idempotency::Key;
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
 use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
@@ -41,7 +41,7 @@ type Outcome = Result<ApiSuccess<Value>, EnvelopeError>;
 #[test]
 fn envelope_signed_transaction_decodes_as_eip1559_and_binds_the_sender() -> Result<(), Failure> {
     use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender, Eip1559Call};
-    use layerx_sdk::agent_envelope::{decode_signed_envelope_call, encode_envelope};
+    use layerx_sdk::agent_envelope::decode_signed_envelope_call;
     let call = Eip1559Call {
         chain_id: 1,
         nonce: 7,
@@ -56,17 +56,7 @@ fn envelope_signed_transaction_decodes_as_eip1559_and_binds_the_sender() -> Resu
         0xb3, 0x99, 0x09, 0x14, 0xf1,
     ];
     let signed = call.sign(&[1; 32])?;
-    let credential = EnvelopeCredential::new("tenant", [1; 32], [2; 32], 0)
-        .map_err(|error| format!("{error:?}"))?;
-    let envelope = encode_envelope(
-        Operation::Prepare,
-        RequestId(1),
-        &json!({"canonical_bytes": hex(&signed)}),
-        Some(&credential),
-        Some(Key::new([3; 32]).map_err(|error| format!("{error:?}"))?),
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    let envelope: Value = serde_json::from_slice(&serde_json::to_vec(&envelope)?)?;
+    let envelope = json!({"request": {"canonical_bytes": hex(&signed)}});
     let decoded = decode_signed_envelope_call(&envelope["request"], sender)
         .map_err(|error| format!("{error:?}"))?;
     assert_eq!(decoded, call);
@@ -130,14 +120,18 @@ fn text<'a>(value: &'a Value, name: &str) -> Result<&'a str, Failure> {
 }
 
 fn bytes32(value: &str) -> Result<[u8; 32], Failure> {
-    if value.len() != 64
+    fixed_bytes(value)
+}
+
+fn fixed_bytes<const N: usize>(value: &str) -> Result<[u8; N], Failure> {
+    if value.len() != N * 2
         || !value
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
-        return Err("identifier is not 64 lowercase hex characters".into());
+        return Err(format!("identifier is not {} lowercase hex characters", N * 2).into());
     }
-    let mut out = [0; 32];
+    let mut out = [0; N];
     for (index, slot) in out.iter_mut().enumerate() {
         *slot = u8::from_str_radix(&value[index * 2..index * 2 + 2], 16)?;
     }
@@ -312,46 +306,9 @@ fn load() -> Result<(Probe, Vec<String>), Failure> {
     ))
 }
 
-fn verification_json(status: &VerificationStatus) -> Value {
-    match status {
-        VerificationStatus::Achieved(rung) => {
-            json!({"state": "achieved", "rung": rung.name()})
-        }
-        VerificationStatus::Below {
-            requested,
-            achieved,
-            reason,
-        } => json!({
-            "state": "unverified",
-            "requested": requested.name(),
-            "achieved": achieved.name(),
-            "reason": reason.as_str(),
-        }),
-    }
-}
-
-fn outcome_json(outcome: &Outcome) -> Value {
-    match outcome {
-        Ok(success) => json!({
-            "result": "success",
-            "request_id": success.request_id.0.to_string(),
-            "value": success.value,
-            "verification_status": verification_json(&success.verification_status),
-        }),
-        Err(EnvelopeError::Refused(error)) => json!({
-            "result": "error",
-            "class": format!("{:?}", error.class),
-            "protocol_result_code": error.protocol_result_code.map(|code| code.raw()),
-            "retriability": format!("{:?}", error.retriability),
-            "request_id": error.request_id.0.to_string(),
-            "reason": error.reason.as_str(),
-        }),
-        Err(EnvelopeError::Unknown { operation }) => {
-            json!({"result": "unknown", "operation": operation.name()})
-        }
-        Err(other) => json!({"result": "client_refusal", "error": format!("{other:?}")}),
-    }
-}
+#[path = "support/owner_result.rs"]
+mod owner_result;
+use owner_result::{assert_exact_owner_result, outcome_json};
 
 impl Probe {
     fn request_id(&mut self) -> RequestId {
@@ -1056,14 +1013,53 @@ impl Probe {
                 let purpose = field(field(&request, "purpose")?, "purpose")?;
                 let activity = field(&request, "activity")?;
                 let digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-                let (transaction, signature) =
-                    layerx_crypto::evm_transaction::decode_signed(&value.canonical_bytes)?;
-                let sender =
-                    layerx_crypto::evm_transaction::recover_sender(&transaction, &signature)?;
-                let authority = text(&request, "authority")?;
-                if authority.strip_prefix("0x").unwrap_or(authority) != hex(&sender) {
-                    return Err("native preparation sender differs from its authority".into());
+                let transaction =
+                    layerx_crypto::evm_transaction::decode_unsigned(&value.canonical_bytes)?;
+                if layerx_crypto::evm_transaction::decode_signed(&value.canonical_bytes).is_ok() {
+                    return Err("preparation must precede external signing".into());
                 }
+                layerx_sdk::agent_envelope::validate_unsigned_preparation(&value, digest, digest)
+                    .map_err(|error| format!("unsigned preparation binding: {error:?}"))?;
+                use layerx_agent_api::identity::{
+                    AgentDid, CapabilityId, NativePreparationPurposeV1, SessionId, TenantId,
+                };
+                let signed_purpose = field(&request, "purpose")?;
+                let owner_key = bytes32(text(signed_purpose, "owner_public_key")?)?;
+                let authority = text(&request, "authority")?;
+                if authority.strip_prefix("did:layerx:").unwrap_or(authority) != hex(&owner_key) {
+                    return Err(
+                        "unsigned preparation authority differs from its purpose owner".into(),
+                    );
+                }
+                let owner_purpose = NativePreparationPurposeV1 {
+                    tenant: TenantId::new(text(purpose, "tenant")?)
+                        .map_err(|error| format!("tenant: {error:?}"))?,
+                    agent_did: AgentDid::new(text(purpose, "agent_did")?)
+                        .map_err(|error| format!("agent: {error:?}"))?,
+                    session_id: SessionId::new(text(purpose, "session_id")?)
+                        .map_err(|error| format!("session: {error:?}"))?,
+                    generation: canonical_u64(text(purpose, "generation")?)
+                        .ok_or("purpose generation")?,
+                    expires_at_ms: canonical_u64(text(purpose, "expires_at_ms")?)
+                        .ok_or("purpose expiry")?,
+                    capability_id: CapabilityId::new(text(purpose, "capability_id")?)
+                        .map_err(|error| format!("capability: {error:?}"))?,
+                    preparation_id: bytes32(text(purpose, "preparation_id")?)?,
+                    canonical_digest: bytes32(text(purpose, "canonical_digest")?)?,
+                    commitment: bytes32(text(purpose, "commitment")?)?,
+                };
+                let purpose_bytes = owner_purpose
+                    .canonical_bytes()
+                    .map_err(|error| format!("purpose: {error:?}"))?;
+                layerx_crypto::ed25519::verify_digest(
+                    &owner_key,
+                    &fixed_bytes(text(signed_purpose, "signature")?)?,
+                    &Sha256::digest(purpose_bytes).into(),
+                )
+                .map_err(|error| format!("owner purpose signature: {error:?}"))?;
+                let sender = fixed_bytes::<20>(text(&entry, "evm_sender")?)?;
+                layerx_crypto::disclosure::call::bind_call(&transaction, sender)
+                    .map_err(|error| format!("unsigned call disclosure: {error:?}"))?;
                 let signing = transaction.signing_hash();
                 if value.preparation_id != digest
                     || digest != bytes32(text(purpose, "canonical_digest")?)?
@@ -1206,11 +1202,11 @@ impl Probe {
             return Err(format!("{case} is not in the provisioned operations").into());
         }
         let operation = catalogued(name)?;
-        let entry = field(&self.requests, case)?;
-        if text(entry, "operation")? != name {
+        let entry = field(&self.requests, case)?.clone();
+        if text(&entry, "operation")? != name {
             return Err(format!("requests.{case} names a different operation").into());
         }
-        let request = field(entry, "request")?.clone();
+        let request = field(&entry, "request")?.clone();
         if !request.is_object() {
             return Err(format!("requests.{case} request is not an object").into());
         }
@@ -1230,30 +1226,11 @@ impl Probe {
                 return Err(format!("{case} is not mutating but carries a key").into())
             }
         };
-        let bootstrap = matches!(operation, Operation::AgentRegister | Operation::SessionOpen);
-        let credential = (!bootstrap).then_some(&self.credential);
+        let credential = Some(&self.credential);
         let outcome = self.send(operation, request_id, &request, credential, key);
         self.record(case, operation, &outcome)?;
-        match outcome {
-            Ok(_) => Ok(()),
-            Err(EnvelopeError::Refused(error))
-                if matches!(
-                    error.class,
-                    ErrorClass::UnavailableCapability
-                        | ErrorClass::ProtocolIncompatibility
-                        | ErrorClass::InternalFault
-                ) =>
-            {
-                Err(format!(
-                    "{case} was not dispatched by its owner: {:?} {}",
-                    error.class,
-                    error.reason.as_str()
-                )
-                .into())
-            }
-            Err(EnvelopeError::Refused(_)) => Ok(()),
-            Err(other) => Err(format!("{case} failed: {other:?}").into()),
-        }
+        assert_exact_owner_result(&outcome, request_id, field(&entry, "expected_outcome")?)
+            .map_err(|error| format!("{case}: {error}").into())
     }
 }
 
@@ -1495,4 +1472,18 @@ fn agent_operation_envelope_process_cases() -> Result<(), Failure> {
     } else {
         Err(failures.join("; ").into())
     }
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn envelope_preparation_uses_unsigned_owner_preview_before_external_sign() {
+    audit::native_owner_preview_prepare_disclose_external_sign_and_submit();
+}
+
+#[test]
+fn authenticated_bootstrap_operations_assert_exact_owner_results() {
+    audit::authenticated_registration_and_session_reach_exact_owner_results();
 }

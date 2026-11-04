@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# paxeer-x-services: private-profile
+# paxeer-x-services: platform-testnet-control platform-faucet platform-gateway platform-core-boundary platform-identity platform-receipt-authority human-service
+# paxeer-x-evidence-dimension: private-profile (caller-owned private evidence)
 set -euo pipefail
 exec python3 - <<'PY'
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -13,6 +15,14 @@ import urllib.parse
 
 root = Path.cwd()
 evidence = Path(os.environ['PAXEER_X_EVIDENCE_DIR'])
+spec = importlib.util.spec_from_file_location(
+    'hosted_testnet_build', root / 'tools/paxeer-x/gates/hosted_testnet_build.py')
+builder = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(builder)
+filename = os.environ.get('LAYERX_TESTNET_BUILD_MANIFEST')
+if not filename:
+    raise RuntimeError('private compiler-produced LAYERX_TESTNET_BUILD_MANIFEST required')
+built = builder.verify_artifacts(root, Path(filename))
 tests = 0
 
 def execute(argv, name, timeout=180):
@@ -29,7 +39,9 @@ for name in ('run-testnet.sh', 'reset-testnet.sh', 'render-status.sh', 'tests/ho
     tests += 1
 
 for name in ('LAYERX_TESTNET_LIB_TEST_BINARY', 'LAYERX_TESTNET_CONTROL_TEST_BINARY', 'LAYERX_FAUCET_TEST_BINARY'):
-    binary = os.environ.get(name)
+    binary = built['binaries'][name]['path']
+    if os.environ.get(name, binary) != binary:
+        raise RuntimeError('binary override differs from compiler manifest: ' + name)
     if not binary or not Path(binary).is_absolute() or not Path(binary).is_file() or not os.access(binary, os.X_OK):
         print('missing prerequisite: genuine prebuilt ' + name, file=sys.stderr)
         sys.exit(78)
@@ -41,6 +53,9 @@ for name in ('LAYERX_TESTNET_LIB_TEST_BINARY', 'LAYERX_TESTNET_CONTROL_TEST_BINA
     results = re.findall(r'test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;', output)
     if len(results) != 1 or int(results[0][0]) != len(declared) or results[0][1:] != ('0', '0'):
         raise RuntimeError('real Rust test corpus omitted a required case: ' + name)
+    passed = re.findall(r'^test ([^\s]+) \.\.\. ok$', output, re.M)
+    if len(passed) != len(set(passed)) or set(passed) != declared:
+        raise RuntimeError('real Rust test corpus changed or duplicated a case: ' + name)
     tests += int(results[0][0])
 
 output = execute(['python3', 'services/platform/hosted/testnet/tests/faucet-quota.py'], 'faucet-quota')
@@ -77,5 +92,6 @@ for name in required:
             sys.exit(78)
 execute(['sh', str(smoke)], 'hosted-smoke', timeout=900)
 tests += 1
+builder.verify_artifacts(root, Path(filename))
 print('PAXEER_X_GATE tests=' + str(tests) + ' skipped=0', flush=True)
 PY

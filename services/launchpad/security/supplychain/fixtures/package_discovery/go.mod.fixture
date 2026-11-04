@@ -1,0 +1,3 @@
+module example.invalid/discovery
+
+go 1.20

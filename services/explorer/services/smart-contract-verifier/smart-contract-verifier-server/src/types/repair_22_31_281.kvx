@@ -1,0 +1,33 @@
+[repair.22.31.281]
+finding = "22.30.161/post-actions-dropped"
+status = "implemented-pending-qualification"
+tests = ["post_actions_dropped_http_multipart", "post_actions_dropped_http_standard_json", "post_actions_dropped_grpc_multipart", "post_actions_dropped_grpc_standard_json", "post_actions_reject_unsupported_http", "post_actions_reject_unsupported_grpc", "post_actions_omitted_and_failed_verification", "post_actions_conversion_preserves_supported_action"]
+previous_attempt = "The supplied attempt-1 evidence reports four shape tests failing with post-actions-dropped and four tests passing; the unchanged failing gate was not rerun."
+baseline = "Not run: the task's ordered gate instructions prohibit tests before implementation and require verification through hf-done only; no baseline test failure is claimed."
+handler_wiring = "Both solo Solidity handlers preserve the client actions through try_from_with_post_actions and pass exactly those actions to process_verification_result(value, &post_actions); both Vyper handlers explicitly pass an empty set because their protobuf requests have no post-actions field."
+qualification = "Authoritative revision, command, exit code and private log path are emitted by hf-build and hf-done; the finding remains open until the real HTTP and gRPC regressions pass."
+
+[qualification.build_1]
+revision = "bc7b6f5ade4f460bcdec61e90e4f5b488b397e07"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The sandbox lacks protoc; install the protobuf compiler and OpenAPI generator required by the existing protobuf build before the repair rerun."
+
+[qualification.build_2]
+revision = "a28cc7777fb99bd59e47f1b09a567478762da0a2"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "Solc::new returns Result in foundry-compilers 0.19.10; explicitly require successful construction before invoking compile in the regression producer."
+
+[continuation.22.31.281]
+shape_assertion = "All four HTTP/gRPC and multipart/standard-JSON shape tests compare the returned post-action set with exactly the client-requested set for omitted, supported and duplicate supported actions, for creation and runtime bytecode; method selector and inherited source-location assertions remain intact."
+handler_resolution = "The expanded scope admits both production Solidity handlers; their HTTP and gRPC transports now forward the client-requested actions without adding any action."
+fixture_blocker = "The inherited real-server fixture downloads and invokes solc; removing this dependency while retaining real Solidity handlers requires a recorded compiler-output injection interface outside this task's paths."
+wiring_request = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/evm_compilers.rs; owning domain 14 (fm-web-explorer-bridge): permit committed compiler-output transcripts as a compiler peer for self-contained real-server regression tests without subprocesses or live downloads."
+
+[continuation.22.31.281.attempt_3]
+previous_attempt = "The supplied attempt-2 evidence reports all four requested-action HTTP/gRPC tests failing and four tests passing; no unchanged gate was rerun."
+response_contract = "Post-actions are mandatory input to the shared response processor, so each production caller must explicitly supply its requested actions; lookup uses only the selected verified contract artifacts."
+qualification = "The final hf-done ledger supplies the verified candidate revision, exact command, exit code and private evidence path without a post-verification tree edit."

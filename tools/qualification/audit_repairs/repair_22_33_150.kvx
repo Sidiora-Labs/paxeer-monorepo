@@ -1,0 +1,73 @@
+[task]
+id = "22.33.150"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Repair the four wallet workflow migration sources in place: wallet-scoped frozen pnpm checks gate the real standalone production image; replace static Pages export with an image artifact; publish that exact checked image to GHCR and retain its digest; enable blocking audit, CodeQL and dependency review. Root workflow registration is outside scope and is requested below, not claimed as implemented."
+source_proof = "Six pytest tests parse all four actual YAML workflows, both real pnpm lockfiles, the wallet package manifest, production Dockerfile instructions, image build arguments, Next configuration and startup source. They trace CI prerequisites to image production, SHA-named upload/download transport, docker load/tag/push consumption and validated digest publication; enforce blocking security checks, watched dependency paths, and finding-to-test/root-wiring mappings. Deployment shell commands are tokenized in-process with shlex and checked in execution order."
+review_only = "GitHub discovery and Actions execution, shell syntax beyond shlex tokenization (bash -n is not run), pnpm installation/check execution, Docker build/load/push, registry authentication, image contents at runtime, public build-variable correctness and production rollout are not executed by this offline source gate. No external binary, subprocess toolchain, credential, environment variable or live endpoint is required by pytest. These are wiring-gap findings, not interface-mismatch or restart-recovery repairs; no stateful component is modified and no runtime/restart proof is claimed."
+baseline = "No pre-change verification was run: the explicit implementation-first order and hf-build then hf-done-only gates supersede step 8's conflicting unchanged-tree verification clause. No baseline failures are claimed. Initial git status/diff contained only runner-prepared .cgignore and spec task bookkeeping; scoped workflows were unchanged and both task-specific files were absent. /out/run/gate.json recorded zero build/verify runs and /out/run/gates.jsonl did not exist."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_150.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger name the exact verified candidate revision, command, exit and log. This record is finalized before qualification; embedding its own candidate revision would change that revision. Build and verify must pass on the same candidate; the runner retains evidence and publishes without a manual commit or push."
+closure = "Scoped source repairs qualify only through passing hf-done; repository discovery and live deployment remain pending the explicit out-of-path wiring requests. A passing offline gate does not certify live discovery, publication or rollout."
+rollout_wiring_request = "services/wallet/deploy/ and .github/workflows/wallet-deploy.yml | owning domain 12: connect the approved production rollout to the wallet-image-digest-${github.sha} artifact and deploy its GHCR digest with existing runtime configuration, persistent storage and health checks; image publication here does not implement cluster rollout."
+image_wiring_request = "docker/wallet-pwa/Dockerfile and repository Actions variables | owning domain 12: review the existing Dockerfile's pnpm bootstrap/build tool versions against the wallet manifest and provision reviewed NEXT_PUBLIC_* repository build variables; preserve Dockerfile defaults, validate the resulting standalone image and supply production runtime secrets through the existing deployment authority."
+
+[finding.ci-discovery]
+audit = "22.30.116"
+file = "apps/wallet/.github/workflows/ci.yml"
+owner_domain = 12
+status = "source-repaired-root-wiring-requested"
+test = "test_ci_discovery_wallet_pnpm_checks_gate_production_image"
+root_target = ".github/workflows/wallet-ci.yml"
+resolution = "Use wallet manifest-pinned pnpm, wallet and SDK frozen lockfiles, correct run directories, every original lint/type/test/build check and a dependent production image workflow. All failures propagate."
+wiring_request = ".github/workflows/wallet-ci.yml | owning domain 12: register the repaired ci.yml source at this root path together with wallet-nextjs.yml; retain wallet/SDK/service/Docker dependency triggers and the validation-to-image dependency."
+
+[finding.deploy-discovery]
+audit = "22.30.116"
+file = "apps/wallet/.github/workflows/deploy.yml"
+owner_domain = 12
+status = "source-repaired-root-wiring-requested"
+test = "test_deploy_discovery_consumes_checked_image_and_publishes_immutable_digest"
+root_target = ".github/workflows/wallet-deploy.yml"
+resolution = "Replace the echo placeholder and unused DEPLOY_KEY with CI/security prerequisites, exact image artifact download, authenticated GHCR push, validated immutable digest artifact and visible step summary; serialize production publication behind its environment."
+wiring_request = ".github/workflows/wallet-deploy.yml | owning domain 12: register the repaired deploy.yml source at this root path with wallet-ci.yml, wallet-nextjs.yml and wallet-security.yml; configure production environment approval and GHCR package authority, then connect the separate approved rollout consumer."
+
+[finding.pages-discovery]
+audit = "22.30.116"
+file = "apps/wallet/.github/workflows/nextjs.yml"
+owner_domain = 12
+status = "source-repaired-root-wiring-requested"
+test = "test_pages_discovery_builds_actual_standalone_image_and_transports_it"
+root_target = ".github/workflows/wallet-nextjs.yml"
+resolution = "Replace the incompatible static Pages sample with a callable build of docker/wallet-pwa/Dockerfile target runner, using repository build context, explicit public build arguments and a SHA-named Docker image artifact consumed by publication. The existing production Dockerfile supplies pnpm installation and the standalone server with public/static assets."
+wiring_request = ".github/workflows/wallet-nextjs.yml | owning domain 12: register the repaired nextjs.yml source at this root path and call it from wallet-ci.yml; retire any static Pages publication for this server application and provision the reviewed public repository build variables."
+
+[finding.security-discovery]
+audit = "22.30.116"
+file = "apps/wallet/.github/workflows/security.yml"
+owner_domain = 12
+status = "source-repaired-root-wiring-requested"
+test = "test_security_discovery_audit_codeql_and_dependency_review_are_blocking"
+root_target = ".github/workflows/wallet-security.yml"
+resolution = "Use wallet-scoped frozen pnpm install and moderate-level audit, active JavaScript/TypeScript CodeQL scoped to wallet and linked SDK sources, and mandatory PR dependency review without continue-on-error; retain weekly, push and PR coverage and add callable publication gating."
+wiring_request = ".github/workflows/wallet-security.yml | owning domain 12: register the repaired security.yml source at this root path; enable required CodeQL/dependency-review repository features and make wallet validation, audit, CodeQL and PR dependency-review checks required before merge and production publication."
+
+[format]
+policy = "Format only the four touched YAML files with Prettier and apps/wallet/.prettierrc; no Python or KVX formatter is configured for these paths, so apply repository EditorConfig whitespace conventions."
+
+[gotcha.scope]
+observed = "GitHub only discovers repository-root workflows and permits local reusable workflows only there, while this task permits edits only to nested wallet workflow sources."
+resolution = "Use explicit final root workflow references and one-line domain-12 registration requests; keep source qualification distinct from unresolved discovery/rollout instead of pretending nested workflows execute."
+
+[gotcha.baseline]
+observed = "The legacy unchanged-tree baseline instruction conflicts with the explicit implementation-first, wrapper-only gate order."
+resolution = "Run only hf-build then hf-done after full implementation; disclose that no pre-change verification ran and claim no baseline failures. GOTCHA.kvx and spec files are outside scope, so task notes stay here."
+
+[gotcha.shell]
+observed = "Generic audit test guidance requests bash -n, but step 9 forbids an external binary or subprocess toolchain in this complete pytest gate."
+resolution = "Parse workflow YAML and tokenize/assert the guarded deployment commands entirely in-process; disclose that bash syntax/execution and live Docker behavior remain review/runtime qualification work."
+
+[gotcha.context]
+observed = "Broad combined repository context reads can exceed output limits and include unrelated domains."
+resolution = "Use bounded task/audit sections and exact production paths; preserve all inherited runner bookkeeping unchanged."

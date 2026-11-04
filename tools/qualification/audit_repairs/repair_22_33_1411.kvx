@@ -1,0 +1,38 @@
+[task.22.33.1411]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Include the existing evidence-decoding suite in test:static between the UI contract suite and TypeScript checking, preserve its four refusal assertions verbatim, and add a registered positive decode of a committed Rust Overview serialization-contract fixture. Add a Rust producer serialization test using the actual public production types; its registration belongs to the owning Rust domain outside this task's scope."
+source_proof = "The pytest module parses the actual package manifest and checks the exact fail-fast command chain; preserves all four evidence refusals; checks the registered positive test reads the committed JSON and calls the production decodeOverview with a full expected projection; parses the fixture and compares every serialized model's keys with production Rust declarations; checks null, unverified, quota and pending-payment facts; traces the real Overview service, serde HTTP serialization, browser fetch/JSON decode and rendering sources; checks the Rust test serializes the real Overview and compares its JSON with the same fixture. These are source facts, not a reimplementation of either decoder or serializer."
+review_only = "Node/TypeScript execution, Rust compilation and serialization, native fixture equality and live HTTP rendering are not executed by the Python gate. The fixture is a source-reviewed Rust serialization contract, not a recorded production response, and no native generation or cryptographic provenance is claimed. The Rust equality test must be registered by domain 8 as requested below. This is a test-gap finding, with no production interface or persistence change; restart/recovery and interface-mismatch runtime proofs do not apply. The gate needs only Python and pytest, with no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit ordered instructions require full implementation before formatting/build/testing, hf-build before hf-done, and prohibit running verify_cmd by hand first. No baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and task in_progress bookkeeping; neither scoped qualification file existed and no /out/run/gates.jsonl existed. Gate configuration reported zero builds, zero verifies and two repair cycles left."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1411.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl retain the exact verified content-derived revision, command, exit code and log path. Build and verify must pass on the same candidate revision. This record is finalized before qualification: inserting its candidate hash into its own content would change that hash. The runner retains qualification evidence and commits; no manual commit or push is performed."
+wiring_requests = ["services/platform/hosted/dashboard/Cargo.toml — domain 8: register web/tests/rust_overview_fixture.rs as a Rust integration-test target and run its real serialization equality check in the owning Rust qualification; this Python gate cannot certify native serialization or generation of the reviewed fixture."]
+
+[finding.028]
+audit = "22.30.79"
+file = "services/platform/hosted/dashboard/web/package.json"
+line = 9
+class = "test-gap"
+severity = "medium"
+owner_domain = 8
+observed = "test:static runs ui-contract.mjs and TypeScript checking but never executes tests/evidence-decoding.mjs, leaving its four evidence refusal assertions outside the declared test script."
+expected = "Dashboard qualification must execute the checks that prevent unsupported receipt and settlement claims from reaching users."
+resolution = "The declared command now executes both suites and retains tsc --noEmit. The new positive test consumes the Rust serialization-contract JSON through the production decoder and asserts the full browser projection, including null-to-undefined optionals, unverified completed requests, pending unsettled payments and quota counters, while preserving all four refusal assertions. Source qualification proves this wiring; native producer equality and JavaScript execution remain explicitly review-only."
+tests = ["test_028_static_command_runs_both_suites_and_typecheck", "test_028_existing_four_evidence_refusals_are_preserved", "test_028_positive_decode_loads_rust_fixture_and_asserts_projection", "test_028_fixture_covers_actual_rust_serialized_models", "test_028_producer_serializer_transport_and_consumer_sources_are_connected"]
+
+[pre_existing.verification_vocabulary]
+observed = "services/platform/hosted/webhooks/src/events.rs serializes BlockCommitted as block-committed, while services/platform/hosted/dashboard/web/app/data.ts still accepts checkpoint-finalised and paxeer-finalised and rejects block-committed."
+disposition = "Recorded on source inspection, not a gate failure or rerun: preserve both implementations under the no-neighboring-fixes and no-type-widening rules; this test-gap repair exercises valid unverified producer output and makes no claim about block-committed decoding."
+
+[format]
+policy = "Use rustfmt on the new Rust test. No Python, JavaScript or KVX formatter is configured in this subtree; follow its existing style and the root .editorconfig. JSON uses two spaces, UTF-8, LF and a final newline."
+
+[gotcha.1]
+observed = "The baseline clause conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order; record that no baseline ran and no baseline failure is claimed. GOTCHA.kvx and spec files are outside task scope, so task notes remain here."
+
+[gotcha.2]
+observed = "Broad Codify and gotcha-ledger output exceeds response limits, and gate helpers are under /out/run/bin rather than /usr/local/bin."
+resolution = "Use task-scoped context, bounded source reads and the actual command -v paths; inspect /out/run/gate.json and /out/run/gates.jsonl without spending a gate run."

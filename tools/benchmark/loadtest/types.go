@@ -68,6 +68,21 @@ type Config struct {
 	EVMAddresses *EVMAddresses
 }
 
+func (c Config) Validate() error {
+	if err := c.ValidateMessageTypes(); err != nil {
+		return err
+	}
+	if c.ContainsAnyMessageTypes(WasmMintNft) {
+		if err := c.PriceDistr.Validate("price_distribution"); err != nil {
+			return err
+		}
+		if err := c.QuantityDistr.Validate("quantity_distribution"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c Config) ValidateMessageTypes() error {
 	valid := map[string]struct{}{
 		Bank: {}, EVM: {}, ERC20: {}, ERC721: {},
@@ -126,6 +141,22 @@ type NumericDistribution struct {
 	Min         sdk.Dec `json:"min"`
 	Max         sdk.Dec `json:"max"`
 	NumDistinct int64   `json:"number_of_distinct_values"`
+}
+
+func (d NumericDistribution) Validate(key string) error {
+	if d.NumDistinct <= 0 {
+		return fmt.Errorf("%s.number_of_distinct_values must be positive, got %d", key, d.NumDistinct)
+	}
+	if d.Min.IsNil() {
+		return fmt.Errorf("%s.min must be specified", key)
+	}
+	if d.Max.IsNil() {
+		return fmt.Errorf("%s.max must be specified", key)
+	}
+	if d.Min.GT(d.Max) {
+		return fmt.Errorf("%s.max must be greater than or equal to %s.min", key, key)
+	}
+	return nil
 }
 
 func (d *NumericDistribution) Sample() sdk.Dec {

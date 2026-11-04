@@ -1,0 +1,42 @@
+[task.22.33.615]
+audit = "22.30.163"
+findings = ["008"]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "RelayReceiptResolver requires a whole-host match for its HTTP exception: ASCII-case-insensitive localhost, ::1, [::1], or exactly four decimal IPv4 octets in 127/8, each bounded to 0..255 with no ambiguous leading zeros or DNS suffix. Constructor validation precedes transport; HTTPS, URI metadata refusals and redirect rejection are preserved."
+source_proof = "Pytest checks the complete production requireRelay body and whole-host String.matches validator, exercises the regex extracted from Java against every decimal octet value, invalid boundaries and remote DNS lookalikes, and follows source wiring from ConsoleSampleMain configuration through the final validated relay URI, encoded request target, redirect refusal, response status and receipt evidence decoding. No substitute relay or Python endpoint implementation is used."
+review_only = "Java execution, Java regex engine execution, compilation, device networking, and end-to-end receipt transport are not run by this Python-only source gate. Python regex checks use the extracted literal's common Java/Python syntax with ASCII case folding; Java integration behavior remains review-only. The shared core validator requires the out-of-scope wiring request below."
+baseline = "No baseline verification was run: the ordered instructions require complete implementation before testing, hf-build before hf-done, and prohibit running verify_cmd by hand. At inspection both repair files were absent, the source still used startsWith(127.), and the private gate ledger did not exist. No pre-change failing test result is claimed."
+evidence_ledger = "/out/run/gates.jsonl"
+evidence_log = "/out/logs/verify-1.log"
+verified_revision = "The final verify row's revision in evidence_ledger identifies the exact candidate qualified by hf-done; the final response copies that immutable revision, command, exit and log. The runner records the result without a self-referential edit to this candidate."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_615.py"
+
+[finding.008]
+audit = "22.30.163"
+file = "sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java"
+class = "security"
+severity = "medium"
+tests = ["test_finding_008_entire_host_validation_guards_http", "test_finding_008_supported_loopback_names_and_ipv6", "test_finding_008_all_decimal_octet_boundaries", "test_finding_008_remote_and_malformed_hosts_are_not_loopback", "test_finding_008_real_configuration_transport_and_evidence_source_path", "test_finding_008_record_identifies_proofs_limits_and_wiring"]
+closure = "The in-scope relay rejects numeric-loopback-prefix DNS names over HTTP; source facts and the extracted regex are proven by the named tests, with Java runtime behavior and shared-core wiring explicitly limited above."
+
+[wiring.1]
+path = "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java"
+owner_domain = 15
+request = "Android core owner: promote RelayReceiptResolver.isLoopbackHost's strict whole-host validator to an accessible main-source utility and share it between PublishableConfiguration.endpoint and RelayReceiptResolver.requireRelay, with core regression coverage for finding 007; the core source path is outside this task's scope."
+
+[gotcha.1]
+symptom = "The requested pre-change verification conflicts with the explicit implementation-first order and bounded hf-build/hf-done gates."
+resolution = "Follow the explicit ordered gates and record that no baseline test was run; root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+symptom = "PublishableConfiguration has the same unsafe prefix check but is outside the exclusive sample-directory scope and main sources cannot depend on sample sources."
+resolution = "Repair the actual relay locally and issue the required one-line wiring request to the Android core owner; do not alter the core source or claim that sharing already occurred."
+
+[gotcha.3]
+symptom = "The local Codify graph omits the Android main sources and a broad survey produces excessive unrelated output."
+resolution = "Read named files directly and keep qualification to hf-build and hf-done; no graph survey is treated as gate evidence."
+
+[gotcha.4]
+symptom = "The Android binding uses pom.xml rather than a root build.gradle.kts, and the task repair files do not exist at baseline."
+resolution = "Use the existing Maven source layout only for review; create the two declared repair files and do not invoke a Java toolchain."

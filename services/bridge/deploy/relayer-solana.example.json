@@ -18,7 +18,7 @@
     "chain_id": 125,
     "endpoints": [
       {
-        "url": "https://paxeer.example.invalid/rpc",
+        "url": "https://paxeer.example.invalid/",
         "trust_anchor_der": "/EXAMPLE_ONLY/operator-a/paxeer-ca.der",
         "request_timeout_ms": 5000
       }

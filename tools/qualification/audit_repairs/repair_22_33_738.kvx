@@ -1,0 +1,49 @@
+[repair]
+task = "22.33.738"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+acceptance = "22998.1: retain every existing verifier and add committed error evidence and strict delegation-query handling; qualify the focused pytest module through hf-done."
+implementation = "The two YAML suites use authz_evidence.py for the second send, denied unbond and authorized unbond. The helper requires successful CheckTx, queries that transaction hash until committed, validates positive block height and intended execution code, and requires sdk codespace plus the specific error reason for negative cases. Final delegation queries preserve status, stdout and stderr; only the exact NotFound error for the queried address pair maps to zero. Valid responses require the correct address pair, uhpx denom and integer amount."
+source_proof = "The pytest module parses both actual YAML suites through the production Python integration runner, checks command arguments, environment capture, grant ordering and all retained/new verifiers, and executes the real consumer verifiers. It exercises production CheckTx, committed-result and delegation parsers in-process against valid and adversarial JSON/error inputs, including empty/malformed output, RPC failure, wrong hash/height/code/codespace/reason/address/denom and missing fields. AST/source assertions connect real paxd submission, hash-query polling, CLI error handling and the SDK producer/transport/serialization contracts. These parser inputs are contract cases, not claimed recorded chain transcripts. No standalone shell script, unit, manifest or build file is changed; new YAML commands are parsed as argv with shlex, and no shell script requires bash -n."
+review_only = "Live paxd submission, RPC/indexer availability, block execution, actual spend-limit depletion, grants, staking transitions and the Go runner are not executed. The CLI subprocess path and SDK producer/transport links are source-proven, not runtime qualified. The pure parser tests require no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device. These are test-gap findings; no runtime interface or durable state component is changed and no restart-recovery proof is claimed."
+baseline = "No baseline test was run: the explicit implementation-first order and exclusive hf-build/hf-done gates prohibit a manual unchanged-tree verify despite the older baseline clause. No baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-status changes, with no scoped repair work. /out/run/gate.json showed zero builds and zero verifies; /out/run/gates.jsonl did not exist."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_738.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger identify the verified revision, exact command, exit code and log path. Build and verify must pass on the same candidate revision. The record is finalized before qualification to avoid a self-referential candidate hash; the runner retains exact revision evidence and commits the result. No manual commit or push."
+
+[finding.authz-send-rejection]
+audit = "22.30.172"
+file = "tests/integration/authz_module/send_authorization_test.yaml"
+tests = ["test_authz_send_rejection", "test_committed_results_require_height_hash_and_intended_execution", "test_checktx_and_missing_fields_cannot_supply_execution_evidence", "test_real_transport_and_cli_source_wiring", "test_sdk_producer_transport_and_result_contracts"]
+closure = "AUTHZ_2_ERROR_CODE must equal 5 after committed sdk spend-limit rejection; OTHER_ACC_BALANCE must still equal 6000000."
+
+[finding.authz-unbond-rejection]
+audit = "22.30.172"
+file = "tests/integration/authz_module/staking_authorization_test.yaml"
+tests = ["test_authz_unbond_rejection", "test_committed_results_require_height_hash_and_intended_execution", "test_checktx_and_missing_fields_cannot_supply_execution_evidence", "test_real_transport_and_cli_source_wiring", "test_sdk_producer_transport_and_result_contracts"]
+closure = "AUTHZ_2_ERROR_CODE must equal 4 for committed sdk authorization-not-found before the unbond grant; STAKING_AMOUNT must still equal 1000000."
+
+[finding.authz-unbond-query]
+audit = "22.30.172"
+file = "tests/integration/authz_module/staking_authorization_test.yaml"
+tests = ["test_authz_unbond_query", "test_committed_results_require_height_hash_and_intended_execution", "test_delegation_only_specific_not_found_becomes_zero", "test_delegation_success_requires_valid_balance_and_pair", "test_real_transport_and_cli_source_wiring", "test_sdk_producer_transport_and_result_contracts", "test_repair_record_maps_every_finding_and_evidence_limit"]
+closure = "AUTHZ_3_ERROR_CODE must equal 0 from a committed unbond transaction before the delegation query. Only the exact queried pair's canonical NotFound result or a validated zero balance can satisfy STAKING_AMOUNT_AFTER_UNBOND == 0."
+
+[wiring]
+requests = []
+reason = "All proposal changes fit the authorized authz directory; the existing SDK transaction-query and delegation-query interfaces are consumed without edits to another domain. Transaction-query unavailability fails closed."
+
+[gotcha.1]
+observed = "The older baseline-run clause conflicts with the explicit implementation-first and hf-build then hf-done gate order."
+resolution = "Follow the explicit order and make no baseline failure claim; retain this note in scope instead of editing GOTCHA.kvx or spec files."
+
+[gotcha.2]
+observed = "The shared submit_tx_and_wait helper echoes CheckTx code after account sequence advancement, which cannot prove committed execution rejection or success."
+resolution = "Keep the shared utility outside scope intact; route only the three affected executions through a local transaction-hash query and strict committed-result validator."
+
+[gotcha.3]
+observed = "Broad ledger, workflow, audit and graph outputs exceeded tool output limits; guessed chain and evidence paths did not exist."
+resolution = "Use focused task/finding/SDK source reads and the runner's actual private ledger path; no unrelated source or evidence path is created or repaired."
+
+[format]
+policy = "No Python or YAML formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules after implementation; preserve YAML two-space indentation. KVX has no configured formatter."

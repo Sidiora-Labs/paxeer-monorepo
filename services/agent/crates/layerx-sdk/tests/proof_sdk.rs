@@ -15,10 +15,13 @@
 //! RpcClient::estimate_fee now documents that maxFeePerGas triggers the node's
 //! payer balance check: the proof checks the funded balance at latest and uses
 //! RpcClient::estimate_fee_from with that payer rather than an omitted sender.
-//! After Wallet::create refuses the sequencer receipt, the proof waits for the
+//! In the separate version-3 policy mismatch regression, after Wallet::create refuses the sequencer receipt, the proof waits for the
 //! committed nonce before reading the registered asset at latest.
 //!
-//! External finding: rpc/sequencer_receipt.go::sequencerReceiptView publishes version-2
+//! The positive in-process proof below uses a pinned version-2 policy and reopened
+//! protocol peer for Wallet::create and wait_for. The real-node version mismatch
+//! regression retains its explicit version-3 refusal.
+//! rpc/sequencer_receipt.go::sequencerReceiptView publishes version-2
 //! EVM summary receipts. Wallet::{create,wait_for} and bridge wait refuse them under
 //! the version-3 receipt policy while successful EVM mutations remain visible.
 //! services/agent/crates/layerx-proof/src/receipt.rs::verify_outcome accepts version 2
@@ -932,4 +935,13 @@ fn proof_sdk_requires_the_real_evm_producer_in_the_declared_build() {
         observed,
         json!({"ok":false,"error":{"kind":"wallet_request_refused_or_unavailable"}})
     );
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn proof_sdk_verified_create_balance_and_wait_survive_reopen() {
+    audit::wallet_native_token_and_node_summary_round_trip_after_reopen();
 }

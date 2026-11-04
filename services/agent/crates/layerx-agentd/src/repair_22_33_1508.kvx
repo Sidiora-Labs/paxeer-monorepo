@@ -1,0 +1,13 @@
+[repair.22.33.1508]
+audit = "22.30.90"
+acceptance = "22998.1"
+revision_source = "The final hf-done JSON identifies the verified candidate revision, command, exit code and private evidence log; no gate is claimed before it runs."
+baseline = "No earlier gate ledger or implementation was present. The task's explicit implementation-first order and wrapper-only gate budget prohibit the extra unchanged-tree run requested in step 5; baseline failures were not measured."
+mcp_history_scan = "mcp_history_scan_archives_reopens_and_revokes_only_the_affected_working_set; mcp_history_scan_lookup_preserves_tool_tenant_and_archive_identity; mcp_history_scan_failed_settlement_keeps_unresolved_index_until_durable_retry; mcp_history_scan_generation_index_pins_old_effects_without_revisiting_them"
+finding_id = "mcp-history-scan"
+index = "Rebuild validated tenant/idempotency/tool and session/generation indexes once at writable or read-only open. Track store mutation keys and publish index changes only after the snapshot transaction succeeds. Native transmission candidates are selected by exact outbox key."
+retention = "Keep the most recent 64 settled invocation records per tenant in the generation-transition working set, ordered by final event order. Older terminal evidence is logically archived: its original durable bytes and exact replay/lookup indexes remain available, but generation transitions never revisit it. Begun and effect-started/unknown invocations are pinned without eviction."
+recovery = "Reopen the real disk store and restore sessions; prove archive/replay identity, ambiguity and tenant/tool isolation, unresolved effects, closed generation recovery, and generation-specific candidate counts. A failed real store write must not publish settlement or index changes."
+storage_boundary = "Logical archival bounds MCP decoding and transition candidate work; the underlying Store remains a whole-snapshot persistence engine and its generic snapshot encoding and startup recovery still scale with total durable bytes. Physical archival or a different persistence engine is not introduced by this repair."
+wiring_requests = "None: the proposal's invocation indexes, working-set retention and recovery are implemented inside the declared daemon source paths."
+qualification_repair = "First hf-build at 58f14cce3fa74c5eb79909f506f72f12248fc205 exited 101 (/out/logs/build-1.log): explicitly dereference the real store MutexGuard at two integration-test evidence calls; assertions and production behavior are unchanged."

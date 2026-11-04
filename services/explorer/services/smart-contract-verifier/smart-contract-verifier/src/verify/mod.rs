@@ -1,6 +1,7 @@
 mod cbor_auxdata;
 mod compilation;
 mod compiler_output;
+mod compiler_process;
 mod evm_compilers;
 mod solc_compiler;
 mod solc_compiler_cli;

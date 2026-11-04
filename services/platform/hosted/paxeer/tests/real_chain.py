@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 from comet import qualify as qualify_comet
+from tls_shutdown import qualify as qualify_tls_shutdown
 
 if 'LAYERX_PAXEER_QUALIFICATION_ACTIVE' in os.environ:
     sys.stderr.write('refusing qualification re-entry: LAYERX_PAXEER_QUALIFICATION_ACTIVE is already set\n')
@@ -110,8 +111,7 @@ with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
         evm_chain_id = int(data['result'], 16)
         qualify_comet(raw_request, int(env['LAYERX_PAXEER_RPC_PORT']),
                       Path(tempfile.gettempdir()) / f'paxeer-comet-proof-{node.pid}.json')
-        run(sys.executable, str(Path(__file__).with_name('tls_shutdown.py')),
-            str(boundary_port), str(work/'ca.pem'))
+        qualify_tls_shutdown(boundary_port, str(work/'ca.pem'))
         status, headers, body = raw_request('GET', '/genesis')
         assert status == 200, body
         assert headers.get_all('X-LayerX-Genesis-SHA256') == [hashlib.sha256(body).hexdigest()]

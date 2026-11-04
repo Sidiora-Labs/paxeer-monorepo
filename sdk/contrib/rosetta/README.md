@@ -1,11 +1,19 @@
 # rosetta
 
-This directory holds the inherited Cosmos SDK Rosetta CI fixture.
-The `test-rosetta` target in [`sdk/Makefile`](../../Makefile) builds
-[`node/Dockerfile`](node/Dockerfile) as `rosetta-ci:latest` and then runs
-[`docker-compose.yaml`](docker-compose.yaml).
+The inherited Cosmos SDK Rosetta CI orchestration is **withdrawn**. Its Compose
+manifest and node image recipe are retained only as historical examples in
+[`docker-compose.yaml.historical`](docker-compose.yaml.historical) and
+[`node/Dockerfile.historical`](node/Dockerfile.historical). The executable paths
+`docker-compose.yaml` and `node/Dockerfile` have been removed together; neither
+Docker Compose discovery nor the former explicit paths can launch this fixture.
 
-It does not run in this repository as-is: `node/Dockerfile` builds
+The `test-rosetta` and `rosetta-data` targets in
+[`sdk/Makefile`](../../Makefile) still reference the removed paths. They are
+unsupported and fail at the missing Dockerfile before building or starting a
+node. Removing those callers requires a separate change in the owning SDK
+domain. Do not run those targets or pass the historical examples to Docker.
+
+The historical image recipe builds
 `./simapp/simd/`, which is absent from its SDK build context. The maintained
 node command is [`paxd`](../../../daemon/paxd). The Rosetta API server code
 is in [`sdk/server/rosetta`](../../server/rosetta), and `paxd` writes a
@@ -18,7 +26,14 @@ is one network with EVM chain id 125 (`0x7d`); its kernel participates in the
 network and proposes blocks. This fixture does not describe a mainnet
 deployment or demonstrate a passing Rosetta integration for `paxd`.
 
-## docker-compose.yaml
+## Historical fixture notes
+
+The remaining notes describe the inherited example before subsequent fixture
+repairs. They are retained for provenance, not as current operating instructions.
+The shared native fixture code in `configuration/` is retained; withdrawing the
+container target does not certify its integration with a maintained node.
+
+### docker-compose.yaml.historical
 
 Services:
 
@@ -27,7 +42,7 @@ Services:
 - `faucet`: `configuration/faucet.py`, which the construction API test uses to fund accounts
 - `test_rosetta`: the `tendermintdev/rosetta-cli:v0.6.7` image running `configuration/run_tests.sh`, which runs `rosetta-cli check:data` and `rosetta-cli check:construction`
 
-## configuration
+### configuration
 
 [`rosetta.json`](configuration/rosetta.json) selects the fixture's `app` /
 `network` identifier, loads [`bootstrap.json`](configuration/bootstrap.json)
@@ -63,7 +78,7 @@ These files are currently inconsistent: the generator and funding script use
 decimals, and the bootstrap names a different account from the bundled genesis.
 Regenerating the archive alone does not resolve those mismatches.
 
-## node
+### node
 
 [`data.tar.gz`](node/data.tar.gz) holds a fixed snapshot of `simd` node data,
 including genesis, keyring and block history, for message parsing and historical
@@ -71,7 +86,7 @@ balance tests. Its bundled keys are test fixtures. `send_funds.sh` selects the
 test keyring and still pipes the fixture password `12345678` to `simd`.
 The snapshot is fixed; running `data.sh` creates new identities and history.
 
-## rosetta-cli
+### rosetta-cli
 
 `rosetta-cli/Dockerfile` builds `rosetta-cli` at tag `v0.6.7` from the
 upstream Coinbase repository.

@@ -1,18 +1,15 @@
-use layerx_crypto::authority_grant::{AuthorityGrant, NativeFeeBudget};
-use layerx_crypto::disclosure::DisclosureError;
-use layerx_crypto::evm_transaction::decode_unsigned;
-
+use layerx_crypto::authority_grant::{authority_grant_call, AuthorityGrant, NativeFeeBudget};
+use layerx_crypto::disclosure::call::{bind_call, reencode};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+use layerx_crypto::signer::Signer;
 mod support;
-use layerx_crypto::{ed25519, SignatureMessage};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::{activity, hash};
+use layerx_crypto::disclosure::DisclosureError;
+use layerx_wire::hash;
 use sha2::{Digest as _, Sha256};
 
 struct Fixture {
     grant: &'static [u8],
     id: &'static [u8; 32],
-    activity: &'static [u8],
-    activity_id: &'static [u8; 32],
 }
 
 macro_rules! fixture {
@@ -28,16 +25,6 @@ macro_rules! fixture {
                 $name,
                 "/grant.id"
             )),
-            activity: include_bytes!(concat!(
-                "../../../../../tests/fixtures/authority/native-fee-grants/",
-                $name,
-                "/grant.activity"
-            )),
-            activity_id: include_bytes!(concat!(
-                "../../../../../tests/fixtures/authority/native-fee-grants/",
-                $name,
-                "/grant.activity-id"
-            )),
         }
     };
 }
@@ -50,14 +37,6 @@ const FIXTURES: &[Fixture] = &[
     fixture!("period-bound"),
 ];
 
-fn registry() -> ModuleRegistry {
-    let kind = ActivityType::new(ModuleId::Governance, 8)
-        .unwrap_or_else(|error| panic!("activity: {error:?}"));
-    let module = ModuleRegistration::new(ModuleId::Governance, &[kind])
-        .unwrap_or_else(|error| panic!("module: {error:?}"));
-    ModuleRegistry::new(&[module]).unwrap_or_else(|error| panic!("registry: {error:?}"))
-}
-
 #[test]
 fn original_native_fee_grants_preserve_owner_signatures_and_native_ids() {
     for fixture in FIXTURES {
@@ -69,44 +48,32 @@ fn original_native_fee_grants_preserve_owner_signatures_and_native_ids() {
         hasher.update(hash::Domain::AuthorityHash.tag());
         hasher.update(fixture.grant);
         assert_eq!(hasher.finalize().as_slice(), fixture.id);
-        let submitted = activity::decode_signed(fixture.activity, &registry())
-            .unwrap_or_else(|error| panic!("activity: {error:?}"));
-        assert_eq!(hash::activity_id(&submitted), Ok(*fixture.activity_id));
-        assert_eq!(grant.payload(), Ok(submitted.payload().to_vec()));
-        let unsigned = activity::encode_unsigned(&submitted)
-            .unwrap_or_else(|error| panic!("unsigned: {error:?}"));
-        let key: &[u8; 32] = submitted
-            .authority()
-            .try_into()
-            .unwrap_or_else(|error| panic!("key: {error:?}"));
-        let signature: &[u8; 64] = submitted
-            .signature()
-            .unwrap_or_else(|| panic!("missing signature"))
-            .try_into()
-            .unwrap_or_else(|error| panic!("signature: {error:?}"));
-        let message = SignatureMessage::new(
-            hash::Domain::SignaturePreimage,
-            submitted.protocol_version(),
-            submitted.network_id(),
-            &unsigned,
-        )
-        .unwrap_or_else(|error| panic!("message: {error:?}"));
-        assert_eq!(ed25519::verify(key, signature, message), Ok(()));
-        let disclosed = AuthorityGrant::from_payload(submitted.payload())
-            .unwrap_or_else(|error| panic!("kernel grant payload: {error:?}"));
-        assert_eq!(disclosed, grant);
-        assert_eq!(
-            disclosed.payload().expect("canonical payload"),
-            submitted.payload()
+        let options = support::call_options(7);
+        let produced = authority_grant_call(&grant, &options).expect("merged grant producer");
+        let account = layerx_crypto::account_derivation::derive_from_seed(&[7; 64], 0)
+            .expect("transaction account");
+        let raw = produced
+            .call
+            .sign(account.evm_secret().expect("EVM key"))
+            .expect("signed submission");
+        let (received, signature) = decode_signed(&raw).expect("transaction transport");
+        assert_eq!(recover_sender(&received, &signature), Ok(options.from));
+        assert_eq!(support::signer().evm_address(), Some(options.from));
+        let disclosed = bind_call(&received, options.from).expect("grant consumer");
+        assert_eq!(disclosed.authority_grant, Some(grant));
+        assert_eq!(disclosed.authority, options.from);
+        assert_eq!(reencode(&disclosed), Ok(received.encode_unsigned()));
+        // The precompile derives the returned grantId from the same raw body.
+        let mut received_id = Sha256::new();
+        received_id.update(hash::Domain::AuthorityHash.tag());
+        received_id.update(
+            disclosed
+                .authority_grant
+                .expect("bound grant")
+                .encode()
+                .expect("body"),
         );
-        assert_eq!(
-            activity::encode_unsigned(&submitted).expect("archive reencode"),
-            unsigned
-        );
-        assert!(
-            decode_unsigned(&unsigned).is_err(),
-            "archive cannot enter the current transaction path"
-        );
+        assert_eq!(received_id.finalize().as_slice(), fixture.id);
     }
 }
 
@@ -157,14 +124,11 @@ fn fee_scope_wire_requires_zero_initial_counters_and_canonical_bounds() {
 #[test]
 fn every_fee_field_is_bound_into_the_signing_disclosure() {
     let fixture = &FIXTURES[4];
-    let submitted = activity::decode_signed(fixture.activity, &registry())
-        .unwrap_or_else(|error| panic!("activity: {error:?}"));
-    let unsigned =
-        activity::encode_unsigned(&submitted).unwrap_or_else(|error| panic!("unsigned: {error:?}"));
-    let original = AuthorityGrant::from_payload(submitted.payload()).expect("kernel grant");
-    assert_eq!(original.encode().expect("original grant"), fixture.grant);
-    assert!(decode_unsigned(&unsigned).is_err());
-    let disclosure = support::send_call(25, 7).disclosure;
+    let original = AuthorityGrant::decode(fixture.grant).expect("native grant vector");
+    let grant = original;
+    let options = support::call_options(7);
+    let produced = authority_grant_call(&grant, &options).expect("merged grant producer");
+    let disclosure = bind_call(&produced.call, options.from).expect("grant consumer");
     let mutations: &[fn(&mut NativeFeeBudget)] = &[
         |fee| fee.asset[0] ^= 1,
         |fee| fee.maximum_per_activity += 1,
@@ -186,45 +150,26 @@ fn every_fee_field_is_bound_into_the_signing_disclosure() {
             hash.update(hash::Domain::AuthorityHash.tag());
             hash.update(&encoded);
             assert_ne!(hash.finalize().as_slice(), fixture.id);
-            let altered_payload = grant.payload().expect("altered payload");
-            let mut altered = unsigned.clone();
-            let payload_start = altered.len() - submitted.payload().len();
-            assert_eq!(&altered[payload_start..], submitted.payload());
-            assert_eq!(altered_payload.len(), submitted.payload().len());
-            altered[payload_start..].copy_from_slice(&altered_payload);
-            let original_hash = submitted.payload_hash();
-            let hash_start = altered[..payload_start]
-                .windows(32)
-                .position(|bytes| bytes == original_hash)
-                .expect("recorded payload commitment");
-            let mut payload_hash = Sha256::new();
-            payload_hash.update(hash::Domain::PayloadHash.tag());
-            payload_hash.update(&altered_payload);
-            altered[hash_start..hash_start + 32].copy_from_slice(&payload_hash.finalize());
-            let decoded =
-                activity::decode_unsigned(&altered, &registry()).expect("changed archive framing");
-            assert_eq!(
-                hash::payload_hash(&decoded).expect("changed payload hash"),
-                decoded.payload_hash()
-            );
-            let key: &[u8; 32] = submitted.authority().try_into().expect("owner key");
-            let signature: &[u8; 64] = submitted
-                .signature()
-                .expect("owner signature")
-                .try_into()
-                .expect("signature width");
-            let message = SignatureMessage::new(
-                hash::Domain::SignaturePreimage,
-                submitted.protocol_version(),
-                submitted.network_id(),
-                &altered,
+            let account = layerx_crypto::account_derivation::derive_from_seed(&[7; 64], 0)
+                .expect("owner transaction key");
+            let raw = produced
+                .call
+                .sign(account.evm_secret().expect("EVM key"))
+                .expect("original grant transaction signature");
+            let (_, signature) = decode_signed(&raw).expect("original transport");
+            let altered = authority_grant_call(&grant, &options).expect("altered grant call");
+            assert_ne!(altered.call.signing_hash(), produced.call.signing_hash());
+            assert_ne!(recover_sender(&altered.call, &signature), Ok(options.from));
+            assert!(layerx_crypto::disclosure::call::validate_call(
+                &altered.call,
+                &disclosure,
+                options.from
             )
-            .expect("altered message");
-            assert!(ed25519::verify(key, signature, message).is_err());
+            .is_err());
         }
         changed.authority_grant = Some(grant);
         assert_eq!(
-            changed.reencode(),
+            reencode(&changed),
             Err(DisclosureError::FieldMismatch("authority_grant"))
         );
         assert!(changed.audit_digest().is_err());
@@ -235,7 +180,7 @@ fn every_fee_field_is_bound_into_the_signing_disclosure() {
     assert_ne!(grant.encode().expect("no fee budget"), fixture.grant);
     removed.authority_grant = Some(grant);
     assert_eq!(
-        removed.reencode(),
+        reencode(&removed),
         Err(DisclosureError::FieldMismatch("authority_grant"))
     );
 }
