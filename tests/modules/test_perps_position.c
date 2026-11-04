@@ -28,6 +28,8 @@ static lxp_module_ctx ctx;
 static lxp_arena arena;
 static lxp_effect_buffer effects;
 static uint64_t parameters = 1U;
+static uint16_t fixture_protocol = LXP_PROTOCOL_VERSION_OCCUPANCY;
+static bool fixture_full_effects = false;
 static union {
     max_align_t alignment;
     uint8_t bytes[FIXTURE_ARENA_BYTES];
@@ -114,6 +116,9 @@ static int kernel_start(void)
         lxp_kernel_set_capabilities(
             &kernel, NULL, lxp_kernel_canonical_ledger_apply) != LXP_OK)
         return 1;
+    if (fixture_protocol == LXP_PROTOCOL_VERSION_STATE_COMMITMENT &&
+        lxp_kernel_register_module(&kernel, lx_asset_module_iface()) != LXP_OK)
+        return 1;
     asset_runtime = (lx_asset_runtime){ &accounts, &asset_record, 1U,
                                         &asset_state, 1U, 7U,
                                         LXP_PROTOCOL_VERSION_OCCUPANCY, false };
@@ -147,7 +152,7 @@ static int ctx_open(void)
                             0U, global_sequence, 1000000U, &arena,
                             true) != LXP_OK)
         return 1;
-    ctx.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
+    ctx.protocol_version = fixture_protocol;
     ctx.batch_number = 1U;
     ctx.activity_id[0] = activity_marker++;
     return 0;
@@ -169,8 +174,15 @@ static lxp_result run(uint32_t activity_type, const char *did,
         lxp_effect_buffer_init(&effects) != LXP_OK || ctx_open() != 0 ||
         lxp_module_ctx_bind_effects(&ctx, &effects) != LXP_OK)
         return LXP_FATAL_INVARIANT;
+    if (fixture_full_effects) {
+        size_t i;
+        for (i = 0U; i < LXP_MAX_EFFECTS; ++i)
+            if (lxp_ctx_emit_event(&ctx, LX_PERPS_EVENT_ORACLE_ACCEPTED,
+                                   NULL, 0U) != LXP_OK)
+                return LXP_FATAL_INVARIANT;
+    }
     (void)memset(&activity, 0, sizeof(activity));
-    activity.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
+    activity.protocol_version = fixture_protocol;
     activity.network_id = 7U;
     activity.activity_type = activity_type;
     activity.actor_did = (lxp_byte_span){ (const uint8_t *)did, did_length };
@@ -430,6 +442,8 @@ static lxp_result position_state(const lx_account *margin_account,
                                  position);
 }
 
+#include "test_perps_repairs.h"
+
 int main(void)
 {
     lx_perps_market market;
@@ -599,5 +613,9 @@ int main(void)
         funding.short_open_notional.lo != 2000U ||
         lxp_state_store_destroy(&store) != LXP_OK)
         return 1;
-    return 0;
+    return test_order_price_scale() || test_close_trading_pnl() ||
+           test_close_rollback_recovery() || test_close_with_funding() ||
+           test_fill_reduction_pnl() ||
+           test_fill_reversal_pnl() || test_liquidation_equity() ||
+           test_unfilled_margin_release() || test_liquidation_funding();
 }

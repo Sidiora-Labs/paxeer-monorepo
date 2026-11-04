@@ -166,16 +166,10 @@ static lxp_result order_margin(const lx_perps_market *market,
                                const lx_perps_order *order,
                                lxp_u128 *required)
 {
-    lxp_u256 product;
     lxp_u128 notional;
-    lxp_u128 residue;
-    lxp_result status;
-    status = lxp_u128_mul(order->price, order->quantity, &product);
+    lxp_result status = lx_perps_fill_notional(market, order->price,
+                                               order->quantity, &notional);
     if (status != LXP_OK) return status;
-    status = lxp_u256_div_floor(product, (lxp_u128){ 0U, 1U },
-                                &notional, &residue);
-    if (status != LXP_OK || !lxp_u128_is_zero(residue))
-        return LXP_ERR_OVERFLOW;
     return lxp_u128_mul_bps_ceil(notional,
                                  market->initial_margin_ratio_bps, required);
 }

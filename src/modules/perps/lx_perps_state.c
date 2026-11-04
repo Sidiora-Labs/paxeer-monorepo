@@ -1,6 +1,7 @@
 #include "layerx/lx_perps.h"
 
 #include "lx_perps_codec.h"
+#include "lx_perps_internal.h"
 
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_kernel.h"
@@ -609,4 +610,63 @@ lxp_result lx_perps_source_authority_add(
         protocol_system_capability;
     ++(*count);
     return LXP_OK;
+}
+
+typedef struct margin_reference_check {
+    const uint8_t *margin_id;
+    const uint8_t *closing_market_id;
+    bool encumbered;
+} margin_reference_check;
+
+static lxp_result margin_position_visit(const uint8_t *key, size_t key_length,
+    const uint8_t *value, size_t value_length, void *user)
+{
+    margin_reference_check *check = user;
+    lx_perps_position position;
+    lxp_result status;
+    (void)key;
+    if (key_length != LX_PERPS_POSITION_KEY_BYTES)
+        return LXP_ERR_NON_CANONICAL;
+    status = position_decode(value, value_length, &position);
+    if (status != LXP_OK) return status;
+    if (position.open &&
+        memcmp(position.margin_account_id, check->margin_id, 32U) == 0 &&
+        (check->closing_market_id == NULL ||
+         memcmp(position.market_id, check->closing_market_id, 32U) != 0))
+        check->encumbered = true;
+    return LXP_OK;
+}
+
+static lxp_result margin_order_visit(const uint8_t *key, size_t key_length,
+    const uint8_t *value, size_t value_length, void *user)
+{
+    margin_reference_check *check = user;
+    lx_perps_order order;
+    lxp_result status;
+    (void)key;
+    if (key_length != LX_PERPS_ORDER_KEY_BYTES)
+        return LXP_ERR_NON_CANONICAL;
+    status = order_decode(value, value_length, &order);
+    if (status != LXP_OK) return status;
+    if (order.active && !lxp_u128_is_zero(order.remaining) &&
+        memcmp(order.owner_account_id, check->margin_id, 32U) == 0)
+        check->encumbered = true;
+    return LXP_OK;
+}
+
+lxp_result lx_perps_margin_encumbered(lxp_module_ctx *ctx,
+    const uint8_t margin_id[32], const uint8_t *closing_market_id,
+    bool *encumbered)
+{
+    margin_reference_check check = { margin_id, closing_market_id, false };
+    lxp_result status;
+    if (ctx == NULL || margin_id == NULL || encumbered == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    status = lxp_ctx_kv_iter(ctx, position_prefix,
+        sizeof(position_prefix) - 1U, margin_position_visit, &check);
+    if (status == LXP_OK)
+        status = lxp_ctx_kv_iter(ctx, order_prefix, sizeof(order_prefix) - 1U,
+                                 margin_order_visit, &check);
+    if (status == LXP_OK) *encumbered = check.encumbered;
+    return status;
 }
