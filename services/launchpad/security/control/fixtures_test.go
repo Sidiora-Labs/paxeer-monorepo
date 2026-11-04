@@ -18,6 +18,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if os.Getenv("L47_REPAIR65_WORKER") == "1" {
+		fmt.Fprintln(os.Stderr, repair65RunWorker())
+		os.Exit(1)
+	}
 	os.Exit(runControlTests(m))
 }
 
