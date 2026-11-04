@@ -222,7 +222,7 @@ func (c *Config) CoalesceFlush() time.Duration {
 func requireURL(name, raw string) error {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		return fmt.Errorf("%s %q is not a valid URL", name, raw)
+		return fmt.Errorf("%s must be a valid URL with a scheme and host", name)
 	}
 	return nil
 }
@@ -231,7 +231,7 @@ func requireURL(name, raw string) error {
 func requireRedisURL(name, raw string) error {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" || (u.Scheme != "redis" && u.Scheme != "rediss") {
-		return fmt.Errorf("%s %q is not a valid redis:// URL", name, raw)
+		return fmt.Errorf("%s must be a valid redis:// or rediss:// URL with a host", name)
 	}
 	return nil
 }
