@@ -130484,7 +130484,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.434]
 title = "Repair audit record 22.30.86 findings in services/platform/middleware/seller/src: interface-mismatch, security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130773,7 +130773,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.387]
 title = "Repair audit record 22.30.139 findings in apps/web/src/states: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130844,7 +130844,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.385]
 title = "Repair audit record 22.30.139 findings in apps/web/src/journeys/onboarding: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146882,7 +146882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.271]
 title = "Repair audit record 22.30.141 findings in services/explorer/services/libs/blockscout-auth/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161511,7 +161511,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.244]
 title = "Repair audit record 22.30.117 findings in services/wallet/attestor/internal/policy: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164944,7 +164944,7 @@ do_13 = "Attempt 3 (continue): the test proves two real producer gaps and the re
 
 [task.22.31.62]
 title = "Repair audit record 22.30.37 findings in services/launchpad/pnl-tracker/internal/production/l18: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -259799,7 +259799,7 @@ do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible)
 
 [task.22.31.438]
 title = "Map the stale parity acceptance selectors to their current tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -260875,7 +260875,7 @@ do_10 = "Attempt 2 (continue): the canonical runtime adapter lacks the connected
 
 [task.22.31.312]
 title = "Repair audit record 22.30.169 findings in tests/agent/sdk/python: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
