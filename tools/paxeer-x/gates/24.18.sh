@@ -51,7 +51,26 @@ def executed_counts(output, names):
     if (not starts or len(starts) != len(set(starts)) or sorted(starts) != sorted(ends)
             or {name for name in starts if '/' not in name} != set(names)):
         raise ValueError('exact nonempty Go corpus required')
-    return len(ends)
+    running = set()
+    completed = set()
+    for row in events:
+        name, action = row.get('Test'), row.get('Action')
+        if not name or action not in ('run', 'pass'):
+            continue
+        if name.split('/')[0] not in names:
+            raise ValueError('unrequested Go case refused')
+        if action == 'run':
+            if name in running or name in completed:
+                raise ValueError('duplicate Go case refused')
+            running.add(name)
+        else:
+            if name not in running:
+                raise ValueError('Go completion without start refused')
+            running.remove(name)
+            completed.add(name)
+    if running:
+        raise ValueError('unfinished Go case refused')
+    return len(completed)
 
 
 def main():
