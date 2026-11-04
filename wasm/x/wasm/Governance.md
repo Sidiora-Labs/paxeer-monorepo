@@ -212,3 +212,12 @@ constructors with their legacy REST proposal handlers in
 SDK proposal handlers are distinct from EVM JSON-RPC methods.
 
 See [proposal-handler tests](client/proposal_handler_test.go) for their registration.
+
+## Regression evidence
+
+`TestRepairM_1289_Governance` in [repair_m1289_test.go](repair_m1289_test.go)
+checks the node's default and specific-proposal selection, all ten registered CLI
+commands and the proposal kind table above. It submits encoded proposal content
+to the real governance keeper, executes the stored content through its registered
+Wasm route, and verifies pinned code and privileged sudo effects on bank balances.
+A rejected proposal submission does not authorize a contract operation.
