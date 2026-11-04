@@ -756,6 +756,7 @@ impl RpcClient {
         }
     }
 
+    /// Connects to node JSON-RPC at the supplied URL, preserving its exact path.
     /// # Errors
     /// Rejects insecure non-loopback endpoints and embedded credentials.
     pub fn connect(
@@ -769,17 +770,25 @@ impl RpcClient {
     }
 
     /// Connects directly to a node's JSON-RPC URL, preserving its exact path.
-    /// Gateway connections continue to use [`Self::connect`] and its `/rpc` route.
+    /// Equivalent to [`Self::connect`].
     /// # Errors
     /// Rejects insecure non-loopback endpoints and embedded credentials.
     pub fn connect_node(
         endpoint: &str,
         credential: Option<LayerXKeyCredential>,
     ) -> Result<Self, RpcError> {
-        let mut client = Self::connect(endpoint, credential)?;
-        client.endpoint =
-            crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
-        Ok(client)
+        Self::connect(endpoint, credential)
+    }
+
+    /// Connects to an explicitly configured hosted JSON-RPC contract URL.
+    /// The caller supplies the hosted service's published path; no router suffix is added.
+    /// # Errors
+    /// Preserves the same endpoint and TLS validation as node connections.
+    pub fn connect_hosted(
+        endpoint: &str,
+        credential: Option<LayerXKeyCredential>,
+    ) -> Result<Self, RpcError> {
+        Self::connect(endpoint, credential)
     }
 
     /// Connects directly to a node using one explicitly trusted DER root.
@@ -790,13 +799,10 @@ impl RpcClient {
         credential: Option<LayerXKeyCredential>,
         ca_der: &[u8],
     ) -> Result<Self, RpcError> {
-        let mut client = Self::connect_with_ca_der(endpoint, credential, ca_der)?;
-        client.endpoint =
-            crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
-        Ok(client)
+        Self::connect_with_ca_der(endpoint, credential, ca_der)
     }
 
-    /// Connects with one explicitly trusted DER root certificate.
+    /// Connects at the supplied URL with one explicitly trusted DER root certificate.
     /// # Errors
     /// Rejects an empty or oversized trust root and invalid endpoints.
     pub fn connect_with_ca_der(
@@ -833,15 +839,8 @@ impl RpcClient {
         roots: ureq::tls::RootCerts,
         subscription_tls: Option<std::sync::Arc<rustls::ClientConfig>>,
     ) -> Result<Self, RpcError> {
-        let mut endpoint =
+        let endpoint =
             crate::programs::http::validate_endpoint(endpoint).map_err(RpcError::Configuration)?;
-        let base = endpoint.path().trim_end_matches('/');
-        let path = if base.ends_with("/rpc") {
-            base.to_owned()
-        } else {
-            format!("{base}/rpc")
-        };
-        endpoint.set_path(&path);
         let agent = ureq::Agent::config_builder()
             .timeout_global(Some(Duration::from_secs(30)))
             .http_status_as_error(false)

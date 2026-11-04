@@ -1,9 +1,6 @@
 //! Decode-only activity and 402LXP receipt domain types.
 
 use crate::amount::Amount;
-use crate::checkpoint::{
-    ActivityInclusionProof, CheckpointCertificate, PaxeerSettlementReference, StateInclusionProof,
-};
 use crate::ids::{ActivityId, AssetId, BatchId};
 use crate::result::ResultCode;
 
@@ -123,19 +120,4 @@ pub struct LxpReceipt {
     batch_id: BatchId,
     timestamp: u64,
     sequencer_signature: [u8; 64],
-}
-
-/// A finalized 402LXP receipt with all proof material kept distinct from the
-/// pre-checkpoint sequencer promise.
-#[allow(dead_code)]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CheckpointedLxpReceipt {
-    receipt: LxpReceipt,
-    canonical_activity: Box<[u8]>,
-    state_leaf: Box<[u8]>,
-    activity_inclusion_proof: ActivityInclusionProof,
-    state_inclusion_proof: StateInclusionProof,
-    checkpoint_id: [u8; 32],
-    guarantor_certificate: CheckpointCertificate,
-    paxeer_settlement_reference: PaxeerSettlementReference,
 }
