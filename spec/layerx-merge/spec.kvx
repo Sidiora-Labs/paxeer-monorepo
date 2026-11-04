@@ -197811,7 +197811,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1368]
 title = "Repair audit record 22.30.75 medium findings in sdk/platform/dotnet (part 1 of 2): config-drift, retired-reference, runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.138", "22.31.139", "22.31.140"]
@@ -198795,7 +198795,7 @@ do_14 = "Attempt 2 (continue): the rollback recovery case reserves its P2P addre
 
 [task.22.33.1308]
 title = "Repair audit record 22.30.70 medium findings in sdk/chainflow/go/internal/testutil (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -204899,7 +204899,7 @@ do_14 = "Attempt 2 (continue, after 22.31.461 lands): the six repairs and their 
 
 [task.22.33.1040]
 title = "Repair audit record 22.30.40 medium findings in services/launchpad/stats-w*/internal/httpapi (part 2 of 2): restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.69", "22.31.70", "22.31.71", "22.31.461"]
@@ -205157,7 +205157,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1028]
 title = "Repair audit record 22.30.39 medium findings in services/launchpad/social/internal/devsocial (part 1 of 1): security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.66", "22.31.67", "22.31.68", "22.31.461"]
@@ -205485,7 +205485,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1008]
 title = "Repair audit record 22.30.35 medium findings in services/launchpad/api/internal/rest (part 1 of 1): config-drift, doc-drift, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.58", "22.31.59", "22.31.461"]
@@ -214024,7 +214024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.130]
 title = "Repair audit record 22.30.114 medium findings in services/wallet/attestor/internal/tss/refresh (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
