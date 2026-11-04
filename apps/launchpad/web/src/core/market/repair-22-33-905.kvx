@@ -1,0 +1,12 @@
+[repair.22.33.905]
+audit = "22.30.19"
+base_path_loss = "base_path_loss_rejects_prefixed_configuration_before_serving_consumers"
+partial_listing_failures = "partial_listing_failures_propagates_mixed_quarantine; partial_listing_failures_propagates_mixed_identity_disagreement; partial_listing_failures_propagates_security_and_unexpected_http_errors; partial_listing_failures_rejects_quarantined_list_before_cache_seeding; partial_listing_failures_retains_declared_omission_status; partial_listing_failures_hooks_expose_omissions_and_integrity_errors"
+profile_absence_growth = "profile_absence_growth_evicts_lru_and_recovers_after_reload; profile_absence_growth_expires_entries_without_sliding_ttl; profile_absence_growth_caps_persisted_input_before_hydration; profile_absence_growth_preserves_absence_and_profile_save_invalidation"
+baseline = "Not run: task execution order forbids testing before implementation and permits verification only through the bounded hf-done gate; no pre-change failure is claimed."
+wiring_requests = []
+evidence = "Exact candidate revision, command, exit and private log are recorded by hf-build and hf-done in the runner gate ledger."
+registration_gotcha = "Vitest 4 treats test(namedFunction) as todo; register each declared test as test(namedFunction.name, namedFunction) so assertions execute."
+reload_gotcha = "After vi.resetModules(), import the real SDK client alongside the reopened profile reader so its HttpError instances share the reader's module identity; an earlier SDK instance bypasses the genuine-404 instanceof guard."
+previous_attempt = "Attempt 1 failed profile_absence_growth_preserves_absence_and_profile_save_invalidation with HTTP 404: NOT_FOUND; the other ten tests passed. The continuation preserves every assertion and the production absence semantics."
+profile_fixture_gotcha = "ConnectedExtendedProfileResponse requires a UUID requestId at runtime; the in-memory profile store now emits one with node:crypto randomUUID instead of the invalid profile-cache-repair label."
