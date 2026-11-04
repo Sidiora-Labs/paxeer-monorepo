@@ -1,0 +1,41 @@
+[task]
+id = "22.33.1047"
+status = "implemented; exact qualification outcome is recorded by hf-done"
+baseline = "The supplied attempt-3 evidence at f8aff1fe80b3d87405cfa26d5c17264cf00f5a88 reports the three admittedBundle cases failing on nonexistent codegen manifests; this attempt has no gate ledger at entry and does not rerun the unchanged failure."
+continuation = "Attempt 4 preserves file:../sdk-v2, the independent served-route repair, the production TS loader and real pagination proof; no authoritative bundle is demanded or synthesized."
+ruling = "The named launchpad/spec/production-system/spec.kvx and integration/contracts/v1/inputs/supplementary.json are themselves absent in this checkout, so the available committed REST route recording and digest-pinned SDK schemas provide the proofs; their production is a separate owner decision, never awaited here."
+execution = "Pyodide 0.29.3 executes the actual Python producer and layout tests inside the Node process from local npm assets; no Python executable, subprocess compiler, credential, live service or runtime package download is needed."
+
+[finding.6]
+test = "repair-22-33-1047.test.mjs::finding6VersionedGenerationInputsMatchImmutableReleasePins"
+generation_proof = "generation.test.py::test_clean_generations_match_checked_in_outputs executes the production protocol emitter twice in clean roots for v1 and v2, compares all emitted outputs across roots and every SDK type/schema/release byte with committed outputs."
+inputs = "The emitter's ContractTypes inventory identifies original definitions within committed expanded schemas; their recovered bytes must equal each frozen release's original schema-definitions.json SHA-256 before generation."
+pins = "The immutable v1 emitter source is checked against its release digest; the current v2 emitter and historical v2 release identity are pinned separately, and generated type/schema bytes must still match the frozen output digests. Existing operations and both example sources are independently SHA-256 pinned in the Node proof."
+limitation = "The historical full operations/example regeneration needs the unavailable immutable OpenAPI/AsyncAPI owner inputs; it is not claimed here. The declared gate runs the committed pagination consumer and verifies its actual wire behavior."
+
+[finding.7]
+test = "repair-22-33-1047.test.mjs::finding7SupportedBundlesHaveUsableSchemas"
+resolution_proof = "test_generate_layout.py checks real repository and copied-script default resolution, reads both digest-pinned schemas, verifies explicit production refusal for absent manifests and nonpositive majors, and refuses unsupported input selections instead of certifying invented version directories."
+wire_proof = "The recorded IF_STATS response is decoded, a malformed pool address is rejected, and the real Operations/SdkClient consumer reads the recorded response through a loopback server with exact request and response assertions."
+
+[finding.8]
+test = "repair-22-33-1047.test.mjs::finding8ExamplesReadTheAdmittedOperationCatalog and finding8RealPaginationExampleConsumesOpaqueContinuation"
+layout_proof = "test_examples_layout.py reads the real recorded v2 operation catalog, copies its identical bytes to a temporary root, asserts pagination/snapshot operation identities and production output placement, and verifies missing immutable input refusal before writing."
+wire_proof = "The actual pagination.mjs script traverses two real HTTP responses; assertions check method, path, opaque cursor encoding, Origin, pagination limit, response schema and exact decimal strings."
+
+[finding.9]
+test = "served-routes.test.mjs::routeStatusCoversEveryOperation and route-corrections.test.mjs::rewardClaimUsesServedRoute, imported by repair-22-33-1047.test.mjs"
+proof = "The independent exhaustive inventory requires 154 served, 15 development and 32 unrouted operations; the real reward-claim walkthrough checks the corrected route, authentication, idempotency, request body and decoded response. Both existing network-refusal suites execute unchanged."
+
+[wiring.inputs]
+request = "Domain 4 launchpad owner: deciding whether to produce launchpad/spec/production-system/spec.kvx, integration/contracts/v1/inputs/supplementary.json and the complete digest-pinned v1/v2 contract bundles under launchpad/spec/production-system/integration/contracts belongs to that owner; this task neither creates nor awaits them."
+
+[wiring.generator]
+request = "Domain 4 SDK generator owner: retain the agreed launchpad/spec prefix and immutable checks in sdk/launchpad/packages/sdk/scripts/generate.py and examples.py; any future owner bundle must match frozen SDK release input digests before historical full regeneration is claimed."
+
+[gotcha.inputs]
+symptom = "The continuation ruling names materializer source inputs that are absent as well as absent codegen manifests; sdk/launchpad/protocol/contracts is not the agreed default."
+do = "Use committed REST route recordings and recoverable digest-pinned schemas for available-input proofs, preserve explicit production missing-input refusals, and record owner input production separately."
+
+[qualification]
+evidence = "The private /out/run/gates.jsonl ledger and last hf-done JSON line name the exact candidate revision, command, exit and log; no source edit or commit follows a passing gate."
