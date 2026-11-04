@@ -159,6 +159,14 @@ class IntentLeg:
     destination: IntentEndpointRef
     money: IntentMoney
     fee: IntentMoney
+    to: str | None = None
+    value: int | None = None
+    calldata: str | None = None
+    nonce: int | None = None
+    chain_id: int | None = None
+    gas_limit: int | None = None
+    max_fee_per_gas: int | None = None
+    max_priority_fee_per_gas: int | None = None
 
 
 @dataclass(frozen=True)
@@ -176,6 +184,7 @@ class IntentPlan:
     total_fee: IntentMoney
     legs: tuple[IntentLeg, ...]
     signing_requirements: tuple[IntentSigningRequirement, ...]
+    tx_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -413,7 +422,10 @@ def decode_human_error(status: int, value: object, trace: str) -> HumanIntentErr
 
 def decode_intent_plan(value: object) -> IntentPlan:
     plan = _mapping(value)
-    _exact(plan, ("plan_digest", "journey_kind", "total_fee", "legs", "signing_requirements"))
+    _exact(plan, ("plan_digest", "journey_kind", "total_fee", "legs", "signing_requirements"), ("tx_hash",))
+    tx_hash = plan.get("tx_hash")
+    if "tx_hash" in plan and (not isinstance(tx_hash, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash) is None):
+        raise _decode_failure()
     rows = plan["legs"]
     if not isinstance(rows, list) or not 0 < len(rows) <= _MAX_LEGS:
         raise _decode_failure()
@@ -435,6 +447,7 @@ def decode_intent_plan(value: object) -> IntentPlan:
         _decode_money(plan["total_fee"]),
         legs,
         tuple(signing_requirements),
+        cast(str | None, tx_hash),
     )
 
 
@@ -455,21 +468,78 @@ def decode_intent_submission(value: object) -> IntentSubmission:
 
 def _decode_leg(value: object, position: int) -> IntentLeg:
     leg = _mapping(value)
-    _exact(leg, ("index", "mechanism", "domain", "source", "destination", "money", "fee"))
+    _exact(leg, ("index", "mechanism", "domain", "source", "destination", "money", "fee"), (
+        "to", "value", "calldata", "nonce", "chain_id", "gas_limit",
+        "max_fee_per_gas", "max_priority_fee_per_gas",
+    ))
     if type(leg["index"]) is not int or leg["index"] != position:
         raise _decode_failure()
     domain = leg["domain"]
     if domain not in INTENT_DOMAINS:
         raise _decode_failure()
+    to = leg.get("to")
+    calldata = leg.get("calldata")
+    if any(key in leg for key in ("to", "value", "calldata")):
+        if not isinstance(to, str) or re.fullmatch(r"0x[0-9a-fA-F]{40}", to) is None:
+            raise _decode_failure()
+        if not isinstance(calldata, str) or re.fullmatch(r"0x(?:[0-9a-fA-F]{2})*", calldata) is None or "value" not in leg:
+            raise _decode_failure()
     return IntentLeg(
         position,
         _decoded_token(leg["mechanism"]),
         cast(IntentDomain, domain),
-        _decode_endpoint(leg["source"]),
-        _decode_endpoint(leg["destination"]),
+        _decode_leg_endpoint(leg["source"]),
+        _decode_leg_endpoint(leg["destination"]),
         _decode_money(leg["money"]),
         _decode_money(leg["fee"]),
+        cast(str | None, to),
+        _decoded_evm_amount(leg["value"]) if "value" in leg else None,
+        cast(str | None, calldata),
+        _decoded_wire_u64(leg["nonce"]) if leg.get("nonce") is not None else None,
+        _decoded_wire_u64(leg["chain_id"]) if "chain_id" in leg else None,
+        _decoded_wire_u64(leg["gas_limit"]) if "gas_limit" in leg else None,
+        _decoded_evm_amount(leg["max_fee_per_gas"]) if "max_fee_per_gas" in leg else None,
+        _decoded_evm_amount(leg["max_priority_fee_per_gas"]) if "max_priority_fee_per_gas" in leg else None,
     )
+
+
+def _decoded_wire_u64(value: object) -> int:
+    if type(value) is not int or not 0 <= value <= _MAX_U64:
+        raise _decode_failure()
+    return value
+
+
+def _decoded_evm_amount(value: object) -> int:
+    if not isinstance(value, str) or len(value) > 78 or _DECIMAL.fullmatch(value) is None:
+        raise _decode_failure()
+    amount = int(value)
+    if amount >= 1 << 256:
+        raise _decode_failure()
+    return amount
+
+
+def _decode_leg_endpoint(value: object) -> IntentEndpointRef:
+    endpoint = _mapping(value)
+    resolved = ("layerx_public_key", "evm_address", "resolution")
+    if not any(key in endpoint for key in resolved):
+        return _decode_endpoint(endpoint)
+    _exact(endpoint, ("kind", "account", *resolved))
+    public_key = _decoded_hex32(endpoint["layerx_public_key"])
+    account = endpoint["account"]
+    address = endpoint["evm_address"]
+    if not isinstance(account, str) or _ACCOUNT_NAME.fullmatch(account) is None:
+        raise _decode_failure()
+    if not isinstance(address, str) or re.fullmatch(r"0x[0-9a-fA-F]{40}", address) is None:
+        raise _decode_failure()
+    resolution = _mapping(endpoint["resolution"])
+    _exact(resolution, ("to", "chainId", "data", "result"))
+    if (resolution["to"] != "0x0000000000000000000000000000000000001004"
+        or resolution["data"] != "0xc413bad3" + public_key
+        or resolution["result"] != "0x" + "0" * 24 + address[2:]):
+        raise _decode_failure()
+    _decoded_wire_u64(resolution["chainId"])
+    return _decode_endpoint({"kind": endpoint["kind"]} if endpoint["kind"] == "paxeer-wallet"
+                            else {"kind": endpoint["kind"], "account": account})
 
 
 def _decode_signing_requirement(value: object) -> IntentSigningRequirement:
@@ -546,8 +616,8 @@ def _mapping(value: object) -> Mapping[str, object]:
     return value
 
 
-def _exact(value: Mapping[str, object], required: tuple[str, ...]) -> None:
-    if set(value) != set(required):
+def _exact(value: Mapping[str, object], required: tuple[str, ...], optional: tuple[str, ...] = ()) -> None:
+    if not set(required).issubset(value) or not set(value).issubset((*required, *optional)):
         raise _decode_failure()
 
 

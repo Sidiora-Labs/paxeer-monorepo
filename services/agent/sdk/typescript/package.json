@@ -30,7 +30,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run test:self-contained",
+    "test": "npm run build && node scripts/run-tests.mjs self-contained",
     "test:self-contained": "npm run build && node scripts/run-tests.mjs self-contained",
     "test:anvil": "npm run build && node scripts/run-tests.mjs anvil",
     "test:ci": "npm run build && node scripts/run-tests.mjs ci",
