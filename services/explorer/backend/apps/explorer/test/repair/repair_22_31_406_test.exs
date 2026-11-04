@@ -65,6 +65,7 @@ defmodule Explorer.Repair.Repair2231406Test do
       Repo.query!("ALTER TABLE paxeer_x_price_observations ALTER COLUMN accepted SET DEFAULT true")
       import_before_upgrade(context.block, update)
       assert Enum.all?(PriceFeed.block_updates(@height) |> hd() |> Map.fetch!(:observations), & &1.accepted)
+      Repo.query!("ALTER TABLE paxeer_x_price_observations ALTER COLUMN accepted DROP DEFAULT")
       assert PriceFeed.compact_scanned_blocks(@height, 100) == @height
       assert {:ok, []} = PriceFeed.stream_unscanned_block_numbers([], &[&1 | &2], @height)
 
@@ -74,10 +75,12 @@ defmodule Explorer.Repair.Repair2231406Test do
         %{market_id: 17, symbol: "BNB", chainflow_symbol: "BNB"}
       ])
 
+      before_migration = PriceFeed.block_updates(@height)
       assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
-      assert unknown_count() == 18
-      assert PriceFeed.market_updates(2, %PagingOptions{}) == []
-      assert Enum.all?(PriceFeed.latest_per_market(), fn {_market, observation} -> is_nil(observation) end)
+      assert PriceFeed.block_updates(@height) == before_migration
+      assert unknown_count() == 0
+      assert [%PriceObservation{accepted: true}] = PriceFeed.market_updates(2, %PagingOptions{})
+      assert Enum.all?(PriceFeed.latest_per_market(), fn {_market, observation} -> observation.accepted == true end)
       assert %{rows: [[nil, "YES"]]} = accepted_column()
 
       {:ok, first} = PriceAcceptanceBackfill.start_link()
