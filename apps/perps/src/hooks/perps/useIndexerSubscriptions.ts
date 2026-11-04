@@ -15,7 +15,7 @@
 //   tradeCreated          → useTradeCreatedSubscription(marketId)
 //   liquidationCreated    → useLiquidationSubscription(marketId)
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { subscribeStream } from "@/core/graphql/client";
 import { INDEXER_GRAPHQL } from "@/core/perps/config";
 
@@ -168,6 +168,37 @@ export function decodeIndexerLiquidation(value: unknown): IndexerLiquidation {
   };
 }
 
+/** Retained stream values are only visible to the generation that received them. */
+function useIndexerSelection<T>(
+  selection: string | number | undefined,
+  subscribe: (onData: (data: T) => void) => () => void,
+): T | null {
+  const generation = useMemo(() => ({}), [selection]);
+  const subscribeRef = useRef(subscribe);
+  subscribeRef.current = subscribe;
+  const [state, setState] = useState<{ generation: object; value: T | null }>({
+    generation,
+    value: null,
+  });
+  useEffect(() => {
+    let active = true;
+    setState({ generation, value: null });
+    const unsubscribe =
+      selection === undefined
+        ? undefined
+        : subscribeRef.current((value) => {
+            if (active) setState({ generation, value });
+          });
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [selection, generation]);
+  return selection !== undefined && state.generation === generation
+    ? state.value
+    : null;
+}
+
 // ── indexerStatusUpdated ───────────────────────────────────────────────
 
 const INDEXER_STATUS_SUBSCRIPTION = /* GraphQL */ `
@@ -237,19 +268,14 @@ const PRICE_UPDATED_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useSingleMarketPriceSubscription(marketId: number | undefined) {
-  const [price, setPrice] = useState<IndexerPriceUpdate | null>(null);
-
-  useEffect(() => {
-    if (marketId === undefined) return;
-    return subscribeStream<{ priceUpdated: IndexerPriceUpdate }>({
+  return useIndexerSelection<IndexerPriceUpdate>(marketId, (onData) =>
+    subscribeStream<{ priceUpdated: IndexerPriceUpdate }>({
       endpoint: INDEXER_GRAPHQL,
       query: PRICE_UPDATED_SUBSCRIPTION,
       variables: { marketId },
-      onData: (data) => setPrice(data.priceUpdated),
-    });
-  }, [marketId]);
-
-  return price;
+      onData: (data) => onData(data.priceUpdated),
+    }),
+  );
 }
 
 // ── positionChanged(userAddress) ───────────────────────────────────────
@@ -272,19 +298,15 @@ const POSITION_CHANGED_SUBSCRIPTION = /* GraphQL */ `
 export function usePositionChangedSubscription(
   userAddress: string | undefined,
 ) {
-  const [positions, setPositions] = useState<IndexerPosition[] | null>(null);
-
-  useEffect(() => {
-    if (!userAddress) return;
-    return subscribeStream<{ positionChanged: IndexerPosition[] }>({
+  const account = userAddress?.toLowerCase() || undefined;
+  return useIndexerSelection<IndexerPosition[]>(account, (onData) =>
+    subscribeStream<{ positionChanged: IndexerPosition[] }>({
       endpoint: INDEXER_GRAPHQL,
       query: POSITION_CHANGED_SUBSCRIPTION,
-      variables: { userAddress },
-      onData: (data) => setPositions(data.positionChanged),
-    });
-  }, [userAddress]);
-
-  return positions;
+      variables: { userAddress: account },
+      onData: (data) => onData(data.positionChanged),
+    }),
+  );
 }
 
 // ── orderChanged(userAddress) ──────────────────────────────────────────
@@ -303,14 +325,11 @@ const ORDER_CHANGED_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useOrderChangedSubscription(userAddress: string | undefined) {
-  const [latestOrder, setLatestOrder] = useState<IndexerOrder | null>(null);
-
-  useEffect(() => {
-    if (!userAddress) return;
-    return subscribeIndexerOrder(userAddress, setLatestOrder);
-  }, [userAddress]);
-
-  return latestOrder;
+  const selection = userAddress?.toLowerCase() || undefined;
+  return useIndexerSelection<IndexerOrder>(selection, (onData) => {
+    if (selection === undefined) return () => {};
+    return subscribeIndexerOrder(selection, onData);
+  });
 }
 
 export function subscribeIndexerOrder(
@@ -341,14 +360,11 @@ const TRADE_CREATED_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useTradeCreatedSubscription(marketId: number | undefined) {
-  const [latestTrade, setLatestTrade] = useState<IndexerTrade | null>(null);
-
-  useEffect(() => {
-    if (marketId === undefined) return;
-    return subscribeIndexerTrade(marketId, setLatestTrade);
-  }, [marketId]);
-
-  return latestTrade;
+  const selection = marketId;
+  return useIndexerSelection<IndexerTrade>(selection, (onData) => {
+    if (selection === undefined) return () => {};
+    return subscribeIndexerTrade(selection, onData);
+  });
 }
 
 export function subscribeIndexerTrade(
@@ -378,15 +394,11 @@ const LIQUIDATION_SUBSCRIPTION = /* GraphQL */ `
 `;
 
 export function useLiquidationSubscription(marketId: number | undefined) {
-  const [latestLiquidation, setLatestLiquidation] =
-    useState<IndexerLiquidation | null>(null);
-
-  useEffect(() => {
-    if (marketId === undefined) return;
-    return subscribeIndexerLiquidation(marketId, setLatestLiquidation);
-  }, [marketId]);
-
-  return latestLiquidation;
+  const selection = marketId;
+  return useIndexerSelection<IndexerLiquidation>(selection, (onData) => {
+    if (selection === undefined) return () => {};
+    return subscribeIndexerLiquidation(selection, onData);
+  });
 }
 
 export function subscribeIndexerLiquidation(

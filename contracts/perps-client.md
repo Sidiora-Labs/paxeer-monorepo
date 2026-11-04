@@ -13,14 +13,14 @@ the client sends chain reads and transactions to node JSON-RPC.
 `NEXT_PUBLIC_PERPS_GATEWAY_URL` at module load. Supply a bare HTTP(S) origin
 without credentials, a path, query or fragment. The resolver derives:
 
-| Purpose | Path on the gateway origin |
-| --- | --- |
-| REST API | `/api` |
-| GraphQL queries | `/graphql` |
-| GraphQL subscriptions | `/graphql`, using WS(S) |
-| Shared topic stream | `/ws`, using WS(S) |
-| Spot account stream | `/v1/ws`, using WS(S) |
-| Spot API and performance-data base | The origin itself |
+| Purpose                            | Path on the gateway origin |
+| ---------------------------------- | -------------------------- |
+| REST API                           | `/api`                     |
+| GraphQL queries                    | `/graphql`                 |
+| GraphQL subscriptions              | `/graphql`, using WS(S)    |
+| Shared topic stream                | `/ws`, using WS(S)         |
+| Spot account stream                | `/v1/ws`, using WS(S)      |
+| Spot API and performance-data base | The origin itself          |
 
 This origin does not supply node JSON-RPC. The client resolver in
 [core](../apps/perps/src/core) (`rpc.ts`) reads
@@ -37,28 +37,28 @@ validated pool explicitly for a deployment.
 18 decimals. The transport uses viem fallback with endpoint ranking, ten-second
 HTTP timeouts and a shared fallback retry budget.
 
-| Variable | Reader and behavior |
-| --- | --- |
-| `NEXT_PUBLIC_MARKET_PROXY_HOST` | `core/feeds.ts`: hostname for HTTPS public market/candle feeds; defaults to `data.feed.chainflowtrading.com` |
-| `MARKET_PROXY_HOST` | Server candle route upstream hostname, with the same default |
-| `MARKET_PROXY_ORIGIN` | Server candle proxy's upstream Origin header; required to proxy successfully and must equal a bare HTTP(S) origin without trailing slash |
-| `NEXT_PUBLIC_PERPS_PRECOMPILE` | Optional address override for perps; default `0x1015` |
-| `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE` | Optional launchpad address override; default `0x1017` |
-| `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE` | Optional PECOR address override; default `0x1021` |
-| `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE` | Optional limit-order address override; default `0x1022` |
-| `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE` | Optional stop-order address override; default `0x1023` |
-| `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE` | Optional quoter address override; default `0x1024` |
-| `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE` | Optional vault address override; default `0x1025` |
-| `NEXT_PUBLIC_PAXEER_WALLET_API` | Embedded wallet API override |
-| `NEXT_PUBLIC_SUPABASE_URL` | Embedded wallet identity URL override |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Required to enable the embedded wallet; absent means that feature is unavailable |
-| `NEXT_PUBLIC_AUTH_REDIRECT_URL` | OAuth return URL override; otherwise browser origin plus `/auth/callback` |
-| `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN` | Origin for the optional postMessage EIP-1193 bridge |
-| `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL` | Explorer API and socket URLs; default to empty |
-| `NEXT_PUBLIC_PAXSCAN_BASE_URL` | Optional bare HTTP(S) explorer origin; chain links otherwise use `https://paxscan.io` |
-| `NEXT_PUBLIC_RELEASE_SPOT_OPEN` | Spot navigation release switch; only the value `1` enables it |
-| `NEXT_PUBLIC_STATUS_PAGE_URL` | Footer status link, validated during server instrumentation |
-| `NEXT_PUBLIC_LOG_LEVEL` | `debug`, `info`, `warn` or `error`; default `warn` in production and `info` otherwise |
+| Variable                                                    | Reader and behavior                                                                                                                      |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_MARKET_PROXY_HOST`                             | `core/feeds.ts`: hostname for HTTPS public market/candle feeds; defaults to `data.feed.chainflowtrading.com`                             |
+| `MARKET_PROXY_HOST`                                         | Server candle route upstream hostname, with the same default                                                                             |
+| `MARKET_PROXY_ORIGIN`                                       | Server candle proxy's upstream Origin header; required to proxy successfully and must equal a bare HTTP(S) origin without trailing slash |
+| `NEXT_PUBLIC_PERPS_PRECOMPILE`                              | Optional address override for perps; default `0x1015`                                                                                    |
+| `NEXT_PUBLIC_LAUNCHPAD_PRECOMPILE`                          | Optional launchpad address override; default `0x1017`                                                                                    |
+| `NEXT_PUBLIC_PECOR_MARKET_PRECOMPILE`                       | Optional PECOR address override; default `0x1021`                                                                                        |
+| `NEXT_PUBLIC_PECOR_ORDERS_PRECOMPILE`                       | Optional limit-order address override; default `0x1022`                                                                                  |
+| `NEXT_PUBLIC_PECOR_STOP_PRECOMPILE`                         | Optional stop-order address override; default `0x1023`                                                                                   |
+| `NEXT_PUBLIC_PECOR_QUOTER_PRECOMPILE`                       | Optional quoter address override; default `0x1024`                                                                                       |
+| `NEXT_PUBLIC_PECOR_VAULT_PRECOMPILE`                        | Optional vault address override; default `0x1025`                                                                                        |
+| `NEXT_PUBLIC_PAXEER_WALLET_API`                             | Embedded wallet API override                                                                                                             |
+| `NEXT_PUBLIC_SUPABASE_URL`                                  | Embedded wallet identity URL override                                                                                                    |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                      | Required to enable the embedded wallet; absent means that feature is unavailable                                                         |
+| `NEXT_PUBLIC_AUTH_REDIRECT_URL`                             | OAuth return URL override; otherwise browser origin plus `/auth/callback`                                                                |
+| `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN`                          | Origin for the optional postMessage EIP-1193 bridge                                                                                      |
+| `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL` | Explorer API and socket URLs; default to empty                                                                                           |
+| `NEXT_PUBLIC_PAXSCAN_BASE_URL`                              | Optional bare HTTP(S) explorer origin; chain links otherwise use `https://paxscan.io`                                                    |
+| `NEXT_PUBLIC_RELEASE_SPOT_OPEN`                             | Spot navigation release switch; only the value `1` enables it                                                                            |
+| `NEXT_PUBLIC_STATUS_PAGE_URL`                               | Footer status link, validated during server instrumentation                                                                              |
+| `NEXT_PUBLIC_LOG_LEVEL`                                     | `debug`, `info`, `warn` or `error`; default `warn` in production and `info` otherwise                                                    |
 
 [precompiles.ts](../apps/perps/src/core/network/precompiles.ts) requires overrides
 to be `0x` plus 40 hex digits. Short addresses in this page are zero-padded to
@@ -122,6 +122,29 @@ slippage, deadline and authorization refusals.
 quotes, writes and receipt handling to UI state. Refresh indexed views after
 chain writes, while allowing for indexer lag after a committed receipt.
 An empty or unavailable history response does not undo chain commitment.
+
+[`useFeeTier(address: string | undefined)`](../apps/perps/src/hooks/perps/useFeeTier.ts)
+returns `{ view, isLoading, error }`. `view` contains `tier`, `takerBps`,
+`makerBps` (including negative maker rebates), and exact `volume14dUsd: bigint`.
+A missing address disables the read: `view` is undefined, `isLoading` is false,
+and `error` is null. A selected address loads with `isLoading: true`; invalid
+addresses, RPC failures and malformed ABI results expose `error` and an
+undefined `view`. Failures are not automatically retried. Consumers must retain
+the unavailable state instead of inventing a fee tier.
+
+[`useMarketConfig(marketId: bigint)`](../apps/perps/src/hooks/perps/useMarketConfig.ts)
+requires a market ID and returns the React Query result. Successful `data` is
+`{ config, tiers }`, with ABI-derived bigint limits; there are no top-level
+`config` or `tiers` fields. Before the first response `data` is undefined and
+`isPending`/`isLoading` describe the pending read. RPC, ABI and invalid-limit
+failures expose `error`/`isError` without an automatic retry. React Query retains
+the last successful `data` during refresh and on a refresh failure; consumers
+must check the error when deciding availability. An unknown market is
+unavailable; a valid `config.enabled: false` disables order limits and trading.
+Config and margin tiers refresh as one query, with 30-second freshness and
+polling while active, stale reads on mount/focus/reconnect, stream-resync
+invalidation, and five-minute unused-cache retention. Governance changes become
+visible to mounted consumers through those reads without a reload.
 
 [venueStream.ts](../apps/perps/src/core/net/venueStream.ts) multiplexes topics
 on a shared socket per origin. Perps use `<SYMBOL>@perp_orderbook` and
