@@ -1,0 +1,18 @@
+[task.22.33.236]
+audit = "22.30.128"
+solana-partial-import = "solana_partial_import_rejects_invalid_final_cell_after_reopen"
+pool-execution-proof = "pool_execution_proof_two_participants_reopen_and_isolation; pool_execution_proof_denied_transfer_and_scope_roll_back_both_cells; pool_execution_proof_bounds_and_malformed_calls_are_atomic; pool_execution_proof_checked_totals_counts_and_account_schema; pool_execution_proof_query_requires_both_scopes_and_exact_codec; pool_execution_proof_raw_host_denial_discards_staged_writes"
+baseline = "Not run: the task's gate order forbids tests before complete implementation and permits verification only through hf-done; the integration test target did not exist on the starting tree. No pre-change test result is claimed."
+wiring_requests = []
+monetary_boundary = "The real ABI host stages principal-funded 402LXP requests with both scoped account writes; the enclosing kernel activity owns balance mutation and publishes the storage candidate only after settlement. The hermetic integration proof asserts actual host-produced transfer effects and denial rollback, without replacing the kernel with a ledger."
+qualification = "The bounded runner records the exact build/verify candidate revision, command, exit code and private log path; only a passing hf-done result qualifies this repair."
+
+[gotcha.replay-error-format]
+symptom = "The integration test did not compile when a storage reopen refusal used display formatting."
+cause = "ReplayWitnessError implements Debug but not Display."
+do = "Use debug formatting for storage snapshot codec errors. Recorded here because the task scope forbids modifying the root gotcha ledger."
+
+[gotcha.pool-host-refusals]
+symptom = "Direct scoped host calls return integer denial statuses; trapping on them produces a RuntimeFault receipt rather than a typed Rust authority or response error."
+cause = "The guest must enforce rollback and its Rust call API must separately preserve precise preflight refusals."
+do = "Bind preflight to the emitted module hash, use real capability narrowing and response bounds, and also test raw host transfer denial after both writes were staged."

@@ -39,10 +39,20 @@ export interface FollowersPage {
 }
 
 export class SocialTransportError extends Error {
+  readonly retryable: boolean = false;
   constructor(readonly status: number, readonly code: string, readonly route: FollowRoute, message = code) {
     super(message);
   }
 }
+
+export class SocialRequestDeadlineError extends SocialTransportError {
+  override readonly retryable = true;
+  constructor(readonly idempotencyKey?: string) {
+    super(408, 'REQUEST_TIMEOUT', 'social-proxy', 'The request timed out, try again');
+  }
+}
+
+export const socialRequestTimeoutMs = OPERATION_READ_TIMEOUT_FLOOR_MS;
 
 const walletPattern = /^0x[0-9a-fA-F]{40}$/;
 
@@ -139,20 +149,30 @@ async function proxyRequest(url: string, method: 'GET' | 'PUT' | 'DELETE', signa
   if (!token) throw new SocialTransportError(401, 'AUTH_REQUIRED', 'social-proxy', 'Sign in to follow');
   const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${token}` };
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-  let response: Response;
+  const controller = new AbortController();
+  let deadlineExpired = false;
+  const cancel = () => controller.abort(signal?.reason);
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener('abort', cancel, { once: true });
+  const timer = setTimeout(() => { deadlineExpired = true; controller.abort(); }, socialRequestTimeoutMs);
   try {
-    response = await fetch(url, { method, headers, credentials: 'omit', cache: 'no-store', redirect: 'error', signal });
+    const response = await fetch(url, { method, headers, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(error => { if (controller.signal.aborted) throw error; return null; });
+      const code = body && typeof body === 'object' && typeof (body as { code?: unknown }).code === 'string' ? (body as { code: string }).code : `HTTP_${response.status}`;
+      throw new SocialTransportError(response.status, code, 'social-proxy');
+    }
+    if (response.status === 204) return null;
+    return await response.json();
   } catch (error) {
-    if (signal?.aborted) throw error;
+    if (signal?.aborted) throw signal.reason;
+    if (deadlineExpired) throw new SocialRequestDeadlineError(idempotencyKey);
+    if (error instanceof SocialTransportError) throw error;
     throw new SocialTransportError(0, 'NETWORK_INTERRUPTED', 'social-proxy', "Can't reach the server, check your connection");
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
   }
-  if (!response.ok) {
-    const body: unknown = await response.json().catch(() => null);
-    const code = body && typeof body === 'object' && typeof (body as { code?: unknown }).code === 'string' ? (body as { code: string }).code : `HTTP_${response.status}`;
-    throw new SocialTransportError(response.status, code, 'social-proxy');
-  }
-  if (response.status === 204) return null;
-  return response.json();
 }
 
 /**
@@ -160,13 +180,15 @@ async function proxyRequest(url: string, method: 'GET' | 'PUT' | 'DELETE', signa
  * session-bound social route when there is one. Signed out there is none (the
  * gateway serves `/v2/social/*` only to a session), so the miss is reported.
  */
-async function withFallback<T>(operation: () => Promise<T>, proxy: (() => Promise<T>) | null): Promise<T> {
+async function withFallback<T>(operation: () => Promise<T>, proxy: (() => Promise<T>) | null, signal?: AbortSignal): Promise<T> {
   if (resolvedRoute !== 'social-proxy' || !proxy) {
     try {
       const value = await operation();
       resolvedRoute = 'operation';
       return value;
     } catch (error) {
+      if (signal?.aborted) throw signal.reason;
+      if (error instanceof Error && error.name === 'AbortError') throw error;
       if (!isCapabilityMiss(error) || !proxy) throw toTransportError(error, 'operation');
     }
   }
@@ -175,6 +197,8 @@ async function withFallback<T>(operation: () => Promise<T>, proxy: (() => Promis
     resolvedRoute = 'social-proxy';
     return value;
   } catch (error) {
+    if (signal?.aborted) throw signal.reason;
+    if (error instanceof Error && error.name === 'AbortError') throw error;
     const mapped = toTransportError(error, 'social-proxy');
     if (mapped.status === 404 || mapped.status === 501) resolvedRoute = null;
     throw mapped;
@@ -209,6 +233,7 @@ export function fetchFollowStats(walletAddress: string, signal?: AbortSignal): P
     },
     // The interactions follow-stats read the gateway serves to a session.
     viewer ? async () => parseProxyStats(await proxyRequest(socialReadUrl(`/v2/social/users/${wallet}/follow-stats`), 'GET', signal), wallet) : null,
+    signal,
   );
 }
 
@@ -250,5 +275,6 @@ export function fetchFollowers(walletAddress: string, cursor: string | null = nu
       const query = new URLSearchParams({ limit: String(limit), ...(cursor ? { cursor } : {}) });
       return parseProxyFollowers(await proxyRequest(socialReadUrl(`/v2/social/users/${wallet}/followers?${query}`), 'GET', signal), wallet);
     } : null,
+    signal,
   );
 }

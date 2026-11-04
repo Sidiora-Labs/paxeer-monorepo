@@ -1,0 +1,43 @@
+[repair.22.33.947]
+mode = "BUILD"
+audit = "22.30.25"
+baseline = "Not run: the explicit gate order forbids tests before complete implementation and requires hf-build before hf-done; no unchanged-tree test failure is claimed."
+evidence = "hf-build and hf-done record the candidate revision, exact command, exit and private log; the final response copies the last gate evidence without a manual spec edit."
+
+[finding.airdrop-probe-abort]
+tests = ["TestRepairM_947_AirdropProbeAbort"]
+repair = "Check nestedAborted before ordinary tokenAddress, getPastTotalSupply and getPastBalance probe failures; real nested EVM callbacks enter the production executor fail-fast precompile at each position and later probes never execute."
+
+[finding.router-abort-loss]
+tests = ["TestRepairM_947_RouterAbortLoss", "TestRepairM_947_OptionalPermitRefusal"]
+repair = "applyPermit returns errors and all four callers propagate aborts; sell-transfer and recursively nested multicall preserve aborts before ABI error wrapping; a real ERC20 invalid permit still permits a funded buy using an existing allowance."
+
+[finding.outer-abort-conversion]
+tests = ["TestRepairM_947_OuterAbortConversion"]
+repair = "The outer run extracts the underlying vm.AbortError before ordinary revert handling; real outer EVM contracts catch an ordinary token revert but cannot reach their continuation SSTORE after a nested execution abort, directly or through role surfaces and recursive batches."
+
+[finding.golden-event-payload-gap]
+tests = ["TestRepairM_947_GoldenEventPayload", "TestRepairM_947_GoldenLogOrder"]
+repair = "Golden replay decodes and canonically re-encodes full nonindexed payloads, translates only ABI address and named timestamp/blockNumber fields, and preserves dependent event order; callTracer positions interleave parent and child logs; real buy logs prove every numeric payload field and dependent order affect comparison."
+
+[finding.surface-value-test]
+tests = ["TestRepairM_947_SurfaceValue"]
+repair = "TestSurfaceCallKindRefusals also drives funded evm.Call through installed role and pool surfaces with nonzero value, including pool and role writes; zero-value controls succeed and native balances, keeper state and logs remain unchanged on refusal."
+
+[finding.registry-unbounded-reads]
+tests = ["TestRepairM_947_RegistryBoundedReads", "TestRepairM_947_RegistryIndexReopen"]
+repair = "Pool/token lookup uses the existing persisted token index; registry pages retain only the requested window and stop at its end; counts accumulate scalars; each visited market, including skipped native/creator positions, is paid before decoding from the shared EVM gas budget; zero-size and impossible-offset pages do no scan."
+wiring = "modules/launchpad/keeper — launchpad module owner domain 4: persist pool-order and creator-order positions/counts, migrate existing markets with durable restart coverage, and expose bounded pool/creator window and count APIs for precompiles/launchpad/views.go; this out-of-scope keeper work remains outstanding."
+recovery = "The in-scope reopen proof flushes the real cache store, releases the keeper/EVM and reopens fresh consumers, checking the existing token index, migrated genesis pools and a newly created pool; it does not claim a new keeper index migration or a disk-restart gate."
+
+[qualification.notes]
+workflow = "Root GOTCHA.kvx, spec task/qualification records, commits and pushes are outside the explicit writable authority; this in-scope record carries the finding mapping and wiring request, and the runner owns publication."
+gotcha = "callTracer log positions count completed subcalls; parent-first concatenation loses cross-frame event order, so decode position and interleave before comparing ordered logs."
+
+[qualification.repair_1]
+observed = "The initial payload test expected only three trade events, while the real buy also emits Treasury.Deposited and FeeAccumulator.FeeRecorded before them."
+repair = "Retain the three-trade-event assertion, assert the complete ordered five-event sequence, mutate each numeric fee payload too, and use a consistent positive EVM/keeper block height for the H-to-H+1 translation vector."
+failed_revision = "80cfb1407bf519dbf4cf73ff062a920d2809fa44"
+failed_command = "cg spec done 22.33.947 -f layerx-merge --root /work/paxeer-monorepo"
+failed_exit = 1
+failed_log = "/out/logs/verify-1.log"

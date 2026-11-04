@@ -32,7 +32,8 @@ func TestAddressConversions(t *testing.T) {
 	evmAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	t.Run("pubkey conversion to pax pubkey", func(t *testing.T) {
-		paxPubkey := PubkeyBytesToPaxPubKey(pubkeyBytes)
+		paxPubkey, err := PubkeyBytesToPaxPubKey(pubkeyBytes)
+		require.NoError(t, err)
 		require.NotNil(t, paxPubkey.Key)
 		require.Equal(t, 33, len(paxPubkey.Key)) // Compressed key length
 	})
@@ -110,7 +111,8 @@ func TestKeyConversionConsistency(t *testing.T) {
 	uncompressedPubkey := crypto.FromECDSAPub(&privateKey.PublicKey)
 
 	// Convert to Pax pubkey
-	paxPubkey := PubkeyBytesToPaxPubKey(uncompressedPubkey)
+	paxPubkey, err := PubkeyBytesToPaxPubKey(uncompressedPubkey)
+	require.NoError(t, err)
 
 	// Get EVM address from both sources
 	evmAddr1 := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -137,17 +139,19 @@ func TestKeyConversionConsistency(t *testing.T) {
 
 func TestEdgeCases(t *testing.T) {
 	t.Run("pubkey conversion edge cases", func(t *testing.T) {
-		// Test with a byte array that has correct prefix but is empty after prefix
-		invalidKey := []byte{0x04} // Just the prefix, no actual key data
-		_, err := PubkeyToEVMAddress(invalidKey)
-		// This should succeed in PubkeyToEVMAddress but may fail elsewhere
-		// Since our function just checks prefix and computes keccak256, it should work
-		require.NoError(t, err) // Changed expectation based on actual implementation
+		for _, invalidKey := range [][]byte{{0x04}, append([]byte{0x04}, make([]byte, 64)...)} {
+			addr, err := PubkeyToEVMAddress(invalidKey)
+			require.ErrorIs(t, err, ErrInvalidPubkey)
+			require.Equal(t, common.Address{}, addr)
 
-		// Test that the function produces a valid 20-byte address even with minimal data
-		addr, err := PubkeyToEVMAddress(invalidKey)
-		require.NoError(t, err)
-		require.Equal(t, 20, len(addr.Bytes()))
+			require.NotPanics(t, func() {
+				evmAddr, paxAddr, pubkey, err := GetAddressesFromPubkeyBytes(invalidKey)
+				require.ErrorIs(t, err, ErrInvalidPubkey)
+				require.Equal(t, common.Address{}, evmAddr)
+				require.Empty(t, paxAddr)
+				require.Nil(t, pubkey)
+			})
+		}
 	})
 
 	t.Run("address byte array conversions", func(t *testing.T) {

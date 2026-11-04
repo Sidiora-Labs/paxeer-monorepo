@@ -1,0 +1,56 @@
+[meta]
+task = "22.33.101"
+audit = "22.30.111"
+acceptance = "22998.1"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+qualification = "hf-build followed by hf-done on the same candidate; the final gate JSON records the verified revision, exact command, exit code and private evidence log."
+baseline = "Not run: the explicit ordered gate instructions forbid tests before complete implementation and forbid running verify_cmd by hand; no prior build/verify ledger or repair test existed on entry, so no pre-change test failure is claimed."
+
+[finding.14]
+repair = "RemoteChainSigner::sign_digest refuses every non-secp256k1 configuration before transport; Ed25519 callers use sign_message with the full bounded message."
+test = "finding_14_signer_methods_match_the_actual_decoder"
+proof = "Both successful methods and policy/handle refusals cross UDS into the actual mirror-signer SignerListener and request decoder; cross-algorithm and message-bound errors are refused locally."
+
+[finding.28]
+repair = "Pin the current v4 instruction/account layout through the actual publisher, signer, loopback RPC and account consumer without changing the existing producer bytes."
+test = "finding_28_v4_instructions_and_accounts_round_trip"
+proof = "The committed loopback peer from repair_22_31_166 consumes real signed publisher transactions; the production publisher reopens its journal and retrieves manifest/chunk accounts with its actual decoders; the v3 manifest is refused. This does not claim execution of the Solana program runtime."
+wiring_request = "Domain 11 (interop): reconcile spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/interop-mirror-contracts.md instruction/manifest/chunk rows with services/interop/crates/layerx-mirror/src/solana.rs and services/interop/contracts/solana-mirror/src/lib.rs v4 layouts, account lists and PDA seeds, preserving every byte offset; use the existing program runtime qualification for its side of the interface."
+
+[finding.26]
+repair = "Prove v3 head/journal/spool bytes, committed coordinates and cursor after reopen, retaining incompatible bytes unchanged on refusal."
+test = "finding_26_v3_retained_state_round_trips_and_incompatible_state_is_preserved"
+proof = "Real journal and spool encoders write state; independent public readers reopen it and check its retained signed transaction and committed coordinate. Checksum-valid obsolete record/spool envelopes and the obsolete head magic remain refused."
+wiring_request = "Domain 11 (interop): update spec/layerx-merge/interfaces.kvx head/journal/spool contracts and registry to LXMHED03/LXMJNL03/LXMSPL03 and committed coordinates, including the retained-state upgrade procedure below; do not advertise v2 bytes as current or an automatic migration."
+
+[retained_state_upgrade]
+policy = "There is no implicit v2-to-v3 migration: a v3 publisher must never open, rewrite, truncate or delete retained v2 state."
+step_1 = "Stop writers and retain a consistent, durable copy of every v2 lane journal, sealed head, spool object, configuration and matching v2 executable; keep the originals read-only outside the v3 state directory."
+step_2 = "Under the matching v2 executable, verify every retained hash chain, sealed head and spool object; inventory commitments, exact signed payloads/transaction identities, terminal outcomes and the contiguous verified cursor. If the retained reader cannot verify any item, stop the upgrade."
+step_3 = "Resolve every prepared, signed, pending, unknown, expired or reorged operation with the matching v2 publisher and canonical chain history; an unresolved or ambiguous transaction blocks cutover and remains in retained v2 state. Never infer failure from an absent transaction alone."
+step_4 = "For every completed commitment retrieve the immutable archive through its pinned chain target and compare its full bytes and commitment with the retained spool; independently verify the canonical finality positions and the contiguous publication cursor. Preserve a durable reconciliation inventory linking the old coordinates and archive bytes to their committed height/hash; missing committed identity blocks cutover."
+step_5 = "Only after reconciliation is complete, initialize a distinct empty v3 directory at the operator-verified next committed height via the existing first_batch_number configuration. Preserve v2 journals, heads, spool and reconciliation inventory indefinitely for retained-history reads; never relabel old checkpoint coordinates as committed coordinates."
+step_6 = "Reopen the new v3 journal/spool and verify its next-height configuration and every new committed coordinate; retrieve a newly published archive through the real reader and authenticate its receipts before cutover. On failure stop v3 and restore the preserved v2 deployment only after reconciling any new v3 transactions; never point a v2 executable at v3 state."
+
+[finding.12]
+repair = "Ordinary open reports RecoveryRequired for an incomplete suffix only after matching the independent sealed head and validating complete extensions. recover_unsealed_suffix holds the lane lock, verifies the same prefix, truncates only the incomplete tail, syncs the log, then atomically seals the recovered head. Complete valid signed extensions survive."
+tests = ["finding_12_every_incomplete_frame_suffix_requires_explicit_durable_recovery", "finding_12_interrupted_head_writes_retain_complete_signed_frames", "finding_12_authenticated_damage_and_rollback_are_never_truncated"]
+proof = "Byte cuts cover every offset in first and signed frames and every temporary-head offset; the test drops and reopens the real journal, checks exact recovered bytes/records/cursor, appends again, and reopens again. Sealed damage, invalid complete extensions, rollback, missing recovery authority and damaged authoritative heads remain refused without truncation."
+operation = "Stop the lane writer and preserve the directory first; use PublicationJournal::recover_unsealed_suffix(directory, chain, first_batch_number) only for RecoveryRequired. Inspect the returned retained records before resuming publication; do not delete the journal or head or repair a corrupt authoritative head from its temporary file."
+
+[finding.24]
+repair = "Prove the public from_committed_source(ObservedArchive), committed() and committed_receipt(index, receipt_key_windows) interfaces and their MirrorVerification<Receipt> result; source admission alone does not authenticate receipts."
+test = "finding_24_observed_committed_source_uses_index_and_key_windows"
+proof = "A production-published archive crosses the pinned Solana RPC reader into MirrorSources and from_committed_source; receipts retain the source observation, authenticate under their exact key window and refuse absent indices, missing/wrong keys and both out-of-window directions."
+wiring_request = "Domain 11 (interop), with registered SDK/explorer consumer owners: reconcile spec/layerx-merge/interfaces.kvx verifier rows/caller inventories and spec/layerx-merge/contracts/interop-mirror-contracts.md examples to from_committed_source(ObservedArchive), committed() and committed_receipt(index, &[SequencerAuthorization]) -> MirrorVerification<Receipt>; keep receipt authentication explicit and replace obsolete tx-hash/height/from_source examples."
+
+[constraints]
+scope = "Only layerx-mirror/src and tests/repair_22_33_101.rs changed; no specification, contract, manifest, unrelated source, commit or push is performed by this task."
+peers = "The actual mirror-signer source is compiled as a test module because the crate manifest is out of scope; the Solana peer reuses the committed loopback transcript, with contextual account responses for the real read-only source. No external endpoint, credential, toolchain subprocess or device is required."
+
+[qualification_repair.1]
+revision = "487097006a85b323b04145dd4fb3e22071601fb3"
+command = "cargo build --locked --manifest-path services/interop/crates/layerx-mirror/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The integration test used crate-private NodeHead::new; construct the same public type through its public fields."

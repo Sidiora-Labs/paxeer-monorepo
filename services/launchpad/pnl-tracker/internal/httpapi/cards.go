@@ -1,10 +1,7 @@
 package httpapi
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,39 +24,19 @@ type CardDeps struct {
 	ShareLabel func(shortCode string) string
 }
 
-// RegisterCards wires card mint, hydrate, and OG image rendering.
+// RegisterCards retains immutable archive reads and explicitly retires minting.
+// Compatibility: existing card IDs hydrate their original snapshot and OG image;
+// they never issue a v3 share or bypass its owner-approved publication lifecycle.
 func RegisterCards(r chi.Router, deps CardDeps) {
 	r.Post("/pnl/cards", mintCard(deps))
 	r.Get("/pnl/cards/{cardId}", getCard(deps))
 	r.Get("/pnl/cards/{cardId}/og.png", ogImage(deps))
 }
 
-type mintCardBody struct {
-	OwnerAddress string `json:"ownerAddress"`
-	PoolAddress  string `json:"poolAddress"`
-}
-
 func mintCard(deps CardDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var body mintCardBody
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid JSON body")
-			return
-		}
-		if body.OwnerAddress == "" || body.PoolAddress == "" {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "ownerAddress and poolAddress required")
-			return
-		}
-		minted, err := deps.Cards.Mint(r.Context(), strings.ToLower(body.OwnerAddress), strings.ToLower(body.PoolAddress))
-		if errors.Is(err, card.ErrNoPosition) {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "no position to mint a card for")
-			return
-		}
-		if err != nil {
-			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "card mint failed")
-			return
-		}
-		sharedhttp.WriteJSON(w, http.StatusOK, minted)
+		w.Header().Set("Cache-Control", "no-store")
+		sharedhttp.WriteError(w, http.StatusGone, "Gone", "legacy card minting retired; use owner-approved /v3/me/portfolio/shares/preview and /v3/me/portfolio/shares")
 	}
 }
 

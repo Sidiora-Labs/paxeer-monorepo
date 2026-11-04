@@ -118,15 +118,21 @@ func (p *http) LightBlock(ctx context.Context, height int64) (*types.LightBlock,
 		return nil, err
 	}
 
-	if height != 0 && sh.Height != height {
+	if sh == nil {
 		return nil, provider.ErrBadLightBlock{
-			Reason: fmt.Errorf("height %d responded doesn't match height %d requested", sh.Height, height),
+			Reason: errors.New("returned signed header is nil unexpectedly"),
 		}
 	}
 
 	if sh.Header == nil {
 		return nil, provider.ErrBadLightBlock{
 			Reason: errors.New("returned header is nil unexpectedly"),
+		}
+	}
+
+	if height != 0 && sh.Height != height {
+		return nil, provider.ErrBadLightBlock{
+			Reason: fmt.Errorf("height %d responded doesn't match height %d requested", sh.Height, height),
 		}
 	}
 
@@ -241,6 +247,11 @@ func (p *http) signedHeader(ctx context.Context, height *int64) (*types.SignedHe
 		commit, err := p.client.Commit(ctx, height)
 		switch e := err.(type) {
 		case nil: // success!!
+			if commit == nil {
+				return nil, provider.ErrBadLightBlock{
+					Reason: errors.New("returned commit result is nil unexpectedly"),
+				}
+			}
 			return &commit.SignedHeader, nil
 
 		case *url.Error:

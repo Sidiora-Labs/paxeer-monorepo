@@ -1,0 +1,10 @@
+[repair]
+task = "22.33.938"
+finding = "order-cancel-wallet-step"
+proof = "repair-22-33-938.test.ts: orderCancelWalletStepRetainsPreparedRequestUntilConfirmed, orderCancelWalletStepKeepsUnavailableExplicitAndRetryIdempotent, orderCancelWalletStepRefreshesOnlyConfirmedApiOutcome, orderCancelWalletStepRejectsMismatchedResponse, orderCancelWalletStepUsesRealUnavailableProvider"
+change = "Retain prepared requests for explicit wallet review; admit only the reviewed provider's exact cancellation call and owned order, resume its existing attempt, and refresh only on confirmed cancellation or a verified fill race. Reuse the preparation idempotency key on retries."
+baseline = "Not executed: the task's implementation-first order and bounded hf-build/hf-done gates prohibit a separate unchanged-tree verify; no baseline failures are claimed."
+producer = "services/launchpad/api/internal/app/dev_network_reads.go explicitly leaves IF_ORDER_CANCEL unavailable; the focused test uses an in-memory HTTP contract fixture through the real SdkClient and OrdersList plus the real createAdvancedProvider with unavailable bindings, and does not claim an executed successful owning-producer/wallet transaction."
+wiring_request = "Domain 4: services/launchpad/api/internal/app/dev_network_reads.go must provide an admitted cancellation producer and apps/launchpad/web/src/widgets/terminal/coin-view.tsx must pass its reviewed AdvancedProvider to OrdersPanel.cancellationProvider; retain explicit unavailable behavior until those authorities exist."
+evidence = "The runner's private hf-done ledger records the exact qualified candidate revision, command, exit code and log; no gate result is asserted in this source record."
+qualification_repair = "287e286a90debe725d0ece5dbac05ee17e4f9944; cg spec done 22.33.938 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log: the test fixture omitted its loopback WebSocket allowlist; add that origin and enable jsdom's visual clock for the real modal focus effect."

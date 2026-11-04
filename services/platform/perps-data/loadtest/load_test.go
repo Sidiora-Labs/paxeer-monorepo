@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery/natsdriver"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/gateway"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/markets"
@@ -121,15 +121,12 @@ func broker(t *testing.T, ctx context.Context) (*nats.Conn, jetstream.JetStream)
 	return nc, js
 }
 
-// trader writes one fill per market every fillEvery as the indexer does: the
-// fill row, the remaining size of its resting maker order and the head
-// cursor in one transaction, then the fill message on PERPS_V1 with the
-// headers of the perps publisher.
+// trader writes typed order and fill facts through the indexer block writer.
+// Facts, projections, cursor and delivery outbox commit together; publish.Publisher
+// drains that outbox independently, as it does in the indexer.
 type trader struct {
 	db    *sql.DB
-	js    jetstream.JetStream
 	block int64
-	seq   int64
 	fills int
 }
 
@@ -151,72 +148,75 @@ func (tr *trader) run(ctx context.Context) error {
 	}
 }
 
+// roundRows uses the decoder's production row types. A taker order is placed
+// before its fill so both sides of the normal order projection exist.
+func (tr *trader) roundRows(block int64, now time.Time) *decode.Result {
+	result := &decode.Result{}
+	for m := range len(markets.Seed) {
+		n := tr.fills + m
+		k := n % (2 * levelsPerSide)
+		from := common.BytesToAddress(taker)
+		fact := decode.Fact{Block: uint64(block), BlockHash: common.BytesToHash(hash32(block, -1, 0)),
+			TxHash: common.BytesToHash(hash32(block, 0, m)), TxIndex: 0, LogIndex: int64(2 * m),
+			ReceiptKind: decode.ReceiptTx, BlockTime: now, Emitter: common.BytesToAddress(perpsEmitter), Account: from, TxFrom: &from, Kind: "placed"}
+		takerID := strconv.Itoa(1_000_000 + n)
+		order := decode.OrderPlacedRow{Fact: fact, OrderID: takerID, User: from, MarketID: strconv.Itoa(m),
+			OrderType: 0, IsLong: k >= levelsPerSide, TriggerPrice: "0", SizeUSD: "1" + e18}
+		result.Decoded = append(result.Decoded, decode.Decoded{Event: decode.Event{EventName: "OrderPlaced"}, Rows: []decode.Row{order}})
+		fact.Kind, fact.LogIndex = "fill", int64(2*m+1)
+		fill := decode.FillRow{Fact: fact, MarketID: strconv.Itoa(m), MakerOrderID: strconv.FormatInt(orderID(m, k), 10),
+			TakerOrderID: takerID, Maker: common.BytesToAddress(maker), Taker: from, TakerIsLong: order.IsLong,
+			Price: "1000" + e18, SizeUSD: "1" + e18, MakerFeeUSD: "0", TakerFeeUSD: "0"}
+		result.Decoded = append(result.Decoded, decode.Decoded{Event: decode.Event{EventName: "Fill"}, Rows: []decode.Row{fill}})
+	}
+	return result
+}
+
 func (tr *trader) round(ctx context.Context) error {
-	tr.block++
-	block := headBlock + tr.block
-	now := time.Now().UTC()
+	block := int64(headBlock) + tr.block + 1
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	b := store.Block{Number: uint64(block), Hash: common.BytesToHash(hash32(block, -1, 0)),
+		ParentHash: common.BytesToHash(hash32(block-1, -1, 0)), Time: now, TxCount: 1}
 	tx, err := tr.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback() }()
-	for m := range len(markets.Seed) {
-		k := tr.fills % (2 * levelsPerSide)
-		if _, err := tx.ExecContext(ctx, `INSERT INTO perps.fills (block, block_hash, tx_index, log_index, sub, tx_hash, receipt_kind,
-			block_time, emitter, kind, account, tx_from, market_id, maker_order_id, taker_order_id, maker, taker, taker_is_long, price,
-			size_usd, maker_fee_usd, taker_fee_usd) VALUES ($1, $2, 0, $3, 0, $4, 'tx', $5, $6, 'fill', $7, $7, $8, $9, $10, $11, $7, $12,
-			$13, $14, 0, 0)`,
-			block, hash32(block, -1, 0), m, hash32(block, 0, m), now, perpsEmitter, taker, m, orderID(m, k), int64(1_000_000+tr.fills),
-			maker, k >= levelsPerSide, "1000"+e18, "1"+e18); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE perps.orders SET remaining_size_usd = remaining_size_usd - $2::numeric WHERE order_id = $1`,
-			orderID(m, k), "1"+e18); err != nil {
-			return err
-		}
-		tr.fills++
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO perps.blocks (number, hash, parent_hash, time, proposer, tx_count) VALUES ($1,$2,$3,$4,$5,$6)`,
+		block, b.Hash.Bytes(), b.ParentHash.Bytes(), now, "loadtest", b.TxCount); err != nil {
+		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE perps.cursors SET height = $1, hash = $2 WHERE name = 'head'`, block, hash32(block, -1, 0)); err != nil {
+	if err := store.WriteBlock(ctx, tx, b, tr.roundRows(block, now)); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE perps.cursors SET height = $1, hash = $2 WHERE name = 'head'`, block, b.Hash.Bytes()); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	for m := range len(markets.Seed) {
-		if err := tr.publish(ctx, m, block, now); err != nil {
-			return err
-		}
-	}
+	tr.block++
+	tr.fills += len(markets.Seed)
 	return nil
 }
 
-func (tr *trader) publish(ctx context.Context, market int, block int64, at time.Time) error {
-	tr.seq++
-	subject, err := stream.MarketSubject(testChain, uint64(market), "fill")
+func startLoadPublisher(t *testing.T, ctx context.Context, db *sql.DB, nc *nats.Conn) {
+	t.Helper()
+	p, err := publish.New(db, nc, store.Policy(testChain), publish.Config{Owner: "loadtest", Batch: 256, MaxAttempts: 3,
+		LeaseDuration: 10 * time.Second, PublishTimeout: 2 * time.Second, RetryDelay: time.Second,
+		IdleInterval: time.Millisecond, MaxHeadAge: time.Minute})
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	id, err := natsdriver.MsgID(fmt.Sprintf("%d:%d:0x%x:0:%d:0", testChain, block, hash32(block, -1, 0), market))
-	if err != nil {
-		return err
-	}
-	payload := `{"block_time":"` + at.Format(time.RFC3339Nano) + `"}`
-	env := delivery.Envelope{
-		EventID: id, EventType: "fill", SchemaVersion: 1, ChainID: testChain,
-		SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(block, 10), TransactionIndex: "0", LogIndex: strconv.Itoa(market)},
-		EmittedAt:   at.Truncate(time.Microsecond), TraceID: id,
-		PayloadHash: delivery.Hash([]byte(payload)), Payload: json.RawMessage(payload),
-	}
-	wire, err := env.Encode(delivery.Policy{Subjects: map[string]bool{subject: true}, EventTypes: map[string]bool{"fill": true}}, subject)
-	if err != nil {
-		return err
-	}
-	msg := &nats.Msg{Subject: subject, Data: wire, Header: nats.Header{}}
-	msg.Header.Set(publish.HeaderSeq, strconv.FormatInt(tr.seq, 10))
-	msg.Header.Set(publish.HeaderBlock, env.SourceOrder.Height)
-	msg.Header.Set(publish.HeaderKind, "fill")
-	_, err = tr.js.PublishMsg(ctx, msg, jetstream.WithMsgID(id), jetstream.WithExpectStream(stream.Name))
-	return err
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() { done <- p.Run(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; !errors.Is(err, context.Canceled) {
+			t.Errorf("publisher: %v", err)
+		}
+	})
 }
 
 func TestLoadProfileServedSymbols(t *testing.T) {
@@ -343,12 +343,17 @@ func TestLoadProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedBooks(t, ctx, db)
-	nc, js := broker(t, ctx)
+	nc, _ := broker(t, ctx)
 	node, err := ethclient.DialContext(ctx, rpcURL)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(node.Close)
+	runLoadProfile(t, ctx, cancel, db, nc, node)
+}
+
+func runLoadProfile(t *testing.T, ctx context.Context, cancel context.CancelFunc, db *sql.DB, nc *nats.Conn, node *ethclient.Client) {
+	t.Helper()
 	metrics, err := telemetry.New(config.Gateway)
 	if err != nil {
 		t.Fatal(err)
@@ -359,6 +364,7 @@ func TestLoadProfile(t *testing.T) {
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
+	t.Cleanup(cancel)
 	runErr := make(chan error, 1)
 	go func() { runErr <- srv.Run(ctx) }()
 	deadline := time.Now().Add(30 * time.Second)
@@ -375,8 +381,11 @@ func TestLoadProfile(t *testing.T) {
 	}
 
 	tradeCtx, stopTrades := context.WithCancel(ctx)
+	t.Cleanup(stopTrades)
 	tradeErr := make(chan error, 1)
-	tr := &trader{db: db, js: js}
+	startLoadPublisher(t, ctx, db, nc)
+	observe := observeProductionFills(t, nc)
+	tr := &trader{db: db}
 	go func() { tradeErr <- tr.run(tradeCtx) }()
 
 	socketURL, err := SocketURL(ts.URL)
@@ -401,6 +410,25 @@ func TestLoadProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("report %s", raw)
+	observe.assert(t, tr.fills)
+	deadline = time.Now().Add(5 * time.Second)
+	for {
+		var pending int64
+		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM perps.delivery_outbox WHERE state <> 'published'`).Scan(&pending); err != nil {
+			t.Fatal(err)
+		}
+		if pending == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%d production outbox rows did not receive persistence acknowledgements", pending)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	assertProductionTrades(t, ts.URL, symbols, tr.block)
+	if report.TradeFrames < int64(testSockets) || report.InvalidTrades != 0 {
+		t.Fatalf("production trade frames %d, invalid %d", report.TradeFrames, report.InvalidTrades)
+	}
 
 	t.Run("sockets", func(t *testing.T) {
 		if profile.Sockets != testSockets || FullProfile(symbols).Sockets != 140000 || len(profile.Symbols) != 18 {

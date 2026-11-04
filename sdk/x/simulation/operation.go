@@ -2,7 +2,9 @@ package simulation
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
+	"reflect"
 	"sort"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/simulation"
@@ -73,9 +75,9 @@ func NewOperationQueue() OperationQueue {
 }
 
 // queueOperations adds all future operations into the operation queue.
-func queueOperations(queuedOps OperationQueue, queuedTimeOps []simulation.FutureOperation, futureOps []simulation.FutureOperation) {
+func queueOperations(queuedOps OperationQueue, queuedTimeOps []simulation.FutureOperation, futureOps []simulation.FutureOperation) []simulation.FutureOperation {
 	if futureOps == nil {
-		return
+		return queuedTimeOps
 	}
 
 	for _, futureOp := range futureOps {
@@ -103,6 +105,7 @@ func queueOperations(queuedOps OperationQueue, queuedTimeOps []simulation.Future
 		copy(queuedTimeOps[index+1:], queuedTimeOps[index:])
 		queuedTimeOps[index] = futureOp
 	}
+	return queuedTimeOps
 }
 
 // WeightedOperation is an operation with associated weight.
@@ -131,28 +134,40 @@ func NewWeightedOperation(weight int, op simulation.Operation) WeightedOperation
 // WeightedOperations is the group of all weighted operations to simulate.
 type WeightedOperations []simulation.WeightedOperation
 
-func (ops WeightedOperations) totalWeight() int {
-	totalOpWeight := 0
-	for _, op := range ops {
-		totalOpWeight += op.Weight()
-	}
-
-	return totalOpWeight
-}
-
-func (ops WeightedOperations) getSelectOpFn() simulation.SelectOpFn {
-	totalOpWeight := ops.totalWeight()
-
-	return func(r *rand.Rand) simulation.Operation {
-		x := r.Intn(totalOpWeight)
-		for i := 0; i < len(ops); i++ {
-			if x <= ops[i].Weight() {
-				return ops[i].Op()
-			}
-
-			x -= ops[i].Weight()
+// getSelectOpFn validates and snapshots all weights before admitting a run.
+func (ops WeightedOperations) getSelectOpFn() (simulation.SelectOpFn, error) {
+	total := 0
+	maxInt := int(^uint(0) >> 1)
+	admitted := make([]WeightedOperation, len(ops))
+	for i, weighted := range ops {
+		if weighted == nil || (reflect.ValueOf(weighted).Kind() == reflect.Ptr && reflect.ValueOf(weighted).IsNil()) {
+			return nil, fmt.Errorf("operation %d: nil weighted operation", i)
 		}
-		// shouldn't happen
-		return ops[0].Op()
+		weight := weighted.Weight()
+		if weight < 0 {
+			return nil, fmt.Errorf("operation %d: negative weight %d", i, weight)
+		}
+		if weight > maxInt-total {
+			return nil, fmt.Errorf("operation %d: total weight overflows int", i)
+		}
+		op := weighted.Op()
+		if weight > 0 && op == nil {
+			return nil, fmt.Errorf("operation %d: positive weight %d has nil operation", i, weight)
+		}
+		total += weight
+		admitted[i] = NewWeightedOperation(weight, op)
 	}
+	if total == 0 {
+		return nil, fmt.Errorf("operation weights: total must be positive (empty or all disabled)")
+	}
+	return func(r *rand.Rand) simulation.Operation {
+		x := r.Intn(total)
+		for _, op := range admitted {
+			if x < op.Weight() {
+				return op.Op()
+			}
+			x -= op.Weight()
+		}
+		panic("validated operation weights exhausted")
+	}, nil
 }

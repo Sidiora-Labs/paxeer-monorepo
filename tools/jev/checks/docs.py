@@ -15,6 +15,10 @@ CHECK_NAME = "docs"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SOURCE = "README.md"
 DEFAULT_TRANSLATIONS = "docs/readme/README.*.md"
+TRANSLATION_CATALOG = (
+    (DEFAULT_SOURCE, DEFAULT_TRANSLATIONS),
+    (DEFAULT_SOURCE, "docs/site/docs/overview/i18n/*.md"),
+)
 PREAMBLE_TITLE = "(preamble)"
 PAIRING_QUESTION = "section_pairing"
 MISSING_SECTION = "missing_section"
@@ -55,9 +59,14 @@ FENCE = re.compile(r"^\s{0,3}(?:`{3,}|~{3,})")
 HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
 MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 HTML_IMAGE = re.compile(r"<img\b[^>]*>")
-MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+MARKDOWN_LINK = re.compile(
+    r"\[([^\]]*)\]\(((?:[^()\s]|\([^()\n]*\))+)(?:\s+\"[^\"]*\")?\)"
+)
 BARE_URL = re.compile(r"<?\bhttps?://[^\s<>)\"']+>?")
 HTML_TAG = re.compile(r"</?[a-zA-Z][^>]*>")
+HTML_LINK = re.compile(r"<a\b[^>]*\bhref\s*=\s*['\"]([^'\"]*)['\"][^>]*>", re.I)
+REFERENCE_LINK = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?")
+INLINE_CODE = re.compile(r"(`+)(.+?)\1")
 BLANKS = re.compile(r"[ \t]+")
 
 
@@ -158,18 +167,18 @@ def pair_sections(
 
 def sanitize(body: str) -> str:
     kept: list[str] = []
-    fenced = False
     for raw in body.splitlines():
         if FENCE.match(raw):
-            fenced = not fenced
-            continue
-        if fenced:
             continue
         cleaned = MARKDOWN_IMAGE.sub(" ", raw)
         cleaned = HTML_IMAGE.sub(" ", cleaned)
-        cleaned = MARKDOWN_LINK.sub(r"\1", cleaned)
-        cleaned = BARE_URL.sub(" ", cleaned)
+        cleaned = MARKDOWN_LINK.sub(
+            lambda match: f"{match[1]} ({match[2]})" if match[1].strip() else " ", cleaned
+        )
+        cleaned = HTML_LINK.sub(r" \1 ", cleaned)
+        cleaned = re.sub(r"<(https?://[^>]+)>", r"\1", cleaned)
         cleaned = HTML_TAG.sub(" ", cleaned)
+        cleaned = INLINE_CODE.sub(r"\2", cleaned)
         cleaned = BLANKS.sub(" ", cleaned).strip()
         if not cleaned:
             if kept and kept[-1]:
@@ -179,6 +188,78 @@ def sanitize(body: str) -> str:
     while kept and not kept[-1]:
         kept.pop()
     return "\n".join(kept)
+
+
+def comparison_evidence(body: str) -> dict[str, list[str]]:
+    commands: list[str] = []
+    destinations: list[str] = []
+    code: list[str] = []
+    fence: tuple[str, int] | None = None
+
+    def command_text(lines: Sequence[str]) -> str:
+        return re.sub(r"[ \t]*\\\n[ \t]*", " ", "\n".join(lines)).strip()
+
+    for raw in body.splitlines():
+        marker = FENCE.match(raw)
+        if marker:
+            token = raw.strip().split()[0]
+            if fence is None:
+                fence = (token[0], len(token) - len(token.lstrip(token[0])))
+            elif token[0] == fence[0] and len(token) >= fence[1]:
+                if code:
+                    commands.append(command_text(code))
+                code = []
+                fence = None
+            continue
+        if fence is not None:
+            code.append(raw.rstrip())
+            continue
+        cleaned = HTML_IMAGE.sub(" ", MARKDOWN_IMAGE.sub(" ", raw))
+        for match in MARKDOWN_LINK.finditer(cleaned):
+            if match[1].strip():
+                destinations.append(match[2].strip("<>"))
+        destinations.extend(match[1] for match in HTML_LINK.finditer(cleaned))
+        reference = REFERENCE_LINK.match(cleaned)
+        if reference:
+            destinations.append(reference[1])
+        destinations.extend(match[0].strip("<>") for match in BARE_URL.finditer(cleaned))
+        commands.extend(match[2].strip() for match in INLINE_CODE.finditer(cleaned))
+    if code:
+        commands.append(command_text(code))
+    return {"commands": commands, "destinations": sorted(set(destinations))}
+
+
+def configured_catalog(
+    args: argparse.Namespace,
+    repo_root: Path = REPO_ROOT,
+) -> list[tuple[Path, list[Path]]]:
+    entries = (
+        ((args.source, args.translations),)
+        if args.translations is not None
+        else tuple(
+            (source if args.source == DEFAULT_SOURCE else args.source, pattern)
+            for source, pattern in TRANSLATION_CATALOG
+        )
+    )
+    catalog: list[tuple[Path, list[Path]]] = []
+    for source, pattern in entries:
+        source_path = Path(source)
+        if not source_path.is_absolute():
+            source_path = repo_root / source_path
+        if not source_path.is_file():
+            raise JevConfigError(f"source readme {source_path} does not exist")
+        candidate = Path(pattern)
+        root = Path(candidate.anchor) if candidate.is_absolute() else repo_root
+        glob = candidate.relative_to(root).as_posix() if candidate.is_absolute() else pattern
+        translations = [
+            path
+            for path in sorted(root.glob(glob))
+            if path.is_file() and path.resolve() != source_path.resolve()
+        ]
+        if not translations:
+            raise JevConfigError(f"translation catalog {pattern} is empty")
+        catalog.append((source_path, translations))
+    return catalog
 
 
 def unpaired_findings(
@@ -282,17 +363,32 @@ def pair_findings(pair: Pair, evaluation: Evaluation) -> list[Finding]:
 class DocsCheck:
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--source", default=DEFAULT_SOURCE)
-        parser.add_argument("--translations", default=DEFAULT_TRANSLATIONS)
+        parser.add_argument("--translations", default=None)
 
     def run(self, args: argparse.Namespace, client: JevClient) -> Report:
-        source_path = resolve_path(args.source)
-        if not source_path.is_file():
-            raise JevConfigError(f"source readme {source_path} does not exist")
-        source_sections = split_sections(source_path)
+        catalog = configured_catalog(args)
         report = Report(check=CHECK_NAME, revision=git_revision(REPO_ROOT), model=client.model)
-        for translation_path in resolve_translations(args.translations):
-            if translation_path.resolve() == source_path.resolve():
-                continue
+        return self.evaluate_catalog(catalog, client, report)
+
+    def evaluate_catalog(
+        self,
+        catalog: Sequence[tuple[Path, Sequence[Path]]],
+        client: JevClient,
+        report: Report,
+    ) -> Report:
+        for source_path, translations in catalog:
+            self.evaluate_translations(source_path, translations, client, report)
+        return report
+
+    def evaluate_translations(
+        self,
+        source_path: Path,
+        translations: Sequence[Path],
+        client: JevClient,
+        report: Report,
+    ) -> None:
+        source_sections = split_sections(source_path)
+        for translation_path in translations:
             translation_sections = split_sections(translation_path)
             pairs, unpaired_source, unpaired_translation = pair_sections(
                 source_sections, translation_sections
@@ -305,6 +401,8 @@ class DocsCheck:
                     "section": pair.source.title,
                     "source": sanitize(pair.source.body),
                     "translation": sanitize(pair.translation.body),
+                    "source_evidence": comparison_evidence(pair.source.body),
+                    "translation_evidence": comparison_evidence(pair.translation.body),
                 }
                 if not state["source"] and not state["translation"]:
                     continue
@@ -314,7 +412,6 @@ class DocsCheck:
                 report.cost_usd += float(evaluation.usage.get("cost", 0.0))
                 report.model = evaluation.model
                 report.findings.extend(pair_findings(pair, evaluation))
-        return report
 
 
 CHECK = register(CHECK_NAME)(DocsCheck())

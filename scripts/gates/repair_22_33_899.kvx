@@ -1,0 +1,27 @@
+[repair.22.33.899]
+audit = "22.30.185"
+acceptance = "22998.1"
+implementation = "run_gate.py"
+verify = "python3 -m pytest -q scripts/gates/test_repair_22_33_899.py"
+revision_evidence = "The hf-build/hf-done private ledger records the exact candidate revision, command, exit and log; no revision is claimed before qualification."
+baseline = "Not executed: the explicit task order forbids tests before the full implementation and forbids running the verify command by hand; no baseline failure is claimed."
+proof = "TestRepair2233899 inherits every RunGateTest case. Each case commits the production runner into an isolated Git checkout and drives its actual CLI, child processes, filesystem logs and evidence records. Repeated and concurrent processes reopen retained evidence. No mocks or live services."
+
+[finding.gate-mutable-source]
+tests = ["test_dirty_starting_source_is_refused", "test_source_changes_during_command_are_refused", "test_failed_child_cannot_hide_source_change", "test_changed_head_is_refused", "test_untracked_source_created_during_command_is_refused", "test_declared_untracked_build_outputs_are_permitted", "test_tracked_files_in_build_directories_are_source"]
+policy = "Before and after each command, require unchanged HEAD and no tracked, untracked or ignored source edits. Only explicitly named untracked build directories and the requested evidence directory are permitted; tracked files never receive an output exemption. Refusals retain the expected and observed identity in the command log and emit status=source-identity-refusal, exit=125."
+
+[finding.gate-log-overwrite]
+tests = ["test_repeated_log_paths_preserve_previous_attempts", "test_concurrent_log_paths_preserve_both_attempts", "test_existing_command_log_collision_is_refused"]
+policy = "Exclusive UUID attempt directories and exclusive command-log creation preserve declared names. Closed logs and completed attempt directories are read-only; every evidence line names the retained path. A collision is refused with exit=73."
+
+[finding.gate-launch-error]
+tests = ["test_launch_errors_have_distinct_evidence_and_stop_sequence", "test_child_exit_127_is_execution_evidence"]
+policy = "OS launch failures retain errno and error text and emit status=launch-failure, exit=127 for ENOENT and 126 otherwise. Actual child exits remain execution evidence. Neither failure runs a later command."
+
+[finding.gate-retention-tests]
+tests = ["test_repeated_log_paths_preserve_previous_attempts", "test_concurrent_log_paths_preserve_both_attempts", "test_dirty_starting_source_is_refused", "test_source_changes_during_command_are_refused", "test_launch_errors_have_distinct_evidence_and_stop_sequence"]
+policy = "Existing command ordering, root-relative execution, nonzero status, exact evidence, 200-line tails, CLI validation and wave-script criteria remain asserted in the declared repair gate."
+
+[wiring]
+request = "spec/layerx-merge/spec.kvx — fm-tools-ops (domain 22): link this in-scope repair record and the runner's exact revision evidence; spec edits are outside this task's scope."

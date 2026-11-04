@@ -7,7 +7,7 @@ import { z } from "zod";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
 import { buildGetTokenInfo, buildIsTokenPaused } from "@/core/spot/calls";
-import { spotTokenState } from "@/core/spot/tokenState";
+import { spotTokenState, type SpotTokenState } from "@/core/spot/tokenState";
 import { readContract } from "@/hooks/perps/useContract";
 import { getPaxPointer } from "./useSpotOrders";
 
@@ -42,7 +42,18 @@ export function spotTokenStateQueryOptions(token: Address, native = false) {
   });
 }
 
-export function useSpotTokenState(token: Address, native = false) {
+export interface SpotTokenStateResult {
+  /** Null while loading or after a failed read; never implies tradeability. */
+  state: SpotTokenState | null;
+  /** Classified display message on failure, otherwise null. */
+  error: string | null;
+}
+
+/** Read pause/registration state; native tokens resolve the PAX pointer first. */
+export function useSpotTokenState(
+  token: Address,
+  native = false,
+): SpotTokenStateResult {
   const query = useQuery(spotTokenStateQueryOptions(token, native));
   useEffect(() => {
     if (query.error)

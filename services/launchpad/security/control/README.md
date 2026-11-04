@@ -52,13 +52,23 @@ payload SHA256, expiry and idempotency key. Conflicting reuse fails. Transitions
 check an expected uint64 revision and reject overflow. Approval requires a
 distinct operator whose authority is revalidated at execution. Approved replay,
 redrive or export execution creates one durable job in the same transaction;
-retries return that job even after a terminal result.
+retries return that job even after a terminal result. Public replay execution
+requires a configured `ReplayProvider`; otherwise the action remains approved
+and the workflow returns `authority_unavailable`. Jobs bind the proposal key as
+`payloadReference` and retain `control-replay:{jobId}` as completion identity.
 
 `CompleteAction` requires a read-only `JobResultVerifier` proof before recording
 success or failure. [workflows.go](workflows.go) implements `DurableJobResults`
 over persisted executor results and validates replay proposals. A queued job is
 not evidence that an indexer or export executor performed the effect; that owner
 must supply its idempotent inbox, effect/checkpoint transaction and result proof.
+`ReplayWorker` loads and hashes the approved payload, persists a claim and retry
+time before dispatch, and retains the strictly bound owner completion before
+calling `CompleteAction`. A lost acknowledgement retries the same completion
+identity. A retained completion can finish after restart without redispatch.
+The concrete indexer still needs an owning adapter for its generation, revision,
+authorization and canonical checkpoint fields; this runtime does not invent
+those bindings. See [the provider lifecycle contract](provider-contract.md).
 
 Caps cover `pool_creation`, `quote`, `socket` and `paid_features`. Increasing a
 quota, extending expiry, advancing effective time or reactivating expired
@@ -151,13 +161,18 @@ writes a durable revocation/cache-invalidation request atomically. Further
 privileged mutations for that identity are denied at the store. Public status
 uses fixed nonsensitive text.
 
-`IncidentWorker` drains contained incidents, revokes credentials in the control
+`IncidentWorker` selects unfinished outboxes of contained incidents, revokes credentials in the control
 store and persists progress. A configured `RevocationProvider` sends a bounded
 HTTPS PUT to `/v1/identity-revocations/{incident}` and requires matching incident
 and identity, rotation/integrity references, and both secret-revocation and
 cache-invalidation acknowledgements before completing the outbox. Missing or
 unavailable external authority leaves completion pending; local quarantine is
-not evidence of external containment.
+not evidence of external containment. Completed outboxes are never sent again.
+Both incident and settlement drains persist `work_schedule` claims before
+external work, in batches of at most 100. Never-attempted keys precede older
+attempted keys; each key has exponential backoff from 30 seconds to five
+minutes. Completed incidents and permanently uncertain payouts cannot starve
+later identities or obligations. Claims and retry times survive worker restart.
 
 Recovery needs current dual approval bound to the exact incident, rotation and
 integrity references, plus a trusted `RecoveryVerifier`. `IncidentRecovery`
@@ -189,8 +204,9 @@ wrappers and identities.
 
 `NewRuntime` accepts separate control/identity pools, schema bindings, an
 observer and optional verifier, payout/revocation adapters, credentials and
-assets. It rejects incomplete authority combinations. `Run` checks readiness,
-then runs configured reconciliation, incident and settlement workers;
+assets, plus an optional replay provider and its dedicated credential. It
+rejects incomplete authority combinations. `Run` checks readiness,
+then runs configured reconciliation, incident, replay and settlement workers;
 reconciliation uses a 30-second interval. The current gateway configuration
 wires identity/control pools and optional incident/revocation authority, but
 supplies no payout adapter, evidence verifier or reconciliation assets.
@@ -207,7 +223,25 @@ requires the unprivileged `postgres` account. The checker also requires its
 configured Anvil binary at `/root/.foundry/bin/anvil`. Fixture credentials and
 local authorities are test data and never production attestation.
 
-This documentation rewrite does not run that checker or certify a deployment.
+The bounded repair gate runs only `TestRepairM_1020_*`. Native integration
+fixtures start lazily when an integration test consumes them; no integration
+test is skipped or treated as passing without its fixture. The bounded tests
+use the real Store with explicit `OpenLocalStore` snapshot storage and separate
+setup/reader credential objects, real HTTPS provider clients and loopback owner
+transcripts, including `ChainVerifier` JSON-RPC receipt consumption. The local
+backend shares the authorization/mutation logic, atomically syncs snapshots,
+and keeps an exclusive store lock. It is never a fallback for `NewRuntime`.
+Its credential registry is an explicitly local in-memory authority; production
+credentials and revocation remain in the V2 PostgreSQL views and tables.
+
+`TestPhase3ProductionRolesDetectRecoverAndRestart` separately installs
+470000/470001 and exercises `NewRuntime` with restricted `control_runtime` and
+`identity_runtime` logins, actual owner views, verified HTTPS recovery, revoked
+and replacement credentials, connection restart and unrelated-write denial.
+That native PostgreSQL integration test is compiled but is outside this task's
+allowed bounded verification, so no claim of its execution is made here.
+
+This bounded repair does not run the private checker or certify a deployment.
 Image and release authority are described in the
 [supply-chain notes](../supplychain/README.md); the media service's qualification
 boundary is recorded in [livestream progress](../../livestream/PROGRESS.md).

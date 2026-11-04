@@ -1,6 +1,3 @@
-//go:build norace
-// +build norace
-
 package rest_test
 
 import (
@@ -33,10 +30,14 @@ type IntegrationTestSuite struct {
 var typeMsgSend = banktypes.SendAuthorization{}.MsgTypeURL()
 var typeMsgVote = sdk.MsgTypeURL(&govtypes.MsgVote{})
 
+func (s *IntegrationTestSuite) defaultConfig() network.Config {
+	return network.DefaultConfig(s.T())
+}
+
 func (s *IntegrationTestSuite) SetupSuite() {
 	s.T().Log("setting up integration test suite")
 
-	cfg := network.DefaultConfig()
+	cfg := s.defaultConfig()
 
 	cfg.NumValidators = 1
 	s.cfg = cfg
@@ -139,10 +140,10 @@ func (s *IntegrationTestSuite) TestQueryGrantGRPC() {
 				require.Contains(string(resp), tc.errorMsg)
 			} else {
 				var g authz.QueryGrantsResponse
-				err := val.ClientCtx.Codec.UnmarshalJSON(resp, &g)
+				err := val.ClientCtx.Codec.UnmarshalAsJSON(resp, &g)
 				require.NoError(err)
 				require.Len(g.Grants, 1)
-				g.Grants[0].UnpackInterfaces(val.ClientCtx.InterfaceRegistry)
+				require.NoError(g.Grants[0].UnpackInterfaces(val.ClientCtx.InterfaceRegistry))
 				auth := g.Grants[0].GetAuthorization()
 				require.Equal(auth.MsgTypeURL(), banktypes.SendAuthorization{}.MsgTypeURL())
 			}
@@ -225,7 +226,7 @@ func (s *IntegrationTestSuite) TestQueryGrantsGRPC() {
 				s.Require().Contains(string(resp), tc.errMsg)
 			} else {
 				var authorizations authz.QueryGrantsResponse
-				err := val.ClientCtx.Codec.UnmarshalJSON(resp, &authorizations)
+				err := val.ClientCtx.Codec.UnmarshalAsJSON(resp, &authorizations)
 				s.Require().NoError(err)
 				tc.postRun(&authorizations)
 			}
@@ -234,108 +235,133 @@ func (s *IntegrationTestSuite) TestQueryGrantsGRPC() {
 	}
 }
 
+// grantListFixture creates an isolated, asymmetric graph through the real CLI:
+// seven grants from one granter, plus an eighth from another granter to recipient 0.
+func (s *IntegrationTestSuite) grantListFixture() (sdk.AccAddress, []sdk.AccAddress, sdk.AccAddress, sdk.AccAddress) {
+	val := s.network.Validators[0]
+	newAccount := func(label string) sdk.AccAddress {
+		info, _, err := val.ClientCtx.Keyring.NewMnemonic(s.T().Name()+label, keyring.English, sdk.FullFundraiserPath, keyring.DefaultBIP39Passphrase, hd.Secp256k1)
+		s.Require().NoError(err)
+		return info.GetAddress()
+	}
+	granter := newAccount("granter")
+	other := newAccount("other-granter")
+	empty := newAccount("empty")
+	for _, addr := range []sdk.AccAddress{granter, other} {
+		out, err := banktestutil.MsgSendExec(val.ClientCtx, val.Address, addr,
+			sdk.NewCoins(sdk.NewInt64Coin(s.cfg.BondDenom, 1000)),
+			fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
+			fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
+			fmt.Sprintf("--%s=10%s", flags.FlagFees, s.cfg.BondDenom))
+		s.Require().NoError(err)
+		s.Require().Contains(out.String(), `"code":0`)
+	}
+	grant := func(from, to sdk.AccAddress) {
+		out, err := authztestutil.ExecGrant(val, []string{
+			to.String(), "generic",
+			fmt.Sprintf("--%s=%s", flags.FlagFrom, from.String()),
+			fmt.Sprintf("--%s=%s", cli.FlagMsgType, typeMsgVote),
+			fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
+			fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
+			fmt.Sprintf("--%s=10%s", flags.FlagFees, s.cfg.BondDenom),
+			fmt.Sprintf("--%s=%d", cli.FlagExpiration, time.Now().Add(2*time.Hour).Unix()),
+		})
+		s.Require().NoError(err)
+		s.Require().Contains(out.String(), `"code":0`)
+	}
+	recipients := make([]sdk.AccAddress, 7)
+	for i := range recipients {
+		recipients[i] = newAccount(fmt.Sprintf("recipient-%d", i))
+		grant(granter, recipients[i])
+	}
+	grant(other, recipients[0])
+	return granter, recipients, empty, other
+}
+
 func (s *IntegrationTestSuite) TestQueryGranterGrantsGRPC() {
 	val := s.network.Validators[0]
-	grantee := s.grantee[1]
-	require := s.Require()
-
+	granter, recipients, empty, _ := s.grantListFixture()
 	testCases := []struct {
 		name      string
-		url       string
+		address   string
 		expectErr bool
-		errMsg    string
 		numItems  int
 	}{
-		{
-			"invalid account address",
-			fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/granter/%s", val.APIAddress, "invalid address"),
-			true,
-			"decoding bech32 failed",
-			0,
-		},
-		{
-			"no authorizations found",
-			fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/granter/%s", val.APIAddress, string(grantee)),
-			false,
-			"",
-			0,
-		},
-		{
-			"valid query",
-			fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/granter/%s", val.APIAddress, val.Address.String()),
-			false,
-			"",
-			7,
-		},
+		{"invalid account address", "invalid address", true, 0},
+		{"no authorizations found", empty.String(), false, 0},
+		{"valid query", granter.String(), false, 7},
 	}
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			resp, err := rest.GetRequest(tc.url)
+			require := s.Require()
+			resp, err := rest.GetRequest(fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/granter/%s", val.APIAddress, tc.address))
 			require.NoError(err)
-
 			if tc.expectErr {
-				require.Contains(string(resp), tc.errMsg)
+				require.Contains(string(resp), "decoding bech32 failed")
 			} else {
 				var authorizations authz.QueryGranterGrantsResponse
-				err := val.ClientCtx.Codec.UnmarshalJSON(resp, &authorizations)
-				require.NoError(err)
-				// FIXME: https://github.com/cosmos/cosmos-sdk/issues/10965
+				require.NoError(val.ClientCtx.Codec.UnmarshalAsJSON(resp, &authorizations))
 				require.Len(authorizations.Grants, tc.numItems)
+				got := make([]string, 0, len(authorizations.Grants))
+				for _, grant := range authorizations.Grants {
+					require.Equal(granter.String(), grant.Granter)
+					got = append(got, grant.Grantee)
+					require.NoError(grant.UnpackInterfaces(val.ClientCtx.InterfaceRegistry))
+					require.Equal(typeMsgVote, grant.Authorization.GetCachedValue().(authz.Authorization).MsgTypeURL())
+				}
+				if tc.numItems > 0 {
+					want := make([]string, len(recipients))
+					for i, addr := range recipients {
+						want[i] = addr.String()
+					}
+					require.ElementsMatch(want, got)
+				}
 			}
-
 		})
 	}
 }
 
 func (s *IntegrationTestSuite) TestQueryGranteeGrantsGRPC() {
 	val := s.network.Validators[0]
-	grantee := s.grantee[1]
-	require := s.Require()
-
+	granter, recipients, empty, other := s.grantListFixture()
 	testCases := []struct {
 		name      string
-		url       string
+		address   string
 		expectErr bool
-		errMsg    string
 		numItems  int
 	}{
-		{
-			"invalid account address",
-			fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/grantee/%s", val.APIAddress, "invalid address"),
-			true,
-			"decoding bech32 failed",
-			0,
-		},
-		{
-			"no authorizations found",
-			fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/grantee/%s", val.APIAddress, val.Address.String()),
-			false,
-			"",
-			0,
-		},
-		{
-			"valid query",
-			fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/grantee/%s", val.APIAddress, string(grantee)),
-			false,
-			"",
-			1,
-		},
+		{"invalid account address", "invalid address", true, 0},
+		{"no authorizations found", empty.String(), false, 0},
+		{"valid query", recipients[1].String(), false, 1},
+		{"multiple granters", recipients[0].String(), false, 2},
+		{"granter is not a grantee", granter.String(), false, 0},
 	}
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			resp, err := rest.GetRequest(tc.url)
+			require := s.Require()
+			resp, err := rest.GetRequest(fmt.Sprintf("%s/cosmos/authz/v1beta1/grants/grantee/%s", val.APIAddress, tc.address))
 			require.NoError(err)
-
 			if tc.expectErr {
-				require.Contains(string(resp), tc.errMsg)
+				require.Contains(string(resp), "decoding bech32 failed")
 			} else {
 				var authorizations authz.QueryGranteeGrantsResponse
-				err := val.ClientCtx.Codec.UnmarshalJSON(resp, &authorizations)
-				require.NoError(err)
-				// FIXME: https://github.com/cosmos/cosmos-sdk/issues/10965
+				require.NoError(val.ClientCtx.Codec.UnmarshalAsJSON(resp, &authorizations))
 				require.Len(authorizations.Grants, tc.numItems)
+				granters := make(map[string]bool)
+				for _, grant := range authorizations.Grants {
+					require.Equal(tc.address, grant.Grantee)
+					require.False(granters[grant.Granter])
+					granters[grant.Granter] = true
+					require.NoError(grant.UnpackInterfaces(val.ClientCtx.InterfaceRegistry))
+					require.Equal(typeMsgVote, grant.Authorization.GetCachedValue().(authz.Authorization).MsgTypeURL())
+				}
+				if tc.numItems > 0 {
+					require.True(granters[granter.String()])
+				}
+				if tc.numItems == 2 {
+					require.True(granters[other.String()])
+				}
 			}
-
 		})
 	}
 }

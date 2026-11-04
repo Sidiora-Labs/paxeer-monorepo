@@ -1,0 +1,6 @@
+{
+  "repositoryFromWidget": "../../../../../..",
+  "contracts": "contracts/launchpad",
+  "web": "apps/launchpad/web",
+  "network": { "url": "http://127.0.0.1:22700", "chainId": 125 }
+}

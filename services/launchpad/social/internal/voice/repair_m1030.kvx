@@ -1,0 +1,13 @@
+[task.22.33.1030]
+audit = "22.30.39"
+finding = "12: restart-recovery"
+implementation = "Rotate independent bounded room and recording scans by immutable ID; isolate and report failures with per-item exponential retry accounting capped at 32 minutes; preserve lifecycle timestamps, row locks, revisions and durable cleanup intents."
+proof = "TestRepairM_1030_RestartFairCleanup; TestRepairM_1030_PerRoomRetryAccounting; TestRepairM_1030_RecordingCursorRecovery"
+fixtures = "Production control reconciliation and LiveKit codec/HTTP transport, transactional committed store fixture reopened from disk, and stateful loopback LiveKit peer; no external services."
+baseline = "Not run: task order and allowed gates require complete implementation before the sole hf-done verification; no baseline failure is claimed."
+wiring = "None required."
+evidence = "Runner-owned hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; final response copies the last gate evidence."
+
+[gotcha.1]
+observed = "voice_recordings has a unique active recording per room; a multi-recording pending-page fixture must use separate rooms."
+resolution = "Recording cursor recovery seeds 100 distinct failed rooms and recordings plus a newer healthy room and stop intent."

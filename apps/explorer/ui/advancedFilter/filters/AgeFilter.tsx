@@ -1,4 +1,8 @@
+import React from 'react';
+
 import type { AdvancedFilterAge, AdvancedFilterParams } from 'types/api/advancedFilter';
+
+import dayjs from 'lib/date/dayjs';
 
 import BaseAgeFilter, { type DateConverter } from './BaseAgeFilter';
 
@@ -9,7 +13,7 @@ const FILTER_PARAM_AGE = 'age';
 const dateConverter: DateConverter = {
   toFilterValue: (date: string) => date, // Keep as ISO string
   fromFilterValue: (value: string | undefined) => value || '',
-  getCurrentValue: (value: string | undefined) => value || '',
+  getCurrentValue: (value: string | undefined) => value ? dayjs(value).format('YYYY-MM-DD') : '',
 };
 
 type Props = {

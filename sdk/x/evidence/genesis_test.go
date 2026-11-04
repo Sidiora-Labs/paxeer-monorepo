@@ -3,9 +3,11 @@ package evidence_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
-	time "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/std"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	"github.com/stretchr/testify/suite"
 
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -20,6 +22,7 @@ import (
 type GenesisTestSuite struct {
 	suite.Suite
 
+	cdc    codec.Codec
 	ctx    sdk.Context
 	keeper keeper.Keeper
 }
@@ -28,6 +31,7 @@ func (suite *GenesisTestSuite) SetupTest() {
 	checkTx := false
 	app := paxapp.Setup(suite.T(), checkTx, false, false)
 
+	suite.cdc = app.AppCodec()
 	suite.ctx = app.BaseApp.NewContext(checkTx, tmproto.Header{Height: 1})
 	suite.keeper = app.EvidenceKeeper
 }
@@ -50,20 +54,20 @@ func (suite *GenesisTestSuite) TestInitGenesis() {
 			func() {
 				testEvidence = make([]exported.Evidence, 100)
 				for i := 0; i < 100; i++ {
-					testEvidence[i] = &types.Equivocation{
-						Height:           int64(i + 1),
-						Power:            100,
-						Time:             time.Now().UTC(),
-						ConsensusAddress: pk.PubKey().Address().String(),
-					}
+					testEvidence[i] = types.FromABCIEvidence(abci.Evidence{
+						Height: int64(i + 1), Time: time.Now().UTC(),
+						Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+					})
 				}
 				genesisState = types.NewGenesisState(testEvidence)
 			},
 			true,
 			func() {
 				for _, e := range testEvidence {
-					_, ok := suite.keeper.GetEvidence(suite.ctx, e.Hash())
-					suite.True(ok)
+					stored, ok := suite.keeper.GetEvidence(suite.ctx, e.Hash())
+					suite.Require().True(ok)
+					suite.Equal(pk.PubKey().Address().Bytes(), stored.(*types.Equivocation).GetConsensusAddress().Bytes())
+					suite.Equal(e, stored)
 				}
 			},
 		},
@@ -72,11 +76,10 @@ func (suite *GenesisTestSuite) TestInitGenesis() {
 			func() {
 				testEvidence = make([]exported.Evidence, 100)
 				for i := 0; i < 100; i++ {
-					testEvidence[i] = &types.Equivocation{
-						Power:            100,
-						Time:             time.Now().UTC(),
-						ConsensusAddress: pk.PubKey().Address().String(),
-					}
+					testEvidence[i] = types.FromABCIEvidence(abci.Evidence{
+						Time:      time.Now().UTC(),
+						Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+					})
 				}
 				genesisState = types.NewGenesisState(testEvidence)
 			},
@@ -85,6 +88,20 @@ func (suite *GenesisTestSuite) TestInitGenesis() {
 				suite.Empty(suite.keeper.GetAllEvidence(suite.ctx))
 			},
 		},
+		{
+			"malformed consensus address",
+			func() {
+				e := types.FromABCIEvidence(abci.Evidence{
+					Height: 1, Time: time.Now().UTC(),
+					Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+				}).(*types.Equivocation)
+				e.ConsensusAddress = pk.PubKey().Address().String()
+				suite.Require().ErrorIs(e.ValidateBasic(), types.ErrInvalidEvidence)
+				genesisState = types.NewGenesisState([]exported.Evidence{e})
+			},
+			false,
+			func() { suite.Empty(suite.keeper.GetAllEvidence(suite.ctx)) },
+		},
 	}
 
 	for _, tc := range testCases {
@@ -92,6 +109,9 @@ func (suite *GenesisTestSuite) TestInitGenesis() {
 			suite.SetupTest()
 
 			tc.malleate()
+			var decoded types.GenesisState
+			suite.Require().NoError(suite.cdc.UnmarshalAsJSON(suite.cdc.MustMarshalJSON(genesisState), &decoded))
+			genesisState = &decoded
 
 			if tc.expPass {
 				suite.NotPanics(func() {
@@ -120,12 +140,10 @@ func (suite *GenesisTestSuite) TestExportGenesis() {
 		{
 			"success",
 			func() {
-				suite.keeper.SetEvidence(suite.ctx, &types.Equivocation{
-					Height:           1,
-					Power:            100,
-					Time:             time.Now().UTC(),
-					ConsensusAddress: pk.PubKey().Address().String(),
-				})
+				suite.keeper.SetEvidence(suite.ctx, types.FromABCIEvidence(abci.Evidence{
+					Height: 1, Time: time.Now().UTC(),
+					Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+				}))
 			},
 			true,
 			func() {},
@@ -140,7 +158,13 @@ func (suite *GenesisTestSuite) TestExportGenesis() {
 
 			if tc.expPass {
 				suite.NotPanics(func() {
-					evidence.ExportGenesis(suite.ctx, suite.keeper)
+					exportedState := evidence.ExportGenesis(suite.ctx, suite.keeper)
+					var decoded types.GenesisState
+					suite.Require().NoError(suite.cdc.UnmarshalAsJSON(suite.cdc.MustMarshalJSON(exportedState), &decoded))
+					suite.Require().NoError(decoded.Validate())
+					suite.Require().Len(decoded.Evidence, 1)
+					stored := decoded.Evidence[0].GetCachedValue().(*types.Equivocation)
+					suite.Equal(pk.PubKey().Address().Bytes(), stored.GetConsensusAddress().Bytes())
 				})
 			} else {
 				suite.Panics(func() {

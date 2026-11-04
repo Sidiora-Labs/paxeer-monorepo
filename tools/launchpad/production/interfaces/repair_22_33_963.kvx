@@ -1,0 +1,63 @@
+[repair.22.33.963]
+audit = "22.30.29"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+baseline = "No baseline verification ran: the explicit Order requires complete implementation before any gate and hf-done as the sole initial verification. The declared test file did not exist at the base; no pre-change test failure is claimed."
+qualification = "hf-build then hf-done; /out/run/gates.jsonl and the final evidence line record the exact candidate revision, command, exit code and private log."
+authority = "Production clients require explicit authority inputs because this checkout has no complete frozen semantic/mapping/register bundle. No production shapes are reconstructed or silently substituted."
+proof = "These production clients use file transport: recorded SDK producer schemas/routes and current source bytes -> explicit JSON/KVX inputs -> production checks/code generation -> reopened generated files -> actual schema consumers and unchanged regression assertions. No HTTP interface or restart-recovery finding is claimed."
+fixtures = "testdata/repair_22_33_963/sdk-placement.json selects all 108 operations with frozen request schemas from the current SDK producer, pins both source hashes, and declares synthetic schema-exercise success statuses. selected-catalog.kvx is an explicit small schema-exercise selection; neither fixture replaces the missing production semantic catalogue or qualifies runtime handlers."
+
+[finding.capability-authority-path]
+proof = "test_capability_authority_path; test_missing_authority_is_explicit"
+change = "Require spec, frozen bundle and chain bundle explicitly in the CLI and validator; retain source, catalogue, artifact and fresh-evidence checks."
+
+[finding.codegen-authority-path]
+proof = "test_codegen_authority_path; test_codegen_authority_traversal_and_version_protection; test_codegen_immutable_v1_reproduction; test_materializer_authority_path"
+change = "Require schema and manifest together, constrain provenance to the selected schema authority and preflight resolved output paths; preserve immutable v1 reproduction and version separation."
+
+[finding.compatibility-authority-path]
+proof = "test_compatibility_authority_path; test_compatibility_test_authority"
+change = "Require an explicit mapping manifest and bind the regression suite to the same manifest and generated schemas."
+
+[finding.compatibility-test-authority]
+proof = "test_compatibility_test_authority"
+change = "Derive the source root from this checkout, accept manifest and schemas explicitly, and execute every existing inventory, source-hash, route, field, schema and runtime-claim mutation."
+
+[finding.examples-authority-path]
+proof = "test_examples_authority_path"
+change = "Require the semantic spec or selected catalogue and the frozen contract directory together; retain exact coverage, instance checks, duplicate-key rejection and read-only canonical drift checks."
+
+[finding.examples-test-authority]
+proof = "test_examples_test_authority"
+change = "Bind explicit reviewed inputs and execute every existing assertion, including exactly 108 endpoints, wallet proof variants, 13 SSE/control frames, empty 204s and all negative schema checks. Invoke the actual checker in-process for read-only checks."
+
+[finding.materializer-authority-path]
+proof = "test_materializer_authority_path"
+change = "Require explicit spec/catalogue, output and frozen-v1 output bindings; protect the selected frozen location across versioned generation and prove real generated schema consumption."
+
+[finding.persistence-authority-path]
+proof = "test_persistence_authority_path"
+change = "Require an explicit migration register and runtime source together; retain exact history/checksum/version checks, 50 ranges, eight schemas, local Docker checks and SQL privilege assertions. The focused gate qualifies source/register bindings and identifier rejection; it does not claim live PostgreSQL privilege qualification."
+
+[wiring.registry]
+request = "tools/launchpad/production/bootstrap/check-registry.json — owning domain 4: bind current reviewed --spec/--catalog, --bundle/--chain-bundle, --schema/--manifest, --contracts, --out/--frozen-v1-out and --register/--runtime-source pairs for the six repaired clients; pass explicit manifest/schemas and spec/contracts to the two suites."
+
+[wiring.qualifier]
+request = "tools/launchpad/production/qualify.py — owning domain 4: bind semantic identity collection to the same supplied catalogue and frozen contract directory as the interface clients."
+
+[wiring.authority]
+request = "sdk/launchpad/protocol/contracts — owning domain 4: supply and review the complete current semantic catalogue, schema/mapping/chain bundle and migration register matching current source checksums before production interface qualification; preserve versioned immutable bundles."
+
+[wiring.interfaces]
+request = "spec/layerx-merge/interfaces.kvx — owning domain 4 interface registry: replace the eight audited legacy-path/workstation defaults with the clients' explicit authority input contracts."
+
+[gotcha.frozen-generator]
+observed = "The code generator embeds an immutable historical generator as a bytes literal containing CLI text; a broad textual replacement can also touch that literal."
+resolution = "Keep the embedded bytes unchanged and edit only the live generator; test_codegen_authority_traversal_and_version_protection checks the original pinned source digest."
+
+[qualification.initial]
+revision = "21ebf16d8010a9216cec4fd9d533f11174cc6705"
+command = "cg spec done 22.33.963 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Two test-input defects: capability CLI requires an ISO timestamp; immutable generation expectations must use the exact serialized schema definition order. Both input defects were repaired without changing assertions."

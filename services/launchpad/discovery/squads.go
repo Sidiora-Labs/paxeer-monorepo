@@ -65,13 +65,16 @@ func (s Store) Squad(ctx context.Context, id string) (Squad, error) {
 	}
 	return q, nil
 }
-func (s Store) Invite(ctx context.Context, actor, squadID, account, token string, expires time.Time) error {
+
+// Invite compares the recipient's membership revision under the squad lock.
+// expected is zero only when the recipient has no prior membership.
+func (s Store) Invite(ctx context.Context, actor, squadID, account, token string, expected uint64, expires time.Time) error {
 	if len(token) < 32 || len(token) > 512 || account == "" || account == actor || !expires.After(time.Now()) || expires.After(time.Now().Add(7*24*time.Hour)) {
 		return ErrInvalid
 	}
-	return s.transaction(ctx, func(tx *sql.Tx) error { return inviteTx(ctx, tx, actor, squadID, account, token, expires) })
+	return s.transaction(ctx, func(tx *sql.Tx) error { return inviteTx(ctx, tx, actor, squadID, account, token, expected, expires) })
 }
-func inviteTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, token string, expires time.Time) error {
+func inviteTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, token string, expected uint64, expires time.Time) error {
 	if e := lock(ctx, tx, "squad:"+squadID); e != nil {
 		return e
 	}
@@ -86,6 +89,9 @@ func inviteTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, token st
 	existing, e := member(ctx, tx, squadID, account)
 	if e != nil && e != sql.ErrNoRows {
 		return e
+	}
+	if existing.Revision != expected {
+		return ErrConflict
 	}
 	if e == nil && (existing.Status == "active" || existing.Status == "banned") {
 		return ErrConflict
@@ -231,6 +237,8 @@ func setMemberRoleTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, r
 	return e
 }
 
+// RequestJoin checks the actor's membership revision, not the squad revision.
+// A first request expects zero; both open joins and requests increment it.
 func (s Store) RequestJoin(ctx context.Context, actor, squadID string, expected uint64) (Membership, error) {
 	var requested Membership
 	err := s.transaction(ctx, func(tx *sql.Tx) error {
@@ -300,6 +308,8 @@ func requestJoinTx(ctx context.Context, tx *sql.Tx, actor, squadID string, expec
 	return requested, nil
 }
 
+// ApproveRequest checks the applicant's membership revision and returns the
+// committed active membership, with JoinedAt taken from now.
 func (s Store) ApproveRequest(ctx context.Context, actor, squadID, account string, expected uint64, now time.Time) (Membership, error) {
 	var approved Membership
 	err := s.transaction(ctx, func(tx *sql.Tx) error {

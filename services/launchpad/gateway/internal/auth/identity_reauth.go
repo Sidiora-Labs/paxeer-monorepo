@@ -99,13 +99,8 @@ func (s *Identity) CollectExpired(ctx context.Context, limit int) error {
 		return unavailable()
 	}
 	defer tx.Rollback(ctx)
-	for _, table := range []string{"identity_limits", "identity_challenges", "identity_tickets", "identity_reauth"} {
-		expiry := "expires_at<clock_timestamp()-interval '1 day'"
-		if table == "identity_limits" {
-			expiry = "window_at<clock_timestamp()-interval '2 minutes'"
-		}
-		_, e = tx.Exec(ctx, `DELETE FROM `+table+` WHERE ctid IN(SELECT ctid FROM `+table+` WHERE `+expiry+` LIMIT $1 FOR UPDATE SKIP LOCKED)`, limit)
-		if e != nil {
+	for _, statement := range identityCollectionStatements {
+		if _, e = tx.Exec(ctx, statement, limit); e != nil {
 			return unavailable()
 		}
 	}
@@ -113,4 +108,39 @@ func (s *Identity) CollectExpired(ctx context.Context, limit int) error {
 		return unavailable()
 	}
 	return nil
+}
+
+var identityCollectionStatements = []string{
+	`DELETE FROM identity_limits WHERE ctid IN(SELECT ctid FROM identity_limits WHERE window_at<clock_timestamp()-interval '2 minutes' LIMIT $1 FOR UPDATE SKIP LOCKED)`,
+	`DELETE FROM identity_challenges WHERE ctid IN(SELECT ctid FROM identity_challenges WHERE expires_at<clock_timestamp()-interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,
+	`DELETE FROM identity_tickets WHERE ctid IN(SELECT ctid FROM identity_tickets WHERE expires_at<clock_timestamp()-interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,
+	`DELETE FROM identity_reauth WHERE ctid IN(SELECT ctid FROM identity_reauth WHERE expires_at<clock_timestamp()-interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,
+	`DELETE FROM identity_challenge_requests WHERE ctid IN(SELECT ctid FROM identity_challenge_requests WHERE retain_until<=clock_timestamp() LIMIT $1 FOR UPDATE SKIP LOCKED)`,
+	`DELETE FROM identity_owner_requests WHERE ctid IN(SELECT ctid FROM identity_owner_requests WHERE retain_until<=clock_timestamp() LIMIT $1 FOR UPDATE SKIP LOCKED)`,
+	`DELETE FROM identity_wallet_links WHERE link_id IN(SELECT w.link_id FROM identity_wallet_links w WHERE w.state='pending' AND NOT EXISTS(SELECT 1 FROM identity_challenges c WHERE c.link_id=w.link_id) LIMIT $1 FOR UPDATE OF w SKIP LOCKED)`,
+}
+
+// RunCollector owns no goroutine: the application starts it with its shutdown context.
+func (s *Identity) RunCollector(ctx context.Context, interval, timeout time.Duration, limit int) error {
+	if interval < time.Second || interval > time.Hour || timeout <= 0 || timeout > interval || limit < 1 || limit > 1000 {
+		return invalid()
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		bounded, cancel := context.WithTimeout(ctx, timeout)
+		err := s.CollectExpired(bounded, limit)
+		cancel()
+		if err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }

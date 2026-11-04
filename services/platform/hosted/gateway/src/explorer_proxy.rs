@@ -25,6 +25,11 @@ fn matches_path(template: &str, path: &str) -> bool {
                         .bytes()
                         .all(|b| b.is_ascii_alphanumeric() || b"-._~".contains(&b))
                     || matches!(got, "." | "..")
+                    || (want == "{market_id}" && !got.bytes().all(|b| b.is_ascii_digit()))
+                    || (want == "{hash}"
+                        && !got.strip_prefix("0x").is_some_and(|hash| {
+                            hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit())
+                        }))
                 {
                     return false;
                 }
@@ -632,6 +637,21 @@ mod tests {
 }
 
 static ROUTES: &[Route] = &[
+    Route {
+        method: "GET",
+        path: "/api/v2/paxeer-x/feed/markets",
+        session_csrf: false,
+    },
+    Route {
+        method: "GET",
+        path: "/api/v2/paxeer-x/feed/markets/{market_id}/updates",
+        session_csrf: false,
+    },
+    Route {
+        method: "GET",
+        path: "/api/v2/paxeer-x/feed/updates/{hash}",
+        session_csrf: false,
+    },
     Route {
         method: "GET",
         path: "/api/v2/addresses/{address_hash_param}/nft/collections",
@@ -1343,3 +1363,47 @@ static ROUTES: &[Route] = &[
         session_csrf: false,
     },
 ];
+
+#[cfg(test)]
+mod feed_admission_tests {
+    use super::{matches_path, selected};
+
+    #[test]
+    fn explorer_feed_routes_preserve_admission_bounds() {
+        let markets = "/api/v2/paxeer-x/feed/markets";
+        let history = format!("{markets}/0/updates");
+        let detail = format!("/api/v2/paxeer-x/feed/updates/0x{}", "ab".repeat(32));
+        for path in [markets, history.as_str(), detail.as_str()] {
+            assert!(selected("GET", path).is_some(), "{path}");
+            for method in ["POST", "PUT", "PATCH", "DELETE", "HEAD"] {
+                assert!(selected(method, path).is_none(), "{method} {path}");
+            }
+        }
+        for id in ["", "-1", "1.5", "abc", ".", "..", "%30", "0/1", "1?index=0"] {
+            assert!(selected("GET", &format!("{markets}/{id}/updates")).is_none());
+        }
+        for hash in [
+            "0x1234",
+            "0x",
+            "ab",
+            &"ab".repeat(32),
+            &format!("0x{}", "gg".repeat(32)),
+        ] {
+            assert!(selected("GET", &format!("/api/v2/paxeer-x/feed/updates/{hash}")).is_none());
+        }
+        for path in [
+            "/api/v2/paxeer-x/feed/updates",
+            "/api/v2/paxeer-x/feed/admin",
+            "/api/v2/paxeer-x/feed/markets/0",
+            "/api/v2/paxeer-x/feed/markets/0/updates/extra",
+        ] {
+            assert!(selected("GET", path).is_none(), "{path}");
+        }
+        assert!(!matches_path(
+            "/api/v2/paxeer-x/feed/markets/{market_id}/updates",
+            &format!("{markets}/{}/updates", "1".repeat(257))
+        ));
+        // Existing route parameter admission remains unchanged.
+        assert!(selected("GET", "/api/v2/transactions/short-hash/signature").is_some());
+    }
+}

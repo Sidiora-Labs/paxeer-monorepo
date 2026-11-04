@@ -1,0 +1,39 @@
+[repair.22.33.616]
+audit = "22.30.163"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+status = "implemented; qualification pending hf-done"
+finding_017 = "test_repair_22_33_616.py::test_finding_017_mounted_paid_response_and_restart"
+finding_060 = "test_repair_22_33_616.py::test_finding_060_mounted_current_evidence_and_restart; test_finding_060_native_receipt_and_tamper_refusal; test_finding_060_receipt_reuse_refusal; test_finding_060_durable_receipt_reuse_refusal; test_finding_060_strict_key_and_payment_refusal"
+producer = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxledger-pay-exact; node producer rpc/sequencer_receipt_vectors_test.go; current portable hex evidence with Keccak receipt identity and receipted rung"
+baseline = "No additional baseline run: the required implementation-first gate order prohibits it. The supplied attempt-2 result already records test_finding_017_mounted_paid_response_and_restart and test_finding_060_mounted_current_evidence_and_restart failing on paid.status_code == 200 (actual 402 verification-failure); five tests passed."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; findings remain unqualified unless hf-done passes."
+wiring_request = "None: the continuation expands scope to the production FastAPI mount and configuration; explicit purpose support is implemented here without changing producer fixtures."
+
+[continuation.22_33_616]
+source_attempt_revision = "74c5d1b326d10f1a4ca9d76f99ebe340fc1b3c89"
+review = "Preserved all five inherited paths and all assertions. The mounted paid-response and restart proofs remain mandatory; closure requires both to pass."
+observed = "The native producer vector signs purpose 26fde3dedb14662268bff5bb3ab6560550a0dc3938b0c9d5ed717932c75b9839; the mounted offer requires 9a964321e05e47b70b24ddb12fe92aba703512e5e1376676da44d203d52788f7. Neither value is a receipt digest."
+interface = "LayerXMountOptions.offer_purpose_hash accepts a validated 32-byte hex purpose, defaults to the unchanged resource URL hash, and flows through read_declared_config into both the advertised 402 requirements and receipt verification. Both HTTP proofs bind the committed transaction purpose through the public mount option."
+assumption = "A receipt signed for another purpose must remain refused; mutating mount internals, substituting the authority, or manufacturing newly signed receipt bytes would not prove acceptance of the committed producer evidence."
+qualification = "Run only hf-build then hf-done with an external Python bytecode cache; the runner ledger and final evidence JSON name the exact verified candidate. The explicit offer-purpose interface is repaired within the expanded scope; no producer change is needed."
+
+[gotcha.recorded_offer_purpose]
+symptom = "A valid pinned native payment receipt passes direct seller verification but the real mounted route returns verification-failure."
+cause = "The recorded transaction purpose and configured resource-bound offer purpose differ; reconstructing environment variables does not retain a manually replaced DeclaredConfig.requirements value."
+do = "Bind the committed purpose using LayerXMountOptions.offer_purpose_hash; retain paid-response and restart assertions and refuse a receipt signed for another purpose."
+
+[gotcha.candidate_bytecode]
+symptom = "Python bytecode created inside a directory-scoped task can change the gate candidate between compilation and verification."
+do = "Set the same external PYTHONPYCACHEPREFIX for hf-build and hf-done and disable import bytecode writes; keep generated caches outside the scoped test directory."
+
+[qualification.first_attempt]
+revision = "5383de36419a2397edfc2085411438aa40e239d3"
+command = "cg spec done 22.33.616 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six proofs stopped on obsolete base64 receipt-key configuration; repaired in scope to the current px keys envelope."
+
+[continuation.explicit_purpose]
+source_attempt_revision = "82d002922cf7481a99d1deb27fe0f9d2e7aded22"
+proving_tests = "test_mounted_receipt_for_another_purpose_is_refused (explicit mismatch and URL-derived default); test_mount_refuses_invalid_offer_purpose_hash (empty, short, long and nonhex input)"
+implementation = "Both finding proofs mount real example resource and durable fulfillment components through mount_layerx, advertise the vector purpose in the body and header, accept current evidence, close the client, recreate the mount and recover identical paid bytes and settlement headers."

@@ -136,7 +136,7 @@ def test_listed_or_test_only_commit_passes(tmp_path):
     result = run_gate(tmp_path, base, custom_head, "--list", custom)
     assert result.returncode == 0, result.stdout + result.stderr
 
-    # A merge-only edit is excluded by --no-merges; its parents are doc-only.
+    # A merge-only consensus edit needs its own ledger entry.
     git(tmp_path, "checkout", "-b", "side")
     commit_file(tmp_path, "docs/side.md", "side branch\n")
     git(tmp_path, "checkout", "main")
@@ -144,7 +144,9 @@ def test_listed_or_test_only_commit_passes(tmp_path):
     git(tmp_path, "merge", "--no-ff", "--no-commit", "side")
     merge_head = commit_file(tmp_path, path, "merge-only consensus rule\n")
     result = run_gate(tmp_path, custom_head, merge_head)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert merge_head in result.stdout
+    assert path in result.stdout
 
 
 def test_seeded_list_names_the_cited_commits():

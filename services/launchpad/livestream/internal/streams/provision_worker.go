@@ -69,34 +69,22 @@ func (w *ProvisionWorker) Step(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	remote, err := w.Provider.FindCorrelated(bounded, o.ID)
-	if err != nil && !errors.Is(err, livepeer.ErrCorrelationMissing) {
-		return ErrUnavailable
+	allocation := provisionAllocation{Store: w.Store, Provider: w.Provider}
+	remote, err := allocation.resolve(bounded, o, owner)
+	if errors.Is(err, livepeer.ErrCorrelationMissing) && (o.State == "ENDING" || o.State == "SUSPENDED") {
+		err = w.Store.finishUnallocated(bounded, o.ID, owner)
+		if err != nil {
+			outcome = "provider_create_ambiguous"
+			return err
+		}
+		outcome = "idle"
+		return nil
 	}
-	if errors.Is(err, livepeer.ErrCorrelationMissing) {
-		if o.State == "ENDING" || o.State == "SUSPENDED" {
-			err = w.Store.finishUnallocated(bounded, o.ID, owner)
-			if err != nil {
-				outcome = "provider_create_ambiguous"
-				return err
-			}
-			outcome = "idle"
-			return nil
-		}
-		tag, e := w.Store.pool.Exec(bounded, fmt.Sprintf("UPDATE %s.stream_worker_attempts SET create_sent=true WHERE operation_id=$1 AND owner=$2 AND lease_until>clock_timestamp() AND create_sent=false AND EXISTS(SELECT 1 FROM %s.stream_operations WHERE id=$1 AND state='PROVISIONING')", w.Store.schema, w.Store.schema), id, owner)
-		if e != nil {
-			return e
-		}
-		if tag.RowsAffected() != 1 {
+	if err != nil {
+		if errors.Is(err, errProvisionAmbiguous) {
 			outcome = "provider_create_ambiguous"
-			return ErrUnavailable
 		}
-		created, e := w.Provider.CreateCorrelated(bounded, o.ID)
-		if e != nil {
-			outcome = "provider_create_ambiguous"
-			return ErrUnavailable
-		}
-		remote = &livepeer.Stream{ID: created.ID, StreamKey: created.StreamKey, PlaybackID: created.PlaybackID, Name: created.Name}
+		return err
 	}
 	if err = w.Provider.EnsurePlaybackPolicy(bounded, remote.ID, o.ID); err != nil {
 		outcome = "playback_policy_unconfirmed"
@@ -119,6 +107,69 @@ func (w *ProvisionWorker) Step(ctx context.Context, id string) error {
 	outcome = "provider_adopted"
 	return nil
 }
+
+var errProvisionAmbiguous = fmt.Errorf("provider create ambiguous: %w", ErrUnavailable)
+
+type provisionAllocationRepository interface {
+	reserveProviderCreate(context.Context, string, string, int64) error
+	latestProvisionResolution(context.Context, string) (*ProvisionResolutionReceipt, error)
+}
+
+type provisionAllocation struct {
+	Store    provisionAllocationRepository
+	Provider *livepeer.Client
+}
+
+func (a provisionAllocation) resolve(ctx context.Context, o Operation, owner string) (*livepeer.Stream, error) {
+	remote, err := a.Provider.FindCorrelated(ctx, o.ID)
+	if err != nil && !errors.Is(err, livepeer.ErrCorrelationMissing) {
+		return nil, ErrUnavailable
+	}
+	if errors.Is(err, livepeer.ErrCorrelationMissing) {
+		if o.State == "ENDING" || o.State == "SUSPENDED" {
+			return nil, err
+		}
+		if err = a.Store.reserveProviderCreate(ctx, o.ID, owner, o.Revision); err != nil {
+			if errors.Is(err, ErrUnavailable) {
+				return nil, errProvisionAmbiguous
+			}
+			return nil, err
+		}
+		created, createErr := a.Provider.CreateCorrelated(ctx, o.ID)
+		if createErr != nil {
+			return nil, errProvisionAmbiguous
+		}
+		remote = &livepeer.Stream{ID: created.ID, StreamKey: created.StreamKey, PlaybackID: created.PlaybackID, Name: created.Name}
+	}
+	receipt, err := a.Store.latestProvisionResolution(ctx, o.ID)
+	if err != nil {
+		return nil, err
+	}
+	if receipt != nil && receipt.Action == ProvisionAdopt && remote.ID != receipt.ProviderID {
+		return nil, ErrConflict
+	}
+	return remote, nil
+}
+
+func (w *ProvisionWorker) ResolveAmbiguity(ctx context.Context, decision ProvisionResolutionDecision) (Operation, error) {
+	if w == nil || w.Store == nil {
+		return Operation{}, ErrUnavailable
+	}
+	resolver := ProvisionAmbiguityResolver{Store: w.Store, Provider: w.Provider}
+	return resolver.Resolve(ctx, decision)
+}
+
+func (s *LifecycleStore) reserveProviderCreate(ctx context.Context, id, owner string, revision int64) error {
+	tag, err := s.pool.Exec(ctx, fmt.Sprintf("UPDATE %s.stream_worker_attempts SET create_sent=true WHERE operation_id=$1 AND owner=$2 AND lease_until>clock_timestamp() AND create_sent=false AND EXISTS(SELECT 1 FROM %s.stream_operations WHERE id=$1 AND state='PROVISIONING' AND revision=$3)", s.schema, s.schema), id, owner, revision)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrUnavailable
+	}
+	return nil
+}
+
 func (s *LifecycleStore) claimWorker(ctx context.Context, id, owner string) (bool, error) {
 	if !frozenUUID.MatchString(id) || !frozenUUID.MatchString(owner) {
 		return false, ErrInvalid

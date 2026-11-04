@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -25,40 +26,51 @@ func TestMain(m *testing.M) {
 	os.Exit(runControlTests(m))
 }
 
-func runControlTests(m *testing.M) (code int) {
-	dir, err := os.MkdirTemp("", "control-fixtures-")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	defer os.RemoveAll(dir)
+var controlFixturesOnce sync.Once
+var controlFixtureError error
+var controlFixtureStops []func() error
 
-	stopDatabase, err := startControlPostgres(dir)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "real PostgreSQL fixture:", err)
-		return 1
-	}
-	defer func() {
-		if err := stopDatabase(); err != nil {
-			fmt.Fprintln(os.Stderr, "stop PostgreSQL fixture:", err)
+func runControlTests(m *testing.M) (code int) {
+	code = m.Run()
+	for n := len(controlFixtureStops) - 1; n >= 0; n-- {
+		if err := controlFixtureStops[n](); err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			code = 1
 		}
-	}()
-
-	if os.Getenv("L47_ANVIL_URL") == "" {
-		stopChain, err := startControlAnvil(dir)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "real Anvil fixture:", err)
-			return 1
-		}
-		defer func() {
-			if err := stopChain(); err != nil {
-				fmt.Fprintln(os.Stderr, "stop Anvil fixture:", err)
-				code = 1
-			}
-		}()
 	}
-	return m.Run()
+	return code
+}
+
+// Start native fixtures only when a test actually consumes them. Every legacy
+// integration test retains its real database/chain assertions and fails if its
+// fixture cannot start; focused local-store tests require neither binary.
+func ensureControlFixtures(t *testing.T) {
+	t.Helper()
+	controlFixturesOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "control-fixtures-")
+		if err != nil {
+			controlFixtureError = err
+			return
+		}
+		controlFixtureStops = append(controlFixtureStops, func() error { return os.RemoveAll(dir) })
+		stop, err := startControlPostgres(dir)
+		if err != nil {
+			controlFixtureError = err
+			return
+		}
+		controlFixtureStops = append(controlFixtureStops, stop)
+		if os.Getenv("L47_ANVIL_URL") == "" {
+			stop, err = startControlAnvil(dir)
+			if err != nil {
+				controlFixtureError = err
+				return
+			}
+			controlFixtureStops = append(controlFixtureStops, stop)
+		}
+	})
+	if controlFixtureError != nil {
+		t.Fatal("real control fixtures:", controlFixtureError)
+	}
 }
 
 func controlPostgresBinary(name string) (string, error) {

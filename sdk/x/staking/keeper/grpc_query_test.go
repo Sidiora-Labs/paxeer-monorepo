@@ -3,11 +3,14 @@ package keeper_test
 import (
 	gocontext "context"
 	"fmt"
+	"math/bits"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/query"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/keeper"
@@ -621,6 +624,7 @@ func (suite *KeeperTestSuite) TestGRPCQueryHistoricalInfo() {
 }
 
 func (suite *KeeperTestSuite) TestGRPCQueryRedelegations() {
+	suite.Run("partial filters across pages", func() { testRedelegationPartialFilters(suite.T()) })
 	app, ctx, queryClient, addrs, vals := suite.app, suite.ctx, suite.queryClient, suite.addrs, suite.vals
 
 	addrAcc, addrAcc1 := addrs[0], addrs[1]
@@ -802,4 +806,130 @@ func createValidators(t *testing.T, ctx sdk.Context, app *paxapp.App, powers []i
 	applyValidatorSetUpdates(t, ctx, app.StakingKeeper, -1)
 
 	return addrs, valAddrs, vals
+}
+
+func testRedelegationPartialFilters(t *testing.T) {
+	t.Helper()
+	_, app, ctx := createTestInput(t)
+	ctx = ctx.WithBlockHeight(1).WithBlockTime(time.Unix(100, 0).UTC()).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	k := app.StakingKeeper
+	delegators := paxapp.AddTestAddrsIncremental(app, ctx, 2, sdk.NewInt(10_000))
+	validators := make([]types.Validator, 4)
+	for i := range validators {
+		validator := repair310Validator(t, k, ctx, 240+i).UpdateStatus(types.Unbonding)
+		validator.UnbondingTime = ctx.BlockTime().Add(24 * time.Hour)
+		k.SetValidator(ctx, validator)
+		validators[i] = validator
+	}
+	server := keeper.NewMsgServerImpl(k)
+	goCtx := sdk.WrapSDKContext(ctx)
+	for _, delegator := range delegators {
+		for _, source := range validators[:2] {
+			_, err := server.Delegate(goCtx, types.NewMsgDelegate(delegator, source.GetOperator(), sdk.NewInt64Coin(k.BondDenom(ctx), 100)))
+			require.NoError(t, err)
+		}
+	}
+	type identity struct{ delegator, source, destination string }
+	produced := make(map[identity]sdk.Int)
+	for di, delegator := range delegators {
+		for si, source := range validators[:2] {
+			for ti, destination := range validators[2:] {
+				amount := sdk.NewInt(int64(2 + di*4 + si*2 + ti))
+				response, err := server.BeginRedelegate(goCtx, types.NewMsgBeginRedelegate(delegator, source.GetOperator(), destination.GetOperator(), sdk.NewCoin(k.BondDenom(ctx), amount)))
+				require.NoError(t, err)
+				require.Equal(t, source.UnbondingTime, response.CompletionTime)
+				produced[identity{delegator.String(), source.OperatorAddress, destination.OperatorAddress}] = amount
+			}
+		}
+	}
+	helper := baseapp.NewQueryServerTestHelper(ctx, app.InterfaceRegistry())
+	types.RegisterQueryServer(helper, keeper.Querier{Keeper: k})
+	client := types.NewQueryClient(helper)
+	for mask := 0; mask < 8; mask++ {
+		t.Run(fmt.Sprintf("filter_%03b", mask), func(t *testing.T) {
+			request := types.QueryRedelegationsRequest{}
+			if mask&1 != 0 {
+				request.DelegatorAddr = delegators[0].String()
+			}
+			if mask&2 != 0 {
+				request.SrcValidatorAddr = validators[0].OperatorAddress
+			}
+			if mask&4 != 0 {
+				request.DstValidatorAddr = validators[2].OperatorAddress
+			}
+			expected := make(map[identity]sdk.Int)
+			for id, amount := range produced {
+				if (request.DelegatorAddr == "" || request.DelegatorAddr == id.delegator) &&
+					(request.SrcValidatorAddr == "" || request.SrcValidatorAddr == id.source) &&
+					(request.DstValidatorAddr == "" || request.DstValidatorAddr == id.destination) {
+					expected[id] = amount
+				}
+			}
+			require.Len(t, expected, 8>>bits.OnesCount(uint(mask)))
+			var forward []identity
+			for _, reverse := range []bool{false, true} {
+				seen := make(map[identity]bool)
+				var order []identity
+				var key []byte
+				for page := 0; ; page++ {
+					require.Less(t, page, len(expected), "continuation must advance and stop after the matching records")
+					request.Pagination = &query.PageRequest{Key: key, Limit: 1, CountTotal: true, Reverse: reverse}
+					response, err := client.Redelegations(gocontext.Background(), &request)
+					require.NoError(t, err)
+					require.NotNil(t, response.Pagination)
+					if page == 0 {
+						require.Equal(t, uint64(len(expected)), response.Pagination.Total)
+					}
+					require.Len(t, response.RedelegationResponses, 1)
+					row := response.RedelegationResponses[0]
+					id := identity{row.Redelegation.DelegatorAddress, row.Redelegation.ValidatorSrcAddress, row.Redelegation.ValidatorDstAddress}
+					amount, exists := expected[id]
+					require.True(t, exists, "unexpected redelegation: %+v", id)
+					require.False(t, seen[id], "duplicate redelegation across pages: %+v", id)
+					stored, found := k.GetRedelegation(ctx, sdk.MustAccAddressFromBech32(id.delegator), mustRepair310Val(id.source), mustRepair310Val(id.destination))
+					require.True(t, found)
+					require.Len(t, stored.Entries, 1)
+					require.Empty(t, row.Redelegation.Entries)
+					require.Len(t, row.Entries, 1)
+					require.True(t, amount.Equal(stored.Entries[0].InitialBalance))
+					require.True(t, amount.Equal(row.Entries[0].Balance))
+					require.Equal(t, stored.Entries[0], row.Entries[0].RedelegationEntry)
+					seen[id] = true
+					order = append(order, id)
+					next := response.Pagination.NextKey
+					if len(next) == 0 {
+						break
+					}
+					require.NotEqual(t, key, next)
+					key = next
+				}
+				require.Len(t, seen, len(expected))
+				for id := range expected {
+					require.True(t, seen[id], "missing redelegation: %+v", id)
+				}
+				if !reverse {
+					forward = order
+				} else {
+					for i := range order {
+						require.Equal(t, forward[len(forward)-1-i], order[i])
+					}
+				}
+				for offset, id := range order {
+					request.Pagination = &query.PageRequest{Offset: uint64(offset), Limit: 1, CountTotal: true, Reverse: reverse}
+					response, err := client.Redelegations(gocontext.Background(), &request)
+					require.NoError(t, err)
+					require.Equal(t, uint64(len(expected)), response.Pagination.Total)
+					require.Len(t, response.RedelegationResponses, 1)
+					row := response.RedelegationResponses[0].Redelegation
+					require.Equal(t, id, identity{row.DelegatorAddress, row.ValidatorSrcAddress, row.ValidatorDstAddress})
+				}
+				request.Pagination = &query.PageRequest{Offset: uint64(len(expected)), Limit: 1, CountTotal: true, Reverse: reverse}
+				response, err := client.Redelegations(gocontext.Background(), &request)
+				require.NoError(t, err)
+				require.Equal(t, uint64(len(expected)), response.Pagination.Total)
+				require.Empty(t, response.RedelegationResponses)
+				require.Empty(t, response.Pagination.NextKey)
+			}
+		})
+	}
 }

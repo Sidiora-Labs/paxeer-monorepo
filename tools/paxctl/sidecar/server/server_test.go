@@ -22,12 +22,14 @@ func newTestEngine(t *testing.T, handlers map[engine.TaskType]engine.TaskHandler
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	store, err := engine.NewMemoryStore()
+	store, err := NewTaskStore(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { store.Close() })
-	return engine.NewEngine(ctx, handlers, store)
+	eng := engine.NewEngine(ctx, handlers, store)
+	eng.Config.Checkpointer = store
+	return eng
 }
 
 func serveHTTP(srv *Server, method, path string, body string) *httptest.ResponseRecorder {
@@ -91,7 +93,7 @@ func TestLivezReturns200BeforeReady(t *testing.T) {
 func TestLivezReturns503WhenStoreDown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	store, err := engine.NewMemoryStore()
+	store, err := NewTaskStore(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +212,7 @@ func TestPostTaskDedupReturnsExistingID(t *testing.T) {
 	blocked := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	store, _ := engine.NewMemoryStore()
+	store, _ := NewTaskStore(":memory:")
 	t.Cleanup(func() { store.Close() })
 	eng := engine.NewEngine(ctx, map[engine.TaskType]engine.TaskHandler{
 		engine.TaskConfigPatch: func(_ context.Context, _ map[string]any) (json.RawMessage, error) {
@@ -219,6 +221,7 @@ func TestPostTaskDedupReturnsExistingID(t *testing.T) {
 			return nil, nil
 		},
 	}, store)
+	eng.Config.Checkpointer = store
 	srv := NewServer("127.0.0.1:0", eng, t.TempDir(), AuthnModeTrustedHeader)
 
 	body := `{"id":"ffffffff-1111-2222-3333-444444444444","type":"config-patch"}`
@@ -360,7 +363,7 @@ func TestGetTaskInProgress(t *testing.T) {
 	blocked := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	store, _ := engine.NewMemoryStore()
+	store, _ := NewTaskStore(":memory:")
 	t.Cleanup(func() { store.Close() })
 	eng := engine.NewEngine(ctx, map[engine.TaskType]engine.TaskHandler{
 		engine.TaskConfigPatch: func(_ context.Context, _ map[string]any) (json.RawMessage, error) {
@@ -369,6 +372,7 @@ func TestGetTaskInProgress(t *testing.T) {
 			return nil, nil
 		},
 	}, store)
+	eng.Config.Checkpointer = store
 	srv := NewServer("127.0.0.1:0", eng, t.TempDir(), AuthnModeTrustedHeader)
 
 	rec := serveHTTP(srv, http.MethodPost, "/v0/tasks", `{"type":"config-patch"}`)

@@ -356,49 +356,12 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 		accountingModel = model
 	}
 
-	// REST snapshot group: per-IP/key token bucket + global in-flight load-shed.
-	if cfg.APIRole != "sockets" {
-		var devReadsErr error
-		router.Group(func(gr chi.Router) {
-			gr.Use(limiter.Middleware)
-			gr.Use(sharedhttp.RateLimit(sharedhttp.RateLimitOptions{
-				Max:     cfg.RateLimitMax,
-				Window:  cfg.RateLimitWindow(),
-				Redis:   rdb,
-				KeyFunc: ratelimit.ClientKey,
-			}))
-			if cfg.NodeEnv != "production" {
-				devReadsErr = registerDevelopmentReads(gr, developmentReadDeps{cfg: cfg, store: st, cache: responseCache, admission: admission})
-			}
-			gr.Get("/status", app.statusHandler)
-		})
-		if devReadsErr != nil {
-			app.Close()
-			return nil, devReadsErr
-		}
-	}
-
 	if cfg.NodeEnv == "production" && cfg.APIRole == "rest" {
-		model := accountingModel
-		if err := rest.RegisterAccountingV2WithAdmission(router, model, []byte(cfg.StreamSigningKey), nil, admission); err != nil {
-			app.Close()
-			return nil, err
-		}
-		if err := rest.RegisterProductionReads(router, rest.ProductionReadOptions{Model: model, Stream: privateStream, Store: st, StatsOrigin: cfg.StatsURL, RegisterSnapshots: true, Admission: admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); err != nil {
-			app.Close()
-			return nil, err
-		}
-		authority.Register(router, admission)
-		authority.RegisterNetworkReads(router, admission)
 		app.sqlDB = stdlib.OpenDBFromPool(pool)
-		if err = app.registerProductionOperations(ctx, router, identityRequest, admission, secretChecks); err != nil {
-			app.Close()
-			return nil, err
-		}
-		if err := rest.RegisterV2SearchProxy(router, cfg.StatsURL); err != nil {
-			app.Close()
-			return nil, err
-		}
+	}
+	if err := app.registerREST(ctx, router, st, accountingModel, identityRequest, secretChecks, allowedOrigins, trustedProxies); err != nil {
+		app.Close()
+		return nil, err
 	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
@@ -414,6 +377,45 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	resourcesOwned = true
 	secretOwned = true
 	return app, nil
+}
+
+// registerREST installs every snapshot registration under the same client quota
+// and in-flight limit, including handlers that have their own workload admission.
+func (a *App) registerREST(ctx context.Context, router chi.Router, st *store.Store, model *store.AccountingReadModel, identity requestIdentity, checks map[string]sharedhttp.Check, allowedOrigins map[string]bool, trustedProxies []string) error {
+	if a.cfg.APIRole == "sockets" {
+		return nil
+	}
+	var registrationErr error
+	router.Group(func(gr chi.Router) {
+		gr.Use(a.limiter.Middleware)
+		gr.Use(sharedhttp.RateLimit(sharedhttp.RateLimitOptions{
+			Max:     a.cfg.RateLimitMax,
+			Window:  a.cfg.RateLimitWindow(),
+			Redis:   a.redis,
+			KeyFunc: ratelimit.ClientKey,
+		}))
+		gr.Get("/status", a.statusHandler)
+		if a.cfg.NodeEnv != "production" {
+			registrationErr = registerDevelopmentReads(gr, developmentReadDeps{cfg: &a.cfg, store: st, cache: a.cache, admission: a.admission})
+			return
+		}
+		if a.cfg.APIRole != "rest" {
+			return
+		}
+		if registrationErr = rest.RegisterAccountingV2WithAdmission(gr, model, []byte(a.cfg.StreamSigningKey), nil, a.admission); registrationErr != nil {
+			return
+		}
+		if registrationErr = rest.RegisterProductionReads(gr, rest.ProductionReadOptions{Model: model, Stream: a.privateStream, Store: st, StatsOrigin: a.cfg.StatsURL, RegisterSnapshots: true, Admission: a.admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); registrationErr != nil {
+			return
+		}
+		a.authority.Register(gr, a.admission)
+		a.authority.RegisterNetworkReads(gr, a.admission)
+		if registrationErr = a.registerProductionOperations(ctx, gr, identity, a.admission, checks); registrationErr != nil {
+			return
+		}
+		registrationErr = rest.RegisterV2SearchProxy(gr, a.cfg.StatsURL)
+	})
+	return registrationErr
 }
 
 // statusHandler reports live gateway gauges (subscribers, connections, cache,

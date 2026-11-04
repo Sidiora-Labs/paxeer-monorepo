@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +26,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
@@ -148,6 +153,17 @@ func (h *harness) do(t *testing.T, method, path string, body []byte) (*http.Resp
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+		var legacy types.WatchlistMutateRequest
+		if json.Unmarshal(body, &legacy) == nil && legacy.Signature != "" && legacy.Message != "" {
+			action := "profile.update"
+			if strings.Contains(path, "/watchlist/") {
+				action = "watchlist.update"
+				if method == http.MethodDelete {
+					action = "watchlist.remove"
+				}
+			}
+			h.authorize(t, req, action, body, legacy.Signature, legacy.Message)
+		}
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -169,12 +185,6 @@ func (h *harness) uploadImage(t *testing.T, addr, imageType string, signature, m
 	t.Helper()
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
-	if signature != "" {
-		_ = mw.WriteField("signature", signature)
-	}
-	if message != "" {
-		_ = mw.WriteField("message", message)
-	}
 	if f != nil {
 		hdr := textproto.MIMEHeader{}
 		hdr.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`, f.field, f.name))
@@ -195,6 +205,15 @@ func (h *harness) uploadImage(t *testing.T, addr, imageType string, signature, m
 		t.Fatalf("new request: %v", err)
 	}
 	req.Header.Set("Content-Type", mw.FormDataContentType())
+	sum := sha256.Sum256(body.Bytes())
+	intent, err := json.Marshal(struct {
+		ContentType string `json:"content_type"`
+		SHA256      string `json:"sha256"`
+	}{mw.FormDataContentType(), hex.EncodeToString(sum[:])})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.authorize(t, req, "image."+imageType+".update", intent, signature, message)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("do request: %v", err)
@@ -306,7 +325,7 @@ func TestUserService(t *testing.T) {
 		if ct := ir.Header.Get("Content-Type"); ct != "image/png" {
 			t.Errorf("content-type = %q", ct)
 		}
-		if cc := ir.Header.Get("Cache-Control"); !strings.Contains(cc, "immutable") {
+		if cc := ir.Header.Get("Cache-Control"); cc != "public, no-cache, max-age=0, must-revalidate" {
 			t.Errorf("cache-control = %q", cc)
 		}
 		got, _ := io.ReadAll(ir.Body)
@@ -509,7 +528,7 @@ func TestUserService(t *testing.T) {
 				t.Setenv("CLAMAV_HOST", "")
 				deps := h.deps
 				deps.Scan = scan
-				down := &harness{baseURL: serve(t, deps)}
+				down := &harness{baseURL: serve(t, deps), key: h.key, wallet: h.wallet}
 				before := countBanners()
 				msg := "sign-in"
 				f := &uploadFile{field: "banner", name: "b.png", contentType: "image/png", data: pngFile("banner").data}
@@ -534,4 +553,36 @@ func TestUserService(t *testing.T) {
 		}
 	})
 
+}
+
+// authorize produces a fresh operation for each actual method, path and body.
+// Negative signature fixtures remain invalid in the header transport.
+func (h *harness) authorize(t *testing.T, req *http.Request, action string, body []byte, signature, message string) {
+	t.Helper()
+	if signature == "" || message == "" {
+		return
+	}
+	digest, err := sharedauth.BodyDigest(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonce := make([]byte, 32)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().Unix()
+	e := sharedauth.OperationEnvelope{Version: 2, ChainID: "125", Environment: "launchpad-user-legacy", Actor: strings.ToLower(h.wallet), Action: action, Method: req.Method, Path: req.URL.Path, BodyHash: digest, Nonce: hex.EncodeToString(nonce), IssuedAt: now, ExpiresAt: now + 300}
+	statement, err := e.Statement()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sharedauth.VerifyWalletSignature(h.wallet, message, signature) {
+		signature = h.sign(t, statement)
+	}
+	raw, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(sharedauth.OperationEnvelopeHeader, base64.RawURLEncoding.EncodeToString(raw))
+	req.Header.Set(sharedauth.OperationSignatureHeader, signature)
 }

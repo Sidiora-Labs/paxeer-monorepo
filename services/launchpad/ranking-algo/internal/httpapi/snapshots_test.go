@@ -41,7 +41,13 @@ func TestSnapshotQueryBoundsAndCanonicalCategories(t *testing.T) {
 	if err != nil || category != "volume" {
 		t.Fatal("volume alias")
 	}
-	for _, raw := range []string{"gainers", "losers", "arbitrary"} {
+	for _, raw := range []string{"trending", "breakout", "volume", "gainers", "losers", "movers", "unusual", "new"} {
+		category, err := snapshotCategory(raw)
+		if err != nil || category != raw {
+			t.Fatalf("snapshotCategory(%q) = %q, %v; want %q, nil", raw, category, err, raw)
+		}
+	}
+	for _, raw := range []string{"arbitrary", "unsupported", "Gainers"} {
 		if _, err = snapshotCategory(raw); err == nil {
 			t.Fatalf("unsupported category %s", raw)
 		}

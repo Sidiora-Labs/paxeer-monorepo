@@ -71,10 +71,34 @@ public final class DurableStores {
             if (proposed == null || release == null) throw new IOException("invalid fulfillment request");
             return locked(directory, () -> {
                 Path path = record(directory.path(), proposed.idempotencyKey());
+                LayerXResource resource;
                 if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-                    return readFulfillment(directory, path, proposed);
+                    JsonNode stored = readObject(directory, path);
+                    requireProposal(stored, proposed);
+                    if (!stored.has("state") || "completed".equals(text(stored, "state", 32))) {
+                        return readFulfillment(stored, proposed);
+                    }
+                    if (!"claimed".equals(text(stored, "state", 32))) {
+                        throw new IOException("durable fulfillment state is invalid");
+                    }
+                    if (!(release instanceof ResourceRelease.Recoverable recoverable)) {
+                        throw new IOException("interrupted fulfillment requires explicit resource recovery");
+                    }
+                    ResourceRelease.Recovery recovery = recoverable.recover(proposed.idempotencyKey());
+                    if (recovery instanceof ResourceRelease.Recovered recovered) {
+                        resource = recovered.resource();
+                    } else if (recovery instanceof ResourceRelease.NotReleased) {
+                        resource = recoverable.release(proposed.idempotencyKey());
+                    } else {
+                        throw new IOException("resource recovery did not establish an outcome");
+                    }
+                } else {
+                    writeAtomic(directory, path, MAPPER.writeValueAsBytes(proposal(proposed).put("state", "claimed")));
+                    // Legacy effects can complete normally, but an interrupted claim
+                    // cannot be replayed without an explicit recovery authority.
+                    resource = release instanceof ResourceRelease.Recoverable recoverable
+                        ? recoverable.release(proposed.idempotencyKey()) : release.release();
                 }
-                LayerXResource resource = release.release();
                 Fulfillments.StoredFulfillment stored = new Fulfillments.StoredFulfillment(
                     proposed.idempotencyKey(), proposed.requestDigest(), proposed.canonicalReceipt(),
                     proposed.receiptKey(), proposed.transactionHash(), resource);
@@ -163,10 +187,8 @@ public final class DurableStores {
         }
     }
 
-    private static Fulfillments.StoredFulfillment readFulfillment(
-            TrustedDirectory directory, Path path,
-            Fulfillments.ProposedFulfillment proposed) throws IOException {
-        JsonNode stored = readObject(directory, path);
+    private static void requireProposal(JsonNode stored, Fulfillments.ProposedFulfillment proposed)
+            throws IOException {
         String idempotencyKey = text(stored, "idempotencyKey", 256);
         String requestDigest = text(stored, "requestDigest", 256);
         byte[] receipt = bytes(stored, "canonicalReceipt", 1_048_576);
@@ -180,9 +202,6 @@ public final class DurableStores {
             throw new IOException("durable receipt key is invalid", error);
         }
         byte[] transactionHash = exactBytes(stored, "transactionHash", 32);
-        JsonNode resourceNode = object(stored, "resource");
-        LayerXResource resource = new LayerXResource(text(resourceNode, "contentType", 1024),
-            bytes(resourceNode, "body", 2 * 1024 * 1024));
         if (!idempotencyKey.equals(proposed.idempotencyKey())
                 || !requestDigest.equals(proposed.requestDigest())
                 || !Arrays.equals(receipt, proposed.canonicalReceipt())
@@ -190,10 +209,18 @@ public final class DurableStores {
                 || !Arrays.equals(transactionHash, proposed.transactionHash())) {
             throw MiddlewareException.of(MiddlewareException.Code.FULFILLMENT_CONFLICT);
         }
-        return new Fulfillments.StoredFulfillment(idempotencyKey, requestDigest, receipt, key, transactionHash, resource);
     }
 
-    private static byte[] encode(Fulfillments.StoredFulfillment stored) throws IOException {
+    private static Fulfillments.StoredFulfillment readFulfillment(
+            JsonNode stored, Fulfillments.ProposedFulfillment proposed) throws IOException {
+        JsonNode resourceNode = object(stored, "resource");
+        LayerXResource resource = new LayerXResource(text(resourceNode, "contentType", 1024),
+            bytes(resourceNode, "body", 2 * 1024 * 1024));
+        return new Fulfillments.StoredFulfillment(proposed.idempotencyKey(), proposed.requestDigest(),
+            proposed.canonicalReceipt(), proposed.receiptKey(), proposed.transactionHash(), resource);
+    }
+
+    private static ObjectNode proposal(Fulfillments.ProposedFulfillment stored) {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("idempotencyKey", stored.idempotencyKey());
         root.put("requestDigest", stored.requestDigest());
@@ -204,6 +231,13 @@ public final class DurableStores {
         key.put("firstHeight", stored.receiptKey().firstHeight().toString());
         key.put("lastHeight", stored.receiptKey().lastHeight().toString());
         root.put("transactionHash", Base64.getEncoder().encodeToString(stored.transactionHash()));
+        return root;
+    }
+
+    private static byte[] encode(Fulfillments.StoredFulfillment stored) throws IOException {
+        ObjectNode root = proposal(new Fulfillments.ProposedFulfillment(stored.idempotencyKey(),
+            stored.requestDigest(), stored.canonicalReceipt(), stored.receiptKey(), stored.transactionHash()));
+        root.put("state", "completed");
         ObjectNode resource = root.putObject("resource");
         resource.put("contentType", stored.resource().contentType());
         resource.put("body", Base64.getEncoder().encodeToString(stored.resource().body()));

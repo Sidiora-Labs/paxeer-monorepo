@@ -52,6 +52,7 @@ type repair68Participant struct {
 	Revoked bool
 }
 type repair68Data struct {
+	Moderation1029   *repairM1029Data
 	Conversations    map[string]*repair68Conversation
 	Messages         map[string]fanout.DurableMessage
 	Outbox           map[string][]byte
@@ -104,7 +105,12 @@ func repair68Failure(message string) repair68Result { return repair68Result{err:
 
 func newRepair68Database(t *testing.T) (*pgxpool.Pool, func() *pgxpool.Pool) {
 	t.Helper()
-	peer := &repair68Peer{data: repair68EmptyData()}
+	return newRepair68DatabaseWithData(t, repair68EmptyData())
+}
+
+func newRepair68DatabaseWithData(t *testing.T, data *repair68Data) (*pgxpool.Pool, func() *pgxpool.Pool) {
+	t.Helper()
+	peer := &repair68Peer{data: data}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -377,6 +383,11 @@ func (d *repair68Data) execute(q string, a []string, user string) repair68Result
 		q = strings.TrimSpace(q[i+1:])
 	}
 	q = strings.Join(strings.Fields(q), " ")
+	if d.Moderation1029 != nil {
+		if result, handled := d.executeM1029(q, a); handled {
+			return result
+		}
+	}
 	get := func(i int) string {
 		if i >= len(a) {
 			panic(fmt.Sprintf("missing parameter %d: %s", i, q))

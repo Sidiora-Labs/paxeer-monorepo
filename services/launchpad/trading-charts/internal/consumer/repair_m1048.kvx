@@ -1,0 +1,9 @@
+[repair.22.33.1048]
+audit = "22.30.41"
+finding = "12"
+implementation = "app.Run starts a bounded completeness loop; App.Close cancels and joins it before closing the database and RPC. Each page resumes the current generation's last committed publication and RefreshCompleteness rechecks its applied fill, partition commit, source authority and canonical checkpoint."
+proving_tests = ["TestRepairM_1048_IdlePoolCompletion", "TestRepairM_1048_GapRefusal", "TestRepairM_1048_SourceAuthorization", "TestRepairM_1048_RestartRecovery", "TestRepairM_1048_BoundedFairSweep", "TestRepairM_1048_RefreshLoopRetries"]
+proof = "Real market publication producer and codec, production refresh/authorization/checkpoint/scheduler and series engine, transactional in-memory source/applied-state peer, recorded chain blocks served over loopback RPC, stopped loop and reopened persisted peer. The focused test target also compiles app.Run."
+baseline = "No earlier gate ledger or repair test exists in the supplied tree. No baseline test was run: the explicit ordered gate instructions require complete implementation, formatting, hf-build, then hf-done and prohibit running verify by hand."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; the final response copies the last gate evidence."
