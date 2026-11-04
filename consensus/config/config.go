@@ -143,6 +143,9 @@ func (cfg *Config) ValidateBasic() error {
 	if err := cfg.RPC.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [rpc] section: %w", err)
 	}
+	if err := cfg.P2P.ValidateBasic(); err != nil {
+		return fmt.Errorf("error in [p2p] section: %w", err)
+	}
 	if err := cfg.Mempool.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [mempool] section: %w", err)
 	}
@@ -985,10 +988,19 @@ func (cfg *MempoolConfig) ValidateBasic() error {
 	if cfg.CheckTxErrorThreshold < 0 {
 		return errors.New("check-tx-error-threshold can't be negative")
 	}
-	if cfg.DropPriorityThreshold < 0 {
-		return errors.New("drop-priority-threshold can't be negative")
+	if cfg.PendingSize < 0 {
+		return errors.New("pending-size can't be negative")
 	}
-	if cfg.DropUtilisationThreshold < 0.0 || cfg.DropUtilisationThreshold > 1.0 {
+	if cfg.MaxPendingTxsBytes < 0 {
+		return errors.New("max-pending-txs-bytes can't be negative")
+	}
+	if cfg.DropPriorityReservoirSize <= 0 {
+		return errors.New("drop-priority-reservoir-size must be positive")
+	}
+	if math.IsNaN(cfg.DropPriorityThreshold) || cfg.DropPriorityThreshold < 0.0 || cfg.DropPriorityThreshold > 1.0 {
+		return errors.New("drop-priority-threshold must be between 0.0 and 1.0")
+	}
+	if math.IsNaN(cfg.DropUtilisationThreshold) || cfg.DropUtilisationThreshold < 0.0 || cfg.DropUtilisationThreshold > 1.0 {
 		return errors.New("drop-utilisation-threshold must be between 0.0 and 1.0")
 	}
 

@@ -461,3 +461,7 @@ func TestProtoMarshalJSON(t *testing.T) {
 	require.Equal(ko.Address, sdk.AccAddress(pk2.Address()).String())
 	require.Equal(ko.PubKey, string(bz))
 }
+
+func TestVerifyMultisignatureTransactions(t *testing.T) {
+	repairM1345Transactions(t)
+}

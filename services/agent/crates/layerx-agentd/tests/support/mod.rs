@@ -21,9 +21,7 @@ use layerx_agentd::prepare::{
     CoreStateError, PreparationDefaults, PrepareRequest,
 };
 use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, RawStateEvidence};
-use layerx_agentd::sign::{
-    attach_kernel_signature, verify_kernel_before_submit, VerifiedSubmission,
-};
+use layerx_agentd::sign::{verify_before_submit, SigningPreparation, VerifiedSubmission};
 use layerx_agentd::store::TenantId;
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_crypto::evm_transaction::{
@@ -191,17 +189,62 @@ pub fn verified_submission(id: u8) -> VerifiedSubmission {
         },
     )
     .unwrap_or_else(|error| panic!("prepare: {error:?}"));
-    let signature = ready(sign_disclosed(
-        &signer,
-        &prepared.canonical_bytes,
-        &prepared.disclosure,
+    verified_evm_call(
+        layerx_agentd::prepare::PrecompileCall::ledger_transfer(
+            prepared.envelope.payload().as_bytes().to_vec(),
+        ),
+        prepared.envelope.account_sequence(),
         &registry(),
+    )
+}
+
+fn evm_sender() -> [u8; 20] {
+    let (call, signature) = must(decode_signed(&signed_transaction(0)));
+    must(recover_sender(&call, &signature))
+}
+
+fn verified_evm_call(
+    call: layerx_agentd::prepare::PrecompileCall,
+    nonce: u64,
+    registry: &ModuleRegistry,
+) -> VerifiedSubmission {
+    use layerx_agentd::prepare::{
+        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
+    };
+    let actor_address = evm_sender();
+    let transaction = must(prepare_bound(
+        EvmPreparationState {
+            chain_id: 17,
+            pending_nonce: nonce,
+            base_fee_per_gas: 1,
+            head_height: 88,
+        },
+        EvmPreparationDefaults {
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            maximum_payload_bytes: 1_024,
+        },
+        EvmPrepareRequest {
+            from: actor_address,
+            call,
+            expected_nonce: Some(nonce),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            declared_payload_limit: 1_024,
+        },
+        100_000,
+    ));
+    let prepared = SigningPreparation {
+        transaction,
+        actor_address,
+    };
+    let signed = must(prepared.transaction.call.sign(&[0xa5; 32]));
+    must(verify_before_submit(
+        &signed,
+        &prepared,
+        &actor_address,
+        registry,
     ))
-    .unwrap_or_else(|error| panic!("sign: {error:?}"));
-    let signed_bytes = attach_kernel_signature(&prepared, *signature.as_bytes())
-        .unwrap_or_else(|error| panic!("attach: {error:?}"));
-    verify_kernel_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry())
-        .unwrap_or_else(|error| panic!("verify: {error:?}"))
 }
 
 pub const BUDGET_CREATE_ID: [u8; 32] = [0x0b; 32];
@@ -271,8 +314,7 @@ pub fn budget_create_payload(
     bytes
 }
 
-/// Prepares, externally signs and verifies one canonical protocol-3 budget-create
-/// activity exactly as the daemon does for an owner-supplied signature.
+/// Prepares, signs and verifies the production budget-create EIP-1559 call.
 pub fn budget_create_submission(
     id: u8,
     budget_id: [u8; 32],
@@ -315,17 +357,40 @@ pub fn budget_create_submission(
         BUDGET_CREATE_PROTOCOL,
     )
     .unwrap_or_else(|error| panic!("prepare: {error:?}"));
-    let signature = ready(sign_disclosed(
-        &signer,
-        &prepared.canonical_bytes,
-        &prepared.disclosure,
+    let request = layerx_agentd::budget::BudgetRequest {
+        tenant: tenant(),
+        request_id: [id; 32],
+        kind: layerx_agentd::budget::BudgetKind::ProtocolBudget,
+        asset,
+        ceiling: per_period_limit,
+        expiry_ms,
+        core_time_ms: 1_000,
+        canonical_activity: prepared.canonical_bytes.clone(),
+        verified_submission: None,
+    };
+    let identity = layerx_agentd::budget::BudgetCreateIdentity {
+        encoding_version: 1,
+        budget_id,
+        sender: evm_sender(),
+        budget_account: budget_create_account(budget_id),
+        asset,
+        purpose: BUDGET_CREATE_PURPOSE,
+        per_period_limit,
+        carry_cap: 0,
+        initial_amount: per_period_limit,
+        period_length_ms: BUDGET_CREATE_PERIOD_LENGTH,
+        period_start_ms: BUDGET_CREATE_PERIOD_START,
+        expiry_ms,
+        revocation_sequence: 0,
+        rollover: 1,
+        source_account: [0; 32],
+        source_sequence: 0,
+    };
+    verified_evm_call(
+        must(request.create_protocol_budget(&identity)),
+        prepared.envelope.account_sequence(),
         &registry,
-    ))
-    .unwrap_or_else(|error| panic!("sign: {error:?}"));
-    let signed_bytes = attach_kernel_signature(&prepared, *signature.as_bytes())
-        .unwrap_or_else(|error| panic!("attach: {error:?}"));
-    verify_kernel_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry)
-        .unwrap_or_else(|error| panic!("verify: {error:?}"))
+    )
 }
 
 /// Encodes the 278-byte canonical version-1 core budget record core stores under

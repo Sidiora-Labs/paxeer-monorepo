@@ -35,7 +35,7 @@ func (m *PrivKey) Reset() {
 }
 
 func (m *PrivKey) String() string {
-	return string(m.Bytes())
+	return "PrivKeySr25519{<redacted>}"
 }
 
 func GenPrivKey() *PrivKey {

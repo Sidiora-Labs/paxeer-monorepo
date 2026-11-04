@@ -1,0 +1,24 @@
+[repair.22.33.132]
+audit = "22.30.114"
+criterion = "22998.1"
+implementation = "Guard every request result, error and loading update by generation; clear identity-specific data and pagination on account changes; invalidate pending requests on unmount; serialize page requests using the current cursor."
+proof = "Real React hooks in StrictMode use the production address API and Blockscout HTTP client against a loopback HTTP fixture server; responses are released in controlled order."
+registration = "Vitest requires test(function.name, function); a single function argument registers a todo and executes no assertions. The first gate exposed this and the repaired gate must show five passing tests."
+baseline = "Not run: the task's explicit implementation-first gate order prohibits verification before implementation and prohibits running verify_cmd by hand; no pre-change failure is claimed."
+wiring_requests = "None; all five proposals are contained within the owned hooks."
+evidence = "The runner's hf-done ledger records the qualified candidate revision, command, exit code and private log location."
+
+[finding.46]
+test = "finding46_useAddress_guards_account_data_counters_errors_and_loading"
+
+[finding.47]
+test = "finding47_useTokenBalances_guards_account_data_errors_and_loading"
+
+[finding.50]
+test = "finding50_useNfts_guards_account_requests_and_page_appends"
+
+[finding.49]
+test = "finding49_useTokenTransfers_guards_account_requests_and_page_appends"
+
+[finding.48]
+test = "finding48_useTransactions_guards_account_requests_and_page_appends"

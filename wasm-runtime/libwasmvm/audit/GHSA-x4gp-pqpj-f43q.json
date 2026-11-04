@@ -1,0 +1,15 @@
+{
+  "ghsa_id": "GHSA-x4gp-pqpj-f43q",
+  "summary": "curve25519-dalek has timing variability in `curve25519-dalek`'s `Scalar29::sub`/`Scalar52::sub`",
+  "vulnerabilities": [
+    {
+      "first_patched_version": "4.1.3",
+      "package": {
+        "ecosystem": "rust",
+        "name": "curve25519-dalek"
+      },
+      "vulnerable_functions": [],
+      "vulnerable_version_range": "< 4.1.3"
+    }
+  ]
+}

@@ -293,6 +293,7 @@ func NewEVMHTTPServer(
 	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
 	apis := []rpc.API{
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -541,6 +542,7 @@ func NewEVMWebSocketServer(
 	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
 	apis := []rpc.API{
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),

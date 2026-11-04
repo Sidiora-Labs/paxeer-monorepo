@@ -1,0 +1,23 @@
+[repair.22.31.368]
+audit = "22.30.95"
+acceptance = "22998.1"
+revision_source = "The final hf-build/hf-done JSON identifies the exact candidate revision and private evidence log; this source record does not claim a gate result."
+baseline = "Attempt 1 is retained; its build failed on removed kernel helper imports before verification. No unchanged-tree verify was run. The explicit implementation-first, wrapper-only gate order prohibits the additional unchanged-tree baseline requested by step 8; no baseline failures were measured."
+finding_6 = "finding_6_authenticated_transaction_binding_survives_restart_and_refuses_foreign_blocks"
+finding_8 = "finding_8_shutdown_batches_append_across_two_reopen_cycles"
+finding_9 = "finding_9_provision_reopen_self_sign_scope_and_durable_revocation"
+finding_10 = "finding_10_retained_evm_producer_queues_transmits_and_restores_exact_bytes"
+finality = "LXF3 retains the independently checked Comet header, complete ordered transaction list, validator set and precommit signatures. Recovery requires caller-supplied trust and repeats signature, data-root, transaction-hash and receipt checks. Height-only LXF2 records cannot authorize Committed."
+shutdown = "Allocate the successor of the greatest persisted tenant audit index and atomically commit each pending batch; repeated lifecycle shutdowns cannot replace an earlier batch."
+session = "Registry-loaded secp256k1 keys carry the canonical decoded grant and network. self_sign borrows secret material through the registry revocation guard and checks activity scope, validity, network and current revocation sequence."
+submission = "Only the EVM verifier constructs production VerifiedSubmission. Human signing callers use retained EVM preparations; missing or mismatched retained preparations and 64-byte signatures are refused before queueing."
+legacy_compatibility = "Shared tests/support now produces verified EVM calls using real preparation and budget ABI producers. Out-of-scope tests/w7_owner_binding.rs and tests/proof_agentd.rs retain the old helper names, which now verify historical artifacts into VerifiedKernelArtifact, a distinct type with no conversion to submit-capable VerifiedSubmission."
+wiring_program_disclosure = "Domain 9: services/agent/crates/layerx-crypto/src/disclosure/call.rs must bind the native Programs lifecycle ABI constructors before their legacy Human preparation producers can supply supported retained EVM preparations; this task does not broaden that external binder."
+wiring_operator_clients = "Domain 9: services/agent/crates/layerx-agentd/tests must update legacy CreateBudget wire fixtures from 64-byte owner signatures to the 65-byte EVM signature now required by src/admin.rs and src/human.rs; existing assertions must be retained."
+qualification_repair_1 = "hf-build at 98c97511543ebb0836f2336a903db840530662c4 exited 101 (/out/logs/build-1.log): the migrated in-scope native unit fixture still referenced signed; retain submission.exact_bytes() for its durable record. The integration case also enters the same origin-aware verified queue path used by Human."
+
+continuation = "Attempt 2 preserves the audit repairs and ports shared support to EVM verification; compatibility kernel verification cannot construct a submit-capable wrapper. The final wrapper evidence supplies the verified revision; no source edits follow a passing hf-done."
+
+continuation_repair_1 = "hf-build at d3fc06fc3149f00a3a73ffc6ff2c3d97e8606502 exited 101 (/out/logs/build-1.log): the inherited integration test fixture include was one parent directory short; correct its path without changing assertions."
+
+continuation_repair_2 = "hf-done dependency check at f2045c8ce4e57f7f85c5bdef0b159631b65059ec exited 101 (/out/logs/dependents-1.log): the non-submittable historical artifact lacked the signed_byte_length getter used by the Human-service consumer; restore that audit getter in src/sign_legacy.rs without editing the consumer."

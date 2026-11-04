@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 
@@ -27,7 +28,10 @@ import (
 // GenerateOrBroadcastTxCLI will either generate and print and unsigned transaction
 // or sign it and broadcast it returning an error upon failure.
 func GenerateOrBroadcastTxCLI(ctx context.Context, clientCtx client.Context, flagSet *pflag.FlagSet, msgs ...sdk.Msg) error {
-	txf := NewFactoryCLI(clientCtx, flagSet)
+	txf, err := NewFactoryCLI(clientCtx, flagSet)
+	if err != nil {
+		return err
+	}
 	return GenerateOrBroadcastTxWithFactory(ctx, clientCtx, txf, msgs...)
 }
 
@@ -245,6 +249,10 @@ func BuildSimTx(txf Factory, msgs ...sdk.Msg) ([]byte, error) {
 func CalculateGas(
 	clientCtx gogogrpc.ClientConn, txf Factory, msgs ...sdk.Msg,
 ) (*tx.SimulateResponse, uint64, error) {
+	if err := validateGasAdjustment(txf.GasAdjustment()); err != nil {
+		return nil, 0, err
+	}
+
 	txBytes, err := BuildSimTx(txf, msgs...)
 	if err != nil {
 		return nil, 0, err
@@ -258,7 +266,22 @@ func CalculateGas(
 		return nil, 0, err
 	}
 
-	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
+	if simRes == nil || simRes.GasInfo == nil {
+		return nil, 0, errors.New("simulation response is missing gas information")
+	}
+	adjusted := math.Ceil(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed))
+	// float64(math.MaxUint64) rounds to 2^64, which cannot be converted to uint64.
+	if math.IsNaN(adjusted) || math.IsInf(adjusted, 0) || adjusted < 0 || adjusted >= math.Exp2(64) {
+		return nil, 0, fmt.Errorf("adjusted gas %g is outside uint64 range", adjusted)
+	}
+	return simRes, uint64(adjusted), nil
+}
+
+func validateGasAdjustment(factor float64) error {
+	if math.IsNaN(factor) || math.IsInf(factor, 0) || factor < 0 {
+		return fmt.Errorf("gas adjustment must be finite and non-negative: %g", factor)
+	}
+	return nil
 }
 
 // prepareFactory ensures the account defined by ctx.GetFromAddress() exists and

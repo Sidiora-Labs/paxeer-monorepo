@@ -95,7 +95,7 @@ fn budget_account() -> AccountId {
 fn activity(module: ModuleId, ordinal: u16) -> ActivityType {
     required(ActivityType::new(module, ordinal))
 }
-fn registry() -> ModuleRegistry {
+pub(crate) fn registry() -> ModuleRegistry {
     required(ModuleRegistry::new(&[
         required(ModuleRegistration::new(
             ModuleId::Governance,
@@ -135,7 +135,11 @@ fn budget_create(limit: u128) -> Result<BudgetCreate, IntentError> {
     )
 }
 
-fn signed_send() -> (LxpSend, SendRoute, Vec<u8>) {
+pub(crate) fn signed_send() -> (LxpSend, SendRoute, Vec<u8>) {
+    signed_send_for_network(125)
+}
+
+pub(crate) fn signed_send_for_network(network_id: u32) -> (LxpSend, SendRoute, Vec<u8>) {
     let signer = LocalSigner::new([0x42; 32]);
     let debit = SendDebit {
         from: required(hash::account_id(&owner())),
@@ -148,7 +152,7 @@ fn signed_send() -> (LxpSend, SendRoute, Vec<u8>) {
         context_hash: [0x55; 32],
         conditions: Vec::new(),
         authorization_kind: 1,
-        network_id: 77,
+        network_id,
         protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
     };
     let canonical = required(debit.authorization_message());

@@ -1,0 +1,11 @@
+[repair.22.33.902]
+audit = "22.30.19"
+embedded_react_identity = "embedded_react_identity: committed React consumer snapshots across direct principal replacement, read/provision/post-provision-read failures, delayed old reads, and current-principal recovery"
+embedded_principal_cache = "embedded_principal_cache: immediate empty accounts before replacement resolution, delayed old responses after replacement, failed replacement reads, sign-out/re-entry with the same token, and destruction"
+embedded_quantity_validation = "embedded_quantity_validation: both transaction methods reject malformed, negative, fractional, unsafe and out-of-range values without a signing dispatch; valid uint256 and safe-nonce boundaries survive REST serialization and real viem signing/recovery"
+baseline = "Not executed: the task's ordered implementation-first instructions and hf-build/hf-done-only gates prohibit baseline verification; no pre-change test failures are claimed."
+validators = "The maintained sdk/wallet/src/provider.ts uintField and safeInteger functions are private; embedded validation follows their uint256, decimal/hex and safe-integer rules locally without changing out-of-scope SDK exports."
+wiring_requests = "None: all three repairs and their real producer/transport/consumer proofs are contained in the embedded wallet scope."
+qualification = "hf-build and hf-done retain exact revision, command, exit code and private log in the runner gate ledger; no gate is claimed before execution."
+test_runtime = "Real React context, EIP-1193 provider, PaxeerWallet REST codec and Supabase auth client over loopback HTTP; committed authenticated JWT, in-memory wallet and transaction stores, real viem signing and recovery; configuration is created internally without external credentials, services or subprocesses."
+quantity_codec = "Viem omits zero value from parseTransaction output; the proof asserts the exact canonical RLP field and its decoded quantity as well as the exact REST wire value, preserving explicit-zero versus omitted-input checks."

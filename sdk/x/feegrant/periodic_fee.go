@@ -20,6 +20,10 @@ var _ FeeAllowanceI = (*PeriodicAllowance)(nil)
 // If remove is true (regardless of the error), the FeeAllowance will be deleted from storage
 // (eg. when it is used up). (See call to RevokeAllowance in Keeper.UseGrantedFees)
 func (a *PeriodicAllowance) Accept(ctx sdk.Context, fee sdk.Coins, _ []sdk.Msg) (bool, error) {
+	if a.Period <= 0 {
+		return false, sdkerrors.Wrap(ErrInvalidDuration, "period must be positive")
+	}
+
 	blockTime := ctx.BlockTime()
 
 	if a.Basic.Expiration != nil && blockTime.After(*a.Basic.Expiration) {
@@ -99,8 +103,8 @@ func (a PeriodicAllowance) ValidateBasic() error {
 	}
 
 	// check times
-	if a.Period.Seconds() < 0 {
-		return sdkerrors.Wrap(ErrInvalidDuration, "negative clock step")
+	if a.Period <= 0 {
+		return sdkerrors.Wrap(ErrInvalidDuration, "period must be positive")
 	}
 
 	return nil

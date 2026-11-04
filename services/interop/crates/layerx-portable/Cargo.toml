@@ -20,3 +20,7 @@ p256.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "repair_22_33_95"
+path = "../../tests/repair_22_33_95.rs"

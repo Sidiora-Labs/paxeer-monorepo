@@ -1,13 +1,11 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/ss"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/tools/cmd/paxdb/benchmark"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/tools/utils"
 	"github.com/spf13/cobra"
 )
@@ -15,81 +13,65 @@ import (
 const outputFileName = "db_dump.kv"
 
 func DumpDbCmd() *cobra.Command {
-	dumpDbCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "dump-db",
 		Short: "For a given State Store DB, dump-db iterates over all keys and values for a specific store and writes them to a file",
-		Run:   executeDumpDB,
+		RunE:  executeDumpDB,
 	}
-
-	dumpDbCmd.PersistentFlags().StringP("output-dir", "o", "", "Output Directory")
-	dumpDbCmd.PersistentFlags().StringP("db-dir", "d", "", "Database Directory")
-	// TODO: Accept multiple modules. Can pass empty to iterate over all stores
-	dumpDbCmd.PersistentFlags().StringP("module", "m", "", "Module to export. Leave empty to export all")
-	dumpDbCmd.PersistentFlags().StringP("db-backend", "b", "", "DB Backend")
-
-	return dumpDbCmd
+	cmd.PersistentFlags().StringP("output-dir", "o", "", "Output Directory")
+	cmd.PersistentFlags().StringP("db-dir", "d", "", "Database Directory")
+	cmd.PersistentFlags().StringP("module", "m", "", "Module to export. Leave empty to export all")
+	cmd.PersistentFlags().StringP("db-backend", "b", "", "DB Backend")
+	return cmd
 }
 
-func executeDumpDB(cmd *cobra.Command, _ []string) {
-	outputDir, _ := cmd.Flags().GetString("output-dir")
-	module, _ := cmd.Flags().GetString("module")
-	dbDir, _ := cmd.Flags().GetString("db-dir")
-	dbBackend, _ := cmd.Flags().GetString("db-backend")
-
-	if dbDir == "" {
-		panic("Must provide database dir")
-	}
-
-	if dbBackend == "" {
-		panic("Must provide db backend")
-	}
-
-	_, isAcceptedBackend := benchmark.ValidDBBackends[dbBackend]
-	if !isAcceptedBackend {
-		panic(fmt.Sprintf("Unsupported db backend: %s\n", dbBackend))
-	}
-
-	if outputDir == "" {
-		panic("Must provide output dir when generating db export")
-	}
-
-	DumpDbData(dbBackend, module, outputDir, dbDir)
-}
-
-// Outputs the raw keys and values for all modules at a height to a file
-func DumpDbData(dbBackend string, module string, outputDir string, dbDir string) {
-	// Create output directory
-	err := os.MkdirAll(outputDir, fs.ModePerm)
+func executeDumpDB(cmd *cobra.Command, _ []string) error {
+	outputDir, err := cmd.Flags().GetString("output-dir")
 	if err != nil {
-		panic(err)
+		return err
 	}
+	module, err := cmd.Flags().GetString("module")
+	if err != nil {
+		return err
+	}
+	dbDir, err := cmd.Flags().GetString("db-dir")
+	if err != nil {
+		return err
+	}
+	dbBackend, err := cmd.Flags().GetString("db-backend")
+	if err != nil {
+		return err
+	}
+	return DumpDbData(dbBackend, module, outputDir, dbDir)
+}
 
-	// Create output file
+// DumpDbData outputs the raw keys and values from the explicitly named source.
+func DumpDbData(dbBackend, module, outputDir, dbDir string) (retErr error) {
+	cfg, err := existingStateStoreConfig(dbBackend, dbDir)
+	if err != nil {
+		return err
+	}
+	if outputDir == "" {
+		return fmt.Errorf("must provide output dir when generating db export")
+	}
+	backend, err := ss.NewStateStore("", cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { retErr = errors.Join(retErr, backend.Close()) }()
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return err
+	}
 	currentFile, err := utils.CreateFile(outputDir, outputFileName)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	defer func() { _ = currentFile.Close() }()
-
-	// TODO: Defer Close Db
-	ssConfig := config.DefaultStateStoreConfig()
-	ssConfig.Backend = dbBackend
-	backend, err := ss.NewStateStore(outputDir, ssConfig)
-	if err != nil {
-		panic(err)
-	}
-
+	defer func() { retErr = errors.Join(retErr, currentFile.Close()) }()
 	fmt.Printf("Writing db data to %s...\n", outputFileName)
-
-	// Callback to write db entries to file
+	var writeErr error
 	_, err = backend.RawIterate(module, func(key, value []byte, version int64) bool {
-		_, err = fmt.Fprintf(currentFile, "Key: %X Val: %X Version: %d\n", key, value, version)
-		if err != nil {
-			panic(err)
-		}
-		return false
+		_, writeErr = fmt.Fprintf(currentFile, "Key: %X Val: %X Version: %d\n", key, value, version)
+		return writeErr != nil
 	})
-	if err != nil {
-		panic(err)
-	}
+	return errors.Join(err, writeErr)
 }

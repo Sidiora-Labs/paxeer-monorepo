@@ -1,0 +1,34 @@
+[repair.22.33.1151]
+audit = "22.30.52"
+requirement = "22998.1"
+finding = "contract-hooks-skip-live-endpoints"
+proving_tests = ["TestRepairM_1151_LiveContractHooks", "TestRepairM_1151_SetupValidationAndNoNameBasedSkips"]
+implementation = "Replace name-based skips with endpoint-specific fixtures: submit and confirm the funded seed, retain its hash, assign distinct signed transaction inputs, query the committed key, and encode valid signed evidence with the production codec. Preserve every Dredd expected status, body, schema and header; additionally assert successful execution, returned hashes, transaction bytes, inclusion proofs, query values and explicitly declared unsupported errors."
+proof_path = "Goodman-compatible net/rpc HooksRunner -> real consensus JSON-RPC client -> in-process validator, mempool, kvstore application, evidence pool and indexes -> real HTTP response -> hook validation; evidence travels via typed JSON-RPC POST, whose envelope is validated before its payload reaches unchanged URI schema assertions."
+fixture_contract = "-fixtures supplies public transaction bytes signed by accounts already funded on the -rpc target, in execution order, plus query path/data/value and signed evidence. The committed Go proof uses the real zero-fee kvstore application, which requires no funded account or signer, rather than introducing a fake bank."
+unsupported = "Only an exact declared method-not-found error or the exact Autobahn evidence-refusal error is accepted. Unexpected errors, unexpected success, skipped cases and failed seed execution fail the hook RPC."
+baseline = "Not run: the explicit gate order prohibits testing before complete implementation or invoking verify_cmd outside hf-done. No pre-change test failure is claimed."
+qualification = "The hf-build/hf-done ledger and final evidence identify the exact qualified candidate revision, command, exit code and private log."
+wiring_requests = []
+
+[gotcha.22.33.1151]
+observed = "goodman/hooks parses flags during package initialization, before Go testing registers its flags; importing it prevents an ordinary focused Go test gate."
+repair = "Parse hook flags in main and serve the same HooksRunner net/rpc lifecycle locally, retaining goodman/transaction wire types."
+
+[gotcha.22.33.1151.evidence]
+observed = "The URI parser treats the evidence query argument as a string, while RequestBroadcastEvidence requires a typed JSON object."
+repair = "Use the existing production JSON-RPC POST route and RequestBroadcastEvidence codec; validate the complete envelope before exposing its payload to unchanged OpenAPI URI expectations. No out-of-path parser change is needed."
+
+[gotcha.22.33.1151.hex_uri]
+observed = "The URI parser converts a 0x-prefixed HexBytes argument to []byte and then base64 JSON, but RequestTx.Hash and RequestABCIQuery.Data decode hex JSON strings."
+repair = "Send lookup and application-query fixtures through their existing typed JSON-RPC POST routes, retaining prove and all result assertions."
+qualification_failure = "revision=3c243bdae71e096725afa2962f534be50a3c313f; command=cg spec done 22.33.1151 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; focused test detail=/tmp/repair-m1151.log"
+
+[continuation.22.33.1151]
+inherited_failure = "The previous candidate de481b5e992b1bce9f8ba0117db5d8b8863e4cdb failed TestRepairM_1151_LiveContractHooks; TestRepairM_1151_SetupValidationAndNoNameBasedSkips passed. Its detailed temporary test log is absent from this sandbox."
+response_codec = "Decode and re-encode consensus results with the same consensus/libs/json codec used by the production JSON-RPC client, retaining every response assertion."
+
+[gotcha.22.33.1151.hash_assertion]
+observed = "The lookup assertion compared the production HexBytes hash to an explicitly converted []byte; require.Equal rejected their distinct Go types despite identical bytes."
+repair = "Compare the producer and decoded request hashes as their original HexBytes types, retaining exact equality."
+evidence = "revision=0b7d44d63943440a2d2cbec112ad60137c1a1ebe; command=cg spec done 22.33.1151 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; detailed assertion=/tmp/repair-m1151.log:148"

@@ -14,7 +14,8 @@ defmodule Explorer.ThirdPartyIntegrations.UniversalProxy do
           method: atom() | nil,
           protocol: atom() | nil,
           platform_config: map() | nil,
-          platform_id: String.t() | nil
+          platform_id: String.t() | nil,
+          config_error: String.t() | nil
         }
 
   @type api_key :: %{
@@ -86,6 +87,8 @@ defmodule Explorer.ThirdPartyIntegrations.UniversalProxy do
     |> parse_proxy_params()
     |> api_request_inner()
   end
+
+  defp api_request_inner(%{config_error: error}) when is_binary(error), do: {"Invalid config: #{error}", 422}
 
   defp api_request_inner(%{
          url: url,
@@ -164,7 +167,25 @@ defmodule Explorer.ThirdPartyIntegrations.UniversalProxy do
   """
   @spec parse_proxy_params(map()) :: api_request_params()
   def parse_proxy_params(proxy_params) do
-    config = config()
+    case config() do
+      {:error, error} ->
+        %{
+          url: nil,
+          body: "",
+          headers: [],
+          method: nil,
+          protocol: nil,
+          platform_config: nil,
+          platform_id: proxy_params["platform_id"],
+          config_error: error
+        }
+
+      config ->
+        parse_proxy_params(config, proxy_params)
+    end
+  end
+
+  defp parse_proxy_params(config, proxy_params) do
     platform_id = proxy_params["platform_id"]
 
     platform_config = config["platforms"] && config["platforms"][platform_id]
@@ -204,29 +225,17 @@ defmodule Explorer.ThirdPartyIntegrations.UniversalProxy do
   @spec parse_method(map() | nil) :: atom() | nil
   defp parse_method(nil), do: nil
 
-  # sobelow_skip ["DOS.StringToAtom"]
-  defp parse_method(%{
-         "endpoints" => %{
-           "base" => %{"method" => method}
-         }
-       }) do
-    raw_method =
-      method
-      # limit size of the input to prevent memory leak
-      |> String.slice(0..10)
-      |> String.downcase()
-      |> String.to_atom()
-
-    if raw_method in @allowed_methods, do: raw_method, else: nil
+  defp parse_method(%{"endpoints" => %{"base" => %{"method" => method}}}) when is_binary(method) do
+    Enum.find(@allowed_methods, &(Atom.to_string(&1) == String.downcase(method)))
   end
 
   defp parse_method(_platform_config), do: nil
 
-  # sobelow_skip ["DOS.StringToAtom"]
   defp parse_protocol(%{"base_url" => base_url}) do
-    protocol = base_url |> URI.parse() |> Map.get(:scheme) |> String.to_atom()
-
-    if protocol in @allowed_protocols, do: protocol, else: nil
+    case URI.new(base_url) do
+      {:ok, %URI{scheme: scheme}} -> Enum.find(@allowed_protocols, &(Atom.to_string(&1) == scheme))
+      _ -> nil
+    end
   end
 
   defp parse_protocol(_platform_config), do: nil
@@ -373,15 +382,107 @@ defmodule Explorer.ThirdPartyIntegrations.UniversalProxy do
   end
 
   defp safe_parse_config_string(config_string, update_cache? \\ false) do
-    case Jason.decode(config_string) do
-      {:ok, config} ->
-        if update_cache?, do: :persistent_term.put(@cache_name, config_string)
-        config
-
-      {:error, _} ->
-        %{}
+    with {:ok, config} <- Jason.decode(config_string),
+         :ok <- validate_config(config) do
+      if update_cache?, do: :persistent_term.put(@cache_name, config_string)
+      config
+    else
+      {:error, error} when is_binary(error) -> {:error, error}
+      _ -> {:error, "Configuration must be valid JSON"}
     end
   end
+
+  defp validate_config(%{"platforms" => platforms}) when is_map(platforms) do
+    Enum.reduce_while(platforms, :ok, fn {id, platform}, :ok ->
+      case validate_platform(id, platform) do
+        :ok -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp validate_config(_), do: {:error, "Expected an object with a 'platforms' object"}
+
+  defp validate_platform(id, platform) when is_map(platform) do
+    with %{"base_url" => base_url, "endpoints" => %{"base" => %{"path" => path}} = endpoints}
+         when is_binary(base_url) and is_binary(path) <- platform,
+         true <- valid_endpoint_url?(base_url),
+         :ok <- validate_method(id, platform),
+         true <- Enum.all?(endpoints, fn {_, endpoint} -> valid_endpoint?(base_url, endpoint) end),
+         true <- valid_api_key?(platform["api_key"]) do
+      :ok
+    else
+      {:error, _} = error ->
+        error
+
+      false ->
+        {:error, "Invalid endpoint URL, parameters or API key for platform '#{id}'"}
+
+      _ ->
+        {:error,
+         "'base_url' is not defined for platform_id '#{id}' or 'base' endpoint is not defined or 'base' endpoint path is not defined"}
+    end
+  end
+
+  defp validate_platform(id, _), do: {:error, "Expected an object for platform '#{id}'"}
+
+  defp validate_method(id, platform) do
+    if (parse_protocol(platform) in [:http, :https] or Map.has_key?(platform["endpoints"]["base"], "method")) and
+         is_nil(parse_method(platform)) do
+      {:error, "Invalid HTTP request method for platform '#{id}'"}
+    else
+      :ok
+    end
+  end
+
+  defp valid_endpoint?(base_url, %{"path" => path} = endpoint) when is_binary(path) do
+    (path == "" or (String.starts_with?(path, "/") and not String.starts_with?(path, "//"))) and
+      valid_endpoint_url?(base_url <> path) and valid_params?(Map.get(endpoint, "params", [])) and
+      (not Map.has_key?(endpoint, "method") or
+         (is_binary(endpoint["method"]) and String.downcase(endpoint["method"]) in ~w(get post put patch delete)))
+  end
+
+  defp valid_endpoint?(_, _), do: false
+
+  defp valid_endpoint_url?(url) do
+    case URI.new(url) do
+      {:ok, %URI{scheme: scheme, host: host, port: port, userinfo: nil, fragment: nil}}
+      when scheme in ["http", "https", "ws", "wss"] and is_binary(host) and byte_size(host) > 0 and
+             (is_nil(port) or (is_integer(port) and port > 0 and port <= 65_535)) ->
+        not Regex.match?(~r/[\s\\]/u, url)
+
+      _ ->
+        false
+    end
+  end
+
+  defp valid_params?(params) when is_list(params), do: Enum.all?(params, &valid_param?/1)
+  defp valid_params?(_), do: false
+
+  defp valid_param?(%{"location" => location} = param) when location in ~w(path query body header) do
+    name = param["name"] || param["type"]
+
+    is_binary(name) and name != "" and
+      cond do
+        Map.has_key?(param, "value") -> is_binary(param["value"])
+        param["type"] == "chain_id_dependent" -> valid_mapping?(param["mapping"])
+        true -> param["type"] in @reserved_param_types
+      end
+  end
+
+  defp valid_param?(_), do: false
+
+  defp valid_mapping?(mapping) when is_map(mapping), do: Enum.all?(mapping, fn {_, value} -> is_binary(value) end)
+  defp valid_mapping?(_), do: false
+
+  defp valid_api_key?(nil), do: true
+
+  defp valid_api_key?(%{"location" => location, "param_name" => name} = key)
+       when location in ~w(path query header) and is_binary(name) and byte_size(name) > 0 do
+    not Map.has_key?(key, "prefix") or is_binary(key["prefix"])
+  end
+
+  defp valid_api_key?(_), do: false
 
   defp fetch_config_from_url do
     case HttpClient.get(config_url()) do
@@ -420,7 +521,11 @@ defmodule Explorer.ThirdPartyIntegrations.UniversalProxy do
     if Mix.env() == :test do
       []
     else
-      config = config()
+      config =
+        case config() do
+          {:error, _} -> %{}
+          valid_config -> valid_config
+        end
 
       if is_nil(config["platforms"]) do
         []

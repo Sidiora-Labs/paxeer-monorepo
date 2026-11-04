@@ -1,0 +1,7 @@
+[repair.22.33.1459]
+finding = "raw-byte-signed-range"
+implementation = "main.go: RawBytesCmd parses decimal values as unsigned eight-bit integers."
+proving_tests = ["TestRepairM_1459_UnsignedByteRange", "TestRepairM_1459_RejectInvalidBytes"]
+baseline = "Not run: the task's explicit gate order requires complete implementation before building or testing; no pre-change failures are claimed."
+wiring_requests = []
+qualification = "The runner records the exact candidate revision, command, exit code and private log in hf-build and hf-done evidence."

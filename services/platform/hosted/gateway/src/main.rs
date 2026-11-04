@@ -871,8 +871,7 @@ fn config(event_producer: bool) -> Result<Config, String> {
         client_identity,
         kernel,
         receipt_keys,
-        paxeer: paxeer::configured_endpoint()?
-            .map(|endpoints| endpoints.into_iter().map(capabilities::chain_rpc).collect()),
+        paxeer: paxeer::configured_endpoint()?,
         capabilities: capabilities::configured()?,
         indexer: history::configured_endpoint()?,
         registration_token: rpc_register::configured_token()?,
@@ -1855,7 +1854,9 @@ fn route_with_peer(
         .path
         .split_once('?')
         .map_or(request.path.as_str(), |(path, _)| path);
-    if path == "/v1/activities"
+    if path == "/rpc"
+        || path.starts_with("/rpc/")
+        || path == "/v1/activities"
         || path.starts_with("/v1/activities/")
         || path == "/v1/programs"
         || path.starts_with("/v1/programs/")
@@ -1984,12 +1985,6 @@ fn exchange<S: ws::Connection>(
         }
         if let Some(result) = ui_proxy::exchange(&request, stream) {
             return result;
-        }
-        if request.path == "/rpc/evm/ws" {
-            return ws::serve_evm(config, &request, stream);
-        }
-        if request.path == "/rpc/ws" {
-            return ws::serve(config, &request, stream);
         }
         if let Some(result) = routes::stream(config, &request, stream) {
             return result;
@@ -2189,32 +2184,9 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
         paxeer_chain_readiness(config),
         consensus_readiness(config),
     ];
-    if KernelBackend::ALL
-        .into_iter()
-        .all(|backend| config.backend(backend).is_err())
-    {
-        backends.retain(|backend| {
-            backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus")
-        });
-        return backends;
-    }
-    backends.extend(KernelBackend::ALL.into_iter().map(|backend| {
-        kernel_availability(config, backend, |endpoint, token| match backend {
-            KernelBackend::Component => dependency_ready(config, endpoint, token, true),
-            KernelBackend::PublicCore => authenticated_readiness(config, endpoint, token)
-                .is_some_and(|upstream| {
-                    public_core_readiness(
-                        &upstream,
-                        config.protocol_network_id,
-                        &config.wire_version,
-                    )
-                }),
-            KernelBackend::Authority => authority_ready(config, endpoint, token),
-            KernelBackend::Identity => authenticated_readiness(config, endpoint, token)
-                .is_some_and(|upstream| identity_readiness(&upstream)),
-            KernelBackend::Registry => program_registry_ready(config),
-        })
-    }));
+    backends.retain(|backend| {
+        backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus")
+    });
     backends
 }
 
@@ -2307,9 +2279,6 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
         return response(503, "readiness_clock_unavailable", None);
     };
     let backends = readiness(config);
-    let kernel_configured = KernelBackend::ALL
-        .into_iter()
-        .any(|backend| config.backend(backend).is_ok());
     let chain = backends
         .iter()
         .find(|backend| backend.backend == "paxeer_chain")
@@ -2331,15 +2300,9 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
             "unavailable"
         }
     };
-    let mut components = serde_json::json!({
+    let components = serde_json::json!({
         "durable_store": component_name("durable_store")
     });
-    if kernel_configured {
-        for backend in KernelBackend::ALL {
-            components[backend.name()] = serde_json::json!(component_name(backend.name()));
-        }
-        components["principal_state_boundary"] = serde_json::json!("unavailable");
-    }
     json_response(
         if (include_product_routes && serving) || (!include_product_routes && complete) {
             200
@@ -2363,6 +2326,10 @@ fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> Out
                     "state": if chain.ready { "ready" } else { "unavailable" },
                     "reason": chain.reason,
                     "chain_id": 125_u64
+                },
+                "layerx_activity": {
+                    "state": "not_configured",
+                    "reason": "not_configured"
                 }
             },
             "components": components,
@@ -5295,11 +5262,11 @@ mod complete_readiness_contract_tests {
             assert_eq!(document["lxp_wire_version"], config.wire_version);
             assert_eq!(document["network_id"], config.network_id);
             let backends = document["backends"].as_object().expect("backend object");
-            assert_eq!(backends.len(), 8);
+            assert_eq!(backends.len(), if event_producer { 4 } else { 3 });
             let capabilities = document["capabilities"]
                 .as_object()
                 .expect("capabilities object");
-            assert_eq!(capabilities.len(), 1);
+            assert_eq!(capabilities.len(), 2);
             let chain = capabilities["chain_serving"]
                 .as_object()
                 .expect("chain capability");
@@ -5308,7 +5275,12 @@ mod complete_readiness_contract_tests {
             assert_eq!(chain["state"], backends["paxeer_chain"]["state"]);
             assert_eq!(chain["reason"], backends["paxeer_chain"]["reason"]);
             assert_eq!(chain["state"], case[scope]["chain_state"]);
-            assert!(!capabilities.contains_key("layerx_activity"));
+            assert_eq!(
+                capabilities["layerx_activity"],
+                serde_json::json!({
+                    "state": "not_configured", "reason": "not_configured"
+                })
+            );
             assert_eq!(document["status"], case[scope]["status"]);
             assert_eq!(
                 u64::from(response.status),

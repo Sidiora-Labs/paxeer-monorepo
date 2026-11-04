@@ -17,13 +17,16 @@ import (
 
 // Commit persists buffered writes and advances the version.
 // Protocol: WAL → per-DB batch (with LocalMeta) → flush → update metaDB.
-// On crash, catchup replays WAL to recover incomplete commits.
+// The WAL append is synchronous but uses NoSync (no fsync). config.Fsync
+// controls only Pebble data and metadata writes, as documented in config/config.go.
+// Catchup replays surviving WAL bytes after process interruptions; an acknowledged
+// commit does not guarantee recovery after a machine crash or power loss.
 func (s *CommitStore) Commit() (version int64, err error) {
 	start := time.Now()
 
 	// TODO(concurrency): This takes a single coarse write lock for the whole
 	// commit, so it also blocks readers/iterator construction during the WAL
-	// fsync and the periodic auto-snapshot. That is fine today because commits
+	// append and the periodic auto-snapshot. That is fine today because commits
 	// are not pipelined with reads (there is currently no pipelining at all).
 	// When commit pipelining is introduced, replace this with a finer-grained
 	// scheme.
@@ -55,7 +58,7 @@ func (s *CommitStore) Commit() (version int64, err error) {
 	// Auto-increment version
 	version = s.committedVersion + 1
 
-	// Step 1: Write Changelog (WAL) - source of truth (always sync)
+	// Step 1: Append Changelog (WAL) before DB writes; synchronous call, no fsync.
 	s.phaseTimer.SetPhase("commit_write_changelog")
 	changelogEntry := proto.ChangelogEntry{
 		Version:    version,
