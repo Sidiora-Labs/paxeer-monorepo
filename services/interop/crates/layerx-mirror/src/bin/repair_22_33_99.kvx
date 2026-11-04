@@ -1,0 +1,20 @@
+[repair.22.33.99]
+audit = "22.30.111"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+finding_9 = "finding_9_example_loads_through_config_and_verifies_recorded_receipt; finding_9_legacy_unknown_and_invalid_key_windows_are_rejected"
+finding_27 = "finding_27_canonical_examples_round_trip_real_codec_policy_and_evidence_consumer; finding_27_unsupported_selectors_fields_and_receipt_bounds_are_rejected"
+tests = "services/interop/crates/layerx-mirror/tests/repair_22_33_99.rs"
+baseline = "No unchanged-tree verification run: the explicit gate order prohibits verification before the full implementation and hf-build; the new integration target did not exist at the base. No baseline runtime failure is claimed."
+config = "The base already supplies receipt_keys and current Ethereum/Solana source fields; retain those values, expand endpoint formatting, and protect the actual Config loader and bounded key authorization with the recorded committed receipt."
+evidence = "Verified revision, command, exit and private log are recorded by hf-done in its gate ledger; this repair record makes no independent gate claim."
+wiring_request = "Domain 11 owns spec/layerx-merge/interfaces.kvx: set 11.fmt-mirror-evidence-request to receipt { index: usize < 1048576 } | committed {} (tag kind); set 11.cli-mirror-verify to layerx-mirror-verify <config.json> < <request.json>; arbitrary state proofs are not exposed; reference the canonical examples under services/interop/crates/layerx-mirror/src/bin/verify-examples."
+
+[cli]
+command = "layerx-mirror-verify <config.json> < <request.json>"
+configuration = "services/interop/deploy/mirror/verify-config.example.json; configure real pinned targets and protected credential files before deployment."
+requests = "verify-examples/{receipt,committed}-{exact,ordered-preference,agreement}.json, relative to this record."
+examples = "The six documents cover both evidence selectors and all three policies; batch 1000 and the repeated 11 commitment are illustrative and must identify a real archive before live use. Source indices refer to the config sources array; agreement minimum 2 requires both configured sources."
+receipt = "receipt requires a zero-based numeric index below 1048576; returns the authenticated receipt digest."
+committed = "committed takes no selector fields; returns the committed coordinate with a null evidenceDigest."
+strictness = "Unknown fields, unsupported state selectors, missing receipt indices, invalid numeric indices and requests above 40 MiB are refused."
+output = "One JSON object on stdout: ok with verification, or ok false with a typed error code."
