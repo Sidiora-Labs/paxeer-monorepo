@@ -370132,7 +370132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.478]
 title = "Repair audit record 22.30.149 medium findings in services/explorer/backend/apps/block_scout_web (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.398"]

@@ -19,6 +19,9 @@ defmodule BlockScoutWeb.Specs.Public do
       ],
       info: %Info{
         title: "Blockscout",
+        description:
+          "Explorer API, including /account/v2/tags address and transaction lookups. " <>
+            "Account session cookies add the signed-in user's private labels and watchlist names to these lookups.",
         version: to_string(Application.spec(:block_scout_web, :vsn)),
         contact: %Contact{
           email: "info@blockscout.com"
