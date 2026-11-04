@@ -386,7 +386,7 @@ func (params ConsensusParams) ValidateUpdate(updated *tmproto.ConsensusParams, h
 			"initial height: %d, current height %d",
 			params.ABCI.VoteExtensionsEnableHeight, h)
 	}
-	if params.ABCI.VoteExtensionsEnableHeight <= h {
+	if params.ABCI.VoteExtensionsEnableHeight != 0 && params.ABCI.VoteExtensionsEnableHeight <= h {
 		return fmt.Errorf("VoteExtensionsEnableHeight cannot be updated modified once"+
 			"the initial height has occurred, "+
 			"initial height: %d, current height %d",
