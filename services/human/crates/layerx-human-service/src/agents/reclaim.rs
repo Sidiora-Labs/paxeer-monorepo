@@ -247,19 +247,6 @@ impl Reclaim {
                 request.agent_account.canonical().as_bytes()
             ))
         ))?;
-        if let Some(previous) = scope.get(Table::Journeys, &nonce_row) {
-            let bytes = previous
-                .bytes()
-                .try_into()
-                .map_err(|_| ReclaimError::Corrupt("invalid agent nonce"))?;
-            let last_used = u64::from_be_bytes(bytes);
-            if request.agent.nonce() < last_used {
-                return Err(ReclaimError::StaleNonce {
-                    nonce: request.agent.nonce(),
-                    last_used,
-                });
-            }
-        }
         let route = reclaim_route(request)?;
         let leg = route.legs().first().ok_or(ReclaimError::RouteWidened)?;
         if route.legs().len() != 1
@@ -290,30 +277,43 @@ impl Reclaim {
         }
         let digest = request_digest(request, compiled.payload_hash());
         let row = record_row(request.idempotency_key)?;
-        let record = if let Some(existing) = scope.get(Table::Journeys, &row) {
+        if let Some(existing) = scope.get(Table::Journeys, &row) {
             let record = decode(existing.bytes())?;
             if record.plan_digest != digest || record.journey_id != request.journey_id.as_str() {
                 return Err(ReclaimError::IdempotencyConflict);
             }
-            record
-        } else {
-            let record = Record {
-                version: RECORD_VERSION,
-                journey_id: request.journey_id.as_str().to_owned(),
-                idempotency_key: request.idempotency_key,
-                plan_digest: digest,
-                agent: request.agent.label.clone(),
-                asset: request.asset.bytes(),
-                amount: request.amount.value(),
-                fee_limit: request.agent.fee_limit,
-                mechanism: mechanism_code(&request.mechanism),
-                result: None,
-                activity_projected: false,
-                refused: false,
-                started_at: now,
-                updated_at: now,
-            };
-            record
+            let engine = JourneyEngine::load(scope, &request.journey_id)?
+                .ok_or(ReclaimError::Corrupt("reclaim engine missing"))?;
+            return Ok(Self { record, engine });
+        }
+        if let Some(previous) = scope.get(Table::Journeys, &nonce_row) {
+            let bytes = previous
+                .bytes()
+                .try_into()
+                .map_err(|_| ReclaimError::Corrupt("invalid agent nonce"))?;
+            let last_used = u64::from_be_bytes(bytes);
+            if request.agent.nonce() < last_used {
+                return Err(ReclaimError::StaleNonce {
+                    nonce: request.agent.nonce(),
+                    last_used,
+                });
+            }
+        }
+        let record = Record {
+            version: RECORD_VERSION,
+            journey_id: request.journey_id.as_str().to_owned(),
+            idempotency_key: request.idempotency_key,
+            plan_digest: digest,
+            agent: request.agent.label.clone(),
+            asset: request.asset.bytes(),
+            amount: request.amount.value(),
+            fee_limit: request.agent.fee_limit,
+            mechanism: mechanism_code(&request.mechanism),
+            result: None,
+            activity_projected: false,
+            refused: false,
+            started_at: now,
+            updated_at: now,
         };
         let journey_leg = JourneyLeg::new(
             leg.intent().clone(),

@@ -520,7 +520,10 @@ func (r *Reactor) backfill(
 				select {
 				case <-ctx.Done():
 					return
-				case height := <-queue.nextHeight():
+				case height, ok := <-queue.nextHeight():
+					if !ok {
+						return
+					}
 					// pop the next peer of the list to send a request to
 					peer := r.peers.Pop(ctx)
 					logger.Debug("fetching next block", "height", height, "peer", peer)
@@ -589,7 +592,10 @@ func (r *Reactor) backfill(
 		case <-ctx.Done():
 			queue.close()
 			return nil
-		case resp := <-queue.verifyNext():
+		case resp, ok := <-queue.verifyNext():
+			if !ok {
+				continue
+			}
 			// validate the header hash. We take the last block id of the
 			// previous header (i.e. one height above) as the trusted hash which
 			// we equate to. ValidatorsHash and CommitHash have already been

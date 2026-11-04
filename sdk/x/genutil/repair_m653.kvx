@@ -1,0 +1,32 @@
+[repair.22.33.653]
+audit = "22.30.165"
+baseline = "Not run: the explicit Order requires complete implementation before hf-build and hf-done and forbids invoking verify_cmd by hand; this overrides step 6's unchanged-tree verification request. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and private log location; no gate is claimed before it runs."
+
+[finding.collect-unchecked-gentx-message]
+proof = ["TestRepairM_653_CollectMalformedGentxs", "TestRepairM_653_CollectGeneratedGentx", "TestRepairM_653_CollectMissingBasicFields"]
+repair = "Check message cardinality and type, required numeric fields, message ValidateBasic, transaction ValidateBasic and memo before reading addresses/balances; append only a fully accepted transaction. Per-file refusals name the gentx file."
+continuation = "Preserve the previous implementation and tests; check encoded commission and each rate for presence and valid decimal syntax before accepting protobuf defaults, and name the missing field in the error. The missing-field CLI proof now covers every commission rate."
+path = "GenTxCmd with real in-memory keyring -> production JSON encoder -> ceremony file -> CollectGenTxsCmd -> CollectTxs -> persisted genesis and persistent peers; malformed fixtures are modifications of that generated transaction and must pass the real decoder before collection rejects them."
+
+[finding.validator-key-load-error-ignored]
+proof = ["TestRepairM_653_ValidatorLoadErrors", "TestRepairM_653_ValidatorWriteFailure"]
+repair = "Return LoadOrGenFilePV's original load/save error and empty identity before GetPubKey; existing mnemonic recovery behavior is unchanged."
+path = "Real persisted validator files -> corruption or an actual filesystem write obstruction -> initializer, InitCmd and CollectGenTxsCmd; assert original filesystem/key error, no success output, unchanged existing identities and no usable validator on reopen after a failed fresh save."
+
+[gotcha.gate-order]
+observed = "The repair step requests baseline verification but the explicit bounded gate order forbids testing before implementation and invoking verify_cmd directly."
+action = "Follow the explicit gate order and record that no unchanged-tree run occurred; never invent baseline failures."
+
+[gotcha.numeric-fields]
+observed = "A JSON-decoded create-validator message can omit custom integer/decimal fields; ValidateBasic accesses their underlying values and can panic."
+action = "Reject missing minimum self delegation and commission values before calling the production message validator."
+
+[gotcha.commission-presence]
+observed = "The supplied previous-attempt evidence reports CollectMissingBasicFields failing because omitted commission becomes non-nil zero decimals after protobuf Any unpacking."
+action = "Check commission presence and rate syntax in the encoded gentx in addition to decoded nil checks; retain the original failing cases and assert the error names each missing field."
+
+[gotcha.required-chain-id]
+observed = "Gentx requires an explicit chain-id flag even when the test's real client context already carries the chain ID."
+action = "Pass the same chain ID as a command flag when generating the ceremony fixture."

@@ -15,5 +15,8 @@ layerx-programs-runtime = { path = "../../crates/layerx-programs-runtime" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 layerx-porting-cosmwasm-guest = { path = "guest" }
 
+[dev-dependencies]
+layerx-program-sdk = { path = "../../sdk/rust" }
+
 [lints]
 workspace = true

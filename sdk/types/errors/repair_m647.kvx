@@ -1,0 +1,8 @@
+[repair.22.33.647]
+finding = "nondebug-internal-error-leak"
+tests = ["TestRepairM_647_RecoveredPanic", "TestRepairM_647_UnknownInternalErrors", "TestRepairM_647_RegisteredErrors", "TestRepairM_647_Success"]
+proof = "Production Recover and Wrap feed query and transaction response constructors, then ABCI protobuf/JSON codecs and the ABCIError client consumer; codes, codespaces, safe messages, gas and events remain intact."
+baseline = "Not run: the task's gate-order rules prohibit verification before complete implementation and prohibit running verify_cmd by hand; no baseline failure is claimed."
+qualification_repair = "The initial test expected nil events after JSON decoding; the production ABCI JSON codec emits defaults as events: [], so the test now asserts that exact decoded representation while preserving exact event-content checks."
+wiring_requests = []
+verified_revision_record = "The runner's hf-done evidence ledger records the exact candidate revision, command, exit and private log after qualification."

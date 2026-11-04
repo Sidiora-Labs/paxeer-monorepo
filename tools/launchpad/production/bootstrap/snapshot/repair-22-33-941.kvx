@@ -1,0 +1,17 @@
+[task]
+id = "22.33.941"
+audit = "22.30.23"
+base = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+continued_from = "a9acad80fb26abeafc914bbce996f0a586a7bc0a"
+prior_result = "40 tests passed, but qualification was held for build_on_verified; the existing production repair and tests are preserved."
+baseline = "Not executed: the explicit implementation-first order and hf-build/hf-done-only gates prohibit the contradictory pre-change verify request; no pre-change failure is claimed."
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py"
+evidence = "The runner's private hf-done ledger records the verified candidate revision, exact command, exit code and log location; this source record claims no gate result."
+
+[finding.provenance-excludes-owned-source]
+test = "test_provenance_excludes_owned_source_mutations"
+path = "tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py"
+implementation = "Ambiguous build, coverage, runtime, dist and logs names are excluded only at explicit repository-relative generated-output locations; inventory and manifest validation share the selection policy."
+proof = "Real in-process CLI create, verify and diff consume JSON manifests produced from committed bootstrap build, protocol coverage and mobile runtime source fixtures. Addition, modification, deletion and executable changes invalidate provenance and fail ownership checks outside their declared paths."
+boundaries = ["test_generated_outputs_and_secrets_remain_excluded", "test_output_names_in_other_source_locations_are_inventoried", "test_symlinks_in_owned_source_directories_fail_closed", "test_excluded_symlinks_do_not_expose_external_secrets", "test_manifest_consumer_rejects_excluded_paths", "test_cli_retains_immutable_baselines_and_rejects_tampering"]
+wiring_requests = []
