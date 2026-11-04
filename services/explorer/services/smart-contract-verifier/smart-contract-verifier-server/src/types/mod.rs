@@ -1,4 +1,5 @@
 mod errors;
+mod evm_address;
 mod lookup_methods;
 mod source;
 mod sourcify;
