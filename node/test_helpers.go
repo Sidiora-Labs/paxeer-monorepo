@@ -158,7 +158,6 @@ func NewGigaTestWrapperWithRegularStore(t *testing.T, tm time.Time, valPub crypt
 	// Manually enable Giga executor on the app
 	wrapper.App.GigaExecutorEnabled = true
 	wrapper.App.GigaOCCEnabled = useOcc
-	tmtypes.SkipLastResultsHashValidation.Store(true)
 
 	// Configure GigaEvmKeeper to use regular KVStore instead of GigaKVStore
 	wrapper.App.GigaEvmKeeper.UseRegularStore = true
@@ -166,11 +165,10 @@ func NewGigaTestWrapperWithRegularStore(t *testing.T, tm time.Time, valPub crypt
 	// Configure GigaBankKeeper to use regular KVStore instead of GigaKVStore
 	wrapper.App.GigaBankKeeper.UseRegularStore = true
 
-	// Initialize evmone VM if not already initialized (best effort)
 	if wrapper.App.GigaEvmKeeper.EvmoneVM == nil {
-		if evmoneVM, err := gigalib.InitEvmoneVM(); err == nil {
-			wrapper.App.GigaEvmKeeper.EvmoneVM = evmoneVM
-		}
+		evmoneVM, err := gigalib.InitEvmoneVM()
+		require.NoError(t, err)
+		wrapper.App.GigaEvmKeeper.EvmoneVM = evmoneVM
 	}
 
 	// Init genesis for GigaEvmKeeper (now uses regular KVStore)
@@ -181,6 +179,8 @@ func NewGigaTestWrapperWithRegularStore(t *testing.T, tm time.Time, valPub crypt
 }
 
 func newTestWrapper(tb testing.TB, tm time.Time, valPub cryptotypes.PubKey, enableEVMCustomPrecompiles bool, UseSc bool, testAppOpts TestAppOpts, baseAppOptions ...func(*bam.BaseApp)) *TestWrapper {
+	previousSkipResultsHash := tmtypes.SkipLastResultsHashValidation.Load()
+	tb.Cleanup(func() { tmtypes.SkipLastResultsHashValidation.Store(previousSkipResultsHash) })
 	var appPtr *App
 	originalHome := DefaultNodeHome
 	tempHome := tb.TempDir()
@@ -411,17 +411,7 @@ func SetupWithAppOptsAndDefaultHome(isCheckTx bool, appOpts TestAppOpts, enableE
 			panic(err)
 		}
 
-		// TODO: remove once init chain works with SC
-		defer func() { _ = recover() }()
-
-		_, err = res.InitChain(
-			context.Background(), &abci.RequestInitChain{
-				Time:            time.Now(),
-				ConsensusParams: DefaultConsensusParams,
-				ChainId:         "pax-test",
-				AppStateBytes:   stateBytes,
-			},
-		)
+		err = initializeTestChain(res, stateBytes)
 		if err != nil {
 			panic(err)
 		}
@@ -493,17 +483,8 @@ func SetupWithDB(tb testing.TB, db dbm.DB, isCheckTx bool, enableEVMCustomPrecom
 			panic(err)
 		}
 
-		_, err = res.InitChain(
-			context.Background(), &abci.RequestInitChain{
-				Time:            time.Now(),
-				ConsensusParams: DefaultConsensusParams,
-				ChainId:         "pax-test",
-				AppStateBytes:   stateBytes,
-			},
-		)
-		if err != nil {
-			panic(err)
-		}
+		err = initializeTestChain(res, stateBytes)
+		require.NoError(tb, err)
 	}
 
 	return res
@@ -540,19 +521,8 @@ func SetupWithScReceiptFromOpts(t *testing.T, isCheckTx bool, enableEVMCustomPre
 			panic(err)
 		}
 
-		defer func() { _ = recover() }()
-
-		_, err = res.InitChain(
-			context.Background(), &abci.RequestInitChain{
-				Time:            time.Now(),
-				ConsensusParams: DefaultConsensusParams,
-				ChainId:         "pax-test",
-				AppStateBytes:   stateBytes,
-			},
-		)
-		if err != nil {
-			panic(err)
-		}
+		err = initializeTestChain(res, stateBytes)
+		require.NoError(t, err)
 	}
 
 	return res
@@ -596,14 +566,11 @@ func SetupWithSc(t *testing.T, isCheckTx bool, enableEVMCustomPrecompiles bool, 
 			panic(err)
 		}
 
-		// TODO: remove once init chain works with SC
-		defer func() { _ = recover() }()
-
 		genesisTime := testAppOpts.GenesisTime
 		if genesisTime.IsZero() {
 			genesisTime = time.Now()
 		}
-		_, err = res.InitChain(
+		initResult, err := res.InitChain(
 			context.Background(), &abci.RequestInitChain{
 				Time:            genesisTime,
 				ChainId:         "pax-test",
@@ -611,9 +578,8 @@ func SetupWithSc(t *testing.T, isCheckTx bool, enableEVMCustomPrecompiles bool, 
 				AppStateBytes:   stateBytes,
 			},
 		)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
+		require.NotNil(t, initResult)
 	}
 
 	return res
@@ -649,17 +615,8 @@ func SetupTestingAppWithLevelDb(t *testing.T, isCheckTx bool, enableEVMCustomPre
 			panic(err)
 		}
 
-		_, err = app.InitChain(
-			context.Background(), &abci.RequestInitChain{
-				Time:            time.Now(),
-				ConsensusParams: DefaultConsensusParams,
-				ChainId:         "pax-test",
-				AppStateBytes:   stateBytes,
-			},
-		)
-		if err != nil {
-			panic(err)
-		}
+		err = initializeTestChain(app, stateBytes)
+		require.NoError(t, err)
 	}
 
 	cleanupFn := func() {
@@ -779,7 +736,7 @@ func SetupWithGenesisValSet(t *testing.T, valSet *tmtypes.ValidatorSet, genAccs 
 	require.NoError(t, err)
 
 	// init chain will set the validator set and initialize the genesis accounts
-	_, _ = app.InitChain(
+	initResult, err := app.InitChain(
 		context.Background(), &abci.RequestInitChain{
 			Time:            time.Now(),
 			ConsensusParams: DefaultConsensusParams,
@@ -788,9 +745,14 @@ func SetupWithGenesisValSet(t *testing.T, valSet *tmtypes.ValidatorSet, genAccs 
 		},
 	)
 
+	require.NoError(t, err)
+	require.NotNil(t, initResult)
+
 	// commit genesis changes
-	_, _ = app.Commit(context.Background())
-	_, _ = app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
+	commitResult, err := app.Commit(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, commitResult)
+	finalizeResult, err := app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Hash: app.LastCommitID().Hash,
 		Header: &tmproto.Header{
 			ChainID:            "pax-test",
@@ -799,6 +761,8 @@ func SetupWithGenesisValSet(t *testing.T, valSet *tmtypes.ValidatorSet, genAccs 
 		},
 	})
 
+	require.NoError(t, err)
+	require.NotNil(t, finalizeResult)
 	return app
 }
 
@@ -822,7 +786,7 @@ func SetupWithGenesisAccounts(t *testing.T, genAccs []authtypes.GenesisAccount, 
 		panic(err)
 	}
 
-	_, _ = app.InitChain(
+	initResult, err := app.InitChain(
 		context.Background(), &abci.RequestInitChain{
 			Time:            time.Now(),
 			ConsensusParams: DefaultConsensusParams,
@@ -831,9 +795,15 @@ func SetupWithGenesisAccounts(t *testing.T, genAccs []authtypes.GenesisAccount, 
 		},
 	)
 
-	_, _ = app.Commit(context.Background())
-	_, _ = app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: "pax-test", Height: app.LastBlockHeight() + 1}})
+	require.NoError(t, err)
+	require.NotNil(t, initResult)
+	commitResult, err := app.Commit(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, commitResult)
+	finalizeResult, err := app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: "pax-test", Height: app.LastBlockHeight() + 1}})
 
+	require.NoError(t, err)
+	require.NotNil(t, finalizeResult)
 	return app
 }
 
@@ -1127,3 +1097,16 @@ func NewPubKeyFromHex(pk string) (res cryptotypes.PubKey) {
 }
 
 const DefaultGenTxGas = 10000000
+
+func initializeTestChain(a *App, stateBytes []byte) error {
+	result, err := a.InitChain(context.Background(), &abci.RequestInitChain{
+		Time: time.Now(), ConsensusParams: DefaultConsensusParams, ChainId: "pax-test", AppStateBytes: stateBytes,
+	})
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return fmt.Errorf("InitChain returned no result")
+	}
+	return nil
+}

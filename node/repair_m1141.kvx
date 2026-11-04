@@ -1,0 +1,93 @@
+[repair.22.33.1141]
+audit = "22.30.50"
+mode = "BUILD"
+acceptance = "22998.1"
+verification = "hf-build followed by hf-done; exact candidate revision, command, exit and private log are retained by the runner gate ledger and final evidence."
+baseline = "Continued the eight files from attempt 1 on base 2a8418f3ce46275830d68ea57514c30466a3493f. The prior run failed UnknownChainAndNativeReceipt, SequencedSuccessAndMalformedHash and HelperPreservesStrictValidation; the new runner has no gate ledger yet. No unchanged-tree run is claimed because implementation-first order and bounded gates prohibit one."
+
+[finding.migration-batch-config-silently-substitutes-default]
+test = "TestRepairM_1141_MigrationBatchConfiguration"
+repair = "Real TOML/Viper values reach parseSCConfigs and the unchanged storage validator: absent preserves 1024, malformed/zero/negative refuse at startup, and positive integers and numeric strings preserve their explicit value."
+
+[finding.proof-node-expects-wrong-domain-error]
+test = "TestRepairM_1141_UnknownChainAndNativeReceipt"
+repair = "The real Executor refuses both the registered paused tenant with ErrDomainNotActive and an unknown chain with ErrInvalidChainID, both wrapped in ErrNotAdmitted, then accepts the configured root chain 125. The existing proof drives signed batch encoding, proposal, delivery, receipt results, commit, stop and reopen."
+
+[finding.sequenced-success-fixture-has-wrong-hash]
+test = "TestRepairM_1141_SequencedSuccessAndMalformedHash"
+repair = "Successful delivery, OCC comparison, empty batch, governed key rotation and genesis export/import use Executor.Accept and ConsensusSource.Seal. Exact receipt positions and stored/exported sequence hashes are asserted. Explicit bad hashes and all existing refusal cases retain their typed assertions."
+
+[finding.test-helper-leaks-consensus-bypass]
+test = "TestRepairM_1141_HelperPreservesStrictValidation"
+repair = "Removed the Giga regular-store validation bypass; wrappers register restoration before setup can fail. Ordinary and state-commit helpers retain strict checking, nested cleanup restores the incoming global setting, and real ordinary/Giga result proofs refuse tampering. Per the attempt-2 ruling, the evmone-dependent regular-store Giga helper is not invoked by this gate; its fail-fast loader remains intact."
+
+[finding.test-helpers-swallow-initialization-failures]
+test = "TestRepairM_1141_InitializationResultsAndFailures"
+repair = "Removed blanket recovery; shared initialization requires a real nonnil ABCI result and propagates errors or panics. Genesis-account and validator helpers require every initialization, commit and finalize result. The SC helper supplies the chain id and evmone initialization errors are required."
+
+[finding.activation-test-stale-tag-and-plan-list]
+test = "TestRepairM_1141_ActivationTagsAndOrderedPlans"
+repair = "Exact embedded latest tag is v7.0; all five ordered plans include anchor-store deletion. Historical and current handlers remain required against the real upgrade keeper."
+
+[finding.activation-test-omits-chains-address]
+test = "TestRepairM_1141_ChainsAddressActivation"
+repair = "Exact merge address set includes 0x101E and its chains module. Removing/restoring the real module version and applying the governed done-height proves genesis dependency and below/at/after visibility in ordinary and tracing contexts."
+
+[finding.activation-test-assumes-sequencer-only-stores]
+test = "TestRepairM_1141_MergedStoresPreserveState"
+repair = "Exact ordered eight-store declaration retains no-delete/no-rename checks. Real mounted stores and preexisting bank state are committed, closed, reopened and compared with the committed hash and values intact."
+
+[scope]
+wiring_requests = "None: all proposed repairs and setup compatibility fixes are within node; storage validation and other owning domains are unchanged."
+known_neighbor = "The historical activation test's retired-anchor lifecycle expectation is a separate audit finding, activation-test-requires-retired-anchor-module; its assertions are preserved and it is outside this focused gate."
+
+[gotcha.test-package-cycle]
+observed = "node/sequencer imports node, so internal node tests cannot import its executor."
+resolution = "Use test-only exported internal assertions, called by the external TestRepairM_1141 functions; production APIs are unchanged."
+
+[gotcha.current-activation]
+observed = "Sequencing is now controlled by persisted activation height rather than only merge done-height; InitGenesis chooses the next height when omitted."
+resolution = "Success fixtures explicitly pin height 2, and the below-activation case pins height 3 without bypassing keeper activation."
+
+[qualification.first-pass]
+revision = "73af90290b7e105fb7a70fcb6ec5bc09e6ce4062"
+command = "cg spec done 22.33.1141 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Use the current GenerateSecretKey().Public() consensus constructor and the reopened application's initialized check context; no assertion is weakened."
+
+[gotcha.consensus-key-constructor]
+observed = "The consensus Ed25519 package exposes GenerateSecretKey().Public(), not the former GenPrivKey().PubKey() API."
+resolution = "Construct the real validator fixture with the current consensus type."
+
+[gotcha.reopened-context]
+observed = "LoadLatestVersion initializes check state; NewContext(false) requires an active deliver state."
+resolution = "Read reopened committed stores through GetCheckCtx()."
+
+[continuation.attempt-2]
+prerequisites = "22.31.476 supplies root chain 125 and 22.31.475 reconciles application and consensus commitments."
+repair = "Preserve the current paused-domain proof and configured signer, integrate the seed unknown-chain refusal beside it, remove the seed mapping override, and test shared helper cleanup without invoking the out-of-task native evmone helper."
+
+[gotcha.seed-conflicts]
+observed = "The attempt-1 seed conflicted with landed configured-signing and paused-tenant proofs and referred to a removed config import."
+resolution = "Preserve the current interfaces and assertions; integrate the unknown-chain test independently and derive every fixture signer from the application keeper."
+
+[qualification.continuation-first-pass]
+revision = "da877a6d1085904f16aa0349596f73f8fae7561d"
+command = "cg spec done 22.33.1141 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The only failure was delivery/below_activation: initialize genesis with activation height 3 rather than mutating immutable height 2; all refusal, delivery and state assertions remain."
+
+[gotcha.immutable-activation]
+observed = "SetActivationHeight refuses replacing an already initialized nonzero activation height, even in a below-activation fixture."
+resolution = "Supply the intended height through real sequencer genesis before initialization and assert the persisted value."
+
+[continuation.attempt-3]
+base = "a6e13301f7b88430085bf3b76edaa7b5bf140f4e"
+repair = "Resolve the seeded helper conflict on the current base by preserving the integration's GenesisTime option, store assertions, optimistic-processing cleanup and recordV6120Done helper alongside checked initialization and process-global restoration. InitializationResultsAndFailures now asserts the SC application's exact configured genesis time."
+baseline = "The inherited attempt-2 gates passed before publication conflicted; no unchanged-tree gate was rerun. This continuation qualifies the integrated candidate through hf-build and hf-done."
+
+[gotcha.integration-genesis-time]
+observed = "The seeded initializeTestChain call used the wall clock and conflicted with the integration's explicit SC genesis time."
+resolution = "Preserve GenesisTime and its existing zero-value default, require the real ABCI initialization result, and prove the configured time survives in the application context."
