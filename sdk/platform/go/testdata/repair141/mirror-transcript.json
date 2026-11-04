@@ -1,0 +1,161 @@
+{
+  "provenance": "CLI Request/report wire contract with committed_blocks.json producer receipt digests; Ethereum observation fixture",
+  "coordinate": {
+    "Height": 1000,
+    "BlockHash": [
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17
+    ]
+  },
+  "commitment": "ac5fbfbbf93247b4276f33cb4af820ac8423da70fb4ea9ca3e06015ea088e511",
+  "exchanges": [
+    {
+      "request": {
+        "batch_number": "1000",
+        "evidence": {
+          "kind": "receipt",
+          "index": 0
+        },
+        "policy": {
+          "kind": "exact",
+          "candidate": {
+            "source": 0,
+            "commitment_hex": "ac5fbfbbf93247b4276f33cb4af820ac8423da70fb4ea9ca3e06015ea088e511"
+          }
+        }
+      },
+      "response": {
+        "ok": true,
+        "verification": {
+          "level": "Committed",
+          "committedHeight": "1000",
+          "committedBlockHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "evidenceDigest": "a80ea169a5acd85faa9f4b4eb6016a77f2c1d96db66a1b0cc8ac217171e81560",
+          "sourceId": "repair141-ethereum",
+          "target": "ethereum:chain=1;genesis=1111111111111111111111111111111111111111111111111111111111111111;contract=2222222222222222222222222222222222222222;code=3333333333333333333333333333333333333333333333333333333333333333;publisher=4444444444444444444444444444444444444444",
+          "canonicalPosition": "ethereum:block=50;hash=5555555555555555555555555555555555555555555555555555555555555555;reference=50;reference_hash=5555555555555555555555555555555555555555555555555555555555555555",
+          "provenance": "Canonical",
+          "latestBatch": null,
+          "batchLag": "Unknown",
+          "failoverCount": 0,
+          "agreeingSources": 1
+        }
+      }
+    },
+    {
+      "request": {
+        "batch_number": "1000",
+        "evidence": {
+          "kind": "receipt",
+          "index": 1
+        },
+        "policy": {
+          "kind": "exact",
+          "candidate": {
+            "source": 0,
+            "commitment_hex": "ac5fbfbbf93247b4276f33cb4af820ac8423da70fb4ea9ca3e06015ea088e511"
+          }
+        }
+      },
+      "response": {
+        "ok": true,
+        "verification": {
+          "level": "Committed",
+          "committedHeight": "1000",
+          "committedBlockHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "evidenceDigest": "9790b240b3421bba4f8aead49b361487308f6679143429593dbb35751de639c0",
+          "sourceId": "repair141-ethereum",
+          "target": "ethereum:chain=1;genesis=1111111111111111111111111111111111111111111111111111111111111111;contract=2222222222222222222222222222222222222222;code=3333333333333333333333333333333333333333333333333333333333333333;publisher=4444444444444444444444444444444444444444",
+          "canonicalPosition": "ethereum:block=50;hash=5555555555555555555555555555555555555555555555555555555555555555;reference=50;reference_hash=5555555555555555555555555555555555555555555555555555555555555555",
+          "provenance": "Canonical",
+          "latestBatch": null,
+          "batchLag": "Unknown",
+          "failoverCount": 0,
+          "agreeingSources": 1
+        }
+      }
+    },
+    {
+      "request": {
+        "batch_number": "1000",
+        "evidence": {
+          "kind": "committed"
+        },
+        "policy": {
+          "kind": "exact",
+          "candidate": {
+            "source": 0,
+            "commitment_hex": "ac5fbfbbf93247b4276f33cb4af820ac8423da70fb4ea9ca3e06015ea088e511"
+          }
+        }
+      },
+      "response": {
+        "ok": true,
+        "verification": {
+          "level": "Committed",
+          "committedHeight": "1000",
+          "committedBlockHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "evidenceDigest": null,
+          "sourceId": "repair141-ethereum",
+          "target": "ethereum:chain=1;genesis=1111111111111111111111111111111111111111111111111111111111111111;contract=2222222222222222222222222222222222222222;code=3333333333333333333333333333333333333333333333333333333333333333;publisher=4444444444444444444444444444444444444444",
+          "canonicalPosition": "ethereum:block=50;hash=5555555555555555555555555555555555555555555555555555555555555555;reference=50;reference_hash=5555555555555555555555555555555555555555555555555555555555555555",
+          "provenance": "Canonical",
+          "latestBatch": null,
+          "batchLag": "Unknown",
+          "failoverCount": 0,
+          "agreeingSources": 1
+        }
+      }
+    },
+    {
+      "request": {
+        "batch_number": "1000",
+        "evidence": {
+          "kind": "receipt",
+          "index": 2
+        },
+        "policy": {
+          "kind": "exact",
+          "candidate": {
+            "source": 0,
+            "commitment_hex": "ac5fbfbbf93247b4276f33cb4af820ac8423da70fb4ea9ca3e06015ea088e511"
+          }
+        }
+      },
+      "response": {
+        "ok": false,
+        "error": "proof"
+      }
+    }
+  ]
+}
