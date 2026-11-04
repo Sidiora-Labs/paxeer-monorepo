@@ -96,8 +96,33 @@ impl ChainReceipts {
     pub(super) fn lookup(&self, activity_id: [u8; 32]) -> ReceiptSource {
         match self.read(activity_id) {
             Ok(None) => ReceiptSource::Unknown,
-            Ok(Some((bytes, signing_key))) => {
-                match verify_sequencer_signature(&bytes, ReceiptKeys::HeightRanges(&self.keys)) {
+            Ok(Some((bytes, signing_key, height, _))) => {
+                let decoded = layerx_wire::receipt::decode(&bytes);
+                let native = decoded
+                    .as_ref()
+                    .ok()
+                    .and_then(|receipt| receipt.protocol())
+                    .is_some_and(|receipt| (1..=11).contains(&receipt.module_id()));
+                let receipt_keys = if native {
+                    // Native execution receipts carry a content-addressed batch ID;
+                    // the signed replica header independently checks the same key range.
+                    let Some(key) = self.keys.iter().find(|key| {
+                        key.public_key() == signing_key
+                            && decoded
+                                .as_ref()
+                                .ok()
+                                .and_then(|r| r.protocol())
+                                .is_some_and(|r| r.context_hash() == key.sequencer_id())
+                            && (key.first_batch_number()..=key.last_batch_number())
+                                .contains(&height)
+                    }) else {
+                        return ReceiptSource::KeyMismatch;
+                    };
+                    ReceiptKeys::HistoricalKernel(key.public_key())
+                } else {
+                    ReceiptKeys::HeightRanges(&self.keys)
+                };
+                match verify_sequencer_signature(&bytes, receipt_keys) {
                     Ok(receipt)
                         if receipt
                             .protocol()
@@ -133,7 +158,16 @@ impl ChainReceipts {
         }
     }
 
-    fn read(&self, activity_id: [u8; 32]) -> Result<Option<(Vec<u8>, [u8; 32])>, String> {
+    pub(super) fn committed(&self, id: [u8; 32]) -> Result<(Vec<u8>, u64, [u8; 32]), String> {
+        let (bytes, _, _, committed) = self.read(id)?.ok_or("committed receipt missing")?;
+        let (height, hash) = committed.ok_or("receipt is not committed")?;
+        Ok((bytes, height, hash))
+    }
+
+    fn read(
+        &self,
+        activity_id: [u8; 32],
+    ) -> Result<Option<(Vec<u8>, [u8; 32], u64, Option<(u64, [u8; 32])>)>, String> {
         let deadline = Instant::now()
             .checked_add(TIMEOUT)
             .ok_or("chain RPC deadline unavailable")?;
@@ -226,7 +260,27 @@ impl ChainReceipts {
         }
         let signing_key =
             rpc_hex32(&result["signingKey"]).ok_or("chain RPC signing key invalid")?;
-        Ok(Some((bytes, signing_key)))
+        let height = result["height"]
+            .as_str()
+            .and_then(|text| text.strip_prefix("0x"))
+            .and_then(|text| u64::from_str_radix(text, 16).ok())
+            .filter(|height| *height > 0)
+            .ok_or("chain RPC receipt height invalid")?;
+        let committed = if result["rung"] == "committed" {
+            let block = result["blockNumber"]
+                .as_str()
+                .and_then(|text| text.strip_prefix("0x"))
+                .and_then(|text| u64::from_str_radix(text, 16).ok())
+                .filter(|block| *block >= height)
+                .ok_or("chain RPC committed height invalid")?;
+            let hash = rpc_hex32(&result["blockHash"])
+                .filter(|hash| *hash != [0; 32])
+                .ok_or("chain RPC committed hash invalid")?;
+            Some((block, hash))
+        } else {
+            None
+        };
+        Ok(Some((bytes, signing_key, height, committed)))
     }
 }
 
