@@ -150119,7 +150119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.531]
 title = "Repair audit record 22.30.155 medium findings in apps/explorer/ui/token (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.408", "22.31.409", "22.31.410"]
@@ -153287,7 +153287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.293]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/ui/address/utils (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.379", "22.31.380"]
@@ -173473,7 +173473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1554]
 title = "Repair audit record 22.30.97 medium findings in services/agent/crates/layerx-mcp/tests (part 2 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.223", "22.31.224", "22.31.225", "22.31.443"]
@@ -174706,7 +174706,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1518]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd/tests (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443"]
@@ -277627,7 +277627,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/dis
 
 [task.22.33.1257]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v610 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -326274,7 +326274,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.724]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/recovery/phase4 (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
@@ -366661,7 +366661,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.555]
 title = "Repair audit record 22.30.158 medium findings in services/explorer/backend/apps/indexer/test/indexer/fetcher (part 1 of 1): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
