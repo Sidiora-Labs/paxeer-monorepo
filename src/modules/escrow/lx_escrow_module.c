@@ -27,7 +27,12 @@ lxp_result lx_escrow_bind_economic_receipt(lxp_receipt *receipt,
     if (event->module_id != LXP_MODULE_ESCROW ||
         event->kind != LXP_EFFECT_EVENT || event->monetary ||
         event->event_type == 0U || event->event_type > 7U ||
-        event->body_length != LX_ESCROW_EVENT_BYTES)
+        event->body_length != LX_ESCROW_EVENT_BYTES ||
+        lxp_ct_is_zero(event->body, 32U) ||
+        event->body[32] != 0U ||
+        event->body[33] != event->event_type ||
+        event->body[34] < LX_ESCROW_STATE_OPEN ||
+        event->body[34] > LX_ESCROW_STATE_TIMED_OUT)
         return LXP_FATAL_INVARIANT;
     /* Opening a dispute changes no balance. Every other admitted transition
      * carries the transfer binding produced by execution or bound replay. */
