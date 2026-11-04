@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 
 import { BRIDGE_CHAINS } from './chains';
 import { depositRecord, withdrawalRecord } from './submitted';
+import { solanaRecipientHandle } from './solana';
 import { transferIdOf, type BridgeTransfer } from './transfers';
 
 const hash: Hex = '0xABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789AB';
@@ -23,7 +24,7 @@ function depositRecordCarriesTheVaultAndFinalityDepth(): void {
     });
 
     expect(record).toEqual({
-      id: transferIdOf('in', hash),
+      id: transferIdOf('in', hash, foreign.chainId.toString()),
       direction: 'in',
       foreignChainKey: foreign.key,
       foreignChainId: foreign.chainId.toString(),
@@ -38,7 +39,7 @@ function depositRecordCarriesTheVaultAndFinalityDepth(): void {
       requiredConfirmations,
       submittedAt: expect.any(Number),
     });
-    expect(record.id).toBe(`${ hash.toLowerCase() }:in`);
+    expect(record.id).toBe(`${ foreign.chainId }:${ hash.toLowerCase() }:in:pending`);
     expect(record.submittedAt).toBeGreaterThanOrEqual(startedAt);
     expect(record.submittedAt).toBeLessThanOrEqual(Date.now());
     expect(() => JSON.stringify(record)).not.toThrow();
@@ -57,7 +58,7 @@ function withdrawalRecordKeepsTheTypedDestination(): void {
     });
 
     expect(record).toEqual({
-      id: transferIdOf('out', hash),
+      id: transferIdOf('out', hash, foreign.chainId.toString()),
       direction: 'out',
       foreignChainKey: key,
       foreignChainId: key === 'solana' ? '91600046870081' : '8453',
@@ -67,11 +68,12 @@ function withdrawalRecordKeepsTheTypedDestination(): void {
       assetId: asset.assetId,
       account,
       recipient: destination,
+      ...(key === 'solana' ? { recipientHandle: solanaRecipientHandle(destination) } : {}),
       sourceTxHash: hash,
       requiredConfirmations: foreign.finalityDepth,
       submittedAt: expect.any(Number),
     });
-    expect(record.id).toBe(`${ hash.toLowerCase() }:out`);
+    expect(record.id).toBe(`${ foreign.chainId }:${ hash.toLowerCase() }:out:pending`);
     expect(record).not.toHaveProperty('vault');
     expect(record.submittedAt).toBeGreaterThanOrEqual(startedAt);
     expect(record.submittedAt).toBeLessThanOrEqual(Date.now());

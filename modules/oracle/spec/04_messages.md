@@ -20,7 +20,7 @@ This is a single-step submission of decimal rates for current vote targets.
 
 The proto reserves field 1 and the name `salt`; there is no current `Salt` field or required preceding prevote. `MsgExchangeRatePrevote`, `MsgExchangeRateVote`, and `MsgAggregateExchangeRatePrevote` are removed interfaces, not alternative submission methods.
 
-`GetSigners` selects the feeder account. `ValidateBasic` checks both address formats, rejects a zero-length exchange-rate string, limits it to 4096 bytes, parses its decimal coin tuples, and rejects rates whose internal integer bit length exceeds `255 + sdk.DecimalPrecisionBits`. [`ParseExchangeRateTuples`](../types/vote.go) trims the input and rejects malformed expressions and duplicate denoms. Its whitespace-only input produces an empty tuple list, so clients should submit explicit rate/denom pairs.
+`GetSigners` selects the feeder account. `ValidateBasic` checks both address formats, rejects a zero-length exchange-rate string, limits it to 4096 bytes, parses its decimal coin tuples, and rejects rates whose internal integer bit length exceeds `255 + sdk.DecimalPrecisionBits`. [`ParseExchangeRateTuples`](../types/vote.go) trims the input and rejects malformed expressions and duplicate denoms. Zero-rate tuples are accepted and carry no voting power during tally; negative decimal coin expressions are rejected by the parser. Its whitespace-only input produces an empty tuple list, so clients should submit explicit rate/denom pairs.
 
 The message server then:
 
@@ -36,6 +36,8 @@ paxd tx oracle aggregate-vote '1.25uatom,2.5ueth' <validator-address> --from <fe
 ```
 
 The example values illustrate encoding, not recommended prices. The CLI allows the validator argument to be omitted when voting as the operator account; a separate feeder must supply the validator it represents.
+
+For a concrete address-encoding example, the same 20-byte operator address can be represented as account `pax1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq0va854` and validator `paxvaloper1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqyp4n3k`. These are illustrative addresses, not funded accounts. Use the feeder account in `feeder` and its matching represented operator in `validator`; delegation permits a different account to sign.
 
 ## MsgDelegateFeedConsent
 

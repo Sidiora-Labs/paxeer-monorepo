@@ -14,7 +14,7 @@ const accountB: Address = '0x1234567890123456789012345678901234567890';
 function transferOf(account: Address, submittedAt: number): BridgeTransfer {
   const sourceTxHash: Hex = `0x${ submittedAt.toString(16).padStart(64, '0') }`;
   return {
-    id: transferIdOf('in', sourceTxHash),
+    id: transferIdOf('in', sourceTxHash, '8453'),
     direction: 'in',
     foreignChainKey: 'base',
     foreignChainId: '8453',
