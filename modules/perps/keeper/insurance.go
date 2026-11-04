@@ -55,14 +55,14 @@ func (k *Keeper) Backstop(ctx sdk.Context, address common.Address) ([]types.Even
 	}
 	insuranceAddress := k.InsuranceAccountAddress()
 	if address == insuranceAddress {
-		return nil, fmt.Errorf("%w: the insurance fund is never backstopped", types.ErrNotLiquidatable)
+		return nil, types.ErrNotLiquidatable.Wrapf("the insurance fund is never backstopped")
 	}
 	positions, err := k.liquidationAccountPositions(ctx, address)
 	if err != nil {
 		return nil, err
 	}
 	if len(positions) == 0 {
-		return nil, fmt.Errorf("%w: account %s holds no position", types.ErrNotLiquidatable, address)
+		return nil, types.ErrNotLiquidatable.Wrapf("account %s holds no position", address)
 	}
 	for _, position := range positions {
 		if err := k.RequireFresh(ctx, position.MarketID); err != nil {
@@ -78,7 +78,7 @@ func (k *Keeper) Backstop(ctx sdk.Context, address common.Address) ([]types.Even
 		return nil, err
 	}
 	if !below {
-		return nil, fmt.Errorf("%w: account %s is above the backstop line", types.ErrNotLiquidatable, address)
+		return nil, types.ErrNotLiquidatable.Wrapf("account %s is above the backstop line", address)
 	}
 	orderIDs, err := k.liquidationOpenOrders(ctx, address)
 	if err != nil {
@@ -140,7 +140,7 @@ func (k *Keeper) Backstop(ctx sdk.Context, address common.Address) ([]types.Even
 	}
 	taken := account.Collateral
 	if _, overflow := fund.Collateral.AddOverflow(&fund.Collateral, &taken); overflow {
-		return nil, fmt.Errorf("%w: insurance collateral", types.ErrOverflow)
+		return nil, types.ErrOverflow.Wrapf("insurance collateral")
 	}
 	account.Collateral = uint256.Int{}
 	store := k.store(ctx)
@@ -218,8 +218,7 @@ func (k *Keeper) CoverDeficit(ctx sdk.Context, address common.Address, marketID 
 		}
 	}
 	if books.DeficitSumUsd.ToBig().Cmp(covered) < 0 {
-		return nil, fmt.Errorf("%w: deficit sum %s below the deficit %s of account %s",
-			types.ErrInvalidParams, books.DeficitSumUsd.Dec(), account.DeficitUsd.Dec(), address)
+		return nil, types.ErrInvalidParams.Wrapf("deficit sum %s below the deficit %s of account %s", books.DeficitSumUsd.Dec(), account.DeficitUsd.Dec(), address)
 	}
 	books.DeficitSumUsd.SetFromBig(new(big.Int).Sub(books.DeficitSumUsd.ToBig(), covered))
 	fund.Collateral.SetFromBig(new(big.Int).Sub(fund.Collateral.ToBig(), draw))
@@ -249,6 +248,11 @@ func (k *Keeper) CoverDeficit(ctx sdk.Context, address common.Address, marketID 
 		store.Set(types.AccountKey(insuranceAddress), insurance.Marshal())
 	}
 	store.Set(types.VenueBooksKey, books.Marshal())
+	for _, owner := range []common.Address{address, insuranceAddress} {
+		if err := k.refreshAccountADLRanks(ctx, owner); err != nil {
+			return nil, err
+		}
+	}
 	if _, err := k.liquidationRebucket(ctx, address); err != nil {
 		return nil, err
 	}
@@ -282,12 +286,11 @@ func (k *Keeper) insuranceAdlInputs(ctx sdk.Context, address common.Address) ([]
 	ids := make([]uint256.Int, 0, len(positions))
 	marks := make(map[uint64]uint256.Int, len(positions))
 	for _, position := range positions {
-		state, err := k.GetMarketState(ctx, position.MarketID)
+		ids = append(ids, position.ID)
+		marks[position.MarketID], err = k.PreviousCommittedMark(ctx, position.MarketID)
 		if err != nil {
 			return nil, nil, err
 		}
-		ids = append(ids, position.ID)
-		marks[position.MarketID] = state.MarkPrice
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i].Lt(&ids[j]) })
 	return ids, marks, nil
@@ -430,7 +433,7 @@ func (k *Keeper) backstopTakeOver(ctx sdk.Context, account, fund *types.Account,
 	store := k.store(ctx)
 	k.insuranceDropPosition(ctx, position, account.Address)
 	if account.PositionCount == 0 {
-		return nil, fmt.Errorf("%w: position count of account %s", types.ErrInvalidParams, account.Address)
+		return nil, types.ErrInvalidParams.Wrapf("position count of account %s", account.Address)
 	}
 	account.PositionCount--
 
@@ -447,7 +450,7 @@ func (k *Keeper) backstopTakeOver(ctx sdk.Context, account, fund *types.Account,
 		return nil, nil
 	}
 	if len(bz) != 32 {
-		return nil, fmt.Errorf("%w: account market position entry %x", types.ErrInvalidParams, marketKey)
+		return nil, types.ErrInvalidParams.Wrapf("account market position entry %x", marketKey)
 	}
 	var heldID uint256.Int
 	heldID.SetBytes32(bz)
@@ -462,7 +465,7 @@ func (k *Keeper) backstopTakeOver(ctx sdk.Context, account, fund *types.Account,
 	if held.IsLong == position.IsLong {
 		var size uint256.Int
 		if _, overflow := size.AddOverflow(&held.SizeBase, &position.SizeBase); overflow {
-			return nil, fmt.Errorf("%w: size of position %s", types.ErrOverflow, held.ID.Dec())
+			return nil, types.ErrOverflow.Wrapf("size of position %s", held.ID.Dec())
 		}
 		weighted := new(big.Int).Mul(held.SizeBase.ToBig(), held.EntryPrice.ToBig())
 		weighted.Add(weighted, new(big.Int).Mul(position.SizeBase.ToBig(), mark.ToBig()))
@@ -515,7 +518,7 @@ func (k *Keeper) backstopTakeOver(ctx sdk.Context, account, fund *types.Account,
 		}
 		k.insuranceDropPosition(ctx, held, fund.Address)
 		if fund.PositionCount == 0 {
-			return nil, fmt.Errorf("%w: position count of the insurance fund", types.ErrInvalidParams)
+			return nil, types.ErrInvalidParams.Wrapf("position count of the insurance fund")
 		}
 		fund.PositionCount--
 	}
@@ -539,35 +542,7 @@ func (k *Keeper) insuranceDropPosition(ctx sdk.Context, position types.Position,
 // long, entry / mark for a short) x notional / account value, 0 when the
 // account value is not positive.
 func (k *Keeper) insuranceRerank(ctx sdk.Context) error {
-	insuranceAddress := k.InsuranceAccountAddress()
-	positions, err := k.liquidationAccountPositions(ctx, insuranceAddress)
-	if err != nil {
-		return err
-	}
-	if len(positions) == 0 {
-		return nil
-	}
-	equity, err := k.Equity(ctx, insuranceAddress)
-	if err != nil {
-		return err
-	}
-	store := k.store(ctx)
-	for _, position := range positions {
-		mark, err := k.liquidationMark(ctx, position.MarketID)
-		if err != nil {
-			return err
-		}
-		score, err := insuranceRankScore(position, mark, equity.BigInt())
-		if err != nil {
-			return err
-		}
-		side := types.SideOf(position.IsLong)
-		store.Delete(types.AdlRankIndexKey(position.MarketID, side, position.RankScore, position.ID))
-		position.RankScore = score
-		store.Set(types.PositionKey(position.ID), position.Marshal())
-		store.Set(types.AdlRankIndexKey(position.MarketID, side, position.RankScore, position.ID), []byte{})
-	}
-	return nil
+	return k.refreshAccountADLRanks(ctx, k.InsuranceAccountAddress())
 }
 
 func insuranceRankScore(position types.Position, mark uint256.Int, accountValue *big.Int) (uint256.Int, error) {
@@ -583,7 +558,7 @@ func insuranceRankScore(position types.Position, mark uint256.Int, accountValue 
 	score.Quo(score, new(big.Int).Mul(denominator, accountValue))
 	var out uint256.Int
 	if out.SetFromBig(score) {
-		return uint256.Int{}, fmt.Errorf("%w: rank score of position %s", types.ErrOverflow, position.ID.Dec())
+		return uint256.Int{}, types.ErrOverflow.Wrapf("rank score of position %s", position.ID.Dec())
 	}
 	return out, nil
 }
@@ -621,7 +596,7 @@ func (k *Keeper) insuranceVenueBooks(ctx sdk.Context) (types.VenueBooks, error) 
 		return books, nil
 	}
 	if err := books.Unmarshal(bz); err != nil {
-		return types.VenueBooks{}, fmt.Errorf("%w: venue books: %v", types.ErrInvalidParams, err)
+		return types.VenueBooks{}, types.ErrInvalidParams.Wrapf("venue books: %v", err)
 	}
 	return books, nil
 }
@@ -637,11 +612,10 @@ func (k *Keeper) insuranceBookResidue(ctx sdk.Context, delta *big.Int) error {
 	}
 	residue := new(big.Int).Add(books.ResidueUsd.ToBig(), delta)
 	if residue.Sign() < 0 {
-		return fmt.Errorf("%w: residue %s below the netting remainder %s",
-			types.ErrInvalidParams, books.ResidueUsd.Dec(), new(big.Int).Neg(delta))
+		return types.ErrInvalidParams.Wrapf("residue %s below the netting remainder %s", books.ResidueUsd.Dec(), new(big.Int).Neg(delta))
 	}
 	if books.ResidueUsd.SetFromBig(residue) {
-		return fmt.Errorf("%w: residue", types.ErrOverflow)
+		return types.ErrOverflow.Wrapf("residue")
 	}
 	k.store(ctx).Set(types.VenueBooksKey, books.Marshal())
 	return nil
@@ -652,11 +626,11 @@ func (k *Keeper) insuranceBookResidue(ctx sdk.Context, delta *big.Int) error {
 // outside its word.
 func insuranceSetWords(position *types.Position, size uint256.Int, entry, cost, funding *big.Int) error {
 	if cost.Sign() < 0 {
-		return fmt.Errorf("%w: cost basis %s of position %s", types.ErrInvalidParams, cost, position.ID.Dec())
+		return types.ErrInvalidParams.Wrapf("cost basis %s of position %s", cost, position.ID.Dec())
 	}
 	var entryWord, costWord uint256.Int
 	if entryWord.SetFromBig(entry) || costWord.SetFromBig(cost) {
-		return fmt.Errorf("%w: position %s", types.ErrOverflow, position.ID.Dec())
+		return types.ErrOverflow.Wrapf("position %s", position.ID.Dec())
 	}
 	fundingWord, err := insuranceSignedWord(funding)
 	if err != nil {
@@ -708,7 +682,7 @@ func insuranceAdd(word uint256.Int, amount *big.Int) (uint256.Int, error) {
 	sum := new(big.Int).Add(word.ToBig(), amount)
 	var out uint256.Int
 	if sum.Sign() < 0 || out.SetFromBig(sum) {
-		return uint256.Int{}, fmt.Errorf("%w: %s plus %s", types.ErrOverflow, word.Dec(), amount)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("%s plus %s", word.Dec(), amount)
 	}
 	return out, nil
 }
@@ -726,7 +700,7 @@ func insuranceSigned(word uint256.Int) *big.Int {
 // insuranceSignedWord writes an int256 as a word in two's complement.
 func insuranceSignedWord(value *big.Int) (uint256.Int, error) {
 	if value.Cmp(insuranceInt256Max) > 0 || value.Cmp(insuranceInt256Min) < 0 {
-		return uint256.Int{}, fmt.Errorf("%w: %s outside int256", types.ErrOverflow, value)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("%s outside int256", value)
 	}
 	var word uint256.Int
 	word.SetFromBig(new(big.Int).Abs(value))
