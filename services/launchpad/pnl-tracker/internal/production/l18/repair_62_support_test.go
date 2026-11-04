@@ -118,20 +118,24 @@ func repair62Contains(list []string, s string) bool {
 // PostgreSQL itself is not emulated: only the committed read-view transcript
 // and the service's durable write responses are served over its real protocol.
 type repair62Database struct {
-	mu         sync.Mutex
-	catalog    repair62Catalog
-	manifest   production.RoleManifest
-	grants     map[string]map[string]bool
-	peers      repair62Peers
-	height     uint64
-	requests   map[string][]string
-	inbox      map[string]string
-	community  map[string][]string
-	scans      map[string]bool
-	outbox     map[string]string
-	audit      map[string]string
-	queries    []string
-	claimPages []int
+	mu               sync.Mutex
+	catalog          repair62Catalog
+	manifest         production.RoleManifest
+	grants           map[string]map[string]bool
+	peers            repair62Peers
+	height           uint64
+	requests         map[string][]string
+	inbox            map[string]string
+	community        map[string][]string
+	communityHistory map[string][][]string
+	strategies       map[string]uint8
+	airdropSupport   map[string]bool
+	transport        *repair1019Store
+	scans            map[string]bool
+	outbox           map[string]string
+	audit            map[string]string
+	queries          []string
+	claimPages       []int
 }
 
 func repair62Bootstrap(t *testing.T) *repair62Database {
@@ -334,6 +338,11 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 	defer d.mu.Unlock()
 	sql = strings.Join(strings.Fields(sql), " ")
 	d.queries = append(d.queries, sql)
+	if d.transport != nil {
+		if result, handled, err := d.transport.query(sql, args); handled {
+			return result, err
+		}
+	}
 	ok := repair62Result{tag: "SELECT 1"}
 	switch {
 	case sql == "begin" || sql == "commit" || sql == "rollback":
@@ -519,20 +528,27 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 			return repair62Text(), nil
 		}
 		return repair62Text([]string{v}), nil
-	case strings.HasPrefix(sql, "SELECT owner FROM l18_community_history"):
+	case strings.HasPrefix(sql, "SELECT owner,policy_digest FROM l18_community_history"):
 		v, exists := d.community[args[0]]
 		if !exists {
-			return repair62Text(), nil
+			return repair62Rows([]uint32{25, 25}), nil
 		}
-		return repair62Text([]string{v[3]}), nil
+		return repair62Rows([]uint32{25, 25}, []string{v[3], v[4]}), nil
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM l18_community_history"):
-		v := d.community[args[0]]
-		return repair62Rows([]uint32{16}, []string{strconv.FormatBool(len(v) > 2 && v[2] == "active")}), nil
+		active := false
+		for _, v := range d.communityHistory[args[0]] {
+			active = active || v[2] == "active"
+		}
+		return repair62Rows([]uint32{16}, []string{strconv.FormatBool(active)}), nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_community_history("):
 		if err := d.permit("pnl.l18_community_history", "INSERT"); err != nil {
 			return ok, err
 		}
 		d.community[args[1]] = append([]string(nil), args...)
+		if d.communityHistory == nil {
+			d.communityHistory = map[string][][]string{}
+		}
+		d.communityHistory[args[1]] = append(d.communityHistory[args[1]], append([]string(nil), args...))
 		return repair62Result{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_community_scan("):
 		if err := d.permit("pnl.l18_community_scan", "INSERT"); err != nil {
@@ -583,6 +599,9 @@ func (d *repair62Database) pool(t *testing.T) *pgxpool.Pool {
 // encode real typed parameters (notably jsonb versus bytea) just as at runtime.
 func repair62Signature(sql string) (params, fields []uint32) {
 	sql = strings.Join(strings.Fields(sql), " ")
+	if params, fields, handled := repair1019Signature(sql); handled {
+		return params, fields
+	}
 	placeholders := regexp.MustCompile(`\$([0-9]+)`).FindAllStringSubmatch(sql, -1)
 	count := 0
 	for _, p := range placeholders {
@@ -636,9 +655,9 @@ func repair62Signature(sql string) (params, fields []uint32) {
 		params = []uint32{25, 25, 3802}
 	case strings.HasPrefix(sql, "SELECT digest FROM l18_inbox"):
 		fields = []uint32{25}
-	case strings.HasPrefix(sql, "SELECT owner FROM l18_community_history"):
+	case strings.HasPrefix(sql, "SELECT owner,policy_digest FROM l18_community_history"):
 		params = []uint32{1700}
-		fields = []uint32{25}
+		fields = []uint32{25, 25}
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM l18_community_history"):
 		params = []uint32{1700}
 		fields = []uint32{16}
@@ -986,11 +1005,11 @@ func (d *repair62Database) rpcResult(method string, args []json.RawMessage) (any
 				case "getPoolAddress":
 					return repair62Pack(a, m.Name, common.HexToAddress(market.Pool))
 				case "getFeeStrategy":
-					return repair62Pack(a, m.Name, uint8(0))
+					return repair62Pack(a, m.Name, d.strategies[id])
 				}
 			}
 		case "supportsAirdrop":
-			return repair62Pack(a, m.Name, false)
+			return repair62Pack(a, m.Name, d.airdropSupport[strings.ToLower(values[0].(common.Address).Hex())])
 		case "getAccumulatedFees":
 			pool := strings.ToLower(values[0].(common.Address).Hex())
 			for _, market := range d.peers.Markets {
