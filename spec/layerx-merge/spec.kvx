@@ -152123,7 +152123,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.355]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/states (part 1 of 1): security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -207639,7 +207639,7 @@ do_10 = "Attempt 2 (continue): the three runtime proofs fail only because no exe
 
 [task.22.33.946]
 title = "Repair audit record 22.30.24 medium findings in modules/launchpad/types (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.34", "22.31.35", "22.31.463"]
@@ -328793,7 +328793,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.482]
 title = "Repair audit record 22.30.15 medium findings in apps/perps/deploy (part 1 of 1): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.17"]
@@ -329037,7 +329037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.420]
 title = "Repair audit record 22.30.145 medium findings in services/bridge/deploy (part 1 of 1): retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330405,7 +330405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.98]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/transport-a2a (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
@@ -330439,7 +330439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.97]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/transport-mcp (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
@@ -330473,7 +330473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.96]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/transport-http (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
@@ -330541,7 +330541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.93]
 title = "Repair audit record 22.30.110 medium findings in services/interop/specs/conformance/ucp (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.164", "22.31.231"]
