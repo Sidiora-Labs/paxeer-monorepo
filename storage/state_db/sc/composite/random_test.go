@@ -64,11 +64,20 @@ func runSteadyStateScenario(t *testing.T, mode config.WriteMode) {
 	// --- Phase 2: rollback to a checkpoint, then restart at the rolled-back
 	// height to confirm the rollback is durable. ---
 	checkpoint := cs.Version()
+	checkpointInfo := cloneCommitInfo(cs.LastCommitInfo())
+	checkpointWorking := cloneCommitInfo(cs.WorkingCommitInfo())
 	snap := oracle.snapshot()
 	simulateBlocks(t, cs, oracle, rng, keysInUse, randomTestStores, simParams{
 		readsPerBlock: 5, updatesPerBlock: 5, deletesPerBlock: 2, newKeysPerBlock: 10, blocks: 8,
 	})
 	require.NoError(t, cs.Rollback(checkpoint))
+	require.Equal(t, checkpoint, cs.Version())
+	require.Equal(t, checkpointInfo, cloneCommitInfo(cs.LastCommitInfo()))
+	require.Equal(t, checkpointWorking, cloneCommitInfo(cs.WorkingCommitInfo()))
+	verifyOracle(t, cs, snap)
+	verifyIteration(t, cs, snap, randomTestStores)
+	verifyKeyPlacement(t, cs, snap, placement)
+	verifyProofRouting(t, cs, snap, placement)
 	cs = restartComposite(t, cs, dir, cfg)
 	require.Equal(t, checkpoint, cs.Version(), "store must report the rolled-back version after restart")
 	verifyOracle(t, cs, snap)
@@ -355,11 +364,20 @@ func runMidMigrationInterleavings(
 
 	// --- Event A: rollback to a mid-flight checkpoint, restart, resume. ---
 	checkpoint := cs.Version()
+	checkpointInfo := cloneCommitInfo(cs.LastCommitInfo())
+	checkpointWorking := cloneCommitInfo(cs.WorkingCommitInfo())
 	snap := oracle.snapshot()
 	simulateBlocks(t, cs, oracle, rng, keysInUse, randomTestStores, simParams{
 		readsPerBlock: 4, updatesPerBlock: 3, deletesPerBlock: 1, newKeysPerBlock: 3, blocks: 2,
 	})
 	require.NoError(t, cs.Rollback(checkpoint))
+	require.Equal(t, checkpoint, cs.Version())
+	require.Equal(t, checkpointInfo, cloneCommitInfo(cs.LastCommitInfo()))
+	require.Equal(t, checkpointWorking, cloneCommitInfo(cs.WorkingCommitInfo()))
+	assertMigrationInFlight(t, cs, snap, sc.migratingStores...)
+	verifyOracle(t, cs, snap)
+	verifyIteration(t, cs, snap, randomTestStores)
+	verifyMigrationMetadata(t, cs, false, true)
 	cs = restartComposite(t, cs, dir, migCfg)
 	require.Equal(t, checkpoint, cs.Version(), "rollback must return the store to the checkpoint version")
 	assertMigrationInFlight(t, cs, snap, sc.migratingStores...)
