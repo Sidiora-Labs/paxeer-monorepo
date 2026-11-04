@@ -150466,6 +150466,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn and after 22.31.440 removed the ganache import; the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_9 = "Attempt 3 (continue): all seven cases pass and the suite still fails in a hook because the fetch mock receives an undefined request: the configuration generator is invoked in the hook before the endpoint it fetches is set, so the mock cannot normalise the request. Give the generator its endpoint explicitly in the test fixture (the chain-125 node names at the root path, decision 2514, as recorded responses), move the invocation out of the hook into the cases that assert on it, assert the request URL the generator actually sends, and finish on one commit."
 
 [task.22.33.500]
 title = "Repair audit record 22.30.151 medium findings in apps/explorer/deploy/tools/llms-txt-generator (part 1 of 1): doc-drift"
@@ -152349,6 +152350,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn. Keep the implementation and re-run both commands on the current tree."
+do_16 = "Attempt 3 (continue): six of eight cases pass. The IPFS blob case fails because the test environment has no object-URL implementation, so the component's blob URL is empty; install object-URL creation and revocation stubs in the test and assert that the component revokes the URL on unmount. The async race case counts zero stale-response guards where it expects one; drive the two overlapping loads with awaited state settlement rather than a synchronous count, and if the component in apps/explorer/ui/shared/nft genuinely has no guard against a stale response overwriting a newer one, add that guard there (the medium finding this task repairs). Finish on one commit."
 
 [task.22.33.327]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/monaco/utils (part 1 of 1): runtime-risk, security"
@@ -153388,6 +153390,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 3 (continue): four of five cases fail for two reasons. First, the age filter component in apps/explorer/ui/advancedFilter/filters renders JSX without importing React, which the explorer's test runner does not inject, so the component throws before any placeholder can be found; add the import the explorer's other components carry. Second, the suite fails in a hook because the fetch mock receives an undefined request: the filter builds its request from configuration the test never sets. Load the explorer's test environment the runner's setup file reads, give the resource an explicit endpoint in the fixture, and assert the request the filter actually sends. Finish on one commit."
 
 [task.22.33.281]
 title = "Repair audit record 22.30.133 medium findings in apps/explorer/ui/blocks (part 1 of 1): config-drift, wiring-gap"
@@ -154178,6 +154181,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (requalify): six cases passed and the two fixture failures were repaired after the budget was spent; re-run the build and the verify on the final tree and finish on one commit."
 do_15 = "Attempt 3 (continue): seven of eight cases pass; the rung-not-rendered case fails because its receipt and transaction fixture pair are not a committed pair (the authenticator reports a layout mismatch). Take both halves from the committed conformance vector sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json (case V1-pax-transfer), never a hand-built pair, and keep the distinction the case proves."
+do_16 = "Attempt 4 (continue): seven of eight cases pass; the committed-rung case still feeds the SDK's receipt authentication a recording that fails the transaction-or-receipt layout check, so the case can never distinguish the committed outcome. Stop using that inherited recording: take the committed-rung pair from the committed conformance fixtures under sdk/platform/conformance/fixtures (the receipted V1 vector already authenticates in this suite; its committed sibling is the right source for the committed rung), derive the expected rendering from that recorded evidence, keep the seven passing cases, and finish on one commit. If the inherited recording is a product fixture other suites rely on, record it as a finding rather than repairing it here."
 
 [task.22.33.204]
 title = "Repair audit record 22.30.120 medium findings in apps/wallet/src/domains/platform (part 1 of 1): security"
@@ -180422,7 +180426,7 @@ title = "Repair audit record 22.30.110 medium findings in services/interop (part
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.164", "22.31.231"]
+requires = ["22.31.164", "22.31.231", "22.31.443"]
 reqs = ["22998.1"]
 capabilities = ["22.33.95"]
 interfaces = []
@@ -180450,6 +180454,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 1: the build passed and the dependent-crate check failed on the human service's observed-balances test; that test is repaired by task 22.31.443, which this task now requires."
 
 [task.22.33.92]
 title = "Repair audit record 22.30.110 medium findings in services/interop/crates/layerx-ap2/tests (part 1 of 1): test-gap"
@@ -183242,7 +183247,7 @@ do_4 = "Finding health-metadata (interface-mismatch, high) on services/explorer/
 do_5 = "Prove each repair with an integration test services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com", "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"]
+touches = ["services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com", "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs", "services/explorer/services/libs/blockscout-client/crate/src/models"]
 tests = ["services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs"]
 planned_paths = ["services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs", "services/explorer/services/libs/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --tests"
@@ -183263,6 +183268,7 @@ do_8 = "Real means the component under repair is the production code; its peers 
 do_9 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
 do_10 = "Attempt 3 (continue): both tests assert that metadata.latest_block is absent, yet the committed recording still carries it; re-record the health response from the current producer (the health route of the explorer backend) and commit that recording; the test must not be relaxed to accept the stale field."
 do_11 = "Attempt 4 (continue): the crate does not build with --tests because tests/repair_22_31_273.rs matches on a type the models module no longer exports (gotcha 2974); 22.31.445 repairs that test and this task now requires it. Keep the implementation and re-run both commands when it has published."
+do_12 = "Attempt 5 (continue): both cases fail because the generated health metadata model in services/explorer/services/libs/blockscout-client/crate/src/models (the health check response metadata struct) serialises its optional top-level latest block as an explicit null, while the finding asks that the recording and the model carry the block only under the blocks member. Mark that optional field so an absent value is not serialised (the same attribute the struct's error field already uses), keep the generated file otherwise untouched, with the models directory now in touches; keep both cases' assertions, re-run the verify command and finish on one commit. A wiring request is not the right record for a one-attribute change inside this crate."
 
 [task.22.31.276]
 title = "Repair audit record 22.30.148 findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2: interface-mismatch"
@@ -186118,7 +186124,7 @@ title = "Carry paymentDenom in every daemon receipt fixture so the exact receipt
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.23.11"]
+requires = ["22.23.11", "22.31.443"]
 reqs = ["9998.1"]
 capabilities = ["9.98.4"]
 interfaces = []
@@ -186144,6 +186150,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2: adding paymentDenom to the fixture JSON in tests/support/mod.rs alone leaves the signed canonical form without the field, so human_node_receipts.rs:315 refuses the receipt; rebuild the fixture signature over the canonical receipt that includes paymentDenom."
 do_5 = "Attempt 2 (continue): human_receipt_lookup_reads_pax_receipt_by_outbox_hash fails with Refused at human_node_receipts.rs line 315; surface the refusal reason in the assertion and fix the production lookup path or the fixture binding that produces it, whichever the reason names."
+do_6 = "Attempt 2: the build passed and the dependent-crate check failed on the human service's observed-balances test; that test is repaired by task 22.31.443, which this task now requires."
 
 [task.22.99.159]
 title = "Restore the provider-subject consent fixture the agent daemon tests include"
@@ -189521,7 +189528,7 @@ title = "Build the human projection facts fixture in-process from the Human peer
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.9.31", "22.99.159", "22.99.160", "22.9.39"]
+requires = ["22.9.31", "22.99.159", "22.99.160", "22.9.39", "22.31.443"]
 reqs = ["22096.1"]
 capabilities = ["22.9.38"]
 interfaces = []
@@ -189547,6 +189554,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, after task 22.9.39 publishes): operation 48 now serves the EVM actor form (decision 2517). Build the fixture in-process as do_1 says; every assertion of :188-:290 stays, including the operation-48 facts and its two refusals. The daemon sources still do not change here."
 do_5 = "Attempt 2 (continue): the tests refuse to run without a genuine approval and managed receipt fixture (a protected Human authority fixture). Record that fixture once from the production Human service running in-process inside an ignored generator test, commit it next to the suite, and load it by path; no test double and no environment variable. Real means the component under repair is the production code and its peers are committed fixtures or loopback servers the test starts; a gate reads no environment variable and reaches no network (gotchas 2962, 2963)."
+do_6 = "Attempt 2: the build passed and the dependent-crate check failed on the human service's observed-balances test; that test is repaired by task 22.31.443, which this task now requires."
 
 [task.22.9.36]
 title = "Account for the gas fee in the receipt verifier's debit balance identity"
@@ -210432,6 +210440,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the signature case passes and the REST query cases fail because they query at height one before the in-process network has committed a block, so the responses report height zero. Wait for the first committed height through the network's own wait helper before querying (the published repair 22.31.304 in the same package does this), keep the constructor fix, re-run the verify command and finish on one commit."
 
 [task.22.33.663]
 title = "Repair audit record 22.30.166 medium findings in sdk/x/bank/client/testutil (part 1 of 1): test-gap"
@@ -210467,6 +210476,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the balance cases pass and the denomination-metadata and total-supply cases fail because their expected values are upstream's, not this fork's genesis. Take the expected metadata and supply from the genesis the in-process network is started with (read them from the network's genesis state in the test rather than hard-coding upstream constants), keep the configuration the published repairs 22.31.298 and 22.31.304 use, re-run the verify command and finish on one commit."
 
 [task.22.33.662]
 title = "Repair audit record 22.30.166 medium findings in sdk/x/auth/vesting/client/testutil (part 1 of 1): test-gap"
@@ -210537,6 +210547,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the suite dies at network start because the genesis carries one validator while the chain's init response returns two, a mismatch the attempt's change to the default network configuration introduced; the in-process test network starts cleanly in this tree for the published repairs 22.31.298 and 22.31.304. Revert the configuration change, start the network exactly as those published suites do, move the repair into the cases themselves, re-run the verify command and finish on one commit."
 
 [task.22.33.660]
 title = "Repair audit record 22.30.166 medium findings in sdk/x/auth/client/cli (part 1 of 1): runtime-risk"
@@ -210846,7 +210857,7 @@ do_6 = "Real means the component under repair is the production code; its peers 
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_8 = "Verification runs only the TestRepairM_652_* functions of repair_m652_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["sdk/x/genutil/client/testutil"]
+touches = ["sdk/x/genutil/client/testutil", "sdk/x/genutil/client/cli"]
 tests = ["sdk/x/genutil/client/testutil/repair_m652_test.go"]
 planned_paths = ["sdk/x/genutil/client/testutil/repair_m652_test.go"]
 build_cmd = "go build ./sdk/x/genutil/client/testutil/..."
@@ -210862,6 +210873,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): two cases fail because they ask the genesis utility command for an upstream migration target (version v0.43) that this fork's command no longer registers. The finding is about the targets the fork registers, so assert the fork's actual migration registry (read it from the command's migration map in sdk/x/genutil/client/cli, with that directory now in touches if a registration must change) rather than upstream's list, keep the consensus-rejection case, re-run the verify command and finish on one commit. The absent upstream callback is not a wiring request."
 
 [task.22.33.651]
 title = "Repair audit record 22.30.165 medium findings in sdk/x/genutil/client/cli (part 1 of 1): wiring-gap"
@@ -251385,6 +251397,7 @@ time_limit_minutes = 75
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (requalify): the build and all three tests pass and the task stayed unpublished only because the qualification commit swept the Maven build output directory of sdk/integrations/spring (its target tree, which the module's own ignore file excludes) into version control, so the built and the verified revisions differ. Remove every file under that output directory from the commit (unstage it from the index, never delete the sources), keep the ignore file as it is, re-run the build and the verify command once on the final revision, and make no commit after the pass."
 
 [task.22.33.621]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring (part 1 of 1): test-gap"
@@ -356817,7 +356830,7 @@ interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add test_deleted_trees_absent_and_catalogue_valid to RetiredCatalogueDeletedTest in tools/paxeer-x/tests/test_retired_catalogue_deleted.py: with the catalogue listing the deleted daemon trees, the scanner run with --self-test and then with --deleted for those components exits 0 both times (acceptance 16.44.1), beside test_catalogue_valid_and_self_test_passes. Add test_bridge_credit_suites_absent to tests/ci/test_requested_suites_absent.py: the three bridge credit suite paths are absent from the tree and make -n build test exits 0 (16.966.4), in the form of test_arbiter_native_authority_absent."
 do_2 = "No production file changes; pytest refuses an unknown node id, so the verify command fails when either test is missing."
 symbols = ["test_deleted_trees_absent_and_catalogue_valid", "test_bridge_credit_suites_absent"]
-touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md"]
+touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md", "services/agent/crates/layerx-agentd/host-tests"]
 tests = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid", "tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_requested_suites_absent.py"
@@ -356839,6 +356852,7 @@ do_5 = "Decision 2378: attempt 3 (base 144ec64cf) carried both tests and failed 
 do_6 = "Attempt 5 (continue): test_retired_catalogue_deleted timed out running the retired-callers scan over four components in one process; run the scan per component with its own timeout or narrow it to the component directories, and assert that each scan finishes."
 do_7 = "Attempt 5: the retired-catalogue checker subprocess was killed at the 60 second limit; the checker prunes node_modules, target and .git (or walks only the listed trees) so it completes within the limit."
 do_8 = "Attempt 6 (continue): the retired-catalogue test flags services/agent/README.md lines 9 and 25, which still describe the deleted lni tree. Rewrite those README lines to name the component that replaced it (the agent service and its network interface), do not loosen the test; the README is in scope now."
+do_9 = "Attempt 7 (continue): the two acceptance tests are in place and the retired-catalogue check fails on one remaining reference outside the task's files: the integration test function at line 178 of services/agent/crates/layerx-agentd/host-tests/node_integration.rs carries the retired LNI name in its identifier. Rename that test (and any variable or message it reads under the retired name) to the network-era wording of what it checks, the node JSON-RPC startup check against the human service variable, with the host-tests directory now in touches; do not add an allowance to the catalogue check and do not weaken it. Re-run the verify command and finish on one commit."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
@@ -365715,6 +365729,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the new regression passes and the original migrator test for recovery of WETH token transfers now waits past its bound for the migrator process to exit normally, so the repair changed how the migrator finishes. Find which configuration the repair sets or restores (the migrator's enabled, concurrency or batch keys are the likely class) and make the migrator complete and exit as before under the original test unchanged; never raise the test's bound or weaken the exit assertion. Re-run the verify command and finish on one commit."
 
 [task.22.33.559]
 title = "Repair audit record 22.30.158 medium findings in services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance (part 1 of 1): config-drift, test-gap"
@@ -366285,6 +366300,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the historical replay passes and three lifecycle cases fail only because the recorded capture of the pending block lifecycle is missing. Record it once from the chain-125 node names at the root path (decision 2514): the block by number with the pending tag under both full-transaction selections, then the same block after commit, as one cassette under the vcr_cassettes fixture directory, and replay it in-process (decision 2520). If the node refuses the pending tag, record that refusal as the capture and make the import runner's handling of the refusal the behaviour under test. A missing-capture assertion is never the failure mode of a committed suite; rpc/block.go stays untouched unless a finding names it. Finish on one commit."
 
 [task.22.33.537]
 title = "Repair audit record 22.30.155 medium findings in services/explorer/backend/apps/explorer/test/explorer/migrator (part 1 of 1): restart-recovery"
