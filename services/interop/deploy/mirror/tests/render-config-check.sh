@@ -87,8 +87,8 @@ render_ethereum_only() {
         --state-directory "$WORK/state" \
         --first-height 1 \
         --status-listen "127.0.0.1:$STATUS_PORT" \
-        --paxeer-endpoint "https://paxeer-a.invalid:9443/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
-        --paxeer-endpoint "https://paxeer-b.invalid:9443/rpc,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
+        --paxeer-endpoint "https://paxeer-a.invalid:9443/,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
+        --paxeer-endpoint "https://paxeer-b.invalid:9443/,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
         --paxeer-chain-id 125 \
         --paxeer-genesis-hash "$(printf 'paxeer-genesis' | sha256sum | cut -d ' ' -f 1)" \
         --receipt-keys-file "$WORK/receipt-keys.json" \
@@ -99,7 +99,22 @@ render_ethereum_only() {
         --ethereum-archive-contract 00000000000000000000000000000000000000ff \
         --ethereum-archive-code-hash "$(printf 'code' | sha256sum | cut -d ' ' -f 1)" \
         --ethereum-signer-public-key "$ETHEREUM_PUBLIC" \
-        "${@:2}"
+        "${@:2}" || return $?
+    python3 - "$1" <<'PYPATHS' || fail "the rendered RPC endpoint paths changed"
+import json
+import sys
+from urllib.parse import urlsplit
+config = json.load(open(sys.argv[1]))
+for chain in ("paxeer", "ethereum", "solana"):
+    if chain in config:
+        expected = "/" if chain == "paxeer" else "/rpc"
+        endpoints = config[chain]["rpc"]["endpoints"]
+        assert len(endpoints) == 2, endpoints
+        for endpoint in endpoints:
+            parsed = urlsplit(endpoint["url"])
+            assert parsed.path == expected, endpoint
+            assert not parsed.query and not parsed.fragment, endpoint
+PYPATHS
 }
 
 solana_target() {
@@ -178,8 +193,8 @@ render_output=$(python3 "$RENDERER" --output "$WORK/never.json" --state-director
     --first-height 1 --status-listen 127.0.0.1:1 \
     --paxeer-chain-id 125 --receipt-keys-file "$WORK/receipt-keys.json" \
     --paxeer-genesis-hash "$(printf 'paxeer-genesis' | sha256sum | cut -d ' ' -f 1)" \
-    --paxeer-endpoint "https://paxeer-a.invalid/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
-    --paxeer-endpoint "https://paxeer-b.invalid/rpc,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
+    --paxeer-endpoint "https://paxeer-a.invalid/,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
+    --paxeer-endpoint "https://paxeer-b.invalid/,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
     --ethereum-chain-id 125 --ethereum-genesis-hash 00 \
     --ethereum-archive-contract 00 --ethereum-archive-code-hash 00 \
     --ethereum-signer-key-handle owner/ethereum --ethereum-signer-public-key "$ETHEREUM_PUBLIC" \

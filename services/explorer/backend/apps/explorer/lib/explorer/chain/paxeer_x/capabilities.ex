@@ -11,10 +11,9 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   height, issues
 
     * `eth_call` of `getMarginMode(address)` with the zero account for the
-      exchange (`0x…1015`) and `isPaused()` for the bridge (`0x…1016`) — a
-      surface is live when its view returns exactly one ABI word;
-    * `eth_getCode` for the launchpad (`0x…1017`) precompile — the surface is
-      live when the answer carries at least one byte of code;
+      exchange (`0x…1015`), `isPaused()` for the bridge (`0x…1016`) and
+      `getPoolCount()` for the launchpad (`0x…1017`) — a surface is live when
+      its view returns exactly one ABI word, regardless of stored EVM code;
     * one `eth_call` of `getUnifiedAccount(address)` (selector `0x357feed6`) at
       the addr precompile `0x…1004`, which exists before the upgrade but only
       answers that method after it — the capability is live when the call
@@ -67,18 +66,18 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
 
   @view_surfaces [
     exchange: @exchange_precompile,
-    bridge: @bridge_precompile
+    bridge: @bridge_precompile,
+    launchpad: @launchpad_precompile
   ]
 
-  @code_surfaces [launchpad: @launchpad_precompile]
-  @surface_addresses @view_surfaces ++ @code_surfaces
-  @view_surface_names Keyword.keys(@view_surfaces)
+  @surface_addresses @view_surfaces
   @surface_names Keyword.keys(@surface_addresses)
 
   @surfaces [:unified_account | @surface_names]
 
   @get_margin_mode_selector "0xb71d031c"
   @is_paused_selector "0xb187bd26"
+  @get_pool_count_selector "0x8eec5d70"
   @get_unified_account_selector "0x357feed6"
   @probed_account "0x0000000000000000000000000000000000000000"
 
@@ -249,8 +248,6 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   end
 
   defp probe_requests(block_number) do
-    block_quantity = EthereumJSONRPC.integer_to_quantity(block_number)
-
     view_requests =
       @view_surfaces
       |> Enum.with_index()
@@ -259,16 +256,10 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
           case surface do
             :exchange -> @get_margin_mode_selector <> address_argument(@probed_account)
             :bridge -> @is_paused_selector
+            :launchpad -> @get_pool_count_selector
           end
 
         Contract.eth_call_request(data, address, index, block_number, nil)
-      end)
-
-    code_requests =
-      @code_surfaces
-      |> Enum.with_index(length(@view_surfaces))
-      |> Enum.map(fn {{_surface, address}, index} ->
-        request(%{id: index, method: "eth_getCode", params: [address, block_quantity]})
       end)
 
     unified_account_request =
@@ -280,7 +271,7 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
         nil
       )
 
-    [unified_account_request | view_requests ++ code_requests]
+    [unified_account_request | view_requests]
   end
 
   defp address_argument("0x" <> digits),
@@ -304,26 +295,13 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
     |> Enum.with_index()
     |> Enum.reduce_while({:ok, %{}}, fn {{surface, _address}, index}, {:ok, acc} ->
       response = Map.get(by_id, index)
-      result = if surface in @view_surface_names, do: read_view(response), else: read_code(response)
 
-      case result do
+      case read_view(response) do
         {:ok, live?} -> {:cont, {:ok, Map.put(acc, surface, live?)}}
         {:error, reason} -> {:halt, {:error, {surface, reason}}}
       end
     end)
   end
-
-  defp read_code(%{result: "0x" <> digits}) do
-    if rem(String.length(digits), 2) == 0 and hexadecimal?(digits) do
-      {:ok, digits != ""}
-    else
-      {:error, {:unexpected_code, digits}}
-    end
-  end
-
-  defp read_code(%{error: error}), do: {:error, error}
-
-  defp read_code(other), do: {:error, {:unexpected_response, other}}
 
   defp read_view(%{result: "0x" <> digits} = response) do
     if byte_size(digits) == 64 and hexadecimal?(digits) do

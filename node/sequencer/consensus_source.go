@@ -194,6 +194,15 @@ func (s *ConsensusSource) Seal(ctx context.Context, height int64) (tmtypes.Seale
 		}
 		return tmtypes.SealedBlock{Batch: append(tmtypes.Tx(nil), s.sealed.Txs[0]...), Txs: txs, OpenTime: s.sealed.Context().BlockTime()}, nil
 	}
+	// Accepter holds this boundary through execution, WAL release and
+	// receipt publication. SEAL cannot overtake any included ACCEPT.
+	if s.accepter != nil {
+		s.accepter.mu.Lock()
+		defer s.accepter.mu.Unlock()
+		if s.accepter.halted {
+			return tmtypes.SealedBlock{}, ErrReplicationHalted
+		}
+	}
 	if !s.Sequenced(height) {
 		return tmtypes.SealedBlock{}, fmt.Errorf("%w: height %d", ErrNotSequenced, height)
 	}

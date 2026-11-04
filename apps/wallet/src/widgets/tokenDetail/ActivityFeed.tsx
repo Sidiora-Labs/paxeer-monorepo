@@ -11,7 +11,7 @@
 import { formatBalance, shortenAddress } from '@/lib/format';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import { SectionLabel } from './Atoms';
-import type { TxHistoryRow } from '@/lib/queries';
+import type { TokenDetailHistoryRow } from './detailQueries';
 
 const SENT_FILTER =
   'invert(48%) sepia(79%) saturate(2476%) hue-rotate(338deg) brightness(118%) contrast(119%)';
@@ -19,13 +19,20 @@ const RECEIVED_FILTER =
   'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)';
 
 export interface ActivityFeedProps {
-  rows: TxHistoryRow[];
+  rows: TokenDetailHistoryRow[];
   walletAddress: string;
   loading: boolean;
+  unavailable?: boolean;
   onTxDetail?: (hash: string) => void;
 }
 
-export function ActivityFeed({ rows, walletAddress, loading, onTxDetail }: ActivityFeedProps) {
+export function ActivityFeed({
+  rows,
+  walletAddress,
+  loading,
+  unavailable,
+  onTxDetail,
+}: ActivityFeedProps) {
   const addr = walletAddress.toLowerCase();
 
   return (
@@ -33,7 +40,9 @@ export function ActivityFeed({ rows, walletAddress, loading, onTxDetail }: Activ
       <div className="col-span-2 px-1 pt-1">
         <SectionLabel text="Activity" />
       </div>
-      {loading ? (
+      {unavailable ? (
+        <p className="col-span-2 text-xs text-pax-muted">Activity unavailable for this network</p>
+      ) : loading ? (
         <div className="col-span-2 space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-14 shimmer rounded-xl" />
@@ -78,7 +87,10 @@ export function ActivityFeed({ rows, walletAddress, loading, onTxDetail }: Activ
                   }`}
                 >
                   {isSent ? '-' : '+'}
-                  {formatBalance(row.amountRaw, row.decimals, 4)} {row.symbol}
+                  {row.decimals === null
+                    ? 'Unknown amount'
+                    : formatBalance(row.amountRaw, row.decimals, 4)}{' '}
+                  {row.symbol}
                 </p>
               </button>
             );
