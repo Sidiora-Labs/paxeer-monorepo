@@ -1,0 +1,9 @@
+[repair.22.31.305]
+audit = "22.30.167"
+finding = "expedited-votes"
+tests = ["TestRepair_305_ConversionRestartRegularTally", "TestRepair_305_ExpeditedPassDeletesVotes"]
+proof = "Real governance message server, keeper, codec, staking electorate and committed store; close and reopen the disk database after conversion and terminal tally. Cover threshold, quorum, abstention, veto, rejection, zero bonded tokens and expedited passage."
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before the complete implementation and require hf-build before hf-done. No baseline failures are claimed."
+gotcha = "Vote.Options uses the plain []WeightedVoteOption type; full-value equality assertions must compare the same slice type rather than the named WeightedVoteOptions type."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log path."

@@ -66,7 +66,10 @@ func TestGenesisRoundTripAfterRetiredRelease(t *testing.T) {
 	require.Empty(t, imported.ExportGenesis(fresh).Totals)
 	var decoded types.GenesisState
 	require.NoError(t, second.AppCodec().UnmarshalAsJSON(bz, &decoded))
+	second.UpgradeKeeper.SetDone(fresh, types.MergePlanUpgrade)
+	require.True(t, imported.Retired(fresh))
 	imported.InitGenesis(fresh, decoded)
+	require.True(t, imported.Retired(fresh))
 	assert.Equal(t, exported, imported.ExportGenesis(fresh))
 
 	for _, original := range claims {

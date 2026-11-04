@@ -1,0 +1,19 @@
+[repair.22.31.356]
+audit = "22.30.83"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+acceptance = "22998.1"
+implementation = "Retire program pull; retain authenticated registry observations; recover digest-only delivery through a role-authorized, upstream-bound digest enrollment status contract."
+baseline = "Not run: the ordered gate instructions forbid verification before implementation and verification by hand; the declared integration target is absent at the base, and no baseline failed-test result is claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; the final task report copies the last gate evidence."
+
+[finding.program-source-upstream]
+test = "program_source_upstream_retires_pull_and_delivers_registry_observations"
+proof = "Real registry ProgramOutbox emits digest-only bytes, Client delivers over mutual TLS, Service binds the provisioned key upstream and journals the observation, and the consumer reads and durably accepts the immutable record; reader pull returns 410 and revoked keys refuse observations."
+wiring_request = "Owner domain 8: services/platform/hosted/internal/deployment.yaml must describe the programs upstream as principal authentication only and retain the registry's digest-authorized producer credentials; program pull callers must consume producer observations rather than invoke the retired reader pull."
+
+[finding.digest-producer-recovery]
+test = "digest_producer_recovery_reenrolls_and_replays_after_restart"
+additional_test = "digest_enrollment_status_binds_payment_sources_without_disclosing_principals"
+proof = "Real registry observations drive Client::step and Service over mutual TLS; a stopped notification listener exhausts bounded retries, source and scheduled journal reopen with identical pending bytes, same-generation and removed/revoked bindings refuse recovery, authenticated rotation survives another source restart, and replay drains both ordered records into a reopened durable consumer."
+contract = "GET /internal/v1/principal-digests/<sha256>/enrollment requires mutual TLS plus a digest-authorized producer for payment/program, returns only kind/principal_digest/generation/bound, and verifies the current principal credential upstream without returning the raw principal."
+wiring_request = "Owner domain 8: services/platform/hosted/registry/src/event_producer.rs and services/platform/hosted/gateway/src/store.rs currently use the default Outbox scheduling methods; wire durable scheduling/resume methods to the existing DeliveryState contract in their owning tasks, outside this task's source scope."
