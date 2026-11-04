@@ -1,0 +1,8 @@
+[repair.22.33.726]
+audit = "spec/layerx-merge/programme/audit/records/22.30.170.kvx"
+finding = "topology_operator_command_paths"
+proving_tests = ["test_repair_22_33_726.py::test_topology_operator_command_paths_match_cli_declarations", "test_repair_22_33_726.py::test_topology_operator_command_paths_real_cli_transport_and_journal", "test_repair_22_33_726.py::test_topology_operator_command_paths_capacity_sources_keep_digest_checks"]
+coverage = "Parse every documented shell example against actual CLI declarations, preserve arguments and authority flags, render and propose via the real operator CLI using committed runtime documents, transport its JSON through the real adapter LocalHTTP client and loopback server, reopen the real journal, and load canonical D16 sources with digest mismatch rejection."
+baseline = "Not run: the explicit implementation-first, hf-build then hf-done order prohibits the unchanged-tree verify requested by do_5; no baseline failures are claimed. The base already contains canonical command paths but incorrectly describes the runtime adapter as missing."
+qualification = "The runner-owned /out/run/gates.jsonl records the verified candidate revision, exact command, exit code and private log; the final response copies the last hf-done evidence line."
+wiring_request = "spec/layerx-merge/spec.kvx — fm-tools-ops (domain 16): associate topology_operator_command_paths with the proving_tests above and the runner's qualified revision; spec edits remain runner-owned and outside this task's scope."

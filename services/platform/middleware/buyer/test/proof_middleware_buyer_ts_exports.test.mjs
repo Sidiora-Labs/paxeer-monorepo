@@ -17,6 +17,7 @@ import { createServer } from "node:http";
 import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
+import { buyerExportDrawFixture } from "./support/grant-draw-walkthrough.mjs";
 import ts from "typescript";
 import { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 import {
@@ -282,13 +283,14 @@ test(proofBuyerAgentObservesFreshResultsAndRefusal);
 
 async function proofGrantPaymentHeaderReachesIntegrationConsumers(t) {
   const state = await producerState(t);
-  const draw = { from: state.facts.from, assetId: fixedBytes(0x22), amount: 25n, grantId: fixedBytes(0x33), receiverSequence: 1n,
+  const draw = { from: state.facts.payTo, assetId: fixedBytes(0x22), amount: 25n, grantId: fixedBytes(0x33), receiverSequence: 1n,
     idempotencyKey: fixedBytes(0x44), contextHash: fixedBytes(0x55) };
+  assert.notDeepEqual(draw.from, state.facts.from);
   const transaction = hex(state.sequencer.signTransaction({ chainId: 125n, nonce: 0n, maxPriorityFeePerGas: 1n, maxFeePerGas: 2n,
     gasLimit: 200000n, to: bytes(LAYERX_LEDGER_ADDRESS), value: 0n, data: encodeLedgerDraw(draw), accessList: [] }));
   for (const scheme of ["metered", "subscription"]) {
-    const accepted = { ...state.requirements, scheme, amount: "25", asset: hex(state.facts.asset), extra: { layerx: { commitment: "receipted",
-      payer: toHex(draw.from), purposeHash: toHex(draw.assetId), contextHash: toHex(draw.contextHash),
+    const accepted = { ...state.requirements, scheme, amount: "25", asset: hex(state.facts.asset), payTo: hex(draw.from), extra: { layerx: { commitment: "receipted",
+      payer: toHex(state.facts.from), purposeHash: toHex(draw.assetId), contextHash: toHex(draw.contextHash),
       grant: { grantId: toHex(draw.grantId), asset: hex(state.facts.asset) },
       ...(scheme === "subscription" ? { windowSeconds: "3600" } : {}),
     } } };
@@ -339,3 +341,5 @@ function proofBuyerTypesReachIntegrationExports() {
 }
 
 test(proofBuyerTypesReachIntegrationExports);
+
+test(buyerExportDrawFixture);

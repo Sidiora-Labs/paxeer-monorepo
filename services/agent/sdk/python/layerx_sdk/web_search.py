@@ -16,6 +16,7 @@ from urllib.parse import quote, urlsplit
 from .account_derivation import (
     ADDR_PRECOMPILE_ADDRESS,
     AccountDerivationError,
+    _address_bytes,
     decode_layerx_did,
     keccak256,
     layerx_did_call,
@@ -343,6 +344,17 @@ def _derived(did: str, asset: str, native_asset: str, code: str) -> tuple[str, s
         raise WebSearchError(code) from None
 
 
+def _payer_account(address: str, asset: str, native_asset: str) -> tuple[str, str]:
+    """Match the search producer's zero-padded EVM owner account selector."""
+    try:
+        owner = _address_bytes(address).rjust(32, b"\x00").hex()
+    except AccountDerivationError:
+        raise WebSearchError("offer-payer-mismatch") from None
+    return _derived(
+        f"did:layerx:{owner}", asset, native_asset, "offer-payer-mismatch"
+    )
+
+
 def _account_did(account: str) -> str:
     if not account.startswith("agent:"):
         raise WebSearchError("offer-account-mismatch")
@@ -522,6 +534,7 @@ class WebSearchClient:
             except AccountDerivationError:
                 raise WebSearchError("invalid-payer") from None
         self._payer_rpc = payer_rpc
+        self._payer_address = payer_address
         self._scheme = parts.scheme
         self._host = host
         self._port = parts.port
@@ -763,6 +776,15 @@ class WebSearchClient:
         )
         if account != name or pay_to != identifier:
             raise WebSearchError("offer-account-mismatch")
+        expected_payer = (
+            _payer_account(self._payer_address, asset, self._native_asset)[1]
+            if self._payer_address is not None
+            else (
+                _derived(did, asset, self._native_asset, "offer-payer-mismatch")[1]
+                if did is not None
+                else None
+            )
+        )
         if not metered:
             return WebSearchOffer(
                 scheme=preference.scheme,
@@ -773,11 +795,7 @@ class WebSearchClient:
                 max_timeout_seconds=timeout,
                 currency=preference.currency,
                 account=account,
-                payer=(
-                    _derived(did, asset, self._native_asset, "offer-payer-mismatch")[1]
-                    if did is not None
-                    else None
-                ),
+                payer=expected_payer,
             )
         payer, purpose_hash = layerx["payer"], layerx["purposeHash"]
         if (
@@ -788,11 +806,7 @@ class WebSearchClient:
             or not _hex32(payer)
         ):
             raise WebSearchError("invalid-offer")
-        if (
-            did is None
-            or payer
-            != _derived(did, asset, self._native_asset, "offer-payer-mismatch")[1]
-        ):
+        if expected_payer is None or payer != expected_payer:
             raise WebSearchError("offer-payer-mismatch")
         return WebSearchOffer(
             scheme=preference.scheme,
