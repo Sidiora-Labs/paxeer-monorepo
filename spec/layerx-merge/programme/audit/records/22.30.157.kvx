@@ -1,0 +1,1127 @@
+[audit.22.30.157]
+task = "22.30.157"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 101
+findings = 31
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["safe-origin"]
+notes = "All 101 members were read in full, including test assertions and embedded compiler fixtures. Arbitrum L1 sequencer/inbox and DA references describe optional external chain support, not a retired Paxeer daemon. The merged deployment uses paxeer_x. No source repair or dependency change is part of this record. Requirements 22108.1, 14991.1 and acceptance 22998.1 do not gain install, typecheck or runtime qualification evidence from this audit record."
+interfaces_produced = []
+interfaces_consumed = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour", "14.cfg-explorer-solc-bin-api-url", "14.cfg-fe-apis-zetachain", "14.cfg-fe-app-baseurl", "14.cfg-fe-app-host", "14.cfg-fe-app-isdev", "14.cfg-fe-app-protocol", "14.cfg-fe-chain-rpcurls", "14.cfg-fe-essential-dapps-chains", "14.cfg-fe-feature-account", "14.cfg-fe-feature-addressmetadata", "14.cfg-fe-feature-addressprofileapi", "14.cfg-fe-feature-addressverification", "14.cfg-fe-feature-adsbanner", "14.cfg-fe-feature-advancedfilter", "14.cfg-fe-feature-apidocs", "14.cfg-fe-feature-beaconchain", "14.cfg-fe-feature-blockchaininteraction", "14.cfg-fe-feature-celo", "14.cfg-fe-feature-crosschaintxs", "14.cfg-fe-feature-csvexport", "14.cfg-fe-feature-dataavailability", "14.cfg-fe-feature-faultproofsystem", "14.cfg-fe-feature-flashblocks", "14.cfg-fe-feature-gastracker", "14.cfg-fe-feature-googleanalytics", "14.cfg-fe-feature-growthbook", "14.cfg-fe-feature-hotcontracts", "14.cfg-fe-feature-marketplace", "14.cfg-fe-feature-megaeth", "14.cfg-fe-feature-mixpanel", "14.cfg-fe-feature-mudframework", "14.cfg-fe-feature-multichain", "14.cfg-fe-feature-nameservices", "14.cfg-fe-feature-paxeerxfeed", "14.cfg-fe-feature-paxeerxlists", "14.cfg-fe-feature-pools", "14.cfg-fe-feature-publictagssubmission", "14.cfg-fe-feature-rollbar", "14.cfg-fe-feature-rollup", "14.cfg-fe-feature-safe", "14.cfg-fe-feature-stats", "14.cfg-fe-feature-suave", "14.cfg-fe-feature-tac", "14.cfg-fe-feature-userops", "14.cfg-fe-feature-validators", "14.cfg-fe-feature-zetachain", "14.cfg-fe-multichain", "14.cfg-fe-services-recaptchav2", "14.cfg-fe-ui-fonts", "14.cfg-fe-ui-views", "14.cfg-fe-ui-views-address", "14.cfg-fe-ui-views-nft", "14.cfg-fe-ui-views-token", "14.cfg-indexer-block-ranges", "14.cfg-indexer-indexer-fetcher-arbitrum", "14.cfg-indexer-indexer-fetcher-arbitrum-databackfill", "14.cfg-indexer-indexer-fetcher-arbitrum-databackfill-supervisor", "14.cfg-indexer-indexer-fetcher-arbitrum-messagestol2matcher-supervisor", "14.cfg-indexer-indexer-fetcher-arbitrum-messaging", "14.cfg-indexer-indexer-fetcher-arbitrum-rollupmessagescatchup", "14.cfg-indexer-indexer-fetcher-arbitrum-rollupmessagescatchup-supervisor", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses-supervisor", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingmessagesonl1", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingmessagesonl1-supervisor", "14.cfg-web-contract", "14.env-fe-next-public-network-id", "14.env-fe-next-public-network-name", "14.env-fe-next-public-network-rpc-url", "14.http-get-api-v2-arbitrum-batches-da-celestia-height-transaction-commitment", "14.http-get-api-v2-stats", "14.met-explorer-latest-batch-number", "14.met-explorer-latest-batch-timestamp", "14.met-verifier-smart-contract-verifier-verify-contract", "16.http-bench-benchmark-loadtest-metrics-healthz", "16.http-bench-benchmark-loadtest-metrics-metrics", "16.http-hpx-hpx-registry-main-healthz", "16.http-paxload-loadtest-main-metrics", "6.sol-cw721erc721pointer-tokenuri-c87b56dd", "6.sol-mynft-tokenuri-c87b56dd", "7.rpc-eth-getblockbyhash", "7.rpc-eth-getblockreceipts", "7.rpc-eth-getlogs", "7.rpc-eth-gettransactionbyhash", "7.rpc-eth-gettransactionreceipt", "8.http-ai-evaluator-get-healthz", "8.http-ai-evaluator-get-metrics", "8.http-dashboard-get-healthz", "8.http-emulator-get-healthz", "8.http-gateway-any-explorer", "8.http-gateway-get-metrics", "8.http-gateway-options-submit", "8.http-identity-get-healthz", "8.http-indexer-any-healthz", "8.http-internal-any-healthz", "8.http-registry-get-healthz", "8.http-registry-get-metrics", "8.http-relay-archive-any-healthz", "8.http-webhooks-get-healthz"]
+interface_reviews = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour | services/explorer/backend/config/runtime.exs | Tests and runtime read the same application behavior key and enabled flag; response metadata and source shapes match the verifier behavior. Solidity default-only suite exclusions are separately recorded test gaps.", "14.cfg-explorer-solc-bin-api-url | services/explorer/backend/apps/explorer/config/config.exs | Compiler version discovery reads the same application key configured by the test; Bypass list path and error return match. Test teardown does not restore the URL: compiler-url-leak.", "14.cfg-fe-apis-zetachain | apps/explorer/configs/app/apis.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-app-baseurl | apps/explorer/configs/app/app.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-app-host | apps/explorer/configs/app/app.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-app-isdev | apps/explorer/configs/app/app.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-app-protocol | apps/explorer/configs/app/app.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-chain-rpcurls | apps/explorer/configs/app/chain.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-essential-dapps-chains | apps/explorer/configs/essential-dapps-chains/index.ts | Loaded chain array carries app_config.apis.general.endpoint and chain.rpcUrls into CSP and dapp consumers; arrays, optional fields and disabled state agree. Loading precedes policy generation.", "14.cfg-fe-feature-account | apps/explorer/configs/app/features/account.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-addressmetadata | apps/explorer/configs/app/features/addressMetadata.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-addressprofileapi | apps/explorer/configs/app/features/addressProfileAPI.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-addressverification | apps/explorer/configs/app/features/addressVerification.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-adsbanner | apps/explorer/configs/app/features/adsBanner.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-advancedfilter | apps/explorer/configs/app/features/advancedFilter.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-apidocs | apps/explorer/configs/app/features/apiDocs.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-beaconchain | apps/explorer/configs/app/features/beaconChain.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-blockchaininteraction | apps/explorer/configs/app/features/blockchainInteraction.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-celo | apps/explorer/configs/app/features/celo.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-crosschaintxs | apps/explorer/configs/app/features/crossChainTxs.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-csvexport | apps/explorer/configs/app/features/csvExport.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-dataavailability | apps/explorer/configs/app/features/dataAvailability.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-faultproofsystem | apps/explorer/configs/app/features/faultProofSystem.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-flashblocks | apps/explorer/configs/app/features/flashblocks.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-gastracker | apps/explorer/configs/app/features/gasTracker.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-googleanalytics | apps/explorer/configs/app/features/googleAnalytics.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-growthbook | apps/explorer/configs/app/features/growthBook.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-hotcontracts | apps/explorer/configs/app/features/hotContracts.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-marketplace | apps/explorer/configs/app/features/marketplace.ts | Enabled feature union carries API/config URL and essentialDapps to UI and CSP; posthogHost origin disagreement is finding marketplace-analytics-origin.", "14.cfg-fe-feature-megaeth | apps/explorer/configs/app/features/megaEth.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-mixpanel | apps/explorer/configs/app/features/mixpanel.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-mudframework | apps/explorer/configs/app/features/mudFramework.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-multichain | apps/explorer/configs/app/features/multichain.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-nameservices | apps/explorer/configs/app/features/nameServices.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-paxeerxfeed | apps/explorer/configs/app/features/paxeerXFeed.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-paxeerxlists | apps/explorer/configs/app/features/paxeerXLists.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-pools | apps/explorer/configs/app/features/pools.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-publictagssubmission | apps/explorer/configs/app/features/publicTagsSubmission.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-rollbar | apps/explorer/configs/app/features/rollbar.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-rollup | apps/explorer/configs/app/features/rollup.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-safe | apps/explorer/configs/app/features/safe.ts | Producer emits enabled/apiUrl, browser hook fetches apiUrl and CSP blocks configured non-safe.global origins: blocking finding safe-origin.", "14.cfg-fe-feature-stats | apps/explorer/configs/app/features/stats.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-suave | apps/explorer/configs/app/features/suave.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-tac | apps/explorer/configs/app/features/tac.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-userops | apps/explorer/configs/app/features/userOps.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-validators | apps/explorer/configs/app/features/validators.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-feature-zetachain | apps/explorer/configs/app/features/zetachain.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-multichain | apps/explorer/configs/multichain/index.ts | getValue returns the loaded chain array; CSP maps its optional APIs, SSR selects a chain config and passes it into guards. Tenant/chain choice remains a parameter rather than a hard-coded singleton.", "14.cfg-fe-services-recaptchav2 | apps/explorer/configs/app/services.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-ui-fonts | apps/explorer/configs/app/ui.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-ui-views | apps/explorer/configs/app/ui.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-ui-views-address | apps/explorer/configs/app/ui/views/address.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-ui-views-nft | apps/explorer/configs/app/ui/views/nft.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-fe-ui-views-token | apps/explorer/configs/app/ui/views/token.ts | Config producer and member readers agree on the declared property path, enabled discriminator and accessed scalar/list or nested optional fields. Guard/CSP branches handle disabled features before accessing enabled-only fields; no independent durable state is created by this configuration read.", "14.cfg-indexer-block-ranges | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-databackfill | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-databackfill-supervisor | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-messagestol2matcher-supervisor | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-messaging | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-rollupmessagescatchup | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-rollupmessagescatchup-supervisor | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses-supervisor | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingmessagesonl1 | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingmessagesonl1-supervisor | services/explorer/backend/config/runtime.exs | Runtime keyword configuration names agree with worker application-env reads, supervisor enable/disabled gating and buffered task options. The Arbitrum fetchers are optional foreign-chain workers; merged deployment uses CHAIN_TYPE=paxeer_x. Restart derives ranges from persisted explorer rows; specific recovery defects are findings on backfill, batch discovery, AnyTrust, RPC safe heights and L1 executions.", "14.cfg-web-contract | services/explorer/backend/config/runtime.exs | Certified cataloger and helper tests consume the configured contract settings with the expected list/scalar shapes; this is explorer verification configuration, not a separate network authority.", "14.env-fe-next-public-network-id | apps/explorer/configs/app/chain.ts | The exact NEXT_PUBLIC variable spelling agrees between chain config and SSR telemetry; chain ID/name/RPC values are environment strings at this boundary, not signed receipt evidence. Telemetry transport failure is finding telemetry-rejection.", "14.env-fe-next-public-network-name | apps/explorer/configs/app/chain.ts | The exact NEXT_PUBLIC variable spelling agrees between chain config and SSR telemetry; chain ID/name/RPC values are environment strings at this boundary, not signed receipt evidence. Telemetry transport failure is finding telemetry-rejection.", "14.env-fe-next-public-network-rpc-url | apps/explorer/configs/app/chain.ts | The exact NEXT_PUBLIC variable spelling agrees between chain config and SSR telemetry; chain ID/name/RPC values are environment strings at this boundary, not signed receipt evidence. Telemetry transport failure is finding telemetry-rejection.", "14.http-get-api-v2-arbitrum-batches-da-celestia-height-transaction-commitment | services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex | Celestia documentation URL carries decimal height and transaction commitment; parser stores the corresponding binary commitment/data key for the explorer DA lookup. This optional Arbitrum resource is not a Paxeer finality endpoint.", "14.http-get-api-v2-stats | services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex | fetchProxy.spec.ts targets the stats path to check forwarding/status semantics only. Its synthetic 201 {ok:true} body is not asserted as a StatsController schema; the proxy transports upstream data and refusal status without a stats-specific decoder.", "14.met-explorer-latest-batch-number | services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex | Batch discovery passes the declared latest batch number/timestamp gauges to Indexer.Prometheus.Instrumenter without inventing labels or changing units; values are optional foreign-chain settlement metadata.", "14.met-explorer-latest-batch-timestamp | services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex | Batch discovery passes the declared latest batch number/timestamp gauges to Indexer.Prometheus.Instrumenter without inventing labels or changing units; values are optional foreign-chain settlement metadata.", "14.met-verifier-smart-contract-verifier-verify-contract | services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/metrics.rs | No member scrapes or decodes this counter: publisher/verifier unit fixtures configure a verification behavior rather than consuming verifier Prometheus samples. The declared labels are not an RPC result shape.", "16.http-bench-benchmark-loadtest-metrics-healthz | tools/benchmark/loadtest/metrics.go | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "16.http-bench-benchmark-loadtest-metrics-metrics | tools/benchmark/loadtest/metrics.go | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "16.http-hpx-hpx-registry-main-healthz | tools/hpx/registry/main.go | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "16.http-paxload-loadtest-main-metrics | tools/loadtest/main.go | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "6.sol-cw721erc721pointer-tokenuri-c87b56dd | contracts/src/CW721ERC721Pointer.sol | Both declared tokenURI(uint256) producers share selector 0xc87b56dd and ABI string output accepted by Reader; pointer query/ownership behavior differs legitimately from MyNFT. The fixture decodes the shared ABI but no test here traverses either real producer: token-uri-producer-coverage.", "6.sol-mynft-tokenuri-c87b56dd | contracts/src/ERC721.sol | Both declared tokenURI(uint256) producers share selector 0xc87b56dd and ABI string output accepted by Reader; pointer query/ownership behavior differs legitimately from MyNFT. The fixture decodes the shared ABI but no test here traverses either real producer: token-uri-producer-coverage.", "7.rpc-eth-getblockbyhash | rpc/block.go | Worker requests use standard JSON-RPC method spelling, hex quantities and hashes, numeric IDs and expected null/error envelopes through EthereumJSONRPC. Arbitrum-specific fields belong to configured external rollup endpoints; they are not required of the merged Paxeer RPC producer. Receipt batch failures propagate through Receipts, while partial block struct errors are lost in backfill-partial-block-results; canonical restart issues are separately recorded.", "7.rpc-eth-getblockreceipts | rpc/block.go | Worker requests use standard JSON-RPC method spelling, hex quantities and hashes, numeric IDs and expected null/error envelopes through EthereumJSONRPC. Arbitrum-specific fields belong to configured external rollup endpoints; they are not required of the merged Paxeer RPC producer. Receipt batch failures propagate through Receipts, while partial block struct errors are lost in backfill-partial-block-results; canonical restart issues are separately recorded.", "7.rpc-eth-getlogs | rpc/filter.go | Worker requests use standard JSON-RPC method spelling, hex quantities and hashes, numeric IDs and expected null/error envelopes through EthereumJSONRPC. Arbitrum-specific fields belong to configured external rollup endpoints; they are not required of the merged Paxeer RPC producer. Receipt batch failures propagate through Receipts, while partial block struct errors are lost in backfill-partial-block-results; canonical restart issues are separately recorded.", "7.rpc-eth-gettransactionbyhash | rpc/tx.go | Worker requests use standard JSON-RPC method spelling, hex quantities and hashes, numeric IDs and expected null/error envelopes through EthereumJSONRPC. Arbitrum-specific fields belong to configured external rollup endpoints; they are not required of the merged Paxeer RPC producer. Receipt batch failures propagate through Receipts, while partial block struct errors are lost in backfill-partial-block-results; canonical restart issues are separately recorded.", "7.rpc-eth-gettransactionreceipt | rpc/tx.go | Worker requests use standard JSON-RPC method spelling, hex quantities and hashes, numeric IDs and expected null/error envelopes through EthereumJSONRPC. Arbitrum-specific fields belong to configured external rollup endpoints; they are not required of the merged Paxeer RPC producer. Receipt batch failures propagate through Receipts, while partial block struct errors are lost in backfill-partial-block-results; canonical restart issues are separately recorded.", "8.http-ai-evaluator-get-healthz | services/platform/hosted/ai-evaluator/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-ai-evaluator-get-metrics | services/platform/hosted/ai-evaluator/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-dashboard-get-healthz | services/platform/hosted/dashboard/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-emulator-get-healthz | tools/platform/emulator/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-gateway-any-explorer | services/platform/hosted/gateway/src/explorer_proxy.rs | The gateway explorer proxy owns /explorer and descendants; Next uses the explorer base path with internal node-api rewrites and named explorer cookies. Methods, path segments and upstream refusal propagation are retained; no node JSON-RPC method is provided by this page route.", "8.http-gateway-get-metrics | services/platform/hosted/gateway/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-gateway-options-submit | services/platform/hosted/gateway/src/http.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-identity-get-healthz | services/platform/hosted/identity/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-indexer-any-healthz | services/platform/hosted/indexer/src/api.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-internal-any-healthz | services/platform/hosted/internal/src/http.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-registry-get-healthz | services/platform/hosted/registry/src/routes.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-registry-get-metrics | services/platform/hosted/registry/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice.", "8.http-relay-archive-any-healthz | services/platform/relay_archive/runtime.py | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice. The registry marks the producer retired; no member calls the retired relay archive.", "8.http-webhooks-get-healthz | services/platform/hosted/webhooks/src/main.rs | Inventory lexical edge only: the member files do not send a request to this route. Local metric imports, generated route names and common path strings do not consume this producer; no transport, response decoder or persisted lifecycle exists in this slice."]
+
+[file.1]
+path = "apps/explorer/nextjs/PageMetadata.tsx"
+lines = 44
+verdict = "clean"
+note = "Read in full: title, description, canonical URL and social metadata use the typed metadata generator; app.host is a configured host rather than a retired RPC target."
+interfaces = ["14.cfg-fe-app-host"]
+
+[file.2]
+path = "apps/explorer/nextjs/PageNextJs.tsx"
+lines = 32
+verdict = "clean"
+note = "Read in full: page wrapper supplies metadata and initializes client monitoring through existing hooks; route query and apiData retain their declared types."
+interfaces = []
+
+[file.3]
+path = "apps/explorer/nextjs/csp/generateCspPolicy.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: merges the registered policies and suppresses analytics policy groups for the private profile; individual configured-origin defects are recorded against their policy files."
+interfaces = []
+
+[file.4]
+path = "apps/explorer/nextjs/csp/generateNftHtmlEmbedCspPolicy.ts"
+lines = 6
+verdict = "clean"
+note = "Read in full: NFT HTML embed policy uses the same descriptor serializer with the dedicated embed descriptor."
+interfaces = []
+
+[file.5]
+path = "apps/explorer/nextjs/csp/index.ts"
+lines = 52
+verdict = "clean"
+note = "Read in full: initializes default, private and NFT policies and resolves header, query and cookie profile sources. Private-profile persistence disagreement is owned by middleware finding private-profile."
+interfaces = ["14.cfg-fe-essential-dapps-chains", "14.cfg-fe-feature-marketplace", "14.cfg-fe-feature-multichain", "14.cfg-fe-multichain"]
+
+[file.6]
+path = "apps/explorer/nextjs/csp/policies/ad.ts"
+lines = 62
+verdict = "clean"
+note = "Read in full: provider-specific ad script, image, frame and connect hosts follow the enabled ads feature and its provider union."
+interfaces = []
+
+[file.7]
+path = "apps/explorer/nextjs/csp/policies/app.ts"
+lines = 155
+verdict = "clean"
+note = "Read in full: configured app/API/RPC origins, font and docs hosts are translated into policy directives; private mode suppresses the optional external analytics permissions."
+interfaces = ["14.cfg-fe-app-host", "14.cfg-fe-app-isdev", "14.cfg-fe-chain-rpcurls", "14.cfg-fe-ui-fonts"]
+
+[file.8]
+path = "apps/explorer/nextjs/csp/policies/blockchainInteraction.ts"
+lines = 68
+verdict = "clean"
+note = "Read in full: dynamic and Reown provider permissions branch on the enabled connector union; no wallet request is introduced merely by this policy."
+interfaces = ["14.cfg-fe-feature-blockchaininteraction"]
+
+[file.9]
+path = "apps/explorer/nextjs/csp/policies/cloudFlare.ts"
+lines = 15
+verdict = "clean"
+note = "Read in full: Cloudflare challenge policy declares script/connect/frame permissions; permission alone does not establish that tracking executes."
+interfaces = []
+
+[file.10]
+path = "apps/explorer/nextjs/csp/policies/flashblocks.ts"
+lines = 17
+verdict = "clean"
+note = "Read in full: enabled flashblocks socket URL is converted to the CSP websocket origin used by its configured transport."
+interfaces = ["14.cfg-fe-feature-flashblocks"]
+
+[file.11]
+path = "apps/explorer/nextjs/csp/policies/googleAnalytics.ts"
+lines = 29
+verdict = "clean"
+note = "Read in full: Google Analytics policy follows property enablement and is excluded by the private-policy assembler."
+interfaces = ["14.cfg-fe-feature-googleanalytics"]
+
+[file.12]
+path = "apps/explorer/nextjs/csp/policies/googleFonts.ts"
+lines = 18
+verdict = "clean"
+note = "Read in full: Google font permissions follow configured font family selection and preserve the font/style source split."
+interfaces = []
+
+[file.13]
+path = "apps/explorer/nextjs/csp/policies/googleReCaptcha.ts"
+lines = 32
+verdict = "clean"
+note = "Read in full: reCAPTCHA policy checks service configuration and permits the challenge script and frame origins consumed by the widget."
+interfaces = ["14.cfg-fe-services-recaptchav2"]
+
+[file.14]
+path = "apps/explorer/nextjs/csp/policies/growthBook.ts"
+lines = 15
+verdict = "clean"
+note = "Read in full: GrowthBook policy is enabled by its feature configuration and is removed from the private policy."
+interfaces = ["14.cfg-fe-feature-growthbook"]
+
+[file.15]
+path = "apps/explorer/nextjs/csp/policies/helia.ts"
+lines = 21
+verdict = "clean"
+note = "Read in full: Helia NFT fetching permissions follow the configured NFT verified-fetch feature rather than a fixed Paxeer RPC endpoint."
+interfaces = ["14.cfg-fe-ui-views", "14.cfg-fe-ui-views-nft"]
+
+[file.16]
+path = "apps/explorer/nextjs/csp/policies/index.ts"
+lines = 20
+verdict = "clean"
+note = "Read in full: all policy exports are registered in generateCspPolicy; no orphan policy export or retired component reference was found."
+interfaces = []
+
+[file.17]
+path = "apps/explorer/nextjs/csp/policies/marketplace.ts"
+lines = 41
+verdict = "issues"
+note = "Read in full: marketplace API, chain endpoints and RPC URLs are propagated; custom posthogHost is replaced by a fixed wildcard as recorded in marketplace-analytics-origin."
+interfaces = ["14.cfg-fe-essential-dapps-chains", "14.cfg-fe-feature-marketplace"]
+
+[file.18]
+path = "apps/explorer/nextjs/csp/policies/megaEth.ts"
+lines = 18
+verdict = "clean"
+note = "Read in full: MegaETH policy gates and parses its optional socketUrl; optional foreign-chain support is not a separate Paxeer sequencer deployment."
+interfaces = ["14.cfg-fe-feature-megaeth"]
+
+[file.19]
+path = "apps/explorer/nextjs/csp/policies/mixpanel.ts"
+lines = 15
+verdict = "clean"
+note = "Read in full: Mixpanel hosts follow feature enablement and the assembler excludes the policy in private mode."
+interfaces = ["14.cfg-fe-feature-mixpanel"]
+
+[file.20]
+path = "apps/explorer/nextjs/csp/policies/monaco.ts"
+lines = 30
+verdict = "clean"
+note = "Read in full: Monaco worker/editor permissions retain blob worker and editor asset origins required by contract editing."
+interfaces = []
+
+[file.21]
+path = "apps/explorer/nextjs/csp/policies/multichain.ts"
+lines = 28
+verdict = "clean"
+note = "Read in full: multichain API endpoints are derived from the loaded chain configuration with the existing API configuration shapes."
+interfaces = ["14.cfg-fe-multichain"]
+
+[file.22]
+path = "apps/explorer/nextjs/csp/policies/nftHtmlEmbed.ts"
+lines = 65
+verdict = "clean"
+note = "Read in full: dedicated NFT HTML embedding permissions are intentional content rendering permissions and are serialized by the embed-only policy path."
+interfaces = []
+
+[file.23]
+path = "apps/explorer/nextjs/csp/policies/rollbar.ts"
+lines = 15
+verdict = "clean"
+note = "Read in full: Rollbar permissions follow the enabled client reporter and are removed from private-profile CSP."
+interfaces = ["14.cfg-fe-feature-rollbar"]
+
+[file.24]
+path = "apps/explorer/nextjs/csp/policies/rollup.ts"
+lines = 17
+verdict = "clean"
+note = "Read in full: optional rollup parent-chain and DA permissions follow rollup feature configuration; foreign rollup support is not retired Paxeer topology."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.25]
+path = "apps/explorer/nextjs/csp/policies/safe.ts"
+lines = 15
+verdict = "issues"
+note = "Read in full: custom Safe service URL cannot pass the fixed connect-src allowlist; see blocking finding safe-origin."
+interfaces = ["14.cfg-fe-feature-safe"]
+
+[file.26]
+path = "apps/explorer/nextjs/csp/policies/usernameApi.ts"
+lines = 26
+verdict = "clean"
+note = "Read in full: profile API template is parsed to its origin before inclusion and disabled/invalid configuration produces no additional permission."
+interfaces = ["14.cfg-fe-feature-addressprofileapi"]
+
+[file.27]
+path = "apps/explorer/nextjs/csp/policies/zetachain.ts"
+lines = 18
+verdict = "clean"
+note = "Read in full: ZetaChain endpoints come from the configured API object and the optional feature discriminator."
+interfaces = ["14.cfg-fe-apis-zetachain", "14.cfg-fe-feature-zetachain"]
+
+[file.28]
+path = "apps/explorer/nextjs/csp/utils.ts"
+lines = 48
+verdict = "clean"
+note = "Read in full: descriptor merging combines source arrays; serialization deduplicates entries, omits empty directive arrays and preserves the declared quoted CSP keywords."
+interfaces = []
+
+[file.29]
+path = "apps/explorer/nextjs/getServerSideProps/guards.ts"
+lines = 377
+verdict = "clean"
+note = "Read in full: feature guards consume enabled unions and return Next notFound/redirect results; multichain-sensitive guards accept the supplied chain configuration."
+interfaces = ["14.cfg-fe-feature-account", "14.cfg-fe-feature-addressmetadata", "14.cfg-fe-feature-addressverification", "14.cfg-fe-feature-advancedfilter", "14.cfg-fe-feature-apidocs", "14.cfg-fe-feature-beaconchain", "14.cfg-fe-feature-celo", "14.cfg-fe-feature-crosschaintxs", "14.cfg-fe-feature-csvexport", "14.cfg-fe-feature-dataavailability", "14.cfg-fe-feature-faultproofsystem", "14.cfg-fe-feature-gastracker", "14.cfg-fe-feature-hotcontracts", "14.cfg-fe-feature-marketplace", "14.cfg-fe-feature-megaeth", "14.cfg-fe-feature-mudframework", "14.cfg-fe-feature-multichain", "14.cfg-fe-feature-nameservices", "14.cfg-fe-feature-paxeerxfeed", "14.cfg-fe-feature-paxeerxlists", "14.cfg-fe-feature-pools", "14.cfg-fe-feature-publictagssubmission", "14.cfg-fe-feature-rollup", "14.cfg-fe-feature-stats", "14.cfg-fe-feature-suave", "14.cfg-fe-feature-tac", "14.cfg-fe-feature-userops", "14.cfg-fe-feature-validators", "14.cfg-fe-feature-zetachain"]
+
+[file.30]
+path = "apps/explorer/nextjs/getServerSideProps/handlers.ts"
+lines = 85
+verdict = "issues"
+note = "Read in full: base props include query, cookies, referrer and nullable apiData; optional telemetry has an unhandled rejection and profile sources differ as described in findings."
+interfaces = ["8.http-gateway-any-explorer", "14.cfg-fe-app-protocol", "14.cfg-fe-feature-adsbanner", "14.env-fe-next-public-network-id", "14.env-fe-next-public-network-name", "14.env-fe-next-public-network-rpc-url"]
+
+[file.31]
+path = "apps/explorer/nextjs/getServerSideProps/main.ts"
+lines = 52
+verdict = "clean"
+note = "Read in full: page-specific guard factories are registered for their exported routes and compose with the common SSR base handler."
+interfaces = []
+
+[file.32]
+path = "apps/explorer/nextjs/getServerSideProps/multichain.ts"
+lines = 8
+verdict = "clean"
+note = "Read in full: multichain route factories are exported with the relevant feature guards and supply per-chain configuration through the shared utility."
+interfaces = []
+
+[file.33]
+path = "apps/explorer/nextjs/getServerSideProps/utils.ts"
+lines = 49
+verdict = "clean"
+note = "Read in full: sequential guards and OR groups handle Next redirect/notFound results before returning base props, retaining the chosen chain configuration."
+interfaces = ["14.cfg-fe-multichain"]
+
+[file.34]
+path = "apps/explorer/nextjs/headers.js"
+lines = 36
+verdict = "clean"
+note = "Read in full: headers are returned through the Next configuration hook with same-origin framing/opener and MIME/referrer protections."
+interfaces = []
+
+[file.35]
+path = "apps/explorer/nextjs/middlewares/account.ts"
+lines = 28
+verdict = "clean"
+note = "Read in full: account middleware branches on feature enablement and the explorer API-token cookie, constructing the login redirect from config.app.baseUrl."
+interfaces = ["14.cfg-fe-app-baseurl", "14.cfg-fe-feature-account"]
+
+[file.36]
+path = "apps/explorer/nextjs/middlewares/addressFormat.ts"
+lines = 20
+verdict = "clean"
+note = "Read in full: address-format preference is validated against configured available formats before the default cookie is persisted."
+interfaces = ["14.cfg-fe-ui-views", "14.cfg-fe-ui-views-address"]
+
+[file.37]
+path = "apps/explorer/nextjs/middlewares/appProfile.ts"
+lines = 23
+verdict = "issues"
+note = "Read in full: private profile cookie is deleted on an ordinary cookie-only navigation; see private-profile for the shared profile lifecycle repair."
+interfaces = []
+
+[file.38]
+path = "apps/explorer/nextjs/middlewares/colorTheme.ts"
+lines = 15
+verdict = "clean"
+note = "Read in full: color-theme middleware keeps the accepted explorer preference in a scoped cookie using common default attributes."
+interfaces = []
+
+[file.39]
+path = "apps/explorer/nextjs/middlewares/index.ts"
+lines = 6
+verdict = "clean"
+note = "Read in full: all six middleware exports are wired through the existing aggregate module; this file introduces no alternate route or state."
+interfaces = []
+
+[file.40]
+path = "apps/explorer/nextjs/middlewares/poorReputationTokens.ts"
+lines = 14
+verdict = "clean"
+note = "Read in full: poor-reputation preference uses the common cookie attributes and the configured address view default."
+interfaces = ["14.cfg-fe-feature-multichain"]
+
+[file.41]
+path = "apps/explorer/nextjs/middlewares/scamTokens.ts"
+lines = 14
+verdict = "clean"
+note = "Read in full: scam-token visibility cookie follows the configured token-view setting and shared cookie attributes."
+interfaces = ["14.cfg-fe-ui-views", "14.cfg-fe-ui-views-token"]
+
+[file.42]
+path = "apps/explorer/nextjs/redirects.js"
+lines = 377
+verdict = "issues"
+note = "Read in full: legacy, Etherscan and deprecated redirects are declared; six old verification destinations use a nonexistent underscore route."
+interfaces = ["8.http-gateway-options-submit", "14.met-verifier-smart-contract-verifier-verify-contract"]
+
+[file.43]
+path = "apps/explorer/nextjs/rewrites.js"
+lines = 8
+verdict = "clean"
+note = "Read in full: node-api paths rewrite to existing internal Next API handlers; these paths are explorer HTTP APIs rather than the retired unified network /rpc."
+interfaces = []
+
+[file.44]
+path = "apps/explorer/nextjs/routes.ts"
+lines = 29
+verdict = "clean"
+note = "Read in full: typed routes use nextjs-routes routeParams and preserve query/hash construction for live explorer page paths."
+interfaces = []
+
+[file.45]
+path = "apps/explorer/nextjs/types.ts"
+lines = 13
+verdict = "clean"
+note = "Read in full: page-with-layout and pathname-specific route parameter types retain Next and nextjs-routes contracts."
+interfaces = []
+
+[file.46]
+path = "apps/explorer/nextjs/utils/buildUrl.ts"
+lines = 22
+verdict = "clean"
+note = "Read in full: resource paths compile with the configured API endpoint/basePath; no live caller requiring an omitted zero-valued query was established during review."
+interfaces = []
+
+[file.47]
+path = "apps/explorer/nextjs/utils/checkRealBrowser.ts"
+lines = 80
+verdict = "clean"
+note = "Read in full: browser heuristics treat headers and UA as telemetry classification only; they do not authorize privileged requests."
+interfaces = []
+
+[file.48]
+path = "apps/explorer/nextjs/utils/detectBotRequest.ts"
+lines = 52
+verdict = "clean"
+note = "Read in full: known social/search bot patterns classify metadata requests and do not replace account or feature authorization."
+interfaces = []
+
+[file.49]
+path = "apps/explorer/nextjs/utils/fetchApi.ts"
+lines = 45
+verdict = "issues"
+note = "Read in full: transport timeout and metrics cleanup are present, but JSON error responses are returned through the success payload type; see http-errors-as-payloads."
+interfaces = ["8.http-ai-evaluator-get-metrics", "8.http-gateway-get-metrics", "8.http-registry-get-metrics", "16.http-bench-benchmark-loadtest-metrics-metrics", "16.http-paxload-loadtest-main-metrics"]
+
+[file.50]
+path = "apps/explorer/nextjs/utils/fetchProxy.spec.ts"
+lines = 139
+verdict = "clean"
+note = "Read in full: local HTTP tests assert explorer-cookie filtering, trusted x-forwarded values, origin/CSRF behavior and response status propagation; the 201 synthetic JSON body is a transport fixture, not a stats schema claim."
+interfaces = ["14.http-get-api-v2-stats"]
+
+[file.51]
+path = "apps/explorer/nextjs/utils/fetchProxy.ts"
+lines = 67
+verdict = "clean"
+note = "Read in full: proxy forwards only named explorer cookies and expected request context; existing caller paths and upstream refusal/status are retained."
+interfaces = []
+
+[file.52]
+path = "apps/explorer/nextjs/utils/logRequestFromBot.ts"
+lines = 28
+verdict = "clean"
+note = "Read in full: bot logging uses the classified request and monitoring metric without conferring authorization on bot headers."
+interfaces = ["8.http-ai-evaluator-get-metrics", "8.http-gateway-get-metrics", "8.http-registry-get-metrics", "16.http-bench-benchmark-loadtest-metrics-metrics", "16.http-paxload-loadtest-main-metrics"]
+
+[file.53]
+path = "apps/explorer/nextjs/utils/logger.ts"
+lines = 3
+verdict = "clean"
+note = "Read in full: shared pino HTTP logger is exported without embedded credentials or network endpoints."
+interfaces = []
+
+[file.54]
+path = "apps/explorer/nextjs/utils/serverTiming.ts"
+lines = 10
+verdict = "clean"
+note = "Read in full: Server-Timing appends the named duration to the existing response header and tolerates absent responses."
+interfaces = []
+
+[file.55]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/currency_helper.ex"
+lines = 20
+verdict = "clean"
+note = "Read in full: decimal division preserves Decimal sign/coefficient and adjusts its exponent; nil value/decimal handling is explicit."
+interfaces = []
+
+[file.56]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/certified_smart_contract_cataloger_test.exs"
+lines = 88
+verdict = "clean"
+note = "Read in full: certified contract cataloger assertions cover configured-list entries and publication with the existing web contract configuration shape."
+interfaces = ["14.cfg-web-contract"]
+
+[file.57]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/compiler_version_test.exs"
+lines = 74
+verdict = "issues"
+note = "Read in full: version-list, latest and transport-error assertions exist, but the compiler API URL survives after the Bypass fixture closes."
+interfaces = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour", "14.cfg-explorer-solc-bin-api-url"]
+
+[file.58]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/geas/publisher_test.exs"
+lines = 86
+verdict = "clean"
+note = "Read in full: Geas publisher tests use the verifier behavior response and restore shared verifier configuration after the test."
+interfaces = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour"]
+
+[file.59]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/helper_test.exs"
+lines = 229
+verdict = "issues"
+note = "Read in full: helper ABI and address assertions remain executable except the commented leading-0x binary getter regression recorded in the findings."
+interfaces = []
+
+[file.60]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/reader_test.exs"
+lines = 619
+verdict = "issues"
+note = "Read in full: reader ABI selectors, result decoding and failures are covered by unit fixtures; numeric error shape and native tokenURI producer coverage need the recorded repairs."
+interfaces = ["6.sol-cw721erc721pointer-tokenuri-c87b56dd", "6.sol-mynft-tokenuri-c87b56dd"]
+
+[file.61]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/code_compiler_test.exs"
+lines = 406
+verdict = "issues"
+note = "Read in full, including handwritten assertions and embedded compiler bytecode fixtures: the suite is excluded when CHAIN_TYPE=paxeer_x."
+interfaces = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour"]
+
+[file.62]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/publisher_test.exs"
+lines = 242
+verdict = "issues"
+note = "Read in full, including embedded contract fixtures: publication assertions are excluded by the default-only compile-time chain guard."
+interfaces = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour"]
+
+[file.63]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/verifier_test.exs"
+lines = 1293
+verdict = "issues"
+note = "Read in full, including embedded bytecode/source fixtures and all matching assertions: verifier cases are excluded by the default-only compile-time chain guard."
+interfaces = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour"]
+
+[file.64]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/vyper/publisher_test.exs"
+lines = 84
+verdict = "clean"
+note = "Read in full: Vyper publisher consumes the configured verifier behavior and restores its shared configuration; success/refusal assertions match that behavior API."
+interfaces = ["14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour"]
+
+[file.65]
+path = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/writer_test.exs"
+lines = 331
+verdict = "clean"
+note = "Read in full: writer ABI parsing and read/write capability cases preserve method types and state mutability; no retired network transport appears."
+interfaces = []
+
+[file.66]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/README.md"
+lines = 539
+verdict = "clean"
+note = "Read in full: optional Arbitrum DA provider layouts, headers, storage records and import phases are documented; this is not merged Paxeer finality."
+interfaces = ["14.http-get-api-v2-arbitrum-batches-da-celestia-height-transaction-commitment"]
+
+[file.67]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/anytrust.ex"
+lines = 549
+verdict = "issues"
+note = "Read in full: AnyTrust certificate fields and cache/import flow are followed through L1 keyset retrieval; missing and malformed keysets lack a safe typed decoding path."
+interfaces = []
+
+[file.68]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/celestia.ex"
+lines = 186
+verdict = "clean"
+note = "Read in full: Celestia height and commitment parsing preserves binary data keys and JSON presentation encodings used by DA lookup."
+interfaces = []
+
+[file.69]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/common.ex"
+lines = 264
+verdict = "clean"
+note = "Read in full: DA header discrimination dispatches to the provider parser and prepares shared batch/blob associations; caller loss of parse failures is recorded in discovery.ex."
+interfaces = []
+
+[file.70]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/eigenda.ex"
+lines = 196
+verdict = "clean"
+note = "Read in full: EigenDA binary fields and conflict resolution preserve reference keys and batch associations; optional foreign provider support is explicitly separated from Paxeer consensus."
+interfaces = []
+
+[file.71]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/data_backfill.ex"
+lines = 197
+verdict = "clean"
+note = "Read in full: DataBackfill queues block ranges and advances only on worker success; the partial-result and transaction-only selection defects are recorded against the worker."
+interfaces = ["14.cfg-indexer-block-ranges", "14.cfg-indexer-indexer-fetcher-arbitrum", "14.cfg-indexer-indexer-fetcher-arbitrum-databackfill", "14.cfg-indexer-indexer-fetcher-arbitrum-databackfill-supervisor"]
+
+[file.72]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/messages_to_l2_matcher.ex"
+lines = 357
+verdict = "clean"
+note = "Read in full: hashed L1-to-L2 message requests are queued and matched against persisted originating transactions; matching imports preserve message direction and identifiers."
+interfaces = ["14.cfg-indexer-indexer-fetcher-arbitrum-messagestol2matcher-supervisor", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingmessagesonl1"]
+
+[file.73]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/messaging.ex"
+lines = 322
+verdict = "clean"
+note = "Read in full: L1-to-L2 request IDs and L2-to-L1 events are decoded with explicit hashed-ID handling and imported through the Arbitrum message schema."
+interfaces = ["14.cfg-indexer-indexer-fetcher-arbitrum-messaging"]
+
+[file.74]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/rollup_messages_catchup.ex"
+lines = 390
+verdict = "clean"
+note = "Read in full: historical catchup alternates both directions, waits for block indexing and schedules bounded repeat work; progress and checkpoints derive from persisted chain data."
+interfaces = ["14.cfg-indexer-block-ranges", "14.cfg-indexer-indexer-fetcher-arbitrum", "14.cfg-indexer-indexer-fetcher-arbitrum-rollupmessagescatchup", "14.cfg-indexer-indexer-fetcher-arbitrum-rollupmessagescatchup-supervisor"]
+
+[file.75]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/tracking_batches_statuses.ex"
+lines = 677
+verdict = "clean"
+note = "Read in full: batch/confirmation/finalization tasks are serialized with configured ranges, intervals and readiness checks; restart initializes from persisted settlement state."
+interfaces = ["14.cfg-indexer-block-ranges", "14.cfg-indexer-indexer-fetcher-arbitrum", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses-supervisor"]
+
+[file.76]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/tracking_messages_on_l1.ex"
+lines = 423
+verdict = "clean"
+note = "Read in full: L1 message/execution tasks are scheduled from configured contract addresses and DB state; canonical execution replay defect is owned by new_l1_executions.ex."
+interfaces = ["7.rpc-eth-gettransactionbyhash", "14.cfg-indexer-indexer-fetcher-arbitrum", "14.cfg-indexer-indexer-fetcher-arbitrum-trackingmessagesonl1-supervisor"]
+
+[file.77]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/README.md"
+lines = 37
+verdict = "clean"
+note = "Read in full: DB helper grouping describes indexer wrappers around explorer-owned reader/query logic and the separation between worker and storage code."
+interfaces = []
+
+[file.78]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/common.ex"
+lines = 84
+verdict = "clean"
+note = "Read in full: common DB adapters retain reader result shapes and indexed-block readiness; transaction-only backfill selection repair belongs to the worker/query path finding."
+interfaces = []
+
+[file.79]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/messages.ex"
+lines = 426
+verdict = "clean"
+note = "Read in full: message lookups retain direction, safe-height and default-value semantics; callers must provide nonnegative heights as recorded in negative-safe-height."
+interfaces = ["14.cfg-indexer-indexer-fetcher-arbitrum-messaging"]
+
+[file.80]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/parent_chain_transactions.ex"
+lines = 139
+verdict = "clean"
+note = "Read in full: lifecycle transaction allocation/load helpers preserve hashes, persisted IDs and finalization status for import reuse."
+interfaces = []
+
+[file.81]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/settlement.ex"
+lines = 618
+verdict = "clean"
+note = "Read in full: settlement lookup wrappers retain batch/confirmation ranges, explicit missing values and persisted block associations; canonical replacement handling is owned by discovery.ex."
+interfaces = []
+
+[file.82]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/tools.ex"
+lines = 49
+verdict = "clean"
+note = "Read in full: DB record conversion selects required keys and optionally encodes binary hashes consistently with import/transport expectations."
+interfaces = []
+
+[file.83]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/helper.ex"
+lines = 310
+verdict = "clean"
+note = "Read in full: task-state updates, indexed-range readiness and lifecycle timestamp/block comparisons retain their worker-facing types and explicit status results."
+interfaces = []
+
+[file.84]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/logging.ex"
+lines = 162
+verdict = "clean"
+note = "Read in full: Arbitrum log levels and duration reporting are wrappers around the logger and do not add secret-bearing endpoint output."
+interfaces = []
+
+[file.85]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/rpc.ex"
+lines = 918
+verdict = "issues"
+note = "Read in full: RPC quantity/hash/ABI conversions and bounded chunk requests use the optional parent/rollup endpoint; safe-height fallback can violate its nonnegative consumer guard."
+interfaces = ["7.rpc-eth-getblockbyhash", "7.rpc-eth-gettransactionbyhash", "14.cfg-indexer-indexer-fetcher-arbitrum"]
+
+[file.86]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/backfill.ex"
+lines = 441
+verdict = "issues"
+note = "Read in full: block and receipt fetching, fallback chunk reduction and transactional DB updates are traced; partial Blocks errors and transaction-only holes need recovery repairs."
+interfaces = ["7.rpc-eth-getblockreceipts", "7.rpc-eth-gettransactionreceipt"]
+
+[file.87]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/README.md"
+lines = 97
+verdict = "clean"
+note = "Read in full: batch discovery phases, canonical event sources and block/transaction import flow are described for optional Arbitrum support."
+interfaces = []
+
+[file.88]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/discovery.ex"
+lines = 688
+verdict = "issues"
+note = "Read in full: discovery/import flow is wired and metrics retain their declarations; replacement commitment hashes and discarded DA parse failures are not recovered."
+interfaces = ["7.rpc-eth-gettransactionbyhash", "14.met-explorer-latest-batch-number", "14.met-explorer-latest-batch-timestamp"]
+
+[file.89]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/discovery_utils.ex"
+lines = 136
+verdict = "clean"
+note = "Read in full: batch range inference uses message counters and the legacy NodeInterface path with the established block-number shift."
+interfaces = []
+
+[file.90]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/events.ex"
+lines = 47
+verdict = "clean"
+note = "Read in full: SequencerBatchDelivered queries use the configured external inbox and topic, with standard eth_getLogs parameter encodings."
+interfaces = []
+
+[file.91]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/rollup_entities.ex"
+lines = 387
+verdict = "clean"
+note = "Read in full: discovered batch ranges associate indexed blocks and transactions, fetching missing rollup entities as needed before settlement import."
+interfaces = []
+
+[file.92]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/tasks.ex"
+lines = 617
+verdict = "clean"
+note = "Read in full: new/historical/missing batch tasks persist through imported entities and initialize from DB; their discovery worker needs the recorded reorg/DA repairs."
+interfaces = ["7.rpc-eth-gettransactionbyhash"]
+
+[file.93]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/confirmations/README.md"
+lines = 90
+verdict = "clean"
+note = "Read in full: confirmation stages and SendRootUpdated lineage are documented for foreign Arbitrum settlement, distinct from Paxeer committed-block finality."
+interfaces = []
+
+[file.94]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/confirmations/discovery.ex"
+lines = 479
+verdict = "clean"
+note = "Read in full: confirmations map parent transaction hashes to rollup blocks and imported lifecycle IDs with readiness and gap handling."
+interfaces = []
+
+[file.95]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/confirmations/events.ex"
+lines = 171
+verdict = "clean"
+note = "Read in full: SendRootUpdated decoding uses the event ABI, sorted parent logs and a scoped fetch cache with standard quantity/hash encoding."
+interfaces = ["7.rpc-eth-getlogs"]
+
+[file.96]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/confirmations/rollup_blocks.ex"
+lines = 688
+verdict = "clean"
+note = "Read in full: confirmation expansion traces parent/child rollup block hashes and persisted assignments, with cache and bounded RPC chunks for range reconstruction."
+interfaces = ["7.rpc-eth-getlogs"]
+
+[file.97]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/confirmations/tasks.ex"
+lines = 556
+verdict = "clean"
+note = "Read in full: new and historical confirmation tasks respect DB readiness, configured lower bounds and unfinished-gap state before advancing discovery."
+interfaces = []
+
+[file.98]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/historical_messages_on_l2.ex"
+lines = 372
+verdict = "clean"
+note = "Read in full: historical L2 messages use DB candidates and real rollup logs/transactions, retaining hashed-ID matching and explicit nil/end-of-range results."
+interfaces = ["7.rpc-eth-gettransactionbyhash"]
+
+[file.99]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/l1_finalization.ex"
+lines = 101
+verdict = "clean"
+note = "Read in full: optional parent-chain lifecycle status monitoring uses configured finalization tracking and persisted unfinalized rows; this does not redefine Paxeer receipt finality."
+interfaces = []
+
+[file.100]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/new_l1_executions.ex"
+lines = 467
+verdict = "issues"
+note = "Read in full: latest-parent execution imports mark messages relayed, but no canonical overlap/removal restores status after a parent-chain reorg."
+interfaces = []
+
+[file.101]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/new_messages_to_l2.ex"
+lines = 747
+verdict = "clean"
+note = "Read in full: new and historical L1-to-L2 discovery use persisted origins and the safe/latest overlap helper, with configured inbox/bridge addresses and hashed request IDs."
+interfaces = ["7.rpc-eth-gettransactionbyhash"]
+
+[finding.private-profile]
+file = "apps/explorer/nextjs/middlewares/appProfile.ts"
+line = 14
+class = "security"
+severity = "medium"
+observed = "appProfileMiddleware resolves only x-app-profile or app-profile and deletes APP_PROFILE when both are absent. A following cookie-only navigation loses private mode; csp/index.ts:35-39 accepts that cookie, whereas getServerSideProps/handlers.ts:28 accepts the header or cookie but not the query."
+expected = "A visitor selecting the private explorer profile needs one consistent profile across middleware, CSP and SSR tracking decisions, including later navigations and conflicting input sources."
+proposal = "In apps/explorer/nextjs share a request-profile resolver between middleware, CSP and SSR; preserve a valid private cookie until an explicit profile change. Cover query entry, cookie-only navigation, header overrides and tracking suppression through real requests."
+owner_domain = 14
+
+[finding.telemetry-rejection]
+file = "apps/explorer/nextjs/getServerSideProps/handlers.ts"
+line = 60
+class = "runtime-risk"
+severity = "medium"
+observed = "base starts fetch to https://monitor.blockscout.com/count without awaiting it, handling rejection or providing an abort deadline. DNS, TLS or connection failure leaves an unhandled promise rejection during an otherwise valid page request."
+expected = "Optional explorer pageview reporting must have a bounded lifetime and consume transport errors without compromising page delivery or process stability."
+proposal = "In apps/explorer/nextjs/getServerSideProps/handlers.ts bound the reporting request with an abort timeout and explicitly handle rejected transport and non-success results; exercise an unavailable monitor while the page still renders."
+owner_domain = 14
+
+[finding.safe-origin]
+file = "apps/explorer/nextjs/csp/policies/safe.ts"
+line = 12
+class = "interface-mismatch"
+severity = "high"
+observed = "safe() permits only *.safe.global in connect-src. configs/app/features/safe.ts accepts NEXT_PUBLIC_SAFE_TX_SERVICE_URL on any valid origin and emits apiUrl; lib/hooks/useIsSafeAddress.tsx:18 fetches that apiUrl directly. A valid custom Safe service on another origin is blocked by the browser CSP."
+expected = "Registry 14.cfg-fe-feature-safe declares the enabled feature with apiUrl. Its configuration producer, emitted browser CSP and address-tag consumer must support the same configured service origin."
+proposal = "Derive the validated connect-src origin from config.features.safe.apiUrl in apps/explorer/nextjs/csp/policies/safe.ts. Prove configuration to response CSP to the useIsSafeAddress request with a custom HTTPS Safe service, retaining restrictive CSP defaults."
+owner_domain = 14
+interface = "14.cfg-fe-feature-safe"
+
+[finding.marketplace-analytics-origin]
+file = "apps/explorer/nextjs/csp/policies/marketplace.ts"
+line = 19
+class = "config-drift"
+severity = "medium"
+observed = "marketplace() replaces every truthy essentialDapps.multisend.posthogHost with *.posthog.com for connect-src and script-src. The marketplace config transports posthogHost as a string and ui/marketplace/essentialDapps/multisend/Multisend.tsx:527 passes the original host to the multisend component; a custom analytics origin is not permitted."
+expected = "Registry 14.cfg-fe-feature-marketplace and its EssentialDappsConfig must carry the configured analytics destination consistently into both the embedded component and its browser permissions."
+proposal = "In apps/explorer/nextjs/csp/policies/marketplace.ts validate and permit the configured analytics origin, keeping only the actual default when applicable. Cover a self-hosted posthogHost through the config loader, component props and response CSP."
+owner_domain = 14
+interface = "14.cfg-fe-feature-marketplace"
+
+[finding.legacy-verification-routes]
+file = "apps/explorer/nextjs/redirects.js"
+line = 165
+class = "wiring-gap"
+severity = "medium"
+observed = "Six legacy verification redirects at lines 165-185 use /address/:hash/contract_verification with an underscore. The address verification page is pages/address/[hash]/contract-verification.tsx; the later Etherscan redirect uses that hyphenated route correctly."
+expected = "An existing contract verification link must arrive at the live verification page with its address and selected verification method preserved."
+proposal = "Update the six destinations in apps/explorer/nextjs/redirects.js to the existing contract-verification route and exercise every legacy source through the Next route table, including each method query parameter."
+owner_domain = 14
+
+[finding.http-errors-as-payloads]
+file = "apps/explorer/nextjs/utils/fetchApi.ts"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "fetchApi logs non-200 status but still parses its JSON as ResourcePayload<R>. Its token-instance media handler and token, address and stats metadata callers receive an API error object through the success payload type; the JSON error is never converted to the advertised undefined failure result."
+expected = "SSR and metadata consumers need a clear distinction between a successful resource payload and a backend refusal, including valid JSON bodies on 4xx and 5xx responses."
+proposal = "In apps/explorer/nextjs/utils/fetchApi.ts classify unsuccessful HTTP responses before returning a resource payload, using a typed failure or the existing undefined result; preserve error logging and cover a real backend refusal through a metadata caller."
+owner_domain = 14
+
+[finding.compiler-url-leak]
+file = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/compiler_version_test.exs"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "CompilerVersionTest replaces :explorer, :solc_bin_api_url with a Bypass localhost URL. Its on_exit callbacks restore the Tesla adapter and RustVerifierInterfaceBehaviour but never restore the compiler URL, so later tests can inherit a closed server endpoint."
+expected = "Registry 14.cfg-explorer-solc-bin-api-url is shared application configuration; each test must restore its prior presence and value so compiler-version discovery does not depend on suite order."
+proposal = "Save the existing compiler URL state and restore it with on_exit in services/explorer/backend/apps/explorer/test/explorer/smart_contract/compiler_version_test.exs, deleting the key if originally absent; verify an ordinary compiler lookup after the fixture closes."
+owner_domain = 14
+interface = "14.cfg-explorer-solc-bin-api-url"
+
+[finding.disabled-binary-getter-regression]
+file = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/helper_test.exs"
+line = 158
+class = "test-gap"
+severity = "medium"
+observed = "The entire returns bytes starting from 0x regression in get_binary_string_from_contract_getter/4 is commented out at lines 158-192 behind an upstream issue TODO, leaving the bytes16 value that begins with ASCII 0x without an executable assertion."
+expected = "Binary contract getter decoding must distinguish encoded bytes from their textual hex representation, and the known regression must remain an executable acceptance case."
+proposal = "Resolve the decoding behavior in the owning smart-contract helper and restore this regression in services/explorer/backend/apps/explorer/test/explorer/smart_contract/helper_test.exs with the real ABI bytes producer path, preserving the asserted value and avoiding skips or expected failures."
+owner_domain = 14
+
+[finding.rpc-error-code-fixture]
+file = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/reader_test.exs"
+line = 61
+class = "test-gap"
+severity = "medium"
+observed = "ReaderTest supplies error.code as the string 12345 in its standard RPC error fixture. JSON-RPC node failures use a numeric code; the test therefore proves formatting of a third wire shape rather than the node error representation."
+expected = "Reader error handling needs coverage using numeric JSON-RPC error codes and the actual producer message/data representation, without relying on a fixture-only coercion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/smart_contract/reader_test.exs retain the error assertion with a numeric code and add a node-produced failure through EthereumJSONRPC into Reader.query_contract, covering optional error data."
+owner_domain = 14
+
+[finding.token-uri-producer-coverage]
+file = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/reader_test.exs"
+line = 189
+class = "test-gap"
+severity = "medium"
+observed = "The tokenURI case mocks selector 0xc87b56dd at a foreign contract and returns a vault.warriders.com URI. It establishes ABI decoding but does not exercise either declared producer: CW721ERC721Pointer uses WasmdPrecompile.query and JsonPrecompile extraction, while MyNFT in contracts/src/ERC721.sol returns its own string."
+expected = "Registry rows 6.sol-cw721erc721pointer-tokenuri-c87b56dd and 6.sol-mynft-tokenuri-c87b56dd need their real contract to node eth_call to Explorer.Reader path proven, including pointer ownership refusal and token ID encoding."
+proposal = "Add producer-backed reader coverage in the owning explorer smart-contract tests for both contracts, keeping the existing unit decoding assertions; include a uint256 token ID, string ABI output and the pointer missing-token refusal."
+owner_domain = 14
+interface = "6.sol-cw721erc721pointer-tokenuri-c87b56dd"
+
+[finding.solidity-compiler-chain-coverage]
+file = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/code_compiler_test.exs"
+line = 6
+class = "test-gap"
+severity = "medium"
+observed = "The entire Solidity compiler suite is inside if @chain_type == :default. services/explorer/deploy/env/backend.example.env:27 and deploy/docker-compose.local.yml:171 select paxeer_x, so this suite contains no executable cases for the deployed merged-network chain type."
+expected = "Merged-network contract compilation, verification and publication need qualification with CHAIN_TYPE=paxeer_x; a passing empty suite does not establish requirements 14991.1 or 22998.1."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/code_compiler_test.exs share the chain-independent compiler cases with paxeer_x and add any necessary real chain fixtures. Run the retained assertions on the deployed chain type rather than removing the guard by weakening expected behavior."
+owner_domain = 14
+
+[finding.solidity-publisher-chain-coverage]
+file = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/publisher_test.exs"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The entire Solidity publisher suite is inside if @chain_type == :default. services/explorer/deploy/env/backend.example.env:27 and deploy/docker-compose.local.yml:171 select paxeer_x, so this suite contains no executable cases for the deployed merged-network chain type."
+expected = "Merged-network contract compilation, verification and publication need qualification with CHAIN_TYPE=paxeer_x; a passing empty suite does not establish requirements 14991.1 or 22998.1."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/publisher_test.exs share the chain-independent publisher cases with paxeer_x and add any necessary real chain fixtures. Run the retained assertions on the deployed chain type rather than removing the guard by weakening expected behavior."
+owner_domain = 14
+
+[finding.solidity-verifier-chain-coverage]
+file = "services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/verifier_test.exs"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The entire Solidity verifier suite is inside if @chain_type == :default. services/explorer/deploy/env/backend.example.env:27 and deploy/docker-compose.local.yml:171 select paxeer_x, so this suite contains no executable cases for the deployed merged-network chain type."
+expected = "Merged-network contract compilation, verification and publication need qualification with CHAIN_TYPE=paxeer_x; a passing empty suite does not establish requirements 14991.1 or 22998.1."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/smart_contract/solidity/verifier_test.exs share the chain-independent verifier cases with paxeer_x and add any necessary real chain fixtures. Run the retained assertions on the deployed chain type rather than removing the guard by weakening expected behavior."
+owner_domain = 14
+
+[finding.backfill-partial-block-results]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/backfill.ex"
+line = 189
+class = "restart-recovery"
+severity = "medium"
+observed = "fetch_blocks accepts {:ok, %Blocks{blocks_params: blocks}} without examining Blocks.errors. EthereumJSONRPC.Blocks.from_responses partitions successful responses and per-block errors into that struct, so a partially failed chunk is treated as complete and discover_blocks can advance its range cursor."
+expected = "An Arbitrum backfill range must be acknowledged only after every requested canonical block and receipt has been obtained and its required updates committed; partial batch errors need retryable recovery."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/backfill.ex reject nonempty Blocks.errors and verify requested block coverage before update_db. Exercise a mixed success/error response and restart from the unacknowledged range."
+owner_domain = 14
+
+[finding.backfill-transaction-only-holes]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/backfill.ex"
+line = 132
+class = "restart-recovery"
+severity = "medium"
+observed = "do_discover_blocks selects only blocks_with_missing_fields. The underlying reader/indexer/general.ex:61-70 tests send_count, send_root and l1_block_number on blocks, with no predicate for transaction gas_used_for_l1. A database with those block fields filled but transaction-specific data absent is never selected for repair."
+expected = "The backfill module promises recovery of both Arbitrum block fields and transaction gas_used_for_l1; a transaction-only hole must remain discoverable independently of the block metadata."
+proposal = "Extend the owning explorer reader selection used by services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/backfill.ex to include transactions missing data where that field is supported, distinguishing legacy unsupported receipts. Cover a restart with complete block fields and a recoverable transaction-only hole."
+owner_domain = 14
+
+[finding.batch-reorg-replacement]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/discovery.ex"
+line = 427
+class = "restart-recovery"
+severity = "medium"
+observed = "handle_new_batch_data treats an existing batch number as only a lifecycle timestamp/block update and records the newly observed transaction hash. update_lifecycle_transactions_for_new_blocks at lines 630-645 then loads lifecycle rows by that hash. If a parent-chain reorg republishes the batch in a different transaction, no row is found and the persisted batch remains associated with its orphan commitment."
+expected = "Optional Arbitrum batch recovery must reconcile canonical batch number, commitment transaction, block range and DA links after a parent-chain replacement, rather than updating only a transaction whose hash already exists."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/discovery.ex reconcile the existing batch against the canonical event, importing and rebinding a replacement commitment atomically with affected block and DA associations. Cover same-hash relocation, replacement-hash republication and orphan removal across restart."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses"
+
+[finding.da-parse-failure-lost]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/discovery.ex"
+line = 570
+class = "restart-recovery"
+severity = "medium"
+observed = "execute_transaction_requests_parse_transactions_calldata maps every DataAvailabilityInfo error to {nil, nil}, imports the batch with no DA type and retains no failure state. Existing batch numbers follow only the lifecycle update path at line 427, so rediscovery does not retry parsing that stored batch."
+expected = "A batch with unavailable or unsupported DA metadata must expose an explicit recoverable state and be reparsed after provider recovery or decoder support, without requiring an operator to delete indexed batches."
+proposal = "Persist the DA parsing outcome and retry eligibility in the owning Arbitrum batch import flow; distinguish known no-DA from failure and schedule reconciliation of unresolved batches in services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/discovery.ex. Cover restart after a parse failure."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-arbitrum-trackingbatchesstatuses"
+
+[finding.anytrust-keyset-decode]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/anytrust.ex"
+line = 396
+class = "runtime-risk"
+severity = "medium"
+observed = "get_keyset_raw_data returns nil when the RPC returns no SetValidKeyset logs, but get_keyset_info_from_l1 passes it to a binary-only decode_keyset. Short key lengths raise in decode_pubkeys; its {:error, reason} tuple also matches {pubkeys, _} at line 402 and can produce pubkeys: :error instead of a signer list."
+expected = "Missing or malformed remote AnyTrust keysets must yield a typed failure that the batch worker can retry; a certificate record must contain a bounded, valid threshold and signer list before persistence."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/anytrust.ex validate binary lengths, key count and threshold before decoding, pattern-match successful signer lists explicitly, and propagate missing-log/decoding failures without caching a successful keyset. Cover partial RPC data followed by recovery."
+owner_domain = 14
+
+[finding.negative-safe-height]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/rpc.ex"
+line = 319
+class = "runtime-risk"
+severity = "medium"
+observed = "get_safe_and_latest_l1_blocks falls back to latest_chain_block + 1 - min(finalization_threshold, hard_limit). On a young parent chain without safe-tag support this can be negative, but Explorer.Chain.Arbitrum.Reader.Indexer.Messages.highest_safe_fully_indexed_message_to_l2 requires safe_block >= 0."
+expected = "Safe-height calculations must produce a valid nonnegative parent-chain height for downstream queries on a newly initialized or nonstandard Arbitrum deployment."
+proposal = "Clamp the fallback to genesis in services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/rpc.ex and propagate explicit no-safe-history semantics where necessary. Cover latest heights below the configured threshold through the real messages lookup."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-arbitrum"
+
+[finding.execution-reorg-recovery]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/new_l1_executions.ex"
+line = 118
+class = "restart-recovery"
+severity = "medium"
+observed = "discover_new_l1_messages_executions reads latest for low latency, imports execution events and advances start_block to end_block + 1. It does not overlap an unfinalized window or remove orphan execution rows; discovery can leave messages marked relayed after that parent-chain execution is reorganized away."
+expected = "Optional Arbitrum execution status must follow canonical parent-chain evidence and remain correct after reorg and restart, including reverting completion derived from an orphan event."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/new_l1_executions.ex track block identity and reconcile a bounded unfinalized observation window, rebinding or revoking execution and message status atomically. Cover an observed execution removed and later replaced, including restart."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-arbitrum-trackingmessagesonl1"
+
+[finding.documentation-1]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 5 present a separate LayerX daemon and replica receipt authority; line 50 launches layerxd --custody-profile, line 68 provisions sequencer pins and lines 88-90 make explorer reads depend on a sequencer-signed core-boundary path."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Rewrite cluster bring-up in docs/site/docs/operators/beta-cluster.md around paxd with its integrated kernel, committed-block finality and explorer reads against the live merged interfaces; remove retired daemon, replica-authority and sequencer-secret steps while retaining accurate private custody controls."
+owner_domain = 8
+
+[finding.documentation-2]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 5 describe the separate daemon and replica receipt authority; line 42 mounts layerxd --custody-profile and line 60 provisions sequencer pins. These instructions direct an operator to the pre-merge deployment."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Update docs/wiki/BetaCluster.md together with the maintained operator cluster page so both describe one paxd network, integrated kernel and committed-block evidence; replace retired service and secret instructions with current cluster inputs."
+owner_domain = 8
+
+[finding.documentation-3]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The title at line 3 is Router routes; service rows at lines 17, 20, 31 and 41 include archive, core-boundary, sequencer and replica authority. Lines 908-911 advertise /rpc/evm/ws and web3_* as current network surfaces."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Correct tools/paxeer-x/route-catalogue.json and regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh. Catalogue the actual node root RPC namespaces separately from hosted px_ routes and remove retired service discovery and websocket routes."
+owner_domain = 16
+
+[finding.documentation-4]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "Line 47 describes layerxd as a separate daemon settling checkpoints; line 145 instructs make layerxd and line 181 says the merge remains draft and the kernel currently runs separately."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Rewrite the root README.md architecture and launch examples for paxd with the integrated kernel and committed-block receipts; replace make layerxd and the separate-checkpoint description with the maintained merged-network build and run path."
+owner_domain = 16
+
+[finding.documentation-5]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 says ordinary activity stays on a separate LayerX sequencer and periodic checkpoints settle on Paxeer; lines 16 and 93 repeat the settlement boundary as the network architecture."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Rewrite docs/paxeer-network.md to describe the one BFT chain with chain id 125, integrated kernel, committed-block finality and node root RPC; retain the accurate tenant namespace explanation while removing the separate LayerX settlement lifecycle."
+owner_domain = 16
+
+[finding.documentation-6]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 lists the LayerX kernel as layerxd with a separate subsystem trust boundary; the trust-boundary discussion at lines 66-72 retains checkpoint settlement as the chain/kernel relationship."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Update docs/MONOREPO.md architecture and trust boundaries to distinguish repository build modules from the single running chain and its integrated kernel; describe custody and finality using the merged network instead of a separate daemon and checkpoint authority."
+owner_domain = 16
+
+[finding.documentation-7]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Line 20 links public POST /rpc; lines 167-168 prescribe gateway /rpc and /rpc/ws, with later examples and receipt verification relying on separate sequencer trust and custody-credit plumbing."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md as the merged developer journey: node root RPC on the api1-api14 or api-mainnet-beta origin, hosted px_ methods from the gateway contract, and receipt finality from a committed block. Update every endpoint example and retained private setup flow consistently."
+owner_domain = 8
+
+[finding.documentation-8]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 submits custody credit to a router, while the operator journey retains the pre-merge core/receipt-authority boundary, including the receipt-authority URL at line 229."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Revise docs/site/docs/operators/beta-control.md around the retained private control functions and the integrated chain evidence they now consume. Replace router submission and retired authority verification steps with the current committed-block path."
+owner_domain = 8
+
+[finding.documentation-9]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 routes custody credit through a router; lines 22-34 advertise lx_requestFunds and its old public JSON-RPC error contract as the common CLI, SDK and MCP funding surface."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Update docs/site/docs/platform/faucet.md to the retained private funding service and the actual current client entry points, removing public lx_ router instructions and reconciling refusal shapes against the owning hosted gateway openrpc contract."
+owner_domain = 8
+
+[finding.documentation-10]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Line 8 requires --rpc URLs to end in /rpc; line 131 repeats that restriction, while receipt and emulator instructions at lines 80 and 96-97 retain independent sequencer-batch trust as the ordinary verification model."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Rewrite docs/site/docs/platform/cli.md endpoint and receipt examples against the current CLI implementation, node root RPC and hosted px_ contract; clearly scope any retained private emulator behavior and align command availability with the quickstart and faucet pages."
+owner_domain = 8
+
+[finding.documentation-11]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-42 call api-mainnet-beta the unified router for eth_*, lx_* and px_*; lines 50-51 and 198-199 advertise /rpc, /rpc/schema and /rpc/ws. Authority-token and receipt sections retain a separate replica/sequencer authority lifecycle."
+expected = "Audit brief facts 1-3 specify one paxd BFT chain with an integrated kernel, finality on committed blocks, root-path node RPC and a separate hosted px_ method contract; current operator and integration documentation must describe those interfaces."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md to the hosted px_ contract in services/platform/hosted/gateway/openrpc.json, the explorer proxy and actual authentication. Document node root RPC separately and replace retired authority and sequencer finality with committed-block evidence."
+owner_domain = 8
+
+[doc.1]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3 and 5 present a separate LayerX daemon and replica receipt authority; line 50 launches layerxd --custody-profile, line 68 provisions sequencer pins and lines 88-90 make explorer reads depend on a sequencer-signed core-boundary path."
+
+[doc.2]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Lines 3 and 5 describe the separate daemon and replica receipt authority; line 42 mounts layerxd --custody-profile and line 60 provisions sequencer pins. These instructions direct an operator to the pre-merge deployment."
+
+[doc.3]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "The title at line 3 is Router routes; service rows at lines 17, 20, 31 and 41 include archive, core-boundary, sequencer and replica authority. Lines 908-911 advertise /rpc/evm/ws and web3_* as current network surfaces."
+
+[doc.4]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "Read in full: bridge README describes native precompile 0x1016 and foreign-chain bridge confirmation, cap, recipient and replay-journal rules. Foreign confirmations are bridge security policy and do not introduce separate Paxeer sequencer finality."
+
+[doc.5]
+path = "README.md"
+status = "stale"
+notes = "Line 47 describes layerxd as a separate daemon settling checkpoints; line 145 instructs make layerxd and line 181 says the merge remains draft and the kernel currently runs separately."
+
+[doc.6]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Line 5 says ordinary activity stays on a separate LayerX sequencer and periodic checkpoints settle on Paxeer; lines 16 and 93 repeat the settlement boundary as the network architecture."
+
+[doc.7]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 lists the LayerX kernel as layerxd with a separate subsystem trust boundary; the trust-boundary discussion at lines 66-72 retains checkpoint settlement as the chain/kernel relationship."
+
+[doc.8]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Line 20 links public POST /rpc; lines 167-168 prescribe gateway /rpc and /rpc/ws, with later examples and receipt verification relying on separate sequencer trust and custody-credit plumbing."
+
+[doc.9]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Line 5 submits custody credit to a router, while the operator journey retains the pre-merge core/receipt-authority boundary, including the receipt-authority URL at line 229."
+
+[doc.10]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Line 5 routes custody credit through a router; lines 22-34 advertise lx_requestFunds and its old public JSON-RPC error contract as the common CLI, SDK and MCP funding surface."
+
+[doc.11]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Line 8 requires --rpc URLs to end in /rpc; line 131 repeats that restriction, while receipt and emulator instructions at lines 80 and 96-97 retain independent sequencer-batch trust as the ordinary verification model."
+
+[doc.12]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Lines 39-42 call api-mainnet-beta the unified router for eth_*, lx_* and px_*; lines 50-51 and 198-199 advertise /rpc, /rpc/schema and /rpc/ws. Authority-token and receipt sections retain a separate replica/sequencer authority lifecycle."
+
+[doc.13]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/da/README.md"
+status = "accurate"
+notes = "Read in full: AnyTrust, Celestia and EigenDA layouts, import stages and record relationships describe optional Arbitrum support. Error recovery gaps are recorded against the implementation rather than treating foreign sequencer terminology as retired Paxeer deployment."
+
+[doc.14]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/utils/db/README.md"
+status = "accurate"
+notes = "Read in full: DB reader/query ownership and indexer utility groupings match the wrappers in this package; the page makes no merged-network finality claim."
+
+[doc.15]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/batches/README.md"
+status = "accurate"
+notes = "Read in full: batch discovery phases, imports and RPC inputs describe optional Arbitrum indexing. The existing-batch recovery defects are recorded against discovery.ex."
+
+[doc.16]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/arbitrum/workers/confirmations/README.md"
+status = "accurate"
+notes = "Read in full: confirmation discovery phases and block-range association describe foreign Arbitrum parent-chain settlement, not a separate Paxeer authority."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/explorer-frontend-config.md"
+status = "accurate"
+notes = "Read the introductory contract rules and package-linked cfg-apis, cfg-app, cfg-chain, cfg-features, cfg-essential-dapps-chains, cfg-multichain, cfg-services, cfg-ui and env-network entries. These are pinned interface declarations; Safe and marketplace implementation disagreements are recorded with their row IDs."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "accurate"
+notes = "Read the introductory contract rules and package-linked cfg-explorer, cfg-indexer and cfg-web entries. Exact application keys and supervisor enablement agree; test isolation and optional Arbitrum recovery defects are recorded against their member implementations."

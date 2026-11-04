@@ -20,7 +20,7 @@ type Config struct {
 	PersistInterval  uint64                      `toml:"persist_interval"`
 	SnapshotInterval uint64                      `toml:"snapshot_interval"`
 	RetainBlocks     uint64                      `toml:"retain_blocks"`
-	ValidatorUpdates map[string]map[string]uint8 `toml:"validator_update"`
+	ValidatorUpdates map[string]map[string]int64 `toml:"validator_update"`
 	LeaderPin        []string                    `toml:"leader_pin"`
 	LeaderPinHeight  int64                       `toml:"leader_pin_height"`
 	PrivValServer    string                      `toml:"privval_server"`

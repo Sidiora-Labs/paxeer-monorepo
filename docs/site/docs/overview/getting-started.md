@@ -1,13 +1,24 @@
 # Getting started
 
-This checklist uses the router and the Human service ledger payment path
-available to approved developers; access still requires credentials and
-independently supplied verification policy.
+This checklist uses an operator-deployed hosted gateway and the Human service
+ledger payment path available to approved developers. Access requires
+credentials and independently supplied verification policy.
 
 ## Endpoints and trust
 
 ```sh
-export RPC_URL=https://api-mainnet-beta.paxeer.network/rpc
+export RPC_URL=https://api-mainnet-beta.paxeer.network
+```
+
+This is the public node JSON-RPC at the root path (EVM chain ID `125`).
+The other public node names are `api1` through
+`api14.mainnet-beta.paxeer.network`, also at the root. There is no separate
+public LayerX interface. The `lx_*` and `px_*` calls below require an
+operator-deployed hosted gateway; the node names do not serve those methods.
+Obtain its full JSON-RPC URL from the operator before continuing:
+
+```sh
+export GATEWAY_RPC_URL="${LAYERX_GATEWAY_RPC_URL:?Set the operator-provided gateway JSON-RPC URL}"
 ```
 
 Store a gateway `LayerX-Key` credential under the CLI alias `beta`, keep it out of
@@ -59,14 +70,14 @@ bound into the signature.
 rpc_read() {
   jq -cn --argjson id "$1" --arg method "$2" --argjson params "$3" \
     '{jsonrpc:"2.0",id:$id,method:$method,params:$params}' |
-    curl --fail-with-body --silent --show-error "$RPC_URL" \
+    curl --fail-with-body --silent --show-error "$GATEWAY_RPC_URL" \
       --header 'Content-Type: application/json' --data-binary @-
 }
 
 rpc_write() {
   jq -cn --argjson id "$1" --arg canonical "$2" \
     '{jsonrpc:"2.0",id:$id,method:"lx_sendActivity",params:[$canonical,"executed"]}' |
-    curl --fail-with-body --silent --show-error "$RPC_URL" \
+    curl --fail-with-body --silent --show-error "$GATEWAY_RPC_URL" \
       --header 'Content-Type: application/json' \
       --header "Authorization: LayerX-Key $GATEWAY_KEY_ID:$GATEWAY_KEY_SECRET" \
       --data-binary @-

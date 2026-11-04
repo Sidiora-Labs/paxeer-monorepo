@@ -1,0 +1,1887 @@
+[audit.22.30.138]
+task = "22.30.138"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 233
+findings = 40
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["bridge-cap-width"]
+
+[file.001]
+path = "apps/explorer/middleware.ts"
+lines = 47
+verdict = "clean"
+note = "HTML page requests run account and display-preference middleware, then receive the configured CSP and timing headers; non-page requests bypass this page middleware."
+
+[file.002]
+path = "apps/explorer/ui/snippets/auth/AuthModal.pw.tsx"
+lines = 78
+verdict = "clean"
+note = "Authentication modal browser cases exercise email login and authenticated email linking with OTP and profile response fixtures."
+
+[file.003]
+path = "apps/explorer/ui/snippets/auth/AuthModal.pwstory.tsx"
+lines = 33
+verdict = "clean"
+note = "Story wrapper supplies disclosure, initial screen and authentication status for email login and email linking browser cases."
+
+[file.004]
+path = "apps/explorer/ui/snippets/auth/AuthModal.tsx"
+lines = 205
+verdict = "clean"
+note = "Modal screen dispatch and cleanup match the declared authentication step union and configured methods."
+
+[file.005]
+path = "apps/explorer/ui/snippets/auth/fields/AuthModalFieldOtpCode.tsx"
+lines = 47
+verdict = "clean"
+note = "OTP input forwards completion and validation through the form field contract without persisting the code."
+
+[file.006]
+path = "apps/explorer/ui/snippets/auth/guard/AuthGuard.tsx"
+lines = 18
+verdict = "clean"
+note = "Guard chooses the configured authentication provider and preserves the children contract."
+
+[file.007]
+path = "apps/explorer/ui/snippets/auth/guard/AuthGuardAuth0.tsx"
+lines = 64
+verdict = "clean"
+note = "Auth0 guard uses the profile query and account configuration to gate authenticated content."
+
+[file.008]
+path = "apps/explorer/ui/snippets/auth/guard/AuthGuardDynamic.tsx"
+lines = 64
+verdict = "clean"
+note = "Dynamic guard follows the provider authentication state and initialization lifecycle."
+
+[file.009]
+path = "apps/explorer/ui/snippets/auth/linkEmail/useLinkEmail.ts"
+lines = 9
+verdict = "clean"
+note = "Email-link dispatcher selects the configured provider hook without changing its callback contract."
+
+[file.010]
+path = "apps/explorer/ui/snippets/auth/linkEmail/useLinkEmailDynamic.ts"
+lines = 31
+verdict = "issues"
+note = "Dynamic email update has no rejection handler; see the recorded cancellation and failure finding."
+
+[file.011]
+path = "apps/explorer/ui/snippets/auth/linkEmail/useLinkEmailFallback.ts"
+lines = 5
+verdict = "clean"
+note = "Non-Dynamic compatibility hook returns a no-op callback; its watchlist and verified-address callers open AuthModal themselves for that provider, so the fallback does not intercept the real email-link action."
+
+[file.012]
+path = "apps/explorer/ui/snippets/auth/screens/AuthModalScreenConnectWallet.tsx"
+lines = 57
+verdict = "clean"
+note = "Wallet connection screen exposes supported wallet actions and delegates authentication through its callback."
+
+[file.013]
+path = "apps/explorer/ui/snippets/auth/screens/AuthModalScreenEmail.tsx"
+lines = 106
+verdict = "clean"
+note = "Email screen validates input and starts the email challenge through the account API resource."
+
+[file.014]
+path = "apps/explorer/ui/snippets/auth/screens/AuthModalScreenOtpCode.tsx"
+lines = 143
+verdict = "clean"
+note = "OTP screen consumes the email challenge, handles verification failures and supports resend lifecycle."
+
+[file.015]
+path = "apps/explorer/ui/snippets/auth/screens/AuthModalScreenSelectMethod.tsx"
+lines = 39
+verdict = "clean"
+note = "Method selection follows configured account and wallet availability and the declared screen transitions."
+
+[file.016]
+path = "apps/explorer/ui/snippets/auth/screens/AuthModalScreenSuccessEmail.tsx"
+lines = 66
+verdict = "clean"
+note = "Successful email authentication screen renders completion and dismissal from the profile state."
+
+[file.017]
+path = "apps/explorer/ui/snippets/auth/screens/AuthModalScreenSuccessWallet.tsx"
+lines = 77
+verdict = "clean"
+note = "Successful wallet authentication screen renders the connected address and completion action."
+
+[file.018]
+path = "apps/explorer/ui/snippets/auth/types.ts"
+lines = 36
+verdict = "clean"
+note = "Authentication modal screen and callback types match the screen dispatcher and callers."
+
+[file.019]
+path = "apps/explorer/ui/snippets/auth/useIsAuth.ts"
+lines = 18
+verdict = "clean"
+note = "Authentication predicate derives status from the selected account provider rather than a separate network session."
+
+[file.020]
+path = "apps/explorer/ui/snippets/auth/useLogout.ts"
+lines = 65
+verdict = "clean"
+note = "Logout clears the selected provider and account query state through the existing session lifecycle."
+
+[file.021]
+path = "apps/explorer/ui/snippets/auth/useProfileQuery.ts"
+lines = 12
+verdict = "clean"
+note = "Profile query uses the configured account provider and account resource key consistently with profile consumers."
+
+[file.022]
+path = "apps/explorer/ui/snippets/auth/useRedirectForInvalidAuthToken.ts"
+lines = 22
+verdict = "clean"
+note = "Invalid-token redirect distinguishes authorization failure and invokes the existing logout path."
+
+[file.023]
+path = "apps/explorer/ui/snippets/auth/useSignInWithWallet.ts"
+lines = 174
+verdict = "issues"
+note = "Shared wallet authentication can finish the account session before rewards failure prevents its success callback."
+
+[file.024]
+path = "apps/explorer/ui/snippets/footer/Footer.pw.tsx"
+lines = 74
+verdict = "clean"
+note = "Footer browser cases cover the configured links and layout variants using the footer component."
+
+[file.025]
+path = "apps/explorer/ui/snippets/footer/Footer.spec.tsx"
+lines = 95
+verdict = "clean"
+note = "Footer unit cases match configured groups, custom links and conditional version display."
+
+[file.026]
+path = "apps/explorer/ui/snippets/footer/Footer.tsx"
+lines = 233
+verdict = "clean"
+note = "Footer renders configured link groups and indexer status using their current component contracts."
+
+[file.027]
+path = "apps/explorer/ui/snippets/footer/FooterLinkItem.tsx"
+lines = 68
+verdict = "clean"
+note = "Footer link item forwards configured URL and external-link semantics to the shared link component."
+
+[file.028]
+path = "apps/explorer/ui/snippets/footer/IntTxsIndexingStatus.tsx"
+lines = 90
+verdict = "clean"
+note = "Internal-transaction indexing status consumes index_status websocket fields and handles completed indexing."
+
+[file.029]
+path = "apps/explorer/ui/snippets/footer/utils/getApiVersionUrl.tsx"
+lines = 13
+verdict = "clean"
+note = "API version URL helper selects the configured backend version endpoint and protocol consistently."
+
+[file.030]
+path = "apps/explorer/ui/snippets/header/Burger.pw.tsx"
+lines = 81
+verdict = "clean"
+note = "Burger browser cases exercise open and closed menu rendering from the component props."
+
+[file.031]
+path = "apps/explorer/ui/snippets/header/Burger.tsx"
+lines = 48
+verdict = "clean"
+note = "Burger control exposes expanded state and invokes the supplied menu toggle callback."
+
+[file.032]
+path = "apps/explorer/ui/snippets/header/HeaderAlert.tsx"
+lines = 21
+verdict = "clean"
+note = "Header alert renders configured maintenance text and optional link through the shared alert interface."
+
+[file.033]
+path = "apps/explorer/ui/snippets/header/HeaderDesktop.pw.tsx"
+lines = 17
+verdict = "clean"
+note = "Desktop header stories cover the configured layout and feature combinations."
+
+[file.034]
+path = "apps/explorer/ui/snippets/header/HeaderDesktop.spec.tsx"
+lines = 38
+verdict = "clean"
+note = "Desktop header unit cases follow the feature flags and navigation component selection."
+
+[file.035]
+path = "apps/explorer/ui/snippets/header/HeaderDesktop.tsx"
+lines = 46
+verdict = "clean"
+note = "Desktop header composes navigation, search, network and profile controls from their declared props."
+
+[file.036]
+path = "apps/explorer/ui/snippets/header/HeaderMobile.pw.tsx"
+lines = 19
+verdict = "clean"
+note = "Mobile header stories cover mobile layout and configured identity assets."
+
+[file.037]
+path = "apps/explorer/ui/snippets/header/HeaderMobile.tsx"
+lines = 84
+verdict = "clean"
+note = "Mobile header supplies mobile navigation and search controls with the shared disclosure lifecycle."
+
+[file.038]
+path = "apps/explorer/ui/snippets/header/alerts/IndexingBlocksAlert.tsx"
+lines = 82
+verdict = "clean"
+note = "Block indexing alert consumes the backend indexing status and configured visibility threshold."
+
+[file.039]
+path = "apps/explorer/ui/snippets/navigation/LightningLabel.tsx"
+lines = 43
+verdict = "clean"
+note = "Navigation highlight label is presentation only and carries no receipt or finality claim."
+
+[file.040]
+path = "apps/explorer/ui/snippets/navigation/NavLinkIcon.tsx"
+lines = 25
+verdict = "clean"
+note = "Navigation icon selects declared icon data and optional highlight rendering without changing route ownership."
+
+[file.041]
+path = "apps/explorer/ui/snippets/navigation/RollupStageBadge.tsx"
+lines = 55
+verdict = "clean"
+note = "Rollup badge is gated by explicit rollup feature configuration and is not a Paxeer finality source."
+
+[file.042]
+path = "apps/explorer/ui/snippets/navigation/TestnetBadge.tsx"
+lines = 19
+verdict = "clean"
+note = "Testnet badge follows the configured chain testnet flag and contains no hard-coded mainnet identity."
+
+[file.043]
+path = "apps/explorer/ui/snippets/navigation/horizontal/NavLink.tsx"
+lines = 62
+verdict = "clean"
+note = "Horizontal navigation link maps internal routes and external URLs to the shared link contract."
+
+[file.044]
+path = "apps/explorer/ui/snippets/navigation/horizontal/NavLinkGroup.spec.tsx"
+lines = 70
+verdict = "issues"
+note = "Navigation regression expectation still requires retired anchor and kernel receipt destinations."
+
+[file.045]
+path = "apps/explorer/ui/snippets/navigation/horizontal/NavLinkGroup.tsx"
+lines = 97
+verdict = "clean"
+note = "Horizontal navigation group renders the producer subitem structure and supplied active state."
+
+[file.046]
+path = "apps/explorer/ui/snippets/navigation/horizontal/NavigationDesktop.pw.tsx"
+lines = 98
+verdict = "clean"
+note = "Horizontal desktop stories exercise configured navigation layout and overflow presentation."
+
+[file.047]
+path = "apps/explorer/ui/snippets/navigation/horizontal/NavigationDesktop.spec.tsx"
+lines = 69
+verdict = "clean"
+note = "Horizontal navigation unit cases match group rendering and account feature selection."
+
+[file.048]
+path = "apps/explorer/ui/snippets/navigation/horizontal/NavigationDesktop.tsx"
+lines = 54
+verdict = "clean"
+note = "Horizontal desktop navigation consumes the shared navigation producer and configured menu layout."
+
+[file.049]
+path = "apps/explorer/ui/snippets/navigation/mobile/NavLinkGroup.tsx"
+lines = 57
+verdict = "clean"
+note = "Mobile navigation group recursively renders the declared subitems and active route state."
+
+[file.050]
+path = "apps/explorer/ui/snippets/navigation/mobile/NavigationMobile.tsx"
+lines = 148
+verdict = "clean"
+note = "Mobile navigation consumes shared menu data and closes its drawer through the supplied callback."
+
+[file.051]
+path = "apps/explorer/ui/snippets/navigation/promoBanner/NavigationPromoBanner.tsx"
+lines = 115
+verdict = "clean"
+note = "Promo banner selects configured text or image content and maintains its dismissal cookie."
+
+[file.052]
+path = "apps/explorer/ui/snippets/navigation/promoBanner/NavigationPromoBannerContent.tsx"
+lines = 87
+verdict = "clean"
+note = "Promo banner content forwards configured link, image and label data to the shared components."
+
+[file.053]
+path = "apps/explorer/ui/snippets/navigation/useNavLinkStyleProps.tsx"
+lines = 29
+verdict = "clean"
+note = "Shared navigation styles derive collapsed, expanded and active presentation from their inputs."
+
+[file.054]
+path = "apps/explorer/ui/snippets/navigation/utils.ts"
+lines = 11
+verdict = "clean"
+note = "Navigation utility checks highlighted routes against configured route lists."
+
+[file.055]
+path = "apps/explorer/ui/snippets/navigation/vertical/NavLink.tsx"
+lines = 89
+verdict = "clean"
+note = "Vertical link handles internal and external navigation, collapsed tooltips and supplied disabled styling."
+
+[file.056]
+path = "apps/explorer/ui/snippets/navigation/vertical/NavLinkGroup.tsx"
+lines = 114
+verdict = "clean"
+note = "Vertical group renders declared subitems and uses an eager tooltip for discoverable links."
+
+[file.057]
+path = "apps/explorer/ui/snippets/navigation/vertical/NavLinkRewards.tsx"
+lines = 50
+verdict = "clean"
+note = "Rewards link gates the login modal on initialized authentication state and otherwise uses the declared merits route."
+
+[file.058]
+path = "apps/explorer/ui/snippets/navigation/vertical/NavigationDesktop.pw.tsx"
+lines = 296
+verdict = "issues"
+note = "Authenticated desktop navigation browser cases are explicitly skipped pending screenshot readiness repair."
+
+[file.059]
+path = "apps/explorer/ui/snippets/navigation/vertical/NavigationDesktop.tsx"
+lines = 140
+verdict = "clean"
+note = "Vertical navigation preserves collapse cookie state and composes shared navigation and profile components."
+
+[file.060]
+path = "apps/explorer/ui/snippets/networkLogo/NetworkIcon.pw.tsx"
+lines = 59
+verdict = "clean"
+note = "Network icon browser cases cover configured light and dark identity assets."
+
+[file.061]
+path = "apps/explorer/ui/snippets/networkLogo/NetworkIcon.tsx"
+lines = 53
+verdict = "clean"
+note = "Network icon resolves the configured icon variants and main-page link consistently."
+
+[file.062]
+path = "apps/explorer/ui/snippets/networkLogo/NetworkLogo.pw.tsx"
+lines = 59
+verdict = "clean"
+note = "Network logo stories cover configured light and dark logo assets."
+
+[file.063]
+path = "apps/explorer/ui/snippets/networkLogo/NetworkLogo.tsx"
+lines = 53
+verdict = "clean"
+note = "Network logo resolves identity assets and main-page accessibility label from configuration."
+
+[file.064]
+path = "apps/explorer/ui/snippets/networkLogo/consts.ts"
+lines = 1
+verdict = "clean"
+note = "Network identity constants provide the fallback asset sizes used by icon and logo consumers."
+
+[file.065]
+path = "apps/explorer/ui/snippets/networkMenu/NetworkMenuContent.tsx"
+lines = 166
+verdict = "clean"
+note = "Network menu content renders the declared configured network groups and optional external catalogue link."
+
+[file.066]
+path = "apps/explorer/ui/snippets/networkMenu/NetworkMenuLink.tsx"
+lines = 81
+verdict = "clean"
+note = "Network menu link forwards declared network URL and icon properties to shared presentation."
+
+[file.067]
+path = "apps/explorer/ui/snippets/networkMenu/types.ts"
+lines = 7
+verdict = "clean"
+note = "Network menu item and group types match the configuration loader and rendering consumers."
+
+[file.068]
+path = "apps/explorer/ui/snippets/networkMenu/useNetworkMenu.tsx"
+lines = 72
+verdict = "clean"
+note = "Network menu hook assembles configured groups and responsive menu behavior without probing an RPC mirror."
+
+[file.069]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarBackdrop.tsx"
+lines = 23
+verdict = "clean"
+note = "Search backdrop closes the suggestion surface through its callback and is presentation only."
+
+[file.070]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarDesktop.pw.tsx"
+lines = 269
+verdict = "clean"
+note = "Desktop search browser cases cover supported result kinds, keyboard navigation and suggestions."
+
+[file.071]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarDesktop.spec.tsx"
+lines = 68
+verdict = "clean"
+note = "Desktop search unit cases exercise request cancellation and current-term navigation behavior."
+
+[file.072]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarDesktop.tsx"
+lines = 245
+verdict = "clean"
+note = "Desktop search guards asynchronous redirects against changed terms and saves only chosen search terms."
+
+[file.073]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarInput.pw.tsx"
+lines = 24
+verdict = "clean"
+note = "Search input stories cover hero, focus, loading and clear-control presentation."
+
+[file.074]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarInput.spec.tsx"
+lines = 52
+verdict = "clean"
+note = "Search input unit cases exercise input changes and submission; readOnly forwarding is separately recorded."
+
+[file.075]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx"
+lines = 151
+verdict = "issues"
+note = "Input consumes readOnly for tab order but does not apply it to the actual input element."
+
+[file.076]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarMobile.pw.tsx"
+lines = 313
+verdict = "clean"
+note = "Mobile search browser stories cover drawer triggers, typed searches, category navigation and recent keywords."
+
+[file.077]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarMobile.tsx"
+lines = 219
+verdict = "clean"
+note = "Mobile search guards stale redirects and drawer closure; its hero trigger supplies readOnly to SearchBarInput."
+
+[file.078]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarRecentKeywords.tsx"
+lines = 98
+verdict = "clean"
+note = "Recent keyword list updates local state and persistent keyword storage together on removal and clearing."
+
+[file.079]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx"
+lines = 90
+verdict = "clean"
+note = "Suggestion tests cover category and result rendering; filtered-category scroll safety needs the recorded repair."
+
+[file.080]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx"
+lines = 260
+verdict = "issues"
+note = "Suggestion category ref allocation and visible category filtering can diverge during scrolling."
+
+[file.081]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestAddress.tsx"
+lines = 128
+verdict = "clean"
+note = "Address suggestion consumes the address result shape and renders the native address destination."
+
+[file.082]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestApp.tsx"
+lines = 105
+verdict = "clean"
+note = "Application suggestion uses configured marketplace application URLs and labels."
+
+[file.083]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestBlob.tsx"
+lines = 21
+verdict = "clean"
+note = "Blob suggestion renders the declared blob hash and feature-gated blob route."
+
+[file.084]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestBlock.tsx"
+lines = 95
+verdict = "clean"
+note = "Block suggestion consumes block number and hash from the search result and links to the native block page."
+
+[file.085]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestBlockCountdown.tsx"
+lines = 36
+verdict = "clean"
+note = "Block countdown suggestion derives its target block from validated numeric search input."
+
+[file.086]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestCluster.tsx"
+lines = 72
+verdict = "clean"
+note = "Cluster suggestion renders transformed cluster owner and cluster_info fields consistently."
+
+[file.087]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestDomain.tsx"
+lines = 89
+verdict = "clean"
+note = "Domain suggestion consumes the ENS information and address result fields used by the name service producer."
+
+[file.088]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestItem.spec.tsx"
+lines = 28
+verdict = "clean"
+note = "Suggestion item tests cover supported discriminators and forwarded click handlers."
+
+[file.089]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestItem.tsx"
+lines = 167
+verdict = "clean"
+note = "Suggestion item dispatch covers declared search result kinds and external search items."
+
+[file.090]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestItemLink.tsx"
+lines = 38
+verdict = "clean"
+note = "Suggestion item link forwards navigation callbacks and highlight properties to the shared link."
+
+[file.091]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestLabel.tsx"
+lines = 68
+verdict = "clean"
+note = "Label suggestion consumes label metadata and links through the declared address/search routes."
+
+[file.092]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestPriceUpdate.tsx"
+lines = 47
+verdict = "clean"
+note = "Price update suggestion renders the configured cross-chain price-update result shape."
+
+[file.093]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestTacOperation.tsx"
+lines = 46
+verdict = "clean"
+note = "TAC operation suggestion is gated by its result discriminator and uses the declared operation identifier."
+
+[file.094]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestToken.tsx"
+lines = 103
+verdict = "clean"
+note = "Token suggestion consumes token address, symbol and icon fields and links to the native token page."
+
+[file.095]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestTx.tsx"
+lines = 44
+verdict = "clean"
+note = "Transaction suggestion consumes transaction hash and points to the native transaction detail route."
+
+[file.096]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestUserOp.tsx"
+lines = 42
+verdict = "clean"
+note = "User operation suggestion consumes the declared operation hash and configured account-abstraction route."
+
+[file.097]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggestZetaChainCCTX.tsx"
+lines = 63
+verdict = "clean"
+note = "ZetaChain suggestion is feature-gated and uses its declared cross-chain transaction identifier."
+
+[file.098]
+path = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/types.ts"
+lines = 10
+verdict = "clean"
+note = "Suggestion external item types agree with the item dispatcher and marketplace result construction."
+
+[file.099]
+path = "apps/explorer/ui/snippets/searchBar/useQuickSearchQuery.tsx"
+lines = 58
+verdict = "clean"
+note = "Quick search combines backend quick_search results with configured external sources and current term state."
+
+[file.100]
+path = "apps/explorer/ui/snippets/searchBar/useSearchMultichain.tsx"
+lines = 100
+verdict = "clean"
+note = "Multichain search uses its explicit feature configuration and propagates the selected chain context."
+
+[file.101]
+path = "apps/explorer/ui/snippets/searchBar/useSearchQuery.tsx"
+lines = 64
+verdict = "clean"
+note = "Search query constructs the backend query parameters and pagination from current search input."
+
+[file.102]
+path = "apps/explorer/ui/snippets/searchBar/useSearchRedirect.spec.tsx"
+lines = 173
+verdict = "clean"
+note = "Redirect tests exercise native address, transaction and account resolution and reject stale asynchronous navigation."
+
+[file.103]
+path = "apps/explorer/ui/snippets/searchBar/useSearchWithClusters.spec.tsx"
+lines = 641
+verdict = "issues"
+note = "Cluster error tests replace useQuery results and cannot exercise the actual swallowed-fetch-error path."
+
+[file.104]
+path = "apps/explorer/ui/snippets/searchBar/useSearchWithClusters.tsx"
+lines = 106
+verdict = "issues"
+note = "Cluster query converts every fetch rejection to a successful null result, hiding backend unavailability."
+
+[file.105]
+path = "apps/explorer/ui/snippets/searchBar/utils.spec.ts"
+lines = 147
+verdict = "clean"
+note = "Search utility tests cover term normalization, native redirects and account resolution boundary cases."
+
+[file.106]
+path = "apps/explorer/ui/snippets/searchBar/utils.ts"
+lines = 144
+verdict = "clean"
+note = "Search utilities validate identifiers and guard asynchronous resolution before selecting native destinations."
+
+[file.107]
+path = "apps/explorer/ui/snippets/topBar/ColorModeToggle.spec.tsx"
+lines = 38
+verdict = "clean"
+note = "Color mode tests verify document variables, stored theme and toggle label after mode changes."
+
+[file.108]
+path = "apps/explorer/ui/snippets/topBar/ColorModeToggle.tsx"
+lines = 61
+verdict = "clean"
+note = "Mode toggle updates the document theme and stored settings; the settings selection synchronization defect is recorded on its consumer."
+
+[file.109]
+path = "apps/explorer/ui/snippets/topBar/DeFiDropdown.tsx"
+lines = 81
+verdict = "clean"
+note = "DeFi menu renders only configured entries and respects the enabled feature and external-link behavior."
+
+[file.110]
+path = "apps/explorer/ui/snippets/topBar/DeFiDropdownItem.tsx"
+lines = 37
+verdict = "clean"
+note = "DeFi entry forwards configured title, icon and URL through the shared menu/link contract."
+
+[file.111]
+path = "apps/explorer/ui/snippets/topBar/GetGasButton.tsx"
+lines = 60
+verdict = "clean"
+note = "Gas button reads the configured refuel provider and opens its supported action without inventing a network endpoint."
+
+[file.112]
+path = "apps/explorer/ui/snippets/topBar/NetworkMenu.pw.tsx"
+lines = 40
+verdict = "clean"
+note = "Network menu stories cover configured network group rendering and viewport presentation."
+
+[file.113]
+path = "apps/explorer/ui/snippets/topBar/NetworkMenu.tsx"
+lines = 41
+verdict = "clean"
+note = "Top-bar network menu composes the shared network menu hook and content components."
+
+[file.114]
+path = "apps/explorer/ui/snippets/topBar/TopBar.pw.tsx"
+lines = 75
+verdict = "clean"
+note = "Top-bar stories exercise account, search and network feature combinations."
+
+[file.115]
+path = "apps/explorer/ui/snippets/topBar/TopBar.spec.tsx"
+lines = 55
+verdict = "clean"
+note = "Top-bar unit cases follow configured feature availability and responsive component selection."
+
+[file.116]
+path = "apps/explorer/ui/snippets/topBar/TopBar.tsx"
+lines = 100
+verdict = "clean"
+note = "Top bar composes current network identity, search, theme and account controls."
+
+[file.117]
+path = "apps/explorer/ui/snippets/topBar/TopBarStats.spec.tsx"
+lines = 51
+verdict = "clean"
+note = "Top-bar stats tests match native price/stat fields and unavailable data presentation."
+
+[file.118]
+path = "apps/explorer/ui/snippets/topBar/TopBarStats.tsx"
+lines = 106
+verdict = "clean"
+note = "Top-bar stats consumes the configured stats service and displays absent data without asserting finality."
+
+[file.119]
+path = "apps/explorer/ui/snippets/topBar/settings/Settings.tsx"
+lines = 72
+verdict = "clean"
+note = "Settings menu keeps children mounted; this makes the separate color-theme synchronization finding observable."
+
+[file.120]
+path = "apps/explorer/ui/snippets/topBar/settings/SettingsAddressFormat.tsx"
+lines = 32
+verdict = "clean"
+note = "Address format setting updates the declared cookie and current settings presentation."
+
+[file.121]
+path = "apps/explorer/ui/snippets/topBar/settings/SettingsColorTheme.tsx"
+lines = 100
+verdict = "issues"
+note = "Color theme selection stores its active item only on mount and its own clicks, becoming stale after the top-bar toggle."
+
+[file.122]
+path = "apps/explorer/ui/snippets/topBar/settings/SettingsIdentIcon.tsx"
+lines = 53
+verdict = "clean"
+note = "Identicon setting persists the selected identity style through the shared settings cookie."
+
+[file.123]
+path = "apps/explorer/ui/snippets/topBar/settings/SettingsLocalTime.tsx"
+lines = 30
+verdict = "clean"
+note = "Local time setting persists the selected display preference and updates its current selection."
+
+[file.124]
+path = "apps/explorer/ui/snippets/topBar/settings/SettingsPoorReputationTokens.tsx"
+lines = 41
+verdict = "clean"
+note = "Poor reputation token setting reads the configured feature and persists its explicit visibility preference."
+
+[file.125]
+path = "apps/explorer/ui/snippets/topBar/settings/SettingsSample.tsx"
+lines = 57
+verdict = "clean"
+note = "Settings sample forwards its label, value and click event for the owning setting to validate."
+
+[file.126]
+path = "apps/explorer/ui/snippets/topBar/settings/SettingsScamTokens.tsx"
+lines = 43
+verdict = "clean"
+note = "Scam token setting follows the declared feature availability and visibility preference."
+
+[file.127]
+path = "apps/explorer/ui/snippets/user/README.md"
+lines = 2
+verdict = "issues"
+note = "Two-line profile README omits provider selection and the account-only Dynamic case."
+
+[file.128]
+path = "apps/explorer/ui/snippets/user/UserIdenticon.tsx"
+lines = 38
+verdict = "clean"
+note = "User identicon renders the selected configured identity style from the supplied address."
+
+[file.129]
+path = "apps/explorer/ui/snippets/user/UserProfileDesktop.tsx"
+lines = 33
+verdict = "clean"
+note = "Desktop profile dispatch supports Auth0 and Dynamic account providers and wallet-only fallback."
+
+[file.130]
+path = "apps/explorer/ui/snippets/user/UserWalletAutoConnectAlert.tsx"
+lines = 29
+verdict = "clean"
+note = "Auto-connect alert is tied to wallet connection state and offers the declared dismissal/connection actions."
+
+[file.131]
+path = "apps/explorer/ui/snippets/user/profile/auth0/UserProfileButton.tsx"
+lines = 100
+verdict = "clean"
+note = "Auth0 profile button renders supplied profile identity and menu state without changing authentication."
+
+[file.132]
+path = "apps/explorer/ui/snippets/user/profile/auth0/UserProfileContent.tsx"
+lines = 137
+verdict = "clean"
+note = "Auth0 profile content uses current account identity and the existing profile navigation actions."
+
+[file.133]
+path = "apps/explorer/ui/snippets/user/profile/auth0/UserProfileContentNavLink.tsx"
+lines = 26
+verdict = "clean"
+note = "Profile navigation link preserves internal routing and optional external-link semantics."
+
+[file.134]
+path = "apps/explorer/ui/snippets/user/profile/auth0/UserProfileDesktop.pw.tsx"
+lines = 32
+verdict = "clean"
+note = "Auth0 profile desktop stories supply the declared account profile and wallet fixtures."
+
+[file.135]
+path = "apps/explorer/ui/snippets/user/profile/auth0/UserProfileDesktop.tsx"
+lines = 112
+verdict = "clean"
+note = "Auth0 desktop profile combines the profile query, wallet connection and popover actions."
+
+[file.136]
+path = "apps/explorer/ui/snippets/user/profile/auth0/UserProfileMobile.tsx"
+lines = 106
+verdict = "clean"
+note = "Auth0 mobile profile renders the same account actions in its mobile menu."
+
+[file.137]
+path = "apps/explorer/ui/snippets/user/profile/auth0/types.ts"
+lines = 8
+verdict = "clean"
+note = "Profile navigation item types match Auth0 menu construction and rendering."
+
+[file.138]
+path = "apps/explorer/ui/snippets/user/profile/common/UserProfileContentWallet.tsx"
+lines = 107
+verdict = "clean"
+note = "Common wallet content renders the connected address and delegates disconnect/link actions to callers."
+
+[file.139]
+path = "apps/explorer/ui/snippets/user/profile/common/utils.ts"
+lines = 3
+verdict = "clean"
+note = "Profile wallet helpers format the selected wallet identity without changing the address encoding."
+
+[file.140]
+path = "apps/explorer/ui/snippets/user/profile/dynamic/UserProfile.tsx"
+lines = 68
+verdict = "clean"
+note = "Dynamic profile consumes provider user state and dispatches mobile or desktop presentation."
+
+[file.141]
+path = "apps/explorer/ui/snippets/user/profile/dynamic/UserProfileButton.tsx"
+lines = 57
+verdict = "clean"
+note = "Dynamic profile button reflects current provider user identity and menu state."
+
+[file.142]
+path = "apps/explorer/ui/snippets/user/profile/dynamic/UserProfilePopover.tsx"
+lines = 43
+verdict = "clean"
+note = "Dynamic profile popover delegates account management and email linking to provider actions."
+
+[file.143]
+path = "apps/explorer/ui/snippets/user/wallet/UserWalletButton.tsx"
+lines = 67
+verdict = "clean"
+note = "Wallet button exposes connected wallet identity or the supplied connect action."
+
+[file.144]
+path = "apps/explorer/ui/snippets/user/wallet/UserWalletDesktop.tsx"
+lines = 82
+verdict = "clean"
+note = "Desktop wallet menu uses current connection state and the shared account/address content."
+
+[file.145]
+path = "apps/explorer/ui/snippets/user/wallet/UserWalletMenuContent.tsx"
+lines = 60
+verdict = "clean"
+note = "Wallet menu content uses the declared wallet address and disconnect callback."
+
+[file.146]
+path = "apps/explorer/ui/snippets/user/wallet/UserWalletMobile.tsx"
+lines = 77
+verdict = "clean"
+note = "Mobile wallet menu exposes the same connected identity and connection lifecycle actions."
+
+[file.147]
+path = "apps/web/e2e/a11y.spec.ts"
+lines = 84
+verdict = "clean"
+note = "Accessibility suite checks semantic headings, focus, keyboard interaction and configured shell routes."
+
+[file.148]
+path = "apps/web/e2e/activity-rungs.test.ts"
+lines = 88
+verdict = "clean"
+note = "Activity rung regression excludes retired settlement states and preserves submitted, receipted and committed ordering."
+
+[file.149]
+path = "apps/web/e2e/activity.spec.ts"
+lines = 566
+verdict = "clean"
+note = "Activity journey assertions follow feed filtering, receipts and unresolved detail presentation."
+
+[file.150]
+path = "apps/web/e2e/agents-rungs.test.ts"
+lines = 140
+verdict = "clean"
+note = "Agent rung regression checks current journey stages and absence of retired anchor settlement."
+
+[file.151]
+path = "apps/web/e2e/agents.spec.ts"
+lines = 665
+verdict = "clean"
+note = "Agent journey suite covers agent lifecycle controls, budget disclosure and unresolved evidence presentation."
+
+[file.152]
+path = "apps/web/e2e/api-client.test.ts"
+lines = 228
+verdict = "clean"
+note = "API client tests exercise generated operation encoding/decoding and declared response errors."
+
+[file.153]
+path = "apps/web/e2e/api-schema-version.test.ts"
+lines = 80
+verdict = "clean"
+note = "Schema version tests bind the generated client to the declared API version and schema digest."
+
+[file.154]
+path = "apps/web/e2e/approvals-rungs.test.ts"
+lines = 57
+verdict = "clean"
+note = "Approval rung regression uses the current stage model and rejects retired settlement labels."
+
+[file.155]
+path = "apps/web/e2e/approvals.spec.ts"
+lines = 275
+verdict = "issues"
+note = "Approval browser suite can bypass critical assertions when no fixture is visible and uses one context for both devices."
+
+[file.156]
+path = "apps/web/e2e/browser/a11y.spec.ts"
+lines = 68
+verdict = "clean"
+note = "Production browser accessibility checks consume real routes and the shared authenticated fixture."
+
+[file.157]
+path = "apps/web/e2e/browser/agents.spec.ts"
+lines = 159
+verdict = "clean"
+note = "Production agent browser suite uses the real human API and validates the declared service envelope."
+
+[file.158]
+path = "apps/web/e2e/browser/explorer.spec.ts"
+lines = 113
+verdict = "clean"
+note = "Production explorer browser suite follows native navigation and unknown lookup behavior."
+
+[file.159]
+path = "apps/web/e2e/browser/real-stack.spec.ts"
+lines = 14
+verdict = "clean"
+note = "Real-stack browser smoke suite verifies service-backed navigation and refuses unavailable production dependencies."
+
+[file.160]
+path = "apps/web/e2e/browser/settings.spec.ts"
+lines = 275
+verdict = "issues"
+note = "Settings browser assertions treat enveloped human API responses as bare profile and notification objects."
+
+[file.161]
+path = "apps/web/e2e/completion-gate.test.ts"
+lines = 119
+verdict = "clean"
+note = "Completion gate assertions require the declared proof artifacts and refuse unreviewed completion claims."
+
+[file.162]
+path = "apps/web/e2e/copy-binding-retired.test.ts"
+lines = 119
+verdict = "clean"
+note = "Binding retirement regression asserts retired binding operations and copy are absent; the negative names are intentional."
+
+[file.163]
+path = "apps/web/e2e/copy-retired-operation.test.ts"
+lines = 30
+verdict = "issues"
+note = "Retired-operation copy check constructs backspace characters instead of regex word boundaries."
+
+[file.164]
+path = "apps/web/e2e/copy-verify-retired.test.ts"
+lines = 98
+verdict = "clean"
+note = "Verification retirement copy test asserts the removed verification journey does not return in visible copy."
+
+[file.165]
+path = "apps/web/e2e/copy.test.ts"
+lines = 26
+verdict = "clean"
+note = "Copy catalogue tests check runtime/catalogue consistency, interpolation and required product messages."
+
+[file.166]
+path = "apps/web/e2e/explorer-account.test.ts"
+lines = 189
+verdict = "clean"
+note = "Explorer account tests cover canonical identifiers, profile availability and malformed/unavailable fields."
+
+[file.167]
+path = "apps/web/e2e/explorer-admission.test.ts"
+lines = 29
+verdict = "clean"
+note = "Explorer admission tests exercise concurrent verification bounds, retry information and slot release."
+
+[file.168]
+path = "apps/web/e2e/explorer-labels.test.ts"
+lines = 52
+verdict = "clean"
+note = "Explorer label tests bind status wording to the current receipt/evidence presentation."
+
+[file.169]
+path = "apps/web/e2e/explorer-links.test.ts"
+lines = 49
+verdict = "clean"
+note = "Explorer link tests validate URL origin, path and allowed navigation kinds."
+
+[file.170]
+path = "apps/web/e2e/explorer-mirror-retired.test.ts"
+lines = 65
+verdict = "clean"
+note = "Mirror retirement tests reject the removed mirror route; retired names are negative assertions."
+
+[file.171]
+path = "apps/web/e2e/explorer-origin.test.ts"
+lines = 220
+verdict = "clean"
+note = "Explorer origin tests reject unsafe or misconfigured external origins before network access."
+
+[file.172]
+path = "apps/web/e2e/explorer-program-origin.test.ts"
+lines = 176
+verdict = "clean"
+note = "Program origin tests preserve the configured program source and reject cross-origin redirection."
+
+[file.173]
+path = "apps/web/e2e/explorer-rungs.test.ts"
+lines = 148
+verdict = "clean"
+note = "Explorer rung tests preserve current stages and refuse retired settlement progression."
+
+[file.174]
+path = "apps/web/e2e/explorer-suites.test.ts"
+lines = 75
+verdict = "clean"
+note = "Explorer suite selection tests ensure declared explorer proofs remain wired into their command targets."
+
+[file.175]
+path = "apps/web/e2e/explorer-verify-retired.test.ts"
+lines = 56
+verdict = "clean"
+note = "Verification retirement tests assert removed verifier endpoints and UI are absent."
+
+[file.176]
+path = "apps/web/e2e/explorer-verify-unlisted.test.ts"
+lines = 80
+verdict = "clean"
+note = "Unlisted verifier tests refuse unsupported verification origins and maintain the explicit allowlist."
+
+[file.177]
+path = "apps/web/e2e/explorer.spec.ts"
+lines = 214
+verdict = "issues"
+note = "Receipt link expectation protects the frozen kernel receipt route as the default external destination; malformed-input and retired-anchor refusal cases remain valid."
+
+[file.178]
+path = "apps/web/e2e/gas-station-receipt.test.ts"
+lines = 228
+verdict = "clean"
+note = "Receipt cases drive HTTPS station and HTTP gateway response fixtures through the actual SDK/client decoders, checking receipt outcomes and transport failures; these are controlled producers, not a deployed-network gate."
+
+[file.179]
+path = "apps/web/e2e/gas-station.test.ts"
+lines = 484
+verdict = "clean"
+note = "Gas station tests exercise quote and submission outcomes, native fee selection and error propagation."
+
+[file.180]
+path = "apps/web/e2e/gateway-history.test.ts"
+lines = 238
+verdict = "issues"
+note = "History test configures a retired /rpc endpoint while its loopback server does not validate the request path."
+
+[file.181]
+path = "apps/web/e2e/gateway-malformed.test.ts"
+lines = 112
+verdict = "clean"
+note = "Malformed gateway tests reject wrong response shapes rather than accepting fixture defaults."
+
+[file.182]
+path = "apps/web/e2e/gateway-receipt.test.ts"
+lines = 151
+verdict = "clean"
+note = "Gateway receipt tests exercise identifier binding, receipt availability and declared unavailable errors."
+
+[file.183]
+path = "apps/web/e2e/harness.test.ts"
+lines = 44
+verdict = "clean"
+note = "Harness tests validate declared route/shell configuration and deterministic target URL construction."
+
+[file.184]
+path = "apps/web/e2e/harness.ts"
+lines = 60
+verdict = "clean"
+note = "Harness defines routes, shells and environment inputs shared by browser/performance suites."
+
+[file.185]
+path = "apps/web/e2e/home-destinations.test.ts"
+lines = 65
+verdict = "clean"
+note = "Home destination tests require native destinations and reject retired custody navigation."
+
+[file.186]
+path = "apps/web/e2e/kit.spec.ts"
+lines = 109
+verdict = "clean"
+note = "Kit browser suite exercises primitive accessibility, confirmation and result presentation."
+
+[file.187]
+path = "apps/web/e2e/launchpad-reads.test.ts"
+lines = 473
+verdict = "clean"
+note = "Launchpad read tests exercise the declared precompile view shapes and on-chain field conversions."
+
+[file.188]
+path = "apps/web/e2e/move-rungs.test.ts"
+lines = 119
+verdict = "clean"
+note = "Move rung tests enforce current stage/evidence progression and exclude retired settlement names."
+
+[file.189]
+path = "apps/web/e2e/move.spec.ts"
+lines = 453
+verdict = "issues"
+note = "Move browser fixtures intercept a singular legacy commit route and emit a third response shape."
+
+[file.190]
+path = "apps/web/e2e/native-fee-budget.test.ts"
+lines = 55
+verdict = "clean"
+note = "Native fee budget tests cover explicit base units, selected asset and bounded fee calculations."
+
+[file.191]
+path = "apps/web/e2e/onboarding-rungs.test.ts"
+lines = 101
+verdict = "clean"
+note = "Onboarding rung tests preserve the current lifecycle and refuse retired checkpoint-based stages."
+
+[file.192]
+path = "apps/web/e2e/onboarding.spec.ts"
+lines = 358
+verdict = "issues"
+note = "Onboarding browser suite depends on URL mock switches with no application reader and checks copy keys instead of messages."
+
+[file.193]
+path = "apps/web/e2e/perf.spec.ts"
+lines = 295
+verdict = "clean"
+note = "Performance suite uses the declared route classifier, sample count and web-vital/script budgets."
+
+[file.194]
+path = "apps/web/e2e/prepare-production.py"
+lines = 159
+verdict = "clean"
+note = "Production preparation checks required dependencies and builds its isolated runtime fixture inputs."
+
+[file.195]
+path = "apps/web/e2e/production-fixture.ts"
+lines = 69
+verdict = "clean"
+note = "Production fixture starts the declared real services and propagates setup failures instead of claiming browser evidence."
+
+[file.196]
+path = "apps/web/e2e/production-server.mjs"
+lines = 67
+verdict = "clean"
+note = "Production server launches the prepared Next application with the fixture environment and shutdown handling."
+
+[file.197]
+path = "apps/web/e2e/program-approvals.test.ts"
+lines = 130
+verdict = "clean"
+note = "Program approval tests exercise disclosure, budgets, material, step-up and submitted decision contracts."
+
+[file.198]
+path = "apps/web/e2e/proof_api.test.ts"
+lines = 265
+verdict = "clean"
+note = "API proof drives real wallet/provider, SDK, bridge, perps and launchpad consumer modules through consent/cancellation and malformed-outcome boundaries; it does not prove human API HTTP envelopes."
+
+[file.199]
+path = "apps/web/e2e/proof_env.test.ts"
+lines = 190
+verdict = "issues"
+note = "Environment readers correctly reject unsafe/retired configuration, but the positive receipt-link proof still selects the frozen kernel archive destination."
+
+[file.200]
+path = "apps/web/e2e/proof_explorer.test.ts"
+lines = 488
+verdict = "issues"
+note = "HTTP page/decoder proof rejects corrupt evidence, but its external receipt-link assertion preserves a frozen archive destination rather than proving current native transaction navigation."
+
+[file.201]
+path = "apps/web/e2e/proof_journeys.test.ts"
+lines = 272
+verdict = "clean"
+note = "Journey proof uses real producer results to assert lifecycle, replay and unavailable/refused behavior."
+
+[file.202]
+path = "apps/web/e2e/proof_kit.test.ts"
+lines = 150
+verdict = "issues"
+note = "Kit proof still requires a finality label describing a separate LayerX network."
+
+[file.203]
+path = "apps/web/e2e/provider-imports.test.ts"
+lines = 117
+verdict = "clean"
+note = "Provider import tests ensure browser bundles use the declared provider entry points and omit server-only dependencies."
+
+[file.204]
+path = "apps/web/e2e/public-session.ts"
+lines = 84
+verdict = "clean"
+note = "Public session fixture registers and authenticates through the supported service and passkey interfaces."
+
+[file.205]
+path = "apps/web/e2e/retired-custody-screens.test.ts"
+lines = 96
+verdict = "clean"
+note = "Custody screen retirement tests require old screen modules and UI entry points to stay absent."
+
+[file.206]
+path = "apps/web/e2e/retired-custody.test.ts"
+lines = 75
+verdict = "clean"
+note = "Custody retirement tests reject removed custody operations and preserve native wallet send behavior."
+
+[file.207]
+path = "apps/web/e2e/retired-journeys.test.ts"
+lines = 74
+verdict = "clean"
+note = "Journey retirement tests assert removed deposit/withdraw/exit paths do not become live fallback flows."
+
+[file.208]
+path = "apps/web/e2e/retired-routes.test.ts"
+lines = 93
+verdict = "clean"
+note = "Route retirement tests assert obsolete public routes are absent and safe native destinations remain."
+
+[file.209]
+path = "apps/web/e2e/run-production-browser.sh"
+lines = 26
+verdict = "clean"
+note = "Production browser runner prepares the real stack and forwards the declared browser qualification command."
+
+[file.210]
+path = "apps/web/e2e/run-production-perf.sh"
+lines = 3
+verdict = "clean"
+note = "Production performance runner prepares the production stack and applies the declared performance suite selection."
+
+[file.211]
+path = "apps/web/e2e/scaffold.test.mjs"
+lines = 9
+verdict = "clean"
+note = "Scaffold tests inspect the committed application structure and required suite wiring."
+
+[file.212]
+path = "apps/web/e2e/security.spec.ts"
+lines = 342
+verdict = "clean"
+note = "Security browser suite asserts CSP, sensitive data handling and unsupported action refusal."
+
+[file.213]
+path = "apps/web/e2e/send-outcome.test.ts"
+lines = 93
+verdict = "clean"
+note = "Send outcome tests preserve pending/committed/refused distinctions and do not treat submission as finality."
+
+[file.214]
+path = "apps/web/e2e/session-boundary.test.ts"
+lines = 71
+verdict = "clean"
+note = "Session boundary tests bind CSRF/origin and current-session selection to the real request boundary."
+
+[file.215]
+path = "apps/web/e2e/settings-without-binding.test.ts"
+lines = 130
+verdict = "clean"
+note = "Settings regression proves the retired binding capability is unnecessary for supported settings paths."
+
+[file.216]
+path = "apps/web/e2e/settings.spec.ts"
+lines = 381
+verdict = "clean"
+note = "Settings tests cover notification schema, non-suppressible security classes and profile/security transitions."
+
+[file.217]
+path = "apps/web/e2e/shell.spec.ts"
+lines = 120
+verdict = "clean"
+note = "Shell browser suite exercises responsive routing and shell hint selection for shared destinations."
+
+[file.218]
+path = "apps/web/e2e/software-authenticator.ts"
+lines = 129
+verdict = "clean"
+note = "Software authenticator constructs real credential/key material for the browser fixture ceremony."
+
+[file.219]
+path = "apps/web/e2e/state-matrix.test.ts"
+lines = 17
+verdict = "clean"
+note = "State matrix tests check required route/shell/state coverage and catalogue registration."
+
+[file.220]
+path = "apps/web/e2e/state-matrix.ts"
+lines = 1
+verdict = "clean"
+note = "State matrix fixture exports the declared routes, shells and screen states for suite enumeration."
+
+[file.221]
+path = "apps/web/e2e/states.spec.ts"
+lines = 105
+verdict = "clean"
+note = "State browser suite checks loading, empty, unavailable and queued presentation against registered routes."
+
+[file.222]
+path = "apps/web/e2e/support.spec.ts"
+lines = 241
+verdict = "issues"
+note = "Support browser failure/feedback fixtures target a route prefix and list endpoint the application does not call."
+
+[file.223]
+path = "apps/web/e2e/ui-library.test.ts"
+lines = 68
+verdict = "clean"
+note = "UI library tests bind documented primitives to implementation exports and accessibility contracts."
+
+[file.224]
+path = "apps/web/e2e/verification-rungs.test.ts"
+lines = 63
+verdict = "clean"
+note = "Verification rung tests preserve the declared evidence stage ordering without restoring retired settlement states."
+
+[file.225]
+path = "apps/web/e2e/visual-baselines.json"
+lines = 8
+verdict = "clean"
+note = "Visual baseline manifest records review status and screenshot targets; it is review data, not runtime finality evidence."
+
+[file.226]
+path = "apps/web/e2e/wallet-provider.test.ts"
+lines = 77
+verdict = "clean"
+note = "Wallet provider tests exercise the declared request methods, account state and structured refusal behavior."
+
+[file.227]
+path = "apps/web/e2e/wallet-receipt.test.ts"
+lines = 240
+verdict = "clean"
+note = "Wallet receipt tests require producer receipt evidence and verify submitted versus committed presentation."
+
+[file.228]
+path = "apps/web/e2e/wallet-settings.test.ts"
+lines = 103
+verdict = "clean"
+note = "Wallet settings tests persist explicit fee preferences and handle unavailable fee choices."
+
+[file.229]
+path = "apps/web/e2e/wallet-sponsored-receipt.test.ts"
+lines = 496
+verdict = "issues"
+note = "Sponsored wallet test exercises provider and receipt consumers against its HTTP fixture, but requires the retired /rpc transport path."
+
+[file.230]
+path = "services/bridge/deploy/chainconfig/config.go"
+lines = 320
+verdict = "clean"
+note = "Configuration schema, strict JSON loader and big.Int scalar accessors match their declared Go types; destination cap bounds are the validation finding."
+
+[file.231]
+path = "services/bridge/deploy/chainconfig/config_test.go"
+lines = 1017
+verdict = "issues"
+note = "Configuration tests cover schema and overlay refusals but omit destination cap-width and case-sensitive Solana mint boundaries."
+
+[file.232]
+path = "services/bridge/deploy/chainconfig/overlay.go"
+lines = 116
+verdict = "clean"
+note = "Private overlay loader rejects unknown/trailing JSON and applies explicit chain replacements before schema validation."
+
+[file.233]
+path = "services/bridge/deploy/chainconfig/validate.go"
+lines = 431
+verdict = "issues"
+note = "Validation omits destination integer limits and lowercases case-sensitive Solana mint identities."
+
+[finding.bridge-cap-width]
+file = "services/bridge/deploy/chainconfig/validate.go"
+line = 295
+class = "interface-mismatch"
+severity = "high"
+observed = "ChainConfig.validateCaps accepts any positive decimal big.Int when per_tx_cap <= total_cap. Thus both caps may be 2^256 on an EVM asset or 2^64 on a Solana asset and still pass Validate and the cap checks in RequireDeployable. Asset.PerTx and Asset.Total in config.go impose no width. DeployPaxeerXVault.s.sol:39-40 consumes uint256 arrays; contracts/bridge/solana/src/admin.rs:250-251 and state.rs:171-172 consume u64 caps. Accepted values therefore cannot round-trip through the deployment transport into the destination custody configuration."
+expected = "The shared bridge configuration must describe values representable by the destination vault/program and refuse an invalid cap before an operator begins deployment. EVM caps fit uint256; Solana caps fit u64; all caps remain positive and per-transaction does not exceed total."
+proposal = "In services/bridge/deploy/chainconfig/validate.go enforce caps <= 2^256-1 for KindEVM and <= 2^64-1 for KindSolana, with field-specific errors before deployment. Bound decimal input length before big.Int conversion in config.go. In config_test.go prove max and max+1 through Load, Overlay.Apply and RequireDeployable, and retain the real EVM/Solana transport checks."
+owner_domain = 14
+interface = "14.go-bridge-chainconfig-chainconfig-validate-j55"
+
+[finding.solana-mint-case]
+file = "services/bridge/deploy/chainconfig/validate.go"
+line = 270
+class = "runtime-risk"
+severity = "medium"
+observed = "validateAssets builds its duplicate-address key with strings.ToLower(asset.Address) before selecting the chain kind. Solana mints are case-sensitive base58 keys, so distinct valid public keys differing only by letter case are incorrectly treated as one asset and refused, even when their derived asset handles differ."
+expected = "Duplicate checks must preserve Solana public-key identity and reject only the same decoded 32-byte mint. EVM hex addresses may be normalized case-insensitively."
+proposal = "In services/bridge/deploy/chainconfig/validate.go derive the uniqueness key from decoded Solana public-key bytes for KindSolana and normalized 20-byte addresses for KindEVM. Add config_test.go cases admitting two valid case-varied Solana mints and refusing an actual duplicate."
+owner_domain = 14
+
+[finding.bridge-boundary-tests]
+file = "services/bridge/deploy/chainconfig/config_test.go"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "config_test.go exercises malformed amounts, zero caps, cap ordering, asset identities and overlays, but contains no destination-width max/max+1 cases and no pair of distinct Solana mints that collide under lowercase normalization. The acceptance paths can therefore retain both validation defects without a regression failure."
+expected = "The schema and deployability tests must prove the exact numeric and identity boundaries the EVM vault and Solana custody program consume, including private overlay application."
+proposal = "Extend services/bridge/deploy/chainconfig/config_test.go with EVM uint256 and Solana u64 max/max+1 table cases through loading and overlay validation, plus distinct case-varied Solana mint identities. Assert field-specific refusal and successful boundary round-trips without changing existing assertions."
+owner_domain = 14
+
+[finding.retired-copy-boundaries]
+file = "apps/web/e2e/copy-retired-operation.test.ts"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The RegExp constructor receives template text \\\\\\\\b${banned}\\\\\\\\b with a single backslash in the TypeScript source. JavaScript interprets each \\\\\\\\b as a backspace character, so normal banned vocabulary does not match the intended word-boundary expression and the copy check can pass incorrectly."
+expected = "Banned-vocabulary assertions must inspect complete visible words and fail on a representative banned phrase, while preserving the retired-operation message assertion."
+proposal = "In apps/web/e2e/copy-retired-operation.test.ts escape the backslashes for RegExp construction and escape any vocabulary regex metacharacters. Add positive matcher checks using a representative forbidden message so a backspace-based matcher cannot silently pass."
+owner_domain = 14
+
+[finding.approval-vacuous-cases]
+file = "apps/web/e2e/approvals.spec.ts"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "Critical grant/reject, expired, defective and released-activity checks are inside isVisible conditionals. beforeEach only navigates to /app/approvals and provisions no authenticated account or approvals. An empty inbox or sign-in page can bypass the decision and safety assertions, including the test named grants approval with step-up ceremony."
+expected = "Each approval scenario must establish its real producer state, require the expected item and action to exist, complete the required step-up and assert the durable decision or refusal."
+proposal = "In apps/web/e2e/approvals.spec.ts reuse public-session.ts and real approval producer setup to create pending, expired and defective cases. Require every target before acting, complete the real passkey step-up, and assert the backend decision plus receipt-gated released activity; retain all existing safety assertions."
+owner_domain = 14
+interface = "14.ts-web-journeys-approvals-controller-loadprogramapprovals"
+
+[finding.approval-two-device-proof]
+file = "apps/web/e2e/approvals.spec.ts"
+line = 157
+class = "test-gap"
+severity = "medium"
+observed = "The two-device approval cases open their second page with context.newPage(), sharing the same browser context, cookies and authentication session. Their action assertions are also conditional, so they do not prove a decision made from a separate device converges or prevents a second decision."
+expected = "Two-device approval coverage must use distinct authenticated device/session contexts for one account and observe one durable decision on both consumers, including refresh or reconnect."
+proposal = "In apps/web/e2e/approvals.spec.ts create two isolated authenticated browser contexts through the real registration/session APIs, complete a decision on one, and require the other to converge and refuse replay after reload. Assert the producer decision identity and released activity remain singular."
+owner_domain = 14
+
+[finding.settings-http-envelope]
+file = "apps/web/e2e/browser/settings.spec.ts"
+line = 142
+class = "test-gap"
+severity = "medium"
+observed = "The notification detail assertion reads response.json().detail, and lines 153, 165 and 184 pass entire HTTP profile documents into decodeProfile. createHumanApiClient.execute in src/api/generated/index.ts:5967-6010 requires {ok,trace,result} and returns result; next.config.mjs forwards /human/v1 to the service /v1 path without unwrapping. These browser checks decode a shape the real transport does not emit."
+expected = "The settings browser must inspect the service success envelope and decode its result, or use the same generated client as the application. Profile persistence and selected notification detail must still be verified against real service state."
+proposal = "In apps/web/e2e/browser/settings.spec.ts use the generated human API client with the authenticated context transport, or explicitly validate ok and trace then decode result for every direct response. Keep the reload/persistence and non-suppressible preference assertions and require malformed envelopes to fail."
+owner_domain = 14
+interface = "14.ts-web-api-generated-index-decodeprofile"
+
+[finding.retired-navigation-contract]
+file = "apps/explorer/ui/snippets/navigation/horizontal/NavLinkGroup.spec.tsx"
+line = 57
+class = "retired-reference"
+severity = "medium"
+observed = "The group regression requires Anchor checkpoints and Kernel receipts. Its producer lib/hooks/useNavItems.tsx:373-385 routes them to /paxeer-x/anchors and /paxeer-x/receipts. The earlier disposition 14.32.5.1 resolved the Kernel archive rename while retaining these children; the current retirement inventory component.explorer-kernel-views explicitly removes these destinations, so this test now protects the obsolete navigation."
+expected = "The merged explorer shows native block, transaction and address pages; retired kernel anchor/receipt views must not be offered as current destinations. Historical archive retention must not preserve retired public routes."
+proposal = "Update apps/explorer/lib/hooks/useNavItems.tsx and apps/explorer/ui/snippets/navigation/horizontal/NavLinkGroup.spec.tsx to expose native block/transaction destinations under the merged-network navigation. Require absence of /paxeer-x/anchors and /paxeer-x/receipts and preserve any approved archive only through its explicitly documented historical route."
+owner_domain = 14
+interface = "14.cfg-fe-feature-paxeerxlists"
+
+[finding.auth-navigation-skipped]
+file = "apps/explorer/ui/snippets/navigation/vertical/NavigationDesktop.pw.tsx"
+line = 56
+class = "test-gap"
+severity = "medium"
+observed = "authTest.describe.skip disables all authenticated vertical desktop navigation screenshots. The preceding comment attributes this to taking screenshots before Docker page loading completes; the contextWithAuth fixture exists but these auth-only layout states never execute."
+expected = "Declared authenticated navigation coverage must run after deterministic authentication and render readiness, so account actions and responsive layouts are exercised rather than silently excluded."
+proposal = "In apps/explorer/ui/snippets/navigation/vertical/NavigationDesktop.pw.tsx replace timing assumptions with explicit profile/loading and component readiness conditions using contextWithAuth, then run the existing authenticated cases at both viewports with their screenshot assertions intact."
+owner_domain = 14
+
+[finding.cluster-errors-hidden]
+file = "apps/explorer/ui/snippets/searchBar/useSearchWithClusters.tsx"
+line = 78
+class = "runtime-risk"
+severity = "medium"
+observed = "The cluster queryFn catches every useApiFetch rejection and returns null; select converts null to an empty result list. Network, authorization, server and cancellation failures therefore appear as a successful empty search, bypassing React Query error presentation and retry behavior."
+expected = "A genuinely unknown cluster may produce an empty result, while transport/authentication/server failures must remain distinguishable as unavailable or refused and retain their typed error and retry semantics."
+proposal = "In apps/explorer/ui/snippets/searchBar/useSearchWithClusters.tsx map only the documented unknown-cluster response to an empty result and propagate other ResourceError values. Keep abort cancellation distinct, and prove unavailable, unauthorized and genuine no-match responses through the actual query function."
+owner_domain = 14
+
+[finding.cluster-error-test-shape]
+file = "apps/explorer/ui/snippets/searchBar/useSearchWithClusters.spec.tsx"
+line = 428
+class = "test-gap"
+severity = "medium"
+observed = "The error case injects a mocked useQuery result with isError:true and asserts that it is returned. It does not execute queryFn or select, so it cannot detect that the actual hook catches every fetch failure and turns it into a successful empty result."
+expected = "Cluster error coverage must exercise the fetch-to-query-to-render path and prove actual transport errors remain errors, independently from legitimate unknown-name results."
+proposal = "In apps/explorer/ui/snippets/searchBar/useSearchWithClusters.spec.tsx drive the real query function with a controlled HTTP producer and QueryClient. Assert typed error propagation, retry/cancellation behavior and unknown-name emptiness without replacing the useQuery output object."
+owner_domain = 14
+
+[finding.search-category-ref-crash]
+file = "apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx"
+line = 61
+class = "runtime-risk"
+severity = "medium"
+observed = "The scroll handler unconditionally calls getBoundingClientRect on the last categoriesRefs entry. The effect at line 134 sizes that array from every itemsGroups key and fills new slots with React.createRef objects, while rendering only visibleCategories. Filtered-out result kinds or category changes can leave a non-element or null tail and cause a TypeError on scroll."
+expected = "Category scrolling must use references only to mounted visible headings and remain safe when result groups or configured visible categories change or become empty."
+proposal = "In apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx key heading refs by visible category id, remove unmounted refs and guard empty/non-element entries before measuring. Add scrolling tests with hidden result kinds, changing categories and empty results, retaining tab and keyboard behavior."
+owner_domain = 14
+
+[finding.search-readonly-prop]
+file = "apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx"
+line = 130
+class = "runtime-risk"
+severity = "low"
+observed = "SearchBarInput removes readOnly from rest props and uses it only for tabIndex, never forwarding it to Input. SearchBarMobile supplies readOnly=true for the hero drawer trigger, but assistive or programmatic focus still reaches an editable input rather than the declared read-only control."
+expected = "A readOnly input prop must apply native read-only semantics to the rendered input, including accessibility and keyboard behavior for the mobile hero trigger."
+proposal = "In apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx pass the declared readOnly value to Input. Extend SearchBarInput.spec.tsx and the mobile hero interaction case to assert native readOnly behavior and that activation still opens the drawer correctly."
+owner_domain = 14
+
+[finding.theme-settings-stale]
+file = "apps/explorer/ui/snippets/topBar/settings/SettingsColorTheme.tsx"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "SettingsColorTheme reads cookies and sets activeThemeId only on mount or its own selection. ColorModeToggle independently changes color mode, cookies and document colors; Settings keeps children mounted with lazyMount=false. After toggling the top-bar theme, reopening settings can show the previous theme label and selected swatch."
+expected = "All theme controls must display the currently applied theme and remain synchronized during top-bar changes, settings selection and reload."
+proposal = "In apps/explorer/ui/snippets/topBar/settings/SettingsColorTheme.tsx and topBar/ColorModeToggle.tsx use a shared reactive color-theme state and one persistence/apply path. Add a consumer test that toggles the top-bar mode then opens settings and checks label, swatch, document colors and persisted reload state."
+owner_domain = 14
+
+[finding.dynamic-email-rejection]
+file = "apps/explorer/ui/snippets/auth/linkEmail/useLinkEmailDynamic.ts"
+line = 20
+class = "runtime-risk"
+severity = "medium"
+observed = "useLinkEmailDynamic calls updateUserWithModal(...).then(...) and returns void without catching promise rejection. A failed or cancelled Dynamic email update has no error/cancellation branch, can produce an unhandled rejection and leaves the action with only a Started analytics event and no user-visible outcome."
+expected = "Email linking must preserve the previous profile on failure and distinguish successful completion, user cancellation and service rejection without an unhandled promise."
+proposal = "In apps/explorer/ui/snippets/auth/linkEmail/useLinkEmailDynamic.ts handle rejected updates explicitly, preserve existing query data and present actionable failure feedback while treating cancellation as cancellation. Exercise success, cancellation and provider rejection with the actual provider result contract."
+owner_domain = 14
+
+[finding.shared-login-partial-success]
+file = "apps/explorer/ui/snippets/auth/useSignInWithWallet.ts"
+line = 126
+class = "restart-recovery"
+severity = "medium"
+observed = "proceedToAuth awaits successful account authFetch before rewards:login, but invokes onSuccess only after the rewards request. The account backend authenticate_controller.ex:303-304 establishes the session in put_auth_to_session. A rewards outage can therefore leave an authenticated account cookie while the UI reports sign-in failure and never applies the returned profile."
+expected = "Successful account authentication must remain visible and recoverable if the separately hosted rewards login fails; optional rewards availability must not leave the account UI and server session disagreeing."
+proposal = "In apps/explorer/ui/snippets/auth/useSignInWithWallet.ts commit the authenticated account profile when authFetch succeeds, track rewards authentication separately and offer a safe retry for rewards. Add a producer-backed case where account verification succeeds and rewards fails, then reload and verify one consistent account session."
+owner_domain = 14
+
+[finding.history-retired-rpc-path]
+file = "apps/web/e2e/gateway-history.test.ts"
+line = 85
+class = "retired-reference"
+severity = "medium"
+observed = "The history test sets LAYERX_GATEWAY_URL to a loopback /rpc URL. Its loopback handler checks method bodies but not the request path, so the suite accepts the retired unified RPC route and cannot detect transport path drift."
+expected = "Paxeer node JSON-RPC is served at the root path and px methods belong to the separately hosted gateway contract. History coverage must verify each request reaches the intended producer and public path."
+proposal = "In apps/web/e2e/gateway-history.test.ts configure separate root node and hosted gateway origins matching their contracts, require exact inbound paths and method ownership, and exercise native block/transaction history using producer response shapes."
+owner_domain = 14
+interface = "14.ts-web-api-gateway-unifiedhistory"
+
+[finding.sponsored-retired-transport]
+file = "apps/web/e2e/wallet-sponsored-receipt.test.ts"
+line = 161
+class = "retired-reference"
+severity = "medium"
+observed = "The sponsored receipt server requires request.url === /rpc, excludes that path from its hosted-token assertion, and setup at lines 208-210 points gateway and node RPC settings at /rpc. This protects the retired unified transport rather than the root node endpoint and distinct gateway boundary. pax_sequencerReceipt itself remains declared in rpc/sequencer_receipt.go and is not retired merely because its name contains sequencer."
+expected = "Sponsored submission and recovery must use the current hosted gateway contract and root-path node JSON-RPC with the appropriate authentication for each producer. Committed receipt evidence remains required; retaining a declared node receipt method does not authorize a retired transport path."
+proposal = "In apps/web/e2e/wallet-sponsored-receipt.test.ts configure distinct hosted sponsorship and root node RPC origins and assert exact paths, method ownership and authentication at both servers. Preserve signed/committed receipt verification and recovery assertions. Reopen persisted recovery storage in a fresh provider session to prove safe replay and no duplicate submission."
+owner_domain = 14
+interface = "14.ts-web-api-wallet-sendwalletsponsoredbatch"
+
+[finding.onboarding-unwired-switches]
+file = "apps/web/e2e/onboarding.spec.ts"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "The browser suite supplies mock_onboarding_progress, mock_onboarding_failure, mock_onboarding_queued, mock_onboarding_resume, mock_signin_new_device and related URL flags to select states. No application source reader of these switches exists in apps/web/src, and the suite installs no producer for them. The URLs cannot establish the states the assertions claim to exercise."
+expected = "Onboarding coverage must create a real authenticated account and passkey ceremony and select lifecycle outcomes through the actual service producer, including reload and recovery."
+proposal = "In apps/web/e2e/onboarding.spec.ts use public-session.ts and real onboarding APIs to establish progress, failure, queue, second-device sign-in and resume cases. Require producer state and rendered outcomes to agree across reload; remove reliance on unconsumed URL switches while preserving every scenario assertion."
+owner_domain = 14
+
+[finding.onboarding-copy-key-only]
+file = "apps/web/e2e/onboarding.spec.ts"
+line = 354
+class = "test-gap"
+severity = "medium"
+observed = "The test named banned vocabulary does not appear in onboarding copy loops over hard-coded copyKey strings and tests those keys against BANNED. It never resolves copyEntry(key).message or checks the rendered onboarding prose, so forbidden terms in visible messages can pass."
+expected = "Vocabulary checks must inspect the messages users actually see, including interpolated and runtime catalogue text, rather than internal catalogue identifiers."
+proposal = "In apps/web/e2e/onboarding.spec.ts resolve every covered key through the current copy catalogue, render required interpolations and assert the banned-word policy on message text and relevant visible screens. Add a matcher counterexample proving a forbidden message would fail."
+owner_domain = 14
+
+[finding.move-fixture-route-shape]
+file = "apps/web/e2e/move.spec.ts"
+line = 140
+class = "test-gap"
+severity = "medium"
+observed = "Refusal, checking, progress, completion and quote-expiry cases intercept **/v1/move/commit. The generated moveCommit actually POSTs /v1/moves and moveQuote POSTs /v1/moves/quote. Fixtures emit bare journey/error objects with created_at instead of the current result envelope and required journey fields, so they do not exercise the consumer contract."
+expected = "Move scenarios must hit the actual quote/commit routes and decode the producer success or typed error envelope through the application client, preserving receipt-gated completion and idempotency."
+proposal = "In apps/web/e2e/move.spec.ts establish a real public session and quote/commit producer, observe POST /human/v1/moves and /human/v1/moves/quote, and use the generated Journey/error contract inside {ok,trace,result/error}. Require each targeted outcome and receipt gate through the rendered application instead of a third fixture schema."
+owner_domain = 14
+interface = "14.ts-web-api-generated-index-createhumanapiclient"
+
+[finding.support-fixture-route-shape]
+file = "apps/web/e2e/support.spec.ts"
+line = 205
+class = "test-gap"
+severity = "medium"
+observed = "Feedback setup intercepts /api/human/v1/support/list and error cases abort /api/human/v1/**. The application client is rooted at /human/v1 and generated support operations use /v1/support/conversations. The fake list is also a bare conversations object rather than a validated service success envelope, so these handlers do not control the real application requests."
+expected = "Support feedback and failure coverage must exercise the same authenticated conversation operations and response/error envelopes as the live client, with transport failures observed on the exact requested URL."
+proposal = "In apps/web/e2e/support.spec.ts use a public session and real support conversation producer. Target the generated /human/v1/support/conversations operations, require request observation, and preserve service envelopes for replies and feedback. Trigger typed failures or genuine transport interruption on those routes and assert retry and retained draft behavior."
+owner_domain = 14
+interface = "14.ts-web-api-generated-index-createhumanapiclient"
+
+[finding.kit-separate-layerx-finality]
+file = "apps/web/e2e/proof_kit.test.ts"
+line = 61
+class = "retired-reference"
+severity = "medium"
+observed = "The kit proof hard-codes checkpoint-finalised -> verification.checkpoint_finalised -> Finalised on LayerX and requires that wording from the copy producer and consumers. This protects a separate LayerX finality claim even though the merged chain commits the receipt block directly."
+expected = "Finality wording must describe the one Paxeer network and verified committed block evidence. Retained internal enum names must not imply another running network or checkpoint settlement step."
+proposal = "Update apps/web/copy catalogue messages and apps/web/e2e/proof_kit.test.ts to describe committed Paxeer block finality, retaining the current evidence distinctions and refusal assertions. Prove the real copy consumer renders that wording only when commit verification succeeds."
+owner_domain = 14
+
+[finding.profile-readme-provider-drift]
+file = "apps/explorer/ui/snippets/user/README.md"
+line = 1
+class = "doc-drift"
+severity = "low"
+observed = "The two-line README says profile components require Account and WalletConnect and wallet components require only WalletConnect. UserProfileDesktop selects Auth0 or Dynamic whenever the account feature is enabled, and Dynamic can render an email account independently of a connected wallet."
+expected = "The profile documentation must describe provider selection and account-only versus wallet-only behavior using the current account and blockchainInteraction configuration."
+proposal = "Rewrite apps/explorer/ui/snippets/user/README.md with the Auth0/Dynamic dispatch in UserProfileDesktop, the shared wallet content, account-only email behavior and the blockchainInteraction wallet fallback. Name the controlling feature keys and both desktop/mobile consumers."
+owner_domain = 14
+
+[finding.monorepo-topology-doc]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction names layerxd as a running LayerX kernel alongside paxd. Lines 70-71 split balance execution from checkpoint registration, guarantor bonds and emergency exits; the layout/build description still presents the pre-merge runtime as a separate operational component."
+expected = "The finished deployment has one paxd BFT chain with the kernel proposing blocks internally, EVM chain id 125 and finality at block commit. Retired layerxd/checkpoint/custody services must not be deployment instructions."
+proposal = "Rewrite docs/MONOREPO.md introduction, layout and trust boundaries around the current apps/services/contracts tree and one paxd deployment. Label any retained historical source/build information as historical and replace checkpoint/guarantor operations with native committed block and state-proof responsibilities."
+owner_domain = 17
+
+[finding.quickstart-rpc-doc]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The page advertises public POST /rpc at line 20, /rpc and /rpc/ws at lines 167-168, and public api-mainnet-beta.paxeer.network/rpc URLs at lines 214-215 and 302. Later CLI examples at lines 497, 518 and 596 continue to direct requests to that retired unified surface."
+expected = "Public node JSON-RPC uses the root api1..14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network origins on chain 125. Hosted px methods have their own gateway contract; /rpc, /rpc/ws and /rpc/schema are retired."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md transport and CLI sections using root node RPC examples and separately configured hosted gateway operations from services/platform/hosted/gateway/openrpc.json. Remove every retired path and check each documented method against its actual owning producer."
+owner_domain = 17
+
+[finding.quickstart-settlement-doc]
+file = "docs/site/docs/overview/quickstart.md"
+line = 132
+class = "doc-drift"
+severity = "medium"
+observed = "The configuration table instructs operators to use layerxAnchor 0x1014 for checkpoint settlement; the receipt section asks for a sequencer signature and batch evidence and later flows retain separate custody credits and sequencer trust-anchor setup. These are presented as current onboarding/payment requirements."
+expected = "Native balances and transactions belong to the single merged chain. Receipt finality follows verified block commit and native proofs; retired custody, anchor and authorized-batch workflows must not be required for a current user or operator."
+proposal = "Replace the obsolete settlement, custody-credit, authorized-batch and standalone sequencer setup sections in docs/site/docs/overview/quickstart.md with current native account, transaction receipt and committed-block proof flows. Keep authentication and payment refusal guidance grounded in the current producer APIs."
+owner_domain = 17
+
+[finding.overview-es-topology]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview says ordinary agent activity executes in LayerX and periodic checkpoints settle on Paxeer, with custody, guarantor bonds, disputes and emergency exits on the latter. The layout at line 98 lists layerxd as a daemon and the example verifies a sequencer key as the network authority."
+expected = "Every locale must describe one Paxeer BFT network on chain 125, with the kernel inside paxd and finality at block commit, and must not instruct users to run a retired daemon or checkpoint settlement domain."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md network description, verification example and directory table from the merged topology. Describe committed-header verification and current apps/services paths, remove standalone layerxd/checkpoint/guarantor instructions, and keep terminology aligned with the current operator quickstart."
+owner_domain = 17
+
+[finding.overview-pt-br-topology]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview says ordinary agent activity executes in LayerX and periodic checkpoints settle on Paxeer, with custody, guarantor bonds, disputes and emergency exits on the latter. The layout at line 98 lists layerxd as a daemon and the example verifies a sequencer key as the network authority."
+expected = "Every locale must describe one Paxeer BFT network on chain 125, with the kernel inside paxd and finality at block commit, and must not instruct users to run a retired daemon or checkpoint settlement domain."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md network description, verification example and directory table from the merged topology. Describe committed-header verification and current apps/services paths, remove standalone layerxd/checkpoint/guarantor instructions, and keep terminology aligned with the current operator quickstart."
+owner_domain = 17
+
+[finding.overview-de-topology]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview says ordinary agent activity executes in LayerX and periodic checkpoints settle on Paxeer, with custody, guarantor bonds, disputes and emergency exits on the latter. The layout at line 98 lists layerxd as a daemon and the example verifies a sequencer key as the network authority."
+expected = "Every locale must describe one Paxeer BFT network on chain 125, with the kernel inside paxd and finality at block commit, and must not instruct users to run a retired daemon or checkpoint settlement domain."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md network description, verification example and directory table from the merged topology. Describe committed-header verification and current apps/services paths, remove standalone layerxd/checkpoint/guarantor instructions, and keep terminology aligned with the current operator quickstart."
+owner_domain = 17
+
+[finding.readme-pt-br-topology]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The localized README describes paxd plus layerxd as two execution domains at line 37, checkpoint settlement through layerxAnchor 0x1014 and custody 0x1013 at line 39, and a running layerxd sequencer/guarantor topology in the architecture diagram around lines 125-239. Directory entries also retain the old pre-monorepo layout."
+expected = "The current network runs paxd with the kernel integrated, chain id 125 and finality at block commit. Retired layerxd, checkpoint settlement and custody-claim services must not appear as current deployable architecture."
+proposal = "Rewrite docs/readme/README.pt-BR.md architecture prose and Mermaid diagram around the one paxd chain, native balances, committed blocks and current hosted gateway boundaries. Update directory/build links to current paths and identify any preserved historical material explicitly instead of presenting it as deployment guidance."
+owner_domain = 17
+
+[finding.readme-fr-topology]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The localized README describes paxd plus layerxd as two execution domains at line 37, checkpoint settlement through layerxAnchor 0x1014 and custody 0x1013 at line 39, and a running layerxd sequencer/guarantor topology in the architecture diagram around lines 125-239. Directory entries also retain the old pre-monorepo layout."
+expected = "The current network runs paxd with the kernel integrated, chain id 125 and finality at block commit. Retired layerxd, checkpoint settlement and custody-claim services must not appear as current deployable architecture."
+proposal = "Rewrite docs/readme/README.fr.md architecture prose and Mermaid diagram around the one paxd chain, native balances, committed blocks and current hosted gateway boundaries. Update directory/build links to current paths and identify any preserved historical material explicitly instead of presenting it as deployment guidance."
+owner_domain = 17
+
+[finding.readme-de-topology]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The localized README describes paxd plus layerxd as two execution domains at line 37, checkpoint settlement through layerxAnchor 0x1014 and custody 0x1013 at line 39, and a running layerxd sequencer/guarantor topology in the architecture diagram around lines 125-239. Directory entries also retain the old pre-monorepo layout."
+expected = "The current network runs paxd with the kernel integrated, chain id 125 and finality at block commit. Retired layerxd, checkpoint settlement and custody-claim services must not appear as current deployable architecture."
+proposal = "Rewrite docs/readme/README.de.md architecture prose and Mermaid diagram around the one paxd chain, native balances, committed blocks and current hosted gateway boundaries. Update directory/build links to current paths and identify any preserved historical material explicitly instead of presenting it as deployment guidance."
+owner_domain = 17
+
+[finding.readme-es-topology]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The localized README describes paxd plus layerxd as two execution domains at line 37, checkpoint settlement through layerxAnchor 0x1014 and custody 0x1013 at line 39, and a running layerxd sequencer/guarantor topology in the architecture diagram around lines 125-239. Directory entries also retain the old pre-monorepo layout."
+expected = "The current network runs paxd with the kernel integrated, chain id 125 and finality at block commit. Retired layerxd, checkpoint settlement and custody-claim services must not appear as current deployable architecture."
+proposal = "Rewrite docs/readme/README.es.md architecture prose and Mermaid diagram around the one paxd chain, native balances, committed blocks and current hosted gateway boundaries. Update directory/build links to current paths and identify any preserved historical material explicitly instead of presenting it as deployment guidance."
+owner_domain = 17
+
+[finding.x402-site-transport]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The x402 transport page directs public JSON-RPC to POST /rpc with lx_sendActivity and later requires a guarantor checkpoint certificate for finalised evidence. It describes sequencer-signed activity/batch evidence as the running payment transport rather than the merged node and hosted gateway boundary."
+expected = "Payments must follow the current declared transport and evidence producers: root node JSON-RPC, hosted gateway method ownership and committed-block finality on the single Paxeer chain. No separate sequencer or guarantor checkpoint can establish current network finality."
+proposal = "Rewrite docs/site/docs/interop/x402.md transport, supported commitment and receipt-verification sections against the current x402 producer and hosted gateway contract. Show the node root path, bind payment identity/amount to native receipt and commit evidence, preserve replay/refusal behavior and keep this page synchronized with its companion x402 page."
+owner_domain = 17
+
+[finding.x402-wiki-transport]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The x402 transport page directs public JSON-RPC to POST /rpc with lx_sendActivity and later requires a guarantor checkpoint certificate for finalised evidence. It describes sequencer-signed activity/batch evidence as the running payment transport rather than the merged node and hosted gateway boundary."
+expected = "Payments must follow the current declared transport and evidence producers: root node JSON-RPC, hosted gateway method ownership and committed-block finality on the single Paxeer chain. No separate sequencer or guarantor checkpoint can establish current network finality."
+proposal = "Rewrite docs/wiki/X402Transport.md transport, supported commitment and receipt-verification sections against the current x402 producer and hosted gateway contract. Show the node root path, bind payment identity/amount to native receipt and commit evidence, preserve replay/refusal behavior and keep this page synchronized with its companion x402 page."
+owner_domain = 17
+
+[finding.commitment-finality-doc]
+file = "docs/site/docs/protocol/commitment-levels.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The finalised row requires latest finalised checkpoint evidence whose canonical_header equals a signed batch header. Lines 28-32 prescribe latest_finalised_checkpoint and checkpoint_evidence matching as the finality proof; this is the retired periodic settlement model."
+expected = "A receipt is final when its block is committed on the single BFT chain; verification binds the receipt to the committed header/commit at that height. Intermediate local/gateway statuses must not be promoted to finality."
+proposal = "Rewrite docs/site/docs/protocol/commitment-levels.md evidence table and finalised procedure around committed native headers, receipts and commit/state-proof verification. Remove checkpoint settlement as a current prerequisite and retain explicit pending, unavailable and evidence-mismatch outcomes."
+owner_domain = 17
+
+[finding.receipt-link-retired-target]
+file = "apps/web/e2e/explorer.spec.ts"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "The identified-target test positively requires explorerLinkPath({kind:receipt, receiptId}) to return /paxeer-x/receipts/<id>. The current helper in src/explorer/links.ts:29 returns that route for every receipt; its explorer destination ui/pages/PaxeerXReceipt.tsx only admits frozen:true archive records. This preserves an archive destination as the default current receipt link."
+expected = "Current receipt links must lead to the merged native transaction/block evidence, while frozen pre-merge receipts remain clearly historical. The retirement inventory component.explorer-kernel-views replaces /paxeer-x/receipts and anchor views with native block, transaction and address pages."
+proposal = "In apps/web/src/explorer/links.ts and its receipt-link consumers, resolve the current receipt to its native transaction hash and use the native explorer transaction page. Keep historical archive access explicitly distinguished by historical identity. Update the affected proof to assert the destination and live native receipt data, preserving origin and identifier validation."
+owner_domain = 14
+interface = "14.ts-web-explorer-links-explorerlinkpath"
+
+[finding.receipt-env-proof-retired-target]
+file = "apps/web/e2e/proof_env.test.ts"
+line = 89
+class = "test-gap"
+severity = "medium"
+observed = "The environment proof correctly refuses obsolete origin settings, but both positive assertions build /paxeer-x/receipts/<id> for a current receipt target. The real explorer consumer at ui/pages/PaxeerXReceipt.tsx accepts only frozen archive data, so origin validation can pass while the product link still points to the retired kernel view."
+expected = "Current receipt links must lead to the merged native transaction/block evidence, while frozen pre-merge receipts remain clearly historical. The retirement inventory component.explorer-kernel-views replaces /paxeer-x/receipts and anchor views with native block, transaction and address pages."
+proposal = "In apps/web/src/explorer/links.ts and its receipt-link consumers, resolve the current receipt to its native transaction hash and use the native explorer transaction page. Keep historical archive access explicitly distinguished by historical identity. Update the affected proof to assert the destination and live native receipt data, preserving origin and identifier validation."
+owner_domain = 14
+interface = "14.ts-web-explorer-links-explorerlinkpath"
+
+[finding.receipt-consumer-proof-retired-target]
+file = "apps/web/e2e/proof_explorer.test.ts"
+line = 269
+class = "test-gap"
+severity = "medium"
+observed = "The real-consumer link proof renders a receipt target returned by explorerLinkPath and asserts its href reaches the configured explorer origin, without asserting a current native receipt destination. The helper emits /paxeer-x/receipts/<id>, whose destination admits frozen archive records. Local page/API producer checks do not establish that the external explorer link displays the current native transaction."
+expected = "Current receipt links must lead to the merged native transaction/block evidence, while frozen pre-merge receipts remain clearly historical. The retirement inventory component.explorer-kernel-views replaces /paxeer-x/receipts and anchor views with native block, transaction and address pages."
+proposal = "In apps/web/src/explorer/links.ts and its receipt-link consumers, resolve the current receipt to its native transaction hash and use the native explorer transaction page. Keep historical archive access explicitly distinguished by historical identity. Update the affected proof to assert the destination and live native receipt data, preserving origin and identifier validation."
+owner_domain = 14
+interface = "14.ts-web-explorer-links-explorerlinkpath"
+
+[doc.01]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in monorepo-topology-doc. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.02]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in quickstart-rpc-doc, quickstart-settlement-doc. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.03]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in overview-es-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.04]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in overview-pt-br-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.05]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in overview-de-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.06]
+path = "docs/site/docs/interop/x402.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in x402-site-transport. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.07]
+path = "docs/site/docs/protocol/commitment-levels.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in commitment-finality-doc. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.08]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in readme-pt-br-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.09]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in readme-fr-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.10]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in readme-de-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.11]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in readme-es-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.12]
+path = "docs/wiki/X402Transport.md"
+status = "stale"
+notes = "Read in full. Current-deployment transport/topology or finality drift is anchored in x402-wiki-transport. Rewrite for one paxd chain, root node RPC and committed-block finality."
+
+[doc.13]
+path = "apps/explorer/ui/snippets/user/README.md"
+status = "stale"
+notes = "Read in full; provider selection and account-only Dynamic behavior are missing. See profile-readme-provider-drift."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/bridge-deploy.md"
+status = "accurate"
+notes = "Read in full as a frozen interface baseline, including the schema, overlays and deployment transport rows. Historical source revisions and planned states are pinned context; destination cap-width disagreement in current validation is recorded as bridge-cap-width."

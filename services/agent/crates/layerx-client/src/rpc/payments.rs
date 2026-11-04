@@ -1,7 +1,7 @@
 //! Payment operations over JSON-RPC.
 
-use crate::lni::schema::Version;
 use crate::px::{PxAssetEntry, PxAssetTable};
+use crate::rpc::Version;
 use crate::sequencer::SequencerError;
 
 pub type CallRequest = crate::sequencer::CallRequest;

@@ -2,7 +2,9 @@
 
 Private-network only. The faucet has no public name on Paxeer X Network and is
 run only inside a private or disposable network; public accounts are funded
-through [custody credit](../human/custody.md) submitted to the router.
+through [custody credit](../human/custody.md) submitted to an operator-deployed
+gateway. The public node names serve JSON-RPC at the root path; they do not
+expose the gateway methods.
 
 
 An exact successful claim and the resulting JSON-RPC payment flow are in

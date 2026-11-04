@@ -1,0 +1,1935 @@
+[audit.22.30.155]
+task = "22.30.155"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 212
+findings = 56
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["address-case", "transaction-type-union", "selfdestruct-rule"]
+
+[file.1]
+path = "apps/explorer/ui/token/TokenAdvancedFilterLink.tsx"
+lines = 38
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.2]
+path = "apps/explorer/ui/token/TokenDetails.spec.tsx"
+lines = 101
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.3]
+path = "apps/explorer/ui/token/TokenDetails.tsx"
+lines = 281
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.4]
+path = "apps/explorer/ui/token/TokenHolders/TokenHolders.spec.tsx"
+lines = 99
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.5]
+path = "apps/explorer/ui/token/TokenHolders/TokenHolders.tsx"
+lines = 111
+verdict = "issues"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.6]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersList.pw.tsx"
+lines = 19
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.7]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersList.tsx"
+lines = 32
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.8]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersListItem.tsx"
+lines = 73
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.9]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersTable.pw.tsx"
+lines = 28
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.10]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersTable.spec.tsx"
+lines = 55
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.11]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersTable.tsx"
+lines = 41
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.12]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersTableItem.spec.tsx"
+lines = 61
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.13]
+path = "apps/explorer/ui/token/TokenHolders/TokenHoldersTableItem.tsx"
+lines = 61
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.14]
+path = "apps/explorer/ui/token/TokenInventory.pw.tsx"
+lines = 40
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.15]
+path = "apps/explorer/ui/token/TokenInventory.spec.tsx"
+lines = 118
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.16]
+path = "apps/explorer/ui/token/TokenInventory.tsx"
+lines = 113
+verdict = "issues"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.17]
+path = "apps/explorer/ui/token/TokenInventoryItem.spec.tsx"
+lines = 64
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.18]
+path = "apps/explorer/ui/token/TokenInventoryItem.tsx"
+lines = 87
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.19]
+path = "apps/explorer/ui/token/TokenNftMarketplaces.tsx"
+lines = 92
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.20]
+path = "apps/explorer/ui/token/TokenPageTitle.spec.tsx"
+lines = 135
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.21]
+path = "apps/explorer/ui/token/TokenPageTitle.tsx"
+lines = 197
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.22]
+path = "apps/explorer/ui/token/TokenProjectInfo.tsx"
+lines = 25
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.23]
+path = "apps/explorer/ui/token/TokenProjectInfo/Content.tsx"
+lines = 92
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.24]
+path = "apps/explorer/ui/token/TokenProjectInfo/DocsLink.tsx"
+lines = 26
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.25]
+path = "apps/explorer/ui/token/TokenProjectInfo/ServiceLink.tsx"
+lines = 33
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.26]
+path = "apps/explorer/ui/token/TokenProjectInfo/SupportLink.tsx"
+lines = 29
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.27]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.pw.tsx"
+lines = 93
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.28]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx"
+lines = 126
+verdict = "issues"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.29]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx"
+lines = 146
+verdict = "issues"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.30]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransferList.tsx"
+lines = 37
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.31]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransferListItem.tsx"
+lines = 128
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.32]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransferTable.spec.tsx"
+lines = 93
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.33]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransferTable.tsx"
+lines = 79
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.34]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransferTableItem.spec.tsx"
+lines = 74
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.35]
+path = "apps/explorer/ui/token/TokenTransfer/TokenTransferTableItem.tsx"
+lines = 117
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.36]
+path = "apps/explorer/ui/token/TokenVerifiedInfo.spec.tsx"
+lines = 87
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.37]
+path = "apps/explorer/ui/token/TokenVerifiedInfo.tsx"
+lines = 84
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.38]
+path = "apps/explorer/ui/token/getTokenInventoryTitle.spec.ts"
+lines = 52
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.39]
+path = "apps/explorer/ui/token/getTokenInventoryTitle.ts"
+lines = 21
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.40]
+path = "apps/explorer/ui/token/useTokenQuery.tsx"
+lines = 16
+verdict = "clean"
+note = "Reviewed complete token view/helper: token identity, decimal strings, optional metadata, feature gating, API rows and links; findings identify paging/count or declared-event coverage gaps."
+
+[file.41]
+path = "apps/explorer/ui/txnBatches/arbitrumL2/ArbitrumL2TxnBatchDetails.tsx"
+lines = 213
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.42]
+path = "apps/explorer/ui/txnBatches/arbitrumL2/ArbitrumL2TxnBatchDetailsAnyTrustDA.tsx"
+lines = 119
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.43]
+path = "apps/explorer/ui/txnBatches/arbitrumL2/ArbitrumL2TxnBatchDetailsCelestiaDA.tsx"
+lines = 52
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.44]
+path = "apps/explorer/ui/txnBatches/arbitrumL2/ArbitrumL2TxnBatchesListItem.tsx"
+lines = 103
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.45]
+path = "apps/explorer/ui/txnBatches/arbitrumL2/ArbitrumL2TxnBatchesTable.tsx"
+lines = 47
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.46]
+path = "apps/explorer/ui/txnBatches/arbitrumL2/ArbitrumL2TxnBatchesTableItem.tsx"
+lines = 82
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.47]
+path = "apps/explorer/ui/txnBatches/arbitrumL2/useBatchQuery.tsx"
+lines = 30
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.48]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchBlobCallData.tsx"
+lines = 32
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.49]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchBlobCelestia.tsx"
+lines = 54
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.50]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchBlobEigenda.tsx"
+lines = 48
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.51]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchBlobEip4844.tsx"
+lines = 44
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.52]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchBlobWrapper.tsx"
+lines = 29
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.53]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchDetails.pw.tsx"
+lines = 53
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.54]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchDetails.tsx"
+lines = 153
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.55]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchesListItem.tsx"
+lines = 86
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.56]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchesTable.tsx"
+lines = 46
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.57]
+path = "apps/explorer/ui/txnBatches/optimisticL2/OptimisticL2TxnBatchesTableItem.tsx"
+lines = 70
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.58]
+path = "apps/explorer/ui/txnBatches/optimisticL2/useBatchQuery.tsx"
+lines = 30
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.59]
+path = "apps/explorer/ui/txnBatches/scrollL2/ScrollL2TxnBatchDetails.tsx"
+lines = 219
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.60]
+path = "apps/explorer/ui/txnBatches/scrollL2/ScrollL2TxnBatchesListItem.tsx"
+lines = 129
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.61]
+path = "apps/explorer/ui/txnBatches/scrollL2/ScrollL2TxnBatchesTable.tsx"
+lines = 49
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.62]
+path = "apps/explorer/ui/txnBatches/scrollL2/ScrollL2TxnBatchesTableItem.tsx"
+lines = 105
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.63]
+path = "apps/explorer/ui/txnBatches/zkEvmL2/ZkEvmL2TxnBatchDetails.tsx"
+lines = 197
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.64]
+path = "apps/explorer/ui/txnBatches/zkEvmL2/ZkEvmTxnBatchesListItem.tsx"
+lines = 95
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.65]
+path = "apps/explorer/ui/txnBatches/zkEvmL2/ZkEvmTxnBatchesTable.tsx"
+lines = 45
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.66]
+path = "apps/explorer/ui/txnBatches/zkEvmL2/ZkEvmTxnBatchesTableItem.tsx"
+lines = 85
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.67]
+path = "apps/explorer/ui/txnBatches/zkSyncL2/ZkSyncL2TxnBatchDetails.tsx"
+lines = 178
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.68]
+path = "apps/explorer/ui/txnBatches/zkSyncL2/ZkSyncL2TxnBatchHashesInfo.tsx"
+lines = 93
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.69]
+path = "apps/explorer/ui/txnBatches/zkSyncL2/ZkSyncTxnBatchesListItem.tsx"
+lines = 95
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.70]
+path = "apps/explorer/ui/txnBatches/zkSyncL2/ZkSyncTxnBatchesTable.tsx"
+lines = 45
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.71]
+path = "apps/explorer/ui/txnBatches/zkSyncL2/ZkSyncTxnBatchesTableItem.tsx"
+lines = 85
+verdict = "clean"
+note = "Reviewed complete optional rollup view: batch identifiers, status links, timestamps, DA variants and responsive fields. Retained rollup compatibility is not a Paxeer standalone sequencer dependency."
+
+[file.72]
+path = "apps/explorer/ui/txs/TxAdditionalInfo.pw.tsx"
+lines = 24
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.73]
+path = "apps/explorer/ui/txs/TxAdditionalInfo.tsx"
+lines = 63
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.74]
+path = "apps/explorer/ui/txs/TxAdditionalInfoContainer.tsx"
+lines = 60
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.75]
+path = "apps/explorer/ui/txs/TxAdditionalInfoContent.tsx"
+lines = 152
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.76]
+path = "apps/explorer/ui/txs/TxPriceUpdate.tsx"
+lines = 33
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.77]
+path = "apps/explorer/ui/txs/TxTranslationType.tsx"
+lines = 32
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.78]
+path = "apps/explorer/ui/txs/TxType.tsx"
+lines = 84
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.79]
+path = "apps/explorer/ui/txs/TxsContent.spec.tsx"
+lines = 193
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.80]
+path = "apps/explorer/ui/txs/TxsContent.tsx"
+lines = 211
+verdict = "issues"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.81]
+path = "apps/explorer/ui/txs/TxsHeaderMobile.tsx"
+lines = 68
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.82]
+path = "apps/explorer/ui/txs/TxsList.tsx"
+lines = 59
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.83]
+path = "apps/explorer/ui/txs/TxsListItem.pw.tsx"
+lines = 23
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.84]
+path = "apps/explorer/ui/txs/TxsListItem.spec.tsx"
+lines = 80
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.85]
+path = "apps/explorer/ui/txs/TxsListItem.tsx"
+lines = 161
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.86]
+path = "apps/explorer/ui/txs/TxsStats.pw.tsx"
+lines = 15
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.87]
+path = "apps/explorer/ui/txs/TxsStats.spec.tsx"
+lines = 132
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.88]
+path = "apps/explorer/ui/txs/TxsStats.tsx"
+lines = 217
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.89]
+path = "apps/explorer/ui/txs/TxsTable.pw.tsx"
+lines = 45
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.90]
+path = "apps/explorer/ui/txs/TxsTable.spec.tsx"
+lines = 86
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.91]
+path = "apps/explorer/ui/txs/TxsTable.tsx"
+lines = 156
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.92]
+path = "apps/explorer/ui/txs/TxsTableItem.spec.tsx"
+lines = 125
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.93]
+path = "apps/explorer/ui/txs/TxsTableItem.tsx"
+lines = 197
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.94]
+path = "apps/explorer/ui/txs/TxsTabs.spec.tsx"
+lines = 65
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.95]
+path = "apps/explorer/ui/txs/TxsTabs.tsx"
+lines = 182
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.96]
+path = "apps/explorer/ui/txs/TxsWatchlist.tsx"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.97]
+path = "apps/explorer/ui/txs/TxsWithAPISorting.spec.tsx"
+lines = 78
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.98]
+path = "apps/explorer/ui/txs/TxsWithAPISorting.tsx"
+lines = 69
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.99]
+path = "apps/explorer/ui/txs/TxsWithFrontendSorting.tsx"
+lines = 56
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.100]
+path = "apps/explorer/ui/txs/noves/useDescribeTxs.tsx"
+lines = 45
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.101]
+path = "apps/explorer/ui/txs/noves/utils.ts"
+lines = 13
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.102]
+path = "apps/explorer/ui/txs/socket/TxsSocketNotice.tsx"
+lines = 38
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.103]
+path = "apps/explorer/ui/txs/socket/TxsSocketNoticeTypeAddress.tsx"
+lines = 42
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.104]
+path = "apps/explorer/ui/txs/socket/TxsSocketNoticeTypeAll.tsx"
+lines = 55
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.105]
+path = "apps/explorer/ui/txs/socket/types.ts"
+lines = 2
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.106]
+path = "apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx"
+lines = 136
+verdict = "issues"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.107]
+path = "apps/explorer/ui/txs/socket/useTxsSocketTypeAll.tsx"
+lines = 86
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.108]
+path = "apps/explorer/ui/txs/sortTxs.spec.ts"
+lines = 81
+verdict = "clean"
+note = "Reviewed complete UI test/story and its supplied API data, display assertions and configured feature flags; fixture coverage is distinct from producer-to-consumer runtime evidence."
+
+[file.109]
+path = "apps/explorer/ui/txs/sortTxs.ts"
+lines = 44
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.110]
+path = "apps/explorer/ui/txs/useTxsSort.tsx"
+lines = 58
+verdict = "clean"
+note = "Reviewed complete transaction view/helper: API transaction fields, fees, pending/confirmed state, list/table parity, sorting and live-update lifecycle; findings identify affected cache and count behavior."
+
+[file.111]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain.ex"
+lines = 2794
+verdict = "clean"
+note = "Reviewed complete chain implementation or manifest against its declared interfaces and package requirements; this static audit makes no dependency-install or runtime gate claim."
+
+[file.112]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/batch_block.ex"
+lines = 69
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.113]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/batch_to_da_blob.ex"
+lines = 64
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.114]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/batch_transaction.ex"
+lines = 61
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.115]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/da_multi_purpose_record.ex"
+lines = 124
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.116]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/l1_batch.ex"
+lines = 89
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.117]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/l1_execution.ex"
+lines = 60
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.118]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/lifecycle_transaction.ex"
+lines = 70
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.119]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/message.ex"
+lines = 94
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.120]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/README.md"
+lines = 40
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.121]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/api/general.ex"
+lines = 44
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.122]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/api/messages.ex"
+lines = 183
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.123]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/api/settlement.ex"
+lines = 536
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.124]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/common.ex"
+lines = 137
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.125]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/indexer/general.ex"
+lines = 72
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.126]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/indexer/messages.ex"
+lines = 513
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.127]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/indexer/parent_chain_transactions.ex"
+lines = 115
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.128]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/indexer/settlement.ex"
+lines = 632
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.129]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/deposit.ex"
+lines = 137
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.130]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/dispute_game.ex"
+lines = 125
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.131]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/eip1559_config_update.ex"
+lines = 110
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.132]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/frame_sequence.ex"
+lines = 237
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.133]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/frame_sequence_blob.ex"
+lines = 146
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.134]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex"
+lines = 944
+verdict = "issues"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.135]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/output_root.ex"
+lines = 102
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.136]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/reader.ex"
+lines = 43
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.137]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/transaction_batch.ex"
+lines = 238
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.138]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/withdrawal.ex"
+lines = 499
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.139]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/withdrawal_event.ex"
+lines = 94
+verdict = "clean"
+note = "Reviewed complete optional rollup schema/reader: typed fields, associations, query ordering, paging, lifecycle state and API/indexer callers; findings distinguish concrete query defects from optional-chain support."
+
+[file.140]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction.ex"
+lines = 3040
+verdict = "issues"
+note = "Reviewed complete chain implementation or manifest against its declared interfaces and package requirements; this static audit makes no dependency-install or runtime gate claim."
+
+[file.141]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/airtable_audit_report.ex"
+lines = 61
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.142]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0.ex"
+lines = 279
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.143]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/internal.ex"
+lines = 630
+verdict = "issues"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.144]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/legacy.ex"
+lines = 245
+verdict = "issues"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.145]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/migrated.ex"
+lines = 190
+verdict = "issues"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.146]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/dynamic.ex"
+lines = 93
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.147]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/dynamic/strategy.ex"
+lines = 44
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.148]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/dynamic/token.ex"
+lines = 22
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.149]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/keycloak.ex"
+lines = 491
+verdict = "issues"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.150]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/noves_fi.ex"
+lines = 100
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.151]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/solidityscan.ex"
+lines = 56
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.152]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex"
+lines = 451
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.153]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/universal_proxy.ex"
+lines = 453
+verdict = "issues"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.154]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/universal_proxy/socket_handler.ex"
+lines = 69
+verdict = "issues"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.155]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/universal_proxy/target_client.ex"
+lines = 55
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.156]
+path = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/xname.ex"
+lines = 50
+verdict = "clean"
+note = "Reviewed complete integration: configuration lookup, request/response handling, authentication metadata, error branches and state lifecycle; findings name the concrete affected flows."
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/package.json"
+lines = 22
+verdict = "clean"
+note = "Reviewed complete chain implementation or manifest against its declared interfaces and package requirements; this static audit makes no dependency-install or runtime gate claim."
+
+[file.158]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/address_current_token_balance_token_type_test.exs"
+lines = 33
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.159]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/address_token_balance_token_type_test.exs"
+lines = 33
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.160]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/backfill_metadata_url_test.exs"
+lines = 446
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.161]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/celo_accounts_test.exs"
+lines = 73
+verdict = "clean"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.162]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/celo_aggregated_election_rewards_test.exs"
+lines = 528
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.163]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/celo_l2_epochs_test.exs"
+lines = 179
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.164]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/delete_zero_value_internal_transactions_test.exs"
+lines = 310
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.165]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts_test.exs"
+lines = 453
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.166]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/empty_internal_transactions_data_test.exs"
+lines = 70
+verdict = "clean"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.167]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/heavy_db_index_operation/create_logs_address_hash_block_number_desc_index_desc_index_test.exs"
+lines = 54
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.168]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/heavy_db_index_operation/drop_logs_block_number_asc_index_asc_index_test.exs"
+lines = 43
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.169]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/heavy_db_index_operation/update_internal_transactions_primary_key_test.exs"
+lines = 70
+verdict = "clean"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.170]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/merge_adjacent_missing_block_ranges_test.exs"
+lines = 50
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.171]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/reindex_blocks_with_missing_transactions_test.exs"
+lines = 79
+verdict = "clean"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.172]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/reindex_internal_transactions_with_incompatible_status_test.exs"
+lines = 83
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.173]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_duplicate_smart_contract_additional_sources_test.exs"
+lines = 76
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.174]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_duplicated_log_index_logs_test.exs"
+lines = 166
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.175]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_empty_contract_code_addresses_test.exs"
+lines = 79
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.176]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_incorrect_nft_token_transfers_test.exs"
+lines = 71
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.177]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_incorrect_weth_token_transfers_test.exs"
+lines = 182
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.178]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_missing_token_balances_test.exs"
+lines = 52
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/smart_contract_language_test.exs"
+lines = 51
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.180]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/switch_pending_operations_test.exs"
+lines = 89
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.181]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/token_transfer_token_type_test.exs"
+lines = 82
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.182]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/transactions_denormalization_migrator_test.exs"
+lines = 42
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.183]
+path = "services/explorer/backend/apps/explorer/test/explorer/migrator/unescape_quotes_in_tokens_test.exs"
+lines = 25
+verdict = "issues"
+note = "Reviewed complete migration test: setup, input records, resulting persisted data, completion/cache checks and cleanup. Findings identify timing or recovery gaps; no execution result is implied."
+
+[file.184]
+path = "services/explorer/backend/apps/indexer/config/config.exs"
+lines = 28
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.185]
+path = "services/explorer/backend/apps/indexer/config/dev.exs"
+lines = 33
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.186]
+path = "services/explorer/backend/apps/indexer/config/dev/anvil.exs"
+lines = 37
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.187]
+path = "services/explorer/backend/apps/indexer/config/dev/besu.exs"
+lines = 44
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.188]
+path = "services/explorer/backend/apps/indexer/config/dev/erigon.exs"
+lines = 44
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.189]
+path = "services/explorer/backend/apps/indexer/config/dev/filecoin.exs"
+lines = 40
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.190]
+path = "services/explorer/backend/apps/indexer/config/dev/geth.exs"
+lines = 41
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.191]
+path = "services/explorer/backend/apps/indexer/config/dev/nethermind.exs"
+lines = 44
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.192]
+path = "services/explorer/backend/apps/indexer/config/dev/paxeer_x.exs"
+lines = 41
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.193]
+path = "services/explorer/backend/apps/indexer/config/dev/rsk.exs"
+lines = 45
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.194]
+path = "services/explorer/backend/apps/indexer/config/prod.exs"
+lines = 42
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.195]
+path = "services/explorer/backend/apps/indexer/config/prod/anvil.exs"
+lines = 37
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.196]
+path = "services/explorer/backend/apps/indexer/config/prod/besu.exs"
+lines = 43
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.197]
+path = "services/explorer/backend/apps/indexer/config/prod/erigon.exs"
+lines = 43
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.198]
+path = "services/explorer/backend/apps/indexer/config/prod/filecoin.exs"
+lines = 40
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.199]
+path = "services/explorer/backend/apps/indexer/config/prod/geth.exs"
+lines = 41
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.200]
+path = "services/explorer/backend/apps/indexer/config/prod/nethermind.exs"
+lines = 43
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.201]
+path = "services/explorer/backend/apps/indexer/config/prod/paxeer_x.exs"
+lines = 41
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.202]
+path = "services/explorer/backend/apps/indexer/config/prod/rsk.exs"
+lines = 45
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.203]
+path = "services/explorer/backend/apps/indexer/config/runtime/test.exs"
+lines = 13
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.204]
+path = "services/explorer/backend/apps/indexer/config/test.exs"
+lines = 21
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.205]
+path = "services/explorer/backend/apps/indexer/config/test/anvil.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.206]
+path = "services/explorer/backend/apps/indexer/config/test/besu.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.207]
+path = "services/explorer/backend/apps/indexer/config/test/erigon.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.208]
+path = "services/explorer/backend/apps/indexer/config/test/filecoin.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.209]
+path = "services/explorer/backend/apps/indexer/config/test/geth.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.210]
+path = "services/explorer/backend/apps/indexer/config/test/nethermind.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.211]
+path = "services/explorer/backend/apps/indexer/config/test/paxeer_x.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[file.212]
+path = "services/explorer/backend/apps/indexer/config/test/rsk.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed complete profile: transport, URL sets, variant, subscription configuration, disabled workers and environment-specific overrides; optional non-Paxeer profiles are retained compatibility settings."
+
+[finding.address-case]
+file = "apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx"
+line = 26
+class = "interface-mismatch"
+severity = "high"
+observed = "matchFilter compares transaction.from.hash and transaction.to.hash to the raw router hash with ===. The notifier renders addresses with V2.Helper.address_with_info, whose hash uses Address.checksum, while the subscription lowercases the topic. An all-lowercase URL for a mixed-case checksum address joins successfully but drops new incoming or outgoing transactions."
+expected = "The addresses channel must deliver the same address transactions regardless of valid EVM address letter casing; producer, Phoenix transport and filtered consumer must agree on address identity."
+proposal = "In apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx normalize both sides of matchFilter and prove incoming, outgoing and self-transfer updates through the notifier and channel for lowercase and checksummed URLs."
+owner_domain = 14
+interface = "14.ws-explorer-join-socket-v2-addresses-address-hash-string"
+
+[finding.address-sorted-cache]
+file = "apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx"
+line = 54
+class = "wiring-gap"
+severity = "medium"
+observed = "handleNewSocketMessage constructs general:address_txs cache keys with hash, filter and chainId only. useAddressTxsQuery passes sort and order to useQueryWithPages, so a nondefault sorted list has a different key and receives no live update even though this hook reads the selected sort."
+expected = "An enabled address subscription must update the active query, including its sorting parameters, or clearly require a reload instead of silently updating another cache entry."
+proposal = "Use the active address query key in apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx and test a first-page value/fee sorted query receiving a real channel update."
+owner_domain = 14
+
+[finding.transaction-type-union]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction.ex"
+line = 2686
+class = "interface-mismatch"
+severity = "high"
+observed = "apply_filter_by_type_to_transactions_inner accumulates OR predicates but adds INNER JOINs for contract_call and token_creation. A request including contract_creation and contract_call loses creations with NULL to_address; adding token_creation similarly excludes ordinary calls or coin transfers before the OR predicate can match."
+expected = "GET /api/v2/transactions accepts a comma-separated type filter via PagingHelper.parse_filter. Multiple accepted types must return their union, including creation transactions with no destination address."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/transaction.ex use conditional EXISTS predicates or nonrestrictive joins for each type and exercise mixed type filters through TransactionController with real indexed transactions."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions"
+
+[finding.last-nonce-order]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/transaction.ex"
+line = 1467
+class = "dead-code"
+severity = "low"
+observed = "last_nonce_by_address_query has no in-tree caller in the explorer applications. Its dormant implementation orders only by block_number DESC and limits to one, leaving same-block sender nonces without a tie breaker and pending NULL block numbers ahead of mined rows."
+expected = "The explorer should expose a live, well-defined nonce query only when a caller needs it; a future last-nonce reader must distinguish same-block and pending transactions."
+proposal = "Remove the unused helper in services/explorer/backend/apps/explorer/lib/explorer/chain/transaction.ex or wire a real caller with explicit confirmed/pending semantics and complete nonce ordering; cover same-block, pending and replacement cases if retained."
+owner_domain = 14
+
+[finding.rows-holders]
+file = "apps/explorer/ui/token/TokenHolders/TokenHolders.tsx"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "The holders view slices the fetched API page with rowsToShow, while ScanShowRows changes only local state. The shared selector offers 25, 50 and 100, but page navigation advances using the original server next_page_params. Selecting 25 from a 50-row page hides rows 26 through 50 and Next advances past them; selecting 100 cannot fetch a second page."
+expected = "The visible row-count control must preserve access to every record and make its page size agree with the cursor that advances the server result."
+proposal = "In apps/explorer/ui/token/TokenHolders/TokenHolders.tsx connect the selection to supported API paging or render local subpages before advancing the server cursor; exercise a 50-row response, select 25, and traverse every record without omission."
+owner_domain = 14
+
+[finding.rows-token]
+file = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx"
+line = 75
+class = "runtime-risk"
+severity = "medium"
+observed = "The token transfers view slices the fetched API page with rowsToShow, while ScanShowRows changes only local state. The shared selector offers 25, 50 and 100, but page navigation advances using the original server next_page_params. Selecting 25 from a 50-row page hides rows 26 through 50 and Next advances past them; selecting 100 cannot fetch a second page."
+expected = "The visible row-count control must preserve access to every record and make its page size agree with the cursor that advances the server result."
+proposal = "In apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx connect the selection to supported API paging or render local subpages before advancing the server cursor; exercise a 50-row response, select 25, and traverse every record without omission."
+owner_domain = 14
+
+[finding.rows-NFT]
+file = "apps/explorer/ui/token/TokenInventory.tsx"
+line = 54
+class = "runtime-risk"
+severity = "medium"
+observed = "The NFT inventory view slices the fetched API page with rowsToShow, while ScanShowRows changes only local state. The shared selector offers 25, 50 and 100, but page navigation advances using the original server next_page_params. Selecting 25 from a 50-row page hides rows 26 through 50 and Next advances past them; selecting 100 cannot fetch a second page."
+expected = "The visible row-count control must preserve access to every record and make its page size agree with the cursor that advances the server result."
+proposal = "In apps/explorer/ui/token/TokenInventory.tsx connect the selection to supported API paging or render local subpages before advancing the server cursor; exercise a 50-row response, select 25, and traverse every record without omission."
+owner_domain = 14
+
+[finding.total-holder]
+file = "apps/explorer/ui/token/TokenHolders/TokenHolders.tsx"
+line = 70
+class = "runtime-risk"
+severity = "medium"
+observed = "When the optional total is absent, the holder title treats hasNextPage=false as proof that itemsNum is the global total. A final page reached after earlier pages therefore labels its own short row count as the total, and local row slicing can understate even a single fetched page."
+expected = "A page cursor ending the list does not establish the global count; titles must distinguish current-page rows from a verified total."
+proposal = "In apps/explorer/ui/token/TokenHolders/TokenHolders.tsx show a page count when no authoritative total is supplied and add a final-page case after at least one earlier page."
+owner_domain = 14
+
+[finding.total-transfer]
+file = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx"
+line = 114
+class = "runtime-risk"
+severity = "medium"
+observed = "When the optional total is absent, the transfer title treats hasNextPage=false as proof that itemsNum is the global total. A final page reached after earlier pages therefore labels its own short row count as the total, and local row slicing can understate even a single fetched page."
+expected = "A page cursor ending the list does not establish the global count; titles must distinguish current-page rows from a verified total."
+proposal = "In apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx show a page count when no authoritative total is supplied and add a final-page case after at least one earlier page."
+owner_domain = 14
+
+[finding.pending-stat-total]
+file = "apps/explorer/ui/txs/TxsContent.tsx"
+line = 163
+class = "runtime-risk"
+severity = "medium"
+observed = "isChainWideList includes txs_pending, but countLine uses general:stats.total_transactions for both validated and pending views. StatsView supplies the chain transaction count rather than the number of pending transactions, so the pending heading can claim the mined-history total."
+expected = "Pending transaction list counts must describe pending transactions, with unavailable totals shown as page counts rather than substituted chain-history totals."
+proposal = "In apps/explorer/ui/txs/TxsContent.tsx select a matching pending counter when available or use current-page wording, and assert the pending title with distinct mined and pending counts."
+owner_domain = 14
+
+[finding.auth0-new-user-id]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/migrated.ex"
+line = 115
+class = "runtime-risk"
+severity = "medium"
+observed = "handle_not_found_just_created_email_user writes namespaced metadata with sub, name, nickname and picture, then calls create_auth. create_auth reads metadata.user_id and get_user_by_id_from_session searches that same field, so this just-created-user path emits a nil uid and cannot recover the user from the session."
+expected = "An authenticated email user must receive one stable identity field that survives creation, session storage and later Auth0 lookup in the application namespace."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/migrated.ex map the verified sub to the canonical user_id metadata field and test the fresh-user fallback followed by session lookup and restart."
+owner_domain = 14
+
+[finding.auth0-link-envelope]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/migrated.ex"
+line = 51
+class = "runtime-risk"
+severity = "medium"
+observed = "link_email passes user_without_email_metadata directly as the PATCH body to Internal.update_user, which sends that map unchanged to the Auth0 Users API. Other migrated paths wrap this data in user_metadata and the application identifier; this path sends user_id and wallet/profile fields at the top level instead."
+expected = "Linking an email must preserve the source application identity in the destination application metadata and return a user that create_auth and get_user_by_id_from_session can read."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/migrated.ex construct the namespaced user_metadata PATCH envelope and validate the destination readback before changing source metadata; test retry and interrupted linking."
+owner_domain = 14
+
+[finding.auth0-link-errors]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/legacy.ex"
+line = 167
+class = "restart-recovery"
+severity = "medium"
+observed = "maybe_link_email and merge_email_users discard the results of link_users and maybe_verify_email and return {:ok, user}. Account.merge can already have changed local identities before the remote link fails, leaving authentication reporting success without the external link and without a durable retry phase."
+expected = "Local identity consolidation and remote provider linking must expose failure and support idempotent continuation after provider failure or process restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/legacy.ex propagate remote failures, persist linking progress where local state has changed, and cover remote refusal and restart after local merge."
+owner_domain = 14
+
+[finding.auth0-token-validation]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/internal.ex"
+line = 256
+class = "security"
+severity = "medium"
+observed = "get_user_from_token extracts identity claims using Joken.peek_claims and accepts any decoded map containing sub. It does not validate the ID-token signature, issuer, audience or expiry before the claims drive user metadata and authentication fallback paths."
+expected = "Identity claims used to create or recover an explorer account must be verified for the configured provider and client; decoding a JWT is not signature or claim validation."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/auth0/internal.ex verify the ID token against the configured issuer and client before using sub, and cover wrong issuer/audience, expiry and tampered signatures."
+owner_domain = 14
+
+[finding.keycloak-otp-consumption]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/keycloak.ex"
+line = 366
+class = "security"
+severity = "medium"
+observed = "verify_otp performs GET/decrypt/compare and DEL as separate Redis operations, ignores the deletion result, and returns :ok. Concurrent requests can read and accept the same OTP; a failed DEL also leaves a successfully accepted code reusable."
+expected = "A one-time code must be consumed atomically once, and failed consumption must not authorize another login or email-link operation."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/keycloak.ex atomically compare and consume the stored code with a Redis transaction or script and test concurrent confirmation and Redis failure."
+owner_domain = 14
+
+[finding.keycloak-cache-recovery]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/keycloak.ex"
+line = 275
+class = "restart-recovery"
+severity = "medium"
+observed = "get_admin_token returns decryption_failed for an unreadable cached token without invalidating it or obtaining a fresh provider token. After encryption-key change or a corrupt cache entry, every account-management operation keeps failing until the old TTL expires."
+expected = "A cached administrative token is replaceable state; cache corruption after restart must permit authenticated token reacquisition without waiting for the stale entry to expire."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/keycloak.ex evict an undecryptable cached token and reacquire through the configured client-credentials flow with bounded errors; exercise a persisted unreadable cache entry after restart."
+owner_domain = 14
+
+[finding.proxy-binary-drop]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/universal_proxy/socket_handler.ex"
+line = 46
+class = "runtime-risk"
+severity = "medium"
+observed = "SocketHandler forwards client text frames but sends all other incoming frames to a catch-all returning {:ok, state}; binary messages are silently discarded. TargetClient.handle_frame explicitly relays binary messages in the opposite direction, so the advertised bidirectional WebSocket proxy is asymmetric."
+expected = "A WebSocket relay must preserve supported frame kinds in both directions or explicitly reject unsupported client frames rather than silently dropping application data."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/universal_proxy/socket_handler.ex and target_client.ex preserve frame types through forward and add a real binary round trip plus upstream-disconnect cleanup coverage."
+owner_domain = 14
+
+[finding.proxy-config-shape]
+file = "services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/universal_proxy.ex"
+line = 376
+class = "config-drift"
+severity = "medium"
+observed = "safe_parse_config_string accepts every successfully decoded JSON value and parse_proxy_params immediately indexes config[\"platforms\"]. Valid JSON such as null, a number, or an array can therefore crash the public proxy path instead of producing its configured validation error; a missing URI scheme also reaches String.to_atom(nil)."
+expected = "A supplied proxy configuration must be checked as a typed platform/endpoint map with allowed protocols before routes use it, and invalid configuration must produce a bounded actionable failure."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/universal_proxy.ex validate the configuration schema and URI scheme before caching or route construction, and cover valid JSON with invalid shapes and malformed endpoint URLs."
+owner_domain = 14
+
+[finding.interop-empty-inclusion]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex"
+line = 612
+class = "runtime-risk"
+severity = "medium"
+observed = "filter_process_address_inclusion subtracts excluded addresses from included addresses and returns nil when the result is empty. filter_messages_by_address treats nil as no filter, so including an address and excluding that same address can expand the result to all senders or targets."
+expected = "The intersection of an explicit inclusion set with its exclusion complement must yield no records when empty, never disable the filter."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex distinguish no filter from an empty inclusion set and assert that complete include/exclude overlap returns zero messages."
+owner_domain = 14
+
+[finding.interop-page-boundary]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex"
+line = 329
+class = "runtime-risk"
+severity = "medium"
+observed = "list orders by timestamp and init_transaction_hash and page_messages uses only those two fields as its exclusive cursor. Multiple messages with distinct nonces can originate in one transaction and share both fields, so a page ending partway through that transaction skips its remaining messages."
+expected = "Paginated interop history must traverse every message exactly once, including multiple messages emitted by one transaction at one timestamp."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex add a stable unique message tie breaker to ordering, API cursor generation and decoding, and test a page boundary inside a multi-message transaction."
+owner_domain = 14
+
+[finding.interop-cursor-filter]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex"
+line = 671
+class = "runtime-risk"
+severity = "medium"
+observed = "page_messages appends where(timestamp < cursor) then or_where(timestamp == cursor and hash < cursor_hash) to a query already constrained by filter_messages. The OR branch can satisfy the query without the earlier sender, target, status or chain-direction constraints."
+expected = "Every page must retain all requested filters; the two cursor branches must form one grouped predicate ANDed with the existing query."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/optimism/interop_message.ex group both cursor alternatives in one where expression and cover a tied timestamp containing matching and nonmatching senders/statuses."
+owner_domain = 14
+
+[finding.selfdestruct-rule]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts_test.exs"
+line = 35
+class = "test-gap"
+severity = "high"
+observed = "The tests require emptying code for a pre-existing selfdestructed contract and preserving code for a contract created and destroyed in the same transaction. The migration implements that rule, but the Cancun SelfDestruct6780 path in modules/evm/state/state.go preserves existing contracts and deletes newly created ones; the tests endorse erasing live explorer contract code when the migration is invoked on current-chain history."
+expected = "Explorer code must agree with eth_getCode and the chain fork rules. A repair migration must not delete code for a live post-Cancun contract, and its tests must prove the real trace/state relationship."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex scope historical repair to applicable fork semantics and verify code at the relevant committed height before updating; replace the asserted policy in the matching tests with real pre/post-fork execution, same-transaction creation and redeployment cases."
+owner_domain = 14
+
+[finding.launchpad-event-proof]
+file = "apps/explorer/ui/token/TokenTransfer/TokenTransfer.spec.tsx"
+line = 57
+class = "test-gap"
+severity = "medium"
+observed = "The registry lists this UI test as a consumer of IEventEmitter.TokenTransfer(address,address,address,uint256,uint256,uint256), topic d1630e8d. The test supplies already-rendered generic token-transfer fixtures through mocked HTTP/socket endpoints; it never decodes that declared event or proves its value/timestamp/blockNumber fields reach the explorer response."
+expected = "A declared launchpad event consumer needs proof from the actual emitted event through the indexer and explorer API to the token-transfer view; a generic API fixture alone cannot establish that agreement."
+proposal = "Add a real launchpad emitter-to-indexer-to-explorer token-transfer case across contracts/launchpad, services/launchpad/indexer and the explorer API; correct the registry caller relationship if this generic UI test is not an event consumer."
+owner_domain = 4
+interface = "4.sevt-ieventemitter-tokentransfer-d1630e8d"
+
+[finding.timing-address_current_token_balance_token_type]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/address_current_token_balance_token_type_test.exs"
+line = 19
+class = "test-gap"
+severity = "low"
+observed = "The address_current_token_balance_token_type migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/address_current_token_balance_token_type_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-address_token_balance_token_type]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/address_token_balance_token_type_test.exs"
+line = 19
+class = "test-gap"
+severity = "low"
+observed = "The address_token_balance_token_type migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/address_token_balance_token_type_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-backfill_metadata_url]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/backfill_metadata_url_test.exs"
+line = 107
+class = "test-gap"
+severity = "low"
+observed = "The backfill_metadata_url migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/backfill_metadata_url_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-celo_aggregated_election_rewards]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/celo_aggregated_election_rewards_test.exs"
+line = 30
+class = "test-gap"
+severity = "low"
+observed = "The celo_aggregated_election_rewards migration test relies on Process.sleep(500) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/celo_aggregated_election_rewards_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-celo_l2_epochs]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/celo_l2_epochs_test.exs"
+line = 63
+class = "test-gap"
+severity = "low"
+observed = "The celo_l2_epochs migration test relies on Process.sleep(500) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/celo_l2_epochs_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-delete_zero_value_internal_transactions]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/delete_zero_value_internal_transactions_test.exs"
+line = 237
+class = "test-gap"
+severity = "low"
+observed = "The delete_zero_value_internal_transactions migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/delete_zero_value_internal_transactions_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-create_logs_address_hash_block_number_desc_index_desc_index]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/heavy_db_index_operation/create_logs_address_hash_block_number_desc_index_desc_index_test.exs"
+line = 29
+class = "test-gap"
+severity = "low"
+observed = "The create_logs_address_hash_block_number_desc_index_desc_index migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/heavy_db_index_operation/create_logs_address_hash_block_number_desc_index_desc_index_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-drop_logs_block_number_asc_index_asc_index]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/heavy_db_index_operation/drop_logs_block_number_asc_index_asc_index_test.exs"
+line = 29
+class = "test-gap"
+severity = "low"
+observed = "The drop_logs_block_number_asc_index_asc_index migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/heavy_db_index_operation/drop_logs_block_number_asc_index_asc_index_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-merge_adjacent_missing_block_ranges]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/merge_adjacent_missing_block_ranges_test.exs"
+line = 22
+class = "test-gap"
+severity = "low"
+observed = "The merge_adjacent_missing_block_ranges migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/merge_adjacent_missing_block_ranges_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-reindex_internal_transactions_with_incompatible_status]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/reindex_internal_transactions_with_incompatible_status_test.exs"
+line = 70
+class = "test-gap"
+severity = "low"
+observed = "The reindex_internal_transactions_with_incompatible_status migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/reindex_internal_transactions_with_incompatible_status_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-sanitize_duplicate_smart_contract_additional_sources]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_duplicate_smart_contract_additional_sources_test.exs"
+line = 34
+class = "test-gap"
+severity = "low"
+observed = "The sanitize_duplicate_smart_contract_additional_sources migration test relies on Process.sleep(150) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_duplicate_smart_contract_additional_sources_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-sanitize_duplicated_log_index_logs]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_duplicated_log_index_logs_test.exs"
+line = 49
+class = "test-gap"
+severity = "low"
+observed = "The sanitize_duplicated_log_index_logs migration test relies on Process.sleep(300) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_duplicated_log_index_logs_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-sanitize_empty_contract_code_addresses]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_empty_contract_code_addresses_test.exs"
+line = 55
+class = "test-gap"
+severity = "low"
+observed = "The sanitize_empty_contract_code_addresses migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_empty_contract_code_addresses_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-sanitize_incorrect_nft_token_transfers]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_incorrect_nft_token_transfers_test.exs"
+line = 62
+class = "test-gap"
+severity = "low"
+observed = "The sanitize_incorrect_nft_token_transfers migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_incorrect_nft_token_transfers_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-sanitize_incorrect_weth_token_transfers]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_incorrect_weth_token_transfers_test.exs"
+line = 142
+class = "test-gap"
+severity = "low"
+observed = "The sanitize_incorrect_weth_token_transfers migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_incorrect_weth_token_transfers_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-sanitize_missing_token_balances]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_missing_token_balances_test.exs"
+line = 34
+class = "test-gap"
+severity = "low"
+observed = "The sanitize_missing_token_balances migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/sanitize_missing_token_balances_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-smart_contract_language]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/smart_contract_language_test.exs"
+line = 29
+class = "test-gap"
+severity = "low"
+observed = "The smart_contract_language migration test relies on Process.sleep(200) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/smart_contract_language_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-switch_pending_operations]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/switch_pending_operations_test.exs"
+line = 45
+class = "test-gap"
+severity = "low"
+observed = "The switch_pending_operations migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/switch_pending_operations_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-token_transfer_token_type]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/token_transfer_token_type_test.exs"
+line = 45
+class = "test-gap"
+severity = "low"
+observed = "The token_transfer_token_type migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/token_transfer_token_type_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-transactions_denormalization_migrator]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/transactions_denormalization_migrator_test.exs"
+line = 26
+class = "test-gap"
+severity = "low"
+observed = "The transactions_denormalization_migrator migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/transactions_denormalization_migrator_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.timing-unescape_quotes_in_tokens]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/unescape_quotes_in_tokens_test.exs"
+line = 16
+class = "test-gap"
+severity = "low"
+observed = "The unescape_quotes_in_tokens migration test relies on Process.sleep(100) before reading database/cache completion state. The delay does not establish that the migration worker completed, so loaded or slow database runs can fail despite correct eventual behavior."
+expected = "Migration qualification must wait for observable completion with a bounded deadline and retain every data assertion; elapsed sleep alone is not evidence of worker completion."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/unescape_quotes_in_tokens_test.exs monitor the actual migration process or wait for its persisted completion condition under a bounded deadline, retaining all existing assertions and including an interrupted-batch restart case where this migration owns durable progress."
+owner_domain = 14
+
+[finding.pending-conversion-restart]
+file = "services/explorer/backend/apps/explorer/test/explorer/migrator/switch_pending_operations_test.exs"
+line = 45
+class = "restart-recovery"
+severity = "medium"
+observed = "SwitchPendingOperationsTest covers uninterrupted conversion and a separate no-op invocation, but does not interrupt conversion after only part of the block/transaction pending-operation set is persisted and then restart the worker."
+expected = "Changing the durable representation of pending work must preserve every pending operation across interruption, repeat delivery and restart."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/migrator/switch_pending_operations_test.exs exercise interruption after a committed partial batch and restart the real migration, asserting no lost or duplicated pending transactions and correct completion status."
+owner_domain = 14
+
+[finding.doc-site-quickstart]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 167-168 and 214-217 direct public JSON-RPC users to POST /rpc, GET /rpc/ws and router custody funding; lines 154 and 277 also retain the separate node network-id 402 setup. These instructions describe the pre-merge transport and funding lifecycle."
+expected = "The merged public chain serves JSON-RPC at the root of the documented mainnet-beta API hosts with EVM chain id 125 and committed-block finality; funding uses native chain transfers."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around root-path node RPC, native EVM funding and the current receipt/finality flow; remove retired router, separate-network and custody-credit examples."
+owner_domain = 8
+
+[finding.doc-wiki-quickstart]
+file = "docs/wiki/Quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 167-168 and 214-217 direct public JSON-RPC users to POST /rpc, GET /rpc/ws and router custody funding; lines 154 and 277 also retain the separate node network-id 402 setup. These instructions describe the pre-merge transport and funding lifecycle."
+expected = "The merged public chain serves JSON-RPC at the root of the documented mainnet-beta API hosts with EVM chain id 125 and committed-block finality; funding uses native chain transfers."
+proposal = "Rewrite docs/wiki/Quickstart.md around root-path node RPC, native EVM funding and the current receipt/finality flow; remove retired router, separate-network and custody-credit examples."
+owner_domain = 8
+
+[finding.doc-site-control]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening funding instructions send operators through custody credit submitted to a router, and line 144 identifies the separate TESTNET_NETWORK_ID default as 402. This is presented as the current hosted beta operating model."
+expected = "Operators must manage the one merged chain and native funding lifecycle; the retired router and custody-deposit flow must not be presented as live dependencies."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md with the current control-service responsibilities, native funding and chain identity checks; remove the retired router funding prerequisite."
+owner_domain = 8
+
+[finding.doc-wiki-control]
+file = "docs/wiki/HostedBetaControl.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening funding instructions send operators through custody credit submitted to a router, and line 144 identifies the separate TESTNET_NETWORK_ID default as 402. This is presented as the current hosted beta operating model."
+expected = "Operators must manage the one merged chain and native funding lifecycle; the retired router and custody-deposit flow must not be presented as live dependencies."
+proposal = "Rewrite docs/wiki/HostedBetaControl.md with the current control-service responsibilities, native funding and chain identity checks; remove the retired router funding prerequisite."
+owner_domain = 8
+
+[finding.doc-beta-cluster]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 5, 40, 50 and 88 describe receipt-authority/loopback services, genesis layerxcustody at 0x1013, layerxd --custody-profile and a separate explorer read identity with signed kernel probes as active bring-up requirements."
+expected = "The merged kernel runs in paxd, native address/transaction pages replace separate kernel explorer views, and retired custody/authority/daemon components are not deployed services."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md with the current paxd topology, committed-state reads and native funding; remove retired containers, custody-genesis provisioning and explorer-index trust setup."
+owner_domain = 8
+
+[finding.doc-site-cli]
+file = "docs/site/docs/platform/cli.md"
+line = 105
+class = "doc-drift"
+severity = "medium"
+observed = "The command table advertises wallet/token commands as implemented, while the later section says these same groups and RPC flags have no implementation. It also requires HTTPS URLs with a /rpc path in the intended write flow, contradicting the merged node endpoint."
+expected = "A CLI reference must give one consistent shipped command surface and identify the current root-path chain endpoint rather than prescribing a retired router path."
+proposal = "Reconcile the command table and implementation-status section in docs/site/docs/platform/cli.md against tools/platform/cli and replace obsolete RPC/funding examples with current native-chain commands."
+owner_domain = 8
+
+[finding.doc-wiki-cli]
+file = "docs/wiki/Cli.md"
+line = 105
+class = "doc-drift"
+severity = "medium"
+observed = "The command table advertises wallet/token commands as implemented, while the later section says these same groups and RPC flags have no implementation. It also requires HTTPS URLs with a /rpc path in the intended write flow, contradicting the merged node endpoint."
+expected = "A CLI reference must give one consistent shipped command surface and identify the current root-path chain endpoint rather than prescribing a retired router path."
+proposal = "Reconcile the command table and implementation-status section in docs/wiki/Cli.md against tools/platform/cli and replace obsolete RPC/funding examples with current native-chain commands."
+owner_domain = 8
+
+[finding.doc-unified-network]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-15 describe two separately executing network domains joined by proof verification; lines 17 onward advertise live LayerXVerify, custody and anchor precompiles, while line 11 names cmd/layerxd as the active core node."
+expected = "There is one merged execution domain in paxd. Retired 0x1012-0x1014 methods refuse after upgrade, and committed headers and chain state replace the separate evidence connector."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md around native kernel constructs in paxd, current precompile responsibilities and explicit retired-method refusals; replace the daemon and two-domain connector diagrams."
+owner_domain = 6
+
+[finding.doc-programs-daemon]
+file = "docs/site/docs/programs/workspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The programs-differential build recipe lists cmd/layerxd/lxp_daemon_batch_wal.c as a current prerequisite, embedding the retired daemon WAL in the documented program qualification workflow."
+expected = "Program qualification for the merged runtime must describe the in-node host and current replay/recovery evidence without requiring a retired layerxd implementation."
+proposal = "Update docs/site/docs/programs/workspace.md with the current merged-host differential and recovery recipe and its actual prerequisites; retain the frozen ABI rules and distinguish host libraries from guest deployment builds."
+owner_domain = 2
+
+[finding.doc-route-ws]
+file = "docs/system/routes.md"
+line = 908
+class = "doc-drift"
+severity = "medium"
+observed = "The public route catalogue still lists GET /rpc/evm/ws as a developer WebSocket route with gateway-api-key authentication. This preserves a router-prefixed EVM endpoint in the inventory that integrators use to discover supported access."
+expected = "The merged public node RPC is rooted at the mainnet-beta API hosts and must be distinguished from hosted gateway-only APIs; retired /rpc routes must not be advertised as the node transport."
+proposal = "Regenerate docs/system/routes.md from the current route ownership and expose the supported node WebSocket location, keeping hosted gateway endpoints separate from public chain RPC."
+owner_domain = 8
+
+[doc.1]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 154, 167-168, 214-217, 277, 497, 518 and 596-597 retain pre-merge network, RPC and funding guidance; rewrite together with the mirrored quickstart."
+
+[doc.2]
+path = "docs/wiki/Quickstart.md"
+status = "stale"
+notes = "Lines 154, 167-168, 214-217, 277, 497, 518 and 596-597 retain pre-merge network, RPC and funding guidance; rewrite together with the mirrored quickstart."
+
+[doc.3]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Lines 5 and 144 retain router custody funding and pre-merge node identity; operator lifecycle needs a merged-chain rewrite."
+
+[doc.4]
+path = "docs/wiki/HostedBetaControl.md"
+status = "stale"
+notes = "Lines 5 and 144 retain router custody funding and pre-merge node identity; operator lifecycle needs a merged-chain rewrite."
+
+[doc.5]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 5, 40, 50 and 88 describe retired authority, custody, daemon and separate kernel explorer provisioning."
+
+[doc.6]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "The wallet/token command table conflicts with the unimplemented-groups section at lines 105-135, including an obsolete /rpc restriction."
+
+[doc.7]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "The wallet/token command table conflicts with the unimplemented-groups section at lines 105-135, including an obsolete /rpc restriction."
+
+[doc.8]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Lines 3-31 and the custody/anchor sections describe the retired two-domain proof connector and daemon as running architecture."
+
+[doc.9]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "The ABI inventory remains useful, but line 156 prescribes a retired daemon WAL as a current qualification prerequisite."
+
+[doc.10]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "accurate"
+notes = "The page describes frozen ABI vectors, runtime boundaries and workspace recipes; it does not establish readiness of any deployed guest or approve the live network topology."
+
+[doc.11]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "The foreign-chain vault/attestor runbook uses native bridge 0x1016, explicit authority inputs, independent journals, idempotent shares and destination readback; it distinguishes observation-only Solana setup from release readiness."
+
+[doc.12]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Line 908 advertises the obsolete /rpc/evm/ws transport; the route catalogue must separate node RPC from hosted gateway APIs."
+
+[doc.13]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/README.md"
+status = "accurate"
+notes = "The API/indexer/common reader split matches the module tree and database responsibilities; optional Arbitrum readers are not a separate Paxeer execution service."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "misleading"
+notes = "Line 207 calls the tokens topic suffix transaction_hash, but TokenTransfer subscribes by token contract address and notifier broadcasts by token_contract_address_hash; address payload casing also needs the recorded consumer repair."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "accurate"
+notes = "The batch_average_time gauge belongs to optional rollup batch readers, is exported through the default registry and does not assert a Paxeer kernel sequencer service."
+
+[interface_review.configuration]
+rows = ["14.cfg-indexer-block-interval", "14.cfg-indexer-blocks-concurrency", "14.cfg-indexer-ecto-repos", "14.cfg-indexer-indexer-fetcher-ondemand-coinbalance-supervisor", "14.cfg-indexer-indexer-fetcher-ondemand-tokenbalance-supervisor", "14.cfg-indexer-indexer-tracer", "14.cfg-indexer-json-rpc-named-arguments", "14.cfg-indexer-subscribe-named-arguments", "14.cfg-logger-addresses-without-code", "14.cfg-logger-block-import-timings", "14.cfg-logger-empty-blocks-to-refetch", "14.cfg-logger-failed-contract-creations", "14.cfg-logger-indexer", "14.cfg-logger-indexer-token-balances", "14.cfg-logger-pending-transactions-to-refetch", "14.cfg-logger-withdrawal", "14.cfg-os-mon-start-cpu-sup", "14.cfg-os-mon-start-disksup", "14.cfg-os-mon-start-memsup", "14.env-indexer-catchup-block-interval", "14.cfg-explorer-celo", "14.cfg-explorer-chain-type", "14.cfg-explorer-explorer-account", "14.cfg-explorer-explorer-chain-tokentransfer", "14.cfg-explorer-explorer-chain-transaction", "14.cfg-explorer-explorer-migrator-backfillmetadataurl", "14.cfg-explorer-explorer-migrator-deletezerovalueinternaltransactions", "14.cfg-explorer-explorer-migrator-heavydbindexoperation", "14.cfg-explorer-explorer-migrator-reindexblockswithmissingtransactions", "14.cfg-explorer-explorer-migrator-sanitizeduplicatedlogindexlogs", "14.cfg-explorer-explorer-migrator-sanitizeincorrectwethtokentransfers", "14.cfg-explorer-explorer-migrator-shrinkinternaltransactions", "14.cfg-explorer-explorer-thirdpartyintegrations-dynamic", "14.cfg-explorer-explorer-thirdpartyintegrations-keycloak", "14.cfg-explorer-explorer-thirdpartyintegrations-novesfi", "14.cfg-explorer-explorer-thirdpartyintegrations-solidityscan", "14.cfg-explorer-explorer-thirdpartyintegrations-universalproxy", "14.cfg-explorer-explorer-thirdpartyintegrations-xname", "14.cfg-explorer-json-rpc-named-arguments", "14.cfg-explorer-supply", "14.cfg-fe-app-ispw", "14.cfg-fe-chain-hasmultiplegascurrencies", "14.cfg-fe-chain-name", "14.cfg-fe-feature-addressmetadata", "14.cfg-fe-feature-advancedfilter", "14.cfg-fe-feature-apidocs", "14.cfg-fe-feature-bridgedtokens", "14.cfg-fe-feature-dataavailability", "14.cfg-fe-feature-rollup", "14.cfg-fe-feature-stats", "14.cfg-fe-feature-txinterpretation", "14.cfg-fe-feature-verifiedtokens", "14.cfg-fe-ui-views", "14.cfg-fe-ui-views-nft", "14.cfg-fe-ui-views-tx", "14.cfg-indexer-block-ranges", "14.cfg-indexer-fetcher-init-limit", "14.cfg-indexer-indexer-block-catchup-missingrangescollector", "14.cfg-indexer-indexer-fetcher-beacon-blob", "14.cfg-indexer-indexer-fetcher-beacon-blob-supervisor", "14.cfg-indexer-indexer-fetcher-internaltransaction", "14.cfg-indexer-indexer-fetcher-internaltransaction-supervisor", "14.cfg-indexer-indexer-fetcher-optimism", "14.cfg-indexer-indexer-fetcher-optimism-interop-messagequeue", "14.cfg-indexer-indexer-fetcher-optimism-operatorfee", "14.cfg-indexer-indexer-fetcher-tokeninstance-helper", "14.cfg-indexer-indexer-migrator-recoverywethtokentransfers", "14.cfg-indexer-indexer-supervisor", "14.cfg-indexer-receipts-concurrency", "14.cfg-indexer-trace-first-block", "14.cfg-ueberauth-ueberauth-strategy-auth0-oauth", "14.cfg-web-web-chain", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-transport", "14.env-ethereum-jsonrpc-ws-url", "14.env-fe-next-public-stats-api-host"]
+agreement = "Indexer profiles supply named HTTP/IPC transports, URL pools and trace methods to the fetchers; PaxeerX uses debug_traceTransaction/debug_traceBlockByNumber. Runtime environment overrides supply worker limits and module flags. Logger backends and os_mon consume their own application settings. Optional chain configurations are selected by chain type. Auth0/Keycloak metadata and proxy configuration lifecycle defects are recorded separately."
+
+[interface_review.http]
+rows = ["14.http-get-api-v2-addresses", "14.http-get-api-v2-stats", "14.http-get-api-v2-transactions", "14.http-get-api-v2-transactions-stats", "14.http-get-api-v2-transactions-transaction-hash-param"]
+agreement = "Transaction list/detail and stats route declarations feed the UI API resources with hashes, decimal amounts, nullable pending fields and next_page_params. Stats total_transactions is not a pending counter. Mixed transaction types fail at restrictive joins as recorded. Address entity hashes use checksum encoding. No typecheck or dependency upgrade is established by an audit record."
+
+[interface_review.websocket]
+rows = ["14.ws-explorer-channel-socket-v2-addresses", "14.ws-explorer-channel-socket-v2-tokens", "14.ws-explorer-channel-socket-v2-transactions", "14.ws-explorer-join-socket-v2-addresses-address-hash-string", "14.ws-explorer-join-socket-v2-tokens-transaction-hash", "14.ws-explorer-join-socket-v2-transactions-new-pending-transaction", "14.ws-explorer-join-socket-v2-transactions-new-transaction", "14.ws-explorer-join-socket-v2-transactions-transaction-hash", "14.ws-explorer-push-tokens-hash-token-transfer", "14.ws-explorer-push-transactions-new-transaction-transaction"]
+agreement = "Phoenix /socket/v2 channels carry transaction count notifications on global topics, transaction arrays on address topics and token_transfer counts on token-contract topics. Topics use lowercase hex; rendered nested addresses use checksums. The token_channel variable named transaction_hash holds a token contract hash in this flow. Numeric notification guards in useTxsSocketTypeAll match notifier counters. Address case and sorted-cache disagreements are recorded; reconnect shows an error/reload notice rather than durable event replay."
+
+[interface_review.external]
+rows = ["4.sevt-ieventemitter-tokentransfer-d1630e8d", "6.sol-cw721erc721pointer-transferfrom-23b872dd", "6.sol-erc721-safetransferfrom-42842e0e", "6.sol-erc721-safetransferfrom-b88d4fde", "6.sol-erc721-transferfrom-23b872dd", "6.sol-ierc721-safetransferfrom-42842e0e", "6.sol-ierc721-safetransferfrom-b88d4fde", "6.sol-ierc721-transferfrom-23b872dd", "7.rpc-debug-traceblockbynumber", "7.rpc-debug-tracetransaction", "7.rpc-eth-getbalance", "7.rpc-eth-getblocktransactioncountbynumber", "8.err-gateway-insufficient-scope", "14.met-explorer-batch-average-time"]
+agreement = "ERC721 transferFrom and both safeTransferFrom selectors and address/uint256 argument layouts match the chain ABI decoding declarations. eth_getBalance and transaction-count quantities use hex RPC encoding; debug tracing is routed over HTTP to the selected node variant. The launchpad TokenTransfer registry association to a generic UI fixture is not producer-path proof and is recorded as a test gap. Batch timing is a seconds-valued rollup metric. Gateway insufficient_scope is a hosted HTTP 403, distinct from node JSON-RPC errors."
+
+[finding.doc-token-topic]
+file = "spec/layerx-merge/contracts/explorer-ws.md"
+line = 207
+class = "doc-drift"
+severity = "medium"
+observed = "The topic contract labels tokens:<transaction_hash> on /socket/v2. TokenTransfer.tsx actually subscribes with the token contract address, and the notifier broadcasts token_transfer on that token address; a client following the documented transaction hash would join an accepted but silent topic."
+expected = "The topic suffix must describe the token contract address used by producer and consumer, including lowercase hex encoding, rather than an individual transaction hash."
+proposal = "Correct the topic terminology in spec/layerx-merge/interfaces.kvx row 14.ws-explorer-join-socket-v2-tokens-transaction-hash and regenerate spec/layerx-merge/contracts/explorer-ws.md; document the token address and assert a real token-transfer notification reaches that subscription."
+owner_domain = 14
+interface = "14.ws-explorer-join-socket-v2-tokens-transaction-hash"
