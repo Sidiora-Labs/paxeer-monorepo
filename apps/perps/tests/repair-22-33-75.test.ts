@@ -87,7 +87,7 @@ async function harness() {
   let typedBody = typedResponse.body;
   let origin: string;
   const { SignTxBody, SendTxBody } = await import(
-    "../../../services/wallet/gateway/src/schemas/tx"
+    "../src/core/wallet/gateway"
   );
   const server = createServer((req, res) => {
     void (async () => {
