@@ -121,3 +121,98 @@ def test_gateway_projection_preserves_current_webhook_contract(tmp_path):
                          ("first-batch", "sequencer-first-batch"),
                          ("last-batch", "sequencer-last-batch")):
         assert {"key": "sequencer-" + suffix, "path": "keys/" + path} in secret["items"]
+
+
+@pytest.fixture(scope="session")
+def native_gateway_consumer(tmp_path_factory):
+    directory = tmp_path_factory.mktemp("native-gateway-consumer")
+    manifest = directory / "Cargo.toml"
+    manifest.write_text(
+        '[package]\nname = "receipt-pins-consumer"\nversion = "0.1.0"\nedition = "2021"\n'
+        '[workspace]\n[[bin]]\nname = "receipt-pins-consumer"\n'
+        f'path = {json.dumps(str(DIRECTORY / "receipt-pins-consumer.rs"))}\n'
+        '[dependencies]\nlayerx-platform-gateway = { path = '
+        + json.dumps(str(DIRECTORY.parent / "gateway")) + ' }\n')
+    subprocess.run(["cargo", "build", "--quiet", "--manifest-path", str(manifest),
+                    "--target-dir", str(directory / "target")], check=True)
+    return directory / "target/debug/receipt-pins-consumer"
+
+
+def test_native_gateway_manifest_rotation_reopen_and_height_refusals(tmp_path, native_gateway_consumer):
+    import base64
+    import os
+    import yaml
+
+    corpus = json.loads((DIRECTORY.parents[3] /
+                        "sdk/platform/conformance/fixtures/receipt-sequencer-v1.json").read_text())
+    primary = next(vector for vector in corpus["vectors"]
+                   if vector["id"] == "receipted-primary-key")
+    pins = primary["receiptKeys"]
+    normalized = [dict(entry, keyId=base64.b64encode(bytes.fromhex(entry["keyId"][2:])).decode(),
+                       publicKey=base64.b64encode(bytes.fromhex(entry["publicKey"][2:])).decode())
+                  for entry in pins]
+    source, retained = tmp_path / "governed.json", tmp_path / PINS.RECEIPT_KEYS_FILE
+    source.write_text(json.dumps(normalized[:1]))
+    PINS.provision_gateway(source, retained)
+    manifests = tmp_path / "manifests"
+    manifests.mkdir()
+    (manifests / "gateway.yaml").write_text((DIRECTORY.parent / "gateway/deployment.yaml").read_text())
+    PINS.manifests(manifests)
+    documents = list(yaml.safe_load_all((manifests / "gateway.yaml").read_text()))
+    pod = next(document for document in documents if document["kind"] == "Deployment"
+               and document["metadata"]["name"] == "layerx-gateway")["spec"]["template"]["spec"]
+    container = next(container for container in pod["containers"] if container["name"] == "gateway")
+    configured = next(entry["value"] for entry in container["env"]
+                      if entry["name"] == "LAYERX_GATEWAY_RECEIPT_KEYS_FILE")
+    mount = next(mount for mount in container["volumeMounts"] if mount["name"] == "receipt-keys")
+    assert mount["readOnly"] and "subPath" not in mount
+    volume = next(volume["secret"] for volume in pod["volumes"] if volume["name"] == mount["name"])
+    secret = PINS.gateway_secret(tmp_path, "layerx-testnet")
+    assert volume["secretName"] == secret["metadata"]["name"]
+    assert volume["defaultMode"] == 0o440
+    item = next(item for item in volume["items"] if configured == mount["mountPath"] + "/" + item["path"])
+    projected = tmp_path / "projection" / item["path"]
+    projected.parent.mkdir()
+
+    def project():
+        secret = PINS.gateway_secret(tmp_path, "layerx-testnet")
+        projected.write_bytes(base64.b64decode(secret["data"][item["key"]], validate=True))
+
+    def consume(commands, count):
+        environment = dict(os.environ, LAYERX_GATEWAY_RECEIPT_KEYS_FILE=str(projected))
+        result = subprocess.run([str(native_gateway_consumer)], env=environment,
+                                input="\n".join(commands) + "\n", text=True,
+                                capture_output=True, check=True).stdout.splitlines()
+        assert result[0] == f"ready:{count}"
+        return result[1:]
+
+    receipt = tmp_path / "primary.receipt"
+    receipt.write_bytes(bytes.fromhex(primary["receipt"][2:]))
+    project()
+    assert consume(["verify " + str(receipt)], 1)[0].startswith("verified:")
+    # Persist a governed rotation and restart the actual Rust consumer. The
+    # fixture carries signed receipts; headers prove both inclusive windows.
+    source.write_text(json.dumps(normalized))
+    PINS.provision_gateway(source, retained)
+    saved = retained.read_bytes()
+    source.unlink()
+    project()
+    commands = ["verify " + str(receipt)]
+    expected = ["verified:"]
+    for pin in pins:
+        for height, accepted in ((pin["firstHeight"], True), (pin["lastHeight"], True),
+                                 (pin["firstHeight"] - 1, False), (pin["lastHeight"] + 1, False)):
+            commands.append(f'header {pin["keyId"][2:]} {height}')
+            expected.append("authorized" if accepted else "refused:UntrustedSequencer")
+    for vector in corpus["vectors"]:
+        if vector["receiptKeys"] != pins:
+            continue
+        path = tmp_path / (vector["id"] + ".receipt")
+        path.write_bytes(bytes.fromhex(vector["receipt"][2:]))
+        commands.append("verify " + str(path))
+        expected.append("verified:" if vector["expected"]["verifier"] == "accepts" else "refused:")
+    for actual, expected_prefix in zip(consume(commands, 2), expected, strict=True):
+        assert actual.startswith(expected_prefix), (actual, expected_prefix)
+    project()
+    assert consume(["verify " + str(receipt)], 2)[0].startswith("verified:")
+    assert retained.read_bytes() == saved
