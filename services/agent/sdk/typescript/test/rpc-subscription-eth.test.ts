@@ -6,7 +6,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import { subscribeRpc, type SubscriptionEvent } from "../src/rpc-subscription.js";
 
 async function loopback(t: TestContext): Promise<WebSocketServer> {
-  const server = new WebSocketServer({ host: "127.0.0.1", port: 0, path: "/rpc/ws" });
+  const server = new WebSocketServer({ host: "127.0.0.1", port: 0, path: "/" });
   t.after(async () => {
     for (const client of server.clients) client.terminate();
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
@@ -18,7 +18,7 @@ async function loopback(t: TestContext): Promise<WebSocketServer> {
 function endpoint(server: WebSocketServer): URL {
   const address = server.address();
   assert(address !== null && typeof address === "object");
-  return new URL(`http://127.0.0.1:${address.port}/rpc`);
+  return new URL(`http://127.0.0.1:${address.port}/`);
 }
 
 async function request(socket: WebSocket): Promise<unknown> {
@@ -46,7 +46,7 @@ async function subscribeRpc_sends_eth_subscribe_newHeads(t: TestContext): Promis
   const first = stream.next();
   const [socket, upgrade] = await connection;
   assert(socket instanceof WebSocket);
-  assert.equal(upgrade.url, "/rpc/ws");
+  assert.equal(upgrade.url, "/");
   assert.deepEqual(await request(socket), { jsonrpc: "2.0", id: "heads", method: "eth_subscribe", params: ["newHeads"] });
   socket.send(JSON.stringify({ jsonrpc: "2.0", id: "heads", result: "0x1" }));
   const head = { number: "0x29", hash: `0x${"11".repeat(32)}` };
@@ -100,3 +100,17 @@ async function block_height_continuity_refuses_a_gap(t: TestContext): Promise<vo
 test(subscribeRpc_sends_eth_subscribe_newHeads);
 test(account_topic_subscribes_to_logs_for_the_account);
 test(block_height_continuity_refuses_a_gap);
+
+async function subscription_rejects_invented_route_suffixes(t: TestContext): Promise<void> {
+  const server = await loopback(t);
+  let connections = 0;
+  server.on("connection", () => { connections++; });
+  for (const suffix of ["/rpc", "/rpc/ws", "/ws"]) {
+    const wrong = new URL(endpoint(server));
+    wrong.pathname = suffix;
+    await assert.rejects(subscribeRpc(wrong, undefined, "wrong-route", "heads").next(), /Subscription transport failed/u);
+  }
+  assert.equal(connections, 0);
+}
+
+test(subscription_rejects_invented_route_suffixes);
