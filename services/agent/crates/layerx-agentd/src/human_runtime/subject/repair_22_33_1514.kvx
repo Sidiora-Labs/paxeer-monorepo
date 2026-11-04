@@ -1,0 +1,11 @@
+[repair.22.33.1514]
+finding = "subject_registration_test_gap"
+integration_test = "subject_registration_test_gap_resolves_reads_and_writes_across_commitment_and_restart"
+subject_test = "managed_registration_resolves_restored_subject_reads_and_writes"
+producer = "layerx_client::account_binding::plan_bind and sign_bind_transaction on chain 125"
+consumer = "bind_retained_registration and bind_subject_transaction are the current replacements for for_did and for_activity, called by subject_for_did and subject_for_activity"
+proof = "Real Store and Outbox retain producer bytes; Queued and Submitted refuse resolution; Executed and Committed permit reads and writes before and after separate store reopens; another tenant, owner address and transaction signer remain refused; subject unit case also restores retained peer bindings"
+receipt_fixture = "Committed signed receipt encoder from tests/repair_22_31_366.rs, verified by the production EvidenceAuthority"
+baseline = "No prior gate ledger or repair test existed; baseline verification was not run because the explicit gate order requires complete implementation then hf-build then hf-done and forbids manual verification"
+wiring_requests = "none"
+evidence = "The bounded hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log path"
