@@ -1,0 +1,8 @@
+[repair.22.31.146]
+audit = "22.30.9"
+finding = "7"
+test = "TestRepair_146_LifecycleReceipts"
+proof = "Signed EVM registration and recovery transactions carry the real kernel receipt event into the application receipt with the exact topic, DID and LXGI1 body; refused calls produce no logs or host-store changes."
+baseline = "Not run: the task's mandatory implementation-first gate order forbids verification before implementation; no pre-change test failure is claimed."
+wiring = "None; the kernel producer, keeper decoder and declared ABI already provide the required interface."
+evidence = "The runner records the verified candidate revision, command, exit and private log in its hf-done ledger and the final task evidence."
