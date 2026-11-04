@@ -1,0 +1,27 @@
+[task.22.31.418]
+audit = "22.30.163"
+finding = "031"
+base_revision = "47246c9a1c9bbb5b892987ea79d024a770f979de"
+repair = "Project normative Human journey states, select receipt evidence from journey and stages, fetch EvidenceMaterial over authenticated mobile transport, independently verify canonical or portable signed receipts against configured pins and exact payment expectations, and re-fetch journey and evidence when tracking reopens. Never infer checkpoint finality from service labels."
+proofs = ["test_finding_031_normative_states_and_evidence_selection", "test_finding_031_both_route_contracts_and_authenticated_transport", "test_finding_031_producer_material_matches_resolver", "test_finding_031_local_verification_precedes_payment_completion", "test_finding_031_reopened_tracking_source_path_has_no_cached_success", "test_finding_031_recorded_node_receipt_digest_contract", "test_finding_031_record_names_proofs_and_execution_limit"]
+source_proof = "Pytest compares both route declarations with schema, checks production producer and mobile transport sources, normative states and evidence selection, material formats including optional raw transaction, independent signature/key/height/content/digest guards, exact payment matching, and the stateless reopen call path. Recorded node receipt fixtures establish the digest preimage contract. These checks do not execute Java or replace production components with Python models."
+review_only = "Java compilation, Android HTTP execution, cryptographic verifier execution, and a completed journey through transport and evidence lookup after stopping and reopening the Android component are not executed by this Python-only gate; runtime closure of finding 031 remains unproven. The task requires this execution proof while prohibiting every available JVM/toolchain/native execution route; source checks establish compatibility facts only."
+baseline = "No pre-change verification was run: the explicit ordered instructions require the whole implementation before testing, hf-build before hf-done, and prohibit running verify_cmd by hand. The initial working tree had no Android or audit-repair changes for this task, only inherited spec start and .cgignore bookkeeping. No baseline failure is claimed."
+evidence = "The last hf-done JSON and runner private gate ledger record the exact candidate revision, command, exit and evidence path. The tree is not edited after verification to insert its own revision."
+wiring_requests = ["sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/WalletModel.java and ConsoleSampleMain.java (mobile samples domain): construct mobile.gate() and use projectAsync or track to resolve authenticated Human evidence instead of the sample relay contract.", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java (Android conformance test domain, finding 033): replace obsolete settled/receipt_ref synthetic journeys with committed producer done/evidence recordings and add JVM transport/evidence/reopen execution under an authorized Java gate."]
+
+[gotcha.1]
+symptom = "The requested pre-change verify conflicts with the implementation-first gate order and single-run budget."
+resolution = "Follow the explicit ordered gates and record no baseline test claim; root GOTCHA.kvx and spec qualification files are outside the permitted scope."
+
+[gotcha.2]
+symptom = "The task requires Java end-to-end execution while its gate prohibits external binaries, subprocess toolchains and native artifacts."
+resolution = "Record exactly the source facts proved by pytest and keep Java transport/reopen execution explicitly unproven; no substitute component or Python model is counted as Android execution."
+
+[gotcha.3]
+symptom = "Initial source searches used nonexistent services/human/src, sdk/jvm/src/main and services/portable paths, and no top-level pyproject.toml exists."
+resolution = "Read Human crates under services/human/crates, JVM sources under sdk/platform/jvm, PortableReceiptV2 under services/interop/crates/layerx-portable, and existing repository formatter configuration."
+
+[gotcha.4]
+symptom = "Human PortableReceiptV2 may omit rawTransaction and uses inclusionHeight rather than the JVM SDK export receiptJson shape."
+resolution = "Decode the actual Human material in the Android resolver and verify its signed canonical bytes with configured keys; never fabricate missing raw transaction or receipt JSON."
