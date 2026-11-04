@@ -138109,7 +138109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.542]
 title = "Repair audit record 22.30.157 medium findings in apps/explorer/nextjs/csp/policies (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.412"]
@@ -140889,7 +140889,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.321]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/TokenTransfer (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -322615,7 +322615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.475]
 title = "Repair audit record 22.30.149 medium findings in services/explorer/backend/apps/block_scout_web/test/block_scout_web/features (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.398"]
