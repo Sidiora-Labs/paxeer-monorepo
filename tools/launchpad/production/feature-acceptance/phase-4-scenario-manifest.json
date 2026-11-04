@@ -42,8 +42,14 @@
     "test_phase4.py",
     "-v"
   ],
-  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 4.50 --spec launchpad/spec/production-system/spec.kvx --require-current-source",
+  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 4.50 --spec spec/layerx-merge/spec.kvx --require-current-source",
   "qualification_boundary": "Lane validator and isolated policy calibration only; task9.1 alone owns final shared integrated24h soak and all full-platform acceptance",
   "capacity_qualified": false,
-  "release_qualified": false
+  "release_qualified": false,
+  "spec_reference": {
+    "spec": "spec/layerx-merge/spec.kvx",
+    "section": "task.4.50",
+    "class": "retired-reference",
+    "reason": "decision.1803 retires launchpad/spec/production-system/spec.kvx; task.4.50 is absent from spec/layerx-merge/spec.kvx"
+  }
 }
