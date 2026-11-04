@@ -121,6 +121,12 @@ func push(
 		return fmt.Errorf("failed to create SSH session to %s@%s port %d: %w", user, host, port, err)
 	}
 
+	defer func() {
+		if err := connection.Close(); err != nil {
+			logger.Error("Failed to close SSH session", "error", err)
+		}
+	}()
+
 	tables, err := lsPaths(logger, sources, false, fsync)
 	if err != nil {
 		return fmt.Errorf("failed to list tables in source paths %v: %w", sources, err)
@@ -293,6 +299,7 @@ func pushTable(
 
 	rsyncLimiter := make(chan struct{}, threads)
 	var rsyncs sync.WaitGroup
+	defer rsyncs.Wait()
 	for _, file := range transfers {
 		rsyncLimiter <- struct{}{}
 		rsyncs.Add(1)
