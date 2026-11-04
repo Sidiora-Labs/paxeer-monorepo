@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.69"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 3
+
+[page.1]
+path = "wasm/contrib/devtools/README.md"
+status = "stale"
+bytes = 469
+source_1 = "record 22.30.59 [doc.19] (stale): Correct upstream provenance and wasm/Makefile inclusion; install claim depends on modern-Go-incompatible recipes at Makefile:64,74,79."
+
+[page.2]
+path = "wasm/contrib/local/README.md"
+status = "misleading"
+bytes = 841
+source_1 = "record 22.30.59 [doc.20] (misleading): Correct upstream-wasmd scope; commands at 18-19 lose the isolated HOME context used at 10-11 and use a different keyring."
+
+[page.3]
+path = "wasm/contrib/prototools-docker/README.md"
+status = "misleading"
+bytes = 763
+source_1 = "record 22.30.59 [doc.22] (misleading): Line 20 mismatches built image tag and SDK mount/environment path; helper toolchain also conflicts with root buf v2 generation."

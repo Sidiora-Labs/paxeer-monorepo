@@ -21,5 +21,6 @@ use serde_aux::prelude::*;
 pub struct RawTraceSelfDestructAction {
     pub address: String,
     pub balance: String,
+    #[serde(rename = "refundAddress")]
     pub refund_address: String,
 }

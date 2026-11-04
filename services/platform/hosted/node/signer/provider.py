@@ -19,6 +19,10 @@ import shlex
 import stat
 import subprocess
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+
 PKCS8_ED25519_PREFIX = bytes.fromhex('302e020100300506032b657004220420')
 SPKI_ED25519_PREFIX = bytes.fromhex('302a300506032b6570032100')
 MAXIMUM_MATERIAL_BYTES = 4096
@@ -75,25 +79,11 @@ def verify_binding(public_key, binding, signature):
 
 
 def _verify_message(public_key, digest, signature):
-    key = memory_file('signer-public', SPKI_ED25519_PREFIX + public_key)
     try:
-        message = memory_file('signer-digest', digest)
-        try:
-            proof = memory_file('signer-signature', signature)
-            try:
-                result = subprocess.run(
-                    ['openssl', 'pkeyutl', '-verify', '-rawin', '-pubin', '-keyform', 'DER',
-                     '-inkey', f'/proc/self/fd/{key}', '-in', f'/proc/self/fd/{message}',
-                     '-sigfile', f'/proc/self/fd/{proof}'],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    pass_fds=(key, message, proof), check=False)
-            finally:
-                os.close(proof)
-        finally:
-            os.close(message)
-    finally:
-        os.close(key)
-    return result.returncode == 0
+        Ed25519PublicKey.from_public_bytes(public_key).verify(signature, digest)
+        return True
+    except (InvalidSignature, ValueError):
+        return False
 
 
 class Provider:
@@ -155,11 +145,16 @@ class FileProvider(Provider):
             raise ProviderError('treasury key material is not hexadecimal') from error
 
     def public_key(self):
-        encoded = openssl(['pkey', '-inform', 'DER', '-in', f'/proc/self/fd/{self._key}',
-                           '-pubout', '-outform', 'DER'], (self._key,))
-        if len(encoded) != 44 or not encoded.startswith(SPKI_ED25519_PREFIX):
+        return self._private_key().public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+
+    def _private_key(self):
+        if self._key is None:
+            raise ProviderError('treasury provider is closed')
+        encoded = os.pread(self._key, len(PKCS8_ED25519_PREFIX) + 32, 0)
+        if len(encoded) != len(PKCS8_ED25519_PREFIX) + 32 or not encoded.startswith(PKCS8_ED25519_PREFIX):
             raise ProviderError('treasury key material is not an Ed25519 identity')
-        return encoded[12:]
+        return Ed25519PrivateKey.from_private_bytes(encoded[len(PKCS8_ED25519_PREFIX):])
 
     def sign(self, digest):
         if len(digest) != 32:
@@ -172,13 +167,7 @@ class FileProvider(Provider):
         return self._sign_message(RECIPIENT_BINDING_DOMAIN + binding)
 
     def _sign_message(self, digest):
-        message = memory_file('treasury-signer-digest', digest)
-        try:
-            signature = openssl(['pkeyutl', '-sign', '-rawin', '-keyform', 'DER',
-                                 '-inkey', f'/proc/self/fd/{self._key}',
-                                 '-in', f'/proc/self/fd/{message}'], (self._key, message))
-        finally:
-            os.close(message)
+        signature = self._private_key().sign(digest)
         if len(signature) != 64:
             raise ProviderError('the treasury signature has an unexpected length')
         return signature

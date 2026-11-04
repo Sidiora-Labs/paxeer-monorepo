@@ -1,0 +1,33 @@
+[manifest]
+task = "22.32.113"
+domain = 13
+owner_role = "fm-programs"
+pages = 2
+
+[page.1]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+bytes = 32307
+source_1 = "record 22.30.1 [doc.4] (stale): Lines 3 and 15 still list the retired protocol adapter; 158 and 164 prescribe retired replay-golden and daemon batch-WAL inputs. The rest mirrors the site page except navigation links."
+source_2 = "record 22.30.123 [doc.004] (stale): The mirror retains adapter membership at line 15, obsolete ABI generator guidance at line 37 and retired daemon gate inputs at line 156."
+source_3 = "record 22.30.124 [doc.04] (stale): Read in full including wiki-link differences. Same adapter, ABI-generator and daemon/WAL drift as the site workspace guide; see workspace-wiki-retired-paths."
+source_4 = "record 22.30.125 [doc.workspace_wiki] (stale): Read full page. Lines 24-37 list two frozen checksums and an obsolete version-2-only generator; the crate inventory omits AI-market. Line 156 names retired cmd/layerxd/lxp_daemon_batch_wal.c as a current source. See workspace_wiki_abi and workspace_wiki_retired."
+source_5 = "record 22.30.126 [doc.4] (stale): Read in full; stale generator policy at 37, host inventory at 101-103 and removed differential input at 156."
+source_6 = "record 22.30.127 [doc.4] (stale): Full page read through comparison with the site copy. Lines 15, 24-37 and 156 retain the adapter, incomplete ABI list and daemon WAL build input. Finding 15 covers this copy."
+source_7 = "record 22.30.128 [doc.2] (stale): Same stale adapter, inventory and ABI gate claims as the site page at lines 15/20/24-37; reviewed full text and the wiki-specific link differences."
+source_8 = "record 22.30.129 [doc.002] (stale): The mirrored checksum and generator guidance repeats the obsolete ABI 2 default and incomplete baseline table; apply the same source-grounded correction as the site page."
+source_9 = "record 22.30.135 [doc.007] (stale): Line 156 retains daemon-WAL differential qualification and the page omits the release guest deployment profile and size bound. Keep this mirror aligned with the site's revised merged Programs gates."
+source_10 = "record 22.30.143 [doc.04] (stale): The runtime and ABI gate discussion remains useful, but the workspace inventory omits AI market and arbiter and retains an obsolete member. Current AI guest build-domain and payload-budget guidance is absent; see the corresponding programs-inventory finding."
+source_11 = "record 22.30.23 [doc.8] (stale): Line 15 presents the retired protocol adapter as a member; lines 121-141 describe daemon sequencer receipt vectors; lines 151-156 retain replay-golden and daemon batch-WAL dependencies."
+source_12 = "record 22.30.5 [doc.10] (stale): Read all 197 lines. Full site-common text and all three wiki link differences reviewed;15,88,151-156 retain adapter/daemon/golden-replay qualification."
+source_13 = "record 22.30.52 [doc.12] (stale): Read in full: ABI/vector discussion retained, but gate table at lines 151 and 156 requires retired daemon replay/batch-WAL paths; rewrite for merged host gates and deployment size."
+source_14 = "record 22.30.55 [doc.3] (stale): Read all 197 lines, including differences from the site page; the same obsolete differential input remains. See wiki-workspace-build-input."
+source_15 = "record 22.30.73 [doc.02] (stale): Lines 15 and 35 retain the removed protocol-adapter and ABI v2 description; the current runtime selects ABI v4 and the workspace includes AI-market and arbiter."
+source_16 = "record 22.30.8 [doc.9] (stale): The mirrored workspace guide repeats the retired adapter description and lacks the current guest deployment envelope and build-domain constraints."
+source_17 = "record 22.30.9 [doc.6] (stale): Read the mirrored body and link differences; it shares the site workspace stale adapter, golden gate and daemon compilation inputs."
+
+[page.2]
+path = "docs/wiki/Roadmap.md"
+status = "stale"
+bytes = 4298
+source_1 = "record 22.30.124 [doc.08] (stale): Read in full. Lines 21-24,48-54,60-67,73-83 understate implemented guest functionality; lines 112-123 retain active LNI guidance; see roadmap-shipped-programs."

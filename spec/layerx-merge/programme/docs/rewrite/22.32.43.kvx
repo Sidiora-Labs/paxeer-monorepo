@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.43"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 1
+
+[page.1]
+path = "consensus/spec/light-client/verification/verification_001_published.md"
+status = "stale"
+bytes = 43381
+source_1 = "record 22.30.47 [doc.058] (stale): Vendored upstream light-client research/specification artifact verification_001_published.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."

@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.189"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/release-v6-12-0/contracts/perps-parameters.md"
+status = "stale"
+bytes = 15874
+source_1 = "record 22.30.14 [doc.parameters] (stale): Reviewed economic defaults, fee/risk formulas, ADL pricing and work bounds against actual keeper consumers. Administration guidance omits the served governance route; source disagreements have separate findings."

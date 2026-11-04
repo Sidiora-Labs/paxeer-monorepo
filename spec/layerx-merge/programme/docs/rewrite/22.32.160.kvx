@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.160"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = ".codify/agent-context.md"
+status = "stale"
+bytes = 13205
+source_1 = "record 22.30.182 [doc.13] (stale): Generated cg agentmd graph snapshot retains the older directory inventory, including daemon/; regenerate from the merged graph rather than editing generated statistics."

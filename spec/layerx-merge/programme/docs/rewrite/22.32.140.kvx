@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.140"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+bytes = 30555
+source_1 = "record 22.30.132 [doc.05] (stale): Finding boundary-settlement-wiki: Settlement sections prescribe deploy-contracts.sh, GuarantorBond, CheckpointRegistry and Blueprint activation around standalone node genesis. The site and wiki carry identical instructions apart from their Home link."
+source_2 = "record 22.30.141 [doc.5] (stale): Lines 117-139 retain standalone checkpoint-settlement bootstrap and sidecar-only network topology. Chain id 125 is correct, but the merged-network finality and deployment description needs replacement."
+source_3 = "record 22.30.152 [doc.10] (stale): Lines3-7 and the later settlement stack describe retired paxeer-boundary/layerx-paxeer-client components; native merged-node migration guidance is required."
+source_4 = "record 22.30.30 [doc.08] (stale): Read in full. finding.boundary-doc-wiki at line 3. Retired topology and endpoint instructions require a coordinated rewrite."
+source_5 = "record 22.30.42 [doc.4] (stale): Lines 3-7 duplicate the retired boundary/relay instructions; see boundary-wiki."
+source_6 = "record 22.30.49 [doc.002] (stale): Read in full; site/wiki content differs only in the final Home link. Lines 5 onward describe the retired hosted relay; the Settlement suite section instructs retired vault/bond/checkpoint deployment. Replace with integrated paxd and committed-block finality guidance."
+source_7 = "record 22.30.69 [doc.08] (stale): Full page read, including shared site/wiki text and link differences. Lines 3 onward describe retired relay/custody topology and settlement bootstrap as operational prerequisites."

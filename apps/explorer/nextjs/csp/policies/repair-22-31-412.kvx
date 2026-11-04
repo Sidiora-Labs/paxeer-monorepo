@@ -1,0 +1,13 @@
+[repair.22.31.412]
+finding = "safe-origin"
+test = "repairSafeOriginConfigurationResponseAndRequest"
+additional_tests = ["repairSafeOriginUsesOnlyConfiguredOrigin", "repairSafeOriginDisabledForMissingOrInvalidConfiguration"]
+test_file = "apps/explorer/nextjs/csp/policies/repair-22-31-412.spec.ts"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done; no pre-change failure is claimed."
+previous_attempt_revision = "7637f23c3dbd18e8f7d89f77a17ef62054c8e704"
+previous_attempt_build = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json stopped with ERR_PNPM_OTHER_PM_EXPECTED before compilation; verification and regression tests did not execute."
+tooling = "Use pnpm 8.15.9 for the prescribed exec gates and the manifest-pinned yarn 1.22.22 for dependency installation; project manifests and package-manager checks are unchanged."
+proof = "The real Safe configuration producer normalizes the custom HTTPS URL; the real middleware emits its origin in both CSP profiles; useIsSafeAddress and useFetch perform a TLS-verified request to the local HTTPS service and publish its JSON through React Query."
+formatting_note = "ESLint layout fixes applied to the touched TypeScript files; its vitest rules flag named function registrations as assertion-free and nonliteral titles, although all assertions remain in the registered functions required by this task."
+repair_cycle_1 = "TypeScript TS2339 requires binding config.features.safe to a local feature before discriminating isEnabled and accessing apiUrl; no cast, widened type or fallback is used."
+wiring_request = "spec/layerx-merge/spec.kvx | fm-web-explorer-bridge (domain 14): attach this safe-origin test mapping and the runner's verified revision and evidence to task 22.31.412."

@@ -1,0 +1,13 @@
+[manifest]
+task = "22.32.177"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "docs/wiki/HostedCore.md"
+status = "misleading"
+bytes = 41688
+source_1 = "record 22.30.185 [doc.12] (stale): Read the page; rewrite starts at line 6. The wiki copy also describes layerxd behind core; lines 23, 43, 69-93, 118-150 and 314-330 document LNI, replicas, batch authority and standalone-daemon tests as current operations."
+source_2 = "record 22.30.52 [doc.7] (misleading): Read in full: lines 6, 43 and 116 onward present layerxd/LNI/replica transport as current hosted infrastructure; replace with merged node and hosted gateway paths."
+source_3 = "record 22.30.73 [doc.12] (stale): Lines 6, 23, 41, 74-92 and 305-329 mirror the retired daemon/LNI, Activity, receipt-authority and daemon-test operating model."

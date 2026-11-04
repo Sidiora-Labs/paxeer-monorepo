@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.116"
+domain = 13
+owner_role = "fm-programs"
+pages = 1
+
+[page.1]
+path = "programs/porting/solana/MIGRATION.md"
+status = "stale"
+bytes = 22398
+source_1 = "record 22.30.128 [doc.15] (stale): Lines 244 and 278 deny supported account payouts and guest crypto; line 368 omits initialize. Read full account/seed/schema, instruction, context, money and mint-reference guide."

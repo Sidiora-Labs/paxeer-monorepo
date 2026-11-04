@@ -1,0 +1,9 @@
+[repair.22.31.416]
+finding = "022"
+test = "sdk/integrations/next/example/test/repair-22-31-416.test.mjs"
+proof = "finding022_nextPaidHandlerReplaysAfterReopen"
+regressions = ["finding022_lookupPreservesConcurrentFulfillmentAndConflicts", "finding022_legacyRecordsBackfillVerifiedEvidenceWithoutRelease", "finding022_lookupDoesNotReleaseUnresolvedClaims"]
+baseline = "Attempt 1 stopped before tests: its example npm install exited 1 with registry E404 for @sidiora/layerx-next@0.1.0 at candidate d1009a063f7a82b705ab5d853a67bfe528b0d45e. No test failure was observed. The continuation order requires implementation, hf-build, then hf-done; no separate baseline verification is authorized."
+continuation = "The test imports the source-built integration dist and example repository by relative path, drives the shipped paid route through loopback HTTP, then destroys and reopens its mount and repository before replay. Dependencies are installed at the integration workspace by the declared gate; nothing is installed into the example."
+wiring_requests = []
+evidence = "The runner's hf-done record supplies the verified candidate revision, command, exit code and private log location."

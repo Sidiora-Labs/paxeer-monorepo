@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.30"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 2
+
+[page.1]
+path = "consensus/spec/abci++/abci++_basic_concepts_002_draft.md"
+status = "stale"
+bytes = 23166
+source_1 = "record 22.30.47 [doc.004] (stale): Vendored upstream ABCI++ draft abci++_basic_concepts_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/abci++/abci++_client_server_002_draft.md"
+status = "stale"
+bytes = 4375
+source_1 = "record 22.30.47 [doc.005] (stale): Read complete page; rewrite targets: abci-plus-transports-legacy at line 35. Concrete owning-domain proposals are recorded above."

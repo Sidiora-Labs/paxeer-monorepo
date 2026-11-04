@@ -25,7 +25,7 @@ func getAction(ctx context.Context, c *cli.Command) error {
 		cliutil.EmitStatus(os.Stderr, err)
 		return cli.Exit("", 1)
 	}
-	sc, err := newSidecarClient(cfg, ns, c.String("node"), int32(c.Int("port")))
+	sc, err := newSidecarClient(cfg, ns, c.String("node"), int32(c.Int("port")), c.String("proxy-ca-file"))
 	if err != nil {
 		cliutil.EmitStatus(os.Stderr, err)
 		return cli.Exit("", 1)

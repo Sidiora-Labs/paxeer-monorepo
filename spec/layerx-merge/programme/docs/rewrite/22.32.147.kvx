@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.147"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 1
+
+[page.1]
+path = "docs/paxeer-chain-docs.md"
+status = "misleading"
+bytes = 4127
+source_1 = "record 22.30.163 [doc.008] (misleading): Lines 3-5 and 17 describe Paxeer as the custody/checkpoint L1 for a separately trusted LayerX network."
+source_2 = "record 22.30.164 [doc.2] (stale): Read all 94 lines. Separate settlement and trust-boundary statements at lines 3-17 conflict with the merged network; Swagger instructions are a separate retained concern."
+source_3 = "record 22.30.167 [doc.02] (stale): Lines 3-17 describe independent custody and checkpoint settlement boundaries; the merged network uses native balances and block commit."
+source_4 = "record 22.30.179 [doc.003] (stale): Lines 3-7 and 19 describe a separate Paxeer settlement/custody domain rather than one merged BFT network."
+source_5 = "record 22.30.62 [doc.07] (stale): The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+source_6 = "record 22.30.67 [doc.2] (stale): Read the entire page. Lines 3-5 and 17 retain two trust boundaries and retired custody/checkpoint settlement. Swagger enablement and the described local serving path remain separate from public EVM root RPC."
+source_7 = "record 22.30.70 [doc.4] (stale): Lines 5 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
