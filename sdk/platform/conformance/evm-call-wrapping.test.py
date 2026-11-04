@@ -198,34 +198,42 @@ def test_intent_plan_legs_are_evm_calls():
     result = fixture["plan_result"]
     legs = result["legs"]
     assert len(legs) == 2
-    assert legs[0]["source"] == request["source"]
-    assert legs[-1]["destination"] == request["destination"]
+    assert request["source"] == {"kind": legs[0]["source"]["kind"]}
+    assert request["source"]["kind"] == "paxeer-wallet"
+    assert request["destination"] == {
+        "kind": legs[-1]["destination"]["kind"],
+        "account": legs[-1]["destination"]["account"],
+    }
     calls = set()
     for index, leg in enumerate(legs):
         assert leg["index"] == index
         assert "account_sequence" not in leg
-        assert leg["chainId"] == 125
+        assert leg["chain_id"] == 125
         assert leg["to"] == LEDGER
         assert_resolution(leg["source"])
         assert_resolution(leg["destination"])
         if index:
             assert leg["source"]["account"] == legs[index - 1]["destination"]["account"]
             assert leg["source"]["evm_address"] == legs[index - 1]["destination"]["evm_address"]
-        payment = leg["payment"]
-        assert payment["from"] == main_account_id(leg["source"]).hex()
-        assert payment["to"] == main_account_id(leg["destination"]).hex()
-        assert payment["assetId"] == request["asset_id"]
-        assert payment["amount"] == leg["money"]["amount"] == request["money"]["amount"]
+        assert set(leg) == {
+            "index", "mechanism", "domain", "source", "destination", "money", "fee",
+            "to", "value", "calldata", "nonce", "chain_id", "gas_limit",
+            "max_fee_per_gas", "max_priority_fee_per_gas",
+        }
+        assert leg["value"] == "0"
+        assert leg["nonce"] == index
+        assert leg["gas_limit"] == 100000
+        assert int(leg["max_priority_fee_per_gas"]) <= int(leg["max_fee_per_gas"])
+        assert leg["money"]["amount"] == request["money"]["amount"]
         signing = result["signing_requirements"][index]
         assert signing["leg_index"] == index
-        assert payment["paymentReference"] == signing["action_key"]
         expected = abi_encode(
             ("bytes32", "bytes32", "bytes32", "uint128", "uint64", "bytes32"),
             (main_account_id(leg["source"]), main_account_id(leg["destination"]),
              bytes.fromhex(request["asset_id"]), int(leg["money"]["amount"]),
-             payment["sequence"], bytes.fromhex(signing["action_key"])),
+             0, bytes.fromhex(signing["action_key"])),
         )
-        assert leg["data"] == "0x78ea11db" + expected.hex()
-        assert len(bytes.fromhex(leg["data"][2:])) == 196
-        calls.add((leg["to"], leg["data"], leg["chainId"]))
+        assert leg["calldata"] == "0x78ea11db" + expected.hex()
+        assert len(bytes.fromhex(leg["calldata"][2:])) == 196
+        calls.add((leg["to"], leg["calldata"], leg["chain_id"]))
     assert len(calls) == len(legs)

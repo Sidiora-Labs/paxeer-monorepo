@@ -27,10 +27,7 @@ import {
 } from "./account-derivation.js";
 import { abiSelector, type PrecompileCall } from "./exchange.js";
 import { decodeRevertReason, RevertReasonError } from "./revert.js";
-import {
-  verifySequencerReceipt,
-  type SequencerAuthorization,
-} from "./verifier.js";
+import type { SequencerAuthorization } from "./verifier.js";
 
 /** Values of sdk/platform/schema/paxai-v1.kvx [limits]. */
 export const PAXAI_LIMITS = Object.freeze({
@@ -87,7 +84,7 @@ const PROGRAMS_CALL_SELECTOR = fromHex(
   ).slice(2),
 );
 const MAX_CALL_BYTES = 2_163_428;
-const RECORD_MAGIC = ascii("PAXAIOP1");
+const RECORD_MAGIC = ascii("PAXAIOP2");
 const ENVELOPE_MAGIC = ascii("PAXAI1");
 const TOKEN = Symbol("paxai");
 
@@ -2771,8 +2768,8 @@ export class OperationRecord implements RecordFields {
     return `0x${this.activityId}`;
   }
 
-  public get rung(): "submitted" | "receipted" | null {
-    if (this.globalSequence !== null) return "receipted";
+  public get rung(): "submitted" | "committed" | null {
+    if (this.globalSequence !== null) return "committed";
     return this.state === "pending" || this.state === "unknown"
       ? "submitted"
       : null;
@@ -2946,6 +2943,26 @@ function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+export class CommitFinality {
+  public constructor(
+    public readonly blockHeight: bigint,
+    public readonly blockHash: Hex32,
+    public readonly appHash: Hex32,
+    public readonly storeProofDigest: Hex32,
+  ) {
+    if (
+      typeof blockHeight !== "bigint" ||
+      blockHeight < 0n ||
+      blockHeight > U64_MAX ||
+      !isId(blockHash) ||
+      !isId(appHash) ||
+      !isId(storeProofDigest)
+    )
+      refuse("FinalityUnavailable");
+    Object.freeze(this);
+  }
+}
+
 /** Crash-safe journal of signed operations; one file per activity, replaced atomically. */
 export class OperationJournal {
   readonly #directory: string;
@@ -3099,45 +3116,73 @@ export class OperationJournal {
 
   public async resolve(
     record: OperationRecord,
-    submission: unknown,
+    transactionReceipt: unknown,
+    finality: CommitFinality | null = null,
   ): Promise<OperationRecord> {
     requireState(record, ["pending", "unknown"]);
-    const execution = await decodeProgramsReceipt(
-      submission,
+    if (transactionReceipt === null) return record;
+    const receipt = decodeCommittedTransactionReceipt(
+      transactionReceipt,
       record.signedBytes,
-      this.#receiptKeys,
     );
-    if (execution === null) return record;
-    const code =
-      execution.programResult?.terminalResult ?? execution.receipt.resultCode;
-    const resolved = record.with(
+    if (finality !== null && !(finality instanceof CommitFinality))
+      refuse("FinalityUnavailable");
+    if (
+      finality !== null &&
+      (receipt.blockHeight > finality.blockHeight ||
+        (receipt.blockHeight === finality.blockHeight &&
+          receipt.blockHash !== finality.blockHash))
+    )
+      refuse("FinalityMismatch");
+    const executed = record.with(
       {
-        state: code === 0 ? "executed" : "failed",
-        resultCode: code,
-        globalSequence: execution.receipt.globalSequence,
+        state: receipt.success ? "executed" : "failed",
+        resultCode: receipt.success ? 0 : 1,
+        globalSequence: receipt.blockHeight,
       },
       TOKEN,
     );
-    await this.persist(resolved);
-    if (execution.revert !== null) throw execution.revert;
-    return resolved;
+    await this.persist(executed);
+    return receipt.success && finality !== null
+      ? await this.finalize(executed, finality)
+      : executed;
+  }
+
+  public async finalize(
+    record: OperationRecord,
+    finality: CommitFinality,
+  ): Promise<OperationRecord> {
+    requireState(record, ["executed"]);
+    if (!(finality instanceof CommitFinality)) refuse("FinalityUnavailable");
+    if (
+      record.globalSequence === null ||
+      record.globalSequence > finality.blockHeight
+    )
+      refuse("FinalityMismatch");
+    const finalized = record.with(
+      { state: "finalized", checkpoint: finality.blockHash },
+      TOKEN,
+    );
+    await this.persist(finalized);
+    return finalized;
   }
 
   public async resolveThrough(
     record: OperationRecord,
     operations: Eip1193Requester,
+    finality: CommitFinality | null = null,
   ): Promise<OperationRecord> {
     requireState(record, ["pending", "unknown"]);
-    let submission: unknown;
+    let receipt: unknown;
     try {
-      submission = await operations.request({
-        method: "pax_sequencerReceipt",
-        params: [`0x${record.activityId}`],
+      receipt = await operations.request({
+        method: "eth_getTransactionReceipt",
+        params: [record.txHash],
       });
     } catch {
       return record;
     }
-    return await this.resolve(record, submission);
+    return await this.resolve(record, receipt, finality);
   }
 
   /** A signed operation never sent becomes `failed` once its validity window has passed. */
@@ -3386,6 +3431,33 @@ function validateProgramsExecutionResponse(
   reader.end();
 }
 
+function decodeCommittedTransactionReceipt(value: unknown, signed: Uint8Array) {
+  const receipt = receiptObject(value);
+  const transaction = decodeTransaction(signed);
+  if (transaction.signature === null) refuse("ReceiptMismatch");
+  const sender = keccak_256(
+    secp256k1.Point.fromBytes(
+      recoveredKey(transaction.signature, keccak_256(transaction.canonical)),
+    )
+      .toBytes(false)
+      .slice(1),
+  ).slice(12);
+  const blockHeight = rpcQuantity(receipt.blockNumber);
+  const blockHash = hex(rpcBytes(receipt.blockHash, 32));
+  const status = rpcQuantity(receipt.status);
+  if (
+    !equal(rpcBytes(receipt.transactionHash, 32), keccak_256(signed)) ||
+    !equal(rpcBytes(receipt.from, 20), sender) ||
+    !equal(rpcBytes(receipt.to, 20), fromHex(PROGRAMS_PRECOMPILE.slice(2))) ||
+    blockHeight === 0n ||
+    blockHeight > U64_MAX ||
+    !isId(blockHash) ||
+    (status !== 0n && status !== 1n)
+  )
+    refuse("ReceiptMismatch");
+  return { blockHeight, blockHash, success: status === 1n };
+}
+
 function receiptObject(value: unknown): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     refuse("ReceiptMismatch");
@@ -3462,256 +3534,6 @@ export async function gatewayReceiptKeys(
   return decodeGatewayReceiptKeys(
     await operations.request({ method: "px_getReceiptKeys", params: [] }),
   );
-}
-
-export async function decodeProgramsReceipt(
-  value: unknown,
-  signed: Uint8Array,
-  receiptKeys: readonly SequencerAuthorization[],
-) {
-  if (value === null) return null;
-  const v = receiptObject(value);
-  const transaction = decodeTransaction(signed);
-  if (transaction.signature === null) refuse("ReceiptMismatch");
-  const trader = keccak_256(
-    secp256k1.Point.fromBytes(
-      recoveredKey(transaction.signature, keccak_256(transaction.canonical)),
-    )
-      .toBytes(false)
-      .slice(1),
-  ).slice(12);
-  if (
-    !equal(rpcBytes(v.txHash, 32), keccak_256(signed)) ||
-    rpcQuantity(v.nonce) !== transaction.nonce
-  )
-    refuse("ReceiptMismatch");
-  if (v.rung === "submitted") {
-    if (
-      Object.keys(v).some((key) => !["rung", "txHash", "nonce"].includes(key))
-    )
-      refuse("ReceiptMismatch");
-    return null;
-  }
-  if (v.rung !== "receipted" && v.rung !== "committed")
-    refuse("ReceiptMismatch");
-  let verified: Awaited<ReturnType<typeof verifySequencerReceipt>>;
-  try {
-    verified = await verifySequencerReceipt(
-      rpcBytes(v.receipt),
-      signed,
-      receiptKeys.map((key) => ({
-        keyId: key.sequencerId,
-        publicKey: key.publicKey,
-        first_height: key.firstBatchNumber,
-        last_height: key.lastBatchNumber,
-      })),
-    );
-  } catch {
-    return refuse("ReceiptMismatch");
-  }
-  const { receipt, height } = verified;
-  const {
-    activityId,
-    globalSequence,
-    previousStateRoot,
-    resultingStateRoot,
-    activityRoot,
-    resultCode,
-    effects,
-    feeCharged,
-    batchId,
-    moduleId,
-    moduleVersion,
-    parameterVersion,
-    operation,
-    asset,
-    amount,
-    from,
-    fromSequence,
-    to,
-    transferSetRoot,
-    authorizationHash,
-    contextHash,
-    timestamp,
-  } = receipt;
-  if (
-    height === 0n ||
-    batchId.slice(0, 24).some((byte) => byte !== 0) ||
-    globalSequence === 0n ||
-    timestamp === 0n ||
-    moduleId !== 12 ||
-    moduleVersion !== 1 ||
-    parameterVersion !== 0 ||
-    operation !== 2 ||
-    amount !== 0n ||
-    !equal(activityId, keccak_256(signed)) ||
-    fromSequence !== transaction.nonce ||
-    !equal(from, concat(new Uint8Array(12), trader)) ||
-    !equal(
-      to,
-      concat(new Uint8Array(12), fromHex(PROGRAMS_PRECOMPILE.slice(2))),
-    ) ||
-    transferSetRoot.some((byte) => byte !== 0) ||
-    authorizationHash.some((byte) => byte !== 0) ||
-    effects.length === 0 ||
-    effects.some(
-      (effect, index) =>
-        effect.moduleId !== moduleId ||
-        effect.ordinal !== index ||
-        effect.eventType !== 0 ||
-        effect.kind !== (index === 0 ? 1 : 3) ||
-        effect.monetary ||
-        effect.transferSetRoot.some((byte) => byte !== 0),
-    ) ||
-    !equal(
-      resultingStateRoot,
-      sha256(
-        concat(
-          ascii("PAXEER/v1/sequence\0"),
-          previousStateRoot,
-          new Writer().u64(globalSequence).bytes(),
-          activityId,
-        ),
-      ),
-    )
-  )
-    refuse("ReceiptMismatch");
-  const summary = effects[0];
-  if (summary === undefined) refuse("ReceiptMismatch");
-  const sr = new Reader(summary.body, () => refuse("ReceiptMismatch"));
-  const gasUsed = sr.u64(),
-    cumulativeGasUsed = sr.u64(),
-    effectiveGasPrice = sr.u64(),
-    index = sr.u32();
-  const contractAddress = sr.fixed(20),
-    sponsor = sr.fixed(20),
-    vmErrorDigest = sr.fixed(32),
-    returnDataLength = sr.u32(),
-    logCount = sr.u32();
-  const denomLength = sr.u8();
-  if (denomLength === 0 || denomLength > 64) refuse("ReceiptMismatch");
-  let feeDenom: string;
-  try {
-    feeDenom = new TextDecoder("utf-8", { fatal: true }).decode(
-      sr.fixed(denomLength),
-    );
-  } catch {
-    return refuse("ReceiptMismatch");
-  }
-  sr.end();
-  const returnData = rpcBytes(v.returnData);
-  const paymentDenom = v.paymentDenom;
-  if (
-    typeof v.vmError !== "string" ||
-    typeof v.feeDenom !== "string" ||
-    v.feeDenom !== feeDenom ||
-    typeof paymentDenom !== "string" ||
-    !/^[a-zA-Z][a-zA-Z0-9/:._-]{2,63}$/u.test(paymentDenom) ||
-    !equal(sha256(ascii(v.vmError)), vmErrorDigest) ||
-    !equal(sha256(ascii(paymentDenom)), asset) ||
-    returnData.length !== returnDataLength ||
-    !equal(sha256(returnData), activityRoot) ||
-    gasUsed > transaction.fees.gasLimit ||
-    effectiveGasPrice > transaction.fees.maxFeePerGas ||
-    (resultCode !== 0 && resultCode !== 1)
-  )
-    refuse("ReceiptMismatch");
-  const status = resultCode === 0 ? 1n : 0n;
-  const quantities = {
-    seq: globalSequence,
-    height,
-    index: BigInt(index),
-    timestamp,
-    status,
-    gasUsed,
-    cumulativeGasUsed,
-    effectiveGasPrice,
-    feeAmount: feeCharged,
-  };
-  for (const [field, expected] of Object.entries(quantities))
-    if (rpcQuantity(v[field]) !== expected) refuse("ReceiptMismatch");
-  for (const [field, expected] of Object.entries({
-    keyId: contextHash,
-    from: trader,
-    to: to.slice(12),
-    contractAddress,
-    sponsor,
-  })) {
-    if (!equal(rpcBytes(v[field], expected.length), expected))
-      refuse("ReceiptMismatch");
-  }
-  if (
-    !Array.isArray(v.logs) ||
-    v.logs.length !== logCount ||
-    effects.length !== logCount + 1
-  )
-    refuse("ReceiptMismatch");
-  for (let i = 0; i < logCount; i += 1) {
-    const effect = effects[i + 1];
-    if (effect === undefined) refuse("ReceiptMismatch");
-    const lr = new Reader(effect.body, () => refuse("ReceiptMismatch"));
-    const address = lr.fixed(20),
-      topicsCount = lr.u8();
-    if (topicsCount > 4) refuse("ReceiptMismatch");
-    const topics = Array.from({ length: topicsCount }, () => lr.fixed(32));
-    const dataHash = lr.fixed(32);
-    lr.end();
-    const log = receiptObject(v.logs[i]);
-    if (
-      !equal(rpcBytes(log.address, 20), address) ||
-      rpcQuantity(log.logIndex) !== BigInt(i) ||
-      !Array.isArray(log.topics) ||
-      log.topics.length !== topicsCount ||
-      !topics.every((topic, n) =>
-        equal(topic, rpcBytes((log.topics as unknown[])[n], 32)),
-      ) ||
-      !equal(sha256(rpcBytes(log.data)), dataHash)
-    )
-      refuse("ReceiptMismatch");
-  }
-  const call = decodeNativeProgramCallV1(transaction.activity.payload);
-  const outcomeTopic = keccak_256(
-    ascii(
-      "ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)",
-    ),
-  );
-  let appliedTransferRoot: Uint8Array | undefined;
-  for (const value of v.logs) {
-    const log = receiptObject(value);
-    const topics = log.topics as unknown[];
-    if (
-      !equal(rpcBytes(log.address, 20), to.slice(12)) ||
-      topics.length === 0 ||
-      !equal(rpcBytes(topics[0], 32), outcomeTopic)
-    )
-      continue;
-    const data = rpcBytes(log.data, 13 * 32);
-    if (
-      appliedTransferRoot !== undefined ||
-      topics.length !== 2 ||
-      !equal(rpcBytes(topics[1], 32), call.programId) ||
-      !equal(data.slice(8 * 32, 9 * 32), returnData.slice(0, 32))
-    )
-      refuse("ReceiptMismatch");
-    appliedTransferRoot = data.slice(9 * 32, 10 * 32);
-  }
-  const revert = status === 0n ? decodeRevertReason(returnData) : null;
-  return Object.freeze({
-    receipt,
-    programResult:
-      status === 1n
-        ? decodeProgramsCallResult(
-            returnData,
-            call.responseCapacity,
-            appliedTransferRoot,
-          )
-        : null,
-    refusal:
-      revert === null
-        ? null
-        : `${revert.code}: ${revert.message}${revert.detail === undefined ? "" : `; ${revert.detail}`}`,
-    revert,
-  });
 }
 
 // ---------------------------------------------------------------------------------------------

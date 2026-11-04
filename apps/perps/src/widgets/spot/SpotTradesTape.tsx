@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/ui/utils/cn";
-import { useSpotTrades, type SpotTrade } from "@/hooks/spot/useSpotMarketStream";
+import {
+  useSpotTrades,
+  type SpotTrade,
+} from "@/hooks/spot/useSpotMarketStream";
 import { useSpotVenueTrades } from "@/core/net/venueStream";
 
 export interface SpotTradesTapeProps {
@@ -50,41 +53,59 @@ function tradeKey(t: SpotTrade): string {
   return `${t.trade_time}|${t.price}|${t.side}`;
 }
 
-function useFlashIds(trades: SpotTrade[]): Set<string> {
-  const seenRef = useRef<Set<string>>(new Set());
-  const [flashSet, setFlashSet] = useState<Set<string>>(new Set());
+export const RECENT_TRADE_KEY_LIMIT = 200;
+export const TRADE_HIGHLIGHT_MS = 700;
 
-  useEffect(() => {
-    if (trades.length === 0) return;
-    const newOnes: string[] = [];
-    for (const t of trades) {
-      const k = tradeKey(t);
-      if (!seenRef.current.has(k)) {
-        seenRef.current.add(k);
-        newOnes.push(k);
-      }
+export class RecentTradeHighlights {
+  readonly seen = new Set<string>();
+  readonly expires = new Map<string, number>();
+
+  update(trades: readonly SpotTrade[], now: number): Set<string> {
+    for (const trade of trades.slice(0, RECENT_TRADE_KEY_LIMIT)) {
+      const key = tradeKey(trade);
+      if (!this.seen.has(key)) this.expires.set(key, now + TRADE_HIGHLIGHT_MS);
+      this.seen.delete(key);
+      this.seen.add(key);
     }
-    if (newOnes.length === 0) return;
-    setFlashSet((prev) => {
-      const next = new Set(prev);
-      newOnes.forEach((k) => next.add(k));
-      return next;
-    });
-    const id = window.setTimeout(() => {
-      setFlashSet((prev) => {
-        if (prev.size === 0) return prev;
-        const next = new Set(prev);
-        newOnes.forEach((k) => next.delete(k));
-        return next;
-      });
-    }, 700);
-    return () => window.clearTimeout(id);
-  }, [trades]);
+    while (this.seen.size > RECENT_TRADE_KEY_LIMIT) {
+      const oldest = this.seen.values().next().value!;
+      this.seen.delete(oldest);
+      this.expires.delete(oldest);
+    }
+    return this.active(now);
+  }
 
+  active(now: number): Set<string> {
+    for (const [key, deadline] of this.expires)
+      if (deadline <= now) this.expires.delete(key);
+    return new Set(this.expires.keys());
+  }
+}
+
+export function useFlashIds(trades: SpotTrade[]): Set<string> {
+  const recent = useRef(new RecentTradeHighlights());
+  const [flashSet, setFlashSet] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setFlashSet(recent.current.update(trades, Date.now()));
+  }, [trades]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const active = recent.current.active(Date.now());
+      setFlashSet((prev) =>
+        prev.size === active.size && [...prev].every((key) => active.has(key))
+          ? prev
+          : active,
+      );
+    }, 50);
+    return () => clearInterval(id);
+  }, []);
   return flashSet;
 }
 
-export function SpotTradesTape({ symbol, compact = false }: SpotTradesTapeProps) {
+export function SpotTradesTape({
+  symbol,
+  compact = false,
+}: SpotTradesTapeProps) {
   // The spot venue trades of the gateway; the Chainflow reference tape while the
   // gateway socket is not open or the spot venue does not list the symbol.
   const venueTrades = useSpotVenueTrades(symbol);
