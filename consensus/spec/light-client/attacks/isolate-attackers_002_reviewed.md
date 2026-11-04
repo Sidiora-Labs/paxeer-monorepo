@@ -2,224 +2,210 @@
 
 # Lightclient Attackers Isolation
 
-Adversarial nodes may have the incentive to lie to a lightclient about the state of a Tendermint blockchain. An attempt to do so is called attack. Light client [verification][verification] checks incoming data by checking a so-called "commit", which is a forwarded set of signed messages that is (supposedly) produced during executing Tendermint consensus. Thus, an attack boils down to creating and signing Tendermint consensus messages in deviation from the Tendermint consensus algorithm rules.
+This page retains the Tendermint attacker-isolation model and maps it to the
+classic evidence implementation in this tree. Its trust, validator and timing
+assumptions are essential. It is not a specification of Autobahn certificates,
+validator punishment or recovery.
 
-As Tendermint consensus and light client verification is safe under the assumption of more than 2/3 of correct voting power per block [[TMBC-FM-2THIRDS]][TMBC-FM-2THIRDS-link], this implies that if there was an attack then [[TMBC-FM-2THIRDS]][TMBC-FM-2THIRDS-link] was violated, that is, there is a block such that
+Paxeer mainnet-beta is one BFT network run by `paxd`, with EVM chain ID 125
+(`0x7d`). The kernel is part of the network and proposes blocks; a receipt is
+final when its block is committed. The research model below does not introduce
+another finality stage.
 
-- validators deviated from the protocol, and
-- these validators represent more than 1/3 of the voting power in that block.
+## Current-mode applicability
 
-In the case of an [attack][node-based-attack-characterization], the lightclient [attack detection mechanism][detection] computes data, so called evidence [[LC-DATA-EVIDENCE.1]][LC-DATA-EVIDENCE-link], that can be used
+The node configuration key `autobahn-config-file` selects Autobahn when non-empty
+([configuration][config], [node assembly][node]). An empty value leaves Autobahn
+disabled. Determine the node's consensus mode before applying this model.
 
-- to proof that there has been attack [[TMBC-LC-EVIDENCE-DATA.1]][TMBC-LC-EVIDENCE-DATA-link] and
-- as basis to find the actual nodes that deviated from the Tendermint protocol.
+| Concern | Implementation and limit |
+| --- | --- |
+| Classic light-client conflict | [The detector][detection] checks primary and witness traces; a disagreement alone is not proof against a validator. |
+| Evidence validation | [`VerifyLightClientAttack`][evidence-verifier] checks signatures and a conflict against the receiving full node's history. |
+| Validator attribution | [`LightClientAttackEvidence.GetByzantineValidators`][evidence-type] implements the lunatic and same-round equivocation cases. Different-round amnesia returns no validators. |
+| Application notification | The classic [block executor][executor] passes committed evidence as `RequestFinalizeBlock.ByzantineValidators` to the in-process application. Evidence submission alone does not punish anyone. |
+| Autobahn | [`BroadcastEvidence`][evidence-rpc] returns `coretypes.ErrEvidenceNotAccepted`; this classic isolation path is not an Autobahn evidence API. |
 
-This specification considers how a full node in a Tendermint blockchain can isolate a set of attackers that launched the attack. The set should satisfy
-
-- the set does not contain a correct validator
-- the set contains validators that represent more than 1/3 of the voting power of a block that is still within the unbonding period
+Autobahn uses committee-verified `CommitQC` and `FullCommitQC` objects in
+[`autobahn/types/commit_qc.go`][commit-qc]. Its committee weights, signed messages
+and [persisted consensus state][persisted-state] have their own contracts. A
+classic commit, trusting period or isolation argument cannot be substituted for
+those contracts.
 
 # Outline
 
-After providing the [problem statement](#Part-I---Basics-and-Definition-of-the-Problem), we specify the [isolator function](#Part-II---Protocol) and close with the discussion about its [correctness](#Part-III---Completeness) which is based on computer-aided analysis of Tendermint Consensus.
+[Part I](#part-i---basics-and-definition-of-the-problem) states the retained
+Tendermint problem. [Part II](#part-ii---protocol) explains the implemented
+validation and attribution path. [Part III](#part-iii---completeness) states
+the limits of the upstream completeness argument. [Evidence handling][handling]
+covers construction, transport and the unimplemented amnesia monitor proposal.
 
 # Part I - Basics and Definition of the Problem
 
-For definitions of data structures used here, in particular LightBlocks [[LCV-DATA-LIGHTBLOCK.1]](https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-data-lightblock1), we refer to the specification of [Light Client Verification][verification].
+Under the classic Tendermint model, more than two thirds of the voting power
+at each relevant height follows the consensus protocol. Light-client trust also
+requires a trusted starting block that has not expired and sufficient overlap
+with its validator set. A conflicting header that passes verification can expose
+a violation of these assumptions. Full nodes serving data and validators signing
+votes are different roles: attribution concerns signed validator messages, not
+the peer identity that relayed them.
 
-The specification of the [detection mechanism][detection] describes
+The [verification research][verification] defines light blocks and trust
+conditions. The actual [`types.LightBlock`][light-type] contains a signed header
+and its validator set. Basic validation checks their internal consistency;
+cryptographic verification is a separate step.
 
-- what is a light client attack,
-- conditions under which the detector will detect a light client attack,
-- and the format of the output data, called evidence, in the case an attack is detected. The format is defined in
-[[LC-DATA-EVIDENCE.1]][LC-DATA-EVIDENCE-link] and looks as follows
-
-```go
-type LightClientAttackEvidence struct {
-    ConflictingBlock   LightBlock
-    CommonHeight       int64
-}
-```
-
-The isolator is a function that gets as input evidence `ev`
-and a prefix of the blockchain `bc` at least up to height `ev.ConflictingBlock.Header.Height + 1`. The output is a set of *peerIDs* of validators.
-
-We assume that the full node is synchronized with the blockchain and has reached the height `ev.ConflictingBlock.Header.Height + 1`.
+The detector's abstract evidence consists of a conflicting light block and a
+common height. The actual [`LightClientAttackEvidence`][evidence-type] also carries
+`ByzantineValidators`, `TotalVotingPower` and `Timestamp`. See the
+[complete shape][handling-shape]; the two-field research abstraction is not the
+wire type.
 
 #### **[LCAI-INV-Output.1]**
 
-When an output is generated it satisfies the following properties:
+The retained research goal is to isolate validators without accusing a correct
+validator. Given validated conflicting evidence, a canonical chain prefix, and
+the required unbonding and voting-power assumptions, the desired set represents
+more than one third of the voting power of a relevant bonded validator set.
+Invalid evidence must be rejected before attribution.
 
-- If
-    - `bc[CommonHeight].bfttime` is within the unbonding period w.r.t. the time at the full node,
-    - `ev.ConflictingBlock.Header != bc[ev.ConflictingBlock.Header.Height]`
-    - Validators in `ev.ConflictingBlock.Commit` represent more than 1/3 of the voting power in `bc[ev.CommonHeight].NextValidators`
-- Then: The output is a set of validators in `bc[CommonHeight].NextValidators` that
-    - represent more than 1/3 of the voting power in `bc[ev.commonHeight].NextValidators`
-    - signed Tendermint consensus messages for height `ev.ConflictingBlock.Header.Height` by violating the Tendermint consensus protocol.
-- Else: the empty set.
+This goal is conditional, rather than a guarantee for every accepted evidence
+object. In particular, the implementation cannot attribute amnesia from the
+available evidence. The original research also assumed a synchronized full node
+with the block after the conflicting height so that its `LastCommit` was
+available. The current verifier loads the header and `LoadBlockCommit(height)`
+directly in `getSignedHeader`; it does not require the next header as the API for
+obtaining that commit.
+
+The research unbonding assumption protects accountability while validators can
+still be held responsible. The implementation uses the consensus evidence age
+parameters described in [evidence handling][handling-validation]. These are not
+an unconditional assertion that every returned validator is currently bonded;
+application policy remains separate.
 
 # Part II - Protocol
-
-Here we discuss how to solve the problem of isolating misbehaving processes. We describe the function `isolateMisbehavingProcesses` as well as all the helping functions below. In [Part III](#part-III---Completeness), we discuss why the solution is complete based on result from analysis with automated tools.
 
 ## Isolation
 
 ### Outline
 
-We first check whether the conflicting block can indeed be verified from the common height. We then first check whether it was a lunatic attack (violating validity). If this is not the case, we check for equivocation. If this also is not the case, we start the on-chain [accountability protocol](https://docs.google.com/document/d/11ZhMsCj3y7zIZz4udO9l25xqb0kl7gmWqNpGVRzOeyY/edit).
+Validation comes before attribution. The receiving full node supplies its own
+canonical headers and validator sets. It does not trust the submitted list of
+accused validators. The code first distinguishes an invalid deterministic header
+(the research term is **lunatic**), then conflicting commits in the same round
+(**equivocation**), then conflicting commits in different rounds (**amnesia**).
 
 #### **[LCAI-FUNC-MAIN.1]**
 
-```go
-func isolateMisbehavingProcesses(ev LightClientAttackEvidence, bc Blockchain) []ValidatorAddress {
+The upstream name `isolateMisbehavingProcesses` denotes the research operation;
+it is not an exported function in this tree. The implementation is split between
+`Pool.verify`, `VerifyLightClientAttack`, and
+`LightClientAttackEvidence.GetByzantineValidators`:
 
-    reference := bc[ev.conflictingBlock.Header.Height].Header
-    ev_header := ev.conflictingBlock.Header
+1. Check basic consistency, evidence age and the full node's required history.
+2. Verify the conflicting commit, the required common-set overlap and the
+   conflict with the local chain.
+3. Compute the attributable validators using the rules below.
+4. Validate the supplied application metadata against that computation and the
+   local block time and voting power.
 
-    ref_commit := bc[ev.conflictingBlock.Header.Height + 1].Header.LastCommit // + 1 !!
-    ev_commit := ev.conflictingBlock.Commit
-
-    if violatesTMValidity(reference, ev_header) {
-        // lunatic light client attack
-        signatories := Signers(ev.ConflictingBlock.Commit)
-        bonded_vals := Addresses(bc[ev.CommonHeight].NextValidators)
-        return intersection(signatories,bonded_vals)
-
-    }
-    // If this point is reached the validator sets in reference and ev_header are identical
-    else if RoundOf(ref_commit) == RoundOf(ev_commit) {
-        // equivocation light client attack
-        return intersection(Signers(ref_commit), Signers(ev_commit))
-    }
-    else {
-        // amnesia light client attack
-        return IsolateAmnesiaAttacker(ev, bc)
-    }
-}
-```
-
-- Implementation comment
-    - If the full node has only reached height `ev.conflictingBlock.Header.Height` then `bc[ev.conflictingBlock.Header.Height + 1].Header.LastCommit` refers to the locally stored commit for this height. (This commit must be present by the precondition on `length(bc)`.)
-    - We check in the precondition that the unbonding period is not expired. However, since time moves on, before handing the validators over Cosmos SDK, the time needs to be checked again to satisfy the contract which requires that only bonded validators are reported. This passing of validators to the SDK is out of scope of this specification.
-- Expected precondition
-    - `length(bc) >= ev.conflictingBlock.Header.Height`
-    - `ValidAndVerifiedUnbonding(bc[ev.CommonHeight], ev.ConflictingBlock) == SUCCESS`
-    - `ev.ConflictingBlock.Header != bc[ev.ConflictingBlock.Header.Height]`
-    - `ev.conflictingBlock` satisfies basic validation (in particular all signed messages in the Commit are from the same round)
-- Expected postcondition
-    - [[FN-INV-Output.1]](#FN-INV-Output1) holds
-- Error condition
-    - returns an error if precondition is violated.
+Failures in the first two steps are errors, not an empty successful result.
+An empty attribution for amnesia does not mean that no conflicting headers were
+detected. The [detector][detection] can still stop the light-client update with
+`ErrLightClientAttack`.
 
 ### Details of the Functions
 
 #### **[LCAI-FUNC-VVU.1]**
 
-```go
-func ValidAndVerifiedUnbonding(trusted LightBlock, untrusted LightBlock) Result
-```
-
-- Conditions are identical to [[LCV-FUNC-VALID.2]][LCV-FUNC-VALID.link] except the precondition "*trusted.Header.Time > now - trustingPeriod*" is substituted with
-    - `trusted.Header.Time > now - UnbondingPeriod`
+`ValidAndVerifiedUnbonding` is a historical helper: it replaces the light
+client's trusting-period bound with an unbonding-period bound. The current
+evidence path instead uses `Pool.verify` for evidence age and
+`VerifyLightClientAttack` for signatures and conflict checks. Do not call the
+research helper as though it were an available API, or replace the pool's age
+checks with light-client verification alone.
 
 #### **[LCAI-FUNC-NONVALID.1]**
 
-```go
-func violatesTMValidity(ref Header, ev Header) boolean
-```
+The historical `violatesTMValidity` predicate is implemented by
+`LightClientAttackEvidence.ConflictingHeaderIsInvalid`. It compares the
+conflicting header with the trusted header supplied by the full node.
 
-- Implementation remarks
-    - checks whether the evidence header `ev` violates the validity property of Tendermint Consensus, by checking against a reference header
-- Expected precondition
-    - `ref.Height == ev.Height`
-- Expected postcondition
-    - returns evaluation of the following disjunction  
-    **[LCAI-NONVALID-OUTPUT.1]** ==  
-    `ref.ValidatorsHash != ev.ValidatorsHash` or  
-    `ref.NextValidatorsHash != ev.NextValidatorsHash` or  
-    `ref.ConsensusHash != ev.ConsensusHash` or  
-    `ref.AppHash != ev.AppHash` or  
-    `ref.LastResultsHash != ev.LastResultsHash`
+#### **[LCAI-NONVALID-OUTPUT.1]**
 
-```go
-func IsolateAmnesiaAttacker(ev LightClientAttackEvidence, bc Blockchain) []ValidatorAddress
-```
+The method returns true for a difference in any of `ValidatorsHash`,
+`NextValidatorsHash`, `ConsensusHash` or `AppHash`. It also compares
+`LastResultsHash` when `types.SkipLastResultsHashValidation` is false. This
+qualification matters in this fork; the upstream unconditional five-field
+predicate does not describe all runtime settings.
 
-- Implementation remarks
-    - This triggers the [query/response protocol](https://docs.google.com/document/d/11ZhMsCj3y7zIZz4udO9l25xqb0kl7gmWqNpGVRzOeyY/edit).
-- Expected postcondition
-    - returns attackers according to [LCAI-INV-Output.1].
+For this lunatic case, `GetByzantineValidators` includes only signatures with
+`BlockIDFlagCommit` whose validator addresses belong to the common validator
+set. It returns those validators ordered by voting power. It does not accuse
+every member of the conflicting validator set.
 
-```go
-func RoundOf(commit Commit) []ValidatorAddress
-```
+If the deterministic header fields agree and both commits have the same round,
+the method selects validators with `BlockIDFlagCommit` signatures in both
+commits. Verified matching validator sets make the signature indexing meaningful.
+The result is again ordered by voting power.
 
-- Expected precondition
-    - `commit` is well-formed. In particular all votes are from the same round `r`.
-- Expected postcondition
-    - returns round `r` that is encoded in all the votes of the commit
-- Error condition
-    - reports error if precondition is violated
+If the deterministic fields agree but the commit rounds differ, the method
+returns an empty validator list. The upstream `IsolateAmnesiaAttacker` helper
+and its query/response accountability monitor are research proposals, not
+implemented functions or an on-chain service in this path. The proposal and its
+additional vote-retention assumptions are retained in
+[amnesia evidence handling][amnesia].
 
-```go
-func Signers(commit Commit) []ValidatorAddress
-```
-
-- Expected postcondition
-    - returns all validator addresses in `commit`
-
-```go
-func Addresses(vals Validator[]) ValidatorAddress[]
-```
-
-- Expected postcondition
-    - returns all validator addresses in `vals`
+The research helper `RoundOf` means the integer `Commit.Round`; it does not
+return validator addresses. `Signers` means only validators that actually signed
+the block, excluding absent and nil votes. `Addresses` projects validator
+addresses from a validator set. These conceptual helpers do not replace signature
+verification or validator-set membership checks.
 
 # Part III - Completeness
 
-As discussed in the beginning of this document, an attack boils down to creating and signing Tendermint consensus messages in deviation from the Tendermint consensus algorithm rules.
-The main function `isolateMisbehavingProcesses` distinguishes three kinds of wrongly signed messages, namely,
+The retained Tendermint analysis distinguishes:
 
-- lunatic: signing invalid blocks
-- equivocation: double-signing valid blocks in the same consensus round
-- amnesia: signing conflicting blocks in different consensus rounds, without having seen a quorum of messages that would have allowed to do so.
+- **Lunatic:** signing a block with invalid deterministic header fields.
+- **Equivocation:** signing conflicting blocks in the same consensus round.
+- **Amnesia:** signing conflicting blocks in different rounds without the
+  voting history required to justify the transition.
 
-The question is whether this captures all attacks.
-First observe that the first check in `isolateMisbehavingProcesses` is `violatesTMValidity`. It takes care of lunatic attacks. If this check passes, that is, if `violatesTMValidity` returns `FALSE` this means that [[LCAI-NONVALID-OUTPUT.1]](#LCAI-FUNC-NONVALID1]) evaluates to false, which implies that `ref.ValidatorsHash = ev.ValidatorsHash`. Hence, after `violatesTMValidity`, all the involved validators are the ones from the blockchain. It is thus sufficient to analyze one instance of Tendermint consensus with a fixed group membership (set of validators). Also, as we have two different blocks for the same height, it is sufficient to consider two different valid consensus values, that is, binary consensus.
+Once the validity comparison fixes the validator set, the upstream analysis can
+consider one Tendermint consensus instance with fixed membership and two
+conflicting values. The [TLA+ accountability model][tendermint-accountability]
+and the [Ivy material][ivy] study equivocation and amnesia under that model.
 
-For this fixed group membership, we have analyzed the attacks using the TLA+ specification of [Tendermint Consensus in TLA+][tendermint-accountability]. We checked that indeed the only possible scenarios that can lead to violation of agreement are **equivocation** and **amnesia**. An independent study by Galois of the protocol based on [Ivy proofs](https://github.com/tendermint/spec/tree/master/ivy-proofs) led to the same conclusion.
+This is a classification argument with Tendermint assumptions. It does not
+prove that this fork identifies every attacker: the implemented amnesia branch
+has no validator attribution. It also establishes no equivalence to Autobahn
+lane certificates, committee-bound signatures, application certificates or
+restart recovery. Those require their own implementation-specific reasoning.
 
 # References
 
-[[supervisor]] The specification of the light client supervisor.
+- [Light client attack detector][detection]: trust and trace model, current
+  detector flow and errors.
+- [Notes on evidence handling][handling]: full evidence type, receiving-node
+  validation, application notification and amnesia limits.
+- [Light client verification research][verification] and
+  [supervisor research][supervisor]: retained upstream assumptions and algorithms.
 
-[[verification]] The specification of the light client verification protocol.
-
-[[detection]] The specification of the light client attack detection mechanism.
-
-[[tendermint-accountability]]: TLA+ specification to check the types of attacks
-
-[tendermint-accountability]:
-https://github.com/tendermint/spec/blob/master/rust-spec/tendermint-accountability/README.md
-
-[supervisor]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/supervisor/supervisor_001_draft.md
-
-[verification]: https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md
-
-[detection]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/detection/detection_003_reviewed.md
-
-[LC-DATA-EVIDENCE-link]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/detection/detection_003_reviewed.md#lc-data-evidence1
-
-[TMBC-LC-EVIDENCE-DATA-link]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/detection/detection_003_reviewed.md#tmbc-lc-evidence-data1
-
-[node-based-attack-characterization]:
-https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/detection/detection_003_reviewed.md#node-based-characterization-of-attacks
-
-[TMBC-FM-2THIRDS-link]: https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#tmbc-fm-2thirds1
-
-[LCV-FUNC-VALID.link]: https://github.com/tendermint/spec/blob/master/rust-spec/lightclient/verification/verification_002_draft.md#lcv-func-valid2
+[detection]: ../detection/detection_001_reviewed.md
+[handling]: notes-on-evidence-handling.md
+[handling-shape]: notes-on-evidence-handling.md#evidence-shape
+[handling-validation]: notes-on-evidence-handling.md#receiving-node-validation
+[amnesia]: notes-on-evidence-handling.md#amnesia-attack-evidence-handling
+[verification]: ../verification/verification_002_draft.md
+[supervisor]: ../supervisor/supervisor_001_draft.md
+[tendermint-accountability]: ../accountability/README.md
+[ivy]: ../../ivy-proofs/README.md
+[config]: ../../../config/config.go
+[node]: ../../../node/node.go
+[light-type]: ../../../types/light.go
+[evidence-type]: ../../../types/evidence.go
+[evidence-verifier]: ../../../internal/evidence/verify.go
+[evidence-rpc]: ../../../internal/rpc/core/evidence.go
+[executor]: ../../../internal/state/execution.go
+[commit-qc]: ../../../autobahn/types/commit_qc.go
+[persisted-state]: ../../../internal/autobahn/consensus/persisted_inner.go
