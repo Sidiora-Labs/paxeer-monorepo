@@ -28,6 +28,10 @@ export type StreamPageSource<T> = (
   signal?: AbortSignal,
 ) => Promise<StreamPage<T>>;
 
+/** Duplicate IDs are refused within the last 1024 delivered events and each page. */
+export const STREAM_REPLAY_WINDOW = 1024;
+export const STREAM_EVENT_ID_MAX_LENGTH = 512;
+
 export class ResumableStream<T> {
   #cursor: StreamCursor;
   readonly #seen = new Set<string>();
@@ -38,6 +42,10 @@ export class ResumableStream<T> {
 
   public get cursor(): StreamCursor {
     return this.#cursor;
+  }
+
+  public get retainedEventCount(): number {
+    return this.#seen.size;
   }
 
   public accept(page: StreamPage<T>): readonly StreamEvent<T>[] {
@@ -56,6 +64,7 @@ export class ResumableStream<T> {
     for (const event of page.events) {
       if (
         event.eventId.length === 0
+        || event.eventId.length > STREAM_EVENT_ID_MAX_LENGTH
         || event.previousCursor !== expected
         || event.cursor === expected
         || this.#seen.has(event.eventId)
@@ -78,6 +87,9 @@ export class ResumableStream<T> {
       throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
     }
     this.#seen.add(event.eventId);
+    if (this.#seen.size > STREAM_REPLAY_WINDOW) {
+      this.#seen.delete(this.#seen.values().next().value!);
+    }
     this.#cursor = event.cursor;
   }
 
