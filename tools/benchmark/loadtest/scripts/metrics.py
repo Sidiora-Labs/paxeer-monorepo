@@ -1,175 +1,86 @@
-import base64
-import json
-import requests
-import os
-from datetime import datetime, timedelta
-import argparse
+"""Python compatibility API for the production benchmark metrics client."""
 
-DATE_TIME_FMT = "%Y-%m-%dT%H:%M:%S.%f"
-DEX_MSGS = ["MsgPlaceOrder"]
+import argparse
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+
+import requests
+
+# File-based imports used by the historical transcript suite do not add this
+# script's directory to sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from operations_cli import request
+
 node_base_url = "localhost"
 rpc_base_url = "http://localhost:26657"
 
+
+def _request(operation, **values):
+    payload = {"operation": operation, "rpc": rpc_base_url,
+               "rest": f"http://{node_base_url}:1317", **values}
+    completed = request("metric", json.dumps(payload))
+    if not completed.stdout:
+        raise RuntimeError(completed.stderr or "benchmark operations returned no response")
+    envelope = json.loads(completed.stdout)
+    error = envelope.get("error")
+    if error:
+        if error["kind"] == "http":
+            response = requests.Response()
+            response.status_code = error["status"]
+            response.url = error["url"]
+            raise requests.HTTPError(error["message"], response=response)
+        if error["kind"] == "rpc":
+            raise RuntimeError(error["message"])
+        raise ValueError(error["message"])
+    if completed.returncode:
+        raise RuntimeError(completed.stderr)
+    return envelope["result"]
+
+
 def get_block_height(tx_hash_str):
-    res = requests.get(f"http://{node_base_url}:1317/txs/{tx_hash_str}")
-    body = res.json()
-    if "height" not in body:
-        return
-    height = int(body["height"])
-    return height
+    return _request("height", hash=tx_hash_str)
+
 
 def get_all_heights():
-    seen_heights = set([])
-    home_path = os.path.expanduser('~')
-    filename = f"{home_path}/outputs/test_tx_hash"
-    with open(filename, "r") as f:
-        curr = f.readline()[:-1]
-        while curr:
-            height = get_block_height(curr)
-            curr = f.readline()[:-1]
-            if height is not None:
-                seen_heights.add(height)
-    return sorted(list(seen_heights))
+    filename = Path.home() / "outputs/test_tx_hash"
+    with filename.open() as stream:
+        heights = [get_block_height(value.strip()) for value in stream if value.strip()]
+    return sorted({height for height in heights if height is not None})
+
 
 def get_block(height):
-    res = requests.get(f"{rpc_base_url}/block?height={height}")
-    res.raise_for_status()
-    body = res.json()
-    if not isinstance(body, dict) or body.get("jsonrpc") != "2.0":
-        raise ValueError("Invalid block JSON-RPC response")
-    if body.get("error") is not None:
-        error = body["error"]
-        if not isinstance(error, dict):
-            raise ValueError("Invalid block JSON-RPC error")
-        raise RuntimeError(
-            f"Block JSON-RPC error {error.get('code')}: "
-            f"{error.get('message')} ({error.get('data', '')})"
-        )
-    result = body.get("result")
-    if not isinstance(result, dict) or not isinstance(result.get("block"), dict):
-        raise ValueError("Missing result.block in block JSON-RPC response")
-    block = result["block"]
-    data = block.get("data")
-    if not isinstance(data, dict) or "txs" not in data:
-        raise ValueError("Missing result.block.data.txs in block JSON-RPC response")
-    txs = data["txs"]
-    if txs is None:
-        data["txs"] = []
-    elif not isinstance(txs, list) or any(not isinstance(tx, str) for tx in txs):
-        raise ValueError("Invalid result.block.data.txs in block JSON-RPC response")
-    return block
+    return _request("block", height=height)
+
 
 def get_block_info(height):
-    #timestamp: "2023-02-27T23:00:44.214Z"
-    block = get_block(height)
-    return {
-        "height": height,
-        "timestamp": datetime.strptime(block["header"]["time"][:26], DATE_TIME_FMT),
-        "number_of_txs": len(block["data"]["txs"])
-    }
+    info = _request("info", height=height)
+    info["timestamp"] = datetime.fromisoformat(info["timestamp"].replace("Z", "+00:00"))
+    return info
+
 
 def get_block_time(height):
     return get_block_info(height)["timestamp"]
 
-"""
-This code is quite brittle as it handles different message types differently, and if we ever change the names of
-the proto or want to test more modules, we'll need to modify this. However, it works for now.
-"""
+
 def get_transaction_breakdown(height):
-    output = get_block(height)["data"]["txs"]
-    tx_mapping = {}
-    for tx in output:
-        module = None
-        b64_decoded = str(base64.b64decode(tx))
-        if "MsgSend" in b64_decoded:
-            module = "bank"
-        elif "MsgAggregateExchangeRateVote" in b64_decoded:
-            module = "oracle"
-        elif "MsgDelegate" in b64_decoded:
-            module = "staking"
-        elif "MsgCreateDenom" in b64_decoded:
-            module = "tokenfactory"
-        else:
-            # Dex orders
-            for dex_msg in DEX_MSGS:
-                if dex_msg in b64_decoded:
-                    module = "dex"
-                    break
+    return _request("breakdown", height=height)
 
-
-        # Attributes may not be defined for custom module
-        if module == None:
-            module = "other"
-        if module not in tx_mapping:
-            tx_mapping[module] = 1
-        else:
-            tx_mapping[module] += 1
-    return tx_mapping
 
 def get_best_block_stats(block_info_list):
-    max_throughput, max_block_height, max_block_time = -1, -1, -1
-    for i in range(len(block_info_list)):
-        block = block_info_list[i]
-        next_block_time = get_block_time(block["height"] + 1)
-        block_time = (next_block_time - block["timestamp"]) // timedelta(milliseconds=1)
-        throughput = block["number_of_txs"] * 1000 / block_time
-        print(f"Block {block['height']} has throughput {throughput} and block time {block_time} ms")
-        if throughput > max_throughput:
-            max_throughput = throughput
-            max_block_height = block["height"]
-            max_block_time = block_time
-    return max_throughput, max_block_height, max_block_time
+    blocks = [{**block, "timestamp": block["timestamp"].isoformat()} for block in block_info_list]
+    return tuple(_request("best", blocks=blocks))
+
+
 def get_metrics():
-    all_heights = get_all_heights()
-    if len(all_heights) <= 2:
-        print("Not enough number of blocks to obtain meaningful metrics with. Exiting..")
-        return
-    block_info_list = []
-    for height in all_heights:
-        block_info_list.append(get_block_info(height))
-    # Skip first and last block since it may have high deviation if we start it at the end of the block
+    return _request("metrics", path=str(Path.home() / "outputs/test_tx_hash"))
 
-    skip_edge_blocks = block_info_list[1:-1]
-    total_duration = 0
-    for i in range(len(skip_edge_blocks)):
-        block = skip_edge_blocks[i]
-        next_block_time = get_block_time(block["height"] + 1)
-        block_time = (next_block_time - block["timestamp"]) // timedelta(milliseconds=1)
-        total_duration += block_time
-    average_block_time = total_duration / 1000 / len(skip_edge_blocks)
-    total_txs_num = sum([block["number_of_txs"] for block in skip_edge_blocks])
-    average_txs_num = total_txs_num / len(skip_edge_blocks)
-
-    # Best block stats:
-    max_throughput, max_block_height, max_block_time = get_best_block_stats(block_info_list)
-
-    tx_mapping = get_transaction_breakdown(max_block_height)
-
-    return {
-        "Summary (excl. edge block)": {
-            "average_block_time": average_block_time,
-            "average_throughput_per_block": average_txs_num,
-            "average_throughput_per_sec": average_txs_num / average_block_time,
-            "number_of_full_blocks": len(skip_edge_blocks),
-            "full_blocks": all_heights[1:-1],
-            "total_txs_num": total_txs_num,
-        },
-        "Detail (incl. edge blocks)": {
-            "blocks": all_heights,
-            "txs_per_block": [block["number_of_txs"] for block in block_info_list]
-        },
-        "Best block": {
-            "height": max_block_height,
-            "tps": max_throughput,
-            "tx_mapping": tx_mapping,
-            "block_time_ms": max_block_time
-        }
-    }
 
 def main():
     global node_base_url, rpc_base_url
     parser = argparse.ArgumentParser()
-    parser.add_argument("--node", default="localhost", help="Node base URL")
+    parser.add_argument("--node", default="localhost")
     args = parser.parse_args()
     node_base_url = args.node
     rpc_base_url = f"http://{node_base_url}:26657"
