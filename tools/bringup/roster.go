@@ -19,7 +19,13 @@ func ReadServiceRoster(r io.Reader) ([]ServiceIdentity, error) {
 			return nil, errors.New("invalid identity roster")
 		}
 		seen[fields[0]] = true
-		if fields[0] == "receipt-authority" || fields[0] == "guarantor" || fields[0] == "relay-archive" || fields[1] == "railway:router" || fields[1] == "railway:redis-router" {
+		retired := false
+		for _, name := range []string{"receipt-authority", "guarantor", "relay-archive", "layerxd"} {
+			if fields[0] == name || strings.HasPrefix(fields[0], name+"-") {
+				retired = true
+			}
+		}
+		if retired || fields[1] == "railway:router" || fields[1] == "railway:redis-router" {
 			return nil, errors.New("retired identity owner")
 		}
 		rows = append(rows, ServiceIdentity{fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]})
