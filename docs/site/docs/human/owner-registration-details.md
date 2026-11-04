@@ -1,108 +1,137 @@
+# Human owner registration details
 
-Beta recovery uses three dedicated, randomly generated Ed25519 guardian keys,
-threshold two, one for each of the roles `guarantor-1`, `guarantor-2` and
-`sequencer`. Each guardian is enrolled by its own `services/platform/hosted/human/guardians.py
-enroll` process into its own mode-0700 custody directory
-`$SECRETS_DIR/human-guardians/<role>-e<epoch>`, which holds nothing but that
-guardian's mode-0600 32-byte seed. Epochs start at one and are bounded at 64.
-The enrolling key signs its own binding over `LX:HUMAN:GUARDIAN:BINDING:v1` plus
-NUL, big-endian u16 epoch, big-endian u16 role length, the ASCII role, the
-32-byte operator identity and its own 32-byte public key. These keys are not
-derived from custody keys.
+Owner enrollment connects a durable Human principal, protected signing keys,
+an authorized chain account and a recovery policy. Directory provisioning,
+account funding and committed authority state are separate facts; producing a
+local JSON file does not establish all three.
 
-`guardians.py assemble` is a separate process that opens no custody directory.
-It reads the public enrollment documents, verifies every signature and publishes
-`recovery-guardians.json`, `recovery-guardian-bindings.json` and
-`recovery-policy.json`. Rotation enrols the successor at the next epoch and a
-separate `guardians.py authorize` process reads only the outgoing guardian's
-custody directory to sign `LX:HUMAN:GUARDIAN:ROTATION:v1` over the epoch, role,
-operator identity, outgoing key and successor key; assembly rebuilds the whole
-chain from epoch one and refuses a missing, mismatched or foreign-signed
+Paxeer is one network. The kernel executes inside `paxd`, and a receipt becomes
+final at BFT block commit. Use [Public RPC endpoints](../reference/public-rpc.md)
+for node transactions and [Checkpoints](../concepts/checkpoints.md) for the
+distinction between execution receipts and committed evidence.
+
+## Directory provisioning and chain admission
+
+The identity provider at
+`services/human/crates/layerx-human-identity-provider/` implements LXIP
+`provision-owner`. It consumes `email`, `display_name`, `idempotency_key` and
+`now` on standard input and returns `principal`, `did`, `recovery_root`,
+`recovery_threshold` and `recovery_delay_seconds`. It returns no signing key.
+Retain the exact returned principal and DID and their mapping to chain
+authority; do not substitute a locally invented identity.
+
+The provider reads its established recovery policy from
+`LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE`: an absolute path to an
+owner-held, mode-0600, single-link regular JSON file. The fields are `root`
+(32 byte integers), `threshold` (nonzero u16) and `delay_seconds` (nonzero u64).
+Its durable directory is `LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT`.
+Changing that policy file does not change existing accounts' recorded policy.
+
+Directory provisioning does not submit a chain transaction. Likewise,
+`provision-account` derives a protocol account identifier; derivation does not
+open or fund an account. Retain directory identifiers and chain identifiers
+with their explicit binding rather than assuming they are interchangeable.
+
+For chain authority, the merged EVM keeper verifies a signed DID-key binding
+for the caller (`modules/evm/keeper/`). The authority keeper resolves that
+persisted binding on every write (`modules/layerxauth/keeper/authority.go`).
+An unbound caller is refused. Identity registration and recovery policy records
+use
+`recordLifecycle(bytes,bytes32)` on the `layerxauth` precompile at
+`0x000000000000000000000000000000000000101C`; the second argument is the
+idempotency key. The payload must match the authorized caller's identity and
+the lifecycle encoding in `src/modules/governance/`. The current
+`RecordLifecycle` entry point accepts identity and recovery ordinals 1 and 3;
+it is not a generic route for arbitrary Governance operations.
+
+The local directory and chain registration must both be retained and checked.
+The old genesis identity-file admission and standalone socket producer are
+retired onboarding procedures; they do not replace a committed chain write.
+
+## Funding the owner
+
+Fund the intended derived sub-account through a native bank send or the
+appropriate ledger transfer, and check the committed balance for the exact
+account and asset. Account opening and transfer execution are implemented in
+`modules/layerxledger/keeper/accounts.go` and `send.go`; `mirror.go` maps
+successful ledger effects to bank balances. Deriving an account ID alone is
+not evidence that it exists or has funds. The transaction sender also needs
+the funds required by the node's fee policy.
+
+The former `layerxcustody` deposit at `0x1013`, custody profile bootstrap,
+bridge credit attestation and deposit-root publication are retired funding
+paths. Do not run the old custody producer to establish an owner balance.
+See [Custody credit retirement](custody.md).
+
+## Guardian key custody
+
+The retained guardian enrollment utility is
+`services/platform/hosted/human/guardians.py`. Its file and signature format
+remains useful for recovery material; its role labels do not describe current
+consensus operators. The utility uses three roles, `guarantor-1`,
+`guarantor-2` and `sequencer`, with threshold two and a policy delay of 86400
+seconds. These recovery guardians do not finalize network blocks.
+
+Each `enroll` process generates a separate random Ed25519 key into its own
+mode-0700 directory at `$SECRETS_DIR/human-guardians/<role>-e<epoch>`.
+The directory holds a mode-0600, 32-byte `seed`. Epochs start at one and are
+bounded at 64. Existing material is refused rather than replaced. Recovery
+keys must remain separate from transaction and consensus signing keys.
+
+The enrollment signature binds `LX:HUMAN:GUARDIAN:BINDING:v1` plus NUL,
+big-endian u16 epoch, big-endian u16 role length, the ASCII role, the 32-byte
+operator identity and the guardian's 32-byte public key.
+
+`assemble` reads the public enrollment documents without opening seed
+directories. It writes `recovery-guardians.json`, the identical
+`recovery-guardian-bindings.json`, and `recovery-policy.json`. The guardian
+document has `version`, `threshold`, `public_keys` and `members`. Each member
+has `role`, `identity`, `public_key`, `epoch`, `custody`, `signature` and
+`rotation`. At epoch one, `rotation` is null. Later members carry the
+predecessor member document and the outgoing key's rotation signature.
+
+To rotate, enroll the successor at the next epoch, then run `authorize`
+using only the outgoing guardian's seed directory. The signature binds
+`LX:HUMAN:GUARDIAN:ROTATION:v1` plus NUL, big-endian u16 epoch and role length,
+the ASCII role, operator identity, outgoing key and successor key. Assembly
+validates the complete chain from epoch one and refuses missing or mismatched
 authorization.
 
-`recovery-guardians.json` and the identical `recovery-guardian-bindings.json`
-carry `version`, `threshold`, `public_keys` and the signed `members`. Each
-member has `role`, `identity`, `public_key`, `epoch`, `custody`, `signature` and
-`rotation`; `rotation` is `null` at epoch one and otherwise
-`{"predecessor": <the member document of the preceding epoch>, "signature":
-<rotation signature>}`. `version` equals the highest member epoch. The former
-per-member cluster operator label and `independent` flag are gone: the document
-states the operator identity, the custody directory, the epoch, the binding
-signature and the rotation chain, which are verifiable, rather than a claim of
-independence. `owner_native.guardian_set` re-verifies the whole document before
-the native producer uses any guardian key, requiring distinct roles, operator
-identities, public keys and custody directories, a custody directory named
-`<role>-e<epoch>` under `human-guardians`, a published `public_keys` manifest
-equal to the verified member keys sorted, and a document threshold equal to the
-recovery policy threshold.
+`owner_native.guardian_set` verifies distinct roles, operator identities,
+public keys and custody directories, the directory naming convention, the
+public key manifest and the policy threshold. The document version is the
+highest member epoch. The recovery commitment is SHA-256 of
+`LX:HUMAN:RECOVERY:v1` plus NUL, big-endian u16 threshold and key count, then
+the sorted Ed25519 public keys.
 
-The private seeds stay in separate Secrets `layerx-human-guardian-guarantor-1`,
-`layerx-human-guardian-guarantor-2` and `layerx-human-guardian-sequencer`, each
-published from its own custody directory; `recovery-guardian-bindings.json` is
-published as ConfigMap `layerx-human-guardian-bindings`. Three provisioning
-processes with disjoint custody directories on one host are not independent
-operators: separation here is enforced by directory ownership and signature
-verification, not by separate machines or people. Independent operation and one
-pod per guardian remain production onboarding requirements. The recovery
-commitment is unchanged: SHA-256 of `LX:HUMAN:RECOVERY:v1` plus NUL, big-endian
-u16 threshold and count, then sorted Ed25519 public keys. Existing material is
-refused instead of replaced.
+Keep seeds in separately controlled custody and distribute only the public
+bindings and recovery policy. Directory and signature separation on one host
+does not establish independent operators. Assembling a valid guardian file
+also does not prove that its recovery policy was registered on chain.
 
-Run LXIP `provision-owner` first. It returns the exact `did:layerx:act_...` and
-recovery policy, not a signing key. `--prepare-owner-admission` then generates
-protected owner and pending Ed25519 seeds, and exports the exact DID/key binding
-in `owner-admission.txt` and its native account in `owner-admission.json`.
-The operator atomically appends the public admission row to the node's protected
-`LAYERX_NODE_IDENTITIES` file. A protocol-3 daemon at genesis admits additions
-only: existing identities cannot change, new sequences must be zero, and keys
-must be canonical Ed25519. Admission closes at the first execution. The producer
-must observe the exact DID through native preparation before submitting credit.
-The retained identity file remains necessary for restart and replay; checkpoint
-identity matching is unchanged.
+## Committed evidence and unknown outcomes
 
-The cluster starts disposable Paxeer before native genesis. `owner_custody.py
-bootstrap` deploys nothing on the disposable Paxeer chain: custody is the native
-`layerxcustody` module behind the precompile at
-`0x0000000000000000000000000000000000001013`, configured in the Paxeer genesis.
-It invokes the bridge custody-profile verifier, which proves the module's asset
-mapping and writes a profile pinning the precompile address and the module
-identity. The native genesis pins that exact profile. After LXIP and owner-key
-provisioning, `deposit` calls `deposit(bytes32)` on the precompile with real
-disposable-chain native funds for the produced account and invokes
-`tests/bridge/custody_credit.py` attestation. On an Anvil chain the same script
-keeps the timelock, asset registry, wrapped token and LayerXVault path.
-Both RPC origins must prove the disposable genesis and CA identity; protected
-host endpoints remain refused. `custody-bootstrap.started` and
-`custody-deposit.started` prevent blind repetition after unknown outcomes.
+Identity, capability and recovery claims need evidence tied to the same
+principal, authorized account and committed chain state. The security provider
+at `services/human/crates/layerx-human-security-provider/src/recovery.rs`
+verifies the execution header and commit, sequence-batch transaction inclusion,
+receipt signature and authorized receipt keys, successful transaction result,
+and recovery call binding. Its state and result proofs use the authenticated
+successor header where required by the chain's commitment layout.
 
-`owner-native.json` supplies `node_socket`, `network_id`, `owner_seed_file`,
-`pending_seed_file`, `sequencer_public_key`, `layerxctl`, `fee_limit`,
-`authority_url`, `authority_token_file`, `authority_ca_file` and
-`authority_state_root`. The cluster produces it with container-local paths.
-The `owner-producer` container uses UID 4021 for the authenticated LNI peer;
-Secret `layerx-human-native-input` supplies the protected inputs, copied into
-private mode-0600 files. Authenticated replica records go into the authority's
-existing protected state volume. Public activities and receipts are retained
-under `owner-native-run`. `human-owner.env` exports the exact produced
-`LAYERX_HUMAN_AGENT_ACTOR`, `_AUTHORITY`, `_OWNER_ACCOUNT`, `_RECOVERY_ROOT` and
-`_RECOVERY_THRESHOLD`. Never repeat an interrupted producer without reconciling
-`owner-native.started` and the retained execution evidence.
+A signed receipt or a locally supplied recovery policy alone cannot establish
+a successful committed recovery transition. The former guarantor checkpoint
+certificate prerequisite is retired; current evidence is tied to block
+headers, commits and the relevant inclusion proofs.
 
-Governance ordinal 5 now requires payload version 1: `71 05 01 03`, followed
-by a length-prefixed canonical session grant, big-endian `expiry_sequence`
-(u64), and a length-prefixed 32-byte `action_key`. Version 0 is refused.
-Expiry must be later than execution sequence and the action key must be nonzero.
-The canonical grant remains under key `05 || grant_id`; the committed `LXGS2`
-summary is stored under `15 || grant_id` and emitted as event `7145`. Its fields
-are grant ID, grantor DID hash, owner public key, action key, session key, expiry
-sequence, module mask, ordinal minimum/maximum, not-before/not-after milliseconds,
-and revocation sequence. Hashes and keys are 32 bytes; numbers are big-endian.
+Retain the provisioning idempotency key, signed transaction bytes, transaction
+hash, chain idempotency key, receipts and evidence before retrying an interrupted
+operation. Reconcile directory state and query the original transaction and
+committed state first. A timeout is an unknown outcome, not proof of failure;
+do not create a new principal, key or funding transfer to bypass it. Resume
+with the original operation identity only after reconciling retained evidence.
 
-The hosted capability route requires that summary, the native identity snapshot,
-a complete receipt suffix, and a node-verified guarantor checkpoint certificate.
-It refuses old shapes, expired grants, wrong action/authority/capability bindings,
-revoked or changed identity policy, and unsupported scope representations. The
-initial positive representation is restricted to the Asset module's ordinals,
-with empty counterparties/assets, zero amount ceiling and no claimed native
-capability enforcement dimensions. It does not authorize a spend or satisfy the
-Human capability install contract's required nonempty monetary bounds.
+The historical `owner-native.started`, `custody-bootstrap.started` and
+`custody-deposit.started` files signal potentially completed old operations.
+Retain them for reconciliation; deleting them and rerunning the retired
+producer is not a merged-network recovery procedure.
