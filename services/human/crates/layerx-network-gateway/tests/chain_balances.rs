@@ -1,7 +1,11 @@
 use layerx_network_gateway::{
     decode_account, decode_account_balances, AssetBalance, Evidence, GatewayError,
+    WalletObservation,
 };
 use serde_json::{json, Value};
+
+#[path = "support/hosted_gateway.rs"]
+mod hosted_gateway;
 
 fn account_document() -> Value {
     json!({
@@ -55,19 +59,9 @@ fn balances_decode_bank_coins_at_one_height() {
     assert_eq!(balances.asset("uusdc"), balances.balances.get(1));
     assert_eq!(balances.asset("missing"), None);
 
-    let vectors: Value = serde_json::from_str(include_str!(
-        "../../../../platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
-    ))
-    .expect("recorded bank ABI answers");
-    let bank = vectors["cases"]
-        .as_array()
-        .expect("recorded cases")
-        .iter()
-        .find(|case| case["name"] == "bank.all_balances")
-        .expect("recorded all_balances answer used by task 8.5.1");
-    answer["height"] = json!(16);
-    answer["balances"] = bank["out"]["response"].clone();
+    answer = hosted_gateway::balances();
     let recorded = decode_account_balances(&answer).expect("recorded uint256 balances decode");
+    let bank = hosted_gateway::vector("bank.all_balances");
     assert_eq!(recorded.height, 16);
     assert_eq!(recorded.balances.len(), 2);
     for (row, expected) in recorded
@@ -80,6 +74,33 @@ fn balances_decode_bank_coins_at_one_height() {
     }
     assert_eq!(
         recorded.balances[1].amount.for_operation("native-send"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "native-send"
+        })
+    );
+
+    let observed = WalletObservation::accept(recorded).expect("real production wallet consumer");
+    let denom = &hosted_gateway::coins()[1].0;
+    assert_eq!(
+        observed.balance(denom).unwrap().to_string(),
+        hosted_gateway::TWO_TO_200
+    );
+    assert_eq!(observed.joined().balances.len(), 2);
+    assert_eq!(observed.balance("ulxp"), Some(123_456_789.into()));
+    assert_eq!(observed.balance("missing"), None);
+    assert_eq!(
+        observed.joined().account,
+        decode_account(&hosted_gateway::account()).unwrap().account
+    );
+
+    answer["balances"][1]["amount"] = json!("340282366920938463463374607431768211456");
+    let large = decode_account_balances(&answer).expect("valid 2^128 balance decodes");
+    assert_eq!(
+        large.balances[1].amount.to_string(),
+        "340282366920938463463374607431768211456"
+    );
+    assert_eq!(
+        large.balances[1].amount.for_operation("native-send"),
         Err(GatewayError::AmountOutOfRange {
             operation: "native-send"
         })
@@ -123,25 +144,24 @@ fn balances_refuse_row_without_denom() {
         decode_account_balances(&answer),
         Err(GatewayError::MalformedAnswer)
     );
-    answer = balance_answer();
-    answer["balances"][1]["amount"] = json!("340282366920938463463374607431768211456");
-    let large = decode_account_balances(&answer).expect("uint256 read remains available");
-    assert_eq!(
-        large.balances[1].amount.to_string(),
-        "340282366920938463463374607431768211456"
-    );
-    assert_eq!(
-        large.balances[1].amount.for_operation("native-send"),
-        Err(GatewayError::AmountOutOfRange {
-            operation: "native-send"
-        })
-    );
-    answer["balances"][1]["amount"] =
-        json!("115792089237316195423570985008687907853269984665640564039457584007913129639936");
-    assert_eq!(
-        decode_account_balances(&answer),
-        Err(GatewayError::MalformedAnswer)
-    );
+    for invalid in [
+        json!(hosted_gateway::OVERFLOW),
+        json!(format!("0x1{}", "0".repeat(64))),
+        Value::Null,
+        json!(true),
+        json!(-1),
+        json!(1.5),
+        json!("-1"),
+        json!("1e2"),
+        json!("0xgg"),
+    ] {
+        answer = balance_answer();
+        answer["balances"][1]["amount"] = invalid;
+        assert_eq!(
+            decode_account_balances(&answer),
+            Err(GatewayError::MalformedAnswer)
+        );
+    }
     for height in [Value::Null, json!("18446744073709551616"), json!(-1)] {
         answer = balance_answer();
         answer["height"] = height;
