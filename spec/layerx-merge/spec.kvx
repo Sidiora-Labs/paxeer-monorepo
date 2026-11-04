@@ -174805,7 +174805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1527]
 title = "Repair audit record 22.30.93 medium findings in services/agent/crates/layerx-agentd/src/ops (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.219", "22.31.443"]
@@ -175137,7 +175137,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1517]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd/src/tenant (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443"]
@@ -175171,7 +175171,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1516]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd/src/store (part 1 of 1): restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443"]
@@ -175241,7 +175241,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1514]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd/src/human_runtime/subject (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443"]
@@ -175311,7 +175311,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1512]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd/src/audit (part 1 of 1): restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443"]
@@ -175347,7 +175347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1511]
 title = "Repair audit record 22.30.91 medium findings in services/agent/crates/layerx-agentd-host/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.363", "22.31.364", "22.31.365", "22.31.366", "22.31.367", "22.31.443"]
@@ -175452,7 +175452,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1507]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src/policy (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443"]
@@ -175487,7 +175487,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1506]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src/events (part 1 of 1): restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443"]
@@ -209661,7 +209661,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.796]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 5 of 7): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.319"]
@@ -277622,7 +277622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1289]
 title = "Repair audit record 22.30.66 medium findings in wasm/x/wasm (part 1 of 1): config-drift, doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.184"]
@@ -277887,7 +277887,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/gov
 
 [task.22.33.1266]
 title = "Repair audit record 22.30.62 medium findings in precompiles/addr (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183"]
@@ -279841,7 +279841,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.909]
 title = "Repair audit record 22.30.2 medium findings in modules/lxphost (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.24", "22.31.25", "22.31.463"]
@@ -323276,7 +323276,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.964]
 title = "Repair audit record 22.30.29 medium findings in tools/launchpad/production/interfaces (part 2 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.41"]
