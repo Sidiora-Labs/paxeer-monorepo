@@ -2,11 +2,18 @@ package reconcile_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/pnlcache"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/position"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/store"
 )
@@ -78,12 +85,12 @@ func TestReconcilerIdempotentWithConsumerOverlap(t *testing.T) {
 	rdb := internaltest.NewRedis(t)
 	r := reconcile.New(st, rdb, discardLogger(), 500)
 
-	// Simulate the realtime consumer already having folded this swap.
+	// The real realtime consumer folds the swap before backfill sees it.
 	seedSwap(t, st, "0xdup-0", "0xu", true, "1000000", oneToken, 100, 0)
-	if _, err := st.FoldTrade(ctx, store.TradeInput{
-		ID: "0xdup-0", UserAddress: "0xu", PoolAddress: "0xpool", TokenAddress: "0xtoken",
-		IsBuy: true, UsdlAmount: "1000000", TokenAmount: oneToken, Price: "0", Fee: "0",
-		BlockNumber: 100, BlockTimestamp: 100, TxHash: "0xdup",
+	if err := position.NewConsumer(st, rdb, discardLogger()).ProcessEvent(ctx, position.SwapEvent{
+		Sender: "0xu", PoolAddress: "0xpool", IsBuy: true,
+		AmountIn: "1000000", AmountOut: oneToken, Price: "0", Fee: "0",
+		BlockNumber: 100, BlockTimestamp: 100, TxHash: "0xdup", LogIndex: 0,
 	}); err != nil {
 		t.Fatalf("pre-fold: %v", err)
 	}
@@ -125,5 +132,68 @@ func TestReconcilerBatchKeysetDrainsLargeBlock(t *testing.T) {
 	pos, _ := st.GetPosition(ctx, "0xu", "0xpool")
 	if pos.TradeCount != 3 || pos.TotalUsdlSpent != "3000000" {
 		t.Fatalf("position after drain = %+v", pos)
+	}
+}
+
+func TestReconcilerPoisonPrefixReopensWithRefresh(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	st := seed(t)
+	rdb := internaltest.NewRedis(t)
+	txHash := fmt.Sprintf("0xrestart%x", time.Now().UnixNano())
+	seedSwap(t, st, txHash+"-0", "0xu", true, "1000000", oneToken, 100, 0)
+	seedSwap(t, st, txHash+"-1", "0xu", true, "poison", oneToken, 100, 1)
+	for _, key := range []string{pnlcache.KeyPositions("0xu"), pnlcache.KeyPortfolio("0xu")} {
+		if err := rdb.Set(ctx, key, "stale", 0).Err(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sub := rdb.Subscribe(ctx, constants.ChannelPnlUpdate)
+	defer sub.Close()
+	if _, err := sub.Receive(ctx); err != nil {
+		t.Fatal(err)
+	}
+	worker := reconcile.New(st, rdb, discardLogger(), 500)
+	if n, err := worker.RunOnce(ctx); n != 1 || err == nil {
+		t.Fatalf("poison prefix=%d err=%v", n, err)
+	}
+	message, err := sub.ReceiveMessage(ctx)
+	if err != nil || message.Payload != `{"userAddress":"0xu"}` {
+		t.Fatalf("prefix signal=%+v err=%v", message, err)
+	}
+	for _, key := range []string{pnlcache.KeyPositions("0xu"), pnlcache.KeyPortfolio("0xu")} {
+		if n, err := rdb.Exists(ctx, key).Result(); err != nil || n != 0 {
+			t.Fatalf("stale cache %s exists=%d err=%v", key, n, err)
+		}
+	}
+	config := st.Pool().Config()
+	st.Pool().Close()
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	st = store.New(pool)
+	if err := position.NewConsumer(st, rdb, discardLogger()).ProcessEvent(ctx, position.SwapEvent{
+		PoolAddress: "0xpool", Sender: "0xu", IsBuy: true, AmountIn: "1000000", AmountOut: oneToken,
+		Price: "0", Fee: "0", BlockNumber: 100, BlockTimestamp: 100, TxHash: txHash, LogIndex: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	worker = reconcile.New(st, rdb, discardLogger(), 500)
+	if n, err := worker.RunOnce(ctx); n != 0 || err == nil {
+		t.Fatalf("reopened poison=%d err=%v", n, err)
+	}
+	cursor, err := st.GetCursor(ctx)
+	if err != nil || cursor.LastBlock != 100 || cursor.LastLogIndex != 0 {
+		t.Fatalf("recovered cursor=%+v err=%v", cursor, err)
+	}
+	position, err := st.GetPosition(ctx, "0xu", "0xpool")
+	if err != nil || position == nil || position.TradeCount != 1 || position.TotalUsdlSpent != "1000000" || position.CurrentHoldings != oneToken {
+		t.Fatalf("recovered position=%+v err=%v", position, err)
+	}
+	trades, err := st.ListTrades(ctx, "0xu", store.TradeFilter{})
+	if err != nil || len(trades) != 1 {
+		t.Fatalf("recovered trades=%+v err=%v", trades, err)
 	}
 }
