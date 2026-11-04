@@ -56,17 +56,23 @@ The following are some example SQL queries against the database schema:
 
 * Query for all transaction events for a given transaction hash:
 
-	SELECT * FROM tx_events WHERE hash = '3E7D1F...';
+	SELECT e.* FROM tx_events AS e
+	JOIN blocks AS b ON b.height = e.height AND b.chain_id = e.chain_id
+	JOIN tx_results AS r ON r.block_id = b.rowid AND r.index = e.index
+	WHERE r.tx_hash = '3E7D1F...';
 
 * Query for all transaction events for a given block height:
 
 	SELECT * FROM tx_events WHERE height = 25;
 
-* Query for transaction events that have a given type (i.e. value wildcard):
+* Query for transaction events that have a given type.key (any value):
 
-	SELECT * FROM tx_events WHERE key LIKE '%transfer.recipient%';
+	SELECT * FROM tx_events WHERE composite_key = 'transfer.recipient';
 
 Note that if a complete abci.TxResult is needed, you will need to join "tx_events" with
-"tx_results" via a foreign key, to obtain contains the raw protobuf-encoded abci.TxResult.
+"tx_results" using the joins above and select r.tx_result for the raw protobuf-encoded
+abci.TxResult. The view identifies a transaction by chain_id, height and index;
+resolve chain_id and height through blocks, then block_id and index through tx_results.
+Replace the abbreviated hash with the complete uppercase hexadecimal transaction hash.
 */
 package indexer

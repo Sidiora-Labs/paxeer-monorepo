@@ -2,6 +2,7 @@ package cryptosim
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"time"
@@ -83,7 +84,9 @@ type CryptoSim struct {
 	recieptsChan chan *block
 
 	// Enforces a maximum transaction rate (if enabled).
-	rateLimiter *rate.Limiter
+	rateLimiter      *rate.Limiter
+	receiptSimulator *RecieptStoreSimulator
+	closeErr         error
 }
 
 // Creates a new cryptosim benchmark runner.
@@ -183,13 +186,17 @@ func NewCryptoSim(
 			ctx, cancel, config, database, dataGenerator.FeeCollectionAddress(), config.ExecutorQueueSize, metrics)
 	}
 
+	var receiptSimulator *RecieptStoreSimulator
 	var recieptsChan chan *block
 	if config.GenerateReceipts {
 		recieptsChan = make(chan *block, config.RecieptChannelCapacity)
-		_, err := NewRecieptStoreSimulator(ctx, config, recieptsChan, metrics, rand.Clone(false))
+		receiptSimulator, err = NewRecieptStoreSimulator(ctx, config, recieptsChan, metrics, rand.Clone(false))
 		if err != nil {
 			cancel()
-			return nil, fmt.Errorf("failed to create receipt store simulator: %w", err)
+			for _, executor := range executors {
+				executor.Close()
+			}
+			return nil, errors.Join(fmt.Errorf("failed to create receipt store simulator: %w", err), db.Close())
 		}
 		metrics.startReceiptChannelDepthSampling(recieptsChan, config.BackgroundMetricsScrapeInterval)
 	}
@@ -208,7 +215,7 @@ func NewCryptoSim(
 		consoleUpdatePeriod:               consoleUpdatePeriod,
 		lastConsoleUpdateTime:             start,
 		lastConsoleUpdateTransactionCount: 0,
-		closeChan:                         make(chan struct{}, 1),
+		closeChan:                         make(chan struct{}),
 		dataGenerator:                     dataGenerator,
 		blockBuilder:                      blockBuilder,
 		database:                          database,
@@ -217,13 +224,22 @@ func NewCryptoSim(
 		suspendChan:                       make(chan bool, 1),
 		recieptsChan:                      recieptsChan,
 		rateLimiter:                       rateLimiter,
+		receiptSimulator:                  receiptSimulator,
 	}
 
 	database.SetFlushFunc(c.flushExecutors)
 
 	err = c.setup()
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup benchmark: %w", err)
+		c.cancel()
+		for _, executor := range c.executors {
+			executor.Close()
+		}
+		if c.receiptSimulator != nil {
+			close(c.recieptsChan)
+			err = errors.Join(err, c.receiptSimulator.Wait())
+		}
+		return nil, errors.Join(fmt.Errorf("failed to setup benchmark: %w", err), db.Close())
 	}
 
 	c.database.ResetTransactionCount()
@@ -312,6 +328,7 @@ func (c *CryptoSim) setupAccounts() error {
 
 // Prepopulate the database with the minimum number of ERC20 contracts.
 func (c *CryptoSim) setupErc20Contracts() error {
+	c.nextERC20ContractID = c.dataGenerator.NextErc20ContractID()
 
 	// Ensure that we at least have as many ERC20 contracts as the hot set + 1. This simplifies logic elsewhere.
 	if c.config.MinimumNumberOfErc20Contracts < c.config.HotErc20ContractSetSize+1 {
@@ -437,7 +454,6 @@ func (c *CryptoSim) maybeThrottle() {
 
 // Execute and finalize the next block.
 func (c *CryptoSim) handleNextBlock(blk *block) {
-	c.mostRecentBlock = blk
 	c.metrics.SetMainThreadPhase("send_to_executors")
 
 	for i := int64(0); i < blk.TransactionCount(); i++ {
@@ -452,17 +468,15 @@ func (c *CryptoSim) handleNextBlock(blk *block) {
 	}
 
 	if err := c.database.FinalizeBlock(blk.NextAccountID(), blk.NextErc20ContractID(), false); err != nil {
-		fmt.Printf("failed to finalize block: %v\n", err)
+		c.closeErr = errors.Join(c.closeErr, fmt.Errorf("failed to finalize block: %w", err))
 		c.cancel()
 		return
 	}
 
+	c.mostRecentBlock = blk
 	if c.config.GenerateReceipts {
-		select {
-		case <-c.ctx.Done():
-			return
-		case c.recieptsChan <- blk:
-		}
+		// The writer outlives workload cancellation and drains this accepted block.
+		c.recieptsChan <- blk
 	}
 
 	blk.ReportBlockMetrics()
@@ -472,9 +486,9 @@ func (c *CryptoSim) handleNextBlock(blk *block) {
 func (c *CryptoSim) suspend() {
 
 	if c.mostRecentBlock != nil {
-		err := c.database.FinalizeBlock(c.mostRecentBlock.nextAccountID, c.nextERC20ContractID, true)
+		err := c.database.FinalizeBlock(c.mostRecentBlock.NextAccountID(), c.mostRecentBlock.NextErc20ContractID(), true)
 		if err != nil {
-			fmt.Printf("failed to finalize block: %v\n", err)
+			c.closeErr = errors.Join(c.closeErr, fmt.Errorf("failed to finalize block: %w", err))
 			c.cancel()
 			return
 		}
@@ -505,20 +519,24 @@ func (c *CryptoSim) suspend() {
 
 // Clean up the benchmark and release any resources.
 func (c *CryptoSim) teardown() {
-	if c.mostRecentBlock == nil {
-		err := c.database.CloseWithoutFinalizing()
-		if err != nil {
-			fmt.Printf("failed to close database: %v\n", err)
-		}
-	} else {
-		err := c.database.Close(c.mostRecentBlock.nextAccountID, c.nextERC20ContractID)
-		if err != nil {
-			fmt.Printf("failed to close database: %v\n", err)
-		}
-	}
-
+	// Stop the builder before releasing its generator or the stores. Executor
+	// queues are independent of cancellation so accepted work can finish.
 	c.cancel()
-	c.closeChan <- struct{}{}
+	<-c.blockBuilder.done
+	for _, executor := range c.executors {
+		executor.Close()
+	}
+	if c.receiptSimulator != nil {
+		close(c.recieptsChan)
+		c.closeErr = errors.Join(c.closeErr, c.receiptSimulator.Wait())
+	}
+	if c.mostRecentBlock == nil {
+		c.closeErr = errors.Join(c.closeErr, c.database.CloseWithoutFinalizing())
+	} else {
+		c.closeErr = errors.Join(c.closeErr, c.database.Close(
+			c.mostRecentBlock.NextAccountID(), c.mostRecentBlock.NextErc20ContractID()))
+	}
+	close(c.closeChan)
 }
 
 // Generates a human readable report of the benchmark's progress.
@@ -557,11 +575,10 @@ func (c *CryptoSim) Close() error {
 	c.cancel()
 	<-c.closeChan
 
-	// "reload" closeChan in case other goroutines are waiting on it.
-	c.closeChan <- struct{}{}
-
+	if c.closeErr != nil {
+		return c.closeErr
+	}
 	fmt.Printf("Benchmark terminated successfully.\n")
-
 	return nil
 }
 
@@ -576,8 +593,6 @@ func (c *CryptoSim) flushExecutors() {
 func (c *CryptoSim) BlockUntilHalted() {
 	<-c.closeChan
 
-	// "reload" closeChan in case other goroutines are waiting on it.
-	c.closeChan <- struct{}{}
 }
 
 // Suspend the benchmark. Stops all transactional load. Calling this while the benchmark is
