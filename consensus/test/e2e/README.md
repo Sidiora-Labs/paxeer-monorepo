@@ -1,43 +1,53 @@
 # End-to-End Tests
 
-Spins up and tests networks of the consensus engine in Docker Compose based on a testnet manifest. To run the CI testnet:
+This harness configures local consensus-engine testnets from TOML manifests and uses Docker Compose to run them with the test application in [`app/`](app/). Paxeer embeds this engine in `paxd`; the harness exercises the engine and test application rather than the full mainnet application. See the [consensus overview](../../README.md) and the [native fuzz targets](../fuzz/README.md) for related material.
+
+Run the commands on this page from `consensus/test/e2e/`. The Go module is rooted at the repository root; its [`go.mod`](../../../go.mod) declares Go 1.25.8. The runner invokes the `docker` and `docker-compose` executables.
+
+The Docker image is currently blocked. This harness is inherited from upstream Tendermint, and [`docker/Dockerfile`](docker/Dockerfile) expects `go.mod` and `go.sum` in its `consensus/` build context, where neither exists. It also uses Go 1.17 and expects a standalone `build/tendermint` binary from `make build`; this tree embeds the engine in `paxd` instead. Consequently, the default `make` target cannot supply the required `tendermint/e2e-node` image. Docker stages require a working image before they can run; the examples below describe the runner's interface, not a qualified Docker workflow.
+
+The individual Go tool targets are:
 
 ```sh
-make
+make generator runner tests node
+```
+
+The `node` target enables the `badgerdb,boltdb,cleveldb,rocksdb` build tags and requires the corresponding native database dependencies. These targets are defined in the local [`Makefile`](Makefile); this documentation rewrite does not qualify their builds or a Docker run.
+
+With a working image, select the CI manifest with:
+
+```sh
 ./build/runner -f networks/ci.toml
 ```
 
-This creates and runs a testnet named `ci` under `networks/ci/`.
-
-This harness is inherited from upstream Tendermint. In this tree, `make generator runner tests node` build the Go tools, but `make docker` does not build the `tendermint/e2e-node` image: [`docker/Dockerfile`](docker/Dockerfile) copies `go.mod` and `go.sum` from the `consensus` directory, which has none (the Go module root is the repository root), and runs `make build`, which produces no binary here (see [`../../README.md`](../../README.md)). Until that image builds, the Docker stages (`start` onward) cannot run.
+This uses a testnet named `ci` under `networks/ci/`. The default run cleans up existing testnet state first, runs the stages below, then cleans up after success. Pass `--preserve` to retain a successful run; failed runs retain their state for debugging.
 
 ## Conceptual Overview
 
-End-to-end testnets are used to test Tendermint functionality as a user would use it, by spinning up a set of nodes with various configurations and making sure the nodes and network behave correctly. The background for the E2E test suite is outlined in [RFC-001](https://github.com/tendermint/tendermint/blob/master/docs/architecture/adr-066-e2e-testing.md).
+End-to-end testnets exercise consensus functionality through nodes with different configurations and check that the nodes and network behave correctly. The upstream background is outlined in [ADR-066](https://github.com/tendermint/tendermint/blob/master/docs/architecture/adr-066-e2e-testing.md).
 
-The end-to-end tests can be thought of in this manner:
+The suite asks:
 
-1. Does a certain (valid!) testnet configuration result in a block-producing network where all nodes eventually reach the latest height?
+1. Does a valid testnet configuration produce blocks, with all nodes eventually catching up?
+2. Does each node satisfy the invariants specified by the Go E2E tests?
 
-2. If so, does each node in that network satisfy all invariants specified by the Go E2E tests?
+These are the intended invariants for valid network configurations. Handwritten manifests test specific configurations; randomly generated manifests explore permutations, subject to the current harness limitations below.
 
-The above should hold for any arbitrary, valid network configuration, and that configuration space  should be searched and tested by randomly generating testnets.
+The default run sets up the testnet, starts a background transaction load, starts the nodes, and waits for blocks and node catch-up. It applies configured perturbations, such as killing or disconnecting nodes, followed by evidence injection when requested. Finally, it stops the load, waits for the network to settle, and runs the Go tests. The orchestration is in [`runner/main.go`](runner/main.go).
 
-A testnet configuration is specified as a TOML testnet manifest (see below). The testnet runner uses the manifest to configure a set of Docker containers and start them in some order. The manifests can be written manually (to test specific configurations) or generated randomly by the testnet generator (to test a wide range of configuration permutations).
+The tests use the consensus RPC client to check externally visible behavior, such as blocks being identical across nodes. In [`tests/e2e_test.go`](tests/e2e_test.go), `testNode()` runs a subtest for each stateful node, currently sequentially, and `fetchBlockChain()` retrieves history from the freshest archive node.
 
-When running a testnet, the runner will first start the Docker nodes in some sequence, submit random transactions, and wait for the nodes to come online and the first blocks to be produced. This may involve e.g. waiting for nodes to block sync and/or state sync. If specified, it will then run any misbehaviors (e.g. double-signing) and perturbations (e.g. killing or disconnecting nodes). It then waits for the testnet to stabilize, with all nodes online and having reached the latest height.
-
-Once the testnet stabilizes, a set of Go end-to-end tests are run against the live testnet to verify network invariants (for example that blocks are identical across nodes). These use the RPC client to interact with the network, and should consider the entire network as a black box (i.e. it should not test any network or node internals, only externally visible behavior via RPC). The tests may use the `testNode()` helper to run parallel tests against each individual testnet node, and/or inspect the full blockchain history via `fetchBlockChain()`.
-
-The tests must take into account the network and/or node configuration, and tolerate that the network is still live and producing blocks. For example, validator tests should only run against nodes that are actually validators, and take into account the node's block retention and/or state sync configuration to not query blocks that don't exist.
+Tests must account for the node configuration and for a live network that continues producing blocks. For example, validator tests must select validators and respect block retention and state sync when querying history.
 
 ## Testnet Manifests
 
-Testnets are specified as TOML manifests. For an example see [`networks/ci.toml`](networks/ci.toml), and for documentation see [`pkg/manifest.go`](pkg/manifest.go).
+Testnets are specified as TOML manifests. For an example see [`networks/ci.toml`](networks/ci.toml), and for field documentation see [`pkg/manifest.go`](pkg/manifest.go). Loading and validation live in [`pkg/testnet.go`](pkg/testnet.go).
+
+The node runtime supports `abci_protocol = "builtin"`. The inherited generator still emits out-of-process ABCI choices, which the current runtime rejects. Generating a manifest does not establish that it can run in this tree.
 
 ## Random Testnet Generation
 
-Random (but deterministic) combinations of testnets can be generated with `generator`:
+Generate random testnet manifests with `generator`:
 
 ```sh
 ./build/generator -d networks/generated/
@@ -46,100 +56,75 @@ Random (but deterministic) combinations of testnets can be generated with `gener
 ./build/generator -g 8 -d networks/generated/
 ```
 
-Multiple testnets can be run with the `run-multiple.sh` script:
+[`generator/main.go`](generator/main.go) uses the fixed seed `4827085738`; the CLI has no seed flag. This does **not** guarantee identical manifests across fresh processes. Although `combinations()` sorts its keys, `probSetChoice.Choose()` and `weightedChoice.Choose()` in [`generator/random.go`](generator/random.go) iterate maps without sorting, so the same seeded random draws can select different values.
+
+To reproduce a configuration, save the exact generated TOML manifest together with the code revision and failure logs, then pass that saved manifest to `runner -f`. Do not regenerate it from the seed or assume a generated filename identifies the same configuration in another run. Saving a manifest preserves the configuration inputs; it does not make runtime timing or newly generated genesis data identical.
+
+With a working Docker image and supported manifests, [`run-multiple.sh`](run-multiple.sh) runs testnets sequentially:
 
 ```sh
-./run-multiple.sh networks/generated/gen-group3-*.toml
+./run-multiple.sh networks/generated/gen-group03-*.toml
 ```
+
+Group numbers are zero-based and padded to two digits. The script dumps logs and cleans up a failed testnet before continuing, then exits nonzero if any run failed. Capture its output to retain those diagnostics.
 
 ## Test Stages
 
-The test runner has the following stages, which can also be executed explicitly by running `./build/runner -f <manifest> <stage>`:
+Execute a stage with `./build/runner -f <manifest> <stage>`:
 
-* `setup`: generates configuration files.
-
-* `start`: starts Docker containers.
-
-* `load`: generates a transaction load against the testnet nodes.
-
-* `evidence [amount]`: generates and broadcasts evidence to a random node.
-
-* `pause` / `resume`: pauses or resumes the Docker testnet.
-
-* `perturb`: runs any requested perturbations (e.g. node restarts or network disconnects).
-
-* `wait`: waits for a few blocks to be produced, and for all nodes to catch up to it.
-
-* `test`: runs test cases in `tests/` against all nodes in a running testnet.
-
-* `stop`: stops Docker containers.
-
-* `cleanup`: removes configuration files and Docker containers/networks.
+- `setup`: generates the testnet directory, configuration, genesis and Compose files.
+- `start`: sets up the directory if absent, then starts containers and waits for nodes.
+- `load`: generates transaction load until canceled.
+- `evidence [amount]`: generates and broadcasts evidence to a random node; defaults to one item.
+- `pause` / `resume`: pauses or resumes the Docker testnet.
+- `perturb`: applies requested perturbations, such as node restarts or network disconnects.
+- `wait`: waits for five more blocks and node catch-up.
+- `test`: runs the compiled tests against the running testnet.
+- `stop`: stops and removes containers with Compose `down`.
+- `cleanup`: removes testnet files and Docker containers/networks.
 
 Auxiliary commands:
 
-* `logs`: outputs all node logs.
-
-* `tail`: tails (follows) node logs until canceled.
+- `logs [node]`: outputs all node logs, or those of the selected node.
+- `tail [node]`: follows logs until canceled.
 
 ## Tests
 
-Test cases are written as normal Go tests in `tests/`. They use a `testNode()` helper which executes each test as a parallel subtest for each node in the network.
+Test cases are normal Go tests in [`tests/`](tests/). The runner executes the compiled `build/tests` binary with `-test.count=1 -test.v`, setting `E2E_MANIFEST` to the selected manifest.
 
 ### Running Manual Tests
 
-To run tests manually, set the `E2E_MANIFEST` environment variable to the path of the testnet manifest (e.g. `networks/ci.toml`) and run them as normal, e.g.:
+With the Docker prerequisite resolved, start the testnet and set `E2E_MANIFEST` to an absolute path so it also resolves from the Go test package's working directory:
 
 ```sh
 ./build/runner -f networks/ci.toml start
-E2E_MANIFEST=networks/ci.toml go test -v ./tests/...
+E2E_MANIFEST="$PWD/networks/ci.toml" go test -count=1 -v ./tests/...
 ```
 
-Optionally, `E2E_NODE` specifies the name of a single testnet node to test.
-
-These environment variables can also be specified in `tests/e2e_test.go` to run tests from an editor or IDE:
-
-```go
-func init() {
-	// This can be used to manually specify a testnet manifest and/or node to
-	// run tests against. The testnet must have been started by the runner first.
-	os.Setenv("E2E_MANIFEST", "networks/ci.toml")
-	os.Setenv("E2E_NODE", "validator01")
-}
-```
+Optionally, `E2E_NODE` selects a single node for tests using `testNode()`. Set these variables in your editor's test environment when running from an IDE. Without `E2E_MANIFEST`, the live-network tests skip; that is not a successful testnet run.
 
 ### Debugging Failures
 
-If a command or test fails, the runner simply exits with an error message and
-non-zero status code. The testnet is left running with data in the testnet
-directory, and can be inspected with e.g. `docker ps`, `docker logs`, or
-`./build/runner -f <manifest> logs` or `tail`. To shut down and remove the
-testnet, run `./build/runner -f <manifest> cleanup`.
+If a command or test fails, the runner exits with an error and nonzero status. A failed default run preserves its testnet state. Inspect it with `docker ps`, `docker logs`, or `./build/runner -f <manifest> logs` or `tail`. To shut down and remove the testnet, use `./build/runner -f <manifest> cleanup`.
 
-If the standard `log_level` is not detailed enough (e.g. you want "debug" level
-logging for certain modules), you can change it in the manifest file.
+Set `log_level` in the manifest for more detailed node logging.
 
-Each node exposes a [pprof](https://golang.org/pkg/runtime/pprof/) server. To
-find out the local port, run `docker port <NODENAME> 6060 | awk -F: '{print
-$2}'`. Then you may perform any queries supported by the pprof tool. Julia
-Evans has a [great
-post](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) on this
-subject.
+The generated node configuration sets a [pprof](https://pkg.go.dev/net/http/pprof) listener on port 6060, which the Compose file publishes. For a running node that serves it, find the mapped port with `docker port <NODENAME> 6060`. For an IPv4 loopback mapping, these queries inspect the available profiles:
 
-```bash
-export PORT=$(docker port full01 6060 | awk -F: '{print $2}')
-
-go tool pprof http://localhost:$PORT/debug/pprof/goroutine
-go tool pprof http://localhost:$PORT/debug/pprof/heap
-go tool pprof http://localhost:$PORT/debug/pprof/threadcreate
-go tool pprof http://localhost:$PORT/debug/pprof/block
-go tool pprof http://localhost:$PORT/debug/pprof/mutex
+```sh
+PORT=$(docker port full01 6060/tcp | awk -F: '/^0\.0\.0\.0:/ {print $NF; exit}')
+go tool pprof "http://localhost:$PORT/debug/pprof/goroutine"
+go tool pprof "http://localhost:$PORT/debug/pprof/heap"
+go tool pprof "http://localhost:$PORT/debug/pprof/threadcreate"
+go tool pprof "http://localhost:$PORT/debug/pprof/block"
+go tool pprof "http://localhost:$PORT/debug/pprof/mutex"
 ```
+
+See Julia Evans's [pprof introduction](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) for background.
 
 ## Enabling IPv6
 
-Docker does not enable IPv6 by default. To do so, enter the following in
-`daemon.json` (or in the Docker for Mac UI under Preferences → Docker Engine):
+The manifest's `ipv6` field selects IPv6 addressing in the generated Compose network. Docker does not enable IPv6 by default. Configure the Docker daemon, for example in `daemon.json` or Docker Desktop's Docker Engine settings:
 
 ```json
 {
@@ -150,21 +135,17 @@ Docker does not enable IPv6 by default. To do so, enter the following in
 
 ## Benchmarking Testnets
 
-It is also possible to run a simple benchmark on a testnet. This is done through the `benchmark` command. This manages the entire process: setting up the environment, starting the test net, waiting for a considerable amount of blocks to be used (currently 100), and then returning the following metrics from the sample of the blockchain:
-
-- Average time to produce a block
-- Standard deviation of producing a block
-- Minimum and maximum time to produce a block
+With the Docker prerequisite resolved, `./build/runner -f <manifest> benchmark` sets up a testnet, generates load, starts nodes, waits for catch-up, and samples 100 blocks. It reports the mean, standard deviation, minimum and maximum block intervals, along with transaction and sampling statistics. It does not apply perturbations and cleans up on exit. See [`runner/benchmark.go`](runner/benchmark.go).
 
 ## Running Individual Nodes
 
-The E2E test harness is designed to run several nodes of varying configurations within docker. It is also possible to run a single node in the case of running larger, geographically-dispersed testnets. To run a single node you can either run:
+The harness also builds a node executable that embeds the test application directly. Given an already initialized engine home with compatible configuration, genesis and validator files:
 
-**Built-in**
-
-```bash
+```sh
 make node
 TMHOME=$HOME/.tendermint ./build/node ./node/built-in.toml
 ```
 
-The node reads its engine configuration from `$TMHOME/config/config.toml`, which must already exist; this tree has no standalone `tendermint init` command to create it. Check `node/config.go` to see how the settings of the test application can be tweaked.
+The node loads its engine configuration from `$TMHOME/config/config.toml`; the command does not initialize that home. This tree has no standalone `tendermint init` executable. The runner's `setup` stage writes per-node homes under the testnet directory and application settings in each node's `config/app.toml`.
+
+[`node/built-in.toml`](node/built-in.toml) is an example of the test application's settings. [`node/config.go`](node/config.go) aliases the definitions and validation in [`node/runtime/config.go`](node/runtime/config.go); startup and home loading are in [`node/runtime/node.go`](node/runtime/node.go). Only the `builtin` application protocol is supported.
