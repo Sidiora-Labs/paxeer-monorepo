@@ -1,0 +1,85 @@
+[meta]
+task = "22.33.416"
+audit = "22.30.144"
+base = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+status = "implemented-awaiting-bounded-qualification"
+baseline = "Not run: the declared repair file did not exist at the base; the explicit order and allowed gates prohibit running verification before implementation. No pre-change failing test execution is claimed."
+evidence = "The private runner ledger /out/run/gates.jsonl records each candidate revision, exact command, exit code and private log; findings close only on a passing hf-done, whose final evidence line identifies the verified revision."
+
+[finding.capability-nonproducer-abi]
+tests = "Repair2233416Test: capability_nonproducer_abi_canonical_response; capability_nonproducer_abi_accepts_*; capability_nonproducer_abi_rejects_*; CapabilitiesControllerTest reports the surfaces of the last probe"
+proof = "Producer ABI encoding equals the committed launchpad_rpc/live.json addr response, with a four-word head, offset 128 and the empty string tail; real HTTP transport, Capabilities process and HTTP controller consume that response. Every request asserts selector 0x357feed6 and zero address, with exact exchange/bridge/launchpad view selectors and one height."
+negative = "Wrong-selector-shaped response, refusal, zero/unaligned/outside offset, missing tail, truncated length/string, invalid address/string padding and extra tail each must leave addr absent; valid nonempty strings of 32 and 33 bytes remain accepted."
+abi = "precompiles/addr/abi.json is expanded to readable JSON with identical ABI declarations; the tests parse it as the sole function/event encoding source."
+
+[finding.feed-producer-restart-proof]
+tests = "Repair2233416Test: feed_producer_restart_proof"
+proof = "Committed submitPrices block_txs.json, block_results.json and markets.json pass through loopback HTTP, CosmosRest, the real PriceUpdates BufferedTask, persisted scan state, realtime Publisher/Main/Notifier and REST; all 18 observations and market publications agree."
+restart = "Stop the fetcher after compacting its durable checkpoint, reopen it, prove catch-up excludes the completed height, explicitly redeliver it and assert one update, 18 observations and no duplicate publication; replace the consensus block and assert replacement detail/history without duplicate rows."
+
+[finding.feed-refused-market-observations]
+tests = "Repair2233416Test: feed_refused_market_observations_refused; feed_refused_market_observations_failed; feed_refused_market_observations_mixed"
+proof = "A newer real fetcher ingestion consumes committed transaction bytes with adversarial execution-result variants (base64 refusal attributes, nonzero execution code, mixed acceptance). Detail preserves every accepted flag and failed result, refused latest/history remain unchanged, accepted latest/history equal live topics, and 50-item cursor boundaries remain exact."
+provenance = "Execution-result variants are explicit negative mutations of the committed response, not additional claimed node recordings; the original transaction bytes and producer observations are unchanged."
+
+[finding.unified-impossible-did-fixture]
+tests = "Repair2233416Test: unified_impossible_did_fixture_restart_and_unbind; all UnifiedAccountControllerTest cases"
+proof = "The suite imports ABI LayerXBound/LayerXUnbound logs through PaxeerXLogs and Import.all instead of inserting identity columns. DID, key, derived account and Pax spelling refer to the same producer address/key; the positive balance fixture uses the address encoded by the Pax association."
+restart = "Stop and reopen Endpoint; verify persisted binding, every identity spelling, balances, activity and signed cursor states; import unbind, restart again and prove identity removal and refusal of the old continuation. Native-only balances, legacy-row exclusion and existing cursor assertions remain in the gate."
+provenance = "Binding event inputs follow precompiles/addr/addr.go emitLayerXEvent and the producer ABI, but no recorded native bind/unbind transcript exists in this checkout; no claim of recorded provenance is made."
+
+[repair.capability_decoder]
+implementation = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex is admitted by attempt 4: read_unified_account/1 validates zero address padding, canonical offset 128, complete string length, exact padded tail size and zero padding before publishing availability."
+
+[wiring.recorded_binding]
+request = "Domain 6 owns precompiles/addr/layerx_binding_test.go: export deterministic node or disposable-producer LayerXBound/LayerXUnbound and Pax association transcripts for domain 14; capture work outside the allowed abi.json path cannot be performed here."
+
+[gotcha.scope]
+observed = "Earlier attempts could not edit the production decoder; attempt 4 explicitly admits its exact path, allowing the strict negative regressions to be repaired in the production probe."
+
+[gotcha.baseline]
+observed = "The task's embedded baseline request conflicts with its explicit implementation-first gate order; no unauthorized baseline command was run."
+
+[qualification.first_gate]
+revision = "461de368b78762a9ed8c41c8410ec9162e387224"
+command = "cg spec done 22.33.416 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "58 tests executed with 16 failures: transcript selection descended into eth_getCode's address string, and the second endpoint restart hit eaddrinuse, leaving later cases without the endpoint."
+repair = "Pattern-match eth_call request shapes before selecting addr; reopen the real endpoint listener on an OS-assigned port and assert that it is listening, preserving all behavior assertions."
+
+[gotcha.formatter]
+observed = "The installed Elixir mise shim has no selected global version; use mise exec elixir@1.19.4-otp-27 for the repository's Code formatter with line_length 120."
+
+[gotcha.endpoint_restart]
+observed = "Repeated immediate endpoint restarts can race on fixed test port 4002; select an OS-assigned listener port for each real endpoint restart and restore its application configuration after the case."
+
+[attempt.2]
+base = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+baseline = "Continued the supplied attempt with 58 executed tests and 11 failures; retained its assertions and fixtures without rerunning an unchanged baseline."
+cursor = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex now emits only block_number and index for market history continuations, retaining nil at the final page and submission-list items_count behavior."
+openapi = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller.ex produces the unified operation in the API v2 OpenAPI document; declare NotFoundResponse for unresolved identities after unbind."
+scope = "Explorer.Chain.PaxeerX.Capabilities.read_unified_account/1 is in the out-of-scope apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex, not the admitted controllers directory; its existing wiring request remains pending explicit scope authorization."
+
+
+[attempt.3]
+base = "f25ab9129415b70e1e47d668e4d2d04777519969"
+baseline = "Reviewed the supplied attempt-2 changes and eleven-failure result; the new runner has no earlier gate ledger, so no unchanged baseline was rerun."
+retained = "Preserved the producer ABI, real probe transport, durable fetcher restart/replay, refused/failed/mixed market tests, canonical imported bindings, cursor repair and unified-account 404 response declaration."
+openapi = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller.ex generates the unresolved-identity 404 operation response; FeedController.update already declares the not-found response used after a reorg."
+scope = "The continuation ruling requests the decoder repair, but the explicit SCOPE still excludes services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex; requested authorization to edit that exact file while retaining every strict assertion."
+
+[gotcha.decoder_scope]
+observed = "The scoped CapabilitiesController consumes only a boolean snapshot; raw ABI validation belongs to Explorer.Chain.PaxeerX.Capabilities.read_unified_account/1 outside the listed paths, so a controller-only check cannot repair the probe snapshot."
+
+[gotcha.formatter_newline]
+observed = "Elixir 1.19 Code.format_file! already emits a trailing newline; adding another produces blank lines at EOF, so normalize formatter output to one final newline."
+
+[attempt.4]
+base = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+baseline = "Continued the supplied 58-test, seven-failure result without rerunning an unchanged baseline; the fresh gate ledger has zero build and verify runs."
+repair = "Replaced the production probe's minimum-byte check with full canonical ABI layout validation; retained every prior assertion and added nonempty-string, padding and trailing-data coverage."
+qualification = "Run hf-build followed by hf-done on the unchanged candidate; exact revision, commands, exits and private logs are recorded in /out/run/gates.jsonl."
+
+[gotcha.abi_tail]
+observed = "A 128-byte head is not a complete dynamic ABI return: even an empty string needs a length word, and nonempty strings need exactly rounded-up contents with zero padding."
