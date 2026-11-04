@@ -1,0 +1,33 @@
+[repair.22.33.729]
+audit = "22.30.171"
+findings = ["007", "006"]
+baseline_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+baseline = "No pre-change verification is claimed: the ordered gate instructions require full implementation before hf-done, and the continuation already contains both repairs."
+verified_revision_record = "The final hf-done JSON row in private /out/run/gates.jsonl names the verified candidate revision, command, exit and log; qualification is claimed only when it exits zero."
+scope_note = "Spec and root gotcha ledgers are outside scope; this task record carries finding mappings and qualification constraints."
+wiring_requests = []
+qualification_contract = "The continuation ruling requires Go checks of script source and in-process fixtures. Tests read the actual production scripts and committed transcripts and exercise real OS file locks; they require no Python, shell subprocess, service, credential or environment variable. Source-contract checks do not claim to execute Python handlers or shell deployments."
+
+[continuation]
+previous_candidate = "957a4a7544db636a6f3d7dd2a513d3bb641711f1"
+previous_result = "The earlier build passed but verification did not run; no earlier test pass or pre-change failure is claimed."
+change = "Retain the existing production fixes and replay update; replace the external-runtime proof harness with Go source-contract and file-lock checks as directed by the continuation ruling."
+
+[finding.007]
+path = "tools/rollout/ledger.sh"
+repair = "An exclusive lock on the daily ledger file covers section allocation and the entire append; process exit closes the lock descriptor."
+proving_test = "TestRepairM_729_LedgerConcurrentRestartRecovery"
+proof_path = "Inspect the production script's append-mode open, exclusive lock, unique-section allocation and complete record emission in order, with no intervening close or unlock. Twenty-four independently opened descriptors contend against the same held inode; closing the owner releases the lock, all retry owners acquire it in turn, and a newly reopened owner acquires it with the seeded complete evidence record unchanged."
+
+[finding.006]
+path = "tools/rollout/rollout.py"
+repair = "SLEEPING maps to blocked; both rollout deployment paths use the shared terminal lookup, and the existing perps consumer derives SUCCESS from that map."
+proving_test = "TestRepairM_729_SleepingBlocksRolloutAndPerpsConsumer"
+proof_path = "Parse the production terminal table, check both HTTP transports and waiters, rollout ledger/output/failure propagation and perps wave refusal; decode the committed sleeping, healthy, polling, first-apply and approval transcripts and assert their terminal outcomes."
+consumer_path = "tools/deploy/railway-perps-project.py"
+consumer_wiring = "No out-of-path change required: the existing TERMINAL import and derived SUCCESS set already consume the repaired policy; source-contract checks cover this wiring."
+
+[gotcha.continuation]
+area = "test"
+symptom = "A Go regression wrapper that launches Python and shell ledger writers still depends on external runtimes."
+do = "Follow the explicit continuation ruling: inspect production script contracts from Go, decode committed transcripts in-process and exercise file locking directly without running deployment scripts."
