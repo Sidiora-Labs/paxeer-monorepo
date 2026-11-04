@@ -7,8 +7,12 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PAXD="$HOME/go/bin/paxd"
-LOG_FILE="/tmp/paxd_stress.log"
+STRESS_ENV=$(bash "$REPO_ROOT/scripts/maintenance.sh" stress-env)
+eval "$STRESS_ENV"
+readonly PAXD_BIN PAX_HOME
+readonly -a PAX_START_ARGS
+echo "==> disposable stress home: $PAX_HOME"
+LOG_FILE="$PAX_HOME.stress.log"
 
 # Genesis balance per sender account. 10^12 uhpx ≈ unlimited for any test run.
 SENDER_GENESIS_FUNDS="1000000000000"
@@ -17,8 +21,11 @@ cd "$REPO_ROOT"
 
 cleanup() {
   echo ""
-  echo "==> shutting down..."
-  [ -n "${PAXD_PID:-}" ] && kill "$PAXD_PID" 2>/dev/null || true
+  echo "==> shutting down $PAXD_BIN at $PAX_HOME..."
+  if [ -n "${PAXD_PID:-}" ]; then
+    kill "$PAXD_PID" 2>/dev/null || true
+    wait "$PAXD_PID" 2>/dev/null || true
+  fi
   # Kill the entire process group so tail and grep children are also terminated.
   [ -n "${LOG_PID:-}" ]  && kill -- -"$LOG_PID" 2>/dev/null || true
 }
@@ -33,14 +40,14 @@ pkill -f "tail.*${LOG_FILE}" 2>/dev/null || true
 # 1. Init chain (no start)
 # ---------------------------------------------------------------------------
 echo "==> initializing chain..."
-NO_RUN=1 ./scripts/initialize_local_chain.sh
+PAXD_BIN="$PAXD_BIN" PAX_HOME="$PAX_HOME" PAX_LOCAL_RESET=1 NO_RUN=1 ./scripts/initialize_local_chain.sh
 
 # ---------------------------------------------------------------------------
 # 2. Bulk-add sender accounts to genesis via direct JSON patch.
 #    go run -dump-pax-addrs generates all bech32 addresses; Python patches
 #    genesis.json in one pass (same technique as populate_genesis_accounts.py).
 # ---------------------------------------------------------------------------
-cat > /tmp/evm_stress_patch_genesis.py << 'PYEOF'
+cat > "$PAX_HOME/evm_stress_patch_genesis.py" << 'PYEOF'
 import json, sys
 
 genesis_path = sys.argv[1]
@@ -73,8 +80,8 @@ PYEOF
 
 echo "==> patching genesis with sender accounts..."
 go run "$REPO_ROOT/scripts/evm_stress/main.go" -dump-pax-addrs \
-  | python3 /tmp/evm_stress_patch_genesis.py \
-      "$HOME/.pax/config/genesis.json" "$SENDER_GENESIS_FUNDS"
+  | python3 "$PAX_HOME/evm_stress_patch_genesis.py" \
+      "$PAX_HOME/config/genesis.json" "$SENDER_GENESIS_FUNDS"
 echo "==> genesis patched"
 
 # ---------------------------------------------------------------------------
@@ -83,7 +90,7 @@ echo "==> genesis patched"
 echo "==> starting paxd (logs -> $LOG_FILE)..."
 mkdir -p /tmp/race
 GORACE="log_path=/tmp/race/paxd_race" \
-  "$PAXD" start --trace --chain-id pax-chain > "$LOG_FILE" 2>&1 &
+  "$PAXD_BIN" "${PAX_START_ARGS[@]}" > "$LOG_FILE" 2>&1 &
 PAXD_PID=$!
 echo "==> paxd PID: $PAXD_PID"
 

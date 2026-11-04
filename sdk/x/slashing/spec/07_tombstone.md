@@ -45,6 +45,10 @@ The [signing-info keeper](../keeper/signing_info.go) persists the tombstone unde
 the consensus address. The independent tombstone flag makes the exclusion
 permanent: waiting for a jail timestamp does not make the validator eligible
 again.
+`Tombstone` itself sets only the persisted flag: the evidence handler separately
+calls `Jail` and `JailUntil`. It panics for missing signing info or an already
+tombstoned record. Even a block time after `DoubleSignJailEndTime` cannot bypass
+the flag checked by `MsgUnjail`; downtime jail has no such permanent flag.
 
 [`MsgUnjail`](./03_messages.md) calls the
 [slashing unjail keeper](../keeper/unjail.go). After checking validator existence,

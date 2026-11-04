@@ -3,12 +3,11 @@
 import React from 'react';
 
 import * as txMock from 'mocks/txs/tx';
-import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, test } from 'vitest';
 
-vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
-
-import TxRawTrace from './TxRawTrace';
+import {
+  TxRawTrace, renderTransaction, rawTraceOnDemandCompletionReachesPanel, rawTraceEmptyCompletionReachesPanel,
+} from './repair-22-33-519.fixtures';
 import type { TxQuery } from './useTxQuery';
 
 const buildTxQuery = (data: typeof txMock.base | undefined, overrides: Partial<TxQuery> = {}): TxQuery => ({
@@ -23,20 +22,18 @@ const buildTxQuery = (data: typeof txMock.base | undefined, overrides: Partial<T
 
 describe('TxRawTrace', () => {
   beforeEach(() => {
-    routerState.pathname = '/tx/[hash]';
-    routerState.query = { hash: txMock.base.hash };
     fetchMock.resetMocks();
     fetchMock.mockResponse(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
   });
 
   it('heads the shared table card with the raw trace title', () => {
-    const { container } = render(<TxRawTrace txQuery={ buildTxQuery(txMock.base) }/>);
+    const { container } = renderTransaction(<TxRawTrace txQuery={ buildTxQuery(txMock.base) }/>, txMock.base.hash);
 
     expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent).toBe('Raw trace');
   });
 
   it('renders the trace snippet inside the card body', () => {
-    const { container } = render(<TxRawTrace txQuery={ buildTxQuery(txMock.base) }/>);
+    const { container } = renderTransaction(<TxRawTrace txQuery={ buildTxQuery(txMock.base) }/>, txMock.base.hash);
 
     const body = container.querySelector('[data-scan-table-card] [data-body]');
 
@@ -45,16 +42,19 @@ describe('TxRawTrace', () => {
   });
 
   it('waits for a pending transaction instead of asking for its trace', () => {
-    const { container } = render(<TxRawTrace txQuery={ buildTxQuery(txMock.pending) }/>);
+    const { container } = renderTransaction(<TxRawTrace txQuery={ buildTxQuery(txMock.pending) }/>, txMock.base.hash);
 
     expect(container.textContent).toContain('This transaction is pending confirmation.');
     expect(container.querySelector('[data-scan-table-card]')).toBeNull();
   });
 
   it('reports a failed transaction request instead of the card', () => {
-    const { container } = render(<TxRawTrace txQuery={ buildTxQuery(undefined, { isError: true }) }/>);
+    const { container } = renderTransaction(<TxRawTrace txQuery={ buildTxQuery(undefined, { isError: true }) }/>, txMock.base.hash);
 
     expect(container.textContent).toContain('Something went wrong');
     expect(container.querySelector('[data-scan-table-card]')).toBeNull();
   });
 });
+
+test(rawTraceOnDemandCompletionReachesPanel, rawTraceOnDemandCompletionReachesPanel, 10000);
+test(rawTraceEmptyCompletionReachesPanel, rawTraceEmptyCompletionReachesPanel);

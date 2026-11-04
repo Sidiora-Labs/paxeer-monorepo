@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import json
+import math
 import os
 import platform
 import re
@@ -117,20 +119,26 @@ def ensure_ubuntu() -> Tuple[str, str, str]:
         return "fail", f"Detected: {name} (ID={os_id})", f"Not Ubuntu (ID={os_id}). Recommended: Ubuntu."
 
 def parse_go_duration_to_seconds(s: str) -> Optional[float]:
-    if not isinstance(s, str) or not s.strip():
+    if not isinstance(s, str):
         return None
-    pattern = re.compile(r"(?P<val>[-+]?(?:\d+(?:\.\d*)?|\.\d+))(?P<unit>ns|us|µs|ms|s|m|h)")
-    total_seconds = 0.0
-    for m in pattern.finditer(s.strip().lower()):
-        val = float(m.group("val"))
-        unit = m.group("unit")
-        total_seconds += val / 1_000_000_000 if unit == "ns" else \
-                         val / 1_000_000 if unit in ("us", "µs") else \
-                         val / 1000 if unit == "ms" else \
-                         val if unit == "s" else \
-                         val * 60 if unit == "m" else \
-                         val * 3600
-    return total_seconds
+    # Share Go's complete duration grammar and int64 bounds with the node.
+    helper = Path(__file__).resolve().with_name("maintenance.sh")
+    result = subprocess.run(
+        ["bash", str(helper), "duration", s],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"duration configuration check failed: {result.stderr.strip()}")
+    try:
+        parsed = json.loads(result.stdout)
+        if parsed["valid"] is False:
+            return None
+        seconds = float(parsed["seconds"])
+        if parsed["valid"] is not True or not math.isfinite(seconds):
+            raise ValueError("nonfinite or invalid duration response")
+        return seconds
+    except (ValueError, KeyError, TypeError) as error:
+        raise RuntimeError(f"duration configuration check failed: {error}") from error
 
 def load_mempool_config_from_toml(path: Path) -> Tuple[Optional[str], Optional[int]]:
     try:
@@ -194,8 +202,14 @@ def main():
         else:
             print(style_ok(f"Found config file: {cfg}"))
             td_str, tnb_int = load_mempool_config_from_toml(cfg)
-            secs = parse_go_duration_to_seconds(td_str) if td_str else None
-            if td_str is None or secs is None or secs <= 2:
+            try:
+                secs = parse_go_duration_to_seconds(td_str) if td_str is not None else None
+            except RuntimeError as error:
+                print(style_fail(str(error)))
+                secs = None
+            if td_str is None or secs is None:
+                print(style_fail(f"Configuration failure: invalid mempool.ttl-duration (got {td_str}).")); failures += 1
+            elif secs <= 2:
                 print(style_fail(f"mempool.ttl-duration must be > 2s (got {td_str}).")); failures += 1
             else:
                 print(style_ok(f"mempool.ttl-duration OK (>2s): {td_str}"))

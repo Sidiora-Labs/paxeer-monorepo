@@ -1,0 +1,26 @@
+{
+  "script": "services/bridge/deploy/deploy-solana-program.sh",
+  "writer_index": 0,
+  "writer_sha256": "6a833a8ced3aa4ba36a30e26721ff31c76c03a1bba8f3232a535c0447a4aa2af",
+  "record": {
+    "chain": "solana",
+    "chain_id": 91600046870081,
+    "kind": "solana",
+    "configuration": "contracts/bridge/solana/chains/solana/config.json",
+    "genesis_hash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+    "program_id": "A7SZbByPYuHpunZ9pyMDMrhMYvK44ANT1AVqb8U1FpM9",
+    "program_data_account": "7DTvdHwEjifafiZewpkFVVAScX83ry9TpTT12aZMvGqa",
+    "upgradeable_loader_id": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "program_elf_sha256": "b6b2c81e727090de7f9ac4c19f351bfb93e4ac7dc03e929ba05aa761a4e09886",
+    "program_elf_bytes": 412816,
+    "deployment_signature": "4NuJ9kxDk3rVZkTVcFHpu9dKzjzEdeD2uFkRGr6XbLbdnDWGEjwSs4LDQsNcvAxxYSEQpbmyuWgjB8K5ey2PnB5Q",
+    "deployment_slot": 312000017,
+    "rooted_slot": 312000418,
+    "publisher": "CtAAsdhc7vrcVzpnTms7UDuPpvYGMXhv2ps2LF63SvCu",
+    "upgrade_authority": "CtAAsdhc7vrcVzpnTms7UDuPpvYGMXhv2ps2LF63SvCu",
+    "commitment": "finalized",
+    "vault_authority": "GxxA9Cs9v5pAGVsaCe2jjDrtmieeBijcY4S5HHTY8Vq6",
+    "vault_handle": "0x334121a65b47bd45c3f6381537d9180e98e445bc",
+    "program_keypair_file": "recorded-program-keypair.json"
+  }
+}

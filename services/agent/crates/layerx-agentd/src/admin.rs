@@ -8,7 +8,7 @@ use layerx_crypto::evm_transaction::decode_signed;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest, Sha256};
 
-use crate::audit::{AuditError, Log};
+use crate::audit::{encode_operator_attempt, AuditError, Log, OperatorAttempt, RecordError};
 use crate::budget::{
     self, BudgetDivergenceAlert, LocalAccounting, ProtocolBudgetState, ReconcileError,
     ReconciliationState, SpendReceiptEvidence,
@@ -338,6 +338,7 @@ impl ClientWritePlan {
 /// Tenant-bound operator entry point. The audit log is private and append-only.
 pub struct Surface {
     audit: Log,
+    tenant: TenantId,
 }
 
 impl Surface {
@@ -349,6 +350,7 @@ impl Surface {
     pub fn open(root: impl AsRef<Path>, tenant: &TenantId) -> Result<Self, AdminError> {
         Ok(Self {
             audit: Log::open(root, tenant).map_err(AdminError::Audit)?,
+            tenant: tenant.clone(),
         })
     }
 
@@ -372,10 +374,10 @@ impl Surface {
         context: &OperatorContext,
         command: OperatorCommand,
     ) -> Result<ActionPlan, AdminError> {
-        let payload = audit_payload(context, command)?;
+        let payload = audit_payload(&self.tenant, context, command)?;
         let (_, result) = self
             .audit
-            .before_operation(&payload, || assert_non_mutating(&command))
+            .before_committed_operation(&payload, || assert_non_mutating(&command))
             .map_err(AdminError::Audit)?;
         result
     }
@@ -614,6 +616,7 @@ impl Surface {
 pub enum AdminError {
     InvalidOperator,
     Audit(AuditError),
+    AuditRecord(RecordError),
     ProtectedMutation(ProtectedMutation),
     NotUnknown,
     NotStalled,
@@ -627,6 +630,7 @@ pub enum AdminError {
 }
 
 fn audit_payload(
+    tenant: &TenantId,
     context: &OperatorContext,
     command: OperatorCommand,
 ) -> Result<Vec<u8>, AdminError> {
@@ -634,16 +638,23 @@ fn audit_payload(
     if operator.is_empty() || operator.len() > 256 || operator.contains(&0) {
         return Err(AdminError::InvalidOperator);
     }
-    let length = u16::try_from(operator.len()).map_err(|_| AdminError::Arithmetic)?;
-    let mut payload = Vec::with_capacity(72 + operator.len());
-    payload.extend_from_slice(b"LXOA");
-    payload.push(1);
-    payload.extend_from_slice(&length.to_be_bytes());
-    payload.extend_from_slice(operator);
-    payload.extend_from_slice(&context.request_id);
-    payload.push(command.code());
-    payload.extend_from_slice(&command.target());
-    Ok(payload)
+    let observed_at_ms = u64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| AdminError::Arithmetic)?
+            .as_millis(),
+    )
+    .map_err(|_| AdminError::Arithmetic)?;
+    encode_operator_attempt(OperatorAttempt {
+        tenant: tenant.clone(),
+        operator_id: &context.operator_id,
+        request_id: context.request_id,
+        command: command.code(),
+        target: command.target(),
+        observed_at_ms,
+        refused: matches!(command, OperatorCommand::AttemptProtectedMutation { .. }),
+    })
+    .map_err(AdminError::AuditRecord)
 }
 
 fn target_digest(value: &[u8]) -> [u8; 32] {
