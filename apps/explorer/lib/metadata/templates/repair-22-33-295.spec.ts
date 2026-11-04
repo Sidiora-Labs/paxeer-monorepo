@@ -13,7 +13,7 @@ function chainMetadata(
   return Reflect.apply(generate, undefined, [ route, apiData ]);
 }
 
-function chainDirectoryMetadataIncludesNetwork() {
+test('chainDirectoryMetadataIncludesNetwork', function chainDirectoryMetadataIncludesNetwork() {
   const metadata = chainMetadata({ pathname: '/chains' });
   const postfix = config.meta.promoteBlockscoutInTitle ? ' | Blockscout' : '';
 
@@ -22,9 +22,9 @@ function chainDirectoryMetadataIncludesNetwork() {
   expect(metadata.opengraph.title).toBe(metadata.title);
   expect(metadata.title).not.toContain('undefined');
   expect(metadata.title).not.toMatch(/%\w+%/);
-}
+});
 
-function chainDetailMetadataIncludesNetworkAndRouteId() {
+test('chainDetailMetadataIncludesNetworkAndRouteId', function chainDetailMetadataIncludesNetworkAndRouteId() {
   const postfix = config.meta.promoteBlockscoutInTitle ? ' | Blockscout' : '';
 
   for (const id of [ '1', '4294967295' ]) {
@@ -35,9 +35,9 @@ function chainDetailMetadataIncludesNetworkAndRouteId() {
     expect(metadata.title).not.toContain('undefined');
     expect(metadata.title).not.toMatch(/%\w+%/);
   }
-}
+});
 
-function chainDetailMetadataUsesSelectedChainName() {
+test('chainDetailMetadataUsesSelectedChainName', function chainDetailMetadataUsesSelectedChainName() {
   // Committed /v1/chains response fixture matching the production chain codec's existing model/detail fixtures.
   const chains = parseChainsResponse(JSON.parse(`{
     "chains": [{
@@ -63,8 +63,4 @@ function chainDetailMetadataUsesSelectedChainName() {
     expect(metadata.title).not.toContain('undefined');
     expect(metadata.title).not.toMatch(/%\w+%/);
   }
-}
-
-test(chainDirectoryMetadataIncludesNetwork.name, chainDirectoryMetadataIncludesNetwork);
-test(chainDetailMetadataIncludesNetworkAndRouteId.name, chainDetailMetadataIncludesNetworkAndRouteId);
-test(chainDetailMetadataUsesSelectedChainName.name, chainDetailMetadataUsesSelectedChainName);
+});
