@@ -1,0 +1,25 @@
+[meta]
+task = "22.31.432"
+audit = "22.30.182"
+base_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
+qualification = "hf-build then hf-done; the private gate ledger and final evidence line bind the verified candidate revision, exact command, exit code and log."
+baseline = "No unchanged-tree verify ran: the explicit Order forbids testing before complete implementation and hand-running verify_cmd; no pre-change test failure is claimed. Static inspection found a removed decoder import, retired custody methods expected to return signatures, and mandatory private Node/PostgreSQL/runtime fixtures."
+proof_boundary = "The real repaired Python qualifier consumes the supported HTTP wire contract against a committed loopback recording, using the production Python SDK transaction codec and pinned signed-receipt verifier. Local TypeScript EIP-1193 refusal is checked against the actual provider/error sources, without implementing a substitute provider. No deployment, TypeScript execution, PostgreSQL crash durability, or attestor cluster qualification is claimed."
+
+[finding.custody-recovery-retired-api]
+tests = ["test_retired_custody_methods_refused_before_transport", "test_native_send_exact_transaction_and_signed_receipt_across_restart", "test_recorded_command_executes_whole_qualification", "test_sdk_native_transaction_codec_matches_provider_wire", "test_gateway_authentication_refusal_preserves_uncertain_state", "test_pending_recovery_never_repeats_send", "test_reopened_consumer_refuses_changed_retained_send", "test_recovery_refuses_unverified_or_misbound_receipt", "test_recovery_requires_private_regular_record", "test_recording_never_contacts_external_or_credential_url"]
+repair = "Remove retired authorization decoding and signature-recovery assumptions. Assert both methods remain in the provider's unsupported set and are refused with 4200 before signing/authentication/dispatch. Exercise /v1/wallet/send using the SDK's normalized exact native transaction, preserve an ambiguous send before transport, stop/reopen the consumer and recorded server, and recover solely through pax_sequencerReceipt without another payment."
+producer = "rpc/sequencer_receipt_vectors_test.go emits sdk/platform/conformance/fixtures/sequencer-receipt-v1.json V1-pax-transfer; both rawTransaction and signed receipt are replayed unchanged. The real SDK decodes, recovers the signer, reattaches the signature, verifies the pinned Ed25519 receipt and binds chain/account/nonce/recipient/value plus node JSON to that evidence."
+transport = "Authenticated loopback HTTP with application/json, Bearer header, /v1/wallet/send tx body and JSON-RPC 2.0 pax_sequencerReceipt request/result envelopes; the public recording token is not an operational credential."
+recovery = "Atomic fsynced private consumer record persists exact raw/hash/normalized transaction before the write. Reopening refuses altered state; pending, authentication refusal, invalid signatures, foreign keys, wrong hashes/status/fees and mismatched RPC ids never become settled. The recorded peer retains its original bytes and admits exactly one economic send."
+
+[wiring.1]
+request = "Wallet SDK/gateway owning domain, sdk/wallet/test/provider.test.ts and services/wallet/gateway/test: wire this node-produced PAX recording into the native TypeScript provider + HumanSendRecovery authenticated process/SQL stop-reopen integration gate; the directory's declared Python-only gate cannot execute those owners' toolchains, and their runtime durability is not certified here."
+
+[gotcha.1]
+observed = "The task simultaneously requests an unchanged-tree baseline and forbids tests before implementation or outside hf-done."
+resolution = "Follow the explicit gate order; retain static baseline observations without claiming a baseline test run."
+
+[gotcha.2]
+observed = "py_compile writes bytecode inside a directory-scoped candidate unless its cache prefix is external."
+resolution = "Run both bounded gates with PYTHONPYCACHEPREFIX in private evidence storage outside the source tree."

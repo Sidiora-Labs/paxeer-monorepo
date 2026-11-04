@@ -574,18 +574,22 @@ const maxValidDecNumber = "66749594872528440074844428317798503581334516323645399
 
 // TestCeilOverflow tests overflow behavior in Ceil operation
 func TestCeilOverflow(t *testing.T) {
-	// Create a simple test that demonstrates ceiling can cause overflow
-	// Use a smaller number that we know can be created but will overflow when ceiling
-	d, err := sdk.NewDecFromStr("115792089237316195423570985008687907853269984665640564039457584007913129639935.1")
-	if err != nil {
-		// If we can't create this number, skip the test as our validation is very strict
-		t.Skip("Number too large to create for ceiling overflow test")
-		return
-	}
-
+	maxInternal := sdk.RepairM645MaxDecInternal()
+	scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(sdk.Precision), nil)
+	whole, fraction := new(big.Int), new(big.Int)
+	whole.QuoRem(maxInternal, scale, fraction)
+	require.Positive(t, fraction.Sign(), "boundary must have a fractional part")
+	input := fmt.Sprintf("%s.%0*s", whole, sdk.Precision, fraction.String())
+	d, err := sdk.NewDecFromStr(input)
+	require.NoError(t, err)
 	require.True(t, d.IsInValidRange())
-	// this call should panic because ceiling would exceed the range
-	require.Panics(t, func() { d.Ceil() }, "Ceil should panic when result would exceed range")
+	require.Panics(t, func() { d.Ceil() }, "Ceil must reject rounding beyond the internal bound")
+
+	beyond := new(big.Int).Add(maxInternal, big.NewInt(1))
+	whole.QuoRem(beyond, scale, fraction)
+	_, err = sdk.NewDecFromStr(fmt.Sprintf("%s.%0*s", whole, sdk.Precision, fraction.String()))
+	require.Error(t, err, "the constructor must reject the first internal value beyond the bound")
+	require.Panics(t, func() { sdk.NewDecFromBigIntWithPrec(beyond, sdk.Precision) })
 }
 
 // TestDecOpsWithinLimits tests that all decimal operations respect the 315-bit limit

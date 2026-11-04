@@ -1,0 +1,12 @@
+[repair.22.33.651]
+finding = "empty-genesis-migration-registry"
+audit = "22.30.165"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+tests = ["TestRepairM_651_RegistryAndHelp", "TestRepairM_651_OldGenesisToCurrentGenesis", "TestRepairM_651_UnknownTarget"]
+proof = "RegisterMigration connects application callbacks to the command's immutable target snapshot; help and errors describe actual supported targets, including none. A fees-only version-1 params export passes through a file, real command and application codec into the real keeper Migrate1to2 and module export, then imports into a fresh keeper with preserved fees and current gas parameters."
+baseline = "Not run: the ordered implementation-first and hf-done-only gate instructions prohibit do_5's conflicting pre-change verify; no pre-existing test failure is claimed."
+qualification = "hf-build and hf-done record the exact candidate revision, command, exit and private evidence location; no gate result is claimed before execution."
+wiring_request = "daemon/paxd/cmd/root.go — owner domain 5 (node-runtime): register application-approved genesis target callbacks with genutilcli.RegisterMigration before constructing MigrateGenesisCmd; this reusable SDK has no chain-approved genesis callbacks and now explicitly advertises no supported targets until configured."
+gotcha = "The repository's old v0.43 integration fixture expects a callback that is absent; this task does not invent chain migration semantics or modify out-of-scope sdk/x/genutil/client/testutil/migrate.go."
+gotcha_codec = "ProtoCodec normalizes a nil AllowedFeeDenoms slice to an empty slice during JSON roundtrip; the fixture uses a populated allowlist and retains exact equality checks to prove fee restrictions survive migration."
+first_verify = "revision=a436b648249098255aa436ca3e25caaed9739b6d; command=cg spec done 22.33.651 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; detail=/out/logs/repair-m651-first-failure.log; task-scoped fixture nil/empty mismatch repaired without changing assertions."

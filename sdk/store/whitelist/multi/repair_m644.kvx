@@ -1,0 +1,12 @@
+[repair.22.33.644]
+audit = "22.30.165"
+finding = "whitelist-multi-escape"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+implementation = "Wrap every MultiStore store accessor, cache/version/export branch, tracing transformation and SetKVStores callback and result; retain the policy recursively through multi-store and KV cache writes, and snapshot caller-owned policy data."
+proving_tests = ["TestRepairM_644_Accessors", "TestRepairM_644_KVBranches", "TestRepairM_644_SetKVStores", "TestRepairM_644_VersionAndExport", "TestRepairM_644_PolicySnapshot"]
+coverage = "Production legacy rootmulti backed by in-memory DBs and production storev2 backed by local MemIAVL; denied Set/Delete through every accessor and callback; missing-store deny-all; allowed prefixes persist through nested cache writes; version/export success and original error propagation."
+baseline = "UNRUN: Order 1 prohibits testing before implementation, and Order 4 prohibits running verify_cmd by hand; no unchanged-tree failure is claimed."
+qualification = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence location; this record does not independently claim a gate pass."
+wiring_requests = []
+gotcha = "The sibling whitelist cachemulti and KV wrappers inherit mutable accessors too; multi must retain its own restrictions around returned branches, including nested KV caches, without editing the sibling domains."
+qualification_repair = "The first verify exposed a test fixture error: MemIAVL KV writes become visible after root Commit, not cache Write alone; the version/export proof now commits and asserts the next height before checking the unchanged state assertions."

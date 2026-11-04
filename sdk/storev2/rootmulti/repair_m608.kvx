@@ -1,0 +1,9 @@
+[repair.22.33.608]
+finding = "snapshot-height-hash-test"
+test = "TestRepairM_608_SnapshotHeightHash"
+continuation_tests = ["TestRepairM_608_DualWriteContinuation", "TestRepairM_608_EVMMigratedContinuation", "TestRepairM_608_FlatKVOnlyContinuation"]
+proof = "Exact source/restored LastCommitID and lattice CommitID immediately after Restore and after Close/reopen across all eight supported write modes; independent untouched account, nonce, code-hash, code and storage keys are read through SC and synchronous SS queries before any subsequent commit."
+baseline = "No prior gate evidence exists; an unchanged-tree verify was not run because the prescribed gate order requires complete implementation and hf-build before hf-done and prohibits running verify_cmd by hand."
+wiring = "None identified during implementation; the domain 5 raw physical FlatKV exporter/importer is retained without changes."
+evidence = "The runner records the exact candidate revision, command, exit code and private evidence log in its gate ledger."
+fixture_repair = "The first verify at 17d20ed44da75f2f988671654d894b16d882c919 failed (exit 1, /out/logs/verify-1.log) because a zero-nonce account without a code hash is intentionally garbage-collected by FlatKV before export; add a code hash to persist that fixture while retaining the exact zero-nonce assertion, add a nonce-only account, and assert source state before export."

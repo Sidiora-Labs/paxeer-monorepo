@@ -167,32 +167,45 @@ func SimulateMsgMultiSend(ak types.AccountKeeper, bk keeper.Keeper) simtypes.Ope
 		accs []simtypes.Account, chainID string,
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 
-		// random number of inputs/outputs between [1, 3]
-		inputs := make([]types.Input, r.Intn(3)+1)
+		// Select distinct accounts without changing the caller's account slice.
+		available := make([]simtypes.Account, 0, len(accs))
+		seen := make(map[string]bool, len(accs))
+		for _, acc := range accs {
+			addr := string(acc.Address)
+			if !seen[addr] {
+				seen[addr] = true
+				available = append(available, acc)
+			}
+		}
+		if len(available) < 2 {
+			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgMultiSend, "fewer than two distinct accounts"), nil, nil
+		}
+
+		// random number of inputs/outputs between [1, 3], bounded by available signers
+		inputCount := r.Intn(3) + 1
+		if inputCount > len(available) {
+			inputCount = len(available)
+		}
+		inputs := make([]types.Input, inputCount)
 		outputs := make([]types.Output, r.Intn(3)+1)
 
 		// collect signer privKeys
 		privs := make([]cryptotypes.PrivKey, len(inputs))
 
-		// use map to check if address already exists as input
-		usedAddrs := make(map[string]bool)
-
 		var totalSentCoins sdk.Coins
 		for i := range inputs {
-			// generate random input fields, ignore to address
-			from, _, coins, skip := randomSendFields(r, ctx, accs, bk, ak)
-
-			// make sure account is fresh and not used in previous input
-			for usedAddrs[from.Address.String()] {
-				from, _, coins, skip = randomSendFields(r, ctx, accs, bk, ak)
-			}
-
-			if skip {
+			// A partial Fisher-Yates shuffle samples inputs without replacement.
+			j := i + r.Intn(len(available)-i)
+			available[i], available[j] = available[j], available[i]
+			from := available[i]
+			account := ak.GetAccount(ctx, from.Address)
+			if account == nil {
 				return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgMultiSend, "skip all transfers"), nil, nil
 			}
-
-			// set input address in used address map
-			usedAddrs[from.Address.String()] = true
+			coins := simtypes.RandSubsetCoins(r, bk.SpendableCoins(ctx, account.GetAddress()))
+			if coins.Empty() {
+				return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgMultiSend, "skip all transfers"), nil, nil
+			}
 
 			// set signer privkey
 			privs[i] = from.PrivKey

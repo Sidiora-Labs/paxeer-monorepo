@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	"github.com/stretchr/testify/require"
 
@@ -74,12 +75,12 @@ func TestGenesisStateValidate(t *testing.T) {
 			func() {
 				testEvidence = make([]exported.Evidence, 100)
 				for i := 0; i < 100; i++ {
-					testEvidence[i] = &types.Equivocation{
-						Height:           int64(i + 1),
-						Power:            100,
-						Time:             time.Now().UTC(),
-						ConsensusAddress: pk.PubKey().Address().String(),
-					}
+					testEvidence[i] = types.FromABCIEvidence(abci.Evidence{
+						Type:      abci.MisbehaviorType_DUPLICATE_VOTE,
+						Height:    int64(i + 1),
+						Time:      time.Now().UTC(),
+						Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+					})
 				}
 				genesisState = types.NewGenesisState(testEvidence)
 			},
@@ -90,14 +91,28 @@ func TestGenesisStateValidate(t *testing.T) {
 			func() {
 				testEvidence = make([]exported.Evidence, 100)
 				for i := 0; i < 100; i++ {
-					testEvidence[i] = &types.Equivocation{
-						Height:           int64(i),
-						Power:            100,
-						Time:             time.Now().UTC(),
-						ConsensusAddress: pk.PubKey().Address().String(),
-					}
+					testEvidence[i] = types.FromABCIEvidence(abci.Evidence{
+						Type:      abci.MisbehaviorType_DUPLICATE_VOTE,
+						Height:    int64(i),
+						Time:      time.Now().UTC(),
+						Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+					})
 				}
 				genesisState = types.NewGenesisState(testEvidence)
+			},
+			false,
+		},
+		{
+			"malformed consensus address",
+			func() {
+				evi := types.FromABCIEvidence(abci.Evidence{
+					Type:      abci.MisbehaviorType_DUPLICATE_VOTE,
+					Height:    1,
+					Time:      time.Now().UTC(),
+					Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+				}).(*types.Equivocation)
+				evi.ConsensusAddress = pk.PubKey().Address().String()
+				genesisState = types.NewGenesisState([]exported.Evidence{evi})
 			},
 			false,
 		},
@@ -118,6 +133,11 @@ func TestGenesisStateValidate(t *testing.T) {
 
 			if tc.expPass {
 				require.NoError(t, genesisState.Validate())
+				stored := repairM604GenesisRoundTrip(t, genesisState)
+				require.Len(t, stored, len(testEvidence))
+				for _, evi := range stored {
+					require.Equal(t, []byte(pk.PubKey().Address()), evi.(*types.Equivocation).GetConsensusAddress().Bytes())
+				}
 			} else {
 				require.Error(t, genesisState.Validate())
 			}
