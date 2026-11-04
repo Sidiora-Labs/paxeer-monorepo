@@ -1,0 +1,172 @@
+// This implementation-time bridge is compiled into the production launchpad
+// package using Go's source overlay. It calls the actual executor emitters and
+// SDK/EVM store; it never constructs a log or reimplements event encoding.
+package launchpad
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"math/big"
+	"os"
+	"path/filepath"
+	"strings"
+
+	ibctransferkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/keeper"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
+	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+)
+
+type recordM948Execution struct {
+	Role     string
+	Name     string
+	CalledAt common.Address
+	Log      *types.Log
+	Args     map[string]any
+}
+type recordM948Refusal struct {
+	Role, Name, Error     string
+	LogsBefore, LogsAfter uint
+}
+
+func RecordM948Native(root, revision string, output io.Writer) error {
+	key := sdk.NewKVStoreKey("record_m948_evm")
+	transient := sdk.NewTransientStoreKey("record_m948_transient")
+	ctx := testutil.DefaultContext(key, transient)
+	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
+	subspace := func(name string) paramtypes.Subspace {
+		return paramtypes.NewSubspace(cdc, codec.NewLegacyAmino(), key, transient, name)
+	}
+	accounts := authkeeper.NewAccountKeeper(cdc, key, subspace("record_m948_auth"), authtypes.ProtoBaseAccount, map[string][]string{authtypes.FeeCollectorName: nil})
+	keeper := evmkeeper.NewKeeper(key, transient, subspace("record_m948_evm"), nil, nil, &accounts, nil, ibctransferkeeper.Keeper{}, nil, nil, nil)
+	db := state.NewDBImpl(ctx, keeper, false)
+	defer db.Cleanup()
+	evm := &vm.EVM{StateDB: db, Context: vm.BlockContext{Time: 73, BlockNumber: big.NewInt(41)}}
+	p := PrecompileExecutor{abi: pcommon.MustGetABI(f, "abi.json")}
+	transcript := struct {
+		Revision     string
+		SourceHashes map[string]string
+		Family       []recordM948Execution
+		Roles        []recordM948Execution
+		Refusals     []recordM948Refusal
+	}{Revision: revision, SourceHashes: map[string]string{}}
+	for _, path := range []string{"precompiles/launchpad/events.go", "modules/launchpad/keeper/keeper.go"} {
+		raw, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			return err
+		}
+		transcript.SourceHashes[path] = fmt.Sprintf("%x", sha256.Sum256(raw))
+	}
+	for _, name := range []string{"Swap", "PoolStateUpdated", "TokenDeployed", "MarketCreated", "NftMint", "FeeStrategyChanged", "NftTransfer", "PoolRegistered", "RouterTrade", "ConfigUpdated", "FeeFlow", "FeeDistributed"} {
+		event := p.abi.Events[name]
+		values, args, err := recordM948Values(event.Inputs[:len(event.Inputs)-2])
+		if err != nil {
+			return err
+		}
+		args["timestamp"] = "73"
+		args["blockNumber"] = "41"
+		before := len(db.GetAllLogs())
+		if err = p.emitFamily(evm, name, values...); err != nil {
+			return err
+		}
+		logs := db.GetAllLogs()
+		if len(logs) != before+1 {
+			return fmt.Errorf("%s emitted %d logs", name, len(logs)-before)
+		}
+		transcript.Family = append(transcript.Family, recordM948Execution{Name: name, CalledAt: common.HexToAddress(LaunchpadAddress), Log: logs[len(logs)-1], Args: args})
+	}
+	roleNames := []string{"FeeAccumulator", "PoolRegistry", "FeesRouter", "ProtocolConfig", "Quoter", "Router", "SidioraFactory", "SidioraNFT"}
+	additional := map[string]string{"FeeAccumulator": "FeeRecorded", "PoolRegistry": "PoolRegistered", "FeesRouter": "FeesClaimed", "ProtocolConfig": "ConfigUpdated", "Router": "Buy", "SidioraFactory": "MarketCreated", "SidioraNFT": "Transfer"}
+	for _, role := range roleNames {
+		for _, name := range []string{"RoleGranted", "RoleRevoked", additional[role]} {
+			if name == "" {
+				continue
+			}
+			event := roleABIs[role].Events[name]
+			values, args, err := recordM948Values(event.Inputs)
+			if err != nil {
+				return err
+			}
+			origins := []common.Address{launchpadkeeper.Generation2Surfaces[role]}
+			if (role == "Router" || role == "FeesRouter") && name != "RoleGranted" && name != "RoleRevoked" {
+				origins = append(origins, common.HexToAddress(LaunchpadAddress))
+			}
+			for _, at := range origins {
+				before := len(db.GetAllLogs())
+				if err = p.emitAt(evm, role, at, name, values...); err != nil {
+					return err
+				}
+				logs := db.GetAllLogs()
+				if len(logs) != before+1 {
+					return fmt.Errorf("%s.%s emitted %d logs", role, name, len(logs)-before)
+				}
+				transcript.Roles = append(transcript.Roles, recordM948Execution{role, name, at, logs[len(logs)-1], args})
+			}
+		}
+		before := uint(len(db.GetAllLogs()))
+		err := p.emitAt(evm, role, launchpadkeeper.Generation2Surfaces[role], "Initialized", uint64(1))
+		if err == nil {
+			return fmt.Errorf("%s Initialized accepted", role)
+		}
+		transcript.Refusals = append(transcript.Refusals, recordM948Refusal{role, "Initialized", err.Error(), before, uint(len(db.GetAllLogs()))})
+	}
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(transcript)
+}
+func recordM948Values(inputs abi.Arguments) ([]any, map[string]any, error) {
+	values := []any{}
+	expected := map[string]any{}
+	for i, arg := range inputs {
+		n := byte(i + 1)
+		var value, human any
+		switch arg.Type.String() {
+		case "address":
+			address := common.BytesToAddress(bytes.Repeat([]byte{n}, 20))
+			value = address
+			human = strings.ToLower(address.Hex())
+		case "bytes32":
+			var hash [32]byte
+			copy(hash[:], bytes.Repeat([]byte{n}, 32))
+			value = hash
+			human = "0x" + hex.EncodeToString(hash[:])
+		case "uint256":
+			integer := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 192), big.NewInt(int64(n)))
+			value = integer
+			human = integer.String()
+		case "uint8":
+			value = n
+			human = n
+		case "uint64":
+			value = uint64(n)
+			human = uint64(n)
+		case "bool":
+			value = true
+			human = true
+		case "string":
+			value = arg.Name + " λ / native executor"
+			human = value
+		default:
+			return nil, nil, fmt.Errorf("unsupported producer argument %s", arg.Type.String())
+		}
+		values = append(values, value)
+		expected[arg.Name] = human
+	}
+	return values, expected, nil
+}
