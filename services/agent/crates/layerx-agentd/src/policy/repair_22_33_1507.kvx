@@ -1,0 +1,21 @@
+[repair.22.33.1507]
+findings = ["approval-time-units", "policy-history-durability"]
+test_path = "services/agent/crates/layerx-agentd/tests/repair_22_33_1507.rs"
+baseline = "No baseline gate was run: the explicit ordered gate instructions prohibit verification before complete implementation and require hf-build before hf-done; the integration target was absent on the starting tree."
+evidence = "Exact candidate revision, command, exit and private log are retained by the runner's hf-build/hf-done ledger; the final report copies the terminating gate evidence."
+
+[finding.approval-time-units]
+implementation = "ApprovalSequence and TimestampSeconds separate block sequence from Unix time; timed admission and decision/expiry paths check each bound against its corresponding source, including after durable hold recovery. Untimed admission, decision and expiry entries are deprecated and explicitly refuse ClockRequired; untimed scoped reads/claims cannot bypass a timed pending hold. Legacy persisted holds without time presentation refuse LegacyTimeUnits."
+proving_tests = ["approval_time_units_check_unix_expiry_without_a_sequence_change", "approval_time_units_keep_sequence_and_timestamp_bounds_independent", "approval_time_units_retire_ambiguous_entries_and_recover_timed_holds"]
+wiring_request = "services/agent/crates/layerx-agentd/src/approval/mod.rs and expiry.rs, owning domain 9: route ApprovalService list/get/claim/release through list_scoped_at/get_scoped_at/claim_scoped_at with freshly sampled daemon clock time, preserve expiry arbitration and reservation settlement, and migrate remaining hold/hold_reserved/decide/expire callers and fixtures to timed entries; ambiguous legacy entries now explicitly refuse."
+wiring_request_recovery = "services/agent/crates/layerx-agentd/src/approval, owning domain 9: operator-owned recovery must re-prepare or explicitly cancel legacy persisted holds lacking Unix time presentation, preserving reservation settlement; policy replay refuses rather than inventing a time source."
+
+[finding.policy-history-durability]
+implementation = "Tenant history persists exact sources, SHA-256 digests, activation generations and immutable decision references in the real Store before publication; recovery validates tenant, source digest, generation, canonical codec and decision references. Repeated identical decisions are idempotent; conflicting request IDs and stale registry writers refuse. Boot loaders recover durable history and persist configured source activation before publishing the registry."
+retention = "Each tenant retains up to 64 versions, 4096 decisions and 16 MiB of encoded history, with configurable lower quotas persisted in the record. No automatic eviction occurs: quota exhaustion refuses new publication and preserves all existing decision/source references; quota changes at reopen refuse. Existing load_tenant_registries uses a source-path .history directory with a hex tenant subdirectory; load_tenant_registries_with_store supports a stable daemon-owned Store."
+proving_tests = ["policy_history_durability_reconstructs_original_decision_after_activation_and_reopen", "policy_history_quotas_refuse_new_publication_without_losing_references", "policy_history_failed_persistence_and_stale_owners_never_publish", "policy_history_shared_store_loader_preserves_tenant_binding_and_refuses_corruption"]
+wiring_request = "services/agent/crates/layerx-agentd/src/human_runtime.rs and agent_rpc_adapters.rs, owning domain 9: route live published admission decisions through evaluate_admission_and_record/evaluate_timed_admission_and_record or record_decision before publishing approval/refusal, propagate DryRunResult.audit_error as an explicit transport refusal, and supply the stable daemon Store through load_tenant_registries_with_store when policy source paths may move."
+
+[workflow.note]
+observed = "The task requires a repair record while forbidding spec edits and requires gotcha recording outside its write scope."
+resolution = "This in-scope repair record carries finding-to-test mappings, wiring requests and workflow notes; spec, root gotcha ledger, commits and pushes remain runner-owned."

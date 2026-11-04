@@ -92,11 +92,12 @@ const oversizedAssets = {
   })),
 };
 const assetServer = http.createServer((request, response) => {
+  if (request.url !== "/") { response.writeHead(404); response.end(); return; }
   const chunks: Buffer[] = [];
   request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
   request.on("end", () => {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {id: string; method: string; params: unknown};
-    assert.equal(request.url, "/rpc");
+    assert.equal(request.url, "/");
     assert.equal(body.method, "px_listAssets");
     observed.push(body.params);
     response.writeHead(200, {"Content-Type": "application/json"});
@@ -109,6 +110,9 @@ const assetAddress = assetServer.address();
 assert(assetAddress !== null && typeof assetAddress === "object", "asset listener missing");
 try {
   const assetClient = new JsonRpcClient(`http://127.0.0.1:${assetAddress.port}`);
+  for (const suffix of ["/rpc", "/ws", "/rpc/ws"]) {
+    await assert.rejects(new JsonRpcClient(`http://127.0.0.1:${assetAddress.port}${suffix}`).listAssets(), /Invalid RPC HTTP response/u);
+  }
   const page = await assetClient.listAssets();
   assert.equal(page.nextCursor, null);
   assert.deepEqual(page.assets.map(record => record.assetId), [first, second]);
