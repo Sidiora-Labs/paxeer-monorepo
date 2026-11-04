@@ -1,5 +1,10 @@
 //! Receipt-verifying authority boundary for the hosted gateway.
 
+extern crate self as layerx_platform_gateway;
+
+#[cfg(not(test))]
+pub mod runtime;
+
 pub use layerx_proof::inclusion::SequencerAuthorization;
 pub use layerx_proof::receipt::ReceiptKeys;
 
@@ -1565,3 +1570,9 @@ mod authorization_config_tests {
         assert!(configured_sequencer(&id, &"ff".repeat(32), "1", "2").is_err());
     }
 }
+
+// Use the shared consensus codec while the gateway manifest is outside this repair's scope.
+#[path = "../../../../interop/crates/layerx-committed-proof/src/lib.rs"]
+pub mod committed_proof;
+pub use committed_proof::{commit, header, merkle, proto, ProofError};
+pub mod committed_state;

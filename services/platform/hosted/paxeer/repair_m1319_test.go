@@ -48,9 +48,28 @@ func repair1319Profile(t *testing.T) DeploymentProfile {
 	return p
 }
 
-// Exercise the actual CLI handler through an OS pipe into the YAML consumer.
-// Neither the profile reader nor the maintained manifest producer is replaced.
+// Native facts remain owned by the node manifest (decision 2532).
 func repair1319Documents(t *testing.T) []map[string]any {
+	t.Helper()
+	decoder := yaml.NewDecoder(bytes.NewReader(repair1319Read(t, repair1319Profile(t).Node.Manifest)))
+	var documents []map[string]any
+	for {
+		var document map[string]any
+		if err := decoder.Decode(&document); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		documents = append(documents, document)
+	}
+	if len(documents) == 0 {
+		t.Fatal("maintained node manifest produced no Kubernetes resources")
+	}
+	return documents
+}
+
+// Exercise the actual boundary CLI handler through an OS pipe into YAML.
+func repair1319BoundaryDocuments(t *testing.T) []map[string]any {
 	t.Helper()
 	reader, writer, err := os.Pipe()
 	if err != nil {
@@ -219,8 +238,8 @@ func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
 		t.Fatal("bootstrap no longer uses maintained native initializer")
 	}
 	wrapper := repair1319Read(t, "init-chain.sh")
-	if !bytes.Contains(wrapper, []byte(`exec "$SCRIPT_DIR/../node/bootstrap.sh" "$@"`)) {
-		t.Fatal("compatibility entrypoint must hand off to native bootstrap")
+	if !bytes.Contains(wrapper, []byte(`exec paxeer-native-tool bootstrap --bootstrap-script "$SCRIPT_DIR/../node/bootstrap.sh" "$@"`)) {
+		t.Fatal("compatibility entrypoint must guard immutable inputs before handing off to native bootstrap")
 	}
 	for _, retired := range []string{"layerxcustody", "deposit_root_authority", "sequencer_authorizations", "custody-genesis.py"} {
 		if bytes.Contains(wrapper, []byte(retired)) {
@@ -249,8 +268,8 @@ func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
 	if err := RunDeployment([]string{"manifest", "deployment-profile.json"}, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(manifest.Bytes(), repair1319Read(t, "../node/deployment.yaml")) {
-		t.Fatal("renderer diverged from maintained node deployment")
+	if !bytes.Equal(manifest.Bytes(), repair1319Read(t, "deployment.yaml")) {
+		t.Fatal("renderer diverged from restored boundary deployment")
 	}
 }
 
@@ -308,8 +327,8 @@ func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	original := repair1319Read(t, "../node/deployment.yaml")
-	if err := os.WriteFile(filepath.Join(node, "deployment.yaml"), original, 0600); err != nil {
+	original := repair1319Read(t, "deployment.yaml")
+	if err := os.WriteFile(filepath.Join(directory, "deployment.yaml"), original, 0600); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(directory, "deployment-profile.json")
@@ -387,7 +406,7 @@ func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 2 {
+	if len(entries) != 3 {
 		t.Fatalf("unexpected restart publications: %v", entries)
 	}
 }
@@ -534,10 +553,8 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 
 func TestRepairM_1319_EVMToolRetirement(t *testing.T) {
 	repair467Restored(t, "evm.py")
-	helper := repair1319Read(t, "settlement-domain.py")
-	if bytes.Contains(helper, []byte("from evm import")) || !bytes.Contains(helper, []byte("from layerx_sdk.account_derivation import keccak256 as keccak")) {
-		t.Fatal("historical public-data helper no longer uses the maintained SDK Keccak")
-	}
+	repair1319Absent(t, "settlement-domain.py")
+	repair1319Absent(t, "prepare-beta.py")
 	for _, action := range []string{"address", "public-key", "calldata", "chain-id", "balance", "call", "send"} {
 		var output bytes.Buffer
 		if err := RunDeployment([]string{action, "deployment-profile.json"}, &output); err == nil || output.Len() != 0 {
@@ -560,6 +577,10 @@ func TestRepairM_1319_ProfileRefusals(t *testing.T) {
 		"relay suffix":     bytes.Replace(original, []byte(":8545/"), []byte(":8545/evm"), 1),
 		"invalid port":     bytes.Replace(original, []byte(":8545/"), []byte(":65536/"), 1),
 		"zero port":        bytes.Replace(original, []byte(":8545/"), []byte(":0/"), 1),
+		"DNS node":         bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("layerx-native-chain.layerx-testnet.svc.cluster.local:8545"), 1),
+		"localhost node":   bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("localhost:8545"), 1),
+		"remote node":      bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("192.0.2.1:8545"), 1),
+		"remote consensus": bytes.Replace(original, []byte("127.0.0.1:26657"), []byte("192.0.2.1:26657"), 1),
 		"cleartext tenant": bytes.Replace(original, []byte("https://"), []byte("http://"), 1),
 		"trailing JSON":    append(append([]byte{}, original...), []byte(`{}`)...),
 		"oversize":         append(append([]byte{}, original...), bytes.Repeat([]byte(" "), 16*1024)...),

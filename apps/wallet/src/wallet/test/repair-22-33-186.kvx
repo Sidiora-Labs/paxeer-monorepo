@@ -1,0 +1,52 @@
+[repair.22.33.186]
+audit = "spec/layerx-merge/programme/audit/records/22.30.119.kvx"
+test_path = "apps/wallet/src/wallet/test/repair-22-33-186.test.ts"
+baseline = "No pre-change gate ran: the explicit order requires complete implementation, then hf-build, then hf-done and prohibits running verify_cmd by hand. Neither new test existed at the base. The prior helper cannot forward the authenticated production send and advertises /rpc instead of the asserted root or selected namespace. No observed baseline failure is claimed."
+evidence = "The private hf-build/hf-done ledger supplies the exact candidate revision, command, exit code and log; final output copies the last gate evidence without changing the qualified tree."
+
+[finding.synthetic-chain-response]
+tests = ["synthetic_chain_response_binds_producer_bytes_to_signer_lookup"]
+proof = "The production SDK WalletInterface/PaxeerProvider and WalletSigner drive two distinct sends through the helper HTTP proxy into the committed SDK transcript transport. Immutable request/signed-byte/response records were generated with viem privateKeyToAccount.signTransaction, the signing codec used by the gateway envelope path in services/wallet/gateway/src/db/wallets.ts. Each consumer lookup first observes no transaction; only publishing that record's original bytes through ethers JSON-RPC makes it visible. Hash, reconstructed serialization, signature, sender, destination, value, data, nonce, gas, fee fields and chain all agree. The loopback node peer verifies signature, chain and nonce and indexes only accepted signed bytes. The HTTP peer acknowledges only exact recorded requests and bearer tokens; it does not sign or invent responses for new inputs."
+unit_boundary = "The old constructions vector is explicitly a codec unit fixture. Its response now uses parsed.hash and is returned only for that exact hash; a caller-supplied hash is never substituted. Transaction responses have null block fields and the integration proof asserts isMined is false; submission is not evidence of mining."
+wiring_request = "Domain 12: apps/wallet/src/wallet/signer.test.ts should reuse the production integration scenario in apps/wallet/src/wallet/test/repair-22-33-186.test.ts instead of its canned send-hash assertion; that consuming test file is outside this task's scope."
+
+[finding.test-retired-rpc-path]
+tests = ["test_retired_rpc_path_uses_root_and_selected_namespace"]
+proof = "The helper advertises the node root or /chain/<id>, and the real SDK provider and ethers JSON-RPC transport emit requests to those paths. Distinct root and namespace block-height responses and namespace chain identity are asserted, the unit helper's emitted root path is asserted, and the retired /rpc and /rpc/chain/<id> endpoints are refused. The consuming connected-network integration setup now starts its existing root/switch/restart scenario on / and /chain/1."
+wiring_requests = []
+
+[task_notes]
+scope = "Runner-supplied .cgignore and task status edits are preserved. No spec files, root gotcha ledger, manifests or external consumer tests are edited. Publication belongs to the runner."
+registration = "Each proof is a declared named function registered with test(function.name, function), as required by the repository's Vitest 4 API."
+
+[qualification.build_dependency]
+revision = "6e32dc35baaa7ab9ec9873f9cca46e0ddf1408dd"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The newly imported committed PostgreSQL fixture could not resolve its two declared dev dependencies; pnpm install --force --prod=false --ignore-scripts in services/wallet/gateway/src/db installed them without a manifest change."
+assumption = "Qualification must install the gateway src/db test package in addition to the wallet workspace; pnpm's existing virtual-store metadata alone did not link the declared direct dependencies."
+
+[qualification.send_peer]
+revision = "d67c69c4acb482450a0232ce5a61f8875208f402"
+command = "cg spec done 22.33.186 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The routing test passed; the production send test failed with GatewayRefusalError: Connection terminated due to connection timeout. Neither finding is declared qualified by this record."
+assumption = "The committed single-backend PGlite socket peer cannot supply the independent database sessions used inside signRoutes; the proof retains the real producer and its assertions."
+
+[wiring.database_peer]
+request = "Domain 12: services/wallet/gateway/src/db/testDatabase.ts needs an in-process multi-session store compatible with signRoutes' independent policy, nonce and signature-accounting transactions before this SDK boundary proof can also drive buildApp signing; this task uses the ruling's recorded HTTP boundary alternative and makes no claim about database, policy, custody accounting or mining qualification."
+
+[qualification.previous_budget]
+observed = "The runner counts each additional build and each additional verify separately: after build-2 and verify-1 it leaves one additional gate run, while any edited repair requires both a rebuild and a new verification. The last permitted build records this final candidate; qualification remains failed and verification must not be forced."
+
+[gotcha.fixture_install]
+symptom = "An existing pnpm virtual store can say already up to date while direct dependencies remain unlinked; install --force --prod=false --ignore-scripts restored the declared dependency links."
+scope = "The install also rewrote a tracked generated pnpm workspace-state timestamp; that generated metadata is restored to its starting content so the task carries only scoped sources and the permitted install lockfile."
+
+[continuation.attempt_3]
+repair = "Preserve the prior root/namespace helper and connected-network repairs and every send/routing assertion. Replace the failing buildApp/PGlite setup with the explicitly allowed recorded HTTP boundary, using the SDK's committed replay transport and immutable signing-codec vectors; keep the real SDK producer, helper proxy, ethers transport, signer consumer and validating loopback node."
+reason = "The available PGlite adapter is a single backend: signRoutes holds a transaction while querying other pool connections, including account limiting, nonce leases and signature accounting. The prior timeout is already recorded; do not repeat it, bypass transactions, alter database code or require external PostgreSQL."
+proof_limit = "Recorded responses prove SDK send/lookup byte integrity, transport and routing. They do not prove the production gateway's authentication, database transactions, policy decisions or mined execution."
+gate_evidence = "The final hf-done row in /out/run/gates.jsonl names the verified candidate revision, exact command, exit and private log. The final response copies that row without editing the qualified candidate."

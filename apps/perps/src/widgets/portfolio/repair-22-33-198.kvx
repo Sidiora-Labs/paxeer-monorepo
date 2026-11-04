@@ -1,0 +1,46 @@
+[repair.22.33.198]
+audit = "22.30.12"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+findings = ["f022", "f019", "f020", "f021", "f040"]
+test_file = "apps/perps/tests/repair-22-33-198.test.ts"
+baseline = "Not run: ordered gate rules prohibit tests before full implementation and prohibit invoking verify_cmd outside hf-done; this conflicts with step 9. No pre-change failure is claimed."
+evidence = "The runner gate ledger records the verified candidate revision, exact hf-build and hf-done commands, exit codes and private evidence paths."
+
+[finding.f022]
+proving_test = "f022_vaultTransportPreservesNativeUnitsAndOptionalQuotes"
+repair = "Resolve tokenAddress case-insensitively against collateral metadata; format exact native units and identity, display separate USD only for a finite positive quote, and explicitly report unknown metadata."
+proof = "Loopback GraphQL vaultEvents through subgraphQuery and MobilePortfolioOverview; six- and eighteen-decimal amounts, withdrawal, zero, unknown metadata, optional quote and invalid quote."
+wiring = "apps/perps/src/page-modules/portfolio/index.tsx, owner domain 3 (perps client): if the currently unused mobile export is mounted, supply fresh collateralPricesUsd keyed by token address from the owning quote provider; absent quotes deliberately produce native units only."
+
+[finding.f019]
+proving_test = "f019_exactWeiReachesCumulativeChart"
+repair = "Sum exact parsed wei and convert each cumulative value through weiToNumber at the chart boundary."
+proof = "Real fetchDailyPnl over loopback HTTP to actual PnlChart Recharts data, including scientific notation and cancellation beyond floating-point precision."
+
+[finding.f020]
+proving_test = "f020_overviewDisclosesEstimateAndHistoryLimits"
+repair = "Label the curve and tooltip as a PnL-only estimate excluding cash flows; forward historyCapped and skippedDays from the overview and expose the bounded ALL period."
+proof = "Real fetchDailyPnl classifies a capped, incomplete GraphQL history; PortfolioOverviewPanel renders both notices in the assets chart; direct chart rendering verifies ALL labels and uncapped behavior."
+wiring = "services/platform/perps-data/internal/graphql, owner domain perps-data: expose indexed timestamped account balance snapshots including deposits and withdrawals before the portfolio can replace its disclosed PnL-only estimate with balance history."
+
+[finding.f021]
+proving_test = "f021_privacyConcealsHoldingsAndDerivedPercentages"
+repair = "Mask token holdings, full signed PnL and derived percentages; neutralize PnL color while hidden and label every mask accessibly."
+proof = "Render the real overview with visible, hidden and revealed balances; inspect the overview card for absence of amounts and percentages, five accessible hidden-state labels and restored values."
+
+[finding.f040]
+proving_test = "f040_positionValuationRequiresValidPriceAndTiers"
+repair = "Carry nullable valuation through the production row builder and renderer; missing or invalid marks never produce a zero valuation, and margin-tier loading and failure remain explicit."
+proof = "Real GraphQL positions, in-memory QueryClient and recorded node tier ABI decoding drive the panel; real ticker codec, production row builder and row renderer prove unavailable, gain, loss and valid flat states."
+
+[qualification.notes]
+runtime = "No live endpoints, credentials, subprocesses, external toolchains or device dependencies; fixture origins are assigned before all production module imports."
+gotcha = "ResponsiveContainer omits chart children during server rendering; the PnlChart regression inspects the real Recharts data prop instead of claiming an empty server chart proves values."
+
+[qualification.build]
+revision = "964d5d0ce76d9ccc8b0007d937ab86f77440d11e"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Pre-existing out-of-scope sdk/wallet sources cannot resolve viem, @noble/curves/ed25519.js or @noble/hashes/sha2.js; services/wallet/gateway/src/schemas/tx.ts cannot resolve zod."
+assumption = "The owning domains or qualification environment must restore dependency resolution; no task-scoped diagnostic was emitted, hf-done was not run, and none of the regression tests is claimed to have executed."

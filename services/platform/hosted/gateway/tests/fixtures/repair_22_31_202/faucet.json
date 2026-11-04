@@ -1,0 +1,26 @@
+{
+  "provenance": "Service claim response shapes from hosted/faucet/src/main.rs; pending funding and committed funding transcripts with fixed identifiers.",
+  "path": "/v1/faucet/service-claims",
+  "authorization": "Bearer faucet-token",
+  "request": {
+    "principal": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+    "did": "did:layerx:d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+    "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+  },
+  "pending": {
+    "status": 202,
+    "body": {
+      "state": "still_checking"
+    }
+  },
+  "funded": {
+    "status": 200,
+    "body": {
+      "funded": true,
+      "funding_id": "abababababababababababababababababababababababababababababababab",
+      "transaction_id": "0xecf7118314ab2def8fe515f114b02a1b7c470eebe3d571553eb2c050853f4ece",
+      "amount": "1000000",
+      "network": "beta"
+    }
+  }
+}

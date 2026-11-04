@@ -1,0 +1,15 @@
+[repair.22.31.500]
+gotcha = "3043"
+requirement = "22998.1"
+retirement = "Acceptance 16.965 retirement: retain the source-level retirement checks and remove the retired contract names from the WASM implementation; do not restore retired contracts or interfaces."
+files = ["tools/benchmark/loadtest/operations/deployment.go", "tools/benchmark/loadtest/operations/repair_22_31_500_test.go", "tests/ci/test_deploy_scripts_cw20.py", "tools/benchmark/loadtest/contracts/deploy.sh", "tools/benchmark/loadtest/operations/cli.go", "tools/benchmark/loadtest/repair_m879_test.go", "tools/benchmark/loadtest/repair_22_31_500.kvx"]
+implementation = "Resolve the repository root once and store its contracts/wasm/cw20_base.wasm twice, without cargo, docker or unshipped per-name artefacts. Instantiate exactly the two returned code IDs with valid CW20 parameters and use their returned addresses for registration, pair registration and output. Pass the repository root from the existing WASM shell caller."
+checks = "The CI check reads deployment.go for both CW20 stores and all four retired names, retains the integration shell's two CW20 store assertions and checks both shell scripts with bash -n. The Go operations tests drive the real WASM store step with a recording command runner and SDK-serialized transaction responses, assert exact argv for absolute and relative roots containing spaces, and assert command failures and malformed/refused responses stop deployment without output. The existing full WASM transcript test follows the two-instance workflow and retains every command-failure and transaction-refusal check."
+build_cmd = "go build ./tools/benchmark/loadtest/..."
+verify_cmd = "go test ./tools/benchmark/loadtest/operations/... && python3 -m pytest -q tests/ci/test_deploy_scripts_cw20.py"
+verified_revision = "The authoritative verified revision is the revision field of the final passing hf-done row in /out/run/gates.jsonl, copied verbatim in the final task evidence. This record is included in that candidate; no pre-gate success is claimed."
+qualification = "hf-build and hf-done record the exact candidate revision, command, exit code and private log location. No additional gates are run."
+
+[gotcha.22.31.500]
+observed = "The task calls deployment.go the deploy-ten implementation, but RunCLI already routes deploy-ten to ExchangeSetup.Deploy and deploy-wasm to DeployWasm; the existing deploy.sh also supplied a contract directory rather than a repository root."
+resolution = "Repair the explicitly named WASM implementation and its root-option caller, preserve the existing native exchange route, and check the actual WASM implementation from CI. Keep out-of-scope root gotcha and spec files untouched."

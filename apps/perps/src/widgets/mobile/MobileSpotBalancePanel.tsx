@@ -124,7 +124,8 @@ export function MobileSpotBalancePanel() {
     );
   }
 
-  const realizedColor = realizedTotalUsd >= 0 ? "var(--success)" : "var(--danger)";
+  const realizedColor =
+    realizedTotalUsd >= 0 ? "var(--success)" : "var(--danger)";
 
   return (
     <div

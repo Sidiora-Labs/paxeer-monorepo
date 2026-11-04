@@ -1,82 +1,95 @@
 #!/usr/bin/env bash
+# Embedded paxd foundation and retained consensus/receipt qualification.
+# paxeer-x-services: sequencer platform-receipt-authority
 set -euo pipefail
 umask 077
-root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-cd "$root"
+cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 case "${1:-verify}" in
 build)
-    : "${PAXEER_X_CORE_BUILD_MANIFEST:?private core manifest output required}"
-    : "${PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST:?private native manifest output required}"
-    : "${LAYERX_CUSTODY_ARTIFACT_MANIFEST:?private custody manifest output required}"
-    test -z "$(git status --porcelain --untracked-files=normal)"
-    export REVISION=$(git rev-parse HEAD)
-    export PAXEER_X_CORE_SOURCE_TREE=$(git rev-parse HEAD^{tree})
-    export PAXEER_X_CORE_BUILD_EVENTS="${PAXEER_X_CORE_BUILD_MANIFEST}.cargo.jsonl"
-    python3 - <<'PREPARE'
-import os, stat
-from pathlib import Path
-for key in ('PAXEER_X_CORE_BUILD_MANIFEST', 'PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST',
-            'LAYERX_CUSTODY_ARTIFACT_MANIFEST', 'PAXEER_X_CORE_BUILD_EVENTS'):
-    path = Path(os.environ[key])
-    assert path.is_absolute() and not path.exists(), 'new absolute build output required'
-    assert not any(p.is_symlink() for p in (path, *path.parents)), 'symlink output forbidden'
-    info = path.parent.stat()
-    assert stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid() and not info.st_mode & 0o077
-PREPARE
-    cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --bin layerx-core-boundary --message-format=json > "$PAXEER_X_CORE_BUILD_EVENTS"
-    make -j5 LXP_REVISION="$REVISION" PAXEER_GO_JOBS=5 layerxd layerx-genesis-build
-    bash tools/paxeer-x/gates/24.16.sh build
-    python3 - <<'RECORD'
-import hashlib, json, os, subprocess
-from pathlib import Path
-root = Path.cwd()
-def git(*args):
-    return subprocess.check_output(['git', *args], text=True).strip()
-revision, tree = os.environ['REVISION'], os.environ['PAXEER_X_CORE_SOURCE_TREE']
-assert not git('status', '--porcelain', '--untracked-files=normal')
-assert git('rev-parse', 'HEAD') == revision and git('rev-parse', 'HEAD^{tree}') == tree
-rows = [json.loads(line) for line in Path(os.environ['PAXEER_X_CORE_BUILD_EVENTS']).read_text().splitlines() if line.strip()]
-assert rows[-1] == {'reason': 'build-finished', 'success': True}, 'actual successful Cargo completion required'
-def cargo_target(name, kind, test):
-    paths = {row['executable'] for row in rows if row.get('reason') == 'compiler-artifact'
-             and row.get('executable') and row['target']['name'] == name
-             and kind in row['target']['kind'] and row['profile']['test'] is test}
-    assert len(paths) == 1, 'one actual Cargo executable required: ' + name
-    return Path(paths.pop())
-def executable(path):
-    assert path.is_absolute() and not any(p.is_symlink() for p in (path, *path.parents))
-    assert path.is_file() and os.access(path, os.X_OK)
-    with path.open('rb') as stream:
-        assert stream.read(4) == b'\x7fELF', 'real executable ELF required'
-        stream.seek(0)
-        digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-    return {'path': str(path), 'sha256': digest, 'source_revision': revision}
-def publish(variable, value):
-    path = Path(os.environ[variable])
-    temporary = path.with_name(path.name + '.partial')
-    with temporary.open('x') as stream:
-        json.dump(value, stream, indent=2)
-        stream.write('\n')
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.chmod(temporary, 0o600)
-    os.link(temporary, path)
-    temporary.unlink()
-    directory = os.open(path.parent, os.O_DIRECTORY)
-    try: os.fsync(directory)
-    finally: os.close(directory)
-core = executable(cargo_target('layerx-core-boundary', 'bin', False))
-common = {'version': 1, 'source_revision': revision, 'source_tree': tree}
-publish('PAXEER_X_CORE_BUILD_MANIFEST', dict(common, build_exit=0,
-    core_binary_path=core['path'], artifacts={'core': core}))
-publish('PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST', dict(common, build={'exit_code': 0},
-    artifacts={name: executable(root / 'build/bin' / name)
-               for name in ('layerxd', 'layerx-genesis-build')}))
-RECORD
+    : "${PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST:?private merged-runtime manifest output required}"
+    [[ $(basename -- "$PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST") == manifest.json ]] || {
+        echo 'foundation output must be the standard bundle manifest.json' >&2; exit 1;
+    }
+    python3 tools/bringup/tests/foundation-artifacts.py --build \
+        --output "$(dirname -- "$PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST")"
     ;;
 verify)
-    timeout 15m go test -count=1 -run '^(TestRealStateCredit(AndClockBounds|RefusesMissingAuthority)|TestLeaderPinRoundRobinFromActivation|TestReceiptKeys(GovernanceOnly|RotationBoundary)|TestStandby(AckBeforeRelease|NoAckNoReceipt))$' \
-        ./custodyproof ./consensus/internal/consensus/types ./modules/sequencer/keeper ./node/sequencer
+    timeout 15m python3 - <<'PY'
+import json
+import re
+import subprocess
+
+CORPORA = (
+    ('./custodyproof', (
+        'TestRealStateCreditAndClockBounds',
+        'TestRealStateCreditRefusesMissingAuthority',
+        'TestNativeBankCommittedStateAndRecovery',
+        'TestNativeBankMalformedProofRefusal',
+    )),
+    ('./consensus/internal/consensus/types', (
+        'TestLeaderPinRoundRobinFromActivation',
+    )),
+    ('./modules/sequencer/keeper', (
+        'TestReceiptKeysGovernanceOnly',
+        'TestReceiptKeysRotationBoundary',
+    )),
+    ('./node/sequencer', (
+        'TestStandbyAckBeforeRelease',
+        'TestStandbyNoAckNoReceipt',
+    )),
+)
+
+
+def executed_counts(output, names):
+    events = [json.loads(line) for line in output.splitlines() if line.strip()]
+    if not events or events[-1].get('Action') != 'pass' or events[-1].get('Test'):
+        raise ValueError('successful package completion required')
+    starts = [row['Test'] for row in events if row.get('Test') and row.get('Action') == 'run']
+    ends = [row['Test'] for row in events if row.get('Test') and row.get('Action') == 'pass']
+    if any(row.get('Action') in ('skip', 'fail') for row in events):
+        raise ValueError('failed or skipped Go case refused')
+    if (not starts or len(starts) != len(set(starts)) or sorted(starts) != sorted(ends)
+            or {name for name in starts if '/' not in name} != set(names)):
+        raise ValueError('exact nonempty Go corpus required')
+    running = set()
+    completed = set()
+    for row in events:
+        name, action = row.get('Test'), row.get('Action')
+        if not name or action not in ('run', 'pass'):
+            continue
+        if name.split('/')[0] not in names:
+            raise ValueError('unrequested Go case refused')
+        if action == 'run':
+            if name in running or name in completed:
+                raise ValueError('duplicate Go case refused')
+            running.add(name)
+        else:
+            if name not in running:
+                raise ValueError('Go completion without start refused')
+            running.remove(name)
+            completed.add(name)
+    if running:
+        raise ValueError('unfinished Go case refused')
+    return len(completed)
+
+
+def main():
+    total = 0
+    for package, names in CORPORA:
+        pattern = '^(' + '|'.join(re.escape(name) for name in names) + ')$'
+        result = subprocess.run(['go', 'test', '-json', '-count=1', '-run', pattern, package],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, timeout=900)
+        print(result.stdout, end='', flush=True)
+        if result.returncode:
+            raise SystemExit(result.returncode if result.returncode > 0 else 1)
+        total += executed_counts(result.stdout, names)
+    print(f'PAXEER_X_GATE tests={total} skipped=0')
+
+
+if __name__ == '__main__':
+    main()
+PY
     ;;
 *) echo 'usage: 24.18.sh build|verify' >&2; exit 2 ;;
 esac

@@ -1,9 +1,4 @@
-include!("../src/main.rs");
-use serde_json::Value;
-use sha2::{Digest, Sha256};
-use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
-use std::sync::Mutex;
+include!("repair_22_33_1471.rs");
 
 #[path = "../src/human/budget_state/record.rs"]
 mod record;
@@ -136,64 +131,10 @@ fn verify_export(document: &Value, expected_finality: &Value) -> Result<(), ()> 
 
 #[test]
 fn real_budget_exports_bind_each_selector_finality_and_tamper_refusals() {
-    let Some(fixture) = std::env::var_os("PAXEER_X_BUDGET_PROOF_CORPUS") else {
-        return;
-    };
+    let corpus = produced_export_corpus();
     let fixture: Value =
-        serde_json::from_slice(&protected(Path::new(&fixture), 65_536)).expect("corpus JSON");
-    let cases = fixture["cases"].as_array().expect("real export cases");
-    assert!(!cases.is_empty());
-    for case in cases {
-        let document: Value = serde_json::from_slice(&protected(
-            Path::new(case["response"].as_str().expect("response path")),
-            1_048_576,
-        ))
-        .expect("real export JSON");
-        let finality = serde_json::json!({
-            "height":case["committed_height"], "block_hash":case["block_hash"], "app_hash":case["app_hash"]
-        });
-        assert!(verify_export(&document, &finality).is_ok());
-        assert_eq!(document["budget_state"]["budget_id"], case["budget_id"]);
-        assert_eq!(document["budget_state"]["asset"], case["asset_id"]);
-        assert_eq!(document["accounts"]["owner"], case["owner_account"]);
-        assert_eq!(document["finality"]["block_hash"], case["block_hash"]);
-        assert_eq!(document["finality"]["app_hash"], case["app_hash"]);
-        for name in ["budget_call", "remaining_call"] {
-            let mut corrupt = document.clone();
-            let mut raw = bytes(&corrupt["proofs"][name]["result"]).expect("call bytes");
-            *raw.last_mut().expect("nonempty call") ^= 1;
-            corrupt["proofs"][name]["result"] = serde_json::json!(hex::encode(&raw));
-            assert!(
-                verify_export(&corrupt, &finality).is_err(),
-                "tampered {name}"
-            );
-        }
-        for name in ["budget_call", "remaining_call"] {
-            for field in ["to", "data", "height"] {
-                let mut corrupt = document.clone();
-                corrupt["proofs"][name][field] = serde_json::json!(0);
-                assert!(
-                    verify_export(&corrupt, &finality).is_err(),
-                    "tampered {name}.{field}"
-                );
-            }
-        }
-        let mut corrupt = document.clone();
-        corrupt["finality"]["block_hash"] = serde_json::json!(hex::encode(&[0xaa; 32]));
-        assert!(verify_export(&corrupt, &finality).is_err());
-        let mut corrupt = document.clone();
-        corrupt["finality"]["height"] = serde_json::json!(0);
-        assert!(verify_export(&corrupt, &finality).is_err());
-        let mut corrupt = document.clone();
-        corrupt["finality"]["app_hash"] = serde_json::json!(hex::encode(&[0xaa; 32]));
-        assert!(verify_export(&corrupt, &finality).is_err());
-        let mut corrupt = document.clone();
-        corrupt["proofs"]["account_join"]["layerx"]["accounts"] = serde_json::json!([]);
-        assert!(verify_export(&corrupt, &finality).is_err());
-        let mut corrupt = document.clone();
-        corrupt["head"]["committed_height"] = serde_json::json!(0);
-        assert!(verify_export(&corrupt, &finality).is_err());
-    }
+        serde_json::from_slice(&protected(&corpus.path, 65_536)).expect("produced corpus JSON");
+    assert_export_corpus(&fixture);
 }
 
 #[test]

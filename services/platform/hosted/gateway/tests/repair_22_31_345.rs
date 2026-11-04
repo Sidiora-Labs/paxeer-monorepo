@@ -4,6 +4,7 @@ use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::ServerConfig;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::io::Write;
 use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
@@ -70,7 +71,9 @@ mod boundary {
         });
         for _ in 0..requests {
             let (tcp, _) = listener.accept().expect("boundary connection");
-            handle_connection(&config, tcp).expect("real boundary TLS relay");
+            let permit = ConnectionPermit::acquire().expect("boundary connection capacity");
+            let deadline = Instant::now() + CLIENT_IO_TIMEOUT;
+            handle_connection(&config, tcp, permit, deadline).expect("real boundary TLS relay");
         }
     }
 }
@@ -215,6 +218,21 @@ fn gateway_rpc_egress_policy_admits_controlled_boundary() {
     let paxeer = documents(PAXEER);
     let deployment = resource(&gateway, "Deployment", "layerx-gateway");
     let node = resource(&paxeer, "StatefulSet", "paxeer");
+    assert_eq!(node["metadata"]["namespace"], "layerx-testnet");
+    let observer = resource(&paxeer, "Service", "paxeer-observer-boundary");
+    assert_eq!(observer["spec"]["ports"][0]["port"], 9443);
+    assert_eq!(observer["spec"]["ports"][0]["targetPort"], "observer-https");
+    let boundary = node["spec"]["template"]["spec"]["containers"]
+        .as_array()
+        .expect("boundary containers")
+        .iter()
+        .find(|container| container["name"] == "boundary")
+        .expect("tracked boundary container");
+    assert!(boundary["ports"]
+        .as_array()
+        .expect("boundary listeners")
+        .iter()
+        .any(|port| port["name"] == "observer-https" && port["containerPort"] == 9444));
     let labels = &deployment["spec"]["template"]["metadata"]["labels"];
     let node_labels = &node["spec"]["template"]["metadata"]["labels"];
     let endpoint = rpc_endpoint();
@@ -356,6 +374,32 @@ fn gateway_rpc_egress_real_tls_relay_reaches_node_root() {
             stream
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("node read bound");
+            let identity = layerx_platform_internal::http::parse_client_request(&mut stream)
+                .expect("boundary chain identity request");
+            assert_eq!(identity.method, "POST");
+            assert_eq!(identity.path, "/");
+            // The included Paxeer boundary probes with numeric ID 1; the
+            // gateway routing probe is the separate client document below.
+            assert_eq!(
+                identity.body,
+                br#"{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}"#
+            );
+            assert_eq!(
+                serde_json::from_slice::<Value>(&identity.body).expect("identity RPC document"),
+                json!({"jsonrpc":"2.0", "id":1, "method":"eth_chainId", "params":[]})
+            );
+            assert_eq!(
+                identity.headers.get("connection").map(String::as_str),
+                Some("keep-alive")
+            );
+            let identity_body = json!({"jsonrpc":"2.0", "id":1, "result":"0x7d"}).to_string();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: keep-alive\r\n\r\n{}",
+                identity_body.len(), identity_body
+            )
+            .expect("node chain identity response");
+            stream.flush().expect("flush chain identity response");
             let received = layerx_platform_internal::http::parse_client_request(&mut stream)
                 .expect("real node HTTP codec");
             assert_eq!(received.method, "POST");

@@ -1,0 +1,7 @@
+[repair.node-agent-sdk.1]
+target = "services/agent/sdk/typescript"
+command = "cd services/agent/sdk/typescript && npm ci && npm run build && npm test"
+revision = "fe51e67a7e0f8de61f6ce46fe6a93b57d2343146"
+result = "repaired"
+change = "services/agent/sdk/typescript/test/program-executed-v3.test.ts checks the execution document and producer receipt encoding under decision 1992, test/gas-station-pending.test.ts asserts producer receipt denominations, test/px.test.ts checks the ai-market runner selection, test/repair-22-31-148.test.ts supplies recorded receipt keys for payer-header validation, test/repair-22-33-21.test.ts expects receipt-unverified for a forged settlement signature because receipt authentication precedes byte-exact settlement checks, test/native-effect.test.ts supplies the required hosted gateway credential for pre-dispatch refusals, and test/repair-22-31-148.test.ts, test/repair-22-33-23.test.ts and test/repair-22-33-24.test.ts pin root POST routing through the current public_reads and rpc handlers, and sdk/platform/conformance/fixtures/intent-plan-v1.json confines resolution to result legs under decisions 2320 and 2512."
+producer_input_tests = ["exchange-v2.test.ts: Anvil executable (ANVIL_BIN)", "gas-station.test.ts: Anvil executable (ANVIL_BIN)", "agent-operation-envelope.test.ts: private hosted-agent harness case and credentials (PAXEER_X_AGENT_ENVELOPE_CASE)"]

@@ -140,3 +140,13 @@ async function exchange_wallet_requests_are_type_2_on_chain_125(): Promise<void>
 
 test(placeOrder_call_carries_the_account_id);
 test(exchange_wallet_requests_are_type_2_on_chain_125);
+
+function placeOrder_call_matches_the_published_legacy_abi(): void {
+  const { accountId: _accountId, ...legacy } = order;
+  const expected = selector(exchangeOrderAbi(false).signature) + marketId.slice(2)
+    + word(2n) + word(order.price) + word(order.quantity) + word(1n);
+  assert.deepEqual(exchangePlaceOrderCall(legacy), { to: LAYERX_EXCHANGE_PRECOMPILE, data: expected, value: 0n });
+  assert.equal(expected.length, 10 + 5 * 64);
+  assert.throws(() => exchangePlaceOrderCall({ ...legacy, marketId: "0x11" }), PrecompileAbiError);
+}
+test(placeOrder_call_matches_the_published_legacy_abi);

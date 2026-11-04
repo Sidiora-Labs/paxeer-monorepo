@@ -1,5 +1,4 @@
 use crate::{
-    metrics,
     proto::{
         vyper_verifier_server::VyperVerifier, ListCompilerVersionsRequest,
         ListCompilerVersionsResponse, VerifyResponse, VerifyVyperMultiPartRequest,
@@ -48,81 +47,95 @@ impl VyperVerifier for VyperVerifierService {
         &self,
         request: Request<VerifyVyperMultiPartRequest>,
     ) -> Result<Response<VerifyResponse>, Status> {
-        let request = request.into_inner();
-
-        let chain_id = request
+        let chain_ids = vec![request
+            .get_ref()
             .metadata
             .as_ref()
-            .and_then(|metadata| metadata.chain_id.clone());
-        let contract_address = request
-            .metadata
-            .as_ref()
-            .and_then(|metadata| metadata.contract_address.clone());
-        tracing::info!(
-            chain_id =? chain_id,
-            contract_address =? contract_address,
-            "vyper multi-part verification request received"
-        );
+            .and_then(|metadata| metadata.chain_id.clone())];
+        super::verification_metrics::track_verification(chain_ids, "vyper", "multi-part", async {
+            let request = request.into_inner();
 
-        let maybe_verification_request = vyper::multi_part::VerificationRequest::try_from(request);
-        let verification_request =
-            common::process_solo_verification_request_conversion!(maybe_verification_request);
+            let chain_id = request
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.chain_id.clone());
+            let contract_address = request
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.contract_address.clone());
+            tracing::info!(
+                chain_id =? chain_id,
+                contract_address =? contract_address,
+                "vyper multi-part verification request received"
+            );
 
-        let result = vyper::multi_part::verify(&self.compilers, verification_request).await;
+            let maybe_verification_request =
+                vyper::multi_part::VerificationRequest::try_from(request);
+            let verification_request =
+                common::process_solo_verification_request_conversion!(maybe_verification_request);
 
-        let verify_response = match result {
-            Ok(value) => types::verification_result::process_verification_result(value, &[])?,
-            Err(error) => types::verification_result::process_error(error)?,
-        };
+            let result = vyper::multi_part::verify(&self.compilers, verification_request).await;
 
-        metrics::count_verify_contract(
-            &chain_id.unwrap_or_default(),
-            "vyper",
-            verify_response.status().as_str_name(),
-            "multi-part",
-        );
-        Ok(Response::new(verify_response))
+            let verify_response = match result {
+                Ok(value) => types::verification_result::process_verification_result(value, &[])?,
+                Err(error) => types::verification_result::process_error(error)?,
+            };
+
+            Ok(Response::new(verify_response))
+        })
+        .await
     }
 
     async fn verify_standard_json(
         &self,
         request: Request<VerifyVyperStandardJsonRequest>,
     ) -> Result<Response<VerifyResponse>, Status> {
-        let request = request.into_inner();
-
-        let chain_id = request
+        let chain_ids = vec![request
+            .get_ref()
             .metadata
             .as_ref()
-            .and_then(|metadata| metadata.chain_id.clone());
-        let contract_address = request
-            .metadata
-            .as_ref()
-            .and_then(|metadata| metadata.contract_address.clone());
-        tracing::info!(
-            chain_id =? chain_id,
-            contract_address =? contract_address,
-            "vyper standard-json verification request received"
-        );
-
-        let maybe_verification_request =
-            vyper::standard_json::VerificationRequest::try_from(request);
-        let verification_request =
-            common::process_solo_verification_request_conversion!(maybe_verification_request);
-
-        let result = vyper::standard_json::verify(&self.compilers, verification_request).await;
-
-        let verify_response = match result {
-            Ok(value) => types::verification_result::process_verification_result(value, &[])?,
-            Err(error) => types::verification_result::process_error(error)?,
-        };
-
-        metrics::count_verify_contract(
-            &chain_id.unwrap_or_default(),
+            .and_then(|metadata| metadata.chain_id.clone())];
+        super::verification_metrics::track_verification(
+            chain_ids,
             "vyper",
-            verify_response.status().as_str_name(),
             "standard-json",
-        );
-        Ok(Response::new(verify_response))
+            async {
+                let request = request.into_inner();
+
+                let chain_id = request
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.chain_id.clone());
+                let contract_address = request
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.contract_address.clone());
+                tracing::info!(
+                    chain_id =? chain_id,
+                    contract_address =? contract_address,
+                    "vyper standard-json verification request received"
+                );
+
+                let maybe_verification_request =
+                    vyper::standard_json::VerificationRequest::try_from(request);
+                let verification_request = common::process_solo_verification_request_conversion!(
+                    maybe_verification_request
+                );
+
+                let result =
+                    vyper::standard_json::verify(&self.compilers, verification_request).await;
+
+                let verify_response = match result {
+                    Ok(value) => {
+                        types::verification_result::process_verification_result(value, &[])?
+                    }
+                    Err(error) => types::verification_result::process_error(error)?,
+                };
+
+                Ok(Response::new(verify_response))
+            },
+        )
+        .await
     }
 
     async fn list_compiler_versions(

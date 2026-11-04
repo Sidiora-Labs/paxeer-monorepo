@@ -1,0 +1,34 @@
+[repair]
+task = "22.33.423"
+audit = "22.30.145"
+finding = "telemetry-false-flag"
+implementation = "instrumentation.node.ts enables the real NodeSDK and SIGTERM lifecycle only when OTEL_SDK_ENABLED equals the existing boolean convention's true string."
+tests = ["telemetryFalseFlagKeepsSdkDisabled", "telemetryTrueFlagStartsSdkAndExportsSpans", "telemetryUnsetFlagKeepsSdkDisabled"]
+proof = "The actual startup module uses the installed SDK, W3C propagation and OTLP HTTP exporter with a loopback collector; tests assert disabled spans and no handler or traffic for false/unset, and exported parent/child IDs, service resource and shutdown registration for true."
+retained = "instrumentation.node.spec.ts retains its real Jaeger span propagation and dependency security-floor assertions, and adds actual module startup coverage for true, false and unset."
+baseline = "No unchanged-tree verification was run: the task's ordered gate instructions require full implementation and hf-build before hf-done, prohibit invoking verify_cmd by hand, and allow one initial verify run; no baseline test failures are claimed. The false-value regression would fail with the original truthiness guard because it registers a handler and creates and exports valid spans."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; the final response copies the last gate record."
+lint_command = "cd apps/explorer && yarn eslint instrumentation.node.ts instrumentation.node.fixture.ts repair-22-33-423.spec.ts --fix"
+lint_exit = 0
+lint_log = "/out/logs/explorer-repair-eslint-focused.log"
+build_repair = "Revision 59377fcf7c4071c5829027de1c32f636e270ff37; command: cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json; exit 2; log /out/logs/build-1.log; the new collector's Buffer.concat hit the installed Node typings' Uint8Array incompatibility, repaired by collecting decoded UTF-8 stream chunks with request.setEncoding and string joining."
+verification_repair = "Revision 1e76b0db9d29dc0c58a9975cbe7d99b124b6e5b1; command: cg spec done 22.33.423 -f layerx-merge --root /work/paxeer-monorepo; exit 1; log /out/logs/verify-1.log; cold dependency loading exceeded the unchanged five-second test timeout and propagation omitted an undefined traceState. Preload SDK dependencies in beforeAll without loading the production startup module, and send and assert a defined W3C trace-state value while retaining the original identity assertion and timeout."
+
+[qualification.inherited_lint]
+revision = "72c8b8c76f370aa3c3cc17e0e071f2ca7b0cd4a8"
+command = "cd apps/explorer && yarn eslint instrumentation.node.ts instrumentation.node.fixture.ts instrumentation.node.spec.ts repair-22-33-423.spec.ts --fix"
+exit = 1
+log = "/out/logs/explorer-repair-eslint.log"
+observed = "The original dependency-coherence test in instrumentation.node.spec.ts has 13 inherited lint diagnostics: its snake_case function, two-argument expect calls and function-reference registration; the assertions remain intact, and the new focused spec is checked separately after its own lint repairs."
+
+[repair.continuation]
+registration = "Use the installed CommonJS API used by the real NodeSDK for span production and reset both its registration and the startup module API registration before and after each case; Vitest module resets do not reset SDK global registrations."
+shutdown = "Await the real SDK shutdown with a 1000ms rejection bound, including disabled startup, and close all collector connections during cleanup; no unfinished shutdown is awaited twice."
+propagation = "Compare traceId, spanId, traceFlags and isRemote explicitly and retain the defined trace-state injection, extraction and child inheritance assertions."
+package_command = "test:telemetry registers the retained dependency and Jaeger propagation spec together with this finding regression spec."
+qualification = "Final build and verification evidence is supplied by the unchanged candidate recorded in the runner ledger; no pass is claimed before hf-done succeeds."
+lint_command = "cd apps/explorer && yarn eslint instrumentation.node.ts instrumentation.node.fixture.ts repair-22-33-423.spec.ts --fix"
+lint_log = "/out/logs/explorer-repair-eslint-continuation-final.log"
+lint_repair = "The initial focused lint rejected an inline import type annotation; use the explicit type-only namespace import required by the repository lint rule."
+lint_exit = 0

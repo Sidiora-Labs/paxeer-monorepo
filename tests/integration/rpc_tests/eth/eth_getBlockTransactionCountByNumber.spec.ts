@@ -1,11 +1,19 @@
+import { createHash } from 'node:crypto';
+import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
+import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import { stringToPath } from '@cosmjs/crypto';
+import { TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { ethers } from 'ethers';
 import { expect } from 'chai';
-import { bothProviders, rawPax, rawGeth, expectJsonRpcError, sleep } from '../utils/chainUtils';
+import { bothProviders, rawPax, rawGeth, expectJsonRpcError, sleep, waitUntil } from '../utils/chainUtils';
 import { readRuntimeState, RuntimeState, claimPool, expectSameError } from '../utils/testUtils';
 import { EvmAccount, fundFromUnlocked } from '../utils/evmUtils';
-import { cosmosBankSend, generatePaxAddress, CosmosBankSend } from '../utils/cosmosUtils';
-import { cw20Transfer, Cw20ExecResult } from '../utils/wasmUtils';
+import { generatePaxAddress } from '../utils/cosmosUtils';
+import { Endpoints } from '../config/endpoints';
+import { PAX_HD_PATH, EXEC_FEE } from '../utils/constants';
 import { sharedRichBlock, sendSingleTx, RichBlock, SentTx, richFailedTxs, blockReceipts, txCountByNumber, assertTxCount, findEmptyBlock } from '../utils/txUtils';
+
+const wasmMode = process.env.RPC_TESTS_WASM_MODE ?? 'enabled';
 
 describe('eth_getBlockTransactionCountByNumber', function () {
     this.timeout(300 * 1000);
@@ -23,6 +31,33 @@ describe('eth_getBlockTransactionCountByNumber', function () {
         this.timeout(300 * 1000);
         await sleep(5000);
         runtime = readRuntimeState();
+        expect(wasmMode, 'RPC_TESTS_WASM_MODE must declare enabled or disabled').to.be.oneOf([
+            'enabled', 'disabled',
+        ]);
+        const readWasmParam = async (key: string) => {
+            const response = await fetch(`${Endpoints.pax.rest}/cosmos/params/v1beta1/params?subspace=wasm&key=${key}`, {
+                signal: AbortSignal.timeout(10_000),
+            });
+            expect(response.ok, `Wasm ${key} capability query succeeded`).to.equal(true);
+            const result = await response.json();
+            return JSON.parse(result.param.value);
+        };
+        const [upload, instantiate] = await Promise.all([
+            readWasmParam('uploadAccess'), readWasmParam('instantiateAccess'),
+        ]);
+        expect(upload.permission, 'upload permission is declared').to.be.oneOf(['Everybody', 'Nobody', 'OnlyAddress']);
+        expect(instantiate, 'instantiate permission is declared').to.be.oneOf(['Everybody', 'Nobody', 'OnlyAddress']);
+        expect(
+            upload.permission === 'Everybody' && instantiate === 'Everybody',
+            'the declared Wasm mode agrees with the chain',
+        ).to.equal(wasmMode === 'enabled');
+        if (wasmMode === 'enabled') {
+            expect(runtime.wasm, 'Wasm-enabled qualification requires bootstrap CW20 fixtures').to.not.equal(undefined);
+            expect(runtime.wasm!.cw20Pointer, 'Wasm-enabled pointer address').to.match(/^0x[0-9a-fA-F]{40}$/);
+            expect(runtime.wasm!.actor.privateKey, 'Wasm-enabled actor key').to.match(/^0x[0-9a-fA-F]{64}$/);
+        } else {
+            expect(runtime.wasm, 'disabled-Wasm qualification has no CW20 fixtures').to.equal(undefined);
+        }
         const [paxOneSigner] = claimPool(runtime, pax, 1, 'eth_getBlockTransactionCountByNumber');
 
         const gethDev: string = (await geth.send('eth_accounts', []))[0];
@@ -69,11 +104,11 @@ describe('eth_getBlockTransactionCountByNumber', function () {
         });
 
         it('latest matches the head block tx list', async () => {
-            const [count, head] = await Promise.all([
-                txCountByNumber(pax, 'latest'),
-                pax.send('eth_getBlockByNumber', ['latest', false]),
-            ]);
-            assertTxCount(count, head.transactions.length, 'latest count');
+            const head = await pax.send('eth_getBlockByNumber', ['latest', false]);
+            expect(head, 'latest resolves to a committed block').to.not.equal(null);
+            const height = Number(BigInt(head.number));
+            const count = await txCountByNumber(pax, height);
+            assertTxCount(count, head.transactions.length, `count at pinned head ${height}`);
         });
 
         it('pending returns a canonical quantity', async () => {
@@ -93,87 +128,113 @@ describe('eth_getBlockTransactionCountByNumber', function () {
         });
     });
 
+    async function sharedExclusionBlock(kind: 'bank' | 'cw20') {
+        const [evmSigner] = claimPool(runtime, pax, 1, `txcount-shared-${kind}`);
+        const wallet = await DirectSecp256k1HdWallet.fromMnemonic(runtime.funded.adminMnemonic, {
+            prefix: 'pax', hdPaths: [stringToPath(PAX_HD_PATH)],
+        });
+        const [sender] = await wallet.getAccounts();
+        const recipient = await generatePaxAddress();
+        const wasm = runtime.wasm;
+        if (kind === 'cw20' && !wasm) throw new Error('CW20 shared-block fixture requires enabled Wasm');
+        const message = kind === 'bank'
+            ? {
+                typeUrl: '/cosmos.bank.v1beta1.MsgSend',
+                value: { fromAddress: sender.address, toAddress: recipient, amount: [{ denom: 'uhpx', amount: '222111' }] },
+            }
+            : {
+                typeUrl: '/cosmwasm.wasm.v1.MsgExecuteContract',
+                value: {
+                    sender: sender.address, contract: wasm!.cw20, funds: [],
+                    msg: Buffer.from(JSON.stringify({ transfer: { recipient, amount: '1' } })),
+                },
+            };
+        const client = await SigningCosmWasmClient.connectWithSigner(Endpoints.pax.cosmosRpc, wallet);
+        const attempts: string[] = [];
+        try {
+            for (let attempt = 0; attempt < 4; attempt++) {
+                const [nativeTx, evmRequest] = await Promise.all([
+                    client.sign(sender.address, [message], EXEC_FEE, `rpc_tests shared ${kind}`),
+                    evmSigner.wallet.populateTransaction({ to: evmSigner.address, value: 0n, gasLimit: 21000n }),
+                ]);
+                const nativeRaw = TxRaw.encode(nativeTx).finish();
+                const evmRaw = await evmSigner.wallet.signTransaction(evmRequest);
+                const observed = BigInt(await pax.send('eth_blockNumber', []));
+                await waitUntil(async () => {
+                    const head = BigInt(await pax.send('eth_blockNumber', []));
+                    return head > observed ? head : null;
+                }, { timeoutMs: 30_000, intervalMs: 100, label: `fresh head for shared ${kind} block` });
+                const [native, evmTx] = await Promise.all([
+                    client.broadcastTx(nativeRaw, 30_000, 100),
+                    pax.broadcastTransaction(evmRaw),
+                ]);
+                expect(native.code, `native ${kind} execution succeeds: ${native.rawLog}`).to.equal(0);
+                const receipt = await evmTx.wait(1, 30_000);
+                expect(receipt, 'EVM fixture committed').to.not.equal(null);
+                expect(receipt!.status, 'EVM fixture execution succeeds').to.equal(1);
+                attempts.push(`native=${native.height}, EVM=${receipt!.blockNumber}`);
+                if (native.height !== receipt!.blockNumber) continue;
+                const consensusBlock = await client.getBlock(native.height);
+                expect(
+                    consensusBlock.txs.map(tx => createHash('sha256').update(tx).digest('hex').toUpperCase()),
+                    'the native fixture is present in the shared consensus block',
+                ).to.include(native.transactionHash.toUpperCase());
+                return { height: native.height, nativeHash: '0x' + native.transactionHash.toLowerCase(), evmHash: evmTx.hash };
+            }
+            throw new Error(`required shared ${kind}/EVM block not established: ${attempts.join('; ')}`);
+        } finally {
+            client.disconnect();
+        }
+    }
+
     describe('dual-VM: a Cosmos bank send is not counted', () => {
-        let height: number | undefined;
-        let cosmos: CosmosBankSend;
-        let evm: { number: number; hash: string; tx: SentTx };
-        const AMOUNT_UHPX = 222_111n;
+        let fixture: Awaited<ReturnType<typeof sharedExclusionBlock>>;
 
         before(async function () {
             this.timeout(180 * 1000);
-            const evmSigner = claimPool(runtime, pax, 1, 'eth_getBlockTransactionCountByNumber:cosmos')[0];
-            for (let attempt = 0; attempt < 4 && height === undefined; attempt++) {
-                const recipient = await generatePaxAddress();
-                const [cos, ev] = await Promise.all([
-                    cosmosBankSend(runtime.funded.adminMnemonic, recipient, AMOUNT_UHPX),
-                    sendSingleTx(pax, evmSigner),
-                ]);
-                if (cos.code === 0 && cos.height === ev.number) {
-                    height = cos.height;
-                    cosmos = cos;
-                    evm = ev;
-                }
-            }
-            if (height === undefined) this.skip();
+            fixture = await sharedExclusionBlock('bank');
         });
 
         it('the count equals the EVM tx count, excluding the Cosmos tx', async () => {
             const [count, block] = await Promise.all([
-                txCountByNumber(pax, height!),
-                pax.send('eth_getBlockByNumber', [ethers.toQuantity(height!), false]),
+                txCountByNumber(pax, fixture.height),
+                pax.send('eth_getBlockByNumber', [ethers.toQuantity(fixture.height), false]),
             ]);
-            // Both the Cosmos send and the EVM tx are in this block, but only the EVM tx counts.
-            const cosmosAsEvmHash = '0x' + cosmos.hash.toLowerCase();
-            expect(
-                block.transactions.map((h: string) => h.toLowerCase()),
-                'EVM tx present',
-            ).to.include(evm.tx.hash.toLowerCase());
-            expect(
-                block.transactions.map((h: string) => h.toLowerCase()),
-                'Cosmos tx not in the EVM block',
-            ).to.not.include(cosmosAsEvmHash);
-            assertTxCount(count, block.transactions.length, 'count == EVM tx count');
-        });
-    });
-
-    describe('dual-VM: a pointer-backed CW20 wasm transfer is not counted', () => {
-        let height: number | undefined;
-        let cosmos: Cw20ExecResult;
-        let evm: { number: number; hash: string; tx: SentTx };
-
-        before(async function () {
-            this.timeout(180 * 1000);
-            if (!runtime.wasm) this.skip(); // wasm-disabled chain: no CW20 / pointer fixture
-            const evmSigner = claimPool(runtime, pax, 1, 'eth_getBlockTransactionCountByNumber:wasm')[0];
-            for (let attempt = 0; attempt < 4 && height === undefined; attempt++) {
-                const recipient = await generatePaxAddress();
-                const [cos, ev] = await Promise.all([
-                    cw20Transfer(runtime.wasm!.cw20, recipient, '1', runtime.funded.adminMnemonic),
-                    sendSingleTx(pax, evmSigner),
-                ]);
-                if (cos.code === 0 && cos.height === ev.number) {
-                    height = cos.height;
-                    cosmos = cos;
-                    evm = ev;
-                }
-            }
-            if (height === undefined) this.skip();
-        });
-
-        it('the count equals the EVM tx count, excluding the pointer-backed CW20 tx', async () => {
-            const [count, block] = await Promise.all([
-                txCountByNumber(pax, height!),
-                pax.send('eth_getBlockByNumber', [ethers.toQuantity(height!), false]),
-            ]);
-            // The CW20 transfer and the EVM tx share this block, but only the EVM tx counts —
-            // the pointer's synthetic Transfer log does not promote the wasm tx into the block.
             const hashes = block.transactions.map((h: string) => h.toLowerCase());
-            const cosmosAsEvmHash = '0x' + cosmos.hash.toLowerCase();
-            expect(hashes, 'EVM tx present').to.include(evm.tx.hash.toLowerCase());
-            expect(hashes, 'CW20 wasm tx not in the EVM block').to.not.include(cosmosAsEvmHash);
+            expect(hashes, 'EVM tx present').to.include(fixture.evmHash.toLowerCase());
+            expect(hashes, 'Cosmos tx not in the EVM block').to.not.include(fixture.nativeHash);
             assertTxCount(count, block.transactions.length, 'count == EVM tx count');
         });
     });
+
+    if (wasmMode === 'enabled') {
+        describe('dual-VM (Wasm enabled): a pointer-backed CW20 wasm transfer is not counted', () => {
+            let fixture: Awaited<ReturnType<typeof sharedExclusionBlock>>;
+
+            before(async function () {
+                this.timeout(180 * 1000);
+                fixture = await sharedExclusionBlock('cw20');
+            });
+
+            it('the count equals the EVM tx count, excluding the pointer-backed CW20 tx', async () => {
+                const [count, block] = await Promise.all([
+                    txCountByNumber(pax, fixture.height),
+                    pax.send('eth_getBlockByNumber', [ethers.toQuantity(fixture.height), false]),
+                ]);
+                const hashes = block.transactions.map((h: string) => h.toLowerCase());
+                expect(hashes, 'EVM tx present').to.include(fixture.evmHash.toLowerCase());
+                expect(hashes, 'CW20 wasm tx not in the EVM block').to.not.include(fixture.nativeHash);
+                assertTxCount(count, block.transactions.length, 'count == EVM tx count');
+            });
+        });
+    } else {
+        describe('explicit disabled-Wasm mode', () => {
+            it('qualifies native/EVM exclusion without claiming CW20 coverage', () => {
+                expect(wasmMode).to.equal('disabled');
+                expect(runtime.wasm).to.equal(undefined);
+            });
+        });
+    }
 
     describe('wrong params / error handling (parity with geth)', () => {
         it('empty params fail identically (-32602, missing argument 0)', async () => {

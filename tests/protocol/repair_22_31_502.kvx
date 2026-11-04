@@ -1,0 +1,17 @@
+[repair.22.31.502]
+mode = "BUILD"
+gotcha = "3043"
+acceptance = "22998.1"
+case = "audit_genesis_historical_import_hashes"
+consumer_test = "tests/ci/test_kernel_suite_retired_uses.py::test_no_handover_genesis_case"
+base_revision = "a5330ed164a250d3d5c58f1ca6bbeda372209eac"
+cause = "The fixtures were last regenerated at fb067a262af3a0f4e9b52cdf6cd87b178fcb1193. Production commit 2f09b9c32ce2936265bb3572259cfe033372b108 removed LX_ASSET_WITHDRAW from the Asset registration. src/state/lxp_state_root.c commits the registration activity count and types, so lxp_genesis_verify_signature recomputes a different canonical root before it checks Ed25519. The signing algorithm did not change; pinned bytes and codec round trips alone cannot establish current production roots."
+repair = "Regenerate both complete artifact sets from the unchanged committed LXGB requests through cmd/layerx-genesis/lxp_genesis_build_cli.c and lxp_genesis_builder.c. Retain the deterministic public test identities from tools/bringup/kernel-genesis.sh offline-regenerate-fixture. Refresh expected.json and the audit's manifest hash pins together; preserve the prior roots as provenance. No production verifier changes."
+paths = ["tests/fixtures/public-testnet-genesis/genesis.manifest", "tests/fixtures/public-testnet-genesis/00000000000000000000.lxs", "tests/fixtures/public-testnet-genesis/paxeer-registration-request.lxrr", "tests/fixtures/public-testnet-genesis/paxeer-deployment-descriptor.lxgd", "tests/fixtures/public-testnet-genesis/expected.json", "tests/fixtures/public-testnet-genesis-v3/genesis.manifest", "tests/fixtures/public-testnet-genesis-v3/00000000000000000000.lxs", "tests/fixtures/public-testnet-genesis-v3/paxeer-registration-request.lxrr", "tests/fixtures/public-testnet-genesis-v3/paxeer-deployment-descriptor.lxgd", "tests/fixtures/public-testnet-genesis-v3/expected.json", "tests/fixtures/regenerate_public_genesis.py", "tests/protocol/lxp_test_kernel.c", "tests/protocol/lxp_test_audit_m966.h", "tests/protocol/repair_22_31_502.kvx"]
+producer_command = "python3 tests/fixtures/regenerate_public_genesis.py --kernel-suite build/tests/lxp_test_kernel"
+producer_entry = "The explicit --build-genesis-artifacts command invokes the real production builder CLI compiled into the allowed kernel target; normal no-argument execution retains every suite case. Generation does not run tests."
+proof = "Both fixtures retain pinned manifest hashes, byte-exact codec round trips, signature verification, snapshot load, registration bootstrap and refusal assertions. The audit additionally replays each committed request through the production parser and builder, compares the signed manifest, snapshot payload and roots, public key, registration request and deployment descriptor byte for byte, verifies initialized state, and refuses corrupted signatures and both corrupted roots."
+build_cmd = "make -s build/tests/lxp_test_kernel"
+verify_cmd = "make -s test-kernel && python3 -m pytest -q tests/ci/test_kernel_suite_retired_uses.py -k no_handover_genesis_case"
+verified_revision = "The exact qualified candidate revision is recorded by cg spec done 22.31.502 and the final hf-done evidence row, copied verbatim to the final handoff. This record makes no claim for an unexecuted gate."
+evidence = "Private hf-build/hf-done ledger and logs; final handoff contains revision, command, exit and log. The producer must run after compiling the allowed target; regenerated files require hf-build again before hf-done so both final gates bind the same candidate."

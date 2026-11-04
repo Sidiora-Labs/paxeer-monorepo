@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
@@ -32,7 +33,9 @@ import (
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	occutils "github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -1059,65 +1062,123 @@ func TestRepairM_466_UCPCheckoutPinnedReceipt(t *testing.T) {
 	seqVecAssertUCPCheckout(t, seqVecReadUCPCheckout(t))
 }
 
-func TestSequencerReceiptFeeTokenVector(t *testing.T) {
-	a := app.Setup(t, false, false, false)
-	ctx := a.GetContextForDeliverTx(nil).WithBlockHeight(seqVecFirstHeight)
-	params := evmtypes.DefaultParams()
-	params.FeeTokenEnabled = true
-	params.AllowedFeeDenoms = []evmtypes.AllowedFeeDenom{{
-		Denom: "usid", Rate: sdk.NewDec(evmtypes.InitialSidioraBaseUnitsPerPax), RateUpdateHeight: seqVecFirstHeight,
-	}}
-	a.EvmKeeper.SetParams(ctx, params)
-	b := newSeqVecBuilder(t)
-	require.NoError(t, a.EvmKeeper.SetAccountFeeDenom(ctx, b.sender, "usid"))
-	charge, err := a.EvmKeeper.GetFeeTokenCharge(ctx, b.sender)
+func repairM1297FeeTokenVector(t *testing.T) seqVecFile {
+	t.Helper()
+	private := &secp256k1.PrivKey{Key: bytes.Clone(seqVecSenderSecret)}
+	ethKey, err := crypto.ToECDSA(seqVecSenderSecret)
 	require.NoError(t, err)
-	require.NotNil(t, charge)
-	require.Equal(t, "usid", charge.Denom)
-	b.paymentDenom = charge.Denom
-	feeDenom := a.EvmKeeper.GetBaseDenom(ctx)
-	require.Equal(t, evmkeeper.BaseDenom, feeDenom)
-	require.NotEqual(t, feeDenom, b.paymentDenom)
+	sender := occutils.TestAcct{AccountAddress: sdk.AccAddress(private.PubKey().Address()), EvmAddress: crypto.PubkeyToAddress(ethKey.PublicKey), EvmPrivateKey: ethKey}
+	s := newPendingSequencer(t, 1, sender)
+	// Configure the real working store before reopening the empty speculative
+	// block, so the receipter and executor see the same fee policy.
+	empty, err := s.exec.Seal(2)
+	require.NoError(t, err)
+	require.Empty(t, empty.Txs)
+	setupStore := s.app.CommitMultiStore().CacheMultiStore()
+	setup := sdk.NewContext(setupStore, tmproto.Header{ChainID: pendingChainID, Height: 2}, false)
+	params := s.app.EvmKeeper.GetParams(setup)
+	params.FeeTokenEnabled = true
+	rate := sdk.NewDec(evmtypes.InitialSidioraBaseUnitsPerPax)
+	params.AllowedFeeDenoms = []evmtypes.AllowedFeeDenom{{Denom: "usid", Rate: rate, RateUpdateHeight: 1}}
+	s.app.EvmKeeper.SetParams(setup, params)
+	require.NoError(t, s.app.EvmKeeper.SetAccountFeeDenom(setup, sender.EvmAddress, "usid"))
+	funding := sdk.NewCoins(sdk.NewInt64Coin("usid", 1_000_000_000))
+	require.NoError(t, s.app.BankKeeper.MintCoins(setup, "mint", funding))
+	require.NoError(t, s.app.BankKeeper.SendCoinsFromModuleToAccount(setup, "mint", sender.AccountAddress, funding))
 
 	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
-	pin := seqVecPin{KeyID: seqVecKeyID, PublicKey: public[:], FirstHeight: seqVecFirstHeight, LastHeight: seqVecLastHeight}
-	key := loadSeqVecKey(t, t.TempDir(), verify.SequencerAuthorization{
-		SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecFirstHeight, LastBatchNumber: seqVecLastHeight,
-	})
-	tx := seqVecTransfer(0, 1)
-	signed := b.receipt(key, seqVecKeyID, b.signTx(tx), tx, seqVecSlot{seq: 1, height: seqVecFirstHeight, index: 1}, true)
-	verified, err := verify.ReceiptSignature(signed.signed, public)
+	pin := seqVecPin{KeyID: seqVecKeyID, PublicKey: public[:], FirstHeight: 1, LastHeight: 1000}
+	key := loadSeqVecKey(t, t.TempDir(), verify.SequencerAuthorization{SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: 1, LastBatchNumber: 1000})
+	pins := seqkeeper.ReceiptKeys{{KeyId: seqVecKeyID[:], PublicKey: public[:], FirstHeight: 1, LastHeight: 1000}}
+	require.NoError(t, s.app.SequencerKeeper.SetReceiptKeys(setup, pins))
+	setupStore.Write()
+	require.EqualValues(t, 2, s.app.CommitMultiStore().Commit(true).Version)
+	s.committed = 2
+	require.True(t, s.app.EvmKeeper.GetFeeTokenEnabled(s.ctxProvider(2)))
+	require.Equal(t, "usid", s.app.EvmKeeper.GetAccountFeeDenom(s.ctxProvider(2), sender.EvmAddress))
+	require.NoError(t, s.exec.Open(3, seqVecTimeBase+3*seqVecBlockMs))
+	producer, err := seqnode.NewReceipter(s.exec, s.app, &s.app.EvmKeeper, key, seqVecModuleID)
 	require.NoError(t, err)
-	require.Equal(t, signed.digest, verified.Digest)
+	to := seqVecRecipient
+	raw, hash := subscribeRawTx(t, sender, 0, &to, new(big.Int).Set(seqVecOnePAX), pendingTransferGas, nil)
+	var signedTx ethtypes.Transaction
+	require.NoError(t, signedTx.UnmarshalBinary(raw))
+	msg := pendingTransfer(t, sender, 0, to, new(big.Int).Set(seqVecOnePAX))
+	// The canonical Cosmos transport must carry exactly the signed EVM bytes.
+	transported := pendingBlockEthHash(t, s, msg)
+	require.Equal(t, hash, transported)
+	acc, signed, err := producer.Accept(msg)
+	require.NoError(t, err)
+	require.NotNil(t, acc)
+	execution, err := sendSeqExecutionReceipt(acc)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status, execution.VmError)
+	verified, err := verify.ReceiptSignature(signed, public)
+	require.NoError(t, err)
 	decoded := verified.Receipt
-	asset := common.Hash(sha256.Sum256([]byte(charge.Denom)))
+	baseDenom := s.app.EvmKeeper.GetBaseDenom(setup)
+	asset := common.Hash(sha256.Sum256([]byte(baseDenom)))
 	require.Equal(t, asset, common.Hash(decoded.Asset))
-	require.NotEqual(t, sha256.Sum256([]byte(feeDenom)), decoded.Asset)
+	require.NotEqual(t, sha256.Sum256([]byte("usid")), decoded.Asset)
 	require.Equal(t, seqVecModuleID, decoded.ModuleID)
-	require.Equal(t, seqVecKeyID, decoded.ContextHash)
-	require.Equal(t, [32]byte(signed.activity), decoded.ActivityID)
-	require.Equal(t, signed.seqHash, decoded.ResultingStateRoot)
+	require.Equal(t, [32]byte(seqVecKeyID), decoded.ContextHash)
+	require.Equal(t, [32]byte(hash), decoded.ActivityID)
+	require.Equal(t, acc.SeqHash, decoded.ResultingStateRoot)
 	require.Equal(t, uint64(1), decoded.GlobalSequence)
 	require.Equal(t, int32(0), decoded.ResultCode)
 	require.Len(t, decoded.Effects, 1)
 	summary := decoded.Effects[0].Body
 	require.GreaterOrEqual(t, len(summary), 109)
-	require.Equal(t, len(feeDenom), int(summary[108]))
-	require.Equal(t, feeDenom, string(summary[109:]))
+	require.Equal(t, len("usid"), int(summary[108]))
+	require.Equal(t, "usid", string(summary[109:]))
+	nativeFee := new(big.Int).Mul(new(big.Int).SetUint64(execution.GasUsed), new(big.Int).SetUint64(execution.EffectiveGasPrice))
+	converted, err := evmkeeper.ConvertFeeToDenom(sdk.NewIntFromBigInt(nativeFee), rate, true)
+	require.NoError(t, err)
+	require.Equal(t, sdk.NewInt(32697), converted)
 	fee := decoded.FeeCharged.Bytes()
-	require.Equal(t, new(big.Int).Mul(new(big.Int).SetUint64(tx.gasUsed), big.NewInt(seqVecBaseFee+seqVecTipCap)), new(big.Int).SetBytes(fee[:]))
+	require.Equal(t, converted.BigInt(), new(big.Int).SetBytes(fee[:]))
+	after, err := s.exec.Snapshot()
+	require.NoError(t, err)
+	require.Equal(t, converted, sdk.NewInt(1_000_000_000).Sub(s.app.BankKeeper.GetBalance(after, sender.AccountAddress, "usid").Amount))
 
-	c := seqVecCaseOf("V1-fee-token-payment", "V1", "Registered fee-token payment asset with fees denominated in the base denomination", signed, signed.raw, nil, [32]byte{}, pin)
-	c.Expected = seqVecExpected{Verifier: "accepts"}
-	c.PaymentDenom, c.FeeDenom, c.Asset = charge.Denom, feeDenom, &asset
-	file := seqVecFile{
-		Name:       "sequencer-receipt-fee-token-v1",
-		Provenance: seqVecProvenance{Generator: seqVecGenerator, Command: seqVecFeeTokenCommand},
-		ChainID:    seqVecChainID, ModuleID: seqVecModuleID, FeeDenom: feeDenom,
-		Cases: []seqVecCase{c},
-	}
-	require.Len(t, file.Cases, 1)
+	source := seqnode.NewReceiptSource(4)
+	source.Record(hash, evmrpc.SequencerSend{Nonce: 0, Receipt: signed, ReturnData: []byte{}, LogData: [][]byte{}})
+	port := startSeqReceiptServer9005(t, s.app, s.ctxProvider, evmrpc.SequencerReceiptOption{Source: source, Keeper: &s.app.SequencerKeeper})
+	answer, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, hash)
+	require.Nil(t, rpcErr)
+	var result *evmrpc.SequencerReceiptResult
+	require.NoError(t, json.Unmarshal(answer, &result))
+	require.NotNil(t, result)
+	require.NoError(t, result.Verify(pins))
+	require.Equal(t, signed, []byte(result.Receipt))
+	require.Equal(t, baseDenom, result.PaymentDenom)
+	require.Equal(t, "usid", result.FeeDenom)
+	require.Equal(t, converted.BigInt(), result.FeeAmount.ToInt())
+	require.Equal(t, nativeFee, new(big.Int).Mul(new(big.Int).SetUint64(uint64(result.GasUsed)), new(big.Int).SetUint64(uint64(result.EffectiveGasPrice))))
+	refusedAt, err := seqVecClientCheck(raw, answer, common.Hash{}, pin)
+	require.NoError(t, err, refusedAt)
+	c := seqVecCaseOf("V1-fee-token-payment", "V1", "Base payment asset with a converted registered fee-token charge",
+		seqVecSigned{signed: signed, digest: verified.Digest}, raw, answer, [32]byte{}, pin)
+	c.Expected = seqVecExpected{Rung: "receipted", Verifier: "accepts"}
+	c.PaymentDenom, c.FeeDenom, c.Asset = baseDenom, "usid", &asset
+	return seqVecFile{Name: "sequencer-receipt-fee-token-v1", Provenance: seqVecProvenance{Generator: seqVecGenerator, Command: seqVecFeeTokenCommand}, ChainID: seqVecChainID, ModuleID: seqVecModuleID, FeeDenom: "usid", Cases: []seqVecCase{c}}
+}
+
+func TestSequencerReceiptFeeTokenVector(t *testing.T) {
+	file := repairM1297FeeTokenVector(t)
 	seqVecWriteFixture(t, seqVecFeeTokenFixture, seqVecFeeTokenCommand, file)
+}
+
+func repairM1297FeeTokenVectorProof(t *testing.T) {
+	file := repairM1297FeeTokenVector(t)
+	require.Len(t, file.Cases, 1)
+	// Retain the producer-generated replacement privately; publishing the SDK
+	// fixture is the out-of-scope wiring request recorded in the proof index.
+	rendered, err := json.MarshalIndent(file, "", "  ")
+	require.NoError(t, err)
+	path := "/tmp/repair-m1297-fee-token-vector.json"
+	require.NoError(t, os.WriteFile(path, append(rendered, '\n'), 0o600))
+	t.Logf("producer fixture: %s", path)
 }
 
 func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
@@ -1309,3 +1370,5 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 		require.Fail(t, fmt.Sprintf("unexpected vector %s", c.Vector))
 	}
 }
+
+func init() { evmrpc.RepairM1297Proofs["fee-token-vector-reversed"] = repairM1297FeeTokenVectorProof }

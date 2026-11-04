@@ -3,8 +3,10 @@ use std::collections::BTreeSet;
 use layerx_agentd::capability::{Capability, CapabilityDimensions, CapabilityId, RateCeiling};
 use layerx_agentd::identity::ProtocolAuthority;
 use layerx_agentd::policy::{
-    Outcome, PolicyRequest, PolicySet, Rule, RuleConstraints, RuleEffect, SequenceWindow,
+    evaluate, Decision, DecisionReason, EvaluationInput, Outcome, PolicyRequest, PolicySet, Rule,
+    RuleConstraints, RuleEffect, SequenceWindow,
 };
+use layerx_agentd::protocol_evidence::AuthenticatedCumulativeUse;
 use layerx_agentd::session::{OpenRequest, SessionId, SessionRecord};
 use layerx_agentd::store::TenantId;
 use layerx_types::ids::Did;
@@ -33,7 +35,20 @@ pub struct CorpusCase {
     pub session: SessionRecord,
     pub capability: Capability,
     pub expected: Outcome,
+    pub expected_reason: DecisionReason,
     pub blocked_dimensions: BTreeSet<ConstraintDimension>,
+}
+
+impl CorpusCase {
+    pub fn evaluate(&self, cumulative: &AuthenticatedCumulativeUse) -> Decision {
+        let input = EvaluationInput::with_authenticated_cumulative_use(
+            &self.request,
+            &self.session,
+            &self.capability,
+            cumulative,
+        );
+        evaluate(&self.policy, &input)
+    }
 }
 
 pub fn required_blocked_constraints() -> BTreeSet<ConstraintDimension> {
@@ -59,77 +74,91 @@ pub fn agent_policy_adversarial_corpus() -> Vec<CorpusCase> {
 
     let mut activity = base.clone();
     activity.name = "activity-type-widening";
-    activity.request.activity_type = 8;
+    activity.policy.rules[0].constraints.activity_types = BTreeSet::from([8]);
     deny_for(&mut activity, ConstraintDimension::ActivityType);
     cases.push(activity);
 
     let mut counterparty = base.clone();
     counterparty.name = "crafted-counterparty";
-    counterparty.request.counterparty = [0xff; 32];
+    counterparty.policy.rules[0].constraints.counterparties = BTreeSet::from([[0xff; 32]]);
     deny_for(&mut counterparty, ConstraintDimension::Counterparty);
     cases.push(counterparty);
 
     let mut asset = base.clone();
     asset.name = "asset-substitution";
-    asset.request.asset = [0xaa; 32];
+    asset.policy.rules[0].constraints.assets = BTreeSet::from([[0xaa; 32]]);
     deny_for(&mut asset, ConstraintDimension::Asset);
     cases.push(asset);
 
     let mut amount = base.clone();
     amount.name = "amount-boundary-plus-one";
-    amount.request.amount = 101;
+    amount.policy.rules[0].constraints.maximum_amount = Some(99);
     deny_for(&mut amount, ConstraintDimension::Amount);
     cases.push(amount);
 
     let mut cumulative = base.clone();
-    cumulative.name = "cumulative-rate-producer-unavailable";
+    cumulative.name = "cumulative-amount-boundary-plus-one";
+    cumulative.policy.rules[0]
+        .constraints
+        .maximum_cumulative_amount = Some(124);
     deny_for(&mut cumulative, ConstraintDimension::CumulativeRate);
     cases.push(cumulative);
 
+    let mut count = base.clone();
+    count.name = "cumulative-count-boundary-plus-one";
+    count.policy.rules[0].constraints.maximum_cumulative_count = Some(1);
+    deny_for(&mut count, ConstraintDimension::CumulativeRate);
+    cases.push(count);
+
     let mut purpose = base.clone();
     purpose.name = "unicode-purpose-confusable";
-    purpose.request.purpose = "reѕearch".to_owned();
+    purpose.policy.rules[0].constraints.purposes = BTreeSet::from(["reѕearch".to_owned()]);
     deny_for(&mut purpose, ConstraintDimension::Purpose);
     cases.push(purpose);
 
     let mut oversized = base.clone();
     oversized.name = "oversized-purpose";
-    oversized.request.purpose = "research".repeat(8_192);
+    oversized.policy.rules[0].constraints.purposes = BTreeSet::from(["research".repeat(8_192)]);
     deny_for(&mut oversized, ConstraintDimension::Purpose);
     cases.push(oversized);
 
     let mut capability = base.clone();
     capability.name = "capability-substitution";
-    capability.capability.id = CapabilityId([0x44; 32]);
+    capability.policy.rules[0].constraints.capability_ids =
+        BTreeSet::from([CapabilityId([0x44; 32])]);
     deny_for(&mut capability, ConstraintDimension::Capability);
     cases.push(capability);
 
     let mut session = base.clone();
     session.name = "session-substitution";
-    session.session.request.session_id = SessionId([0x33; 32]);
+    session.policy.rules[0].constraints.session_ids = BTreeSet::from([SessionId([0x33; 32])]);
     deny_for(&mut session, ConstraintDimension::Session);
     cases.push(session);
 
     let mut agent = base.clone();
     agent.name = "agent-substitution";
-    agent.session.request.agent = did(b"did:layerx:other-agent");
+    agent.policy.rules[0].constraints.agents = BTreeSet::from([did(b"did:layerx:other-agent")]);
     deny_for(&mut agent, ConstraintDimension::Agent);
     cases.push(agent);
 
     let mut tenant = base.clone();
     tenant.name = "cross-tenant-substitution";
-    tenant.session.request.tenant = tenant_id("tenant-b");
+    tenant.policy.rules[0].constraints.tenants = BTreeSet::from([tenant_id("tenant-b")]);
     deny_for(&mut tenant, ConstraintDimension::Tenant);
     cases.push(tenant);
 
     let mut time = base.clone();
     time.name = "outside-sequence-window";
-    time.request.core_sequence = 151;
+    time.policy.rules[0].constraints.sequence_window = Some(SequenceWindow {
+        first: 100,
+        last: 119,
+    });
     deny_for(&mut time, ConstraintDimension::TimeWindow);
     cases.push(time);
 
     let mut approval = base;
-    approval.name = "approval-evidence-integration-unavailable";
+    approval.name = "approval-required";
+    approval.policy.rules[0].constraints.required_approval = true;
     deny_for(&mut approval, ConstraintDimension::RequiredApproval);
     cases.push(approval);
 
@@ -138,6 +167,11 @@ pub fn agent_policy_adversarial_corpus() -> Vec<CorpusCase> {
 
 fn deny_for(case: &mut CorpusCase, dimension: ConstraintDimension) {
     case.expected = Outcome::Deny;
+    case.expected_reason = if dimension == ConstraintDimension::RequiredApproval {
+        DecisionReason::ApprovalRequired
+    } else {
+        DecisionReason::NoPermittingRule
+    };
     case.blocked_dimensions = BTreeSet::from([dimension]);
 }
 
@@ -162,7 +196,7 @@ fn base_case() -> CorpusCase {
             first: 100,
             last: 150,
         }),
-        required_approval: true,
+        required_approval: false,
     };
     let policy = PolicySet {
         version: "corpus-v1".to_owned(),
@@ -225,7 +259,8 @@ fn base_case() -> CorpusCase {
         request,
         session,
         capability,
-        expected: Outcome::Deny,
+        expected: Outcome::Allow,
+        expected_reason: DecisionReason::PermittedByRule,
         blocked_dimensions: BTreeSet::new(),
     }
 }

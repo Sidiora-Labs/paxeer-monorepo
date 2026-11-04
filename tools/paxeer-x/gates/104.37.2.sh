@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# paxeer-x-services: hpx
+# paxeer-x-services: merge-tools sequencer
+# Build dependencies: tools/hpx; wasm-runtime/internal/api; wasm/x/wasm/artifacts (library mirror, not a service).
 set -euo pipefail
 if (($#)); then
 	echo "usage: $0 (no arguments)" >&2

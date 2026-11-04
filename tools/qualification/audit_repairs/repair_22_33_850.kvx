@@ -1,0 +1,102 @@
+[task]
+id = "22.33.850"
+mode = "BUILD"
+audit = "22.30.181"
+base_revision = "58a8a4ad7c85d3fe8034c6774a5778f1174e710f"
+implementation = "Resolve Human workspaces beneath services; select the supported paxeer container recipes; bind archive gates to mirror-publisher, mirror-signer and the registered sequencer node receipt producer; qualify committed archive freshness, producer and recovery consumers; replace boundary/ABI-only withdrawal qualification with native paxd transfer and committed bank proof corpora; publish the standard merged-runtime foundation bundle and preserve every original consensus/receipt case."
+baseline = "Not run: the explicit implementation-first order and exclusive hf-done verification rule prohibit the conflicting unchanged-tree verification instruction. No baseline failures or passes are claimed. Initial status/diff contained only runner-prepared .cgignore and spec bookkeeping, with no scoped prior edits; gate.json recorded zero builds/verifies and no prior gates.jsonl existed."
+build_cmd = "bash -n tools/paxeer-x/gates/11.2.sh tools/paxeer-x/gates/111.6.11.sh tools/paxeer-x/gates/12.1.sh tools/paxeer-x/gates/18.3.sh tools/paxeer-x/gates/24.14.sh tools/paxeer-x/gates/24.16.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_850.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger identify the exact content-derived verified revision, command, exit and log, with hf-build on the same candidate. The runner publishes; no manual commit or push is performed. This record is finalized before qualification because embedding its own candidate revision would change that revision."
+source_proof = "Pytest parses each of the seven shells separately with bash -n, parses their embedded Python, parses current Cargo manifests and the runtime-bundle JSON, executes the production catalogue parser, and asserts real source declarations, guarded commands, exact retained inventories, source provenance and standard manifest consumer keys. The declared hf-build command is preserved verbatim; Bash treats its additional filenames as script arguments, so pytest supplies the individual syntax checks."
+runtime_proof = "Execute the gate's actual Rust/Go count parsers as pure functions against explicit protocol examples and malformed/empty/skipped/failed/duplicate/mismatched inputs; those inputs are parser unit data and are never offered as native execution evidence. No native toolchain, environment variables, credentials, external endpoint or native artifacts are required by pytest; Bash is used only for the explicitly required syntax parsing."
+review_only = "Native Rust/Go/container compilation and execution, cryptographic validation, archive freshness against a running node, native transfer execution, persisted verifier/spool recovery and foundation executable authenticity are reviewed through the retained real source paths, not executed or certified by this source qualification. The selected production tests contain the real producer/transport/consumer and close/reopen assertions; this Python gate does not claim to have run those native tests or restarted a native component."
+formatting = "Follow repository .editorconfig whitespace and existing Python/Shell/KVX style; no formatter for these paths is configured or available in the environment."
+
+[finding.f019]
+file = "tools/paxeer-x/gates/11.2.sh"
+tests = ["test_f019_f020_current_human_workspace_retains_real_provider_corpus", "test_every_repaired_shell_is_parsed"]
+source_proof = "Only the workspace changes to services/human; the real identity assertion target, clock wrapper, 15-minute timeout, exit propagation and passed/failed/ignored summary transport remain. Current Cargo membership and the assertion source exist; dispatcher nonempty and zero-skip refusals remain."
+review_only = "The Rust assertion/provider corpus is not executed by pytest."
+
+[finding.f036]
+file = "tools/paxeer-x/gates/111.6.11.sh"
+tests = ["test_f036_current_paxd_recipes_and_actual_container_checks", "test_every_repaired_shell_is_parsed"]
+source_proof = "Remove the retired platform-node selection; the already-selected paxeer service includes the current Dockerfile.paxd recipe, so it is selected once. All other supported services, real Docker build checks, private logs, 20-minute timeout, actual check-ok count and failure exit remain."
+review_only = "Docker builds and the checker's separate retired recipe refusal corpus are source-reviewed, not run."
+
+[finding.f020]
+file = "tools/paxeer-x/gates/12.1.sh"
+tests = ["test_f019_f020_current_human_workspace_retains_real_provider_corpus", "test_every_repaired_shell_is_parsed"]
+source_proof = "Only the workspace changes to services/human; the real KMS provider target, single-thread setting, clock wrapper, 15-minute timeout and actual passed/failed/ignored transport remain, with current manifest membership and provider source asserted."
+review_only = "The one-time primary export/provider corpus is not executed by pytest."
+
+[finding.f047]
+file = "tools/paxeer-x/gates/18.3.sh"
+tests = ["test_f047_committed_block_freshness_and_retained_service_contract", "test_rust_count_protocol_requires_exact_case_and_refuses_empty_failed_or_skipped", "test_every_repaired_shell_is_parsed"]
+source_proof = "Real catalogue ids bind mirror publisher/signer and the registered sequencer node receipt producer; the unregistered archive-node dependency remains refused and is requested separately below. Locked source builds/tests replace the nonexistent archive-origin-freshness selector: v4 committed archive roundtrip, height-ordered runtime spool, unverified progress refusal, committed lag in blocks and divergent/absent heads, finalized-coordinate acquisition, and every acquired receipt verified under configured keys. Each exact executed Rust case and successful one-pass zero-fail zero-ignore summary is required before adding its observed count."
+review_only = "The retained Rust integration tests drive CommittedBlockSource over loopback RPC with the committed recording; pytest inspects that path and its assertions, without running Rust, receipt cryptography or live freshness qualification."
+
+[finding.f026]
+file = "tools/paxeer-x/gates/24.14.sh"
+tests = ["test_f026_archive_producer_and_real_restart_recovery_consumers_are_selected", "test_rust_count_protocol_requires_exact_case_and_refuses_empty_failed_or_skipped", "test_every_repaired_shell_is_parsed"]
+source_proof = "Replace the empty verify arm with the actual committed archive producer, retired-format refusal, height-ordered spool/reopen, contiguous-prefix restart, corrupt/gapped archive startup refusal and checkpoint-refusal latch tests. Exact successful case summaries supply actual totals. Make the registered script executable so the dispatcher can reach it. Build compiles that same source corpus instead of accepting an unbound source-only revision assertion."
+review_only = "The selected runtime test drops and reopens ArchiveSpool, verifies the recovered coordinate and receipts, refuses a wrong parent, continues the next height and checks recovered freshness. Those native stop/reopen/state assertions are source-proven here; pytest does not claim native restart execution."
+
+[finding.f022]
+file = "tools/paxeer-x/gates/24.16.sh"
+tests = ["test_f022_f027_native_transfer_committed_bank_proofs_and_genuine_counts", "test_every_repaired_shell_is_parsed"]
+source_proof = "Build the current paxd embedded runtime and execute the actual SendAPI native transfer/receipt test plus native bank committed-state/recovery and malformed-proof refusals. The bank producer uses the real bank keeper, SendCoins, store commits and proof queries; its consumer verifies committed state, closes/reopens trust, and verifies recovered balances. Remove retired boundary compilation and BetaUsdl/WETH ABI-file prerequisites."
+review_only = "Native transfer, balance movement, signature/proof validation and verifier recovery run only when this operational shell gate executes with the native toolchain; the Python source gate does not certify those outcomes. Native balance movement supersedes the removed separate custody withdrawal operation."
+
+[finding.f027]
+file = "tools/paxeer-x/gates/24.16.sh"
+tests = ["test_f022_f027_native_transfer_committed_bank_proofs_and_genuine_counts", "test_go_count_protocol_requires_actual_cases_and_refuses_skip_failure_duplicate_or_empty"]
+source_proof = "Go -json -count=1 executes exact declared top-level cases; match every actual run with one successful completion including subtests, require successful package completion and the exact selected top-level inventory, reject skips/failures/duplicates/empty results, and emit actual successful case totals using PAXEER_X_GATE. Existing production proof-refusal assertions remain intact."
+review_only = "Count parser behavior executes in Python; native test success is not fabricated by parser protocol examples or inferred from source checks."
+
+[finding.f023]
+file = "tools/paxeer-x/gates/24.18.sh"
+tests = ["test_f023_standard_paxd_foundation_manifest_and_retained_consensus", "test_go_count_protocol_requires_actual_cases_and_refuses_skip_failure_duplicate_or_empty", "test_every_repaired_shell_is_parsed"]
+source_proof = "Delegate build/publication to the current foundation-artifacts producer's merged-runtime v2 bundle containing paxd, attestor and bringup-inspect, real build commands, complete source closure, embedded VCS metadata and executable/library digests. Require its standard manifest.json layout. The existing foundation consumer already validates that schema and launches /artifacts/paxd. Remove daemon/genesis-builder, custody manifest and obsolete core-boundary publication prerequisites. Retain every original consensus/receipt case and add current native bank proof/recovery cases with genuine Go event counts."
+review_only = "Foundation compilation, executable authenticity, chain/attestor launch and native consensus/receipt tests are source-reviewed only. Out-of-path core consumers and build orchestration are explicitly requested below rather than silently adapted here."
+
+[wiring.core_consumers]
+path = "services/platform/hosted/core; tools/bringup/tests/paxeer-x-fixture-foundation.py"
+owner_domain = "9 / platform hosted core and 16 / tools-ops"
+request = "Any remaining private consumer of PAXEER_X_CORE_BUILD_MANIFEST must consume PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST using foundation-artifacts.validate and artifacts.paxd from the standard merged-runtime v2 bundle, rather than core_binary_path, layerxd or layerx-genesis-build; preserve hosted core as a client service."
+
+[wiring.candidate_build]
+path = "tools/paxeer-x/build"
+owner_domain = "16 / tools-ops"
+request = "Supply 24.18 build a new absolute private bundle path ending in manifest.json via PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST; update private build plans that still expect PAXEER_X_CORE_BUILD_MANIFEST or LAYERX_CUSTODY_ARTIFACT_MANIFEST, and retain the standard foundation validator before launching paxd."
+
+[gotcha.baseline]
+observed = "The older unchanged-tree test instruction contradicts the explicit implementation-first and hf-done-only qualification order."
+resolution = "Follow the explicit order and claim no unexecuted baseline results."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and feature qualification/spec files are outside this task's direct scope."
+resolution = "Record task gotchas and wiring requests here and preserve runner-prepared bookkeeping changes."
+
+[gotcha.shell_parser]
+observed = "bash -n with several filenames parses only its first script, and the registered 24.14.sh initially lacked execute permission."
+resolution = "Keep the declared build command unchanged, parse every repaired shell individually inside pytest, and restore 24.14.sh execute permission."
+
+[wiring.service_catalogue]
+path = "spec/layerx-merge/spec.kvx; spec/layerx-merge/contracts/services.md"
+owner_domain = "17 / programme catalogue, with domain 5 node and domain 11 mirror"
+request = "Reconcile mirror-publisher and sequencer dependencies that name archive-node without any corresponding service block; this gate binds the registered sequencer node receipt producer and preserves refusal of every unknown service id."
+
+[qualification.catalogue_dependency]
+revision = "803bb380416aa1fb3042e973030bde06b0230b58"
+command = "cg spec done 22.33.850 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The existing mirror-publisher dependency names archive-node but the authoritative forty-service catalogue has no such service, so first verification refused four new headers that used it."
+assumption = "Bind the registered sequencer node receipt producer in scope and request the external catalogue reconciliation separately; no unknown-service assertion is relaxed."
+
+[gotcha.catalogue_dependencies]
+observed = "Catalogue dependency strings are not necessarily registered candidate service ids."
+resolution = "Use only catalogue keys in gate headers, bind the actual registered sequencer producer and preserve unknown-binding refusal."
