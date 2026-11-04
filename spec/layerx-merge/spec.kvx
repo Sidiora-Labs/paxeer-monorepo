@@ -149465,7 +149465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.711]
 title = "Repair audit record 22.30.17 medium findings in apps/perps/src/hooks/perps (part 3 of 3): doc-drift, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.19", "22.31.20"]
@@ -199736,7 +199736,7 @@ do_10 = "Attempt 3 (continue): TestRepairM_1277_SimappRestartRecovery fails beca
 
 [task.22.33.1276]
 title = "Repair audit record 22.30.64 medium findings in interchain/testing (part 1 of 1): config-drift, doc-drift, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -200411,7 +200411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1228]
 title = "Repair audit record 22.30.59 medium findings in modules/layerxcustody/keeper (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.338", "22.31.463"]
@@ -200923,7 +200923,7 @@ do_14 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1205]
 title = "Repair audit record 22.30.57 medium findings in interchain/modules/apps/transfer/keeper (part 1 of 1): interface-mismatch, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126", "22.31.463"]
@@ -200963,7 +200963,7 @@ do_13 = "Attempt 4 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1204]
 title = "Repair audit record 22.30.57 medium findings in interchain/modules/apps/27-interchain-accounts/host/keeper (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126", "22.31.463"]
@@ -277617,7 +277617,7 @@ do_12 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1280]
 title = "Repair audit record 22.30.64 medium findings in precompiles/bank (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -278528,7 +278528,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1209]
 title = "Repair audit record 22.30.57 medium findings in precompiles/staking/legacy/v620 (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126"]
