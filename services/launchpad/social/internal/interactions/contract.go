@@ -3,6 +3,8 @@ package interactions
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,6 +12,7 @@ import (
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // RegisterContractRoutes mounts the frozen v2 follow-graph surface (IF_FOLLOW,
@@ -44,6 +47,40 @@ func contractHeaders(w http.ResponseWriter) {
 	w.Header().Add("Vary", "Authorization")
 }
 
+// contractError emits only errors that satisfy the frozen v2 Error contract.
+func contractError(w http.ResponseWriter, r *http.Request, err error) {
+	status, code, message := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE", "store unavailable"
+	switch {
+	case errors.Is(err, ErrInvalid), errors.Is(err, ErrDepth), errors.Is(err, ErrReactionKind):
+		status, code, message = http.StatusUnprocessableEntity, "FIELD_INVALID", "invalid follow request"
+	case errors.Is(err, ErrDenied):
+		status, code, message = http.StatusForbidden, "SCOPE_DENIED", "not permitted"
+	case errors.Is(err, ErrRevision):
+		status, code, message = http.StatusConflict, "REVISION_CONFLICT", "revision is not current"
+	case errors.Is(err, pgx.ErrNoRows):
+		status, code, message = http.StatusNotFound, "NOT_FOUND", "not found"
+	}
+	id, parseErr := uuid.Parse(r.Header.Get("X-Request-ID"))
+	if parseErr != nil || id == uuid.Nil {
+		id = uuid.New()
+	}
+	body, encodeErr := json.Marshal(v2.Error{
+		Code: code, Message: message, RequestId: id.String(),
+		Retryable: status == http.StatusServiceUnavailable, FieldErrors: []v2.FieldError{},
+	})
+	if encodeErr == nil {
+		encodeErr = v2.ValidateJSON("Error", body)
+	}
+	if encodeErr != nil {
+		panic(fmt.Errorf("frozen follow error failed its contract: %w", encodeErr))
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Request-ID", id.String())
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}
+
 // contractKey derives the mutation idempotency key for a contract write: the
 // client's Idempotency-Key when supplied, else the request id, else a fresh id.
 func contractKey(r *http.Request) string {
@@ -57,31 +94,31 @@ func contractKey(r *http.Request) string {
 }
 
 func (h *HTTP) contractStats(w http.ResponseWriter, r *http.Request) {
+	contractHeaders(w)
 	if h == nil || h.Store.DB == nil || h.Policy == nil {
-		httpError(w, ErrDependency)
+		contractError(w, r, ErrDependency)
 		return
 	}
-	contractHeaders(w)
 	viewer := ""
 	if p, e := Identity(r.Context()); e == nil {
 		viewer = p.Wallet
 	} else if _, present := principalValue(r.Context()); present {
-		httpError(w, e)
+		contractError(w, r, e)
 		return
 	}
 	v, tag, e := h.Store.FollowStats(r.Context(), chi.URLParam(r, "wallet"), viewer, h.Cache)
 	if e != nil {
-		httpError(w, e)
+		contractError(w, r, e)
 		return
 	}
 	followers, e := strconv.ParseInt(v.Followers, 10, 64)
 	if e != nil {
-		httpError(w, ErrDependency)
+		contractError(w, r, ErrDependency)
 		return
 	}
 	following, e := strconv.ParseInt(v.Following, 10, 64)
 	if e != nil {
-		httpError(w, ErrDependency)
+		contractError(w, r, ErrDependency)
 		return
 	}
 	w.Header().Set("ETag", tag)
@@ -93,24 +130,24 @@ func (h *HTTP) contractStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTP) contractFollowers(w http.ResponseWriter, r *http.Request) {
+	contractHeaders(w)
 	if h == nil || h.Store.DB == nil || h.Policy == nil {
-		httpError(w, ErrDependency)
+		contractError(w, r, ErrDependency)
 		return
 	}
-	contractHeaders(w)
 	limit, e := limitOf(r)
 	if e != nil {
-		httpError(w, e)
+		contractError(w, r, e)
 		return
 	}
 	cursor := r.URL.Query().Get("cursor")
 	if len(cursor) > 256 {
-		httpError(w, ErrInvalid)
+		contractError(w, r, ErrInvalid)
 		return
 	}
 	page, e := h.visibleFollows(r.Context(), chi.URLParam(r, "wallet"), false, limit, cursor)
 	if e != nil {
-		httpError(w, e)
+		contractError(w, r, e)
 		return
 	}
 	wallets := make([]string, 0, len(page.Edges))
@@ -119,7 +156,7 @@ func (h *HTTP) contractFollowers(w http.ResponseWriter, r *http.Request) {
 	}
 	items, e := h.Policy.profiles(r.Context(), wallets)
 	if e != nil {
-		httpError(w, e)
+		contractError(w, r, e)
 		return
 	}
 	var next *string
@@ -130,19 +167,19 @@ func (h *HTTP) contractFollowers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTP) contractFollow(w http.ResponseWriter, r *http.Request, remove bool) {
+	contractHeaders(w)
 	if h == nil || h.Store.DB == nil || h.Policy == nil {
-		httpError(w, ErrDependency)
+		contractError(w, r, ErrDependency)
 		return
 	}
-	contractHeaders(w)
 	principal, e := Identity(r.Context())
 	if e != nil {
-		httpError(w, e)
+		contractError(w, r, e)
 		return
 	}
 	input := Request{Actor: principal.Wallet, ID: chi.URLParam(r, "wallet"), Key: contractKey(r), Remove: remove}
 	if e = h.Store.Follow(r.Context(), input); e != nil {
-		httpError(w, e)
+		contractError(w, r, e)
 		return
 	}
 	if remove {
