@@ -15,7 +15,11 @@ impl Client {
         };
 
         let request_client = {
-            let client = reqwest::Client::new();
+            let client = reqwest::Client::builder()
+                .timeout(config.request_timeout)
+                .connect_timeout(config.connect_timeout)
+                .build()
+                .unwrap_or_else(|err| panic!("Cannot build smart-contract-verifier client: {err}"));
             let mut client_with_middleware = reqwest_middleware::ClientBuilder::new(client);
             for middleware in config.middleware_stack {
                 client_with_middleware = client_with_middleware.with_arc(middleware);

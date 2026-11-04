@@ -4,6 +4,7 @@ use crate::limits::admission::Priority;
 use crate::store::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 
 const SHED_PREFIX: &[u8] = b"quota-shed:";
+const INDEX_ID: &[u8] = b"quota-shedding-index-v2";
 const SHED_MAGIC: &[u8; 4] = b"LXQS";
 
 /// One durable object write measured against its tenant resource quota.
@@ -161,6 +162,10 @@ pub enum QuotaError {
     TimeRegressed,
     Arithmetic,
     CorruptDecision,
+    ObservationCapacity {
+        tenant: TenantId,
+        limit: usize,
+    },
     Store(StoreError),
 }
 
@@ -180,11 +185,35 @@ struct ClientWindow {
     identical_operations: u64,
 }
 
+/// Latest decisions are retained until this interval after the shed ends.
+/// Superseded decisions are compacted immediately; active windows are never evicted for churn.
+#[derive(Clone, Copy, Debug)]
+pub struct ObservationBounds {
+    pub maximum_clients_per_tenant: usize,
+    pub audit_retention_ms: u64,
+}
+
+impl Default for ObservationBounds {
+    fn default() -> Self {
+        Self {
+            maximum_clients_per_tenant: 1024,
+            audit_retention_ms: 60_000,
+        }
+    }
+}
+
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+struct DecisionIndex {
+    watermark_ms: u64,
+    clients: BTreeMap<String, u64>,
+}
+
 /// Per-tenant durable-resource quotas and client-isolated load shedding.
 #[derive(Debug)]
 pub struct Quota {
     tenants: BTreeMap<TenantId, TenantQuota>,
     shedding: SheddingPolicy,
+    bounds: ObservationBounds,
     windows: BTreeMap<(TenantId, String), ClientWindow>,
 }
 
@@ -212,8 +241,157 @@ impl Quota {
         Ok(Self {
             tenants: configured,
             shedding: shedding.validate()?,
+            bounds: ObservationBounds::default(),
             windows: BTreeMap::new(),
         })
+    }
+
+    pub fn with_observation_bounds(
+        mut self,
+        bounds: ObservationBounds,
+    ) -> Result<Self, QuotaError> {
+        if bounds.maximum_clients_per_tenant == 0 || bounds.audit_retention_ms == 0 {
+            return Err(QuotaError::InvalidConfiguration);
+        }
+        self.bounds = bounds;
+        Ok(self)
+    }
+
+    /// Migrate the old timestamped layout before attaching an existing store to requests.
+    pub fn restore(&mut self, store: &mut Store, observed_at_ms: u64) -> Result<(), QuotaError> {
+        for tenant in self.tenants.keys().cloned().collect::<Vec<_>>() {
+            self.prepare_index(store, &tenant, observed_at_ms)?;
+            let mut legacy = Vec::new();
+            for id in store.list_object_ids(&tenant, ObjectKind::Configuration) {
+                if !id.starts_with(SHED_PREFIX) {
+                    continue;
+                }
+                let key = TenantKey::new(tenant.clone(), ObjectKind::Configuration, id.clone())?;
+                let decision = decode_decision(
+                    tenant.clone(),
+                    store.get(&key).ok_or(QuotaError::CorruptDecision)?.bytes(),
+                )?;
+                if id != decision_object_id(&decision.client_id, 0) {
+                    legacy.push(key);
+                }
+            }
+            store.update_local_batch_removing(Vec::new(), legacy)?;
+        }
+        self.windows.retain(|_, window| {
+            observed_at_ms.saturating_sub(window.last_observed_ms) < self.shedding.window_ms
+        });
+        Ok(())
+    }
+
+    #[must_use]
+    pub fn active_windows(&self, tenant: &TenantId) -> usize {
+        self.windows
+            .keys()
+            .filter(|(owner, _)| owner == tenant)
+            .count()
+    }
+
+    pub fn retained_decisions(
+        &self,
+        store: &Store,
+        tenant: &TenantId,
+    ) -> Result<usize, QuotaError> {
+        Ok(load_index(store, tenant)?.clients.len())
+    }
+
+    fn prepare_index(
+        &self,
+        store: &mut Store,
+        tenant: &TenantId,
+        now: u64,
+    ) -> Result<DecisionIndex, QuotaError> {
+        let index_key = index_key(tenant)?;
+        if store.get(&index_key).is_none() {
+            let mut latest: BTreeMap<String, SheddingDecision> = BTreeMap::new();
+            let mut legacy = Vec::new();
+            for id in store.list_object_ids(tenant, ObjectKind::Configuration) {
+                if !id.starts_with(SHED_PREFIX) {
+                    continue;
+                }
+                let key = TenantKey::new(tenant.clone(), ObjectKind::Configuration, id)?;
+                let decision = decode_decision(
+                    tenant.clone(),
+                    store.get(&key).ok_or(QuotaError::CorruptDecision)?.bytes(),
+                )?;
+                legacy.push(key);
+                if latest
+                    .get(&decision.client_id)
+                    .is_none_or(|old| old.observed_at_ms < decision.observed_at_ms)
+                {
+                    latest.insert(decision.client_id.clone(), decision);
+                }
+            }
+            let mut index = DecisionIndex::default();
+            let mut records = Vec::new();
+            for decision in latest.values() {
+                if now < decision.observed_at_ms {
+                    return Err(QuotaError::TimeRegressed);
+                }
+                let retain_until = decision
+                    .shed_until_ms
+                    .checked_add(self.bounds.audit_retention_ms)
+                    .ok_or(QuotaError::Arithmetic)?;
+                if now >= retain_until {
+                    continue;
+                }
+                if index.clients.len() >= self.bounds.maximum_clients_per_tenant {
+                    return Err(self.capacity(tenant));
+                }
+                index
+                    .clients
+                    .insert(decision.client_id.clone(), retain_until);
+                records.push((
+                    decision_key(tenant, &decision.client_id)?,
+                    encode_decision(decision)?,
+                ));
+            }
+            records.push((index_key.clone(), encode_index(&index)?));
+            store.commit_local_records(records)?;
+            // Recovery may be interrupted here: the index and latest decisions are already durable.
+            let retained = index
+                .clients
+                .keys()
+                .map(|client| decision_key(tenant, client))
+                .collect::<Result<BTreeSet<_>, _>>()?;
+            let removals = legacy
+                .into_iter()
+                .filter(|key| !retained.contains(key))
+                .collect();
+            store.update_local_batch_removing(Vec::new(), removals)?;
+        }
+        let mut index = load_index(store, tenant)?;
+        if now < index.watermark_ms {
+            return Err(QuotaError::TimeRegressed);
+        }
+        if index.clients.len() > self.bounds.maximum_clients_per_tenant {
+            return Err(self.capacity(tenant));
+        }
+        let expired = index
+            .clients
+            .iter()
+            .filter(|(_, expiry)| now >= **expiry)
+            .map(|(client, _)| client.clone())
+            .collect::<Vec<_>>();
+        let mut removals = Vec::new();
+        for client in expired {
+            index.clients.remove(&client);
+            removals.push(decision_key(tenant, &client)?);
+        }
+        index.watermark_ms = now;
+        store.update_local_batch_removing(vec![(index_key, encode_index(&index)?)], removals)?;
+        Ok(index)
+    }
+
+    fn capacity(&self, tenant: &TenantId) -> QuotaError {
+        QuotaError::ObservationCapacity {
+            tenant: tenant.clone(),
+            limit: self.bounds.maximum_clients_per_tenant,
+        }
     }
 
     /// Creates one real durable resource only after checking its tenant quota.
@@ -308,6 +486,7 @@ impl Quota {
     ) -> Result<Option<SheddingDecision>, QuotaError> {
         self.configuration(&activity.tenant)?;
         validate_client(&activity.client_id)?;
+        let mut index = self.prepare_index(store, &activity.tenant, activity.observed_at_ms)?;
         if let Some(active) = active_decision(
             store,
             &activity.tenant,
@@ -317,7 +496,19 @@ impl Quota {
             return Ok(Some(active));
         }
 
+        self.windows.retain(|(tenant, _), window| {
+            *tenant != activity.tenant
+                || activity
+                    .observed_at_ms
+                    .saturating_sub(window.last_observed_ms)
+                    < self.shedding.window_ms
+        });
         let key = (activity.tenant.clone(), activity.client_id.clone());
+        if !self.windows.contains_key(&key)
+            && self.active_windows(&activity.tenant) >= self.bounds.maximum_clients_per_tenant
+        {
+            return Err(self.capacity(&activity.tenant));
+        }
         let window = self.windows.entry(key).or_insert(ClientWindow {
             start_ms: activity.observed_at_ms,
             last_observed_ms: activity.observed_at_ms,
@@ -388,10 +579,23 @@ impl Quota {
             identical_operations: window.identical_operations,
             durable_record: durable_record.clone(),
         };
-        store.put_local(
-            TenantKey::new(activity.tenant, ObjectKind::Configuration, durable_record)?,
-            encode_decision(&decision)?,
-        )?;
+        if !index.clients.contains_key(&decision.client_id)
+            && index.clients.len() >= self.bounds.maximum_clients_per_tenant
+        {
+            return Err(self.capacity(&activity.tenant));
+        }
+        let retention = decision
+            .shed_until_ms
+            .checked_add(self.bounds.audit_retention_ms)
+            .ok_or(QuotaError::Arithmetic)?;
+        index.clients.insert(decision.client_id.clone(), retention);
+        store.commit_local_records(vec![
+            (
+                decision_key(&activity.tenant, &decision.client_id)?,
+                encode_decision(&decision)?,
+            ),
+            (index_key(&activity.tenant)?, encode_index(&index)?),
+        ])?;
         Ok(Some(decision))
     }
 
@@ -422,15 +626,13 @@ impl Quota {
             })
             .collect();
         let mut clients = BTreeSet::new();
-        for object_id in store.list_object_ids(tenant, ObjectKind::Configuration) {
-            if !object_id.starts_with(SHED_PREFIX) {
-                continue;
-            }
-            let key = TenantKey::new(tenant.clone(), ObjectKind::Configuration, object_id)?;
-            let stored = store.get(&key).ok_or(QuotaError::CorruptDecision)?;
-            let decision = decode_decision(tenant.clone(), stored.bytes())?;
-            if observed_at_ms < decision.shed_until_ms {
-                clients.insert(decision.client_id);
+        let index = load_index(store, tenant)?;
+        if observed_at_ms < index.watermark_ms {
+            return Err(QuotaError::TimeRegressed);
+        }
+        for client in index.clients.keys() {
+            if active_decision(store, tenant, client, observed_at_ms)?.is_some() {
+                clients.insert(client.clone());
             }
         }
         Ok(QuotaHealth {
@@ -461,40 +663,30 @@ fn active_decision(
     client_id: &str,
     observed_at_ms: u64,
 ) -> Result<Option<SheddingDecision>, QuotaError> {
-    let mut prefix = SHED_PREFIX.to_vec();
-    prefix.extend_from_slice(client_id.as_bytes());
-    prefix.push(0);
-    let mut latest: Option<SheddingDecision> = None;
-    for object_id in store.list_object_ids(tenant, ObjectKind::Configuration) {
-        if !object_id.starts_with(&prefix) {
-            continue;
-        }
-        let key = TenantKey::new(tenant.clone(), ObjectKind::Configuration, object_id)?;
-        let decision = decode_decision(
-            tenant.clone(),
-            store.get(&key).ok_or(QuotaError::CorruptDecision)?.bytes(),
-        )?;
-        if latest
-            .as_ref()
-            .is_none_or(|current| decision.observed_at_ms > current.observed_at_ms)
-        {
-            latest = Some(decision);
-        }
+    if observed_at_ms < index_watermark(store, tenant)? {
+        return Err(QuotaError::TimeRegressed);
     }
-    let Some(decision) = latest else {
+    let key = decision_key(tenant, client_id)?;
+    let Some(stored) = store.get(&key) else {
+        if load_index(store, tenant)?.clients.contains_key(client_id) {
+            return Err(QuotaError::CorruptDecision);
+        }
         return Ok(None);
     };
+    let decision = decode_decision(tenant.clone(), stored.bytes())?;
+    if decision.client_id != client_id {
+        return Err(QuotaError::CorruptDecision);
+    }
     if observed_at_ms < decision.observed_at_ms {
         return Err(QuotaError::TimeRegressed);
     }
     Ok((observed_at_ms < decision.shed_until_ms).then_some(decision))
 }
 
-fn decision_object_id(client_id: &str, observed_at_ms: u64) -> Vec<u8> {
+fn decision_object_id(client_id: &str, _observed_at_ms: u64) -> Vec<u8> {
     let mut object_id = SHED_PREFIX.to_vec();
     object_id.extend_from_slice(client_id.as_bytes());
     object_id.push(0);
-    object_id.extend_from_slice(&observed_at_ms.to_be_bytes());
     object_id
 }
 
@@ -562,4 +754,57 @@ fn decode_decision(tenant: TenantId, bytes: &[u8]) -> Result<SheddingDecision, Q
         retries_in_window: next()?,
         identical_operations: next()?,
     })
+}
+
+fn index_key(tenant: &TenantId) -> Result<TenantKey, QuotaError> {
+    Ok(TenantKey::new(
+        tenant.clone(),
+        ObjectKind::Configuration,
+        INDEX_ID.to_vec(),
+    )?)
+}
+
+fn decision_key(tenant: &TenantId, client: &str) -> Result<TenantKey, QuotaError> {
+    Ok(TenantKey::new(
+        tenant.clone(),
+        ObjectKind::Configuration,
+        decision_object_id(client, 0),
+    )?)
+}
+
+fn load_index(store: &Store, tenant: &TenantId) -> Result<DecisionIndex, QuotaError> {
+    match store.get(&index_key(tenant)?) {
+        Some(value) => {
+            let bytes = value.bytes();
+            let watermark = index_watermark(store, tenant)?;
+            let index: DecisionIndex =
+                serde_json::from_slice(bytes.get(8..).ok_or(QuotaError::CorruptDecision)?)
+                    .map_err(|_| QuotaError::CorruptDecision)?;
+            if index.watermark_ms != watermark {
+                return Err(QuotaError::CorruptDecision);
+            }
+            Ok(index)
+        }
+        None => Ok(DecisionIndex::default()),
+    }
+}
+
+fn encode_index(index: &DecisionIndex) -> Result<Vec<u8>, QuotaError> {
+    let mut bytes = index.watermark_ms.to_be_bytes().to_vec();
+    bytes.extend(serde_json::to_vec(index).map_err(|_| QuotaError::CorruptDecision)?);
+    Ok(bytes)
+}
+
+fn index_watermark(store: &Store, tenant: &TenantId) -> Result<u64, QuotaError> {
+    match store.get(&index_key(tenant)?) {
+        Some(value) => Ok(u64::from_be_bytes(
+            value
+                .bytes()
+                .get(..8)
+                .ok_or(QuotaError::CorruptDecision)?
+                .try_into()
+                .map_err(|_| QuotaError::CorruptDecision)?,
+        )),
+        None => Ok(0),
+    }
 }

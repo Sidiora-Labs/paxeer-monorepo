@@ -1,0 +1,9 @@
+[repair.22.33.460]
+finding = "verifier-default-only-tests"
+tests = ["http_client::populated::populated_root_round_trip", "http_client::populated::populated_non_root_round_trip", "http_client::populated::production_root_health_and_errors", "http_client::populated::production_non_root_health_and_errors"]
+test_path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_33_460.rs"
+proof = "Production HTTP clients serialize populated typed requests through loopback TCP into the generated Actix adapters; a committed typed-exchange peer checks complete request equality and the clients check complete response equality for all eleven Solidity, Vyper and Sourcify endpoints. Coverage includes source/interface maps, compiler settings, bytecode and enums, optional absent/empty/zero values, metadata, post-actions, both outer batch oneofs and both per-contract oneofs. Production launcher mounting and HealthService provide root and nested-mount probe, health and typed 404 error coverage; generated JSON extraction rejects malformed bodies with 400, and valid calls still succeed afterwards."
+retained = "The original solidity_service, vyper_service and sourcify_service default-value cases remain unchanged and also execute through the repair integration target."
+baseline = "Not executed: the explicit ordered gates prohibit testing before complete implementation and running verify_cmd by hand; no unchanged-tree failure is claimed. No earlier hf-build/hf-done gate ledger was present at session start."
+wiring_requests = []
+evidence = "The runner's bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; closure requires hf-done exit zero with matching build and verify revisions."
