@@ -8271,6 +8271,18 @@ value = "A migration creates or alters structure and may enqueue work with read-
 basis = "Explorer migration 20261104000000 locked the hosted database for hours in a restart loop (gotcha 2988)."
 affects = ["22.31.472", "22.31.468"]
 
+[decision.2527]
+title = "Explorer database TLS options are runtime configuration only"
+value = "The explorer backend's per-repo ssl_opts (peer verification, CA file selection, hostname check function) are set exclusively from config/runtime/prod.exs at startup. Build-time configuration (config/*.exs and apps/*/config/prod.exs) carries no ssl_opts and no function terms, so mix release can write it. A test reads the production build configuration and refuses any function value."
+basis = "Gotcha 2989: the 22.33.471 import of database_tls.exs into prod.exs made mix release fail on every explorer backend image build since 05:06Z on 2026-11-04; the runtime path already applied the same options."
+affects = ["22.31.473"]
+
+[decision.2528]
+title = "Explorer frontend tasks prove their spec files pass the production build lint"
+value = "Every task that adds or changes a file under apps/explorer runs eslint on the spec files it adds as part of its own qualification; test titles are strings and every test body asserts. The frontend image build runs eslint over the whole package, so a spec file that only type-checks is not qualified."
+basis = "Gotcha 2990: eight audit-repair spec files broke the frontend image build while their tsc and vitest gates passed."
+affects = ["22.31.474"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37161,6 +37173,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.475]
+title = "Reconcile the consensus AppHash with the application commit hash across a node restart"
+reqs = ["22998.1"]
+touches = ["node/sequencer", "node/node_start.go", "node/abci.go", "node/repair_22_31_475_test.go", "node/repair_22_31_475.kvx"]
+tests = []
+verification_contract = "go test -count=1 -run '^TestRepair475_' ./node/"
+do_1 = "do_1 22.33.1076 attempt 5 recorded that after committing three heights and restarting, the handshake in node/node_start.go line 208 rejected height three: the application hash 6869C4E57274EF62B9E7049396550A9C3FF66681D7DB5E47ACAA75045F368D59 differed from the consensus app hash 997A6D6A11195C23E9CD168CAAE1F164D2D955C18BA1BA354DDA859BB6E02CCC, while the persisted application hashes were identical before close, after a plain reopen and after a deletion-loader reopen. The disagreement is therefore between what consensus records for a height and what the application reports for it, not store corruption."
+symbols = []
+
+[capability.22.31.474]
+title = "Make the explorer frontend production build type-check and lint again"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts", "apps/explorer/lib/api/repair-22-31-379.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts", "apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts", "apps/explorer/lib/api/services/general/repair-22-33-289.spec.ts", "apps/explorer/lib/dependencyVersions.spec.ts", "apps/explorer/lib/metadata/templates/repair-22-33-295.spec.ts", "apps/explorer/lib/repair-22-31-448.spec.ts", "apps/explorer/lib/socket/repair-22-33-292.spec.ts", "apps/explorer/lib/repair-22-31-474.kvx"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn eslint lib/api/repair-22-31-379.spec.ts lib/api/services/general/paxeerX.spec.ts lib/api/services/general/repair-22-31-380.spec.ts lib/api/services/general/repair-22-33-289.spec.ts lib/dependencyVersions.spec.ts lib/metadata/templates/repair-22-33-295.spec.ts lib/repair-22-31-448.spec.ts lib/socket/repair-22-33-292.spec.ts ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts && yarn vitest run lib/api/repair-22-31-379.spec.ts lib/api/services/general/paxeerX.spec.ts lib/api/services/general/repair-22-31-380.spec.ts lib/api/services/general/repair-22-33-289.spec.ts lib/dependencyVersions.spec.ts lib/metadata/templates/repair-22-33-295.spec.ts lib/repair-22-31-448.spec.ts lib/socket/repair-22-33-292.spec.ts ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts"
+do_1 = "do_1 apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts line 116 passes approvalsQuery with an isIncomplete override into React.createElement(Content, ...) and fails TS2769, so yarn tsc --noEmit fails for every apps/explorer task (22.33.298 attempt 1 and the pending tasks that now require this one). Repair the spec so the props match the Content component's declared types without loosening the component."
+symbols = []
+
+[capability.22.31.473]
+title = "Guard the explorer release against function terms in build-time configuration"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/config", "services/explorer/backend/apps/explorer/test/repair", "services/explorer/backend/config"]
+tests = []
+verification_contract = "MIX_ENV=prod services/explorer/deploy/tools/mix-in-builder.sh release blockscout --overwrite && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/repair_22_33_471_test.exs apps/explorer/test/repair/repair_22_31_473_test.exs"
+do_1 = "do_1 Commit 9dabd5ce50 removed the import of config/database_tls.exs from services/explorer/backend/apps/explorer/config/prod.exs because mix release refuses function terms in build-time configuration (gotcha 2989, decision 2527); config/runtime/prod.exs still applies the TLS options at startup. Keep that split: build-time configuration carries no ssl_opts for any Explorer.Repo module."
+symbols = []
 
 [capability.22.31.472]
 title = "Requalify the explorer price-acceptance replay after the migration change and wire its runner into the indexer"
@@ -146719,6 +146758,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.474]
+title = "Make the explorer frontend production build type-check and lint again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.474"]
+interfaces = []
+do_1 = "do_1 apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts line 116 passes approvalsQuery with an isIncomplete override into React.createElement(Content, ...) and fails TS2769, so yarn tsc --noEmit fails for every apps/explorer task (22.33.298 attempt 1 and the pending tasks that now require this one). Repair the spec so the props match the Content component's declared types without loosening the component."
+do_2 = "do_2 The frontend image build runs eslint over the package and fails on eight spec files that call test(fn) with a function reference as the title (eslint-plugin-vitest valid-title and expect-expect): lib/api/repair-22-31-379.spec.ts, lib/api/services/general/paxeerX.spec.ts, lib/api/services/general/repair-22-31-380.spec.ts, lib/api/services/general/repair-22-33-289.spec.ts, lib/dependencyVersions.spec.ts, lib/metadata/templates/repair-22-33-295.spec.ts, lib/repair-22-31-448.spec.ts, lib/socket/repair-22-33-292.spec.ts. Give every test a string title and keep the assertions inside the test body so both rules pass; do not disable the rules and do not exclude spec files from the build lint."
+do_3 = "do_3 Run yarn lint:eslint once over the package and repair any further file it reports, listing each in apps/explorer/lib/repair-22-31-474.kvx; the verify runs eslint on the files named here and the vitest suites of all nine files so the repaired tests still prove what they proved before."
+do_4 = "do_4 Record in repair-22-31-474.kvx the two defects (TS2769 in the 299 spec, lint failures in eight specs) and decision 2528."
+symbols = []
+touches = ["apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts", "apps/explorer/lib/api/repair-22-31-379.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts", "apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts", "apps/explorer/lib/api/services/general/repair-22-33-289.spec.ts", "apps/explorer/lib/dependencyVersions.spec.ts", "apps/explorer/lib/metadata/templates/repair-22-33-295.spec.ts", "apps/explorer/lib/repair-22-31-448.spec.ts", "apps/explorer/lib/socket/repair-22-33-292.spec.ts", "apps/explorer/lib/repair-22-31-474.kvx"]
+tests = []
+planned_paths = ["apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts", "apps/explorer/lib/api/repair-22-31-379.spec.ts", "apps/explorer/lib/repair-22-31-474.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn eslint lib/api/repair-22-31-379.spec.ts lib/api/services/general/paxeerX.spec.ts lib/api/services/general/repair-22-31-380.spec.ts lib/api/services/general/repair-22-33-289.spec.ts lib/dependencyVersions.spec.ts lib/metadata/templates/repair-22-33-295.spec.ts lib/repair-22-31-448.spec.ts lib/socket/repair-22-33-292.spec.ts ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts && yarn vitest run lib/api/repair-22-31-379.spec.ts lib/api/services/general/paxeerX.spec.ts lib/api/services/general/repair-22-31-380.spec.ts lib/api/services/general/repair-22-33-289.spec.ts lib/dependencyVersions.spec.ts lib/metadata/templates/repair-22-33-295.spec.ts lib/repair-22-31-448.spec.ts lib/socket/repair-22-33-292.spec.ts ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.469]
 title = "Declare happy-dom for the web explorer end-to-end test instead of reaching into a nested package"
 status = "pending"
@@ -146867,7 +146937,7 @@ do_6 = "Prove each repair with a node test services/platform/middleware/conforma
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/middleware/conformance"]
+touches = ["services/platform/middleware/conformance", "services/platform/middleware/agent/src"]
 tests = ["services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"]
 planned_paths = ["services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"]
 build_cmd = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build && node --check services/platform/middleware/conformance/service.mjs"
@@ -146884,6 +146954,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue after the gate amendment): the build and verify commands now run npm ci from the repository root, build the package's dependencies with the root build:dependencies script, and build the package itself before the tests run; rerun the task against the amended gates and repair only what the tests then report."
+do_10 = "Attempt 3 (continue): the conformance restart case fails because the resumed submission's receipt reports reservationState reserved while its observation is committed; the resume path in services/platform/middleware/agent/src/daemon.ts promotes the receipt proof to committed without committing the reserved budget. That file is now in this task's paths: repair the resume path so a resumed receipt commits (or releases) the reservation together with the observation, and prove it through the conformance daemon fixture across a restart, which is the real producer to consumer path."
 
 [task.22.33.1479]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance/pay6 (part 1 of 1): test-gap"
@@ -150473,7 +150544,7 @@ title = "Repair audit record 22.30.153 medium findings in apps/explorer/types/ap
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.405", "22.31.406"]
+requires = ["22.31.405", "22.31.406", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.517"]
 interfaces = []
@@ -150502,13 +150573,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the strict EVM/kernel receipt union is an interface change, and an interface change carries its consumers: apps/explorer is now in the paths. Update the fifteen consumers the type-check reports (null guards where a branch cannot carry the field, fixture updates to the real producer shapes, no casts), then run the build and the verify once on the final revision and finish on one commit."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.516]
 title = "Repair audit record 22.30.152 medium findings in apps/explorer (part 1 of 1): wiring-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.402", "22.31.403", "22.31.404"]
+requires = ["22.31.402", "22.31.403", "22.31.404", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.516"]
 interfaces = []
@@ -150537,6 +150609,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.507]
 title = "Repair audit record 22.30.151 medium findings in apps/web/packages/layerx-ui/src/lib (part 1 of 1): security"
@@ -150932,7 +151005,7 @@ title = "Repair audit record 22.30.149 medium findings in apps/explorer/ui/token
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.398"]
+requires = ["22.31.398", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.466"]
 interfaces = []
@@ -150963,6 +151036,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn. Keep the implementation and re-run both commands on the current tree."
 do_10 = "Attempt 3 (continue): the attempt ran on the gate as it stood before the explorer type-check moved to corepack yarn (the pnpm and yarn mismatch); the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_11 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.465]
 title = "Repair audit record 22.30.149 medium findings in apps/explorer/ui/tokenInstance (part 1 of 1): runtime-risk, wiring-gap"
@@ -151006,7 +151080,7 @@ title = "Repair audit record 22.30.148 medium findings in apps/explorer/ui/rewar
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.275", "22.31.276"]
+requires = ["22.31.275", "22.31.276", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.453"]
 interfaces = []
@@ -151034,13 +151108,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.452]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/ui/rewards/dashboard/tabs (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.275", "22.31.276"]
+requires = ["22.31.275", "22.31.276", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.452"]
 interfaces = []
@@ -151068,13 +151143,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.451]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/apps (part 1 of 1): wiring-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.275", "22.31.276"]
+requires = ["22.31.275", "22.31.276", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.451"]
 interfaces = []
@@ -151102,13 +151178,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.450]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/api/monitoring (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.275", "22.31.276"]
+requires = ["22.31.275", "22.31.276", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.450"]
 interfaces = []
@@ -151136,13 +151213,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.449]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/api/tokens/[hash]/instances/[id] (part 1 of 1): security"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.275", "22.31.276"]
+requires = ["22.31.275", "22.31.276", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.449"]
 interfaces = []
@@ -151170,13 +151248,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.448]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/api (part 1 of 1): security"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.275", "22.31.276"]
+requires = ["22.31.275", "22.31.276", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.448"]
 interfaces = []
@@ -151204,13 +151283,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.423]
 title = "Repair audit record 22.30.145 medium findings in apps/explorer (part 1 of 1): config-drift"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.423"]
 interfaces = []
@@ -151238,6 +151318,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.419]
 title = "Repair audit record 22.30.145 medium findings in apps/web/policy (part 1 of 1): config-drift"
@@ -151355,7 +151436,7 @@ title = "Repair audit record 22.30.143 medium findings in apps/explorer/ui/home/
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395"]
+requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.407"]
 interfaces = []
@@ -151387,13 +151468,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn. Keep the implementation and re-run both commands on the current tree."
+do_12 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.387]
 title = "Repair audit record 22.30.141 medium findings in apps/explorer/ui/megaEth/uptime (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.271", "22.31.272", "22.31.388", "22.31.389"]
+requires = ["22.31.271", "22.31.272", "22.31.388", "22.31.389", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.387"]
 interfaces = []
@@ -151424,13 +151506,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn (22.31.380 a2). Keep the implementation and re-run both commands on the current tree."
 do_10 = "Attempt 3 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn and after 22.31.440 removed the ganache import; the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_11 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.386]
 title = "Repair audit record 22.30.141 medium findings in apps/explorer/ui/nameDomain/history (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.271", "22.31.272", "22.31.388", "22.31.389"]
+requires = ["22.31.271", "22.31.272", "22.31.388", "22.31.389", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.386"]
 interfaces = []
@@ -151459,6 +151542,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn (22.31.380 a2). Keep the implementation and re-run both commands on the current tree."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.371]
 title = "Repair audit record 22.30.140 medium findings in apps/explorer/ui/zetaChain/cctxDetails (part 1 of 1): runtime-risk"
@@ -152200,7 +152284,7 @@ title = "Repair audit record 22.30.138 medium findings in apps/explorer/ui/snipp
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.268"]
+requires = ["22.31.268", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.344"]
 interfaces = []
@@ -152229,6 +152313,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn (22.31.380 a2). Keep the implementation and re-run both commands on the current tree."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.343]
 title = "Repair audit record 22.30.138 medium findings in apps/explorer/ui/snippets/searchBar/SearchBarSuggest (part 1 of 1): runtime-risk"
@@ -152721,7 +152806,7 @@ title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/share
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.326"]
 interfaces = []
@@ -152752,6 +152837,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn and after 22.31.440 removed the ganache import; the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_11 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.325]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/entities/address (part 1 of 1): wiring-gap"
@@ -152830,7 +152916,7 @@ title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/share
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.323"]
 interfaces = []
@@ -152860,6 +152946,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 3 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn. Keep the implementation and re-run both commands on the current tree."
+do_10 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.322]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/Utilization (part 1 of 1): runtime-risk"
@@ -152969,7 +153056,7 @@ title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/share
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.319"]
 interfaces = []
@@ -152998,6 +153085,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn (22.31.380 a2). Keep the implementation and re-run both commands on the current tree."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.315]
 title = "Repair audit record 22.30.136 medium findings in apps/explorer/ui/pages (part 2 of 2): wiring-gap"
@@ -153115,7 +153203,7 @@ title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/multi
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.267", "22.31.381"]
+requires = ["22.31.267", "22.31.381", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.302"]
 interfaces = []
@@ -153146,13 +153234,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (continue): jsdom has no SVG geometry; stub SVGPathElement.prototype.getTotalLength and getPointAtLength in the vitest setup for this test so the chart renders, and keep the assertions on the rendered output."
+do_11 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.301]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace (part 1 of 1): wiring-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.267", "22.31.381"]
+requires = ["22.31.267", "22.31.381", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.301"]
 interfaces = []
@@ -153181,13 +153270,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.300]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/lib (part 1 of 1): runtime-risk"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.267", "22.31.381"]
+requires = ["22.31.267", "22.31.381", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.300"]
 interfaces = []
@@ -153216,6 +153306,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 3 (continue): repair-22-33-300.spec.ts fails type checking with TS2345 because the events field is missing from the fixture object; add it, commit, and requalify."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.299]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/components (part 1 of 1): wiring-gap"
@@ -153256,7 +153347,7 @@ title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marke
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.267", "22.31.381"]
+requires = ["22.31.267", "22.31.381", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.298"]
 interfaces = []
@@ -153285,6 +153376,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue after 22.31.474): the type check failed in apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts line 116 (TS2769), a spec another task published; 22.31.474 repairs it and this task now requires it. Rerun on current main, run eslint on the spec files this task adds (decision 2528) and repair only what the task's own tests report."
 
 [task.22.33.297]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks (part 1 of 2): runtime-risk"
@@ -153366,7 +153458,7 @@ title = "Repair audit record 22.30.134 medium findings in apps/explorer/ui/addre
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.379", "22.31.380"]
+requires = ["22.31.379", "22.31.380", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.294"]
 interfaces = []
@@ -153394,6 +153486,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.293]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/ui/address/utils (part 1 of 1): config-drift, runtime-risk"
@@ -153729,7 +153822,7 @@ title = "Repair audit record 22.30.133 medium findings in apps/explorer/ui/block
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.377", "22.31.378"]
+requires = ["22.31.377", "22.31.378", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.281"]
 interfaces = []
@@ -153761,6 +153854,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 2 (continue): the explorer type-check failed on the ganache import of the 22.31.381 test, repaired by 22.31.440 (published), or on the package manager mismatch of apps/explorer, which pins yarn; the build and verify commands now install and type-check through corepack yarn (22.31.380 a2). Keep the implementation and re-run both commands on the current tree."
+do_12 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.276]
 title = "Repair audit record 22.30.132 medium findings in apps/web/copy (part 1 of 1): retired-reference"
@@ -153876,7 +153970,7 @@ title = "Repair audit record 22.30.131 medium findings in apps/explorer/toolkit/
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.376"]
+requires = ["22.31.376", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.272"]
 interfaces = []
@@ -153905,6 +153999,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn and after 22.31.440 removed the ganache import; the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.271]
 title = "Repair audit record 22.30.131 medium findings in apps/explorer/toolkit/components/forms/inputs/file (part 1 of 1): runtime-risk"
@@ -153947,7 +154042,7 @@ title = "Repair audit record 22.30.131 medium findings in apps/explorer/toolkit/
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.376"]
+requires = ["22.31.376", "22.31.474"]
 reqs = ["22998.1"]
 capabilities = ["22.33.270"]
 interfaces = []
@@ -153977,6 +154072,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the batch that moved the explorer type-check to corepack yarn and after 22.31.440 removed the ganache import; the current build and verify commands install and type-check through yarn. Keep the implementation and re-run both commands on the current tree."
+do_10 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
 
 [task.22.33.269]
 title = "Repair audit record 22.30.131 medium findings in apps/explorer/toolkit/chakra (part 1 of 1): runtime-risk, wiring-gap"
@@ -157025,6 +157121,7 @@ do_15 = "Attempt 2 (continue): the build passes and the four failing cases expos
 do_16 = "Attempt 3 (requalify): the build passes and the ABI-derived expectations and the lifecycle isolation was made after the last verify, so the final revision is unverified. Re-run the build and the verify command once on the final revision; repair only what that run reports, verify again, and make no commit after the pass."
 do_17 = "Attempt 4 (continue): eighteen of twenty cases pass; the daemon probe case fails with a bare agent-operation-envelope qualification failed, and the exchange account-bearing request case fails with it. Make the envelope probe helper in the SDK test tree surface the qualifier's reason (which field or signature it refused), then fix the fixture or the probe so the hosted authentication and disclosure headers the production envelope requires are present on the recorded request; finish on one commit after the verify passes."
 do_18 = "Attempt 5 (continue, after 22.31.459 lands): the exchange account-bearing request case failed four times because the precompile serves only the five-argument placeOrder while the SDK encodes the six-argument form the ABI declares; that producer gap is repaired by task 22.31.459, which this task now requires. Take the current head once it has landed, keep the account-bearing assertion as written (never weaken it to the five-argument form), run the build and the verify once on the final revision, and make no commit after the pass."
+do_19 = "Attempt 6 (continue): 22.31.459 is on main and placeOrder admits six arguments through ValidateArgsLength(args, count) with count set to six at the signature switch; the preserved assertion matches the literal text ValidateArgsLength(args, 6) and therefore fails against a correct producer. Replace the source-text regex with a behavioural check (encode a six-argument placeOrder call with the account id and prove the handler admits it and refuses the five-argument form) and rerun."
 
 [task.22.33.21]
 title = "Repair audit record 22.30.101 medium findings in services/agent/sdk/typescript/src (part 2 of 2): config-drift, interface-mismatch, runtime-risk"
@@ -165019,6 +165116,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.473]
+title = "Guard the explorer release against function terms in build-time configuration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.473"]
+interfaces = []
+do_1 = "do_1 Commit 9dabd5ce50 removed the import of config/database_tls.exs from services/explorer/backend/apps/explorer/config/prod.exs because mix release refuses function terms in build-time configuration (gotcha 2989, decision 2527); config/runtime/prod.exs still applies the TLS options at startup. Keep that split: build-time configuration carries no ssl_opts for any Explorer.Repo module."
+do_2 = "do_2 Add services/explorer/backend/apps/explorer/test/repair/repair_22_31_473_test.exs that reads the umbrella build configuration for the prod environment with Config.Reader.read!(config/config.exs, env: :prod) from services/explorer/backend, walks every term and refuses any function value or other term mix release cannot write; and that reads apps/explorer/config/runtime/prod.exs and asserts every repo gets verify_peer with a two-arity match_fun, so the two halves of decision 2527 are both proven."
+do_3 = "do_3 Run the production release once in the qualification environment through services/explorer/deploy/tools/mix-in-builder.sh with MIX_ENV=prod (the same mix release blockscout step the backend Dockerfile runs) and confirm it writes the release configuration; record the release output path in repair_22_31_473.kvx."
+do_4 = "do_4 If the repair_22_33_471 test or any other configuration test still reads prod.exs for TLS assertions, point it at the runtime configuration; do not reintroduce an import of database_tls.exs into prod.exs."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/config", "services/explorer/backend/apps/explorer/test/repair", "services/explorer/backend/config"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/config/prod.exs", "services/explorer/backend/apps/explorer/config/runtime/prod.exs", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_473_test.exs", "services/explorer/backend/apps/explorer/test/repair/repair_22_31_473.kvx"]
+build_cmd = "MIX_ENV=prod services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "MIX_ENV=prod services/explorer/deploy/tools/mix-in-builder.sh release blockscout --overwrite && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/repair_22_33_471_test.exs apps/explorer/test/repair/repair_22_31_473_test.exs"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit; the prod.exs change of 9dabd5ce50 stays."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -182133,7 +182261,7 @@ title = "Repair audit record 22.30.106 medium findings in services/human/crates/
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.155", "22.31.156", "22.31.443"]
+requires = ["22.31.155", "22.31.156", "22.31.443", "22.31.475"]
 reqs = ["22998.1"]
 capabilities = ["22.33.47"]
 interfaces = []
@@ -185182,6 +185310,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command is the whole gate (gotcha 2962)."
 do_15 = "The candidate carries only sources under the touches and the test file: no helper project of another toolchain, no compiled cache, no .cgignore edit (gotcha 2966); the verify command runs last on the final tree and nothing changes after it (gotcha 2967)."
+do_16 = "Attempt 3 (continue): the candidate 9863017f636b built but the repair budget ended before its verification ran; the last verification showed three tests panicking at crates/layerx-agentd/tests/repair_22_31_219.rs line 41 column 26 while unwrapping Unavailable or ItemUnproven from the history and finalization queries (suspend-resume-archive-reopen, commit inclusion, window completeness). Rerun the repaired candidate on current main and repair only what those three tests still report."
 
 [task.22.31.218]
 title = "Repair audit record 22.30.92 findings in services/agent/crates/layerx-agentd/src/read: interface-mismatch, wiring-gap"
@@ -187781,6 +187910,7 @@ do_7 = "Attempt 6 (continue): native_f03_schedule_capacity_role_conflicts_and_re
 do_8 = "Attempt 7 (continue): run each of the 19 failing targets alone and classify before repairing. Assertions on chain-domain shapes that ABI 5 changed (decision 2516) are updated to what the producer now emits. The native bring-up refusing the 603,517-byte guest is a size bound in the crate's host boundary that no longer matches the guest the build produces: derive the bound from the guest the build emits or raise it, never trim the guest by hand. The admission-reader failures inherited from the earlier repair belong to this task (every test the verify runs is this task's, gotcha 2971), including the repair_22_31_254 target. A target that needs a toolchain or artifact the qualification environment cannot provide is recorded in the task record with the exact command and refusal, not left failing."
 do_9 = "Attempt 8 (continue): eight cases fail with application error 1 (BAD_VERSION in the crate's errors.rs) where they expect 15, 22 and the binding refusals: the shared test support encodes applications with a version behind the current one. Encode with the current version in the support module, re-run the full crate suite and finish on one commit. The compiled guest must fit the protocol's deployment payload limit as it stands: shrink the guest build (size-optimised release profile, stripped symbols) inside this crate; the kernel limit and the chain Makefile stay as they are."
 do_10 = "Attempt 9 (continue after 22.31.464): (1) the chain-domain case fails only because the Makefile default and tests/ci/test_paxai_chain_domain.py still carry the chain 229 domain; 22.31.464 moves them to the chain 125 domain the crate derives (62b6b147...71f6), so the case passes once that lands; the crate test must not read PAXAI_CHAIN_DOMAIN from the compile environment when the gate does not set it (derive the expectation from the merged chain id). (2) The guest is 553,319 bytes against the 524,288-byte payload limit less the 106-byte header: remove the attempt-8 build.rs, guest-release.sh and guest-release.rustflags (their link flags conflict with the rlib output) and the test's environment overrides so the guest builds exactly as the Makefile target paxai-host-boundary-build builds it, and shrink it with a per-package release override in programs/Cargo.toml (profile.release.package.layerx-programs-ai-market with opt-level z), now in scope, and by removing formatting and string payloads from guest paths; the limit is not raised. (3) Every native_ case and the rewards and evaluator host cases fail at bring-up for the same size reason and pass once the guest fits. Run the full crate suite and finish the repair record."
+do_11 = "Attempt 10 (continue): two residual failures remain after the guest fits at 512760 bytes. First, native_f03_schedule_capacity_role_conflicts_and_revocation asserts 0 but gets -3 at crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs line 2767 (a role-conflict or revocation return code). Second, every_routed_operation_fits_the_protocol_cpu_fuel_cap fails only on OPEN_EPOCH at height 896 with state 46461, which costs 1000034 fuel against the 1000000 cap (34 over); every other operation fits. Repair the OPEN_EPOCH path's cost at that state size (avoid the rescan or allocation that grows with state) and the schedule-capacity return, rerun the two suites, and stop."
 
 [task.22.99.76]
 title = "Repair the inventory sweep target layerx-programs-runtime"
@@ -196847,6 +196977,37 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.31.475]
+title = "Reconcile the consensus AppHash with the application commit hash across a node restart"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.475"]
+interfaces = []
+do_1 = "do_1 22.33.1076 attempt 5 recorded that after committing three heights and restarting, the handshake in node/node_start.go line 208 rejected height three: the application hash 6869C4E57274EF62B9E7049396550A9C3FF66681D7DB5E47ACAA75045F368D59 differed from the consensus app hash 997A6D6A11195C23E9CD168CAAE1F164D2D955C18BA1BA354DDA859BB6E02CCC, while the persisted application hashes were identical before close, after a plain reopen and after a deletion-loader reopen. The disagreement is therefore between what consensus records for a height and what the application reports for it, not store corruption."
+do_2 = "do_2 Determine which side is wrong by reading the three producers: node/sequencer/executor.go line 263 sets the block header AppHash from CommitMultiStore().LastCommitID().Hash before the block executes (the previous height's hash, as the header contract requires); node/sequencer/driver.go line 83 writes the committed record's AppHash; node/abci.go Commit (line 284) publishes LastCommitID().Hash after the commit; node_start.go line 208 compares the committed record's AppHash with LastCommitID().Hash at the same height. If the committed record stores the header's pre-execution hash while the handshake compares the post-commit hash, the record is off by one height; repair the producer so the committed record carries the post-commit hash of its own height (or the handshake compares like with like), with the surrounding Replicator.Release path (node_start.go line 236) adjusted consistently."
+do_3 = "do_3 Add node/repair_22_31_475_test.go with TestRepair475_ cases that start the application in a temporary home, commit heights one to three through the production FinalizeBlock and Commit path, close it, reopen it through the same start handshake node_start.go uses, and prove the handshake accepts every height with equal hashes; include one case that corrupts the persisted record and proves the handshake refuses it, so the comparison stays real."
+do_4 = "do_4 Record in node/repair_22_31_475.kvx which producer was wrong, the heights and hashes observed, and that 22.33.1076 and 22.33.47 depend on this repair."
+symbols = []
+touches = ["node/sequencer", "node/node_start.go", "node/abci.go", "node/repair_22_31_475_test.go", "node/repair_22_31_475.kvx"]
+tests = []
+planned_paths = ["node/sequencer/driver.go", "node/sequencer/executor.go", "node/node_start.go", "node/repair_22_31_475_test.go", "node/repair_22_31_475.kvx"]
+build_cmd = "go build ./node/... && go vet ./node/sequencer/"
+verify_cmd = "go test -count=1 -run '^TestRepair475_' ./node/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.471]
 title = "Pass the sealed object bound to the storage GetBytes caller in the launchpad user service"
 status = "pending"
@@ -199554,7 +199715,7 @@ do_6 = "Real means the component under repair is the production code; its peers 
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_8 = "Verification runs only the TestRepairM_1277_* functions of repair_m1277_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["interchain/testing/mock"]
+touches = ["interchain/testing/mock", "interchain/modules/apps/27-interchain-accounts/controller/keeper"]
 tests = ["interchain/testing/mock/repair_m1277_test.go"]
 planned_paths = ["interchain/testing/mock/repair_m1277_test.go"]
 build_cmd = "go build ./interchain/testing/mock/..."
@@ -199571,6 +199732,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_10 = "Attempt 3 (continue): TestRepairM_1277_SimappRestartRecovery fails because the interchain accounts controller port (interchainaccounts) is not bound after a genesis export and import, so the restarted application lacks the capability. The controller keeper's genesis is now in this task's paths: make InitGenesis in interchain/modules/apps/27-interchain-accounts/controller/keeper/genesis.go bind the controller port when the capability is absent and ExportGenesis carry the bound ports, then prove the restart recovery through the real export and import path."
 
 [task.22.33.1276]
 title = "Repair audit record 22.30.64 medium findings in interchain/testing (part 1 of 1): config-drift, doc-drift, runtime-risk, test-gap"
@@ -200096,6 +200258,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (continue): the fee fixture sets a minimum fee per gas of 1000000001, above the maximum the evm parameter validation admits (modules/evm/types, default maximum 1000 gwei). The fixture uses a fee within the parameter bounds; the bound is not widened to fit a fixture. Run the build and the verify once on the final revision with no commit after the pass."
 do_15 = "Attempt 4 (continue after 22.31.463): the test binary of modules/evm/keeper could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-3 tree and rerun the gates on a base containing 22.31.463."
+do_16 = "Attempt 5 (continue): the only remaining failure is TestRepairM_1242_014_PrecompileVersions, which expects the wasmd precompile version v6.5 while the module reports v6.4.0. Align the expectation with the version the wasmd module declares in this repository (do not bump dependencies); if the precompile advertises a version string that must track the module, derive it from the module's version constant instead of a literal, and rerun."
 
 [task.22.33.1241]
 title = "Repair audit record 22.30.60 medium findings in modules/evm/client/wasm (part 1 of 1): runtime-risk"
@@ -206022,6 +206185,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 2 (continue): the live-generation and inventory tests fail because receipt qualification rejects source log five of blocks 33963716 to 33963733: the Treasury code epoch at 0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723 is not among the recorded fixture epochs. Record the Treasury code epoch for that address at block 33963716 from the public node (eth_getCode at the api1.mainnet-beta.paxeer.network root endpoint) into the test fixtures, keep the qualification strict, and rerun; the public-bridge wiring request stays in the record."
 
 [task.22.33.999]
 title = "Repair audit record 22.30.33 medium findings in services/launchpad/indexer/internal/config (part 1 of 1): config-drift"
@@ -322176,7 +322340,7 @@ title = "Repair audit record 22.30.43 medium findings in tests/daemon (part 1 of
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.78", "22.31.463"]
+requires = ["22.31.78", "22.31.463", "22.31.475"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1076"]
 interfaces = []
@@ -322210,6 +322374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_11 = "Attempt 3 (continue): sixteen cases pass; f018 and f019 fail because tests/daemon/fixtures/programs-commit-reopen.json does not exist. This task is the node runtime domain itself, so there is no other domain to ask: produce the recording once at implementation time with the in-repo node (the isolated-chain fixture of tests/daemon, paxeer_x_runtime_fixture.py, with the Go toolchain the gate provides), drive the programs call to block commitment and a reopen, commit the JSON recording under tests/daemon/fixtures, and let the two cases replay it (the 22.33.47 pattern). Never a replay server manufacturing commitments, never a wiring request; run the build and the verify once on the final revision with no commit after the pass."
 do_12 = "Attempt 4 (continue): the recorder (tests/daemon/recorder/main.go) reopens the node and the handshake replay reports state.AppHash does not match AppHash after replay. First check that the recorder opens the application identically both times: the same persisted home directory, the same application store backend (a persisted store, not a fresh in-memory one), the same genesis and the same programs runtime configuration; most replay app-hash mismatches in test recorders come from reopening a persisted consensus store against a fresh application store. If the production node, reopened on its own persisted directory with an identical construction, still replays its last block to a different app hash, that is a determinism defect of the node's programs-call execution path: record the height and both hashes in the task record as a finding for the node runtime and stop; the recording cannot be made until that is repaired."
 do_13 = "Attempt 5 (continue after 22.31.463): the recorder in tests/daemon/recorder could not be built because command packages still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries them along. On a base containing it, produce tests/daemon/fixtures/programs-commit-reopen.json with the recorder as the attempt-4 ruling says (the same persisted home directory, the same application store backend, the same genesis, then tell a recorder reopen defect apart from a node determinism defect); the 16 passing cases stay as they are."
+do_14 = "Attempt 6 (continue after 22.31.475): attempt 5 proved the restart handshake rejects height three because the consensus app hash and the application commit hash of the same height differ while the persisted application hashes are stable; that defect is repaired by 22.31.475, which this task now requires. Keep the recorder and the restart cases of attempt 5, rerun them on current main after the repair, and complete the record with the accepted handshake."
 
 [task.22.33.1067]
 title = "Repair audit record 22.30.42 medium findings in tools/launchpad/production/feature-acceptance/tests (part 1 of 1): test-gap"
@@ -369727,6 +369892,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 2 (continue): eleven cases fail because they assert behaviour the production code does not yet have: the capability decoder of the paxeer_x controllers accepts ABI payloads with a missing tail, a zero or unaligned or outside offset, invalid address padding and truncated strings or lengths, the feed cursors do not match the documented shape, and the API v2 OpenAPI document has no 404 schema for the refused market observations. Those are the audit's medium findings, so the repairs are in scope: refuse each malformed payload in the decoder, return the documented cursor shape, add the 404 schema to the module that produces the OpenAPI document (record its path in the attempt), with the controllers' lib directory now in touches, and finish on one commit."
 do_12 = "Attempt 4 (continue): apply the decoder repair to services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex (now in this task's paths) for the seven malformed-ABI cases the test reports; the prepared patch from attempt 3 is the starting point."
+do_13 = "Attempt 5 (continue): the seven failures are the inherited ABI decoder cases in apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex, which has been in this task's paths since the attempt-3 ruling; attempt 4 started before that ruling reached it. Repair the decoder there (unified_account must follow the canonical variant and non-producer ABIs must reject outside offsets) and rerun."
 
 [task.22.33.411]
 title = "Repair audit record 22.30.143 medium findings in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account (part 1 of 1): retired-reference"
