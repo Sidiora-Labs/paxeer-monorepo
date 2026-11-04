@@ -28,6 +28,7 @@
  "transactions": [
   {
    "hash": "0xecf7118314ab2def8fe515f114b02a1b7c470eebe3d571553eb2c050853f4ece",
+   "chain_id": "229",
    "block_number": 2,
    "index": 0,
    "from_address_hash": "0xa7dcef9aef26202fce82a7c7d6672afb3a149db2",
@@ -40,6 +41,7 @@
   },
   {
    "hash": "0xcb0222947371836cd00841377dfc7d4a1d18e8f037678d5df4303432b11f0cd7",
+   "chain_id": "229",
    "block_number": 2,
    "index": 1,
    "from_address_hash": "0xa7dcef9aef26202fce82a7c7d6672afb3a149db2",
@@ -52,6 +54,7 @@
   },
   {
    "hash": "0x31ca3affea50e5f80a380d5e87c5a890f961107bc0321c90c8367342d151192b",
+   "chain_id": "229",
    "block_number": 2,
    "index": 2,
    "from_address_hash": "0xa7dcef9aef26202fce82a7c7d6672afb3a149db2",
@@ -64,6 +67,7 @@
   },
   {
    "hash": "0xa8d6635bb2a7643117bbdce00f0e98704e789c8f5ccc42d6a25f2910f980a877",
+   "chain_id": "229",
    "block_number": 2,
    "index": 3,
    "from_address_hash": "0xa7dcef9aef26202fce82a7c7d6672afb3a149db2",
@@ -76,6 +80,7 @@
   },
   {
    "hash": "0xa2ff63e71947e4ac301e7738f7492d1e44ae0bcd2341cba3375583b85f255fa2",
+   "chain_id": "229",
    "block_number": 3,
    "index": 0,
    "from_address_hash": "0xb5d577dc9ce59725e29886632e69ecdf3b6ca49c",

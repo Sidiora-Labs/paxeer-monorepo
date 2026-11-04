@@ -1,0 +1,26 @@
+[repair.22.33.1366]
+audit = "22.30.74"
+finding = "tls-probe-process-deadline"
+source_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+implementation = "Every exact TLS probe uses the shared real process supervisor with a monotonic 30-second deadline, a combined 64-KiB stdout/stderr limit, nonblocking capture and kill/wait cleanup on failure. Both output streams remain bounded even if a descendant inherits a writer; capture has no blocking reader threads. All six certificate/hostname cases, response equality, exit-status and execution-marker assertions are retained."
+proof = "The integration test imports the same supervisor invoked by tls_boundary::qualify, starts its own test executable as the real probe, and drives actual loopback TCP request/response and stalled reads. Deadline and stdout/stderr flood failures assert killed status and Linux process disappearance after wait; successful and failed probes retain output and exit status. No external executable, toolchain, service or preconfigured environment is required."
+baseline = "Not run: the explicit gate order forbids tests before implementation and forbids invoking verify_cmd by hand; no baseline behavioral failures are claimed."
+prior_attempt = "The previous verification through services/platform/Cargo.toml exited 101 before executing tests because the virtual workspace manifest has no repair_22_33_1366 test target (gotcha 2984). The hosted internal crate now includes the existing proving tests as its integration target, preserving their exact names for child-process selection."
+qualification = "Only hf-build followed by hf-done is authorized. The private gate ledger records the exact candidate revision, command, exit code and evidence path; this record makes no claim of passing qualification."
+scope = "The task forbids edits to spec files and GOTCHA.kvx; task-specific findings, proof and wiring requests are recorded here instead."
+
+[finding.tls-probe-process-deadline]
+tests = ["tls_probe_deadline_kills_and_reaps_stalled_client", "tls_probe_stdout_limit_kills_and_reaps_client", "tls_probe_stderr_limit_kills_and_reaps_client", "tls_probe_captures_real_client_response_and_both_outputs", "tls_probe_preserves_failed_client_status_and_diagnostics", "tls_probe_spawn_failure_is_reported"]
+
+[wiring.integration-target]
+resolved = "services/platform/hosted/internal/tests/repair_22_33_1366.rs includes services/platform/tests/repair_22_33_1366.rs at crate root; its shared process supervisor is the same module called by tls_boundary::qualify. The task's declared gates use the hosted internal crate manifest. No out-of-path wiring remains."
+
+[qualification.continued-build]
+revision = "464b896188509b88d60c0ed67b64aeaf28d5df53"
+command = "cargo build --locked --manifest-path services/platform/hosted/internal/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The unrelated existing repair_22_31_356 target fails with E0432 because included services/platform/hosted/identity/src/main.rs imports seal and verification missing from that test's layerx_platform_identity crate root; hf-done requires a passing build, so no verification ran."
+
+[wiring.identity-test-interface]
+resolved = "Attempt 6 authorizes services/platform/hosted/internal/tests/repair_22_31_356.rs to include the real identity seal.rs and verification.rs modules by path beside its mailer, signup and store shims, matching the included main.rs imports without changing the identity crate. Build and verification must qualify the same final candidate in the private gate ledger."

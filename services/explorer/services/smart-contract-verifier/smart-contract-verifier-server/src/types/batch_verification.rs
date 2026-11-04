@@ -24,11 +24,7 @@ pub fn compilation_error(message: impl Into<String>) -> BatchVerifyResponse {
 pub fn process_error(error: Error) -> Result<BatchVerifyResponse, Status> {
     match error {
         err @ Error::CompilerNotFound(_) => Err(Status::invalid_argument(err.to_string())),
-        err @ Error::Internal(_) => {
-            let formatted_error = format!("{err:#?}");
-            tracing::error!(err = formatted_error, "internal error");
-            Err(Status::internal(formatted_error))
-        }
+        err @ Error::Internal(_) => Err(super::errors::internal_error_status(err)),
         err @ Error::NotConsistentBlueprintOnChainCode { .. } => {
             Err(Status::invalid_argument(err.to_string()))
         }
@@ -67,7 +63,9 @@ fn process_verification_result(
         });
     }
 
-    let verifying_contract = value.into_iter().next().unwrap();
+    let verifying_contract = super::verification_result::select_best_match(&value)
+        .expect("nonempty verification result")
+        .clone();
 
     let verification_result = proto::contract_verification_result::VerificationResult::Success(
         proto::ContractVerificationSuccess {

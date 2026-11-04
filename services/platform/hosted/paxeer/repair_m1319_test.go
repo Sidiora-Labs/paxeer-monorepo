@@ -238,8 +238,8 @@ func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
 		t.Fatal("bootstrap no longer uses maintained native initializer")
 	}
 	wrapper := repair1319Read(t, "init-chain.sh")
-	if !bytes.Contains(wrapper, []byte(`exec "$SCRIPT_DIR/../node/bootstrap.sh" "$@"`)) {
-		t.Fatal("compatibility entrypoint must hand off to native bootstrap")
+	if !bytes.Contains(wrapper, []byte(`exec paxeer-native-tool bootstrap --bootstrap-script "$SCRIPT_DIR/../node/bootstrap.sh" "$@"`)) {
+		t.Fatal("compatibility entrypoint must guard immutable inputs before handing off to native bootstrap")
 	}
 	for _, retired := range []string{"layerxcustody", "deposit_root_authority", "sequencer_authorizations", "custody-genesis.py"} {
 		if bytes.Contains(wrapper, []byte(retired)) {
@@ -553,10 +553,8 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 
 func TestRepairM_1319_EVMToolRetirement(t *testing.T) {
 	repair467Restored(t, "evm.py")
-	helper := repair1319Read(t, "settlement-domain.py")
-	if bytes.Contains(helper, []byte("from evm import")) || !bytes.Contains(helper, []byte("from layerx_sdk.account_derivation import keccak256 as keccak")) {
-		t.Fatal("historical public-data helper no longer uses the maintained SDK Keccak")
-	}
+	repair1319Absent(t, "settlement-domain.py")
+	repair1319Absent(t, "prepare-beta.py")
 	for _, action := range []string{"address", "public-key", "calldata", "chain-id", "balance", "call", "send"} {
 		var output bytes.Buffer
 		if err := RunDeployment([]string{action, "deployment-profile.json"}, &output); err == nil || output.Len() != 0 {

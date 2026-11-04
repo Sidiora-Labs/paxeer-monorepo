@@ -1,0 +1,34 @@
+[meta]
+task = "22.33.1244"
+audit_record = "spec/layerx-merge/programme/audit/records/22.30.60.kvx"
+acceptance = "22998.1"
+test_file = "modules/evm/repair_m1244_test.go"
+continuation = "Attempt 4 preserves the five implementation paths from attempt 3 and supplies the missing declared repair record (gotcha 3027)."
+
+[finding.020]
+class = "restart-recovery"
+repair = "Both genesis export prefix lists preserve BaseFeePerGasPrefix, NextBaseFeePerGasPrefix, LegacyBlockBloomCutoffHeightKey and EvmOnlyBlockBloomPrefix alongside BlockBloomPrefix."
+tests = ["TestRepairM_1244_OrdinaryRestartRecovery", "TestRepairM_1244_StreamRestartRecovery"]
+proof = "Production keeper writers produce nonminimum current and next fees and distinct block/EVM blooms; the module exports through its JSON codec and imports into a fresh node store, commits, closes and reopens it. Recovered fee consumers, legacy cutoff interpretation, both bloom formats and streamed chunk boundaries are asserted."
+
+[finding.032]
+class = "doc-drift"
+repair = "The Ante Handler Pipeline documents mounted and optimized admission, root versus active registered tenant routing, preprocessing signature recovery, fee purchase and nonce ordering, and the distinct Associate paths; node ante comments reference the guide."
+tests = ["TestRepairM_1244_AntePipelineGuide", "TestRepairM_1244_AssociatePaths"]
+proof = "Signed transactions cross the node codec into the real mounted and optimized ante handlers using real keepers and stores. Assertions cover root context clearing, tenant admission and fees, pending/delivery nonces, fee and BuyGas ordering, delivery StatelessChecks, wrapper rejection and Associate state writes."
+
+[baseline]
+inherited_revision = "1d35945d2079036f3ae5a9de77f2d5def7813e3d"
+inherited_result = "Attempt 3 passed the focused tests; cg spec done refused completion solely because this repair record was unwritten."
+prior_failure = "Attempt 1 did not compile because the test called the unexported/nonexistent tmed25519.GenPrivKey; the inherited implementation uses tmed25519.GenerateSecretKey."
+prechange_assertions = "No pre-implementation assertion results are available in this continuation; no claim is made that any named test failed before the repair. The attempt-4 ruling requires preserving the inherited implementation and running only the final build and verify gates."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+evidence = "/out/run/gates.jsonl records the final candidate revision, exact command, exit code and private log location for each gate."
+test_log = "/tmp/repair-m1244.log"
+
+[wiring]
+requests = []
+reason = "Both proposals and their proving tests are implemented within the declared task paths; no out-of-path wiring step is required."

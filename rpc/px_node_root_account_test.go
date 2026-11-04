@@ -440,6 +440,15 @@ func pxRootAssertSchema(t *testing.T, method string, value interface{}) {
 // Validate the JSON Schema keywords used by these OpenRPC results, including
 // their nested null branches and closed objects, without rewriting the schemas.
 func pxRootSchema(schema map[string]interface{}, value interface{}, path string) error {
+	if branches, ok := schema["anyOf"].([]interface{}); ok {
+		matched := false
+		for _, branch := range branches {
+			matched = matched || pxRootSchema(branch.(map[string]interface{}), value, path) == nil
+		}
+		if !matched {
+			return fmt.Errorf("%s matches no anyOf branch", path)
+		}
+	}
 	if branches, ok := schema["oneOf"].([]interface{}); ok {
 		matches := 0
 		for _, branch := range branches {

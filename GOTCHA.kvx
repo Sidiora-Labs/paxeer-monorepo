@@ -14965,3 +14965,78 @@ fix = "A declared path is a commitment: the attempt writes it or the ruling remo
 title = "The approval service refuses every awaiting hold with ClockRequired"
 symptom = "services/agent/crates/layerx-agentd/src/approval/mod.rs ApprovalService::list, get, approve and reject take a current sequence and no time, and reach the policy's validate_for_read in policy/approval.rs with no clock, which refuses with ClockRequired after reserve_and_hold_at has succeeded. 22.33.44 attempt 4 (2026-11-04 18:40Z) hit it in seven of fifteen human-service cases that drive the real service."
 fix = "Task 22.31.495 threads explicit time through the four service entry points into the timed policy functions; 22.33.44 requalifies after it."
+
+[gotcha.3029]
+title = "The current key-rotation lifecycle payload is refused by the disclosure binder and by the auth module"
+symptom = "layerx_intents::compile turns a KeyRotation intent into a 92-byte lifecycle payload with tag bytes 0x71 0x02 and four fields (owner digest, pending key, challenge bounds, effective sequence) under activity type governance/2. services/agent/crates/layerx-crypto/src/disclosure/call.rs binds recordLifecycle payloads only with tag byte 1 or 3 in four fixed shapes and refuses the rotation as MalformedPayload, and modules/layerxauth/keeper/lifecycle.go refuses any payload whose second byte is not 1 or 3 as non-canonical. 22.33.44 attempt 4 of the human service (2026-11-04 18:50Z) failed both rotation cases on the binder before custody."
+fix = "Decision 2540 and task 22.31.496: the binder and the module admit the compiler's rotation payload and forward it as activity type 0x00070002; 22.33.63 requalifies after it."
+
+[gotcha.3030]
+title = "22.33.593's paths named a crate directory that does not exist"
+symptom = "The task's paths placed services/mod.rs, verification_metrics.rs, vyper_verifier.rs, the task record and the test under services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/services, a directory the library crate does not have; the attempts wrote them under the server crate's src/services and were refused twice as outside the paths (attempt 2 at 2026-11-04 18:46Z)."
+fix = "The paths are replaced with the attempt-2 change set under the server crate plus the four files it wrote outside; a repair task's paths are checked against the tree before they are written (gotcha 3021)."
+
+[gotcha.3031]
+title = "A requalify started from an attempt whose result dropped files runs without them"
+symptom = "22.33.810 attempt 3 passed every gate with native_evidence.py, the native EVM fixture and the task record in its tree, but the result recorded them as outside the paths and dropped them (gotcha 3020); attempt 4, requalified from that result, failed at collection on the missing module (2026-11-04 18:47Z). 22.33.449 attempt 3, requalified from attempt 2, carried only the spec file because attempt 2's result had dropped media-type.ts (18:49Z)."
+fix = "A requalify names an attempt whose recorded tree holds every file, or the ruling continues and re-creates the dropped files; the rulings of this batch do the latter for 810 and start 449 from attempt 1, which holds the file."
+
+[gotcha.3032]
+title = "The gate of 22.33.18 ran the whole Python integration suite"
+symptom = "22.33.18 attempt 1 (2026-11-04 19:05Z) verified with the Makefile target that runs every test under tests/ci: 201 cases, eleven failures, of which eight belong to other work (two agent codec corpus cases, the cw20 deploy-script check, two retired-use kernel suite checks and 22.33.727's retained EIP-1559 case) and three are the task's own cases."
+fix = "The verify is narrowed to the task's test file and the five SDK test files in its paths; the eight unrelated failures are a closure-sweep finding, not re-run here."
+
+[gotcha.3033]
+title = "The authority budget-state change of 22.31.208 broke two daemon test targets that include it by path"
+symptom = "22.31.208 (on main 2026-11-04 18:41Z) made services/platform/hosted/authority/src/human/budget_state.rs and its native.rs reference crate::committed, crate::loopback_http, super::Human, super::Policy and a human field on Config. services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs and human_projection_facts.rs include that module with a path attribute over a small shim and no longer compile (E0432, E0433, E0425, E0422, E0609). Every dependent-crate check that builds the daemon tests has failed since: 22.31.212 attempt 6, 22.33.1544 attempt 2, 217 attempt 3, 218 attempt 4, 222 attempt 3, 224 attempt 3, 233 attempt 3, 1547 attempt 2, 249 attempt 2 and 261 attempt 2 between 19:10Z and 19:24Z."
+fix = "Decision 2541 and task 22.31.497 restore both targets against the current authority source; the ten attempts requalify after it."
+
+[gotcha.3034]
+title = "22.33.1545 removed two fields of ObservedBlockContext that a published consumer test constructs"
+symptom = "Attempt 2 of 22.33.1545 (2026-11-04 19:19Z) rebuilt services/agent/crates/layerx-client ObservedBlockContext without sealed_batch and finalised_checkpoint; services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs, on main since 18:40Z, constructs the struct with both fields and the dependent-crate check failed with two E0560 errors."
+fix = "The consumer test joins the task's paths and the attempt continues porting it in the same change (decision 2521 class: an interface change carries its consumers)."
+
+[gotcha.3035]
+title = "A protected store root in a test must be created private and canonical"
+symptom = "The daemon store refuses any root whose mode is not exactly 0700, whose owner is not the process or whose path is not canonical (services/agent/crates/layerx-agentd/src/store/protected.rs validate). 22.33.1535 attempt 2 (2026-11-04 19:11Z) created its roots with the default directory mode under the temporary directory and two cases failed on 'store root is not a canonical owned private directory'."
+fix = "Tests create store roots with mode 0o700 and open the canonicalised path, as the daemon's own store tests do."
+
+[gotcha.3036]
+title = "The outbox hands out bytes for transmission only while a submission is Queued"
+symptom = "services/agent/crates/layerx-agentd/src/outbox/mod.rs bytes_for_transmission returns NotQueued once a submission has left Queued. 22.33.1571 attempt 2 (2026-11-04 19:13Z) restored a submission recorded Unknown after a lost response and asked for its bytes to re-send it; both node-recovery cases failed on NotQueued."
+fix = "Recovery of an unknown submission goes through the resolver (admin resolve_unknown or the degraded resolver) that looks the hash up on the node first; tests follow that path."
+
+[gotcha.3037]
+title = "The explorer's transaction tag lookup crashes on a transaction without a recipient"
+symptom = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/tags_controller.ex tags_transaction passes transaction.to_address_hash to GetAddressTags.get_public_tags, whose only clause requires a non-nil hash; a contract-creation transaction has none, so GET /api/account/v2/tags/transaction/:hash answers 500 with a FunctionClauseError. 22.33.478 attempt 2 (2026-11-04 19:18Z) hit it with the recorded transaction example; 7 of 8 cases passed."
+fix = "Decision 2542 and the 478 ruling: the controller answers the sender's public tags and an empty recipient side for such a transaction; the controller joins the task's paths."
+
+[gotcha.3038]
+title = "22.33.517 tightened the archive receipt types without their explorer consumers"
+symptom = "Attempt 2 of 22.33.517 (2026-11-04 19:27Z) made payload_hash required and block_number nullable in apps/explorer/types/api/paxeerXArchive.ts; the explorer type-check then failed with fifteen errors in ten consumer files under ui/paxeerX/receipts, ui/pages, stubs and lib/api/services, none of them in the task's four paths, and the verify never ran."
+fix = "The ten consumer files join the task's paths and the attempt continues porting them in the same change (decision 2521 class)."
+
+[gotcha.3039]
+title = "Unknown-submission fixtures still serve the single-step receipt lookup"
+symptom = "The client's authenticated lookup asks pax_sequencerReceipt and then eth_getTransactionReceipt (services/agent/crates/layerx-client/src/rpc/receipt.rs, tolerant of a failing second call since 22.31.222). The loopback nodes of services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs assert one method per exchange, so the second request tripped the fixture and the client saw a malformed answer; 22.33.1538 attempt 2 (2026-11-04 19:26Z) failed 8 of 22 cases this way or on the resulting state."
+fix = "The fixtures serve the current exchange sequence; a case that still resolves a receipt with a missing or changed payment denomination is a resolver finding to record."
+
+[gotcha.3040]
+title = "A declared runtime module the scripts call was never written"
+symptom = "22.33.761 attempt 3 (2026-11-04 19:27Z) rewrote the upgrade-module shell scripts to exec tests/integration/upgrade_module/scripts/upgrade_runtime.py and made its test import that module, but the module is neither in the change set nor in the attempt's recorded tree; the verify failed at collection."
+fix = "The attempt continues and writes the declared module; a path a change calls must be in the change."
+
+[gotcha.3041]
+title = "A recorded creation bytecode and its recorded metadata JSON came from two different compiler runs"
+symptom = "22.33.750 attempt 2 (2026-11-04 19:3xZ) asserted that the CBOR trailer of the recorded SimpleAccount7702 creation bytecode names the sha256 of the recorded metadata string; the trailer hash 6792d629... matches neither the sha256 of the recorded string with its escaped dash (bcc28015...) nor with the dash as UTF-8 (ad6d4637...), so the two recordings are not one compiler output. The assertion is correct and caught the mismatch."
+fix = "22.33.750 re-records creation bytecode and metadata byte-exact from one solc 0.8.28 cancun optimizer-200 run of the final source at implementation time and keeps the trailer and source-keccak assertions; any recorded compiler pair is produced by one run and checked against itself."
+
+[gotcha.3042]
+title = "A test fixture destructor that panics turns one failed case into a process abort that hides every failure report"
+symptom = "22.33.1336 attempt 6 and 22.31.497 attempt 1 (2026-11-04) each lost their failure report: one case panicked, the fixture's Drop then panicked as well (a join asserted clean, a thread already down), the test binary aborted with SIGABRT and the harness never printed the per-case stdout or the failures list, so only the two panic lines remained in the log."
+fix = "Fixture destructors are best-effort: a Drop never asserts or unwraps; the test body asserts the clean stop it needs. 22.33.1336 attempt 7 and 22.31.497 attempt 2 apply this before anything else so their real reports appear."
+
+[gotcha.3043]
+title = "The repository's own CI python suite carries assertions behind interfaces that later tasks retired or moved"
+symptom = "On main at 2026-11-04 19:00Z eight cases of tests/ci fail for reasons unrelated to any one task: the agent codec corpus test posts to a /rpc path the SDK now refuses (decision 2521); tests/vectors/codec/generate.py raises because the retired budget-pull type is no longer undeclared; the cw20 deploy-script check greps a shell script that now delegates to the Go load-test binary, whose deploy operation still stores the four retired contracts; the retired-reference check flags the weak-symbol absence test and the interface table row that name the retired bridge-credit symbol; and the kernel audit case audit_genesis_historical_import_hashes fails with LXP_ERR_ROOT_MISMATCH."
+fix = "Tasks 22.31.498 to 22.31.502 repair each case from its producer with its own pytest or make target as the verify; an aggregate python gate stays out of task-level qualification (gotcha 3032)."

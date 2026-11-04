@@ -1,18 +1,28 @@
+Code.require_file("paxeer_x_capture.exs", __DIR__)
+
 defmodule EthereumJSONRPC.PaxeerXTxCountParityTest do
   @moduledoc """
-  The mixed block fixture uses the reconstructed Cosmos-originated transaction
-  from cosmos_originated_transaction.json and an EVM transfer at the same height.
-  The block and count answers describe that reconstructed two-transaction block.
+  The recorded eth block/count pair excludes Cosmos shell activity at the same
+  height. The synthetic compatibility case preserves the reconstructed Cosmos
+  transaction and EVM transfer separately; it is not mixed-block capture evidence.
   """
 
   use ExUnit.Case, async: true
 
   alias EthereumJSONRPC.Blocks
 
-  test "block_tx_count_matches_count_method" do
+  test "recorded eth block and count traverse HTTP with shell visibility kept separate" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_counts()
+  end
+
+  test "recorded pax namespace refusals stay distinct from eth block visibility" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_pax_refusals()
+  end
+
+  test "synthetic v1 block_tx_count_matches_count_method preserves Cosmos decoder coverage" do
     fixture =
       __DIR__
-      |> Path.join("../support/fixture/paxeer_x/tx_count_parity.json")
+      |> Path.join("../support/fixture/paxeer_x/synthetic_cosmos_tx_count_parity.json")
       |> File.read!()
       |> Jason.decode!()
 
