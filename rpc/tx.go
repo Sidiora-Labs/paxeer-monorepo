@@ -725,7 +725,7 @@ func encodeReceipt(
 		"logsBloom":         bloom,
 		"type":              hexutil.Uint(receipt.TxType),
 		"effectiveGasPrice": (*hexutil.Big)(new(big.Int).SetUint64(receipt.EffectiveGasPrice)),
-		"status":            hexutil.Uint(receipt.Status),
+		"status":            hexutil.Uint(receipt.Status), // JSON-RPC quantity (0x1/0x0); clients decode success/reverted.
 	}
 	if etx != nil && receipt.From == "" {
 		from, err := rpcutils.RecoverEVMSender(etx, block.Block.Height, block.Block.Time.Unix())
