@@ -1,0 +1,19 @@
+[repair.22.33.1012]
+audit = "22.30.36"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+baseline = "No unchanged-tree verification was run: the explicit task Order requires complete implementation before any testing and hf-done as the sole initial verification. No pre-change test failure is claimed."
+qualification = "hf-build then hf-done; /out/run/gates.jsonl and the final gate evidence line record the exact verified candidate revision, command, exit and private log."
+
+[finding.event-schema-path-test]
+proof = ["TestRepairM_1012_RoleSchemaPath", "TestRepairM_1012_MalformedLogs", "TestRepairM_1012_UnknownTopic"]
+change = "Extend events_test.go with a shared payload-path regression invoked by the focused repair gate; retain the production canonical schema introduced by 22.31.61 without other behavior changes."
+path = "Both real binding metadata ABIs -> ABI Pack and MakeTopics -> types.Log JSON marshal/unmarshal -> exported LookupEvent -> production bind.BoundContract.UnpackLogIntoMap; independently parse with both generated role filterers."
+assertions = "Exact canonical nftId, oldStrategy and newStrategy names, types and values; original role names and indexed layout; both declaring contracts; distinct transitions and identities above JSON's exact numeric range through int64 maximum; malformed signature/topic count, truncated data and noncanonical uint8 refusal."
+boundary = "The gate exercises the real SDK registry and codec and asserts the field contract consumed by the indexer; it does not execute the out-of-scope internal indexer decoder, handler or PostgreSQL store, and makes no claim of handler persistence qualification."
+
+[wiring.indexer]
+request = "services/launchpad/indexer/internal/decode and services/launchpad/indexer/internal/processor — owning domain 4: extend the owning path proof to encode both role FeeStrategyChanged ABIs through Decoder.Decode and handleFeeStrategyChanged, assert nftId decimal string plus oldStrategy/newStrategy and persisted identity/strategy values, and refuse malformed topics without a service or subprocess dependency."
+
+[gotcha.scope]
+observed = "The owning indexer consumer is Go-internal and its existing repair_61 proof launches subprocess toolchains and PostgreSQL; neither can be imported or run by this scoped offline gate."
+action = "Exercise the real exported SDK registry and codec in-process and record the owning-domain wiring request; do not copy or fake the indexer implementation or edit outside scope."
