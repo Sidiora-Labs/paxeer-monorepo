@@ -59,7 +59,9 @@ func TestPostgresV2NotificationsListAndRead(t *testing.T) {
 	if err = s.DB.QueryRowContext(ctx, `SELECT v2_id::text FROM discovery_notifications.inbox WHERE id=$1`, foreign.ID).Scan(&foreignID); err != nil {
 		t.Fatal(err)
 	}
-	h := HTTP{Store: s, Authenticate: func(*http.Request) (string, error) { return account, nil }}
+	h := HTTP{Store: s, Principal: func(*http.Request) (Principal, error) {
+		return Principal{AccountID: account, Wallet: notificationActorWallet}, nil
+	}, Authenticate: func(*http.Request) (string, error) { return account, nil }}
 	handler := h.Handler()
 	request := func(handler http.Handler, method, path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, path, nil).WithContext(ctx)
@@ -228,7 +230,10 @@ func TestV2NotificationsRejectsInvalidQuery(t *testing.T) {
 		}
 	}
 	// A zero Store has no database: reaching persistence cannot produce a valid response.
-	handler := (HTTP{Authenticate: func(*http.Request) (string, error) { return "actor", nil }}).Handler()
+	boundary := HTTP{Principal: func(*http.Request) (Principal, error) {
+		return Principal{AccountID: "actor", Wallet: notificationActorWallet}, nil
+	}, Authenticate: func(*http.Request) (string, error) { return "actor", nil }}
+	handler := boundary.Handler()
 	for _, query := range []string{
 		"limit=0", "limit=101", "cursor=" + strings.Repeat("x", 257), "unreadOnly=yes", "unknown=value",
 		"limit=", "limit=-1", "limit=1.5", "limit=999999999999999999999", "cursor=", "unreadOnly=", "unreadOnly=1", "unreadOnly=True",
@@ -262,9 +267,10 @@ func TestV2NotificationsRejectsInvalidQuery(t *testing.T) {
 				}
 				r := httptest.NewRequest(method, path, nil)
 				r.Header.Set("X-Request-Id", notificationErrorRequestID)
-				r.Header.Set("X-Actor-Wallet", wallet)
+				invalidPrincipal := boundary
+				invalidPrincipal.Principal = func(*http.Request) (Principal, error) { return Principal{AccountID: "actor", Wallet: wallet}, nil }
 				w := httptest.NewRecorder()
-				handler.ServeHTTP(w, r)
+				invalidPrincipal.Handler().ServeHTTP(w, r)
 				assertNotificationFrozenError(t, w, http.StatusBadRequest, "INVALID_REQUEST", notificationErrorRequestID)
 			})
 		}

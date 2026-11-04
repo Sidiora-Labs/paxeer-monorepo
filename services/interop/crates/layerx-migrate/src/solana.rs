@@ -26,6 +26,9 @@ const MAX_INSTRUCTIONS: usize = 1024;
 const MAX_TRANSACTIONS: usize = 100_000;
 const MAX_ACCOUNTS: usize = 4096;
 const MAX_INSTRUCTION_BYTES: usize = 4096;
+// UpgradeableLoaderState::size_of_programdata_metadata(): the fixed bincode
+// tag, deployment slot, Option tag and reserved Pubkey, including for None.
+const PROGRAMDATA_METADATA_SIZE: usize = 4 + 8 + 1 + 32;
 
 /// Integer encoding used by the deployed custody instruction.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
@@ -60,6 +63,8 @@ pub struct SolanaConfig {
     pub custody_program_owner: [u8; 32],
     pub custody_program_data_account: [u8; 32],
     pub custody_program_data_reference_offset: u16,
+    /// SHA-256 of every byte after the loader's fixed 45-byte ProgramData
+    /// metadata region, including all allocated executable trailing padding.
     pub custody_program_data_hash: [u8; 32],
     pub custody_account: [u8; 32],
     pub custody_account_owner: [u8; 32],
@@ -221,7 +226,10 @@ impl SolanaVerifier {
         let ownership = self.verify_ownership(ownership_evidence, trace)?;
         if authenticated_identity == [0; 32]
             || ownership.layerx_identity() != authenticated_identity
-            || ownership.chain() != (SourceChain::Solana { genesis_hash: claim.genesis_hash })
+            || ownership.chain()
+                != (SourceChain::Solana {
+                    genesis_hash: claim.genesis_hash,
+                })
             || ownership.address() != ExternalAddress::Solana(claim.address)
         {
             return Err(MigrationError::EvidenceMismatch);
@@ -273,10 +281,10 @@ impl SolanaVerifier {
             return Err(MigrationError::CustodyProgramMismatch);
         }
         let program_data = self.account(self.config.custody_program_data_account, minimum_slot)?;
-        let code = immutable_program_code(&program_data.data, minimum_slot)?;
         if program_data.executable
             || program_data.owner != self.config.custody_program_owner
-            || <[u8; 32]>::from(Sha256::digest(code)) != self.config.custody_program_data_hash
+            || immutable_program_code_hash(&program_data.data, minimum_slot)?
+                != self.config.custody_program_data_hash
         {
             return Err(MigrationError::CustodyProgramMismatch);
         }
@@ -1390,7 +1398,27 @@ fn read_array(data: &[u8], offset: u16) -> Result<[u8; 32], MigrationError> {
         .ok_or(MigrationError::CustodyProgramMismatch)
 }
 
+/// Computes the deployed-code pin consumed by `SolanaConfig`.
+///
+/// The fixed loader metadata region is excluded even when the authority is
+/// None. Its unused authority bytes may retain the former authority. All
+/// remaining bytes, including executable allocation padding, are hashed as-is.
+///
+/// # Errors
+///
+/// Refuses truncated metadata, absent code, a non-ProgramData tag, an active
+/// upgrade authority, or deployment after the source transaction's slot.
+pub fn immutable_program_code_hash(
+    data: &[u8],
+    transaction_slot: u64,
+) -> Result<[u8; 32], MigrationError> {
+    Ok(Sha256::digest(immutable_program_code(data, transaction_slot)?).into())
+}
+
 fn immutable_program_code(data: &[u8], transaction_slot: u64) -> Result<&[u8], MigrationError> {
+    let metadata = data
+        .get(..PROGRAMDATA_METADATA_SIZE)
+        .ok_or(MigrationError::CustodyProgramMismatch)?;
     let variant = data
         .get(..4)
         .and_then(|value| value.try_into().ok())
@@ -1403,12 +1431,12 @@ fn immutable_program_code(data: &[u8], transaction_slot: u64) -> Result<&[u8], M
         .ok_or(MigrationError::CustodyProgramMismatch)?;
     if variant != 3
         || deployment_slot > transaction_slot
-        || data.get(12).copied() != Some(0)
-        || data.len() <= 13
+        || metadata[12] != 0
+        || data.len() <= PROGRAMDATA_METADATA_SIZE
     {
         return Err(MigrationError::CustodyProgramMismatch);
     }
-    Ok(&data[13..])
+    Ok(&data[PROGRAMDATA_METADATA_SIZE..])
 }
 
 fn program_data_reference(data: &[u8], offset: u16) -> Result<[u8; 32], MigrationError> {

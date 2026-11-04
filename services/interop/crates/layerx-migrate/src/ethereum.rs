@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
@@ -271,7 +271,10 @@ impl EthereumVerifier {
         let ownership = self.verify_ownership(ownership_evidence, trace)?;
         if authenticated_identity == [0; 32]
             || ownership.layerx_identity() != authenticated_identity
-            || ownership.chain() != (SourceChain::Ethereum { chain_id: claim.chain_id })
+            || ownership.chain()
+                != (SourceChain::Ethereum {
+                    chain_id: claim.chain_id,
+                })
             || ownership.address() != ExternalAddress::Ethereum(claim.address)
         {
             return Err(MigrationError::EvidenceMismatch);
@@ -702,6 +705,7 @@ impl EthereumVerifier {
         mut records: Vec<ExternalHistoryRecord>,
         range_anchor: &Block,
     ) -> Result<VerifiedHistoryPage, MigrationError> {
+        records = aggregate_history_records(records)?;
         records.sort_by_key(|record| {
             (
                 record.timestamp,
@@ -710,7 +714,6 @@ impl EthereumVerifier {
                 record.kind,
             )
         });
-        records.dedup_by_key(|record| (record.transaction, record.source_asset, record.kind));
         let next = claim.to_block.saturating_add(1);
         let mut cursor_context = Vec::new();
         cursor_context.extend_from_slice(&self.config.chain_id.to_be_bytes());
@@ -825,6 +828,7 @@ impl EthereumVerifier {
         incoming_transfers: &[Value],
         records: &mut Vec<ExternalHistoryRecord>,
     ) -> Result<(), MigrationError> {
+        let mut observations = BTreeMap::new();
         for value in logs {
             let Some(event) = self.parse_event(value)? else {
                 continue;
@@ -832,6 +836,9 @@ impl EthereumVerifier {
             if event.source != claim.address
                 || !(claim.from_block..=claim.to_block).contains(&event.block_number)
             {
+                continue;
+            }
+            if !observe_history_log(&mut observations, value)? {
                 continue;
             }
             self.verify_contract(event.block_number)?;
@@ -862,6 +869,9 @@ impl EthereumVerifier {
             if !(claim.from_block..=claim.to_block).contains(&transfer.block_number) {
                 return Err(MigrationError::RpcResponseMismatch);
             }
+            if !observe_history_log(&mut observations, value)? {
+                continue;
+            }
             let block = self.block_by_number(transfer.block_number)?;
             if block.hash != transfer.block_hash {
                 return Err(MigrationError::SourceDisplaced);
@@ -884,6 +894,49 @@ impl EthereumVerifier {
         }
         Ok(())
     }
+}
+
+fn observe_history_log(
+    observations: &mut BTreeMap<([u8; 32], u64), Value>,
+    value: &Value,
+) -> Result<bool, MigrationError> {
+    let identity = (
+        decode_fixed_hex(string(value, "transactionHash")?)?,
+        decode_quantity(string(value, "logIndex")?)?,
+    );
+    if let Some(previous) = observations.get(&identity) {
+        if previous != value {
+            return Err(MigrationError::RpcResponseMismatch);
+        }
+        return Ok(false);
+    }
+    observations.insert(identity, value.clone());
+    Ok(true)
+}
+
+fn aggregate_history_records(
+    records: Vec<ExternalHistoryRecord>,
+) -> Result<Vec<ExternalHistoryRecord>, MigrationError> {
+    let mut aggregated: BTreeMap<_, ExternalHistoryRecord> = BTreeMap::new();
+    for record in records {
+        let identity = (record.transaction, record.source_asset, record.kind);
+        if let Some(current) = aggregated.get_mut(&identity) {
+            if current.chain != record.chain
+                || current.address != record.address
+                || current.timestamp != record.timestamp
+                || current.provenance != record.provenance
+            {
+                return Err(MigrationError::RpcResponseMismatch);
+            }
+            current.source_amount = current
+                .source_amount
+                .checked_add(record.source_amount)
+                .ok_or(MigrationError::InvalidHistory)?;
+        } else {
+            aggregated.insert(identity, record);
+        }
+    }
+    Ok(aggregated.into_values().collect())
 }
 
 impl SourceVerifier for EthereumVerifier {

@@ -65,7 +65,7 @@ func insuranceAccountAddress() common.Address {
 func feeDay(ctx sdk.Context) (uint64, error) {
 	now := ctx.BlockTime().Unix()
 	if now < 0 {
-		return 0, fmt.Errorf("%w: block time %d before the epoch", types.ErrInvalidParams, now)
+		return 0, types.ErrInvalidParams.Wrapf("block time %d before the epoch", now)
 	}
 	return uint64(now) / types.SecondsPerDay, nil
 }
@@ -80,7 +80,7 @@ func windowStart(day uint64) uint64 {
 func addUsd(a, b uint256.Int) (uint256.Int, error) {
 	var sum uint256.Int
 	if _, overflow := sum.AddOverflow(&a, &b); overflow {
-		return uint256.Int{}, fmt.Errorf("%w: USD sum above 2^256-1", types.ErrOverflow)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("USD sum above 2^256-1")
 	}
 	return sum, nil
 }
@@ -127,7 +127,7 @@ func deleteRange(store sdk.KVStore, start, end []byte) {
 // buckets of days before d-13.
 func (k *Keeper) RecordVolume(ctx sdk.Context, taker, maker common.Address, notionalUsd uint256.Int) error {
 	if notionalUsd.IsZero() {
-		return fmt.Errorf("%w: zero fill notional", types.ErrZeroAmount)
+		return types.ErrZeroAmount.Wrapf("zero fill notional")
 	}
 	day, err := feeDay(ctx)
 	if err != nil {
@@ -239,7 +239,7 @@ func (k *Keeper) FeeTier(ctx sdk.Context, account common.Address) (AccountFeeTie
 		return AccountFeeTier{}, err
 	}
 	if len(params.FeeTiers) == 0 {
-		return AccountFeeTier{}, fmt.Errorf("%w: no fee tiers", types.ErrInvalidParams)
+		return AccountFeeTier{}, types.ErrInvalidParams.Wrapf("no fee tiers")
 	}
 	store := ctx.KVStore(k.storeKey)
 	total, makerVolume, err := windowVolume(store, account, day)
@@ -316,7 +316,7 @@ func feeUsdOf(notionalUsd uint256.Int, ratePpm uint64, roundUp bool) sdk.Int {
 func toWord(value sdk.Int) (uint256.Int, error) {
 	word, overflow := uint256.FromBig(value.BigInt())
 	if overflow || value.IsNegative() {
-		return uint256.Int{}, fmt.Errorf("%w: amount %s outside 0 to 2^256-1", types.ErrOverflow, value)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("amount %s outside 0 to 2^256-1", value)
 	}
 	return *word, nil
 }
@@ -327,7 +327,7 @@ func toWord(value sdk.Int) (uint256.Int, error) {
 func (k *Keeper) chargeFee(ctx sdk.Context, positionID uint256.Int, account common.Address, marketID uint64,
 	notionalUsd uint256.Int, ratePpm uint64) (FeeBooking, error) {
 	if notionalUsd.IsZero() {
-		return FeeBooking{}, fmt.Errorf("%w: zero fill notional", types.ErrZeroAmount)
+		return FeeBooking{}, types.ErrZeroAmount.Wrapf("zero fill notional")
 	}
 	booking := FeeBooking{FeeType: FeeTypeTrading, RatePpm: int64(ratePpm)}
 	if ratePpm == 0 {
@@ -387,7 +387,7 @@ func (k *Keeper) chargeFee(ctx sdk.Context, positionID uint256.Int, account comm
 func (k *Keeper) payRebate(ctx sdk.Context, positionID uint256.Int, account common.Address, marketID uint64,
 	notionalUsd uint256.Int, rebatePpm uint64) (FeeBooking, error) {
 	if notionalUsd.IsZero() {
-		return FeeBooking{}, fmt.Errorf("%w: zero fill notional", types.ErrZeroAmount)
+		return FeeBooking{}, types.ErrZeroAmount.Wrapf("zero fill notional")
 	}
 	params, err := k.GetParams(ctx)
 	if err != nil {
@@ -464,12 +464,12 @@ func creditBookedAccount(store sdk.KVStore, address common.Address, amount sdk.I
 	}
 	if !exists {
 		if address != feesAccountAddress() && address != insuranceAccountAddress() {
-			return fmt.Errorf("%w: %s", types.ErrNoAccount, address)
+			return types.ErrNoAccount.Wrapf("%s", address)
 		}
 		account.Created = true
 	}
 	if _, overflow := account.Collateral.AddOverflow(&account.Collateral, &word); overflow {
-		return fmt.Errorf("%w: collateral of %s above 2^256-1", types.ErrOverflow, address)
+		return types.ErrOverflow.Wrapf("collateral of %s above 2^256-1", address)
 	}
 	store.Set(types.AccountKey(address), account.Marshal())
 	return nil
@@ -487,10 +487,10 @@ func debitBookedAccount(store sdk.KVStore, address common.Address, amount sdk.In
 		return err
 	}
 	if !exists && !storeAccount {
-		return fmt.Errorf("%w: %s", types.ErrNoAccount, address)
+		return types.ErrNoAccount.Wrapf("%s", address)
 	}
 	if account.Collateral.Lt(&word) {
-		return fmt.Errorf("%w: %s holds %s USDL units, %s due", types.ErrInsufficientCollateral, address,
+		return types.ErrInsufficientCollateral.Wrapf("%s holds %s USDL units, %s due", address,
 			account.Collateral.Dec(), word.Dec())
 	}
 	account.Collateral.Sub(&account.Collateral, &word)
@@ -513,7 +513,7 @@ func addResidue(store sdk.KVStore, residueUsd sdk.Int) error {
 		}
 	}
 	if _, overflow := books.ResidueUsd.AddOverflow(&books.ResidueUsd, &word); overflow {
-		return fmt.Errorf("%w: residueUsd above 2^256-1", types.ErrOverflow)
+		return types.ErrOverflow.Wrapf("residueUsd above 2^256-1")
 	}
 	store.Set(types.VenueBooksKey, books.Marshal())
 	return nil

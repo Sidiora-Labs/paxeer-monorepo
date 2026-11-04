@@ -767,6 +767,7 @@ pub struct Submitter {
     chain_id: u64,
     journal: Journal,
     confirmations: u64,
+    nonce_directory: PathBuf,
 }
 
 impl Submitter {
@@ -778,7 +779,32 @@ impl Submitter {
         chain_id: u64,
         journal_dir: &Path,
     ) -> io::Result<Self> {
+        std::fs::create_dir_all(journal_dir)?;
+        let identity = json!({"chain": chain_id, "address": hex0x(&signer_address(&key))});
+        let identity_path = journal_dir.join("submitter.identity");
+        match std::fs::read(&identity_path) {
+            Ok(bytes) => {
+                if serde_json::from_slice::<Value>(&bytes).map_err(io::Error::other)? != identity {
+                    return Err(io::ErrorKind::InvalidData.into());
+                }
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                write_nonce_state(&identity_path, &identity)
+                    .map_err(|_| io::Error::other("submitter identity write failed"))?;
+            }
+            Err(e) => return Err(e),
+        }
+        let nonce_directory = journal_dir
+            .parent()
+            .unwrap_or(journal_dir)
+            .join("fulfilment-nonces")
+            .join(format!(
+                "{chain_id}-{}",
+                crate::payment::hex(&signer_address(&key))
+            ));
+        std::fs::create_dir_all(&nonce_directory)?;
         Ok(Self {
+            nonce_directory,
             rpc,
             address: signer_address(&key),
             key,
@@ -1022,29 +1048,18 @@ impl Submitter {
         if let Some(outcome) = self.resume_program(key)? {
             return Ok(outcome);
         }
-        let nonce = u64::try_from(self.rpc.quantity(
-            "eth_getTransactionCount",
-            &json!([hex0x(&self.address), "pending"]),
-        )?)
-        .map_err(|_| EvmError::Malformed)?;
-        let data = fulfil_program_calldata(observation);
-        let signed = Transaction {
-            chain_id: self.chain_id,
-            nonce,
-            fees: self.fees()?,
-            gas_limit: fulfil_program_gas_limit(&data, signatures),
-            to: XWEB_PRECOMPILE,
-            data,
+        let pending = self.pending_nonce()?;
+        self.stage_program(key, observation, signatures, pending, self.fees()?)?;
+        self.broadcast_program(key)
+    }
+
+    /// Sends the durable program transaction without allocating or replacing it.
+    pub fn broadcast_program(&self, key: ProgramKey) -> Result<Outcome, SubmitError> {
+        let entry = self.journal.load(key)?.ok_or(SubmitError::Journal)?;
+        if entry.state != JournalState::Signed {
+            return Err(SubmitError::Journal);
         }
-        .sign(&self.key)?;
-        self.journal.store_at(
-            JournalKey::Program(key),
-            &JournalEntry {
-                request_id: key.1,
-                state: JournalState::Signed,
-                transaction: Some((nonce, signed.clone())),
-            },
-        )?;
+        let (_, signed) = entry.transaction.ok_or(SubmitError::Journal)?;
         self.broadcast_signed(&signed)
     }
 
@@ -1146,28 +1161,176 @@ impl Submitter {
         if let Some(outcome) = self.closed(request_id, status)? {
             return Ok(outcome);
         }
-        let nonce = u64::try_from(self.rpc.quantity(
+        let pending = self.pending_nonce()?;
+        let signed = self.stage(ready, pending, self.fees()?)?;
+        self.broadcast(request_id, &signed)
+    }
+
+    fn pending_nonce(&self) -> Result<u64, SubmitError> {
+        u64::try_from(self.rpc.quantity(
             "eth_getTransactionCount",
             &json!([hex0x(&self.address), "pending"]),
         )?)
-        .map_err(|_| EvmError::Malformed)?;
-        let fees = self.fees()?;
+        .map_err(|_| EvmError::Malformed.into())
+    }
+
+    /// Durably allocates and publishes an ordinary fulfilment before any send.
+    pub fn stage(
+        &self,
+        ready: &Ready,
+        pending: u64,
+        fees: Fees,
+    ) -> Result<SignedTransaction, SubmitError> {
+        if ready.signers.len() != ready.signatures.len()
+            || ready.signers.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            return Err(SubmitError::Encode);
+        }
         let data = fulfil_calldata(ready);
-        let transaction = Transaction {
+        let gas = fulfil_gas_limit(&data, ready.signatures.len(), ready.callback_gas);
+        self.stage_transaction(JournalKey::Web(ready.request_id), data, gas, pending, fees)
+    }
+
+    /// Durably allocates and publishes a program fulfilment before any send.
+    pub fn stage_program(
+        &self,
+        key: ProgramKey,
+        observation: &[u8],
+        signatures: usize,
+        pending: u64,
+        fees: Fees,
+    ) -> Result<SignedTransaction, SubmitError> {
+        decode_program_observation(key, observation, signatures)?;
+        let data = fulfil_program_calldata(observation);
+        let gas = fulfil_program_gas_limit(&data, signatures);
+        self.stage_transaction(JournalKey::Program(key), data, gas, pending, fees)
+    }
+
+    fn stage_transaction(
+        &self,
+        key: JournalKey,
+        data: Vec<u8>,
+        gas_limit: u64,
+        pending: u64,
+        fees: Fees,
+    ) -> Result<SignedTransaction, SubmitError> {
+        let lock = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(self.nonce_directory.join("writer.lock"))
+            .map_err(|_| SubmitError::Journal)?;
+        lock.lock().map_err(|_| SubmitError::Journal)?;
+        let state_path = self.nonce_directory.join("state.json");
+        let mut state: Value = match std::fs::read(&state_path) {
+            Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| SubmitError::Journal)?,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => json!({
+                "chain_id": self.chain_id, "address": hex0x(&self.address), "next": pending,
+                "reservation": null,
+            }),
+            Err(_) => return Err(SubmitError::Journal),
+        };
+        if state["chain_id"].as_u64() != Some(self.chain_id)
+            || state["address"].as_str() != Some(hex0x(&self.address).as_str())
+            || state["next"].as_u64().is_none()
+        {
+            return Err(SubmitError::Journal);
+        }
+        // Recover a crash between the shared reservation and journal publication.
+        if !state["reservation"].is_null() {
+            let reservation = &state["reservation"];
+            let directory = reservation["directory"]
+                .as_str()
+                .ok_or(SubmitError::Journal)?;
+            let entry =
+                JournalEntry::from_json(&reservation["entry"]).ok_or(SubmitError::Journal)?;
+            let reserved_key = if reservation["program"].is_null() {
+                JournalKey::Web(entry.request_id)
+            } else {
+                JournalKey::Program((
+                    crate::program::fixed0x(Some(&reservation["program"]))
+                        .ok_or(SubmitError::Journal)?,
+                    entry.request_id,
+                ))
+            };
+            let journal = Journal::open(Path::new(directory)).map_err(|_| SubmitError::Journal)?;
+            match journal.load(reserved_key)? {
+                Some(old) if old != entry => return Err(SubmitError::Journal),
+                Some(_) => {}
+                None => journal.store_at(reserved_key, &entry)?,
+            }
+            state["reservation"] = Value::Null;
+            write_nonce_state(&state_path, &state)?;
+        }
+        if let Some(entry) = self.journal.load(key)? {
+            return entry
+                .transaction
+                .map(|(_, signed)| signed)
+                .ok_or(SubmitError::Journal);
+        }
+        let mut nonce = pending.max(state["next"].as_u64().ok_or(SubmitError::Journal)?);
+        // Import existing sibling journals on upgrades as well as fresh allocations.
+        for directory in [
+            self.journal.directory.clone(),
+            self.journal
+                .directory
+                .parent()
+                .unwrap_or(&self.journal.directory)
+                .join("submit"),
+            self.journal
+                .directory
+                .parent()
+                .unwrap_or(&self.journal.directory)
+                .join("program-submit"),
+        ] {
+            if !directory.exists() {
+                continue;
+            }
+            for file in std::fs::read_dir(directory).map_err(|_| SubmitError::Journal)? {
+                let path = file.map_err(|_| SubmitError::Journal)?.path();
+                if path.extension().and_then(|s| s.to_str()) != Some("json")
+                    || path
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .is_some_and(|s| s.ends_with(".source.json"))
+                {
+                    continue;
+                }
+                let value: Value =
+                    serde_json::from_slice(&std::fs::read(path).map_err(|_| SubmitError::Journal)?)
+                        .map_err(|_| SubmitError::Journal)?;
+                let entry = JournalEntry::from_json(&value).ok_or(SubmitError::Journal)?;
+                if let Some((used, _)) = entry.transaction {
+                    nonce = nonce.max(used.checked_add(1).ok_or(SubmitError::Encode)?);
+                }
+            }
+        }
+        let signed = Transaction {
             chain_id: self.chain_id,
             nonce,
             fees,
-            gas_limit: fulfil_gas_limit(&data, ready.signatures.len(), ready.callback_gas),
+            gas_limit,
             to: XWEB_PRECOMPILE,
             data,
-        };
-        let signed = transaction.sign(&self.key)?;
-        self.journal.store(&JournalEntry {
-            request_id,
+        }
+        .sign(&self.key)?;
+        let entry = JournalEntry {
+            request_id: key.request_id(),
             state: JournalState::Signed,
             transaction: Some((nonce, signed.clone())),
-        })?;
-        self.broadcast(request_id, &signed)
+        };
+        state["next"] = json!(nonce.checked_add(1).ok_or(SubmitError::Encode)?);
+        state["reservation"] = json!({
+            "directory": std::fs::canonicalize(&self.journal.directory).map_err(|_| SubmitError::Journal)?,
+            "program": match key { JournalKey::Web(_) => None, JournalKey::Program((id, _)) => Some(hex0x(&id)) },
+            "entry": entry.to_json(),
+        });
+        write_nonce_state(&state_path, &state)?;
+        self.journal.store_at(key, &entry)?;
+        state["reservation"] = Value::Null;
+        write_nonce_state(&state_path, &state)?;
+        Ok(signed)
     }
 
     fn receipt_confirmed(
@@ -1413,4 +1576,15 @@ mod tests {
         assert_eq!(decode_request_view(&dirty, REQUEST_ID), None);
         Ok(())
     }
+}
+
+fn write_nonce_state(path: &Path, state: &Value) -> Result<(), SubmitError> {
+    let temporary = path.with_extension("tmp");
+    std::fs::write(&temporary, state.to_string())
+        .and_then(|()| std::fs::File::open(&temporary)?.sync_all())
+        .and_then(|()| std::fs::rename(&temporary, path))
+        .and_then(|()| {
+            std::fs::File::open(path.parent().ok_or(io::ErrorKind::InvalidInput)?)?.sync_all()
+        })
+        .map_err(|_| SubmitError::Journal)
 }
