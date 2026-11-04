@@ -9,7 +9,7 @@ import DataListDisplay, { type Props as DataListDisplayProps } from 'ui/shared/D
 
 import TokenTransfersCrossChainListItem from './TokenTransfersCrossChainListItem';
 import TokenTransfersCrossChainTable from './TokenTransfersCrossChainTable';
-import { getItemKey } from './utils';
+import { getItemsWithKeys } from './utils';
 
 interface Props extends Omit<DataListDisplayProps, 'children'> {
   items?: Array<InterchainTransfer>;
@@ -19,14 +19,14 @@ interface Props extends Omit<DataListDisplayProps, 'children'> {
   tableTop?: number;
 }
 
-const TokenTransfersCrossChainContent = ({ items, isLoading, pagination, currentAddress, tableTop, ...rest }: Props) => {
+export const TokenTransfersCrossChainContent = ({ items, isLoading, pagination, currentAddress, tableTop, ...rest }: Props) => {
 
   const content = items ? (
     <>
       <Box hideFrom="lg">
-        { items.map((item, index) => (
+        { getItemsWithKeys(items).map(({ item, key }) => (
           <TokenTransfersCrossChainListItem
-            key={ getItemKey(item, isLoading ? index : undefined) }
+            key={ key }
             data={ item }
             isLoading={ isLoading }
             currentAddress={ currentAddress }
