@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { createServer } from "node:http";
-import { mkdir, open, readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { link, mkdir, open, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   decodePaymentCommitmentEvidence,
@@ -37,50 +38,150 @@ const syncDirectory = async (path) => {
   }
 };
 
+const fulfillmentOperations = new Map();
+
 export class FileFulfillmentRepository {
   constructor(directory) {
-    this.directory = directory;
+    this.directory = resolve(directory);
+  }
+
+  async serialize(idempotencyKey, operation) {
+    const key = join(this.directory, safeName(idempotencyKey));
+    const previous = fulfillmentOperations.get(key) ?? Promise.resolve();
+    const current = previous.then(operation, operation);
+    fulfillmentOperations.set(key, current);
+    try {
+      return await current;
+    } finally {
+      if (fulfillmentOperations.get(key) === current) fulfillmentOperations.delete(key);
+    }
   }
 
   async get(idempotencyKey) {
+    return this.serialize(idempotencyKey, () => this.recover(idempotencyKey));
+  }
+
+  async recover(idempotencyKey) {
     const path = join(this.directory, `${safeName(idempotencyKey)}.json`);
+    const existing = await this.readOptional(path);
+    if (existing !== undefined) {
+      this.assertRecord(existing, idempotencyKey);
+      return existing;
+    }
+    const claimDirectory = join(this.directory, `${safeName(idempotencyKey)}.claim`);
+    const ready = await this.readOptional(join(claimDirectory, "ready.json"));
+    if (ready === undefined) return undefined;
+    const claim = await this.read(join(claimDirectory, "claim.json"));
+    this.assertRecord(ready, idempotencyKey, claim.requestDigest);
+    if (JSON.stringify(this.encode(claim)) !== JSON.stringify(this.encode({ ...ready, resource: undefined }))) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+    return this.publish(idempotencyKey, ready);
+  }
+
+  async fulfill(proposed, release) {
+    return this.serialize(proposed.idempotencyKey, async () => {
+      const existing = await this.recover(proposed.idempotencyKey);
+      if (existing !== undefined) {
+        this.assertRecord(existing, proposed.idempotencyKey, proposed.requestDigest);
+        return existing;
+      }
+      await mkdir(this.directory, { recursive: true, mode: 0o700 });
+      await syncDirectory(this.directory);
+      const claimDirectory = join(this.directory, `${safeName(proposed.idempotencyKey)}.claim`);
+      try {
+        await mkdir(claimDirectory, { mode: 0o700 });
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+        const claim = await this.readOptional(join(claimDirectory, "claim.json"));
+        if (claim !== undefined && claim.requestDigest !== proposed.requestDigest) {
+          throw new MiddlewareError("fulfillment-conflict");
+        }
+        throw new MiddlewareError("fulfillment-outcome-unknown");
+      }
+      await syncDirectory(claimDirectory);
+      await this.writeAtomic(join(claimDirectory, "claim.json"), proposed);
+      const resource = await release();
+      const record = { ...proposed, resource };
+      this.assertRecord(record, proposed.idempotencyKey, proposed.requestDigest);
+      await this.writeAtomic(join(claimDirectory, "ready.json"), record);
+      return this.publish(proposed.idempotencyKey, record);
+    });
+  }
+
+  async reconcile(idempotencyKey, requestDigest, resource) {
+    return this.serialize(idempotencyKey, async () => {
+      const existing = await this.recover(idempotencyKey);
+      if (existing !== undefined) {
+        this.assertRecord(existing, idempotencyKey, requestDigest);
+        return existing;
+      }
+      const claimDirectory = join(this.directory, `${safeName(idempotencyKey)}.claim`);
+      const claim = await this.read(join(claimDirectory, "claim.json"));
+      if (claim.idempotencyKey !== idempotencyKey || claim.requestDigest !== requestDigest) {
+        throw new MiddlewareError("fulfillment-conflict");
+      }
+      const record = { ...claim, resource };
+      this.assertRecord(record, idempotencyKey, requestDigest);
+      await this.writeAtomic(join(claimDirectory, "ready.json"), record);
+      return this.publish(idempotencyKey, record);
+    });
+  }
+
+  async publish(idempotencyKey, record) {
+    const claimDirectory = join(this.directory, `${safeName(idempotencyKey)}.claim`);
+    const path = join(this.directory, `${safeName(idempotencyKey)}.json`);
+    try {
+      await link(join(claimDirectory, "ready.json"), path);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      const existing = await this.read(path);
+      if (JSON.stringify(this.encode(existing)) !== JSON.stringify(this.encode(record))) {
+        throw new MiddlewareError("fulfillment-conflict");
+      }
+    }
+    await syncDirectory(path);
+    await rm(claimDirectory, { recursive: true, force: true });
+    await syncDirectory(path);
+    return structuredClone(record);
+  }
+
+  assertRecord(record, idempotencyKey, requestDigest = record.requestDigest) {
+    if (record.idempotencyKey !== idempotencyKey || record.requestDigest !== requestDigest
+      || !Object.hasOwn(record, "resource") || record.resource === undefined) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+  }
+
+  encode(record) {
+    return { ...record, ...(record.commitmentEvidence === undefined ? {} : {
+      commitmentEvidence: encodePaymentCommitmentEvidence(record.commitmentEvidence),
+    }) };
+  }
+
+  async writeAtomic(path, record) {
+    const temporary = join(dirname(path), `${randomUUID()}.tmp`);
+    const file = await open(temporary, "wx", 0o600);
+    try {
+      await file.writeFile(JSON.stringify(this.encode(record)), "utf8");
+      await file.sync();
+    } finally {
+      await file.close();
+    }
+    try {
+      await link(temporary, path);
+      await syncDirectory(path);
+    } finally {
+      await rm(temporary, { force: true });
+    }
+  }
+
+  async readOptional(path) {
     try {
       return await this.read(path);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
       return undefined;
-    }
-  }
-
-  async fulfill(proposed, release) {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
-    const path = join(this.directory, `${safeName(proposed.idempotencyKey)}.json`);
-    const existing = await this.get(proposed.idempotencyKey);
-    if (existing !== undefined) {
-      if (existing.requestDigest !== proposed.requestDigest) throw new MiddlewareError("fulfillment-conflict");
-      return existing;
-    }
-    const resource = await release();
-    const record = { ...proposed, resource };
-    try {
-      const file = await open(path, "wx", 0o600);
-      try {
-        await file.writeFile(JSON.stringify({ ...record,
-          ...(record.commitmentEvidence === undefined ? {} : {
-            commitmentEvidence: encodePaymentCommitmentEvidence(record.commitmentEvidence),
-          }),
-        }), "utf8");
-        await file.sync();
-      } finally {
-        await file.close();
-      }
-      await syncDirectory(path);
-      return { ...proposed, resource };
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      const stored = await this.read(path);
-      if (stored.requestDigest !== proposed.requestDigest) throw new MiddlewareError("fulfillment-conflict");
-      return stored;
     }
   }
 
@@ -141,7 +242,7 @@ export function createPaidApiServer(middleware, resourceBody) {
       const state = error instanceof MiddlewareError
         ? error.code === "payment-pending"
           ? "pending"
-          : error.code === "fulfillment-conflict"
+          : (error.code === "fulfillment-conflict" || error.code === "fulfillment-outcome-unknown")
             ? "unknown"
             : "refused"
         : "unknown";
