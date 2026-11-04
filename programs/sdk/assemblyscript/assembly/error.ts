@@ -8,6 +8,8 @@
  * are declared by every LayerX authoring language.
  */
 
+import { STATUS_VERIFY_FAILED } from "./versioned";
+
 export const OK: i32 = 0;
 export const ERR_DENIED: i32 = -1;
 export const ERR_INVALID: i32 = -2;
@@ -39,7 +41,7 @@ export function isRefusal(status: i32): bool {
 
 /** Reports whether a refusal was produced by the host rather than the guest. */
 export function isHostRefusal(status: i32): bool {
-  return status < 0 && status >= ERR_EVIDENCE;
+  return status < 0 && status >= STATUS_VERIFY_FAILED;
 }
 
 /**
@@ -50,7 +52,7 @@ export function isHostRefusal(status: i32): bool {
  */
 export function abiStatus(status: i32): i32 {
   if (status >= 0) return status;
-  if (status >= ERR_EVIDENCE) return status;
+  if (isHostRefusal(status)) return status;
   if (
     status == ERR_EMPTY_KEY ||
     status == ERR_KEY_TOO_LARGE ||
@@ -78,6 +80,7 @@ export function statusName(status: i32): string {
   if (status == ERR_BOUNDS) return "LXP_PROGRAM_ERR_BOUNDS";
   if (status == ERR_METER) return "LXP_PROGRAM_ERR_METER";
   if (status == ERR_EVIDENCE) return "LXP_PROGRAM_ERR_EVIDENCE";
+  if (status == STATUS_VERIFY_FAILED) return "LXP_PROGRAM_ERR_VERIFY_FAILED";
   if (status == ERR_NULL_ARGUMENT) return "LXP_PROGRAM_ERR_NULL_ARGUMENT";
   if (status == ERR_EMPTY_KEY) return "LXP_PROGRAM_ERR_EMPTY_KEY";
   if (status == ERR_KEY_TOO_LARGE) return "LXP_PROGRAM_ERR_KEY_TOO_LARGE";
