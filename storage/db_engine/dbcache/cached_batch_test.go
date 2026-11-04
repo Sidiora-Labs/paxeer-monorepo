@@ -2,6 +2,7 @@ package dbcache
 
 import (
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -113,7 +114,7 @@ func (mc *mockCache) BatchSet(updates []CacheUpdate) error {
 func TestCachedBatchCommitUpdatesCacheOnSuccess(t *testing.T) {
 	inner := &mockBatch{}
 	cache := newMockCache()
-	cb := newCachedBatch(inner, cache)
+	cb := newCachedBatch(inner, cache, &sync.Mutex{})
 
 	require.NoError(t, cb.Set([]byte("a"), []byte("1")))
 	require.NoError(t, cb.Set([]byte("b"), []byte("2")))
@@ -131,7 +132,7 @@ func TestCachedBatchCommitUpdatesCacheOnSuccess(t *testing.T) {
 func TestCachedBatchCommitDoesNotUpdateCacheOnInnerFailure(t *testing.T) {
 	inner := &mockBatch{commitErr: errors.New("disk full")}
 	cache := newMockCache()
-	cb := newCachedBatch(inner, cache)
+	cb := newCachedBatch(inner, cache, &sync.Mutex{})
 
 	require.NoError(t, cb.Set([]byte("a"), []byte("1")))
 	err := cb.Commit(types.WriteOptions{})
@@ -146,7 +147,7 @@ func TestCachedBatchCommitReturnsCacheError(t *testing.T) {
 	inner := &mockBatch{}
 	cache := newMockCache()
 	cache.batchSetErr = errors.New("cache broken")
-	cb := newCachedBatch(inner, cache)
+	cb := newCachedBatch(inner, cache, &sync.Mutex{})
 
 	require.NoError(t, cb.Set([]byte("a"), []byte("1")))
 	err := cb.Commit(types.WriteOptions{})
@@ -160,7 +161,7 @@ func TestCachedBatchDeleteMarksKeyForRemoval(t *testing.T) {
 	inner := &mockBatch{}
 	cache := newMockCache()
 	cache.Set([]byte("x"), []byte("old"))
-	cb := newCachedBatch(inner, cache)
+	cb := newCachedBatch(inner, cache, &sync.Mutex{})
 
 	require.NoError(t, cb.Delete([]byte("x")))
 	require.NoError(t, cb.Commit(types.WriteOptions{}))
@@ -172,7 +173,7 @@ func TestCachedBatchDeleteMarksKeyForRemoval(t *testing.T) {
 func TestCachedBatchResetClearsPending(t *testing.T) {
 	inner := &mockBatch{}
 	cache := newMockCache()
-	cb := newCachedBatch(inner, cache)
+	cb := newCachedBatch(inner, cache, &sync.Mutex{})
 
 	require.NoError(t, cb.Set([]byte("a"), []byte("1")))
 	require.NoError(t, cb.Set([]byte("b"), []byte("2")))
@@ -186,7 +187,7 @@ func TestCachedBatchResetClearsPending(t *testing.T) {
 func TestCachedBatchLenDelegatesToInner(t *testing.T) {
 	inner := &mockBatch{}
 	cache := newMockCache()
-	cb := newCachedBatch(inner, cache)
+	cb := newCachedBatch(inner, cache, &sync.Mutex{})
 
 	require.Equal(t, 0, cb.Len())
 	require.NoError(t, cb.Set([]byte("a"), []byte("1")))
@@ -197,7 +198,7 @@ func TestCachedBatchLenDelegatesToInner(t *testing.T) {
 func TestCachedBatchCloseDelegatesToInner(t *testing.T) {
 	inner := &mockBatch{}
 	cache := newMockCache()
-	cb := newCachedBatch(inner, cache)
+	cb := newCachedBatch(inner, cache, &sync.Mutex{})
 
 	require.NoError(t, cb.Close())
 	require.True(t, inner.closed)

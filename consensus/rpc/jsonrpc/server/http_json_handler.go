@@ -21,14 +21,14 @@ func makeJSONRPCHandler(funcMap map[string]*RPCFunc) http.HandlerFunc {
 		// For POST requests, reject a non-root URL path. This should not happen
 		// in the standard configuration, since the wrapper checks the path.
 		if hreq.URL.Path != "/" {
-			writeRPCResponse(w, rpctypes.RPCRequest{}.MakeErrorf(
+			writeRPCResponse(w, false, rpctypes.RPCRequest{}.MakeErrorf(
 				rpctypes.CodeInvalidRequest, "invalid path: %q", hreq.URL.Path))
 			return
 		}
 
 		b, err := io.ReadAll(hreq.Body)
 		if err != nil {
-			writeRPCResponse(w, rpctypes.RPCRequest{}.MakeErrorf(
+			writeRPCResponse(w, false, rpctypes.RPCRequest{}.MakeErrorf(
 				rpctypes.CodeInvalidRequest, "reading request body: %v", err))
 			return
 		}
@@ -40,14 +40,14 @@ func makeJSONRPCHandler(funcMap map[string]*RPCFunc) http.HandlerFunc {
 			return
 		}
 
-		requests, err := parseRequests(b)
+		requests, isBatch, err := parseRequests(b)
 		if len(requests) > REQUEST_BATCH_SIZE_LIMIT {
-			writeRPCResponse(w, rpctypes.RPCRequest{}.MakeErrorf(
+			writeRPCResponse(w, false, rpctypes.RPCRequest{}.MakeErrorf(
 				rpctypes.CodeParseError, "Batch size limit exceeded."))
 			return
 		}
 		if err != nil {
-			writeRPCResponse(w, rpctypes.RPCRequest{}.MakeErrorf(
+			writeRPCResponse(w, false, rpctypes.RPCRequest{}.MakeErrorf(
 				rpctypes.CodeParseError, "decoding request: %v", err))
 			return
 		}
@@ -82,7 +82,7 @@ func makeJSONRPCHandler(funcMap map[string]*RPCFunc) http.HandlerFunc {
 		if len(responses) == 0 {
 			return
 		}
-		writeRPCResponse(w, responses...)
+		writeRPCResponse(w, isBatch, responses...)
 	}
 }
 
@@ -106,7 +106,7 @@ func handleInvalidJSONRPCPaths(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // parseRequests parses a JSON-RPC request or request batch from data.
-func parseRequests(data []byte) ([]rpctypes.RPCRequest, error) {
+func parseRequests(data []byte) ([]rpctypes.RPCRequest, bool, error) {
 	var reqs []rpctypes.RPCRequest
 	var err error
 
@@ -118,9 +118,9 @@ func parseRequests(data []byte) ([]rpctypes.RPCRequest, error) {
 		err = json.Unmarshal(data, &reqs[0])
 	}
 	if err != nil {
-		return nil, err
+		return nil, isArray, err
 	}
-	return reqs, nil
+	return reqs, isArray, nil
 }
 
 // writes a list of available rpc endpoints as an html page

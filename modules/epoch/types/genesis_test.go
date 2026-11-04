@@ -2,6 +2,7 @@ package types_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch/types"
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,29 @@ func TestGenesisState_Validate(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
+			}
+		})
+	}
+}
+
+func TestGenesisState_DurationValidation(t *testing.T) {
+	for _, duration := range []time.Duration{
+		time.Duration(-1 << 63),
+		-time.Minute,
+		-time.Nanosecond,
+		0,
+		time.Nanosecond,
+		time.Minute,
+	} {
+		t.Run(duration.String(), func(t *testing.T) {
+			genesis := types.DefaultGenesis()
+			genesis.Epoch.EpochDuration = duration
+			if duration <= 0 {
+				require.Error(t, genesis.Epoch.Validate())
+				require.Error(t, genesis.Validate())
+			} else {
+				require.NoError(t, genesis.Epoch.Validate())
+				require.NoError(t, genesis.Validate())
 			}
 		})
 	}

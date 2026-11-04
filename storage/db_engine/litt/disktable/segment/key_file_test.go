@@ -51,7 +51,7 @@ func TestReadWriteKeys(t *testing.T) {
 	require.NoError(t, err)
 	err = segmentPath.MakeDirectories(false)
 	require.NoError(t, err)
-	file, err := createKeyFile(logger, index, segmentPath, false)
+	file, err := createKeyFile(logger, index, segmentPath, false, false)
 	require.NoError(t, err)
 
 	for _, key := range keys {
@@ -129,7 +129,7 @@ func TestReadingTruncatedKeyFile(t *testing.T) {
 	require.NoError(t, err)
 	err = segmentPath.MakeDirectories(false)
 	require.NoError(t, err)
-	file, err := createKeyFile(logger, index, segmentPath, false)
+	file, err := createKeyFile(logger, index, segmentPath, false, false)
 	require.NoError(t, err)
 
 	for _, key := range keys {
@@ -215,7 +215,7 @@ func TestSwappingKeyFile(t *testing.T) {
 	require.NoError(t, err)
 	err = segmentPath.MakeDirectories(false)
 	require.NoError(t, err)
-	file, err := createKeyFile(logger, index, segmentPath, false)
+	file, err := createKeyFile(logger, index, segmentPath, false, false)
 	require.NoError(t, err)
 
 	for _, key := range keys {
@@ -258,7 +258,7 @@ func TestSwappingKeyFile(t *testing.T) {
 
 	// Create a new version of the key file that only contains the keys at even indices. The intention is to replace
 	// the on-disk file with this new version.
-	swapFile, err := createKeyFile(logger, index, segmentPath, true)
+	swapFile, err := createKeyFile(logger, index, segmentPath, true, false)
 	require.NoError(t, err)
 	for i := 0; i < int(keyCount); i += 2 {
 		err := swapFile.write(keys[i])
