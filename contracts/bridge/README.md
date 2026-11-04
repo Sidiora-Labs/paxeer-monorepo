@@ -22,6 +22,28 @@ This page is the operator runbook: what to deploy, in what order, with which env
 | [contracts/bridge/ATTESTATION-SOLANA.md](ATTESTATION-SOLANA.md) | how Solana keys, mints and transactions enter the attestation digests |
 | [modules/layerxbridge/ATTESTATION.md](../../modules/layerxbridge/ATTESTATION.md) | the byte-exact specification of both preimages and the signature rules |
 
+## Interface contracts
+
+This maintained runbook is the bridge deployment contract. The
+[configuration](#fill-in-the-configuration), [order of operations](#order-of-operations)
+and [post-deploy checklist](../../services/bridge/deploy/checklist.sh) describe operator inputs
+and the readbacks required before opening admission. See also:
+
+- [Attestation fields and signature rules](../../modules/layerxbridge/ATTESTATION.md)
+  for the byte-exact deposit and burn preimages, digest domains and signatures.
+- [Solana encodings](ATTESTATION-SOLANA.md) and the
+  [committed digest vectors](vectors/solana_test.go) for foreign identities.
+- [Deposit recipients](#deposit-recipients) for accepted address bytes and
+  the disposition of deposits rejected by Paxeer.
+- [Cap changes and pending burns](#outbound-admission-and-coordinated-cap-changes) and
+  [the relayer](#the-relayer) for pause ordering, durable obligations,
+  retries and operator-visible failure/recovery states.
+- [SDK package and transport contracts](../../sdk/js/README.md#package),
+  [explorer HTTP schema](../../apps/explorer/public/openapi.yaml) and
+  [explorer WebSocket payloads](../../apps/explorer/lib/socket/types.ts)
+  for their respective consumers. Explorer responses do not authorize a
+  release; the attestation, destination policy and nullifier checks do.
+
 ## The chains
 
 | Chain | Chain id | Pair | Page |
