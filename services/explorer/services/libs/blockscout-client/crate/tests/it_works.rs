@@ -1,12 +1,10 @@
 use blockscout_client::{Api, ApiClient, Configuration};
-use lazy_static::lazy_static;
 use pretty_assertions::assert_eq;
 use rstest::*;
-use std::{
-    sync::{Arc, Mutex, Once},
-    time::Duration,
-};
-use stubr::Stubr;
+use std::time::Duration;
+
+mod support;
+use support::OwnedApiClient;
 
 const DEFAULT_TOKEN_HASH: &str = "0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401";
 const DEFAULT_CONTRACT_HASH: &str = "0x8FD4596d4E7788a71F82dAf4119D069a84E7d3f3";
@@ -17,39 +15,16 @@ const DEFAULT_ADDRESS_HASH: &str = "0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE";
 const BLOCK_VALIDATOR_ADDRESS_HASH: &str = "0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97";
 const DEFAULT_SEARCH_QUERY: &str = "USDT";
 
-lazy_static! {
-    static ref STUBR_SERVER: Arc<Mutex<Option<Stubr>>> = Arc::new(Mutex::new(None));
-    static ref INIT: Once = Once::new();
-}
-
-// NOTE: little hack, I do not know how to make it work without this.
-// Stubr::start_blocking does not work, because it uses async_std::task::block_on,
-// and it make tests flaky, because it drops the server before the test is finished :(
-// TODO: find a better way to do this.
 #[fixture]
-async fn api_client() -> ApiClient {
-    INIT.call_once(|| {
-        tokio::spawn(async {
-            let server = Stubr::try_start("tests/recorded/eth_blockscout_com")
-                .await
-                .unwrap();
-            *STUBR_SERVER.lock().unwrap() = Some(server);
-        });
-    });
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    let server = STUBR_SERVER.lock().unwrap();
-    let server = server.as_ref().expect("Server not initialized");
-    api_client_from_uri(server.uri().as_str())
-}
-
-fn api_client_from_uri(uri: &str) -> ApiClient {
-    ApiClient::new(Configuration::builder().base_path(uri).build())
+async fn api_client() -> OwnedApiClient {
+    OwnedApiClient::start()
+        .await
+        .expect("start and await this test's owned recording server")
 }
 
 #[rstest]
 #[tokio::test]
-async fn health(#[future] api_client: ApiClient) {
+async fn health(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let health_api = api_client.health_api();
     let health = health_api.health().await.expect("Failed to get health");
@@ -247,7 +222,7 @@ async fn nft_full_width_cursor_survives_real_client_http() {
 
 #[rstest]
 #[tokio::test]
-async fn blocks(#[future] api_client: ApiClient) {
+async fn blocks(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let blocks_api = api_client.blocks_api();
     let blocks = blocks_api
@@ -260,7 +235,7 @@ async fn blocks(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn transactions(#[future] api_client: ApiClient) {
+async fn transactions(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let transactions_api = api_client.transactions_api();
     let transactions = transactions_api
@@ -273,7 +248,7 @@ async fn transactions(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn internal_transactions(#[future] api_client: ApiClient) {
+async fn internal_transactions(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let transactions_api = api_client.transactions_api();
     let internal_transactions = transactions_api
@@ -290,7 +265,7 @@ async fn internal_transactions(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn smart_contracts(#[future] api_client: ApiClient) {
+async fn smart_contracts(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let smart_contracts_api = api_client.smart_contracts_api();
     let smart_contracts = smart_contracts_api
@@ -314,7 +289,7 @@ async fn smart_contracts(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn tokens(#[future] api_client: ApiClient) {
+async fn tokens(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let tokens = tokens_api
@@ -361,7 +336,7 @@ async fn tokens(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn get_transaction(#[future] api_client: ApiClient) {
+async fn get_transaction(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let transactions_api = api_client.transactions_api();
     let response = transactions_api
@@ -378,7 +353,7 @@ async fn get_transaction(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_counters(#[future] api_client: ApiClient) {
+async fn token_counters(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -395,7 +370,7 @@ async fn token_counters(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_holders(#[future] api_client: ApiClient) {
+async fn token_holders(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -412,7 +387,7 @@ async fn token_holders(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_transfers(#[future] api_client: ApiClient) {
+async fn token_transfers(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -429,7 +404,7 @@ async fn token_transfers(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_instance_holders(#[future] api_client: ApiClient) {
+async fn token_instance_holders(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -447,7 +422,7 @@ async fn token_instance_holders(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_details(#[future] api_client: ApiClient) {
+async fn address_details(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -464,7 +439,7 @@ async fn address_details(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_blocks_validated(#[future] api_client: ApiClient) {
+async fn address_blocks_validated(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -481,7 +456,7 @@ async fn address_blocks_validated(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_counters(#[future] api_client: ApiClient) {
+async fn address_counters(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -498,7 +473,7 @@ async fn address_counters(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_logs(#[future] api_client: ApiClient) {
+async fn address_logs(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -515,7 +490,7 @@ async fn address_logs(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_nft_collections(#[future] api_client: ApiClient) {
+async fn address_nft_collections(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -532,7 +507,7 @@ async fn address_nft_collections(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_token_balances(#[future] api_client: ApiClient) {
+async fn address_token_balances(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -549,7 +524,7 @@ async fn address_token_balances(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_token_transfers(#[future] api_client: ApiClient) {
+async fn address_token_transfers(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -566,7 +541,7 @@ async fn address_token_transfers(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_tokens(#[future] api_client: ApiClient) {
+async fn address_tokens(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -583,7 +558,7 @@ async fn address_tokens(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn stats(#[future] api_client: ApiClient) {
+async fn stats(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let stats_api = api_client.stats_api();
     let response = stats_api.get_stats().await.expect("Failed to get stats");
@@ -605,7 +580,7 @@ async fn stats(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn search(#[future] api_client: ApiClient) {
+async fn search(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let search_api = api_client.search_api();
     let params = blockscout_client::apis::search_api::SearchParams::builder()

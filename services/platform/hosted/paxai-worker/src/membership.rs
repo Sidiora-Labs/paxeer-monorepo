@@ -287,8 +287,10 @@ impl MembershipObserver {
             }
         }
         let shared = state::decode_shared_state(evidence.state)?;
-        let (_, admission) = split_joint(shared.section(Section::ReputationAdmission)?)?;
-        let meta = AdmissionTable::decode(admission)?.get(Participant::Worker(subject.worker));
+        let (_reputation, admission_bytes) =
+            split_joint(shared.section(Section::ReputationAdmission)?)?;
+        let admission = AdmissionTable::decode(admission_bytes)?;
+        let meta = admission.get(Participant::Worker(subject.worker));
         let record = authority.record();
         let retained = retained(&shared, subject.worker, record.slot, observed.height)?;
         let mut next = self.record.clone();

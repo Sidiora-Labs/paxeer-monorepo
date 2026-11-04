@@ -1,0 +1,46 @@
+[repair]
+task = "22.33.19"
+base_revision = "39bdf7bceaa86b05bbba7248df1e01f4f36022e3"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_19.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "hf-build and hf-done record the exact same candidate revision, command, exit code and private log in /out/run/gates.jsonl. The final response copies the last hf-done evidence line, which supplies the verified revision without a self-referential revision embedded in its own source tree."
+implementation = "Append tests to the existing pytest testpaths, preserve the central suite and pythonpath, add an executable collection contract to the owning SDK suite and document the default unfiltered gate. No existing test file or assertion changes."
+source_proof = "The repair gate parses the real TOML manifest, invokes the local SDK contract against pytest's real Config parser from the package working directory, asserts both default roots and discovery patterns without ignore/deselect/addopts, inventories both source trees, and checks byte-for-byte SHA256 preservation of every previous local and central test module."
+review_only = "SDK suite collection/import and runtime assertions are not executed by this focused gate. The contract proves pytest's selection of both default roots, not successful import or execution of every module. Native C receipt producers, generated-output checks, local EVM cases, integration inputs, live restart behavior and separately owned CI jobs require the owning full SDK gate; no green full-suite result or live recovery proof is claimed."
+
+[baseline]
+verification_run = false
+reason = "The explicit task order requires complete implementation before formatting, building or testing and forbids a manual verify before hf-done. It overrides the embedded unchanged-tree verify request; no baseline gate or baseline test failure is claimed."
+observed_failing_tests = []
+initial_state = "Only runner-owned .cgignore and spec task-start changes existed. gate.json reported zero build and verify runs; gates.jsonl and both repair deliverables were absent. Preserve runner setup without editing it."
+central_module_count = 43
+central_sha256 = "222737f09534e53778fd58cf696c6047e17d898ee83c9b45618c5b988fd642af"
+
+[baseline.local_sha256]
+"test_ai_market_commit.py" = "05b84074d45867e4ee594b6edefc005b546658f9c44ade5efc17329922d5bff0"
+"test_px_commit.py" = "58dec34db20ff5190e6679315ac3168b93fe561bf14caae5b161ad69ef5ce5ee"
+"test_receipt_generated_current.py" = "3f438666460c17baf14cc2a1938e99581e621ab95531f894bca64b0e23e15e82"
+"test_retired_kernel_receipts.py" = "dfc62f22137dc2fece64e94d547649dd79352db9bd388d794c144f1e66ca7969"
+"test_revert_retryable.py" = "5b03a8179beccf9f6ce8dc7f883b372eb46d6067faa0383d75b21f50a1815615"
+"test_sequencer_receipt.py" = "29f101e33424799a6da61ac9ef1b80afdc150d9e724afc033bced7c2262cbf0a"
+"test_spot_call.py" = "320cd8e62db028df964fd7ac833f73616efb696155f852b19788f46d3de86ef7"
+"test_web_search_sequencer.py" = "57c2a1b8ba05d73e6d7c058cd56598bafd64f128e3e827133414354c6f49115f"
+"test_x402_draw_sequencer.py" = "3319ed260579e3ac87cdd789368744e6b9dd1ba6945a74d9e81f67fdf94af772"
+"test_x402_http_sequencer.py" = "d22fc04b9a94bee4d3ddd6230553ae64c9c228009fb95e20fe3f89458e98563e"
+
+[finding.local-test-discovery]
+audit = "22.30.100"
+file = "services/agent/sdk/python/pyproject.toml"
+class = "test-gap"
+severity = "medium"
+repair = "Default testpaths now include central and local suites; the local collection contract and TESTING.md define the owning unfiltered SDK gate."
+tests = ["test_manifest_includes_both_suites_without_filtering", "test_pytest_consumes_the_owning_sdk_collection_contract", "test_existing_receipt_restart_and_rejection_suites_are_preserved", "test_documented_gate_covers_the_complete_discovery_inventory", "test_record_maps_the_finding_and_limits_the_claimed_evidence"]
+
+[wiring]
+requests = ["spec/layerx-merge/spec.kvx task 22.9.11 — Domain 9 SDK owner: wire the owning SDK gate to cd services/agent/sdk/python && python3 -m pytest -q, covering both roots without the currently explicit tests argument and deselections; resolve existing failures in their owning tasks without weakening assertions.", ".github/workflows/xweb-test.yml — Domain 9 SDK/CI owner: wire the full default Python SDK invocation and both source roots into the owning SDK CI job with pytest, cryptography and existing native/integration prerequisites; the current targeted web-search job proves only its explicitly named central module."]
+
+[gotchas]
+ordering = "The audit template asks for an unchanged-tree verify, but explicit task order forbids it; preserve gate budget and record no invented baseline result."
+scope = "GOTCHA.kvx and spec files are outside scope. Record observations here and leave initial runner changes intact."
+collection = "Explicit pytest directory arguments override testpaths. Adding the local path to the manifest cannot by itself expand out-of-path task 22.9.11 or the targeted CI command."

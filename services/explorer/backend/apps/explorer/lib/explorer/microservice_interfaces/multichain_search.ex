@@ -102,13 +102,13 @@ defmodule Explorer.MicroserviceInterfaces.MultichainSearch do
             {:ok, {:chunks_processed, _}} ->
               {:error, export_body}
 
-            {:error, error} ->
+            {:error, data_to_retry} ->
               merged_data_to_retry = %{
-                addresses: error.data_to_retry.addresses ++ export_body.addresses,
-                block_ranges: error.data_to_retry.block_ranges ++ export_body.block_ranges,
-                hashes: error.data_to_retry.hashes ++ export_body.hashes,
-                address_coin_balances: error.data_to_retry.address_coin_balances ++ export_body.address_coin_balances,
-                address_token_balances: error.data_to_retry.address_token_balances ++ export_body.address_token_balances
+                addresses: data_to_retry.addresses ++ export_body.addresses,
+                block_ranges: data_to_retry.block_ranges ++ export_body.block_ranges,
+                hashes: data_to_retry.hashes ++ export_body.hashes,
+                address_coin_balances: data_to_retry.address_coin_balances ++ export_body.address_coin_balances,
+                address_token_balances: data_to_retry.address_token_balances ++ export_body.address_token_balances
               }
 
               {:error, merged_data_to_retry}
@@ -929,7 +929,7 @@ defmodule Explorer.MicroserviceInterfaces.MultichainSearch do
     coin_balances_queue ++ token_balances_queue
   end
 
-  @spec http_post_request(String.t(), map()) :: {:ok, any()} | {:error, String.t()}
+  @spec http_post_request(String.t(), map()) :: {:ok, any()} | {:error, map()}
   defp http_post_request(url, body) do
     headers = [{"Content-Type", "application/json"}]
 
@@ -938,7 +938,20 @@ defmodule Explorer.MicroserviceInterfaces.MultichainSearch do
            pool: false
          ) do
       {:ok, %{body: response_body, status_code: 200}} ->
-        response_body |> Jason.decode()
+        case Jason.decode(response_body) do
+          {:ok, response} ->
+            {:ok, response}
+
+          {:error, reason} ->
+            {:error,
+             %{
+               url: url,
+               data_to_retry: body,
+               status_code: 200,
+               response_body: response_body,
+               reason: {:invalid_json, reason.position}
+             }}
+        end
 
       {:ok, %{body: response_body, status_code: status_code}} ->
         {:error,

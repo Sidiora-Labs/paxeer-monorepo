@@ -167,9 +167,7 @@ from .stream import ResumableStream as ResumableStream
 from .stream import StreamCursor as StreamCursor
 from .stream import StreamEvent as StreamEvent
 from .stream import StreamPage as StreamPage
-from .verifier import AuthorizedReceiptBatch as AuthorizedReceiptBatch
 from .verifier import LocalSignatureVerifier as LocalSignatureVerifier
-from .verifier import MerkleProof as MerkleProof
 from .verifier import ReceiptKey as ReceiptKey
 from .verifier import ReceiptVerification as ReceiptVerification
 from .verifier import ReceiptVerificationError as ReceiptVerificationError
@@ -179,7 +177,6 @@ from .verifier import (
 )
 from .verifier import verify_sequencer_receipt as verify_sequencer_receipt
 from .x402 import PaymentCommitment as PaymentCommitment
-from .x402 import PaymentCommitmentEvidence as PaymentCommitmentEvidence
 from .x402 import payment_commitment as payment_commitment
 from .x402 import payment_payer as payment_payer
 from .x402 import payment_purpose as payment_purpose
@@ -266,6 +263,8 @@ from .xweb_api import xweb_get_attestors_call_data as xweb_get_attestors_call_da
 from .xweb_api import xweb_method_code as xweb_method_code
 from .x402_rpc import PaymentRpc as PaymentRpc
 from .x402_rpc import PaymentRpcError as PaymentRpcError
-from .x402_rpc import rpc_batch_evidence as rpc_batch_evidence
 from .x402_rpc import rpc_hex as rpc_hex
 from .x402_rpc import verify_rpc_payment as verify_rpc_payment
+
+from .x402_rpc import rpc_committed_evidence as rpc_committed_evidence
+from .x402_rpc import rpc_payment_evidence as rpc_payment_evidence

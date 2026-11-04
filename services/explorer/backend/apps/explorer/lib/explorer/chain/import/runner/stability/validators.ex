@@ -6,12 +6,10 @@ defmodule Explorer.Chain.Import.Runner.Stability.Validators do
   require Ecto.Query
 
   alias Ecto.{Multi, Repo}
-  alias Explorer.Chain.{Import, Stability.Validator}
+  alias Explorer.Chain.{Block, Import, Stability.Validator}
   alias Explorer.Prometheus.Instrumenter
 
-  import Ecto.Query, only: [from: 2, where: 3]
-
-  require Logger
+  import Ecto.Query, only: [from: 2]
 
   @behaviour Import.Runner
 
@@ -62,56 +60,37 @@ defmodule Explorer.Chain.Import.Runner.Stability.Validators do
         }) ::
           {:ok, [Validator.t()]}
   defp update_counters(repo, changes_list, %{timeout: timeout, timestamps: timestamps}) when is_list(changes_list) do
-    if changes_list != [] do
-      # Get all address hashes from the changes
-      address_hashes = Enum.map(changes_list, & &1.address_hash)
+    # Lock in address order before reading blocks so concurrent recovery runs
+    # cannot overwrite a newer count with a snapshot taken before the lock.
+    validators =
+      from(v in Validator, order_by: [asc: v.address_hash], lock: "FOR UPDATE")
+      |> repo.all(timeout: timeout)
 
-      # Get existing validators that match the address hashes
-      existing_validators =
-        Validator
-        |> where([v], v.address_hash in ^address_hashes)
-        |> repo.all(timeout: timeout)
+    address_hashes = Enum.map(validators, & &1.address_hash)
 
-      # Update counters for each existing validator
-      updated_validators =
-        Enum.reduce(changes_list, [], fn change, acc ->
-          case Enum.find(existing_validators, &(&1.address_hash == change.address_hash)) do
-            nil ->
-              # Validator doesn't exist, log error and skip
-              Logger.error("Validator with address hash #{to_string(change.address_hash)} not found")
-              acc
+    counts =
+      from(b in Block,
+        where: b.consensus == true and b.miner_hash in ^address_hashes,
+        group_by: b.miner_hash,
+        select: {b.miner_hash, count(b.hash)}
+      )
+      |> repo.all(timeout: timeout)
+      |> Map.new()
 
-            validator ->
-              # Update the blocks_validated counter
-              # credo:disable-for-next-line
-              case repo.update_all(
-                     from(v in Validator, where: v.address_hash == ^change.address_hash),
-                     [
-                       inc: [blocks_validated: change.blocks_validated],
-                       set: [updated_at: timestamps.updated_at]
-                     ],
-                     timeout: timeout
-                   ) do
-                {1, _} ->
-                  # Successfully updated, add to result
-                  updated_validator = %Validator{
-                    address_hash: change.address_hash,
-                    blocks_validated: validator.blocks_validated + change.blocks_validated
-                  }
+    # Blocks retain contributions even when validator metadata has not arrived.
+    # Reconcile every validator, including on an empty range, to retry those
+    # contributions and remove counts for blocks that have lost consensus.
+    Enum.reduce_while(validators, {:ok, []}, fn validator, {:ok, updated} ->
+      query = from(v in Validator, where: v.address_hash == ^validator.address_hash, select: v)
 
-                  [updated_validator | acc]
-
-                _ ->
-                  # Update failed, log error and skip
-                  Logger.error("Failed to update validator counter for address hash #{to_string(change.address_hash)}")
-                  acc
-              end
-          end
-        end)
-
-      {:ok, updated_validators}
-    else
-      {:ok, []}
-    end
+      case repo.update_all(
+             query,
+             [set: [blocks_validated: Map.get(counts, validator.address_hash, 0), updated_at: timestamps.updated_at]],
+             timeout: timeout
+           ) do
+        {1, [persisted]} -> {:cont, {:ok, [persisted | updated]}}
+        result -> {:halt, {:error, {:validator_counter_update_failed, validator.address_hash, result}}}
+      end
+    end)
   end
 end
