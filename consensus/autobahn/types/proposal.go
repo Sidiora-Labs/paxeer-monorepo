@@ -381,6 +381,9 @@ func NewProposal(
 	if timestamp.Before(wantMin) {
 		timestamp = wantMin
 	}
+	if err := validateTimestamp(timestamp.Unix(), int32(timestamp.Nanosecond())); err != nil {
+		return nil, fmt.Errorf("timestamp: %w", err)
+	}
 	selected := map[LaneID]*LaneQC{}
 	makeCandidate := func() *FullProposal {
 		return &FullProposal{
