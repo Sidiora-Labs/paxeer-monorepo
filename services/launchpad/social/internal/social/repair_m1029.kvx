@@ -1,0 +1,20 @@
+[repair.22.33.1029]
+audit = "22.30.39"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+finding_17 = "TestRepairM_1029_ModerationVerifiedLifecycle invokes the same real-store fixture as TestModeration: durable message producer, target lookup, Ed25519 verified ingress, HTTP report/ban/list/transition/revoke, actual response schemas, strict authority refusals, revision conflicts, immutable actor/session audit and reopened store state."
+finding_18 = "TestRepairM_1029_PrivateGuestAndOwnerCleanupRecovery proves private guest denial without participant mutation, legitimate owner listener admission before provider failure, unchanged pending cleanup after server/store restart and real LiveKit client revocation over loopback HTTP with strict idempotent recovery; TestPostgresV2VoiceEndLeaveAndTicket uses that same owner-admission sequence and retains privacy, consent and cleanup assertions."
+finding_11 = "TestRepairM_1029_MetadataRestartBoundary and TestRepairM_1029_InterruptedCreateRequiresVoiceWiring prove committed room/metadata restart behavior and fail-closed reads after interruption before metadata persistence or metadata retention loss; full atomic create/retry recovery remains unqualified pending wiring.voice_atomic_create."
+baseline = "Not run: the explicit numbered implementation/build/hf-done order forbids the contradictory step-7 pre-change verification; no pre-change test failure is claimed. The initial tree contained only runner-owned .cgignore/spec status changes and no gate ledger."
+qualification_record = "Runner-owned /out/run/gates.jsonl records candidate revision, exact gate commands, exit codes and private evidence logs; the final response copies the last bounded gate result."
+gotcha = "Legacy moderation lists emit safety.Case and safety.Ban field names and numeric revisions, not the retired types.ReportsResponse/types.BansResponse shapes; invalid lifecycle transitions return conflict and missing verified authority returns forbidden."
+
+[wiring.voice_atomic_create]
+request = "services/launchpad/social/internal/voice/control.go and services/launchpad/social/migrations (domain 4, launchpad social voice owner): expose a create operation accepting immutable operation identity and validated frozen scope/title/visibility metadata, commit room plus authoritative metadata in one transaction separately from delivery retention, reject conflicting retries and prove interruption before/after commit reopens exactly one room; then services/launchpad/social/internal/social/moderation.go must consume that API for create/read instead of separate Control.Create and safety_outbox metadata calls."
+
+[qualification.1]
+revision = "00141714f37fbb2ac462af2801be4d935a50f666"
+command = "cg spec done 22.33.1029 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All voice/restart proofs passed; the moderation fixture's durable message producer refused sending before pool membership was established."
+repair = "Call the real DurableStore.JoinPool before Send; preserve the membership refusal and all lifecycle assertions."
