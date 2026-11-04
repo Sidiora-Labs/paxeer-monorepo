@@ -1,0 +1,36 @@
+[repair]
+task = "22.33.875"
+requirement = "22998.1"
+base_revision = "19a27bf2d7e3308503bf7adf19e866efefdd5d0f"
+implementation = "Bind Prometheus to 127.0.0.1:9099 and Grafana to 127.0.0.1:3000 by default. Require a file-backed grafana_admin_password Compose secret for every Grafana start and deliver it through GF_SECURITY_ADMIN_PASSWORD__FILE, removing the embedded admin password. GRAFANA_BIND_ADDRESS explicitly opts Grafana into another host interface while Prometheus remains local. Document private secret generation, local and remote startup, existing-database password rotation and container recreation."
+source_proof = "The pytest module parses the maintained Compose YAML and verifies every published port, the default/explicit address expression, absence of host networking, the required nonempty secret-file expression, the secret grant and default /run/secrets mount path, and Grafana's matching __FILE consumer with no plaintext password setting. It parses the real provisioned datasource and checks its shared-network path to Prometheus remains intact. It also checks the documented producer setup, remote opt-in and existing-state caveats, and maps every finding test to this record. No test substitutes a runtime component or implements a second interpolation engine."
+review_only = "Docker Compose execution, file mounting, host socket exposure and Grafana startup/authentication are not executed: no container toolchain exists in this qualification environment. Compose required-variable/default-address interpolation, read-only secret mounting and the Grafana image's __FILE handling are reviewed configuration contracts. A missing source file must be rejected by Compose at deployment; secret strength and file permissions remain operator responsibilities. The file initializes a fresh Grafana database and does not rotate an existing password. This security configuration repair makes no restart-recovery or application-interface behavior claim."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and task-start spec changes; no scoped repair and no /out/run/gates.jsonl existed. The unchanged-tree verify was not run because the explicit task order requires complete implementation followed by hf-build and verification only through hf-done. No pre-change failing-test result is claimed. Source inspection confirmed wildcard publication of both ports and GF_SECURITY_ADMIN_PASSWORD=admin."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_875.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the exact verified candidate revision, command, exit code and log path. This record is finalized before gates so the build and verification can bind the same content-derived revision without a self-referential hash. The runner publishes the qualified candidate; no commit or push is performed by this task agent."
+wiring_requests = []
+
+[finding.f008]
+audit = "22.30.183"
+file = "docker/docker-compose.monitoring.yml"
+line = 24
+class = "security"
+severity = "medium"
+owner_domain = 16
+observed = "The monitoring overlay publishes port 3000 on all host interfaces and fixes GF_SECURITY_ADMIN_PASSWORD to admin."
+expected = "The local compose monitoring service must not expose a default administrative credential to the surrounding network."
+resolution = "Loopback publication is the default, and deliberate remote Grafana publication retains a mandatory operator-supplied file-backed secret without an embedded default password."
+tests = ["test_f008_ports_default_to_loopback_with_explicit_grafana_override", "test_f008_secret_producer_mount_and_grafana_consumer_are_connected", "test_f008_internal_prometheus_transport_and_provisioning_are_preserved", "test_f008_documentation_covers_secret_setup_remote_opt_in_and_existing_state"]
+
+[format]
+policy = "No dedicated Python, Markdown, YAML or KVX formatter is configured for these paths; follow .editorconfig with two-space YAML indentation, UTF-8, LF and final newlines, preserving existing Python and KVX style."
+
+[gotcha.1]
+observed = "The generated steps request an unchanged-tree verify, but the explicit ordered instructions forbid tests before implementation and restrict verification to hf-done after hf-build."
+resolution = "Follow the explicit order and record no unrun baseline result; root GOTCHA.kvx and spec files are outside the authorized scope, so this scoped record carries the note."
+
+[gotcha.2]
+observed = "Broad graph summaries and combined repository reads exceed the tool output budget."
+resolution = "Use bounded reads of the declared task, finding and production sources; the runner ledger, rather than graph summaries, establishes gate usage."

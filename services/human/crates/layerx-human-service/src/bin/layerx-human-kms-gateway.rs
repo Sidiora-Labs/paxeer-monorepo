@@ -1,30 +1,10 @@
 use std::env;
-use std::net::{SocketAddr, TcpListener};
-use std::path::{Path, PathBuf};
+use std::net::TcpListener;
 use std::process::ExitCode;
 use std::sync::Arc;
-use std::time::Duration;
 
-use layerx_human_service::custody::{
-    GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
-};
-use layerx_human_service::frame::{Limits, MutualTlsConfig};
-use layerx_types::clock::Clock;
-use layerx_types::payload::ModuleRegistry;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use rustls::RootCertStore;
-use serde::Deserialize;
-use zeroize::Zeroizing;
-
-const PREFIX: &str = "LAYERX_HUMAN_KMS_GATEWAY";
-const LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE: &str = "LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE";
-const REMOTE_PROVIDER: &str = "remote-lxkp";
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ChainSnapshot {
-    chain_id: u32,
-}
+#[path = "kms_gateway/startup.rs"]
+mod startup;
 
 fn main() -> ExitCode {
     match run() {
@@ -37,135 +17,18 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
-    let clock: Arc<dyn Clock> = layerx_client::runtime_clock::RuntimeClock::from_environment()
+    let binding = layerx_client::runtime_clock::ClockBinding::from_environment()
         .map_err(|error| format!("runtime clock unavailable: {error}"))?;
+    let clock = startup::runtime_clock(binding)?;
     rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| "the TLS cryptographic provider is already configured".to_owned())?;
-    if required("PROVIDER_KIND")? != REMOTE_PROVIDER {
-        return Err(format!(
-            "{PREFIX}_PROVIDER_KIND must name the non-exportable remote KMS provider \
-             {REMOTE_PROVIDER}; development envelope providers never back the gateway"
-        ));
-    }
-    let listen: SocketAddr = required("LISTEN")?
-        .parse()
-        .map_err(|_| format!("{PREFIX}_LISTEN is invalid"))?;
-    let endpoint: SocketAddr = required("PROVIDER_ENDPOINT")?
-        .parse()
-        .map_err(|_| format!("{PREFIX}_PROVIDER_ENDPOINT is invalid"))?;
-    if endpoint == listen {
-        return Err("the gateway cannot be its own KMS provider".to_owned());
-    }
-    let snapshot = chain_snapshot()?;
-    let mut roots = RootCertStore::empty();
-    roots
-        .add(CertificateDer::from(
-            material("PROVIDER_ROOT_CERTIFICATE_DER", false)?.to_vec(),
-        ))
-        .map_err(|_| "the KMS provider trust root is invalid".to_owned())?;
-    let relay = MutualTlsConfig::new(
-        roots,
-        vec![CertificateDer::from(
-            material("PROVIDER_CLIENT_CERTIFICATE_DER", false)?.to_vec(),
-        )],
-        PrivateKeyDer::try_from(material("PROVIDER_CLIENT_PRIVATE_KEY_DER", true)?.to_vec())
-            .map_err(|_| "the KMS provider client private key is invalid".to_owned())?,
-    )
-    .map_err(|_| "the KMS provider mutual TLS identity is invalid".to_owned())?;
-    let provider = RemoteKmsProvider::new(
-        required("PROVIDER_REFERENCE")?,
-        endpoint,
-        required("PROVIDER_SERVER_NAME")?,
-        relay,
-        Limits {
-            maximum_frame_bytes: number("PROVIDER_MAX_FRAME_BYTES")?,
-            maximum_connections: number("PROVIDER_MAX_CONNECTIONS")?,
-            maximum_streams: number("PROVIDER_MAX_STREAMS")?,
-            maximum_queued_bytes: number("PROVIDER_MAX_QUEUED_BYTES")?,
-            deadline: Duration::from_secs(number("PROVIDER_DEADLINE_SECONDS")?),
-        },
-        Arc::clone(&clock),
-    )
-    .map_err(|error| format!("the KMS provider was refused: {}", error.refusal_code()))?;
-    let tls = GatewayTls::new(
-        &material("CLIENT_CA_DER", false)?,
-        &material("TLS_CERT_DER", false)?,
-        &material("TLS_KEY_DER", true)?,
-        &material("CLIENT_CERT_DER", false)?,
-    )
-    .map_err(|error| {
-        format!(
-            "the gateway TLS identity was refused: {}",
-            error.refusal_code()
-        )
-    })?;
-    let gateway = LxkpGateway::new(
-        Arc::new(provider),
-        tls,
-        GatewayPolicy {
-            network_id: snapshot.chain_id,
-            protocol_version: 3,
-            registry: ModuleRegistry::new(&[])
-                .map_err(|_| "the chain snapshot scope was refused".to_owned())?,
-            limits: GatewayLimits {
-                maximum_connections: number("MAX_CONNECTIONS")?,
-                maximum_frame_bytes: number("MAX_FRAME_BYTES")?,
-                deadline: Duration::from_secs(number("DEADLINE_SECONDS")?),
-                maximum_operations: number("RATE_MAXIMUM")?,
-                operation_window: Duration::from_secs(number("RATE_WINDOW_SECONDS")?),
-            },
-        },
-        Arc::clone(&clock),
-    )
-    .map_err(|error| format!("the gateway was refused: {}", error.refusal_code()))?;
+    let (listen, gateway) = startup::prepare(clock, &|name| env::var(name).ok())?;
     let listener =
         TcpListener::bind(listen).map_err(|_| "the gateway listener cannot bind".to_owned())?;
     Arc::new(gateway)
         .serve(&listener)
         .map_err(|error| format!("the gateway stopped: {}", error.refusal_code()))
-}
-
-fn chain_snapshot() -> Result<ChainSnapshot, String> {
-    let snapshot: ChainSnapshot = serde_json::from_slice(&material("REGISTRY_FILE", false)?)
-        .map_err(|error| {
-            format!("{LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE} chain snapshot is invalid: {error}")
-        })?;
-    if snapshot.chain_id != 125 {
-        return Err(format!(
-            "{LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE} chain_id must be 125"
-        ));
-    }
-    Ok(snapshot)
-}
-
-/// Reads one absolute, owner-held, bounded file without following links.
-/// Secret files must not be readable by group or others.
-fn material(suffix: &str, secret: bool) -> Result<Zeroizing<Vec<u8>>, String> {
-    let name = format!("{PREFIX}_{suffix}");
-    let path = PathBuf::from(required(suffix)?);
-    if !path.is_absolute() {
-        return Err(format!("{name} must be absolute"));
-    }
-    protected(&path, secret).map_err(|reason| format!("{name} {reason}"))
-}
-
-fn protected(path: &Path, secret: bool) -> Result<Zeroizing<Vec<u8>>, &'static str> {
-    GatewayTls::read_material(path, secret)
-}
-
-fn required(suffix: &str) -> Result<String, String> {
-    let name = format!("{PREFIX}_{suffix}");
-    env::var(&name)
-        .ok()
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| format!("{name} is required"))
-}
-
-fn number<T: std::str::FromStr>(suffix: &str) -> Result<T, String> {
-    required(suffix)?
-        .parse()
-        .map_err(|_| format!("{PREFIX}_{suffix} is invalid"))
 }
 
 #[cfg(test)]
@@ -191,7 +54,21 @@ mod tests {
     use rustls::{ClientConfig, ClientConnection, StreamOwned};
     use sha2::{Digest as _, Sha256};
 
+    use super::startup::protected;
     use super::*;
+    use layerx_client::runtime_clock::ClockBinding;
+    use layerx_human_service::custody::{
+        GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
+    };
+    use layerx_human_service::frame::{Limits, MutualTlsConfig};
+    use layerx_types::clock::Clock;
+    use layerx_types::payload::ModuleRegistry;
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+    use rustls::RootCertStore;
+    use std::net::SocketAddr;
+    use std::path::PathBuf;
+    use std::time::Duration;
+    use zeroize::Zeroizing;
 
     const OK: u8 = 0;
 
@@ -599,13 +476,15 @@ mod tests {
             let binary = std::env::var(BACKEND_BINARY)
                 .map_err(|_| format!("{BACKEND_BINARY} must name the layerx-human-kms binary"))?;
             let mut command = Command::new(binary);
+            let clock_binding = ClockBinding::from_environment()?;
+            startup::forward_clock_binding(&mut command, &clock_binding);
             command
                 .env("LAYERX_HUMAN_KMS_LISTEN", self.backend.to_string())
                 .env("LAYERX_HUMAN_KMS_PROVIDER_REFERENCE", PROVIDER)
                 .env("LAYERX_HUMAN_KMS_STATE_DIR", self.path("state"))
                 .env("LAYERX_HUMAN_KMS_DEADLINE_SECONDS", "5");
             for (suffix, file) in [
-                ("REGISTRY_FILE", "registry.json"),
+                ("REGISTRY_FILE", "chain.json"),
                 ("CLIENT_CA_DER", "ca.der"),
                 ("TLS_CERT_DER", "backend.der"),
                 ("TLS_KEY_DER", "backend-key.der"),
@@ -657,6 +536,12 @@ mod tests {
 
         /// The production LXKP client, presenting `identity`, aimed at `endpoint`.
         fn provider(&self, endpoint: SocketAddr, identity: &str) -> TestResult<RemoteKmsProvider> {
+            let deadline_tls = ClientConfig::builder()
+                .with_root_certificates(self.roots()?)
+                .with_client_auth_cert(
+                    vec![CertificateDer::from(self.read(&format!("{identity}.der"))?)],
+                    PrivateKeyDer::try_from(self.read(&format!("{identity}-key.der"))?)?,
+                )?;
             Ok(RemoteKmsProvider::new(
                 PROVIDER,
                 endpoint,
@@ -670,7 +555,8 @@ mod tests {
                     deadline: Duration::from_secs(5),
                 },
                 Arc::clone(&self.clock),
-            )?)
+            )?
+            .with_deadline_transport(Arc::new(deadline_tls)))
         }
 
         fn tls(&self, pinned: &str) -> TestResult<GatewayTls> {
@@ -759,6 +645,7 @@ mod tests {
             command
                 .env_clear()
                 .env("LAYERX_HUMAN_KMS_GATEWAY_PROVIDER_KIND", kind);
+            startup::forward_clock_binding(&mut command, &ClockBinding::from_environment()?);
             for (suffix, value) in [
                 ("LISTEN", listen.to_string()),
                 ("PROVIDER_REFERENCE", PROVIDER.to_owned()),
@@ -796,10 +683,11 @@ mod tests {
         }
     }
 
-    fn refused_startup(output: &Output) -> bool {
+    fn refused_startup(output: &Output, reason: &str) -> bool {
         !output.status.success()
-            && String::from_utf8_lossy(&output.stderr)
-                .contains("layerx-human-kms-gateway refused startup")
+            && String::from_utf8_lossy(&output.stderr).contains(&format!(
+                "layerx-human-kms-gateway refused startup: {reason}"
+            ))
     }
 
     #[test]
@@ -1122,15 +1010,29 @@ mod tests {
             let output = fixture
                 .binary(free_address()?, kind, fixture.backend)?
                 .output()?;
-            assert!(refused_startup(&output));
+            let reason = if kind.is_empty() {
+                "LAYERX_HUMAN_KMS_GATEWAY_PROVIDER_KIND is required"
+            } else {
+                "LAYERX_HUMAN_KMS_GATEWAY_PROVIDER_KIND must name the non-exportable remote KMS provider remote-lxkp"
+            };
+            assert!(
+                refused_startup(&output, reason),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
         let output = fixture
             .binary(free_address()?, "remote-lxkp", free_address()?)?
             .output()?;
-        assert!(refused_startup(&output));
+        assert!(
+            refused_startup(&output, "the gateway was refused: kms-timeout"),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         let same = free_address()?;
         assert!(refused_startup(
-            &fixture.binary(same, "remote-lxkp", same)?.output()?
+            &fixture.binary(same, "remote-lxkp", same)?.output()?,
+            "the gateway cannot be its own KMS provider"
         ));
         let listen = free_address()?;
         let mut gateway = fixture
@@ -1156,9 +1058,13 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(20));
         }
-        let binding =
+        let snapshot = startup::snapshot(&fixture.path("chain.json"))?;
+        let binding = startup::probe_binding(&snapshot, PROVIDER)?;
+        let wrong_network =
             PrincipalKeyBinding::new(b"carol".to_vec(), NETWORK, KeyClass::HumanPrimary, PROVIDER)?;
+        assert_eq!(client.create_key(&wrong_network), Err(KmsError::Refused));
         let created = client.create_key(&binding)?;
+        assert_eq!(created.binding_digest(), binding.digest());
         assert_eq!(client.describe_key(&binding, created.reference())?, created);
         Ok(())
     }

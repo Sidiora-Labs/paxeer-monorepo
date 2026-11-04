@@ -178051,7 +178051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1324]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer/tests (part 2 of 2): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -199257,7 +199257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1329]
 title = "Repair audit record 22.30.71 medium findings in services/platform/hosted/webhooks/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.188", "22.31.340", "22.31.341", "22.31.465"]
@@ -324470,7 +324470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.875]
 title = "Repair audit record 22.30.183 medium findings in docker (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -325154,7 +325154,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.848]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 2 of 5): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325780,7 +325780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.803]
 title = "Repair audit record 22.30.178 medium findings in scripts (part 2 of 2): config-drift, runtime-risk, security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -328590,7 +328590,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.567]
 title = "Repair audit record 22.30.159 medium findings in services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.278", "22.31.279"]
@@ -328907,7 +328907,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.485]
 title = "Repair audit record 22.30.150 medium findings in services/bridge/deploy (part 1 of 1): restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.277"]
