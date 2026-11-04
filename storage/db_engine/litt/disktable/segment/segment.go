@@ -123,7 +123,7 @@ func CreateSegment(
 		return nil, fmt.Errorf("failed to open metadata file: %v", err)
 	}
 
-	keys, err := createKeyFile(logger, index, segmentPaths[0], false)
+	keys, err := createKeyFile(logger, index, segmentPaths[0], false, fsync)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open key file: %v", err)
 	}
@@ -363,7 +363,7 @@ func (s *Segment) sealLoadedSegment(now time.Time) error {
 			"count", len(badKeys),
 		)
 
-		swapFile, err := createKeyFile(s.logger, s.index, s.keys.segmentPath, true)
+		swapFile, err := createKeyFile(s.logger, s.index, s.keys.segmentPath, true, s.fsync)
 		if err != nil {
 			return fmt.Errorf("failed to create swap key file: %w", err)
 		}
@@ -893,11 +893,13 @@ func (s *Segment) handleKeyFileFlushRequest(request *keyFileFlushRequest, unflus
 		err := s.keys.seal()
 		if err != nil {
 			s.errorMonitor.Panic(fmt.Errorf("failed to seal key file: %w", err))
+			return
 		}
 	} else {
 		err := s.keys.flush()
 		if err != nil {
 			s.errorMonitor.Panic(fmt.Errorf("failed to flush key file: %w", err))
+			return
 		}
 	}
 

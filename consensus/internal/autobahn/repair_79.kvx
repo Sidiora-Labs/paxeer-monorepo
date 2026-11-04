@@ -1,0 +1,8 @@
+[repair.22.31.79]
+finding = "full-qc-header-bound"
+tests = ["TestRepair_79_FullQCHeaderBoundRestart", "TestRepair_79_HeaderBudgetRejectsOversize"]
+change = "Availability selects at most 100 total headers; proposal construction and verification enforce the same budget as the existing FullCommitQC wire schema. Remaining blocks finalize in the following certificate."
+proof = "Eleven real lane producers emit ten blocks each; availability constructs two certificates, the bounded codec transports them, and the real data WAL consumer closes and reopens with all 110 block headers and byte-identical certificates."
+codec = "Regenerated autobahn.wireguard.go from autobahn.proto with the repository wireguard generator; output is unchanged because the 100-header schema bound is retained."
+baseline = "Not run: ordered qualification instructions prohibit testing before complete implementation and prohibit invoking verify_cmd outside hf-done; the initial gate ledger had no prior runs."
+wiring = "None: all implementation and proof paths are in scope; the existing schema bound is retained."

@@ -105,7 +105,11 @@ func (b *CanonicalLegacyBridge) RunOnce(ctx context.Context) (int, error) {
 		return applied, err
 	}
 	swaps, err := b.swaps(ctx, tx, typed)
-	return applied + swaps, err
+	if err != nil {
+		return applied + swaps, err
+	}
+	routes, err := b.multihops(ctx, tx, typed)
+	return applied + swaps + routes, err
 }
 
 func (b *CanonicalLegacyBridge) creations(ctx context.Context, tx pgx.Tx, typed int64) (int, error) {
