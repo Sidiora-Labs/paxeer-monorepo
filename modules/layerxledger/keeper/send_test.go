@@ -1,8 +1,8 @@
 package keeper_test
 
 import (
+	"bytes"
 	"crypto/ed25519"
-	"crypto/sha256"
 	"encoding/binary"
 	"testing"
 
@@ -26,35 +26,12 @@ type sendFixture struct {
 	to        [32]byte
 }
 
-func sendMainAccount(t *testing.T, h *harness, actor ledgerkeeper.Actor, asset [32]byte) [32]byte {
+func newSendFixture(t *testing.T) *sendFixture {
 	t.Helper()
-	name, id, err := lxphost.MainAccountID(actor.DIDKey)
-	require.NoError(t, err)
-	value := binary.BigEndian.AppendUint32(nil, 32)
-	value = append(value, id[:]...)
-	value = binary.BigEndian.AppendUint32(value, uint32(len(name)))
-	value = append(value, name...)
-	value = append(value, 1)
-	value = append(value, make([]byte, 16)...)
-	value = binary.BigEndian.AppendUint32(value, 32)
-	value = append(value, asset[:]...)
-	value = append(value, 1)
-	value = binary.BigEndian.AppendUint64(value, 0)
-	value = binary.BigEndian.AppendUint64(value, 0)
-	value = append(value, 0, 0)
-	value = binary.BigEndian.AppendUint32(value, 32)
-	value = append(value, actor.DIDKey[:]...)
-	value = append(value, 1)
-	h.ctx.KVStore(h.hostKey).Set(append([]byte{0x06}, id[:]...), value)
-	account, err := h.host.ReadAccount(h.ctx, name, id)
-	require.NoError(t, err)
-	require.Equal(t, uint8(1), account.Kind)
-	require.Equal(t, asset, account.AssetID)
-	require.Equal(t, actor.DIDKey, account.AuthorityKey)
-	return id
+	return newFundedSendFixture(t, 250)
 }
 
-func newSendFixture(t *testing.T) *sendFixture {
+func newFundedSendFixture(t *testing.T, funding int64) *sendFixture {
 	t.Helper()
 	f := &sendFixture{mirrorFixture: newMirrorFixture(t, nil)}
 	f.ctx = f.ctx.WithChainID("hyperpax_125-1")
@@ -73,22 +50,23 @@ func newSendFixture(t *testing.T) *sendFixture {
 	}
 	f.actor = bind(f.mirrorFixture.actor, common.Address{0x24, 0x44, 1})
 	f.recipient = bind(newLedgerViewActor(t, 103), common.Address{0x24, 0x44, 2})
-	f.from = sendMainAccount(t, f.harness, f.actor, f.asset)
-	f.to = sendMainAccount(t, f.harness, f.recipient, f.asset)
-	registered := f.register(t, sdk.NewInt(1000))
-	require.NoError(t, f.keeper.Mirror(f.ctx, 0x00010001, registered))
-	f.execute(t, f.mirrorFixture.actor, 0x00010004, 1, types.EncodeOpenAccountPayload(f.asset))
-	_, holding, err := lxphost.AssetAccountID(f.actor.DIDKey, f.asset)
+	var err error
+	f.from, err = ledgerkeeper.AccountID(f.actor.DIDKey, f.asset)
 	require.NoError(t, err)
-	mint, err := types.EncodeSupplyPayload(f.asset, holding, sdk.NewInt(250))
+	f.to, err = ledgerkeeper.AccountID(f.recipient.DIDKey, f.asset)
 	require.NoError(t, err)
-	minted := f.execute(t, f.mirrorFixture.actor, 0x0001000a, 2, mint)
-	require.NoError(t, f.keeper.Mirror(f.ctx, 0x0001000a, minted))
-	key := sha256.Sum256(binary.BigEndian.AppendUint64(nil, f.global+1))
-	payload := f.envelope(t, holding, f.from, sdk.NewInt(250), 0, key,
-		uint64(f.ctx.BlockTime().UnixMilli())+1000)
-	funded := f.execute(t, f.mirrorFixture.actor, 0x00010005, 3, payload)
-	require.NoError(t, f.keeper.Mirror(f.ctx, 0x00010005, funded))
+	_, err = f.keeper.RegisterAsset(f.ctx, f.actor, types.RegisterArgs{
+		AssetID: f.asset, Salt: [32]byte(bytes.Repeat([]byte{0x41}, 32)), Symbol: "TKN", Name: "Token",
+		Decimals: 6, SupplyCap: sdk.NewInt(1000), IssuerKind: types.AssetIssuerNative,
+	}, [32]byte{1})
+	require.NoError(t, err)
+	_, err = f.keeper.OpenAccount(f.ctx, f.actor, f.asset, [32]byte{2})
+	require.NoError(t, err)
+	_, err = f.keeper.OpenAccount(f.ctx, f.recipient, f.asset, [32]byte{3})
+	require.NoError(t, err)
+	_, err = f.keeper.Mint(f.ctx, f.actor, f.asset, f.from, sdk.NewInt(funding), [32]byte{4})
+	require.NoError(t, err)
+	f.global = 4
 	return f
 }
 
@@ -146,7 +124,7 @@ func TestSendMovesBalance(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, sdk.NewInt(250), total)
 	require.Equal(t, sdk.NewInt(1000), f.bank.GetSupply(f.ctx, types.MirrorDenom(f.asset)).Amount)
-	name, _, err := lxphost.MainAccountID(f.actor.DIDKey)
+	name, _, err := lxphost.AssetAccountID(f.actor.DIDKey, f.asset)
 	require.NoError(t, err)
 	account, err := f.host.ReadAccount(f.ctx, name, f.from)
 	require.NoError(t, err)
@@ -249,4 +227,38 @@ func TestSendRefusals(t *testing.T) {
 	}
 	f.assertBalance(t, f.from, 250)
 	f.assertBalance(t, f.to, 0)
+}
+
+func TestSendNextSequenceKeyReuse(t *testing.T) {
+	f := newSendFixture(t)
+	key := [32]byte{0x14, 0x23}
+	expires := uint64(f.ctx.BlockTime().UnixMilli()) + 1000
+	first, err := f.keeper.Send(f.ctx, f.actor, f.envelope(t, f.from, f.to, sdk.NewInt(40), 0, key, expires), key)
+	require.NoError(t, err)
+	f.assertBalance(t, f.from, 210)
+	f.assertBalance(t, f.to, 40)
+	hostBefore := ledgerViewStore(t, f.ctx, f.hostKey)
+	bankKey := testkeeper.EVMTestApp.GetKey(banktypes.StoreKey)
+	bankBefore := ledgerViewStore(t, f.ctx, bankKey)
+	eventsBefore := len(f.ctx.EventManager().Events())
+	second, err := f.keeper.Send(f.ctx, f.actor, f.envelope(t, f.from, f.to, sdk.NewInt(40), 1, key, expires), key)
+	require.ErrorIs(t, err, types.ErrIdempotentReplay)
+	require.Equal(t, ledgerkeeper.Result{}, second)
+	require.Equal(t, hostBefore, ledgerViewStore(t, f.ctx, f.hostKey))
+	require.Equal(t, bankBefore, ledgerViewStore(t, f.ctx, bankKey))
+	require.Len(t, f.ctx.EventManager().Events(), eventsBefore)
+	f.assertBalance(t, f.from, 210)
+	f.assertBalance(t, f.to, 40)
+	sequence, err := f.keeper.NextSequenceByAccountID(f.ctx, f.from, f.asset)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), sequence)
+	nextKey := [32]byte{0x14, 0x24}
+	second, err = f.keeper.Send(f.ctx, f.actor, f.envelope(t, f.from, f.to, sdk.NewInt(40), sequence, nextKey, expires), nextKey)
+	require.NoError(t, err)
+	require.Equal(t, first.Receipt.GlobalSequence+1, second.Receipt.GlobalSequence)
+	f.assertBalance(t, f.from, 170)
+	f.assertBalance(t, f.to, 80)
+	sequence, err = f.keeper.NextSequenceByAccountID(f.ctx, f.from, f.asset)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), sequence)
 }
