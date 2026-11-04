@@ -86,18 +86,21 @@ func TestContractFollowGraph(t *testing.T) {
 		t.Fatalf("alice stats seen by bob = %+v", stats)
 	}
 
-	resp, _ = h.do(t, http.MethodPut, "/v2/me/following/"+alice, alice, nil)
+	resp, out = h.do(t, http.MethodPut, "/v2/me/following/"+alice, alice, nil)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("self-follow status = %d", resp.StatusCode)
 	}
-	resp, _ = h.do(t, http.MethodPut, "/v2/me/following/"+bob, "", nil)
+	assertContractError(t, resp, out, "INVALID_REQUEST")
+	resp, out = h.do(t, http.MethodPut, "/v2/me/following/"+bob, "", nil)
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("anonymous follow status = %d", resp.StatusCode)
 	}
-	resp, _ = h.do(t, http.MethodGet, "/v2/profiles/not-a-wallet/follow-stats", "", nil)
+	assertContractError(t, resp, out, "AUTH_REQUIRED")
+	resp, out = h.do(t, http.MethodGet, "/v2/profiles/not-a-wallet/follow-stats", "", nil)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("invalid wallet status = %d", resp.StatusCode)
 	}
+	assertContractError(t, resp, out, "INVALID_REQUEST")
 
 	resp, out = h.do(t, http.MethodDelete, "/v2/me/following/"+bob, alice, nil)
 	if resp.StatusCode != http.StatusNoContent || len(out) != 0 {
@@ -112,5 +115,19 @@ func TestContractFollowGraph(t *testing.T) {
 	resp, _ = h.do(t, http.MethodGet, "/v2/profiles/"+bob+"/followers", alice, nil)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("followers must be unavailable without a profile authority, got %d", resp.StatusCode)
+	}
+}
+
+func assertContractError(t *testing.T, resp *http.Response, raw []byte, code string) {
+	t.Helper()
+	if err := v2.ValidateJSON("Error", raw); err != nil {
+		t.Fatalf("frozen follow refusal: %v: %s", err, raw)
+	}
+	var got v2.Error
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Code != code || got.RequestId != resp.Header.Get("X-Request-ID") || got.Retryable || got.RetryAfterMs != nil || got.FieldErrors == nil || got.Details != nil || resp.Header.Get("Cache-Control") != "private, no-store" {
+		t.Fatalf("follow refusal: %+v; headers %v", got, resp.Header)
 	}
 }
