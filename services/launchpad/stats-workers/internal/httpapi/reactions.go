@@ -20,9 +20,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
-	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
 )
 
 const (
@@ -87,35 +85,20 @@ func countReactions(ctx context.Context, rdb *goredis.Client, pool string) (reac
 	return c, nil
 }
 
-// RegisterReactions registers the reaction read/write routes (Redis-only state).
+// RegisterReactions retires Redis-authoritative legacy reads and mutations.
+// Clients must construct and sign a fresh v2 operation; redirects must not
+// replay an old body or signature against a different signed path.
 func RegisterReactions(r chi.Router, rdb *goredis.Client) {
 	r.Get("/stats/{poolAddress}/reactions", reactionsGet(rdb))
 	r.Post("/stats/{poolAddress}/reactions", reactionsPost(rdb))
 }
-
-func reactionsGet(rdb *goredis.Client) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		pool := strings.ToLower(chi.URLParam(r, "poolAddress"))
-		ctx := r.Context()
-		cacheKey := "reactions:" + pool
-
-		if cached, err := rdb.Get(ctx, cacheKey).Result(); err == nil && cached != "" {
-			sharedhttp.WriteJSON(w, http.StatusOK, json.RawMessage(cached))
-			return
-		}
-
-		counts, err := countReactions(ctx, rdb, pool)
-		if err != nil {
-			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "reactions lookup failed")
-			return
-		}
-		result := map[string]any{"poolAddress": pool, "reactions": counts, "total": counts.total()}
-		if payload, err := json.Marshal(result); err == nil {
-			rdb.Set(ctx, cacheKey, payload, reactionsCacheTTL)
-		}
-		sharedhttp.WriteJSON(w, http.StatusOK, result)
-	}
+func retiredReactions(w http.ResponseWriter, r *http.Request) {
+	target := "/v2/stats/" + strings.ToLower(chi.URLParam(r, "poolAddress")) + "/reactions"
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Link", "<"+target+">; rel=\"successor-version\"")
+	sharedhttp.WriteJSON(w, http.StatusGone, map[string]any{"code": "REACTION_V1_RETIRED", "message": "Use the durable v2 reactions endpoint. Mutations require a fresh signed reaction.replace operation, identity credential, nonce, expiry and expectedRevision. Use clear to remove a vote.", "successor": target})
 }
+func reactionsGet(_ *goredis.Client) http.HandlerFunc { return retiredReactions }
 
 type reactionBody struct {
 	Reaction      string `json:"reaction"`
@@ -124,100 +107,7 @@ type reactionBody struct {
 	Message       string `json:"message"`
 }
 
-func reactionsPost(rdb *goredis.Client) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		pool := strings.ToLower(chi.URLParam(r, "poolAddress"))
-		ctx := r.Context()
-
-		var body reactionBody
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "invalid JSON body")
-			return
-		}
-
-		if body.WalletAddress == "" || body.Reaction == "" {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "walletAddress and reaction required")
-			return
-		}
-		if body.Signature == "" || body.Message == "" {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request", "signature and message required for authentication")
-			return
-		}
-
-		wallet := strings.ToLower(body.WalletAddress)
-		if !auth.VerifyWalletSignature(wallet, body.Message, body.Signature) {
-			sharedhttp.WriteError(w, http.StatusForbidden, "Forbidden", "Invalid signature")
-			return
-		}
-
-		reaction := strings.ToLower(body.Reaction)
-		if !isValidReaction(reaction) {
-			sharedhttp.WriteError(w, http.StatusBadRequest, "Bad Request",
-				"Invalid reaction. Must be one of: "+strings.Join(validReactions, ", "))
-			return
-		}
-
-		// Rate limit: 1 vote per cooldown window per wallet.
-		cooldownKey := "reactions:cooldown:" + wallet
-		if exists, err := rdb.Get(ctx, cooldownKey).Result(); err == nil && exists != "" {
-			sharedhttp.WriteError(w, http.StatusTooManyRequests, "Too Many Requests", "Too many votes, slow down")
-			return
-		}
-		rdb.Set(ctx, cooldownKey, "1", voteCooldown)
-
-		setKey := "reactions:" + pool + ":" + reaction
-		userVoteKey := "reactions:uservote:" + pool + ":" + wallet
-		existingVote, getErr := rdb.Get(ctx, userVoteKey).Result()
-		if getErr != nil {
-			existingVote = ""
-		}
-
-		if existingVote == reaction {
-			// Toggle off.
-			rdb.SRem(ctx, setKey, wallet)
-			rdb.Del(ctx, userVoteKey)
-		} else {
-			if existingVote != "" && isValidReaction(existingVote) {
-				rdb.SRem(ctx, "reactions:"+pool+":"+existingVote, wallet)
-			}
-			rdb.SAdd(ctx, setKey, wallet)
-			rdb.Set(ctx, userVoteKey, reaction, 0)
-		}
-
-		// Invalidate aggregate cache.
-		rdb.Del(ctx, "reactions:"+pool)
-
-		counts, err := countReactions(ctx, rdb, pool)
-		if err != nil {
-			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "reactions update failed")
-			return
-		}
-
-		var userVote any
-		if cv, err := rdb.Get(ctx, userVoteKey).Result(); err == nil && cv != "" {
-			userVote = cv
-		}
-
-		// Push-first: publish the fresh aggregate tally on reactions:update so the
-		// core/api broker fans it out and every viewer of this pool updates in
-		// place. userVote is per-wallet so it is intentionally NOT broadcast — only
-		// the shared tally is pushed. Best-effort, never fails the vote.
-		if pushPayload, err := json.Marshal(map[string]any{
-			"poolAddress": pool,
-			"reactions":   counts,
-			"total":       counts.total(),
-		}); err == nil {
-			_ = sharedredis.PublishJSON(ctx, rdb, constants.ChannelReactionsUpdate, pushPayload)
-		}
-
-		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"poolAddress": pool,
-			"reactions":   counts,
-			"total":       counts.total(),
-			"userVote":    userVote,
-		})
-	}
-}
+func reactionsPost(_ *goredis.Client) http.HandlerFunc { return retiredReactions }
 
 // IdentityAuthority verifies a forwarded browser credential and re-checks its
 // session at the gateway identity authority (in production the shared mTLS
