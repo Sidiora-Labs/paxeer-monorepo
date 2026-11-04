@@ -112,8 +112,10 @@ denom that would require a governed migration.
 `RegisterSidioraPair` uses `EnsureSidioraDenom` in
 [keeper/sidiora.go](keeper/sidiora.go) to create or validate the module-owned
 `usid` denom and install bank metadata: base exponent 0, display and symbol
-`SID` at exponent 6. Both minting and burning use the registered asset record's
-denom. [types/genesis.go](types/genesis.go) also enforces this exception through
+`SID` at exponent 6: **1 SID = 1,000,000 `usid` base units**. Attested `amount`,
+caps, minted balances and burns are integer base units, with no rescaling by
+the bridge. Both minting and burning use the registered asset record's denom.
+[types/genesis.go](types/genesis.go) also enforces this exception through
 `AssetDenom`: only the canonical pair may use `usid`; all other pairs must use
 their derived `lxb…` denom.
 
