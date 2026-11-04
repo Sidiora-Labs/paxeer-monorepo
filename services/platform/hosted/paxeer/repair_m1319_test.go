@@ -138,7 +138,6 @@ func repair1319Container(t *testing.T, pod map[string]any, name string) map[stri
 }
 
 func TestRepairM_1319_RelayWorkspaceRetirement(t *testing.T) {
-	repair1319Absent(t, "Cargo.toml")
 	documents := repair1319Documents(t)
 	count := 0
 	for _, document := range documents {

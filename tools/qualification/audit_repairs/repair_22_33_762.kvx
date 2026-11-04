@@ -1,0 +1,53 @@
+[repair]
+task = "22.33.762"
+audit = "22.30.172"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+build_cmd = "bash -n tests/integration/utils/_tx_helpers.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_762.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "hf-build and hf-done record the candidate revision, exact command, exit code and private evidence location in /out/run/gates.jsonl. Both must pass on the same candidate revision. The final response copies the last gate evidence; the runner publishes the candidate. This record does not invent a successful revision before qualification."
+implementation = "Keep sync submission in the existing shell helpers and resolve its hash with the adjacent production Python receipt worker. Capture the finalized head and configured node before submission; scan subsequent finalized block bytes for SHA-256 identity and join the matching transaction position to block_results at the identical height. This supported transport works under Autobahn without the KV transaction index. Return the committed execution code, with CheckTx acceptance and rejection separately named on stderr. Bank inclusion and Wasm deployment require execution success. No observed-height, sender-sequence or global-object fallback remains in the repaired helpers."
+source_proof = "The declared build parses the modified shell with bash -n. Pytest lexes its quoted commands and checks pre-submit context capture, guarded submission, stdout transport to the production receipt worker, creator resolution and error propagation. It parses the worker AST and checks deadline-bound CLI execution, historical query flags and failure exit. It checks the real node block/result producer, hashing, ABCI event encoding, Wasm event producer and query/initial-history source contracts."
+behavior_proof = "The production RPC client and resolver run against a loopback HTTP server serving committed protocol fixtures. Tests prove exact identity and execution position, retries at the same height, bounded missing-evidence failure, rejection of wrong chain/heights/counts/null results, committed message failure after CheckTx success and separately named CheckTx rejection. Production Wasm consumers use an exact-height in-memory query transcript and assert returned IDs/addresses plus checksum, creator and initialization verification, including concurrent foreign objects and rejected malformed/ambiguous events."
+review_only = "The committed wire examples are deterministic protocol fixtures, not captured live-chain evidence. Go node producers, paxd signing/config/key lookup, CLI protobuf serialization and live RPC availability are source-qualified and reviewed, not executed by this Python-only gate. The tests need no external binary, credential, environment variable or endpoint. Successful execution plus matching INIT history proves the recorded initialization message; generic deployment helpers cannot infer arbitrary contract-specific storage invariants. No live chain, subprocess CLI or shell runtime execution is claimed."
+
+[baseline]
+verification_run = false
+observed_failing_tests = []
+reason = "The explicit task order requires complete implementation before formatting/build/testing and forbids invoking verify_cmd before hf-done; it takes precedence over step 7's unchanged-tree request. No pre-change test failure is claimed."
+initial_state = "Only runner-prepared .cgignore and spec task-start changes existed; preserve them untouched. gate.json reported zero build and verify runs and /out/run/gates.jsonl was absent. No prior repair files existed."
+source_observation = "The original bank helper returned h_obs on historical-query failure or indexer race; submit_tx_and_wait echoed CheckTx code after sender sequence advance; store_wasm and instantiate_wasm selected global list maxima/differences."
+
+[finding.tx-helper-inclusion-fallback]
+file = "tests/integration/utils/_tx_helpers.sh"
+repair = "bank_send_and_get_height returns only the exact successful transaction's committed block height. Missing/pruned blocks or execution evidence consume the confirmation deadline and fail instead of returning a current-height upper bound."
+tests = ["test_tx_helper_inclusion_is_exact_hash_and_position", "test_tx_helper_retries_same_block_and_execution_position", "test_tx_helper_missing_evidence_fails_by_deadline", "test_tx_helper_rejects_inconsistent_committed_evidence", "test_shell_submission_transport_and_failure_guards"]
+
+[finding.tx-helper-execution-code]
+file = "tests/integration/utils/_tx_helpers.sh"
+repair = "submit_tx_and_wait returns execution code from the matched committed block/result position; CheckTx rejection still returns its code immediately and names its stage on stderr. Missing committed execution fails the shell operation, preventing an absent result from being interpreted as code zero. Proto3 ExecTxResult's omitted zero code is decoded according to its producer's explicit omitempty field contract."
+tests = ["test_tx_helper_execution_code_is_not_checktx_acceptance", "test_tx_helper_checktx_rejection_is_separately_named", "test_tx_helper_malformed_submission_is_never_acceptance", "test_supported_producer_shapes_match_receipt_and_wasm_consumers", "test_worker_cli_pins_queries_and_enforces_shared_deadline"]
+
+[finding.wasm-helper-global-identity]
+file = "tests/integration/utils/_tx_helpers.sh"
+repair = "Use only the successful transaction's store_code or instantiate event and reject missing or ambiguous identity. Store verifies code ID, uploader and uncompressed Wasm checksum at the exact committed height. Instantiate verifies event code ID and contract address, creator, code ID, label and INIT history message at that height. No global code/contract enumeration is used."
+tests = ["test_wasm_store_returns_own_event_and_checks_metadata", "test_wasm_store_rejects_foreign_or_wrong_code", "test_wasm_instantiate_returns_own_event_and_verifies_initialization", "test_wasm_instantiate_rejects_wrong_identity_or_initialization", "test_wasm_requires_unambiguous_transaction_events", "test_supported_producer_shapes_match_receipt_and_wasm_consumers"]
+
+[wiring]
+requests = []
+reason = "All proposal steps fit the task paths. The node already exposes finalized block and block_results under Autobahn and existing Wasm code-info, contract and contract-history queries accept historical height; no producer or generated-artifact change is requested."
+
+[format]
+policy = "No formatter is configured for these shell, Python and KVX paths. After implementation apply the repository .editorconfig conventions: UTF-8, LF, final newline and no trailing whitespace; JSON uses two spaces."
+
+[gotcha]
+observed = "The embedded baseline-run request conflicts with the explicit gate order. Broad repository guidance/context reads exceed output limits; targeted task sources were inspected separately. The task has no pre-existing gate ledger and the node layout is consensus/internal/rpc/core rather than core/consensus."
+handling = "Keep the assigned task and bounded gate order authoritative. Record observations here because GOTCHA.kvx and spec qualification files are outside scope. No additional gate, spec edit, commit or push is performed."
+
+[qualification.first_attempt]
+revision = "2eccd6183d5b5e3ffc653a4c0be6ba9926610d44"
+command = "cg spec done 22.33.762 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The shell parsed successfully and 39 tests passed; the shell command guard failed because instantiate_wasm placed extra flags after --output=json."
+repair = "Keep every assertion unchanged and place the required sync/JSON flags after the instantiation extras so callers cannot override the receipt transport's required broadcast mode and output format. Rebuild and verify the repaired candidate together."

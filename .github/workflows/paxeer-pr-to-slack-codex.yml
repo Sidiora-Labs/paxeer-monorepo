@@ -260,12 +260,18 @@ jobs:
             --data-urlencode "filename=codex_review.md" \
             --data "length=$BYTES" \
             --data "snippet_type=markdown")
-          echo "$ticket"
-          upload_url=$(echo "$ticket" | jq -r '.upload_url')
-          file_id=$(echo "$ticket" | jq -r '.file_id')
-          test "$upload_url" != "null" -a "$file_id" != "null" || { echo "getUploadURLExternal failed: $ticket" >&2; exit 1; }
+          upload_url=$(printf '%s' "$ticket" | jq -r '.upload_url // empty')
+          if [[ -n "$upload_url" ]]; then
+            masked_url=${upload_url//'%'/'%25'}
+            masked_url=${masked_url//$'\r'/'%0D'}
+            masked_url=${masked_url//$'\n'/'%0A'}
+            printf '::add-mask::%s\n' "$masked_url"
+          fi
+          printf '%s' "$ticket" | jq -c '{ok, error: (.error // null), file_id: (.file_id // null)}'
+          file_id=$(printf '%s' "$ticket" | jq -r '.file_id // empty')
+          test "$(printf '%s' "$ticket" | jq -r '.ok')" = "true" -a -n "$upload_url" -a -n "$file_id" || { echo "getUploadURLExternal failed" >&2; exit 1; }
 
-          curl -sS -X POST "$upload_url" \
+          curl --fail -sS -X POST "$upload_url" \
             -F "filename=@review.md;type=text/markdown" \
             > /dev/null
 
@@ -276,5 +282,5 @@ jobs:
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json; charset=utf-8" \
             --data "$payload")
-          echo "$resp"
-          test "$(echo "$resp" | jq -r '.ok')" = "true" || { echo "files.completeUploadExternal failed: $resp" >&2; exit 1; }
+          printf '%s' "$resp" | jq -c '{ok, error: (.error // null)}'
+          test "$(printf '%s' "$resp" | jq -r '.ok')" = "true" || { echo "files.completeUploadExternal failed" >&2; exit 1; }

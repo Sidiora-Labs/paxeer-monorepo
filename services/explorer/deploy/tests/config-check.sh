@@ -8,6 +8,7 @@ preset="$repo/apps/explorer/configs/envs/paxeer-x.env"
 footer="$repo/apps/explorer/configs/paxeer-x/footer.json"
 backend="$root/deploy/env/backend.example.env"
 workflow="$repo/.github/workflows/explorer-images.yml"
+compose="$root/deploy/docker-compose.local.yml"
 fail=0
 
 value() { grep -E "^$2=" "$1" | tail -n1 | cut -d= -f2-; }
@@ -36,6 +37,13 @@ expect "$preset" NEXT_PUBLIC_FOOTER_LINKS \
   https://raw.githubusercontent.com/Sidiora-Labs/Paxeer-X-Network/main/apps/explorer/configs/paxeer-x/footer.json
 expect "$backend" PAXEER_X_CAPABILITIES_ENABLED false
 expect "$backend" PAXEER_X_PRICE_FEED_RETENTION_DAYS 30
+
+# Example database credentials are safe only while host publication is local.
+if ! sed -n '/^  db:/,/^  [a-z]/p' "$compose" | \
+  grep -qFx '      - "127.0.0.1:${POSTGRES_PUBLISHED_PORT:-7432}:5432"'; then
+  echo "FAIL docker-compose.local.yml must bind PostgreSQL to loopback"
+  fail=1
+fi
 
 case "$(value "$preset" NEXT_PUBLIC_OG_DESCRIPTION)" in
   *'Paxeer X Network'*) ;;
