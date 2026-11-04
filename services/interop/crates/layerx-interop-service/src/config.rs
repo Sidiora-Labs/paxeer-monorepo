@@ -1,3 +1,4 @@
+use crate::relay::RelayJournal;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::VerifyingKey as Ed25519Key;
@@ -53,7 +54,8 @@ pub struct Config {
     pub listener: Listener,
     pub client: Client,
     pub store: RedisStore,
-    pub sequencer: SequencerEndpoint,
+    pub sequencer: Arc<SequencerEndpoint>,
+    pub(crate) relay_journal: RelayJournal,
     pub receipt_keys: Vec<SequencerAuthorization>,
     pub network_id: String,
     pub wire_version: String,
@@ -258,10 +260,16 @@ pub fn load() -> Result<Config, String> {
     .map_err(|error| error.to_string())?;
     let redis_username = read_secret("LAYERX_INTEROP_REDIS_USERNAME_FILE")?;
     let redis_password = read_secret("LAYERX_INTEROP_REDIS_PASSWORD_FILE")?;
-    let redis = RedisEndpoint::parse(
-        &env::var("LAYERX_INTEROP_REDIS_URL")
-            .map_err(|_| "LAYERX_INTEROP_REDIS_URL is required".to_owned())?,
-    )?;
+    let redis_url = env::var("LAYERX_INTEROP_REDIS_URL")
+        .map_err(|_| "LAYERX_INTEROP_REDIS_URL is required".to_owned())?;
+    let redis = RedisEndpoint::parse(&redis_url)?;
+    let relay_journal = RelayJournal::new(
+        &redis_url,
+        outbound_ca.clone(),
+        redis_username.clone(),
+        redis_password.clone(),
+    )
+    .map_err(|error| error.to_string())?;
     let sequencer = if private_network {
         SequencerEndpoint::new_with_railway_private_network(
             &sequencer_url,
@@ -330,7 +338,8 @@ pub fn load() -> Result<Config, String> {
         listener: listener_config()?,
         client: Client::new(outbound_ca.clone(), identity),
         store: RedisStore::new(redis, outbound_ca, redis_username, redis_password),
-        sequencer,
+        sequencer: Arc::new(sequencer),
+        relay_journal,
         receipt_keys,
         network_id,
         wire_version,
@@ -990,9 +999,6 @@ fn validate_listener_mode() -> Result<(), String> {
 
 fn listener_config() -> Result<Listener, String> {
     validate_listener_mode()?;
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .map_err(|_| "failed to install TLS crypto provider".to_owned())?;
     match env::var("LAYERX_INTEROP_LISTENER") {
         Err(env::VarError::NotPresent) => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "tls" => tls_config().map(Listener::Tls),
@@ -1007,7 +1013,9 @@ fn tls_config() -> Result<Arc<ServerConfig>, String> {
         "LAYERX_INTEROP_TLS_KEY_DER",
         64 * 1024,
     )?));
-    ServerConfig::builder()
+    ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()
+        .map_err(|error| error.to_string())?
         .with_no_client_auth()
         .with_single_cert(vec![cert], key)
         .map(Arc::new)

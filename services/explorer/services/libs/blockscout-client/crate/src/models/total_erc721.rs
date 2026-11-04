@@ -18,8 +18,9 @@ use serde::{Deserialize, Serialize};
 use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
+#[serde(deny_unknown_fields)]
 pub struct TotalErc721 {
-    pub token_id: String,
+    pub token_id: Option<String>,
     #[serde(default)]
     pub token_instance: Option<models::NftInstance>,
 }
