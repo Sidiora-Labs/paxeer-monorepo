@@ -1,0 +1,45 @@
+[repair.22.33.595]
+audit = "22.30.161"
+status = "implemented-pending-qualification"
+baseline = "Not run: the explicit ordered instructions prohibit tests before the complete implementation and permit verification only through hf-done; no baseline failure is claimed."
+qualification = "Authoritative revision, command, exit and private evidence path are emitted by hf-build/hf-done; no gate success is claimed here before execution."
+
+[finding.batch-selects-first-match]
+test = "batch_selects_best_match_through_response_codec"
+repair = "Solo and batch conversion share select_best_match, preserving full creation+runtime > full creation > full runtime > first partial, with the existing last-full-artifact tie policy."
+proof = "Committed FiatTokenProxy bytecode and artifacts feed production verification-common match generation, then the real solo/batch converters and protobuf JSON response codecs; both candidate orders retain the full source, runtime code, match values and transformations."
+limitation = "Successful batch HTTP cases cannot run without a compiler subprocess: the real service fixes its pool to SolcCompiler and has no transcript input interface. No replacement service or fabricated compiler is used."
+wiring_request = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/evm_compilers.rs and smart-contract-verifier-server/src/services/solidity_verifier.rs; owning domain 14: expose committed compiler-output transcript injection into the real pool/service, then extend both batch HTTP success cases with the complete partial/full proxy compilation."
+
+[finding.negative-sourcify-contract-index]
+test = "negative_sourcify_contract_index_http_and_grpc"
+repair = "Checked usize conversion accepts exactly the protobuf nonnegative int32 range 0..=2147483647; omission remains omission."
+proof = "Real HTTP and gRPC routes reject -1 and i32::MIN with 400/INVALID_ARGUMENT before any upstream call; zero, i32::MAX and omission traverse the real Sourcify client to a loopback peer, which observes the exact chosenContract string/null and returns a verification response consumed by the public client."
+
+[finding.sourcify-address-length]
+test = "sourcify_address_length_http_and_grpc"
+repair = "Both wrappers validate hex into the shared EvmAddress([u8; 20]) type before forwarding; both conversion fixtures now use a real 20-byte address."
+proof = "Both real public routes and both real gRPC methods reject empty, short, long, malformed and odd-length hex with 400/INVALID_ARGUMENT and no upstream work; accepted 20-byte controls reach verification or import preflight."
+public_error = "HTTP 400 JSON code=3, message=address must be a hex-encoded 20-byte EVM address; gRPC INVALID_ARGUMENT carries the same message."
+
+[finding.internal-errors-exposed]
+test = "internal_errors_exposed_real_cache_failure_http_and_grpc"
+repair = "Solo and batch internal compiler errors share a sanitizing status producer; the full Debug context is retained in structured error logs alongside error_id."
+public_error = "HTTP 500 JSON contains only code=13 and message=Internal verification error; reference: verification-<16 hexadecimal digits>; gRPC INTERNAL carries the identical message and empty binary details. The reference is unique within the server process."
+proof = "All four Solidity HTTP routes and gRPC methods fetch checksum-valid bytes from a loopback catalogue, fail in the production filesystem cache before compiler execution, return distinct references without paths or cause details, and correlate to the captured structured log containing fetching evm compiler and the original filesystem failure."
+
+[gotcha.implementation-order]
+observed = "The audit step requests a baseline run while the task's explicit gate order forbids pre-implementation verification; the explicit gate order governs, so no baseline result is invented."
+
+[gotcha.private-types]
+observed = "The server types module is private; the regression imports its exact production source with path attributes for the converter/codec proof, while boundary and failure tests use the exported production services and generated routes/clients."
+
+[qualification.build_1]
+revision = "5c0eb46b5d31e2f463c48c0adc4bf2f23092f787"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The regression's two explicit into() calls supplied ambiguous types to generic Into<String> arguments; pass the existing string slices directly."
+
+[gotcha.proxy-creation-fixture]
+observed = "The proxy fixture's creation code has a revert string after CBOR and a raw 20-byte constructor address; preserve the whole compiled prefix and encode that address as a canonical 32-byte ABI word before requiring a full creation match."
