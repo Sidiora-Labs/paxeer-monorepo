@@ -130561,7 +130561,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.420]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/agents/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130596,7 +130596,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.416]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/next/example/lib: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130667,7 +130667,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.412]
 title = "Repair audit record 22.30.157 findings in apps/explorer/nextjs/csp/policies: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131384,7 +131384,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.360]
 title = "Repair audit record 22.30.86 findings in services/platform/examples/support: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131420,7 +131420,7 @@ do_9 = "Attempt 3 (continue): the test file fails at its first line with only te
 
 [task.22.31.349]
 title = "Repair audit record 22.30.79 findings in services/platform/examples/marketplace: retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131594,7 +131594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.239]
 title = "Repair audit record 22.30.115 findings in apps/wallet/src/widgets/swap: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132128,7 +132128,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.30]
 title = "Repair audit record 22.30.22 findings in apps/launchpad/mobile/src/runtime: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148024,7 +148024,7 @@ do_15 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.218]
 title = "Repair audit record 22.30.92 findings in services/agent/crates/layerx-agentd/src/read: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159741,7 +159741,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.337]
 title = "Repair audit record 22.30.58 findings in interchain/modules/core/02-client/keeper: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
