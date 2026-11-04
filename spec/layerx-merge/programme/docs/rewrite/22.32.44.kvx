@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.44"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 6
+
+[page.1]
+path = "consensus/spec/light-client/verification/verification_002_draft.md"
+status = "stale"
+bytes = 37026
+source_1 = "record 22.30.47 [doc.059] (stale): Vendored upstream light-client research/specification artifact verification_002_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/light-client/verification/verification_003_draft.md"
+status = "stale"
+bytes = 2387
+source_1 = "record 22.30.47 [doc.060] (stale): Inherited early-signature-verification fragments are design pseudocode, not executable Go tests or the active Autobahn certificate consumer."
+
+[page.3]
+path = "consensus/spec/p2p/config.md"
+status = "stale"
+bytes = 2052
+source_1 = "record 22.30.47 [doc.061] (stale): Read complete page; rewrite targets: p2p-cli-spelling at line 22. Concrete owning-domain proposals are recorded above."
+
+[page.4]
+path = "consensus/spec/p2p/connection.md"
+status = "stale"
+bytes = 4212
+source_1 = "record 22.30.47 [doc.062] (stale): Read complete page; rewrite targets: p2p-amino-packets at line 21. Concrete owning-domain proposals are recorded above."
+
+[page.5]
+path = "consensus/spec/p2p/messages/README.md"
+status = "stale"
+bytes = 847
+source_1 = "record 22.30.47 [doc.063] (stale): Lists classic gossip channels without Autobahn streaming RPCs or mode applicability; missing-autobahn-spec-map records that documentation gap."
+
+[page.6]
+path = "consensus/spec/p2p/messages/block-sync.md"
+status = "stale"
+bytes = 2904
+source_1 = "record 22.30.47 [doc.064] (stale): Read complete page; rewrite targets: blocksync-base-field at line 56. Concrete owning-domain proposals are recorded above."

@@ -76,6 +76,8 @@ case ${1:-} in
     preflight_only=1
     shift
     ;;
+--all)
+    ;;
 -*)
     usage
     ;;

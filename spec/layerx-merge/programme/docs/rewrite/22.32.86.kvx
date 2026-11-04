@@ -1,0 +1,39 @@
+[manifest]
+task = "22.32.86"
+domain = 9
+owner_role = "fm-agent"
+pages = 3
+
+[page.1]
+path = "docs/site/docs/agents/agentd.md"
+status = "misleading"
+bytes = 31826
+source_1 = "record 22.30.100 [doc.01] (stale): Lines 12-15 and 46-115 describe receipt-authority/bootstrap handshake configuration; lines 473-490 describe separate batch/checkpoint finality. Rewrite for one BFT node network and native transaction receipts."
+source_2 = "record 22.30.11 [doc.09] (stale): Lines 470-481 retain a separate settlement-verifier finality ladder; finding agent-finality-documentation maps current API evidence to block commit and preserves historical receipt bytes."
+source_3 = "record 22.30.130 [doc.5] (stale): Full page read. Lines 13-15 and 59 onward retain sequencer handshake/batch authority; verification defaults at 524 retain checkpoint/settlement ranks. Local durable budget and recovery controls remain relevant."
+source_4 = "record 22.30.146 [doc.012] (stale): Lines 13-15,51-84 prescribe separate sequencer-authority handshake/batch roots; lines 470-480,524-525 retain checkpoint/settlement finality. Replace with node block-commit evidence."
+source_5 = "record 22.30.151 [doc.07] (stale): Lines 469-483 describe checkpoint finality and CHECKPOINT_FINALISED as a live authority signal. Separate local agent control milestones from network finality, which follows the committed BFT block."
+source_6 = "record 22.30.35 [doc.1] (stale): Lines 3, 10-15 and 50-62 need merged-network and node-owned authority framing; existing sequencer field names alone are not separate-service defects. Finding 16."
+source_7 = "record 22.30.90 [doc.3] (stale): Opening lines 3-15 retain sequencer-handshake and authority-file guidance; later verification table uses retired multi-level vocabulary. Rewrite for merged node evidence and current owner wiring."
+source_8 = "record 22.30.91 [doc.agentd_site] (misleading): Read the complete boot, verification, write/recovery and configuration reference. Lines 12-120 describe the retired sequencer-authority handshake; configuration lines 519-525 advertise a path endpoint and retired authority source. Current node receipt keys and committed-block evidence require a coordinated rewrite."
+source_9 = "record 22.30.92 [doc.04] (stale): Budget creation, canonical reconciliation and restart accounting are described as permanently unavailable."
+source_10 = "record 22.30.93 [doc.01] (misleading): Read the full page and compared the wiki mirror. Stale handshake/protected authority-file narrative at lines 12-15 and 49-64 and budget-never-Ok claim at 31-41 need a merged node/readiness and current lifecycle rewrite; see the page finding."
+source_11 = "record 22.30.94 [doc.03] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in agentd_site_readiness, agentd_site_budgets, agentd_site_finality."
+source_12 = "record 22.30.95 [doc.1] (stale): Lines 41, 165-212 describe unavailable budget creation/reconciliation that now have real success paths; lines 470-525 retain the old finality ladder and retired startup keys. Both drifts have findings."
+source_13 = "record 22.30.96 [doc.d04] (stale): Lines 13: The daemon guide requires a real sequencer handshake and layerx-sequencer-authority-v1 trust file; its Protocol evidence section describes authorised batch headers and guarantor/checkpoint policy as current write authority. Rewrite startup and protocol evidence around NodeRpc chain identity, governed receipt-key pins and validator commit/storage witness verification. Update budget and recovery sections to call-bound preparation and the actual committed budget producer."
+source_14 = "record 22.30.98 [doc.011] (misleading): Lines 13-59, 471-480 and 524-525 describe authority files, checkpoint-derived finality and legacy configuration defaults. Rewrite trust, finality and configuration for the integrated BFT chain."
+
+[page.2]
+path = "docs/site/docs/agents/lni.md"
+status = "misleading"
+bytes = 3099
+source_1 = "record 22.30.100 [doc.04] (stale): Lines 1-6, 20-25 and 37-47 present LNI as a live protocol and wire transport. LNI is retired and its receipts/reads are replaced by native chain interfaces."
+source_2 = "record 22.30.98 [doc.009] (misleading): Lines 18-25 and method table 37-48 describe the retired native LNI/socket boundary and checkpoint retrieval. Replace with current root node RPC and the declared hosted gateway boundary."
+
+[page.3]
+path = "docs/site/docs/agents/mcp.md"
+status = "stale"
+bytes = 3645
+source_1 = "record 22.30.77 [doc.11] (stale): The MCP tool table omits tenant.readiness, although the served TOOL_CATALOGUE in services/agent/crates/layerx-mcp/src/server.rs contains 22 entries and includes that scoped daemon-local readiness tool. Synchronize the MCP page with the current served catalogue, distinguish unverified daemon readiness from receipt-backed chain results, and keep scope and entry-point descriptions consistent with actual bindings."
+source_2 = "record 22.30.96 [doc.d01] (stale): Line 64 describes the standalone binary as always serving a Unix socket, but its binding-dependent path serves standard input/output when no listener is declared. Document both transport modes and the listener configuration; the standalone binary itself exists."
+source_3 = "record 22.30.97 [doc.12] (stale): Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_mcp."

@@ -1,14 +1,10 @@
-use super::{
-    hex, query, HumanOperationError, HumanPeer, ModuleRegistry, ObjectKind, Store, TenantId,
-    TenantKey,
-};
+use super::{hex, query, HumanOperationError, HumanPeer, ObjectKind, Store, TenantId, TenantKey};
 use crate::human::HumanSubject;
 use crate::store::StorageClass;
 use layerx_types::{account::AccountId, ids::Did};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::{Arc, Mutex};
 
 const KEY: &[u8] = b"human-subject-v1";
 
@@ -185,73 +181,116 @@ pub(super) fn restore_peers(
     Ok(output)
 }
 
-pub(super) fn for_did(
-    shared: &Arc<Mutex<Store>>,
+/// Binds a managed subject to its exact, successfully executed EVM registration.
+///
+/// `chain_id` and `owner_address` must come from authenticated owner identity
+/// and node state, as in the production Human operation owner.
+///
+/// # Errors
+/// Refuses missing, ambiguous, corrupt or differently owned registrations.
+pub fn bind_retained_registration(
+    store: &Store,
     peer: &HumanPeer,
     did: &Did,
-    registry: &ModuleRegistry,
+    chain_id: u64,
+    owner_address: [u8; 20],
 ) -> Result<HumanPeer, HumanOperationError> {
+    use crate::outbox::{Outbox, SubmissionState};
+    use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+
     let Some(scope) = &peer.subject else {
         return Ok(peer.clone());
     };
     if did.as_bytes() == scope.owner.as_bytes() {
         return Ok(peer.clone());
     }
+    if chain_id == 0 || owner_address == [0; 20] {
+        return Err(HumanOperationError::Refused);
+    }
+    let owner = Did::new(scope.owner.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+    let sponsor = layerx_wire::hash::did_id_for_protocol(&owner, 3)
+        .map_err(|_| HumanOperationError::Refused)?;
     let tenant = TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
-    let store = shared
-        .lock()
-        .map_err(|_| HumanOperationError::Unavailable)?;
     let mut matching = None;
     for id in store.list_object_ids(&tenant, ObjectKind::Outbox) {
-        if id.len() != 32 {
+        let Ok(identifier) = <[u8; 32]>::try_from(id.as_slice()) else {
             continue;
-        }
-        let identifier: [u8; 32] = id
-            .as_slice()
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?;
-        let mut outbox = crate::outbox::Outbox::default();
+        };
+        let mut outbox = Outbox::default();
         outbox
-            .restore(&store, tenant.clone(), identifier)
+            .restore(store, tenant.clone(), identifier)
             .map_err(|_| HumanOperationError::Refused)?;
         let status = outbox
             .status(identifier)
             .ok_or(HumanOperationError::Refused)?;
-        if status.state != crate::outbox::SubmissionState::Executed || status.evidence.is_none() {
-            continue;
-        }
-        let key = TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, id)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let bytes = store.get(&key).ok_or(HumanOperationError::Refused)?.bytes();
-        let activity = layerx_wire::activity::decode_signed(bytes, registry)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if layerx_wire::activity::encode_signed(&activity)
-            .map_err(|_| HumanOperationError::Refused)?
-            != bytes
-            || layerx_wire::hash::activity_id(&activity)
-                .map_err(|_| HumanOperationError::Refused)?
-                != status.activity_id
-            || activity.idempotency_key() != identifier
-        {
-            return Err(HumanOperationError::Refused);
-        }
-        if activity.activity_type().module() != layerx_types::payload::ModuleId::Governance
-            || activity.activity_type().ordinal() != 1
-            || activity.actor_did() != scope.owner.as_bytes()
+        if !matches!(
+            status.state,
+            SubmissionState::Executed | SubmissionState::Committed
+        ) || status.evidence.is_none()
         {
             continue;
         }
-        let Ok(registration) =
-            layerx_crypto::onboarding::SponsoredRegistration::decode(activity.payload())
+        let bytes = outbox
+            .exact_signed_bytes(identifier)
+            .map_err(|_| HumanOperationError::Refused)?;
+        let (call, signature) = decode_signed(bytes).map_err(|_| HumanOperationError::Refused)?;
+        let sender = recover_sender(&call, &signature).map_err(|_| HumanOperationError::Refused)?;
+        if call.chain_id != chain_id || sender != owner_address {
+            continue;
+        }
+        if call.to == layerx_client::account_binding::ADDR_PRECOMPILE
+            && call.data.get(..4)
+                == Some(layerx_client::account_binding::SELECTOR_BIND_LAYERX.as_slice())
+        {
+            let mut word = [0; 32];
+            word[31] = 64;
+            if call.data.len() != 164 || call.data[36..68] != word || call.data[68..100] != word {
+                return Err(HumanOperationError::Refused);
+            }
+            let target = format!("did:layerx:{}", hex(&call.data[4..36]));
+            if target.as_bytes() == did.as_bytes() && matching.replace(bytes.to_vec()).is_some() {
+                return Err(HumanOperationError::Refused);
+            }
+            continue;
+        }
+        if call.to != crate::prepare::evm::PrecompileTarget::Auth.address()
+            || call.data.get(..4)
+                != Some(
+                    layerx_crypto::disclosure::call::ledger_selector(
+                        "recordLifecycle(bytes,bytes32)",
+                    )
+                    .as_slice(),
+                )
+        {
+            continue;
+        }
+        let method = bind_call(&call, sender)
+            .and_then(|disclosure| disclosure.construct_method())
+            .map_err(|_| HumanOperationError::Refused)?;
+        let Some(ConstructMethod::AuthLifecycle {
+            payload,
+            idempotency_key,
+        }) = method
         else {
             continue;
         };
+        // Other lifecycle operations do not register a managed subject.
+        if payload.get(..4) != Some([0x71, 1, 2, 1].as_slice()) {
+            continue;
+        }
+        let registration = layerx_crypto::onboarding::SponsoredRegistration::decode(&payload)
+            .map_err(|_| HumanOperationError::Refused)?;
         if registration.consent.target != *did {
             continue;
         }
-        registration
-            .validate_outer(&activity)
-            .map_err(|_| HumanOperationError::Refused)?;
+        if u64::from(registration.network_id) != chain_id
+            || registration.consent.sponsor != sponsor
+            || registration.consent.native_asset != scope.asset
+            || registration.consent.action_key != idempotency_key
+        {
+            return Err(HumanOperationError::Refused);
+        }
         if matching.replace(bytes.to_vec()).is_some() {
             return Err(HumanOperationError::Refused);
         }
@@ -265,19 +304,32 @@ pub(super) fn for_did(
     Ok(bound)
 }
 
-pub(super) fn for_activity(
-    shared: &Arc<Mutex<Store>>,
+/// Checks an EVM transaction against the actor address resolved from current
+/// authenticated identity state. `peer` carries the retained registration when
+/// the actor is a managed child.
+///
+/// # Errors
+/// Refuses invalid signatures, another chain, or a different actor address.
+pub fn bind_subject_transaction(
     peer: &HumanPeer,
     bytes: &[u8],
-    registry: &ModuleRegistry,
+    chain_id: u64,
+    actor_address: [u8; 20],
 ) -> Result<HumanPeer, HumanOperationError> {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
     if peer.subject.is_none() {
         return Ok(peer.clone());
     }
-    let activity = layerx_wire::activity::decode_signed(bytes, registry)
-        .map_err(|_| HumanOperationError::Refused)?;
-    let did = Did::new(activity.actor_did()).map_err(|_| HumanOperationError::Refused)?;
-    for_did(shared, peer, &did, registry)
+    let (call, signature) = decode_signed(bytes).map_err(|_| HumanOperationError::Refused)?;
+    if chain_id == 0
+        || call.chain_id != chain_id
+        || actor_address == [0; 20]
+        || recover_sender(&call, &signature).map_err(|_| HumanOperationError::Refused)?
+            != actor_address
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(peer.clone())
 }
 
 pub(super) fn begin_transmission(

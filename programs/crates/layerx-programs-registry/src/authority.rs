@@ -25,6 +25,7 @@ const MAX_OUTPUTS: usize = 256;
 /// [`ExecutionTrace`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MigrationExecutionEvidence {
+    chain_accounting: bool,
     runtime_version: u16,
     abi_version: u16,
     metering_schedule_version: u32,
@@ -37,6 +38,86 @@ pub struct MigrationExecutionEvidence {
 }
 
 impl MigrationExecutionEvidence {
+    pub fn decode_canonical(bytes: &[u8]) -> Result<Self, RegistryError> {
+        if bytes.starts_with(b"LXMA1") {
+            return Self::from_chain_accounting(bytes);
+        }
+        let mut framed = (u32::try_from(bytes.len()).map_err(|_| RegistryError::CorruptRecord)?)
+            .to_be_bytes()
+            .to_vec();
+        framed.extend_from_slice(bytes);
+        framed.extend_from_slice(&sha256(bytes));
+        decode_migration_evidence(&framed, &mut 0)
+    }
+
+    /// Preserves the host's complete LXMA1 accounting record. This format
+    /// reports usage, not individual guest output values or an arbitration trace.
+    pub fn from_chain_accounting(bytes: &[u8]) -> Result<Self, RegistryError> {
+        if bytes.len() != 613 || bytes.get(..5) != Some(b"LXMA1") {
+            return Err(RegistryError::CorruptRecord);
+        }
+        let u16_at = |offset| u16::from_be_bytes([bytes[offset], bytes[offset + 1]]);
+        let u32_at = |offset| {
+            u32::from_be_bytes(
+                bytes[offset..offset + 4]
+                    .try_into()
+                    .expect("validated accounting record length"),
+            )
+        };
+        let u64_at = |offset| {
+            u64::from_be_bytes(
+                bytes[offset..offset + 8]
+                    .try_into()
+                    .expect("validated accounting record length"),
+            )
+        };
+        let u128_at = |offset| {
+            u128::from_be_bytes(
+                bytes[offset..offset + 16]
+                    .try_into()
+                    .expect("validated accounting record length"),
+            )
+        };
+        if u32_at(5) != 1
+            || u16_at(9) == 0
+            || !(1..=4).contains(&u16_at(11))
+            || [13, 17, 21, 25].iter().any(|offset| u32_at(*offset) == 0)
+            || [61, 93, 253]
+                .iter()
+                .any(|offset| bytes[*offset..*offset + 32] == [0; 32])
+        {
+            return Err(RegistryError::CorruptRecord);
+        }
+        let usage = MeteredUsage {
+            cpu_fuel: u64_at(469),
+            memory_bytes: u64_at(477),
+            storage_read_bytes: u64_at(485),
+            storage_write_bytes: u64_at(493),
+            output_values: u32::try_from(u64_at(501)).map_err(|_| RegistryError::CorruptRecord)?,
+            output_bytes: u64_at(509),
+            fee_units: u128_at(581),
+            occupancy_byte_batches: 0,
+            occupancy_fee_units: 0,
+        };
+        Ok(Self {
+            chain_accounting: true,
+            runtime_version: u16_at(9),
+            abi_version: u16_at(11),
+            metering_schedule_version: u32_at(25),
+            outputs: Vec::new(),
+            usage,
+            trace_evidence: None,
+            canonical_bytes: bytes.to_vec(),
+            canonical_length: 613,
+            commitment: sha256(bytes),
+        })
+    }
+
+    pub fn chain_accounting(&self) -> Option<&[u8]> {
+        self.chain_accounting
+            .then_some(self.canonical_bytes.as_slice())
+    }
+
     /// Freezes a runtime migration result into complete durable evidence.
     ///
     /// # Errors
@@ -92,6 +173,7 @@ impl MigrationExecutionEvidence {
             u32::try_from(canonical_bytes.len()).map_err(|_| RegistryError::CorruptRecord)?;
         let commitment = sha256(&canonical_bytes);
         Ok(Self {
+            chain_accounting: false,
             runtime_version,
             abi_version,
             metering_schedule_version,
@@ -236,7 +318,14 @@ impl DeploymentRecord {
         {
             return Err(RegistryError::CorruptRecord);
         }
-        if (self.version == 1) != self.old_code_hash.is_none() {
+        if (self.version == 1) != self.old_code_hash.is_none()
+            || self.old_code_hash == Some([0; 32])
+            || (self.version == 1 && self.migration.is_some())
+            || self
+                .migration
+                .as_ref()
+                .is_some_and(|migration| migration.abi_version() != self.abi_version)
+        {
             return Err(RegistryError::VersionHistoryMismatch);
         }
         if sha256(&self.module) != self.new_code_hash {
@@ -434,15 +523,24 @@ impl<J: DeploymentJournal> RegistryReadAuthority for JournalReadAuthority<J> {
         program: ProgramId,
         latest: &RegistryVersion,
     ) -> Result<([u8; 32], ReadFreshness), RegistryError> {
-        let bytes = self
-            .journal
-            .canonical_record(latest.deployment_receipt_digest)?;
+        let identity = latest.deployment_provenance.identity_bytes();
+        if identity != latest.deployment_receipt_digest {
+            return Err(RegistryError::UnverifiedRead);
+        }
+        let bytes = self.journal.canonical_record(identity)?;
         let record = DeploymentRecord::decode(&bytes)?;
         record.validate()?;
         if record.program != program
             || record.version != latest.number
             || record.abi_version != latest.abi_version
             || record.new_code_hash != latest.code_hash
+            || match latest.deployment_provenance {
+                DeploymentProvenance::ChainTransaction { record_digest, .. }
+                | DeploymentProvenance::LegacyRecord(record_digest) => {
+                    record.digest() != record_digest
+                }
+                DeploymentProvenance::RuntimeReceipt(_) => false,
+            }
         {
             return Err(RegistryError::UnverifiedRead);
         }
@@ -456,7 +554,7 @@ impl<J: DeploymentJournal> RegistryReadAuthority for JournalReadAuthority<J> {
             return Err(RegistryError::StaleRead);
         }
         Ok((
-            latest.deployment_receipt_digest,
+            identity,
             ReadFreshness {
                 observed_sequence: head.sequence,
                 observed_at: head.observed_at,
@@ -533,9 +631,13 @@ fn decode_migration_evidence(
         .map_err(|_| RegistryError::CorruptRecord)?;
     let evidence_bytes = take_slice(bytes, cursor, evidence_len)?;
     let expected_commitment = take_array::<32>(bytes, cursor)?;
-    if sha256(evidence_bytes) != expected_commitment
-        || evidence_bytes.get(..MIGRATION_EVIDENCE_DOMAIN.len()) != Some(MIGRATION_EVIDENCE_DOMAIN)
-    {
+    if sha256(evidence_bytes) != expected_commitment {
+        return Err(RegistryError::CorruptRecord);
+    }
+    if evidence_bytes.starts_with(b"LXMA1") {
+        return MigrationExecutionEvidence::from_chain_accounting(evidence_bytes);
+    }
+    if evidence_bytes.get(..MIGRATION_EVIDENCE_DOMAIN.len()) != Some(MIGRATION_EVIDENCE_DOMAIN) {
         return Err(RegistryError::CorruptRecord);
     }
     let mut evidence_cursor = MIGRATION_EVIDENCE_DOMAIN.len();
@@ -899,5 +1001,144 @@ mod tests {
             DeploymentRecord::decode(&encoded),
             Err(RegistryError::CorruptRecord)
         );
+    }
+}
+
+/// Transaction provenance has a different domain from a canonical record digest.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DeploymentTransactionId(pub(crate) [u8; 32]);
+impl DeploymentTransactionId {
+    pub const fn bytes(self) -> [u8; 32] {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeploymentProvenance {
+    ChainTransaction {
+        transaction: DeploymentTransactionId,
+        record_digest: [u8; 32],
+    },
+    RuntimeReceipt([u8; 32]),
+    LegacyRecord([u8; 32]),
+}
+impl DeploymentProvenance {
+    pub const fn identity_bytes(self) -> [u8; 32] {
+        match self {
+            Self::ChainTransaction { transaction, .. } => transaction.bytes(),
+            Self::RuntimeReceipt(digest) | Self::LegacyRecord(digest) => digest,
+        }
+    }
+    pub fn from_evidence(evidence: &crate::VerifiedDeploymentEvidence) -> Self {
+        Self::ChainTransaction {
+            transaction: DeploymentTransactionId(evidence.receipt_digest()),
+            record_digest: evidence.record().digest(),
+        }
+    }
+}
+
+/// Durable projection plus the transaction identity accepted at admission.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeploymentJournalEntry {
+    record: DeploymentRecord,
+    transaction: DeploymentTransactionId,
+}
+impl DeploymentJournalEntry {
+    pub fn from_evidence(evidence: &crate::VerifiedDeploymentEvidence) -> Self {
+        Self {
+            record: evidence.record().clone(),
+            transaction: DeploymentTransactionId(evidence.receipt_digest()),
+        }
+    }
+    /// Decoding or pairing does not grant chain authority; reverify the proof at ingress.
+    pub fn from_proof(
+        record: DeploymentRecord,
+        proof: &crate::DeploymentProof,
+    ) -> Result<Self, RegistryError> {
+        record.validate()?;
+        if proof
+            .claimed_record()
+            .map_err(|_| RegistryError::CorruptRecord)?
+            != record
+        {
+            return Err(RegistryError::DeploymentMismatch);
+        }
+        let transaction = proof
+            .claimed_receipt_digest()
+            .map_err(|_| RegistryError::CorruptRecord)?;
+        Ok(Self {
+            record,
+            transaction: DeploymentTransactionId(transaction),
+        })
+    }
+    pub const fn record(&self) -> &DeploymentRecord {
+        &self.record
+    }
+    pub const fn transaction_id(&self) -> DeploymentTransactionId {
+        self.transaction
+    }
+    pub fn canonical_encoding(&self) -> Vec<u8> {
+        let record = self.record.canonical_encoding();
+        let mut bytes = b"LXDJ\x02".to_vec();
+        bytes.extend_from_slice(&self.transaction.0);
+        bytes.extend_from_slice(&(record.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(&record);
+        bytes.extend_from_slice(&self.record.digest());
+        let seal = sha256(&bytes);
+        bytes.extend_from_slice(&seal);
+        bytes
+    }
+    pub fn decode(bytes: &[u8]) -> Result<Self, RegistryError> {
+        if bytes.get(..5) != Some(b"LXDJ\x02") {
+            return Err(RegistryError::CorruptRecord);
+        }
+        let mut cursor = 5;
+        let transaction = DeploymentTransactionId(take_array(bytes, &mut cursor)?);
+        let length = u32::from_be_bytes(take_array(bytes, &mut cursor)?) as usize;
+        if length > MAX_MODULE_BYTES + 1024 * 1024 {
+            return Err(RegistryError::CorruptRecord);
+        }
+        let record = DeploymentRecord::decode(take_slice(bytes, &mut cursor, length)?)?;
+        let digest: [u8; 32] = take_array(bytes, &mut cursor)?;
+        let expected_seal = sha256(&bytes[..cursor]);
+        let seal: [u8; 32] = take_array(bytes, &mut cursor)?;
+        record.validate()?;
+        if cursor != bytes.len()
+            || seal != expected_seal
+            || record.digest() != digest
+            || transaction.0 == [0; 32]
+        {
+            return Err(RegistryError::CorruptRecord);
+        }
+        Ok(Self {
+            record,
+            transaction,
+        })
+    }
+}
+
+/// The legacy record-only journal addresses runtime receipts by record digest.
+/// Chain admissions must persist `DeploymentJournalEntry` to retain provenance.
+pub trait ReplayDeployment {
+    fn deployment_record(&self) -> &DeploymentRecord;
+    fn deployment_identity(&self) -> DeploymentProvenance;
+}
+impl ReplayDeployment for DeploymentRecord {
+    fn deployment_record(&self) -> &DeploymentRecord {
+        self
+    }
+    fn deployment_identity(&self) -> DeploymentProvenance {
+        DeploymentProvenance::LegacyRecord(self.digest())
+    }
+}
+impl ReplayDeployment for DeploymentJournalEntry {
+    fn deployment_record(&self) -> &DeploymentRecord {
+        &self.record
+    }
+    fn deployment_identity(&self) -> DeploymentProvenance {
+        DeploymentProvenance::ChainTransaction {
+            transaction: self.transaction,
+            record_digest: self.record.digest(),
+        }
     }
 }

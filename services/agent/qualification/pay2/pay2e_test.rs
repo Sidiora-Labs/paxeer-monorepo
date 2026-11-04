@@ -1,4 +1,19 @@
-use std::collections::BTreeSet;
+#[path = "required.rs"]
+mod required;
+use required::Required;
+#[path = "funded_inputs.rs"]
+mod funded_inputs;
+#[path = "funding.rs"]
+mod funding;
+use funded_inputs::{
+    hex_encode, now_ms, random32, sha256, write, Cluster, HttpAnswer, NETWORK_ID, PROTOCOL_VERSION,
+};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 fn parse_http_with_connection(raw: &[u8], expected_connection: &str) -> HttpAnswer {
     let position = raw
@@ -43,38 +58,9 @@ fn parse_http_with_connection(raw: &[u8], expected_connection: &str) -> HttpAnsw
     }
 }
 
-struct Pay2GatewayIdentity<'a> {
-    rpc: &'a layerx_sdk::rpc::RpcClient,
-    capability: [u8; 32],
-}
-
-impl layerx_agentd::identity::IdentityResolver for Pay2GatewayIdentity<'_> {
-    fn resolve(
-        &mut self,
-        did: &layerx_types::ids::Did,
-    ) -> Result<Option<layerx_agentd::identity::CoreIdentity>, layerx_agentd::identity::IdentityError>
-    {
-        let text = std::str::from_utf8(did.as_bytes())
-            .map_err(|_| layerx_agentd::identity::IdentityError::BoundaryUnavailable)?;
-        let snapshot = self
-            .rpc
-            .get_identity_sequence(text)
-            .map_err(|_| layerx_agentd::identity::IdentityError::BoundaryUnavailable)?;
-        let mut canonical = snapshot.state_root.to_vec();
-        canonical.extend_from_slice(&snapshot.observed_head_sequence.to_be_bytes());
-        canonical.extend_from_slice(&snapshot.next_sequence.to_be_bytes());
-        Ok(Some(layerx_agentd::identity::CoreIdentity {
-            canonical_bytes: canonical,
-            head_sequence: snapshot.observed_head_sequence,
-            revocation_sequence: 1,
-            verification_level: layerx_types::verify::VerificationLevel::STATE_PROVEN,
-            frozen: false,
-            authorities: vec![layerx_agentd::identity::ProtocolAuthority::CapabilityGrant(
-                self.capability,
-            )],
-        }))
-    }
-}
+#[path = "sequence.rs"]
+mod sequence;
+use sequence::{pay2_signer_nonce, Pay2GatewayIdentity};
 
 struct Pay2McpContext {
     server: layerx_mcp::server::Server,
@@ -129,10 +115,8 @@ fn pay2_mcp_context(spec: Pay2McpSpec<'_>) -> Pay2McpContext {
         .persist(&mut store)
         .required("PAY2 capability persistence");
     let agent = layerx_types::ids::Did::new(spec.actor.as_bytes()).required("PAY2 actor DID");
-    let mut resolver = Pay2GatewayIdentity {
-        rpc: spec.rpc,
-        capability: capability_id.0,
-    };
+    let mut resolver = Pay2GatewayIdentity::from_environment(spec.rpc, capability_id.0)
+        .required("PAY2 committed identity authority");
     let identity =
         layerx_agentd::identity::register(&mut store, tenant.clone(), agent.clone(), &mut resolver)
             .required("PAY2 gateway-backed identity");
@@ -342,7 +326,14 @@ fn pay2_evidence_authority(
         0o600,
     );
     let mut environment = BTreeMap::new();
-    finality_environment(&mut environment);
+    environment.insert(
+        "LAYERX_NODE_PAXEER_CHAIN_ID".to_owned(),
+        cluster.chain_id.to_string(),
+    );
+    environment.insert(
+        "LAYERX_NODE_PAXEER_RPC_URL".to_owned(),
+        cluster.node_url.clone(),
+    );
     let chain_id = environment["LAYERX_NODE_PAXEER_CHAIN_ID"]
         .parse::<u64>()
         .required("PAY2 Paxeer chain id");
@@ -406,7 +397,7 @@ fn pay2_write_transcript(
                 kind: "receipt".to_owned(),
                 digest: protocol.batch_id(),
             }],
-            verification_level: layerx_agent_api::verify::Level::BatchIncluded,
+            rung: layerx_agent_api::verify::Rung::Receipted,
             transitions: Vec::new(),
         }),
         receipt: Some(layerx_mcp::tools::write::VerifiedReceipt {
@@ -415,7 +406,7 @@ fn pay2_write_transcript(
                 receipt.canonical_bytes().to_vec(),
             )
             .required("PAY2 canonical receipt transcript"),
-            verification_level: layerx_agent_api::verify::Level::BatchIncluded,
+            rung: layerx_agent_api::verify::Rung::Receipted,
             evidence_ids: vec![protocol.batch_id()],
         }),
     }
@@ -486,11 +477,8 @@ impl Pay2FundedRun<'_> {
             idempotency,
             layerx_sdk::rpc::Commitment::Executed,
         );
-        let identity_sequence = self
-            .payer_rpc
-            .get_identity_sequence(&self.cluster.treasury_did)
-            .required("PAY2 Send identity sequence")
-            .next_sequence;
+        let identity_sequence = pay2_signer_nonce(self.payer_rpc, self.payer_wallet.signer)
+            .required("PAY2 Send sender nonce");
         let send_payload =
             pay2_run(send.sign(self.payer_wallet.signer)).required("PAY2 signed Send payload");
         let executed =
@@ -563,11 +551,8 @@ impl Pay2FundedRun<'_> {
             recurring_window: None,
             expiration: now_ms().saturating_add(300_000),
             purpose_hash: random32(),
-            revocation_sequence: self
-                .payer_rpc
-                .get_identity_sequence(&self.cluster.treasury_did)
-                .required("PAY2 first grant sequence")
-                .next_sequence,
+            revocation_sequence: pay2_signer_nonce(self.payer_rpc, self.payer_wallet.signer)
+                .required("PAY2 first grant sender nonce"),
         })
         .required("PAY2 first grant");
         let issue_options = pay2_options(
@@ -624,11 +609,8 @@ impl Pay2FundedRun<'_> {
             recurring_window: None,
             expiration: now_ms().saturating_add(300_000),
             purpose_hash: random32(),
-            revocation_sequence: self
-                .payer_rpc
-                .get_identity_sequence(&self.cluster.treasury_did)
-                .required("PAY2 MCP grant sequence")
-                .next_sequence,
+            revocation_sequence: pay2_signer_nonce(self.payer_rpc, self.payer_wallet.signer)
+                .required("PAY2 MCP grant sender nonce"),
         })
         .required("PAY2 MCP grant")
     }
@@ -983,33 +965,16 @@ fn pay2_finish(run: &Pay2FundedRun<'_>) {
 
 #[test]
 fn pay2e_funded_sdk_send_and_mcp_grant_draw() {
-    let (cluster, funding) = funding::start();
-    let certificates = certificates(&cluster.root);
-    let boundary = start_boundary(&cluster, &certificates);
-    let identity = start_local_identity(&cluster, &certificates);
-    let authority = start_local_authority(&cluster, &certificates);
-    let redis = start_local_redis(&cluster, &certificates);
-    let gateway = start_local_gateway(
-        &cluster,
-        &certificates,
-        &boundary,
-        &identity,
-        &authority,
-        &redis,
-    );
-    let payer_key = issue_local_scoped_key(&certificates, &gateway, &identity, &["activity:write"]);
-    let recipient_key = issue_recipient_scoped_key(
-        &certificates,
-        &gateway,
-        &identity,
-        &funding,
-        &["activity:write"],
-    );
-    let endpoint = format!("https://localhost:{}", gateway.port);
+    let inputs = funded_inputs::ProvisionedInputs::read();
+    let cluster = &inputs.cluster;
+    let funding = &inputs.funding;
+    let payer_key = &inputs.payer_key;
+    let recipient_key = &inputs.recipient_key;
+    let endpoint = &inputs.gateway_url;
     let payer_rpc = layerx_sdk::rpc::RpcClient::connect_with_ca_der(
         &endpoint,
         Some(pay2_credential(&payer_key)),
-        &certificates.ca_der,
+        &inputs.ca_der,
     )
     .required("PAY2 payer RPC")
     .with_clock(
@@ -1018,7 +983,7 @@ fn pay2e_funded_sdk_send_and_mcp_grant_draw() {
     let recipient_rpc = layerx_sdk::rpc::RpcClient::connect_with_ca_der(
         &endpoint,
         Some(pay2_credential(&recipient_key)),
-        &certificates.ca_der,
+        &inputs.ca_der,
     )
     .required("PAY2 recipient RPC")
     .with_clock(
@@ -1035,8 +1000,10 @@ fn pay2e_funded_sdk_send_and_mcp_grant_draw() {
         ),
         trusted_checkpoint_context_digest: None,
     };
-    let payer_signer = layerx_crypto::local::LocalSigner::new(cluster.treasury_seed);
-    let recipient_signer = layerx_crypto::local::LocalSigner::new(funding.recipient_seed);
+    let payer_signer =
+        layerx_crypto::local::LocalSigner::from_derived_account(&inputs.payer_account);
+    let recipient_signer =
+        layerx_crypto::local::LocalSigner::from_derived_account(&inputs.recipient_account);
     let payer_wallet = layerx_sdk::wallet::Wallet {
         rpc: &payer_rpc,
         signer: &payer_signer,

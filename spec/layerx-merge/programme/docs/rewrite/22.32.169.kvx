@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.169"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "scripts/bump_version/README.md"
+status = "misleading"
+bytes = 4164
+source_1 = "record 22.30.182 [doc.16] (misleading): Lines 65 and 93 overstate interrupted-rerun safety and Git error propagation; see archive-rerun-documentation and archive-error-documentation."

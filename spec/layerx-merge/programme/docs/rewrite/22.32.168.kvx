@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.168"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "migrations/README.md"
+status = "stale"
+bytes = 1699
+source_1 = "record 22.30.183 [doc.14] (stale): Line 3 calls layerxd and the append-only activity log authoritative, and later directs operators to retired history-index tests and replay source."

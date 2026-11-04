@@ -2,10 +2,13 @@ package tasks
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	tmtypes "github.com/sei-protocol/sei-chain/sei-tendermint/types"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -79,63 +82,12 @@ type StateSyncRequest struct {
 // seid exit on "no witnesses connected" and crashloop. With UseLocalSnapshot the
 // trust height comes from the restored snapshot instead of a query.
 func (s *StateSyncConfigurer) Configure(ctx context.Context, p StateSyncRequest) error {
-	if markerExists(s.homeDir, stateSyncMarkerFile) {
-		ssLog.Debug("already completed, skipping")
-		return nil
-	}
-
-	candidates, err := s.witnessCandidates(p)
+	cfg, err := s.Preflight(ctx, p)
 	if err != nil {
-		return fmt.Errorf("configure-state-sync: %w", err)
+		return err
 	}
 
-	reachable := s.reachableWitnesses(ctx, candidates)
-	if len(reachable) == 0 {
-		return fmt.Errorf("configure-state-sync: no reachable RPC witness among %v", candidates)
-	}
-
-	var trustHeight int64
-	if p.UseLocalSnapshot {
-		h, err := discoverLocalSnapshotHeight(s.homeDir)
-		if err != nil {
-			return fmt.Errorf("configure-state-sync: discovering local snapshot height: %w", err)
-		}
-		trustHeight = h
-		ssLog.Info("using local snapshot height as trust height", "height", trustHeight)
-	} else {
-		ssLog.Info("querying latest height", "endpoint", reachable[0])
-		latestHeight, err := s.queryLatestHeight(ctx, reachable[0])
-		if err != nil {
-			return fmt.Errorf("configure-state-sync: querying latest height: %w", err)
-		}
-		trustHeight = latestHeight - trustHeightOffset
-		if trustHeight < 1 {
-			trustHeight = 1
-		}
-	}
-
-	ssLog.Info("querying trust hash", "trust-height", trustHeight, "endpoint", reachable[0])
-	trustHash, err := s.queryBlockHash(ctx, reachable[0], trustHeight)
-	if err != nil {
-		return fmt.Errorf("configure-state-sync: querying block hash at height %d: %w", trustHeight, err)
-	}
-
-	// CometBFT's light client requires at least two witnesses; pad by
-	// duplicating the primary when only one reachable witness exists.
-	for len(reachable) < 2 {
-		reachable = append(reachable, reachable[0])
-	}
-
-	cfg := StateSyncConfig{
-		TrustHeight:      trustHeight,
-		TrustHash:        trustHash,
-		TrustPeriod:      p.TrustPeriod,
-		RpcServers:       strings.Join(reachable, ","),
-		UseLocalSnapshot: p.UseLocalSnapshot,
-		BackfillBlocks:   p.BackfillBlocks,
-	}
-
-	ssLog.Info("writing config", "trust-height", trustHeight, "trust-hash", trustHash,
+	ssLog.Info("writing config", "trust-height", cfg.TrustHeight, "trust-hash", cfg.TrustHash,
 		"trust-period", p.TrustPeriod, "rpc-servers", cfg.RpcServers,
 		"use-local-snapshot", p.UseLocalSnapshot, "backfill-blocks", p.BackfillBlocks)
 	if err := writeStateSyncToConfig(s.homeDir, cfg); err != nil {
@@ -143,6 +95,133 @@ func (s *StateSyncConfigurer) Configure(ctx context.Context, p StateSyncRequest)
 	}
 
 	return writeMarker(s.homeDir, stateSyncMarkerFile)
+}
+
+// Preflight establishes independent witnesses before either configuration or erasure.
+func (s *StateSyncConfigurer) Preflight(ctx context.Context, p StateSyncRequest) (StateSyncConfig, error) {
+	fail := func(err error) (StateSyncConfig, error) {
+		return StateSyncConfig{}, fmt.Errorf("configure-state-sync: %w", err)
+	}
+	chainID := os.Getenv("SEI_CHAIN_ID")
+	if doc, err := tmtypes.GenesisDocFromFile(filepath.Join(s.homeDir, "config", "genesis.json")); err == nil {
+		if chainID != "" && doc.ChainID != chainID {
+			return fail(fmt.Errorf("configured chain differs from genesis"))
+		}
+		chainID = doc.ChainID
+	}
+	if chainID == "" {
+		return fail(fmt.Errorf("configured chain ID required"))
+	}
+	candidates, err := s.witnessCandidates(p)
+	if err != nil {
+		return fail(err)
+	}
+	seenEndpoint := map[string]bool{}
+	seenID := map[string]bool{}
+	var reachable []string
+	var latest int64
+	for _, ep := range candidates {
+		host, port, err := net.SplitHostPort(ep)
+		if err != nil || host == "" || port == "" {
+			return fail(fmt.Errorf("invalid witness %q", ep))
+		}
+		ep = net.JoinHostPort(strings.ToLower(strings.TrimSuffix(host, ".")), port)
+		if seenEndpoint[ep] {
+			continue
+		}
+		seenEndpoint[ep] = true
+		pctx, cancel := context.WithTimeout(ctx, witnessProbeTimeout)
+		raw, err := s.rpcClientForEndpoint(ep).Get(pctx, "/status")
+		cancel()
+		if err != nil {
+			continue
+		}
+		var status rpc.StatusResult
+		if err := json.Unmarshal(raw, &status); err != nil {
+			return fail(err)
+		}
+		if status.NodeInfo.Network != chainID {
+			return fail(fmt.Errorf("witness %s is on chain %q, expected %q", ep, status.NodeInfo.Network, chainID))
+		}
+		if len(status.NodeInfo.ID) != 40 {
+			return fail(fmt.Errorf("witness %s has invalid node identity", ep))
+		}
+		if _, err := hex.DecodeString(status.NodeInfo.ID); err != nil {
+			return fail(err)
+		}
+		id := strings.ToLower(status.NodeInfo.ID)
+		if seenID[id] {
+			return fail(fmt.Errorf("witnesses share node identity %s", id))
+		}
+		seenID[id] = true
+		h, err := strconv.ParseInt(status.SyncInfo.LatestBlockHeight, 10, 64)
+		if err != nil || h <= 0 {
+			return fail(fmt.Errorf("witness %s has invalid height", ep))
+		}
+		if latest == 0 || h < latest {
+			latest = h
+		}
+		reachable = append(reachable, ep)
+	}
+	if len(reachable) < 2 {
+		return fail(fmt.Errorf("at least two distinct reachable RPC witnesses required"))
+	}
+	height := latest - trustHeightOffset
+	if height < 1 {
+		height = 1
+	}
+	if p.UseLocalSnapshot {
+		height, err = discoverLocalSnapshotHeight(s.homeDir)
+		if err != nil {
+			return fail(fmt.Errorf("discovering local snapshot height: %w", err))
+		}
+	}
+	var hash string
+	for _, ep := range reachable {
+		pctx, cancel := context.WithTimeout(ctx, witnessProbeTimeout)
+		got, err := s.queryVerifiedBlock(pctx, ep, height, chainID)
+		cancel()
+		if err != nil {
+			return fail(err)
+		}
+		if hash != "" && !strings.EqualFold(hash, got) {
+			return fail(fmt.Errorf("witness trust hashes disagree at height %d", height))
+		}
+		hash = got
+	}
+	return StateSyncConfig{TrustHeight: height, TrustHash: hash, TrustPeriod: p.TrustPeriod, RpcServers: strings.Join(reachable, ","), UseLocalSnapshot: p.UseLocalSnapshot, BackfillBlocks: p.BackfillBlocks}, nil
+}
+
+func (s *StateSyncConfigurer) queryVerifiedBlock(ctx context.Context, ep string, height int64, chainID string) (string, error) {
+	raw, err := s.rpcClientForEndpoint(ep).Get(ctx, "/block?height="+url.QueryEscape(strconv.FormatInt(height, 10)))
+	if err != nil {
+		return "", err
+	}
+	var block struct {
+		BlockID rpc.BlockID `json:"block_id"`
+		Block   struct {
+			Header struct {
+				ChainID string `json:"chain_id"`
+				Height  string `json:"height"`
+			} `json:"header"`
+		} `json:"block"`
+	}
+	if err := json.Unmarshal(raw, &block); err != nil {
+		return "", err
+	}
+	if block.Block.Header.ChainID != chainID || block.Block.Header.Height != strconv.FormatInt(height, 10) {
+		return "", fmt.Errorf("witness returned a different chain or height")
+	}
+	if block.BlockID.Hash == "" {
+		return "", fmt.Errorf("empty block hash at height %d", height)
+	}
+	if len(block.BlockID.Hash) != 64 {
+		return "", fmt.Errorf("unexpected block hash length at height %d", height)
+	}
+	if _, err := hex.DecodeString(block.BlockID.Hash); err != nil {
+		return "", err
+	}
+	return block.BlockID.Hash, nil
 }
 
 // witnessCandidates returns the candidate witness endpoints ("host:port"):

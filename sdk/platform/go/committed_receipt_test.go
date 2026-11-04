@@ -12,6 +12,7 @@ import (
 )
 
 type committedFixture struct {
+	trust      CommittedTrust
 	receipt    SequencerReceiptVerification
 	header     CommittedHeader
 	inclusion  ReceiptInclusion
@@ -167,11 +168,12 @@ func newCommittedFixture(t *testing.T, id string, powers [4]int64, offset int64)
 	f.inclusion = ReceiptInclusion{Transaction: wrapped, TransactionProof: txProofs[index],
 		Result: result, ResultProof: committedFixtureProof(results, index), BatchTransaction: batch, BatchProof: txProofs[0],
 		NextHeader: next, NextCommit: committedFixtureCommit(next, f.keys, 3), NextValidators: f.validators}
+	f.trust = CommittedTrust{ChainID: f.header.ChainID, Height: f.header.Height, BlockHash: f.header.Hash()}
 	return f
 }
 
 func (f committedFixture) verify() (Committed, error) {
-	return VerifyCommittedReceipt(f.receipt, f.header, f.inclusion, f.commit, f.validators)
+	return VerifyCommittedReceipt(f.receipt, f.header, f.inclusion, f.commit, f.validators, f.trust)
 }
 
 func (f *committedFixture) reanchor(t *testing.T) {

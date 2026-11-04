@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "layerx-webhooks"
 path = "src/main.rs"
 
+[[bin]]
+name = "layerx-webhooks-render-network"
+path = "src/bin/render_network.rs"
+
 [dependencies]
 ed25519-dalek.workspace = true
 getrandom.workspace = true
@@ -23,6 +27,7 @@ native-tls.workspace = true
 rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+serde_yaml = "=0.9.34"
 sha2.workspace = true
 subtle.workspace = true
 x509-cert = { version = "0.2.5", default-features = false }
@@ -30,6 +35,8 @@ zeroize.workspace = true
 
 [dev-dependencies]
 layerx-committed-proof = { path = "../../../../services/interop/crates/layerx-committed-proof" }
+layerx-platform-authority = { path = "../authority" }
+rcgen = "=0.14.10"
 
 [lints]
 workspace = true

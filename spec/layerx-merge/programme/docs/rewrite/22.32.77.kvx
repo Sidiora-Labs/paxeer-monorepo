@@ -1,0 +1,22 @@
+[manifest]
+task = "22.32.77"
+domain = 8
+owner_role = "fm-platform"
+pages = 2
+
+[page.1]
+path = "docs/wiki/HostedAuthority.md"
+status = "stale"
+bytes = 21358
+source_1 = "record 22.30.71 [doc.10] (stale): Lines 9-16 and 30-44 retain retired LNI/replica deployment; the response description omits receipt and protocol_network_id emitted by the producer. Both mirrors need node commit/key-at-height guidance."
+source_2 = "record 22.30.88 [doc.004] (stale): Read in full, including the site/wiki link differences. Lines 3-16,30-43 and 107-110 retain standalone replica/LNI deployment and an obsolete ramp AuthorizedBatch consumer; see the authority-doc findings."
+
+[page.2]
+path = "docs/wiki/HostedIdentity.md"
+status = "stale"
+bytes = 30091
+source_1 = "record 22.30.16 [doc.10] (stale): Read in full; lines 8-13 and 35-67 omit mandatory registry/registrar token files. Wiki additionally renames testnet credential to control. Session response/durability rules were compared with source."
+source_2 = "record 22.30.172 [doc.010] (stale): Complete page read and compared to the site guide. Lines 9 and 66 use control for the actual testnet Service identity; see identity-wiki-service-name."
+source_3 = "record 22.30.32 [doc.07] (stale): Read complete page; line 8 in hosted_identity_wiki identifies the stale statements and owning rewrite proposal."
+source_4 = "record 22.30.71 [doc.9] (stale): The credential/principal model at lines 90-105 and provisioning examples omit the tenant required by the current producer, and principal/session responses have gained tenant. Mirrored content was read with all differing references."
+source_5 = "record 22.30.88 [doc.006] (stale): Read in full, including the site/wiki label differences. The ramp introspection shape matches active/sub/account/audience/expires_at. Lines 8-9,42,318 still document seven rather than nine service identities; see identity-doc findings."

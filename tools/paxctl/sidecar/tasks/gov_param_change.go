@@ -162,7 +162,7 @@ func buildParamChangeMsg(cfg engine.ExecutionConfig, params GovParamChangeReques
 		return nil, Terminal(fmt.Errorf("initialDeposit %q contains non-positive amounts", params.InitialDeposit))
 	}
 	// Symmetric with checkFeesDenom: deposit denom is fixed by gov params
-	// on Sei (usei); a wrong denom would CheckTx-reject anyway, but
+	// on Paxeer (uhpx); a wrong denom would CheckTx-reject anyway, but
 	// rejecting here saves the sign + broadcast roundtrip.
 	for _, c := range deposit {
 		if c.Denom != feeDenom {

@@ -1,8 +1,20 @@
+# Wallet pull request notes
+
+This file is a manual checklist for changes to `apps/wallet`. GitHub does not
+automatically load a pull request template from a package's nested `.github`
+directory. Keep the [repository pull request template](../../../.github/pull_request_template.md)
+and copy the relevant wallet sections below into your monorepo pull request body.
+
+See the [wallet README](../README.md), [changelog](../CHANGELOG.md), and
+[wallet issue prompts](ISSUE_TEMPLATE/bug_report.md).
+
 ## Description
-<!-- Describe your changes in detail -->
+
+<!-- Describe the problem, resulting behavior, and affected wallet screens or code paths. -->
 
 ## Type of Change
-<!-- Mark the relevant option with an "x" -->
+
+<!-- Mark the relevant options with an "x". -->
 
 - [ ] Bug fix (non-breaking change which fixes an issue)
 - [ ] New feature (non-breaking change which adds functionality)
@@ -12,30 +24,34 @@
 - [ ] Code refactoring (no functional changes)
 
 ## Related Issue
-<!-- Link to the related issue here (e.g., Fixes #123) -->
-Fixes #
+
+<!-- Link the issue and spec task or requirement, where applicable. Use Fixes #123 only for an issue this PR resolves. -->
 
 ## How Has This Been Tested?
-<!-- Please describe in detail how you tested your changes -->
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manually tested on:
-  - [ ] Web
-  - [ ] Android
-  - [ ] iOS
+
+<!-- Use the checks required by the task. Record only checks actually run; explain checks not run. Available scripts are in ../package.json. -->
+
+- Verified revision:
+- Exact command(s), exit code(s), and evidence location(s):
+- Manual steps and observed results, if applicable:
+- Browser/device/OS and tab or installed PWA, if manually tested:
+- Checks not run and why:
+
+<!-- For network changes, identify the configured endpoint without credentials, chain id, and any selected tenant domain. Paxeer mainnet-beta uses EVM chain id 125 (0x7d) and public node root URLs. See ../CHANGELOG.md#network-context. -->
 
 ## Checklist
-- [ ] My code follows the project's style guidelines
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published
+
+- [ ] I reviewed the affected wallet paths and followed their existing style.
+- [ ] I updated relevant documentation and release notes where applicable.
+- [ ] I added or updated coverage where required and reported its actual outcome above.
+- [ ] I described compatibility, configuration, and dependent changes where applicable.
+- [ ] I reported failures and limitations without claiming checks that did not run.
+- [ ] I removed secrets and private wallet information from screenshots, logs, and examples.
 
 ## Screenshots (if applicable)
-<!-- Add screenshots to help explain your changes -->
+
+<!-- Show changed UI states, including error states where relevant. Redact private information. -->
 
 ## Additional Notes
-<!-- Any additional information that reviewers should know -->
+
+<!-- Describe remaining limitations, rollout requirements, or dependent changes reviewers need to assess. -->

@@ -1,0 +1,39 @@
+[manifest]
+task = "22.32.7"
+domain = 3
+owner_role = "fm-markets"
+pages = 4
+
+[page.1]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "misleading"
+bytes = 2674
+source_1 = "record 22.30.11 [doc.06] (stale): Lines 3-6 and 33-37 retain one checkpoint per epoch and the old finality ladder; finding checkpoint-concept-finality proposes committed-block semantics and consistent archival encoding context."
+source_2 = "record 22.30.13 [doc.005] (misleading): Lines 3-37 describe the retired external checkpoint/guarantor settlement and finality ladder as current; committed BFT blocks provide finality."
+source_3 = "record 22.30.17 [doc.12] (stale): All 56 lines reviewed; lines 3-37 finality/guarantor production describe the retired checkpoint architecture, not current BFT block commitment."
+source_4 = "record 22.30.20 [doc.04] (stale): Read in full. Lines 3-30 present active periodic checkpoints and guarantors; lines 35-46 use retired finality ladders and CheckpointRegistry. The linked guarantor page now states retirement."
+source_5 = "record 22.30.37 [doc.d004] (stale): Lines 3-13, 17-30 and 35-56 retain external checkpoints, guarantors, finality ladder and relay references; see docs-checkpoint-guarantor-model."
+source_6 = "record 22.30.42 [doc.9] (stale): Lines 3-6 present periodic checkpoint registration as current finality; see checkpoint-retired-finality."
+source_7 = "record 22.30.64 [doc.04] (stale): Read in full. Lines 3-26 describe separate checkpoint registration and guarantors, and lines 33-37 use a later-settlement finality ladder inconsistent with BFT block commit."
+source_8 = "record 22.30.85 [doc.09] (misleading): Lines 3-13 and 28-42 retain periodic publication, guarantor production and anchor finality."
+
+[page.2]
+path = "docs/site/docs/human/owner-registration-details.md"
+status = "misleading"
+bytes = 7353
+source_1 = "record 22.30.11 [doc.12] (stale): Guardian custody separation is useful, but lines 57-82 and 102 prescribe retired daemon, LNI, custody and checkpoint-evidence paths; finding owner-registration-retired-custody proposes their merged replacements."
+source_2 = "record 22.30.22 [doc.10] (misleading): Lines 63-76 give retired native custody/profile/credit funding instructions despite the custody retirement notice; see human-owner-funding-doc."
+
+[page.3]
+path = "docs/site/docs/reference/index.md"
+status = "stale"
+bytes = 1760
+source_1 = "record 22.30.12 [doc.006] (stale): Lines 22-34 present protocol/platform/beta as the active specifications and omit layerx-merge. Add the current merged-network specification and clearly distinguish historical reference material."
+source_2 = "record 22.30.164 [doc.7] (stale): Read all 46 lines. The agent-interface path at line 27 is missing from the tree and the merged-network normative specification is absent from the table."
+
+[page.4]
+path = "docs/site/docs/reference/public-rpc.md"
+status = "misleading"
+bytes = 3955
+source_1 = "record 22.30.13 [doc.022] (stale): Lines 29-30 include undeclared api15/api16 and lines 72-74 describe a unified router; authoritative inventory is api1-api14 plus the direct canonical alias."
+source_2 = "record 22.30.67 [doc.4] (misleading): Read the entire page. The root HTTPS call, 0x7d chain and root WebSocket support agree with the brief. Lines 29-30 exceed the declared node inventory, and 71-74 reintroduce a router and stale unified-interface guidance; no endpoint was probed."

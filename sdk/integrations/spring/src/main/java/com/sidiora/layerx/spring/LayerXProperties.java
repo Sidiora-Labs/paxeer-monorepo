@@ -72,6 +72,7 @@ public class LayerXProperties {
         private String price;
         private String asset;
         private String payTo;
+        private String purposeHash;
         private long timeoutSeconds;
 
         public String getScheme() { return scheme; }
@@ -93,6 +94,10 @@ public class LayerXProperties {
         public String getPayTo() { return payTo; }
 
         public void setPayTo(String payTo) { this.payTo = payTo; }
+
+        public String getPurposeHash() { return purposeHash; }
+
+        public void setPurposeHash(String purposeHash) { this.purposeHash = purposeHash; }
 
         public long getTimeoutSeconds() { return timeoutSeconds; }
 
@@ -157,7 +162,7 @@ public class LayerXProperties {
             required(payment.getAsset()),
             required(payment.getPayTo()),
             positive(payment.getTimeoutSeconds()),
-            null);
+            paymentExtra());
         X402.ResourceInfo info = new X402.ResourceInfo(
             required(resource.getUrl()),
             optional(resource.getDescription()),
@@ -187,6 +192,15 @@ public class LayerXProperties {
             keys,
             webhook.getMaximumAgeMs(),
             webhook.getLeaseMs());
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode paymentExtra() {
+        String purpose = payment.getPurposeHash();
+        if (purpose == null && "exact".equals(payment.getScheme())) return null;
+        if (purpose == null || !X402.isLowerHex32(purpose) || purpose.equals("0".repeat(64))) invalid();
+        var extra = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+        extra.putObject("layerx").put("commitment", "receipted").put("purposeHash", purpose);
+        return extra;
     }
 
     private LocalVerifier.ReceiptKeys declaredReceiptKeys() {

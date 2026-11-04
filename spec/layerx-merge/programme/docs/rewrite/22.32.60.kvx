@@ -1,0 +1,34 @@
+[manifest]
+task = "22.32.60"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 1
+
+[page.1]
+path = "docs/system/precompiles.md"
+status = "misleading"
+bytes = 137755
+source_1 = "record 22.30.117 [doc.5] (misleading): Full ABI and Solidity catalogue reviewed; lines 32, 36-37 and retired sections advertise historical endpoints without served/retired lifecycle distinctions."
+source_2 = "record 22.30.120 [doc.011] (stale): Read in full. Finding precompile-retirement-catalogue records the concrete drift at line 36; generated catalogues require changes in their source generator as well as regenerated output."
+source_3 = "record 22.30.121 [doc.02] (stale): Lines 32-41, 1170-1319 and 1552-1564 omit retirement semantics; line 40 omits the Programs address. Programs feeAsset and frozen names disagree with the implementation."
+source_4 = "record 22.30.123 [doc.005] (misleading): Line 40 omits fixed Programs 0x101D. Lines 1172-1287 and 1554 onward list retired anchor/custody/verification functions without post-plan refusal behavior; repairs belong in the generator."
+source_5 = "record 22.30.145 [doc.07] (stale): Read the generated ABI/address catalogue and Solidity interface sections. Findings precompile-retirement-docs and programs-address-omitted cover missing upgrade behavior and fixed 0x101D discovery; ABI retention itself is not evidence that retired operations remain active."
+source_6 = "record 22.30.15 [doc.precompiles] (misleading): Read in full. Lines 49-54 and 1798-2260 do not select the served spot ABI and assign dynamic share methods to fixed rails. Lines 1170-1350 give retired settlement/custody and legacy exchange without activation/refusal context; see the two precompile documentation findings."
+source_7 = "record 22.30.150 [doc.007] (misleading): Generated ABI catalogue preserves historical addresses but omits the retirement/refusal state for native verification, anchor and custody, including layerxanchor at line 1170; finding 015 proposes availability annotations in the generator."
+source_8 = "record 22.30.167 [doc.07] (misleading): Generated ABI inventory: gov 0x1006 and distribution 0x1007 main ABI signatures match consumers, but lines 165-173 assign an auxiliary staking ABI to distribution; retired 0x1012-0x1014 operations lack refusal lifecycle labels."
+source_9 = "record 22.30.168 [doc.04] (misleading): Read in full, including generated Solidity-interface catalog. Retired 0x1012/0x1014/custody ABI entries lack runtime lifecycle/refusal qualification; see precompile-catalog-retirement."
+source_10 = "record 22.30.17 [doc.06] (misleading): Full catalog reviewed: lines 32-41 mix retired/current address versions; spot sections 1800/1895/1987/2018/2057/2168 assign every ABI all five fixed rails, including dynamic shares."
+source_11 = "record 22.30.27 [doc.003] (misleading): Generated page: lines 20-30 collapse launchpad surfaces to 0x1017; lines 32, 36, 41 and sections 1170, 1285, 1552 omit retirement lifecycle. Repair its generator, not the generated page."
+source_12 = "record 22.30.29 [doc.01] (misleading): precompile-retirement-doc: line1170 The ABI inventory lists layerxanchor, layerxverify and custody withdrawal, forced-exit and deposit-root functions as ordinary callable surfaces at lines1170-1320 and1552-1562, without the post-upgrade refusal or replacement semantics. These components are explicitly retired in programme/data/retired.kvx."
+source_13 = "record 22.30.30 [doc.12] (stale): Read in full. finding.precompile-doc-retirement at line 1170. Retired topology and endpoint instructions require a coordinated rewrite."
+source_14 = "record 22.30.5 [doc.11] (stale): Read all 2543 lines. Full generated functions/events/errors and Solidity inventory reviewed; summary33-42 and retired verify/anchor/custody/exchange sections lack activation/refusal status. Historical ABI presence is not live registration."
+source_15 = "record 22.30.59 [doc.11] (misleading): ABI inventory read; custody at 1285-1320 and later Solidity declarations need retirement/refusal annotations beside historical selector syntax."
+source_16 = "record 22.30.6 [doc.4] (misleading): Read all 2543 lines. Generated ABI/Solidity inventory lacks retirement and refusal labels for custody, anchor, exchange intents and payer grants; see precompile-retirement-matrix and precompile-grant-status. Repair generator metadata then regenerate."
+source_17 = "record 22.30.62 [doc.05] (misleading): Line 15 and the staking_abi.json section advertise test-only staking methods at the distribution address; retained retired-executor ABI sections lack activation/refusal annotations."
+source_18 = "record 22.30.63 [doc.04] (stale): Summary lines 32-40 and detailed custody/verifier sections accurately inventory ABI shapes but omit retirement and always-disabled methods."
+source_19 = "record 22.30.64 [doc.02] (misleading): Read the complete ABI inventory. Bank, feetoken and wasmd signatures agree; retired anchor/custody/verify/oracle entries at lines 1170, 1285, 1552 and 1565 lack lifecycle labels; generator repair proposed."
+source_20 = "record 22.30.65 [doc.02] (stale): Read all 2543 lines, including generated ABI and Solidity lists. Lines 32/36/41 and retired detail sections lack lifecycle labels; lines 35/40 omit 0x101E/0x101D. Line 2318 reproduces the conflicting origin/input/deadline event schema discussed in the xweb findings."
+source_21 = "record 22.30.68 [doc.precompiles] (misleading): Lines 32-41 and anchor/custody/intent sections at 1170-1210, 1285-1347, 1552-1562 and 2463 onward need live-versus-retired status. See precompile-catalogue-drift."
+source_22 = "record 22.30.7 [doc.2] (stale): Full generated page read; line 35 omits the registry address and retained retired selectors lack availability/refusal labels, including budgetPull at 1404."
+source_23 = "record 22.30.8 [doc.1] (stale): Agent inline ABI endpoints and method counts are present and match the source. Tuple component layouts are omitted; the reference needs recursive tuple expansion for usable encodings."
+source_24 = "record 22.30.9 [doc.2] (misleading): Lines 1363-1369 omit declared outputs and present misleading input semantics; current oracle and payer-grant refusal selectors lack lifecycle annotations. Two findings assign generator/reference repairs."

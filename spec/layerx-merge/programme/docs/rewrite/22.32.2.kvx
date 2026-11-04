@@ -1,0 +1,13 @@
+[manifest]
+task = "22.32.2"
+domain = 1
+owner_role = "fm-kernel"
+pages = 1
+
+[page.1]
+path = "docs/wiki/SettlementEvidence.md"
+status = "misleading"
+bytes = 14460
+source_1 = "record 22.30.1 [doc.8] (stale): Identical to the site settlement-evidence page: lines 3-39 and 89-105 describe retired guarantor/custody publication, and line 55 limits module trees to 9/10 leaves despite native spot/service registration."
+source_2 = "record 22.30.150 [doc.006] (stale): The mirrored settlement-evidence page repeats the retired checkpoint/custody instructions at lines 7-37; finding 014 records its separate rewrite target."
+source_3 = "record 22.30.52 [doc.8] (misleading): Read in full: checkpoint publication, deposit-root authority and guarantor exit procedures describe retired settlement architecture, not BFT commit evidence."

@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -87,7 +86,7 @@ func TestRestartSeider_GraceTimeoutFailsWithoutSIGKILL(t *testing.T) {
 }
 
 func TestRestartSeider_NotFoundRPCDownWaitsForUp(t *testing.T) {
-	sig := &fakeSignaler{findErr: fmt.Errorf("process \"seid\" not found in /proc")}
+	sig := &fakeSignaler{findErr: errNodeProcessAbsent}
 
 	r := &RestartSeider{
 		signaler:    sig,
@@ -106,7 +105,7 @@ func TestRestartSeider_NotFoundRPCDownWaitsForUp(t *testing.T) {
 }
 
 func TestRestartSeider_NotFoundRPCUpFails(t *testing.T) {
-	sig := &fakeSignaler{findErr: fmt.Errorf("process \"seid\" not found in /proc")}
+	sig := &fakeSignaler{findErr: errNodeProcessAbsent}
 
 	r := &RestartSeider{
 		signaler:    sig,
@@ -131,7 +130,7 @@ func TestRestartSeider_NotFoundRPCUpFails(t *testing.T) {
 func TestRestartSeider_WaitForUpContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &RestartSeider{
-		signaler:    &fakeSignaler{findErr: fmt.Errorf("process \"seid\" not found in /proc")},
+		signaler:    &fakeSignaler{findErr: errNodeProcessAbsent},
 		probeUp:     neverUp,
 		gracePeriod: time.Second,
 		upTimeout:   time.Minute,
@@ -173,9 +172,9 @@ func TestIsSeidStart(t *testing.T) {
 		cmdline []byte
 		want    bool
 	}{
-		{"bare seid start", []byte("seid\x00start\x00--home\x00/.sei"), true},
-		{"absolute path seid start", []byte("/usr/bin/seid\x00start"), true},
-		{"trailing null", []byte("seid\x00start\x00"), true},
+		{"bare seid start", []byte("paxd\x00start\x00--home\x00/.sei"), true},
+		{"absolute path seid start", []byte("/usr/bin/paxd\x00start"), true},
+		{"trailing null", []byte("paxd\x00start\x00"), true},
 		{"seid non-start subcommand", []byte("seid\x00version"), false},
 		{"seid-init", []byte("seid-init\x00start"), false},
 		{"bash wrapper", []byte("bash\x00-c\x00seid start"), false},

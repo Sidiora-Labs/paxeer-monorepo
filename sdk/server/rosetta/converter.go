@@ -698,7 +698,7 @@ func (c converter) SigningComponents(tx authsigning.Tx, metadata *ConstructionMe
 	for i, signer := range signers {
 		// assert that the provided public keys are correctly ordered
 		// by checking if the signer at index i matches the pubkey at index
-		pubKey, err := c.ToSDK().PubKey(rosPubKeys[0])
+		pubKey, err := c.ToSDK().PubKey(rosPubKeys[i])
 		if err != nil {
 			return nil, nil, err
 		}

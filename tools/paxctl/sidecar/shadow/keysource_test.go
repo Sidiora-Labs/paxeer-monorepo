@@ -8,9 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// A realistic diff-mode debug_traceBlockByNumber response: an array with one
-// entry per transaction, each {result: {pre: {...}, post: {...}}}. The union of
-// pre (read) and post (written) slots is the touched set.
+// Synthetic diff results used only to exercise deterministic union and sorting.
+// Real producer coverage is exercised by repair_328_test.go.
 const samplePrestateJSON = `[
   {"result": {
     "pre": {
@@ -38,13 +37,23 @@ const samplePrestateJSON = `[
   }}
 ]`
 
-func TestMergePrestateTraces(t *testing.T) {
-	var traces []prestateTxTrace
+func samplePrestateResults(t *testing.T) []prestateResult {
+	t.Helper()
+	var traces []struct {
+		Result prestateResult `json:"result"`
+	}
 	if err := json.Unmarshal([]byte(samplePrestateJSON), &traces); err != nil {
 		t.Fatalf("unmarshal prestate: %v", err)
 	}
+	results := make([]prestateResult, len(traces))
+	for i, trace := range traces {
+		results[i] = trace.Result
+	}
+	return results
+}
 
-	touched := mergePrestateTraces(traces)
+func TestMergePrestateTraces(t *testing.T) {
+	touched := mergePrestateTraces(samplePrestateResults(t))
 	byAddr := map[common.Address]TouchedAccount{}
 	for _, ta := range touched {
 		byAddr[ta.Addr] = ta
@@ -61,8 +70,8 @@ func TestMergePrestateTraces(t *testing.T) {
 	if len(aa.Slots) != 3 {
 		t.Errorf("aa slots = %d, want 3 (%v)", len(aa.Slots), aa.Slots)
 	}
-	if aa.CheckCode {
-		t.Error("aa has no code; CheckCode should be false")
+	if !aa.CheckCode {
+		t.Error("aa must check code, including unexpected code on the shadow")
 	}
 	if !aa.CheckNonce || !aa.CheckBalance {
 		t.Error("every touched account should check nonce and balance")
@@ -83,11 +92,7 @@ func TestMergePrestateTraces(t *testing.T) {
 // mergePrestateTraces output must be sorted (accounts by address, slots by hash)
 // so the same block renders a byte-reproducible report.
 func TestMergePrestateTraces_Sorted(t *testing.T) {
-	var traces []prestateTxTrace
-	if err := json.Unmarshal([]byte(samplePrestateJSON), &traces); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	touched := mergePrestateTraces(traces)
+	touched := mergePrestateTraces(samplePrestateResults(t))
 	for i := 1; i < len(touched); i++ {
 		if common.Bytes2Hex(touched[i-1].Addr[:]) > common.Bytes2Hex(touched[i].Addr[:]) {
 			t.Errorf("accounts not sorted: %s before %s", touched[i-1].Addr.Hex(), touched[i].Addr.Hex())

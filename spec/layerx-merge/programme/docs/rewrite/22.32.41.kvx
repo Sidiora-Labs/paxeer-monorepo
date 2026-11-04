@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.41"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 3
+
+[page.1]
+path = "consensus/spec/light-client/detection/req-ibc-detection.md"
+status = "stale"
+bytes = 14004
+source_1 = "record 22.30.47 [doc.054] (stale): Vendored upstream light-client research/specification artifact req-ibc-detection.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/light-client/supervisor/supervisor_001_draft.md"
+status = "stale"
+bytes = 22228
+source_1 = "record 22.30.47 [doc.055] (stale): Vendored upstream light-client research/specification artifact supervisor_001_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.3]
+path = "consensus/spec/light-client/supervisor/supervisor_002_draft.md"
+status = "stale"
+bytes = 4669
+source_1 = "record 22.30.47 [doc.056] (stale): Inherited trusted-store initialization pseudocode is a research proposal, not the current Go API or Autobahn recovery specification; applicability gap is recorded at the index."

@@ -102,7 +102,24 @@ func (p *PrecompileExecutor) draw(ctx sdk.Context, method *abi.Method, actor led
 	if err := method.Inputs.Copy(&input, args); err != nil {
 		return nil, err
 	}
-	return nil, RevertError(types.ErrNoPayerGrant)
+	if input.Amount == nil || input.Amount.Sign() <= 0 || input.Amount.BitLen() > 128 {
+		return nil, RevertError(types.ErrNonCanonical)
+	}
+	// DrawArgs retains legacy names: From is the recipient, Asset is purposeHash.
+	result, err := p.keeper.Draw(ctx, actor, ledgerkeeper.DrawArgs{
+		GrantID: input.GrantId, From: input.Recipient, Asset: input.PurposeHash,
+		Amount: sdk.NewIntFromBigInt(input.Amount), ReceiverSequence: input.Sequence,
+		IdempotencyKey: input.IdempotencyKey, ContextHash: input.ContextHash,
+	})
+	if err != nil {
+		return nil, RevertError(err)
+	}
+	if _, err := p.paymentLogs(evm, 0x00010006, result, ledgerkeeper.EventArgs{
+		GrantID: input.GrantId, IdempotencyKey: input.IdempotencyKey, ContextHash: input.ContextHash,
+	}); err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack()
 }
 
 // payExact takes a Unix expiry in milliseconds; the keeper selects the next account sequence.

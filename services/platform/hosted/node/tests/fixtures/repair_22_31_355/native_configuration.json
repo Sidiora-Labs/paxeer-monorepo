@@ -1,0 +1,280 @@
+{
+  "network_id": 402,
+  "chain_id": "hyperpax_125-1",
+  "evm_chain_id": 125,
+  "asset": "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898",
+  "receipt_seed": "2fa0193fc2c9eb83f6b4ca0f34765e46fa1270ab341b01a590d045fdf8e1438a",
+  "receipt_public_key": "8d78042b3242384ce31b82089beadb85ca395d228768dfd389d09ef848b03f26",
+  "funding_scalar": "0101010101010101010101010101010101010101010101010101010101010101",
+  "validator_key": {
+    "address": "F60565E25C6431FAF7EDFAEECA6548BF1C4BD412",
+    "pub_key": {
+      "type": "tendermint/PubKeyEd25519",
+      "value": "jXgEKzJCOEzjG4IIm+rbhco5XSKHaN/TidCe+EiwPyY="
+    },
+    "priv_key": {
+      "type": "tendermint/PrivKeyEd25519",
+      "value": "L6AZP8LJ64P2tMoPNHZeRvoScKs0GwGlkNBF/fjhQ4qNeAQrMkI4TOMbggib6tuFyjldIodo39OJ0J74SLA/Jg=="
+    }
+  },
+  "image": "ghcr.io/sidiora-labs/layerx-kernel:0.1.0",
+  "commands": {
+    "init": [
+      "paxd",
+      "init",
+      "hosted-native",
+      "--chain-id",
+      "hyperpax_125-1",
+      "--mode",
+      "validator",
+      "--home",
+      "{home}"
+    ],
+    "validate": [
+      "paxd",
+      "validate-genesis",
+      "--home",
+      "{home}"
+    ],
+    "start": [
+      "paxd",
+      "start",
+      "--home",
+      "{home}",
+      "--rpc.laddr",
+      "tcp://127.0.0.1:{consensus_port}",
+      "--evm.http_enabled",
+      "true",
+      "--evm.http_address",
+      "127.0.0.1",
+      "--evm.http_port",
+      "{chain_port}",
+      "--sequencer.enable",
+      "true",
+      "--sequencer.wal-dir",
+      "{home}/sequencer-wal",
+      "--sequencer.receipt-key-file",
+      "{receipt_key_file}"
+    ]
+  },
+  "status": {
+    "node_info": {
+      "network": "hyperpax_125-1",
+      "version": "0.35.0-unreleased",
+      "id": "<node-id>",
+      "listen_addr": "<node-p2p>",
+      "moniker": "<full-node>"
+    },
+    "sync_info": {
+      "latest_block_hash": "23FF11B5F7A9764D4DA79F4CED7321A1E0CEC59447063AFEECBC34FA9FFCFBB3",
+      "latest_app_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+      "latest_block_height": "23869863",
+      "latest_block_time": "2026-09-23T16:10:34.772748938Z",
+      "last_committed_block_height": "23869863",
+      "earliest_block_hash": "13B1B843166F8601DC60008F3CA318165959DAC2A94D917F1AAD621526FC59D6",
+      "earliest_app_hash": "EF91FFE332EBB1EDEA1B6F0A5E201AF247C60A6AA468388EB7A9542C588996FF",
+      "earliest_block_height": "23769863",
+      "earliest_block_time": "2026-09-23T05:13:38.941272639Z",
+      "max_peer_block_height": "23869851",
+      "catching_up": false,
+      "total_synced_time": "0",
+      "remaining_time": "0",
+      "total_snapshots": "0",
+      "chunk_process_avg_time": "0",
+      "snapshot_height": "0",
+      "snapshot_chunks_count": "0",
+      "snapshot_chunks_total": "0",
+      "backfilled_blocks": "0",
+      "backfill_blocks_total": "0"
+    },
+    "validator_info": {
+      "address": "<none>",
+      "voting_power": "0"
+    }
+  },
+  "provenance": {
+    "genesis": "services/platform/hosted/paxeer/tests/fixtures/pacific-1.genesis.json; modules/lxphost/genesis.go StoreGenesis; modules/sequencer/keeper/receipt_keys.go ReceiptKeyEntry",
+    "rpc_status": "services/platform/hosted/paxeer/tests/fixtures/gov/status.json",
+    "cli": "daemon/paxd/cmd/init.go InitCmd; daemon/paxd/cmd/root.go ValidateGenesisCmd; sdk/server/start.go and daemon/paxd/cmd start flags",
+    "limits": "Recorded peers qualify node-owned lifecycle and codecs; native image, chain validation and core consumer qualification belong to the wiring requests."
+  },
+  "funding": {
+    "raw": "0x02f8647d8001038252089411111111111111111111111111111111111111118203e880c001a0993640c4a25ff6d6b9ed75d584f5ea011088e35bc7d50362d205d7b2f4143ea0a011fe52db2fd24963f1ce40c3e16c1b1c790664e5bbbadcce0b67240b93702b1f",
+    "transaction_id": "0xcfc62b10e2cba44c2809dfcb89821ed9111bb92bc689afbe6330ef88fdfbe293",
+    "sender": "0x1a642f0E3c3aF545E7AcBD38b07251B3990914F1",
+    "recipient": "0x1111111111111111111111111111111111111111",
+    "amount": 1000,
+    "before": 5000,
+    "after": 6000
+  },
+  "init_directories": [
+    "config",
+    "data"
+  ],
+  "init_files": {
+    "data/priv_validator_state.json": "{\"height\":\"0\",\"round\":0,\"step\":0}\n"
+  },
+  "rpc_exchanges": [
+    {
+      "method": "status",
+      "params": {},
+      "result": {
+        "node_info": {
+          "network": "hyperpax_125-1",
+          "version": "0.35.0-unreleased",
+          "id": "<node-id>",
+          "listen_addr": "<node-p2p>",
+          "moniker": "<full-node>"
+        },
+        "sync_info": {
+          "latest_block_hash": "23FF11B5F7A9764D4DA79F4CED7321A1E0CEC59447063AFEECBC34FA9FFCFBB3",
+          "latest_app_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+          "latest_block_height": "23869863",
+          "latest_block_time": "2026-09-23T16:10:34.772748938Z",
+          "last_committed_block_height": "23869863",
+          "earliest_block_hash": "13B1B843166F8601DC60008F3CA318165959DAC2A94D917F1AAD621526FC59D6",
+          "earliest_app_hash": "EF91FFE332EBB1EDEA1B6F0A5E201AF247C60A6AA468388EB7A9542C588996FF",
+          "earliest_block_height": "23769863",
+          "earliest_block_time": "2026-09-23T05:13:38.941272639Z",
+          "max_peer_block_height": "23869851",
+          "catching_up": false,
+          "total_synced_time": "0",
+          "remaining_time": "0",
+          "total_snapshots": "0",
+          "chunk_process_avg_time": "0",
+          "snapshot_height": "0",
+          "snapshot_chunks_count": "0",
+          "snapshot_chunks_total": "0",
+          "backfilled_blocks": "0",
+          "backfill_blocks_total": "0"
+        },
+        "validator_info": {
+          "address": "<none>",
+          "voting_power": "0"
+        }
+      }
+    },
+    {
+      "method": "commit",
+      "params": {
+        "height": "23869863"
+      },
+      "result": {
+        "signed_header": {
+          "header": {
+            "version": {
+              "block": "11",
+              "app": "0"
+            },
+            "chain_id": "hyperpax_125-1",
+            "height": "23869863",
+            "time": "2026-09-23T16:10:34.772748938Z",
+            "last_block_id": {
+              "hash": "13B1B843166F8601DC60008F3CA318165959DAC2A94D917F1AAD621526FC59D6",
+              "parts": {
+                "total": 1,
+                "hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD"
+              }
+            },
+            "app_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "validators_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "next_validators_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "consensus_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "data_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "last_commit_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "last_results_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "evidence_hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD",
+            "proposer_address": "F60565E25C6431FAF7EDFAEECA6548BF1C4BD412"
+          },
+          "commit": {
+            "height": "23869863",
+            "round": 0,
+            "block_id": {
+              "hash": "23FF11B5F7A9764D4DA79F4CED7321A1E0CEC59447063AFEECBC34FA9FFCFBB3",
+              "parts": {
+                "total": 1,
+                "hash": "61DF0B3C1835B345B36485A587A72A4948AEE376264E67F826237B8786539BBD"
+              }
+            },
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "validator_address": "F60565E25C6431FAF7EDFAEECA6548BF1C4BD412",
+                "timestamp": "2026-09-23T16:10:34.772748938Z",
+                "signature": "hR4FzQ4BSKXWN8IJNAXLoy0CkDRuE6EcMkwM9NJ4JzOJbfuc1FoQOpVSPBfZvoAHHee27FsOfBwInxROqO9fCw=="
+              }
+            ]
+          }
+        },
+        "canonical": true
+      }
+    },
+    {
+      "method": "eth_chainId",
+      "params": [],
+      "result": "0x7d"
+    },
+    {
+      "method": "eth_blockNumber",
+      "params": [],
+      "result": "0x16c39a7"
+    },
+    {
+      "method": "eth_getBlockByNumber",
+      "params": [
+        "0x16c39a7",
+        false
+      ],
+      "result": {
+        "number": "0x16c39a7",
+        "hash": "0x23ff11b5f7a9764d4da79f4ced7321a1e0cec59447063afeecbc34fa9ffcfbb3",
+        "parentHash": "0x13b1b843166f8601dc60008f3ca318165959dac2a94d917f1aad621526fc59d6",
+        "stateRoot": "0x61df0b3c1835b345b36485a587a72a4948aee376264e67f826237b8786539bbd",
+        "transactions": []
+      }
+    },
+    {
+      "method": "px_getReceiptKeys",
+      "params": [],
+      "result": {
+        "keys": [
+          {
+            "keyId": "0xf60565e25c6431faf7edfaeeca6548bf1c4bd412362e88ed32d2bb3ed91fa285",
+            "publicKey": "0x8d78042b3242384ce31b82089beadb85ca395d228768dfd389d09ef848b03f26",
+            "firstHeight": 1,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "method": "eth_getTransactionReceipt",
+      "params": [
+        "0xcfc62b10e2cba44c2809dfcb89821ed9111bb92bc689afbe6330ef88fdfbe293"
+      ],
+      "result": {
+        "transactionHash": "0xcfc62b10e2cba44c2809dfcb89821ed9111bb92bc689afbe6330ef88fdfbe293",
+        "transactionIndex": "0x0",
+        "blockHash": "0x23ff11b5f7a9764d4da79f4ced7321a1e0cec59447063afeecbc34fa9ffcfbb3",
+        "blockNumber": "0x16c39a7",
+        "from": "0x1a642f0E3c3aF545E7AcBD38b07251B3990914F1",
+        "to": "0x1111111111111111111111111111111111111111",
+        "status": "0x1",
+        "type": "0x2",
+        "cumulativeGasUsed": "0x5208",
+        "gasUsed": "0x5208",
+        "effectiveGasPrice": "0x2",
+        "contractAddress": null,
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "method": "eth_sendRawTransaction",
+      "params": [
+        "0x02f8647d8001038252089411111111111111111111111111111111111111118203e880c001a0993640c4a25ff6d6b9ed75d584f5ea011088e35bc7d50362d205d7b2f4143ea0a011fe52db2fd24963f1ce40c3e16c1b1c790664e5bbbadcce0b67240b93702b1f"
+      ],
+      "result": "0xcfc62b10e2cba44c2809dfcb89821ed9111bb92bc689afbe6330ef88fdfbe293"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+[task.22.31.187]
+audit = "22.30.70"
+acceptance = "22998.1"
+baseline = "No pre-implementation baseline ran because the explicit bounded gate order forbids it. The continued candidate 844dfa5a737299d9c68c116a370a8318b0dc9156 already failed TestRepair_187_MultisignerKey in the preceding attempt; the supplied output does not include its assertion failure."
+evidence = "The runner records the candidate revision, exact command, exit and private log for hf-build and hf-done; completion requires hf-done success at the build revision."
+wiring_requests = []
+
+[finding.rosetta-results-discarded]
+test = "TestRepair_187_ResultsDiscarded"
+proof = "Real application bank sends and fee events, committed node RPC results, blockTxs conversion and Rosetta HTTP /block preserve successful and failed result codes and every balance operation."
+
+[finding.rosetta-normal-tx-lookup]
+test = "TestRepair_187_NormalTxLookup"
+proof = "Successful and failed committed identifiers from HTTP /block round-trip through /block/transaction with equal operations; unknown ordinary hashes report not-found separately from invalid hashes."
+
+[finding.rosetta-multisigner-key]
+test = "TestRepair_187_MultisignerKey"
+proof = "Two funded real signers with distinct sequences traverse HTTP preprocess, metadata, payloads, combine, parse and submit; canonical payloads and both signatures verify, the committed result succeeds and both account sequences advance. Reordered keys remain rejected."
+
+[gotcha.baseline-order]
+observed = "The inherited baseline verification instruction conflicts with the explicit implementation-first bounded gate order."
+action = "Follow the explicit order and record that no unchanged-tree baseline gate ran."
+
+[qualification.initial]
+revision = "d30a0103a9364f0311ee3a15e144dde7fe2fa04f"
+command = "cg spec done 22.31.187 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new submitted-transaction test passed a TxHash array to an RPC byte-slice parameter; repaired by slicing the real hash."
+
+[gotcha.rpc-hash]
+observed = "consensus/types.Tx.Hash returns a fixed-size TxHash while the HTTP RPC Tx method consumes HexBytes."
+action = "Bind the real hash to a variable and pass hash[:] to RPC."
+
+[qualification.continued]
+revision = "9717fb4d1b794a6893b7e539ba81aff6ae9e07c1"
+command = "cg spec done 22.31.187 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three proofs reached transaction admission but paid 1uhpx instead of the real node's required 10000uhpx; fund each proof transaction with the required fee without changing any assertion."
+
+[gotcha.application-fees]
+observed = "The in-process application constructor retains its own minimum gas price even when the network configuration sets MinGasPrices."
+action = "Pay the real application's 10000uhpx fee for the proof's 1000000 gas limit, including construction metadata, rather than disabling fee admission."

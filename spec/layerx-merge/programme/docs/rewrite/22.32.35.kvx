@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.35"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 6
+
+[page.1]
+path = "consensus/spec/consensus/evidence.md"
+status = "stale"
+bytes = 8284
+source_1 = "record 22.30.47 [doc.021] (stale): Read complete page; rewrite targets: evidence-finalize-lifecycle at line 143. Concrete owning-domain proposals are recorded above."
+
+[page.2]
+path = "consensus/spec/consensus/proposer-based-timestamp/README.md"
+status = "stale"
+bytes = 7348
+source_1 = "record 22.30.47 [doc.026] (stale): Vendored upstream PBTS model/design page README.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.3]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-algorithm_002_draft.md"
+status = "stale"
+bytes = 7932
+source_1 = "record 22.30.47 [doc.027] (stale): Vendored upstream PBTS model/design page pbts-algorithm_002_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.4]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-sysmodel_002_draft.md"
+status = "stale"
+bytes = 14885
+source_1 = "record 22.30.47 [doc.028] (stale): Vendored upstream PBTS model/design page pbts-sysmodel_002_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.5]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-algorithm_001_draft.md"
+status = "stale"
+bytes = 6416
+source_1 = "record 22.30.47 [doc.029] (stale): Vendored upstream PBTS model/design page pbts-algorithm_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.6]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-sysmodel_001_draft.md"
+status = "stale"
+bytes = 9163
+source_1 = "record 22.30.47 [doc.030] (stale): Vendored upstream PBTS model/design page pbts-sysmodel_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
