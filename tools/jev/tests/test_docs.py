@@ -21,15 +21,18 @@ from tools.jev.checks.docs import (
     SAME_CLAIMS,
     Pair,
     add_arguments,
+    configured_catalog,
     pair_findings,
     pair_sections,
     relative,
+    resolve_translations,
     sanitize,
     split_sections,
     unpaired_findings,
 )
 from tools.jev.cli import build_parser, main
 from tools.jev.client import API_KEY_ENV, DEFAULT_MODEL, Evaluation, JevClient, parse_evaluation
+from tools.jev.tests.recorded_server import FIXTURES, recorded_client
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -37,28 +40,48 @@ SOURCE = ROOT / "README.md"
 GERMAN = ROOT / "docs" / "readme" / "README.de.md"
 ENGLISH_TITLES = [
     PREAMBLE_TITLE,
-    "What LayerX Network is",
-    "Try the testnet",
-    "Build from source",
-    "Repository layout",
+    "What is Paxeer X Network?",
     "Documentation",
-    "SDKs and integrations",
+    "Client SDKs",
+    "Specification",
+    "EVM and Native Precompiles",
+    "Community",
     "Contributing",
-    "Security",
+    "Security Policy and Vulnerability Reporting",
+    "Directory Structure",
+    "Development and Release Process",
+    "Overview",
+    "Build",
+    "Test",
+    "Releases and Network Upgrades",
+    "Downloading and Shallow-Cloning the Monorepo",
     "License",
 ]
+ENGLISH_LEVELS = [0, 2, 2, 3, 2, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2]
 GERMAN_TITLES = [
     PREAMBLE_TITLE,
-    "Was LayerX Network ist",
-    "Testnet ausprobieren",
+    "Was Paxeer X Network ist",
+    "Das Netzwerk ausprobieren",
     "Aus dem Quellcode bauen",
     "Repository-Aufbau",
     "Dokumentation",
     "SDKs und Integrationen",
+    "Architektur",
     "Mitwirken",
     "Sicherheit",
     "Lizenz",
 ]
+MAINTAINED_TRANSLATIONS = (
+    ("README.md", "docs/readme/README.*.md"),
+    ("README.md", "docs/site/docs/overview/i18n/*.md"),
+)
+SITE_LANGUAGES = {"de", "es", "fr", "ja", "pt-br", "ru", "zh-cn"}
+OPERATIONAL_DRIFT_CASES = (
+    ("command-drift.md", "make paxd-build", "make layerxd"),
+    ("url-drift.md", "https://api1.mainnet-beta.paxeer.network",
+     "https://api1.mainnet-beta.paxeer.network/rpc"),
+    ("link-drift.md", "services/agent/sdk/python", "agent/sdk/python"),
+)
 FENCED = "\n".join(
     [
         "Intro prose.",
@@ -80,7 +103,10 @@ FENCED = "\n".join(
 
 
 def truncated_german() -> str:
-    return "\n".join(GERMAN.read_text(encoding="utf-8").splitlines()[:112])
+    sections = split_sections(GERMAN)
+    # Drop the final three complete sections, independent of prose line counts.
+    cutoff = sections[-3].line - 1
+    return "\n".join(GERMAN.read_text(encoding="utf-8").splitlines()[:cutoff])
 
 
 def extended_german() -> str:
@@ -114,18 +140,19 @@ class SectionSplitterTests(unittest.TestCase):
         sections = split_sections(SOURCE)
         self.assertEqual([section.title for section in sections], ENGLISH_TITLES)
         self.assertEqual([section.index for section in sections], list(range(len(sections))))
-        self.assertEqual([section.level for section in sections], [0] + [2] * 9)
+        self.assertEqual([section.level for section in sections], ENGLISH_LEVELS)
         self.assertEqual(sections[0].line, 1)
         lines = SOURCE.read_text(encoding="utf-8").splitlines()
         for section in sections[1:]:
-            self.assertEqual(lines[section.line - 1], f"## {section.title}")
+            self.assertEqual(lines[section.line - 1], f"{'#' * section.level} {section.title}")
 
     def test_bodies_hold_the_content_below_each_heading(self) -> None:
         sections = {section.title: section for section in split_sections(SOURCE)}
         self.assertIn("Apache License, Version 2.0", sections["License"].body)
-        self.assertIn("layerx key create quickstart", sections["Try the testnet"].body)
-        self.assertIn("`rust-toolchain.toml`", sections["Build from source"].body)
-        self.assertIn("<h1 align=\"center\">LayerX Network</h1>", sections[PREAMBLE_TITLE].body)
+        self.assertIn("eth_chainId", sections["Documentation"].body)
+        self.assertIn("make paxd-build", sections["Build"].body)
+        self.assertIn("`rust-toolchain.toml`", sections["Overview"].body)
+        self.assertIn("Paxeer X Network", sections[PREAMBLE_TITLE].body)
         for section in sections.values():
             self.assertFalse(section.body.startswith("#"))
             self.assertNotIn("\n## ", section.body)
@@ -138,47 +165,82 @@ class SectionSplitterTests(unittest.TestCase):
         )
         self.assertEqual([section.line for section in sections], [1, 3, 12])
         self.assertIn("# not a heading", sections[1].body)
-        self.assertEqual(sanitize(sections[1].body), "Trailing prose.")
+        sanitized = sanitize(sections[1].body)
+        self.assertIn("make build", sanitized)
+        self.assertIn("Trailing prose.", sanitized)
+        self.assertNotIn("```", sanitized)
 
 
 class SanitizeTests(unittest.TestCase):
-    def test_preamble_loses_images_badges_and_urls(self) -> None:
+    def test_preamble_loses_images_and_badges_but_keeps_operational_links(self) -> None:
         preamble = sanitize(split_sections(SOURCE)[0].body)
-        self.assertNotIn("https://", preamble)
         self.assertNotIn("<img", preamble)
         self.assertNotIn("![", preamble)
-        self.assertNotIn("shields.io", preamble)
-        self.assertIn("LayerX Network", preamble)
-        self.assertIn("Deutsch", preamble)
-        self.assertIn("deterministic execution and accounting network", preamble)
+        self.assertNotIn("shieldcn.dev", preamble)
+        self.assertIn("Paxeer X Network", preamble)
+        self.assertIn("payments, code execution and intent routing", preamble)
+        # A prose link is evidence even though presentation images are noise.
+        text = '![badge](https://shieldcn.dev/a.svg) [RPC](https://rpc.example/)'
+        self.assertIn("https://rpc.example/", sanitize(text))
+        self.assertNotIn("shieldcn.dev", sanitize(text))
 
-    def test_code_fences_are_dropped_and_prose_survives(self) -> None:
-        sections = {section.title: section for section in split_sections(SOURCE)}
-        testnet = sanitize(sections["Try the testnet"].body)
-        self.assertNotIn("layerx key create quickstart", testnet)
-        self.assertNotIn("curl", testnet)
-        self.assertNotIn("```", testnet)
-        self.assertIn("The cluster path is", testnet)
-        self.assertIn("`docs/wiki/Quickstart.md`", testnet)
-        self.assertNotIn("(docs/wiki/Quickstart.md)", testnet)
-
-    def test_tables_survive_without_link_targets(self) -> None:
+    def test_code_fence_commands_and_prose_survive(self) -> None:
         sections = {section.title: section for section in split_sections(SOURCE)}
         documentation = sanitize(sections["Documentation"].body)
-        self.assertIn("`docs/wiki/Home.md`", documentation)
-        self.assertNotIn("(docs/wiki/Home.md)", documentation)
+        self.assertIn("curl --max-time 10", documentation)
+        self.assertIn("eth_chainId", documentation)
+        self.assertIn("https://api1.mainnet-beta.paxeer.network", documentation)
+        self.assertNotIn("```", documentation)
+        self.assertIn("Public node JSON-RPC uses the root URL", documentation)
+        self.assertIn("docs/wiki/Quickstart.md", documentation)
+
+    def test_tables_keep_paths_and_link_targets(self) -> None:
+        sections = {section.title: section for section in split_sections(SOURCE)}
+        sdks = sanitize(sections["Client SDKs"].body)
+        self.assertIn("| Python |", sdks)
+        self.assertIn("services/agent/sdk/python", sdks)
+        documentation = sanitize(sections["Documentation"].body)
+        self.assertIn("docs/wiki/Home.md", documentation)
         self.assertNotIn("\n\n\n", documentation)
+
+    def test_command_url_and_target_only_drift_reaches_the_real_client(self) -> None:
+        for fixture, current, stale in OPERATIONAL_DRIFT_CASES:
+            with self.subTest(fixture=fixture):
+                self.assert_operational_drift(fixture, current, stale)
+
+    def assert_operational_drift(self, fixture: str, current: str, stale: str) -> None:
+        source = split_sections(SOURCE, (FIXTURES / "operations.md").read_text())[0]
+        translation = split_sections(GERMAN, (FIXTURES / fixture).read_text())[0]
+        pair = pair_sections([source], [translation])[0][0]
+        state = {"section": source.title, "source": sanitize(source.body),
+                 "translation": sanitize(translation.body)}
+        with recorded_client("docs-stale.json") as exchange:
+            evaluation = exchange.client.evaluate(state, QUESTIONS)
+            exchange.assert_evaluation(evaluation, state, QUESTIONS)
+        self.assertIn(current, state["source"])
+        self.assertIn(stale, state["translation"])
+        self.assertNotEqual(state["source"], state["translation"])
+        findings = pair_findings(pair, evaluation)
+        self.assertEqual([finding.question for finding in findings],
+                         [SAME_CLAIMS, DRIFT_KIND])
+        self.assertEqual(findings[1].answer, "stale_reference")
+        self.assertEqual(findings[1].anchor,
+                         f"docs/readme/README.de.md:{translation.line}")
+        self.assertEqual(findings[1].detail["source_anchor"],
+                         f"README.md:{source.line}")
 
 
 class PairingTests(unittest.TestCase):
-    def test_real_german_readme_pairs_section_for_section(self) -> None:
+    def test_real_german_readme_reports_the_current_structural_difference(self) -> None:
         source = split_sections(SOURCE)
         translation = split_sections(GERMAN)
         self.assertEqual([section.title for section in translation], GERMAN_TITLES)
+        self.assertEqual([section.level for section in translation], [0] + [2] * 10)
         pairs, unpaired_source, unpaired_translation = pair_sections(source, translation)
-        self.assertEqual(len(pairs), len(ENGLISH_TITLES))
-        self.assertEqual(unpaired_source, [])
+        self.assertEqual(len(pairs), len(GERMAN_TITLES))
         self.assertEqual(unpaired_translation, [])
+        self.assertEqual([section.title for section in unpaired_source],
+                         ENGLISH_TITLES[len(GERMAN_TITLES):])
         self.assertEqual(
             [(pair.source.title, pair.translation.title) for pair in pairs],
             list(zip(ENGLISH_TITLES, GERMAN_TITLES)),
@@ -187,6 +249,9 @@ class PairingTests(unittest.TestCase):
         for pair in pairs:
             self.assertEqual(pair.index, pair.source.index)
             self.assertEqual(pair.index, pair.translation.index)
+        findings = unpaired_findings(unpaired_source, unpaired_translation, GERMAN)
+        self.assertEqual(len(findings), len(ENGLISH_TITLES) - len(GERMAN_TITLES))
+        self.assertTrue(all(finding.answer == MISSING_SECTION for finding in findings))
 
     def test_dropped_translation_sections_are_code_level_findings(self) -> None:
         source = split_sections(SOURCE)
@@ -208,14 +273,14 @@ class PairingTests(unittest.TestCase):
             self.assertEqual(finding.confidence, 1.0)
             self.assertEqual(finding.route, "auto")
             self.assertEqual(finding.anchor, f"README.md:{section.line}")
-            self.assertEqual(source_lines[section.line - 1], f"## {section.title}")
+            self.assertEqual(source_lines[section.line - 1], f"{'#' * section.level} {section.title}")
             self.assertEqual(finding.subject, f"docs/readme/README.de.md {section.title}")
             self.assertEqual(finding.detail["index"], section.index)
             self.assertEqual(finding.detail["translation"], "docs/readme/README.de.md")
 
     def test_added_translation_sections_are_code_level_findings(self) -> None:
         text = extended_german()
-        source = split_sections(SOURCE)
+        source = split_sections(SOURCE, GERMAN.read_text(encoding="utf-8"))
         translation = split_sections(GERMAN, text)
         pairs, unpaired_source, unpaired_translation = pair_sections(source, translation)
         self.assertEqual(len(pairs), len(source))
@@ -257,9 +322,41 @@ class QuestionTests(unittest.TestCase):
         add_arguments(parser)
         args = parser.parse_args(["--out", "reports"])
         self.assertEqual(args.source, "README.md")
-        self.assertEqual(args.translations, "docs/readme/README.*.md")
+        catalog = configured_catalog(args)
+        self.assertEqual({source for source, _ in catalog}, {SOURCE})
+        discovered = {path for _, translations in catalog for path in translations}
+        expected = {path for _, pattern in MAINTAINED_TRANSLATIONS
+                    for path in resolve_translations(pattern)}
+        self.assertEqual(discovered, expected)
         chosen = parser.parse_args(["--out", "reports", "--source", "docs/readme/README.fr.md"])
         self.assertEqual(chosen.source, "docs/readme/README.fr.md")
+
+
+class PublishedCatalogTests(unittest.TestCase):
+    def test_both_maintained_trees_have_explicit_sources_and_separate_anchors(self) -> None:
+        anchors = set()
+        counts = []
+        for source_name, pattern in MAINTAINED_TRANSLATIONS:
+            source = ROOT / source_name
+            self.assertTrue(source.is_file())
+            self.assertEqual([section.title for section in split_sections(source)],
+                             ENGLISH_TITLES)
+            translations = resolve_translations(pattern)
+            self.assertTrue(translations, pattern)
+            counts.append(len(translations))
+            for translation in translations:
+                sections = split_sections(translation)
+                self.assertTrue(sections, str(translation))
+                pairs, missing, extra = pair_sections(split_sections(source), sections)
+                self.assertTrue(pairs)
+                findings = unpaired_findings(missing, extra, translation)
+                self.assertEqual(len(findings), len(missing) + len(extra))
+                anchor = f"{relative(translation)}:{sections[0].line}"
+                self.assertNotIn(anchor, anchors)
+                anchors.add(anchor)
+        self.assertEqual(counts, [7, 7])
+        pages = resolve_translations(MAINTAINED_TRANSLATIONS[1][1])
+        self.assertEqual({path.stem for path in pages}, SITE_LANGUAGES)
 
 
 class PairFindingTests(unittest.TestCase):
@@ -343,7 +440,8 @@ class LiveDocsTests(unittest.TestCase):
         if not os.environ.get(API_KEY_ENV):
             self.skipTest(f"{API_KEY_ENV} is not set")
         pairs = pair_sections(split_sections(SOURCE), split_sections(GERMAN))[0]
-        pair = next(pair for pair in pairs if pair.source.title == "Security")
+        pair = next(pair for pair in pairs
+                    if pair.source.title == "Security Policy and Vulnerability Reporting")
         state = {
             "section": pair.source.title,
             "source": sanitize(pair.source.body),

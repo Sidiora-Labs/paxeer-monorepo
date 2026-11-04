@@ -1,0 +1,15 @@
+{
+  "model": "typesafe/jev-1.13-20260917",
+  "answers": {
+    "unrelated": {
+      "type": "noul",
+      "noul": 0.5
+    }
+  },
+  "usage": {
+    "input_tokens": 512,
+    "output_tokens": 40,
+    "cost": 2.15e-05
+  },
+  "id": "gen-dec-1789717233-test"
+}
