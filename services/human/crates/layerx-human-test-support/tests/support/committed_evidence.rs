@@ -20,10 +20,8 @@ use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
-const CONFORMANCE: &str =
-    include_str!("../../../../../interop/specs/conformance/committed/vector-v4-committed.json");
-const RECORDED: &str =
-    include_str!("../../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json");
+const CONFORMANCE: &str = include_str!("../fixtures/committed/vector-v4-conformance.json");
+const RECORDED: &str = include_str!("../fixtures/committed/vector-v4-committed.json");
 
 fn bytes(value: &Value) -> Vec<u8> {
     let text = value
@@ -149,13 +147,26 @@ fn committed_fact(
     let mut fact = EvidenceBundle::receipt_fact(&entry, canonical, Rung::Committed)
         .expect("human receipt codec");
     let c = &case["commit"];
-    let votes = c["signatures"]
-        .as_array()
-        .expect("commit signatures")
+    let signatures = c["signatures"].as_array().expect("commit signatures");
+    assert_eq!(signatures.len(), consensus[0].validators.len());
+    let votes = signatures
         .iter()
-        .map(|vote| {
+        .enumerate()
+        .filter(|(_, vote)| {
+            if vote["block_id_flag"] == 1 {
+                assert_eq!(vote["validator_address"], "0x");
+                assert!(vote["signature"].is_null());
+                assert_eq!(vote["timestamp"]["seconds"], -62_135_596_800_i64);
+                assert_eq!(vote["timestamp"]["nanos"], 0);
+                false
+            } else {
+                true
+            }
+        })
+        .map(|(index, vote)| {
             assert_eq!(vote["block_id_flag"], 2);
             let address = fixed(&vote["validator_address"]);
+            assert_eq!(address, consensus[0].validators[index].address);
             CommitVote {
                 validator_address: address,
                 voting_power: consensus[0]
@@ -404,6 +415,18 @@ pub fn recorded_malformed_and_foreign_evidence_is_refused() {
     };
     let fact = committed_fact(case, receipt.receipt, &consensus);
     EvidenceBundle::verify_receipt_with_consensus(&fact, &keys, &consensus).expect("valid control");
+    let mut no_quorum = fact.clone();
+    no_quorum
+        .committed
+        .as_mut()
+        .expect("commit")
+        .commit
+        .votes
+        .clear();
+    assert!(
+        EvidenceBundle::verify_receipt_with_consensus(&no_quorum, &keys, &consensus).is_err(),
+        "absent validator slots cannot supply voting power"
+    );
     for target in [
         "receipt",
         "header",
