@@ -911,6 +911,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "layerx-programs-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "layerx-programs-registry",
+ "sha2",
+]
+
+[[package]]
 name = "layerx-programs-interpreter"
 version = "0.1.0"
 dependencies = [

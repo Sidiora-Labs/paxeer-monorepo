@@ -14985,3 +14985,23 @@ fix = "A requalify names an attempt whose recorded tree holds every file, or the
 title = "The gate of 22.33.18 ran the whole Python integration suite"
 symptom = "22.33.18 attempt 1 (2026-11-04 19:05Z) verified with the Makefile target that runs every test under tests/ci: 201 cases, eleven failures, of which eight belong to other work (two agent codec corpus cases, the cw20 deploy-script check, two retired-use kernel suite checks and 22.33.727's retained EIP-1559 case) and three are the task's own cases."
 fix = "The verify is narrowed to the task's test file and the five SDK test files in its paths; the eight unrelated failures are a closure-sweep finding, not re-run here."
+
+[gotcha.3033]
+title = "The authority budget-state change of 22.31.208 broke two daemon test targets that include it by path"
+symptom = "22.31.208 (on main 2026-11-04 18:41Z) made services/platform/hosted/authority/src/human/budget_state.rs and its native.rs reference crate::committed, crate::loopback_http, super::Human, super::Policy and a human field on Config. services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs and human_projection_facts.rs include that module with a path attribute over a small shim and no longer compile (E0432, E0433, E0425, E0422, E0609). Every dependent-crate check that builds the daemon tests has failed since: 22.31.212 attempt 6, 22.33.1544 attempt 2, 217 attempt 3, 218 attempt 4, 222 attempt 3, 224 attempt 3, 233 attempt 3, 1547 attempt 2, 249 attempt 2 and 261 attempt 2 between 19:10Z and 19:24Z."
+fix = "Decision 2541 and task 22.31.497 restore both targets against the current authority source; the ten attempts requalify after it."
+
+[gotcha.3034]
+title = "22.33.1545 removed two fields of ObservedBlockContext that a published consumer test constructs"
+symptom = "Attempt 2 of 22.33.1545 (2026-11-04 19:19Z) rebuilt services/agent/crates/layerx-client ObservedBlockContext without sealed_batch and finalised_checkpoint; services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs, on main since 18:40Z, constructs the struct with both fields and the dependent-crate check failed with two E0560 errors."
+fix = "The consumer test joins the task's paths and the attempt continues porting it in the same change (decision 2521 class: an interface change carries its consumers)."
+
+[gotcha.3035]
+title = "A protected store root in a test must be created private and canonical"
+symptom = "The daemon store refuses any root whose mode is not exactly 0700, whose owner is not the process or whose path is not canonical (services/agent/crates/layerx-agentd/src/store/protected.rs validate). 22.33.1535 attempt 2 (2026-11-04 19:11Z) created its roots with the default directory mode under the temporary directory and two cases failed on 'store root is not a canonical owned private directory'."
+fix = "Tests create store roots with mode 0o700 and open the canonicalised path, as the daemon's own store tests do."
+
+[gotcha.3036]
+title = "The outbox hands out bytes for transmission only while a submission is Queued"
+symptom = "services/agent/crates/layerx-agentd/src/outbox/mod.rs bytes_for_transmission returns NotQueued once a submission has left Queued. 22.33.1571 attempt 2 (2026-11-04 19:13Z) restored a submission recorded Unknown after a lost response and asked for its bytes to re-send it; both node-recovery cases failed on NotQueued."
+fix = "Recovery of an unknown submission goes through the resolver (admin resolve_unknown or the degraded resolver) that looks the hash up on the node first; tests follow that path."

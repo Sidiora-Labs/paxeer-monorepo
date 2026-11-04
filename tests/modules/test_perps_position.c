@@ -6,6 +6,18 @@
 #include <stddef.h>
 #include <string.h>
 
+/* Task 22.33.1237, reservation-close-test-gap:
+ * test_reserve_without_fill_release proves unused reservations survive reload
+ * and release once; test_closed_reservation_recovery proves cancellation and
+ * release of the original reopened closed-position reservation after reload;
+ * test_changed_price_close_balances proves profitable/losing long/short closes.
+ * Gate wiring is resolved: the declared test-perps-book/test-perps-margin
+ * targets execute both changed test binaries (gotcha 3019).
+ * Attempt 1 failed in the unrelated test-module-registry inventory assertion
+ * before these cases ran; no baseline perps failure was measured.
+ * No unchanged-tree verification was run under the explicit bounded gate order;
+ * baseline failures therefore remain unmeasured. */
+
 enum { FIXTURE_ARENA_BYTES = 1U << 20 };
 
 static const uint8_t quote_asset_id[32] = { 7U };
@@ -444,6 +456,190 @@ static lxp_result position_state(const lx_account *margin_account,
 
 #include "test_perps_repairs.h"
 
+static int test_reserve_without_fill_release(void)
+{
+    unsigned scenario;
+    for (scenario = 0U; scenario < 2U; ++scenario) {
+        lx_perps_position position;
+        lx_perps_side side = scenario == 0U ? LX_PERPS_SIDE_BUY :
+                                              LX_PERPS_SIDE_SELL;
+        uint8_t before[32];
+        uint8_t after[32];
+        if (repair_setup(100U, 10000U, 1000U, 500U) != 0 ||
+            position_open(alice_margin->id, alice_margin, side, 1U, 100U,
+                          "did:key:alice") != LXP_OK ||
+            repair_reopen() != 0 ||
+            position_state(alice_margin, &position) != LXP_ERR_UNKNOWN_FIELD ||
+            !balance_is(alice_main, 9900U) ||
+            !balance_is(alice_margin, 100U) ||
+            !alice_margin->has_open_reference || !repair_interest(0U, 0U) ||
+            lxp_state_root(&kernel, before) != LXP_OK ||
+            position_close(alice_margin, "did:key:bob") !=
+                LXP_ERR_UNAUTHORIZED_DEBIT ||
+            lxp_state_root(&kernel, after) != LXP_OK ||
+            memcmp(before, after, sizeof(before)) != 0 ||
+            position_close(alice_margin, "did:key:alice") != LXP_OK ||
+            ctx_open() != 0 ||
+            position_state(alice_margin, &position) != LXP_ERR_UNKNOWN_FIELD ||
+            !balance_is(alice_main, 10000U) ||
+            !balance_is(alice_margin, 0U) ||
+            alice_margin->has_open_reference ||
+            !balance_is(bob_main, 10000U) || !balance_is(bob_margin, 0U) ||
+            !balance_is(liquidity_account, 1000U) ||
+            !balance_is(insurance_account, 500U) ||
+            !repair_interest(0U, 0U) || repair_total() != 231500U ||
+            repair_reopen() != 0 ||
+            position_state(alice_margin, &position) != LXP_ERR_UNKNOWN_FIELD ||
+            !balance_is(alice_main, 10000U) ||
+            !balance_is(alice_margin, 0U) ||
+            alice_margin->has_open_reference ||
+            lxp_state_root(&kernel, before) != LXP_OK ||
+            position_close(alice_margin, "did:key:alice") !=
+                LXP_ERR_AGREEMENT_STATE ||
+            lxp_state_root(&kernel, after) != LXP_OK ||
+            memcmp(before, after, sizeof(before)) != 0 ||
+            repair_total() != 231500U ||
+            lxp_state_store_destroy(&store) != LXP_OK)
+            return 1;
+        lx_account_registry_release(&accounts);
+    }
+    (void)puts("reservation-close-test-gap: unfilled long/short reservations release once after reload");
+    return 0;
+}
+
+static int test_closed_reservation_recovery(void)
+{
+    lx_perps_order order;
+    uint8_t before[32];
+    uint8_t after[32];
+
+    /* Continue the original lifecycle: its stored long is closed, but the
+     * new short reservation and order 4 still hold 100 of Alice's funds. */
+    if (account_add("agent:did:key:keeper:main", LX_ACCOUNT_OPEN_CREDIT, 0U,
+                    &repair_keeper) != 0 ||
+        repair_reopen() != 0 ||
+        !repair_position(alice_margin, LX_PERPS_SIDE_BUY, 20U, 2000U, false) ||
+        order_state(4U, &order) != LXP_OK || !order.active ||
+        order.remaining.hi != 0U || order.remaining.lo != 1U ||
+        order.side != LX_PERPS_SIDE_SELL || order.price.hi != 0U ||
+        order.price.lo != 100U ||
+        !balance_is(alice_main, 900U) || !balance_is(alice_margin, 100U) ||
+        !alice_margin->has_open_reference ||
+        !balance_is(liquidity_account, 0U) ||
+        !repair_interest(0U, 2000U) ||
+        lxp_state_root(&kernel, before) != LXP_OK ||
+        position_close(alice_margin, "did:key:alice") !=
+            LXP_ERR_ACCOUNT_NOT_EMPTY ||
+        repair_cancel(4U, "did:key:bob") != LXP_ERR_UNAUTHORIZED_DEBIT ||
+        lxp_state_root(&kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0 ||
+        repair_cancel(4U, "did:key:alice") != LXP_OK ||
+        ctx_open() != 0 ||
+        order_state(4U, &order) != LXP_ERR_UNKNOWN_FIELD ||
+        !balance_is(alice_main, 900U) || !balance_is(alice_margin, 100U) ||
+        !alice_margin->has_open_reference ||
+        repair_reopen() != 0 ||
+        order_state(4U, &order) != LXP_ERR_UNKNOWN_FIELD ||
+        !repair_position(alice_margin, LX_PERPS_SIDE_BUY, 20U, 2000U, false) ||
+        !balance_is(alice_main, 900U) || !balance_is(alice_margin, 100U) ||
+        !alice_margin->has_open_reference ||
+        position_close(alice_margin, "did:key:alice") != LXP_OK ||
+        !balance_is(alice_main, 1000U) || !balance_is(alice_margin, 0U) ||
+        alice_margin->has_open_reference ||
+        !balance_is(liquidity_account, 0U) ||
+        !balance_is(insurance_account, 0U) ||
+        !balance_is(bob_main, 900U) || !balance_is(bob_margin, 100U) ||
+        !balance_is(repair_carol_main, 0U) ||
+        !balance_is(carol_margin, 1000U) ||
+        !repair_position(bob_margin, LX_PERPS_SIDE_SELL, 10U, 1000U, true) ||
+        !repair_position(carol_margin, LX_PERPS_SIDE_SELL, 10U, 1000U, true) ||
+        !repair_interest(0U, 2000U) ||
+        repair_reopen() != 0 ||
+        !balance_is(alice_main, 1000U) || !balance_is(alice_margin, 0U) ||
+        alice_margin->has_open_reference ||
+        !repair_position(alice_margin, LX_PERPS_SIDE_BUY, 20U, 2000U, false) ||
+        order_state(4U, &order) != LXP_ERR_UNKNOWN_FIELD ||
+        lxp_state_root(&kernel, before) != LXP_OK ||
+        position_close(alice_margin, "did:key:alice") !=
+            LXP_ERR_AGREEMENT_STATE ||
+        lxp_state_root(&kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0 ||
+        !balance_is(alice_main, 1000U) || !balance_is(alice_margin, 0U) ||
+        !balance_is(liquidity_account, 0U) ||
+        !repair_interest(0U, 2000U))
+        return 1;
+    (void)puts("reservation-close-test-gap: closed-position reservation cancels and releases after durable reload");
+    return 0;
+}
+
+static int test_changed_price_close_balances(void)
+{
+    unsigned scenario;
+    for (scenario = 0U; scenario < 2U; ++scenario) {
+        uint64_t mark = scenario == 0U ? 11000U : 9000U;
+        uint64_t alice_final = scenario == 0U ? 10030U : 9970U;
+        uint64_t bob_final = scenario == 0U ? 9970U : 10030U;
+        uint64_t liquidity_after_long = scenario == 0U ? 970U : 1030U;
+        uint8_t before[32];
+        uint8_t after[32];
+        if (repair_setup(100U, 10000U, 1000U, 500U) != 0 ||
+            repair_pair(10000U, 3U, 60U) != 0 ||
+            !balance_is(alice_main, 9940U) ||
+            !balance_is(alice_margin, 60U) ||
+            !balance_is(bob_main, 9940U) || !balance_is(bob_margin, 60U) ||
+            !repair_interest(300U, 300U) ||
+            oracle_push(oracle_seed, 1U, 2U, mark, batch_timestamp) != LXP_OK ||
+            position_close(alice_margin, "did:key:alice") != LXP_OK ||
+            !balance_is(alice_main, alice_final) ||
+            !balance_is(alice_margin, 0U) ||
+            alice_margin->has_open_reference ||
+            !balance_is(liquidity_account, liquidity_after_long) ||
+            !balance_is(bob_main, 9940U) || !balance_is(bob_margin, 60U) ||
+            !bob_margin->has_open_reference ||
+            !repair_position(alice_margin, LX_PERPS_SIDE_BUY, 3U, 300U, false) ||
+            !repair_position(bob_margin, LX_PERPS_SIDE_SELL, 3U, 300U, true) ||
+            !repair_interest(0U, 300U) || repair_total() != 231500U ||
+            repair_reopen() != 0 ||
+            !balance_is(alice_main, alice_final) ||
+            !balance_is(alice_margin, 0U) ||
+            !balance_is(liquidity_account, liquidity_after_long) ||
+            lxp_state_root(&kernel, before) != LXP_OK ||
+            position_close(alice_margin, "did:key:alice") !=
+                LXP_ERR_AGREEMENT_STATE ||
+            lxp_state_root(&kernel, after) != LXP_OK ||
+            memcmp(before, after, sizeof(before)) != 0 ||
+            position_close(bob_margin, "did:key:bob") != LXP_OK ||
+            !balance_is(bob_main, bob_final) || !balance_is(bob_margin, 0U) ||
+            bob_margin->has_open_reference ||
+            !balance_is(alice_main, alice_final) ||
+            !balance_is(alice_margin, 0U) ||
+            !balance_is(liquidity_account, 1000U) ||
+            !balance_is(insurance_account, 500U) ||
+            !balance_is(long_pool_account, 100000U) ||
+            !balance_is(short_pool_account, 100000U) ||
+            !repair_interest(0U, 0U) || repair_total() != 231500U ||
+            repair_reopen() != 0 ||
+            !repair_position(alice_margin, LX_PERPS_SIDE_BUY, 3U, 300U, false) ||
+            !repair_position(bob_margin, LX_PERPS_SIDE_SELL, 3U, 300U, false) ||
+            !balance_is(alice_main, alice_final) ||
+            !balance_is(alice_margin, 0U) ||
+            !balance_is(bob_main, bob_final) || !balance_is(bob_margin, 0U) ||
+            alice_margin->has_open_reference || bob_margin->has_open_reference ||
+            !balance_is(liquidity_account, 1000U) ||
+            lxp_state_root(&kernel, before) != LXP_OK ||
+            position_close(bob_margin, "did:key:bob") !=
+                LXP_ERR_AGREEMENT_STATE ||
+            lxp_state_root(&kernel, after) != LXP_OK ||
+            memcmp(before, after, sizeof(before)) != 0 ||
+            repair_total() != 231500U ||
+            lxp_state_store_destroy(&store) != LXP_OK)
+            return 1;
+        lx_account_registry_release(&accounts);
+    }
+    (void)puts("reservation-close-test-gap: scaled profitable/losing long/short closes conserve exact balances after reload");
+    return 0;
+}
+
 int main(void)
 {
     lx_perps_market market;
@@ -611,9 +807,13 @@ int main(void)
         lx_perps_funding_state_lookup(&ctx, market_id, &funding) != LXP_OK ||
         !lxp_u128_is_zero(funding.long_open_notional) ||
         funding.short_open_notional.lo != 2000U ||
+        test_closed_reservation_recovery() != 0 ||
         lxp_state_store_destroy(&store) != LXP_OK)
         return 1;
-    return test_order_price_scale() || test_close_trading_pnl() ||
+    lx_account_registry_release(&accounts);
+    return test_reserve_without_fill_release() ||
+           test_changed_price_close_balances() ||
+           test_order_price_scale() || test_close_trading_pnl() ||
            test_close_rollback_recovery() || test_close_with_funding() ||
            test_fill_reduction_pnl() ||
            test_fill_reversal_pnl() || test_liquidation_equity() ||
