@@ -143829,7 +143829,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.137]
 title = "Repair audit record 22.30.115 medium findings in apps/wallet/src/widgets/portfolio (part 1 of 1): restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.238", "22.31.239"]
@@ -324090,7 +324090,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.374]
 title = "Repair audit record 22.30.140 medium findings in services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.270"]
@@ -324159,7 +324159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.333]
 title = "Repair audit record 22.30.137 medium findings in services/explorer/backend/apps/explorer/lib/explorer/smart_contract (part 1 of 1): config-drift, restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
