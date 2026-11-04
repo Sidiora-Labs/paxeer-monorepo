@@ -63,6 +63,8 @@ pub(super) fn register_v5(linker: &mut Linker<RuntimeState>) -> Result<(), Execu
                 let Some(resolver) = caller.data().composition().map(Composition::resolver) else {
                     return STATUS_DENIED;
                 };
+                // These prices pay for adjudication itself. The replay resolver selects
+                // the lease-authorized historical fee and metering artifacts.
                 let fees = caller.data().meter().prices();
                 let mut meter_refusal = None;
                 let result = adjudicate_market_step(
