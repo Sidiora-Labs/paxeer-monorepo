@@ -180596,7 +180596,7 @@ do_9 = "Attempt 2 (requalify): the build passed on the final revision but that r
 
 [task.22.33.238]
 title = "Repair audit record 22.30.128 medium findings in programs (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.262", "22.31.263", "22.31.443"]
@@ -321263,7 +321263,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1443]
 title = "Repair audit record 22.30.81 medium findings in services/platform/hosted/gateway (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.202"]
@@ -368317,7 +368317,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.560]
 title = "Repair audit record 22.30.158 medium findings in services/explorer/backend/apps/indexer/test/indexer/migrator (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -370778,7 +370778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.435]
 title = "Repair audit record 22.30.147 medium findings in services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.397", "22.31.460"]
@@ -372076,7 +372076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.318]
 title = "Repair audit record 22.30.136 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.382"]
