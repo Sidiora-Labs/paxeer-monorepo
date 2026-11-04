@@ -20,6 +20,8 @@ require (
 	golang.org/x/sys v0.45.0
 )
 
+require github.com/fsnotify/fsnotify v1.6.0 // indirect
+
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
