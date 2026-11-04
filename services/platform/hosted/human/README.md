@@ -1,8 +1,9 @@
 # Hosted Human service
 
 This directory contains Kubernetes manifests and provisioning helpers for the
-off-chain Human API, components, identity/security providers, ledger movement
-adapter, KMS and owner agent. Service crates live under
+off-chain Human API, components, identity/security providers, KMS and owner
+agent, including retained adapters awaiting runtime migration. Service crates
+live under
 [`services/human/crates`](../../../human/crates). Shell entry points are
 [`material.sh`](material.sh), [`provision.sh`](provision.sh) and
 [`onboarding_provision.sh`](onboarding_provision.sh), sourced by the
@@ -28,9 +29,9 @@ infrastructure or a separate public endpoint.
 
 The checked-in [node manifest](../node/deployment.yaml) co-locates Human
 containers with the merged node. The [`layerx-human` Service](deployment.yaml)
-forwards HTTPS port `9443` to `human-https` (`9447`). Components and providers
-run as UID/GID `4020`; provider sockets are
-`/run/layerx/human/{identity,security,movement}.sock`. The owner runs as UID
+forwards HTTPS port `9443` to `human-https` (`9447`). Components and
+identity/security providers run as UID/GID `4020`; their local sockets are
+`/run/layerx/human/{identity,security}.sock`. The owner runs as UID
 `4021`, GID `4020`, with its socket under `/run/layerx/human/owner`; KMS uses UID
 `4026` and listens on `127.0.0.1:9450`. These sockets connect local services.
 The manifest sets `shareProcessNamespace: false`; it does not establish shared
@@ -39,7 +40,7 @@ peer-PID visibility or successful owner transport admission.
 The retained `layerx-human-state` PVC holds separate process state subPaths.
 Runtime containers drop capabilities and use read-only root filesystems.
 Projected credentials are staged into private memory volumes as regular `0600`
-files. KMS separately pins the components client and movement executor.
+files. KMS separately pins its client and executor identities.
 Preserve the seal, keys, recovery policy and matching encrypted state together;
 regenerating bootstrap secrets is not a state or key migration.
 
@@ -47,6 +48,42 @@ See [HostedHuman.md](../../../../docs/wiki/HostedHuman.md) for related cluster
 material and [RegistryDeploymentJournal.md](../../../../docs/wiki/RegistryDeploymentJournal.md)
 for journal `pairs/`. The producer contracts below describe the merged owner
 path; remaining cluster integration limits are called out explicitly.
+
+## Committed account observations and bank receipts
+
+Use the merged node's root JSON-RPC endpoint for chain observations. Owner
+bootstrap checks `eth_chainId`, reads the sender nonce with
+`eth_getTransactionCount` at `pending`, submits signed bytes through
+`eth_sendRawTransaction` and checks `eth_getTransactionReceipt` against
+`eth_getBlockByNumber`. A transaction hash alone does not establish completion.
+A successful receipt must belong to its canonical block and contain the exact
+expected events. Committed blocks are final on this network.
+
+Account and authority evidence comes from the committed identity/recovery
+snapshot, `getLayerXDid(address)`, the asset-specific
+`accountId(bytes32,bytes32)` and `balanceOf(bytes32,bytes32)` reads. Bootstrap
+requires a funded balance before first publication; later balance observations
+can change after spending. Re-reading retained receipts proves the original
+effect, not a permanently unchanged balance or zero consumed limits. Missing,
+stale or mismatched observations must refuse provisioning or planning.
+
+Current Human intent sends use the bank precompile
+`0x0000000000000000000000000000000000001001`:
+`send(address,address,string,uint256)` (selector `0x5c05961b`) binds the sender,
+resolved recipient, denomination and amount. The service matches the requested
+asset to the gateway's `denom:<denomination>` inventory and balance row; it
+never accepts a caller-supplied balance as authority. Plans expose chain ID,
+calldata and pending EVM nonce, and submission re-plans against current state
+and checks the signed digest. These bank sends are distinct from the ledger
+`payExact` transaction used by the owner bootstrap below.
+
+Read progress through `GET /v1/journeys/{journey_id}`: `submitted` acknowledges
+submission, `receipted` verifies execution and `committed` verifies block
+inclusion. The retained `checkpoint-finalised` label means committed evidence
+on this same chain; it does not require another finality service. The production
+EVM intent path waits for a verified committed receipt for each leg before
+advancing. See the [intent contract](../../../human/schema/human-api/intent.kvx)
+and [journey contract](../../../human/schema/human-api/journeys.kvx).
 
 ## Material generation
 
@@ -192,7 +229,7 @@ Protected JSON inputs must use absolute canonical paths, be regular files owned
 by the invoking UID, have mode `0600` and one link, and be nonempty and at most
 1 MiB. Duplicate and unknown schema fields refuse validation.
 
-## Protected catalog and Job staging
+## Purpose catalog
 
 Generate the catalog from [`beta-purpose-catalog.json`](beta-purpose-catalog.json),
 the v2 module registry, selected asset and protected treasury/sequencer
@@ -214,34 +251,14 @@ Counterparty export filenames do not imply another execution service.
 Payments use the merged ledger at `0x101a`; budgets use the payment precompile
 at `0x000000000000000000000000000000000000101b`.
 
-The checked-in [`provision-owner-job.yaml`](provision-owner-job.yaml) is an
-offline identity helper, not the merged transaction producer. `human_owner_provision`
-validates inputs before cluster mutation, refuses enabled Human containers,
-requires one scheduled bootstrap pod and pins the Job to that node for the
-ReadWriteOnce PVC. The Job uses the runtime's `identity` subPath and state root,
-Secret `layerx-human-provision-owner-input`, disabled retries and the image
-selected by `image_ref layerx-human`. Results are captured privately; existing
-results require reconciliation.
-
-Legacy integration remains: the Job's `validate-account-head` container expects
-`account-head-request.json`, checks a signed protocol-3 batch-number-one head
-and emits only a zero-consumed result. The evidence assembler still requires
-that result. This is a bootstrap-only limitation, not a merged-chain account
-observation or a way to provision an existing account. Do not synthesize it
-from a balance, substitute a constant, or reset an existing account's consumed
-limits. The merged receipt producer does not remove this cluster requirement.
-
 ## Evidence provisioning
 
 `human_evidence_provision` orders merged owner preparation and registration,
 ledger movement-source generation, naming/registry deployment and journal
 export, producer-manifest validation, evidence assembly and the policy graph
-input check. It runs before `human_policy_publish`. This ordering does not prove
-that every cluster transport has migrated: registry transfer still names the
-retired daemon container, and generated owner-agent settings retain pre-merge
-LNI transport configuration. These are integration limits, not instructions to
-deploy a separate kernel. Applying manifests alone does not qualify the full
-Human service path.
+input check. It runs before `human_policy_publish`. The remaining cluster
+migration barriers are listed below; applying manifests alone does not qualify
+the full Human service path.
 
 The assembled `$WORK_DIR/human-evidence` set contains:
 
@@ -259,8 +276,7 @@ The assembled `$WORK_DIR/human-evidence` set contains:
 
 The `movement-policy.json` filename is retained, but its contents bind the
 merged ledger account. The material builder adds `PAXEER_LEDGER_CONTRACT` and
-`PAXEER_PAYMENT_CONTRACT` and emits configuration under
-`LAYERX_HUMAN_MOVEMENT_PROVIDER_`. Retired custody references, checkpoint timing,
+`PAXEER_PAYMENT_CONTRACT`. Retired custody references, checkpoint timing,
 guarantor keys and settlement contract addresses are not assembly inputs.
 
 `HUMAN_PEERS` must be exactly
@@ -294,3 +310,32 @@ The broader `provision.py --qualify-generated-set` helper also runs the material
 installer and `test_material.py`; it is separate from structural registration
 validation and requires all live producer inputs. Its arguments are
 `--work-dir`, `--registry`, `--secrets-dir`, `--network` and `--chain`.
+
+## Remaining cluster migration barriers
+
+The following retained paths require migration by their production owners;
+they are not a provisioning recipe for merged accounts. Do not deploy a
+separate sequencer, kernel daemon, movement custody service or guarantor to
+satisfy them. Track the owning paths in [the repair record](repair_22_33_40.kvx).
+
+- [`provision-owner-job.yaml`](provision-owner-job.yaml) and
+  `human_owner_provision` still stage the offline identity Job and
+  `validate-account-head`. That validator requires a signed protocol-3
+  batch-number-one head and emits `consumed=0`; the evidence assembler still
+  requires its result. This legacy bootstrap restriction cannot describe an
+  existing merged account. Never synthesize the result from a balance, reset
+  consumed limits or replace missing evidence with zero. The Job uses the
+  identity state subPath and exclusive provider state; keep that state and the
+  original recovery binding during migration.
+- [`material.py`](material.py) still emits
+  `LAYERX_HUMAN_MOVEMENT_PROVIDER_` configuration and the
+  [node manifest](../node/deployment.yaml) still runs `human-movement` on
+  `/run/layerx/human/movement.sock`, with a separately pinned KMS executor.
+  These retained names do not establish support for retired deposit/withdraw
+  journeys. Remove the adapter instructions and projections together when
+  their runtime consumers migrate to current bank and receipt interfaces.
+- Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at
+  `/run/layerx/node/layerxd.lni.sock`, and registry transfer still targets the
+  retired daemon container. Those paths cannot establish merged node
+  readiness. Their owners must wire authenticated node RPC and committed
+  evidence before full cluster provisioning can be qualified.
