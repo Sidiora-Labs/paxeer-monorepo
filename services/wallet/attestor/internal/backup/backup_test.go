@@ -29,6 +29,7 @@ type fixture struct {
 	store     *store.Store
 	audit     *audit.Log
 	shares    map[string][]byte
+	recovery  *repairM147Recovery
 }
 
 func randomKey(t *testing.T) []byte {
@@ -64,8 +65,9 @@ func newFixture(t *testing.T) *fixture {
 	secp[32] = 0x11
 	ed := make([]byte, 32)
 	ed[0] = 0x22
-	f.put(t, store.ShareRecord{KeyID: "evm-key", Curve: store.CurveSecp256k1, PublicKey: secp, Participants: []string{"node-1", "node-2", "node-3", "node-4", "node-5"}}, "secp256k1 share material")
+	f.putImported(t, store.ShareRecord{KeyID: "evm-key", Curve: store.CurveSecp256k1, PublicKey: secp, Participants: []string{"node-1", "node-2", "node-3", "node-4", "node-5"}}, "secp256k1 share material")
 	f.put(t, store.ShareRecord{KeyID: "lx-key", Curve: store.CurveEd25519, PublicKey: ed, Epoch: 2, Participants: []string{"node-1", "node-2", "node-3", "node-4", "node-5"}}, "ed25519 share material")
+	f.seedRecoveryState(t)
 	return f
 }
 
@@ -110,11 +112,15 @@ func names(seqs ...uint64) []string {
 
 func (f *fixture) assertRestorable(t *testing.T, path string) {
 	t.Helper()
-	raw, err := os.ReadFile(path)
+	_, digest, err := fileDigest(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	st, err := store.Restore(bytes.NewReader(raw), f.backupKey, "node-1", filepath.Join(t.TempDir(), "restore"), f.nodeKey)
+	target := filepath.Join(t.TempDir(), "restore")
+	if _, err := RestoreFile(path, hex.EncodeToString(digest[:]), "node-1", f.backupKey, target, f.nodeKey); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(target, f.nodeKey)
 	if err != nil {
 		t.Fatalf("restore %s: %v", filepath.Base(path), err)
 	}
@@ -125,6 +131,7 @@ func (f *fixture) assertRestorable(t *testing.T, path string) {
 			t.Fatalf("restored share %s: %v", keyID, err)
 		}
 	}
+	f.assertRecoveryState(t, st)
 }
 
 func TestWriteSnapshotAtomicNameSequence(t *testing.T) {
@@ -378,6 +385,7 @@ func TestRestoreFileIntoEmptyDirectory(t *testing.T) {
 			t.Fatalf("restored share %s: %v", keyID, err)
 		}
 	}
+	f.assertRecoveryState(t, st)
 	st.Close()
 	logged, err := os.ReadFile(filepath.Join(target, "audit", audit.FileName))
 	if err != nil {
