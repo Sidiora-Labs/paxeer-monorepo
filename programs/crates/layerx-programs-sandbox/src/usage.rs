@@ -494,6 +494,15 @@ impl UsageLedger {
         lease: &Lease,
         escrow: &Escrow,
     ) -> Result<Self, UsageRefusal> {
+        let ledger = Self::decode_canonical(state)?;
+        ledger.verify(lease, escrow)?;
+        Ok(ledger)
+    }
+
+    /// Decodes the exact native kind-2 ledger, including its bound latest receipt.
+    /// # Errors
+    /// Returns a refusal for noncanonical encoding or inconsistent receipt accounting.
+    pub fn decode_canonical(state: &[u8]) -> Result<Self, UsageRefusal> {
         if state.len() > MAX_USAGE_STATE_VALUE_BYTES {
             return Err(UsageRefusal::ReceiptLimit);
         }
@@ -523,7 +532,30 @@ impl UsageLedger {
             accumulator_root,
             latest,
         };
-        ledger.verify(lease, escrow)?;
+        if ledger.receipt_count > MAX_USAGE_RECEIPTS
+            || (ledger.receipt_count == 0) != ledger.latest.is_none()
+        {
+            return Err(UsageRefusal::InvalidChain);
+        }
+        if let Some(receipt) = ledger.latest() {
+            if receipt.sequence() != ledger.receipt_count
+                || receipt.cumulative_spent() != ledger.spent
+                || (receipt.sequence == 1
+                    && (receipt.previous != GENESIS_RECEIPT
+                        || receipt.previous_accumulator_root != [0; 32]))
+                || (receipt.sequence > 1 && receipt.previous == GENESIS_RECEIPT)
+                || ledger.accumulator_root
+                    != accumulator_root_for(
+                        receipt.previous_accumulator_root,
+                        receipt.sequence,
+                        receipt.digest,
+                    )?
+            {
+                return Err(UsageRefusal::InvalidChain);
+            }
+        } else if ledger.spent != 0 || ledger.accumulator_root != [0; 32] {
+            return Err(UsageRefusal::InvalidChain);
+        }
         if ledger.canonical_state()? != state {
             return Err(UsageRefusal::InvalidChain);
         }

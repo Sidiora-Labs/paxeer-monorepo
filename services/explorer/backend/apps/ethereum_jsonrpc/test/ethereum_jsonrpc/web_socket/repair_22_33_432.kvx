@@ -1,0 +1,17 @@
+[repair.22.33.432]
+finding = "ws-reconnect-test-absent"
+base_revision = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
+proving_tests = ["EthereumJSONRPC.Repair2233432Test: retired PID fails while the original handle cancels on the recovered node", "EthereumJSONRPC.Repair2233432Test: verified TLS reconnect delivers recorded headers and cancels the new server ID"]
+original_tests = "web_socket_client_test.exs reconnect cases invoke the same real lifecycle assertions as the focused repair gate."
+baseline = "Not executed: the focused repair test does not exist on the unchanged tree; the task order requires complete implementation before the single allowed verify. No pre-change test failure is claimed."
+evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit and private log location; closure requires that gate to pass."
+wiring_requests = []
+tls = "The loopback TLS case runs production WebSocketClient callbacks via the public WebSockex constructor with committed localhost CA trust and peer/hostname verification; the main/fallback/recovered-primary case uses production WebSocketSupervisor and WebSocketClient.start_link(url, options)."
+fixture_key = "fixtures/localhost-key.pem is a public test-only key for the loopback listener, never an operational credential."
+
+[qualification.initial]
+revision = "29e0a30472f31a543f85f4bfb82827bf69564ed8"
+command = "cg spec done 22.33.432 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Primary/fallback/recovery passed; TLS rejected the self-signed peer certificate, so the fixture now uses a distinct CA-signed localhost leaf with peer and hostname verification retained."

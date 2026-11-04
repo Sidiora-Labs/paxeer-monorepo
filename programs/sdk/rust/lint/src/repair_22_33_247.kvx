@@ -1,0 +1,39 @@
+[meta]
+task = "22.33.247"
+audit = "22.30.129"
+acceptance = "22998.1"
+baseline = "NOT_RUN: the explicit ordered BUILD instructions prohibit pre-implementation verification and only authorize hf-build followed by hf-done; no pre-change test result is claimed."
+qualification = "hf-build then hf-done; the runner records the exact immutable candidate revision, command, exit and private log in /out/run/gates.jsonl and the final evidence JSON."
+
+[finding.015]
+test = "repair_22_33_247::finding_015_v5_sdk_import_reaches_the_real_validator_and_linker"
+path = "SDK frozen v5 declaration -> committed runtime binary-codec fixture -> lint_artifact_for_abi -> shared admission -> runtime versioned validation at V5 -> real host linker instantiation; direct validate_v5 checks the same emitted bytes."
+imports = "finding_015_import_admission_matches_every_runtime_namespace covers every runtime host function across all five admitted revisions; finding_015_v5_checks_signatures_kinds_duplicates_and_unknown_imports preserves exact signature, kind, duplicate and namespace refusals."
+determinism = "finding_015_v5_preserves_named_determinism_and_export_refusals covers clocks, randomness, float types/instructions, vectors, missing exports and malformed modules."
+metadata = "finding_015_cli_metadata_and_project_artifact_use_shared_admission drives the production CLI metadata adapter through the actual source/artifact lint, accepts v5 and refuses mismatches, unsupported revisions and malformed manifests without subprocesses."
+deployment = "finding_015_deployment_limit_includes_the_104_byte_envelope proves the 524184-byte module boundary, reserving 104 bytes within the unchanged 524288-byte deployment payload ceiling; the lint refuses larger artifacts even when the runtime's broader module limit admits them."
+
+[wiring.release-guest]
+request = "Makefile paxai-host-boundary / programs/crates/layerx-programs-ai-market: owning Programs/deployment domain must qualify the actual release guest with opt-level z and PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 (chain 125), run the repaired ABI-5 artifact lint and retain its size plus 104 <= 524288 evidence; building this out-of-path artifact is outside this gate and no release-guest result is claimed here."
+
+[wiring.historical-test]
+request = "programs/sdk/rust/lint/tests/abi_versions.rs: owning Programs SDK domain / finding 016 must replace versions_above_v4_keep_the_unsupported_refusal's stale v5 rejection with real v5 validation and unsupported assertions for 0, 6 and u16::MAX; this out-of-scope test remains intact."
+
+[wiring.shared-language-manifest]
+request = "programs/sdk/abi-manifest.tsv: owning cross-language Programs SDK domain must coordinate publication of the v5 row to every language consumer; the current TSV remains exactly parity-checked at v1-v4, and Rust v5 uses the SDK's existing V5_ABI_MANIFEST/V5_HOST_FUNCTIONS with exact runtime parity."
+
+[qualification.initial]
+revision = "cd132d2fbabbecf541727b2a66d74de33c3ce01b"
+command = "cg spec done 22.33.247 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four cases failed because the newly combined runtime namespace list generated a v5 TSV row absent from the frozen v1-v4 language manifest."
+repair = "Preserve the original exact TSV comparison and separately compare SDK/runtime v5 manifests and tables; import admission consumes both runtime namespace sources without weakening any assertion."
+
+[gotcha.baseline-order]
+observed = "The embedded audit step requests unchanged-tree verification, but the explicit ordered gate contract prohibits it and reserves verification for hf-done after implementation."
+resolution = "Follow the explicit order and record baseline NOT_RUN without inventing a pre-existing failure."
+
+[gotcha.release-fixture]
+observed = "No committed AI-market release WASM fixture is present, and the gate forbids a subprocess toolchain or native artifact dependency."
+resolution = "Exercise real SDK/runtime validation and linkage with the committed binary-codec fixture recipe and assign actual guest build/chain-domain qualification to its owning domain."

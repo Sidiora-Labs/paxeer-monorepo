@@ -1,0 +1,8 @@
+[repair.22.33.602]
+finding = "evidence-cli-unmounted"
+tests = ["TestRepairM_602_SubmissionThroughCommandTree", "TestRepairM_602_SubmissionValidation"]
+path = "GetTxCmd -> supplied submission child -> GetClientTxContext -> NewMsgSubmitEvidence -> GenerateOrBroadcastTxCLI -> TxJSONDecoder"
+baseline = "Not run: the explicit task order requires complete implementation before formatting/build/testing and permits verification only through hf-done after hf-build; no pre-change failing tests are claimed."
+wiring_requests = []
+evidence = "The runner gate ledger records the exact candidate revision, command, exit code and private log location."
+gotcha = "The client codec interface exposes MarshalAsJSON/UnmarshalAsJSON; the first verification caught test calls to the concrete codec's alternate method names, corrected without changing assertions."

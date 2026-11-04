@@ -1,16 +1,17 @@
-import config from 'configs/app';
+import appConfig from 'configs/app';
 import { writeFileSync } from 'node:fs';
 import { dirname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dedent from 'dedent';
 import { layerLabels } from 'lib/rollups/utils';
+import { GENERAL_API_BLOCK_RESOURCES } from 'lib/api/services/general/block';
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = dirname(currentFilePath);
 const outputDir = resolvePath(currentDir, '../../../../public');
 const outputFile = resolvePath(outputDir, 'llms.txt');
 
-function run() {
+export function run(config: typeof appConfig = appConfig, destination = outputFile) {
     try {
         if(config.features.multichain.isEnabled){
             console.log('⏭️ Skipping llms.txt generation for multichain explorer');
@@ -79,7 +80,7 @@ function run() {
             ### Deposits by Block
                 
             \`\`\`bash
-            curl --request GET --url '${ generalApiUrl }/api/v2/block/{block_number}/beacon/deposits'
+            curl --request GET --url '${ generalApiUrl }${ GENERAL_API_BLOCK_RESOURCES.block_deposits.path.replace(':height_or_hash', '{block_hash_or_number_param}') }'
             \`\`\`
 
             ### Withdrawals by Address
@@ -566,7 +567,7 @@ function run() {
         `;
 
         const content = MAIN_TEMPLATE.replace('{blank}\n', '');
-        writeFileSync(outputFile, content);
+        writeFileSync(destination, content);
 
         console.log('👍 Done!\n');
     } catch (error) {
@@ -576,4 +577,6 @@ function run() {
     }
 }
 
-run();
+if (process.argv[1] && resolvePath(process.argv[1]) === currentFilePath) {
+    run();
+}

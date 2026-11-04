@@ -18,7 +18,6 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
 
   alias EthereumJSONRPC.Block.ByNumber, as: BlockByNumber
 
-  alias Explorer.Chain
   alias Explorer.Chain.Arbitrum
   alias Explorer.Chain.Events.Publisher
 
@@ -29,7 +28,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
   alias Indexer.Fetcher.Arbitrum.Utils.Db.Settlement, as: DbSettlement
   alias Indexer.Fetcher.Arbitrum.Utils.Helper, as: ArbitrumHelper
   alias Indexer.Fetcher.Arbitrum.Utils.Rpc
-  alias Indexer.Fetcher.Arbitrum.Workers.Batches.DiscoveryUtils
+  alias Indexer.Fetcher.Arbitrum.Workers.Batches.{DiscoveryUtils, Recovery}
   alias Indexer.Fetcher.Arbitrum.Workers.Batches.Events, as: EventsUtils
   alias Indexer.Fetcher.Arbitrum.Workers.Batches.RollupEntities, as: RollupEntities
   alias Indexer.Prometheus.Instrumenter
@@ -100,10 +99,10 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
     logs =
       if new_batches_discovery? do
         # called by `Indexer.Fetcher.Arbitrum.Workers.Batches.Tasks.discover_new`
-        raw_logs
+        Enum.reject(raw_logs, &(&1["removed"] == true))
       else
         # called by `Indexer.Fetcher.Arbitrum.Workers.Batches.Tasks.discover_historical`
-        Enum.reverse(raw_logs)
+        raw_logs |> Enum.reject(&(&1["removed"] == true)) |> Enum.reverse()
       end
 
     # Discovered logs are divided into chunks to ensure progress
@@ -111,31 +110,24 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
     logs
     |> Enum.chunk_every(new_batches_limit)
     |> Enum.each(fn chunked_logs ->
-      {batches, lifecycle_transactions, rollup_blocks, rollup_transactions, committed_transactions, da_records,
-       batch_to_data_blobs} =
-        handle_batches_from_logs(
-          chunked_logs,
-          messages_to_blocks_shift,
-          l1_rpc_config,
-          sequencer_inbox_address,
-          node_interface_address,
-          rollup_rpc_config
-        )
+      existing_numbers = chunked_logs |> Rpc.extract_batch_numbers_from_logs() |> DbSettlement.batches_exist()
 
-      {:ok, _} =
-        Chain.import(%{
-          arbitrum_lifecycle_transactions: %{params: lifecycle_transactions},
-          arbitrum_l1_batches: %{params: batches},
-          arbitrum_batch_blocks: %{params: rollup_blocks},
-          arbitrum_batch_transactions: %{params: rollup_transactions},
-          arbitrum_messages: %{params: committed_transactions},
-          arbitrum_da_multi_purpose_records: %{params: da_records},
-          arbitrum_batches_to_da_blobs: %{params: batch_to_data_blobs},
-          timeout: :infinity
-        })
+      {batches, lifecycle_transactions, _, _, _, _, _} =
+        Recovery.reconcile(fn ->
+          handle_batches_from_logs(
+            chunked_logs,
+            messages_to_blocks_shift,
+            l1_rpc_config,
+            sequencer_inbox_address,
+            node_interface_address,
+            rollup_rpc_config
+          )
+        end)
 
-      if not Enum.empty?(batches) and new_batches_discovery? do
-        extended_batches = extend_batches_with_commitment_transactions(batches, lifecycle_transactions)
+      new_batches = Enum.reject(batches, &(&1.number in existing_numbers))
+
+      if not Enum.empty?(new_batches) and new_batches_discovery? do
+        extended_batches = extend_batches_with_commitment_transactions(new_batches, lifecycle_transactions)
 
         last_batch =
           extended_batches
@@ -151,6 +143,36 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
           :realtime
         )
       end
+    end)
+
+    Recovery.remove_orphaned_batches(
+      min(start_block, end_block),
+      max(start_block, end_block),
+      Rpc.extract_batch_numbers_from_logs(logs)
+    )
+  end
+
+  def retry_unresolved(
+        sequencer_inbox_address,
+        new_batches_limit,
+        messages_to_blocks_shift,
+        l1_rpc_config,
+        node_interface_address,
+        rollup_rpc_config
+      ) do
+    new_batches_limit
+    |> Recovery.unresolved_l1_blocks()
+    |> Enum.each(fn block ->
+      perform(
+        sequencer_inbox_address,
+        block,
+        block,
+        new_batches_limit,
+        messages_to_blocks_shift,
+        l1_rpc_config,
+        node_interface_address,
+        rollup_rpc_config
+      )
     end)
   end
 
@@ -279,7 +301,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
               value -> value
             end
           )
-          |> Map.drop([:transaction_hash])
+          |> Map.drop([:transaction_hash, :l1_block_number, :da_outcome])
           | updated_batches_list
         ]
       end)
@@ -289,6 +311,8 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
         sequencer_inbox_address: sequencer_inbox_address,
         json_rpc_named_arguments: l1_rpc_config.json_rpc_named_arguments
       })
+
+    da_records = Enum.map(Map.values(batches_to_import), &Recovery.da_outcome_record/1) ++ da_records
 
     # It is safe to not re-mark messages as committed for the batches that are already in the database
     committed_messages =
@@ -423,31 +447,24 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
        ) do
     transaction_hash = Rpc.string_hash_to_bytes_hash(transaction_hash_raw)
 
-    {updated_batches, updated_transactions_requests, updated_existing_commitment_transactions} =
-      if batch_num in existing_batches do
-        {batches, transactions_requests, Map.put(existing_commitment_transactions, transaction_hash, blk_num)}
-      else
-        log_info("New batch #{batch_num} found in #{transaction_hash_raw}")
+    if batch_num in existing_batches do
+      log_info("Reconciling batch #{batch_num} against #{transaction_hash_raw}")
+    else
+      log_info("New batch #{batch_num} found in #{transaction_hash_raw}")
+    end
 
-        updated_batches =
-          Map.put(
-            batches,
-            batch_num,
-            %{
-              number: batch_num,
-              before_acc: before_acc,
-              after_acc: after_acc,
-              transaction_hash: transaction_hash
-            }
-          )
+    updated_batches =
+      Map.put(batches, batch_num, %{
+        number: batch_num,
+        before_acc: before_acc,
+        after_acc: after_acc,
+        transaction_hash: transaction_hash,
+        l1_block_number: blk_num
+      })
 
-        updated_transactions_requests = [
-          Rpc.transaction_by_hash_request(%{id: 0, hash: transaction_hash_raw})
-          | transactions_requests
-        ]
-
-        {updated_batches, updated_transactions_requests, existing_commitment_transactions}
-      end
+    updated_transactions_requests = [
+      Rpc.transaction_by_hash_request(%{id: 0, hash: transaction_hash_raw}) | transactions_requests
+    ]
 
     # In order to have an ability to update commitment transaction for the existing batches
     # in case of reorgs, we need to re-execute the block requests
@@ -458,7 +475,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
         BlockByNumber.request(%{id: 0, number: blk_num}, false, true)
       )
 
-    {updated_batches, updated_transactions_requests, updated_blocks_requests, updated_existing_commitment_transactions}
+    {updated_batches, updated_transactions_requests, updated_blocks_requests, existing_commitment_transactions}
   end
 
   # Executes transaction requests and parses the calldata to extract batch data.
@@ -564,10 +581,19 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
             rollup_config
           )
 
-        {da_type, da_data} =
+        unless batches[batch_num].transaction_hash == transaction_hash and
+                 batches[batch_num].l1_block_number == block_number do
+          raise "Batch transaction does not match the canonical SequencerBatchDelivered event"
+        end
+
+        {da_type, da_data, da_outcome} =
           case DataAvailabilityInfo.examine_batch_accompanying_data(batch_num, extra_data) do
-            {:ok, t, d} -> {t, d}
-            {:error, _, _} -> {nil, nil}
+            {:ok, t, d} ->
+              outcome = if DataAvailabilityInfo.required_import?(t), do: "parsed", else: "not_required"
+              {t, d, %{status: outcome, retry: false}}
+
+            {:error, _, _} ->
+              {nil, nil, %{status: "failed", retry: true, error: "unavailable_or_unsupported_da"}}
           end
 
         updated_batches_map =
@@ -577,7 +603,8 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Discovery do
             Map.merge(batches_map[batch_num], %{
               start_block: batch_start_block,
               end_block: batch_end_block,
-              batch_container: da_type
+              batch_container: da_type,
+              da_outcome: da_outcome
             })
           )
 

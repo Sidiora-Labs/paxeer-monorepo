@@ -30,7 +30,6 @@ defmodule Indexer.Fetcher.Shibarium.L1 do
   alias Indexer.Helper
   alias Indexer.Transform.Addresses
 
-  @block_check_interval_range_size 100
   @eth_get_logs_range_size 1000
   @fetcher_name :shibarium_bridge_l1
   @empty_hash "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -343,21 +342,10 @@ defmodule Indexer.Fetcher.Shibarium.L1 do
     end)
   end
 
-  defp get_block_check_interval(json_rpc_named_arguments) do
-    with {:ok, latest_block} <- Helper.get_block_number_by_tag("latest", json_rpc_named_arguments),
-         first_block = max(latest_block - @block_check_interval_range_size, 1),
-         {:ok, first_block_timestamp} <-
-           Helper.get_block_timestamp_by_number_or_tag(first_block, json_rpc_named_arguments),
-         {:ok, last_safe_block_timestamp} <-
-           Helper.get_block_timestamp_by_number_or_tag(latest_block, json_rpc_named_arguments) do
-      block_check_interval =
-        ceil((last_safe_block_timestamp - first_block_timestamp) / (latest_block - first_block) * 1000 / 2)
-
-      Logger.info("Block check interval is calculated as #{block_check_interval} ms.")
-      {:ok, block_check_interval, latest_block}
-    else
-      {:error, error} ->
-        {:error, "Failed to calculate block check interval due to #{inspect(error)}"}
+  @doc false
+  def get_block_check_interval(json_rpc_named_arguments) do
+    with {:ok, latest_block} <- Helper.get_block_number_by_tag("latest", json_rpc_named_arguments) do
+      Indexer.Fetcher.Shibarium.Helper.get_block_check_interval(latest_block, json_rpc_named_arguments)
     end
   end
 
@@ -644,31 +632,42 @@ defmodule Indexer.Fetcher.Shibarium.L1 do
     "0x#{truncated_hash}"
   end
 
-  defp reorg_handle(reorg_block) do
-    {deleted_count, _} =
-      Repo.delete_all(from(sb in Bridge, where: sb.l1_block_number >= ^reorg_block and is_nil(sb.l2_transaction_hash)))
+  @doc false
+  def reorg_handle(reorg_block) do
+    {:ok, {deleted_count, updated_count}} =
+      Repo.transaction(fn ->
+        {deleted_count, _} =
+          Repo.delete_all(
+            from(sb in Bridge,
+              where: sb.l1_block_number >= ^reorg_block and sb.l2_transaction_hash == ^@empty_hash
+            )
+          )
 
-    {updated_count1, _} =
-      Repo.update_all(
-        from(sb in Bridge,
-          where:
-            sb.l1_block_number >= ^reorg_block and not is_nil(sb.l2_transaction_hash) and
-              sb.operation_type == :deposit
-        ),
-        set: [timestamp: nil]
-      )
+        Repo.update_all(
+          from(sb in Bridge,
+            where:
+              sb.l1_block_number >= ^reorg_block and sb.l2_transaction_hash != ^@empty_hash and
+                sb.operation_type == :deposit
+          ),
+          set: [timestamp: nil]
+        )
 
-    {updated_count2, _} =
-      Repo.update_all(
-        from(sb in Bridge, where: sb.l1_block_number >= ^reorg_block and not is_nil(sb.l2_transaction_hash)),
-        set: [l1_transaction_hash: nil, l1_block_number: nil]
-      )
+        {updated_count, _} =
+          Repo.update_all(
+            from(sb in Bridge,
+              where: sb.l1_block_number >= ^reorg_block and sb.l2_transaction_hash != ^@empty_hash
+            ),
+            set: [l1_transaction_hash: @empty_hash, l1_block_number: nil]
+          )
 
-    updated_count = max(updated_count1, updated_count2)
+        if deleted_count > 0 or updated_count > 0 do
+          recalculate_cached_count()
+        end
+
+        {deleted_count, updated_count}
+      end)
 
     if deleted_count > 0 or updated_count > 0 do
-      recalculate_cached_count()
-
       Logger.warning(
         "As L1 reorg was detected, some rows with l1_block_number >= #{reorg_block} were affected (removed or updated) in the shibarium_bridge table. Number of removed rows: #{deleted_count}. Number of updated rows: >= #{updated_count}."
       )

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	pricefeedkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
@@ -12,7 +13,9 @@ import (
 	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gogo/protobuf/proto"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
@@ -121,11 +124,18 @@ func argStrings(event types.EventRecord) []string {
 func requireRefused(t *testing.T, err error, want error, code uint32) {
 	t.Helper()
 	require.ErrorIs(t, err, want)
-	require.Equal(t, code, sdkErrorCode(want))
-}
-
-func sdkErrorCode(err error) uint32 {
-	return err.(interface{ ABCICode() uint32 }).ABCICode()
+	response := sdkerrors.ResponseDeliverTx(err, 70, 50, false)
+	wire, marshalErr := proto.Marshal(&response)
+	require.NoError(t, marshalErr)
+	var received abci.ResponseDeliverTx
+	require.NoError(t, proto.Unmarshal(wire, &received))
+	require.Equal(t, types.ModuleName, received.Codespace)
+	require.Equal(t, code, received.Code)
+	require.Equal(t, response, received)
+	require.Contains(t, received.Log, want.Error())
+	require.ErrorIs(t, sdkerrors.ABCIError(received.Codespace, received.Code, received.Log), want)
+	require.NotErrorIs(t, sdkerrors.ABCIError("other", received.Code, received.Log), want)
+	require.NotErrorIs(t, sdkerrors.ABCIError(received.Codespace, 999999, received.Log), want)
 }
 
 func TestOrdersValidationOrder(t *testing.T) {

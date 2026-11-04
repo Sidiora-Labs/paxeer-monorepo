@@ -24,10 +24,11 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
 
   ### Production (Release)
 
-  Use `rpc` to execute on the running node — this is required so that
-  `Application.put_env` changes (disable account, switch to Keycloak)
-  take effect on the live system. Do NOT use `eval`, as it spawns a
-  separate BEAM process whose config changes are discarded on exit.
+  Configure `:checkpoint_path` for this module on persistent storage before
+  applying. The encrypted checkpoint records source/target mappings and the
+  provider transition; authentication reads it after restart. Use `resume/0`
+  to continue an interrupted cutover. Run via `rpc` on the serving node so the
+  runtime account flag also reflects the durable access state.
 
       bin/blockscout rpc "Explorer.Account.Auth0ToKeycloakMigration.run(dry_run: true)"
       bin/blockscout rpc "Explorer.Account.Auth0ToKeycloakMigration.run(batch_size: 200)"
@@ -50,7 +51,18 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
   import Ecto.Query
 
   alias Explorer.{Account, HttpClient, Repo}
-  alias Explorer.Account.{Api.Key, CustomABI, Identity, TagAddress, TagTransaction, Watchlist, WatchlistAddress}
+
+  alias Explorer.Account.{
+    Api.Key,
+    CustomABI,
+    Identity,
+    MigrationCheckpoint,
+    TagAddress,
+    TagTransaction,
+    Watchlist,
+    WatchlistAddress
+  }
+
   alias Explorer.ThirdPartyIntegrations.{Auth0, Keycloak}
   alias Explorer.ThirdPartyIntegrations.Auth0.Internal, as: Auth0Internal
   alias OAuth2.Client
@@ -72,13 +84,28 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
 
   @spec run(keyword()) :: [{:ok, String.t(), String.t()} | {:error, String.t(), any()}]
   def run(opts \\ []) do
-    with :ok <- check_auth0_configured(),
-         :ok <- check_keycloak_configured() do
-      do_run(opts)
-    else
-      {:error, message} ->
-        Logger.error(message)
-        []
+    result =
+      case {Keyword.get(opts, :dry_run, false), MigrationCheckpoint.load()} do
+        {false, {:ok, state}} when not is_nil(state) ->
+          resume()
+
+        {false, {:error, reason}} ->
+          {:error, reason}
+
+        _ ->
+          with :ok <- check_auth0_configured(),
+               :ok <- check_keycloak_configured() do
+            do_run(opts)
+          else
+            {:error, message} ->
+              Logger.error(message)
+              []
+          end
+      end
+
+    case result do
+      {:error, reason} -> [{:error, "cutover", reason}]
+      results -> results
     end
   end
 
@@ -98,31 +125,168 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
   end
 
   defp do_run(opts, source \\ &export_auth0_users/0) do
-    dry_run = Keyword.get(opts, :dry_run, false)
-    batch_size = Keyword.get(opts, :batch_size, @default_batch_size)
-
-    account_config = Application.get_env(:explorer, Account, [])
-    unless dry_run, do: disable_account()
-
-    case run_phases(dry_run, batch_size, source) do
-      {:ok, results, migrated_ids} ->
-        unless dry_run, do: finalize(results, migrated_ids)
+    if Keyword.get(opts, :dry_run, false) do
+      with {:ok, users} <- source.(),
+           {:ok, plan} <- plan(users),
+           {:ok, results, _} <- preview_plan(plan) do
         results
+      else
+        {:error, reason} ->
+          Logger.error("Migration preview failed: #{inspect(reason)}")
+          []
+      end
+    else
+      :global.trans({{__MODULE__, :cutover}, self()}, fn ->
+        with {:ok, state} <- MigrationCheckpoint.load() do
+          if state do
+            continue_cutover(state)
+          else
+            start_cutover(source, Keyword.get(opts, :batch_size, @default_batch_size))
+          end
+        else
+          {:error, reason} -> {:error, reason}
+        end
+      end)
+    end
+  end
 
+  @doc "Resumes the saved cutover without exporting or importing already applied identities again."
+  def resume do
+    :global.trans({{__MODULE__, :cutover}, self()}, fn ->
+      case MigrationCheckpoint.load() do
+        {:ok, nil} -> {:error, :checkpoint_missing}
+        {:ok, state} -> continue_cutover(state)
+        {:error, reason} -> {:error, reason}
+      end
+    end)
+  end
+
+  defp start_cutover(source, batch_size) do
+    with {:ok, users} <- source.(),
+         {:ok, plan} <- plan(users),
+         :ok <- check_keycloak_configured() do
+      protected_ids =
+        plan.items
+        |> MapSet.new(& &1.identity_id)
+        |> MapSet.union(MapSet.new(plan.skipped_with_data))
+
+      state = %{
+        version: 1,
+        phase: :importing,
+        provider: :auth0,
+        account_access: :disabled,
+        plan: plan,
+        batch_size: batch_size,
+        protected_ids: protected_ids,
+        keycloak_map: %{},
+        source_uids: source_uids(plan),
+        identity_mapping: %{},
+        results: [],
+        completed_merges: [],
+        error: nil,
+        revocation: %{pattern: session_pattern(), cursor: "0", pending: nil, count: 0}
+      }
+
+      with :ok <- MigrationCheckpoint.save(state), do: continue_cutover(state)
+    else
       {:error, reason} ->
-        Logger.error("Migration failed: #{inspect(reason)}")
-        unless dry_run, do: Application.put_env(:explorer, Account, account_config)
+        Logger.error("Migration planning failed: #{inspect(reason)}")
         []
     end
   end
 
-  defp run_phases(dry_run, batch_size, source) do
-    Logger.info("Phase 1: Exporting Auth0 users...")
-
-    with {:ok, auth0_users} <- source.(),
-         {:ok, plan} <- plan(auth0_users) do
-      execute_or_dry_run(plan, dry_run, batch_size)
+  defp continue_cutover(%{phase: :complete} = state) do
+    with :keycloak <- MigrationCheckpoint.access(),
+         :ok <- check_keycloak_configured() do
+      disable_auth0()
+      enable_account()
+      state.results
+    else
+      error -> {:error, {:provider_transition, error}}
     end
+  end
+
+  defp continue_cutover(state) do
+    disable_account()
+
+    case advance_cutover(state) do
+      {:ok, next} ->
+        continue_cutover(next)
+
+      {:error, reason} ->
+        with {:ok, saved} when not is_nil(saved) <- MigrationCheckpoint.load(),
+             :ok <- MigrationCheckpoint.save(%{saved | error: reason}) do
+          {:error, reason}
+        else
+          error -> {:error, {reason, error}}
+        end
+    end
+  end
+
+  defp advance_cutover(%{phase: :importing} = state) do
+    with :ok <- check_keycloak_configured() do
+      keycloak_map = batch_import_to_keycloak(state.plan.items, state.batch_size)
+      mapping = identity_mapping(state, keycloak_map)
+      save_next(%{state | phase: :applying, keycloak_map: keycloak_map, identity_mapping: mapping, error: nil})
+    end
+  end
+
+  defp advance_cutover(%{phase: :applying} = state) do
+    # A process can stop between the account commit and checkpoint sync. The
+    # saved source-to-target mapping distinguishes that commit from a rollback.
+    result =
+      if applied?(state) do
+        {:ok, Enum.map(state.plan.items, &{:ok, &1.auth0_id, Map.fetch!(state.keycloak_map, &1.identity_id)})}
+      else
+        apply_plan(state.plan, state.keycloak_map)
+      end
+
+    with {:ok, results} <- result do
+      save_next(%{state | phase: :revoking, results: results, completed_merges: state.plan.merges, error: nil})
+    end
+  end
+
+  defp advance_cutover(%{phase: :revoking} = state) do
+    delete_non_migrated_identities(state.protected_ids)
+
+    # Restart from zero on recovery: Redis cursors are not durable snapshots.
+    # A saved unacknowledged DEL is retried before starting the fresh scan.
+    with {:ok, revocation} <- delete_pending(state.revocation),
+         :ok <- MigrationCheckpoint.save(%{state | revocation: %{revocation | cursor: "0"}}) do
+      scan_and_delete(%{state | revocation: %{revocation | cursor: "0"}})
+    end
+  end
+
+  defp source_uids(plan) do
+    ids = Enum.map(plan.items, & &1.identity_id) ++ List.flatten(plan.merges)
+    Repo.account_repo().all(from(i in Identity, where: i.id in ^ids, select: {i.id, i.uid})) |> Map.new()
+  end
+
+  defp identity_mapping(state, keycloak_map) do
+    primary_ids =
+      Enum.reduce(state.plan.merges, %{}, fn [primary | _] = group, acc ->
+        Enum.reduce(group, acc, &Map.put(&2, &1, primary))
+      end)
+
+    Map.new(state.source_uids, fn {id, uid} ->
+      primary = Map.get(primary_ids, id, id)
+      {id, %{auth0_id: uid, keycloak_id: Map.get(keycloak_map, primary), primary_id: primary}}
+    end)
+  end
+
+  defp applied?(state) do
+    Enum.all?(state.plan.items, fn item ->
+      target = Map.get(state.keycloak_map, item.identity_id)
+      identity = Repo.account_repo().get(Identity, item.identity_id)
+      is_binary(target) and not is_nil(identity) and identity.uid == target
+    end) and
+      Enum.all?(state.plan.merges, fn [_primary | secondary] ->
+        Enum.all?(secondary, &is_nil(Repo.account_repo().get(Identity, &1)))
+      end)
+  end
+
+  defp save_next(state) do
+    with :ok <- MigrationCheckpoint.save(state), do: {:ok, state}
   end
 
   @doc "Builds a read-only plan. Unverified email collisions require operator resolution."
@@ -136,46 +300,27 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
     end
   end
 
-  defp execute_or_dry_run(plan, dry_run, batch_size) do
-    items = plan.items
-    Logger.info("Found #{Enum.count(items)} identities to migrate#{if dry_run, do: " (DRY RUN)"}")
-
+  defp preview_plan(plan) do
     protected_ids =
-      items
+      plan.items
       |> MapSet.new(& &1.identity_id)
       |> MapSet.union(MapSet.new(plan.skipped_with_data))
+      |> MapSet.union(MapSet.new(List.flatten(plan.merges)))
 
-    if dry_run do
-      log_dry_run(items)
-      Enum.each(plan.merges, &Logger.info("[DRY RUN] Would merge identities #{inspect(&1)}"))
-      all_source_ids = MapSet.union(protected_ids, MapSet.new(List.flatten(plan.merges)))
-      log_dry_run_deletion_count(all_source_ids)
-      {:ok, [], all_source_ids}
-    else
-      Logger.info("Phase 3: Importing users to Keycloak...")
-
-      with :ok <- check_keycloak_configured(),
-           keycloak_map = batch_import_to_keycloak(items, batch_size),
-           {:ok, results} <- apply_plan(plan, keycloak_map) do
-        summarize(results)
-        {:ok, results, protected_ids}
-      end
-    end
+    log_dry_run(plan.items)
+    Enum.each(plan.merges, &Logger.info("[DRY RUN] Would merge identities #{inspect(&1)}"))
+    log_dry_run_deletion_count(protected_ids)
+    {:ok, [], protected_ids}
   end
 
   @doc "Atomically applies approved merges and imported UIDs; any failure rolls back all account writes."
   def apply_plan(plan, keycloak_map) do
     Repo.account_repo().transaction(fn ->
       Enum.each(plan.merges, fn ids ->
-        identities =
-          Enum.map(ids, fn id ->
-            Repo.account_repo().one!(from(i in Identity, where: i.id == ^id, lock: "FOR UPDATE"))
-          end)
-
-        case Account.merge(identities) do
-          {{:ok, _}, _} -> :ok
-          {{:error, operation, reason, _}, _} -> Repo.account_repo().rollback({:merge_failed, ids, operation, reason})
-          {{:error, reason}, _} -> Repo.account_repo().rollback({:merge_failed, ids, reason})
+        case merge_group(ids) do
+          {:ok, _} -> :ok
+          {:error, operation, reason, _} -> Repo.account_repo().rollback({:merge_failed, ids, operation, reason})
+          {:error, reason} -> Repo.account_repo().rollback({:merge_failed, ids, reason})
         end
       end)
 
@@ -187,6 +332,26 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
 
       results
     end)
+  end
+
+  defp merge_group(ids) do
+    ids
+    |> Enum.reduce(Ecto.Multi.new(), fn id, multi ->
+      Ecto.Multi.run(multi, {:acquire_identity, id}, fn repo, _ ->
+        case repo.one(from(i in Identity, where: i.id == ^id, lock: "FOR UPDATE")) do
+          nil -> {:error, :not_found}
+          identity -> {:ok, identity}
+        end
+      end)
+    end)
+    |> Ecto.Multi.run(:merge, fn _repo, locked ->
+      case Account.merge(Enum.map(ids, &Map.fetch!(locked, {:acquire_identity, &1}))) do
+        {{:ok, changes}, _} -> {:ok, changes}
+        {{:error, operation, reason, _}, _} -> {:error, {operation, reason}}
+        {{:error, reason}, _} -> {:error, reason}
+      end
+    end)
+    |> Repo.account_repo().transaction()
   end
 
   defp export_auth0_users do
@@ -810,58 +975,54 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
     Application.put_env(:ueberauth, OAuth, Keyword.put(config, :domain, nil))
   end
 
-  defp finalize(results, protected_ids) do
-    failed = Enum.count(results, &match?({:error, _, _}, &1))
-
-    if failed == 0 do
-      Logger.info("Phase 5: Deleting non-migrated identities...")
-      delete_non_migrated_identities(protected_ids)
-
-      disable_auth0()
-      invalidate_all_sessions()
-      enable_account()
-      Logger.info("Migration successful. Auth0 disabled, Keycloak is now the active auth provider.")
-    else
-      Logger.warning(
-        "Migration had #{failed} failures. Account access remains DISABLED. " <>
-          "Review errors and re-run, or manually enable account access."
-      )
+  defp session_pattern do
+    case chain_id() do
+      nil -> "*"
+      id -> "#{id}_*"
     end
   end
 
-  # Invalidates all user sessions by removing their Redis validation keys.
-  # Session cookies are signed but validated against Redis on each request.
-  # Without the Redis key, the cookie is rejected and the user must re-authenticate.
-  defp invalidate_all_sessions do
-    Logger.info("Invalidating all user sessions...")
-    chain_id = chain_id()
-    pattern = if chain_id, do: "#{chain_id}_*", else: "*"
-    count = scan_and_delete(pattern)
-    Logger.info("Invalidated #{count} session keys from Redis")
+  defp redis_command(command) do
+    connection = Application.get_env(:explorer, __MODULE__, [])[:redis] || :redix
+    Redix.command(connection, command)
   end
 
-  defp scan_and_delete(pattern, cursor \\ "0", count \\ 0) do
-    case Redix.command(:redix, ["SCAN", cursor, "MATCH", pattern, "COUNT", 1000]) do
-      {:ok, [next_cursor, keys]} ->
-        unless keys == [], do: Redix.command(:redix, ["DEL" | keys])
-        new_count = count + length(keys)
+  defp delete_pending(%{pending: nil} = revocation), do: {:ok, revocation}
 
-        if next_cursor == "0" do
-          new_count
-        else
-          scan_and_delete(pattern, next_cursor, new_count)
+  defp delete_pending(%{pending: %{keys: keys, next_cursor: next_cursor}} = revocation) do
+    case redis_command(["DEL" | keys]) do
+      {:ok, deleted} when is_integer(deleted) and deleted >= 0 ->
+        {:ok, %{revocation | pending: nil, cursor: next_cursor, count: revocation.count + deleted}}
+
+      error ->
+        {:error, {:session_delete, error}}
+    end
+  end
+
+  defp scan_and_delete(state) do
+    revocation = state.revocation
+
+    case redis_command(["SCAN", revocation.cursor, "MATCH", revocation.pattern, "COUNT", 1000]) do
+      {:ok, [next_cursor, keys]} when is_binary(next_cursor) and is_list(keys) ->
+        pending = if keys == [], do: nil, else: %{keys: keys, next_cursor: next_cursor}
+        scanned = %{state | revocation: %{revocation | pending: pending}}
+
+        with :ok <- MigrationCheckpoint.save(scanned),
+             {:ok, acknowledged} <- delete_pending(scanned.revocation),
+             next = %{scanned | revocation: %{acknowledged | cursor: next_cursor}},
+             :ok <- MigrationCheckpoint.save(next) do
+          if next_cursor == "0" do
+            with :ok <- check_keycloak_configured() do
+              save_next(%{next | phase: :complete, provider: :keycloak, account_access: :enabled, error: nil})
+            end
+          else
+            scan_and_delete(next)
+          end
         end
 
       error ->
-        Logger.error("Redis SCAN failed: #{inspect(error)}")
-        count
+        {:error, {:session_scan, error}}
     end
-  end
-
-  defp summarize(results) do
-    succeeded = Enum.count(results, &match?({:ok, _, _}, &1))
-    failed = Enum.count(results, &match?({:error, _, _}, &1))
-    Logger.info("Migration complete: #{succeeded} succeeded, #{failed} failed, #{succeeded + failed} total")
   end
 
   defp log_dry_run_deletion_count(protected_ids) do

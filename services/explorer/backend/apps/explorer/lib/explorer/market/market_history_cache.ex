@@ -16,13 +16,15 @@ defmodule Explorer.Market.MarketHistoryCache do
   @recent_days 30
 
   def fetch(secondary_coin? \\ false) do
-    @last_update_key
-    |> cache_expired?()
-    |> if do
-      update_cache()
-    else
-      fetch_from_cache(@history_key)
-    end
+    ConCache.isolated(@cache_name, @history_key, fn ->
+      @last_update_key
+      |> cache_expired?()
+      |> if do
+        update_cache()
+      else
+        fetch_from_cache(@history_key)
+      end
+    end)
     |> Enum.filter(&(&1.secondary_coin == secondary_coin?))
   end
 
@@ -48,8 +50,8 @@ defmodule Explorer.Market.MarketHistoryCache do
   defp update_cache do
     new_data = fetch_from_db()
 
-    put_into_cache(@last_update_key, Helper.current_time())
     put_into_cache(@history_key, new_data)
+    put_into_cache(@last_update_key, Helper.current_time())
 
     new_data
   end

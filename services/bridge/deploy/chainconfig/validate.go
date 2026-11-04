@@ -267,11 +267,6 @@ func (c *ChainConfig) validateAssets(chain Chain) error {
 			return c.refuse(field+".symbol", "%s appears twice in the asset list", asset.Symbol)
 		}
 		symbols[asset.Symbol] = struct{}{}
-		address := strings.ToLower(asset.Address)
-		if _, duplicate := addresses[address]; duplicate {
-			return c.refuse(field+".address", "%s appears twice in the asset list", asset.Address)
-		}
-		addresses[address] = struct{}{}
 		if asset.Decimals == 0 || asset.Decimals > 18 {
 			return c.refuse(field+".decimals", "%d is not between 1 and 18", asset.Decimals)
 		}
@@ -288,6 +283,21 @@ func (c *ChainConfig) validateAssets(chain Chain) error {
 				return err
 			}
 		}
+		var raw []byte
+		var err error
+		if chain.Kind == KindSolana {
+			raw, err = DecodeBase58(asset.Address)
+		} else {
+			raw, err = hex.DecodeString(strings.TrimPrefix(asset.Address, "0x"))
+		}
+		if err != nil {
+			return c.refuse(field+".address", "%v", err)
+		}
+		address := string(raw)
+		if _, duplicate := addresses[address]; duplicate {
+			return c.refuse(field+".address", "%s appears twice in the asset list", asset.Address)
+		}
+		addresses[address] = struct{}{}
 	}
 	return nil
 }

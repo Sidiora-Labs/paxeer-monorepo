@@ -5,11 +5,11 @@ defmodule Explorer.Chain.Cache.Counters.AddressTabsElementsCount do
 
   use GenServer
 
-  import Explorer.Chain.Cache.Counters.Helper, only: [fetch_from_ets_cache: 3]
-
   alias Explorer.Chain.Address.Counters
+  alias Explorer.Chain.Cache.Counters.BoundedCache
 
   @cache_name :addresses_tabs_counters
+  @tasks_name :addresses_tabs_counter_tasks
 
   @typep counter_type ::
            :validations
@@ -24,29 +24,35 @@ defmodule Explorer.Chain.Cache.Counters.AddressTabsElementsCount do
 
   @spec get_counter(counter_type, String.t()) :: {DateTime.t(), non_neg_integer(), response_status} | nil
   def get_counter(counter_type, address_hash) do
-    @cache_name |> fetch_from_ets_cache(address_hash |> cache_key(counter_type), nil) |> check_staleness()
+    case :ets.lookup(@cache_name, cache_key(address_hash, counter_type)) do
+      [{_, value, _inserted}] -> check_staleness(value)
+      [] -> nil
+    end
   end
 
   @spec set_counter(counter_type, String.t(), non_neg_integer()) :: :ok
   def set_counter(counter_type, address_hash, counter) do
-    :ets.insert(@cache_name, {cache_key(address_hash, counter_type), {DateTime.utc_now(), counter}})
+    BoundedCache.put(@cache_name, __MODULE__, cache_key(address_hash, counter_type), {DateTime.utc_now(), counter})
 
     :ok
   end
 
   @spec set_task(atom, String.t()) :: true
   def set_task(counter_type, address_hash) do
-    :ets.insert(@cache_name, {task_cache_key(address_hash, counter_type), true})
+    GenServer.call(__MODULE__, {:set_task, task_cache_key(address_hash, counter_type)})
   end
 
   @spec drop_task(atom, String.t()) :: true
   def drop_task(counter_type, address_hash) do
-    :ets.delete(@cache_name, task_cache_key(address_hash, counter_type))
+    GenServer.call(__MODULE__, {:drop_task, task_cache_key(address_hash, counter_type)})
   end
 
   @spec get_task(atom, String.t()) :: true | nil
   def get_task(counter_type, address_hash) do
-    @cache_name |> fetch_from_ets_cache(address_hash |> task_cache_key(counter_type), nil)
+    case :ets.lookup(@tasks_name, task_cache_key(address_hash, counter_type)) do
+      [{_, true}] -> true
+      [] -> nil
+    end
   end
 
   def save_transactions_counter_progress(address_hash, results) do
@@ -59,7 +65,9 @@ defmodule Explorer.Chain.Cache.Counters.AddressTabsElementsCount do
 
   @impl true
   def init(_opts) do
-    :ets.new(@cache_name, [
+    BoundedCache.create(@cache_name, __MODULE__)
+
+    :ets.new(@tasks_name, [
       :set,
       :named_table,
       :public,
@@ -71,45 +79,63 @@ defmodule Explorer.Chain.Cache.Counters.AddressTabsElementsCount do
   end
 
   @impl true
+  def handle_call({:set_task, key}, _from, state) do
+    {:reply, :ets.insert(@tasks_name, {key, true}), state}
+  end
+
+  @impl true
+  def handle_call({:drop_task, key}, _from, state) do
+    {:reply, :ets.delete(@tasks_name, key), state}
+  end
+
+  @impl true
   def handle_cast({:set_transactions_state, address_hash, %{transactions_types: transactions_types} = results}, state) do
     address_hash = lowercased_string(address_hash)
 
-    if ignored?(state[address_hash]) do
-      {:noreply, state}
-    else
-      address_state =
-        transactions_types
-        |> Enum.reduce(state[address_hash] || %{}, fn transaction_type, acc ->
-          Map.put(acc, transaction_type, results[transaction_type])
-        end)
-        |> (&Map.put(&1, :transactions_types, (transactions_types ++ (&1[:transactions_types] || [])) |> Enum.uniq())).()
+    previous = state[address_hash] || %{}
+    types = Enum.uniq(transactions_types ++ (previous[:transactions_types] || []))
 
-      counter =
+    address_state =
+      Enum.reduce(transactions_types, previous, fn type, acc -> Map.put(acc, type, results[type]) end)
+      |> Map.put(:transactions_types, types)
+
+    counter =
+      if previous[:limit_reached] do
+        Counters.counters_limit()
+      else
         Counters.transactions_types()
-        |> Enum.reduce([], fn type, acc ->
-          (address_state[type] || []) ++ acc
-        end)
+        |> Enum.flat_map(fn type -> address_state[type] || [] end)
         |> Enum.uniq()
         |> Enum.count()
         |> min(Counters.counters_limit())
-
-      cond do
-        Enum.count(address_state[:transactions_types]) == 3 ->
-          set_counter(:transactions, address_hash, counter)
-          {:noreply, Map.put(state, address_hash, nil)}
-
-        counter == Counters.counters_limit() ->
-          set_counter(:transactions, address_hash, counter)
-          {:noreply, Map.put(state, address_hash, :limit_value)}
-
-        true ->
-          {:noreply, Map.put(state, address_hash, address_state)}
       end
+
+    cond do
+      Enum.count(types) == 3 ->
+        set_counter(:transactions, address_hash, counter)
+        {:noreply, Map.delete(state, address_hash)}
+
+      counter == Counters.counters_limit() ->
+        set_counter(:transactions, address_hash, counter)
+        {:noreply, Map.put(state, address_hash, %{transactions_types: types, limit_reached: true})}
+
+      true ->
+        {:noreply, Map.put(state, address_hash, address_state)}
     end
   end
 
-  defp ignored?(:limit_value), do: true
-  defp ignored?(_), do: false
+  @impl true
+  def handle_info(:prune_cache, state) do
+    BoundedCache.prune(@cache_name, __MODULE__)
+    BoundedCache.schedule(__MODULE__)
+
+    active_addresses =
+      @tasks_name
+      |> :ets.tab2list()
+      |> MapSet.new(fn {{:task, address, _type}, true} -> address end)
+
+    {:noreply, Map.filter(state, fn {address, _} -> MapSet.member?(active_addresses, address) end)}
+  end
 
   defp check_staleness(nil), do: nil
   defp check_staleness({datetime, counter}) when counter > 50, do: {datetime, counter, :limit_value}

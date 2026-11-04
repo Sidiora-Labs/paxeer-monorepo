@@ -7,6 +7,7 @@ defmodule BlockScoutWeb.Account.AuthController do
   alias Plug.CSRFProtection
 
   plug(Ueberauth)
+  plug(:authenticate when action in [:profile])
 
   def request(conn, _) do
     not_found(conn)
@@ -19,13 +20,7 @@ defmodule BlockScoutWeb.Account.AuthController do
   end
 
   def profile(conn, _params),
-    do: conn |> get_session(:current_user) |> do_profile(conn)
-
-  defp do_profile(nil, conn),
-    do: redirect(conn, to: root())
-
-  defp do_profile(%{} = user, conn),
-    do: render(conn, :profile, user: user)
+    do: render(conn, :profile, user: conn.assigns.current_user)
 
   def callback(%{assigns: %{ueberauth_failure: _fails}} = conn, _params) do
     conn
@@ -65,9 +60,16 @@ defmodule BlockScoutWeb.Account.AuthController do
     not_found(conn)
   end
 
-  # for importing in other controllers
-  def authenticate!(conn) do
-    current_user(conn) || redirect(conn, to: root())
+  def authenticate(conn, _opts) do
+    case current_user(conn) do
+      nil ->
+        conn
+        |> redirect(to: root())
+        |> halt()
+
+      user ->
+        assign(conn, :current_user, user)
+    end
   end
 
   def current_user(%{private: %{plug_session: %{"current_user" => _}}} = conn) do

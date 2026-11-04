@@ -203,7 +203,7 @@ fn malformed_producer_receipts_and_an_untrusted_signer_are_refused() -> Outcome 
 }
 
 #[test]
-fn signed_grant_producer_is_observed_twice_and_corrupt_signatures_are_refused() -> Outcome {
+fn legacy_signed_grant_codec_is_observed_twice_and_corrupt_signatures_are_refused() -> Outcome {
     for _ in 0..2 {
         let recording: Value = serde_json::from_slice(&std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/gateway/metered.json"),

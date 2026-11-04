@@ -332,8 +332,10 @@ defmodule Indexer.Fetcher.Optimism.WithdrawalEvent do
         game_address_hash =
           method_signature
           |> slice_game_index_or_address_hash(input)
-          |> String.trim_leading("000000000000000000000000")
-          |> String.pad_leading(42, "0x")
+          |> Base.decode16!(case: :mixed)
+          |> binary_part(12, 20)
+          |> Base.encode16(case: :lower)
+          |> then(&("0x" <> &1))
 
         {nil, game_address_hash}
 

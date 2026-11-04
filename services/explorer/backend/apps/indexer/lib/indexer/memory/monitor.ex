@@ -10,7 +10,6 @@ defmodule Indexer.Memory.Monitor do
   require Logger
 
   import Bitwise
-  import Indexer.Logger, only: [process: 1]
 
   alias Indexer.Memory.Shrinkable
   alias Indexer.Prometheus.Instrumenter
@@ -76,8 +75,8 @@ defmodule Indexer.Memory.Monitor do
     shrunk_state =
       if limit < total do
         log_memory(%{limit: limit, total: total})
-        shrink_or_log(state)
-        %{state | shrunk?: true}
+        shrunk_state = shrink_or_log(state)
+        %{shrunk_state | shrunk?: true}
       else
         state
       end
@@ -135,6 +134,16 @@ defmodule Indexer.Memory.Monitor do
     end
   end
 
+  defp process(pid) do
+    case Process.info(pid, :registered_name) do
+      {:registered_name, registered_name} when is_atom(registered_name) ->
+        [inspect(pid), " (", inspect(registered_name), ")"]
+
+      _ ->
+        inspect(pid)
+    end
+  end
+
   defp log_memory(%{total: total, limit: limit}) do
     Logger.warning(fn ->
       [
@@ -162,26 +171,28 @@ defmodule Indexer.Memory.Monitor do
   end
 
   defp shrink_or_log(%__MODULE__{} = state) do
-    case shrink(state) do
+    {result, shrunk_state} = shrink(shrinkable_memory_pairs(state), state)
+
+    case result do
       :ok ->
         :ok
 
       {:error, :minimum_size} ->
         Logger.error(fn -> "No processes could be shrunk.  Limit will remain surpassed." end)
     end
+
+    shrunk_state
   end
 
-  defp shrink(%__MODULE__{} = state) do
-    state
-    |> shrinkable_memory_pairs()
-    |> shrink()
+  defp shrink([], state) do
+    {{:error, :minimum_size}, state}
   end
 
-  defp shrink([]) do
-    {:error, :minimum_size}
+  defp shrink([{pid, 0} | tail], state) do
+    shrink(tail, remove_participant(state, pid))
   end
 
-  defp shrink([{pid, memory} | tail]) do
+  defp shrink([{pid, memory} | tail], state) when memory > 0 do
     Logger.warning(fn ->
       [
         "Worst memory usage (",
@@ -192,36 +203,46 @@ defmodule Indexer.Memory.Monitor do
       ]
     end)
 
-    entry_count_before = Shrinkable.queued_entry_count(pid)
+    with entry_count_before when is_integer(entry_count_before) <- Shrinkable.queued_entry_count(pid),
+         :ok <- Shrinkable.shrink(pid),
+         entry_count_after when is_integer(entry_count_after) <- Shrinkable.queued_entry_count(pid) do
+      Logger.info(fn ->
+        after_memory = memory(pid)
 
-    case Shrinkable.shrink(pid) do
-      :ok ->
-        Logger.info(fn ->
-          after_memory = memory(pid)
+        [
+          process(pid),
+          " shrunk from ",
+          to_string(memory),
+          " bytes to ",
+          to_string(after_memory),
+          " bytes (",
+          to_string(div(100 * after_memory, memory)),
+          "%)."
+        ]
+      end)
 
-          [
-            process(pid),
-            " shrunk from ",
-            to_string(memory),
-            " bytes to ",
-            to_string(after_memory),
-            " bytes (",
-            to_string(div(100 * after_memory, memory)),
-            "%)."
-          ]
-        end)
+      log_shed_entries(pid, entry_count_before, entry_count_after)
 
-        log_shed_entries(pid, entry_count_before, Shrinkable.queued_entry_count(pid))
-
-        :ok
-
+      {:ok, state}
+    else
       {:error, :minimum_size} ->
         Logger.error(fn ->
           [process(pid), " is at its minimum size and could not shrink."]
         end)
 
-        shrink(tail)
+        shrink(tail, state)
+
+      {:error, :not_alive} ->
+        shrink(tail, remove_participant(state, pid))
     end
+  end
+
+  defp remove_participant(%__MODULE__{shrinkable_set: shrinkable_set} = state, pid) do
+    Logger.warning(fn ->
+      [process(pid), " exited during memory pressure handling; continuing with remaining queues."]
+    end)
+
+    %{state | shrinkable_set: MapSet.delete(shrinkable_set, pid)}
   end
 
   # Shrinking a queue drops the entries that do not fit the new bound, so every shrink sheds

@@ -171,75 +171,80 @@ defmodule Explorer.SmartContract.Solidity.Verifier do
   defp verify(address_hash, params, json_input) do
     name = Map.get(params, "name", "")
     compiler_version = Map.fetch!(params, "compiler_version")
-    constructor_arguments = Map.get(params, "constructor_arguments", "")
-    autodetect_constructor_arguments = params |> Map.get("autodetect_constructor_args", "false") |> parse_boolean()
 
-    solc_output =
-      CodeCompiler.run(
-        [
-          name: name,
-          compiler_version: compiler_version
-        ],
-        json_input
-      )
-
-    case solc_output do
+    case CodeCompiler.run([name: name, compiler_version: compiler_version], json_input) do
       {:ok, candidates} ->
-        case Jason.decode(json_input) do
-          {:ok, map_json_input} ->
-            Enum.reduce_while(candidates, %{}, fn candidate, _acc ->
-              file_path = candidate["file_path"]
-              source_code = map_json_input["sources"][file_path]["content"]
-              contract_name = candidate["name"]
-
-              case compare_bytecodes(
-                     candidate,
-                     address_hash,
-                     constructor_arguments,
-                     autodetect_constructor_arguments
-                   ) do
-                {:ok, verified_data} ->
-                  secondary_sources =
-                    for {file, %{"content" => source}} <- map_json_input["sources"],
-                        file != file_path,
-                        do: %{"file_name" => file, "contract_source_code" => source, "address_hash" => address_hash}
-
-                  additional_params =
-                    map_json_input
-                    |> extract_settings_from_json()
-                    |> Map.put("contract_source_code", source_code)
-                    |> Map.put("file_path", file_path)
-                    |> Map.put("name", contract_name)
-                    |> Map.put("secondary_sources", secondary_sources)
-                    |> Map.put("compiler_settings", map_json_input["settings"])
-                    |> Map.put("external_libraries", cast_libraries(map_json_input["settings"]["libraries"] || %{}))
-
-                  {:halt, {:ok, verified_data, additional_params}}
-
-                err ->
-                  {:cont, {:error, err}}
-              end
-            end)
-
-          _ ->
-            {:error, :json}
-        end
+        verify_standard_json_candidates(address_hash, params, json_input, candidates)
 
       error_response ->
         error_response
     end
   end
 
+  @doc """
+  Verifies compiled standard-JSON candidates against indexed chain bytecode and
+  prepares the source and compiler settings for publication.
+
+  Candidates have the shape returned by `CodeCompiler.run/2`.
+  """
+  def verify_standard_json_candidates(address_hash, params, json_input, candidates) do
+    constructor_arguments = Map.get(params, "constructor_arguments", "")
+    autodetect_constructor_arguments = params |> Map.get("autodetect_constructor_args", "false") |> parse_boolean()
+
+    with {:ok, map_json_input} when is_map(map_json_input) <- Jason.decode(json_input),
+         {:ok, optimizer_settings} <- extract_settings_from_json(map_json_input) do
+      Enum.reduce_while(candidates, %{}, fn candidate, _acc ->
+        file_path = candidate["file_path"]
+        source_code = map_json_input["sources"][file_path]["content"]
+        contract_name = candidate["name"]
+
+        case compare_bytecodes(
+               candidate,
+               address_hash,
+               constructor_arguments,
+               autodetect_constructor_arguments
+             ) do
+          {:ok, verified_data} ->
+            secondary_sources =
+              for {file, %{"content" => source}} <- map_json_input["sources"],
+                  file != file_path,
+                  do: %{"file_name" => file, "contract_source_code" => source, "address_hash" => address_hash}
+
+            additional_params =
+              optimizer_settings
+              |> Map.put("contract_source_code", source_code)
+              |> Map.put("file_path", file_path)
+              |> Map.put("name", contract_name)
+              |> Map.put("secondary_sources", secondary_sources)
+              |> Map.put("compiler_settings", map_json_input["settings"])
+              |> Map.put("external_libraries", cast_libraries(map_json_input["settings"]["libraries"] || %{}))
+
+            {:halt, {:ok, verified_data, additional_params}}
+
+          err ->
+            {:cont, {:error, err}}
+        end
+      end)
+    else
+      _ -> {:error, :json}
+    end
+  end
+
   defp extract_settings_from_json(json_input) when is_map(json_input) do
-    %{"enabled" => optimization, "runs" => optimization_runs} = json_input["settings"]["optimizer"]
+    with settings when is_map(settings) <- Map.get(json_input, "settings", %{}),
+         optimizer when is_map(optimizer) <- Map.get(settings, "optimizer", %{}),
+         optimization when is_boolean(optimization) <- Map.get(optimizer, "enabled", false),
+         runs when is_integer(runs) and runs >= 0 <- Map.get(optimizer, "runs", @optimization_runs) do
+      optimization_runs =
+        if Application.get_env(:explorer, :chain_type) == :zksync,
+          do: to_string(runs),
+          else: runs
 
-    optimization_runs =
-      if Application.get_env(:explorer, :chain_type) == :zksync,
-        do: to_string(optimization_runs),
-        else: optimization_runs
-
-    %{"optimization" => optimization}
-    |> (&if(parse_boolean(optimization), do: Map.put(&1, "optimization_runs", optimization_runs), else: &1)).()
+      params = %{"optimization" => optimization}
+      {:ok, if(optimization, do: Map.put(params, "optimization_runs", optimization_runs), else: params)}
+    else
+      _ -> {:error, :json}
+    end
   end
 
   defp verify(address_hash, params) do

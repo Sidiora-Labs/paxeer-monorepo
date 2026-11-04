@@ -11,6 +11,7 @@ export default function useTxStatusLadderQuery(hash: string | undefined) {
       enabled: feature.isEnabled && Boolean(hash),
       placeholderData: PAXEER_X_TX_STATUS,
       refetchOnMount: false,
+      refetchInterval: (query) => query.state.data?.rung === 'committed' ? false : 5_000,
     },
   });
 }

@@ -1,0 +1,22 @@
+[repair.22.33.88]
+audit = "22.30.110"
+acceptance = "22998.1"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-ap2/Cargo.toml --test repair_22_33_88"
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and the task done record."
+baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and prohibit running verify_cmd outside hf-done; no pre-change failure is claimed."
+
+[finding.ap2_public_api_registry]
+test = "ap2_public_api_registry_constructor_and_v2_export_consumer"
+observed = "The implementation already requires resolver and receipt_keys and aliases PortableReceiptV2; retain those public types and prove the downstream constructor and export/JSON/verify_v2 consumer."
+wiring_request = "Domain 11 (interop): update spec/layerx-merge/interfaces.kvx AP2 constructor and portable alias rows to match adapter.rs and regenerate spec/layerx-merge/contracts/interop-ap2.md through its owning specification qualification."
+
+[finding.ap2_replay_clock_digest]
+test = "ap2_replay_clock_digest_reopens_signed_state"
+additional_test = "ap2_replay_clock_digest_binds_signed_execution_date"
+repair = "Derive request identity from the exact signed mandate material and economic asset binding; retain execution_at as independently evaluated execution policy."
+recovery = "Reopen the saved production mandate-pair codec payload into a new external verifier; assert one gateway submission and the same stored refusal across fresh contexts in direct and autonomous modes. The independent real in-memory gateway store remains alive."
+
+[finding.outer_jwt_time_types]
+test = "outer_jwt_time_types_rejects_present_invalid_root_and_binding_claims"
+additional_tests = ["outer_jwt_time_types_missing_and_unsigned_integer_claims_are_supported", "outer_jwt_time_types_expiration_and_issuance_boundaries"]
+repair = "Missing outer iat/exp remain optional; present claims require nonnegative u64 integer seconds, and expiration is exclusive including the configured skew boundary."

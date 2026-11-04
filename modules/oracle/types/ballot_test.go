@@ -1,10 +1,8 @@
 package types
 
 import (
-	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -94,15 +92,11 @@ func TestToCrossRate(t *testing.T) {
 }
 
 func TestSqrt(t *testing.T) {
-	num := sdk.NewDecWithPrec(144, 4)
-	floatNum, err := strconv.ParseFloat(num.String(), 64)
-	require.NoError(t, err)
-
-	floatNum = math.Sqrt(floatNum)
-	num, err = sdk.NewDecFromStr(fmt.Sprintf("%f", floatNum))
-	require.NoError(t, err)
-
-	require.Equal(t, sdk.NewDecWithPrec(12, 2), num)
+	pb := ExchangeRateBallot{
+		NewVoteForTally(sdk.ZeroDec(), utils.MicroAtomDenom, nil, 3),
+		NewVoteForTally(sdk.NewDecWithPrec(24, 2), utils.MicroAtomDenom, nil, 1),
+	}
+	require.Equal(t, sdk.NewDecWithPrec(12, 2), pb.StandardDeviation(sdk.ZeroDec()))
 }
 
 func TestPBPower(t *testing.T) {
@@ -171,6 +165,10 @@ func TestPBWeightedMedian(t *testing.T) {
 			[]bool{true, true, true, true},
 			sdk.NewDec(2),
 		},
+		{[]int64{1, 100}, []int64{1, 2}, []bool{true, true}, sdk.NewDec(100)},
+		{[]int64{0, 100}, []int64{0, 1}, []bool{false, true}, sdk.NewDec(100)},
+		{[]int64{0, 1, 100, 1000}, []int64{0, 1, 2, 0}, []bool{false, true, true, false}, sdk.NewDec(100)},
+		{[]int64{0, 100}, []int64{0, 0}, []bool{false, false}, sdk.ZeroDec()},
 		{
 			// No votes
 			[]int64{},
@@ -200,88 +198,51 @@ func TestPBWeightedMedian(t *testing.T) {
 			pb = append(pb, vote)
 		}
 
+		require.Equal(t, tc.median, pb.WeightedMedian())
 		require.Equal(t, tc.median, pb.WeightedMedianWithAssertion())
 	}
 }
 
 func TestPBStandardDeviation(t *testing.T) {
-	tests := []struct {
-		inputs            []float64
-		weights           []int64
-		isValidator       []bool
-		standardDeviation sdk.Dec
+	for _, tc := range []struct {
+		name   string
+		rates  []string
+		powers []int64
+		want   string
 	}{
-		{
-			// Supermajority one number
-			[]float64{1.0, 2.0, 10.0, 100000.0},
-			[]int64{1, 1, 100, 1},
-			[]bool{true, true, true, true},
-			sdk.NewDecWithPrec(4999500036300, OracleDecPrecision),
-		},
-		{
-			// Adding fake validator doesn't change outcome
-			[]float64{1.0, 2.0, 10.0, 100000.0, 10000000000},
-			[]int64{1, 1, 100, 1, 10000},
-			[]bool{true, true, true, true, false},
-			sdk.NewDecWithPrec(447213595075100600, OracleDecPrecision),
-		},
-		{
-			// Tie votes
-			[]float64{1.0, 2.0, 3.0, 4.0},
-			[]int64{1, 100, 100, 1},
-			[]bool{true, true, true, true},
-			sdk.NewDecWithPrec(122474500, OracleDecPrecision),
-		},
-		{
-			// No votes
-			[]float64{},
-			[]int64{},
-			[]bool{true, true, true, true},
-			sdk.NewDecWithPrec(0, 0),
-		},
-	}
-
-	base := math.Pow10(OracleDecPrecision)
-	for _, tc := range tests {
-		pb := ExchangeRateBallot{}
-		for i, input := range tc.inputs {
-			valAddr := sdk.ValAddress(secp256k1.GenPrivKey().PubKey().Address())
-
-			power := tc.weights[i]
-			if !tc.isValidator[i] {
-				power = 0
+		{"supermajority", []string{"1", "2", "10", "100000"}, []int64{1, 1, 100, 1}, "9852.307523808283989385"},
+		{"zero_power_invariance", []string{"1", "2", "10", "100000", "10000000000"}, []int64{1, 1, 100, 1, 0}, "9852.307523808283989385"},
+		{"tie", []string{"1", "2", "3", "4"}, []int64{1, 100, 100, 1}, "0.720972939990135692"},
+		{"nonuniform", []string{"1", "5"}, []int64{3, 1}, "2"},
+		{"decimal_precision", []string{"1", "1.000000000000000002"}, []int64{3, 1}, "0.000000000000000001"},
+		{"zero_power", []string{"0", "100"}, []int64{0, 0}, "0"},
+		{"empty", nil, nil, "0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pb := ExchangeRateBallot{}
+			for i, rate := range tc.rates {
+				pb = append(pb, NewVoteForTally(sdk.MustNewDecFromStr(rate), utils.MicroAtomDenom, nil, tc.powers[i]))
 			}
-
-			vote := NewVoteForTally(
-				sdk.NewDecWithPrec(int64(input*base), int64(OracleDecPrecision)),
-				utils.MicroAtomDenom,
-				valAddr,
-				power,
-			)
-
-			pb = append(pb, vote)
-		}
-
-		require.Equal(t, tc.standardDeviation, pb.StandardDeviation(pb.WeightedMedianWithAssertion()))
+			got := pb.StandardDeviation(pb.WeightedMedianWithAssertion())
+			require.Equal(t, sdk.MustNewDecFromStr(tc.want), got)
+			withZero := append(ExchangeRateBallot{NewVoteForTally(sdk.ZeroDec(), utils.MicroAtomDenom, nil, 0)}, pb...)
+			withZero = append(withZero, NewVoteForTally(sdk.NewDec(100000000000), utils.MicroAtomDenom, nil, 0))
+			sort.Sort(withZero)
+			require.Equal(t, got, withZero.StandardDeviation(withZero.WeightedMedianWithAssertion()))
+		})
 	}
 }
 
 func TestPBStandardDeviationOverflow(t *testing.T) {
-	valAddr := sdk.ValAddress(secp256k1.GenPrivKey().PubKey().Address())
-	exchangeRate, err := sdk.NewDecFromStr("100000000000000000000000000000000000000000000000000000000.0")
-	require.NoError(t, err)
-
-	pb := ExchangeRateBallot{NewVoteForTally(
-		sdk.ZeroDec(),
-		utils.MicroAtomDenom,
-		valAddr,
-		2,
-	), NewVoteForTally(
-		exchangeRate,
-		utils.MicroAtomDenom,
-		valAddr,
-		1,
-	)}
-
-	require.Equal(t, sdk.ZeroDec(), pb.StandardDeviation(pb.WeightedMedianWithAssertion()))
+	exchangeRate := sdk.MustNewDecFromStr("100000000000000000000000000000000000000000000000000000000.0")
+	pb := ExchangeRateBallot{
+		NewVoteForTally(sdk.ZeroDec(), utils.MicroAtomDenom, nil, 2),
+		NewVoteForTally(exchangeRate, utils.MicroAtomDenom, nil, 1),
+	}
+	require.Equal(t, sdk.MustNewDecFromStr("57735026918962576450914878050195745564760175127012687601.860232648397767230"),
+		pb.StandardDeviation(pb.WeightedMedianWithAssertion()))
+	pb[0].Power = math.MaxInt64
+	require.PanicsWithValue(t, "oracle deviation: invalid or overflowing voting power", func() {
+		pb.StandardDeviation(sdk.ZeroDec())
+	})
 }
