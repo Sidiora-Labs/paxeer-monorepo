@@ -658,6 +658,21 @@ impl JobStore {
         Ok(self.root.join("requests").join(hex(digest.as_bytes())))
     }
 
+    /// Durable admissions indexed by job key, including locally final jobs awaiting chain settlement.
+    pub fn tracked(&self) -> Result<Vec<JobKey>, ServiceError> {
+        let _lock = self.lock()?;
+        let mut keys = Vec::new();
+        for entry in fs::read_dir(self.root.join("jobs")).durable()? {
+            let name = entry.durable()?.file_name();
+            if let Some(key) = name.to_str().and_then(JobKey::parse) {
+                if !self.tombstoned(key)? {
+                    keys.push(key);
+                }
+            }
+        }
+        Ok(keys)
+    }
+
     /// The saved job under `key`, if any.
     ///
     /// # Errors
@@ -979,6 +994,16 @@ impl JobStore {
     /// # Errors
     /// `ExecutionUnavailable` on store failure.
     pub fn purge(&self, now_ms: u64, height: u64) -> Result<usize, ServiceError> {
+        self.purge_where(now_ms, height, |_| Ok(true))
+    }
+
+    /// Purge only locally final, retained jobs whose chain obligations are settled.
+    pub fn purge_where(
+        &self,
+        now_ms: u64,
+        height: u64,
+        settled: impl Fn(&Job) -> Result<bool, ServiceError>,
+    ) -> Result<usize, ServiceError> {
         let _lock = self.lock()?;
         let mut purged = 0;
         for entry in fs::read_dir(self.root.join("jobs")).durable()? {
@@ -987,7 +1012,10 @@ impl JobStore {
                 continue;
             };
             let job = self.load(key)?;
-            if !job.state.state.is_final() || !retention_over(job.state.changed_ms, now_ms) {
+            if !job.state.state.is_final()
+                || !retention_over(job.state.changed_ms, now_ms)
+                || !settled(&job)?
+            {
                 continue;
             }
             let mut bytes = [0; 64];
