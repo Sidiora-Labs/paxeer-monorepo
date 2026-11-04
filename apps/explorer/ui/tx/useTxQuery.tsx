@@ -30,13 +30,13 @@ interface Params {
 }
 
 export default function useTxQuery(params?: Params): TxQuery {
-  const [ socketStatus, setSocketStatus ] = React.useState<'close' | 'error'>();
   const [ isRefetchEnabled, setRefetchEnabled ] = React.useState(false);
 
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const hash = params?.hash ?? getQueryParamString(router.query.hash);
+  const { socketStatus, handleSocketJoin, handleSocketClose, handleSocketError } = useTxSocketStatus(hash);
 
   const queryResult = useApiQuery<'general:tx', { status: number }>('general:tx', {
     pathParams: { hash },
@@ -65,16 +65,9 @@ export default function useTxQuery(params?: Params): TxQuery {
     });
   }, [ queryClient, hash ]);
 
-  const handleSocketClose = React.useCallback(() => {
-    setSocketStatus('close');
-  }, []);
-
-  const handleSocketError = React.useCallback(() => {
-    setSocketStatus('error');
-  }, []);
-
   const channel = useSocketChannel({
     topic: `transactions:${ hash }`,
+    onJoin: handleSocketJoin,
     onSocketClose: handleSocketClose,
     onSocketError: handleSocketError,
     isDisabled: isPending || isPlaceholderData || isError || data.status !== null,
@@ -90,4 +83,26 @@ export default function useTxQuery(params?: Params): TxQuery {
     socketStatus,
     setRefetchEnabled,
   }), [ queryResult, socketStatus, setRefetchEnabled ]);
+}
+
+export function useTxSocketStatus(hash: string) {
+  const [ socketStatus, setSocketStatus ] = React.useState<'close' | 'error'>();
+  const queryClient = useQueryClient();
+
+  const handleSocketClose = React.useCallback(() => {
+    setSocketStatus('close');
+  }, []);
+
+  const handleSocketError = React.useCallback(() => {
+    setSocketStatus('error');
+  }, []);
+
+  const handleSocketJoin = React.useCallback(() => {
+    setSocketStatus(undefined);
+    queryClient.invalidateQueries({
+      queryKey: getResourceKey('general:tx', { pathParams: { hash } }),
+    });
+  }, [ queryClient, hash ]);
+
+  return { socketStatus, handleSocketJoin, handleSocketClose, handleSocketError };
 }
