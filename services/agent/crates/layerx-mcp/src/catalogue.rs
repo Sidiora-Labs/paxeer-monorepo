@@ -500,7 +500,14 @@ fn check(field: &Field, text: &str) -> Result<(), ArgumentError> {
                 return Err(ArgumentError::Malformed(field.name));
             }
         }
-        Shape::Hex32 | Shape::Hex64 | Shape::Bytes => {
+        Shape::Hex32 | Shape::Hex64 => {
+            if text.len() != field.shape.maximum_length()
+                || !text.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                return Err(ArgumentError::Malformed(field.name));
+            }
+        }
+        Shape::Bytes => {
             if !text.bytes().all(|byte| byte.is_ascii_hexdigit()) || !text.len().is_multiple_of(2) {
                 return Err(ArgumentError::Malformed(field.name));
             }
@@ -924,7 +931,7 @@ fn session_input_schema(name: &str, native: bool) -> Option<Value> {
             &["variant", "approval_id", "held_digest", "current_sequence"],
         ),
         "approval.list" => session_object(
-            json!({"tenant": session_text(), "agent": session_text(), "current_sequence": session_decimal(u64::MAX), "cursor": {"anyOf": [session_digest(), {"type": "null"}]}, "limit": session_decimal(u64::from(u8::MAX))}),
+            json!({"tenant": session_text(), "agent": session_text(), "current_sequence": session_decimal(u64::MAX), "cursor": {"anyOf": [session_digest(), {"type": "null"}]}, "limit": session_decimal(100)}),
             &["current_sequence", "limit"],
         ),
         "approval.get" => session_object(
