@@ -30411,3 +30411,19 @@ symbol = "repair_22_31_492.test.mjs"
 observed = "Attempt 2: the build passed; 12 of 13 cases passed; the committed prepare refused the hand-built commitment because the resolver lacked the validator interface and the evidence the production buyer verifies."
 assumption = "Test fixture shape behind a producer change in the buyer; the recorded committed vector is the reference."
 severity = "high"
+
+[finding.22.33.891.2]
+task = "22.33.891"
+file = "tests/test_authority_multisig.c"
+symbol = "test_authority_multisig.c"
+observed = "Attempt 2: five of seven C binaries and the pytest passed; two bridge withdraw cases failed at the GENESIS-authority open of the withdrawals account."
+assumption = "Producer refusal introduced by 22.33.1138, not a defect of the attempt."
+severity = "high"
+
+[finding.22.33.892.2]
+task = "22.33.892"
+file = "tests/test_genesis_reconcile.c"
+symbol = "test_genesis_reconcile.c"
+observed = "Attempt 2: three builds and one verify; two C cases failed and the repaired tree was never verified."
+assumption = "The refusal of 22.33.1138 explains the reserve fixture failures; anything left after 505 belongs to the task."
+severity = "high"

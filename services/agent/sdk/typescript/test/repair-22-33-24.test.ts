@@ -139,7 +139,14 @@ function repair_22_33_24_preserves_recorded_producer_provenance(): void {
   assert.equal(createHash("sha256").update(source(committed.provenance.source)).digest("hex"), committed.provenance.sha256);
   // These source checks pin the transcript's routing boundary; they do not claim to execute Go or Rust handlers.
   assert.match(source("rpc/rpcstack.go"), /if path == "" \{\s*return r.URL.Path == "\/"/u);
-  assert.match(source("services/platform/hosted/gateway/src/main.rs"), /request.path == "\/" && request.method == "POST"/u);
+  assert.match(source("services/platform/hosted/gateway/src/main.rs"), /if let Some\(result\) = public_reads::route\(config, request\)/u);
+  assert.match(
+    source("services/platform/hosted/gateway/src/public_reads.rs"),
+    /if matches!\(request.path.as_str\(\), "\/" \| "\/openrpc.json"\) \{\s*return Some\(super::rpc::route\(config, request\)\);/u,
+  );
+  const gatewayRpc = source("services/platform/hosted/gateway/src/rpc.rs");
+  assert.match(gatewayRpc, /if request.path != "\/" \{\s*return response\(404, "not_found", None\);/u);
+  assert.match(gatewayRpc, /if request.method != "POST" \{\s*return response\(405, "method_not_allowed", None\);/u);
   assert.match(source("services/interop/crates/x-websearch/src/payment.rs"), /PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS"/u);
 }
 
