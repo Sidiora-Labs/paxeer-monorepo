@@ -30491,3 +30491,27 @@ symbol = "repair_22_31_495.rs"
 observed = "Attempt 2: build passed; the dependent-crate check failed with E0061 in layerx-mcp and E0063 twice in the layerx-human-service repair test; the verify never ran."
 assumption = "Producer interface change with two consumers outside the paths; every interface change proves its consumer path."
 severity = "high"
+
+[finding.22.31.492.4]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 4: stopped as instructed; the V1 recording has no batch transaction, transaction proof or result proof for the committed rung, and no recording named a payee an offer could name."
+assumption = "The V1 direction of decision 2552 was infeasible (gotcha 3060) and the named-payee check refuses every production asset payee (gotcha 3061); the V7 recording of 22.31.511 supplies the parties."
+severity = "high"
+
+[finding.22.31.508.1]
+task = "22.31.508"
+file = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+symbol = "repair-22-33-205.test.ts"
+observed = "Attempt 1: the build passed; 34 of 37 cases passed; the three failing cases expected grant-discovery states the surface retired."
+assumption = "Producer contract change (22.33.1501) left its consumer cases behind; decision 2556."
+severity = "low"
+
+[finding.22.31.510.1]
+task = "22.31.510"
+file = "tests/ci/test_repair_22_31_510.py"
+symbol = "test_repair_22_31_510.py"
+observed = "Attempt 1: the build passed; the seven new cases passed; twelve cases of the 147 test expected the octet-stream agent route the transport no longer uses."
+assumption = "Producer transport change (22.33.16) left its consumer test behind; decision 2557."
+severity = "low"
