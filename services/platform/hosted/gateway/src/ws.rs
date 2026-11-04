@@ -452,6 +452,10 @@ pub(super) fn serve_evm<S: Connection>(
     request: &IncomingRequest,
     stream: &mut S,
 ) -> Result<(), String> {
+    let path = request.path.split('?').next().unwrap_or_default();
+    if path == "/rpc" || path.starts_with("/rpc/") {
+        return http::write_response(stream, &super::response(404, "not_found", None));
+    }
     let Some(accept) = (if config.routes.origin(request).is_some() {
         valid_upgrade_origin(request, true)
     } else {
@@ -584,16 +588,6 @@ fn subscription_text(
             return Ok(true);
         }
     };
-    let method = value["method"].as_str().unwrap_or_default();
-    if request.path == "/rpc/ws"
-        && rpc::invalid_request(&value).is_none()
-        && !evm::SUBSCRIPTION_METHODS.contains(&method)
-    {
-        if let Some(answer) = rpc::dispatch(config, request, &value) {
-            subscription_answer(stream, &answer)?;
-        }
-        return Ok(true);
-    }
     if let Some(refusal) = subscriptions.refusal(&value) {
         if value.get("id").is_some() || rpc::invalid_request(&value).is_some() {
             subscription_answer(stream, &refusal)?;
