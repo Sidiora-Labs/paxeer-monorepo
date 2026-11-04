@@ -327,7 +327,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -338,11 +338,14 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressSuccess> =
@@ -380,7 +383,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/blocks-validated",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -391,14 +394,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressBlocksValidatedSuccess> =
@@ -436,7 +442,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/coin-balance-history",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -447,14 +453,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressCoinBalanceHistorySuccess> =
@@ -492,7 +501,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/coin-balance-history-by-day",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -503,11 +512,14 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressCoinBalanceHistoryByDaySuccess> =
@@ -542,7 +554,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/counters",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -553,11 +565,14 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressCountersSuccess> =
@@ -596,7 +611,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/internal-transactions",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -612,14 +627,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressInternalTxsSuccess> =
@@ -654,7 +672,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/logs",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -665,14 +683,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressLogsSuccess> =
@@ -710,7 +731,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/nft",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -726,14 +747,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressNftSuccess> =
@@ -774,7 +798,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/nft/collections",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -790,14 +814,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressNftCollectionsSuccess> =
@@ -833,7 +860,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/token-balances",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -844,11 +871,14 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressTokenBalancesSuccess> =
@@ -891,7 +921,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/token-transfers",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -917,14 +947,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressTokenTransfersSuccess> =
@@ -962,7 +995,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/tokens",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -978,14 +1011,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressTokensSuccess> =
@@ -1023,7 +1059,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/transactions",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -1039,14 +1075,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressTxsSuccess> =
@@ -1082,7 +1121,7 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/addresses/{address_hash}/withdrawals",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -1093,14 +1132,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressWithdrawalsSuccess> =
@@ -1130,7 +1172,10 @@ impl AddressesApi for AddressesApiClient {
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/api/v2/addresses", local_var_configuration.base_path);
+        let local_var_uri_str = format!(
+            "{}/api/v2/addresses",
+            local_var_configuration.rest_origin()?
+        );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -1139,14 +1184,17 @@ impl AddressesApi for AddressesApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let mut local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         if let Some(cursor) = &self.cursor {
             cursor.apply(&mut local_var_req)?;
         }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetAddressesSuccess> =

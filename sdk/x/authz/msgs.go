@@ -26,7 +26,8 @@ var (
 	_ cdctypes.UnpackInterfacesMessage = &MsgExec{}
 )
 
-// NewMsgGrant creates a new MsgGrant
+// NewMsgGrant packs a MsgGrant without chain-time validation. Grant execution
+// enforces expiration against the block time, which is unavailable to this constructor.
 func NewMsgGrant(granter sdk.AccAddress, grantee sdk.AccAddress, a Authorization, expiration time.Time) (*MsgGrant, error) {
 	m := &MsgGrant{
 		Granter: granter.String(),

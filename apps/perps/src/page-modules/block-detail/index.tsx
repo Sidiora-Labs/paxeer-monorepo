@@ -1,5 +1,11 @@
 import type { GetServerSideProps } from "next";
 
+export {
+  BlockQueryDetail,
+  blockDetailQueryOptions,
+  blockQueryIdentifier,
+} from "./block-query";
+
 /**
  * Legacy `/block/[height]` route — kept per Supervisor DECISION 017 as a
  * ~10 LOC redirect shell to `/explorer?block=<height|hash>`. Accepts either

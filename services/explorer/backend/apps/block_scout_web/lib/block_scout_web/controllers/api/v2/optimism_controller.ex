@@ -11,8 +11,6 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
       split_list_by_page: 1
     ]
 
-  import Explorer.Helper, only: [hash_to_binary: 1]
-
   alias BlockScoutWeb.API.V2.{ApiView, OptimismView}
   alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
   alias Explorer.{Chain, PagingOptions}
@@ -645,7 +643,9 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
   def interop_public_key(conn, _params) do
     env = Application.get_all_env(:indexer)[InteropMessageQueue]
 
-    with {:ok, private_key} <- env[:private_key] |> String.trim_leading("0x") |> Base.decode16(case: :mixed),
+    with key when is_binary(key) and byte_size(key) > 0 <- env[:private_key],
+         {:ok, private_key} <- key |> String.trim_leading("0x") |> Base.decode16(case: :mixed),
+         true <- byte_size(private_key) == 32,
          {:ok, public_key} <- ExSecp256k1.create_public_key(private_key) do
       conn
       |> put_status(200)
@@ -669,52 +669,128 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
   `relay` part of the interop message from the target instance.
   """
   @spec interop_import(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def interop_import(
-        conn,
-        %{
-          "sender_address_hash" => sender_address_hash,
-          "target_address_hash" => target_address_hash,
-          "nonce" => nonce,
-          "init_chain_id" => init_chain_id,
-          "init_transaction_hash" => init_transaction_hash,
-          "timestamp" => timestamp_unix,
-          "relay_chain_id" => relay_chain_id,
-          "payload" => payload,
-          "signature" => "0x" <> signature
-        } = params
-      )
-      when is_integer(init_chain_id) do
-    # accept `init` part of the interop message from the source instance
-    data_to_verify =
-      sender_address_hash <>
-        target_address_hash <>
-        Integer.to_string(nonce) <>
-        Integer.to_string(init_chain_id) <>
-        init_transaction_hash <> Integer.to_string(timestamp_unix) <> Integer.to_string(relay_chain_id) <> payload
-
-    interop_import_internal(init_chain_id, data_to_verify, signature, params, &InteropMessage.get_relay_part/2, conn)
+  def interop_import(conn, params) do
+    with {:ok, data_to_verify, import_params, remote_chain_id, local_chain_id, missed_part_fn} <-
+           interop_validate_payload(params),
+         {:ok, signature} <- interop_decode_hex(params["signature"], 64),
+         true <- local_chain_id == ChainId.get_id() do
+      interop_import_internal(remote_chain_id, data_to_verify, signature, import_params, missed_part_fn, conn)
+    else
+      _ -> interop_render_http_error(conn, :bad_request, "Invalid interop request")
+    end
   end
 
-  def interop_import(
-        conn,
-        %{
-          "nonce" => nonce,
-          "init_chain_id" => init_chain_id,
-          "relay_chain_id" => relay_chain_id,
-          "relay_transaction_hash" => relay_transaction_hash,
-          "failed" => failed,
-          "signature" => "0x" <> signature
-        } = params
-      )
-      when is_integer(relay_chain_id) do
-    # accept `relay` part of the interop message from the target instance
-    data_to_verify =
-      Integer.to_string(nonce) <>
-        Integer.to_string(init_chain_id) <>
-        Integer.to_string(relay_chain_id) <> relay_transaction_hash <> to_string(failed)
+  @doc """
+  Returns the version 1 signing preimage for an interop request.
 
-    interop_import_internal(relay_chain_id, data_to_verify, signature, params, &InteropMessage.get_init_part/2, conn)
+  The domain is `blockscout:optimism:interop:v1` followed by a NUL byte and
+  an init (0) or relay (1) byte. Integers occupy 32 unsigned big-endian bytes;
+  addresses and hashes are decoded bytes. Timestamp is signed 64-bit seconds.
+  Init includes a 4-byte payload length;
+  relay ends with a single result byte. JSON requests must set protocol_version=1.
+  """
+  @spec interop_signing_data(map()) :: {:ok, binary()} | :error
+  def interop_signing_data(params) do
+    case interop_validate_payload(params) do
+      {:ok, data, _, _, _, _} -> {:ok, data}
+      _ -> :error
+    end
   end
+
+  @interop_domain "blockscout:optimism:interop:v1\0"
+  @interop_common ~w(protocol_version nonce init_chain_id relay_chain_id)
+  @interop_init ~w(sender_address_hash target_address_hash init_transaction_hash timestamp payload)
+  @interop_relay ~w(relay_transaction_hash failed)
+
+  defp interop_validate_payload(%{"protocol_version" => 1} = params) do
+    with true <- interop_integer?(params["nonce"], 9_223_372_036_854_775_807),
+         true <- interop_integer?(params["init_chain_id"], 2_147_483_647) and params["init_chain_id"] > 0,
+         true <- interop_integer?(params["relay_chain_id"], 2_147_483_647) and params["relay_chain_id"] > 0,
+         true <- params["init_chain_id"] != params["relay_chain_id"] do
+      common = <<params["nonce"]::256, params["init_chain_id"]::256, params["relay_chain_id"]::256>>
+      interop_validate_part(params, common)
+    else
+      _ -> :error
+    end
+  end
+
+  defp interop_validate_payload(_), do: :error
+
+  defp interop_validate_part(%{"init_transaction_hash" => _} = params, common) do
+    with true <- interop_keys?(params, @interop_common ++ @interop_init),
+         {:ok, sender} <- interop_decode_hex(params["sender_address_hash"], 20),
+         {:ok, target} <- interop_decode_hex(params["target_address_hash"], 20),
+         {:ok, transaction} <- interop_decode_hex(params["init_transaction_hash"], 32),
+         true <- interop_integer?(params["timestamp"], 253_402_300_799),
+         {:ok, timestamp} <- DateTime.from_unix(params["timestamp"]),
+         {:ok, payload} <- interop_decode_hex(params["payload"], :payload),
+         true <- interop_transfer_payload?(payload) do
+      [token, from, to, amount] = InteropMessage.decode_payload(payload)
+
+      data =
+        <<@interop_domain::binary, 0, common::binary, sender::binary, target::binary, transaction::binary,
+          params["timestamp"]::signed-64, byte_size(payload)::32, payload::binary>>
+
+      import_params = %{
+        sender_address_hash: params["sender_address_hash"],
+        target_address_hash: params["target_address_hash"],
+        nonce: params["nonce"],
+        init_chain_id: params["init_chain_id"],
+        relay_chain_id: params["relay_chain_id"],
+        init_transaction_hash: params["init_transaction_hash"],
+        timestamp: timestamp,
+        payload: %Data{bytes: payload},
+        transfer_token_address_hash: token,
+        transfer_from_address_hash: from,
+        transfer_to_address_hash: to,
+        transfer_amount: amount
+      }
+
+      {:ok, data, import_params, params["init_chain_id"], params["relay_chain_id"], &InteropMessage.get_relay_part/2}
+    else
+      _ -> :error
+    end
+  end
+
+  defp interop_validate_part(params, common) do
+    with true <- interop_keys?(params, @interop_common ++ @interop_relay),
+         {:ok, transaction} <- interop_decode_hex(params["relay_transaction_hash"], 32),
+         failed when is_boolean(failed) <- params["failed"] do
+      result = if failed, do: 1, else: 0
+      data = <<@interop_domain::binary, 1, common::binary, transaction::binary, result>>
+
+      import_params = %{
+        nonce: params["nonce"],
+        init_chain_id: params["init_chain_id"],
+        relay_chain_id: params["relay_chain_id"],
+        relay_transaction_hash: params["relay_transaction_hash"],
+        failed: failed
+      }
+
+      {:ok, data, import_params, params["relay_chain_id"], params["init_chain_id"], &InteropMessage.get_init_part/2}
+    else
+      _ -> :error
+    end
+  end
+
+  defp interop_keys?(params, fields), do: Enum.sort(Map.keys(Map.delete(params, "signature"))) == Enum.sort(fields)
+  defp interop_integer?(number, maximum), do: is_integer(number) and number >= 0 and number <= maximum
+
+  defp interop_decode_hex("0x" <> hex, size) do
+    valid_size =
+      if size == :payload,
+        do: rem(byte_size(hex), 2) == 0 and byte_size(hex) <= 2_097_152,
+        else: byte_size(hex) == size * 2
+
+    if valid_size, do: Base.decode16(hex, case: :mixed), else: :error
+  end
+
+  defp interop_decode_hex(_, _), do: :error
+
+  # Known transfer selectors must contain the complete ABI words before decoding.
+  defp interop_transfer_payload?(<<0x7C, 0xFD, 0x6D, 0xBC, rest::binary>>), do: byte_size(rest) == 128
+  defp interop_transfer_payload?(<<0x4F, 0x0E, 0xDC, 0xC9, rest::binary>>), do: byte_size(rest) == 96
+  defp interop_transfer_payload?(_), do: true
 
   # Implements import logic for the interop message's data sent to `/api/v2/import/optimism/interop/` endpoint.
   # Used by the public `interop_import` function. It requests a public key from the remote Blockscout instance,
@@ -725,14 +801,14 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
   # ## Parameters
   # - `remote_chain_id`: Chain ID of the remote instance which public key should be retrieved for data verifying.
   # - `data_to_verify`: Signed binary data which needs to be verified with the public key.
-  # - `signature`: A string in hex representation (without 0x prefix) containing the signature.
-  # - `params`: JSON parameters got from the corresponding POST request sent by the remote instance.
+  # - `signature`: The validated 64-byte compact signature.
+  # - `params`: Validated import parameters decoded from the JSON request.
   # - `missed_part_fn`: Reference to the function that should return missed part of the message data (from db) for the remote side.
   # - `conn`: The connection struct.
   #
   # ## Returns
   # - The connection struct with the rendered response.
-  @spec interop_import_internal(non_neg_integer(), String.t(), String.t(), map(), function(), Plug.Conn.t()) ::
+  @spec interop_import_internal(non_neg_integer(), binary(), binary(), map(), function(), Plug.Conn.t()) ::
           Plug.Conn.t()
   defp interop_import_internal(remote_chain_id, data_to_verify, signature, params, missed_part_fn, conn) do
     # we need to know the remote instance API URL to get public key from that
@@ -744,14 +820,14 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
     with {:empty_public_key, false} <- {:empty_public_key, is_nil(public_key)},
          {:wrong_signature, false} <-
            {:wrong_signature,
-            ExSecp256k1.verify(ExKeccak.hash_256(data_to_verify), Base.decode16!(signature, case: :mixed), public_key) !=
+            ExSecp256k1.verify(ExKeccak.hash_256(data_to_verify), signature, public_key) !=
               :ok},
          # the data is verified, so now we can import that to the database
          {:ok, _} <-
-           Chain.import(%{optimism_interop_messages: %{params: [interop_prepare_import(params)]}, timeout: :infinity}) do
+           Chain.import(%{optimism_interop_messages: %{params: [params]}, timeout: :infinity}) do
       conn
       |> put_status(200)
-      |> render(:optimism_interop_response, missed_part_fn.(params["init_chain_id"], params["nonce"]))
+      |> render(:optimism_interop_response, missed_part_fn.(params.init_chain_id, params.nonce))
     else
       {:empty_public_key, true} ->
         interop_render_http_error(conn, 500, "Unable to get public key")
@@ -762,46 +838,6 @@ defmodule BlockScoutWeb.API.V2.OptimismController do
       _ ->
         interop_render_http_error(conn, 500, "Cannot import the data")
     end
-  end
-
-  # Prepares interop message's data to be imported to database. Converts POST request parameters to the map acceptable by `Chain.import`.
-  #
-  # ## Parameters
-  # - `params`: JSON parameters got from the corresponding POST request sent by the remote instance.
-  #
-  # ## Returns
-  # - Resulting map with the `op_interop_messages` table's fields.
-  @spec interop_prepare_import(map()) :: map()
-  defp interop_prepare_import(%{"init_transaction_hash" => init_transaction_hash} = params) do
-    payload = hash_to_binary(params["payload"])
-
-    [transfer_token_address_hash, transfer_from_address_hash, transfer_to_address_hash, transfer_amount] =
-      InteropMessage.decode_payload(payload)
-
-    %{
-      sender_address_hash: params["sender_address_hash"],
-      target_address_hash: params["target_address_hash"],
-      nonce: params["nonce"],
-      init_chain_id: params["init_chain_id"],
-      init_transaction_hash: init_transaction_hash,
-      timestamp: DateTime.from_unix!(params["timestamp"]),
-      relay_chain_id: params["relay_chain_id"],
-      payload: payload,
-      transfer_token_address_hash: transfer_token_address_hash,
-      transfer_from_address_hash: transfer_from_address_hash,
-      transfer_to_address_hash: transfer_to_address_hash,
-      transfer_amount: transfer_amount
-    }
-  end
-
-  defp interop_prepare_import(%{"relay_transaction_hash" => relay_transaction_hash} = params) do
-    %{
-      nonce: params["nonce"],
-      init_chain_id: params["init_chain_id"],
-      relay_chain_id: params["relay_chain_id"],
-      relay_transaction_hash: relay_transaction_hash,
-      failed: params["failed"]
-    }
   end
 
   # Gets filter parameters for message list and prepares them for `Explorer.Chain.Optimism.InteropMessage.list/1` function.

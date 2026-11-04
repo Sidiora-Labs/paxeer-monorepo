@@ -59,6 +59,11 @@ func (s msgServer) CreateVestingAccount(goCtx context.Context, msg *types.MsgCre
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "account %s already exists", msg.ToAddress)
 	}
 
+	startTime := ctx.BlockTime().Unix()
+	if !msg.Delayed && msg.EndTime <= startTime {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "continuous vesting end time must be after block time")
+	}
+
 	baseAccount := ak.NewAccountWithAddress(ctx, to)
 	if _, ok := baseAccount.(*authtypes.BaseAccount); !ok {
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid account type; expected: BaseAccount, got: %T", baseAccount)
@@ -77,29 +82,30 @@ func (s msgServer) CreateVestingAccount(goCtx context.Context, msg *types.MsgCre
 
 	baseVestingAccount := types.NewBaseVestingAccount(baseAccount.(*authtypes.BaseAccount), msg.Amount.Sort(), msg.EndTime, admin)
 
-	var acc authtypes.AccountI
+	var acc authtypes.GenesisAccount
 
 	if msg.Delayed {
 		acc = types.NewDelayedVestingAccountRaw(baseVestingAccount)
 	} else {
-		acc = types.NewContinuousVestingAccountRaw(baseVestingAccount, ctx.BlockTime().Unix())
+		acc = types.NewContinuousVestingAccountRaw(baseVestingAccount, startTime)
+	}
+
+	if err := acc.Validate(); err != nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
 	}
 
 	ak.SetAccount(ctx, acc)
 
-	defer func() {
-		vestingMetrics.newAccount.Add(goCtx, 1)
-
-		for _, a := range msg.Amount {
-			if a.Amount.IsInt64() {
-				vestingMetrics.accountAmount.Record(goCtx, a.Amount.Int64(), otelmetric.WithAttributes(attribute.String("denom_class", telemetry.DenomClass(a.Denom))))
-			}
-		}
-	}()
-
 	err = bk.SendCoins(ctx, from, to, msg.Amount)
 	if err != nil {
 		return nil, err
+	}
+
+	vestingMetrics.newAccount.Add(goCtx, 1)
+	for _, a := range msg.Amount {
+		if a.Amount.IsInt64() {
+			vestingMetrics.accountAmount.Record(goCtx, a.Amount.Int64(), otelmetric.WithAttributes(attribute.String("denom_class", telemetry.DenomClass(a.Denom))))
+		}
 	}
 
 	ctx.EventManager().EmitEvent(

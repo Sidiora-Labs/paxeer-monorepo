@@ -887,6 +887,18 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 		runTxRes.gasInfo = sdk.GasInfo{GasWanted: gasWanted, GasUsed: ctx.GasMeter().GasConsumed(), GasEstimate: gasEstimate}
 	}()
 
+	blockGasConsumed := false
+	consumeBlockGas := func() {
+		if mode == runTxModeDeliver && !blockGasConsumed && ctx.GasMeter() != blockGasMeter {
+			blockGasConsumed = true
+			blockGasMeter.ConsumeGas(ctx.GasMeter().GasConsumedToLimit(), "block gas meter")
+		}
+	}
+	if mode == runTxModeDeliver && blockGasMeter.IsOutOfGas() {
+		return runTxRes, sdkerrors.Wrap(sdkerrors.ErrOutOfGas, "block gas meter exhausted")
+	}
+	defer consumeBlockGas()
+
 	if tx == nil {
 		return runTxRes, sdkerrors.Wrap(sdkerrors.ErrTxDecode, "tx decode error")
 	}
@@ -952,6 +964,11 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 		anteSpan.End()
 	}
 
+	if mode == runTxModeCheck || mode == runTxModeReCheck {
+		runTxRes.result = &sdk.Result{}
+		return runTxRes, nil
+	}
+
 	// Create a new Context based off of the existing Context with a MultiStore branch
 	// in case message processing fails. At this point, the MultiStore
 	// is a branch of a branch.
@@ -993,6 +1010,7 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode runTxMode, tx sdk.Tx, checksum [
 		}
 	}
 	if err == nil {
+		consumeBlockGas()
 		msCache.Write()
 	}
 	return runTxRes, err
