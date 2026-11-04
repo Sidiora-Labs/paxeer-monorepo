@@ -1,0 +1,8 @@
+[repair.22.31.324]
+audit = "22.30.179"
+writer-error-data-loss = "TestRepair_324_WriterErrorDataLoss"
+writer-restart-overwrite = "TestRepair_324_WriterRestartRecovery, TestRepair_324_WriterDuplicateHeight, TestRepair_324_WriterRejectsCorruptRecovery"
+rpc-response-not-decoded = "TestRepair_324_RPCProducerTransportConsumer, TestRepair_324_RPCInvalidResponses"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done; no pre-change failure is claimed."
+evidence = "The runner records the verified candidate revision, command, exit and private log in the hf-done ledger."
+wiring = "rpc/send_test.go and tools/loadtest/go.mod (domains 7 RPC and 16 tools): connect the sender consumer to Paxeer SendAPI in the owning integration gate; this scoped module uses the production JSON-RPC codec with the SendAPI hash/error peer fixture."
