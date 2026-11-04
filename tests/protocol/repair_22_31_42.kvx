@@ -1,0 +1,8 @@
+[repair.22.31.42]
+finding = "host-bound-migration"
+tests = ["host_bound_migration_admission", "host_bound_migration_refusals", "host_bound_migration_transport", "TestHostBoundMigrationPrecompile", "TestHostBoundMigrationNative", "TestHostBoundMigrationTransportRefusals"]
+coverage = "Production activity codec to kernel execution and migration admission in native Ed25519 and validated unsigned chain-binding modes; exact activity id, admission versions, validation fee, charged balances and sequence consumption; actor, principal, verified key, payload hash, signature, identity key, context and schedule refusals with unchanged state. Unknown program upgrades must reach lifecycle validation and return UNKNOWN_FIELD, never BAD_SIGNATURE."
+baseline = "Not run: the task's ordered gate instructions prohibit tests before implementation and prohibit invoking verify_cmd outside hf-done; no prior gate ledger exists. No baseline failures are claimed."
+wiring_request = "None: tests/protocol/hostmigration uses the public Programs precompile and host APIs from the C verify harness without changing their owning domains."
+evidence = "Exact candidate revision, command, exit and private log are emitted by hf-build/hf-done and copied to the final task handoff; no unexecuted gate is claimed here."
+gotcha = "Host-bound unsigned authentication is a kernel caller contract; skipping Ed25519 requires reusing the Programs actor/principal/key and active identity-key checks, rather than trusting signature_valid alone."

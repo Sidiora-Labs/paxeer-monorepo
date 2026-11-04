@@ -1,12 +1,14 @@
 //! Event-driven projection of the agent approval module into the Human inbox.
 
 mod decide;
+mod notification;
 mod render;
 
 pub use decide::{
     AgentDecision, AgentDecisionBoundary, AgentDecisionResolution, AgentDecisionStatus,
     DecisionAction, DecisionError, DecisionResult, Decisions,
 };
+pub use notification::ApprovalNotification;
 pub use render::{
     ApprovalActivityClass, ApprovalPresentation, DisclosureRenderError, DisclosureRenderer,
     RenderedApproval, RenderedApprovalFacts, RenderedCounterparty, UnrenderableApproval,
@@ -21,9 +23,7 @@ use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use crate::audit::{AuditChain, AuditError};
-use crate::notify::{
-    AgentId, ApprovalId, Dispatcher, Event as NotificationEvent, Money, NotifyError,
-};
+use crate::notify::{AgentId, ApprovalId, Dispatcher, Event as NotificationEvent, NotifyError};
 use crate::store::PrincipalScope;
 use crate::trace::TraceId;
 
@@ -362,10 +362,11 @@ impl Inbox {
                 if !matches!(item.state, InboxState::AwaitingApproval) {
                     return Err(InboxError::LifecycleMismatch);
                 }
+                ApprovalNotification::persist(scope, event.observed_at, &item)?;
                 let notification = NotificationEvent::ApprovalWaiting {
                     approval_id: item.approval_id.clone(),
                     agent_id: notification_agent_id(&item.agent)?,
-                    money: Some(Money::new(item.amount, item.asset.clone())?),
+                    money: None,
                 };
                 Dispatcher::dispatch(scope, audit, event.observed_at, trace, &notification)?;
             } else if event_kind(&item.state) != event.kind {

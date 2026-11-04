@@ -5,11 +5,15 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Wallet {
     pub evm_key_id: String,
     pub address: [u8; 20],
+    #[serde(default)]
+    pub tenant: String,
+    #[serde(default)]
+    pub principal: String,
     pub next_nonce: BTreeMap<u64, u64>,
     pub actions: BTreeMap<String, EvmAction>,
 }
@@ -18,6 +22,8 @@ impl Wallet {
         let wallet = Self {
             evm_key_id: evm_key_id.to_owned(),
             address,
+            tenant: String::new(),
+            principal: String::new(),
             next_nonce: BTreeMap::new(),
             actions: BTreeMap::new(),
         };
@@ -198,6 +204,11 @@ impl Wallet {
             })?;
         self.accept_external(action_key, &signature, now)
     }
+}
+pub(crate) fn transaction_digest(tx: &EvmTransaction) -> [u8; 32] {
+    let mut unsigned = vec![2];
+    unsigned.extend(list(&fields(tx)));
+    Keccak256::digest(unsigned).into()
 }
 fn fields(tx: &EvmTransaction) -> Vec<u8> {
     let mut fields = Vec::new();
