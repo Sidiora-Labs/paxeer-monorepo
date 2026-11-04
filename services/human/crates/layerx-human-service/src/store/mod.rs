@@ -236,6 +236,7 @@ pub enum StoreError {
     DuplicateAuditEntry,
     MissingEvidence,
     EvidencePinned,
+    ArchiveHistoryChanged,
 }
 
 impl Display for StoreError {
@@ -255,6 +256,7 @@ impl Display for StoreError {
             Self::EvidencePinned => {
                 formatter.write_str("row is pinned as evidence by an exportable audit entry")
             }
+            Self::ArchiveHistoryChanged => formatter.write_str("archive history evidence changed"),
         }
     }
 }
@@ -556,6 +558,7 @@ impl PrincipalScope<'_> {
         written_at: u64,
         bytes: Vec<u8>,
     ) -> Result<(), StoreError> {
+        crate::agents::check_retained_history_write(self, table, &key, written_at, &bytes)?;
         if self.state.pinned(table, &key) {
             return Err(StoreError::EvidencePinned);
         }
@@ -588,6 +591,9 @@ impl PrincipalScope<'_> {
         written_at: u64,
         rows: Vec<(Table, RowKey, Vec<u8>)>,
     ) -> Result<(), StoreError> {
+        for (table, key, bytes) in &rows {
+            crate::agents::check_retained_history_write(self, *table, key, written_at, bytes)?;
+        }
         let mut keys = BTreeSet::new();
         if rows.iter().any(|(table, key, _)| {
             !keys.insert((*table, key.clone())) || self.state.pinned(*table, key)

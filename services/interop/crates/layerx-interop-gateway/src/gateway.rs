@@ -580,24 +580,27 @@ impl GatewayCore {
         if evidence.rung == SettlementRung::Submitted {
             return Err(trace.wrap(SequencerSettlementError::from(GatewayError::ReceiptPending)));
         }
+        let reject = |failure| {
+            trace.wrap(SequencerSettlementError::from(
+                GatewayError::ReceiptRejected(failure),
+            ))
+        };
+        let receipt = verify_sequencer_signature(
+            &evidence.signed_receipt,
+            ReceiptKeys::HeightRanges(receipt_keys),
+        )
+        .map_err(reject)?;
+        let protocol = receipt.protocol().ok_or_else(|| {
+            reject(VerificationFailure {
+                check: ReceiptCheck::ReceiptShape,
+            })
+        })?;
+        if protocol.activity_id() != evidence.transaction_hash {
+            return Err(reject(VerificationFailure {
+                check: ReceiptCheck::ActivityId,
+            }));
+        }
         self.settle_verified(principal, idempotency_key, trace, now, || {
-            let receipt = verify_sequencer_signature(
-                &evidence.signed_receipt,
-                ReceiptKeys::HeightRanges(receipt_keys),
-            )
-            .map_err(GatewayError::ReceiptRejected)?;
-            let protocol =
-                receipt
-                    .protocol()
-                    .ok_or(GatewayError::ReceiptRejected(VerificationFailure {
-                        check: ReceiptCheck::ReceiptShape,
-                    }))?;
-            if protocol.activity_id() != evidence.transaction_hash {
-                return Err(GatewayError::ReceiptRejected(VerificationFailure {
-                    check: ReceiptCheck::ActivityId,
-                })
-                .into());
-            }
             let verified = verify_logs(&receipt, evidence.logs.clone())
                 .map_err(SequencerSettlementError::Logs)?;
             let payment_exact = keccak256(PAYMENT_EXACT_EVENT);

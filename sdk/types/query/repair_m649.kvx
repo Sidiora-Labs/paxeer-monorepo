@@ -1,0 +1,6 @@
+[repair.22.33.649]
+finding = "reverse-pagination-invalid-key"
+tests = ["TestRepairM_649_Paginate", "TestRepairM_649_FilteredPaginate", "TestRepairM_649_BankQuery"]
+proof = "Real in-memory DB and prefix stores exercise largest, exact, absent, beyond-range, below-range, binary and empty-store boundaries and consume every continuation; real bank funding, keeper, protobuf query router and client prove ordered balances and inclusive continuations."
+baseline = "Not run: the explicit task order requires complete implementation before hf-build and hf-done and prohibits invoking verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = []

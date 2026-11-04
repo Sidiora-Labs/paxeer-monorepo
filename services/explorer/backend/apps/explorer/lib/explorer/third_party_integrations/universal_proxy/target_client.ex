@@ -38,18 +38,18 @@ defmodule Explorer.ThirdPartyIntegrations.UniversalProxy.TargetClient do
   end
 
   @doc """
-  Forwards a text message to the target WebSocket server.
+  Forwards a text or binary frame to the target WebSocket server.
 
   ## Parameters
   - `pid`: The PID of the TargetClient process.
-  - `msg`: The text message to send.
+  - `frame`: The frame to send, preserving its type and payload.
 
   ## Returns
   - `:ok` on success
   - `{:error, reason}` if the message cannot be sent
   """
-  @spec forward(pid :: pid(), msg :: String.t()) :: :ok | {:error, term()}
-  def forward(pid, msg) do
-    WebSockex.send_frame(pid, {:text, msg})
+  @spec forward(pid :: pid(), frame :: {:text | :binary, binary()}) :: :ok | {:error, term()}
+  def forward(pid, {type, _msg} = frame) when type in [:text, :binary] do
+    WebSockex.send_frame(pid, frame)
   end
 end

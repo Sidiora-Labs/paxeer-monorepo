@@ -10,7 +10,9 @@ import (
 	"time"
 
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/holiman/uint256"
@@ -23,6 +25,8 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	if n == nil || n.App == nil {
 		return errors.New("sequencer: start needs an assembled node")
 	}
+	n.lifecycle.Lock()
+	defer n.lifecycle.Unlock()
 	if n.Standby != nil {
 		return nil
 	}
@@ -83,6 +87,14 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("sequencer: start WAL replay: %w", err)
 	}
+	pv, err := privval.LoadFilePVEmptyState(consensus.KeyFile(), "")
+	if err != nil {
+		return err
+	}
+	seq := baseSequential(n.FeeFloor.Executor)
+	seq.mu.Lock()
+	seq.proposer = append([]byte(nil), pv.Key.PubKey.Address()...)
+	seq.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -110,6 +122,7 @@ func (n *Node) Start(ctx context.Context) (err error) {
 			}
 			ack, err := n.Replicator.Release(ctx, &wal.Open{
 				Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
+				ProposerAddress: baseSequential(n.FeeFloor.Executor).proposer,
 			})
 			if err != nil {
 				return err
@@ -121,12 +134,15 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	} else if err != nil {
 		return err
 	}
+	if err := n.startLease(ctx, result); err != nil {
+		return err
+	}
 	if result.LastAccept != nil {
 		n.Metrics.SetOpenSeq(result.LastAccept.Seq)
 	}
 	n.App.SetOpenBlock(n.Executor)
 	n.App.SetSequencerSource(n.ConsensusSource)
-	n.App.SetSequencerRPC(evmrpc.NewSequencerOption(n.Accepter, n.ReceiptLogFeed),
+	n.App.SetSequencerRPC(evmrpc.NewSequencerOption(n, n.ReceiptLogFeed),
 		evmrpc.SequencerReceiptOption{Source: n.ReceiptSource, Keeper: &n.App.SequencerKeeper})
 	n.App.SetCommitListener(func(height int64, appHash []byte) error {
 		if err := n.Driver.OnCommit(height, appHash); err != nil {
@@ -168,7 +184,7 @@ func (r *nodeStartReplayer) Execute(a *wal.Accept) ([]byte, error) {
 	if err := r.ctx.Err(); err != nil {
 		return nil, err
 	}
-	return r.AppReplayer.Execute(a)
+	return (&standbyRoleReplay{AppReplayer: r.AppReplayer, allowLocal: true, source: &standbyRoleSource{app: r.r.host.(*app.App)}}).Execute(a)
 }
 
 // A crash can leave SEAL durable after the application committed but before

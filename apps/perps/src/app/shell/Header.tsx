@@ -21,7 +21,13 @@ import { useIsMobile } from "@/hooks/ui/useMobile";
 export function Header() {
   const isMobile = useIsMobile();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [collateralRequest, setCollateralRequest] = useState<{
+    isOpen: boolean;
+    initialAction: "deposit" | "withdraw";
+  }>({ isOpen: false, initialAction: "deposit" });
+  const openCollateral = (initialAction: "deposit" | "withdraw") => {
+    setCollateralRequest({ isOpen: true, initialAction });
+  };
   const [isWalletPanelOpen, setIsWalletPanelOpen] = useState(false);
   const { theme } = useTheme();
   const { isConnected, shortAddress, connect, disconnect } = usePerpsWallet();
@@ -85,7 +91,7 @@ export function Header() {
             <Button
               variant="outline"
               className="h-8 px-3 text-xs hidden md:flex items-center gap-1"
-              onClick={() => setIsDepositOpen(true)}
+              onClick={() => openCollateral("deposit")}
             >
               <ArrowDownToLine className="w-3.5 h-3.5" /> Deposit
             </Button>
@@ -93,7 +99,7 @@ export function Header() {
               variant="outline"
               size="icon"
               className="h-8 w-8 flex md:hidden"
-              onClick={() => setIsDepositOpen(true)}
+              onClick={() => openCollateral("deposit")}
               title="Deposit"
             >
               <ArrowDownToLine className="w-4 h-4" />
@@ -106,8 +112,8 @@ export function Header() {
             <WalletControlPanel
               open={isWalletPanelOpen}
               onOpenChange={setIsWalletPanelOpen}
-              onDeposit={() => setIsDepositOpen(true)}
-              onWithdraw={() => setIsDepositOpen(true)}
+              onDeposit={() => openCollateral("deposit")}
+              onWithdraw={() => openCollateral("withdraw")}
               trigger={
                 <Button
                   variant="outline"
@@ -145,8 +151,8 @@ export function Header() {
     />
 
     <DepositWithdrawModal
-      isOpen={isDepositOpen}
-      onClose={() => setIsDepositOpen(false)}
+      {...collateralRequest}
+      onClose={() => setCollateralRequest((request) => ({ ...request, isOpen: false }))}
     />
     </>
   );

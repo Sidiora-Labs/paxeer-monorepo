@@ -33,6 +33,7 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, err.Error())
 	}
+	pre := s.receiptContextLocked()
 	beforeAdmission := s.open.ctx
 	if err := s.admit(tx, txBytes); err != nil {
 		return nil, err
@@ -89,6 +90,7 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 		TxIndex:        txIndex,
 		TimestampMs:    s.open.timestampMs,
 		Result:         result,
+		BeforeContext:  pre,
 		ReceiptContext: s.receiptContextLocked(),
 	}, nil
 }
