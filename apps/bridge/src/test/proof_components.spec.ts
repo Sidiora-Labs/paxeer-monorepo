@@ -10,10 +10,12 @@
  */
 // @vitest-environment jsdom
 
+import { componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges } from './repair-22-33-266.proofs';
+
 import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { createElement, type FunctionComponentElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { encodeFunctionData, keccak256, zeroAddress, type Hex } from 'viem';
+import { encodeFunctionData, keccak256, zeroAddress } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { expect, test } from 'vitest';
 import { WagmiProvider } from 'wagmi';
@@ -21,8 +23,6 @@ import { WagmiProvider } from 'wagmi';
 import Home from '@/app/page';
 import { BridgeCard, recordBridgeSubmission } from '@/components/bridge/bridge-card';
 import {
-  buildVerifiedClaim,
-  buildVerifiedRelease,
   decodeTransferLive,
   readTransferLive,
   type TransferLive,
@@ -35,16 +35,13 @@ import {
 import { ThemeProvider } from '@/components/theme-provider';
 import { DepositStatus, TransferSteps, type TransferStatusItem, type TransferStep } from '@/components/trading/deposit-status';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { parseDepositAttestation, parseReleaseAttestation } from '@/lib/bridge/attestation-api';
 import { bridgeChainByKey, paxeer } from '@/lib/bridge/chains';
-import { inboundDigest, outboundDigest, paxeerRecipient, verifyThresholdSignatures } from '@/lib/bridge/digests';
 import { phaseOf, stepOf } from '@/lib/bridge/phase';
 import { planDeposit } from '@/lib/bridge/submission';
 import { listTransfers, updateTransfer } from '@/lib/bridge/transfers';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 
 const wallet = privateKeyToAccount(generatePrivateKey());
-const attestor = privateKeyToAccount(generatePrivateKey());
 const vault = privateKeyToAccount(generatePrivateKey()).address;
 
 function requiredChain(key: string) {
@@ -240,58 +237,9 @@ async function components_decode_live_results_and_progress_without_a_cached_shor
 }
 
 async function components_verify_real_signatures_and_refuse_unready_or_mismatched_settlement() {
-  const input = await signedSubmission();
-  const originalStorage = window.localStorage.getItem('paxeer-bridge:transfers:v1');
-  try {
-    const deposit = recordBridgeSubmission({ direction: 'in', input: { ...input, vault, recipient: wallet.address } }, () => {});
-    const withdrawal = recordBridgeSubmission({ direction: 'out', input: { ...input, destination: wallet.address } }, () => {});
-    const readyDeposit = { ...deposit, logIndex: '0' };
-    const readyWithdrawal = { ...withdrawal, vault, bridgeOutNonce: '0' };
-    const recipient32 = paxeerRecipient(wallet.address);
-    const claimDigest = inboundDigest({
-      chainId: input.foreign.chainId, vault, txHash: input.hash, logIndex: 0n,
-      recipient32, asset: input.asset.assetId, amount: input.amount,
-    });
-    const releaseDigest = outboundDigest({
-      chainId: input.foreign.chainId, vault, paxeerTxHash: input.hash, paxeerNonce: 0n,
-      recipient: wallet.address, asset: input.asset.assetId, amount: input.amount,
-    });
-    const claimSignature: Hex = await attestor.sign({ hash: claimDigest });
-    const releaseSignature: Hex = await attestor.sign({ hash: releaseDigest });
-    const claim = parseDepositAttestation({ chainId: input.foreign.chainId, txHash: input.hash, logIndex: 0n }, {
-      chainId: deposit.foreignChainId, vault, txHash: input.hash, logIndex: '0', recipient: recipient32,
-      asset: input.asset.assetId, amount: input.amount.toString(), digest: claimDigest, signatures: [ claimSignature ], status: 'ready',
-    });
-    const release = parseReleaseAttestation({ chainId: input.foreign.chainId, paxeerTxHash: input.hash, paxeerNonce: 0n }, {
-      chainId: withdrawal.foreignChainId, vault, paxeerTxHash: input.hash, paxeerNonce: '0', recipient: wallet.address,
-      asset: input.asset.assetId, amount: input.amount.toString(), digest: releaseDigest, signatures: [ releaseSignature ], status: 'ready',
-    });
-    for (const [ digest, signature ] of [ [ claim.digest, claimSignature ], [ release.digest, releaseSignature ] ] as const) {
-      expect(await verifyThresholdSignatures({ digest, signatures: [ signature ], attestors: [ attestor.address ], threshold: 1 }))
-        .toEqual({ ok: true, signers: [ attestor.address ] });
-      expect(await verifyThresholdSignatures({ digest, signatures: [ signature ], attestors: [ wallet.address ], threshold: 1 }))
-        .toEqual({ ok: false, reason: 'Signature 1 is not from a registered attestor.' });
-    }
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await expect(buildVerifiedClaim(readyDeposit, { ...claim, status: 'attesting' })).rejects.toThrow('The deposit attestation is not ready.');
-      await expect(buildVerifiedClaim(readyDeposit, { ...claim, signatures: [] })).rejects.toThrow('The deposit attestation is not ready.');
-      await expect(buildVerifiedClaim(readyDeposit, { ...claim, amount: '1' })).rejects.toThrow('The backend attestation does not match this deposit.');
-      await expect(buildVerifiedClaim(readyWithdrawal, claim)).rejects.toThrow('Only deposits can be claimed.');
-      await expect(buildVerifiedRelease(readyWithdrawal, { ...release, status: 'attesting' })).rejects.toThrow('The release attestation is not ready.');
-      await expect(buildVerifiedRelease(readyWithdrawal, { ...release, signatures: [] })).rejects.toThrow('The release attestation is not ready.');
-      await expect(buildVerifiedRelease(readyWithdrawal, { ...release, amount: '1' })).rejects.toThrow('The backend attestation does not match this withdrawal.');
-      await expect(buildVerifiedRelease(readyDeposit, release)).rejects.toThrow('Only withdrawals can be released.');
-      // lib/bridge/chains.ts buildBridgeChains supplies no Solana viemChain:
-      // buildVerifiedRelease must keep refusing EVM settlement on that route.
-      await expect(buildVerifiedRelease({ ...readyWithdrawal, foreignChainKey: 'solana' }, release))
-        .rejects.toThrow('This withdrawal cannot be released from an EVM wallet.');
-    }
-  } finally {
-    if (originalStorage === null) window.localStorage.removeItem('paxeer-bridge:transfers:v1');
-    else window.localStorage.setItem('paxeer-bridge:transfers:v1', originalStorage);
-  }
+  await componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges();
 }
 
 test(components_publish_cross_storage_and_reopen_the_real_page);
 test(components_decode_live_results_and_progress_without_a_cached_shortcut);
-test(components_verify_real_signatures_and_refuse_unready_or_mismatched_settlement);
+test(components_verify_real_signatures_and_refuse_unready_or_mismatched_settlement.name, components_verify_real_signatures_and_refuse_unready_or_mismatched_settlement);

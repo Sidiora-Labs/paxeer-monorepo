@@ -1,0 +1,22 @@
+[repair.22.33.361]
+mode = "BUILD"
+audit = "22.30.139"
+base = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+proof = "apps/web/e2e/repair-22-33-361.test.ts"
+baseline = "No unchanged-tree verify was run: the explicit ordered instructions require complete implementation before the bounded hf-build/hf-done gates and prohibit a manual verify. No baseline test failure is claimed."
+evidence = "The private hf-build/hf-done ledger records the verified candidate revision, exact command, exit code and log; the runner owns publication."
+
+[finding.account-retired-settlement-ui]
+test = "account_retired_settlement_ui_native_totals_and_committed_position"
+repair = "The production account route consumes the prerequisite native unified-account loader and renderer: exact total balance per asset, committed transaction rows and page observation block/ordinal range, without claiming network head freshness. No historical custody or batch-anchor data is supplied by this endpoint, so no archive facts or synthetic archive panel are invented."
+peers = "Committed explorer/fixtures/repair-22-31-383-native-http.json controller contract transcript, replayed over a local HTTP listener through the production transport, strict native codec, page loader and actual AccountPage route."
+navigation_test = "account_native_cursor_navigation_and_explicit_refusal"
+refusal_test = "account_native_missing_and_legacy_positions_do_not_invent_facts"
+proof_detail = "Assert exact visible totals, every transaction field, committed positions, opaque continuation links, expiry/reorg refusal and explicit snapshot reset, missing/unavailable responses, canonical redirects and refusal of retired numeric positions."
+
+[wiring.native-unified-shape]
+request = "apps/web/src/explorer/{client.ts,native-model.ts,native-page.ts,native-components.tsx} — owning domain 14 fm-web-explorer-bridge: native-unified-shape was provided by prerequisite 22.31.383 and is consumed directly without out-of-scope edits."
+
+[gotcha.22.33.361]
+observed = "The old account route calls unifiedAccountAvailability, which deliberately refuses the retired projection after the native transport prerequisite."
+resolution = "Wire the actual route to loadNativeAccountPage and NativeAccountPage; preserve opaque cursor links and explicit refusal states, and never infer native totals or commitment from retired split fields."

@@ -1615,7 +1615,15 @@ class OperationJournal:
         partial = path.with_suffix(".partial")
         descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            os.write(descriptor, data)
+            remaining = memoryview(data)
+            while remaining:
+                try:
+                    written = os.write(descriptor, remaining)
+                except InterruptedError:
+                    continue
+                if written <= 0:
+                    raise OSError("journal write made no progress")
+                remaining = remaining[written:]
             os.fsync(descriptor)
         finally:
             os.close(descriptor)

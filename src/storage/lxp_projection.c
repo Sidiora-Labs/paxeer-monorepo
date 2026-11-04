@@ -88,6 +88,17 @@ lxp_result lxp_projection_open(lxp_projection *projection,
         return LXP_ERR_IO;
     }
     free(migration);
+    {
+        uint64_t watermark;
+        bool has_watermark;
+        lxp_result status = lxp_projection_watermark(
+            projection, &watermark, &has_watermark);
+        if (status != LXP_OK) {
+            (void)sqlite3_close(handle);
+            projection->database = NULL;
+            return status;
+        }
+    }
     return LXP_OK;
 }
 
@@ -107,25 +118,34 @@ static int bind_record(sqlite3_stmt *statement, uint64_t sequence,
     return SQLITE_OK;
 }
 
-lxp_result lxp_projection_apply(lxp_projection *projection,
-                                uint64_t global_sequence,
-                                const lxp_projection_record *record)
+static lxp_result projection_apply(lxp_projection *projection,
+                                    uint64_t global_sequence,
+                                    const lxp_projection_record *record,
+                                    bool rebuilding)
 {
     sqlite3 *handle;
     sqlite3_stmt *receipt = NULL;
     sqlite3_stmt *balance = NULL;
     sqlite3_stmt *watermark = NULL;
+    uint64_t previous;
+    bool has_previous;
     int status = SQLITE_ERROR;
     if (projection == NULL || projection->database == NULL)
         return LXP_ERR_NON_CANONICAL;
     if (!owner(projection)) return LXP_FATAL_INVARIANT;
+    if (projection->stale && !rebuilding) return LXP_ERR_PROJECTION_STALE;
     if (record == NULL || (record->receipt == NULL && record->receipt_length != 0U) ||
         record->receipt_length > INT32_MAX || global_sequence > INT64_MAX) {
         lxp_projection_mark_stale(projection);
         return LXP_ERR_PROJECTION_STALE;
     }
     handle = database(projection);
-    if (sqlite3_exec(handle, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK)
+    if (!rebuilding &&
+        sqlite3_exec(handle, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK)
+        goto finish;
+    if (lxp_projection_watermark(projection, &previous, &has_previous) !=
+            LXP_OK || (projection->stale && !rebuilding) ||
+        (has_previous && global_sequence != previous + 1U))
         goto finish;
     if (sqlite3_prepare_v2(handle,
             "INSERT INTO receipts VALUES(?,?,?,?,?)", -1, &receipt, NULL) !=
@@ -146,27 +166,36 @@ lxp_result lxp_projection_apply(lxp_projection *projection,
         goto finish;
     lxp_fault_inject_point(LXP_FAULT_INDEX_BALANCE_WRITTEN);
     if (sqlite3_prepare_v2(handle,
-            "UPDATE projection_meta SET watermark=?, stale=0 WHERE singleton=1",
+            "UPDATE projection_meta SET watermark=? WHERE singleton=1",
             -1, &watermark, NULL) != SQLITE_OK ||
         sqlite3_bind_int64(watermark, 1, (sqlite3_int64)global_sequence) !=
             SQLITE_OK || sqlite3_step(watermark) != SQLITE_DONE)
         goto finish;
     lxp_fault_inject_point(LXP_FAULT_INDEX_WATERMARK_WRITTEN);
-    if (sqlite3_exec(handle, "COMMIT", NULL, NULL, NULL) != SQLITE_OK)
-        goto finish;
-    lxp_fault_inject_point(LXP_FAULT_INDEX_COMMITTED);
+    if (!rebuilding) {
+        if (sqlite3_exec(handle, "COMMIT", NULL, NULL, NULL) != SQLITE_OK)
+            goto finish;
+        lxp_fault_inject_point(LXP_FAULT_INDEX_COMMITTED);
+    }
     status = SQLITE_OK;
 finish:
     (void)sqlite3_finalize(receipt);
     (void)sqlite3_finalize(balance);
     (void)sqlite3_finalize(watermark);
     if (status != SQLITE_OK) {
-        (void)sqlite3_exec(handle, "ROLLBACK", NULL, NULL, NULL);
+        if (!rebuilding)
+            (void)sqlite3_exec(handle, "ROLLBACK", NULL, NULL, NULL);
         lxp_projection_mark_stale(projection);
         return LXP_ERR_PROJECTION_STALE;
     }
-    projection->stale = false;
     return LXP_OK;
+}
+
+lxp_result lxp_projection_apply(lxp_projection *projection,
+                                uint64_t global_sequence,
+                                const lxp_projection_record *record)
+{
+    return projection_apply(projection, global_sequence, record, false);
 }
 
 lxp_result lxp_projection_watermark(lxp_projection *projection,
@@ -174,17 +203,27 @@ lxp_result lxp_projection_watermark(lxp_projection *projection,
 {
     sqlite3_stmt *statement = NULL;
     int64_t value;
+    int stale;
     if (projection == NULL || watermark == NULL || has_watermark == NULL ||
         projection->database == NULL) return LXP_ERR_NON_CANONICAL;
     if (!owner(projection)) return LXP_FATAL_INVARIANT;
     if (sqlite3_prepare_v2(database(projection),
-        "SELECT watermark FROM projection_meta WHERE singleton=1", -1,
+        "SELECT watermark, stale FROM projection_meta WHERE singleton=1", -1,
         &statement, NULL) != SQLITE_OK || sqlite3_step(statement) != SQLITE_ROW) {
         (void)sqlite3_finalize(statement);
         lxp_projection_mark_stale(projection);
         return LXP_ERR_PROJECTION_STALE;
     }
     value = sqlite3_column_int64(statement, 0);
+    stale = sqlite3_column_int(statement, 1);
+    if (sqlite3_column_type(statement, 0) != SQLITE_INTEGER || value < -1 ||
+        sqlite3_column_type(statement, 1) != SQLITE_INTEGER ||
+        (stale != 0 && stale != 1)) {
+        (void)sqlite3_finalize(statement);
+        lxp_projection_mark_stale(projection);
+        return LXP_ERR_PROJECTION_STALE;
+    }
+    projection->stale = projection->stale || stale != 0;
     (void)sqlite3_finalize(statement);
     *has_watermark = value >= 0;
     *watermark = value >= 0 ? (uint64_t)value : 0U;
@@ -288,40 +327,54 @@ lxp_result lxp_log_replay_range(const lxp_log *log, uint64_t start_offset,
     return offset == end_offset ? LXP_OK : LXP_ERR_LOG_TRUNCATED;
 }
 
-lxp_result lxp_projection_drop_all(lxp_projection *projection,
-                                   const char *migration_path)
+static lxp_result projection_reset(lxp_projection *projection,
+                                    const char *migration_path)
 {
     char *migration;
-    char *error = NULL;
-    sqlite3 *handle;
+    sqlite3 *handle = database(projection);
+    int status;
     static const char drop_sql[] =
-        "BEGIN IMMEDIATE;"
         "DROP VIEW IF EXISTS balance_view;"
         "DROP TABLE IF EXISTS balances;"
         "DROP TABLE IF EXISTS receipts;"
         "DROP TABLE IF EXISTS module_index;"
         "DROP TABLE IF EXISTS agent_queries;"
-        "DROP TABLE IF EXISTS projection_meta;"
-        "COMMIT;";
+        "DROP TABLE IF EXISTS projection_meta;";
+    if (sqlite3_exec(handle, drop_sql, NULL, NULL, NULL) != SQLITE_OK)
+        return LXP_ERR_PROJECTION_STALE;
+    migration = read_file(migration_path);
+    if (migration == NULL) return LXP_ERR_PROJECTION_STALE;
+    status = sqlite3_exec(handle, migration, NULL, NULL, NULL);
+    free(migration);
+    if (status != SQLITE_OK || sqlite3_exec(handle,
+            "UPDATE projection_meta SET stale=1 WHERE singleton=1",
+            NULL, NULL, NULL) != SQLITE_OK)
+        return LXP_ERR_PROJECTION_STALE;
+    projection->stale = true;
+    return LXP_OK;
+}
+
+lxp_result lxp_projection_drop_all(lxp_projection *projection,
+                                   const char *migration_path)
+{
+    sqlite3 *handle;
+    lxp_result status;
     if (projection == NULL || projection->database == NULL || !owner(projection))
         return LXP_FATAL_INVARIANT;
     handle = database(projection);
-    if (sqlite3_exec(handle, drop_sql, NULL, NULL, &error) != SQLITE_OK) {
-        sqlite3_free(error);
+    if (sqlite3_exec(handle, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
         lxp_projection_mark_stale(projection);
         return LXP_ERR_PROJECTION_STALE;
     }
-    migration = read_file(migration_path);
-    if (migration == NULL || sqlite3_exec(handle, migration, NULL, NULL,
-                                           &error) != SQLITE_OK) {
-        free(migration);
-        sqlite3_free(error);
+    status = projection_reset(projection, migration_path);
+    if (status == LXP_OK &&
+        sqlite3_exec(handle, "COMMIT", NULL, NULL, NULL) != SQLITE_OK)
+        status = LXP_ERR_PROJECTION_STALE;
+    if (status != LXP_OK) {
+        (void)sqlite3_exec(handle, "ROLLBACK", NULL, NULL, NULL);
         lxp_projection_mark_stale(projection);
-        return LXP_ERR_PROJECTION_STALE;
     }
-    free(migration);
-    projection->stale = false;
-    return LXP_OK;
+    return status;
 }
 
 static lxp_result rebuild_record(void *context,
@@ -334,7 +387,7 @@ static lxp_result rebuild_record(void *context,
     if (header->record_kind != (uint8_t)LXP_LOG_RECEIPT) return LXP_OK;
     status = lxp_projection_record_decode(body, header->body_length, &record);
     if (status != LXP_OK) return LXP_FATAL_REPLAY_DIVERGENCE;
-    return lxp_projection_apply(projection, header->global_sequence, &record);
+    return projection_apply(projection, header->global_sequence, &record, true);
 }
 
 lxp_result lxp_projection_rebuild(lxp_projection *projection, lxp_log *log,
@@ -347,7 +400,9 @@ lxp_result lxp_projection_rebuild(lxp_projection *projection, lxp_log *log,
     uint64_t replay_end = 0U;
     uint64_t offset = 0U;
     lxp_result status;
-    if (projection == NULL || log == NULL) return LXP_ERR_NON_CANONICAL;
+    if (projection == NULL || projection->database == NULL || log == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    if (!owner(projection)) return LXP_FATAL_INVARIANT;
     status = lxp_log_scan_tail(log, &valid_end, &last_offset, &next_sequence);
     if (status != LXP_OK) return status;
     status = lxp_log_durable_head(log, &durable);
@@ -360,8 +415,25 @@ lxp_result lxp_projection_rebuild(lxp_projection *projection, lxp_log *log,
             replay_end = offset + LXP_LOG_HEADER_BYTES + header.body_length;
         offset += LXP_LOG_HEADER_BYTES + header.body_length;
     }
-    status = lxp_projection_drop_all(projection, migration_path);
-    if (status != LXP_OK) return status;
-    if (replay_end == 0U) return LXP_OK;
-    return lxp_log_replay_range(log, 0U, replay_end, rebuild_record, projection);
+    lxp_projection_mark_stale(projection);
+    if (sqlite3_exec(database(projection), "BEGIN IMMEDIATE", NULL, NULL,
+                     NULL) != SQLITE_OK) return LXP_ERR_PROJECTION_STALE;
+    status = projection_reset(projection, migration_path);
+    if (status == LXP_OK && replay_end != 0U)
+        status = lxp_log_replay_range(log, 0U, replay_end, rebuild_record,
+                                      projection);
+    if (status == LXP_OK && sqlite3_exec(database(projection),
+            "UPDATE projection_meta SET stale=0 WHERE singleton=1",
+            NULL, NULL, NULL) != SQLITE_OK)
+        status = LXP_ERR_PROJECTION_STALE;
+    if (status == LXP_OK && sqlite3_exec(database(projection), "COMMIT",
+                                         NULL, NULL, NULL) != SQLITE_OK)
+        status = LXP_ERR_PROJECTION_STALE;
+    if (status != LXP_OK) {
+        (void)sqlite3_exec(database(projection), "ROLLBACK", NULL, NULL, NULL);
+        lxp_projection_mark_stale(projection);
+        return status;
+    }
+    projection->stale = false;
+    return LXP_OK;
 }

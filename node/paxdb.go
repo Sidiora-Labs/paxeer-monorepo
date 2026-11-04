@@ -141,9 +141,14 @@ func parseSCConfigs(appOpts servertypes.AppOptions) config.StateCommitConfig {
 	// and bring the node down at startup the first time write-mode is
 	// flipped to a migration mode.
 	if v := appOpts.Get(FlagSCKeysToMigratePerBlock); v != nil {
-		if n := cast.ToInt(v); n > 0 {
-			scConfig.KeysToMigratePerBlock = n
+		n, err := cast.ToIntE(v)
+		if err != nil {
+			panic(fmt.Errorf("invalid %s: %w", FlagSCKeysToMigratePerBlock, err))
 		}
+		if n <= 0 {
+			panic(fmt.Errorf("%s must be strictly positive, got %d", FlagSCKeysToMigratePerBlock, n))
+		}
+		scConfig.KeysToMigratePerBlock = n
 	}
 
 	return scConfig

@@ -1,10 +1,11 @@
-import { decodeRawEip1559, keccak256, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
+import { decodeRawEip1559, keccak256, verifySequencerReceipt, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
 import {
   MiddlewareError,
+  importPortableNodeReceipt,
   verifyPaymentReceipt,
   type PaymentRequirements,
   type PaymentReceiptVerification,
-  type PortableReceiptV2,
+  type PortableNodeReceiptV2,
 } from "./index.js";
 import {
   paymentCommitment,
@@ -130,7 +131,7 @@ export async function verifyRpcPayment(
   result: Record<string, unknown>, rawTransaction: string, expectedPayer: string,
   requirements: PaymentRequirements, receiptKeys: readonly SequencerReceiptKey[],
   commitments?: PaymentCommitmentResolver,
-): Promise<{ readonly kind: "pending" } | (PortableReceiptV2 & { readonly kind: "verified"; readonly verification: PaymentReceiptVerification })> {
+): Promise<{ readonly kind: "pending" } | (PortableNodeReceiptV2 & { readonly kind: "verified"; readonly verification: PaymentReceiptVerification })> {
   const expectedHash = hexString(keccak256(rawTransactionBytes(rawTransaction)));
   const payer = rpcHex(expectedPayer, 32);
   if (result["txHash"] !== expectedHash) throw new MiddlewareError("verification-failure");
@@ -146,12 +147,19 @@ export async function verifyRpcPayment(
   const key = receiptKeys.find((pin) => hexString(pin.keyId) === result["keyId"]
     && pin.first_height <= height && height <= pin.last_height);
   if (key === undefined) throw new MiddlewareError("verification-failure");
-  const evidence: PortableReceiptV2 = {
+  let verified;
+  try {
+    verified = await verifySequencerReceipt(signedReceipt, rawTransactionBytes(rawTransaction), [key]);
+  } catch {
+    throw new MiddlewareError("verification-failure");
+  }
+  const evidence = importPortableNodeReceipt({
     format: "layerx-receipt-proof-v2", verificationLevel: result["rung"], rawTransaction,
-    signedReceipt: hexString(signedReceipt), receiptDigest: hexString(keccak256(signedReceipt)),
+    signedReceipt: hexString(signedReceipt), receiptDigest: hexString(verified.receiptDigest),
     receiptKey: { keyId: hexString(key.keyId), publicKey: hexString(key.publicKey),
       firstHeight: `0x${key.first_height.toString(16)}`, lastHeight: `0x${key.last_height.toString(16)}` },
-  };
+    receiptJson: result,
+  });
   const verification = await verifyPaymentReceipt(evidence, requirements, receiptKeys, commitments);
   if (verification.height !== height || verification.txHash !== expectedHash
     || hexString(verification.receipt.from) !== hexString(payer)) throw new MiddlewareError("verification-failure");
