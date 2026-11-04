@@ -250385,7 +250385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.114]
 title = "Pre-upgrade audit of wallet: apps/wallet/src/lib (158 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -250609,7 +250609,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.107]
 title = "Pre-upgrade audit of human: services/human/crates/layerx-network-gateway (47 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -250705,7 +250705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.104]
 title = "Pre-upgrade audit of human: services/human/crates/layerx-human-service/src/server (27 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -250833,7 +250833,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.30.100]
 title = "Pre-upgrade audit of agent: services/agent/sdk/python (61 files)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
