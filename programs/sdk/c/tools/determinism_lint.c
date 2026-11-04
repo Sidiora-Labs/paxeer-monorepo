@@ -1,4 +1,5 @@
 #define _XOPEN_SOURCE 700
+#include <ctype.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -629,59 +630,180 @@ static uint8_t *read_file(const char *path, size_t *length)
     return bytes;
 }
 
-/*
- * Source gate. A guest may only name the frozen layerx_v1 module in an import
- * attribute; naming any other module is refused before the compiler runs.
- */
-static int check_source(const char *path, const char *text, lint_state *state)
+typedef struct source_reader {
+    const char *cursor;
+    const char *end;
+} source_reader;
+
+typedef struct source_token {
+    const char *text;
+    size_t length;
+} source_token;
+
+static source_token source_next(source_reader *reader)
 {
-    const char *cursor = text;
-    (void)path;
+    const char *cursor = reader->cursor;
+    source_token token;
     for (;;) {
-        const char *marker = strstr(cursor, "import_module");
-        const char *quote;
-        const char *close;
-        size_t length;
-        char module[256];
-        if (marker == NULL) return 1;
-        cursor = marker + 13;
-        quote = strchr(cursor, '"');
-        if (quote == NULL)
-            return fail(state, RULE_IMPORT_DECLARATION,
-                        "import_module without a module name");
-        close = strchr(quote + 1, '"');
-        if (close == NULL)
-            return fail(state, RULE_IMPORT_DECLARATION,
-                        "unterminated import module name");
-        length = (size_t)(close - quote - 1);
-        if (length >= sizeof(module))
-            return fail(state, RULE_IMPORT_DECLARATION,
-                        "import module name exceeds the declared bound");
-        memcpy(module, quote + 1, length);
-        module[length] = '\0';
-        if (strncmp(module, "layerx_v", 8U) != 0 || strlen(module) != 9U ||
-            module[8] < '1' || module[8] > '4' || (unsigned)(module[8] - '0') > selected_abi_version)
-            return fail_named(state, RULE_IMPORT_DECLARATION,
-                              "%s declared outside %s", module, "selected ABI");
-        {
-            const char *end = strchr(close, ';');
-            const char *name_marker = strstr(close, "import_name");
-            if (name_marker != NULL && (end == NULL || name_marker < end)) {
-                const char *name_quote = strchr(name_marker, '"');
-                const char *name_close = name_quote == NULL ? NULL : strchr(name_quote + 1, '"');
-                char name[256];
-                if (name_close == NULL || (end != NULL && name_close > end))
-                    return fail(state, RULE_IMPORT_DECLARATION, "import_name without literal name");
-                length = (size_t)(name_close - name_quote - 1);
-                if (length >= sizeof(name)) return fail(state, RULE_IMPORT_DECLARATION, "import name too long");
-                memcpy(name, name_quote + 1, length);
-                name[length] = '\0';
-                if (permitted_import(module, name) == NULL)
-                    return fail_named(state, RULE_IMPORT_DECLARATION, "%s::%s", module, name);
+        while (cursor < reader->end && isspace((unsigned char)*cursor)) ++cursor;
+        if (reader->end - cursor >= 2 && cursor[0] == '\\' && cursor[1] == '\n') {
+            cursor += 2;
+        } else if (reader->end - cursor >= 2 && cursor[0] == '/' && cursor[1] == '/') {
+            while (cursor < reader->end && *cursor != '\n') ++cursor;
+        } else if (reader->end - cursor >= 2 && cursor[0] == '/' && cursor[1] == '*') {
+            cursor += 2;
+            while (reader->end - cursor >= 2 && !(cursor[0] == '*' && cursor[1] == '/'))
+                ++cursor;
+            cursor = reader->end - cursor >= 2 ? cursor + 2 : reader->end;
+        } else break;
+    }
+    token.text = cursor;
+    if (cursor < reader->end) {
+        unsigned char first = (unsigned char)*cursor++;
+        if (isalpha(first) || first == '_') {
+            while (cursor < reader->end &&
+                   (isalnum((unsigned char)*cursor) || *cursor == '_')) ++cursor;
+        } else if (first == '"' || first == '\'') {
+            while (cursor < reader->end) {
+                unsigned char byte = (unsigned char)*cursor++;
+                if (byte == first) break;
+                if (byte == '\\' && cursor < reader->end) ++cursor;
             }
         }
-        cursor = close + 1;
     }
+    token.length = (size_t)(cursor - token.text);
+    reader->cursor = cursor;
+    return token;
+}
+
+static int source_is(source_token token, const char *text)
+{
+    return token.length == strlen(text) && memcmp(token.text, text, token.length) == 0;
+}
+
+static int source_expect(source_reader *reader, const char *text, lint_state *state)
+{
+    if (source_is(source_next(reader), text)) return 1;
+    return fail(state, RULE_IMPORT_DECLARATION, "unsupported import declaration syntax");
+}
+
+static int source_literal(source_reader *reader, char *out, size_t capacity,
+                          lint_state *state)
+{
+    source_token token = source_next(reader);
+    size_t index;
+    if (token.length < 2U || token.text[0] != '"' || token.text[token.length - 1U] != '"')
+        return fail(state, RULE_IMPORT_DECLARATION, "import argument must be a string literal");
+    if (token.length - 2U >= capacity)
+        return fail(state, RULE_IMPORT_DECLARATION, "import argument exceeds the declared bound");
+    for (index = 1U; index + 1U < token.length; ++index)
+        if (token.text[index] == '\\' || token.text[index] == '\n' || token.text[index] == '\r')
+            return fail(state, RULE_IMPORT_DECLARATION, "import argument must be a plain literal");
+    memcpy(out, token.text + 1, token.length - 2U);
+    out[token.length - 2U] = '\0';
+    return 1;
+}
+
+static int source_module(const char *module, int compatibility, lint_state *state)
+{
+    if (strlen(module) == 9U && strncmp(module, "layerx_v", 8U) == 0 &&
+        module[8] >= '1' && module[8] <= '4' &&
+        (compatibility || (unsigned)(module[8] - '0') <= selected_abi_version)) return 1;
+    return fail_named(state, RULE_IMPORT_DECLARATION,
+                      "%s declared outside %s", module, "selected ABI");
+}
+
+static int source_import(const char *module, const char *name, int compatibility,
+                         lint_state *state)
+{
+    size_t index;
+    if (!source_module(module, compatibility, state)) return 0;
+    for (index = 0U; index < abi_function_count; ++index)
+        if (strcmp(module, abi_functions[index].module) == 0 &&
+            strcmp(name, abi_functions[index].name) == 0) return 1;
+    return fail_named(state, RULE_IMPORT_DECLARATION, "%s::%s", module, name);
+}
+
+static int source_macro_definition(source_reader *reader, int versioned, lint_state *state)
+{
+    static const char *const body[] = {
+        "__attribute__", "(", "(", "import_module", "(", NULL, ")", ",",
+        "import_name", "(", "function_name", ")", ")", ")"
+    };
+    source_reader definition = *reader;
+    const char *end = definition.cursor;
+    size_t index;
+    while (end < definition.end) {
+        if (*end == '\n' && (end == definition.cursor || end[-1] != '\\')) break;
+        ++end;
+    }
+    definition.end = end;
+    if (!source_expect(&definition, "(", state)) return 0;
+    if (versioned && (!source_expect(&definition, "module_name", state) ||
+                      !source_expect(&definition, ",", state))) return 0;
+    if (!source_expect(&definition, "function_name", state) ||
+        !source_expect(&definition, ")", state)) return 0;
+    if (versioned && source_next(&(source_reader){definition.cursor, end}).length == 0U) {
+        reader->cursor = end;
+        return 1;
+    }
+    for (index = 0U; index < sizeof(body) / sizeof(body[0]); ++index) {
+        const char *expected = body[index];
+        if (expected == NULL) expected = versioned ? "module_name" : "\"layerx_v1\"";
+        if (!source_expect(&definition, expected, state)) return 0;
+    }
+    if (source_next(&definition).length != 0U)
+        return fail(state, RULE_IMPORT_DECLARATION, "unsupported import macro body");
+    reader->cursor = end;
+    return 1;
+}
+
+/* Compatibility macros declare the whole SDK surface; the compiled artifact
+ * still has to use only the selected ABI, with an exact module/name/signature. */
+static int check_source(const char *path, const char *text, lint_state *state)
+{
+    source_reader reader = {text, text + strlen(text)};
+    char module[256] = "";
+    source_token token;
+    (void)path;
+    while ((token = source_next(&reader)).length != 0U) {
+        if (source_is(token, "#")) {
+            source_reader directive = reader;
+            if (source_is(source_next(&directive), "define")) {
+                source_token macro = source_next(&directive);
+                int versioned = source_is(macro, "LXP_PROGRAM_IMPORT_VERSIONED");
+                if (versioned || source_is(macro, "LXP_PROGRAM_IMPORT")) {
+                    if (!source_macro_definition(&directive, versioned, state)) return 0;
+                    reader = directive;
+                }
+            }
+        } else if (source_is(token, "LXP_PROGRAM_IMPORT") ||
+                   source_is(token, "LXP_PROGRAM_IMPORT_VERSIONED")) {
+            int versioned = source_is(token, "LXP_PROGRAM_IMPORT_VERSIONED");
+            char name[256];
+            char declared_module[256] = "layerx_v1";
+            if (!source_expect(&reader, "(", state)) return 0;
+            if (versioned && (!source_literal(&reader, declared_module, sizeof(declared_module), state) ||
+                              !source_expect(&reader, ",", state))) return 0;
+            if (!source_literal(&reader, name, sizeof(name), state) ||
+                !source_expect(&reader, ")", state) ||
+                !source_import(declared_module, name, versioned, state)) return 0;
+        } else if (source_is(token, "import_module")) {
+            if (!source_expect(&reader, "(", state) ||
+                !source_literal(&reader, module, sizeof(module), state) ||
+                !source_expect(&reader, ")", state) ||
+                !source_module(module, 0, state)) return 0;
+        } else if (source_is(token, "import_name")) {
+            char name[256];
+            if (module[0] == '\0')
+                return fail(state, RULE_IMPORT_DECLARATION, "import_name without import_module");
+            if (!source_expect(&reader, "(", state) ||
+                !source_literal(&reader, name, sizeof(name), state) ||
+                !source_expect(&reader, ")", state) ||
+                !source_import(module, name, 0, state)) return 0;
+        } else if (source_is(token, ";")) module[0] = '\0';
+    }
+    return 1;
 }
 
 static int lint_path(const char *path)

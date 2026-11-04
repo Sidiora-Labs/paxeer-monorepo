@@ -25,10 +25,8 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
   import Ecto.Query
   import Indexer.Fetcher.Arbitrum.Utils.Logging, only: [log_warning: 1, log_debug: 1, log_info: 1]
 
-  alias EthereumJSONRPC.{Blocks, Receipts}
-  alias Explorer.Chain.Block, as: RollupBlock
+  alias Indexer.Fetcher.Arbitrum.Workers.BackfillRecovery, as: Recovery
   alias Explorer.Chain.Hash
-  alias Explorer.Chain.Transaction, as: RollupTransaction
   alias Explorer.Repo
 
   alias Indexer.Fetcher.Arbitrum.Utils.Db.Common, as: ArbitrumDbUtils
@@ -129,7 +127,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
        }) do
     log_info("Block range for blocks information backfill: #{start_block}..#{end_block}")
 
-    block_numbers = ArbitrumDbUtils.blocks_with_missing_fields(start_block, end_block)
+    block_numbers = Recovery.blocks_with_missing_fields(start_block, end_block)
 
     log_debug("Backfilling #{length(block_numbers)} blocks")
 
@@ -158,7 +156,8 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
   defp backfill_for_blocks(block_numbers, json_rpc_named_arguments, chunk_size) do
     with {:ok, blocks} <- fetch_blocks(block_numbers, json_rpc_named_arguments, chunk_size),
          {:ok, receipts} <-
-           fetch_receipts_with_fallback(block_numbers, json_rpc_named_arguments, chunk_size, chunk_size) do
+           fetch_receipts_with_fallback(block_numbers, json_rpc_named_arguments, chunk_size, chunk_size),
+         :ok <- Recovery.validate(blocks, receipts) do
       update_db(blocks, receipts)
     else
       {:error, _} -> :error
@@ -185,8 +184,8 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
     block_numbers
     |> Enum.chunk_every(chunk_size)
     |> Enum.reduce_while({:ok, []}, fn chunk, {:ok, acc} ->
-      case EthereumJSONRPC.fetch_blocks_by_numbers(chunk, json_rpc_named_arguments, false) do
-        {:ok, %Blocks{blocks_params: blocks}} -> {:cont, {:ok, acc ++ blocks}}
+      case Recovery.fetch_blocks(chunk, json_rpc_named_arguments) do
+        {:ok, blocks} -> {:cont, {:ok, acc ++ blocks}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
@@ -219,7 +218,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
 
   defp fetch_receipts_with_fallback([block_number], json_rpc_named_arguments, _current_chunk_size, original_chunk_size) do
     # For a single block, try eth_getBlockReceipts first
-    case Receipts.fetch_by_block_numbers([block_number], json_rpc_named_arguments) do
+    case Recovery.fetch_by_block_numbers([block_number], json_rpc_named_arguments) do
       {:ok, %{receipts: receipts}} ->
         {:ok, receipts}
 
@@ -233,7 +232,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
     block_numbers
     |> Enum.chunk_every(current_chunk_size)
     |> Enum.reduce_while({:ok, []}, fn chunk, {:ok, acc} ->
-      case Receipts.fetch_by_block_numbers(chunk, json_rpc_named_arguments) do
+      case Recovery.fetch_by_block_numbers(chunk, json_rpc_named_arguments) do
         {:ok, %{receipts: receipts}} ->
           {:cont, {:ok, acc ++ receipts}}
 
@@ -291,7 +290,7 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
       transaction_params
       |> Enum.chunk_every(chunk_size)
       |> Enum.reduce_while({:ok, []}, fn chunk, {:ok, acc} ->
-        case Receipts.fetch(chunk, json_rpc_named_arguments) do
+        case Recovery.fetch(chunk, json_rpc_named_arguments) do
           {:ok, %{receipts: receipts}} -> {:cont, {:ok, acc ++ receipts}}
           {:error, reason} -> {:halt, {:error, reason}}
         end
@@ -345,8 +344,25 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
 
     multi =
       Multi.new()
+      |> Multi.run(:coverage, fn _, _ ->
+        case Recovery.validate(blocks, receipts) do
+          :ok -> {:ok, :complete}
+          error -> error
+        end
+      end)
       |> update_blocks(blocks)
       |> update_transactions(receipts)
+      |> Multi.run(:updated, fn _, results ->
+        if Enum.all?(results, fn
+             {:coverage, :complete} -> true
+             {_, {1, _}} -> true
+             _ -> false
+           end) do
+          {:ok, :complete}
+        else
+          {:error, :canonical_rows_changed}
+        end
+      end)
 
     case Repo.transaction(multi) do
       {:ok, _} -> :ok
@@ -388,12 +404,12 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
       Multi.update_all(
         multi_acc,
         {:block, block.hash},
-        from(b in RollupBlock, where: b.hash == ^block.hash),
+        from(b in "blocks", where: b.hash == ^Recovery.bytes(block.hash) and b.consensus == true),
         set: [
           send_count: block.send_count,
-          send_root: block.send_root,
+          send_root: Recovery.bytes(block.send_root),
           l1_block_number: block.l1_block_number,
-          updated_at: DateTime.utc_now()
+          updated_at: NaiveDateTime.utc_now()
         ]
       )
     end)
@@ -426,14 +442,18 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Backfill do
 
   defp update_transactions(multi, receipts) do
     receipts
+    |> Enum.reject(&is_nil(&1.gas_used_for_l1))
     |> Enum.reduce(multi, fn receipt, multi_acc ->
       Multi.update_all(
         multi_acc,
         {:transaction, receipt.transaction_hash},
-        from(t in RollupTransaction, where: t.hash == ^receipt.transaction_hash),
+        from(t in "transactions",
+          where:
+            t.hash == ^Recovery.bytes(receipt.transaction_hash) and t.block_hash == ^Recovery.bytes(receipt.block_hash)
+        ),
         set: [
-          gas_used_for_l1: receipt.gas_used_for_l1,
-          updated_at: DateTime.utc_now()
+          gas_used_for_l1: Decimal.new(receipt.gas_used_for_l1),
+          updated_at: NaiveDateTime.utc_now()
         ]
       )
     end)

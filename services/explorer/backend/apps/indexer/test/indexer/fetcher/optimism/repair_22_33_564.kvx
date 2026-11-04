@@ -1,0 +1,9 @@
+[repair.22.33.564]
+audit = "22.30.158"
+finding = "033"
+proof = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_564_test.exs"
+tests = ["033: recorded hexadecimal heights and null pass through the HTTP adapter into the hash map", "033: an unknown hash alone produces an empty map after an HTTP null response", "033: a persisted block is retained while HTTP resolves only the missing hashes", "033: an empty lookup needs no transport"]
+path = "Recorded consecutive Paxeer blocks -> loopback HTTP JSON-RPC server -> HTTPoison -> EthereumJSONRPC.HTTP -> TransactionBatch.get_block_numbers_by_hashes/2 -> binary hash-to-integer-height map, merging persisted blocks and omitting null results."
+baseline = "No baseline gate ran: the repair test did not exist at the starting revision; the explicit implementation-first and bounded hf-build/hf-done order supersedes step 5's unchanged-tree verify request. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner's private hf-done ledger records the exact verified candidate revision, command, exit code and log; no qualification is claimed before that gate passes."

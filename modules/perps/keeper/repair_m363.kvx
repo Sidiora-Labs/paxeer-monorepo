@@ -1,0 +1,96 @@
+[meta]
+task = "22.33.363"
+audit = "22.30.14"
+mode = "BUILD"
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+baseline = "The supplied attempt-1 evidence at ae5fe956b61638507e7e35deff33081c1ee36121 reports TestRepairM_363_ADLBlockAllowanceAndContinuation failing for bounds 1 and 2, and TestRepairM_363_OpenQuoteExecution failing own_best_bid, partial_fill, fee_tier and multiple_fills; unaligned_mark passed. The original private log was not carried into this sandbox. No additional unchanged-tree verify is run because the explicit gate order forbids it."
+evidence = "/out/run/gates.jsonl and the final hf-done evidence line name the immutable candidate revision, exact command, exit and private log; qualification is recorded by the runner, without editing this record after the gate."
+
+[repair.adl-bound-test-misses-block]
+test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_ADLBlockAllowanceAndContinuation"
+proof = "Actual EndBlock at caps 1 and 2: five deficits/backstops, insurance draw, step-8 coverage, fee-paying insurance close; count all ADLMatched logs in the real synthetic receipt and bound next-block continuation."
+
+[repair.adl-budget-renewed-in-block]
+test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_ADLBlockAllowanceAndContinuation"
+proof = "EndBlock carries the prerequisite durable per-height allowance through its cached pass; nested ExecuteADL calls debit that same ledger only with committed work. Reopen the real keeper/store at the same height, refuse additional matches, retain debt, then resume in the next block."
+
+[repair.leverage-acceptance-conflict]
+test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_LeverageTierPolicy"
+proof = "Preserve the existing fixed 1000x tier-0 safety policy. Execute actual codec/router MsgSetMarket for all six TierClasses; standalone leverage changes fail atomically with wire identity. Actual order admission demonstrates the changed Class B notional-tier limit (500x refused, 200x accepted). Spec reconciliation is requested below; no mutable-MaxLeverage policy is introduced."
+
+[repair.pause-authority-order]
+test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_PauseAuthorityBeforeState"
+proof = "Wrong authority is refused before SDK context unwrapping and before decoding valid/corrupt persisted parameters; the real codec/MsgServiceRouter boundary returns perps/35 without writes or events, while authorized corrupt state retains its validation refusal."
+
+[repair.refusal-test-expected-sentinel]
+test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_ProducedOrderRefusalWireIdentity"
+proof = "Real PlaceOrder unknown-market, stale-price and margin refusals pass through ResponseDeliverTx and protobuf; received perps codes and ABCIError identity are asserted alongside errors.Is and unchanged stores. requireRefused now checks the actual produced error for all existing order tests."
+
+[repair.pause-proof-pins-wrong-refusal]
+test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_PauseGovernanceProof"
+proof = "The existing governance proof now expects ErrUnauthorized and validates its received SDK wire identity for wrong-authority SetPaused over corrupt params, retaining unchanged-store/no-event assertions and the actual persisted governance execution/reopen proof."
+
+[repair.open-quote-test-bypasses-execution]
+test = "modules/perps/keeper/repair_m363_test.go:TestRepairM_363_OpenQuoteExecution"
+companion = "precompiles/perps/quotes_test.go:TestQuotesOpenPositionRealExecution"
+proof = "Real 0x1015 ABI quoteOpenPosition/openPosition with identical arguments and unchanged initial store/token balances: unaligned mark, caller-owned best bid, partial liquidity, volume-selected fee tier and multiple fills. Decode execution receipts and compare position, notional, fees, collateral, USDL custody, liquidation, impact, maintenance and funding with the quote."
+
+[wiring.leverage-policy]
+request = "spec/layerx-merge/spec.kvx req.3001.18 and spec/layerx-merge/contracts/markets.md, owning domain 3 (markets): reconcile mutable-MaxLeverage acceptance with req.3010.1 and current fixed tier-0 1000x/TierClass governance before any leverage behavior change."
+
+[wiring.adl-policy]
+request = "spec/layerx-merge/spec.kvx req.3006.3 and spec/release-v6-12-0/contracts/perps-parameters.md, owning domain 3 (markets): specify one shared per-height ADL match/index-visit allowance across every liquidation, deficit-coverage and insurance-close invocation, including retained debt and cached rollback."
+
+[qualification.inherited-insurance-scan]
+observed = "The existing prerequisite recovery proof records the insurance fund's own liquidation scan refusal; this scenario retains that exact assertion on its second block and does not alter the unrelated scan."
+
+[gotcha.scope-and-baseline]
+observed = "The task requests an unchanged-tree verify and spec/GOTCHA records, but the explicit Order forbids early tests and all out-of-scope writes."
+action = "Use only hf-build then hf-done after implementation; record baseline, finding mappings, gotchas and domain wiring requests in this in-scope task record."
+
+[gotcha.receipt-indexes]
+observed = "Fill maker is argument 3, and FeeCollected's nonindexed token count is feeTokens; these names differ from informal position/deposit field labels."
+action = "Use the production ABI to decode receipts and compare the indexed user when summing feeTokens."
+
+[qualification.first_attempt]
+revision = "e282946a41483cf31d1d97f6719ba0575d0dbbb5"
+command = "cg spec done 22.33.363 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m363.log"
+observed = "The new EndBlock test referenced time.Second without importing time; added the missing standard-library import without changing its assertions."
+
+[gotcha.test-build-scope]
+observed = "The declared go build target excludes test sources, so missing test imports are reported only by hf-done."
+action = "Keep test imports consistent with test code and rebuild the entire candidate before repeating hf-done."
+
+[qualification.continuation]
+source_revision = "ae5fe956b61638507e7e35deff33081c1ee36121"
+observed = "The supplied prior gate summary reports an insolvent insurance close unable to pay its trading fee and four quote scenarios refused with PerpsInsufficientMargin."
+action = "Preserve all assertions; provide executable insurance-close liquidity, pin each quote scenario to its declared initial mark and compare the keeper quote producer to the actual ABI transport before executing."
+
+[qualification.insolvent-insurance-fee]
+observed = "The prior-attempt gate reports a zero-collateral insurance fund refused by the real trading-fee debit when its close realises a loss; that fee policy is independent of the shared ADL allowance."
+request = "modules/perps/keeper/insurance.go and modules/perps/keeper/fees.go, owning domain 3 (markets): resolve trading-fee collection for a loss-making close by an already insolvent insurance fund; the bounded ADL proof uses a profitable close that pays the unchanged fee."
+
+[gotcha.quote-refusal-diagnostics]
+observed = "ABI selector 12b52d40 is PerpsInsufficientMargin, while PerpsPriceStale is 737dedba."
+action = "Compare the real keeper producer and decoded ABI quote, retaining the detailed keeper refusal when fixture admission fails."
+
+[qualification.continuation_gate_1]
+revision = "329263a742ed0f49792652def00da842665e3855"
+command = "cg spec done 22.33.363 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; detailed test output /tmp/repair-m363.log"
+observed = "Governance and refusal-wire proofs passed; ADL restart comparison omitted close-profit coverage, quote zeros differed only in big.Int storage, the historical maker triggered an unfunded rebate, and multi-fill slippage exceeded available margin."
+
+[repair.continuation-fixtures]
+action = "Consume insurance-close profits through real CoverDeficit before the exact restart/debt assertion; prove no extra ADL match and exact USDL-to-USD debt reduction."
+quote_action = "Compare every transported quote integer exactly by decimal value, assign historical maker volume to the inactive historical maker, and deposit one additional USDL through the real ABI before the multi-fill quote/execution snapshots. All existing position, fee, custody, receipt, debt and cap assertions remain exact."
+
+[gotcha.quote-fixture-fees-and-margin]
+observed = "Historical maker volume selects a maker rebate as well as the taker tier; fills away from mark can require more cross collateral than compatibility sizing alone deposits."
+action = "Keep historical maker and current book maker distinct in the fee-tier fixture, and supply the multi-fill slippage margin through a real collateral deposit before taking equivalent snapshots."
+
+[gotcha.insurance-close-profit]
+observed = "An insurance close settles its full held position at the fill price, so a profitable close leaves collateral that CoverDeficit correctly uses before testing the ADL budget."
+action = "Assert the exact profit-to-debt conversion first, then reopen and compare retained debt with zero available collateral."

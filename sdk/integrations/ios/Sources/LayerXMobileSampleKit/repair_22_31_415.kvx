@@ -1,0 +1,29 @@
+[repair.22.31.415]
+audit = "22.30.163"
+finding = "019"
+implementation = "WalletModel initializes its receipt gate through mobile.gate(receipts:) and propagates configuration errors."
+tests = ["Repair2231415Tests.test019ConfiguredWalletPaymentVerifiesRecordedReceipt", "Repair2231415Tests.test019WalletPaymentRejectsDifferentConfiguredPublicKey", "Repair2231415Tests.test019WalletInitializationPropagatesMissingReceiptAuthority"]
+receipt_source = "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json: V1-pax-transfer, produced by rpc/sequencer_receipt_vectors_test.go."
+response = "The test wraps the vector's rawTransaction, signedReceipt and receiptJson verbatim in the relay response; all journey evidence identifiers are derived from SHA-256 of those same signed receipt bytes."
+envelope_source = "services/human/schema/human-api/golden supplies the quote/commit HTTP envelope shapes; its illustrative evidence identifiers are replaced with the vector's content-addressed receipt reference, as required by the attempt 5 ruling."
+authority = "The configured authority uses the vector's pinnedKey without modification; the rejection case changes only its public key to a different Ed25519 key while retaining the key id and height bounds."
+assertions = "Both payments must traverse the session broker, quote, commit and receipt HTTP endpoints; the configured wallet must return the recorded verified digest and persist that snapshot, while the other key must produce verification-failure with no settled state. Missing receipt authority must propagate invalid-configuration from initialization."
+sample_caller = "LayerXMobileSample/main.swift handles the throwing WalletModel initializer through the existing fail path."
+wiring_request_app = "sdk/integrations/ios/sample-app/Sources/LayerXWalletApp.swift:43, owning domain 15 (iOS integration): add try to WalletModel initialization inside WalletLaunch.make's existing do/catch."
+transport = "In-process Swift loopback HTTP server, real URLSession, broker, HumanHTTPTransport, WalletModel, RelayReceiptResolver and receipt verifier; no live endpoint, environment credential, subprocess or device."
+baseline = "Attempt 3 at revision 175022d20d78eb585076b6553bf23a22b0787733 already ran the declared verify: test019ConfiguredWalletPaymentVerifiesRecordedReceipt failed its refusal and settled-state assertions; the other two tests passed, but different-key rejection occurred before the pinned-key check. No extra baseline gate is run."
+continuation = "Attempt 4 still failed both payment tests because the Human example IDs did not address the recorded receipt. Attempt 5 explicitly permits deriving the response from the existing conformance vector; the earlier request for a paired production capture is superseded. No producer defect is established."
+qualification = "The runner's private gate ledger records the exact candidate revision, command, exit code and log for hf-build and hf-done; closure requires hf-done to pass on the same candidate as hf-build."
+
+[qualification.22.31.415.first]
+revision = "c1afbb6e091c7df35cbd569603581ad44087581a"
+command = "cg spec done 22.31.415 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three tests executed; missing-authority propagation passed; payment tests failed because replay served the second illustrative evidence entry while the production consumer requested the first."
+assumption = "Historical attempt evidence; the current response now binds every evidence reference to the conformance vector's signed receipt instead of an illustrative identifier."
+
+[gotcha.22.31.415]
+symptom = "Golden Human journey examples have illustrative evidence identifiers that do not bind the conformance vector's signed receipt."
+cause = "The API envelope examples and signed receipt vector are separate fixtures."
+do = "Use the golden envelope shape with evidence references derived from the vector and serve its signed receipt and receipt JSON unchanged; do not change verification or require a fresh producer capture."

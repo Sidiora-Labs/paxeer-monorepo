@@ -1,0 +1,9 @@
+[repair.22.33.549]
+audit = "22.30.157"
+finding = "negative-safe-height"
+implementation = "rpc.ex:get_safe_and_latest_l1_blocks/2 clamps the unsupported-safe-tag fallback to genesis; existing reader and wrapper nil semantics preserve no-safe-message history."
+proof = "Indexer.Repair2233549Test: negative-safe-height: young chains retain explicit no-safe-message history; negative-safe-height: genesis messages remain eligible without treating message zero as missing; negative-safe-height: threshold boundaries and the hard limit retain their message cutoff; negative-safe-height: supported safe tags and stale safe-tag fallback retain their cutoffs"
+test = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_549_test.exs"
+baseline = "Not run: task gate order forbids verification before full implementation and permits only hf-build followed by hf-done."
+wiring_requests = []
+evidence = "The runner hf-done ledger records the exact verified revision, command, exit code and private log location."

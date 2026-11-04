@@ -1,6 +1,7 @@
 import type { Address, Hex } from 'viem';
 
 import type { BridgeAsset, BridgeChain } from './chains';
+import { solanaRecipientHandle } from './solana';
 import { transferIdOf, type BridgeTransfer, type TransferDirection } from './transfers';
 
 type SubmittedTransferInput = {
@@ -14,7 +15,7 @@ type SubmittedTransferInput = {
 
 function submittedRecord(direction: TransferDirection, input: SubmittedTransferInput, recipient: string): BridgeTransfer {
   return {
-    id: transferIdOf(direction, input.hash),
+    id: transferIdOf(direction, input.hash, input.foreign.chainId.toString()),
     direction,
     foreignChainKey: input.foreign.key,
     foreignChainId: input.foreign.chainId.toString(),
@@ -41,5 +42,9 @@ export function depositRecord(input: DepositRecordInput): BridgeTransfer {
 }
 
 export function withdrawalRecord(input: WithdrawalRecordInput): BridgeTransfer {
-  return submittedRecord('out', input, input.destination);
+  const transfer = submittedRecord('out', input, input.destination);
+  if (input.foreign.key !== 'solana') return transfer;
+  const recipientHandle = solanaRecipientHandle(input.destination);
+  if (!recipientHandle) throw new Error('Enter a valid Solana recipient.');
+  return { ...transfer, recipientHandle };
 }

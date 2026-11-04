@@ -398,8 +398,9 @@ function decodeFailure(requestId?: string): PlatformSdkError {
 
 export const AGENT_ENVELOPE_VERSION = 1 as const;
 export const AGENT_ENVELOPE_PATH = "/v1/agent/rpc" as const;
-export const AGENT_DAEMON_RPC_PATH = "/rpc" as const;
-export type AgentEnvelopeSurface = "gateway" | "daemon";
+/** @deprecated Retired listener: no daemon RPC path exists. Migrate to node JSON-RPC or AGENT_ENVELOPE_PATH. */
+export const AGENT_DAEMON_RPC_PATH = null;
+export type AgentEnvelopeSurface = "gateway";
 const MAX_TENANT_BYTES = 255;
 const MAX_U64 = (1n << 64n) - 1n;
 const CANONICAL_DECIMAL = /^(?:0|[1-9][0-9]{0,19})$/u;
@@ -432,7 +433,7 @@ const ENVELOPE_MUTATIONS: ReadonlySet<string> = new Set<AgentOperation>([
   "subscription.acknowledge", "subscription.create", "subscription.delete", "subscription.pause", "subscription.resume",
 ]);
 
-/** Full daemon session coordinates; the token never appears in string or JSON renderings of this object. */
+/** Hosted operation session coordinates; the token never appears in string or JSON renderings of this object. */
 export class AgentSessionCredential {
   readonly #tenant: string;
   readonly #sessionId: string;
@@ -471,15 +472,11 @@ export class AgentSessionCredential {
 
 export interface AgentEnvelopeTransportOptions {
   readonly endpoint: URL | string;
-  /** "gateway" (default) posts to /v1/agent/rpc; "daemon" posts to the daemon mTLS listener at /rpc. */
+  /** Hosted envelopes use /v1/agent/rpc. */
   readonly surface?: AgentEnvelopeSurface;
-  /** Daemon surface only (required there): client certificate PEM presented for mutual TLS. */
-  readonly clientCertificate?: SecretBytes;
-  /** Daemon surface only (required there): client private key PEM presented for mutual TLS. */
-  readonly clientKey?: SecretBytes;
   /** Required for every agent operation. */
   readonly session?: AgentSessionCredential;
-  /** Gateway API-key admission; a separate authority from the daemon session credential. */
+  /** Hosted API-key admission, required independently of the operation session. */
   readonly gatewayCredential?: LayerXKeyCredential;
   /** Explicit trusted server CA (PEM) replacing the platform store; server identity is always verified. */
   readonly trustedCa?: string | Buffer;
@@ -487,6 +484,13 @@ export interface AgentEnvelopeTransportOptions {
   readonly maximumResponseBytes?: number;
   /** Observes the HTTP status and bounded raw response body before decoding; never receives request credentials. */
   readonly onResponse?: (status: number, body: Buffer) => void;
+}
+
+/** @deprecated Declaration-only migration bridge; construction always refuses the retired transport. */
+export interface RetiredDaemonTransportOptions extends Omit<AgentEnvelopeTransportOptions, "surface"> {
+  readonly surface: "daemon";
+  readonly clientCertificate?: SecretBytes;
+  readonly clientKey?: SecretBytes;
 }
 
 export interface AgentEnvelopeSuccess<TValue = unknown> {
@@ -649,28 +653,22 @@ export class AgentEnvelopeTransport implements ProductionTransport {
   readonly #session: AgentSessionCredential | undefined;
   readonly #gatewayCredential: LayerXKeyCredential | undefined;
   readonly #trustedCa: string | Buffer | undefined;
-  readonly #clientCertificate: SecretBytes | undefined;
-  readonly #clientKey: SecretBytes | undefined;
   readonly #timeoutMs: number;
   readonly #maximumResponseBytes: number;
   readonly #onResponse: ((status: number, body: Buffer) => void) | undefined;
 
-  public constructor(options: AgentEnvelopeTransportOptions) {
+  public constructor(options: AgentEnvelopeTransportOptions);
+  /** @deprecated The daemon listener is retired; this overload always throws invalid-argument. */
+  public constructor(options: RetiredDaemonTransportOptions);
+  public constructor(options: AgentEnvelopeTransportOptions | RetiredDaemonTransportOptions) {
     if (options.session !== undefined && !(options.session instanceof AgentSessionCredential)) throw invalidArgument();
-    const surface = options.surface ?? "gateway";
-    if (surface !== "gateway" && surface !== "daemon") throw invalidArgument();
+    if (options.surface !== undefined && options.surface !== "gateway"
+      || "clientCertificate" in options || "clientKey" in options
+      || !(options.gatewayCredential instanceof LayerXKeyCredential)) throw invalidArgument();
     const endpoint = validateEndpoint(options.endpoint);
-    if (surface === "daemon") {
-      if (endpoint.protocol !== "https:" || options.gatewayCredential !== undefined
-        || !(options.clientCertificate instanceof SecretBytes) || !(options.clientKey instanceof SecretBytes)) throw invalidArgument();
-    } else if (options.clientCertificate !== undefined || options.clientKey !== undefined) {
-      throw invalidArgument();
-    }
-    this.#endpoint = routeEndpoint(endpoint, surface === "daemon" ? AGENT_DAEMON_RPC_PATH : AGENT_ENVELOPE_PATH);
+    this.#endpoint = routeEndpoint(endpoint, AGENT_ENVELOPE_PATH);
     this.#session = options.session;
     this.#gatewayCredential = options.gatewayCredential;
-    this.#clientCertificate = options.clientCertificate;
-    this.#clientKey = options.clientKey;
     if (options.trustedCa !== undefined && (this.#endpoint.protocol !== "https:" || options.trustedCa.length === 0)) throw invalidArgument();
     this.#trustedCa = options.trustedCa;
     this.#onResponse = options.onResponse;
@@ -810,10 +808,6 @@ export class AgentEnvelopeTransport implements ProductionTransport {
       };
       const options: https.RequestOptions = { method: "POST", headers, timeout: this.#timeoutMs, rejectUnauthorized: true };
       if (this.#trustedCa !== undefined) options.ca = this.#trustedCa;
-      if (this.#clientCertificate !== undefined && this.#clientKey !== undefined) {
-        options.cert = this.#clientCertificate.withBytes((bytes) => Buffer.from(bytes));
-        options.key = this.#clientKey.withBytes((bytes) => Buffer.from(bytes));
-      }
       const request = driver.request(this.#endpoint, options, (response) => {
         const chunks: Buffer[] = [];
         let received = 0;

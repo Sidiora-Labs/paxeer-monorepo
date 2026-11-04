@@ -34,7 +34,7 @@ interface Props {
 }
 
 const BlobData = ({ data, isLoading, hash }: Props) => {
-  const [ format, setFormat ] = React.useState<Array<Format>>([ 'Raw' ]);
+  const [ format, setFormat ] = React.useState<Format>();
 
   const guessedType = React.useMemo(() => {
     if (isLoading) {
@@ -51,19 +51,22 @@ const BlobData = ({ data, isLoading, hash }: Props) => {
     });
   }, [ isImage ]);
 
+  const selectedFormat = format ?? (isImage ? 'Image' : 'Raw');
+  const reconciledFormat = collection.find(selectedFormat) ? selectedFormat : 'Raw';
+
   React.useEffect(() => {
-    if (isImage) {
-      setFormat([ 'Image' ]);
+    if (format !== undefined && format !== reconciledFormat) {
+      setFormat(reconciledFormat);
     }
-  }, [ isImage ]);
+  }, [ format, reconciledFormat ]);
 
   const handleFormatChange = React.useCallback(({ value }: { value: Array<string> }) => {
-    setFormat(value as Array<Format>);
+    setFormat(value[0] as Format);
   }, []);
 
   const handleDownloadButtonClick = React.useCallback(() => {
     const fileBlob = (() => {
-      switch (format[0]) {
+      switch (reconciledFormat) {
         case 'Image': {
           const bytes = hexToBytes(data);
           const filteredBytes = removeNonSignificantZeroBytes(bytes);
@@ -83,10 +86,10 @@ const BlobData = ({ data, isLoading, hash }: Props) => {
     const fileName = `blob_${ hash }`;
 
     downloadBlob(fileBlob, fileName);
-  }, [ data, format, guessedType, hash ]);
+  }, [ data, reconciledFormat, guessedType, hash ]);
 
   const content = (() => {
-    switch (format[0]) {
+    switch (reconciledFormat) {
       case 'Image': {
         if (!guessedType?.mime?.startsWith('image/')) {
           return <RawDataSnippet data="Not an image" showCopy={ false } isLoading={ isLoading } w="100%"/>;
@@ -124,7 +127,7 @@ const BlobData = ({ data, isLoading, hash }: Props) => {
           <Select
             collection={ collection }
             placeholder="Select type"
-            value={ format }
+            value={ [ reconciledFormat ] }
             onValueChange={ handleFormatChange }
             w="100px"
             loading={ isLoading }

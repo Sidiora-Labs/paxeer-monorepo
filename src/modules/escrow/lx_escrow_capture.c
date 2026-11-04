@@ -12,7 +12,10 @@ lxp_result lx_escrow_remaining(const lx_escrow_record *record,
     if (record == NULL || escrow_account == NULL || remaining == NULL ||
         memcmp(record->escrow_account, escrow_account->id, 32U) != 0)
         return LXP_ERR_ESCROW_STATE;
-    return lxp_state_balance_get(escrow_account, record->asset_id, remaining);
+    if (lx_escrow_invariant_check(record, escrow_account) != LXP_OK)
+        return LXP_FATAL_INVARIANT;
+    *remaining = record->locked_amount;
+    return LXP_OK;
 }
 
 static bool authority_can_capture(const lx_escrow_record *record,
@@ -93,6 +96,7 @@ static lxp_result execute_capture(lxp_module_ctx *ctx,
     status = lxp_u128_sub(remaining, amount, &locked_after);
     if (status != LXP_OK) return status;
     (void)memset(&settlement, 0, sizeof(settlement));
+    settlement.record = &record;
     settlement.from = request->escrow_account;
     settlement.to = request->beneficiary_account;
     settlement.asset = request->asset;

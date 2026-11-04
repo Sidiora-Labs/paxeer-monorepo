@@ -250,7 +250,16 @@ fn complete_operation(
         return failure(503, "persistence_unavailable", Some(5));
     };
     let dispatched = dispatch(config, request, route, &record, &principal, &trace, &scope);
-    let body = dispatched.body(&trace, &scope);
+    let response = OutgoingResponse {
+        content_type: "application/json".to_owned(),
+        headers: Vec::new(),
+        status: dispatched.status,
+        body: dispatched.body(&trace, &scope),
+        retry_after: None,
+    };
+    let Ok(stored) = durable_http_response(&response) else {
+        return failure(503, "persistence_unavailable", Some(5));
+    };
     let completion_audit = gateway_audit_event(
         &record.principal_digest,
         "interop_ingress",
@@ -264,7 +273,7 @@ fn complete_operation(
             idempotency_scope: &scope,
             request_digest: &request_digest,
             state: dispatched.durable_state,
-            response_hex: &hex(&body),
+            response_hex: &stored,
             receipt_hex: dispatched.receipt_hex.as_deref().unwrap_or(""),
             activity_id: dispatched.activity_id.as_deref(),
             principal_digest: &record.principal_digest,
@@ -274,13 +283,7 @@ fn complete_operation(
     {
         return failure(503, "persistence_unavailable", Some(5));
     }
-    OutgoingResponse {
-        content_type: "application/json".to_owned(),
-        headers: Vec::new(),
-        status: dispatched.status,
-        body,
-        retry_after: None,
-    }
+    response
 }
 
 fn resume_operation(
@@ -3052,21 +3055,58 @@ const fn readiness(value: bool) -> &'static str {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct DurableHttpMetadata {
+    status: u16,
+    content_type: String,
+    headers: Vec<(String, String)>,
+    retry_after: Option<u64>,
+}
+
+fn durable_http_response(response: &OutgoingResponse) -> Result<String, ()> {
+    let metadata = serde_json::to_vec(&DurableHttpMetadata {
+        status: response.status,
+        content_type: response.content_type.clone(),
+        headers: response.headers.clone(),
+        retry_after: response.retry_after,
+    })
+    .map_err(|_| ())?;
+    Ok(format!(
+        "http-v1:{}:{}",
+        hex(&metadata),
+        hex(&response.body)
+    ))
+}
+
+fn restored_http_response(stored: &str) -> Result<OutgoingResponse, ()> {
+    let (metadata, body) = stored
+        .strip_prefix("http-v1:")
+        .and_then(|encoded| encoded.split_once(':'))
+        .ok_or(())?;
+    let metadata: DurableHttpMetadata =
+        serde_json::from_slice(&decode_hex(metadata, MAX_BODY).map_err(|_| ())?).map_err(|_| ())?;
+    if !(100..=599).contains(&metadata.status) {
+        return Err(());
+    }
+    Ok(OutgoingResponse {
+        content_type: metadata.content_type,
+        headers: metadata.headers,
+        status: metadata.status,
+        body: decode_hex(body, MAX_BODY).map_err(|_| ())?,
+        retry_after: metadata.retry_after,
+    })
+}
+
 fn stored_response(
     state: &str,
     stored: &str,
     trace: &TraceId,
     operation: &str,
 ) -> OutgoingResponse {
-    match decode_hex(stored, MAX_BODY) {
-        Ok(body) if !body.is_empty() => OutgoingResponse {
-            content_type: "application/json".to_owned(),
-            headers: Vec::new(),
-            status: if state == "pending" { 202 } else { 200 },
-            body,
-            retry_after: None,
-        },
-        _ if state == "pending" => json_response(
+    match restored_http_response(stored) {
+        Ok(response) => response,
+        _ if state == "pending" && stored.is_empty() => json_response(
             202,
             &json!({ "ok": true, "operation": operation, "result": { "state": "pending" }, "trace": trace.as_str() }),
         ),

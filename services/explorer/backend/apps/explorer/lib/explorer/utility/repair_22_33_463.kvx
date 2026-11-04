@@ -1,0 +1,22 @@
+[repair.22.33.463]
+audit = "22.30.149"
+findings = ["missing-range-allocation", "rate-limit-expiry-process"]
+test_file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_463_test.exs"
+baseline = "Not run: the explicit task gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done ledger records the verified candidate revision, commands, exit codes and private evidence locations."
+
+[finding.missing-range-allocation]
+implementation = "missing_block_range.ex subtracts sorted priority intervals using boundary arithmetic; existing priority rows and adjacency merge directions are preserved without enumerating heights."
+proving_tests = ["missing-range-allocation large recorded catch-up gap stores only intervals and preserves priority batches", "missing-range-allocation subtraction preserves inclusive boundaries, single gaps and adjacent priority islands"]
+path = "Recorded consecutive Paxeer X blocks -> EthereumJSONRPC.Block.to_elixir -> MissingBlockRange schema producers -> real Repo storage -> get_latest_batch -> clear_batch. The 24-million-height catch-up executes in a worker capped at one million heap words and stores five intervals."
+
+[finding.rate-limit-expiry-process]
+implementation = "rate_limiter.ex sends synchronous ETS writes to its owning GenServer, which schedules expiry, cancels replaced timers and accepts deletion only for the current generation token. Expiry removes the ETS entry and timer bookkeeping. Redis is unchanged."
+proving_tests = ["rate-limit-expiry-process request exit cannot retain ban history and the next ban starts fresh", "rate-limit-expiry-process renewed ban survives an older expiry and its own timer clears all history", "rate-limit-expiry-process an old unversioned expiry cannot delete a current ban"]
+path = "Recorded miner address -> short-lived LookUpSmartContractSourcesOnDemand.trigger_fetch caller -> real Hammer ETS counter -> RateLimiter GenServer and ETS -> real fetcher eligibility consumer. Erlang receive tracing proves admitted requests reach that consumer; denied requests return ignore."
+
+[gotcha.22.33.463]
+area = "qualification"
+symptom = "The task includes a pre-change verify instruction as well as an explicit implementation-first bounded gate order."
+do = "Follow the explicit ordered gates and report the absent baseline honestly; do not run an extra gate or claim pre-change failures."

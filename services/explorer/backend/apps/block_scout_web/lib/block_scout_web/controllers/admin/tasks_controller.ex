@@ -5,18 +5,28 @@ defmodule BlockScoutWeb.Admin.TaskController do
 
   alias Explorer.Chain.ContractMethod
 
-  @ok_resp Poison.encode!(%{status: "success"})
-  @not_ok_resp Poison.encode!(%{status: "failure"})
+  @ok_resp %{status: "success"}
+  @not_ok_resp %{status: "failure"}
 
   def create_contract_methods(conn, _) do
-    case ContractMethod.import_all() do
-      :ok ->
-        send_resp(conn, 200, Poison.encode!(@ok_resp))
+    contract_methods_response(conn, ContractMethod.import_all())
+  end
 
-      {:error, error} ->
-        Logger.error(fn -> ["Something went wrong while creating contract methods: ", inspect(error)] end)
+  @doc false
+  def contract_methods_response(conn, result) do
+    {status, response} =
+      case result do
+        :ok ->
+          {200, @ok_resp}
 
-        send_resp(conn, 500, Poison.encode!(@not_ok_resp))
-    end
+        {:error, error} ->
+          Logger.error(fn -> ["Something went wrong while creating contract methods: ", inspect(error)] end)
+
+          {500, @not_ok_resp}
+      end
+
+    conn
+    |> put_status(status)
+    |> json(response)
   end
 end

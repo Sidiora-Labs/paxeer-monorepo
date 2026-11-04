@@ -1,0 +1,19 @@
+[repair.22.33.168]
+findings = ["push-destination-egress", "push-upsert-metadata"]
+baseline = "Not run: the explicit implementation-first order and bounded gate policy conflict with step 6's unchanged-tree verification request; no pre-change executed failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the verified candidate revision, exact commands, exits and log locations; qualification is claimed only on hf-done success."
+
+[finding.push-destination-egress]
+proof = ["push_destination_egress_rejects_unsafe_origins_before_storage_and_delivery", "push_destination_egress_validates_browser_key_encodings_before_persistence", "push_destination_egress_never_follows_provider_redirects"]
+repair = "Persistence and direct delivery require exact HTTPS production push-provider origins, canonical URLs without credentials or fragments, canonical base64url auth secrets of 16 bytes and uncompressed valid P-256 public points of 65 bytes. The allowlist admits no subscriber-controlled hostname, wildcard or port: provider DNS remains the trusted origin boundary. web-push uses native HTTPS and rejects every non-2xx response without following redirects, including redirects to a changing DNS destination."
+transport = "The test starts a real loopback TLS push provider with a committed test-only certificate, routes an HTTPS Agent to it without disabling TLS verification, sends real web-push encrypted requests, and decrypts them with the browser's P-256 key. No transport method or module is mocked."
+
+[finding.push-upsert-metadata]
+proof = ["push_upsert_metadata_survives_notification_resubscription_and_reopen", "push_upsert_metadata_rejects_owner_transfer_without_mutating_durable_state"]
+repair = "Atomic upsert rejects a different wallet owner and preserves existing server fields while replacing only browser keys, user agent and server-stamped activity; initial creation is server-stamped and browser-supplied tags and delivery timestamps cannot seed or replace server metadata."
+recovery = "The test tags through the production store, sends and decrypts a successful notification through sendToTag, unloads and reopens the service and store, refreshes keys through upsertSubscription, then unloads and reopens again to assert targeting, notification history, creation time and browser fields from disk."
+
+[gotcha.implementation_order]
+observed = "Step 6 requests an unchanged-tree verification, while the explicit task order prohibits testing before the whole implementation; only hf-build and hf-done may execute gates."
+action = "Follow the explicit bounded implementation-first gate order and report baseline evidence as not run."

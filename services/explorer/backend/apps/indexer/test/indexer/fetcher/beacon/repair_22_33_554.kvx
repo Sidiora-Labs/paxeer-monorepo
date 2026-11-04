@@ -1,0 +1,10 @@
+[repair.22.33.554]
+finding = "22.30.158/008"
+change = "All four fallback responses derive their emitter and topic from log_from_node.address_hash and deposit_signature."
+proof = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_554_test.exs: the four 008 recovery cases and the separately returned wrong-topic rejection case."
+path = "Recorded eth_getLogs and eth_getBlockByNumber transcripts replay over loopback HTTP through EthereumJSONRPC.HTTP and Indexer.Fetcher.Beacon.Deposit into the production Beacon deposit schema."
+baseline = "Not run: the task's ordered qualification instructions prohibit verification before implementation and require hf-done to own the sole initial verify run. No baseline failure is claimed."
+wiring_requests = "None required for the wrong-topic rejection alternative in finding 008."
+evidence = "The runner's private gate ledger records the verified candidate revision, command, exit code and log location; no qualification is claimed before hf-done passes."
+qualification_1 = "01bb2beedb2905e468b589d0dc578b6e1ef89668; cg spec done 22.33.554 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log; all five cases failed because request expectations used recorded lowercase block quantities instead of the client's uppercase integer_to_quantity encoding."
+gotcha = "Recorded RPC quantities retain their original spelling; expected outgoing request quantities must use EthereumJSONRPC.integer_to_quantity to match the real client exactly."

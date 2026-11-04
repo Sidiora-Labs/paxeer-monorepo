@@ -89,7 +89,7 @@ export function usePaxeerPairState(chain: BridgeChain, assetId: Address): Paxeer
     undefined;
 
   const loaded =
-    paxeerConfigured && !paused.isLoading && !chainInfo.isLoading && !cap.isLoading && !attestors.isLoading;
+    paxeerConfigured && paused.isSuccess && chainInfo.isSuccess && cap.isSuccess && attestors.isSuccess;
   const error = paxeerConfigured && (paused.isError || chainInfo.isError || cap.isError || attestors.isError);
 
   return {
@@ -201,11 +201,11 @@ export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultS
     threshold: threshold.data !== undefined ? Number(threshold.data) : undefined,
     loaded:
       enabled &&
-      !paused.isLoading &&
-      !caps.isLoading &&
-      !outstanding.isLoading &&
-      !attestors.isLoading &&
-      !threshold.isLoading,
+      paused.isSuccess &&
+      caps.isSuccess &&
+      outstanding.isSuccess &&
+      attestors.isSuccess &&
+      threshold.isSuccess,
     error:
       enabled &&
       (paused.isError || caps.isError || outstanding.isError || attestors.isError || threshold.isError),

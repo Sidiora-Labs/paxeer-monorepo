@@ -1,0 +1,9 @@
+[repair.22.33.514]
+finding = "22.30.152/validator-replacement"
+tests = ["validator-replacement: database failure rolls back and the scheduled retry commits the full snapshot", "validator-replacement: killed replacement preserves the snapshot and restart recovers", "validator-replacement: fetch failures exhaust bounded retries and a new trigger recovers", "validator-replacement: successful replacement and empty snapshot survive restart"]
+implementation = "The production fetcher wraps the existing Explorer read/delete/upsert helpers in one Repo transaction, logs diagnostics and retries at 1s, 2s and 4s; startup refetches after process loss."
+wiring_request = "Domain 14 (Explorer): services/explorer/backend/apps/explorer/lib/explorer/chain/blackfort/validator.ex may expose the same atomic replacement contract for other callers; this out-of-scope module is unchanged and the fetcher already supplies its transaction boundary."
+baseline = "No earlier gate ledger or in-scope changes existed; unchanged-tree verification was not run because the task's ordered instructions forbid tests before complete implementation and permit verification only through hf-done after hf-build."
+evidence = "The runner's private hf-build/hf-done ledger records the candidate revision, exact command, exit and log; no unrun gate is claimed here."
+fixtures = "Committed Blackfort HTTP response-shape snapshots use addresses from the repository's chain recordings; the loopback server passes them through the production HTTP client and schema parser. A duplicated replacement entry provokes a real PostgreSQL cardinality violation."
+gotcha = "The default chain gate does not migrate Blackfort tables; the test runs the committed Blackfort migration in a disposable schema and uses a real connection pool to observe commits independently."

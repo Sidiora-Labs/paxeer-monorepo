@@ -1,0 +1,37 @@
+[task]
+id = "22.33.251"
+audit = "22.30.13"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+
+[finding.002]
+repair = "The reward spread uses sqrt(sum(power * (rate - median)^2) / sum(power)), excluding zero-power observations; bounded integer arithmetic retains 18 decimal places, and invalid arithmetic panics explicitly before claim mutation. Tally awards wins only to positive-power observations."
+tests = ["TestRepairM_251_DeterministicDeviation", "TestRepairM_251_ArithmeticFailureIsVisible", "TestRepairM_251_TallyAndPenaltyOutcomes"]
+path = "Real staking and oracle handlers -> protobuf aggregate vote store -> OrganizeBallotByDenom -> production Tally and MidBlocker -> exchange-rate query and persisted success/miss/abstain counters."
+
+[finding.012]
+repair = "Retain tie and majority assertions; add odd totals, leading and trailing zero-power entries, all-zero and maximum power cases to ballot_test.go and the declared gate."
+tests = ["TestRepairM_251_WeightedMedian", "TestRepairM_251_MidBlockMedianRegressions"]
+path = "Production median methods plus real staking/vote handlers, reference/cross-rate MidBlock tallies and the exchange-rate query."
+
+[finding.013]
+repair = "Replace expectations that encoded the unweighted defect with power-weighted roots; assert zero-power insertion invariance, nonuniform powers, full decimal precision, deterministic rounding, arithmetic limits and real Tally/counter outcomes."
+tests = ["TestRepairM_251_DeterministicDeviation", "TestRepairM_251_ArithmeticFailureIsVisible", "TestRepairM_251_TallyAndPenaltyOutcomes"]
+
+[finding.020]
+repair = "Validate every genesis collection, parameter decimals, addresses via message/address validators, denoms and rates, nested counters, duplicates, and strictly ordered nonnegative snapshot times with safe retention arithmetic. Aggregate records pass the transaction message validator, including its size limit."
+tests = ["TestRepairM_251_GenesisRejectsInvalidRecords", "TestRepairM_251_GenesisRoundTrip"]
+path = "Real keepers/handlers produce records -> ExportGenesis -> production JSON codec -> ValidateGenesis -> InitGenesis -> store getters and ExportGenesis. Invalid imported records return errors without panic before initialization."
+wiring_request = "modules/oracle/genesis.go (fm-markets / oracle): call types.ValidateGenesis at the start of InitGenesis so direct callers also validate all collections before any store writes; this file is outside the task scope."
+
+[qualification]
+baseline = "Not run: the ordered instructions prohibit tests until implementation is complete and reserve the verify command for hf-done; no baseline failures are claimed."
+build = "hf-build: go build ./modules/oracle/types/..."
+verify = "hf-done: cg spec done 22.33.251 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "Private runner ledger /out/run/gates.jsonl records each exact candidate revision, command, exit code and log; the final response copies the last gate result."
+
+[qualification.codec_repair]
+revision = "acc7aab1971badd47c599c6d15ba90d90de8c5bd"
+command = "cg spec done 22.33.251 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (compiler details: /tmp/repair-m251.log)"
+observed = "New tests used upstream JSON method names; this SDK exposes MarshalAsJSON and UnmarshalAsJSON. Updated calls to the real SDK methods without changing assertions."

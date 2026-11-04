@@ -34,7 +34,8 @@ defmodule Indexer.Transform.BlocksTest do
     uncles: []
   }
 
-  @blocks [@block, @block]
+  @genesis %{@block | number: 0, hash: @block.parent_hash}
+  @blocks [@genesis, @block]
 
   describe "transform_blocks/1" do
     setup do
@@ -44,7 +45,17 @@ defmodule Indexer.Transform.BlocksTest do
     end
 
     test "transforms a list of blocks" do
-      assert Blocks.transform_blocks(@blocks)
+      Application.put_env(:indexer, :block_transformer, Blocks.Base)
+      assert Blocks.transform_blocks(@blocks) == @blocks
+    end
+
+    test "the configured Clique transformer recovers the miner and preserves genesis, identity and order" do
+      Application.put_env(:indexer, :block_transformer, Blocks.Clique)
+
+      assert Blocks.transform_blocks(@blocks) == [
+               @genesis,
+               %{@block | miner_hash: "0xfc18cbc391de84dbd87db83b20935d3e89f5dd91"}
+             ]
     end
   end
 

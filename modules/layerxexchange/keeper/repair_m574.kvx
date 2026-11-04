@@ -1,0 +1,11 @@
+[task.22.33.574]
+finding = "upgrade-reader-contract"
+repair = "Declare GetDoneHeight on types.UpgradeKeeper and call it directly when producing the retirement diagnostic."
+proof_tests = ["TestRepairM_574_PersistedUpgradeReaderContract", "TestRepairM_574_ApplicationUpgradeDependency"]
+proof_path = "SDK SetDone -> committed store close/reopen -> declared UpgradeKeeper reader -> exchange intent and message handlers -> SDK ABCI protobuf transport -> registered code-14 classification."
+preserved = "Existing persisted done-height tests and application dependency assertions remain unchanged; the repair tests also assert the concrete application upgrade dependency and code-12 missing wiring."
+baseline_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+baseline = "Not run: explicit ordered gate instructions prohibit verification before full implementation and prohibit invoking verify_cmd by hand; no previous gate ledger exists, so no baseline test failures are claimed."
+qualification = "hf-build followed by hf-done; the runner's private /out/run/gates.jsonl records the exact verified candidate revision, command, exit and evidence log."
+wiring_requests = []
+gotcha = "The baseline-verify step conflicts with the explicit implementation-first gate order; follow the ordered gates and record the unrun baseline without claiming evidence."

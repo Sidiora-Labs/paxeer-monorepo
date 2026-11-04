@@ -1,0 +1,20 @@
+[repair.22.33.551]
+audit = "22.30.158"
+baseline = "No baseline verification was run: the task order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand; the initial ledger contains no earlier runs."
+wiring_request = "spec/layerx-merge/spec.kvx, workflow owner: retain the finding-to-test mapping and verified revision from the runner's hf-done evidence; spec edits are outside this task's allowed scope."
+
+[finding.001]
+test = "001: Celo contracts are restored exactly with <configured|absent|nil> configuration after <success|assertion_failure>"
+repair = "Snapshot Application.fetch_env before overriding CeloCoreContracts and register on_exit before mutation; restore the exact value or delete an originally absent key."
+
+[finding.002]
+test = "002: <setup_fetcher_import|setup_fetcher_task> restores every affected key with <configured|absent|nil> configuration after <success|assertion_failure>"
+repair = "Snapshot last_block and Celo supervisor for import setup, and block_ranges, Catchup.Fetcher, Celo supervisor and Celo contracts for task setup; register cleanup before mutation and restore absent keys as absent."
+
+[qualification.1]
+revision = "cb123d0b1dcd6d0d37d8496c8c773d407829cdf8"
+command = "cg spec done 22.33.551 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The first implemented regression run executed 18 tests with 8 failures: its import probe cleared an unrelated required block_ranges value and did not stop its linked contract-creator process on normal exit."
+repair = "Seed absent and nil states only for the keys each setup overrides, keep unrelated producer configuration valid, and stop the real probe-owned component in an after block before asserting that no process survives."
