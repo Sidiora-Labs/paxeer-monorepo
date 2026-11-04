@@ -102,6 +102,7 @@ func payEscrowExpectedReceipt(t *testing.T, h *payHarness, actor payActor, activ
 		IdempotencyKey: key, Payload: payload,
 	}, authority)
 	require.NoError(t, err)
+	require.NoError(t, h.keeper.bindEscrowReceipt(branch, &receipt))
 	return receipt
 }
 

@@ -136,9 +136,13 @@ fn ledger_account(
     address: &[u8; 20],
     asset: &AcceptedAsset,
 ) -> Result<[u8; 32], SettlementError> {
+    ledger_account_for_owner(rpc, &ledger_owner_for_address(address), asset)
+}
+
+fn ledger_owner_for_address(address: &[u8; 20]) -> [u8; 32] {
     let mut owner = [0; 32];
     owner[12..].copy_from_slice(address);
-    ledger_account_for_owner(rpc, &owner, asset)
+    owner
 }
 
 fn ledger_account_for_owner(

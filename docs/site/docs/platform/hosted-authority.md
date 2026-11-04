@@ -1,312 +1,248 @@
 # Hosted authority
 
-`layerx-receipt-authority` is the hosted receipt-authority binary from
-crate `layerx-platform-authority`
-(`services/platform/hosted/authority/Cargo.toml:1-2, 11-13`). It serves verified
-authorised-batch facts over TLS
-(`services/platform/hosted/authority/src/main.rs:41`). Every fact is derived from
-three inputs only: the canonical receipt bytes named by an activity, the
-independent replica's batch evidence for that receipt, and the pinned
-sequencer authorisation. The verification library does not read the
-sequencer daemon's own store
-(`services/platform/hosted/authority/src/lib.rs:1-6`). Receipt bytes are taken
-from the LNI `ReceiptLookup` socket and never from an HTTP receipt URL
-(`services/platform/hosted/authority/src/main.rs:60-61`). Replica evidence is
-fetched over loopback HTTP
-(`services/platform/hosted/authority/src/main.rs:57, 218-224`).
+Paxeer mainnet-beta is one BFT network, with EVM chain id `125` (`0x7d`).
+The kernel is part of the network and proposes blocks. A receipt is final when
+its block is committed. A signed execution receipt alone does not establish
+that commitment.
 
-The image entrypoint is `/usr/local/bin/layerx-receipt-authority`
-(`docker/platform-authority/Dockerfile:9-11`). Make target
-`platform-test-authority` runs the crate tests; `platform-test-trusted-boundary`
-depends on it (`services/platform/Makefile.inc:147-148, 159`).
+`layerx-receipt-authority`, from crate `layerx-platform-authority`, is a hosted
+verification service. It reads node receipts, checks receipt keys and evidence,
+and serves facts to hosted consumers. It does not establish a second consensus
+or settlement domain. The pre-merge standalone replica and LNI deployment is
+retired; do not recreate it to obtain network finality.
 
-This page covers that service, its configuration, its output, and its
-refusals.
+Public JSON-RPC uses the root path of `api1.mainnet-beta.paxeer.network` through
+`api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`.
+See [public RPC](../reference/public-rpc.md). The hosted authority's TLS HTTP
+routes below are an internal service contract, distinct from those public node
+endpoints. Hosted principal and session authentication is described in
+[Hosted identity](identity.md).
+
+---
+
+## Committed-block authority
+
+The maintained committed-state implementation is in
+`services/platform/hosted/authority/src/committed.rs`, with callers in
+`src/human.rs`. It uses the configured loopback node as the trust source for
+committed BFT headers:
+
+1. Require `eth_chainId` to equal `125`, then read the head with
+   `eth_blockNumber` and `eth_getBlockByNumber`.
+2. Obtain `px_getCommit` material for that height and bind the Comet commit's
+   block hash and header app hash to the EVM block projection. The header at
+   height `H` authenticates application state at `H - 1`; `H` must exceed one.
+3. Re-read each selected receipt through `pax_sequencerReceipt`. Require the
+   `committed` rung, identical receipt bytes, a nonzero block hash matching the
+   block at the returned height, and a block height no later than the proved
+   state height.
+4. For native state, query `/store/lxphost/key` with `abci_query`, `prove: true`,
+   at the pinned state height. Verify the exact key, value and height, then the
+   `ics23:iavl` and `ics23:simple` proofs through the `lxphost` store root to the
+   committed app hash. Recheck the pinned head hash and app root during use.
+
+This implementation trusts its configured node's committed header; it does not
+independently validate a validator quorum from an arbitrary HTTP response.
+Node identity and access to the loopback endpoint are part of the trust boundary.
+
+The human authority routes `/v1/agent/identity`, `/v1/agent/key-policy`, and
+`/v1/agent/capability-scope` bind their retained receipt evidence to this committed
+head before deriving policy. Native identity state uses module `7` and a
+membership proof. Finality documents carry `height`, `block_hash`, `app_hash`,
+and `state_height`. Failures include `committed_header_unavailable`,
+`committed_receipt_evidence_unavailable`, and `identity_state_proof_unavailable`;
+they refuse the request rather than inventing state.
+
+Human requests require a dedicated bearer and tenant/principal binding.
+Sub-chains are tenant domains in the database, so this binding selects a
+namespace within the same network. It does not select a separate chain.
+
+## Node receipts and keys at height
+
+`src/chain_receipt.rs` reads canonical receipt bytes using
+`pax_sequencerReceipt` with a `0x`-prefixed transaction hash. It checks the
+response transaction identity, receipt context/key id, signing key and positive
+receipt height. A null result, or a `submitted` result without a receipt, is
+unknown. Both `receipted` and `committed` results can supply signed bytes;
+only the latter supplies the commitment used above.
+
+The service loads a protected JSON array from
+`LAYERX_AUTHORITY_RECEIPT_KEYS_FILE`. Each entry contains:
+
+| Field | Encoding |
+| --- | --- |
+| `keyId` | Base64 of a nonzero 32-byte key id; alias `key_id` accepted |
+| `publicKey` | Base64 of a nonzero 32-byte public key; alias `public_key` accepted |
+| `firstHeight` | Inclusive unsigned integer; alias `first_height` accepted |
+| `lastHeight` | Inclusive unsigned integer, at least `firstHeight`; alias `last_height` accepted |
+
+The list must be nonempty and key ids unique. `src/trust.rs` additionally
+requires the key id to equal SHA-256 of the public key. For native receipts,
+lookup selects a pinned context id and signing key whose range covers the
+receipt height; signed batch evidence is also verified against its key's range.
+Do not accept a response's `signingKey` as its own trust anchor. The node/client
+receipt-key contract is `px_getReceiptKeys` (implemented by
+`services/agent/crates/layerx-client/src/sequencer.rs`); its RPC representation
+must be decoded before use as the authority's Base64 file format.
+
+Keys are loaded at process startup. After updating reviewed key material,
+restart the service to load it and retain historical ranges needed for replay.
+Human evidence retained under `LAYERX_AUTHORITY_STATE_ROOT` is reverified when
+read (`src/human.rs`); committed policy reads obtain fresh node commitment.
+
+The ramp's current transaction verifier is
+`services/platform/ramps/toolkit/src/clients.rs`: it authenticates native receipts,
+raw transactions, receipt keys and signed logs. It does not consume the old
+eight-field hosted `AuthorizedBatch` response as its settlement authority.
 
 ---
 
 ## Deployment
 
-The node StatefulSet runs the independent replica as container
-`layerxd-authority`: `supervisor.sh --role replica` on the shared node
-data and run volumes
-(`services/platform/hosted/node/deployment.yaml:95-105`). The sequencer container
-sets `--replica-port` `9402`
-(`services/platform/hosted/node/deployment.yaml:57-58`). Container
-`receipt-authority` waits for `/run/layerx/node/core.env`, exports
-`LAYERX_AUTHORITY_SEQUENCER_ID` from `LAYERX_CORE_SEQUENCER_ID` and
-`LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` from
-`/run/layerx/gateway-authority/sequencer-public-key`, then execs the
-binary (`services/platform/hosted/node/deployment.yaml:152-166`). It talks to the
-replica at `http://127.0.0.1:9402` and to LNI at
-`/run/layerx/node/layerxd.lni.sock`
-(`services/platform/hosted/node/deployment.yaml:175, 178`).
+The binary entrypoint is `/usr/local/bin/layerx-receipt-authority`
+(`docker/platform-authority/Dockerfile`). The hosted node manifest
+`services/platform/hosted/node/deployment.yaml` places container
+`receipt-authority` alongside the native node. It runs as user `4021`, group
+`4020`, under the generation client and runtime clock. Service
+`layerx-receipt-authority` maps ClusterIP port `9443` to `authority-tls` on
+container port `9445`.
 
-Service `layerx-receipt-authority` is ClusterIP port `9443` targeting
-container port `authority-tls` (`9445`)
-(`services/platform/hosted/node/deployment.yaml:181, 255-256`).
-
-The Dockerfile sets `USER 4020:4020`
-(`docker/platform-authority/Dockerfile:8-10`). The pod security context
-is `runAsUser` / `runAsGroup` `4020`
-(`services/platform/hosted/node/deployment.yaml:26`). The `receipt-authority`
-container overrides that to `runAsUser: 4021`, `runAsGroup: 4020`
-(`services/platform/hosted/node/deployment.yaml:155`). Those two user ids differ.
-
----
+Supply the node receipt endpoint and protected receipt-key file required by
+`config()` in `src/main.rs`; the manifest's compatibility replica settings alone
+are insufficient. There is no LNI socket requirement. For the chain URL, use a
+loopback HTTP node endpoint at its root path. This service's loader accepts
+`127.0.0.1`, `localhost`, or `[::1]` with an explicit port.
 
 ## Configuration
 
-| Key | Role |
+| Key | Current service behavior |
 | --- | --- |
-| `LAYERX_AUTHORITY_LISTEN` | Listen address; default `0.0.0.0:9445` (`services/platform/hosted/authority/src/main.rs:52, 204-207`). Deployment sets `0.0.0.0:9445` (`services/platform/hosted/node/deployment.yaml:168`). |
-| `LAYERX_AUTHORITY_TLS_CERT_DER` | Server certificate, DER, required, bounded regular file (`services/platform/hosted/authority/src/main.rs:53, 136-142, 177`). Deployment path `/run/layerx/authority-tls/server.crt.der` (`services/platform/hosted/node/deployment.yaml:171`). |
-| `LAYERX_AUTHORITY_TLS_KEY_DER` | Server private key, PKCS#8 DER, required (`services/platform/hosted/authority/src/main.rs:54, 178-179`). Deployment path `/run/layerx/authority-tls/server.key.der` (`services/platform/hosted/node/deployment.yaml:172`). |
-| `LAYERX_AUTHORITY_CLIENT_CA_DER` | Optional. When set, a presented client certificate must chain to it (`services/platform/hosted/authority/src/main.rs:55, 181-193`). Deployment always sets `/run/layerx/trust/ca.crt.der` (`services/platform/hosted/node/deployment.yaml:173`). The verifier is built with `allow_unauthenticated` (`services/platform/hosted/authority/src/main.rs:187-189`). |
-| `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated files, one bearer token each (`services/platform/hosted/authority/src/main.rs:56, 209-217`). Deployment lists gateway, registry, and webhooks token files (`services/platform/hosted/node/deployment.yaml:174`). |
-| `LAYERX_AUTHORITY_REPLICA_URL` | Loopback `http://host:port` of the independent replica (`services/platform/hosted/authority/src/main.rs:57, 218-224`). The usage text names `http://127.0.0.1:PORT` (`services/platform/hosted/authority/src/main.rs:57`). `loopback_http` also admits `localhost` and `[::1]` (`services/platform/hosted/authority/src/main.rs:157-170`). Deployment sets `http://127.0.0.1:9402` (`services/platform/hosted/node/deployment.yaml:175`). |
-| `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE` | Bearer token the replica requires (`services/platform/hosted/authority/src/main.rs:58, 225`). Deployment path `/run/layerx/tokens/replica-token` (`services/platform/hosted/node/deployment.yaml:176`). |
-| `LAYERX_AUTHORITY_REPLICA_ID` | 64-hex replica identity every evidence document must carry; refused if zero (`services/platform/hosted/authority/src/main.rs:59, 226-229`). Deployment reads ConfigMap key `replica-id` (`services/platform/hosted/node/deployment.yaml:177`). |
-| `LAYERX_AUTHORITY_LNI_SOCKET` | Absolute LNI unix socket used as the receipt source (`services/platform/hosted/authority/src/main.rs:60-61, 230-235`). Deployment path `/run/layerx/node/layerxd.lni.sock` (`services/platform/hosted/node/deployment.yaml:178`). |
-| `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Non-zero 32-bit protocol network id expected in the LNI handshake (`services/platform/hosted/authority/src/main.rs:62, 236-242`). |
-| `LAYERX_AUTHORITY_NETWORK_ID` | Deployment network identifier echoed in every answer (`services/platform/hosted/authority/src/main.rs:63, 243-244, 665`). |
-| `LAYERX_AUTHORITY_WIRE_VERSION` | Wire version echoed in every answer; default is the built protocol version; must equal that version (`services/platform/hosted/authority/src/main.rs:64, 245-254`). The node manifest does not set this variable. |
-| `LAYERX_AUTHORITY_SEQUENCER_ID` | 64-hex sequencer identity pinned for header verification; refused if zero (`services/platform/hosted/authority/src/main.rs:65, 255-258`). |
-| `LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` | 64-hex sequencer public key pinned for header and receipt signatures; refused if zero (`services/platform/hosted/authority/src/main.rs:66, 256-258`). |
-| `LAYERX_AUTHORITY_FIRST_BATCH` | First authorised batch number; must be non-zero (`services/platform/hosted/authority/src/main.rs:67, 260-266`). Deployment sets `1` (`services/platform/hosted/node/deployment.yaml:179`). |
-| `LAYERX_AUTHORITY_LAST_BATCH` | Last authorised batch number; must be at least first (`services/platform/hosted/authority/src/main.rs:68, 261-266`). Deployment sets `18446744073709551615` (`services/platform/hosted/node/deployment.yaml:180`). |
+| `LAYERX_AUTHORITY_LISTEN` | Default `0.0.0.0:9445` |
+| `LAYERX_AUTHORITY_TLS_CERT_DER` | Required DER server certificate |
+| `LAYERX_AUTHORITY_TLS_KEY_DER` | Required DER private key |
+| `LAYERX_AUTHORITY_CLIENT_CA_DER` | Optional client CA; permits clients without a certificate, but checks a presented certificate |
+| `LAYERX_AUTHORITY_TOKEN_FILES` | Required colon-separated bearer-token files for general routes |
+| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint for receipt and committed-state reads |
+| `LAYERX_AUTHORITY_RECEIPT_KEYS_FILE` | Required protected receipt-key array, at most 256 KiB |
+| `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Required nonzero `u32` protocol network id; checked against signed evidence |
+| `LAYERX_AUTHORITY_NETWORK_ID` | Required deployment label, echoed in responses; distinct from EVM chain id |
+| `LAYERX_AUTHORITY_WIRE_VERSION` | Defaults to, and must equal, the built protocol version |
+| `LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE` | Optional protected file, 32–4096 printable bytes without whitespace; distinct from general and replica bearers; permits only the batch-evidence relay |
 
-TLS files are refused unless they are regular files of length `1..=65536`
-(`services/platform/hosted/authority/src/main.rs:28, 136-142`). Token files must
-contain a bounded printable secret (`services/platform/hosted/authority/src/main.rs:114-128`).
-Bearer comparison is length-checked and constant-time
-(`services/platform/hosted/authority/src/main.rs:430-432`). Routes other than
-`/livez` and `/readyz` require `Authorization: Bearer`
-(`services/platform/hosted/authority/src/main.rs:46-49, 419-437, 732-735, 747-749`).
+TLS files must be regular files of 1–65536 bytes. General token files contain
+1–4096 printable non-whitespace bytes after trailing CR/LF removal. Protected
+files must have canonical absolute paths, be regular files owned by the process
+user, and deny all group/other permissions (`src/protected.rs`).
 
----
+Human authority is enabled with `LAYERX_AUTHORITY_HUMAN_AGENT_TOKEN_FILE` and
+requires `LAYERX_AUTHORITY_PRINCIPAL_POLICY_FILE`,
+`LAYERX_AUTHORITY_MODULE_REGISTRY_FILE`, `LAYERX_AUTHORITY_CORE_CLOCK_HORIZON`,
+`LAYERX_AUTHORITY_STATE_ROOT`, `LAYERX_AUTHORITY_HUMAN_AGENT_TENANT`, and
+`LAYERX_AUTHORITY_HUMAN_AGENT_PRINCIPAL`. The optional identity binding client
+is configured in `src/human/dynamic.rs`.
 
-## Output fields
+## Compatibility batch evidence
 
-`GET /v1/authorized-batches/by-activity/{activity_id}` and
-`GET /internal/v1/activities/{activity_id}/authority` return the same
-JSON object on success (`services/platform/hosted/authority/src/main.rs:46-47,
-740-749, 656-667`). That object has eight members:
+The current binary still requires compatibility configuration:
+`LAYERX_AUTHORITY_REPLICA_URL`,
+`LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE`,
+`LAYERX_AUTHORITY_REPLICA_ID`, `LAYERX_AUTHORITY_SEQUENCER_ID`,
+`LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY`, `LAYERX_AUTHORITY_FIRST_BATCH`, and
+`LAYERX_AUTHORITY_LAST_BATCH`. The URL must be loopback HTTP; identities and key
+are nonzero 64-hex values; the batch range begins above zero and is ordered.
+These names remain in `src/main.rs`. They are compatibility inputs, not a
+second source of BFT finality or instructions to deploy the retired topology.
 
-| Member | Source |
+The general-bearer routes below still obtain signed receipt bytes from the node
+and request batch evidence from the configured compatibility HTTP source:
+
+| GET route | Result |
 | --- | --- |
-| `activity_id` | The requested 64-hex activity id (`services/platform/hosted/authority/src/main.rs:659`) |
-| `batch_id` | Hex of the re-derived execution batch id (`services/platform/hosted/authority/src/main.rs:660`; `services/platform/hosted/authority/src/lib.rs:305`) |
-| `asset` | Hex of the receipt asset (`services/platform/hosted/authority/src/main.rs:661`; `services/platform/hosted/authority/src/lib.rs:306`) |
-| `previous_state_root` | Hex of the signed header predecessor root (`services/platform/hosted/authority/src/main.rs:662`; `services/platform/hosted/authority/src/lib.rs:307`) |
-| `resulting_state_root` | Hex of the signed header successor root (`services/platform/hosted/authority/src/main.rs:663`; `services/platform/hosted/authority/src/lib.rs:308`) |
-| `sequencer_public_key` | Hex of the pinned sequencer public key (`services/platform/hosted/authority/src/main.rs:664`; `services/platform/hosted/authority/src/lib.rs:309`) |
-| `network_id` | Config `LAYERX_AUTHORITY_NETWORK_ID` (`services/platform/hosted/authority/src/main.rs:665`) |
-| `wire_version` | Config `LAYERX_AUTHORITY_WIRE_VERSION` (`services/platform/hosted/authority/src/main.rs:666`) |
+| `/v1/authorized-batches/by-activity/{activity_id}` | Verified batch facts |
+| `/v1/authorized-batches/wait-by-activity/{activity_id}` | Same facts, with bounded polling for receipt/evidence publication |
+| `/internal/v1/activities/{activity_id}/authority` | Same facts without publication polling |
+| `/v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}` | Evidence body relayed unchanged for upstream HTTP 200 or 404; also permits the evidence-read bearer |
 
-The ramp client parses those same eight members with
-`deny_unknown_fields` (`services/platform/ramps/toolkit/src/clients.rs:964-975,
-1024-1041`). The real-node test asserts exactly those eight keys
-(`services/platform/hosted/authority/tests/real_node.rs:1368-1390`).
+Activity ids must be nonzero 64-hex strings. `receipt_locator` hashes the
+canonical unsigned receipt, not its signed serialization. The evidence parser
+checks the replica identity, selected receipt key, signed header, canonical
+Merkle inclusion, protocol version, sequence range, execution batch identity,
+and receipt outcome. Maintenance evidence has additional batch-identity checks
+in `src/lib.rs`. No partial facts are returned on refusal.
 
-`AuthorityFacts` is also eight fields, before hexadecimal encoding:
-`activity_id`, `batch_id`, `asset`, `previous_state_root`,
-`resulting_state_root`, `sequencer_public_key`, `global_sequence`,
-`batch_number` (`services/platform/hosted/authority/src/lib.rs:132-151`). That
-set is not the HTTP object: the library struct carries
-`global_sequence` and `batch_number` and does not carry `network_id` or
-`wire_version`. The HTTP object does the reverse
-(`services/platform/hosted/authority/src/main.rs:656-667`).
+The by-activity success object contains ten fields:
 
-`GET /v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}`
-relays the replica document unchanged on HTTP `200` or `404`
-(`services/platform/hosted/authority/src/main.rs:48-49, 673-686`). That body is
-not the eight-member authorised-batch object.
-
----
-
-## Receipt digest
-
-`receipt_locator` decodes the canonical receipt, requires a protocol
-receipt, re-encodes the unsigned form, and calls `receipt_digest` on
-those unsigned bytes (`services/platform/hosted/authority/src/lib.rs:11,
-186-196`). The service uses that digest, with the receipt's batch id,
-as the replica query
-(`services/platform/hosted/authority/src/main.rs:627-638`):
-
-`/v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}`
-
----
-
-## Replica document
-
-`parse_replica_evidence` decodes JSON with `deny_unknown_fields`
-(`services/platform/hosted/authority/src/lib.rs:164-178, 205-211`). Required
-members:
-
-| Member | Check |
+| Field | Meaning |
 | --- | --- |
-| `authority_replica_id` | 64-hex; must equal the pinned replica id (`services/platform/hosted/authority/src/lib.rs:212-216`) |
-| `sequencer_public_key` | 64-hex; must equal the pinned sequencer key (`services/platform/hosted/authority/src/lib.rs:217-221`) |
-| `batch_evidence.header_hex` | Non-empty hex header bytes (`services/platform/hosted/authority/src/lib.rs:174-177, 222-223, 232-234`) |
-| `batch_evidence.header_signature` | Hex that decodes to exactly 64 bytes (`services/platform/hosted/authority/src/lib.rs:224-229`) |
-| `batch_evidence.receipt_proof_hex` | Non-empty hex Merkle proof that decodes as a canonical proof (`services/platform/hosted/authority/src/lib.rs:230-246`) |
+| `activity_id` | Requested activity id |
+| `receipt` | Canonical signed receipt bytes, hex without `0x` |
+| `batch_id` | Re-derived execution batch identity, hex |
+| `asset` | Receipt asset, hex |
+| `previous_state_root`, `resulting_state_root` | Signed batch header roots, hex |
+| `sequencer_public_key` | Selected pinned receipt key, hex |
+| `network_id` | Deployment label |
+| `protocol_network_id` | Numeric protocol network id |
+| `wire_version` | Configured wire version string |
 
-Unknown or missing JSON fields, a replica id that is not 64-hex, or a
-sequencer key that is not 64-hex are `ReplicaDocument`
-(`services/platform/hosted/authority/src/lib.rs:210-218`). A well-formed replica
-id that is not the pinned id is `ReplicaIdentity`
-(`services/platform/hosted/authority/src/lib.rs:214-216`). A well-formed
-sequencer key that is not the pinned key is `SequencerKey`
-(`services/platform/hosted/authority/src/lib.rs:219-221`).
-
----
-
-## Header signature, inclusion, and batch id
-
-`authorized_batch_by_activity` decodes the receipt, requires a protocol
-receipt, and refuses an activity id other than the one requested
-(`services/platform/hosted/authority/src/lib.rs:260-270`). It then calls
-`verify_receipt` with the replica proof, header, header signature, and
-pinned `SequencerAuthorization`
-(`services/platform/hosted/authority/src/lib.rs:271-280`). That call is header
-signature verification and Merkle inclusion under the header receipt
-root. Failure is `EvidenceRefusal::Inclusion`
-(`services/platform/hosted/authority/src/lib.rs:121, 280`).
-
-After inclusion it requires the receipt protocol version to equal the
-header protocol version (`services/platform/hosted/authority/src/lib.rs:282-284`)
-and the receipt global sequence to lie in the header range
-(`services/platform/hosted/authority/src/lib.rs:285-289`). It re-derives the
-execution batch id with `receipt_execution_batch_id(protocol, header)`
-and refuses unless that value equals `protocol.batch_id()`
-(`services/platform/hosted/authority/src/lib.rs:11, 290-294`). The returned
-`batch_id` is that re-derived value
-(`services/platform/hosted/authority/src/lib.rs:305`).
-
-Outcome verification then runs under an `AuthorizedBatch` built from
-the derived facts (`services/platform/hosted/authority/src/lib.rs:295-302,
-315-331`). Module `9` operation `0` uses `verify_program_state` and
-refuses a present program outcome; every other receipt uses
-`verify_outcome` (`services/platform/hosted/authority/src/lib.rs:321-330`).
+Maintenance-backed results additionally carry `batch_evidence`. These responses
+have no committed-block field: successful batch verification alone is not a
+committed-block proof. `AuthorityFacts` in the library also carries
+`global_sequence` and `batch_number`; those two fields are absent from this HTTP
+object.
 
 ---
 
 ## Refusals
 
-The `refusal` helper emits `{ "error": { "code": ..., "retry": ... } }`
-(`services/platform/hosted/authority/src/main.rs:380-386`).
+General HTTP refusals use `{"error":{"code":...,"retry":"never"}}`, or
+`retry: "after"` with `retry_after_seconds` and `Retry-After`.
 
 | HTTP | Code | Condition |
 | --- | --- | --- |
-| 401 | `identity_required` | Missing, empty, oversized, or non-matching `Authorization: Bearer` (`services/platform/hosted/authority/src/main.rs:419-437`) |
-| 400 | `invalid_activity_id` | Activity id is not 64-hex or is 32 zero bytes (`services/platform/hosted/authority/src/main.rs:609-614`) |
-| 404 | `unknown_activity` | LNI `ReceiptLookup` returns an empty payload (`services/platform/hosted/authority/src/main.rs:523-526, 587-591, 617`) |
-| 502 | `sequencer_key_mismatch` | LNI handshake authorised sequencer key differs from the pinned key (`services/platform/hosted/authority/src/main.rs:554-556, 618-620`) |
-| 503 | `receipt_source_unavailable` | LNI connect, handshake, capability, encode, send, receive, or decode fails (`services/platform/hosted/authority/src/main.rs:538-599, 622-624`). Retry-After 5. |
-| 503 | `replica_evidence_unavailable` | Replica answers HTTP 404 for the receipt-authority document (`services/platform/hosted/authority/src/main.rs:641-642`). Retry-After 1. |
-| 503 | `replica_unavailable` | Replica connect/read fails, or replica answers a status other than 200 or 404 (`services/platform/hosted/authority/src/main.rs:440-447, 644-648, 687-691`). Retry-After 5. |
-| 502 | `evidence_refused` | Any `EvidenceRefusal` from locator, replica parse, or `authorized_batch_by_activity` (`services/platform/hosted/authority/src/main.rs:603-605, 627-629, 650-653, 669`) |
-| 400 | `invalid_request` | Relay query is not `receipt_digest=` plus 64-hex, or `batch_id` is not 64-hex; also a malformed HTTP request (`services/platform/hosted/authority/src/main.rs:673-678, 763-765`) |
-| 405 | `method_not_allowed` | Method is not `GET` (`services/platform/hosted/authority/src/main.rs:718-719`) |
-| 404 | `not_found` | Unrecognised path, or a query string on a non-relay route (`services/platform/hosted/authority/src/main.rs:737-738, 751`) |
+| 401 | `identity_required` | Missing or unrecognized bearer |
+| 400 | `invalid_activity_id` | Activity id is malformed or zero |
+| 404 | `unknown_activity` | Node has no signed receipt for the activity |
+| 502 | `sequencer_key_mismatch` | Receipt key/signature does not match the pinned keys |
+| 503 | `receipt_source_unavailable` | Node lookup or receipt response validation failed; retry after 5 seconds |
+| 503 | `replica_evidence_unavailable` | Compatibility evidence source returned 404; retry after 1 second |
+| 503 | `replica_unavailable` | Evidence source transport failed or returned another status; retry after 5 seconds |
+| 502 | `evidence_refused` | Receipt, header, batch identity or inclusion verification failed |
+| 503 | `receipt_network_mismatch` | Signed header protocol network differs; retry after 5 seconds |
+| 503 | `state_persistence_unavailable` | Enabled human evidence retention failed; retry after 5 seconds |
+| 400 | `invalid_request` | Malformed HTTP framing or relay identifiers/query |
+| 405 | `method_not_allowed` | Method other than GET |
+| 404 | `not_found` | Unrecognized route or disallowed query |
 
-Library `EvidenceRefusal` values, all served as HTTP `evidence_refused`:
-
-| Variant | Condition |
-| --- | --- |
-| `ReceiptDecode` | Receipt bytes are not canonically decodable (`services/platform/hosted/authority/src/lib.rs:106-107, 187`) |
-| `ReceiptShape` | Receipt carries no protocol receipt (`services/platform/hosted/authority/src/lib.rs:108-109, 188`) |
-| `ActivityMismatch` | Receipt names a different activity than requested (`services/platform/hosted/authority/src/lib.rs:110-111, 268-269`; `services/platform/hosted/authority/src/main.rs:631-632`) |
-| `ReplicaDocument` | Replica JSON is the wrong shape (`services/platform/hosted/authority/src/lib.rs:112-113, 210-211`) |
-| `ReplicaIdentity` | Replica document names a different replica identity (`services/platform/hosted/authority/src/lib.rs:114-115, 214-216`) |
-| `SequencerKey` | Replica document names a sequencer key other than the pinned key (`services/platform/hosted/authority/src/lib.rs:116-117, 219-221`) |
-| `EvidenceEncoding` | Replica evidence is not decodable (`services/platform/hosted/authority/src/lib.rs:118-119, 222-234`) |
-| `Inclusion` | Header or Merkle inclusion verification failed (`services/platform/hosted/authority/src/lib.rs:120-121, 273-280`) |
-| `ProtocolVersion` | Receipt and header disagree on protocol version (`services/platform/hosted/authority/src/lib.rs:122-123, 282-284`) |
-| `SequenceRange` | Receipt global sequence lies outside the header range (`services/platform/hosted/authority/src/lib.rs:124-125, 285-289`) |
-| `BatchIdentity` | Receipt batch identity is not the re-derived execution batch id (`services/platform/hosted/authority/src/lib.rs:126-127, 290-294`) |
-| `Receipt` | Outcome verification failed under the derived facts (`services/platform/hosted/authority/src/lib.rs:128-129, 315-330`) |
-
-A tampered header signature is `Inclusion(InclusionError::HeaderSignature)`
-(`services/platform/hosted/authority/tests/real_node.rs:1514-1524`). A receipt
-under another batch's evidence is `Inclusion(InclusionError::Merkle(_))`
-(`services/platform/hosted/authority/tests/real_node.rs:1554-1562`). Those are
-the header/signature/batch inclusion refusals. `BatchIdentity` is the
-re-derived batch-id mismatch (`services/platform/hosted/authority/src/lib.rs:290-294`).
-
-Unauthorized on the HTTP surface is `identity_required`, not a library
-`EvidenceRefusal`. Unknown receipt on the by-activity surface is
-`unknown_activity` when LNI returns empty bytes, and
-`replica_evidence_unavailable` when the replica answers 404 for the
-digest. Those two 404 paths differ
-(`services/platform/hosted/authority/src/main.rs:617, 641-642`).
-
----
+Library failures retain their specific `EvidenceRefusal` variants, including
+`ReceiptDecode`, `ReceiptShape`, `ActivityMismatch`, `ReplicaDocument`,
+`ReplicaIdentity`, `SequencerKey`, `EvidenceEncoding`, `Inclusion`,
+`ProtocolVersion`, `SequenceRange`, `BatchIdentity`, and `Receipt`. The general
+HTTP surface maps them to `evidence_refused`. Human routes have their own policy
+and committed-evidence refusals in `src/human.rs`.
 
 ## Readiness
 
-`GET /livez` returns `200` and `{ "live": true }` with no replica check
-(`services/platform/hosted/authority/src/main.rs:44, 722-723`). `GET /readyz`
-probes the replica at
-`/v1/batches/{32-zero}/receipt-authority?receipt_digest={32-zero}`
-(`services/platform/hosted/authority/src/main.rs:45, 695-714`). Ready is replica
-HTTP `200` or `404` (`services/platform/hosted/authority/src/main.rs:697-700`).
-The body has three members: `ready`, `network_id`, `wire_version`
-(`services/platform/hosted/authority/src/main.rs:705-709`). Ready is HTTP `200`;
-not ready is HTTP `503` with Retry-After 5
-(`services/platform/hosted/authority/src/main.rs:710-713`). The node probes
-HTTPS `/readyz` and `/livez` on `authority-tls`
-(`services/platform/hosted/node/deployment.yaml:182-183`).
+`GET /livez` returns `200 {"live":true}` without dependency checks.
+`GET /readyz` checks both the compatibility evidence source and the node chain
+identity. Evidence-source 200 or 404 is reachable; node chain id must be `125`.
+Both dependencies must be ready. The body contains `ready`, `network_id`,
+`protocol_network_id`, and `wire_version`; a failed check returns 503 and
+`Retry-After: 5`.
 
----
+Readiness establishes dependency reachability and chain identity. It does not
+verify a particular receipt, its committed block, or a native state proof.
 
-## Real-node tests
+## Tests
 
-`services/platform/hosted/authority/tests/real_node.rs` starts a real `layerxd`
-sequencer, a real `layerxd --authority-replica`, and the authority
-binary (`services/platform/hosted/authority/tests/real_node.rs:1-3, 830-835,
-1162`).
+The maintained tests include `tests/chain_receipts.rs` for node receipt lookup,
+unpinned-key refusal, pinned key snapshots, and startup without an LNI socket;
+`tests/repair_22_31_207.rs` exercises committed identity/capability/key-policy
+evidence and receipt-key rotation with retention and replay. Other authority
+tests cover maintenance identity, native outcomes, human TLS, and proof exports.
+All paths are under `services/platform/hosted/authority/`.
 
-`real_node_authority_serves_verified_facts_and_reflects_replica_loss`
-(`services/platform/hosted/authority/tests/real_node.rs:1276-1278`):
+`make platform-test-authority` runs the crate through
+`tools/runtime/run-with-clock.sh`; `platform-test-trusted-boundary` includes it.
+These are service test entrypoints, not evidence that a deployment is ready.
 
-- `/livez` is `200` JSON (`services/platform/hosted/authority/tests/real_node.rs:1312-1314`).
-- `/readyz` is `200` with `ready=true` and exactly three members
-  (`services/platform/hosted/authority/tests/real_node.rs:1316-1336`).
-- Missing bearer is `401` `identity_required`; a wrong token is `401`
-  (`services/platform/hosted/authority/tests/real_node.rs:1338-1352`).
-- Gateway bearer on by-activity is `200` with the eight output keys;
-  `verify_outcome` accepts the receipt under those facts
-  (`services/platform/hosted/authority/tests/real_node.rs:1354-1408`).
-- The internal activity path returns the same JSON
-  (`services/platform/hosted/authority/tests/real_node.rs:1410-1418`).
-- The relay body equals the replica body byte-for-byte
-  (`services/platform/hosted/authority/tests/real_node.rs:1427-1445`).
-- Independent `verify_receipt` inclusion matches the served state roots
-  and batch id (`services/platform/hosted/authority/tests/real_node.rs:1450-1479`).
-- Tampered signature, tampered header, and cross-batch evidence are
-  inclusion refusals (`services/platform/hosted/authority/tests/real_node.rs:1514-1562`).
-- Unknown activity is `404` `unknown_activity`
-  (`services/platform/hosted/authority/tests/real_node.rs:1586-1596`).
-- After `replica.stop()`, `/readyz` is `503` with `ready=false`,
-  by-activity is `503` `replica_unavailable`, and relay is `503`
-  `replica_unavailable`
-  (`services/platform/hosted/authority/tests/real_node.rs:1612-1638`).
-
-`real_replica_readiness_relay_and_refusals_without_sequencer` starts
-the replica and authority with no sequencer
-(`services/platform/hosted/authority/tests/real_node.rs:1641-1644`):
-
-- `/readyz` is `200` because the replica answers `404` on the zero
-  probe (`services/platform/hosted/authority/tests/real_node.rs:1650-1668`;
-  `services/platform/hosted/authority/src/main.rs:695-700`).
-- By-activity without LNI is `503` `receipt_source_unavailable`
-  (`services/platform/hosted/authority/tests/real_node.rs:1687-1694`).
-- Relay of an unknown batch is `404` with the same body as the replica
-  (`services/platform/hosted/authority/tests/real_node.rs:1704-1717`).
-- After replica loss, `/readyz` is `503` and relay is `503`
-  `replica_unavailable`
-  (`services/platform/hosted/authority/tests/real_node.rs:1749-1765`).
-
-[Home](../index.md)
+[Hosted identity](identity.md) · [Home](../index.md)

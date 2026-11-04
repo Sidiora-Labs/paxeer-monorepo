@@ -434,6 +434,8 @@ pub fn challenge<'a>(
         || claim.status != ClaimStatus::Challengeable
         || challenge_id == [0; 32]
         || challenger == claim.provider
+        || stake_account == lease.escrow_account
+        || stake_account == offer.stake_account
         || stake_seed.is_empty()
         || stake_seed.len() > layerx_program_sdk::MAX_PROGRAM_ACCOUNT_SEED_BYTES
         || stake.is_zero()

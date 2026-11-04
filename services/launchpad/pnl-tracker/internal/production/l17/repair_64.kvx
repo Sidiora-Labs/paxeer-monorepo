@@ -1,0 +1,18 @@
+[repair.22.31.64]
+finding = "history-row-insert-grant"
+proof = "TestRepair_64_HistoryRowInsertGrant"
+change = "Add only INSERT alongside SELECT on pnl.portfolio_history_rows for pnl_runtime."
+path = "Production RoleManifest.GrantSQL -> pgx pool and binary CopyFrom -> Repository.CommitSnapshotTx/CommitHistoryTx -> reopened Repository.HistoryPage and authenticated GET /v2/me/portfolio/history."
+negative = "The same participant transaction with the pre-repair SELECT-only capability must return PostgreSQL 42501 and leave snapshot, history and both notices uncommitted."
+baseline = "No pre-change gate was run: the task's ordered gate instructions prohibit verification before implementation and direct verification outside hf-done. The negative case reproduces the prior missing-INSERT interface."
+peer = "Committed in-process PostgreSQL protocol/store fixture and loopback identity HTTP peer; production repository, pgx binary COPY codec, grants renderer, identity client and HTTP handler execute unchanged."
+qualification = "Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done; no PostgreSQL server or external service is used."
+wiring_request = "None: the grant manifest and L17 participant are within the declared task paths."
+
+[qualification.first_attempt]
+revision = "687d1e3c3e94e04bb6ac14a3256c16c7cf79f148"
+command = "cg spec done 22.31.64 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Missing-grant rollback passed; the binary protocol peer incorrectly required a file trailer instead of treating CopyDone as the end marker."
+repair = "Translate CopyDone to the binary end marker before strict row decoding; keep every grant, transaction, codec, restart and owner-isolation assertion."

@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
@@ -39,7 +40,16 @@ func (k *Keeper) isShareDenom(denom string) bool {
 // named "Spot Vault Share <symbol>" with symbol "s<symbol>" and the token
 // decimals, and creates its ERC20 native pointer, NativePaxTokensERC20, whose
 // balanceOf and totalSupply read the bank module. It returns the pointer
-// address. evm is the instance the pointer is deployed in, the one-off
+// address. The deployment interface is precompiles/spot/abi/share.json:
+// allowance, approve, balanceOf, decimals, name, symbol, totalSupply, transfer
+// and transferFrom, plus the native pointer's metadata/bank getters. Mint,
+// burn, owner, renounceOwnership and transferOwnership are unsupported and
+// revert with empty data for every caller, including governance and the vault.
+// MintShares and BurnShares retain exclusive keeper authority; there is no
+// Solidity owner. The old Solidity ABI is share-solidity.json, for history only.
+// A share-specific delegate boundary preserves native execution and returns
+// ERC20InsufficientBalance with the bank balance when a transfer exceeds it.
+// evm is the instance the pointer is deployed in, the one-off
 // instance of the activation (RunWithOneOffEVMInstance).
 func (k *Keeper) CreateShareToken(ctx sdk.Context, evm *vm.EVM, token common.Address, symbol string,
 	decimals uint8) (common.Address, error) {
@@ -75,8 +85,206 @@ func (k *Keeper) CreateShareToken(ctx sdk.Context, evm *vm.EVM, token common.Add
 		return common.Address{}, types.ErrUnsupportedToken
 	}
 	k.bankKeeper.SetDenomMetaData(ctx, metadata)
-	return k.evmKeeper.UpsertERCNativePointer(ctx, evm, denom,
+	pointer, err := k.evmKeeper.UpsertERCNativePointer(ctx, evm, denom,
 		utils.ERCMetadata{Name: name, Symbol: shareSymbol, Decimals: decimals})
+	if err != nil {
+		return common.Address{}, err
+	}
+	if err := k.installShareBalanceBoundary(ctx, evm, pointer); err != nil {
+		return common.Address{}, err
+	}
+	return pointer, nil
+}
+
+// installShareBalanceBoundary keeps native storage and bank authorization at
+// pointer. Its immutable delegate contains the original native runtime, while
+// the pointer translates only the native transfer-failed revert when the real
+// bank balance is insufficient. Native allowance/address checks run first.
+func (k *Keeper) installShareBalanceBoundary(ctx sdk.Context, evm *vm.EVM, pointer common.Address) error {
+	gasKeeper, ok := k.evmKeeper.(interface {
+		GetEVMGasLimitFromCtx(sdk.Context) uint64
+		GetCosmosGasLimitFromEVMGas(sdk.Context, uint64) uint64
+	})
+	if !ok {
+		return sdkerrors.ErrInvalidRequest.Wrap("spot: share deployment requires EVM gas accounting")
+	}
+	runtime := evm.StateDB.GetCode(pointer)
+	if len(runtime) == 0 || len(runtime) > 65535 {
+		return sdkerrors.ErrInvalidRequest.Wrap("spot: invalid native share runtime")
+	}
+	// Init code returns the existing runtime verbatim; no second constructor or
+	// storage initialization runs. All delegate calls use the pointer's storage.
+	length := []byte{byte(len(runtime) >> 8), byte(len(runtime))}
+	init := []byte{byte(vm.PUSH2), length[0], length[1], byte(vm.PUSH2), 0, 15,
+		byte(vm.PUSH1), 0, byte(vm.CODECOPY), byte(vm.PUSH2), length[0], length[1],
+		byte(vm.PUSH1), 0, byte(vm.RETURN)}
+	init = append(init, runtime...)
+	gas := gasKeeper.GetEVMGasLimitFromCtx(ctx)
+	if run := runOf(ctx); run != nil {
+		gas = run.Gas
+	}
+	_, implementation, left, err := evm.Create(pointer, init, gas, uint256.NewInt(0))
+	if run := runOf(ctx); run != nil {
+		run.Gas = left
+	} else {
+		ctx.GasMeter().ConsumeGas(gasKeeper.GetCosmosGasLimitFromEVMGas(ctx, gas-left), "share balance boundary deployment")
+	}
+	if err != nil {
+		return err
+	}
+	evm.StateDB.SetCode(pointer, nativeShareRuntime(implementation))
+	return nil
+}
+
+// nativeShareRuntime assembles the immutable share boundary directly from EVM
+// instructions. It needs no Solidity compiler or generated deployment artifact.
+// Successful calls and all other refusals retain the native return bytes.
+func nativeShareRuntime(implementation common.Address) []byte {
+	var code []byte
+	labels := make(map[string]int)
+	type reference struct {
+		offset int
+		label  string
+	}
+	var references []reference
+	op := func(ops ...vm.OpCode) {
+		for _, instruction := range ops {
+			code = append(code, byte(instruction))
+		}
+	}
+	pushBytes := func(value []byte) {
+		code = append(code, byte(vm.PUSH1)+byte(len(value))-1)
+		code = append(code, value...)
+	}
+	push := func(value uint16) {
+		code = append(code, byte(vm.PUSH2), byte(value>>8), byte(value))
+	}
+	jump := func(label string, conditional bool) {
+		op(vm.PUSH2)
+		references = append(references, reference{len(code), label})
+		code = append(code, 0, 0)
+		if conditional {
+			op(vm.JUMPI)
+		} else {
+			op(vm.JUMP)
+		}
+	}
+	label := func(name string) {
+		labels[name] = len(code)
+		op(vm.JUMPDEST)
+	}
+
+	// Delegate calldata unchanged. Save returndata above the scratch area.
+	op(vm.CALLDATASIZE)
+	push(0)
+	push(0)
+	op(vm.CALLDATACOPY)
+	push(0)
+	push(0)
+	op(vm.CALLDATASIZE)
+	push(0)
+	pushBytes(implementation.Bytes())
+	op(vm.GAS, vm.DELEGATECALL, vm.RETURNDATASIZE)
+	push(0)
+	push(0x100)
+	op(vm.RETURNDATACOPY)
+	jump("return", true)
+	op(vm.RETURNDATASIZE)
+	push(0x80)
+	op(vm.MSTORE)
+	// Match the complete native Error(string), preserving other errors exactly.
+	op(vm.RETURNDATASIZE)
+	push(0x100)
+	op(vm.KECCAK256)
+	pushBytes(crypto.Keccak256(pcommon.RevertReason(errors.New("NativePaxTokensERC20: transfer failed"))))
+	op(vm.EQ, vm.ISZERO)
+	jump("revert", true)
+	push(0)
+	op(vm.CALLDATALOAD)
+	push(224)
+	op(vm.SHR, vm.DUP1)
+	pushBytes(erc20Transfer)
+	op(vm.EQ)
+	jump("transfer", true)
+	pushBytes(erc20TransferFrom)
+	op(vm.EQ, vm.ISZERO)
+	jump("revert", true)
+	push(4)
+	op(vm.CALLDATALOAD)
+	push(0x40)
+	op(vm.MSTORE)
+	push(68)
+	op(vm.CALLDATALOAD)
+	jump("balance", false)
+	label("transfer")
+	op(vm.POP, vm.CALLER)
+	push(0x40)
+	op(vm.MSTORE)
+	push(36)
+	op(vm.CALLDATALOAD)
+	label("balance")
+	push(0x60)
+	op(vm.MSTORE)
+	// Static-call the pointer's native balanceOf to read the real bank balance.
+	pushBytes(erc20BalanceOf)
+	push(224)
+	op(vm.SHL)
+	push(0)
+	op(vm.MSTORE)
+	push(0x40)
+	op(vm.MLOAD)
+	push(4)
+	op(vm.MSTORE)
+	push(32)
+	push(0xa0)
+	push(36)
+	push(0)
+	op(vm.ADDRESS, vm.GAS, vm.STATICCALL, vm.ISZERO)
+	jump("revert", true)
+	op(vm.RETURNDATASIZE)
+	push(32)
+	op(vm.EQ, vm.ISZERO)
+	jump("revert", true)
+	push(0x60)
+	op(vm.MLOAD)
+	push(0xa0)
+	op(vm.MLOAD, vm.LT, vm.ISZERO)
+	jump("revert", true)
+	// ERC20InsufficientBalance(address sender,uint256 balance,uint256 needed).
+	pushBytes(types.ERC20InsufficientBalance(common.Address{}, uint256.NewInt(0), uint256.NewInt(0)).Data()[:4])
+	push(224)
+	op(vm.SHL)
+	push(0)
+	op(vm.MSTORE)
+	push(0x40)
+	op(vm.MLOAD)
+	push(4)
+	op(vm.MSTORE)
+	push(0xa0)
+	op(vm.MLOAD)
+	push(36)
+	op(vm.MSTORE)
+	push(0x60)
+	op(vm.MLOAD)
+	push(68)
+	op(vm.MSTORE)
+	push(100)
+	push(0)
+	op(vm.REVERT)
+	label("revert")
+	push(0x80)
+	op(vm.MLOAD)
+	push(0x100)
+	op(vm.REVERT)
+	label("return")
+	op(vm.RETURNDATASIZE)
+	push(0x100)
+	op(vm.RETURN)
+	for _, ref := range references {
+		destination := labels[ref.label]
+		code[ref.offset], code[ref.offset+1] = byte(destination>>8), byte(destination)
+	}
+	return code
 }
 
 // sharePointer checks a share mint or burn of amount of denom in evm and

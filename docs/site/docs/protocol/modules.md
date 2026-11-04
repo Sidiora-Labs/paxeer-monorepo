@@ -1,126 +1,121 @@
 # Modules
 
-Eight economic modules (`0x01`–`0x08`) plus Programs (`0x09`) on a kernel that owns identity and authority.
+The merged network's kernel dispatches activities by module ID and operation ordinal. Identity, authority, sequencing, state journals and receipts are shared kernel services. Modules use those services inside the same network; [Protocol](index.md) describes the execution and finality model.
 
-Oracle intake remains an outside adapter, not a module ID. Programs is module ID `9` (`LXP_MODULE_PROGRAMS`); it is the guest-execution module, not a ninth `402LXP` writer. See [Programs](../programs/index.md).
+## The declared set (0x01–0x0b)
 
----
+`include/layerx/lxp_module.h` declares these stable IDs. They occupy the high 16 bits of `activity_type`; the low 16 bits carry the operation ordinal. A declared ID alone does not prove that a particular host has registered or enabled it.
 
-## The registered set (0x01–0x09)
-
-| ID | Module | What it does |
+| ID | Module | Role and current host boundary |
 | --- | --- | --- |
-| `0x01` | asset | Transfer sets that move value. `402LXP` is the writer. |
-| `0x02` | escrow | Money held until the terms are met |
-| `0x03` | budget | A hard ceiling on what an agent may spend |
-| `0x04` | stream | Paying continuously, by the unit |
-| `0x05` | service | Agreeing work, proving it, delivering it |
-| `0x06` | perps | Leveraged positions and their margin accounts |
-| `0x07` | governance | Changing protocol settings, on a timelock |
-| `0x08` | bridge | Custody on Paxeer L1, and withdrawal claims |
-| `0x09` | programs | Guest WASM execution. Emits transfer sets; does not write balances. |
+| `0x01` | asset | Asset registration, per-asset accounts and validated ledger transfers. |
+| `0x02` | escrow | Lock, capture and release under escrow terms. |
+| `0x03` | budget | Bounded spending and budget lifecycle. |
+| `0x04` | stream | Metered payments and stream lifecycle. |
+| `0x05` | service | Service agreements, delivery and escrow-linked outcomes. |
+| `0x06` | perps | Perpetual-market operations; the merged host registers the oracle-transport interface. |
+| `0x07` | governance | Protocol parameters and governed transitions. |
+| `0x08` | bridge | Declared bridge ID; not registered by the current `lxphost` reset path. |
+| `0x09` | programs | Deterministic WASM execution, program accounts and lifecycle. |
+| `0x0a` | spot | Spot-market transitions. |
+| `0x0b` | web | Declared Web ID; not registered by the current `lxphost` reset path. Web keeper and Programs host interfaces are separate integration points. |
 
-Module IDs are stable and never reused. They occupy the high 16 bits of `activity_type` (`include/layerx/lxp_module.h`). An unknown or epoch-disabled module is refused - not best-effort decoded.
+`modules/lxphost/host.go` registers governance, Programs, asset, budget, escrow, the perps oracle-transport interface, spot, stream and service when resetting the host. Programs registration selects `programs_module_registration_v5()` for guest ABI 5 and `programs_module_registration_v4_storage_retirement()` otherwise. This registration policy is separate from the immutable guest ABI manifests.
 
-Runtime sources live under `src/modules/` (`asset`, `escrow`, `budget`, `stream`, `service`, `perps`, `governance`, `bridge`, `programs`). Genesis registers Programs v4 for every accepted protocol version; Asset v1 is protocol-3-conditional (`src/protocol/lxp_genesis.c:594-598`). Since the monorepo integration, the Paxeer settlement stack these modules checkpoint to lives in the same repository under the repository root (`go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`) (EVM chain ID `125`).
+C module sources live in `src/modules/`; node keepers live in `modules/`. Kernel module IDs are not EVM precompile addresses. In particular, Programs ID `0x09` is reached through the EVM Programs precompile at `0x000000000000000000000000000000000000101D`, whose implementation and ABI live in `precompiles/layerxprograms/`.
 
 ---
 
 ## One doorway for money
 
-`402LXP` is the sole balance writer. That is the feature, not a caveat.
+`402LXP` applies monetary transitions to the canonical account registry. Modules and guests emit validated transfer sets through the kernel. Transfer legs commit atomically and conserve value per asset; asset issuance and burning use the issuance account under their own authorization rules.
 
-Modules never call `set_balance`. They emit transfer sets - one or more legs with a single authorization context, a single sequence, and a single receipt. All legs commit, or none do. Per asset, Σ debits = Σ credits.
+Locked value is held in real accounts. Canonical names include:
 
-Locked funds are real accounts, not hidden columns:
-
-```
+```text
 agent:<did>:main
 agent:<did>:asset:<lowercase hex64 asset_id>
 agent:<did>:budget:<id>
 agent:<did>:escrow:<id>
 agent:<did>:stream:<id>
 agent:<did>:margin:<position>
-module:asset:value:<lowercase hex64 account-id>      (an asset's issuance account)
-module:programs:value:<account-id>
+module:asset:value:<lowercase hex64 issuance_account_id>
+module:programs:value:<account_id>
 system:fees
 system:paxeer-reserve
+system:paxeer-withdrawals
 ```
 
-`agent:<did>:asset:…` and `asset:<id>:issuance` parse alongside `agent:<did>:main` and the budget / escrow / stream / margin forms (`src/ledger/lx_account_id.c`). The issuance-account id remains the named-account hash of the `asset:<id>:issuance` seed, while its stored canonical name is the `module:asset:value:<issuance-account-id>` form (`lx_asset_issuance_name`). Their encodings are on [Assets](../concepts/assets.md).
+`src/ledger/lx_account_id.c` implements account-name parsing and derivation. The issuance account ID is derived from the `asset:<lowercase hex64 asset_id>:issuance` seed, while `lx_asset_issuance_name` produces its `module:asset:value:` stored name. Program account derivation is domain-separated from principal accounts.
 
-Opening a position is a transfer into a margin account. Capturing escrow is a transfer out of an escrow account. Native issuance still compiles to `402LXP` legs against the issuance account; modules do not assign balances and ordinary modules do not mint and do not burn. `agent:<did>:main` remains the native-asset account. Per-asset accounts use the existing `LX:ACCOUNT:v1` id rule. An issuance account's id is that rule applied to the string `asset:<lowercase hex64 asset_id>:issuance`, while the name it is stored under is the `module:asset:value:` form above; records still carrying the older string as their name are renamed on load. See `spec/layerx-protocol/spec.kvx` requirement 14.
+**One record per account and asset.** An `lx_account` holds an account ID, an asset binding, a balance and its account sequence. `agent:<did>:main` is `LX_ACCOUNT_AGENT_MAIN`; `agent:<did>:asset:<hex64>` is `LX_ACCOUNT_AGENT_ASSET` (14). The parser, not an old comment about main accounts, defines that distinction. An account's asset cannot silently rebind after it has been established. The enum is in `include/layerx/lxp_ledger.h`.
 
-**One record per (account, asset).** There is no balance table beside the account registry. An `lx_account` record holds one account id, one asset id and one balance, so a DID that touches two assets owns two records - `agent:<did>:main` for the native asset and one `agent:<did>:asset:<hex64>` per other asset - and a per-asset account is kind `LX_ACCOUNT_AGENT_MAIN`, told apart from `:main` by the asset it carries, not by kind. A record's asset is bound when it is opened or by its first credit, and never rebinds; a debit against the wrong asset is refused, not coerced.
-
-Sequences follow the same split. The activity envelope's `account_sequence` is checked against the DID's identity counter, while the transfer set's `actor_sequence` is checked against the sequence account's own counter - by default the debited record, so per `(DID, asset)`. `asset.receive` advances the recipient's counter instead, `asset.mint` the issuance account's, and the protocol fee leg the treasury's. A newly opened per-asset account starts at zero however far its owner's `:main` account has run. Full rules, refusal codes and the account state-root leaf shape are in `spec/layerx-protocol/design.md` §8.2 and §8.3.
-See Payments and Fees.
-
----
-
-## Not modules
-
-| Surface | Where it lives | Module ID |
-| --- | --- | --- |
-| Identity & authority | Kernel | None - DIDs, keys, grants, rotation, recovery - universal to every activity |
-| Oracle / Crossverse | Outside adapter | None - signed oracle activities enter the ordered history; execution never dials out |
-| Programs | `src/modules/programs`, `programs/` | `0x09` (`LXP_MODULE_PROGRAMS`) - guest execution and program-owned accounts. Not a ninth `402LXP` writer. [Programs](../programs/index.md) |
+The activity's identity sequence and a transfer set's account sequence serve different checks. Do not substitute an identity's sequence for the sequence of a different asset account. Opening another per-asset account does not copy the owner's native-account counter.
 
 ---
 
 ## What each module is for
 
-**asset.** Declared ordinals are register (1), pause (2), unpause (3), account_open (4), send (5), receive (6), grant_issue (7), grant_revoke (8), withdraw (9), mint (10) and burn (11). WITHDRAW (9) is a real transition dispatched through `module_execute`: the payload is `asset_id32 || amount16 || payout_recipient20 || checkpoint_id32 || fee8` (108 bytes, `fee8` must equal the activity fee limit), the actor's `agent:<did>:main` account for that asset is debited into `system:paxeer-withdrawals` under `LXP_REASON_WITHDRAWAL`, and the request is written as a `withdrawal:` record so a second submission of the same request refuses with `LXP_ERR_WITHDRAWAL_ALREADY_SETTLED`. The kernel's ledger admission facts for a withdraw carry the actor, the verified key and the principal account's next sequence; `lxp_kernel_withdraw_execution_sequence` takes the account sequence from them, refuses with `LXP_ERR_CONTEXT_MISMATCH` when the admitted principal is not the debited account, and when the admission carries no principal at all the signed `account_sequence` is the one the ledger checks. A withdraw receipt carries no supply binding because `lxp_receipt_validate_supply` does not describe operation 9. Every other executed asset ordinal, pause and unpause included, loads the asset record before and after the transition and binds `total_units_before`/`total_units_after` on the receipt through `lxp_ctx_bind_asset_supply`. SEND compiles to a `402LXP` transfer and accepts both `agent:<did>:main` and `agent:<did>:asset:<hex64>` sources owned by the actor. RECEIVE requires a payer grant: one recipient, one account, caps, purpose, expiry. No wildcards. Register `issuer_kind` is `1` native and `2` `paxeer_custody`; that value is not `lx_asset_custody_kind` (`LX_ASSET_CUSTODY_PAXEER = 1`). PAUSE and UNPAUSE are real transitions: the payload is `version:u16=1 || asset_id32`, only the recorded issuer of the asset may submit them, and the resulting `paused` flag is written into the canonical asset record. A paused asset refuses send, mint, burn, account_open, grant_issue and withdraw with `LXP_ERR_ASSET_PAUSED`; pausing an already paused asset, or unpausing one that is not paused, refuses with `LXP_ERR_PAUSED_SCOPE`. The authenticated native and hosted submission paths strictly decode and admit register, pause, unpause, account_open, send, receive, grant_issue, grant_revoke, mint and burn. Ordinal 9 returns a reserved-operation refusal. The version 2 fee schedule prices ten ordinals, 1, 2, 3, 4, 5, 6, 7, 8, 10 and 11, so pause and unpause are priced under both schedule versions; their named prices are `fee.asset.pause` and `fee.asset.unpause` on [Assets](../concepts/assets.md). Register, per-asset account_open, mint, and burn encodings are on [Assets](../concepts/assets.md).
+### Asset
 
-**escrow.** Lock, capture, release. Terms are module state; money moves only as `402LXP` legs.
+The header `include/layerx/lx_asset.h` retains ordinal names 1 through 11. The actual dispatch table in `src/modules/asset/lx_asset_registry.c` registers:
 
-**budget.** Fund a ceiling, spend from it, expire or revoke it. Delegation is a grant, not a second wallet.
+| Ordinal | Operation | Current C transition |
+| --- | --- | --- |
+| 1 | register | Register an asset and its issuance account. |
+| 2 / 3 | pause / unpause | Issuer-authorized change of the asset's paused flag. Payload: `version:u16=1 || asset_id32`. |
+| 4 | account_open | Open the actor's per-asset account. |
+| 5 | send | Transfer from an authorized main or per-asset account. |
+| 9 | withdraw | Execute the C withdrawal transition, with the account and custody checks described below. |
+| 10 / 11 | mint / burn | Authorized supply changes compiled to ledger legs. |
 
-**stream.** Continuous, metered payment by the unit, drawn under the same conservation rules.
+Ordinals 6 (`receive`), 7 (`grant_issue`) and 8 (`grant_revoke`) are retired payer-grant operations, not active C module transitions. The decoder rejects them with `LXP_ERR_UNKNOWN_ACTIVITY`. The merged ledger keeper's `Draw`, `IssueGrant` and `RevokeGrant` methods also refuse the retired route with `ErrNoPayerGrant` after their applicable pause and authority checks (`modules/layerxledger/keeper/draw.go` and `grants.go`). Account funding must follow an authorized current transfer path.
 
-**service.** Offers, commitments, delivery attestations, acceptance, disputes. Payment still walks through `402LXP`.
+Register uses `issuer_kind = 1` for native assets and `2` for Paxeer custody. The current persisted enum is `LX_ASSET_CUSTODY_NATIVE = 1`, `LX_ASSET_CUSTODY_PAXEER = 2`; use the definitions and record validation, rather than the outdated numbering in the header's introductory comment. The canonical record binds issuance authority, custody data and supply.
 
-**perps.** Positions, margin, funding, liquidation, insurance. Losses and fees are transfer legs, not shadow balances.
+WITHDRAW has a C transition; it is not evidence that every submission API exposes a withdrawal operation. Its payload is `asset_id32 || amount16 || payout_recipient20 || checkpoint_id32 || fee8` (108 bytes). `fee8` must agree with the activity fee limit. The transition debits the admitted principal account into `system:paxeer-withdrawals`, stages a `withdrawal:` record and rejects an already recorded request with `LXP_ERR_WITHDRAWAL_ALREADY_SETTLED`. `lxp_kernel_withdraw_execution_sequence` checks admission facts and refuses an account mismatch with `LXP_ERR_CONTEXT_MISMATCH`. The presence of the legacy `checkpoint_id` field in this encoding does not add a second finality stage to the merged network. Sources: `src/modules/asset/lx_asset_registry.c`, `lx_asset_custody.c` and `src/protocol/lxp_kernel.c`.
 
-**governance.** Parameter changes on a timelock. Emergency freezes are named, narrow, and themselves activities.
+Pause and unpause affect canonical asset state. Repeating a transition in the same state returns `LXP_ERR_PAUSED_SCOPE`; paused assets refuse affected economic operations with `LXP_ERR_ASSET_PAUSED`. Register, account-open and supply encodings are defined by `lx_asset.h` and `src/modules/asset/lx_asset_decode.c`.
 
-**bridge.** Deposits and withdrawals against Paxeer custody. The reserve mirror is an ordinary account so conservation still holds.
+### Escrow, budget, stream and service
 
-The opt-in [authenticated custody credit profile](../human/custody.md) binds real external
-deposits to atomic issuance and beneficiary credit while keeping fresh genesis empty.
+Escrow records terms for locking, capturing and releasing funds. Budget bounds spending through its lifecycle and authority checks. Stream implements metered payments. Service records agreements and delivery outcomes, with escrow links read through the host. Their money movements remain ledger transfer sets; module records do not create independent balances.
+
+### Perps, spot and governance
+
+Perps defines positions, margin and oracle-dependent market operations; the merged host specifically registers `lx_perps_oracle_transport_module_iface()`. Spot has its own module ID and registration. Governance owns governed protocol settings. Interface availability must be checked against the actual registered implementation rather than inferred from the module's name.
+
+### Bridge and external assets
+
+Bridge ID `0x08` remains allocated, but the merged host registration above does not install a C bridge runtime. External-asset and bank integration belongs to the node keepers and authenticated precompile paths that implement it. The old opt-in custody-credit profile is retired; it is not an additional funding prerequisite for the merged network.
 
 ---
 
 ## Programs: module `0x09`
 
-Programs run untrusted guest code on a deterministic WASM runtime under the authority of the activity that invoked them. The kernel registers it as `LXP_MODULE_PROGRAMS = 9` (`include/layerx/lxp_module.h:22`). It never gains balance-writing authority - every monetary effect it produces compiles to a `402LXP` transfer set the kernel applies. The runtime, registry, SDKs, and porting kits live under `programs/`. Full activity, ABI, occupancy, receipt, and event detail is in [Programs](../programs/index.md).
+Programs execute untrusted guest WASM under the invoking activity's authority. They do not gain direct balance-writing authority. Runtime, registry, SDKs, AI market, arbiter and porting kits live in `programs/`; see [Workspace and crate layout](../programs/workspace.md#workspace-and-crate-layout).
 
-- **Program-owned accounts.** Derived deterministically from `(program_id, seed)` under a domain-separated hash that is disjoint from principal account ids. No principal can claim or sign for a program account; deriving one conveys no spending authority. A principal can fund a program account but can never authorize debits from it. Program value accounts appear on the money map as `module:programs:value:<account-id>`.
-- **Downward-only spending grants.** A program-to-program call can convey a bounded spending grant over the caller's own derived accounts. It narrows only - asset, destination, source, and amount may shrink, never grow. Any widening is refused with the same typed escalation error principal grants use, and no partial transfer set survives.
-- **Occupancy settlement.** State that persists is paid for as long as it persists. Occupancy meters namespace bytes held across protocol batches, priced by the fee schedule and charged to the account declared responsible for that namespace, settled as `402LXP` legs and bound into the batch receipt.
-- **Protocol-backed balances.** A program's balance is real protocol state, read from the account tree through Merkle proofs - not a registry counter. `402LXP` stays the only writer; programs emit transfer sets and never call `set_balance`.
+- **Program-owned accounts.** A program derives accounts from `(program_id, seed)`. Derivation is public and deterministic, while debit authority remains restricted to the owning program and validated call authority.
+- **Downward-only grants.** A nested call can receive bounded spending authority over its caller's program accounts. It cannot widen the permitted source, destination, asset or amount; a refused call cannot leave partially applied monetary effects.
+- **Occupancy accounting.** Namespace storage is metered and priced by committed parameters. Charges use ordinary ledger transfers and receipt evidence.
+- **Verified balance views.** Balance proofs refer to canonical protocol account state. Registry metadata alone does not establish funds.
 
-See [Programs](../programs/index.md) and `programs/README.md`.
+Guest ABI versions and module registration versions must agree at deployment, validation and execution. The default runtime ABI is v4; v5 adds `market_step_adjudicate`, used by the AI-market host route. ABI 1 through 5 have frozen vectors. See [Frozen ABI](../programs/workspace.md#frozen-abi) and [AI-market deployment qualification](../programs/workspace.md#ai-market-deployment-qualification).
 
 ---
 
 ## Kernel boundary
 
-The kernel understands identities, accounts, assets, authority, sequences, fees, receipts, checkpoints, and module dispatch. It does not understand funding rates or delivery acceptance.
+`lxp_module_iface` in `include/layerx/lxp_module.h` defines genesis, decode, validate, execute, epoch hooks, state-root and release callbacks. The module context supplies namespaced KV, staged accounts, transfer-set and event emission, batch time and gas accounting. It does not supply a general-purpose clock, HTTP client or balance setter.
 
-Each module implements `genesis`, `decode`, `validate` (read-only), `execute` (effects to a buffer only), epoch hooks, and `state_root`. The context handle is the complete capability set: namespaced KV, emit transfer set, emit event, batch timestamp, charge gas. There is no `now()`, no `random()`, no `http()`, and no `set_balance()`.
+`modules/lxphost/host.go` binds asset and escrow runtimes to restored canonical registries, supplies the service escrow reader, and binds Programs to accounts, transfer assets and the kernel's metering and occupancy parameter resolvers. `modules/lxphost/ctx.go` loads and publishes state through the node store with block time, height and sequence. This is the merged node's host binding.
 
-The kernel provides `lxp_kernel_epoch_transition` (`src/protocol/lxp_kernel.c`) for module epoch hooks, with staged writes, one state journal and a shared capacity budget. Running nodes currently pin the authenticated sequencer term and refuse a different header epoch. Escrow deadlines, Budget rollover and Service default acceptance run within signed protocol-3 batch maintenance, using the batch timestamp. Their effects and the unchanged nested Programs occupancy receipt are committed by the final receipt and event leaves; publication and replay verify the complete transition before committing it.
-
-layerxd and the guarantor bind the module host runtimes beside the ASSET and PROGRAMS runtimes through `lxp_daemon_module_runtimes_bind` (`cmd/layerxd/lxp_daemon_modules.h`): the escrow runtime over the process account and asset registries, the budget runtime over the process budget store, the stream runtime over the transfer state of the process assets. A runtime is bound only for a module the genesis manifest enabled in the kernel; service and perps declare no host runtime, so their registration is their complete binding.
-
----
+`lxp_kernel_epoch_transition` remains the kernel API for epoch hooks. Its staged writes and journal are not a separate host deployment or a promise that a particular maintenance loop is scheduled. Establish active maintenance behavior from its node caller and the registered module hooks. State and receipts become final with the containing BFT block, as described in [Protocol](index.md).
 
 ## Start here
 
 - [Home](../index.md)
-- [Protocol](index.md): LXC envelope, protocol 3, and the three rules
-- [Programs](../programs/index.md): module `0x09`, CALL vs simulate, guest ABI 2
-- [Finality](finality.md): L0 → L4
-- [Assets](../concepts/assets.md): per-asset accounts and token ordinals
-- Design § modules
+- [Protocol](index.md): one network, activity envelopes and committed receipts
+- [Programs workspace gates](../programs/workspace.md): ABI, host boundaries and qualification recipes
+- [Programs](../programs/index.md): guest lifecycle and calls
+- [Assets](../concepts/assets.md): asset and account encodings

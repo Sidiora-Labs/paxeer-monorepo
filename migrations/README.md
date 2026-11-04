@@ -1,27 +1,30 @@
 # Kernel SQLite migrations
 
-SQLite schema files for the LayerX kernel (`layerxd`, C17). The append-only activity log is the authority; the tables these files create are projections and import bookkeeping that can be rebuilt from it. This directory is not source-chain migration tooling and not the EVM module store migrations of the Paxeer X chain.
+This directory retains SQLite schemas for C projection tooling and historical import bookkeeping. Paxeer is one network: the kernel runs inside `paxd` and participates in block proposal. Committed chain state is authoritative, and a receipt is final when its block is committed. The kernel host loads and commits module state through the chain store in [`modules/lxphost/host.go`](../modules/lxphost/host.go); these SQLite files do not migrate that store.
 
-| File | Creates | Loaded by |
+The standalone `layerxd` daemon is retired. Its append-only activity log is no longer the network's source of truth. The retained projection code can rebuild a local SQLite projection from compatible log records; that operation is not chain recovery or a network upgrade.
+
+| File | Creates | Current use |
 | --- | --- | --- |
-| `0001_genesis_sections.sql` | Genesis import sections, per-asset totals and historical commitments | No source file or build target loads it today |
-| `0001_projection.sql` | The rebuildable projection: `projection_meta` (watermark), `balances`, `receipts`, `module_index` and `agent_queries` | `lxp_projection_open` in [`src/storage/lxp_projection.c`](../src/storage/lxp_projection.c), which takes the migration path as an argument |
-| `0007_history_index.sql` | The history index over the append-only log (`history_index_meta`, `history_records`) | `lxp_history_open` in [`src/replica/lxp_history.c`](../src/replica/lxp_history.c), which takes the migration path as an argument |
+| [`0001_genesis_sections.sql`](0001_genesis_sections.sql) | `genesis_import_sections`, `genesis_import_asset_totals` and `genesis_historical_commitments` | Retained schema; no source file or build target loads it today |
+| [`0001_projection.sql`](0001_projection.sql) | `projection_meta` (watermark and stale flag), `balances`, `balance_view`, `receipts`, `module_index` and `agent_queries` | `lxp_projection_open` and `lxp_projection_rebuild` in [`src/storage/lxp_projection.c`](../src/storage/lxp_projection.c) take the schema path explicitly; the storage tests use this file |
+| [`0007_history_index.sql`](0007_history_index.sql) | `history_index_meta` and `history_records`, with sequence, batch, checkpoint, activity, transaction and idempotency indexes | Retained historical schema; the history-index implementation and its standalone test target are retired |
 
-The tests open these files by their repository-relative path, so run them from the repository root:
+## Projection development checks
+
+The retained [`projection`](../tests/storage/lxp_test_projection.c) and [`rebuild`](../tests/storage/lxp_test_rebuild.c) tests open `0001_projection.sql` by its repository-relative path. Their targets in the root [Makefile](../Makefile) are:
 
 ```bash
 make test-projection
 make test-rebuild
-make test-history
 ```
 
-`402LXP` is the only component allowed to write balances; the projection mirrors what the log records.
+Run these from the repository root when working on the C projection tooling. They check local projection behavior, not committed network state. The former `make test-history` target and `src/replica/lxp_history.c` implementation are removed; [`TestRetiredHistorySymbolsAbsent`](../modules/lxphost/retired_history_test.go) checks that the retired history symbols are absent from the kernel archive.
 
 ## Related code
 
 | Kind | Location |
 | --- | --- |
-| Genesis builder and import sources | `cmd/layerx-genesis/` |
+| Genesis builder and import sources | [`cmd/layerx-genesis/`](../cmd/layerx-genesis/) |
 | Ethereum and Solana source-chain migration | [`services/interop/crates/layerx-migrate`](../services/interop/crates/layerx-migrate/OPERATIONS.md) |
-| Paxeer X chain EVM module store migrations | `modules/evm/migrations/` |
+| Chain EVM module store migrations | [`modules/evm/migrations/`](../modules/evm/migrations/) |

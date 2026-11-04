@@ -598,6 +598,11 @@ static lxp_result liquidate(const lx_account *margin_account, const char *did)
 static int mixed_price_liquidation_case(void)
 {
     lx_perps_position position;
+    lx_perps_deficit deficit;
+    uint8_t market_id[32];
+    uint8_t before[32];
+    uint8_t after[32];
+    identifier(1U, market_id);
     if (account_add("agent:did:key:keeper:main", LX_ACCOUNT_OPEN_CREDIT, 0U,
                     &keeper_main) != 0 ||
         oracle_push(oracle_seed, 1U, 2U, 200U, 1000U) != LXP_OK ||
@@ -605,14 +610,33 @@ static int mixed_price_liquidation_case(void)
         oracle_push(oracle_seed, 1U, 4U, 800U, 1000U) != LXP_OK ||
         oracle_push(oracle_seed, 1U, 5U, 1600U, 1000U) != LXP_OK ||
         oracle_push(oracle_seed, 1U, 6U, 3200U, 1000U) != LXP_OK ||
-        liquidate(bob_margin_a, "did:key:keeper") != LXP_OK)
+        lxp_state_root(&kernel, before) != LXP_OK ||
+        liquidate(bob_margin_a, "did:key:keeper") !=
+            LXP_ERR_MARGIN_INSUFFICIENT ||
+        lxp_state_root(&kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0)
         return 1;
     if (ctx_open() != 0 ||
-        position_state(bob_margin_a, &position) != LXP_OK || position.open ||
+        position_state(bob_margin_a, &position) != LXP_OK || !position.open ||
         position.size.lo != 7U || position.entry_notional.lo != 702U ||
-        !balance_is(bob_margin_a, 0U) || !balance_is(bob_main, 977U) ||
-        !balance_is(keeper_main, 13U) ||
-        !open_interest_is(12795U, 13497U))
+        !balance_is(bob_margin_a, 1000U) || !balance_is(bob_main, 0U) ||
+        !balance_is(keeper_main, 0U) ||
+        !open_interest_is(13497U, 13497U))
+        return 1;
+    /* Mixed-entry short: loss = 8 * 3200 - 794 = 24806. Cancel its
+     * residual order first; all collateral settles and unpaid loss persists. */
+    if (order_cancel(43U, "did:key:erin") != LXP_OK ||
+        liquidate(erin_margin, "did:key:keeper") != LXP_OK ||
+        ctx_open() != 0 ||
+        position_state(erin_margin, &position) != LXP_OK || position.open ||
+        position.size.lo != 8U || position.entry_notional.lo != 794U ||
+        !balance_is(erin_margin, 0U) || !balance_is(erin_main, 0U) ||
+        !balance_is(liquidity_account, 1000U) ||
+        !balance_is(insurance_account, 0U) || !balance_is(keeper_main, 0U) ||
+        erin_margin->has_open_reference ||
+        lx_perps_deficit_lookup(&ctx, market_id, &deficit) != LXP_OK ||
+        deficit.amount.hi != 0U || deficit.amount.lo != 23806U ||
+        !open_interest_is(13497U, 12703U))
         return 1;
     return 0;
 }

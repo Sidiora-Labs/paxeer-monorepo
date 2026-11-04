@@ -1,60 +1,78 @@
 # Receipts
 
-A receipt is evidence the protocol computed. No receipt field is supplied by a
-client (`spec/layerx-protocol/spec.kvx`, requirement 2 `ac_9` and
-requirement 12).
+A receipt records an execution outcome computed by Paxeer X Network. There
+is one BFT network, with EVM chain ID `125` (`0x7d`); the kernel is part of
+the network and proposes blocks. A receipt becomes final when the block
+covering it is committed.
 
-The activity receipt carries at least `activity_id`, `global_sequence`,
-`previous_state_root`, `resulting_state_root`, `activity_root`, `result_code`,
-`effects`, `fee_charged`, `batch_id`, and `sequencer_signature`. Every value
-is computed from the resulting state.
+## Transaction identity and outcome
 
-## 402LXP receipts
+Submit the signed transaction through `eth_sendRawTransaction` and retain
+its exact bytes and transaction hash. `pax_sequencerReceipt` looks up that
+hash. The signed protocol receipt carries the same hash as `activity_id`,
+along with its global sequence, state roots, result code, effects, fee,
+signed height and receipt-key identity. These are computed execution facts.
 
-Requirement 12 of `spec/layerx-protocol/spec.kvx` requires a successful 402LXP
-operation to return a `402LXPReceipt` with protocol-computed before and after
-balances, transfer-set root, authorization and context hashes, chained state
-roots, batch id, timestamp, and sequencer signature. Client-supplied balances
-are ignored or rejected.
+The RPC response includes `txHash`, `nonce` and `rung`. Once a receipt
+exists, it also carries `receipt` (the canonical signed bytes), `keyId`,
+`signingKey`, `seq`, `height`, `status`, logs, return data and execution
+metadata. A committed response adds `blockNumber` and `blockHash`.
+`rpc/sequencer_receipt.go` defines the response and checks that its decoded
+view agrees with the signed bytes, including hashes of returned data.
 
-A failed operation emits a failure result with the result code and unchanged
-balances. It does not emit a signed `402LXPReceipt`.
-
-After the covering checkpoint is accepted on Paxeer, the retrievable receipt
-may be augmented with inclusion proofs, `checkpoint_id`, a guarantor
-certificate, and a Paxeer settlement reference, without altering
-pre-checkpoint fields.
+A signed receipt can describe a failed transaction. Inspect the verified
+result: protocol `result_code == 0` means success; a nonzero result remains
+a failure even when its block is committed. The RPC view represents success
+as `status: "0x1"` and failure as `status: "0x0"`.
 
 ## Public evidence names
 
-Gateway submit and 402 offers name three evidence levels:
-`executed`, `batched`, and `finalised`
-([Commitment levels](../protocol/commitment-levels.md)).
-Those names do not replace the L0–L4 ladder in [Finality](../protocol/finality.md).
+| Rung | Evidence |
+| --- | --- |
+| `submitted` | The node holds the transaction, but has no execution receipt. The answer carries only `rung`, `txHash` and `nonce`. |
+| `receipted` | Canonical signed execution evidence exists. Its signature and outcome can be verified, but commitment has not been established. |
+| `committed` | A committed block's sequence batch covers the receipt. The answer identifies the block by height and hash. |
 
-An admission acknowledgement, queue state, HTTP 202, or activity id without a
-receipt is not execution evidence.
+An unknown hash returns `null`. Neither that result, a transaction hash,
+an admission acknowledgement nor HTTP 202 proves execution or failure.
+Resolve uncertainty using the original transaction identity. Creating a new
+payment while the first remains unknown can create a second economic effect.
+
+Commitment is the network's finality boundary. The pre-merge progression
+through separate checkpoints, guarantor certificates and settlement
+references is retired.
 
 ## Independent verification
 
-`layerx-proof` verifies a signed receipt from its bytes alone
-(`spec/.beta/layerx-agent-interface/spec.kvx`, requirement 6). The CLI command
-`layerx receipt verify` is a local check against caller-supplied batch facts
-([CLI](../platform/cli.md), [Quickstart](../overview/quickstart.md)).
+`layerx-proof::receipt::verify_sequencer_signature` verifies canonical
+receipt bytes against independently pinned receipt keys. Each key entry
+binds a 32-byte key ID, an Ed25519 public key and an inclusive signing-height
+window. The receipt's signed key ID selects exactly one entry; its signed
+height must fall within that window. A `signingKey` supplied beside a receipt
+does not establish authority by itself.
 
-`layerx-portable` exports and verifies a `layerx-receipt-proof-v1` JSON object
-against an independently trusted `AuthorizedBatch` with no node, gateway,
-daemon, database, clock, or network
-([Portable receipt verifier](../interop/portable-receipts.md)).
+The node implements the governed key-list method `px_getReceiptKeys`; the
+hosted gateway relays those ranges. Obtain and authenticate the list through
+the verifier's trust policy before using it. When consuming the full RPC
+answer, verify its view bindings as well as the receipt signature, and check
+committed block evidence before claiming finality.
 
-The human plane renders Done only against a verified LayerX receipt or a
-verified Paxeer finality proof (`spec/layerx-platform/spec.kvx`, decision
-`done_is_receipt`). Unknown outcomes render as still-checking
-([Human journeys](../human/journeys.md)).
+For offline exchange, `layerx-portable` exports
+`layerx-receipt-proof-v2` with `verificationLevel: "receipted"`, including
+when the source answer was committed. Its verifier checks receipt
+authenticity, pinned key windows, the digest and optional raw-transaction
+binding without a network connection. The carried `inclusionHeight` alone
+does not prove block inclusion or finality. See
+[Portable receipt verifier](../interop/portable-receipts.md) for the exact
+format, APIs and independent Python implementation, and
+[Mirrors](../interop/mirrors.md) for committed archives.
 
 ## Agent-layer rule
 
-The agent-interface specification requires every claimed result to be backed
-by a core-produced receipt or proof that the layer verified for itself. A
-submission whose fate cannot be determined is reported as unknown and is
-resolved only by looking up the receipt for its idempotency key.
+Every claimed result must be backed by evidence the consumer verified.
+Keep submitted, receipted and committed distinct, preserve rejected
+outcomes, and present an unresolved submission as still checking.
+[Ramps and fiat rails](../interop/ramps.md) additionally require verified
+external settlement evidence for the off-network part of a payment.
+
+[Interoperability](../interop/index.md) · [Public RPC endpoints](../reference/public-rpc.md)

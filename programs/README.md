@@ -1,14 +1,14 @@
 # LayerX Programs
 
-**Deterministic guest execution for the LayerX kernel domain of Paxeer X Network, with no balance-writing authority.**
+**Deterministic guest execution inside Paxeer X Network, with monetary effects applied through `402LXP`.**
 
 This workspace holds the programs surface of the LayerX kernel: a deterministic WASM
 runtime, the registry that proves what a program deployed and what it holds, the C↔Rust
 bridge into the kernel, reference programs, developer SDKs, porting kits, and the
 adversarial test corpus.
 
-Programs are a **first-class execution surface**, not one of the kernel's economic
-modules. The kernel modules live in [`src/modules`](../src/modules) and are numbered in
+Programs are a **first-class execution surface** of the merged network. The kernel
+modules live in [`src/modules`](../src/modules) and are numbered in
 [`include/layerx/lxp_module.h`](../include/layerx/lxp_module.h). Guest execution is
 dispatched under the programs module (`LXP_MODULE_PROGRAMS = 9`), but a program is not a
 module of its own and writes no balances. Every monetary effect a program produces
@@ -21,16 +21,26 @@ Where the rest of the system fits:
   the authority of the activity that invoked it and can never widen it.
 - **`402LXP` is the sole balance writer.** Programs emit transfer sets; they do not call
   `set_balance` (no such function exists).
-- **Oracle prices** enter through the Crossverse adapter
-  ([`src/network/lx_oracle_adapter.c`](../src/network/lx_oracle_adapter.c)) as signed
-  activities, outside execution. A state transition never dials out.
-- **Settlement** happens on the Paxeer X chain (EVM chain ID `125`). LayerX orders and
-  executes activity; periodic checkpoints settle on the chain, which lives in this same
-  repository at the [repository root](..) with its own trust and build boundary (see
-  [`docs/MONOREPO.md`](../docs/MONOREPO.md) and the root [`README.md`](../README.md)).
+- **Oracle reads** use committed perps observations through the ABI-3 `oracle_read`
+  host function ([`host/oracle.rs`](crates/layerx-programs-runtime/src/host/oracle.rs)).
+  A guest state transition never dials out to fetch a price.
+- **Execution and finality** belong to one BFT network: `paxd`, EVM chain ID `125`
+  (`0x7d`). The kernel runs inside the node and participates in block proposal and
+  execution. A receipt is final when its block is committed; programs do not wait for
+  settlement on another chain.
+- **Network access** uses public node JSON-RPC at the root URL, for example
+  `https://api1.mainnet-beta.paxeer.network` or
+  `https://api-mainnet-beta.paxeer.network`. The numbered nodes are `api1` through
+  `api14.mainnet-beta.paxeer.network`; see the
+  [public endpoint reference](../docs/site/docs/reference/public-rpc.md).
+  Hosted gateway `px_` methods have their own
+  [OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+- **Tenant domains** are database namespaces within this network. Launching a
+  sub-chain does not require new chain infrastructure.
 
-Normative behavior lives in [`spec/paxeer-x/spec.kvx`](../spec/paxeer-x/spec.kvx). This
-document is the human read of the programs workspace and is not a substitute for the spec.
+Normative behavior lives in
+[`spec/layerx-merge/spec.kvx`](../spec/layerx-merge/spec.kvx). This document is the
+human read of the programs workspace and is not a substitute for the spec.
 
 ---
 
@@ -44,25 +54,26 @@ profile: `unsafe_code` is denied by default, Clippy `all` and `pedantic` are den
 | --- | --- |
 | `crates/layerx-programs-runtime` | Deterministic WASM runtime: validation, metering, the ABI/capability boundary, cross-program calls, transfers, occupancy accounting, replay, and the FFI bridge into the C kernel |
 | `crates/layerx-programs-registry` | Receipt-bound registry: deployment journal, program interfaces, program value-account bindings, real-balance proofs, wind-down/deprecation, and the reference-program interface generators |
-| `crates/layerx-programs-protocol-adapter` | Thin C↔Rust adapter exposing receipt-verified program state reads to the rest of the kernel |
 | `crates/layerx-programs-interpreter` | A bounded deterministic scripting program: scripts are submitted as canonical bytes and fully validated before any effect is staged |
 | `crates/layerx-programs-market` | Compute-lease market program: usage claims with a challenge window, provider stake and slashing, attester policy, and on-chain bisection disputes |
+| `crates/layerx-programs-ai-market` | PAXAI guest: market registry, workers and evaluators, commit/reveal epochs, aggregation, reputation, and rewards |
 | `crates/layerx-programs-arbiter` | Verified replay of sandbox traces and the market-step verdict that judges the single step a dispute bisection collapses to |
 | `crates/layerx-programs-sandbox` | Protocol-state models for bounded, ephemeral program sandboxes |
 | `sdk/rust`, `sdk/c`, `sdk/assemblyscript` | Guest program SDKs; Rust ships `escrow`, `naming`, `nft-lxt721`, `payments-merchant`, `swap-cpmm`, `token-lxt20`, `vault`, and `web-reader` examples, while C and AssemblyScript ship `paid-counter` |
 | `porting/evm`, `porting/solana`, `porting/cosmwasm` | Migration crates and `MIGRATION.md` guides mapping Solidity / Anchor / CosmWasm vocabulary onto the programs ABI |
 | `fuzz` | Structure-aware fuzz target and corpus for the runtime |
 | `benches` | Interpreter benchmarks and their compiled ABI-v2 equivalents |
-| `fixtures` | Committed reference-program artifacts, interfaces, registry values, and native activity/receipt fixtures |
+| `fixtures/pay5` | Token, merchant and swap artifacts, interfaces and registry values, account-authorization vectors, and native activity/receipt fixtures |
 | `../scripts/programs` | Dependency policy, immutable ABI-vector generation, and reference-fixture build scripts |
 | `../tests/programs` | Native C tests, ABI-drift and runtime module-boundary checks |
 | `tests` | Cross-implementation vectors, the hostile-program `gauntlet`, conservation and parallel-differential checks, and calldata fixtures |
 | `vendor` | Vendored, pinned dependencies for a hermetic build |
 
 Cargo promotes path dependencies below the workspace root into workspace members.
-Consequently `--workspace` builds exercise the vendored `parity-wasm`, `wasm-instrument`,
-and `wasmi` unit and documentation tests as well as every programs package. The vendored
-crates also remain subject to `../scripts/programs/dependency-policy.sh`.
+Consequently `cargo test --workspace` includes the vendored `parity-wasm`,
+`wasm-instrument`, and `wasmi` unit and documentation tests as well as the programs
+packages. A workspace build alone does not execute those tests. The vendored crates
+also remain subject to `../scripts/programs/dependency-policy.sh`.
 
 ### The core crates
 
@@ -96,16 +107,18 @@ account-tree Merkle proofs rather than a declared bookkeeping column. It also ow
 deprecation and wind-down (`AuthorizedExit`, `ExitRoute`, `WindDownView`) and the
 `lxt20`, `lxt721`, `naming`, and `swap` reference interfaces.
 
-**`layerx-programs-protocol-adapter`** is the narrow read bridge: `read_program_state`
-exposes receipt-verified program state (`ProtocolProgramStateRead`) to the C kernel and
-the hosted read surfaces without granting any write authority.
+Registry reads use [`protocol_evidence.rs`](crates/layerx-programs-registry/src/protocol_evidence.rs)
+and [`chain_proof/`](crates/layerx-programs-registry/src/chain_proof) to verify deployment,
+lifecycle and state evidence against chain commitments. `VerifiedProgramCatalog` in
+[`resolver.rs`](crates/layerx-programs-registry/src/resolver.rs) admits executable
+programs from verified bundles. The former protocol-adapter crate is retired.
 
 ---
 
 ## Kernel surfaces
 
 The surfaces below are described as implemented; the authoritative sources are the code
-and [`spec/paxeer-x/spec.kvx`](../spec/paxeer-x/spec.kvx).
+and [`spec/layerx-merge/spec.kvx`](../spec/layerx-merge/spec.kvx).
 
 ### Program-owned accounts
 
@@ -150,11 +163,12 @@ Across a program-to-program call edge the grant may only be narrowed:
 
 - any change to identity fields (`owner_program`, `seed`, `source_account`, `asset`, `to`)
   produces a different capability key, so the parent lookup fails and the edge is refused
-  with the same typed capability-escalation error principal grants already use;
+  with `AbiError::CapabilityEscalation`;
 - an attempt to raise `maximum_amount` above the parent's is refused; a child amount must
   be less than or equal to the parent's;
-- only the **owner program** may originate a fresh `ProgramSpend` over its own account on
-  an edge; a callee cannot mint authority it was not given.
+- only the **owner program** may originate a fresh `ProgramSpend` over its own account
+  on an edge, and only when the parent set has no `ProgramSpend` grant. An inherited
+  grant remains subject to narrowing; a callee cannot mint another program's authority.
 
 At transfer time the grant is checked cumulatively against the actual legs, and the
 deriving program's frame is the only frame that may stage a program-account debit. There
@@ -182,8 +196,10 @@ charge resolves to a disposition - `Paid`, `ChargeCeilingExceeded` (namespace fr
 `ScheduleCeilingExceeded`, `InsufficientFunds`, or `MigrationRequired` (pre-upgrade legacy
 bytes, frozen at price zero until the owner migrates). Settlement is charged to the
 declared responsible account through ordinary `402LXP` transfer legs and bound into the
-batch receipt as canonical, replay-checkable evidence. The principal-scoped namespace is
-charged to its principal; a shared namespace is charged to the program owner.
+batch receipt as canonical, replay-checkable evidence. New responsibility is bound to
+the admitted payer and root program; a principal-scoped namespace must match that
+payer. During legacy-storage activation, principal-scoped bytes are assigned to their
+principal and shared bytes to the program owner pending migration.
 
 ### Protocol-backed program balances
 
@@ -195,10 +211,8 @@ refuses to strand value: a deprecation cannot complete while a bound account sti
 a non-zero balance without an authorized exit route.
 
 The invariant that ties all of this together: **`402LXP` remains the sole balance
-writer.** Programs emit transfer sets - they never set a balance directly. As the spec
-puts it, *"No program ever receives balance-writing authority. Every monetary effect
-a program produces is expressed as authenticated 402LXP transfers applied by the kernel
-transfer primitive… a balance change outside a 402LXP transfer aborts the transition."*
+writer.** Programs emit authenticated transfer sets; the kernel validates and applies
+them atomically with the program state transition.
 
 ---
 
@@ -206,11 +220,19 @@ transfer primitive… a balance change outside a 402LXP transfer aborts the tran
 
 The runtime admits guest ABI versions 1 through 5, and the checksums of their frozen
 vectors (`tests/vectors/abi-v1.hex` to `abi-v5.hex`) are pinned in `abi-frozen.sha256`.
-The host imports of ABI 1 to 4 are listed in `sdk/abi-manifest.tsv`: ABI 2 adds scoped
-storage, responses and refusals, program-account transfers, context, balance, hash,
+The host imports of ABI 1 to 4 are listed in
+[`sdk/abi-manifest.tsv`](sdk/abi-manifest.tsv): ABI 2 adds scoped storage,
+responses and refusals, program-account transfers, context, balance, hash,
 signature and 256-bit integer host calls; ABI 3 adds `oracle_read`; ABI 4 adds
-`web_read`. ABI 5 adds `market_step_adjudicate` in the `layerx_v5` import module. Guest
-program SDKs include:
+`web_read`. ABI 5 adds `market_step_adjudicate` in the `layerx_v5` import module;
+its manifest is in [`sdk/rust/src/abi.rs`](sdk/rust/src/abi.rs) and its host registration
+is in [`host/market.rs`](crates/layerx-programs-runtime/src/host/market.rs).
+Deployment, upgrade, call and host registration must agree on the guest ABI. The
+runtime's default `ABI_VERSION` remains 4; admitting ABI 5 does not automatically
+select it. The node host selects its programs guest ABI through
+`lxphost.Config.ProgramsGuestABI` in [`modules/lxphost`](../modules/lxphost).
+Native activity envelope versions in [`programs.h`](../include/layerx/programs.h)
+are distinct from the guest ABI versions. Guest program SDKs include:
 
 - **`sdk/rust`** (`layerx-program-sdk`) - the Rust guest SDK.
 - **`sdk/c`** - a C guest SDK with headers, sources, a determinism lint, and a toolchain
@@ -221,8 +243,9 @@ program SDKs include:
 The Rust SDK ships `escrow`, `naming`, `nft-lxt721`, `payments-merchant`, `swap-cpmm`,
 `token-lxt20`, `vault`, and `web-reader` examples; the C and AssemblyScript SDKs ship
 `paid-counter` examples. ProgramSpend (tag 9) and BalanceView (tag 10) are admitted from
-ABI 2 on; the runtime crate defines their canonical encoding and amount-monotone
-narrowing rules. ABI 1 does not admit these grants.
+ABI 2 on; the runtime crate defines their canonical encoding. Spending ceilings may
+only narrow, and a BalanceView's receipt binding must remain identical when passed
+to a child. ABI 1 does not admit these grants.
 
 `sdk/rust` also ships the `lxt20` and `lxt721` request codecs (`src/lxt20.rs`,
 `src/lxt721.rs`) and program-account preparation and merchant-split helpers
@@ -234,9 +257,16 @@ LXT20 is ABI-v2 guest state backed by one native Asset. Its interface has
 `initialize`, `transfer`, `approve`, `transfer_from`, `balance_of`,
 `allowance`, `total_supply`, and `metadata`. Request bytes are
 `[0x4c,0x58,0x14,method] || [1,0x20] || payload_len:u32_be || payload`.
-Recipients approve once, including zero, to register their derived account
-storage. The reference program has fixed supply and no mint, burn, permit, or
-nested-call surface. See
+The issuer calls `initialize` once with `4c581400012000000000`; initialization
+funds the complete fixed supply from the issuer into its registered program account
+under an exact `Transfer402` grant, atomically with supply and balance storage.
+The seven other methods use the Rust SDK's `lxt20::Request` codec. Recipients call
+`approve` once, including zero, to register their derived account in token storage.
+The deployment authority must also register each account with the native Programs
+account module before it receives backing units; an approval alone is insufficient.
+Transfers require the exact source program-account spending authority, and
+`transfer_from` also checks and consumes the allowance. The reference program has
+fixed supply and no mint, burn, permit, or nested-call surface. See
 [`sdk/rust/examples/token-lxt20`](sdk/rust/examples/token-lxt20/README.md).
 
 The porting kits map familiar contract vocabularies onto the programs ABI and are explicit
@@ -262,25 +292,72 @@ Each has a `MIGRATION.md` written for a developer who already knows the source c
 - **`tests/vectors/`** - cross-implementation ABI vectors and
   [calldata fixtures](tests/vectors/calldata/README.md) that keep the C and Rust surfaces
   byte-identical.
+- **`fixtures/pay5/native-token` and `native-merchant`** - canonical native activities,
+  receipts and terminal attachments for token and merchant flows. The
+  [`run_native_roundtrip.py`](fixtures/pay5/run_native_roundtrip.py) driver builds
+  the real C kernel/runtime harness and replays into a temporary directory, comparing
+  the output bytes with the committed fixtures. Its explicit `--write-fixtures` mode
+  regenerates those native records.
+- **`fixtures/pay5/account-authorization-vectors.json` and
+  `receipt-account-bound-v4.json`** - account-bound authority and receipt fixtures.
+  Program-account derivation, owner-authorized native registration, transfer-source
+  binding and receipt verification are separate checks; a guest codec or derived id
+  alone proves none of the others.
 
 ---
 
 ## Building and testing
 
-The programs workspace builds with the pinned Rust toolchain declared in
-`programs/Cargo.toml` (`rust-version = 1.91.1`) against vendored dependencies.
+The programs workspace declares Rust `1.91.1` as its minimum supported version in
+[`Cargo.toml`](Cargo.toml) and builds against vendored dependencies.
 `programs/.cargo/config.toml` points Cargo at `vendor/`, keeps it offline, and sets the
 `wasm32-unknown-unknown` code-generation flags; Cargo reads it only when it runs from
-inside `programs/`. From the repository root:
+inside `programs/` or one of its descendants. Install the
+`wasm32-unknown-unknown` target for guest builds. SDK checks also use Node/npm;
+the C and AssemblyScript examples declare their own toolchain requirements.
+From the repository root, these targets provide different levels of coverage:
 
 ```sh
-make programs-build                # cargo build --workspace
-make programs-lint                 # module boundaries, clippy, dependency policy, cargo deny
-make programs-abi-drift            # ABI manifest drift and linker check
-make programs-test                 # the full programs test set
-make programs-fuzz-smoke           # replay the fuzz corpora
-make programs-reference-fixtures   # rebuild the committed reference-program fixtures
+make programs-build              # locked workspace build, including sandbox host-ffi
+make programs-lint               # module boundaries, Clippy, dependency policy, cargo deny
+make programs-abi-drift           # ABI manifest drift and runtime linker test
+make programs-test               # aggregate native, protocol, runtime, SDK and porting tests
+make programs-fuzz-smoke          # replay validation, instantiation and execution corpora
+make programs-reference-fixtures  # rebuild naming, LXT721 and swap artifact/interface sets
 ```
+
+The [`Makefile`](../Makefile) defines these targets. `programs-build` is a native
+workspace build; it does not produce deployable WASM for every guest. The reference
+fixture target runs [`program-fixtures.sh`](../scripts/programs/program-fixtures.sh),
+which remaps source paths and regenerates interfaces and registry values alongside
+the artifacts. Native token and merchant fixture generation uses the separate driver
+above. Aggregate test targets cover more than a focused task's qualification gate.
+
+### AI market guest packaging
+
+Build the AI market guest in release mode with `opt-level = "z"` and the merged
+chain domain fixed at build time. The workspace release default is `opt-level = 3`,
+so guest packaging must override it. For chain 125, `merged_chain_domain(125)` in
+[`lib.rs`](crates/layerx-programs-ai-market/src/lib.rs) is the SHA-256 of
+`b"PAXAI/chain-domain/v1" || u64_be(125)`:
+
+```sh
+cd programs
+PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
+  cargo build --locked --release --target wasm32-unknown-unknown \
+  --config 'profile.release.opt-level="z"' -p layerx-programs-ai-market
+```
+
+`PAXAI_CHAIN_DOMAIN` is a compile-time setting; malformed or foreign domains are
+refused by the guest's deployment-domain validation. The deployment payload limit is
+524288 bytes (`LXP_MAX_PAYLOAD_BYTES` in
+[`lxp_protocol.h`](../include/layerx/lxp_protocol.h)), including the 104-byte
+deployment envelope. The guest must fit within the remaining 524184 bytes. When an
+interface is included, the decoder in [`deploy.c`](../src/modules/programs/deploy.c)
+uses 108 fixed bytes plus the interface bytes, reducing the space for WASM further.
+A successful Cargo build alone
+does not establish that the final payload fits or that the registering host selected
+the matching guest ABI.
 
 Runtime and kernel share golden vectors so the C and Rust implementations stay in
 lockstep. Deterministic cross-architecture replay and fault injection are described in
@@ -288,10 +365,11 @@ lockstep. Deterministic cross-architecture replay and fault injection are descri
 
 ## Status
 
-The limited beta has not opened yet. The gateway API becomes available when it does. This
-is a mainnet beta on real value, so there is no faucet for general use; approved developers
-receive test allocations from the team. Source is licensed under the Apache License,
-Version 2.0. Hosted documentation is at [docs.paxeer.app](https://docs.paxeer.app/).
+This workspace targets Paxeer mainnet-beta, chain 125. Public node access and hosted
+gateway method contracts are documented separately in the references above; a method's
+presence in a hosted contract does not imply availability on every public node.
+Source is licensed under the Apache License, Version 2.0. Hosted documentation is at
+[docs.paxeer.app](https://docs.paxeer.app/).
 
 A successful local build is development evidence, not authorization to deploy, move
 custody, or handle real assets.
