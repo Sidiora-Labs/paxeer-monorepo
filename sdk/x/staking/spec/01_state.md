@@ -53,8 +53,12 @@ A validator has one of three bond statuses:
 
 Leaving the active set changes the **validator's** bond status. It does not
 create an `UnbondingDelegation` for every delegator or send their tokens back to
-accounts. Delegation shares remain recorded until a delegator requests
-[undelegation or redelegation](./03_messages.md#msgundelegate).
+accounts. Delegation shares remain recorded across these status changes. A
+delegator
+requests withdrawal through [MsgUndelegate](./03_messages.md#msgundelegate);
+only the requested shares are removed, and the separate
+[request/completion lifecycle](./02_state_transitions.md#begin-unbonding)
+determines when the resulting tokens can be paid.
 
 The `Jailed` flag is independent of bond status. Jailed validators are excluded
 from the power index. A validator's operator address identifies its primary
@@ -171,7 +175,10 @@ pay tokens to the delegator because they are already delegated at the destinatio
 Here `timeBytes` is the formatted validator `UnbondingTime`, both integer fields
 are eight-byte unsigned big-endian encodings, and `UnbondingHeight` is the height
 at which the validator began unbonding. `ValAddresses.Addresses` holds Bech32
-operator-address strings. Multiple validators can share a queue key.
+operator-address strings. Multiple validators can share a queue key. With the
+29-byte time encoding, the key is 46 bytes: one prefix byte, eight length
+bytes, 29 timestamp bytes and eight height bytes. The length field is the
+big-endian integer `29`, not an address length or a single-byte time prefix.
 
 The keeper checks **both** that the encoded time is no later than the current
 block time and that the encoded height is no greater than the current height
@@ -188,6 +195,11 @@ At BeginBlock, `TrackHistoricalInfo` combines the current block header with
 `NewHistoricalInfo` sorts that set by consensus voting power **descending**, then
 consensus address **ascending** for equal power, using the keeper's power
 reduction. This matches consensus ordering; it is not operator-address ordering.
+For
+powers `3, 5, 5`, the stored order is `5, 5, 3`; the two power-5 validators
+are ordered by their consensus addresses. The encoded height in the historical
+key is decimal ASCII (`0x50 | "11"` at height 11), unlike the binary height
+suffix in a validator queue key.
 
 The keeper retains the most recent `HistoricalEntries` heights and prunes older
 records. Setting that parameter to zero disables new historical records and

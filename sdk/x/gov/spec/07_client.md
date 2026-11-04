@@ -68,31 +68,35 @@ paxd query gov param deposit
 #### params
 
 Query all three groups. This CLI command makes three `Query/Params` requests and
-combines their selected results. For the constructor defaults its legacy output
-contains these fields:
+combines their selected results. The following JSON is the executable local
+fixture's CLI response at height 2, using the constructor defaults. The fixture
+is produced by `TestRepairM_679_ClientDoc` through the real command, local RPC,
+keeper and committed stores; it is not a mainnet observation:
 
 ```bash
-paxd query gov params
+paxd query gov params --height 2 --output json
 ```
 
-```yaml
-deposit_params:
-  min_deposit:
-  - denom: uhpx
-    amount: "10000000"
-  min_expedited_deposit:
-  - denom: uhpx
-    amount: "20000000"
-  max_deposit_period: "172800000000000"
-voting_params:
-  voting_period: "172800000000000"
-  expedited_voting_period: "86400000000000"
-tally_params:
-  quorum: "0.334000000000000000"
-  expedited_quorum: "0.667000000000000000"
-  threshold: "0.500000000000000000"
-  expedited_threshold: "0.667000000000000000"
-  veto_threshold: "0.334000000000000000"
+<!-- repair-m679:cli-params -->
+```json
+{
+  "deposit_params": {
+    "min_deposit": [{"denom": "uhpx", "amount": "10000000"}],
+    "min_expedited_deposit": [{"denom": "uhpx", "amount": "20000000"}],
+    "max_deposit_period": "172800000000000"
+  },
+  "voting_params": {
+    "voting_period": "172800000000000",
+    "expedited_voting_period": "86400000000000"
+  },
+  "tally_params": {
+    "quorum": "0.334000000000000000",
+    "expedited_quorum": "0.667000000000000000",
+    "threshold": "0.500000000000000000",
+    "expedited_threshold": "0.667000000000000000",
+    "veto_threshold": "0.334000000000000000"
+  }
+}
 ```
 
 Durations here are nanosecond strings. These values illustrate the parameter
@@ -158,11 +162,15 @@ Query votes with pagination:
 paxd query gov votes 1 --limit 20
 ```
 
-The `votes`, `deposit` and `deposits` commands use transaction-search paths when
-the proposal is outside the deposit and voting periods. They require the
-proposal record and retained transaction indexes. An individual `vote` query
-can still return an error when its stored vote no longer exists. The gRPC
-methods below query the store directly.
+The individual `vote` and `deposit` commands, and the `votes` and `deposits`
+list commands, use transaction-search paths when the proposal is outside the
+deposit and voting periods. They require the proposal record and a retained
+transaction index. Historical votes return the last successful vote per account;
+deposits aggregate the initial contribution and subsequent successful deposits.
+These commands index legacy actions and protobuf type URLs, including weighted
+votes. Individual queries return an error for an account with no indexed action;
+a disabled or pruned index cannot reconstruct that history. gRPC and gateway
+queries read the store directly and do not search indexed transactions.
 
 ### Transactions
 
@@ -190,6 +198,7 @@ paxd tx gov submit-proposal --title="Network discussion" \
 To request expedited treatment for a text proposal, put `is_expedited` in the
 proposal file. For example, save this as `proposal.json`:
 
+<!-- repair-m679:expedited-file -->
 ```json
 {
   "title": "Expedited network discussion",
@@ -436,3 +445,54 @@ List responses contain a `pagination` object. Follow `next_key` with the
 transport's pagination-key field when more results are available. Governance
 vote and deposit records can be removed after tallying; the CLI's indexed
 transaction fallback does not add historical records to these store queries.
+
+## Reproducible local history example
+
+`TestRepairM_679_ClientDoc` executes the proposal-file CLI above in
+`--generate-only --offline` mode and decodes the produced transaction before
+passing its message to the real BaseApp transaction-delivery path. At height 2 the fixture
+commits proposal 1, a weighted vote (`yes=0.6,no=0.4`) from the proposer, and a
+`1uhpx` deposit from a second account. The fixture uses real local RPC handlers,
+a block store and a transaction index; it starts no consensus or live endpoint.
+The governance parameters are defaults and both accounts have no bonded stake.
+These fixture heights do not identify public chain state.
+
+For a node containing that fixture, compare CLI queries at height 2:
+
+```bash
+paxd query gov vote 1 "$ACCOUNT" --height 2 --output json
+paxd query gov deposits 1 --height 2 --output json
+curl -H 'x-cosmos-block-height: 2' \
+  http://localhost:1317/cosmos/gov/v1beta1/params/voting
+```
+
+The gateway response's selected `voting_params` object is:
+
+<!-- repair-m679:gateway-voting -->
+```json
+{
+  "voting_period": "172800s",
+  "expedited_voting_period": "86400s"
+}
+```
+
+The other parameter groups in that response have zero values. Unlike the CLI's
+legacy aggregate parameter response, the SDK-aware gateway serializes durations
+in seconds. At height 2, gateway vote and deposit queries return live records.
+
+At height 3 the fixture processes the expedited and regular deadlines. Without
+bonded voting power the regular proposal is rejected; the real tally removes
+its stored votes and refunds its deposits. No bonded stake is a distinct tally
+case: it does not request burning, unlike insufficient quorum with bonded stake. For this terminal state:
+
+| Consumer at height 3 | Result |
+| --- | --- |
+| CLI individual `vote` or `votes` | Reconstructs the weighted vote from indexed transactions |
+| CLI `deposit` or `deposits` | Reconstructs successful cumulative contributions |
+| Gateway individual vote or deposit | HTTP 400 / gRPC `InvalidArgument`, because the stored record is gone |
+| Gateway votes or deposits list | Empty list, because those queries only read current state |
+
+A historical store query at retained height 2 can still retrieve the earlier
+live records. CLI transaction-search fallbacks depend on transaction retention
+and index availability; `--height` selects proposal state for the query, and
+does not impose a height bound on the transaction-search result itself.

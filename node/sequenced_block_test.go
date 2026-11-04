@@ -13,7 +13,6 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	sequencermodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer"
@@ -91,14 +90,17 @@ func activate(t *testing.T, w *app.TestWrapper) {
 func evmTransfer(t *testing.T, w *app.TestWrapper, from utils.TestAcct, to common.Address) ([]byte, common.Hash) {
 	t.Helper()
 	w.FundAcc(from.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(1_000_000_000_000_000_000))))
+	chainID := w.App.EvmKeeper.ChainID(w.Ctx)
+	ethCfg := evmtypes.DefaultChainConfig().EthereumConfig(chainID)
+	signer := ethtypes.MakeSigner(ethCfg, big.NewInt(w.Ctx.BlockHeight()), uint64(w.Ctx.BlockTime().Unix()))
 	signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		GasFeeCap: new(big.Int).SetUint64(100_000_000_000),
 		GasTipCap: new(big.Int).SetUint64(100_000_000_000),
 		Gas:       21000,
-		ChainID:   big.NewInt(config.DefaultChainID),
+		ChainID:   chainID,
 		To:        &to,
 		Value:     big.NewInt(1),
-	}), from.EvmSigner, from.EvmPrivateKey)
+	}), signer, from.EvmPrivateKey)
 	require.NoError(t, err)
 	txData, err := ethtx.NewTxDataFromTx(signed)
 	require.NoError(t, err)

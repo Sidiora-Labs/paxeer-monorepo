@@ -14775,3 +14775,8 @@ fix = "Database TLS options are runtime configuration only (decision 2527): prod
 title = "Explorer frontend spec files failed the production build's lint step"
 symptom = "next build lints every file of apps/explorer including spec files; eight spec files added by audit repairs (repair-22-31-379, repair-22-31-380, repair-22-31-448, repair-22-33-289, repair-22-33-292, repair-22-33-295, paxeerX.spec.ts, dependencyVersions.spec.ts) call test(fn) with a function reference as the title, which eslint-plugin-vitest rejects (valid-title, expect-expect), so the frontend image build has failed since they landed while the tasks' tsc and vitest gates passed."
 fix = "Task 22.31.474 repairs the spec files and the TS2769 in repair-22-33-299.spec.ts; decision 2528 makes every pending apps/explorer task run eslint on the spec files it adds."
+
+[gotcha.2991]
+title = "The EVM chain id still defaults to a foreign test network"
+symptom = "modules/evm/config/config.go line 10 keeps DefaultChainID = 713714 (an inherited upstream test network) and maps pacific-1, atlantic-2 and arctic-1 beside hyperpax_125-1; any application whose cosmos chain id is not in the mapping signs and verifies for chain 713714, so node tests built on an unmapped test chain fail with invalid chain id for signer: have 125 want 713714 (22.33.1141 attempt 1), and two tasks already had to be told that no Paxeer network uses 713714."
+fix = "Decision 2529: the default EVM chain id is 125 and the foreign network mappings are removed (task 22.31.476); tests derive the signer chain id from the application's configured chain id, never from a literal."

@@ -31,6 +31,8 @@ contract Disperse {
         if (balance > 0) payable(msg.sender).transfer(balance);
     }
 
+    /// @dev Fund exactly fixedEtherAmount per recipient. Callers must bound the
+    /// batch by their gas budget, including the cost of creating fresh accounts.
     function disperseEtherFixed(address[] calldata recipients) external payable {
         require(msg.value == fixedEtherAmount * recipients.length);
         for (uint256 i = 0; i < recipients.length; i++)

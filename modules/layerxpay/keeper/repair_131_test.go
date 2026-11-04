@@ -150,8 +150,10 @@ func TestRepair_131_SnapshotGrowth(t *testing.T) {
 		require.True(t, found)
 		require.Equal(t, want, got)
 	}
-	beforeEscrow, _ := h.keeper.GetEscrow(h.ctx, escrowID)
-	afterEscrow, found := recovered.keeper.GetEscrow(recovered.ctx, escrowID)
+	beforeEscrow, _, err := h.keeper.GetEscrow(h.ctx, escrowID)
+	require.NoError(t, err)
+	afterEscrow, found, err := recovered.keeper.GetEscrow(recovered.ctx, escrowID)
+	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, beforeEscrow, afterEscrow)
 	beforeBudget, _, err := h.keeper.GetBudget(h.ctx, budgetID)
@@ -192,7 +194,8 @@ func TestRepair_131_EscrowReceiptBinding(t *testing.T) {
 			}
 			_, err := h.keeper.Submit(h.ctx, h.actors[0].address, "escrowOpen", payload, id)
 			require.NoError(t, err)
-			hold, found := h.keeper.GetEscrow(h.ctx, id)
+			hold, found, err := h.keeper.GetEscrow(h.ctx, id)
+			require.NoError(t, err)
 			require.True(t, found)
 			if operation == "timeout" {
 				h.ctx = h.ctx.WithBlockTime(time.UnixMilli(int64(hold.ExpiryMs)))
@@ -217,7 +220,8 @@ func TestRepair_131_EscrowReceiptBinding(t *testing.T) {
 			}
 			receipt, err := settle(h)
 			require.NoError(t, err)
-			result, found := h.keeper.GetEscrowResult(h.ctx, key)
+			result, found, err := h.keeper.GetEscrowResult(h.ctx, key)
+			require.NoError(t, err)
 			require.True(t, found)
 			require.NotEqual(t, [32]byte{}, result.TransferSetRoot)
 			checkReceipt := func(h *payHarness, receipt lxphost.Receipt) {
@@ -278,7 +282,8 @@ func TestRepair_131_EscrowReceiptBinding(t *testing.T) {
 			require.NoError(t, err)
 			checkReceipt(h, replay)
 			require.Empty(t, replay.Transfers)
-			unchanged, found := h.keeper.GetEscrowResult(h.ctx, key)
+			unchanged, found, err := h.keeper.GetEscrowResult(h.ctx, key)
+			require.NoError(t, err)
 			require.True(t, found)
 			require.Equal(t, result, unchanged)
 			h.cms.Commit(true)
@@ -287,7 +292,8 @@ func TestRepair_131_EscrowReceiptBinding(t *testing.T) {
 			reopened.actors = h.actors
 			reopened.ctx = reopened.ctx.WithBlockTime(h.ctx.BlockTime())
 			for i := 0; i < 2; i++ {
-				got, found := reopened.keeper.GetEscrowResult(reopened.ctx, key)
+				got, found, err := reopened.keeper.GetEscrowResult(reopened.ctx, key)
+				require.NoError(t, err)
 				require.True(t, found)
 				require.Equal(t, result, got)
 				checkReceipt(reopened, receipt)
