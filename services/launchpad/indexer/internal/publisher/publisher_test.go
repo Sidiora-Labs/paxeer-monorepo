@@ -3,6 +3,7 @@ package publisher_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -68,17 +69,18 @@ func sampleEvents() []publisher.WebhookEvent {
 
 func TestBuildTargets(t *testing.T) {
 	t.Parallel()
-	// Per-URL secrets win; default fills the gap.
-	tgts, err := publisher.BuildTargets([]string{"https://a", "https://b"}, "def", []string{"s1"})
-	if err != nil {
-		t.Fatalf("BuildTargets: %v", err)
+	for _, secrets := range [][]string{nil, {"s1"}, {"s1", "s2"}} {
+		targets, err := publisher.BuildTargets([]string{"https://a", "https://b"}, "def", secrets)
+		if !errors.Is(err, publisher.ErrLegacyWebhookRetired) || targets != nil {
+			t.Fatalf("configured compatibility targets = %v, %v; want retirement error and no targets", targets, err)
+		}
 	}
-	if tgts[0].Secret != "s1" || tgts[1].Secret != "def" {
-		t.Errorf("secrets = %q / %q, want s1 / def", tgts[0].Secret, tgts[1].Secret)
+	if _, err := publisher.BuildTargets([]string{"https://a"}, "", nil); !errors.Is(err, publisher.ErrLegacyWebhookRetired) {
+		t.Fatalf("unsigned compatibility configuration must also be refused: %v", err)
 	}
-	// No secret available -> error.
-	if _, err := publisher.BuildTargets([]string{"https://a"}, "", nil); err == nil {
-		t.Error("BuildTargets with no secret should error")
+	targets, err := publisher.BuildTargets(nil, "", nil)
+	if err != nil || len(targets) != 0 {
+		t.Fatalf("realtime-only configuration = %v, %v", targets, err)
 	}
 }
 
@@ -87,27 +89,13 @@ func TestPublishBatchDeliversSigned(t *testing.T) {
 	var hits []received
 	var mu sync.Mutex
 	srv := recorder(t, &hits, &mu, nil)
-
-	p := publisher.New(publisher.Options{
+	assertLegacyWebhookRefused(t, publisher.Options{
 		Targets: []publisher.Target{{URL: srv.URL, Secret: secret}},
 	})
-	p.PublishBatch(context.Background(), sampleEvents())
-	p.WaitForInflight(5 * time.Second)
-
 	mu.Lock()
 	defer mu.Unlock()
-	if len(hits) != 1 {
-		t.Fatalf("got %d deliveries, want 1", len(hits))
-	}
-	if !hits[0].hadSigHdr || !hits[0].sigValid {
-		t.Errorf("signature invalid: %+v", hits[0])
-	}
-	if len(hits[0].events) != 2 || hits[0].events[0]["eventName"] != "Swap" {
-		t.Errorf("payload wrong: %+v", hits[0].events)
-	}
-	m := p.Snapshot()
-	if m.TotalEventsPublished != 2 || m.TotalDeliveries != 1 || m.TotalFailures != 0 {
-		t.Errorf("metrics = %+v", m)
+	if len(hits) != 0 {
+		t.Fatalf("retired signed webhook delivery reached receiver %d times", len(hits))
 	}
 }
 
@@ -117,15 +105,13 @@ func TestPublishBatchMultipleTargets(t *testing.T) {
 	var mu sync.Mutex
 	a := recorder(t, &h1, &mu, nil)
 	b := recorder(t, &h2, &mu, nil)
-	p := publisher.New(publisher.Options{Targets: []publisher.Target{
+	assertLegacyWebhookRefused(t, publisher.Options{Targets: []publisher.Target{
 		{URL: a.URL, Secret: secret}, {URL: b.URL, Secret: secret},
 	}})
-	p.PublishBatch(context.Background(), sampleEvents())
-	p.Disconnect()
 	mu.Lock()
 	defer mu.Unlock()
-	if len(h1) != 1 || len(h2) != 1 {
-		t.Fatalf("deliveries a=%d b=%d, want 1 each", len(h1), len(h2))
+	if len(h1) != 0 || len(h2) != 0 {
+		t.Fatalf("retired fan-out reached receivers a=%d b=%d", len(h1), len(h2))
 	}
 }
 
@@ -134,7 +120,8 @@ func TestPublishBatchNoOpPaths(t *testing.T) {
 	var hits []received
 	var mu sync.Mutex
 	srv := recorder(t, &hits, &mu, nil)
-	p := publisher.New(publisher.Options{Targets: []publisher.Target{{URL: srv.URL, Secret: secret}}})
+	assertLegacyWebhookRefused(t, publisher.Options{Targets: []publisher.Target{{URL: srv.URL, Secret: secret}}})
+	p := publisher.New(publisher.Options{})
 
 	p.PublishBatch(context.Background(), nil)            // empty events
 	p.SetBackfillMode(true)                              // suppressed
@@ -160,30 +147,22 @@ func TestDeadLetterOnPermanentFailure(t *testing.T) {
 	var hits []received
 	var mu sync.Mutex
 	srv := recorder(t, &hits, &mu, func(int) int { return http.StatusInternalServerError })
-
-	p := publisher.New(publisher.Options{
-		Targets:  []publisher.Target{{URL: srv.URL, Secret: secret}},
-		Attempts: 1, // no retry/backoff -> fast permanent failure
+	assertLegacyWebhookRefused(t, publisher.Options{
+		Targets: []publisher.Target{{URL: srv.URL, Secret: secret}}, Attempts: 1,
 	})
+	p := publisher.New(publisher.Options{})
 	p.PublishBatch(context.Background(), sampleEvents())
 	p.Disconnect()
-
-	if p.DeadLetterCount() != 1 {
-		t.Fatalf("DeadLetterCount = %d, want 1", p.DeadLetterCount())
+	if p.DeadLetterCount() != 0 || len(p.DeadLetterQueue()) != 0 || len(p.DrainDeadLetterQueue()) != 0 {
+		t.Fatal("retired delivery must not accept work into a volatile dead-letter queue")
 	}
-	dlq := p.DeadLetterQueue()
-	if len(dlq) != 1 || dlq[0].TargetURL != srv.URL || len(dlq[0].Events) != 2 || dlq[0].LastError == "" {
-		t.Errorf("dead-letter entry wrong: %+v", dlq[0])
+	if m := p.Snapshot(); m.TotalFailures != 0 || m.TotalDeadLettered != 0 || m.TotalDeliveries != 0 {
+		t.Fatalf("retired delivery metrics = %+v", m)
 	}
-	m := p.Snapshot()
-	if m.TotalFailures != 1 || m.TotalDeadLettered != 2 || m.TotalDeliveries != 0 {
-		t.Errorf("metrics = %+v", m)
-	}
-	if drained := p.DrainDeadLetterQueue(); len(drained) != 1 {
-		t.Errorf("drained = %d, want 1", len(drained))
-	}
-	if p.DeadLetterCount() != 0 {
-		t.Error("queue not empty after drain")
+	mu.Lock()
+	defer mu.Unlock()
+	if len(hits) != 0 {
+		t.Fatalf("retired target received %d requests", len(hits))
 	}
 }
 
@@ -191,30 +170,19 @@ func TestRetryThenSucceed(t *testing.T) {
 	t.Parallel()
 	var hits []received
 	var mu sync.Mutex
-	// Fail the first attempt, succeed the second.
 	srv := recorder(t, &hits, &mu, func(n int) int {
 		if n == 1 {
 			return http.StatusBadGateway
 		}
 		return http.StatusOK
 	})
-	p := publisher.New(publisher.Options{
-		Targets:  []publisher.Target{{URL: srv.URL, Secret: secret}},
-		Attempts: 2,
+	assertLegacyWebhookRefused(t, publisher.Options{
+		Targets: []publisher.Target{{URL: srv.URL, Secret: secret}}, Attempts: 2,
 	})
-	p.PublishBatch(context.Background(), sampleEvents())
-	p.WaitForInflight(5 * time.Second)
-
-	if p.DeadLetterCount() != 0 {
-		t.Errorf("should have recovered, dead-letter = %d", p.DeadLetterCount())
-	}
-	if m := p.Snapshot(); m.TotalDeliveries != 1 {
-		t.Errorf("deliveries = %d, want 1 after retry", m.TotalDeliveries)
-	}
 	mu.Lock()
 	defer mu.Unlock()
-	if len(hits) != 2 {
-		t.Errorf("receiver hit %d times, want 2 (fail then success)", len(hits))
+	if len(hits) != 0 {
+		t.Fatalf("retired target received %d retry requests", len(hits))
 	}
 }
 
@@ -229,13 +197,13 @@ func TestDedupViaRedis(t *testing.T) {
 	var hits []received
 	var mu sync.Mutex
 	srv := recorder(t, &hits, &mu, nil)
-	p := publisher.New(publisher.Options{
-		Targets: []publisher.Target{{URL: srv.URL, Secret: secret}},
-		Redis:   rdb,
+	assertLegacyWebhookRefused(t, publisher.Options{
+		Targets: []publisher.Target{{URL: srv.URL, Secret: secret}}, Redis: rdb,
 	})
+	p := publisher.New(publisher.Options{Redis: rdb})
 
 	ev := sampleEvents()
-	p.PublishBatch(context.Background(), ev) // first: delivered + fingerprint reserved
+	p.PublishBatch(context.Background(), ev) // first: realtime fan-out + fingerprint reserved
 	p.WaitForInflight(5 * time.Second)
 	p.PublishBatch(context.Background(), ev) // identical batch: deduped, not delivered
 	p.WaitForInflight(5 * time.Second)
@@ -243,8 +211,8 @@ func TestDedupViaRedis(t *testing.T) {
 	mu.Lock()
 	n := len(hits)
 	mu.Unlock()
-	if n != 1 {
-		t.Fatalf("deliveries = %d, want 1 (second batch deduped)", n)
+	if n != 0 {
+		t.Fatalf("retired compatibility deliveries = %d, want 0", n)
 	}
 	if m := p.Snapshot(); m.TotalDeduplicated == 0 {
 		t.Errorf("TotalDeduplicated = 0, want >0")
@@ -298,5 +266,17 @@ func TestPublishBatchFansOutToRedis(t *testing.T) {
 	}
 	if m := p.Snapshot(); m.TotalRedisPublishes != 2 {
 		t.Errorf("TotalRedisPublishes = %d, want 2", m.TotalRedisPublishes)
+	}
+}
+
+func assertLegacyWebhookRefused(t *testing.T, opts publisher.Options) {
+	t.Helper()
+	var refusal any
+	func() {
+		defer func() { refusal = recover() }()
+		publisher.New(opts)
+	}()
+	if refusal != publisher.ErrLegacyWebhookRetired {
+		t.Fatalf("New with compatibility targets panicked with %v, want ErrLegacyWebhookRetired", refusal)
 	}
 }
