@@ -1,0 +1,8 @@
+[repair.22.31.456]
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+mode = "BUILD"
+call_sites = ["sdk/wallet/src/receipt.ts:690 waitForSequencerReceipt -> readSequencerReceipt"]
+repair = "Pass an empty request options object when signal is undefined; otherwise pass the supplied AbortSignal. Cancellation and receipt authentication behavior are preserved."
+inventory = "Reviewed every signal use in sdk/wallet/src; this is the only call that constructs request options with an undefined optional signal. Other object properties carry defined signals or already use a conditional spread."
+types = "JsonRpcRequestOptions is unchanged; no consumer type was widened."
+qualification = "The hf-build and hf-done ledger records name the exact candidate revision, command, exit code and private evidence log; this record makes no qualification claim."

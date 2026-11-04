@@ -687,7 +687,7 @@ export async function waitForSequencerReceipt(
   let lastAnswer: SequencerReceiptAnswer | null = null;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     lastAnswer = await abortableReceiptWait(
-      () => readSequencerReceipt(rpc, hash, { signal }),
+      () => readSequencerReceipt(rpc, hash, signal === undefined ? {} : { signal }),
       signal
     );
     if (signal?.aborted) throw new DOMException('sequencer receipt wait aborted', 'AbortError');

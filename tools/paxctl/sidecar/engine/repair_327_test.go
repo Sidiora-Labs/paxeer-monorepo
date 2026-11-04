@@ -98,7 +98,7 @@ func TestRepair_327_DeleteLateCompletionRestart(t *testing.T) {
 				t.Fatal(err)
 			}
 			runningCtx := repair327Receive(t, started)
-			old := eng.GetResult(id)
+			old := mustGetResult(t, eng, id)
 			if old == nil || old.Generation == "" {
 				t.Fatal("submission did not persist a generation")
 			}
@@ -174,7 +174,7 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 				t.Fatal(err)
 			}
 			repair327Receive(t, oldStarted)
-			old := eng.GetResult(id)
+			old := mustGetResult(t, eng, id)
 			if found, err := eng.RemoveResult(id); err != nil || !found {
 				t.Fatalf("delete: found=%v err=%v", found, err)
 			}
@@ -182,14 +182,14 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 				t.Fatal(err)
 			}
 			newCtx := repair327Receive(t, newStarted)
-			current := eng.GetResult(id)
+			current := mustGetResult(t, eng, id)
 			if current == nil || current.Generation == old.Generation || current.Generation == "" || current.Run != 1 || old.Run != 1 {
 				t.Fatalf("resubmission reused generation: old=%+v new=%+v", old, current)
 			}
 			if oldFirst {
 				finishOld()
 				repair327Wait(t, func() bool { return repair327Tombstones(t, store, id, old.Generation) == 0 })
-				stillRunning := eng.GetResult(id)
+				stillRunning := mustGetResult(t, eng, id)
 				if stillRunning == nil || stillRunning.Status != TaskStatusRunning || stillRunning.Generation != current.Generation || newCtx.Err() != nil {
 					t.Fatalf("obsolete completion changed or cancelled the live resubmission: %+v, ctx=%v", stillRunning, newCtx.Err())
 				}
@@ -209,7 +209,7 @@ func TestRepair_327_DeleteResubmitInterleavings(t *testing.T) {
 			store = reopenStore(t, store, path)
 			restarted := NewEngine(context.Background(), handlers, store)
 			restarted.RehydrateStaleTasks()
-			recovered := restarted.GetResult(id)
+			recovered := mustGetResult(t, restarted, id)
 			if recovered == nil || recovered.Generation != current.Generation || string(recovered.Result) != `{"version":"new"}` || recovered.Status != TaskStatusCompleted {
 				t.Fatalf("incorrect recovered resubmission: %+v", recovered)
 			}
@@ -254,7 +254,7 @@ func TestRepair_327_PersistedGenerationRejectsObsoleteResult(t *testing.T) {
 	if err := store.Save(old); !errors.Is(err, ErrTaskGeneration) {
 		t.Fatalf("obsolete result replaced resubmitted state: %v", err)
 	}
-	recovered := restarted.GetResult(id)
+	recovered := mustGetResult(t, restarted, id)
 	if recovered == nil || recovered.Generation != current.Generation || string(recovered.Result) != `{"version":"new"}` {
 		t.Fatalf("persisted generation guard lost new output: %+v", recovered)
 	}
@@ -286,7 +286,7 @@ func TestRepair_327_ShutdownRecoveryPreservesGeneration(t *testing.T) {
 				t.Fatal(err)
 			}
 			repair327Receive(t, started)
-			before := eng.GetResult(id)
+			before := mustGetResult(t, eng, id)
 			stop()
 			repair327Wait(t, func() bool { return cancelRegistrySize(eng) == 0 })
 			store = reopenStore(t, store, path)

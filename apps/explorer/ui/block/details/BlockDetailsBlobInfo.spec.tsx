@@ -35,7 +35,8 @@ describe('BlockDetailsBlobInfo', () => {
     expect(values[1]).toBe('393,216');
     expect(values[2]).toContain('0.008461393325064192');
     expect(values[2]).toContain('100%');
-    expect(values[3]).toContain('0.079429632');
+    expect(blockMock.withBlobTxs.excess_blob_gas).toBe('79429632');
+    expect(values[3]).toBe('79,429,632 gas');
   });
 
   it('closes the group with a divider', () => {

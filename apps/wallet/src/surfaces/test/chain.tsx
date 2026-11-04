@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ethers } from 'ethers';
+import { parseTransaction, type Hex } from 'viem';
 import {
   FEE_TOKEN_PRECOMPILE,
   announceProvider,
@@ -11,6 +12,7 @@ import {
   type Eip1193Provider,
   type ProviderEvent,
   type ProviderListener,
+  type SequencerReceiptAnswer,
 } from '@paxeer/wallet';
 import { LAUNCHPAD_PRECOMPILE, abiSelector } from '@sidiora/layerx-sdk';
 import { custodyChoiceRepository } from '@/platform/storage/repositories';
@@ -18,7 +20,8 @@ import { WalletProvider } from '@/wallet/WalletProvider';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-export const CHAIN_KEY = ethers.keccak256(ethers.toUtf8Bytes('paxeer-wallet-app-surfaces'));
+// Public conformance sender from rpc/sequencer_receipt_vectors_test.go.
+export const CHAIN_KEY = '0x8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63';
 export const CHAIN_UUID = '6c1f9a2e-4b7d-4e38-9a51-0d3c8e7f2b64';
 export const GAS_LIMIT = 21_000n;
 export const GAS_PRICE = 1_000_000_000n;
@@ -36,10 +39,44 @@ export interface ChainLog {
   readonly data: string;
 }
 
-interface ChainReceipt {
-  readonly nonce: string;
-  readonly status: string;
-  readonly logs: Array<ChainLog & { readonly logIndex: string }>;
+export interface NodeReceiptVector {
+  readonly id: string;
+  readonly rawTransaction: Hex;
+  readonly signedReceipt: Hex;
+  readonly receiptDigest: Hex;
+  readonly receiptJson: Exclude<SequencerReceiptAnswer, { rung: 'submitted' }>;
+  readonly pinnedKey: {
+    readonly keyId: Hex;
+    readonly publicKey: Hex;
+    readonly firstHeight: number;
+    readonly lastHeight: number;
+  };
+}
+
+const NODE_RECEIPTS: { cases: NodeReceiptVector[] } = JSON.parse(
+  readFileSync(
+    path.resolve(
+      __dirname,
+      '../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json'
+    ),
+    'utf8'
+  )
+);
+const RECORDED_RECEIPTS = NODE_RECEIPTS.cases.filter((entry) => /^V[12]-/.test(entry.id));
+
+export function nodeReceiptVectors(): NodeReceiptVector[] {
+  return structuredClone(RECORDED_RECEIPTS);
+}
+
+export function nodeReceiptCall(entry: NodeReceiptVector): SentCall {
+  const transaction = parseTransaction(entry.rawTransaction);
+  if (!transaction.to || !entry.receiptJson.from) throw new Error(`no recorded call ${entry.id}`);
+  return {
+    from: entry.receiptJson.from.toLowerCase(),
+    to: transaction.to.toLowerCase(),
+    data: (transaction.data ?? '0x').toLowerCase(),
+    value: ethers.toQuantity(transaction.value ?? 0n),
+  };
 }
 
 const SET_FEE_DENOM = abiSelector('setFeeDenom(string)');
@@ -75,7 +112,7 @@ export class SurfaceChain implements Eip1193Provider {
   launchpadCreationFee = 0n;
   readonly allowances = new Map<string, bigint>();
   logsFor: (call: SentCall) => ChainLog[] = () => [];
-  private readonly receipts = new Map<string, ChainReceipt>();
+  private readonly receipts = new Map<string, NodeReceiptVector>();
   private readonly listeners = new Map<ProviderEvent, Set<ProviderListener>>();
 
   async request(args: { method: string; params?: readonly unknown[] | object }): Promise<unknown> {
@@ -107,31 +144,65 @@ export class SurfaceChain implements Eip1193Provider {
           data: tx.data.toLowerCase(),
           value: tx.value,
         };
+        const entry = RECORDED_RECEIPTS.find((candidate) => {
+          const recorded = nodeReceiptCall(candidate);
+          return (
+            recorded.from === call.from &&
+            recorded.to === call.to &&
+            recorded.data === call.data &&
+            BigInt(recorded.value) === BigInt(call.value)
+          );
+        });
+        if (!entry)
+          throw Object.assign(new Error('no node receipt vector for this call'), { code: -32000 });
+        const requestedLogs = this.logsFor(call);
+        const recordedLogs = entry.receiptJson.logs;
+        if (
+          requestedLogs.length &&
+          (requestedLogs.length !== recordedLogs.length ||
+            requestedLogs.some((log, index) => {
+              const recorded = recordedLogs[index]!;
+              return (
+                log.address.toLowerCase() !== recorded.address ||
+                log.data.toLowerCase() !== recorded.data ||
+                log.topics.length !== recorded.topics.length ||
+                log.topics.some(
+                  (topic, topicIndex) => topic.toLowerCase() !== recorded.topics[topicIndex]
+                )
+              );
+            }))
+        )
+          throw new Error('surface logs differ from the signed node receipt');
         this.sent.push(call);
-        this.apply(call);
-        const hash = ethers.id(`${this.sent.length}:${call.to}:${call.data}:${call.value}`);
-        const receipt: ChainReceipt = {
-          nonce: ethers.toQuantity(this.sent.length - 1),
-          status: '0x1',
-          logs: this.logsFor(call).map((log, index) => ({
-            ...log,
-            logIndex: ethers.toQuantity(index),
-          })),
-        };
-        this.receipts.set(hash, receipt);
-        return args.method === 'eth_sendTransaction'
-          ? hash
-          : { rung: 'receipted', txHash: hash, ...receipt };
+        if (entry.receiptJson.status === '0x1') this.apply(call);
+        const hash = entry.receiptJson.txHash;
+        this.receipts.set(hash, entry);
+        return args.method === 'eth_sendTransaction' ? hash : structuredClone(entry.receiptJson);
       }
       case 'eth_getTransactionReceipt': {
         const receipt = this.receipts.get(String(params[0]));
-        return receipt === undefined ? null : { transactionHash: params[0], ...receipt };
+        return receipt === undefined
+          ? null
+          : {
+              transactionHash: params[0],
+              ...structuredClone(receipt.receiptJson),
+            };
       }
       case 'pax_sequencerReceipt': {
         const receipt = this.receipts.get(String(params[0]));
         if (receipt === undefined) return null;
-        return { rung: 'receipted', txHash: params[0], ...receipt };
+        return structuredClone(receipt.receiptJson);
       }
+      case 'px_getReceiptKeys':
+        return {
+          keys: structuredClone([
+            ...new Map(
+              RECORDED_RECEIPTS.map((entry) => [entry.pinnedKey.keyId, entry.pinnedKey])
+            ).values(),
+          ]),
+        };
+      case 'eth_getRawTransactionByHash':
+        return this.receipts.get(String(params[0]))?.rawTransaction ?? null;
       default:
         throw Object.assign(new Error(`unsupported method ${args.method}`), { code: 4200 });
     }
