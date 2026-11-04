@@ -36,6 +36,11 @@ pub fn document() -> String {
         },
         "historical_imports": {
             "mode": "inspection_only",
+            "legacy_receipts": "snapshot_preservation_only",
+            "legacy_receipt_verification": "retired",
+            "legacy_receipt_verification_http_status": 410,
+            "legacy_head_evidence": "unavailable",
+            "legacy_head_evidence_http_status": 503,
             "routes": ["/v1/receipts/{id}", "/v1/evidence/{id}", "/v1/journeys/{id}"],
             "produces_new_payments": false,
             "establishes_merged_finality": false
