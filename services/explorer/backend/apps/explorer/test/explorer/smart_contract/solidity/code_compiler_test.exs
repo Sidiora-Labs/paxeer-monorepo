@@ -1,12 +1,24 @@
+Code.require_file("chain_coverage_cases.exs", __DIR__)
+
 defmodule Explorer.SmartContract.Solidity.CodeCompilerTest do
   use ExUnit.Case, async: true
 
   use Utils.CompileTimeEnvHelper, chain_type: [:explorer, :chain_type]
 
-  if @chain_type == :default do
+  if @chain_type in [:default, :paxeer_x] do
     doctest Explorer.SmartContract.Solidity.CodeCompiler
 
     @moduletag timeout: :infinity
+
+    require Explorer.SmartContract.Solidity.ChainCoverageCases
+
+    describe "recorded chain compiler coverage" do
+      setup do
+        :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo)
+      end
+
+      Explorer.SmartContract.Solidity.ChainCoverageCases.compiler_cases()
+    end
 
     alias Explorer.Factory
     alias Explorer.SmartContract.Solidity.CodeCompiler
