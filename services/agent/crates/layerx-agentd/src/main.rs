@@ -483,23 +483,7 @@ fn publish_mcp_binding(
 }
 
 fn human_frame_limits(deadline: Duration) -> Result<Limits, String> {
-    Limits {
-        maximum_frame_bytes: required("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES")?
-            .parse()
-            .map_err(|_| "human max frame is invalid")?,
-        maximum_connections: required("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS")?
-            .parse()
-            .map_err(|_| "human max connections is invalid")?,
-        maximum_streams: required("LAYERX_AGENT_HUMAN_MAX_STREAMS")?
-            .parse()
-            .map_err(|_| "human max streams is invalid")?,
-        maximum_queued_bytes: required("LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES")?
-            .parse()
-            .map_err(|_| "human max queue is invalid")?,
-        deadline,
-    }
-    .validate()
-    .map_err(|_| "human frame limits are invalid".to_owned())
+    layerx_agentd::human::human_frame_limits(deadline, required)
 }
 
 fn connect_human_node() -> Result<SequencerEndpoint, String> {
@@ -864,6 +848,9 @@ fn start_shared_owner(
             mode: u32::from_str_radix(&required("LAYERX_AGENT_HUMAN_SOCKET_MODE")?, 8)
                 .map_err(|_| "human socket mode is invalid")?,
             maximum_frame_bytes: human_limits.maximum_frame_bytes,
+            maximum_connections: human_limits.maximum_connections,
+            maximum_streams: human_limits.maximum_streams,
+            maximum_queued_bytes: human_limits.maximum_queued_bytes,
             deadline,
             peers,
         },
@@ -1849,7 +1836,11 @@ fn mcp_evidence_mode() -> Option<Result<(), String>> {
 }
 
 fn main() {
-    if let Err(error) = refuse_retired_environment() {
+    if let Err(error) = layerx_agentd::human::refuse_retired_human_inputs(
+        env::vars_os().map(|(name, _)| name.to_string_lossy().into_owned()),
+    )
+    .and_then(|()| refuse_retired_environment())
+    {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
     }

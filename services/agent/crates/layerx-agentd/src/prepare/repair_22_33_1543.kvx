@@ -1,0 +1,39 @@
+[repair.22.33.1543]
+acceptance = "22998.1"
+findings = ["f14", "f15", "f16", "f13", "f17"]
+baseline = "No unchanged-tree verification ran: the ordered task instructions prohibit testing before complete implementation and direct invocation of verify_cmd; the initial runner ledger had zero build and verification runs. No pre-change test failure is claimed."
+evidence = "The hf-build/hf-done private gate ledger at /out/run/gates.jsonl records the exact candidate revision, command, exit code and /out/logs evidence path; qualification is claimed only for a passing hf-done on the built revision."
+compatibility = "The scoped call-bound path is implemented and proven. Envelope preparation, its binder and authorization adapter remain for existing out-of-scope callers and unchanged legacy tests; complete deletion depends on the explicit domain-9 wiring requests below. No full repository retirement is claimed."
+wiring_requests = ["Domain 9: migrate services/agent/crates/layerx-agentd/src/session_control.rs to register_call/restore_calls and the version-3 call record, using its existing tenant/session generation checks; release or reprepare version-1/2 unsigned envelope work explicitly, and resolve signed pending operations before retirement.", "Domain 9: migrate services/agent/crates/layerx-agentd/src/sign_legacy.rs and services/agent/crates/layerx-agentd/src/human_runtime.rs from the envelope prepare/restore/binder surface to EvmPrepared and prepare::disclose, preserving exact call/sender and durable session ownership.", "Domain 9: migrate services/agent/crates/layerx-agentd/src/outbox/mod.rs and services/agent/crates/layerx-agentd/src/approval to the owning session store identity; then remove PreparationAuthorization and the remaining prepare::legacy compatibility module/exports/binder and legacy restoration tests in a task owning all consumers.", "Domain 9: migrate services/agent/crates/layerx-agentd/src/session_control.rs receipt/expiry settlement and retention scheduling to the durable call lifecycle APIs; schedule sweep_call_retention at the configured retention horizon so terminal signed bytes and holds are compacted durably as well as removed from the lifecycle cache."]
+
+[finding.f14]
+proving_tests = ["f14_call_disclosure_refuses_calldata_actor_nonce_fees_and_digest_mutations"]
+repair = "Both production EVM preparation and verification now use prepare/disclose.rs and the shared bind_call decoder; restoration decodes canonical unsigned type-2 bytes and rechecks disclosure and signing digests. Legacy callers retain their isolated adapter pending the domain-9 wiring requests."
+
+[finding.f15]
+proving_tests = ["f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes"]
+repair = "Call lifecycle registration derives expiry from the bound disclosure; the owning durable record retains tenant, session and generation. Submission and signature retention reload and verify those facts, signed call bytes, sender and transaction hash. Expiry stages the real limiter release, persists terminal state, then publishes the release. Legacy lifecycle registration consumes validated facts through its compatibility adapter."
+
+[finding.f16]
+proving_tests = ["f16_terminal_history_is_evicted_with_durable_duplicate_protection_after_restarts", "f16_shared_sweep_evicts_only_durably_recorded_terminal_history", "f16_retention_refuses_eviction_without_durable_idempotency"]
+repair = "Durable call registration atomically writes a tenant/sender/chain/idempotency record. Eligible terminal lifecycle entries are evicted after the sequence horizon; the durable sweep compacts signed bytes, call metadata and reservation holds while preserving duplicate protection. Unresolved calls remain recoverable after every reopen. Unbacked compatibility registrations cannot be safely evicted until their owning caller adopts the durable API."
+
+[finding.f13]
+proving_tests = ["f13_eip1559_validation_and_explicit_durable_version_handling", "f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes"]
+repair = "The production EVM producer uses the shared call disclosure path; durable version 3 carries exact unsigned type-2 bytes and bound context. Version 1/2 records remain decodable but are explicitly refused by call recovery with MigrationRequired; unknown versions and relabeled call records are refused. Complete compatibility removal requires the owning callers named above."
+
+[finding.f17]
+proving_tests = ["f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation"]
+repair = "prepare/restore_tests.rs now supplies the production call fixtures to the declared integration suite. It persists the producer output, stops and reopens the store/lifecycle, checks full recovered facts and refuses modified call bytes, digest, tenant, session id/generation, expiry, commitment and signed transaction. Existing envelope recovery assertions remain unchanged in legacy_restore_tests.rs until their owning consumers migrate."
+
+[gotcha.patch]
+observed = "apply_patch refuses a single patch containing both Delete File and Add File for the same path."
+resolution = "Replaced the scoped file through a literal here-document; no build or test had run."
+
+[gotcha.extension_tags]
+observed = "Durable preparation extension tags 6 through 9 already belong to program-budget and approval consumers outside this scope."
+resolution = "The call record uses reserved high tags 0xc001 through 0xc003 and an explicit version 3; no existing extension tag was repurposed."
+
+[gotcha.expiry_units]
+observed = "BudgetLimiter::stage_release with ReleaseKind::Expired only releases a hold at its height bound; a call payload can expire in core milliseconds before that height."
+resolution = "After checking the call-bound millisecond expiry, stage a cancellation release with ReleaseKind::Failed, persist LifecycleState::Expired and then publish the staged release; the integration test deliberately keeps the height bound in the future."

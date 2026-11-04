@@ -2,7 +2,7 @@
   "name": "vector-v4-committed",
   "provenance": {
     "source": "daemon/committed-fixture/vectors/vector-v4-committed.json",
-    "sha256": "34e9f6abc84b7d714dea573b2a0db0bb055fc51715a72d63fd9a489594e81a03",
+    "sha256": "fc3fe1494c91ff8720a8d8fced398ea6c483c7aa70e3b655212e2b68de75eaab",
     "recording": "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.",
     "conversion": "Binary encodings only; receiptJson is the receipted view without blockNumber/blockHash. The execution header uses execution_commit; the successor header uses commit, or commit_at_most_two_thirds for the refusal."
   },

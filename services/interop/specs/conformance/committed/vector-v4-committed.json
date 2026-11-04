@@ -4,8 +4,8 @@
   "provenance": {
     "recorder": "daemon/committed-fixture/vector_v4.go::recordV4",
     "source": "daemon/committed-fixture/vectors/vector-v4-committed.json",
-    "sourceSha256": "34e9f6abc84b7d714dea573b2a0db0bb055fc51715a72d63fd9a489594e81a03",
-    "description": "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.",
+    "sourceSha256": "fc3fe1494c91ff8720a8d8fced398ea6c483c7aa70e3b655212e2b68de75eaab",
+    "description": "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.; Explorer controller regression source: settlement carries the original batch bytes, transaction/result proofs and linked execution/successor commits; consumers must not re-sign or replace these bytes.",
     "receiptScenario": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json::V1-layerxledger-pay-exact",
     "chainId": "committed-fixture",
     "executionHeight": 10,

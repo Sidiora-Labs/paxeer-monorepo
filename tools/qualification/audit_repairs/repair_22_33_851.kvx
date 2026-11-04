@@ -1,0 +1,70 @@
+[task]
+id = "22.33.851"
+mode = "BUILD"
+audit = "22.30.181"
+base_revision = "7f73e1e62e9ec5f5baf39701e42280257640cf0a"
+implementation = "Keep the retained foundation Go corpus and standard marker, rejecting completion-before-start and unrequested child events. Replace generation gate legacy daemon/authority binaries and source lists with build/paxd, retained node lifecycle modules, merged kernel image/runtime and deployment sources. Execute the complete retained generation pytest module including its free-function adoption/reopen test, and the current merged-kernel committed readiness/recovery/refusal corpus; count real collected setup/call/teardown passes and actual Go JSON completions, then emit the standard dispatcher marker only after both corpora succeed. Correct the multi-asset recorder singleton tuple and factor its exact compiler-event selection into a directly tested production function without replacing executable bytes or loosening artifact/source checks."
+baseline = "Not run: the explicit implementation-first order and exclusive hf-done rule prohibit the conflicting unchanged-tree verify instruction. No pre-change failing or passing tests are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-start bookkeeping. gate.json reported zero builds and verifies and no prior gates.jsonl existed. The 24.18 standard marker and exact retained corpus already existed at base; preserve them and add event-order/unrequested-child refusals."
+build_cmd = "bash -n tools/paxeer-x/gates/24.18.sh tools/paxeer-x/gates/24.20.sh tools/paxeer-x/gates/5.1.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_851.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private runner ledger name the exact content-derived verified revision, command, exit and log, with hf-build on the identical candidate. The runner commits; no manual commit or push. This record is written before qualification: inserting its own verified content revision afterwards would change that revision."
+source_proof = "Parse each shell individually with bash -n and every embedded Python block with ast. Check retained declared Go test functions, exact package/case inventories, bounded native commands and exit propagation, real compiler transcript input and exact singleton loop shape, Cargo binary manifest keys, executable/ELF/digest provenance and durable private manifest writes. Execute both production and consumer source-list expressions to prove identical retained path sets and existence. Parse current deployment YAML, systemd service keys and probe Cargo TOML, checking paxd identity, persistent mount, readiness and non-root deployment."
+runtime_proof = "Run the production native generation publisher on committed genesis/config/certificate/identity inputs, transport its actual output through a real Unix listener with the production SO_PEERCRED/SCM_RIGHTS broker handler into generation_client.receive, child_environment and materialize. Close all descriptors/views/listeners, discard the broker and state reader, reopen retained durable state and prove identical generation, identity and artifact digests; refuse the wrong generation. Reuse the committed kernel recovery proof to stop/reopen the production readiness consumer and captured RPC loopback peer, recover the actual persisted height/hash checkpoint and demand fresh committed reads. Run actual pytest on four committed protected-record refusal cases through the gate's production reporting plugin, then transport its real count through the exact production marker print and actual dispatcher COUNT matcher. Exercise real count/selector functions on explicitly labelled Go/Cargo/report protocol unit data, never native execution evidence."
+review_only = "This Python gate does not compile Go/Rust/C, build containers, run native paxd or the probe, or certify compiler-emitted executable authenticity, native database/WAL recovery or BFT consensus. The native gate commands and artifact/source checks are source-qualified only. Compiler selection protocol examples never create an executable, transcript evidence file or manifest and never replace emitted artifacts. Actual compiler-event-to-ELF-hash-to-manifest provenance is checked along the unchanged real source path and remains native owner qualification. The broker and committed-readiness reopen checks prove production Python recovery with committed peers, not native backend recovery. The full retained generation/native Go corpora are selected and source-qualified here; only the named in-process Python proofs actually execute during this task's verify."
+formatting = "No Python, Shell or KVX formatter is configured for these paths; follow .editorconfig final-newline/trailing-whitespace conventions after completing implementation."
+
+[finding.f028]
+file = "tools/paxeer-x/gates/24.18.sh"
+tests = ["test_f028_retained_real_go_corpus_and_dispatcher_transport", "test_go_counts_refuse_missing_skipped_failed_duplicate_or_unordered_cases", "test_every_shell_and_embedded_python_is_parsed"]
+source_proof = "Preserve all nine named retained cases across the four real Go packages, JSON uncached execution, bounded process and exit propagation, exact nonempty/unskipped case matching and standard final marker; count completed cases and subcases only after their run event, and reject unknown children. Use the dispatcher's real count matcher and retained empty/skip/failure checks."
+review_only = "The native Go corpus is not executed by this Python gate; protocol examples exercise only its production event parser and marker contract."
+
+[finding.f024]
+file = "tools/paxeer-x/gates/24.20.sh"
+tests = ["test_f024_current_paxd_profile_keeps_source_and_artifact_admission", "test_f024_real_kernel_committed_readiness_stop_reopen_and_recovery", "test_f024_generation_producer_descriptor_transport_consumer_reopens", "test_every_shell_and_embedded_python_is_parsed"]
+source_proof = "Keep the generation selector executable for the dispatcher and build only the fresh retained paxd target at build/paxd. Preserve isolated private clean-snapshot, full tracked-source tree hash, candidate source digest set equality, revision/tree, owned executable ELF/hash/mtime, exclusive no-follow private manifest, fsync and private manifest reader guards. Bind retained generation/lifecycle/recovery tests, deployment and merged kernel image/runtime sources. The selected pytest corpus now includes the previously omitted generation adoption/reopen free function and current merged committed-readiness recovery cases. Execute actual publisher/descriptor transport/consumer reopening and actual committed-readiness checkpoint recovery."
+review_only = "Compilation, container assembly, actual paxd startup and native committed database/WAL recovery require the owning node/image qualification; production Python recovery executes against committed fixtures."
+
+[finding.f029]
+file = "tools/paxeer-x/gates/24.20.sh"
+tests = ["test_f029_real_pytest_reports_and_standard_dispatcher_count", "test_f029_python_counts_refuse_every_incomplete_or_unsuccessful_outcome", "test_go_counts_refuse_missing_skipped_failed_duplicate_or_unordered_cases"]
+source_proof = "Collect retained real pytest targets without a name filter, require nonempty unique collection, every setup/call/teardown passing exactly once, no deselection, collection failure, skip or xfail, and zero runner exit. Retain both real-state custody Go cases, use uncached JSON and exact names and sum actual completions. Emit only the shared standard count marker after every result is admitted. The real pytest reporting plugin, marker print and dispatcher matcher are driven together by four actual committed protected-record refusal tests."
+review_only = "Full generation/native Go execution and routing against an admitted source-bound candidate manifest are not executed by this source repair gate."
+
+[finding.f025]
+file = "tools/paxeer-x/gates/5.1.sh"
+tests = ["test_f025_singleton_compiler_events_flow_into_source_bound_manifest", "test_f025_production_compiler_selector_refuses_failed_empty_missing_and_ambiguous_outputs", "test_every_shell_and_embedded_python_is_parsed"]
+source_proof = "The RECORD loop iterates one four-field tuple and reads the real cargo build JSON output. Its production selector requires successful build-finished and one actual executable path for the declared probe/bin. Assert real transcript selection feeds absolute no-symlink executable admission, actual ELF-byte hashing, artifact row and source-bound durable private manifest. Parser unit examples cover success and fail/empty/missing/wrong target/wrong kind/ambiguous refusals without creating or substituting any native artifact."
+review_only = "No Cargo toolchain or native ELF is available to this qualification; actual compiler-emitted probe bytes and the successful native build-to-manifest execution remain owner qualification."
+
+[wiring.native_recovery]
+path = "docker/kernel and services/platform/hosted/node"
+owner_domain = "16 tools/image and 5 node"
+request = "Build the source-admitted paxd image, cold-start provisioned chain-125 home, commit/read a native transaction, stop/reopen the same home/WAL/keys and compare recovered height/hash and account/module state; this Python repair gate proves the production readiness/generation paths only."
+
+[wiring.probe_dependency]
+path = "services/platform/hosted/node/tests/probe/Cargo.toml"
+owner_domain = "8 platform and 5 node"
+request = "Resolve the retained probe's layerx-platform-core path dependency on the retired services/platform/hosted/core module, and qualify the actual compiler-emitted probe through 5.1.sh build; that out-of-scope dependency is preserved here and no replacement artifact is supplied."
+
+[wiring.native_caught_up]
+path = "consensus/internal/rpc/core/status.go"
+owner_domain = "15 consensus and 5 node"
+request = "Resolve the previously recorded no-reactor Autobahn catching_up status interface so real committed readiness can qualify the retained node; preserve all current committed-readiness refusal checks."
+
+[gotcha.baseline]
+symptom = "The requested unchanged-tree verify conflicts with implementation-first, hf-build-before-hf-done and the prohibition on manual verification."
+resolution = "Follow the explicit gate order, claim no baseline result and record here because root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.shell_build]
+symptom = "bash -n with several filenames parses only the first script and treats the remaining filenames as positional arguments."
+resolution = "Keep the declared hf-build command unchanged; the pytest module parses each changed shell individually."
+
+[gotcha.context]
+symptom = "Whole-ledger and broad graph/source output was too large and truncated; the graph's native paths are excluded by runner setup."
+resolution = "Use bounded exact source reads and targeted section extraction instead of broad output; preserve runner setup."
+
+[gotcha.retained_sources]
+symptom = "The old node deployment test expects retired core-boundary containers and the probe Cargo manifest still references retired platform-core."
+resolution = "Select the retained current kernel committed-readiness corpus alongside the existing complete broker corpus; record out-of-path probe and native node qualification requests without modifying neighboring modules or weakening tests."
