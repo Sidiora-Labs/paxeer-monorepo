@@ -1,0 +1,28 @@
+[repair.22.33.660]
+audit = "22.30.166"
+acceptance = "22998.1"
+baseline = "Not run: the task's implementation-first order and hf-only gate limits prohibit the contradictory unchanged-tree verify step; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; final evidence references that ledger."
+
+[qualification.first_attempt]
+revision = "4f0caf2cfe6d6d6ad3f5c68f364fec217bf8ed91"
+command = "cg spec done 22.33.660 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Test command setup omitted Cobra's required chain-id flag; the test helper now supplies it to commands that declare it."
+
+[finding.multisign-output-file-empty]
+tests = ["TestRepairM_660_MultisignOutputFile"]
+
+[finding.multisign-batch-short-signatures]
+tests = ["TestRepairM_660_MultisignBatchCardinality"]
+
+[finding.multisign-batch-reader-errors]
+tests = ["TestRepairM_660_MultisignBatchReaderErrors"]
+
+[finding.sign-batch-reader-errors]
+tests = ["TestRepairM_660_SignBatchReaderErrors"]
+
+[finding.validate-signatures-optional-key]
+tests = ["TestRepairM_660_ValidateOptionalKey", "TestRepairM_660_ValidateMalformedMultisig"]
