@@ -14830,3 +14830,33 @@ fix = "22.33.312 regenerates the embedded inventory from the real generator in t
 title = "Un-ignoring a package directory in .cgignore drags its install root into the recorded change set"
 symptom = "22.33.246 attempt 1 (2026-11-04 14:59Z) edited .cgignore outside its paths and installed programs/sdk/assemblyscript; the recorded change set then listed 122 files under programs/sdk/assemblyscript/node_modules although the directory's own .gitignore excludes node_modules, and the build ran at an earlier revision than the verify (build_on_verified unmet), so the passing tests did not qualify."
 fix = "The attempt continues: .cgignore reverts, the install root leaves the change, and build and verify run at the same revision. An install root is never part of a change (gotchas 2997, 2999); a repair that needs a package installed installs it in its build command."
+
+[gotcha.3002]
+title = "The Paxeer boundary manifest was retired while five consumers still read it"
+symptom = "Task 22.33.1319 (065d0370da) deleted services/platform/hosted/paxeer/deployment.yaml and made the deployment command re-emit the node manifest instead. services/platform/hosted/gateway/tests/repair_22_31_345.rs line 12 still includes the file at compile time, so every build of the gateway tests fails (22.31.208 attempt 4, 22.33.1336 attempt 4, 22.33.1445 attempt 2, 22.33.1550 attempt 2 on 2026-11-04); services/platform/hosted/human/test_material.py, services/platform/hosted/node/tests/node-topology-test.py, services/platform/hosted/tests/topology-check.sh and services/platform/hosted/testnet/README.md still describe the paxeer workload the file declared."
+fix = "Task 22.31.483 restores the tracked boundary manifest and reconciles the consumers (decision 2533); the blocked tasks require it and requalify when it is on main."
+
+[gotcha.3003]
+title = "The AI-market hosted service decodes the joint reputation-admission section without splitting it"
+symptom = "programs/crates/layerx-programs-ai-market/src/reputation_transition.rs writes the ReputationAdmission section as a joint section (encode_joint, split_joint) since the epoch and registry producers were repaired; the hosted service's discovery.rs line 134 and membership.rs line 289 still hand the whole section to AdmissionTable::decode and fail with UnsupportedVersion. 22.33.1465 attempt 3 (2026-11-04) recorded the break as the authority-joint-section wiring request."
+fix = "Task 22.31.484 splits the section with split_joint before decoding in FinalizedAuthority::bind and MembershipObserver::observe and proves the producer to consumer path with a joint section from encode_joint; 22.33.1465 requires it."
+
+[gotcha.3004]
+title = "Two consumers of layerx-client were never ported to the retired px and committed-block types"
+symptom = "services/platform/hosted/core/src/public_reads.rs still calls Uint256::to_be_bytes, reads the layerx field of PxAssetEntry and compares string asset ids with byte asset ids (lines 96, 105, 137, 384), and services/agent/crates/layerx-agent-api/src/read.rs line 715 reads chain_sequence from CommittedBlockContext; both stopped compiling when 22.31.221 (fe2e725ea8) and 9.25.1 (036a1da1b6) retired those fields. The dependent-crate check of every layerx-client and programs-sdk task fails on them (22.33.1544, 1545, 1547, 222, 249 on 2026-11-04; public_reads.rs appears in 57 dependents logs of 39 tasks)."
+fix = "Task 22.31.485 ports both consumers to the current layerx-client API with tests; the five blocked tasks require it and requalify when it is on main."
+
+[gotcha.3005]
+title = "A bracketed route segment in a touched path is read as a glob character class by the done gate"
+symptom = "Touches such as apps/web/src/app/explorer/accounts/[accountId] are matched as a glob, so [accountId] stands for one character and never matches the real directory: 22.33.348 attempt 1, 22.33.361 attempt 1 and 22.33.362 attempt 1 (2026-11-04) passed their type-check and tests and were refused with touched ... no matching change although the directory changed."
+fix = "Touches never contain a bracketed segment: the four affected tasks (348, 361, 362, 449) now touch the parent route directory, and the three finished attempts requalify."
+
+[gotcha.3006]
+title = "apps/perps/tsconfig.tsbuildinfo is tracked, so every perps type-check changes a file outside the paths"
+symptom = "The root .gitignore ignores only apps/web/tsconfig.tsbuildinfo; the incremental type-check of apps/perps rewrites the tracked apps/perps/tsconfig.tsbuildinfo and the result is refused as a change outside the paths (22.33.190, 192, 193, 194, 195, 199, 200 on 2026-11-04, after 22.31.479 cleared their earlier refusal)."
+fix = "22.31.480 removes the file from the index together with the install binaries and ignores it in apps/perps/.gitignore; the perps tasks require 22.31.480 and relaunch when it is on main."
+
+[gotcha.3007]
+title = "The committed receipt recording was signed under the retired default chain id 713714"
+symptom = "daemon/committed-fixture/vectors/vector-v4-committed.json carries a legacy raw transaction whose EIP-155 chain id decodes to 713714: it was recorded while modules/evm/config/config.go still defaulted an unmapped application chain id to that inherited test network (gotcha 2991; 22.31.476 moved the default to 125). The production wallet authenticator refuses any recording whose transaction is not on chain 125 (sdk/wallet/src/receipt.ts line 455, transaction or receipt layout), so 22.33.338 attempt 7 (2026-11-04 16:03Z) could not authenticate the committed pair through the production path, and apps/wallet/src/surfaces/repair-22-33-205.test.ts line 116 pins the retired id instead. The receipted vectors v1 and v2 of the same directory already decode to chain 125."
+fix = "22.31.486 re-records the committed vector with the recorder as it stands (the unmapped committed-fixture id now answers eth_chainId 125), refreshes the derived conformance, explorer, wallet and human-service copies and every consumer that pins the recording's hashes, and asserts the chain id in the recorder's own test; 22.33.338 requires it. A recording that the production verifier refuses is a producer defect, never a reason to bypass the verifier."

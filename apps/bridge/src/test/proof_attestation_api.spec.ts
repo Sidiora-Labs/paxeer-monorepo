@@ -10,6 +10,8 @@
  */
 // @vitest-environment jsdom
 
+import { attestationWireFixturesSurviveListenerReopening } from './repair-22-33-266.proofs';
+
 import {
   AttestationApiError,
   attestationPollInterval,
@@ -243,3 +245,5 @@ async function refusesIntegersThatCannotReachTheDigestConsumer() {
 test(provesAttestationConsumersAfterReopeningTheTransferStore.name, provesAttestationConsumersAfterReopeningTheTransferStore);
 test(refusesAnotherAttestationIdentityAndKeepsPollingIncompleteBundles.name, refusesAnotherAttestationIdentityAndKeepsPollingIncompleteBundles);
 test(refusesIntegersThatCannotReachTheDigestConsumer.name, refusesIntegersThatCannotReachTheDigestConsumer);
+
+test(attestationWireFixturesSurviveListenerReopening.name, attestationWireFixturesSurviveListenerReopening, 15000);

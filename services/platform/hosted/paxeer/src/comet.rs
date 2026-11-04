@@ -1,6 +1,4 @@
-use super::{
-    refusal, rpc_error, transport, NodeEndpoint, NodeFailure, Request, Response, NODE_IO_TIMEOUT,
-};
+use super::{refusal, rpc_error, transport, NodeEndpoint, NodeFailure, Request, Response};
 use serde::Deserialize;
 use serde_json::{value::RawValue, Value};
 use std::time::Instant;
@@ -355,8 +353,7 @@ fn validate_result(method: &Method, result: &Value) -> Result<(), Failure> {
     Ok(())
 }
 
-fn fetch(node: &NodeEndpoint, request: &Validated) -> Result<Vec<u8>, Failure> {
-    let deadline = Instant::now() + NODE_IO_TIMEOUT;
+fn fetch(node: &NodeEndpoint, request: &Validated, deadline: Instant) -> Result<Vec<u8>, Failure> {
     if let Method::Query(height) = request.method {
         if committed_height(node, &request.id, None, deadline)? < height + 1 {
             return Err(Failure::Unavailable);
@@ -371,7 +368,7 @@ fn fetch(node: &NodeEndpoint, request: &Validated) -> Result<Vec<u8>, Failure> {
     Ok(body)
 }
 
-pub(super) fn response(node: &NodeEndpoint, request: &Request) -> Response {
+pub(super) fn response(node: &NodeEndpoint, request: &Request, deadline: Instant) -> Response {
     if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
         return refusal(400, "content_type_required", None);
     }
@@ -379,7 +376,7 @@ pub(super) fn response(node: &NodeEndpoint, request: &Request) -> Response {
         Ok(validated) => validated,
         Err(response) => return response,
     };
-    match fetch(node, &validated) {
+    match fetch(node, &validated, deadline) {
         Ok(body) => Response {
             status: 200,
             body,

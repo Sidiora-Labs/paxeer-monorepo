@@ -101,5 +101,5 @@ export function historicalReceiptLinkPath(identity: Readonly<{ receiptId: string
   if (identity.frozen !== true || !validExplorerIdentifier(identity.receiptId)) {
     throw new TypeError("Historical receipt requires a frozen archive identity");
   }
-  return `/paxeer-x/receipts/${identity.receiptId.toLowerCase()}`;
+  return `/api/v2/paxeer-x/archive/receipts/0x${identity.receiptId.toLowerCase()}`;
 }

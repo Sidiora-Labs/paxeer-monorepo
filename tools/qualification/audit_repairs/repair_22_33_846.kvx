@@ -1,0 +1,43 @@
+[repair]
+task = "22.33.846"
+audit = "22.30.181"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+findings = ["f060", "f009"]
+implementation = "Add a reusable --block migration height bounded by finalized commitment, retaining complete indexed/canonical history equality, all candidate reconciliation and exact holder/history totalSupply checks; document the release preconditions; replace the obsolete shell responder with real SID transfer, committed receipt, canonical log CSV and fixed-block snapshot integration."
+baseline = "No baseline gate ran: the explicit ordered instructions prohibit testing before complete implementation and require hf-build before hf-done, with no manual verify run. The declared pytest module did not exist on the unchanged tree; no baseline test failure is claimed. Initial gate.json had zero build and verify runs and no gates.jsonl existed. Only runner-prepared .cgignore and spec task-start changes existed; they were preserved."
+build_cmd = "bash -n tools/paxeer-x/sid-snapshot/test.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_846.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact verified content-derived candidate revision, command, exit and private evidence log are recorded by the final hf-done JSON and /out/run/gates.jsonl; both build and verify must pass on that same candidate. This record is finalized before qualification: embedding the candidate hash in its own source changes that hash. The runner commits; no source changes follow a passing hf-done."
+wiring_request = "node/testdata/sid-holders.json; owning node/upgrade domain 16: generate and review the release artifact and evidence at the agreed committed migration height with complete archive/indexed history; this task does not regenerate or modify the embedded artifact."
+
+[finding.f060]
+file = "tools/paxeer-x/sid-snapshot/README.md"
+class = "doc-drift"
+closure = "Documentation and exporter agree on complete indexed history through one committed migration height, every sender/recipient candidate including zero/negative history balances, fixed hash calls, complete history equality, and exact holder and mint-minus-burn totalSupply equality before release. --block enables reproducible handoff while preserving the existing finalized default."
+tests = ["test_f060_documented_release_height_and_reconciliation_match_source", "test_f060_selects_requested_historical_committed_height", "test_f060_refuses_negative_or_uncommitted_migration_height", "test_f060_fixed_height_preserves_moving_and_zero_history_holders", "test_f060_incomplete_or_inexact_snapshot_preserves_release_artifact"]
+
+[finding.f009]
+file = "tools/paxeer-x/sid-snapshot/test.sh"
+class = "test-gap"
+closure = "The shell executes the real contract driver with failure propagation. The driver uses the fixed SID address, real transfer calldata and transaction submission, successful canonical committed receipts, log-derived CSVs and the production exporter. It empties then refunds a holder, funds an address with no prior history, advances balances beyond the selected block, asserts exact pinned output/supply/digest, and rejects stale and conflicting sources. The old acceptance of a 1000-to-850 supply drop is replaced with strict conservation and an explicit offline mismatch refusal."
+tests = ["test_f009_shell_executes_guarded_real_sid_contract_scenario", "test_f009_real_transfer_driver_accepts_disposable_loopback_rpc", "test_f009_real_transfer_driver_refuses_non_disposable_rpc", "test_f009_contract_log_csv_producer_feeds_real_exporter", "test_f060_fixed_height_preserves_moving_and_zero_history_holders", "test_f060_incomplete_or_inexact_snapshot_preserves_release_artifact"]
+
+[limits]
+source_proof = "Pytest parses Python AST and the shell exec argv, checks guards and actual production calls, verifies README release facts and record mappings, and runs real CSV readers, migration-height selection, JSON-RPC HTTP client and exporter against the prerequisite's committed in-memory event-store peer. It verifies fixed-height pinning, advancing balances, zero-history and newly discovered candidates, exact supply and output evidence, stale/conflicting/missing history refusal, and preservation of existing release artifacts on failure."
+shell = "The sole declared build runs bash -n on test.sh; pytest checks the guarded exec command and Python integration implementation without invoking another shell or subprocess."
+real_contract = "Actual SID EVM execution, funded/unlocked disposable paxd setup, real BFT commitment, transaction inclusion, archive service availability and running test.sh are not executed by the offline gate. Their integration source is reviewed and asserted, not replaced with an HTTP balance responder. Runtime execution belongs to the node domain; no real-contract runtime pass is claimed."
+peer = "The peer is the existing committed TokenChain event store in test_repair_22_31_429.py, with real loopback HTTP transport and production exporter calls. It is not an EVM and supplies no proof of contract execution. No production code is stubbed or replaced."
+postgres = "The canonical height-bounded SQL is source-checked; no PostgreSQL service runs in this gate."
+gate_dependencies = "Only Python, pytest and its standard library are needed by the verification module: no environment variables, credentials, live endpoint, external binary, subprocess toolchain, native artifact or device. Neither finding is a restart-recovery or an interface-mismatch finding."
+
+[gotcha.1]
+observed = "The unchanged-tree verify clause conflicts with the explicit implementation-first, build-first and wrapper-only gate order."
+resolution = "Follow the explicit order and claim no pre-change gate or failing test; keep the note in this scoped record because root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "An apply_patch call rejected a delete-and-add of the same shell path in one patch before changing the tree."
+resolution = "Update the existing shell in place and add the helper separately; no gate had run."
+
+[format]
+policy = "No Python, shell, Markdown or KVX formatter is configured for these paths; apply the repository editor conventions to touched files after implementation and before qualification."

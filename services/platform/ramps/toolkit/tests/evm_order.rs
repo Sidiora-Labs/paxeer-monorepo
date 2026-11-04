@@ -13,6 +13,14 @@ use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
+#[path = "support/repair_22_33_1490.rs"]
+mod repair_1490;
+
+#[test]
+fn recorded_node_receipt_and_mutated_execution_reach_production_authenticator() {
+    repair_1490::recorded_receipt();
+}
+
 pub(crate) fn order(direction: RampDirection) -> RampOrder {
     RampOrder::bind(
         CreateOrder {

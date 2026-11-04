@@ -39,3 +39,13 @@ test("malformed interface and incomplete verified source metadata remain refused
   badSource.versions[0]!.source.environment_digest = "";
   assert.throws(() => decodeProgramForIdentifier(badSource, "11".repeat(32)), TypeError);
 });
+
+function program_commitments_remain_strict() {
+  for (const field of ["receipt_digest", "state_root"] as const) {
+    const malformed = projection();
+    malformed[field] = "not-a-commitment";
+    assert.throws(() => decodeProgramForIdentifier(malformed, "11".repeat(32)), TypeError);
+  }
+}
+
+test(program_commitments_remain_strict);

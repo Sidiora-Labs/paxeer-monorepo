@@ -128,13 +128,41 @@ pub struct AgentApprovalRecord {
     pub state: AgentApprovalState,
 }
 
-/// A contextual budget value backed by an agent-layer verified read.
+/// A contextual budget value carrying the strength of its agent-layer read.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct VerifiedBudgetAfter {
     pub remaining: u128,
     pub rung: Rung,
     pub evidence_digest: [u8; 32],
     pub observed_at_sequence: u64,
+}
+
+/// Presentation strength of budget context, independent of held approval facts.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BudgetVerification {
+    Unverified,
+    Verified,
+}
+
+impl BudgetVerification {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Unverified => "Unverified budget",
+            Self::Verified => "Verified budget",
+        }
+    }
+}
+
+impl VerifiedBudgetAfter {
+    #[must_use]
+    pub fn verification(self) -> BudgetVerification {
+        if self.rung == Rung::Committed && self.evidence_digest != [0; 32] {
+            BudgetVerification::Verified
+        } else {
+            BudgetVerification::Unverified
+        }
+    }
 }
 
 /// Agent contract used by the inbox. Lifecycle discovery happens exclusively
@@ -211,7 +239,7 @@ impl InboxState {
     }
 }
 
-/// One disclosure-derived inbox item plus separately labelled verified context.
+/// One disclosure-derived inbox item plus separately labelled budget context.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InboxItem {
     approval_id: ApprovalId,
@@ -279,6 +307,14 @@ impl InboxItem {
         self.budget_after
     }
     #[must_use]
+    pub fn budget_verification(&self) -> BudgetVerification {
+        self.budget_after.verification()
+    }
+    #[must_use]
+    pub fn can_approve(&self) -> bool {
+        self.state.can_approve() && self.budget_verification() == BudgetVerification::Verified
+    }
+    #[must_use]
     pub const fn state(&self) -> &InboxState {
         &self.state
     }
@@ -325,7 +361,7 @@ impl Inbox {
     ///
     /// # Errors
     ///
-    /// Refuses gaps/replays, digest changes, unverified context and malformed
+    /// Refuses gaps/replays, digest changes, missing evidence and malformed
     /// movement disclosures. The cursor advances only after the item converges.
     pub fn consume(
         &mut self,
@@ -456,10 +492,7 @@ fn build_item(
         return Err(InboxError::UnsupportedDisclosure);
     }
     let budget_after = agent.verified_budget_after(record, sequence)?;
-    if budget_after.rung < Rung::Committed
-        || budget_after.evidence_digest == [0; 32]
-        || budget_after.observed_at_sequence > sequence
-    {
+    if budget_after.evidence_digest == [0; 32] || budget_after.observed_at_sequence > sequence {
         return Err(InboxError::UnverifiedBudget);
     }
     Ok(InboxItem {

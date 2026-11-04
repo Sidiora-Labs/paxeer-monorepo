@@ -11,7 +11,8 @@ import useApiFetch from 'lib/api/useApiFetch';
 import { ZERO_ADDRESS } from 'toolkit/utils/consts';
 
 import getLogs from '../lib/getLogs';
-import { checkScanCancellation, latestPermissionEvents } from './approvalScan';
+import { ApprovalScanError, checkScanCancellation, latestPermissionEvents } from './approvalScan';
+import type { ApprovalScanIssue } from './approvalScan';
 import useGetBlockTimestamp from './useGetBlockTimestamp';
 
 async function getLimitedNftAllowancesFromApprovals(
@@ -127,84 +128,56 @@ function useGetNftAllowances() {
     chain: EssentialDappsChainConfig | undefined,
     signal?: AbortSignal,
   ) => {
-    const allowances: Array<AllowanceType> = [];
-
-    try {
-      await Promise.all(
-        tokenAddresses.map(async(tokenAddress) => {
-          if (signal?.aborted) {
-            throw new DOMException('Aborted', 'AbortError');
-          }
-
-          const tokenData = await apiFetch('general:token', {
-            pathParams: { hash: tokenAddress },
-            chain,
-            fetchParams: {
-              signal,
-            },
-          }) as TokenInfo;
-
-          const tokenApprovals = approvals.filter(
-            (approval) => getAddress(approval.address) === tokenAddress,
-          );
-          const tokenApprovalsForAll = approvalsForAll.filter(
-            (approval) => getAddress(approval.address) === tokenAddress,
-          );
-
-          if (tokenApprovals.length > 0 || tokenApprovalsForAll.length > 0) {
-            const unlimitedAllowances =
-              await getNftUnlimitedAllowancesFromApprovals(
-                tokenAddress,
-                searchQuery,
-                tokenApprovalsForAll,
-                publicClient,
-              );
-            const limitedAllowances = await getLimitedNftAllowancesFromApprovals(
-              tokenAddress,
-              searchQuery,
-              tokenApprovals,
-              publicClient,
-            );
-            const allAllowances = [
-              ...limitedAllowances,
-              ...unlimitedAllowances,
-            ].filter(
-              (allowance): allowance is ContractAllowanceType =>
-                allowance !== undefined,
-            );
-
-            return Promise.all(
-              allAllowances.map(async(allowance) => {
-                const timestampMs = await getBlockTimestamp(chain, allowance.blockNumber as bigint, signal);
-
-                if (allowance?.allowance && allowance?.allowance !== BigInt(0)) {
-                  allowances.push({
-                    type: 'ERC-721',
-                    allowance: allowance?.allowance === BigInt(-1) ? 'Unlimited' : allowance?.allowance.toString(),
-                    address: tokenAddress,
-                    name: tokenData.name || undefined,
-                    symbol: tokenData.symbol || undefined,
-                    tokenIcon: tokenData.icon_url || undefined,
-                    tokenReputation: tokenData.reputation,
-                    transactionId: allowance?.transactionId,
-                    timestamp: timestampMs,
-                    spender: allowance?.spender,
-                    tokenId: allowance?.tokenId,
-                  });
-                }
-              }),
-            );
-          }
-
-          return undefined;
-        }),
-      );
-    } catch (error) {
-      checkScanCancellation(signal, error);
-      throw error;
-    }
-
     checkScanCancellation(signal);
+    const scans = await Promise.allSettled(tokenAddresses.map(async(tokenAddress): Promise<Array<AllowanceType>> => {
+      checkScanCancellation(signal);
+      const tokenData = await apiFetch('general:token', {
+        pathParams: { hash: tokenAddress }, chain, fetchParams: { signal },
+      }) as TokenInfo;
+      checkScanCancellation(signal);
+
+      const tokenApprovals = approvals.filter((approval) => getAddress(approval.address) === tokenAddress);
+      const tokenApprovalsForAll = approvalsForAll.filter((approval) => getAddress(approval.address) === tokenAddress);
+      const unlimitedAllowances = await getNftUnlimitedAllowancesFromApprovals(
+        tokenAddress, searchQuery, tokenApprovalsForAll, publicClient,
+      );
+      const limitedAllowances = await getLimitedNftAllowancesFromApprovals(
+        tokenAddress, searchQuery, tokenApprovals, publicClient,
+      );
+      checkScanCancellation(signal);
+      const allAllowances = [ ...limitedAllowances, ...unlimitedAllowances ].filter(
+        (allowance): allowance is ContractAllowanceType => allowance !== undefined,
+      );
+      return Promise.all(allAllowances.map(async(allowance): Promise<AllowanceType> => {
+        const timestamp = await getBlockTimestamp(chain, allowance.blockNumber, signal);
+        checkScanCancellation(signal);
+        return {
+          type: 'ERC-721',
+          allowance: allowance.allowance === BigInt(-1) ? 'Unlimited' : allowance.allowance?.toString(),
+          address: tokenAddress,
+          name: tokenData.name || undefined,
+          symbol: tokenData.symbol || undefined,
+          tokenIcon: tokenData.icon_url || undefined,
+          tokenReputation: tokenData.reputation,
+          transactionId: allowance.transactionId,
+          timestamp,
+          spender: allowance.spender,
+          tokenId: allowance.tokenId,
+        };
+      }));
+    }));
+    checkScanCancellation(signal);
+    const allowances: Array<AllowanceType> = [];
+    const issues: Array<ApprovalScanIssue> = [];
+    scans.forEach((scan, index) => {
+      if (scan.status === 'fulfilled') {
+        allowances.push(...scan.value);
+      } else {
+        checkScanCancellation(signal, scan.reason);
+        issues.push({ kind: 'scan', address: tokenAddresses[index], cause: scan.reason });
+      }
+    });
+    if (issues.length) throw new ApprovalScanError(allowances, issues);
     return allowances;
   }, [ apiFetch, getBlockTimestamp ]);
 }

@@ -1,0 +1,22 @@
+// @vitest-environment jsdom
+
+import { test } from 'vitest';
+
+import {
+  attestationWireFixturesSurviveListenerReopening,
+  componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges,
+  ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification,
+  libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks,
+  manifestTypegenPrecedesTypecheck,
+  settlementSubmissionReopensThroughBroadcastRevertAndConfirmation,
+  solanaRecipientFixtureReopensThroughRpcAndHook,
+} from './repair-22-33-266.proofs';
+
+// These are executable callbacks; test(function) alone registers a todo in Vitest 4.
+test(manifestTypegenPrecedesTypecheck.name, manifestTypegenPrecedesTypecheck);
+test(attestationWireFixturesSurviveListenerReopening.name, attestationWireFixturesSurviveListenerReopening, 15000);
+test(componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges.name, componentReleaseConsumesPersistedSubmissionAndRefusesSignedFieldChanges);
+test(ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification.name, ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification);
+test(libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks.name, libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks);
+test(settlementSubmissionReopensThroughBroadcastRevertAndConfirmation.name, settlementSubmissionReopensThroughBroadcastRevertAndConfirmation);
+test(solanaRecipientFixtureReopensThroughRpcAndHook.name, solanaRecipientFixtureReopensThroughRpcAndHook);

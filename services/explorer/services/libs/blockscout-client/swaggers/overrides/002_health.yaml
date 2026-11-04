@@ -17,18 +17,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnhealthyHealthCheckResponse'
-  /api/v1/health:
-    get:
-      tags:
-        - Health
-      operationId: HealthV1
-      responses:
-        "200":
-          description: A successful response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/v1HealthCheckResponse'
 components:
   schemas:
     LatestBlock:
@@ -138,21 +126,3 @@ components:
           $ref: '#/components/schemas/HealthCheckResponseMetadata'
         data:
           $ref: '#/components/schemas/HealthCheckResponseData'
-    v1Data:
-      type: object
-      properties:
-        cache_latest_block_inserted_at:
-          type: string
-        cache_latest_block_number:
-          type: string
-        latest_block_inserted_at:
-          type: string
-        latest_block_number:
-          type: string
-    v1HealthCheckResponse:
-      type: object
-      properties:
-        healthy:
-          type: boolean
-        data:
-          $ref: '#/components/schemas/v1Data'

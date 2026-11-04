@@ -31,10 +31,10 @@ fn real_node_prepare_builds_no_kernel_daemon() {
     }
 
     let (setup, prepare) = script
-        .split_once("run-real-node-tests() {\n")
+        .split_once("run_real_node_tests() {\n")
         .expect("declare the prepare function");
     assert!(setup.contains("make \"$test_target\"\n    exit 0"));
-    assert!(script.trim_end().ends_with("\nrun-real-node-tests"));
+    assert!(script.trim_end().ends_with("\nrun_real_node_tests"));
     let mut remaining = prepare;
     for required in [
         "tests/lxp_test_program_admission",

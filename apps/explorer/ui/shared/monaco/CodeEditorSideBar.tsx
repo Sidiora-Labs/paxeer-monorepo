@@ -11,12 +11,14 @@ import { shift, cmd } from 'toolkit/utils/htmlEntities';
 
 import CodeEditorFileExplorer from './CodeEditorFileExplorer';
 import CodeEditorSearch from './CodeEditorSearch';
+import type { EditorModels } from './useCodeEditorModels';
 import useThemeColors from './utils/useThemeColors';
 
 interface Props {
   monaco: Monaco | undefined;
   editor: monaco.editor.IStandaloneCodeEditor | undefined;
   data: Array<File>;
+  models: EditorModels;
   onFileSelect: (index: number, lineNumber?: number) => void;
   selectedFile: string;
   mainFile?: string;
@@ -24,7 +26,7 @@ interface Props {
 
 export const CONTAINER_WIDTH = 250;
 
-const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, mainFile }: Props) => {
+const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, mainFile, models }: Props) => {
 
   const [ isStuck, setIsStuck ] = React.useState(false);
   const [ isDrawerOpen, setIsDrawerOpen ] = React.useState(false);
@@ -152,7 +154,7 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
             <CodeEditorSearch
               data={ data }
               onFileSelect={ handleFileSelect }
-              monaco={ monaco }
+              models={ models }
               isInputStuck={ isStuck }
               isActive={ activeTab === 'search' }
               setActionBarRenderer={ setActionBarRenderer }

@@ -1,0 +1,74 @@
+[repair.22.33.1464]
+audit = "22.30.84"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+implementation = "Exact request targets, total TLS deadlines, shared strict HTTP framing, durable per-job tracking and expired fences, finalized retention eligibility, and cancellable process I/O under one invocation deadline."
+qualification = "The runner records the exact candidate revision, command, exit and private log in the hf-build/hf-done ledger."
+baseline = "Attempt 1 verify: eight cases passed; retention and signed TLS listener cases failed with ApplicationError(1). This continuation preserves those assertions and uses native dispatch writers for all market state transitions."
+wiring_request = "services/platform/hosted/paxai-worker/Cargo.toml, domain 8: add a pinned safe process-group signaling dependency so process::Invocation can kill descendants as well as the direct child without disabling the workspace unsafe-code check."
+producer_consumer_repair = "discovery::FinalizedAuthority and membership::MembershipObserver decode the production joint F07/F08 section through reputation_transition::split_joint; tests retain the entire native dispatch output instead of reconstructing sections."
+
+[finding.worker-request-target-injection]
+test = "worker_request_target_injection_sends_no_bytes"
+
+[finding.worker-client-total-deadline]
+test = "worker_client_total_deadline_bounds_a_peer_making_read_progress"
+
+[finding.worker-client-framing]
+test = "worker_client_framing_rejects_ambiguous_and_truncated_tls_responses"
+
+[finding.worker-retention-unbounded]
+test = "worker_retention_preserves_unresolved_admissions_and_expired_fences_after_reopen"
+
+[finding.worker-adapter-timeout-incomplete]
+test = "worker_adapter_deadline_includes_descendant_pipe_completion"
+remaining = "Process-group signaling requires the manifest wiring request; invocation I/O is cancelled and the direct child is reaped."
+
+[qualification.previous_attempt]
+revision = "46fcd2927ccdf6212cc70544cde436f8fb43d029"
+command = "cg spec done 22.33.1464 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eight tests passed; retention and signed-listener cases returned BAD_VERSION (ApplicationError(1)) because the existing fixture decodes the native CREATE joint reputation/admission section as AdmissionTable; discovery.rs:134 and membership.rs:289 use the same direct decoding."
+resolution = "Continuation repairs the in-scope authority readers and replaces direct fixture mutation with native CREATE, enrollment, evaluator scheduling, approval, admission, funding, activation, opening and task dispatch writers."
+
+[finding.worker-server-framing]
+test = "worker_server_framing_rejects_conflicts_and_accepts_a_signed_tls_probe"
+
+[finding.worker-runner-timeout-incomplete]
+test = "worker_runner_deadline_bounds_retained_pipes_and_preserves_ambiguity"
+recovery_test = "worker_retention_preserves_unresolved_admissions_and_expired_fences_after_reopen"
+remaining = "Process-group signaling requires the manifest wiring request; invocation I/O is cancelled and the direct child is reaped."
+
+[gotcha.production_joint_section]
+area = "rust"
+symptom = "The worker rejected production-created authority before reaching store and TLS assertions."
+cause = "A reputation/admission section was decoded as a bare admission table."
+do = "Use the production joint-section decoder and preserve all writer-emitted sections in fixtures."
+
+[qualification.continuation]
+revision = "7a972693fbe34b7408c7d6ae7257aa81b3c5fcea"
+command = "cargo build --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Cargo cannot load the platform workspace because services/platform/hosted/paxeer/Cargo.toml is absent; hf-done then refuses until hf-build passes, so verification did not run."
+assumption = "The missing workspace manifest is an unrelated environment failure outside task scope; it is recorded without repair or another unchanged gate run."
+
+[gotcha.missing_workspace_manifest]
+area = "build"
+symptom = "A focused member build stops before compilation when another workspace member manifest is absent."
+cause = "Cargo loads all workspace member manifests before selecting the focused target."
+do = "Record the exact gate evidence and request the owning environment restore the out-of-scope workspace input."
+
+[qualification.restored_workspace]
+revision = "1aa55b3b59dbe88cbb74e02a36207d46ed0a5da8"
+command = "cg spec done 22.33.1464 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed and eight tests passed; the two native-state journeys refused enrollment with F02_DEADLINE_INVALID before exercising retention or the TLS listener."
+resolution = "Enroll within DEFAULT_PROPOSAL_LIFETIME of the unchanged metadata expiry, then schedule evaluators at subsequent heights before the epoch-zero approval window closes."
+
+[gotcha.native_enrollment_window]
+area = "test"
+symptom = "Native enrollment refused the production-written fixture before the worker path ran."
+cause = "The fixture's consent expiry exceeded the production proposal lifetime at its enrollment height."
+do = "Derive the enrollment height from the intended expiry and production lifetime; keep subsequent admission operations within their approval window."
