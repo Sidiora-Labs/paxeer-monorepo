@@ -1,7 +1,6 @@
 //! History reads over JSON-RPC.
 
-use crate::lni::schema::Version;
-use crate::rpc::{evidence::RootSelector, Head};
+use crate::rpc::{evidence::RootSelector, Head, Version};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::{Proof, MAX_DEPTH};
 use layerx_types::verify::VerificationLevel;

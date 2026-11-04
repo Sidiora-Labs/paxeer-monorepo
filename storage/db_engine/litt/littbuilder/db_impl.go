@@ -170,6 +170,10 @@ func (d *db) BuildTable(config litt.TableConfig) (litt.Table, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
+	if d.closed || d.stopped.Load() {
+		return nil, fmt.Errorf("database is closing or closed")
+	}
+
 	// Forget any dropped tables so a previously dropped name can be reused.
 	d.pruneDroppedTables()
 

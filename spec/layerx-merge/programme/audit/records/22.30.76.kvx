@@ -1,0 +1,794 @@
+[audit.22.30.76]
+task = "22.30.76"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 70
+findings = 34
+docs_reviewed = 3
+upgrade_ready = false
+blocking = ["committed-rpc-rung", "mirror-request-shape", "mirror-response-shape", "wind-down-native-route", "stream-checkpoint-before-consumption", "portable-unanchored-finality", "gateway-receipt-key-provisioning", "value-loop-crash-replay"]
+note = "The slice combines Go native program/receipt clients, Human and Agent adapters, and beta deployment tooling. The package interface lists are capped at 400 produced and 400 consumed rows although their totals are 903 and 1130; direct producer/transport/consumer mismatches are identified by registry row. Negative retirement assertions are distinguished from reachable retired components."
+
+[file.01]
+path = "sdk/platform/go/agent_envelope_major2_test.go"
+lines = 378
+verdict = "clean"
+note = "Daemon version-1 golden requests, schema-based response refusals and HTTP transport error handling agree with decision 2198 despite the historical filename."
+
+[file.02]
+path = "sdk/platform/go/agent_operation_envelope_test.go"
+lines = 580
+verdict = "clean"
+note = "Reviewed operation-by-operation envelope, idempotency and typed failure coverage against the daemon API; the Agent daemon /rpc is its live application endpoint."
+
+[file.03]
+path = "sdk/platform/go/amount.go"
+lines = 84
+verdict = "clean"
+note = "Unsigned 128-bit amount arithmetic and decimal encoding reject overflow and noncanonical input; amounts remain integer quantities without floating-point conversion."
+
+[file.04]
+path = "sdk/platform/go/chains.go"
+lines = 436
+verdict = "clean"
+note = "Chain precompile method/event ABI, uint32 domain IDs, derived virtual chain IDs and /chain/id endpoint construction agree with tenant-domain RPC contracts."
+
+[file.05]
+path = "sdk/platform/go/chains_test.go"
+lines = 333
+verdict = "clean"
+note = "Reviewed selectors, event topic layout, integer bounds and virtual endpoint fixtures against chains.go and precompile domain behavior."
+
+[file.06]
+path = "sdk/platform/go/client.go"
+lines = 158
+verdict = "clean"
+note = "Human and Agent operation validation, idempotency requirements, transport dispatch and JSON decode errors preserve the declared API boundary."
+
+[file.07]
+path = "sdk/platform/go/cmd/conformance/main.go"
+lines = 522
+verdict = "clean"
+note = "Reviewed conformance vector loaders, native receipt and capability checks, deterministic output and nonzero refusal behavior; no runtime repair claim is made."
+
+[file.08]
+path = "sdk/platform/go/cmd/conformance/vectors_test.go"
+lines = 150
+verdict = "clean"
+note = "Vector sorting, exact fixture coverage and golden conformance output checks use the declared fixture schemas."
+
+[file.09]
+path = "sdk/platform/go/committed.go"
+lines = 660
+verdict = "clean"
+note = "Reviewed canonical Comet header hashing, vote signatures, voting power, adjacent-header and inclusion proofs; validator inputs require independent trust, which the portable wrapper lacks as recorded separately."
+
+[file.10]
+path = "sdk/platform/go/committed_inclusion_test.go"
+lines = 261
+verdict = "issues"
+note = "Real recorded node evidence is present, but the test rewrites its committed receipt transport rung before verification."
+
+[file.11]
+path = "sdk/platform/go/committed_receipt_test.go"
+lines = 495
+verdict = "clean"
+note = "Reviewed local Merkle/Comet fixture construction and signature, quorum, index and result refusal cases; these establish proof consistency under the supplied validators, not an external network anchor."
+
+[file.12]
+path = "sdk/platform/go/conformance_vectors_test.go"
+lines = 396
+verdict = "clean"
+note = "Amount, native capability, canonical payload and SDK conformance vectors preserve exact encodings and negative cases."
+
+[file.13]
+path = "sdk/platform/go/errors.go"
+lines = 136
+verdict = "clean"
+note = "Typed SDK error codes and retry classification retain the current API error distinctions; unsafe automatic retry is not introduced for non-idempotent operations."
+
+[file.14]
+path = "sdk/platform/go/evm_metadata.go"
+lines = 33
+verdict = "clean"
+note = "The metadata selectors and native 0x101d target agree with the current precompile ABI; the wind-down implementation disagrees with this accurate metadata as recorded on its implementation."
+
+[file.15]
+path = "sdk/platform/go/generated.go"
+lines = 799
+verdict = "generated"
+note = "Generated from LayerX Agent API and Human API schemas; reviewed as generated catalogue output rather than claiming a manual review of generated declarations."
+
+[file.16]
+path = "sdk/platform/go/http.go"
+lines = 632
+verdict = "issues"
+note = "Human/daemon authorization, bounded response reads, redirect refusal and schema handling reviewed; default request duration remains unbounded."
+
+[file.17]
+path = "sdk/platform/go/human_catalogue_test.go"
+lines = 164
+verdict = "clean"
+note = "Human operation catalogue checks align routes, validation, amounts and envelope shape with the Human API schema."
+
+[file.18]
+path = "sdk/platform/go/kernel_verifier_retired_test.go"
+lines = 67
+verdict = "clean"
+note = "Tests explicitly refuse kernel receipts through the native verifier and assert only receipted/committed rungs; retired names are negative assertions."
+
+[file.19]
+path = "sdk/platform/go/mirror.go"
+lines = 348
+verdict = "issues"
+note = "Subprocess file ownership, digest checks, time/output bounds and error handling reviewed; request and response shapes differ from the actual CLI."
+
+[file.20]
+path = "sdk/platform/go/mirror_generated.go"
+lines = 37
+verdict = "generated"
+note = "Generated from sdk/platform/schema/mirror-v2.kvx; schema constants treated as generated output. Current CLI transport drift is recorded against mirror.go."
+
+[file.21]
+path = "sdk/platform/go/native_capabilities.go"
+lines = 275
+verdict = "clean"
+note = "Reviewed canonical capability ordering, duplicate refusal, counts, byte limits, program-account derivation and receipt-backed balance capability encodings."
+
+[file.22]
+path = "sdk/platform/go/native_capabilities_test.go"
+lines = 261
+verdict = "clean"
+note = "Native capability corpus exercises all variants, canonical ordering and malformed/bounded input refusals against the native payload format."
+
+[file.23]
+path = "sdk/platform/go/native_program_call.go"
+lines = 133
+verdict = "clean"
+note = "Reviewed native call envelope, ABI versions, method/argument bounds and canonical decode/reencode behavior; kernel payload bytes are embedded in the native precompile call rather than sent to a daemon."
+
+[file.24]
+path = "sdk/platform/go/native_program_call_test.go"
+lines = 56
+verdict = "clean"
+note = "Call fixture tests assert exact bytes, guest ABI refusal and tampering failures for the declared native call payload."
+
+[file.25]
+path = "sdk/platform/go/native_program_lifecycle.go"
+lines = 474
+verdict = "issues"
+note = "Deploy/upgrade payloads and EVM preparation reviewed; deployment size ceiling and wind-down transport require changes."
+
+[file.26]
+path = "sdk/platform/go/native_program_lifecycle_test.go"
+lines = 280
+verdict = "clean"
+note = "Lifecycle fixtures prove payload codecs and binding refusals; live wind-down route coverage is deficient in the transport test recorded separately."
+
+[file.27]
+path = "sdk/platform/go/occupancy_payers_test.go"
+lines = 193
+verdict = "issues"
+note = "Occupancy payer account/root codec vectors reviewed; tests exercise internal helpers without reaching the public verification function that currently ignores payers."
+
+[file.28]
+path = "sdk/platform/go/operation_catalog_test.go"
+lines = 165
+verdict = "clean"
+note = "Catalogue and metadata checks accurately declare root RPC program operations, 0x101d selectors and Human routes; executable wind-down divergence is recorded on the implementation and transport test."
+
+[file.29]
+path = "sdk/platform/go/operation_keys_test.go"
+lines = 122
+verdict = "clean"
+note = "Operation-specific idempotency-key generation and canonical key validation agree with the catalogue and bounded key grammar."
+
+[file.30]
+path = "sdk/platform/go/portable_catalogue_test.go"
+lines = 174
+verdict = "clean"
+note = "Portable generated catalogue checks compare operation names, idempotency and EVM metadata against the shared current operation catalogue."
+
+[file.31]
+path = "sdk/platform/go/portable_journeys_test.go"
+lines = 29
+verdict = "clean"
+note = "Retired journey names occur only as explicit absence assertions while active Human balance/intent/move operations are required."
+
+[file.32]
+path = "sdk/platform/go/portable_receipt.go"
+lines = 299
+verdict = "issues"
+note = "Strict portable JSON grammar, native signed receipt checks and export bounds reviewed; committed evidence lacks an independently trusted consensus anchor."
+
+[file.33]
+path = "sdk/platform/go/portable_receipt_test.go"
+lines = 250
+verdict = "issues"
+note = "Portable round-trip and mutation cases reviewed; private validator fixtures do not establish the trusted-network finality boundary."
+
+[file.34]
+path = "sdk/platform/go/program_transport_retired_test.go"
+lines = 171
+verdict = "issues"
+note = "Old REST refusal is asserted, but the test accepts wind-down failing before any native RPC request."
+
+[file.35]
+path = "sdk/platform/go/programs.go"
+lines = 2847
+verdict = "issues"
+note = "Native EVM preparation, activity lookup, simulation and legacy helper code reviewed in full; root signing-domain assumption and public verification claims remain inconsistent."
+
+[file.36]
+path = "sdk/platform/go/programs_evm_test.go"
+lines = 381
+verdict = "clean"
+note = "Reviewed root RPC transaction preparation, ABI view and native receipt activity fixtures; current root-only examples do not resolve the tenant configuration finding on programs.go."
+
+[file.37]
+path = "sdk/platform/go/programs_http_test.go"
+lines = 995
+verdict = "issues"
+note = "Reviewed existing HTTP/native terminal corpus cases; public verification fixtures still use a historical kernel document shape incompatible with the current verifier."
+
+[file.38]
+path = "sdk/platform/go/receipt_generated.go"
+lines = 40
+verdict = "generated"
+note = "Generated from sdk/platform/generators/receipt.kvx; receipt versions, domains, check names and verification-rung constants treated as generated schema output."
+
+[file.39]
+path = "sdk/platform/go/secret.go"
+lines = 55
+verdict = "issues"
+note = "Secret copies, redaction, destruction and mutex behavior reviewed; invoking consumer code under the mutex permits a cleanup deadlock."
+
+[file.40]
+path = "sdk/platform/go/sequencer_receipt_test.go"
+lines = 424
+verdict = "clean"
+note = "Reviewed receipt-key height ranges, receipt JSON fields, canonical native receipt bytes, signatures, logs and refusal vectors; producer committed-rung acceptance gap recorded on verify.go."
+
+[file.41]
+path = "sdk/platform/go/stream.go"
+lines = 151
+verdict = "issues"
+note = "Reviewed cursor validation, duplicate handling, page shapes and callback loop; acknowledgment ordering risks event loss and history retention is unbounded."
+
+[file.42]
+path = "sdk/platform/go/verify.go"
+lines = 974
+verdict = "issues"
+note = "Reviewed protocol decoding, native signing-key verification, EVM log projection and legacy lifecycle entry point; committed transport rung and legacy success path findings apply."
+
+[file.43]
+path = "sdk/platform/go/verify_fixture_test.go"
+lines = 55
+verdict = "clean"
+note = "Historical ProgramReceiptOutcome V3 codec vector and strict hex/32-byte fixture helpers reviewed. This unit vector does not exercise the public native receipt verification path."
+
+[file.44]
+path = "services/platform/hosted/tests/beta-cluster.sh"
+lines = 3664
+verdict = "issues"
+note = "Full fresh, retained, image, material, manifest and readiness paths reviewed; retired node bootstrap, retained artifact, image context and dirty provenance findings apply."
+
+[file.45]
+path = "services/platform/hosted/tests/beta-images.sh"
+lines = 185
+verdict = "issues"
+note = "Shared image naming, build arguments, contexts, stages and paxd build plan reviewed; image selections still include the retired standalone node plane."
+
+[file.46]
+path = "services/platform/hosted/tests/candidate-provenance.py"
+lines = 250
+verdict = "clean"
+note = "Reviewed bounded immutable publication provenance, source revision, digest and embedded reference data handling; compressed embedded data is reference fixture material."
+
+[file.47]
+path = "services/platform/hosted/tests/custody-identity.py"
+lines = 37
+verdict = "clean"
+note = "Despite its historical name, this verifies disposable native RPC genesis, chain and CA pins and exercises altered-identity refusals; it does not execute retired custody transfers."
+
+[file.48]
+path = "services/platform/hosted/tests/mirror-identity.py"
+lines = 54
+verdict = "issues"
+note = "Solana identity encoding and input handling reviewed; public half is trusted without proving it matches the signing seed."
+
+[file.49]
+path = "services/platform/hosted/tests/paxeer-identity.py"
+lines = 68
+verdict = "clean"
+note = "Native disposable identity document binds RPC origins, EVM chain, Comet genesis and CA pins with strict identity validation."
+
+[file.50]
+path = "services/platform/hosted/tests/publication-policy.py"
+lines = 48
+verdict = "clean"
+note = "Only native treasury policy creation remains; strict domain/hex checks, exclusive no-follow file creation and fsync preserve policy integrity. Missing retired authorization producer is correctly not restored."
+
+[file.51]
+path = "services/platform/hosted/tests/publish-images.sh"
+lines = 639
+verdict = "clean"
+note = "Reviewed release candidate matching, immutable registry digests, source/context preparation and publication verification/refusal paths; remote publication was not invoked."
+
+[file.52]
+path = "services/platform/hosted/tests/sequencer-pins.py"
+lines = 61
+verdict = "issues"
+note = "History decoding and webhook projections reviewed; gateway provisioning supplies the legacy pin files instead of its native ReceiptKeyList configuration."
+
+[file.53]
+path = "services/platform/hosted/tests/test-beta-image-digest.sh"
+lines = 77
+verdict = "clean"
+note = "Digest regression checks exercise immutable image identity and refusal cases without weakening release provenance."
+
+[file.54]
+path = "services/platform/hosted/tests/test_beta_relay_archive_retired.py"
+lines = 50
+verdict = "clean"
+note = "Retired archive references occur in negative assertions that enforce its deletion from image/deployment paths."
+
+[file.55]
+path = "services/platform/hosted/tests/test_plain_listener_targets.py"
+lines = 22
+verdict = "clean"
+note = "Verifies required plain-listener targets without reinstating removed daemon test harnesses."
+
+[file.56]
+path = "services/platform/hosted/tests/test_platform_make_targets.py"
+lines = 38
+verdict = "clean"
+note = "Make target assertions preserve required active platform gates and forbid the retired test targets they name."
+
+[file.57]
+path = "services/platform/hosted/tests/test_retired_agent_boundary_node_tests.py"
+lines = 18
+verdict = "clean"
+note = "Negative file and symlink checks protect deletion of obsolete standalone agent boundary node tests."
+
+[file.58]
+path = "services/platform/hosted/tests/test_retired_authority_node_tests.py"
+lines = 18
+verdict = "clean"
+note = "Negative existence checks protect removal of old authority node test targets."
+
+[file.59]
+path = "services/platform/hosted/tests/test_retired_core_kernel_tests.py"
+lines = 26
+verdict = "clean"
+note = "Negative harness/manifest checks enforce retirement while preserving required current tests."
+
+[file.60]
+path = "services/platform/hosted/tests/test_retired_gateway_helpers.py"
+lines = 28
+verdict = "clean"
+note = "Checks obsolete gateway helpers stay deleted and required replacement binaries remain declared."
+
+[file.61]
+path = "services/platform/hosted/tests/test_retired_gateway_lifecycle.py"
+lines = 42
+verdict = "clean"
+note = "Retired lifecycle file/test assertions are negative checks; current receipt and SDK verifier binaries are explicitly retained."
+
+[file.62]
+path = "services/platform/hosted/tests/test_retired_guarantor_scripts.py"
+lines = 87
+verdict = "clean"
+note = "Retirement assertions forbid removed guarantor execution scripts and stale wiring while retaining unrelated platform coverage."
+
+[file.63]
+path = "services/platform/hosted/tests/test_retired_kernel_scripts.py"
+lines = 30
+verdict = "clean"
+note = "Negative script and manifest assertions keep the removed standalone kernel test entry points retired."
+
+[file.64]
+path = "services/platform/hosted/tests/test_retired_storage_admission.py"
+lines = 19
+verdict = "clean"
+note = "Negative target/file checks enforce removal of the obsolete storage admission harness."
+
+[file.65]
+path = "services/platform/hosted/tests/test_retired_storage_keeper.py"
+lines = 17
+verdict = "clean"
+note = "Negative target/file checks enforce removal of the obsolete storage keeper harness."
+
+[file.66]
+path = "services/platform/hosted/tests/test_sequencer_pins.py"
+lines = 89
+verdict = "issues"
+note = "Malformed history and exact pin-file tests reviewed; no gateway configuration consumer is exercised."
+
+[file.67]
+path = "services/platform/hosted/tests/test_workspace_manifest.py"
+lines = 130
+verdict = "clean"
+note = "Workspace manifest policy checks preserve required current members and dependency declarations while forbidding retired harness entries."
+
+[file.68]
+path = "services/platform/hosted/tests/topology-check.sh"
+lines = 907
+verdict = "issues"
+note = "Both YAML parsers, service aliases, ports, ingress/egress and DNS checks reviewed; valid short Kubernetes DNS names escape in-cluster policy checking."
+
+[file.69]
+path = "services/platform/hosted/tests/topology-regressions.py"
+lines = 274
+verdict = "issues"
+note = "Parser parity and policy fault injections reviewed; baseline still mandates the retired standalone node relay and handover topology."
+
+[file.70]
+path = "tools/bringup/value-loop.sh"
+lines = 184
+verdict = "issues"
+note = "RPC probe and committed-height migration is present; LNI submission, authorized batches and crash-window payment replay remain."
+
+[finding.committed-rpc-rung]
+file = "sdk/platform/go/verify.go"
+line = 783
+class = "interface-mismatch"
+severity = "high"
+observed = "verifySequencerFields accepts only rung receipted. rpc/sequencer_receipt.go:325 emits the same signed receipt with rung committed and blockNumber/blockHash after block inclusion. Programs.Activity passes that response to VerifySequencerReceipt, so a finalized activity becomes a verification error."
+expected = "The pax_sequencerReceipt producer and SDK must round-trip both declared transport rungs; independently verified block evidence must determine whether the SDK promotes its authenticated result to committed."
+proposal = "Update sdk/platform/go/verify.go and programs.go to accept the node committed transport view while verifying the signed receipt, retain its block coordinate, and require trusted inclusion evidence for commitment. Exercise unchanged real RPC responses through Activity and portable export."
+owner_domain = 8
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.rewritten-committed-fixture]
+file = "sdk/platform/go/committed_inclusion_test.go"
+line = 174
+class = "test-gap"
+severity = "medium"
+observed = "TestCommittedInclusionBindsTheWrappedTransaction checks the recorded RPC rung is committed, then rewrites receiptEnvelope[rung] to receipted before calling VerifySequencerReceipt. The fixture no longer exercises the response the node actually emits."
+expected = "A real-producer conformance test must preserve transport fields and prove the consumer accepts the producer response without changing the recorded rung."
+proposal = "In sdk/platform/go/committed_inclusion_test.go preserve the recorded response byte shape, pass it through the public receipt and Activity paths, and assert that trusted inclusion evidence controls the committed result."
+owner_domain = 8
+
+[finding.mirror-request-shape]
+file = "sdk/platform/go/mirror.go"
+line = 179
+class = "interface-mismatch"
+severity = "high"
+observed = "VerifyReceipt sends evidence kind receipt with canonical_hex; VerifyState sends kind state with canonical_hex and proof_hex. layerx-mirror-verify.rs:63 defines a deny_unknown_fields enum accepting receipt with index or committed, so both Go requests are rejected before verification."
+expected = "The SDK subprocess request must match the actual mirror CLI evidence variants, coordinates, field names and bounds, including the receipt index required by the producer."
+proposal = "Align sdk/platform/go/mirror.go and sdk/platform/schema/mirror-v2.kvx with services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs. Expose the required receipt index or committed coordinate and prove both operations against the real executable."
+owner_domain = 8
+interface = "11.cli-mirror-verify"
+
+[finding.mirror-response-shape]
+file = "sdk/platform/go/mirror.go"
+line = 279
+class = "interface-mismatch"
+severity = "high"
+observed = "The Go mirror response requires decimal batchNumber, headerDigest and checkpointLevel unavailable. The CLI report at layerx-mirror-verify.rs:228 emits committedHeight, committedBlockHash and level Committed, omits those required Go fields, and allows null evidenceDigest for committed evidence."
+expected = "A successful real CLI response must decode into the SDK result with the same committed coordinate, optional evidence digest and verification level, without inventing absent fields."
+proposal = "Change sdk/platform/go/mirror.go and the mirror schema result model to the current CLI report, validate height/hash against the requested evidence, and add real subprocess round-trips for receipt and committed responses."
+owner_domain = 8
+interface = "11.cli-mirror-verify"
+
+[finding.wind-down-native-route]
+file = "sdk/platform/go/native_program_lifecycle.go"
+line = 416
+class = "interface-mismatch"
+severity = "high"
+observed = "Programs.WindDown still sends program.wind-down through client.Agent with signed_activity and payload. ProgramRPCTransport rejects that operation; lifecycle EVMCalldata supports deploy and upgrade only. evm_metadata.go instead advertises an eth_sendRawTransaction deprecate operation at precompile 0x101d."
+expected = "The declared Go wind-down operation must reach the native program lifecycle precompile through a signed EIP-1559 transaction, with its operation-specific authorization and receipt lifecycle."
+proposal = "Implement native transaction preparation for wind-down in sdk/platform/go/native_program_lifecycle.go and programs.go, mapping supported route/deprecate/tombstone/exit actions to precompiles/layerxprograms. Verify native selectors, authorization errors and committed activity without restoring REST or kernel submission."
+owner_domain = 8
+interface = "8.go-sdkgo-programs-winddown"
+
+[finding.wind-down-test-expects-refusal]
+file = "sdk/platform/go/program_transport_retired_test.go"
+line = 134
+class = "test-gap"
+severity = "medium"
+observed = "The RPC transport test explicitly expects ErrorInvalidArgument and zero requests for program.wind-down while the operation catalogue advertises a native deprecate transaction. This treats the missing native implementation as the expected successful retirement outcome."
+expected = "Retirement coverage must reject old ingress while proving every advertised native operation reaches the correct root RPC method and precompile selector."
+proposal = "Extend sdk/platform/go/program_transport_retired_test.go to assert wind-down prepares and broadcasts the native deprecate transaction and observes its activity, retaining the existing assertions that no retired REST request is sent."
+owner_domain = 8
+
+[finding.stream-checkpoint-before-consumption]
+file = "sdk/platform/go/stream.go"
+line = 131
+class = "restart-recovery"
+severity = "high"
+observed = "Next records every event cursor and advances stream.cursor to the end of the page before Run invokes consume. If the first callback fails and the caller persists Cursor(), reopening starts after the failed event and all unconsumed events in that page."
+expected = "A resumable consumer checkpoint must describe successfully acknowledged consumption; callback failure and restart must preserve all events that were not successfully consumed."
+proposal = "Separate fetched and acknowledged positions in sdk/platform/go/stream.go. Advance the resumable checkpoint only after each successful callback or explicit acknowledgment, and cover a multi-event page with callback failure followed by reconstruction from the saved cursor."
+owner_domain = 8
+interface = "8.go-sdkgo-resumablestream-run"
+
+[finding.stream-unbounded-history]
+file = "sdk/platform/go/stream.go"
+line = 129
+class = "runtime-risk"
+severity = "medium"
+observed = "Every page adds all accepted cursor strings to stream.seen and no cursor is ever removed. A healthy long-running subscription retains its complete delivery history and grows memory in proportion to lifetime traffic."
+expected = "An indefinitely running resumable stream must keep bounded in-memory deduplication state while maintaining the server cursor ordering and replay guarantees."
+proposal = "Bound duplicate tracking in sdk/platform/go/stream.go to the pending page or an explicitly bounded replay window tied to acknowledged checkpoints, and exercise many pages while asserting the retained state bound."
+owner_domain = 8
+
+[finding.portable-unanchored-finality]
+file = "sdk/platform/go/portable_receipt.go"
+line = 140
+class = "security"
+severity = "high"
+observed = "PortableReceipt.verify authenticates the receipt key but takes BlockHeader, Commit, ValidatorSet and the next validator set from the untrusted portable document. VerifyCommittedReceipt proves their mutual consistency only. A holder of a valid receipted transaction can supply a private validator chain and obtain a committed result without Paxeer consensus."
+expected = "Portable committed verification must anchor the validator chain and network identity to independently trusted genesis/checkpoint data; a self-consistent validator set supplied by the proof cannot establish network finality."
+proposal = "Add a trusted chain/checkpoint or light-client state input to sdk/platform/go/portable_receipt.go and committed.go, authenticate validator evolution from that anchor, and refuse a proof signed by a fabricated validator set even when its receipt signature and all Merkle proofs are valid."
+owner_domain = 8
+
+[finding.portable-tests-no-external-anchor]
+file = "sdk/platform/go/portable_receipt_test.go"
+line = 69
+class = "test-gap"
+severity = "medium"
+observed = "Committed portable tests use locally constructed committed fixtures and the receipt-key pins as the entire trusted input. They test internal proof mutations but do not distinguish a genuine network validator set from a coherent attacker-generated replacement."
+expected = "Portable finality tests must demonstrate that committed evidence belongs to the configured Paxeer network and trusted validator history rather than merely agreeing with its own embedded keys."
+proposal = "Add independently anchored committed fixtures and adversarial replacement-validator-chain cases in sdk/platform/go/portable_receipt_test.go, with explicit trusted genesis/checkpoint input and validator rotation coverage."
+owner_domain = 8
+
+[finding.deployment-payload-bound]
+file = "sdk/platform/go/native_program_lifecycle.go"
+line = 47
+class = "runtime-risk"
+severity = "medium"
+observed = "lifecycleCodeValid admits up to 1048576 Wasm bytes. EncodeNativeProgramDeploy adds a 104-byte envelope, or 108 bytes plus interface data, without enforcing the merged-network total deployment payload ceiling of 524288 bytes."
+expected = "Decision 2483 and brief network fact 6 limit the entire encoded deployment payload to 524288 bytes, including the 104-byte envelope and any additional interface framing."
+proposal = "Enforce the full encoded payload bound in sdk/platform/go/native_program_lifecycle.go for deploy and the corresponding native upgrade path, account for interface framing, and test the exact accepted boundary and first rejected byte against the precompile decoder."
+owner_domain = 8
+
+[finding.program-root-chain-hardcoded]
+file = "sdk/platform/go/programs.go"
+line = 2731
+class = "config-drift"
+severity = "medium"
+observed = "buildTransaction always sets ChainID to 0x7d and never reads eth_chainId. ProgramRPCTransport can target /chain/id, while chains.go and rpc/domain_scope_test.go declare virtual chain IDs such as 0x7735941 for /chain/1. Tenant program preparation consequently uses the root signing domain."
+expected = "A program transaction must use the chain ID of its selected tenant endpoint; root chain 125 and tenant database domains must remain distinct signing domains."
+proposal = "Resolve and validate eth_chainId or require a checked endpoint chain configuration in sdk/platform/go/programs.go. Bind prepared transactions to that endpoint and add root and /chain/1 preparation cases using the domain RPC producer."
+owner_domain = 8
+
+[finding.program-verification-claims]
+file = "sdk/platform/go/programs.go"
+line = 479
+class = "security"
+severity = "medium"
+observed = "VerifyProgramReceiptWithPayers promises occupancy-payer proofs but ignores payers and selectedProtocol. It verifies only the signed EVM receipt and transaction hash, leaving ProgramID, GuestABIVersion, Outcome, TerminalPayload and CallGraph fields of ProgramExecutionDocument unauthenticated."
+expected = "The public verification contract must identify exactly which program facts are authenticated. Integrators must not interpret a verified transaction receipt as verification of supplied program outcome or payer statements."
+proposal = "Define the native receipt and authenticated program-log result contract in sdk/platform/go/programs.go, validate any program facts exposed as verified, and remove or explicitly refuse obsolete payer-proof claims and inputs. Cover substituted program/outcome fields without reintroducing retired kernel verification."
+owner_domain = 8
+interface = "8.go-sdkgo-verifyprogramreceiptwithpayers"
+
+[finding.program-corpus-third-shape]
+file = "sdk/platform/go/programs_http_test.go"
+line = 838
+class = "test-gap"
+severity = "medium"
+observed = "TestProgramTerminalV5NativeCorpus constructs ProgramExecutionDocument with a hex kernel canonical Receipt and terminal fields, omitting RawTransaction, ReceiptKeys and TransactionHash, then expects VerifyProgramReceipt to succeed and expose ProgramOutcome. The current verifier requires a JSON EVM receipt and rejects any ProgramOutcome."
+expected = "Public SDK corpus coverage must exercise the current producer JSON receipt, raw EVM transaction, signing-key pins and authenticated program observations instead of an incompatible historical kernel execution document."
+proposal = "Migrate sdk/platform/go/programs_http_test.go public verification cases to unchanged native RPC receipt fixtures and current transaction evidence; keep terminal codec unit coverage separate and retain malformed-proof refusal assertions."
+owner_domain = 8
+
+[finding.exported-kernel-lifecycle-verifier]
+file = "sdk/platform/go/verify.go"
+line = 194
+class = "retired-reference"
+severity = "medium"
+observed = "VerifyProgramLifecycleReceipt still accepts protocol 3 module 9 version 4 canonical kernel receipts and returns Level sequencer-signed. That exported success path survives beside the merged SDK receipted/committed enumeration and the retirement of kernel receipt verification."
+expected = "The merged Go SDK must expose the receipted and committed native transaction verification levels and refuse retired kernel lifecycle receipts rather than presenting an additional successful verification rung."
+proposal = "Retire or explicitly refuse the legacy exported path in sdk/platform/go/verify.go and migrate native lifecycle callers to authenticated EVM transaction receipts. Add a refusal case for a correctly signed legacy lifecycle receipt."
+owner_domain = 8
+interface = "8.go-sdkgo-verifyprogramlifecyclereceipt"
+
+[finding.http-default-no-deadline]
+file = "sdk/platform/go/http.go"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "NewHumanHTTPTransport uses an http.Client with Timeout zero when no client is supplied. The agent envelope transport reuses it, so calls made with a background context can wait indefinitely for a server that accepts a connection and never sends a response."
+expected = "The default SDK transport must have a finite request budget so unresponsive dependencies cannot indefinitely block normal Human or Agent calls."
+proposal = "Set a documented finite default timeout in sdk/platform/go/http.go while honoring shorter caller deadlines and explicit client configuration. Exercise a stalled response for both shared transport entry points."
+owner_domain = 8
+
+[finding.secret-callback-deadlock]
+file = "sdk/platform/go/secret.go"
+line = 28
+class = "runtime-risk"
+severity = "medium"
+observed = "SecretBytes.Expose holds secret.mu while invoking arbitrary consumer code. A consumer that calls Destroy on the same secret, or re-enters Expose, deadlocks because both methods attempt to acquire the same non-reentrant mutex."
+expected = "The secret callback lifecycle must allow predictable cleanup and must not block forever when a consumer destroys the exposed secret during error handling."
+proposal = "Define safe borrow and destruction semantics in sdk/platform/go/secret.go and avoid calling the consumer while holding a mutex it can re-enter, preserving zeroization and concurrency protection. Cover callback-triggered destruction and concurrent cleanup."
+owner_domain = 8
+
+[finding.beta-retired-bootstrap]
+file = "services/platform/hosted/tests/beta-cluster.sh"
+line = 901
+class = "retired-reference"
+severity = "medium"
+observed = "The normal beta bring-up generates metadata from the layerxd container, renders its daemon arguments, invokes layerxctl over layerxd.lni.sock, provisions guarantor material and creates custody genesis. These paths and the node deployment still describe a separate sequencer and the retired custody/anchor system."
+expected = "Brief facts 1 and 2 require a single paxd BFT network with the kernel embedded; retired layerxd, LNI and custody/anchor bootstraps cannot define the upgraded hosted network."
+proposal = "Migrate services/platform/hosted/tests/beta-cluster.sh with services/platform/hosted/node/deployment.yaml to paxd-native genesis, root JSON-RPC and committed receipt readiness. Remove custody/guarantor/anchor initialization from the reachable bring-up sequence and prove fresh startup and retained-state reopening."
+owner_domain = 8
+
+[finding.beta-retained-publication-file]
+file = "services/platform/hosted/tests/beta-cluster.sh"
+line = 1486
+class = "restart-recovery"
+severity = "medium"
+observed = "publication_binding_publish requires SECRETS_DIR/publication-authorization.json when retaining material, but the fresh path creates only the treasury binding policy. publication-policy.py accepts only treasury creation and cannot create that retired authorization artifact; a retained restart of freshly generated material is refused."
+expected = "Material emitted by a successful fresh bring-up must be sufficient for its supported retained restart without demanding an artifact no active producer generates."
+proposal = "Remove the retired checkpoint-authorization requirement from services/platform/hosted/tests/beta-cluster.sh and validate retained native chain identity and treasury policy instead. Exercise the actual fresh material-save then retained reopen path."
+owner_domain = 8
+
+[finding.beta-build-contexts]
+file = "services/platform/hosted/tests/beta-cluster.sh"
+line = 427
+class = "wiring-gap"
+severity = "medium"
+observed = "build_images sends the same repository-root context.tar to every Dockerfile and never calls beta-images.sh image_context. docker/explorer-backend/Dockerfile expects mix.exs at its context root, and platform-registry-builder expects a prepared vendor/toolchain context rather than the monorepo root."
+expected = "Every advertised beta image build must receive the context declared by the shared image plan, including explorer-backend and the prepared registry builder environment."
+proposal = "Honor image_context in services/platform/hosted/tests/beta-cluster.sh, reuse the registry builder context producer, and resolve Dockerfile paths relative to each context. Validate the real image build plans for both exceptional contexts."
+owner_domain = 8
+
+[finding.beta-dirty-image-provenance]
+file = "services/platform/hosted/tests/beta-cluster.sh"
+line = 313
+class = "config-drift"
+severity = "medium"
+observed = "revision tests git status only under the obsolete root path platform. build_context includes tracked files from the full current repository, so modified sdk/platform or services/platform sources can be built with a clean revision tag despite differing from that revision."
+expected = "A locally built beta image revision label must distinguish the actual source tree from a clean committed revision whenever any included build input is modified."
+proposal = "In services/platform/hosted/tests/beta-cluster.sh derive dirty state from the actual selected build inputs or the whole tracked context and include a source-tree identity in build metadata. Cover modifications under services/platform and sdk/platform."
+owner_domain = 8
+
+[finding.beta-image-retired-components]
+file = "services/platform/hosted/tests/beta-images.sh"
+line = 22
+class = "retired-reference"
+severity = "medium"
+observed = "The shared image source table still publishes layerx-node, layerx-core-boundary and layerx-receipt-authority as runnable beta components. beta-cluster.sh selects these images for the separate daemon and authority deployment rather than the single merged paxd node."
+expected = "The beta image inventory must represent the finished merged network and its live hosted adapters, with no deployable image selection for the retired standalone kernel node and its old authority plane."
+proposal = "Update services/platform/hosted/tests/beta-images.sh alongside the native beta deployment plan, remove retired node/authority selections and retain only required hosted adapters and paxd images with accurate build contexts."
+owner_domain = 8
+
+[finding.gateway-receipt-key-provisioning]
+file = "services/platform/hosted/tests/sequencer-pins.py"
+line = 37
+class = "wiring-gap"
+severity = "high"
+observed = "manifests injects only LAYERX_GATEWAY_SEQUENCER_ID/FIRST_BATCH/LAST_BATCH_FILE and the existing gateway deployment supplies the old public-key pin. gateway/src/main.rs:820 instead loads LAYERX_GATEWAY_RECEIPT_KEYS_FILE; absent configuration leaves receipt_keys None and receipt-verifying operations return authority unavailable."
+expected = "The deployed gateway receipt producer/consumer path must receive the governed ReceiptKeyList with key IDs and inclusive height ranges required by its current verifier, including restart and rotation."
+proposal = "Replace the gateway branch of services/platform/hosted/tests/sequencer-pins.py and the gateway deployment secret projection with a native ReceiptKeyList producer and LAYERX_GATEWAY_RECEIPT_KEYS_FILE mount. Exercise startup and receipt verification under primary, rotated and retained pins; preserve the distinct current webhook key contract."
+owner_domain = 8
+
+[finding.pin-tests-no-consumer]
+file = "services/platform/hosted/tests/test_sequencer_pins.py"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "Pin tests assert the legacy layerx sequencer authorization JSON and three derived batch files but never load the generated manifest into the gateway ReceiptKeyList consumer. They therefore pass while the gateway lacks its required receipt key configuration."
+expected = "Provisioning coverage must connect generated secret files and environment names to the configuration parser and live receipt-verification path that consumes them."
+proposal = "Extend services/platform/hosted/tests/test_sequencer_pins.py to exercise manifest projection and gateway native receipt-key configuration, including persisted key rotation and wrong-height refusals, while retaining malformed-history refusal coverage."
+owner_domain = 8
+
+[finding.mirror-keypair-not-derived]
+file = "services/platform/hosted/tests/mirror-identity.py"
+line = 39
+class = "security"
+severity = "medium"
+observed = "solana_public_key returns the last 32 bytes of a 64-byte JSON keypair without deriving them from its first 32-byte signing seed or checking consistency. Its byte validation also accepts booleans as integers, allowing malformed keypair material to be reported as the deployment identity."
+expected = "The configured mirror publisher identity must be cryptographically derived from the signing seed and match the stored public half before it can bind a deployment record."
+proposal = "Validate strict integer bytes and derive the Ed25519 public key from the secret seed in services/platform/hosted/tests/mirror-identity.py, compare both halves and refuse mismatches. Add real keypair and substituted-public-half cases."
+owner_domain = 8
+
+[finding.topology-short-dns-bypass]
+file = "services/platform/hosted/tests/topology-check.sh"
+line = 686
+class = "test-gap"
+severity = "medium"
+observed = "url_edge recognizes only service.namespace.svc forms using SERVICE_HOST. Valid Kubernetes names such as redis or redis.layerx-testnet are classified offcluster and check merely notes they were not checked, bypassing service resolution and NetworkPolicy validation."
+expected = "The topology gate must resolve valid in-cluster DNS aliases relative to the caller namespace and apply the same connectivity checks to short and fully qualified service names."
+proposal = "Resolve short Kubernetes service names in services/platform/hosted/tests/topology-check.sh with caller namespace context, distinguish genuine external hosts explicitly, and add topology-regressions.py cases where denied short-name edges fail in both YAML parsers."
+owner_domain = 8
+
+[finding.topology-retired-baseline]
+file = "services/platform/hosted/tests/topology-regressions.py"
+line = 248
+class = "retired-reference"
+severity = "medium"
+observed = "The regression baseline explicitly requires a paxeer-relay container using exec socat and LAYERX_NODE_PAXEER_RELAY_PORT, and earlier asserts the standalone node handover-authority projection. Those tests preserve the separate daemon/relay deployment model of the old hosted node."
+expected = "Topology regressions must protect the merged paxd and hosted adapter connections rather than require the retired standalone node relay and handover arrangement."
+proposal = "Rebase services/platform/hosted/tests/topology-regressions.py on the native hosted deployment and actual root/tenant RPC edges, preserving parser parity, DNS, service-port and policy fault-injection assertions."
+owner_domain = 8
+
+[finding.value-loop-retired-submission]
+file = "tools/bringup/value-loop.sh"
+line = 150
+class = "retired-reference"
+severity = "medium"
+observed = "The script correctly passes --rpc and --trust-anchor to node probes and reads latest_committed_height, but still requires layerxd.lni.sock, submits and reads state through layerxctl protocol 3, discovers a receipt-authority process and polls authorized-batches."
+expected = "The finished value-loop must submit signed native EVM transactions to the root RPC and observe committed network receipts, without depending on a separate sequencer, LNI socket or authorized kernel batch service."
+proposal = "Migrate tools/bringup/value-loop.sh to native account/transaction submission and receipt verification with explicit chain identity. Preserve its current RPC probe and committed-height behavior while removing the obsolete LNI and authorized-batch lifecycle."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-value-loop"
+
+[finding.value-loop-crash-replay]
+file = "tools/bringup/value-loop.sh"
+line = 143
+class = "restart-recovery"
+severity = "high"
+observed = "The script deletes send.bin and creates a new payment whenever send.activity-id is absent, submits it, then writes the ID only after acknowledgment. A crash after acceptance but before that write loses the only durable submission identity; restarting can generate another payment instead of reconciling the accepted one."
+expected = "A recoverable value transfer must durably record immutable transaction bytes and their identity before broadcasting, and restart must reconcile that same transfer rather than create a second value movement."
+proposal = "Persist and fsync the native signed transaction, nonce and hash before broadcast in tools/bringup/value-loop.sh, atomically persist status transitions, and reconcile the existing hash on restart. Cover process termination between acceptance and local acknowledgment."
+owner_domain = 16
+interface = "16.cli-bringup-bringup-value-loop"
+
+[finding.site-webhooks-router-config]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted webhook guide tells Railway operators to set LAYERX_WEBHOOKS_NETWORK_ID from router.LAYERX_GATEWAY_NETWORK_ID. The finished network has no router, so this documented configuration source is not a deployable dependency."
+expected = "The webhook guide must identify an existing hosted gateway or shared network configuration source and describe its relationship to the single paxd network without requiring a retired router."
+proposal = "Rewrite docs/site/docs/platform/webhooks.md configuration references to the actual deployed gateway/shared value, distinguish the webhook logical network string from chain ID 125, and verify the example against the current deployment variables."
+owner_domain = 8
+
+[finding.wiki-webhooks-router-config]
+file = "docs/wiki/HostedWebhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki webhook guide duplicates the router.LAYERX_GATEWAY_NETWORK_ID Railway reference. Following it requires a component removed from the merged network and leaves webhook and gateway network configuration without a valid documented source."
+expected = "The wiki and site guides must agree on the live webhook configuration producer and the merged-network service names and chain identity."
+proposal = "Update docs/wiki/HostedWebhooks.md together with the site guide to use the actual gateway/shared configuration and current receipt terminology, preserving the documented webhook signature, retry and authority-evidence contracts that remain implemented."
+owner_domain = 8
+
+[finding.sdk-contract-frozen-envelope]
+file = "spec/layerx-merge/contracts/platform-sdk.md"
+line = 197
+class = "doc-drift"
+severity = "medium"
+observed = "The frozen platform SDK contract still says req.8484 requires request envelope version 2 and refuses response version 1. The current req.8484 and decision 2198 require daemon request version 1 and response schema validation; the same page also projects obsolete AuthorizedBatch receipt-verifier signatures."
+expected = "The SDK contract must describe the implemented version-1 daemon envelope and the native receipt APIs with ReceiptKeys, so consumers can integrate the declared live schema and verification behavior."
+proposal = "Regenerate spec/layerx-merge/contracts/platform-sdk.md from current acceptance and interface sources, including decision 2198 and the native Go verification signatures; remove stale frozen projections and reconcile its examples with agent_rpc.rs and sdk/platform/go/http.go."
+owner_domain = 8
+
+[finding.unreachable-program-proof-helpers]
+file = "sdk/platform/go/programs.go"
+line = 514
+class = "dead-code"
+severity = "low"
+observed = "verifyProgramTerminal and verifyProgramDiscoveryProof have no production caller in the Go SDK; only programs_http_test.go calls them. Their historical terminal, occupancy and authority proofs remain in the runtime package although public verification and discovery now use native EVM paths."
+expected = "The SDK runtime verification surface should contain the proof implementations used by its live native interfaces, and retained historical codecs must have an explicit compatibility purpose instead of suggesting verification that no public path performs."
+proposal = "Separate or retire unused historical proof implementations in sdk/platform/go/programs.go after establishing the supported native evidence contract. Preserve needed codec vectors in an explicit compatibility test boundary and keep live verification documentation limited to authenticated outputs."
+owner_domain = 8
+
+[finding.occupancy-tests-bypass-public-api]
+file = "sdk/platform/go/occupancy_payers_test.go"
+line = 64
+class = "test-gap"
+severity = "medium"
+observed = "TestStateCommitmentOccupancyPaysFromTheProvenPayerAccount validates internal decodeProgramOccupancy and transfer-root helpers. It never passes payer evidence through VerifyProgramReceiptWithPayers, whose implementation ignores the payer argument, so these passing codec cases do not prove the advertised public payer verification."
+expected = "A declared public payer-verification contract needs a producer-to-public-consumer case showing genuine payer evidence is checked and substituted payer identities are rejected, or an explicit native unsupported contract."
+proposal = "Add public native receipt verification cases to sdk/platform/go/occupancy_payers_test.go once the supported payer-evidence contract is defined, including a wrong-payer refusal; preserve the existing internal codec assertions while separating them from public verification claims."
+owner_domain = 8
+interface = "8.go-sdkgo-verifyprogramreceiptwithpayers"
+
+[doc.site-webhooks]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Read all 600 lines. Line 77 names retired router configuration. Reviewed signature headers, attempt lifecycle, retries, URL checks, evidence endpoint and current webhook verifier references; router source needs rewriting."
+
+[doc.wiki-webhooks]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Read all 601 lines. Line 78 repeats the retired router configuration source. The duplicated operator example must be kept consistent with the site guide and live deployment."
+
+[doc.platform-sdk-contract]
+path = "spec/layerx-merge/contracts/platform-sdk.md"
+status = "stale"
+notes = "Consulted the Go SDK and requirement/interface projections. Lines 197-202 freeze the superseded envelope version-2 rules; later receipt signatures retain AuthorizedBatch inputs instead of current native ReceiptKeys APIs."

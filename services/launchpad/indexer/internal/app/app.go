@@ -527,25 +527,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return nil, e
 			}
 			workers.AddOnce(fmt.Sprintf("rebuild_%d", index), func(c context.Context) error {
-				if e := engine.Start(c, rebuild.ManifestDigest); e != nil {
-					return e
-				}
-				for {
-					status, e := engine.Status(c, 0)
-					if e != nil {
-						return e
-					}
-					if status.Status == "verified" || status.Status == "active" {
-						break
-					}
-					if e = engine.RunBlockWithBudget(c, rebuildBudget); e != nil {
-						return e
-					}
-				}
-				if rebuild.Promote {
-					return engine.Promote(c, rebuild.ExpectedAliasRevision)
-				}
-				return nil
+				return engine.Rebuild(c, rebuild.ManifestDigest, rebuildBudget, rebuild.Promote, rebuild.ExpectedAliasRevision)
 			})
 		}
 		if typedArchive != nil {

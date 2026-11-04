@@ -1,0 +1,1946 @@
+# Pre-upgrade audit; proposals only. Source revision is pinned in the audit header.
+
+[audit.22.30.149]
+task = "22.30.149"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 198
+findings = 54
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["missing-range-crash-loss"]
+lines_reviewed = 29613
+produces_reviewed = 39
+consumes_reviewed = 80
+requirements_reviewed = ["22108.1", "14991.1", "14264.1"]
+review_basis = "Full source review at the pinned revision against the merged-network brief, requirements 22108.1, 14991.1 and 14264.1, all package registry rows and listed pages. No frozen install, explorer typecheck, dependency-alert sweep or application/browser gate is claimed; qualification is the declared audit-record gate."
+interface_review = "Config keys and environment names were traced from declaration through runtime/profile merge to readers; frontend features remain chain-gated. RPC uses HTTP quantities/hashes and batch request ids; trace and getLogs methods are not moved onto websocket. Socket payload names agree but refresh ordering and canonical media interpretation have findings. Metrics are emitted only by their enabled rollup fetchers. Four textual registry caller matches are false dependencies and are recorded, not treated as missing network calls."
+
+[file.001]
+path = "apps/explorer/ui/deposits/beaconChain/BeaconChainDepositsList.tsx"
+lines = 39
+verdict = "clean"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.002]
+path = "apps/explorer/ui/deposits/beaconChain/BeaconChainDepositsListItem.tsx"
+lines = 99
+verdict = "clean"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-beaconchain"]
+
+[file.003]
+path = "apps/explorer/ui/deposits/beaconChain/BeaconChainDepositsTable.tsx"
+lines = 55
+verdict = "clean"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-beaconchain"]
+
+[file.004]
+path = "apps/explorer/ui/deposits/beaconChain/BeaconChainDepositsTableItem.tsx"
+lines = 78
+verdict = "clean"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.005]
+path = "apps/explorer/ui/deposits/optimisticL2/OptimisticDepositsListItem.tsx"
+lines = 84
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.006]
+path = "apps/explorer/ui/deposits/optimisticL2/OptimisticDepositsTable.tsx"
+lines = 45
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.007]
+path = "apps/explorer/ui/deposits/optimisticL2/OptimisticDepositsTableItem.tsx"
+lines = 77
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.008]
+path = "apps/explorer/ui/deposits/scrollL2/ScrollL2DepositsListItem.tsx"
+lines = 90
+verdict = "clean"
+note = "Read in full: Scroll presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.009]
+path = "apps/explorer/ui/deposits/scrollL2/ScrollL2DepositsTable.tsx"
+lines = 46
+verdict = "clean"
+note = "Read in full: Scroll presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-chain-currency"]
+
+[file.010]
+path = "apps/explorer/ui/deposits/scrollL2/ScrollL2DepositsTableItem.tsx"
+lines = 80
+verdict = "clean"
+note = "Read in full: Scroll presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.011]
+path = "apps/explorer/ui/deposits/shibarium/DepositsListItem.tsx"
+lines = 80
+verdict = "clean"
+note = "Read in full: Shibarium presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.012]
+path = "apps/explorer/ui/deposits/shibarium/DepositsTable.tsx"
+lines = 44
+verdict = "clean"
+note = "Read in full: Shibarium presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.013]
+path = "apps/explorer/ui/deposits/shibarium/DepositsTableItem.tsx"
+lines = 70
+verdict = "clean"
+note = "Read in full: Shibarium presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.014]
+path = "apps/explorer/ui/deposits/zkEvmL2/ZkEvmL2DepositsListItem.tsx"
+lines = 101
+verdict = "clean"
+note = "Read in full: Polygon zkEVM presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.015]
+path = "apps/explorer/ui/deposits/zkEvmL2/ZkEvmL2DepositsTable.tsx"
+lines = 46
+verdict = "clean"
+note = "Read in full: Polygon zkEVM presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.016]
+path = "apps/explorer/ui/deposits/zkEvmL2/ZkEvmL2DepositsTableItem.tsx"
+lines = 88
+verdict = "clean"
+note = "Read in full: Polygon zkEVM presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.017]
+path = "apps/explorer/ui/nameServices/directories/Clusters.tsx"
+lines = 159
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.018]
+path = "apps/explorer/ui/nameServices/directories/ClustersActionBar.tsx"
+lines = 90
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.019]
+path = "apps/explorer/ui/nameServices/directories/ClustersDirectoryListItem.tsx"
+lines = 66
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.020]
+path = "apps/explorer/ui/nameServices/directories/ClustersDirectoryTable.tsx"
+lines = 48
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.021]
+path = "apps/explorer/ui/nameServices/directories/ClustersDirectoryTableItem.tsx"
+lines = 53
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.022]
+path = "apps/explorer/ui/nameServices/directories/ClustersLeaderboardListItem.tsx"
+lines = 63
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.023]
+path = "apps/explorer/ui/nameServices/directories/ClustersLeaderboardTable.tsx"
+lines = 40
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.024]
+path = "apps/explorer/ui/nameServices/directories/ClustersLeaderboardTableItem.tsx"
+lines = 44
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.025]
+path = "apps/explorer/ui/nameServices/domains/NameDomains.tsx"
+lines = 263
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+interfaces = ["14.cfg-fe-feature-nameservices"]
+
+[file.026]
+path = "apps/explorer/ui/nameServices/domains/NameDomainsActionBar.tsx"
+lines = 180
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.027]
+path = "apps/explorer/ui/nameServices/domains/NameDomainsListItem.tsx"
+lines = 68
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.028]
+path = "apps/explorer/ui/nameServices/domains/NameDomainsTable.tsx"
+lines = 52
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.029]
+path = "apps/explorer/ui/nameServices/domains/NameDomainsTableItem.tsx"
+lines = 46
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.030]
+path = "apps/explorer/ui/nameServices/domains/utils.ts"
+lines = 19
+verdict = "clean"
+note = "Read in full: directory/domain API fields, pagination and sorting parameters, chain links, loading states and configured name-service availability were checked; no retired network transport is used."
+
+[file.031]
+path = "apps/explorer/ui/publicTags/submit/PublicTagsSubmitForm.pw.tsx"
+lines = 30
+verdict = "clean"
+note = "Read in full: public-tag form/result fixtures and assertions were compared with validation, submission grouping and response handling; these scenarios concern explorer account tags."
+
+[file.032]
+path = "apps/explorer/ui/publicTags/submit/PublicTagsSubmitForm.tsx"
+lines = 167
+verdict = "issues"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+interfaces = ["8.http-gateway-options-submit", "9.http-rpc-submit"]
+findings = ["registry-public-tag-route", "registry-form-submit-operation"]
+
+[file.033]
+path = "apps/explorer/ui/publicTags/submit/PublicTagsSubmitResult.pw.tsx"
+lines = 25
+verdict = "clean"
+note = "Read in full: public-tag form/result fixtures and assertions were compared with validation, submission grouping and response handling; these scenarios concern explorer account tags."
+
+[file.034]
+path = "apps/explorer/ui/publicTags/submit/PublicTagsSubmitResult.tsx"
+lines = 88
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+interfaces = ["8.http-gateway-options-submit"]
+
+[file.035]
+path = "apps/explorer/ui/publicTags/submit/fields/PublicTagsSubmitFieldAddresses.tsx"
+lines = 71
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.036]
+path = "apps/explorer/ui/publicTags/submit/fields/PublicTagsSubmitFieldTag.tsx"
+lines = 147
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.037]
+path = "apps/explorer/ui/publicTags/submit/fields/PublicTagsSubmitFieldTagIcon.tsx"
+lines = 39
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.038]
+path = "apps/explorer/ui/publicTags/submit/fields/PublicTagsSubmitFieldTagIconPreview.tsx"
+lines = 27
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.039]
+path = "apps/explorer/ui/publicTags/submit/fields/PublicTagsSubmitFieldTagType.tsx"
+lines = 36
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.040]
+path = "apps/explorer/ui/publicTags/submit/fields/PublicTagsSubmitFieldTags.tsx"
+lines = 62
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.041]
+path = "apps/explorer/ui/publicTags/submit/mocks.ts"
+lines = 97
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.042]
+path = "apps/explorer/ui/publicTags/submit/result/PublicTagsSubmitResultSuccess.tsx"
+lines = 55
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.043]
+path = "apps/explorer/ui/publicTags/submit/result/PublicTagsSubmitResultWithErrors.tsx"
+lines = 97
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+interfaces = ["8.http-gateway-options-submit"]
+
+[file.044]
+path = "apps/explorer/ui/publicTags/submit/types.ts"
+lines = 60
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.045]
+path = "apps/explorer/ui/publicTags/submit/utils.spec.ts"
+lines = 77
+verdict = "clean"
+note = "Read in full: public-tag form/result fixtures and assertions were compared with validation, submission grouping and response handling; these scenarios concern explorer account tags."
+
+[file.046]
+path = "apps/explorer/ui/publicTags/submit/utils.ts"
+lines = 123
+verdict = "clean"
+note = "Read in full: public-tag addresses, tag kinds, icon selection, validation and account request/result flow were traced; navigation to public-tags/submit is an explorer page, not hosted transaction submission."
+
+[file.047]
+path = "apps/explorer/ui/searchResults/SearchResultEntityTag.tsx"
+lines = 30
+verdict = "clean"
+note = "Read in full: search result variants, entity discrimination, nullable hashes, displayed fields and navigation agree with the explorer search response types; no separate kernel search interface is invoked."
+
+[file.048]
+path = "apps/explorer/ui/searchResults/SearchResultListItem.tsx"
+lines = 515
+verdict = "clean"
+note = "Read in full: search result variants, entity discrimination, nullable hashes, displayed fields and navigation agree with the explorer search response types; no separate kernel search interface is invoked."
+
+[file.049]
+path = "apps/explorer/ui/searchResults/SearchResultTableItem.tsx"
+lines = 533
+verdict = "clean"
+note = "Read in full: search result variants, entity discrimination, nullable hashes, displayed fields and navigation agree with the explorer search response types; no separate kernel search interface is invoked."
+
+[file.050]
+path = "apps/explorer/ui/searchResults/SearchResultsInput.tsx"
+lines = 111
+verdict = "clean"
+note = "Read in full: search result variants, entity discrimination, nullable hashes, displayed fields and navigation agree with the explorer search response types; no separate kernel search interface is invoked."
+
+[file.051]
+path = "apps/explorer/ui/stats/ChartWidgetContainer.spec.tsx"
+lines = 121
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.052]
+path = "apps/explorer/ui/stats/ChartWidgetContainer.tsx"
+lines = 167
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.053]
+path = "apps/explorer/ui/stats/ChartsLoadingErrorAlert.spec.tsx"
+lines = 28
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.054]
+path = "apps/explorer/ui/stats/ChartsLoadingErrorAlert.tsx"
+lines = 30
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.055]
+path = "apps/explorer/ui/stats/ChartsWidgetsList.spec.tsx"
+lines = 117
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.056]
+path = "apps/explorer/ui/stats/ChartsWidgetsList.tsx"
+lines = 140
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+interfaces = ["14.cfg-fe-feature-gastracker"]
+
+[file.057]
+path = "apps/explorer/ui/stats/NumberWidgetsList.spec.tsx"
+lines = 104
+verdict = "issues"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+findings = ["stats-fixture-asserts-false-trend"]
+
+[file.058]
+path = "apps/explorer/ui/stats/NumberWidgetsList.tsx"
+lines = 86
+verdict = "issues"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+findings = ["stats-percent-is-not-delta"]
+
+[file.059]
+path = "apps/explorer/ui/stats/StatsFilters.spec.tsx"
+lines = 61
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.060]
+path = "apps/explorer/ui/stats/StatsFilters.tsx"
+lines = 107
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.061]
+path = "apps/explorer/ui/stats/constants/index.spec.ts"
+lines = 67
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.062]
+path = "apps/explorer/ui/stats/constants/index.ts"
+lines = 76
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.063]
+path = "apps/explorer/ui/stats/useStats.tsx"
+lines = 105
+verdict = "clean"
+note = "Read in full: chart/counter identifiers, filter intervals, loading and error handling were compared with the local stats resource types and fixtures; measurement semantics findings are recorded separately where present."
+
+[file.064]
+path = "apps/explorer/ui/tokenInstance/TokenInstanceDetails.pw.tsx"
+lines = 105
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.065]
+path = "apps/explorer/ui/tokenInstance/TokenInstanceDetails.spec.tsx"
+lines = 116
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+interfaces = ["14.http-get-api-v2-addresses-address-hash-param"]
+
+[file.066]
+path = "apps/explorer/ui/tokenInstance/TokenInstanceDetails.tsx"
+lines = 163
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+interfaces = ["14.cfg-fe-ui-views-nft"]
+
+[file.067]
+path = "apps/explorer/ui/tokenInstance/TokenInstanceMetadata.pw.tsx"
+lines = 29
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.068]
+path = "apps/explorer/ui/tokenInstance/TokenInstanceMetadata.tsx"
+lines = 75
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.069]
+path = "apps/explorer/ui/tokenInstance/TokenInstanceMetadataFetcher.tsx"
+lines = 193
+verdict = "issues"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+interfaces = ["14.cfg-fe-services-recaptchav2", "14.ws-explorer-channel-socket-v2-token-instances", "14.ws-explorer-join-socket-token-instances-token-contract-address-hash", "14.ws-explorer-push-token-instances-hash-fetched-token-instance-metadata"]
+findings = ["metadata-subscribe-race", "metadata-failure-event-unhandled", "metadata-refresh-media-shape"]
+
+[file.070]
+path = "apps/explorer/ui/tokenInstance/TokenInstancePageTitle.spec.tsx"
+lines = 75
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.071]
+path = "apps/explorer/ui/tokenInstance/TokenInstancePageTitle.tsx"
+lines = 132
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.072]
+path = "apps/explorer/ui/tokenInstance/contexts/metadataUpdate.tsx"
+lines = 40
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.073]
+path = "apps/explorer/ui/tokenInstance/details/TokenInstanceCreatorAddress.tsx"
+lines = 56
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.074]
+path = "apps/explorer/ui/tokenInstance/details/TokenInstanceMetadataInfo.tsx"
+lines = 144
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.075]
+path = "apps/explorer/ui/tokenInstance/details/TokenInstanceTransfersCount.tsx"
+lines = 61
+verdict = "issues"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+findings = ["nft-zero-transfer-count-hidden"]
+
+[file.076]
+path = "apps/explorer/ui/tokenInstance/metadata/MetadataAccordion.tsx"
+lines = 101
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.077]
+path = "apps/explorer/ui/tokenInstance/metadata/MetadataAccordionItem.tsx"
+lines = 40
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.078]
+path = "apps/explorer/ui/tokenInstance/metadata/MetadataAccordionItemTitle.tsx"
+lines = 19
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.079]
+path = "apps/explorer/ui/tokenInstance/metadata/MetadataItemArray.tsx"
+lines = 93
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.080]
+path = "apps/explorer/ui/tokenInstance/metadata/MetadataItemObject.tsx"
+lines = 57
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.081]
+path = "apps/explorer/ui/tokenInstance/metadata/MetadataItemPrimitive.tsx"
+lines = 62
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.082]
+path = "apps/explorer/ui/tokenInstance/metadata/utils.ts"
+lines = 30
+verdict = "clean"
+note = "Read in full: token-contract hash and token-id handling, canonical NFT response fields, metadata recursion, display state and instance navigation were checked against the token API and socket lifecycle."
+
+[file.083]
+path = "apps/explorer/ui/tokens/Tokens.spec.tsx"
+lines = 101
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.084]
+path = "apps/explorer/ui/tokens/Tokens.tsx"
+lines = 125
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.085]
+path = "apps/explorer/ui/tokens/TokensActionBar.spec.tsx"
+lines = 50
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.086]
+path = "apps/explorer/ui/tokens/TokensActionBar.tsx"
+lines = 55
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.087]
+path = "apps/explorer/ui/tokens/TokensBridgedChainsFilter.tsx"
+lines = 60
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+interfaces = ["14.cfg-fe-feature-bridgedtokens"]
+
+[file.088]
+path = "apps/explorer/ui/tokens/TokensListItem.spec.tsx"
+lines = 52
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.089]
+path = "apps/explorer/ui/tokens/TokensListItem.tsx"
+lines = 136
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+interfaces = ["14.cfg-fe-feature-bridgedtokens", "14.cfg-fe-multichain"]
+
+[file.090]
+path = "apps/explorer/ui/tokens/TokensTable.spec.tsx"
+lines = 104
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.091]
+path = "apps/explorer/ui/tokens/TokensTable.tsx"
+lines = 120
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.092]
+path = "apps/explorer/ui/tokens/TokensTableItem.spec.tsx"
+lines = 72
+verdict = "clean"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+
+[file.093]
+path = "apps/explorer/ui/tokens/TokensTableItem.tsx"
+lines = 226
+verdict = "issues"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+interfaces = ["14.cfg-fe-feature-bridgedtokens", "14.cfg-fe-multichain"]
+findings = ["token-market-cap-unknown-decimals"]
+
+[file.094]
+path = "apps/explorer/ui/tokens/utils.ts"
+lines = 35
+verdict = "issues"
+note = "Read in full: token-list payload fields, pagination, sorting, token reputation, nullable value presentation and multichain chain links were compared with the token API types and table/list callers."
+interfaces = ["14.cfg-fe-feature-bridgedtokens"]
+findings = ["token-sort-label"]
+
+[file.095]
+path = "apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsList.tsx"
+lines = 72
+verdict = "clean"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.096]
+path = "apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsListItem.tsx"
+lines = 93
+verdict = "issues"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-beaconchain"]
+findings = ["mobile-block-withdrawal-value"]
+
+[file.097]
+path = "apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsTable.tsx"
+lines = 68
+verdict = "clean"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-beaconchain"]
+
+[file.098]
+path = "apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsTableItem.tsx"
+lines = 70
+verdict = "clean"
+note = "Read in full: beacon-chain presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.099]
+path = "apps/explorer/ui/withdrawals/optimisticL2/OptimisticL2ClaimButton.tsx"
+lines = 86
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-blockchaininteraction", "14.cfg-fe-feature-rollup"]
+
+[file.100]
+path = "apps/explorer/ui/withdrawals/optimisticL2/OptimisticL2ClaimModal.tsx"
+lines = 213
+verdict = "issues"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup", "6.sol-evmcompatibilitytester-gaslimit-f68016b7", "9.http-rpc-submit"]
+findings = ["registry-abi-field-getter"]
+
+[file.101]
+path = "apps/explorer/ui/withdrawals/optimisticL2/OptimisticL2WithdrawalsItemStatus.tsx"
+lines = 56
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.102]
+path = "apps/explorer/ui/withdrawals/optimisticL2/OptimisticL2WithdrawalsListItem.tsx"
+lines = 103
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.103]
+path = "apps/explorer/ui/withdrawals/optimisticL2/OptimisticL2WithdrawalsTable.tsx"
+lines = 50
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.104]
+path = "apps/explorer/ui/withdrawals/optimisticL2/OptimisticL2WithdrawalsTableItem.tsx"
+lines = 81
+verdict = "clean"
+note = "Read in full: Optimism presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.105]
+path = "apps/explorer/ui/withdrawals/scrollL2/ScrollL2WithdrawalsListItem.tsx"
+lines = 90
+verdict = "clean"
+note = "Read in full: Scroll presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.106]
+path = "apps/explorer/ui/withdrawals/scrollL2/ScrollL2WithdrawalsTable.tsx"
+lines = 46
+verdict = "clean"
+note = "Read in full: Scroll presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-chain-currency"]
+
+[file.107]
+path = "apps/explorer/ui/withdrawals/scrollL2/ScrollL2WithdrawalsTableItem.tsx"
+lines = 80
+verdict = "clean"
+note = "Read in full: Scroll presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.108]
+path = "apps/explorer/ui/withdrawals/shibarium/WithdrawalsListItem.tsx"
+lines = 79
+verdict = "clean"
+note = "Read in full: Shibarium presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.109]
+path = "apps/explorer/ui/withdrawals/shibarium/WithdrawalsTable.tsx"
+lines = 44
+verdict = "clean"
+note = "Read in full: Shibarium presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.110]
+path = "apps/explorer/ui/withdrawals/shibarium/WithdrawalsTableItem.tsx"
+lines = 69
+verdict = "clean"
+note = "Read in full: Shibarium presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.111]
+path = "apps/explorer/ui/withdrawals/zkEvmL2/ZkEvmL2WithdrawalsListItem.tsx"
+lines = 101
+verdict = "clean"
+note = "Read in full: Polygon zkEVM presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.112]
+path = "apps/explorer/ui/withdrawals/zkEvmL2/ZkEvmL2WithdrawalsTable.tsx"
+lines = 46
+verdict = "clean"
+note = "Read in full: Polygon zkEVM presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+
+[file.113]
+path = "apps/explorer/ui/withdrawals/zkEvmL2/ZkEvmL2WithdrawalsTableItem.tsx"
+lines = 88
+verdict = "clean"
+note = "Read in full: Polygon zkEVM presentation, nullable transaction links, amount units, status and view-specific columns were compared with the corresponding API types and feature configuration; optional chain support is not a retired LayerX execution interface."
+interfaces = ["14.cfg-fe-feature-rollup"]
+
+[file.114]
+path = "services/explorer/backend/apps/block_scout_web/API.md"
+lines = 1844
+verdict = "issues"
+note = "Read in full: account route examples, authentication material represented as examples, payload fields and error responses were compared with the current AccountRouter; v1 documentation drift is recorded separately."
+findings = ["account-api-documentation-version"]
+
+[file.115]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/address_contract_verification_test.exs"
+lines = 82
+verdict = "issues"
+note = "Read in full: feature setup, inserted chain records, page interactions, assertions and global configuration cleanup were reviewed; the audit did not execute the browser scenarios."
+interfaces = ["14.cfg-explorer-solc-bin-api-url", "14.cfg-explorer-explorer-smartcontract-rustverifierinterfacebehaviour"]
+findings = ["verification-browser-test-skipped", "verification-error-not-asserted"]
+
+[file.116]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/address_contract_page.ex"
+lines = 23
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.117]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/address_page.ex"
+lines = 178
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.118]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/app_page.ex"
+lines = 19
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.119]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/block_list_page.ex"
+lines = 33
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.120]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/block_page.ex"
+lines = 50
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.121]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/chain_page.ex"
+lines = 48
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.122]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/contract_verify_page.ex"
+lines = 58
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.123]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/token_page.ex"
+lines = 27
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.124]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/transaction_list_page.ex"
+lines = 33
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.125]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/transaction_logs_page.ex"
+lines = 23
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.126]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/pages/transaction_page.ex"
+lines = 25
+verdict = "clean"
+note = "Read in full: Wallaby selectors, page paths, fixture field names and helper return values were compared with the feature-test callers; these helpers describe the retained server-rendered explorer views."
+
+[file.127]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/viewing_addresses_test.exs"
+lines = 494
+verdict = "clean"
+note = "Read in full: feature setup, inserted chain records, page interactions, assertions and global configuration cleanup were reviewed; the audit did not execute the browser scenarios."
+interfaces = ["14.cfg-web-checksum-address-hashes", "14.cfg-web-web-chain"]
+
+[file.128]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/viewing_app_test.exs"
+lines = 139
+verdict = "issues"
+note = "Read in full: feature setup, inserted chain records, page interactions, assertions and global configuration cleanup were reviewed; the audit did not execute the browser scenarios."
+findings = ["application-feature-tests-commented"]
+
+[file.129]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/viewing_blocks_test.exs"
+lines = 187
+verdict = "clean"
+note = "Read in full: feature setup, inserted chain records, page interactions, assertions and global configuration cleanup were reviewed; the audit did not execute the browser scenarios."
+
+[file.130]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/viewing_chain_test.exs"
+lines = 160
+verdict = "clean"
+note = "Read in full: feature setup, inserted chain records, page interactions, assertions and global configuration cleanup were reviewed; the audit did not execute the browser scenarios."
+
+[file.131]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/viewing_tokens_test.exs"
+lines = 21
+verdict = "clean"
+note = "Read in full: feature setup, inserted chain records, page interactions, assertions and global configuration cleanup were reviewed; the audit did not execute the browser scenarios."
+
+[file.132]
+path = "services/explorer/backend/apps/explorer/config/config.exs"
+lines = 236
+verdict = "clean"
+note = "Read in full: application/repository keys, cache and fetcher enablement, logger rotation, test isolation and runtime overrides were compared with the registry declarations and actual readers. No live Finality config remains in this slice."
+interfaces = ["14.cfg-explorer-explorer-chain-cache-counters-blackfort-validatorscount", "14.cfg-explorer-explorer-chain-cache-counters-blockburntfeecount", "14.cfg-explorer-explorer-chain-cache-counters-blockpriorityfeecount", "14.cfg-explorer-explorer-chain-cache-counters-contractscount", "14.cfg-explorer-explorer-chain-cache-counters-newcontractscount", "14.cfg-explorer-explorer-chain-cache-counters-newverifiedcontractscount", "14.cfg-explorer-explorer-chain-cache-counters-stability-validatorscount", "14.cfg-explorer-explorer-chain-cache-counters-verifiedcontractscount", "14.cfg-explorer-explorer-chain-cache-counters-withdrawalssum", "14.cfg-explorer-explorer-chain-cache-transactionactionuniswappools", "14.cfg-explorer-explorer-chain-fetcher-checkbytecodematchingondemand", "14.cfg-explorer-explorer-chain-fetcher-fetchvalidatorinfoondemand", "14.cfg-explorer-explorer-integrations-ectologger", "14.cfg-explorer-explorer-smartcontract-certifiedsmartcontractcataloger", "14.cfg-explorer-explorer-tags-addresstag-cataloger", "14.cfg-explorer-explorer-tokeninstanceowneraddressmigration-supervisor", "14.cfg-explorer-explorer-tracer", "14.cfg-explorer-explorer-utility-hammer-ets", "14.cfg-explorer-explorer-utility-hammer-redis", "14.cfg-explorer-explorer-utility-versionconstantsupdater", "14.cfg-explorer-http-client", "14.cfg-explorer-solc-bin-api-url", "14.cfg-explorer-token-functions-reader-max-retries", "14.cfg-logger-explorer", "14.cfg-spandex-ecto-spandexecto-ectologger", "14.env-decode-not-a-contract-calls", "14.cfg-explorer-chain-identity", "14.cfg-explorer-ecto-repos", "14.cfg-explorer-explorer-chain-bridgedtoken", "14.cfg-explorer-explorer-chain-cache-blocknumber", "14.cfg-explorer-explorer-chain-cache-counters-addressescoinbalancesum", "14.cfg-explorer-explorer-chain-cache-counters-addressescoinbalancesumminusburnt", "14.cfg-explorer-explorer-chain-cache-counters-addressescount", "14.cfg-explorer-explorer-chain-cache-counters-addresstokensusdsum", "14.cfg-explorer-explorer-chain-cache-counters-addresstokentransferscount", "14.cfg-explorer-explorer-chain-cache-counters-addresstransactionscount", "14.cfg-explorer-explorer-chain-cache-counters-addresstransactionsgasusagesum", "14.cfg-explorer-explorer-chain-cache-counters-tokenholderscount", "14.cfg-explorer-explorer-chain-cache-counters-tokentransferscount", "14.cfg-explorer-explorer-chain-cache-transactionactiontokensdata", "14.cfg-explorer-explorer-chain-mud", "14.cfg-explorer-explorer-chainspec-genesisdata", "14.cfg-explorer-explorer-market-fetcher-token", "14.cfg-explorer-explorer-migrator-deletezerovalueinternaltransactions", "14.cfg-explorer-explorer-repo", "14.cfg-explorer-explorer-utility-ratelimiter", "14.env-bridged-tokens-enabled", "14.env-mud-indexer-enabled"]
+
+[file.133]
+path = "services/explorer/backend/apps/explorer/config/dev.exs"
+lines = 50
+verdict = "clean"
+note = "Read in full: application/repository keys, cache and fetcher enablement, logger rotation, test isolation and runtime overrides were compared with the registry declarations and actual readers. No live Finality config remains in this slice."
+interfaces = ["14.cfg-explorer-explorer-tracer", "14.cfg-logger-reading-token-functions", "14.cfg-logger-token-instances", "14.cfg-explorer-explorer-repo"]
+
+[file.134]
+path = "services/explorer/backend/apps/explorer/config/dev/anvil.exs"
+lines = 31
+verdict = "clean"
+note = "Read in full: anvil HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-json-rpc-named-arguments", "14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url"]
+
+[file.135]
+path = "services/explorer/backend/apps/explorer/config/dev/besu.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: besu HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.136]
+path = "services/explorer/backend/apps/explorer/config/dev/erigon.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: erigon HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.137]
+path = "services/explorer/backend/apps/explorer/config/dev/filecoin.exs"
+lines = 34
+verdict = "clean"
+note = "Read in full: filecoin HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url"]
+
+[file.138]
+path = "services/explorer/backend/apps/explorer/config/dev/geth.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: geth HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-debug-traceblockbynumber", "7.rpc-debug-tracetransaction"]
+
+[file.139]
+path = "services/explorer/backend/apps/explorer/config/dev/nethermind.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: nethermind HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.140]
+path = "services/explorer/backend/apps/explorer/config/dev/paxeer_x.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: paxeer_x HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-debug-traceblockbynumber", "7.rpc-debug-tracetransaction"]
+
+[file.141]
+path = "services/explorer/backend/apps/explorer/config/dev/rsk.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: rsk HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.142]
+path = "services/explorer/backend/apps/explorer/config/prod.exs"
+lines = 59
+verdict = "issues"
+note = "Read in full: application/repository keys, cache and fetcher enablement, logger rotation, test isolation and runtime overrides were compared with the registry declarations and actual readers. No live Finality config remains in this slice."
+interfaces = ["14.cfg-explorer-explorer-tracer", "14.cfg-logger-reading-token-functions", "14.cfg-logger-token-instances", "14.cfg-explorer-explorer-repo"]
+findings = ["production-database-peer-verification"]
+
+[file.143]
+path = "services/explorer/backend/apps/explorer/config/prod/anvil.exs"
+lines = 31
+verdict = "clean"
+note = "Read in full: anvil HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url"]
+
+[file.144]
+path = "services/explorer/backend/apps/explorer/config/prod/besu.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: besu HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.145]
+path = "services/explorer/backend/apps/explorer/config/prod/erigon.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: erigon HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.146]
+path = "services/explorer/backend/apps/explorer/config/prod/filecoin.exs"
+lines = 34
+verdict = "clean"
+note = "Read in full: filecoin HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url"]
+
+[file.147]
+path = "services/explorer/backend/apps/explorer/config/prod/geth.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: geth HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-debug-traceblockbynumber", "7.rpc-debug-tracetransaction"]
+
+[file.148]
+path = "services/explorer/backend/apps/explorer/config/prod/nethermind.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: nethermind HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.149]
+path = "services/explorer/backend/apps/explorer/config/prod/paxeer_x.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: paxeer_x HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-debug-traceblockbynumber", "7.rpc-debug-tracetransaction"]
+
+[file.150]
+path = "services/explorer/backend/apps/explorer/config/prod/rsk.exs"
+lines = 35
+verdict = "clean"
+note = "Read in full: rsk HTTP and subscription transport configuration, trace and eth_call URL dispatch, fallback URLs and variant selection were compared with shared ConfigHelper and EthereumJSONRPC consumers. Trace methods stay on HTTP; websocket settings are subscriptions, not a unified /rpc path."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.env-ethereum-jsonrpc-fallback-ws-url", "14.env-ethereum-jsonrpc-ws-url", "7.rpc-eth-getbalance"]
+
+[file.151]
+path = "services/explorer/backend/apps/explorer/config/runtime/test.exs"
+lines = 128
+verdict = "clean"
+note = "Read in full: application/repository keys, cache and fetcher enablement, logger rotation, test isolation and runtime overrides were compared with the registry declarations and actual readers. No live Finality config remains in this slice."
+interfaces = ["14.cfg-explorer-explorer-market-history-cataloger", "14.cfg-explorer-explorer-smartcontract-certifiedsmartcontractcataloger", "14.cfg-explorer-explorer-tokeninstanceowneraddressmigration-supervisor", "14.cfg-explorer-explorer-tracer", "14.cfg-explorer-explorer-utility-hammer-ets", "14.cfg-explorer-explorer-utility-hammer-redis", "14.cfg-explorer-realtime-events-sender", "14.cfg-explorer-explorer-chain-cache-blocknumber", "14.cfg-explorer-explorer-chain-cache-counters-rootstock-lockedbtccount", "14.cfg-explorer-explorer-chain-transaction-history-historian", "14.cfg-explorer-explorer-market-fetcher-coin", "14.cfg-explorer-explorer-market-fetcher-history", "14.cfg-explorer-explorer-market-fetcher-token", "14.cfg-explorer-explorer-utility-ratelimiter", "14.cfg-indexer-indexer-fetcher-tokeninstance-helper"]
+
+[file.152]
+path = "services/explorer/backend/apps/explorer/config/test.exs"
+lines = 118
+verdict = "clean"
+note = "Read in full: application/repository keys, cache and fetcher enablement, logger rotation, test isolation and runtime overrides were compared with the registry declarations and actual readers. No live Finality config remains in this slice."
+interfaces = ["14.cfg-bcrypt-elixir-log-rounds", "14.cfg-explorer-explorer-chain-fetcher-checkbytecodematchingondemand", "14.cfg-explorer-explorer-chain-fetcher-fetchvalidatorinfoondemand", "14.cfg-explorer-explorer-repo-polygonzkevm", "14.cfg-explorer-explorer-tags-addresstag-cataloger", "14.env-test-database-read-only-api-url", "14.env-test-database-url", "14.cfg-explorer-explorer-repo", "14.cfg-explorer-explorer-repo-account", "14.cfg-explorer-explorer-repo-eventnotifications", "14.cfg-explorer-explorer-repo-replica1"]
+
+[file.153]
+path = "services/explorer/backend/apps/explorer/config/test/anvil.exs"
+lines = 13
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments"]
+
+[file.154]
+path = "services/explorer/backend/apps/explorer/config/test/besu.exs"
+lines = 14
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.cfg-explorer-transport"]
+
+[file.155]
+path = "services/explorer/backend/apps/explorer/config/test/erigon.exs"
+lines = 14
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.cfg-explorer-transport"]
+
+[file.156]
+path = "services/explorer/backend/apps/explorer/config/test/filecoin.exs"
+lines = 13
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments"]
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/config/test/geth.exs"
+lines = 13
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments"]
+
+[file.158]
+path = "services/explorer/backend/apps/explorer/config/test/nethermind.exs"
+lines = 14
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.cfg-explorer-transport"]
+
+[file.159]
+path = "services/explorer/backend/apps/explorer/config/test/paxeer_x.exs"
+lines = 13
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments"]
+
+[file.160]
+path = "services/explorer/backend/apps/explorer/config/test/rsk.exs"
+lines = 14
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+interfaces = ["14.cfg-explorer-subscribe-named-arguments", "14.cfg-explorer-transport"]
+
+[file.161]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex"
+lines = 1514
+verdict = "issues"
+note = "Read in full against its callers, declared types and the merged-network brief; no generated or vendored exemption was used."
+findings = ["filter-decimal-term-order", "filter-zero-log-batch-page", "filter-empty-inclusion", "filter-or-duplicates", "filter-exclude-type"]
+
+[file.162]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/block.ex"
+lines = 1110
+verdict = "clean"
+note = "Read in full: block schema, consensus and hash/height constraints, associations, transaction counts, ordering and chain-specific optional fields were compared with import and explorer view usage; native committed blocks do not depend on the retired Finality setting."
+interfaces = ["14.cfg-explorer-chain-type"]
+
+[file.163]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/search.ex"
+lines = 1455
+verdict = "clean"
+note = "Read in full: address, transaction, block, token and contract searches, query escaping, result discrimination and paging were compared with frontend result types and repository query paths; search remains native-chain based."
+
+[file.164]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/token/fiat_value.ex"
+lines = 60
+verdict = "clean"
+note = "Read in full: decimal supply/value calculation and token-price update queries preserve database numeric types and the current token view fields."
+
+[file.165]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/token/instance.ex"
+lines = 1308
+verdict = "issues"
+note = "Read in full: NFT schema, ownership and collection queries, ERC-1155 batch preloads, metadata retry streams, media fields and paging were compared with token-balance imports and TokenView; zero-balance collection behavior is recorded separately."
+interfaces = ["14.cfg-indexer-indexer-fetcher-tokeninstance-retry", "4.sevt-ieventemitter-tokentransfer-d1630e8d"]
+findings = ["erc404-zero-balance-collection", "registry-event-type-name"]
+
+[file.166]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/token/instance/media_urls.ex"
+lines = 54
+verdict = "issues"
+note = "Read in full against its callers, declared types and the merged-network brief; no generated or vendored exemption was used."
+interfaces = ["14.cfg-ex-aws-s3"]
+findings = ["thumbnail-declared-type"]
+
+[file.167]
+path = "services/explorer/backend/apps/explorer/lib/explorer/token/balance_reader.ex"
+lines = 173
+verdict = "clean"
+note = "Read in full: balanceOf selector arguments, block pinning, ERC-20/ERC-1155 return decoding and retry bookkeeping were compared with Reader and MissingBalanceOfToken consumers."
+
+[file.168]
+path = "services/explorer/backend/apps/explorer/lib/explorer/token/metadata_retriever.ex"
+lines = 999
+verdict = "issues"
+note = "Read in full: ERC metadata ABI decoding, null decimals, tokenURI fallbacks, IPFS/Arweave URLs, content-type decoding, error truncation and remote-fetch configuration were checked; redirect security is recorded separately."
+interfaces = ["14.cfg-explorer-token-functions-reader-max-retries", "14.cfg-logger-token-instances", "14.cfg-indexer-indexer-fetcher-tokeninstance-helper", "14.cfg-indexer-ipfs"]
+findings = ["metadata-redirect-filter-bypass"]
+
+[file.169]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/address_contract_code_fetch_attempt.ex"
+lines = 94
+verdict = "issues"
+note = "Read in full: address_contract_code_fetch_attempt schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+findings = ["contract-attempt-changeset"]
+
+[file.170]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/address_id_to_address_hash.ex"
+lines = 43
+verdict = "clean"
+note = "Read in full: address_id_to_address_hash schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+
+[file.171]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/event_notification.ex"
+lines = 22
+verdict = "clean"
+note = "Read in full: event_notification schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+
+[file.172]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/hammer.ex"
+lines = 41
+verdict = "clean"
+note = "Read in full: hammer schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+interfaces = ["14.cfg-explorer-explorer-utility-hammer-ets", "14.cfg-explorer-explorer-utility-hammer-redis", "14.cfg-explorer-explorer-utility-ratelimiter"]
+
+[file.173]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/internal_transaction_helper.ex"
+lines = 12
+verdict = "clean"
+note = "Read in full: internal_transaction_helper schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+
+[file.174]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/internal_transactions_address_placeholder.ex"
+lines = 21
+verdict = "clean"
+note = "Read in full: internal_transactions_address_placeholder schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+
+[file.175]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/massive_block.ex"
+lines = 42
+verdict = "clean"
+note = "Read in full: massive_block schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+
+[file.176]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/microservice.ex"
+lines = 43
+verdict = "clean"
+note = "Read in full: microservice schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+
+[file.177]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/missing_balance_of_token.ex"
+lines = 127
+verdict = "clean"
+note = "Read in full: missing_balance_of_token schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+interfaces = ["14.cfg-explorer-explorer-utility-missingbalanceoftoken"]
+
+[file.178]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/missing_block_range.ex"
+lines = 703
+verdict = "issues"
+note = "Read in full: missing_block_range schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+findings = ["missing-range-crash-loss", "missing-range-allocation"]
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/rate_limiter.ex"
+lines = 150
+verdict = "issues"
+note = "Read in full: rate_limiter schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+interfaces = ["14.cfg-explorer-explorer-utility-ratelimiter", "14.cfg-logger-web", "14.cfg-web-chain-id"]
+findings = ["rate-limit-expiry-process"]
+
+[file.180]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/replica_accessibility_manager.ex"
+lines = 66
+verdict = "clean"
+note = "Read in full: replica_accessibility_manager schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+interfaces = ["14.env-database-read-only-api-url"]
+
+[file.181]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/token_instance_metadata_refetch_attempt.ex"
+lines = 87
+verdict = "issues"
+note = "Read in full: token_instance_metadata_refetch_attempt schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+findings = ["metadata-attempt-changeset"]
+
+[file.182]
+path = "services/explorer/backend/apps/explorer/lib/explorer/utility/version_constants_updater.ex"
+lines = 32
+verdict = "clean"
+note = "Read in full: version_constants_updater schema or worker, database/configuration keys, return values, error handling and startup/expiry behavior were compared with live callers; durable-state and public-helper defects are recorded where present."
+interfaces = ["14.cfg-explorer-explorer-utility-versionconstantsupdater"]
+
+[file.183]
+path = "services/explorer/backend/apps/explorer/test/explorer/config/paxeer_x_finality_config_test.exs"
+lines = 11
+verdict = "clean"
+note = "Read in full: chain-specific test transport and JSON-RPC variant selection were checked against the production profile and shared configuration; the test transport is explicitly a test configuration."
+
+[file.184]
+path = "services/explorer/backend/apps/explorer/test/explorer/microservice_interfaces/metadata_test.exs"
+lines = 94
+verdict = "clean"
+note = "Read in full: service enablement and URL configuration, Bypass/Mox fixtures, request/response expectations, export queue cases and error cases were compared with Metadata or MultichainSearch callers. These fixture tests do not constitute an executed end-to-end service or restart gate."
+interfaces = ["14.cfg-explorer-explorer-microserviceinterfaces-metadata"]
+
+[file.185]
+path = "services/explorer/backend/apps/explorer/test/explorer/microservice_interfaces/multichain_search_test.exs"
+lines = 1367
+verdict = "clean"
+note = "Read in full: service enablement and URL configuration, Bypass/Mox fixtures, request/response expectations, export queue cases and error cases were compared with Metadata or MultichainSearch callers. These fixture tests do not constitute an executed end-to-end service or restart gate."
+
+[file.186]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/bridge.ex"
+lines = 475
+verdict = "clean"
+note = "Read in full: Polygon zkEVM bridge/batch JSON-RPC shapes, ABI field decoding, import keys, progress/reorg handling, token-resolution handoff and metrics were checked against the chain-gated runtime configuration; these fetchers are not enabled for paxeer_x."
+interfaces = ["14.cfg-logger-withdrawal"]
+
+[file.187]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/bridge_l1.ex"
+lines = 275
+verdict = "clean"
+note = "Read in full: Polygon zkEVM bridge/batch JSON-RPC shapes, ABI field decoding, import keys, progress/reorg handling, token-resolution handoff and metrics were checked against the chain-gated runtime configuration; these fetchers are not enabled for paxeer_x."
+interfaces = ["14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel1-supervisor", "14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel2"]
+
+[file.188]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/bridge_l1_tokens.ex"
+lines = 78
+verdict = "issues"
+note = "Read in full: Polygon zkEVM bridge/batch JSON-RPC shapes, ABI field decoding, import keys, progress/reorg handling, token-resolution handoff and metrics were checked against the chain-gated runtime configuration; these fetchers are not enabled for paxeer_x."
+interfaces = ["14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel1", "14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel1tokens-supervisor"]
+findings = ["polygon-token-queue-restart"]
+
+[file.189]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/bridge_l2.ex"
+lines = 223
+verdict = "clean"
+note = "Read in full: Polygon zkEVM bridge/batch JSON-RPC shapes, ABI field decoding, import keys, progress/reorg handling, token-resolution handoff and metrics were checked against the chain-gated runtime configuration; these fetchers are not enabled for paxeer_x."
+interfaces = ["14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel1", "14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel2-supervisor", "14.cfg-logger-withdrawal"]
+
+[file.190]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/transaction_batch.ex"
+lines = 375
+verdict = "clean"
+note = "Read in full: Polygon zkEVM bridge/batch JSON-RPC shapes, ABI field decoding, import keys, progress/reorg handling, token-resolution handoff and metrics were checked against the chain-gated runtime configuration; these fetchers are not enabled for paxeer_x."
+interfaces = ["14.cfg-indexer-indexer-fetcher-polygonzkevm-transactionbatch", "14.cfg-indexer-indexer-fetcher-polygonzkevm-transactionbatch-supervisor", "14.met-explorer-latest-batch-number", "14.met-explorer-latest-batch-timestamp"]
+
+[file.191]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/helper.ex"
+lines = 146
+verdict = "clean"
+note = "Read in full: parent/child event decoding, operation identity, empty-hash binding, durable progress and rollback were compared with the Shibarium schema and import runner; this optional profile is chain-gated."
+interfaces = ["14.cfg-logger-withdrawal"]
+
+[file.192]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l1.ex"
+lines = 677
+verdict = "issues"
+note = "Read in full: parent/child event decoding, operation identity, empty-hash binding, durable progress and rollback were compared with the Shibarium schema and import runner; this optional profile is chain-gated."
+interfaces = ["14.cfg-indexer-indexer-fetcher-shibarium-l1", "14.cfg-indexer-indexer-fetcher-shibarium-l1-supervisor", "14.cfg-logger-ethereum-jsonrpc", "14.cfg-logger-withdrawal", "7.rpc-eth-getlogs"]
+findings = ["shibarium-l1-reorg-sentinel", "shibarium-genesis-division"]
+
+[file.193]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l2.ex"
+lines = 547
+verdict = "issues"
+note = "Read in full: parent/child event decoding, operation identity, empty-hash binding, durable progress and rollback were compared with the Shibarium schema and import runner; this optional profile is chain-gated."
+interfaces = ["14.cfg-indexer-indexer-fetcher-shibarium-l2-supervisor", "14.cfg-logger-withdrawal", "7.rpc-eth-gettransactionreceipt"]
+findings = ["shibarium-l2-reorg-sentinel"]
+
+[file.194]
+path = "services/explorer/backend/apps/indexer/lib/indexer/helper.ex"
+lines = 1002
+verdict = "issues"
+note = "Read in full: shared HTTP RPC request ids and response shapes, hex quantities, safe-block discovery, timestamp estimation, chunk boundaries, retry termination and receipt/log helpers were compared with fetcher callers."
+interfaces = ["14.cfg-logger-ethereum-jsonrpc", "7.rpc-eth-getlogs", "7.rpc-eth-gettransactionbyhash"]
+findings = ["range-chunk-extra-interval", "block-interval-genesis-division", "batch-rpc-error-return"]
+
+[file.195]
+path = "services/explorer/services/libs/env-collector/Cargo.toml"
+lines = 21
+verdict = "clean"
+note = "Read in full: environment settings serialization, prefix filtering, builder/CLI options, Markdown table parsing and generation, and embedded tests were compared with the library README and actual public entry points."
+
+[file.196]
+path = "services/explorer/services/libs/env-collector/README.md"
+lines = 70
+verdict = "issues"
+note = "Read in full: environment settings serialization, prefix filtering, builder/CLI options, Markdown table parsing and generation, and embedded tests were compared with the library README and actual public entry points."
+findings = ["env-readme-binary-name"]
+
+[file.197]
+path = "services/explorer/services/libs/env-collector/src/lib.rs"
+lines = 1100
+verdict = "issues"
+note = "Read in full: environment settings serialization, prefix filtering, builder/CLI options, Markdown table parsing and generation, and embedded tests were compared with the library README and actual public entry points."
+findings = ["env-anchor-substring", "env-anchor-order-panic", "env-markdown-cell-escaping"]
+
+[file.198]
+path = "services/explorer/services/libs/env-collector/src/types.rs"
+lines = 129
+verdict = "clean"
+note = "Read in full: environment settings serialization, prefix filtering, builder/CLI options, Markdown table parsing and generation, and embedded tests were compared with the library README and actual public entry points."
+
+[finding.missing-range-crash-loss]
+file = "services/explorer/backend/apps/explorer/lib/explorer/utility/missing_block_range.ex"
+line = 570
+class = "restart-recovery"
+severity = "high"
+observed = "sanitize_missing_block_ranges calls delete_intersecting_ranges, which commits Repo.delete_all at line 605, before save_batch reinserts the merged ranges at line 578. Explorer.Migrator.SanitizeMissingBlockRanges invokes this during indexer startup without an enclosing transaction. A crash between these operations permanently removes outstanding missing-block work."
+expected = "Missing-block repair work must remain durable across migration failures and restarts; resuming a started migration must recover every range that existed before the interrupted attempt."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/utility/missing_block_range.ex, lock and merge the affected rows inside one Repo.transaction, check every insert result and roll back on failure. Add a recovery test that interrupts replacement after deletion and proves all missing heights remain queued after restart."
+owner_domain = 14
+
+[finding.missing-range-allocation]
+file = "services/explorer/backend/apps/explorer/lib/explorer/utility/missing_block_range.ex"
+line = 450
+class = "runtime-risk"
+severity = "medium"
+observed = "fill_ranges_between materializes every block number in the full historical interval into a list and MapSet whenever a priority range intersects it, then materializes each priority interval again. A large catch-up gap consumes memory proportional to the number of missing heights rather than the number of ranges."
+expected = "Catch-up range maintenance must operate within bounded memory even when a newly started indexer is millions of blocks behind."
+proposal = "Replace the per-height MapSet subtraction in services/explorer/backend/apps/explorer/lib/explorer/utility/missing_block_range.ex with sorted interval subtraction; preserve priority boundaries and add a large-gap case whose number of stored intervals stays bounded."
+owner_domain = 14
+
+[finding.rate-limit-expiry-process]
+file = "services/explorer/backend/apps/explorer/lib/explorer/utility/rate_limiter.ex"
+line = 147
+class = "runtime-risk"
+severity = "medium"
+observed = "The ETS branch schedules Process.send_after(self(), {:delete, key}, expire_after). check_rate runs in the requesting process, while the deletion handler belongs to the RateLimiter GenServer. An ordinary web request exits with its timer and the named ETS entry remains, retaining ban history and accumulating identifiers."
+expected = "The on_demand limitation_period in registry row 14.cfg-explorer-explorer-utility-ratelimiter must expire ban history regardless of the lifetime of the calling request."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/utility/rate_limiter.ex, make the owning GenServer schedule expiry or store deadlines and sweep them there. Protect newer entries from older timers and test expiry after the calling process exits."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-utility-ratelimiter"
+
+[finding.metadata-redirect-filter-bypass]
+file = "services/explorer/backend/apps/explorer/lib/explorer/token/metadata_retriever.ex"
+line = 855
+class = "security"
+severity = "medium"
+observed = "fetch_metadata_from_uri validates only the initial URI with MetadataURIValidator, then passes follow_redirect: true to Explorer.HttpClient. The configured Tesla adapter installs Tesla.Middleware.FollowRedirects without reapplying that validator; a public metadata host can redirect an indexer request to a blacklisted private or link-local address."
+expected = "The host_filtering_enabled? and cidr_blacklist policy in registry row 14.cfg-indexer-indexer-fetcher-tokeninstance-helper must cover every destination contacted for untrusted token metadata, including redirects."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/token/metadata_retriever.ex, follow a bounded number of redirects explicitly and validate each target before connecting; enforce the destination policy on resolved connection addresses as well. Exercise a public-to-private redirect through the actual HTTP adapter."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-tokeninstance-helper"
+
+[finding.metadata-subscribe-race]
+file = "apps/explorer/ui/tokenInstance/TokenInstanceMetadataFetcher.tsx"
+line = 63
+class = "runtime-risk"
+severity = "medium"
+observed = "initializeUpdate awaits the PATCH response before entering WAITING_FOR_RESPONSE, and useSocketChannel is disabled until that state. The controller casts work to TokenInstanceMetadataRefetch before returning HTTP 200; a fast fetched_token_instance_metadata broadcast can therefore occur before the browser joins token_instances:<hash>, after which the UI only times out."
+expected = "The refresh lifecycle for 14.ws-explorer-push-token-instances-hash-fetched-token-instance-metadata must show a completed refresh even when the worker finishes before the PATCH response or the socket reconnects."
+proposal = "In apps/explorer/ui/tokenInstance/TokenInstanceMetadataFetcher.tsx, join and acknowledge the channel before sending PATCH, then reconcile the canonical token-instance GET on timeout or reconnect. Cover completion before the HTTP response and reconnect after completion through the real producer and consumer."
+owner_domain = 14
+interface = "14.ws-explorer-push-token-instances-hash-fetched-token-instance-metadata"
+
+[finding.metadata-failure-event-unhandled]
+file = "apps/explorer/ui/tokenInstance/TokenInstanceMetadataFetcher.tsx"
+line = 134
+class = "wiring-gap"
+severity = "medium"
+observed = "The frontend subscribes only to fetched_token_instance_metadata. The same worker publishes not_fetched_token_instance_metadata with reason retry_cooldown or error, and notifier.ex forwards that event on the joined topic. These terminal responses leave the UI waiting for the full two-minute timeout and conceal the actionable cooldown reason."
+expected = "Every terminal response in the token-instance refresh lifecycle should leave the waiting state and explain whether the user must wait or retry."
+proposal = "Add the not_fetched_token_instance_metadata handler in apps/explorer/ui/tokenInstance/TokenInstanceMetadataFetcher.tsx, filter it by token_id, clear the timeout, and surface the documented reason. Extend lib/socket/types.ts with the producer payload and exercise both cooldown and fetch failure."
+owner_domain = 14
+interface = "14.ws-explorer-push-token-instances-hash-not-fetched-token-instance-metadata"
+
+[finding.metadata-refresh-media-shape]
+file = "apps/explorer/ui/tokenInstance/TokenInstanceMetadataFetcher.tsx"
+line = 104
+class = "runtime-risk"
+severity = "medium"
+observed = "The refresh handler overwrites image_url and animation_url with raw metadata strings, preferring image before image_url. The normal TokenView.prepare_token_instance path uses NFTHelper, which prefers image_url, handles map/list image forms and converts ipfs:// and ar:// values to gateway URLs. The same persisted NFT can display differently or lose its image immediately after refresh."
+expected = "Refreshing metadata must preserve the canonical API media interpretation, including image precedence, IPFS gateway conversion and structured image metadata."
+proposal = "In apps/explorer/ui/tokenInstance/TokenInstanceMetadataFetcher.tsx, invalidate and fetch the canonical token_instance resource after completion, or consume a backend-rendered instance payload rather than reconstructing media fields from raw metadata. Cover IPFS URLs, image_url precedence and map/list images."
+owner_domain = 14
+interface = "14.ws-explorer-push-token-instances-hash-fetched-token-instance-metadata"
+
+[finding.token-market-cap-unknown-decimals]
+file = "apps/explorer/ui/tokens/TokensTableItem.tsx"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "getOnchainMarketCap treats nullable decimals as zero through Number(decimals) || 0. TokenInfo explicitly permits null, and MetadataRetriever.limit_decimals can produce nil while total_supply and exchange_rate remain present, so the UI publishes an unscaled market capitalization as if token precision were known."
+expected = "A market-cap figure requires a known valid decimal precision; unavailable precision should use the existing unavailable-value placeholder."
+proposal = "In apps/explorer/ui/tokens/TokensTableItem.tsx, require a non-null finite integer decimal precision before calculating capitalization and preserve actual zero-decimal tokens. Add cases for null precision with present supply and price as well as a genuine zero-decimal token."
+owner_domain = 14
+
+[finding.token-sort-label]
+file = "apps/explorer/ui/tokens/utils.ts"
+line = 15
+class = "runtime-risk"
+severity = "medium"
+observed = "The mobile sorting options label circulating_market_cap-asc and circulating_market_cap-desc as On-chain market cap. The table calculates on-chain capitalization from total_supply, decimals and exchange_rate, while circulating_market_cap is a separate provider field; selecting this label orders by a different quantity."
+expected = "A market-cap sort label must identify the field actually sent to the token-list API so mobile users can predict the resulting order."
+proposal = "In apps/explorer/ui/tokens/utils.ts, label these choices Circulating market cap, consistently with the API sorting enum, or implement a distinct supported on-chain sort in the backend before offering it."
+owner_domain = 14
+
+[finding.stats-percent-is-not-delta]
+file = "apps/explorer/ui/stats/NumberWidgetsList.tsx"
+line = 35
+class = "runtime-risk"
+severity = "medium"
+observed = "getCounterDeltaDirection classifies every counter with units % as a rising or falling change. A utilization percentage is an absolute share and cannot supply a trend direction from its sign; the local networkUtilization fixture itself describes 12.5% as Share of the gas limit in use."
+expected = "Absolute percentage measurements must remain neutral; a trend indicator requires an explicitly declared comparison or change metric."
+proposal = "In apps/explorer/ui/stats/NumberWidgetsList.tsx, select trend presentation from explicit counter semantics or a declared delta field rather than the units string, and render utilization percentages as absolute measurements."
+owner_domain = 14
+
+[finding.stats-fixture-asserts-false-trend]
+file = "apps/explorer/ui/stats/NumberWidgetsList.spec.tsx"
+line = 100
+class = "test-gap"
+severity = "medium"
+observed = "The rendered-counter test explicitly requires networkUtilization 12.5% to have data-delta=up even though its fixture description calls it the share of the gas limit in use. The test therefore enshrines a trend interpretation absent from that measurement."
+expected = "Counter tests must distinguish an absolute utilization percentage from a percentage change and assert the semantics supplied by the actual service."
+proposal = "Revise apps/explorer/ui/stats/NumberWidgetsList.spec.tsx alongside the product fix to use a producer-derived absolute utilization counter and assert neutral presentation, then separately assert direction for a declared change counter."
+owner_domain = 14
+
+[finding.nft-zero-transfer-count-hidden]
+file = "apps/explorer/ui/tokenInstance/details/TokenInstanceTransfersCount.tsx"
+line = 31
+class = "runtime-risk"
+severity = "low"
+observed = "The falsy transfers_count guard returns null for an API response containing transfers_count: 0. The later branch intended to show a non-clickable zero is unreachable, so a known zero disappears in the same way as unavailable data."
+expected = "A successfully fetched zero transfers count should remain visible and should not link to a nonexistent transfer list."
+proposal = "In apps/explorer/ui/tokenInstance/details/TokenInstanceTransfersCount.tsx, distinguish absent data from zero and render the zero without an active transfer link; exercise zero and unavailable responses."
+owner_domain = 14
+
+[finding.mobile-block-withdrawal-value]
+file = "apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsListItem.tsx"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "The Value label and amount are nested inside view !== block together with Age. BlockWithdrawalsItem still contains amount and the desktop block table shows it, but the mobile block view omits the withdrawal amount entirely."
+expected = "A block withdrawal must show its amount on mobile as well as desktop; hiding the redundant block age should not hide the transfer value."
+proposal = "Move the amount row outside the view !== block condition in apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsListItem.tsx and cover the block view at the mobile breakpoint."
+owner_domain = 14
+
+[finding.filter-decimal-term-order]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex"
+line = 1351
+class = "runtime-risk"
+severity = "medium"
+observed = "Both token-transfer amount filter stages guard their two-bound clauses with from < to before calling Decimal.lt?. Decimal structs are compared by Erlang term order in that guard; equivalent numeric formats can change clause selection. For example lower bound 2.0 and upper bound 10 can fall through to the upper-only clause, discarding the lower bound."
+expected = "Advanced filters must compare decimal amounts numerically and apply both supplied bounds independently of their textual scale."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex, remove struct-order guards and validate both bounds with Decimal comparison in the function body. Exercise mixed scales, equal bounds and reversed numeric bounds in both pre- and post-unnesting stages."
+owner_domain = 14
+
+[finding.filter-zero-log-batch-page]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex"
+line = 756
+class = "runtime-risk"
+severity = "medium"
+observed = "page_tt_index_dynamic requires tt_index > 0 even for a partially consumed ERC-1155 batch. For a batch at log_index 0 with remaining reverse_index_in_batch entries, the pre-subquery page predicate returns false for the current block, removing the row before the later batch-index predicate can retain its remaining elements."
+expected = "Pagination must return every element of a token-transfer batch exactly once, including batches emitted as the first log in a block."
+proposal = "Allow log_index zero in the same-log continuation branch of services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex and prove that a batch larger than one page at log_index zero is fully returned across successive API pages."
+owner_domain = 14
+
+[finding.filter-empty-inclusion]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex"
+line = 1504
+class = "runtime-risk"
+severity = "medium"
+observed = "process_address_inclusion returns nil when an explicit include list is completely removed by the exclude list. Callers interpret nil as no filter. An include [A] and exclude [A] request therefore broadens to unrelated transfers instead of producing an empty set."
+expected = "An explicitly empty effective inclusion set must match no rows; it is distinct from a request with no inclusion filter."
+proposal = "Represent empty inclusion separately in services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex and compile it to a false predicate for address and token filtering. Cover fully overlapping include/exclude lists on the real advanced-filter API."
+owner_domain = 14
+
+[finding.filter-or-duplicates]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex"
+line = 1089
+class = "runtime-risk"
+severity = "medium"
+observed = "The mixed include/exclude OR branches create one query per included address and combine them with union_all. A transfer satisfying the exclusion side appears in every branch when two or more addresses are included; the transaction variants repeat the same construction, inflating results and disturbing cursor pages."
+expected = "A logical OR filter must yield each transaction or transfer once regardless of how many disjuncts it satisfies."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex, combine these predicates in one query or deduplicate by the complete transfer identity before paging. Cover multiple included addresses with rows matching only the exclusion side for transactions and ERC-1155 elements."
+owner_domain = 14
+
+[finding.filter-exclude-type]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex"
+line = 88
+class = "dead-code"
+severity = "low"
+observed = "The token_contract_address_hashes type lists {:include, ...} twice and omits {:exclude, ...}, although filter_by_token and process_address_inclusion implement exclusion. The declared API option type does not describe an implemented caller choice."
+expected = "The option type should enumerate the actual include and exclude keyword alternatives accepted by the advanced filter."
+proposal = "Correct the second alternative to :exclude in services/explorer/backend/apps/explorer/lib/explorer/chain/advanced_filter.ex and retain the corresponding real exclusion behavior in the API contract."
+owner_domain = 14
+
+[finding.erc404-zero-balance-collection]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/token/instance.ex"
+line = 462
+class = "runtime-risk"
+severity = "medium"
+observed = "erc_404_collections_by_address_hash selects current token balances with a token_id but does not require ctb.value > 0. ERC-1155 collections and the ERC-404 instance listing do require a positive balance, so a former owner with a retained zero balance can still see the ERC-404 collection as owned."
+expected = "The NFT collections view must agree with the current positive-balance ownership used by the instance list."
+proposal = "Add the positive-balance predicate to erc_404_collections_by_address_hash in services/explorer/backend/apps/explorer/lib/explorer/chain/token/instance.ex and exercise a transfer that leaves the old owner with a zero balance."
+owner_domain = 14
+
+[finding.thumbnail-declared-type]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/token/instance/media_urls.ex"
+line = 7
+class = "dead-code"
+severity = "low"
+observed = "Explorer.Chain.Token.Instance.Thumbnails declares t as a three-element tuple, while cast and dump accept a three-element list and load returns a URL map or nil. Consumers cannot rely on that type to describe either the stored representation or the loaded field."
+expected = "The custom Ecto type should distinguish its serialized list representation from the loaded thumbnail URL map."
+proposal = "Define separate stored and loaded types and correct the exposed field type in services/explorer/backend/apps/explorer/lib/explorer/chain/token/instance/media_urls.ex to describe the actual cast, dump and load values."
+owner_domain = 14
+
+[finding.contract-attempt-changeset]
+file = "services/explorer/backend/apps/explorer/lib/explorer/utility/address_contract_code_fetch_attempt.ex"
+line = 22
+class = "dead-code"
+severity = "low"
+observed = "The public changeset calls Ecto.Changeset.cast with :hash, but the schema declares address_hash instead. Ecto rejects an unknown cast field. Current insert_all paths bypass this function, so the defect is a broken public helper rather than a failure of the existing retry writes."
+expected = "A declared changeset must accept the schema identity and retry count without referencing an unknown field."
+proposal = "Correct the permitted fields in services/explorer/backend/apps/explorer/lib/explorer/utility/address_contract_code_fetch_attempt.ex to use address_hash and verify the changeset with a real schema value before introducing any callers."
+owner_domain = 14
+
+[finding.metadata-attempt-changeset]
+file = "services/explorer/backend/apps/explorer/lib/explorer/utility/token_instance_metadata_refetch_attempt.ex"
+line = 23
+class = "dead-code"
+severity = "low"
+observed = "The public changeset calls Ecto.Changeset.cast with :hash, but the schema declares token_contract_address_hash and token_id instead. Ecto rejects an unknown cast field. Current insert_all paths bypass this function, so the defect is a broken public helper rather than a failure of the existing retry writes."
+expected = "A declared changeset must accept the schema identity and retry count without referencing an unknown field."
+proposal = "Correct the permitted fields in services/explorer/backend/apps/explorer/lib/explorer/utility/token_instance_metadata_refetch_attempt.ex to use token_contract_address_hash and token_id and verify the changeset with a real schema value before introducing any callers."
+owner_domain = 14
+
+[finding.production-database-peer-verification]
+file = "services/explorer/backend/apps/explorer/config/prod.exs"
+line = 8
+class = "security"
+severity = "medium"
+observed = "Production configuration sets ssl_opts: [verify: :verify_none] for the primary repository and repeats it for every auxiliary repository. runtime/prod.exs enables SSL but does not replace ssl_opts, so enabling database TLS encrypts traffic without authenticating the server certificate."
+expected = "A production database TLS connection must authenticate the configured database endpoint before sending credentials or explorer data."
+proposal = "In services/explorer/backend/apps/explorer/config/prod.exs and the runtime database configuration, use verify_peer with configured trust roots and hostname verification for remote TLS databases; document the required CA material and cover rejection of an untrusted server."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-repo"
+
+[finding.range-chunk-extra-interval]
+file = "services/explorer/backend/apps/indexer/lib/indexer/helper.ex"
+line = 264
+class = "runtime-risk"
+severity = "medium"
+observed = "range_chunk_every uses floor(length / chunk_size) and iterates inclusively from 0 through that value. For 1..10 with size 5 it emits 1..5, 6..10 and 11..10; the last Elixir range descends and is not empty. The live Celo validator-group-votes fetcher consumes these intervals."
+expected = "Chunking an inclusive range must cover each requested height exactly once and never emit an out-of-bounds or reversed final chunk."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/helper.ex, compute the exact positive chunk count and iterate only existing chunks, validate chunk_size, and cover exact multiples, one-element ranges and partial final chunks."
+owner_domain = 14
+
+[finding.block-interval-genesis-division]
+file = "services/explorer/backend/apps/indexer/lib/indexer/helper.ex"
+line = 140
+class = "runtime-risk"
+severity = "medium"
+observed = "get_block_check_interval chooses first_block=max(last_safe_block-100, 1), then divides by last_safe_block-first_block. At safe height 1 the denominator is zero; at genesis it asks for block 1 even though only height 0 exists. PolygonZkevm.BridgeL1 calls this during initialization."
+expected = "An enabled fetcher should initialize or wait safely on a new chain and should not crash or retry a nonexistent future block when the head is at genesis."
+proposal = "Handle heads below the minimum timestamp sample explicitly in services/explorer/backend/apps/indexer/lib/indexer/helper.ex, using the configured polling interval until two distinct committed heights exist; cover heights 0, 1 and 2."
+owner_domain = 14
+
+[finding.batch-rpc-error-return]
+file = "services/explorer/backend/apps/indexer/lib/indexer/helper.ex"
+line = 587
+class = "runtime-risk"
+severity = "medium"
+observed = "do_repeated_batch_rpc_call detects an element-level JSON-RPC error but retains batch_responses as {:ok, responses_list}; when retries are exhausted it returns that successful tuple with error elements. Callers which match {:ok, responses} can then treat missing result fields as success or crash while consuming them."
+expected = "An exhausted element-level RPC failure must remain an error at the helper boundary; HTTP batch success is distinct from success of every requested operation."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/helper.ex, return a typed error for exhausted JSON-RPC element failures while preserving successful responses by request id where partial success is supported. Exercise a real batch containing both result and error elements."
+owner_domain = 14
+interface = "7.rpc-eth-getlogs"
+
+[finding.shibarium-l1-reorg-sentinel]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l1.ex"
+line = 649
+class = "restart-recovery"
+severity = "medium"
+observed = "New unmatched bridge operations store the opposite l2_transaction_hash as @empty_hash, and Shibarium.Helper binds that sentinel. reorg_handle instead tests is_nil on the opposite hash and writes l1_transaction_hash: nil. The hashes form part of the database primary key, so affected updates violate non-null constraints; unmatched rows are also classified as matched."
+expected = "The enabled Shibarium profile must use one consistent unmatched-hash representation across import, binding, reorg rollback and replay."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l1.ex, use the existing empty-hash sentinel consistently when deleting unmatched rows and clearing one side of matched rows; apply the rollback atomically and cover matched and unmatched operations followed by restart and replay."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-shibarium-l1"
+
+[finding.shibarium-l2-reorg-sentinel]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l2.ex"
+line = 258
+class = "restart-recovery"
+severity = "medium"
+observed = "New unmatched bridge operations store the opposite l1_transaction_hash as @empty_hash, and Shibarium.Helper binds that sentinel. reorg_handle instead tests is_nil on the opposite hash and writes l2_transaction_hash: nil. The hashes form part of the database primary key, so affected updates violate non-null constraints; unmatched rows are also classified as matched."
+expected = "The enabled Shibarium profile must use one consistent unmatched-hash representation across import, binding, reorg rollback and replay."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l2.ex, use the existing empty-hash sentinel consistently when deleting unmatched rows and clearing one side of matched rows; apply the rollback atomically and cover matched and unmatched operations followed by restart and replay."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-shibarium-l2-supervisor"
+
+[finding.shibarium-genesis-division]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l1.ex"
+line = 354
+class = "runtime-risk"
+severity = "medium"
+observed = "The local Shibarium get_block_check_interval repeats the timestamp-span calculation with first_block=max(latest_block-100, 1) and divides by latest_block-first_block, so latest_block 1 causes division by zero and genesis requests a future sample."
+expected = "Optional-chain initialization must handle a newly initialized parent chain without a zero denominator or an unavailable future sample."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/shibarium/l1.ex, share the corrected small-head polling policy with Indexer.Helper and exercise the initial committed heights before enabling normal timestamp estimation."
+owner_domain = 14
+
+[finding.polygon-token-queue-restart]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/bridge_l1_tokens.ex"
+line = 34
+class = "restart-recovery"
+severity = "medium"
+observed = "BridgeL1Tokens.init returns an empty buffer and defaults set poll: false. Unresolved bridge rows keep l1_token_address until the buffered task writes l1_token_id, but restart does not load those pending addresses. A crash after the bridge row is saved and before the task runs can leave token resolution permanently pending unless the same operation is re-imported."
+expected = "Persisted unresolved bridge token references must be resumed after restart independently of whether their original event is delivered again."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/polygon_zkevm/bridge_l1_tokens.ex, seed startup work from distinct unresolved l1_token_address values or use a durable resolution queue, and prove replay after stopping between bridge import and metadata resolution."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel1tokens-supervisor"
+
+[finding.verification-browser-test-skipped]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/address_contract_verification_test.exs"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "The successful contract-verification feature test is tagged :skip with a comment that headless Chrome always fails it. The ordinary suite therefore provides no evidence for this declared happy-path browser scenario."
+expected = "A successful verification scenario should execute and assert the real feature path; an existing skip must not be mistaken for a passing regression gate."
+proposal = "Repair the headless-browser interaction in services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/address_contract_verification_test.exs and its page helpers, then execute the original success scenario with its assertions intact under a separately authorized owning-domain task."
+owner_domain = 14
+
+[finding.verification-error-not-asserted]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/address_contract_verification_test.exs"
+line = 76
+class = "test-gap"
+severity = "medium"
+observed = "The invalid-data test ends by returning ContractVerifyPage.has_message?, whose implementation returns String.contains?. There is no assert on that boolean, so a missing validation error message still lets ExUnit report the test as successful."
+expected = "The invalid-verification scenario must fail when the expected error message is absent."
+proposal = "Bind and assert the has_message? result in services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/address_contract_verification_test.exs, preserving the existing form interaction and requiring the visible validation response."
+owner_domain = 14
+
+[finding.application-feature-tests-commented]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/viewing_app_test.exs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The complete ViewingAppTest module, including every test declaration, is commented out. The file supplies no executable ExUnit coverage for the application behaviors its scenarios describe."
+expected = "A feature-test source should provide executable coverage for supported application behavior, or clearly retire obsolete scenarios with replacement coverage identified."
+proposal = "Review the commented scenarios in services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/viewing_app_test.exs against the current frontend, restore applicable scenarios using the actual routes, and explicitly identify replacement coverage for obsolete server-rendered views."
+owner_domain = 14
+
+[finding.env-anchor-substring]
+file = "services/explorer/services/libs/env-collector/src/lib.rs"
+line = 273
+class = "runtime-risk"
+severity = "medium"
+observed = "from_markdown finds anchors by substring and update_markdown uses line.contains. With no postfix, anchors.envs.start also matches anchors.envs.start.other before the intended unqualified section; the supplied fixture already demonstrates multiple suffixed sections. Selecting the wrong pair can validate or overwrite another environment table."
+expected = "An environment-table update must select the exact requested anchor pair and preserve every other documentation section."
+proposal = "In services/explorer/services/libs/env-collector/src/lib.rs, parse exact full anchor markers with the requested postfix, require a unique ordered pair, and exercise unqualified anchors following a different suffixed table through both validation and update."
+owner_domain = 14
+
+[finding.env-anchor-order-panic]
+file = "services/explorer/services/libs/env-collector/src/lib.rs"
+line = 281
+class = "runtime-risk"
+severity = "medium"
+observed = "from_markdown subtracts one from the first end-anchor offset and slices line_start..=line_end without checking order. A README with the end marker before the start marker causes an invalid string range panic instead of the Result error promised by the API."
+expected = "Malformed documentation anchors should produce a contextual validation error before slicing or writing the file."
+proposal = "In services/explorer/services/libs/env-collector/src/lib.rs, validate start and end marker order and UTF-8 slice boundaries before extracting the table, return an anyhow error on malformed input, and ensure update_markdown applies the same validation without writing on error."
+owner_domain = 14
+
+[finding.env-markdown-cell-escaping]
+file = "services/explorer/services/libs/env-collector/src/lib.rs"
+line = 521
+class = "runtime-risk"
+severity = "medium"
+observed = "serialize_env_vars_to_md_table inserts description and default_value verbatim between pipe delimiters. A legitimate default or description containing a pipe or newline changes the column or row count; from_markdown then cannot recover the same environment-variable information."
+expected = "Generated environment tables must round-trip supported setting descriptions and default strings without structural loss."
+proposal = "Escape or encode Markdown cell delimiters and line breaks in services/explorer/services/libs/env-collector/src/lib.rs, decode that representation consistently when reading, and cover a description and default containing pipes and newlines."
+owner_domain = 14
+
+[finding.env-readme-binary-name]
+file = "services/explorer/services/libs/env-collector/README.md"
+line = 54
+class = "doc-drift"
+severity = "medium"
+observed = "Usage step 2 creates check-envs.rs and the CI example executes --bin check-envs, but the justfile and direct generation commands use --bin env-docs-generation. Following the documented setup does not create the binary invoked by steps 4 and 5; the dependency example also advertises 0.1.1 while this package is 0.3.1."
+expected = "The setup instructions should create and execute the same binary with a dependency version compatible with the shown builder API."
+proposal = "Update services/explorer/services/libs/env-collector/README.md to use one binary name in the source filename, just recipes, direct invocation and CI, and align the dependency example with the current supported package release."
+owner_domain = 14
+
+[finding.account-api-documentation-version]
+file = "services/explorer/backend/apps/block_scout_web/API.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The account API documentation advertises /api/account/v1/user/info and v1 routes throughout, naming Account.Api.V1 controllers. The current AccountRouter mounts the account JSON API under /v2 and the explorer frontend consumes those v2 endpoints; the documented v1 path is not registered."
+expected = "Account API documentation must describe registered routes and their current request, response and authentication contracts."
+proposal = "Regenerate services/explorer/backend/apps/block_scout_web/API.md from the current AccountRouter and v2 controller schemas, replace v1 examples and verify the examples against the registered v2 endpoints without publishing live authentication material."
+owner_domain = 14
+
+[finding.registry-event-type-name]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/token/instance.ex"
+line = 876
+class = "wiring-gap"
+severity = "low"
+observed = "The registry lists instance.ex TokenTransfer references as callers of the launchpad IEventEmitter.TokenTransfer Solidity event, but these lines document and type Explorer.Chain.TokenTransfer Ecto structs; they do not decode or consume that event."
+expected = "The registry must identify real event consumers by event signature and transport rather than an unrelated shared identifier."
+proposal = "Correct the callers of 4.sevt-ieventemitter-tokentransfer-d1630e8d in spec/layerx-merge/interfaces.kvx using the actual ABI signature and decoder paths; remove these Ecto type/documentation matches from the event consumer inventory."
+owner_domain = 4
+interface = "4.sevt-ieventemitter-tokentransfer-d1630e8d"
+
+[finding.registry-abi-field-getter]
+file = "apps/explorer/ui/withdrawals/optimisticL2/OptimisticL2ClaimModal.tsx"
+line = 32
+class = "wiring-gap"
+severity = "low"
+observed = "The registry treats the gasLimit component of the Optimism withdrawal tuple as a caller of EVMCompatibilityTester.gasLimit(). This component is an input field to finalizeWithdrawalTransactionExternalProof and never calls that tester getter."
+expected = "The interface graph must distinguish an ABI tuple component from an invoked contract selector."
+proposal = "Correct the caller extraction for 6.sol-evmcompatibilitytester-gaslimit-f68016b7 in spec/layerx-merge/interfaces.kvx, retaining only actual selector calls and classifying the withdrawal ABI under its portal contract."
+owner_domain = 6
+interface = "6.sol-evmcompatibilitytester-gaslimit-f68016b7"
+
+[finding.registry-public-tag-route]
+file = "apps/explorer/ui/publicTags/submit/PublicTagsSubmitForm.tsx"
+line = 54
+class = "wiring-gap"
+severity = "low"
+observed = "The gateway OPTIONS /submit registry row lists public-tag submission components because their browser routes contain submit. These components call the explorer public-tag/account API and do not send OPTIONS to the hosted transaction gateway."
+expected = "Gateway callers must be tied to the gateway origin, request method and payload instead of a shared route suffix."
+proposal = "Correct the callers of 8.http-gateway-options-submit in spec/layerx-merge/interfaces.kvx to remove public-tag navigation matches and retain actual gateway CORS/transaction clients; keep public-tag routing in the explorer account inventory."
+owner_domain = 8
+interface = "8.http-gateway-options-submit"
+
+[finding.registry-form-submit-operation]
+file = "apps/explorer/ui/publicTags/submit/PublicTagsSubmitForm.tsx"
+line = 152
+class = "wiring-gap"
+severity = "low"
+observed = "The registry lists the React form onSubmit callback as a caller of agent POST /rpc operation=submit. The callback sends an explorer public-tag request and has no agent operation envelope or agent transport."
+expected = "An agent operation caller must construct the declared operation and use its transport; a DOM submit handler is not that protocol."
+proposal = "Correct the caller inventory for 9.http-rpc-submit in spec/layerx-merge/interfaces.kvx to identify operation envelope construction and actual agent client calls, excluding React form-handler symbol matches."
+owner_domain = 9
+interface = "9.http-rpc-submit"
+
+[finding.route-catalogue-retired]
+file = "docs/system/routes.md"
+line = 908
+class = "doc-drift"
+severity = "medium"
+observed = "The generated route catalogue advertises /rpc/evm/ws, lx_subscribe and lx_unsubscribe, and retired programs REST ingress such as /v1/programs/deploy as operational routes. These entries describe the pre-merge transport and retired ingress surface."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Regenerate docs/system/routes.md from corrected tools/paxeer-x/route-catalogue.json inputs and tools/paxeer-x/gen-system-docs.sh, separating retained hosted APIs from retired entries and documenting native JSON-RPC at the public node root."
+owner_domain = 17
+
+[finding.wiki-two-domains]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents LayerX and Paxeer as two execution domains, describes a running layerxd daemon and custody/checkpoint precompiles 0x1012 through 0x1014, and describes unified RPC as planned. Those are obsolete operating assumptions."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md around one paxd BFT chain, EVM chain id 125, commit finality, native tenant namespaces and root node JSON-RPC; clearly mark retired custody, checkpoint and daemon material as historical or remove it."
+owner_domain = 17
+
+[finding.site-overview-router]
+file = "docs/site/docs/overview/unified-network.md"
+line = 128
+class = "doc-drift"
+severity = "medium"
+observed = "The overview instructs clients to use https://api-mainnet-beta.paxeer.network/rpc and /rpc/schema, while retaining two-domain routing and separate lx_* execution descriptions. The specified public node serves JSON-RPC at its root without that router."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md to show root node JSON-RPC and the distinct hosted gateway contract, remove the unified router and separate LayerX interface, and explain receipt finality at block commit."
+owner_domain = 17
+
+[finding.beta-cluster-retired-bringup]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The operator guide mounts a custody profile into layerxd, describes custody 0x1013 and deleted hosted Paxeer relay infrastructure, and retains read-only LNI preparation as a bring-up step. Those steps provision retired components."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Replace the retired steps in docs/site/docs/operators/beta-cluster.md with the current paxd bring-up and chain-id checks, retained hosted gateway configuration and committed-block readiness; remove custody, relay and LNI prerequisites."
+owner_domain = 17
+
+[finding.network-page-settlement]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The page says ordinary activity stays on LayerX while periodic checkpoints settle on Paxeer, and describes custody, guarantor bonds and emergency exits as the network role. The merged network executes and commits activity on one chain."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Rewrite docs/paxeer-network.md around the single chain and current native modules, replace the old directory-role table and protocol links, and explain finality from committed blocks instead of periodic checkpoint settlement."
+owner_domain = 17
+
+[finding.site-index-two-domains]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site introduction places execution and a trust boundary inside LayerX while custody, finality and periodic checkpoint settlement remain on Paxeer. This describes a second live domain that the merged product no longer has."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Update docs/site/docs/index.md and its architecture summary to show the kernel inside paxd, one EVM chain id 125 and commit finality; replace retired checkpoint, bond, custody and emergency-exit claims with current native behavior."
+owner_domain = 17
+
+[finding.settlement-evidence-retired]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The guide presents checkpoint certificates, authority epochs, finality-evidence registration and replica sequence continuity as current operator settlement requirements. Those daemon-era authority and checkpoint paths are retired in the merged chain."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md as committed-header and CometBFT-commit verification with native state proofs at a pinned height; label any retained certificate rollout history as historical and remove it from current runbooks."
+owner_domain = 17
+
+[finding.cli-router-endpoint]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc URLs to end in /rpc, repeats that restriction at line 131, and directs eth_sendRawTransaction to /rpc at line 298. Its operational explanation retains old LNI and authorized-batch discovery assumptions."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Update docs/site/docs/platform/cli.md to distinguish root public-node JSON-RPC from retained hosted APIs, remove the universal /rpc constraint and retired discovery steps, and document the current transaction and receipt flow alongside the matching CLI implementation."
+owner_domain = 17
+
+[finding.readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated network introduction and architecture diagram describe separate LayerX execution, periodic checkpoint settlement and a running layerxd, with retired custody, verification and anchor precompiles presented as active integration surfaces."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Rewrite docs/readme/README.pt-BR.md consistently with the merged network: one paxd chain, root JSON-RPC on EVM chain 125, block-commit finality and tenant namespaces; replace the old diagram and retire 0x1012, 0x1013 and 0x1014 integration instructions."
+owner_domain = 17
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated network introduction and architecture diagram describe separate LayerX execution, periodic checkpoint settlement and a running layerxd, with retired custody, verification and anchor precompiles presented as active integration surfaces."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Rewrite docs/readme/README.de.md consistently with the merged network: one paxd chain, root JSON-RPC on EVM chain 125, block-commit finality and tenant namespaces; replace the old diagram and retire 0x1012, 0x1013 and 0x1014 integration instructions."
+owner_domain = 17
+
+[finding.readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated network introduction and architecture diagram describe separate LayerX execution, periodic checkpoint settlement and a running layerxd, with retired custody, verification and anchor precompiles presented as active integration surfaces."
+expected = "The finished network has one paxd chain with EVM id 125; there is no standalone layerxd, separate LayerX execution interface or unified /rpc router, and receipts become final at block commit."
+proposal = "Rewrite docs/readme/README.es.md consistently with the merged network: one paxd chain, root JSON-RPC on EVM chain 125, block-commit finality and tenant namespaces; replace the old diagram and retire 0x1012, 0x1013 and 0x1014 integration instructions."
+owner_domain = 17
+
+[finding.cli-command-table-contradiction]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The guide says its earlier table lists only implemented command groups, then introduces a second table as not implemented while repeating groups such as wallet watch. The same reader is told that a command both exists and is unavailable."
+expected = "A CLI reference should state one current implementation status for each command and show only supported flags for that status."
+proposal = "Reconcile docs/site/docs/platform/cli.md against tools/platform/cli command dispatch and help output, give each command one status and remove contradictory availability tables while retaining an explicitly labeled future roadmap if needed."
+owner_domain = 17
+
+[doc.01]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: route-catalogue-retired."
+
+[doc.02]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: wiki-two-domains."
+
+[doc.03]
+path = "contracts/launchpad/README.md"
+status = "accurate"
+notes = "Read in full: launchpad contract roles, AMM/pool flows, deployment/configuration examples and governance descriptions remain a launchpad-level contract guide; no separate LayerX transport is required by these instructions."
+
+[doc.04]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: site-overview-router."
+
+[doc.05]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: beta-cluster-retired-bringup."
+
+[doc.06]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: readme-pt-br."
+
+[doc.07]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: readme-de."
+
+[doc.08]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: readme-es."
+
+[doc.09]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: network-page-settlement."
+
+[doc.10]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: site-index-two-domains."
+
+[doc.11]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: settlement-evidence-retired."
+
+[doc.12]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: cli-router-endpoint, cli-command-table-contradiction."
+
+[doc.13]
+path = "services/explorer/backend/apps/block_scout_web/API.md"
+status = "stale"
+notes = "Read all account request and response examples; v1 paths and controller names disagree with the mounted v2 account API. See account-api-documentation-version."
+
+[doc.14]
+path = "services/explorer/services/libs/env-collector/README.md"
+status = "stale"
+notes = "Read in full; the created binary and generation commands disagree, and the dependency example is older than the package. See env-readme-binary-name."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "accurate"
+notes = "Read the generated socket/channel/join/push contract and notes. The three package token-instance rows correctly identify /socket/v2, token_instances:<hash> and fetched_token_instance_metadata; producer payloads agree on token_id strings and fetched_metadata. Consumer lifecycle defects are recorded separately; this status concerns those package rows."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "accurate"
+notes = "Consulted the package-related generated config and environment rows, including cache/fetcher keys, HTTP adapter, transport profiles, repository URLs, token metadata/IPFS settings and logging. Names and value shapes agree with the declarations/readers inspected; security and expiry behavior findings do not change those key signatures."

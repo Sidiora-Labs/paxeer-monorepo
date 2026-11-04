@@ -1,0 +1,1234 @@
+[audit.22.30.7]
+task = "22.30.7"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 135
+findings = 35
+docs_reviewed = 9
+upgrade_ready = false
+blocking = ["snapshot-growth", "escrow-receipt-binding", "default-event-loss", "unused-budget-revoke"]
+review_basis = "Full source/test review of every member; generated ABIs inspected structurally against Solidity and runtime adapters. Package requirements and 240 produced/68 consumed registry rows considered. Existing proof assertions are source evidence; no Go, C, SDK or browser gate execution is claimed by this audit."
+
+[file.1]
+path = "modules/README.md"
+lines = 20
+verdict = "issues"
+note = "Read all module descriptions; retired settlement roles and missing merged modules are recorded. Findings: doc-modules-retirements."
+
+[file.2]
+path = "modules/layerxpay/client/cli/query.go"
+lines = 43
+verdict = "clean"
+note = "Read the whole file. CLI/gRPC params request/response transport and error handling."
+
+[file.3]
+path = "modules/layerxpay/client/cli/query_test.go"
+lines = 83
+verdict = "clean"
+note = "Read the whole file. CLI/gRPC params request/response transport and error handling. Assertions reviewed: TestPayQueryParamsCmd. Source review; no execution of this suite is claimed."
+
+[file.4]
+path = "modules/layerxpay/integration/genesis_test.go"
+lines = 309
+verdict = "clean"
+note = "Read application module/host genesis integration, family gate checks and shared-host preservation. Assertions reviewed: TestAppExportsPayGenesisWithSharedHost. Source review; no execution of this suite is claimed."
+
+[file.5]
+path = "modules/layerxpay/integration/gov_test.go"
+lines = 149
+verdict = "clean"
+note = "Read routed governance parameter updates, authority refusals and rollback on gate mismatch. Assertions reviewed: TestPayParamsThroughLayerXProposal. Source review; no execution of this suite is claimed."
+
+[file.6]
+path = "modules/layerxpay/keeper/authority.go"
+lines = 34
+verdict = "issues"
+note = "Read the whole file. Binding-derived DID/key/principal and unbound-caller refusal. Findings: declaration-authority."
+
+[file.7]
+path = "modules/layerxpay/keeper/authority_test.go"
+lines = 62
+verdict = "clean"
+note = "Read the whole file. Binding-derived DID/key/principal and unbound-caller refusal. Assertions reviewed: TestAuthorityForBoundCaller, TestAuthorityForUnboundCallerRefused. Source review; no execution of this suite is claimed."
+
+[file.8]
+path = "modules/layerxpay/keeper/budget_close.go"
+lines = 33
+verdict = "issues"
+note = "Read the whole file. Owner close, defund and revoke arguments, refund path and atomic kernel submission. Findings: unused-budget-revoke."
+
+[file.9]
+path = "modules/layerxpay/keeper/budget_close_test.go"
+lines = 221
+verdict = "clean"
+note = "Read the whole file. Owner close, defund and revoke arguments, refund path and atomic kernel submission. Assertions reviewed: TestBudgetCloseDrainsToOwner, TestBudgetDefundAndRevoke. Source review; no execution of this suite is claimed."
+
+[file.10]
+path = "modules/layerxpay/keeper/budget_create.go"
+lines = 68
+verdict = "clean"
+note = "Read the whole file. Versioned budget/native funding payloads, source sequence and owner authority."
+
+[file.11]
+path = "modules/layerxpay/keeper/budget_create_test.go"
+lines = 258
+verdict = "clean"
+note = "Read the whole file. Versioned budget/native funding payloads, source sequence and owner authority. Assertions reviewed: TestBudgetCreateAndFund, TestBudgetNativeVariantsAndAmend. Source review; no execution of this suite is claimed."
+
+[file.12]
+path = "modules/layerxpay/keeper/budget_pull.go"
+lines = 51
+verdict = "clean"
+note = "Read the whole file. Retained compatibility entry refuses explicitly; legacy payer-grant execution is not reachable."
+
+[file.13]
+path = "modules/layerxpay/keeper/budget_pull_test.go"
+lines = 216
+verdict = "clean"
+note = "Read the whole file. Retained compatibility entry refuses explicitly; legacy payer-grant execution is not reachable. Assertions reviewed: TestBudgetPullIsRetired, TestBudgetPullRefusesMalformedGrant. Source review; no execution of this suite is claimed."
+
+[file.14]
+path = "modules/layerxpay/keeper/budget_spend.go"
+lines = 87
+verdict = "clean"
+note = "Read the whole file. Owner/delegate spending, exact uint128 arguments and derived replay keys."
+
+[file.15]
+path = "modules/layerxpay/keeper/budget_spend_test.go"
+lines = 234
+verdict = "clean"
+note = "Read the whole file. Owner/delegate spending, exact uint128 arguments and derived replay keys. Assertions reviewed: TestBudgetSpendWithinPeriodLimit, TestBudgetDelegateSpendDerivedKey. Source review; no execution of this suite is claimed."
+
+[file.16]
+path = "modules/layerxpay/keeper/budget_views.go"
+lines = 52
+verdict = "issues"
+note = "Read the whole file. Canonical versioned reads, full-width allowance arithmetic and balance errors. Findings: budget-time-view."
+
+[file.17]
+path = "modules/layerxpay/keeper/budget_views_test.go"
+lines = 247
+verdict = "clean"
+note = "Read the whole file. Canonical versioned reads, full-width allowance arithmetic and balance errors. Assertions reviewed: TestBudgetViewsReadKernelRecord. Source review; no execution of this suite is claimed."
+
+[file.18]
+path = "modules/layerxpay/keeper/escrow_open.go"
+lines = 37
+verdict = "clean"
+note = "Read the whole file. Escrow owner/account/asset funding and capture activity arguments."
+
+[file.19]
+path = "modules/layerxpay/keeper/escrow_open_test.go"
+lines = 220
+verdict = "clean"
+note = "Read the whole file. Escrow owner/account/asset funding and capture activity arguments. Assertions reviewed: TestEscrowOpenLocksFunds, TestEscrowCaptureAndPartialCapture. Source review; no execution of this suite is claimed."
+
+[file.20]
+path = "modules/layerxpay/keeper/escrow_settle.go"
+lines = 24
+verdict = "issues"
+note = "Read the whole file. Release/timeout/dispute payloads, inner keys and returned economic receipt. Findings: escrow-receipt-binding."
+
+[file.21]
+path = "modules/layerxpay/keeper/escrow_settle_test.go"
+lines = 204
+verdict = "clean"
+note = "Read the whole file. Release/timeout/dispute payloads, inner keys and returned economic receipt. Assertions reviewed: TestEscrowReleaseAndTimeout, TestEscrowDisputeResolveSplit. Source review; no execution of this suite is claimed."
+
+[file.22]
+path = "modules/layerxpay/keeper/escrow_views.go"
+lines = 40
+verdict = "issues"
+note = "Read the whole file. Shared-host hold/result keys, canonical decoding and absent-record behavior. Findings: escrow-corruption-panic."
+
+[file.23]
+path = "modules/layerxpay/keeper/escrow_views_test.go"
+lines = 182
+verdict = "clean"
+note = "Read the whole file. Shared-host hold/result keys, canonical decoding and absent-record behavior. Assertions reviewed: TestEscrowViewsReadKernelRecord, TestEscrowViewsUnknownIDEmpty. Source review; no execution of this suite is claimed."
+
+[file.24]
+path = "modules/layerxpay/keeper/execute.go"
+lines = 80
+verdict = "issues"
+note = "Read the whole file. Binding-derived authority, distinct global/identity sequences and atomic kernel refusal. Findings: declaration-submit."
+
+[file.25]
+path = "modules/layerxpay/keeper/execute_test.go"
+lines = 285
+verdict = "clean"
+note = "Read the whole file. Binding-derived authority, distinct global/identity sequences and atomic kernel refusal. Assertions reviewed: TestSubmitCommitsKernelActivity, TestSubmitKernelRefusalCarriesRegistryCode, TestSubmitReusedKeyExecutesAtNextSequence. Source review; no execution of this suite is claimed."
+
+[file.26]
+path = "modules/layerxpay/keeper/gate.go"
+lines = 44
+verdict = "issues"
+note = "Read the whole file. Family flags, pause exit paths and exact shared-host enable records. Findings: declaration-gate."
+
+[file.27]
+path = "modules/layerxpay/keeper/gate_test.go"
+lines = 215
+verdict = "clean"
+note = "Read the whole file. Family flags, pause exit paths and exact shared-host enable records. Assertions reviewed: TestCheckWritePauseExitPaths, TestCheckWriteFamilyDisabled, TestCheckWriteViewsUngated. Source review; no execution of this suite is claimed."
+
+[file.28]
+path = "modules/layerxpay/keeper/genesis.go"
+lines = 54
+verdict = "issues"
+note = "Read the whole file. Detached family snapshots, gate validation and persisted agent metadata. Findings: snapshot-growth."
+
+[file.29]
+path = "modules/layerxpay/keeper/genesis_rehearsal_test.go"
+lines = 241
+verdict = "clean"
+note = "Read shared-host rehearsal and byte-exact restoration; bounded fixtures do not prove recovery above the separately recorded snapshot limit. Assertions reviewed: TestPayGenesisRehearsalKeepsKernelState. Source review; no execution of this suite is claimed."
+
+[file.30]
+path = "modules/layerxpay/keeper/genesis_test.go"
+lines = 264
+verdict = "clean"
+note = "Read the whole file. Detached family snapshots, gate validation and persisted agent metadata. Assertions reviewed: TestPayGenesisKeepsAgentStreamMetadata, TestPayGenesisRefusesMalformedAgentStreamMetadata, TestPayGenesisRoundTrip, TestPayGenesisRefusesGateDrift. Source review; no execution of this suite is claimed."
+
+[file.31]
+path = "modules/layerxpay/keeper/grpc_query.go"
+lines = 23
+verdict = "issues"
+note = "Read the whole file. Registered Querier, nil-request InvalidArgument and protobuf Params response. Findings: declaration-query."
+
+[file.32]
+path = "modules/layerxpay/keeper/grpc_query_test.go"
+lines = 50
+verdict = "clean"
+note = "Read the whole file. Registered Querier, nil-request InvalidArgument and protobuf Params response. Assertions reviewed: TestPayQueryParams. Source review; no execution of this suite is claimed."
+
+[file.33]
+path = "modules/layerxpay/keeper/harness_test.go"
+lines = 140
+verdict = "clean"
+note = "Read real host/kernel/store construction, funded identities and state snapshot helpers. Source review; no execution of this suite is claimed."
+
+[file.34]
+path = "modules/layerxpay/keeper/keeper.go"
+lines = 53
+verdict = "issues"
+note = "Read the whole file. Shared-host ownership, dependency validation and module params storage. Findings: declaration-constructor, declaration-keeper."
+
+[file.35]
+path = "modules/layerxpay/keeper/keeper_test.go"
+lines = 87
+verdict = "clean"
+note = "Read the whole file. Shared-host ownership, dependency validation and module params storage. Assertions reviewed: TestPayKeeperParamsRoundTrip, TestPayKeeperRequiresHostAndKeys. Source review; no execution of this suite is claimed."
+
+[file.36]
+path = "modules/layerxpay/keeper/msg_server.go"
+lines = 51
+verdict = "clean"
+note = "Read the whole file. Governance-only updates and atomic parameter/kernel-gate checks."
+
+[file.37]
+path = "modules/layerxpay/keeper/msg_server_test.go"
+lines = 145
+verdict = "clean"
+note = "Read the whole file. Governance-only updates and atomic parameter/kernel-gate checks. Assertions reviewed: TestPayMsgUpdateParamsAuthority, TestPayMsgUpdateParamsKernelGate. Source review; no execution of this suite is claimed."
+
+[file.38]
+path = "modules/layerxpay/keeper/params.go"
+lines = 29
+verdict = "clean"
+note = "Read the whole file. Five family/pause flags and genesis envelope bounds and canonical enable flags."
+
+[file.39]
+path = "modules/layerxpay/keeper/proof_pay_genesis_test.go"
+lines = 235
+verdict = "issues"
+note = "Read the whole file. Declared producer/consumer types, real wiring, canonical errors and persisted state behavior reviewed. Assertions reviewed: TestProofPayGenesis. Source review; no execution of this suite is claimed. Findings: genesis-proof-gap."
+
+[file.40]
+path = "modules/layerxpay/keeper/proof_pay_keeper_test.go"
+lines = 248
+verdict = "clean"
+note = "Read real producer, committed-store reopen, cross-actor sequences, atomic refusals and public consumer proofs. Assertions reviewed: TestProofPayKeeper. Source review; no execution of this suite is claimed."
+
+[file.41]
+path = "modules/layerxpay/keeper/service_agreement.go"
+lines = 40
+verdict = "clean"
+note = "Read the whole file. Offer/agreement formation, task commitments and bound identity."
+
+[file.42]
+path = "modules/layerxpay/keeper/service_agreement_test.go"
+lines = 185
+verdict = "clean"
+note = "Read the whole file. Offer/agreement formation, task commitments and bound identity. Assertions reviewed: TestServiceAgreementProposeAccept, TestServiceCommitAndAbandon. Source review; no execution of this suite is claimed."
+
+[file.43]
+path = "modules/layerxpay/keeper/service_delivery.go"
+lines = 74
+verdict = "clean"
+note = "Read the whole file. Deliverables/progress/attestations and permissionless lapsed-outcome sweep."
+
+[file.44]
+path = "modules/layerxpay/keeper/service_delivery_test.go"
+lines = 356
+verdict = "clean"
+note = "Read the whole file. Deliverables/progress/attestations and permissionless lapsed-outcome sweep. Assertions reviewed: TestServiceDefaultOutcomeApplied, TestServiceDeliverAcceptFlow, TestServiceRejectAndToolAttest. Source review; no execution of this suite is claimed."
+
+[file.45]
+path = "modules/layerxpay/keeper/service_dispute.go"
+lines = 101
+verdict = "clean"
+note = "Read the whole file. Escrow-arbiter authorization and resolution linkage."
+
+[file.46]
+path = "modules/layerxpay/keeper/service_dispute_test.go"
+lines = 236
+verdict = "clean"
+note = "Read the whole file. Escrow-arbiter authorization and resolution linkage. Assertions reviewed: TestServiceDisputeResolvedByEscrowArbiter, TestServiceDisputeArbiterRefusals. Source review; no execution of this suite is claimed."
+
+[file.47]
+path = "modules/layerxpay/keeper/service_offer.go"
+lines = 25
+verdict = "clean"
+note = "Read the whole file. Versioned publish/withdraw payloads and provider authority."
+
+[file.48]
+path = "modules/layerxpay/keeper/service_offer_test.go"
+lines = 152
+verdict = "clean"
+note = "Read the whole file. Versioned publish/withdraw payloads and provider authority. Assertions reviewed: TestServiceOfferPublishWithdraw. Source review; no execution of this suite is claimed."
+
+[file.49]
+path = "modules/layerxpay/keeper/service_views.go"
+lines = 127
+verdict = "issues"
+note = "Read the whole file. Versioned service records, split delivery reconstruction and aggregate selection. Findings: service-corruption-panic, service-global-scans."
+
+[file.50]
+path = "modules/layerxpay/keeper/service_views_test.go"
+lines = 275
+verdict = "clean"
+note = "Read the whole file. Versioned service records, split delivery reconstruction and aggregate selection. Assertions reviewed: TestServiceViewsReadKernelRecords, TestServiceViewsUnknownEmpty. Source review; no execution of this suite is claimed."
+
+[file.51]
+path = "modules/layerxpay/keeper/stream_agent.go"
+lines = 258
+verdict = "issues"
+note = "Read the whole file. Seconds/milliseconds conversion, uint128 units and persisted address metadata. Findings: declaration-agent-open, declaration-agent-settle, declaration-agent-close, declaration-agent-rate, declaration-agent-view."
+
+[file.52]
+path = "modules/layerxpay/keeper/stream_agent_test.go"
+lines = 256
+verdict = "clean"
+note = "Read the whole file. Seconds/milliseconds conversion, uint128 units and persisted address metadata. Assertions reviewed: TestAgentStreamOpenMapsTokenAndUnits, TestAgentStreamSettleCloseRateAndView, TestAgentStreamUnknownTokenRefused. Source review; no execution of this suite is claimed."
+
+[file.53]
+path = "modules/layerxpay/keeper/stream_lifecycle.go"
+lines = 40
+verdict = "clean"
+note = "Read the whole file. Pause/resume and settlement at the old rate before rate changes."
+
+[file.54]
+path = "modules/layerxpay/keeper/stream_lifecycle_test.go"
+lines = 277
+verdict = "clean"
+note = "Read the whole file. Pause/resume and settlement at the old rate before rate changes. Assertions reviewed: TestStreamPauseResumeStopsAccrual, TestStreamRateChangeSettlesAtOldRate. Source review; no execution of this suite is claimed."
+
+[file.55]
+path = "modules/layerxpay/keeper/stream_open.go"
+lines = 25
+verdict = "clean"
+note = "Read the whole file. Stream ids/accounts, initial funding and meter authority bounds."
+
+[file.56]
+path = "modules/layerxpay/keeper/stream_open_test.go"
+lines = 256
+verdict = "clean"
+note = "Read the whole file. Stream ids/accounts, initial funding and meter authority bounds. Assertions reviewed: TestStreamOpenFundsFromPayer, TestStreamTopUpAddsFunding. Source review; no execution of this suite is claimed."
+
+[file.57]
+path = "modules/layerxpay/keeper/stream_settle.go"
+lines = 32
+verdict = "clean"
+note = "Read the whole file. Signed meter input, settlement/close and economic result replay keys."
+
+[file.58]
+path = "modules/layerxpay/keeper/stream_settle_test.go"
+lines = 321
+verdict = "clean"
+note = "Read the whole file. Signed meter input, settlement/close and economic result replay keys. Assertions reviewed: TestStreamSettlePaysAccrued, TestStreamMeterThenClose. Source review; no execution of this suite is claimed."
+
+[file.59]
+path = "modules/layerxpay/keeper/stream_views.go"
+lines = 86
+verdict = "clean"
+note = "Read the whole file. Canonical stream record/result versions and read-only accrued projection."
+
+[file.60]
+path = "modules/layerxpay/keeper/stream_views_test.go"
+lines = 247
+verdict = "clean"
+note = "Read the whole file. Canonical stream record/result versions and read-only accrued projection. Assertions reviewed: TestStreamAccruedAtBlockOpen, TestStreamRecordAndResultViews. Source review; no execution of this suite is claimed."
+
+[file.61]
+path = "modules/layerxpay/module.go"
+lines = 128
+verdict = "clean"
+note = "Read the whole file. AppModule genesis/services registration and intentional absence of block hooks."
+
+[file.62]
+path = "modules/layerxpay/module_test.go"
+lines = 213
+verdict = "clean"
+note = "Read the whole file. AppModule genesis/services registration and intentional absence of block hooks. Assertions reviewed: TestPayAppModuleGenesisAndServices. Source review; no execution of this suite is claimed."
+
+[file.63]
+path = "modules/layerxpay/testutil/binding.go"
+lines = 15
+verdict = "clean"
+note = "Read the whole file. Test binding/custody adapters and production-facing dependency shapes."
+
+[file.64]
+path = "modules/layerxpay/types/activity.go"
+lines = 98
+verdict = "clean"
+note = "Read the whole file. Method/module/ordinal mappings and retained compatibility entries."
+
+[file.65]
+path = "modules/layerxpay/types/activity_test.go"
+lines = 200
+verdict = "clean"
+note = "Read the whole file. Method/module/ordinal mappings and retained compatibility entries. Assertions reviewed: TestMethodActivityMatchesKernelTypes, TestMethodActivitySharedOrdinals. Source review; no execution of this suite is claimed."
+
+[file.66]
+path = "modules/layerxpay/types/codec.go"
+lines = 31
+verdict = "clean"
+note = "Read the whole file. Amino/protobuf registration of parameter governance messages."
+
+[file.67]
+path = "modules/layerxpay/types/errors.go"
+lines = 27
+verdict = "clean"
+note = "Read the whole file. Registered codespace and LXP ABI refusal mapping."
+
+[file.68]
+path = "modules/layerxpay/types/errors_test.go"
+lines = 92
+verdict = "clean"
+note = "Read the whole file. Registered codespace and LXP ABI refusal mapping. Assertions reviewed: TestPayErrorsRegisteredInCodespace, TestPayRevertCodeMapsToRegistry. Source review; no execution of this suite is claimed."
+
+[file.69]
+path = "modules/layerxpay/types/idempotency.go"
+lines = 36
+verdict = "clean"
+note = "Read the whole file. Domain-separated transaction/call ordinal/selector or payer derivation."
+
+[file.70]
+path = "modules/layerxpay/types/idempotency_test.go"
+lines = 103
+verdict = "clean"
+note = "Read the whole file. Domain-separated transaction/call ordinal/selector or payer derivation. Assertions reviewed: TestDeriveIdempotencyKeyDomainSeparated, TestDeriveStreamIDNonZeroAndPayerBound. Source review; no execution of this suite is claimed."
+
+[file.71]
+path = "modules/layerxpay/types/keys.go"
+lines = 61
+verdict = "clean"
+note = "Read the whole file. Module ids, shared-host family prefixes, limits and agent metadata key."
+
+[file.72]
+path = "modules/layerxpay/types/msgs.go"
+lines = 29
+verdict = "clean"
+note = "Read the whole file. Authority parsing, message route/type and governance signer shape."
+
+[file.73]
+path = "modules/layerxpay/types/msgs_test.go"
+lines = 147
+verdict = "clean"
+note = "Read the whole file. Authority parsing, message route/type and governance signer shape. Assertions reviewed: TestPayMsgUpdateParamsValidateBasic, TestPayCodecRegistersMsgUpdateParams. Source review; no execution of this suite is claimed."
+
+[file.74]
+path = "modules/layerxpay/types/params.go"
+lines = 119
+verdict = "issues"
+note = "Read the whole file. Five family/pause flags and genesis envelope bounds and canonical enable flags. Findings: opaque-genesis."
+
+[file.75]
+path = "modules/layerxpay/types/params_test.go"
+lines = 294
+verdict = "clean"
+note = "Read the whole file. Five family/pause flags and genesis envelope bounds and canonical enable flags. Assertions reviewed: TestParamsDefaultAndValidate, TestParamsStoreKeys, TestParamsKernelGateKeys, TestParamsGenesisModuleGates and all remaining declared tests. Source review; no execution of this suite is claimed."
+
+[file.76]
+path = "modules/layerxpay/types/payload_budget.go"
+lines = 223
+verdict = "clean"
+note = "Read the whole file. Budget big-endian layouts, lengths and legacy grant width checks."
+
+[file.77]
+path = "modules/layerxpay/types/payload_budget_test.go"
+lines = 514
+verdict = "clean"
+note = "Read the whole file. Budget big-endian layouts, lengths and legacy grant width checks. Assertions reviewed: TestBudgetPayloads. Source review; no execution of this suite is claimed."
+
+[file.78]
+path = "modules/layerxpay/types/payload_escrow.go"
+lines = 62
+verdict = "clean"
+note = "Read the whole file. Fixed escrow byte fields, transition ordinals and inner replay keys."
+
+[file.79]
+path = "modules/layerxpay/types/payload_escrow_test.go"
+lines = 256
+verdict = "clean"
+note = "Read the whole file. Fixed escrow byte fields, transition ordinals and inner replay keys. Assertions reviewed: TestEscrowPayloadsCGoldens, TestEscrowPayloadsFieldWidths, TestEscrowPayloadsIntegerBounds, TestEscrowPayloadsIndependentBuffers. Source review; no execution of this suite is claimed."
+
+[file.80]
+path = "modules/layerxpay/types/payload_service.go"
+lines = 222
+verdict = "clean"
+note = "Read the whole file. Versioned service payloads, bounded deliverables and exact execution length."
+
+[file.81]
+path = "modules/layerxpay/types/payload_service_test.go"
+lines = 461
+verdict = "clean"
+note = "Read the whole file. Versioned service payloads, bounded deliverables and exact execution length. Assertions reviewed: TestServicePayloads. Source review; no execution of this suite is claimed."
+
+[file.82]
+path = "modules/layerxpay/types/payload_stream.go"
+lines = 146
+verdict = "clean"
+note = "Read the whole file. Stream widths, version prefixes, authority count and meter signature length."
+
+[file.83]
+path = "modules/layerxpay/types/payload_stream_test.go"
+lines = 491
+verdict = "clean"
+note = "Read the whole file. Stream widths, version prefixes, authority count and meter signature length. Assertions reviewed: TestStreamPayloads. Source review; no execution of this suite is claimed."
+
+[file.84]
+path = "modules/layerxpay/types/proof_msg_layerxpay_updateparams_test.go"
+lines = 184
+verdict = "clean"
+note = "Read real producer message encoding, routed authority/gate refusals and committed parameter round-trip with fresh consumers. Assertions reviewed: TestProofMsgLayerxpayUpdateparams. Source review; no execution of this suite is claimed."
+
+[file.85]
+path = "modules/layerxpay/types/proof_views_test.go"
+lines = 500
+verdict = "issues"
+note = "Read the whole file. Declared producer/consumer types, real wiring, canonical errors and persisted state behavior reviewed. Assertions reviewed: TestProofViews. Source review; no execution of this suite is claimed. Findings: escrow-root-proof-gap."
+
+[file.86]
+path = "modules/layerxpay/types/query_test.go"
+lines = 98
+verdict = "clean"
+note = "Read the whole file. CLI/gRPC params request/response transport and error handling. Assertions reviewed: TestPayQueryParamsResponseRoundTrip. Source review; no execution of this suite is claimed."
+
+[file.87]
+path = "modules/layerxpay/types/records_budget.go"
+lines = 91
+verdict = "clean"
+note = "Read the whole file. Versioned budget layout, configured allowance, delegates and native source."
+
+[file.88]
+path = "modules/layerxpay/types/records_escrow.go"
+lines = 109
+verdict = "clean"
+note = "Read the whole file. Hold/result widths, versions, canonical tails and transfer-set binding."
+
+[file.89]
+path = "modules/layerxpay/types/records_escrow_test.go"
+lines = 308
+verdict = "clean"
+note = "Read the whole file. Hold/result widths, versions, canonical tails and transfer-set binding. Assertions reviewed: TestDecodeEscrowRecordLayout, TestDecodeBudgetRecordLayout. Source review; no execution of this suite is claimed."
+
+[file.90]
+path = "modules/layerxpay/types/records_service.go"
+lines = 256
+verdict = "clean"
+note = "Read the whole file. Service fixed/variable record shapes, evidence and split deliverables."
+
+[file.91]
+path = "modules/layerxpay/types/records_service_test.go"
+lines = 300
+verdict = "clean"
+note = "Read the whole file. Service fixed/variable record shapes, evidence and split deliverables. Assertions reviewed: TestDecodeServiceFixedRecords, TestDecodeServiceVariableRecords. Source review; no execution of this suite is claimed."
+
+[file.92]
+path = "modules/layerxpay/types/records_stream.go"
+lines = 180
+verdict = "clean"
+note = "Read the whole file. Versioned stream/result fields, uint128 amounts and canonical flags."
+
+[file.93]
+path = "modules/layerxpay/types/records_stream_test.go"
+lines = 277
+verdict = "clean"
+note = "Read the whole file. Versioned stream/result fields, uint128 amounts and canonical flags. Assertions reviewed: TestDecodeStreamRecordLayout, TestDecodeStreamResultLayout. Source review; no execution of this suite is claimed."
+
+[file.94]
+path = "precompiles/layerxchains/LayerXChains.sol"
+lines = 24
+verdict = "clean"
+note = "Read all twelve methods and four events against the served 0x101E registry, uint32 ids, uint64 allowances and indexed fields."
+
+[file.95]
+path = "precompiles/layerxchains/abi.json"
+lines = 333
+verdict = "generated"
+note = "Generated ABI artifact: 12 methods and 4 events. Structured entries inspected against Solidity, runtime adapters and ABI proof source, including tuple fields, widths, mutability and indexed topics."
+
+[file.96]
+path = "precompiles/layerxchains/abi_test.go"
+lines = 316
+verdict = "clean"
+note = "Read the whole file. Declared producer/consumer types, real wiring, canonical errors and persisted state behavior reviewed. Assertions reviewed: TestChainsAbiParsesAndEveryMethodHasGas, TestChainsAbiMatchesTheSolidityInterface, TestChainsVectorFileIsCurrent. Source review; no execution of this suite is claimed."
+
+[file.97]
+path = "precompiles/layerxchains/address.go"
+lines = 6
+verdict = "clean"
+note = "Read the whole file. Fixed tenant registry 0x101E endpoint and precompile name."
+
+[file.98]
+path = "precompiles/layerxchains/errors.go"
+lines = 35
+verdict = "clean"
+note = "Read the whole file. Registered codespace and LXP ABI refusal mapping."
+
+[file.99]
+path = "precompiles/layerxchains/events.go"
+lines = 22
+verdict = "clean"
+note = "Read the whole file. ABI topics/indexed fields and producer-backed post-commit values."
+
+[file.100]
+path = "precompiles/layerxchains/gas.go"
+lines = 22
+verdict = "clean"
+note = "Read the whole file. Method gas rows, charged host store work and out-of-gas behavior."
+
+[file.101]
+path = "precompiles/layerxchains/keepers.go"
+lines = 18
+verdict = "clean"
+note = "Read the whole file. Required keeper interfaces and application/test wiring."
+
+[file.102]
+path = "precompiles/layerxchains/layerxchains.go"
+lines = 276
+verdict = "clean"
+note = "Read the whole file. Tenant registry dispatch, operator/governance authority and payable bond transport."
+
+[file.103]
+path = "precompiles/layerxchains/layerxchains_test.go"
+lines = 414
+verdict = "clean"
+note = "Read the whole file. Tenant registry dispatch, operator/governance authority and payable bond transport. Assertions reviewed: TestChainsPrecompileRegistersMergeConstructor, TestDefaultParamsQuoteOneHundredAndTenPax, TestChainByNameReturnsZeroForAnUnusedName, TestChainsPrecompileCreatesReadsAndPausesAChain and all remaining declared tests. Source review; no execution of this suite is claimed."
+
+[file.104]
+path = "precompiles/layerxpay/LayerXPay.sol"
+lines = 275
+verdict = "issues"
+note = "Read all structs, 57 methods and 38 events against ABI tuples/indexed fields; retained budgetPull needs a retirement notice. Findings: retired-budgetpull-contract."
+
+[file.105]
+path = "precompiles/layerxpay/abi.json"
+lines = 194
+verdict = "generated"
+note = "Generated ABI artifact: 57 methods and 38 events. Structured entries inspected against Solidity, runtime adapters and ABI proof source, including tuple fields, widths, mutability and indexed topics."
+
+[file.106]
+path = "precompiles/layerxpay/abi_test.go"
+lines = 433
+verdict = "clean"
+note = "Read the whole file. Declared producer/consumer types, real wiring, canonical errors and persisted state behavior reviewed. Assertions reviewed: TestABIMatchesContract, TestLedgerProducerABIAtPaymentBoundary. Source review; no execution of this suite is claimed."
+
+[file.107]
+path = "precompiles/layerxpay/budget.go"
+lines = 139
+verdict = "clean"
+note = "Read the whole file. ABI budget arguments, native/delegate branches and post-commit events."
+
+[file.108]
+path = "precompiles/layerxpay/budget_test.go"
+lines = 369
+verdict = "clean"
+note = "Read the whole file. ABI budget arguments, native/delegate branches and post-commit events. Assertions reviewed: TestPrecompileBudgetLifecycle, TestPrecompileBudgetNativeAndPull. Source review; no execution of this suite is claimed."
+
+[file.109]
+path = "precompiles/layerxpay/charge_test.go"
+lines = 61
+verdict = "clean"
+note = "Read dynamic-gas charge and caller-metered store-work assertions. Assertions reviewed: TestPayServedChargeTracksStoreGas. Source review; no execution of this suite is claimed."
+
+[file.110]
+path = "precompiles/layerxpay/conformance_budget_test.go"
+lines = 205
+verdict = "clean"
+note = "Read real direct-host/EVM budget transition, economic record and event comparisons. Assertions reviewed: TestPayBudgetPathMatchesHostExecute. Source review; no execution of this suite is claimed."
+
+[file.111]
+path = "precompiles/layerxpay/conformance_escrow_test.go"
+lines = 195
+verdict = "clean"
+note = "Read direct-host/EVM state and event comparisons; common-producer agreement does not resolve the separately recorded outer receipt binding defect. Assertions reviewed: TestPayEscrowPathMatchesHostExecute. Source review; no execution of this suite is claimed."
+
+[file.112]
+path = "precompiles/layerxpay/conformance_service_test.go"
+lines = 338
+verdict = "clean"
+note = "Read real direct-host/EVM service transitions and canonical state/event comparisons. Assertions reviewed: TestPayServicePathMatchesHostExecute. Source review; no execution of this suite is claimed."
+
+[file.113]
+path = "precompiles/layerxpay/errors.go"
+lines = 27
+verdict = "issues"
+note = "Read the whole file. Registered codespace and LXP ABI refusal mapping. Findings: declaration-revert."
+
+[file.114]
+path = "precompiles/layerxpay/errors_test.go"
+lines = 107
+verdict = "clean"
+note = "Read the whole file. Registered codespace and LXP ABI refusal mapping. Assertions reviewed: TestPayRevertFromKernelCode, TestPayRevertFromModuleErrors. Source review; no execution of this suite is claimed."
+
+[file.115]
+path = "precompiles/layerxpay/escrow.go"
+lines = 110
+verdict = "issues"
+note = "Read the whole file. Escrow ABI tuples, transition events and raw result transport. Findings: escrow-global-snapshot-read."
+
+[file.116]
+path = "precompiles/layerxpay/escrow_test.go"
+lines = 381
+verdict = "clean"
+note = "Read the whole file. Escrow ABI tuples, transition events and raw result transport. Assertions reviewed: TestPrecompileEscrowLifecycle, TestPrecompileEscrowViews, TestPrecompileEscrowUnboundCallerReverts. Source review; no execution of this suite is claimed."
+
+[file.117]
+path = "precompiles/layerxpay/events.go"
+lines = 237
+verdict = "clean"
+note = "Read the whole file. ABI topics/indexed fields and producer-backed post-commit values."
+
+[file.118]
+path = "precompiles/layerxpay/events_test.go"
+lines = 211
+verdict = "clean"
+note = "Read the whole file. ABI topics/indexed fields and producer-backed post-commit values. Assertions reviewed: TestPayEventTopicsMatchABI, TestPayEventEmittedAtPayAddress. Source review; no execution of this suite is claimed."
+
+[file.119]
+path = "precompiles/layerxpay/export_test.go"
+lines = 32
+verdict = "clean"
+note = "Read exported test access to constructor/execution surfaces and its relationship to production dispatch. Source review; no execution of this suite is claimed."
+
+[file.120]
+path = "precompiles/layerxpay/gas.go"
+lines = 122
+verdict = "clean"
+note = "Read the whole file. Method gas rows, charged host store work and out-of-gas behavior."
+
+[file.121]
+path = "precompiles/layerxpay/gas_bound_test.go"
+lines = 266
+verdict = "clean"
+note = "Read the whole file. Declared producer/consumer types, real wiring, canonical errors and persisted state behavior reviewed. Assertions reviewed: TestPayChargedGasCoversHostStoreWork. Source review; no execution of this suite is claimed."
+
+[file.122]
+path = "precompiles/layerxpay/gas_test.go"
+lines = 162
+verdict = "clean"
+note = "Read the whole file. Method gas rows, charged host store work and out-of-gas behavior. Assertions reviewed: TestGasTable. Source review; no execution of this suite is claimed."
+
+[file.123]
+path = "precompiles/layerxpay/harness_test.go"
+lines = 107
+verdict = "clean"
+note = "Read real EVM/host/keeper/state construction and bound identities used by payment proofs. Source review; no execution of this suite is claimed."
+
+[file.124]
+path = "precompiles/layerxpay/keepers.go"
+lines = 9
+verdict = "clean"
+note = "Read the whole file. Required keeper interfaces and application/test wiring."
+
+[file.125]
+path = "precompiles/layerxpay/layerxpay.go"
+lines = 387
+verdict = "clean"
+note = "Read the whole file. Served constructors, canonical calldata, static/delegate restrictions and dynamic gas."
+
+[file.126]
+path = "precompiles/layerxpay/layerxpay_test.go"
+lines = 147
+verdict = "clean"
+note = "Read the whole file. Served constructors, canonical calldata, static/delegate restrictions and dynamic gas. Assertions reviewed: TestPayPrecompileRegistersMergeConstructor, TestPayPrecompileChargesGasTable. Source review; no execution of this suite is claimed."
+
+[file.127]
+path = "precompiles/layerxpay/proof_layerxpay_0x101b_test.go"
+lines = 351
+verdict = "issues"
+note = "Read the whole file. Declared producer/consumer types, real wiring, canonical errors and persisted state behavior reviewed. Assertions reviewed: TestProofLayerxpay0x101b. Source review; no execution of this suite is claimed. Findings: unused-revoke-proof-gap."
+
+[file.128]
+path = "precompiles/layerxpay/served/served_test.go"
+lines = 333
+verdict = "clean"
+note = "Read actual served activation, address/constructor checks, EVM escrow writes and staticcall/context refusals. Assertions reviewed: TestPayServedAfterUpgrade, TestPayServedEscrowOpenThroughEVM. Source review; no execution of this suite is claimed."
+
+[file.129]
+path = "precompiles/layerxpay/service.go"
+lines = 134
+verdict = "issues"
+note = "Read the whole file. Service writes, outcome selection and post-commit event transport. Findings: default-event-loss."
+
+[file.130]
+path = "precompiles/layerxpay/service_test.go"
+lines = 324
+verdict = "clean"
+note = "Read the whole file. Service writes, outcome selection and post-commit event transport. Assertions reviewed: TestPrecompileServiceHappyPath, TestPrecompileServiceDisputePath, TestPrecompileServiceWithdrawAbandonAttest. Source review; no execution of this suite is claimed."
+
+[file.131]
+path = "precompiles/layerxpay/service_views.go"
+lines = 79
+verdict = "clean"
+note = "Read the whole file. Versioned service records, split delivery reconstruction and aggregate selection."
+
+[file.132]
+path = "precompiles/layerxpay/service_views_test.go"
+lines = 261
+verdict = "clean"
+note = "Read the whole file. Versioned service records, split delivery reconstruction and aggregate selection. Assertions reviewed: TestPrecompileServiceViews, TestPrecompileServiceViewsUngatedWhenPaused. Source review; no execution of this suite is claimed."
+
+[file.133]
+path = "precompiles/layerxpay/stream.go"
+lines = 136
+verdict = "clean"
+note = "Read the whole file. Stream ABI arguments, economic result tuples and lifecycle events."
+
+[file.134]
+path = "precompiles/layerxpay/stream_test.go"
+lines = 315
+verdict = "clean"
+note = "Read the whole file. Stream ABI arguments, economic result tuples and lifecycle events. Assertions reviewed: TestPrecompileStreamLifecycle, TestPrecompileStreamViews, TestPrecompileStreamRateUpdatedLog. Source review; no execution of this suite is claimed."
+
+[file.135]
+path = "precompiles/testutil/keepers.go"
+lines = 26
+verdict = "clean"
+note = "Read the whole file. Required keeper interfaces and application/test wiring."
+
+[finding.snapshot-growth]
+file = "modules/layerxpay/keeper/genesis.go"
+line = 39
+class = "interface-mismatch"
+severity = "high"
+observed = "ExportGenesis appends every escrow, budget, stream, service and governance row and all agent stream metadata without a count bound. GenesisState.Validate in types/params.go:35,55 refuses either collection above MaxKernelRecords=512. Live writers impose no equivalent combined lifetime limit, so normal multi-family state or accumulated results can produce a snapshot that InitGenesis refuses."
+expected = "Every snapshot exported from admitted live state must round-trip through the declared JSON genesis import and restore all economic records and agent metadata."
+proposal = "In modules/layerxpay/keeper/genesis.go and types/params.go, provide a complete scalable recovery envelope with bounded chunks, validated completeness and existing per-record bounds. Prove a real export/import/reopen containing more than 512 combined family records and metadata; reconcile the genesis contract."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-exportgenesis-j24"
+
+[finding.escrow-receipt-binding]
+file = "modules/layerxpay/keeper/escrow_settle.go"
+line = 11
+class = "interface-mismatch"
+severity = "high"
+observed = "The real escrow settlement receipt returned through Submit has zero TransferSetRoot while its durable result has a nonzero root. types/proof_views_test.go:379-396 explicitly compares these facts. src/modules/escrow/lx_escrow_module.c:361-417 fills a local lxp_receipt and returns the state event without carrying its economic binding into the outer receipt."
+expected = "Canonical lxp_receipt.transfer_set_root must bind the actual balance-changing transfer set and agree with the economic result read by consumers after settlement and recovery."
+proposal = "In src/modules/escrow/lx_escrow_module.c, propagate executed and replayed economic facts through the kernel receipt-binding path. Require identical nonzero roots in real outer receipts and stored results, exact transfer effects, replay and reopened-store proofs."
+owner_domain = 1
+interface = "1.c-lxp-receipt"
+
+[finding.default-event-loss]
+file = "precompiles/layerxpay/service.go"
+line = 65
+class = "interface-mismatch"
+severity = "high"
+observed = "Lapsed serviceAccept/serviceReject calls the global ServiceApplyDefaultOutcomes sweep. keeper/service_delivery_test.go:126-160 demonstrates two code-14 events for two changed agreements. serviceHandlers ignores receipt.Events, reads only the requested agreement and emits one log at line 130, leaving the other committed outcome absent from the EVM event transport."
+expected = "Every committed default outcome must reach subscribers and projections as DefaultOutcomeApplied with the affected agreement id, state, sequence and timestamp."
+proposal = "In precompiles/layerxpay/service.go, validate and translate every default-outcome event in the sweep receipt into its ABI log. Prove one real EVM call changing two differently configured agreements, all decoded logs and matching queries after reopen."
+owner_domain = 2
+interface = "2.pc-0x101b-evt-defaultoutcomeapplied"
+
+[finding.unused-budget-revoke]
+file = "modules/layerxpay/keeper/budget_close.go"
+line = 32
+class = "runtime-risk"
+severity = "high"
+observed = "BudgetRevoke reaches src/modules/budget/lx_budget_module.c:789, which sets per_period_limit=spent_this_period. For an unused funded budget this is zero; lx_budget_record_validate in lx_budget_create.c:28 rejects it. proof_layerxpay_0x101b_test.go:295-313 pins LXP_ERR_NON_CANONICAL and spends then refunds before proving revocation."
+expected = "An authorized owner must be able to revoke an unused funded budget and recover its balance without first sending an unrelated payment; terminal records must remain canonical."
+proposal = "In src/modules/budget/lx_budget_module.c and lx_budget_create.c, define canonical revoked allowance semantics supporting zero prior spending while retaining live-record bounds. Prove unused and spent revocation, exact refunds, replay, atomic refusals and recovery through the real 0x101B path."
+owner_domain = 1
+interface = "2.pc-0x101b-budgetrevoke"
+
+[finding.opaque-genesis]
+file = "modules/layerxpay/types/params.go"
+line = 67
+class = "restart-recovery"
+severity = "medium"
+observed = "Genesis validation checks envelopes, duplicates, size limits and gates but does not decode owned economic records or linked service delivery items. keeper/proof_pay_genesis_test.go:213-232 truncates a real exported offer to one byte; module validation and initialization accept it, then GetOffer panics."
+expected = "Accepted recovery input must contain canonical owned record bodies and consistent links so its first public query is usable after initialization."
+proposal = "In modules/layerxpay/types/params.go and keeper/genesis.go, validate owned record versions, key/body ids, delivery item links and agent metadata linkage before any writes. Prove malformed real exports fail atomically while valid snapshots import and reopen."
+owner_domain = 2
+
+[finding.service-corruption-panic]
+file = "modules/layerxpay/keeper/service_views.go"
+line = 27
+class = "runtime-risk"
+severity = "medium"
+observed = "decodeServiceView panics on decode errors; delivery and aggregate views also panic on malformed keys, headers and missing items. The accepted one-byte imported offer in proof_pay_genesis_test.go is a concrete route to this panic; the served wrapper only translates gas panics."
+expected = "Public service reads must distinguish absent records from typed corrupt-state errors and preserve request and node availability."
+proposal = "Return explicit decode errors from modules/layerxpay/keeper/service_views.go through its precompile adapters, preserving absent-record semantics. Validate owned genesis records and prove corrupted real exports produce a stable refusal without panic or writes."
+owner_domain = 2
+
+[finding.escrow-corruption-panic]
+file = "modules/layerxpay/keeper/escrow_views.go"
+line = 19
+class = "runtime-risk"
+severity = "medium"
+observed = "GetEscrow and GetEscrowResult panic on existing malformed record bytes at lines 19 and 37. Genesis validation admits short values for these keys, so accepted recovery input can make normal escrow views propagate non-gas panics."
+expected = "Escrow hold and result reads must return stable typed corruption refusals and distinguish absence without an unhandled panic."
+proposal = "In modules/layerxpay/keeper/escrow_views.go and precompiles/layerxpay/escrow.go, propagate explicit corruption errors and enforce canonical owned-record import validation. Prove mutated real hold/result exports are rejected before writes and public reads remain available."
+owner_domain = 2
+
+[finding.escrow-global-snapshot-read]
+file = "precompiles/layerxpay/escrow.go"
+line = 56
+class = "runtime-risk"
+severity = "medium"
+observed = "getEscrowResult first reads its directly keyed result, then calls ExportGenesis and copies every pay-family, governance and agent metadata row to retrieve the same raw bytes. This fixed-size lookup allocates and charges store work proportional to unrelated network history; the work is metered, not free."
+expected = "A result lookup by idempotency key should read only its owned result with bounded work independent of other families and tenants."
+proposal = "Add a direct validated raw-result reader in modules/layerxpay/keeper/escrow_views.go and use it in precompiles/layerxpay/escrow.go. Preserve the exact result bytes and prove scoped store reads remain bounded as unrelated histories grow and after reopen."
+owner_domain = 2
+interface = "2.pc-0x101b-getescrowresult"
+
+[finding.service-global-scans]
+file = "modules/layerxpay/keeper/service_views.go"
+line = 82
+class = "runtime-risk"
+severity = "medium"
+observed = "LatestDelivery scans every delivery header and ProgressHighWater scans every progress record before filtering by agreement or commitment. Charged gas and read latency grow with unrelated histories, and a malformed unrelated record can break the requested view."
+expected = "Agreement and commitment queries should remain usable as other users accumulate histories and should depend on the requested state and bounded owned indexes."
+proposal = "Persist agreement-to-latest-delivery and commitment-to-high-water indexes in the owning service writer and modules/layerxpay/keeper/service_views.go, with canonical recovery/rebuild rules. Prove exact producer values, unrelated-record isolation and reopen behavior."
+owner_domain = 2
+interface = "2.pc-0x101b-latestdelivery"
+
+[finding.budget-time-view]
+file = "modules/layerxpay/keeper/budget_views.go"
+line = 35
+class = "runtime-risk"
+severity = "medium"
+observed = "BudgetRemaining subtracts persisted SpentThisPeriod from PerPeriodLimit and caps by balance without consulting block time. Hosted spending applies lx_budget_rollover first. An exhausted old period can report zero although the next-period spend succeeds; expired records can still report positive allowance."
+expected = "budgetRemaining should describe allowance usable at the same block time as budgetSpend, including rollover and expiry, without writing state."
+proposal = "In modules/layerxpay/keeper/budget_views.go, project a detached record through kernel-equivalent period, carry and expiry rules. Prove exact boundary timestamps, capped carry, expired budgets, unchanged store bytes and a matching real spend at the queried context."
+owner_domain = 2
+interface = "2.pc-0x101b-budgetremaining"
+
+[finding.declaration-authority]
+file = "modules/layerxpay/keeper/authority.go"
+line = 19
+class = "interface-mismatch"
+severity = "medium"
+observed = "AuthorityFor returns CallerAuthority; its served registry signature names Caller, which is absent from the package. Submit and agent callers use CallerAuthority."
+expected = "The public declaration must agree with producer and consumer on the actual CallerAuthority return and its DID/key/kernel authority fields."
+proposal = "Update row 2.go-layerxpay-keeper-authorityfor-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/pay.md#authority to declare the actual CallerAuthority return and its DID/key/kernel authority fields. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-authorityfor-j24"
+
+[finding.declaration-submit]
+file = "modules/layerxpay/keeper/execute.go"
+line = 16
+class = "interface-mismatch"
+severity = "medium"
+observed = "Submit accepts common.Address and method string and resolves MethodActivity; its served row instead accepts Caller and activityType uint32. Family wrappers use the implemented signature."
+expected = "The public declaration must agree with producer and consumer on the address input, method lookup and identity-resolution boundary."
+proposal = "Update row 2.go-layerxpay-keeper-submit-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/pay.md#pay-keeper to declare the address input, method lookup and identity-resolution boundary. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-submit-j24"
+
+[finding.declaration-gate]
+file = "modules/layerxpay/keeper/gate.go"
+line = 11
+class = "interface-mismatch"
+severity = "medium"
+observed = "CheckWrite takes ctx and method and derives its module through MethodActivity; the served row declares another moduleID uint16 argument that live callers do not pass."
+expected = "The public declaration must agree with producer and consumer on the actual two-argument gate and method-derived family identity."
+proposal = "Update row 2.go-layerxpay-keeper-checkwrite-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/pay.md#pause to declare the actual two-argument gate and method-derived family identity. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-checkwrite-j24"
+
+[finding.declaration-constructor]
+file = "modules/layerxpay/keeper/keeper.go"
+line = 32
+class = "interface-mismatch"
+severity = "medium"
+observed = "NewKeeper accepts EVMBinding and CustodyReader and returns (Keeper,error); the served row names BindingReader and AssetReader and returns only Keeper, hiding constructor refusals."
+expected = "The public declaration must agree with producer and consumer on the implemented dependency interfaces and (Keeper,error) construction result."
+proposal = "Update row 2.go-layerxpay-newkeeper-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/pay.md#pay-keeper to declare the implemented dependency interfaces and (Keeper,error) construction result. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-newkeeper-j24"
+
+[finding.declaration-keeper]
+file = "modules/layerxpay/keeper/keeper.go"
+line = 22
+class = "interface-mismatch"
+severity = "medium"
+observed = "Keeper fields use EVMBinding and CustodyReader, while the served type declaration still names BindingReader and AssetReader, which are not the implemented dependency types."
+expected = "The public declaration must agree with producer and consumer on the real EVMBinding and CustodyReader field types and read contracts."
+proposal = "Update row 2.go-layerxpay-keeper-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/pay.md#pay-keeper to declare the real EVMBinding and CustodyReader field types and read contracts. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-j24"
+
+[finding.declaration-agent-open]
+file = "modules/layerxpay/keeper/stream_agent.go"
+line = 104
+class = "interface-mismatch"
+severity = "medium"
+observed = "OpenAgentStream accepts payer common.Address, derives its id and returns (*big.Int,error); the served row declares Caller, an explicit [32]byte streamID and an error-only return."
+expected = "The public declaration must agree with producer and consumer on address inputs, internally derived uint256 id and returned identifier."
+proposal = "Update row 2.go-layerxpay-keeper-openagentstream-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/agent-functions.md#streams-0x0906 to declare address inputs, internally derived uint256 id and returned identifier. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-openagentstream-j24"
+
+[finding.declaration-agent-settle]
+file = "modules/layerxpay/keeper/stream_agent.go"
+line = 168
+class = "interface-mismatch"
+severity = "medium"
+observed = "SettleAgentStream takes common.Address and *big.Int streamID and derives its key; the served row declares Caller and explicit [32]byte streamID/idempotencyKey."
+expected = "The public declaration must agree with producer and consumer on address/*big.Int inputs and transaction-derived settlement key ownership."
+proposal = "Update row 2.go-layerxpay-keeper-settleagentstream-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/agent-functions.md#streams-0x0906 to declare address/*big.Int inputs and transaction-derived settlement key ownership. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-settleagentstream-j24"
+
+[finding.declaration-agent-close]
+file = "modules/layerxpay/keeper/stream_agent.go"
+line = 189
+class = "interface-mismatch"
+severity = "medium"
+observed = "CloseAgentStream takes common.Address and *big.Int streamID and derives its key; the served row declares Caller and explicit [32]byte streamID/idempotencyKey arguments."
+expected = "The public declaration must agree with producer and consumer on the actual close inputs, internal key and final-paid/refund outputs."
+proposal = "Update row 2.go-layerxpay-keeper-closeagentstream-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/agent-functions.md#streams-0x0906 to declare the actual close inputs, internal key and final-paid/refund outputs. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-closeagentstream-j24"
+
+[finding.declaration-agent-rate]
+file = "modules/layerxpay/keeper/stream_agent.go"
+line = 210
+class = "interface-mismatch"
+severity = "medium"
+observed = "UpdateAgentStreamRate takes common.Address, *big.Int streamID and *big.Int newRate with an internally derived key; the served row declares Caller, [32]byte streamID and an explicit idempotencyKey."
+expected = "The public declaration must agree with producer and consumer on actual rate-update inputs and old-rate return after settlement at the prior rate."
+proposal = "Update row 2.go-layerxpay-keeper-updateagentstreamrate-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/agent-functions.md#streams-0x0906 to declare actual rate-update inputs and old-rate return after settlement at the prior rate. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-updateagentstreamrate-j24"
+
+[finding.declaration-agent-view]
+file = "modules/layerxpay/keeper/stream_agent.go"
+line = 235
+class = "interface-mismatch"
+severity = "medium"
+observed = "AgentStreamView accepts *big.Int streamID and reconstructs persisted address metadata, but its served row declares [32]byte streamID; the 0x0906 caller uses the implemented representation."
+expected = "The public declaration must agree with producer and consumer on the *big.Int identifier and persisted payer/payee/token metadata requirements."
+proposal = "Update row 2.go-layerxpay-keeper-agentstreamview-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/agent-functions.md#streams-0x0906 to declare the *big.Int identifier and persisted payer/payee/token metadata requirements. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-keeper-agentstreamview-j24"
+
+[finding.declaration-query]
+file = "modules/layerxpay/keeper/grpc_query.go"
+line = 16
+class = "interface-mismatch"
+severity = "medium"
+observed = "Params is declared on Querier, embedding Keeper and implementing types.QueryServer; the served row instead declares Keeper.Params, a method that does not exist."
+expected = "The public declaration must agree with producer and consumer on the registered Querier receiver and nil-request InvalidArgument refusal."
+proposal = "Update row 2.go-layerxpay-queryserver-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/pay.md#queries to declare the registered Querier receiver and nil-request InvalidArgument refusal. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-queryserver-j24"
+
+[finding.declaration-revert]
+file = "precompiles/layerxpay/errors.go"
+line = 13
+class = "interface-mismatch"
+severity = "medium"
+observed = "RevertError returns []byte holding ABI Error(string) revert data; the served registry says error. Tests unpack encoded bytes and runtime callers use the implemented byte contract."
+expected = "The public declaration must agree with producer and consumer on the ABI byte return, registered LXP reason mapping and nil-input behavior."
+proposal = "Update row 2.go-layerxpay-pc-reverterror-j24 in spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/pay.md#errors to declare the ABI byte return, registered LXP reason mapping and nil-input behavior. Preserve the current runtime authority, units and error checks and use the real caller path as the example."
+owner_domain = 2
+interface = "2.go-layerxpay-pc-reverterror-j24"
+
+[finding.retired-budgetpull-contract]
+file = "precompiles/layerxpay/LayerXPay.sol"
+line = 233
+class = "doc-drift"
+severity = "medium"
+observed = "budgetPull is declared as an ordinary Solidity write without a retirement notice. Registry row 2.pc-0x101b-budgetpull says served and req.2259.1 promises a payer-grant pull; layerxpay.go:180 and keeper/budget_pull.go instead consistently return the typed retirement refusal. The selector remains for compatibility."
+expected = "Consumers must know the retained budgetPull selector always refuses under merged-network retirement policy; the declared contract must not promise live payer-grant behavior."
+proposal = "Annotate precompiles/layerxpay/LayerXPay.sol and reconcile registry row 2.pc-0x101b-budgetpull, req.2259 and contracts/pay.md with the retirement decision, exact typed refusal and supported replacement payment flow; preserve the refusal."
+owner_domain = 2
+interface = "2.pc-0x101b-budgetpull"
+
+[finding.escrow-root-proof-gap]
+file = "modules/layerxpay/types/proof_views_test.go"
+line = 381
+class = "test-gap"
+severity = "medium"
+observed = "The escrow_result proof requires zero root in the outer receipt and nonzero root in the stored result. This accurately captures a known defect but does not establish that the receipt binds the economic settlement."
+expected = "The real-producer receipt/result proof must require the binding consumers need while retaining exact record and reopened-store assertions."
+proposal = "After repairing src/modules/escrow/lx_escrow_module.c, update modules/layerxpay/types/proof_views_test.go to require the identical nonzero receipt/result root, exact transfer amounts, replay and repeated reads after reopen."
+owner_domain = 2
+
+[finding.unused-revoke-proof-gap]
+file = "precompiles/layerxpay/proof_layerxpay_0x101b_test.go"
+line = 300
+class = "test-gap"
+severity = "medium"
+observed = "The cross-language proof requires unused revocation to return LXP_ERR_NON_CANONICAL, then spends and refunds before revocation succeeds. It demonstrates the current atomic refusal but leaves the normal unused-budget exit unqualified."
+expected = "The real Python/EVM/Rust path must include successful owner revocation of a newly funded unused budget with the exact refund and BudgetRevoked event."
+proposal = "After repairing the budget kernel, extend precompiles/layerxpay/proof_layerxpay_0x101b_test.go with an unused-budget successful revoke through Python calldata, EVM execution, Rust decoding and reopen, retaining malformed-input and atomicity assertions."
+owner_domain = 2
+
+[finding.genesis-proof-gap]
+file = "modules/layerxpay/keeper/proof_pay_genesis_test.go"
+line = 228
+class = "test-gap"
+severity = "medium"
+observed = "opaque_record_decode_refusal requires validation and initialization to accept a one-byte exported offer, then requires GetOffer to panic. It records current behavior but cannot qualify complete validation before import writes."
+expected = "Recovery proofs must reject malformed owned records at import and leave the destination unchanged and existing queries usable."
+proposal = "After owned-record validation is implemented, update modules/layerxpay/keeper/proof_pay_genesis_test.go to require atomic import refusal for malformed real exports, retaining both valid JSON/reopen rounds and duplicate-record refusals."
+owner_domain = 2
+
+[finding.doc-root-architecture]
+file = "README.md"
+line = 53
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 53-58 describe two execution domains, separate layerxd operation and layerxAnchor checkpoint settlement. Lines 87 and 185 call the merge a draft and lines 150-153 instruct operators to build the retired daemon."
+expected = "The finished network is one paxd BFT chain at chain id 125, with kernel execution inside the network and receipt finality on committed blocks."
+proposal = "Rewrite README.md architecture, activation and build guidance around merged paxd execution, committed-block finality and served interfaces; remove retired-daemon operational instructions and label historical compatibility interfaces."
+owner_domain = 17
+
+[finding.doc-network-architecture]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-20 describe a separate LayerX custody/settlement domain with sequencer checkpoints, guarantors and exits; line 9 advertises a public faucet. The virtual-chain section already describes the shared network."
+expected = "The guide must consistently describe one merged BFT network, its declared root-path mainnet-beta endpoints, finality and accurate funding policy."
+proposal = "Rewrite docs/paxeer-network.md introduction, trust-boundary, custody and balance-writer claims for the merged network; remove retired sequencer/checkpoint/faucet guidance and retain the tenant registry description."
+owner_domain = 17
+
+[finding.doc-layout-daemon]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction identifies the LayerX kernel as layerxd and presents subsystem trust boundaries as though the retired daemon remains an independent operational component alongside paxd."
+expected = "The layout guide must distinguish source directories from services and identify the kernel as part of the one running paxd network."
+proposal = "Update docs/MONOREPO.md introduction and kernel descriptions for merged deployment and trust boundaries, preserving accurate directory destinations and toolchain ownership without advertising layerxd as a running service."
+owner_domain = 17
+
+[finding.doc-modules-retirements]
+file = "modules/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-13 describe active anchor finality, proof-withdrawal custody and exchange intents; the list omits merged ledger, auth, pay, agent, shared host and tenant registry modules."
+expected = "The module entry page must identify running merged modules and separate retired compatibility handlers from active economic operations."
+proposal = "Rewrite modules/README.md with layerxledger, layerxauth, layerxpay, layerxagent, lxphost and layerxchains roles and label anchor/custody/exchange operations according to the retirement inventory."
+owner_domain = 6
+
+[finding.doc-sdk-receipt-trust]
+file = "docs/wiki/SdkQuickstartTypeScript.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The receipt example requires AuthorizedReceiptBatch with sequencerPublicKey and four other externally trusted facts; it does not distinguish legacy signature checking from merged committed-block inclusion and finality verification."
+expected = "The payment quickstart must explain how consumers establish canonical committed-block inclusion and finality without relying on a separate sequencer service."
+proposal = "In docs/wiki/SdkQuickstartTypeScript.md, document the supported committed-block receipt flow and trusted header source; label any retained AuthorizedReceiptBatch helper as compatibility with its exact verification limits."
+owner_domain = 9
+
+[finding.doc-precompile-chain-address]
+file = "docs/system/precompiles.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The generated summary gives layerxchains a dash for its address and the method section omits an address, although address.go and LayerXChains.sol expose 0x000000000000000000000000000000000000101E."
+expected = "The ABI guide must identify the fixed endpoint that serves the tenant registry twelve methods and four events."
+proposal = "Fix address discovery in tools/docs/gen-system-docs.sh to read precompiles/layerxchains/address.go and regenerate docs/system/precompiles.md with 0x101E in the summary and registry section."
+owner_domain = 16
+
+[finding.doc-precompile-retired-surface]
+file = "docs/system/precompiles.md"
+line = 1404
+class = "doc-drift"
+severity = "medium"
+observed = "budgetPull is listed as an ordinary nonpayable write; anchor checkpoints, custody deposits/withdrawals and legacy verifier methods are listed without served-versus-retired behavior. Retained ABI presence does not make these operations usable on the merged network."
+expected = "The public method inventory must distinguish served merged operations from selectors returning a typed retirement refusal, including budgetPull."
+proposal = "Extend tools/docs/gen-system-docs.sh with authoritative availability and retirement refusal labels, then regenerate docs/system/precompiles.md so retained compatibility selectors have an explicit status and supported replacement guidance."
+owner_domain = 16
+
+[finding.doc-pay-contract-obsolete]
+file = "spec/layerx-merge/contracts/pay.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The contract says no executor/merge constructor serves 0x101B, describes params-only pay storage and genesis and marks implemented files/tests planned. Live code persists agent metadata, exports family records, registers a dynamic-gas precompile and refuses budgetPull; several documented keeper signatures are obsolete."
+expected = "The pay contract must describe actual activation, persistent metadata, complete recovery boundaries, implemented signatures and compatibility refusal behavior."
+proposal = "Reconcile spec/layerx-merge/contracts/pay.md with modules/layerxpay and precompiles/layerxpay, replacing obsolete activation/storage/genesis/planned claims and documenting recovery bounds, current keeper signatures and retired budgetPull behavior."
+owner_domain = 2
+
+[finding.doc-module-doc-missing-registry]
+file = "docs/system/chain-modules.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The generated module inventory includes layerxpay but omits layerxchains entirely, despite its live registry params exposing authority, minimum bond, creation fee, allowance bounds and maximum chain capacity."
+expected = "The module guide must identify the active tenant registry and its configurable limits and governance ownership alongside the payment module."
+proposal = "Extend tools/docs/gen-system-docs.sh to inventory modules/layerxchains/types/params.go and regenerate docs/system/chain-modules.md with registry parameters and governance ownership while retaining the accurate five payment flags."
+owner_domain = 16
+
+[doc.1]
+path = "README.md"
+status = "misleading"
+notes = "Full page read; lines 53-58, 87, 150-153 and 185 retain the separate daemon, checkpoint settlement and draft-merge model."
+
+[doc.2]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Full generated page read; line 35 omits the registry address and retained retired selectors lack availability/refusal labels, including budgetPull at 1404."
+
+[doc.3]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Full page read; lines 3-20 retain separate settlement/custody/sequencer and faucet claims; the virtual-chain section matches the shared registry."
+
+[doc.4]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Full page read; line 3 treats layerxd as a kernel component with an independent trust boundary; directory groups remain useful."
+
+[doc.5]
+path = "docs/wiki/VirtualChains.md"
+status = "accurate"
+notes = "Full page read against the served twelve methods/four events: ids, shared state, bond, units, lifecycle and tuple/indexed fields agree with this slice."
+
+[doc.6]
+path = "docs/wiki/SdkQuickstartTypeScript.md"
+status = "stale"
+notes = "Full page read; lines 92-110 explain legacy sequencer-key verification without the merged committed-block inclusion/finality trust model."
+
+[doc.7]
+path = "docs/system/chain-modules.md"
+status = "stale"
+notes = "Full generated page read; five pay flags and MsgUpdateParams agree, but the live tenant registry parameters and governance ownership are omitted."
+
+[doc.8]
+path = "modules/README.md"
+status = "stale"
+notes = "Full member page read; lines 11-13 advertise retired settlement roles and the inventory omits active merged economic/host/tenant modules."
+
+[doc.9]
+path = "spec/layerx-merge/contracts/pay.md"
+status = "stale"
+notes = "Full contract read; activation, params-only storage/genesis, several signatures and planned-file/test claims describe an obsolete implementation."

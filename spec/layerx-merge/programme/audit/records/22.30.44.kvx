@@ -1,0 +1,743 @@
+[audit.22.30.44]
+task = "22.30.44"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 84
+findings = 21
+docs_reviewed = 2
+upgrade_ready = false
+blocking = ["full-qc-header-bound", "wal-proposal-receive-time"]
+note = "All 84 members read in full except generated outputs classified by generator ownership; requirements 5261, 5262, 5265, 5266, 15274 and 22119 compared with the member paths. Reviewed 149 produced and 361 consumed registry rows. Hosted metrics HTTP rows and archive-corrupt are inferred token matches, not dependencies of this slice. No live retired external router or daemon use found in member code. Proposed repairs only; no source or Go gate qualification is claimed."
+
+[file.001]
+path = "consensus/internal/autobahn/autobahn.proto"
+lines = 230
+verdict = "issues"
+note = "Reviewed message fields, required decoding, QC/vote/header bounds and persisted anchors against converters and consumers. The FullCommitQC header budget disagrees with the multi-lane producer; see full-qc-header-bound."
+
+[file.002]
+path = "consensus/internal/autobahn/avail/app_votes.go"
+lines = 53
+verdict = "clean"
+note = "Reviewed signer uniqueness, committee vote verification, global-number queue indexing and AppQC quorum construction against AppProposal and pruning consumers."
+
+[file.003]
+path = "consensus/internal/autobahn/avail/block_votes.go"
+lines = 41
+verdict = "clean"
+note = "Reviewed block vote hash agreement, signer weight accounting and LaneQC formation against signed lane proposals and the availability queue."
+
+[file.004]
+path = "consensus/internal/autobahn/avail/conv_test.go"
+lines = 28
+verdict = "clean"
+note = "Reviewed TestPruneAnchorConv in full: the signed lane block, real lane/commit/app certificates and PruneAnchorConv round trip agree on the anchor shape."
+
+[file.005]
+path = "consensus/internal/autobahn/avail/inner.go"
+lines = 180
+verdict = "clean"
+note = "Reviewed queue initialization, persisted cursors, contiguous loading and pruning index transitions. The missing committee/range validation at the loading boundary is recorded on avail/state.go."
+
+[file.006]
+path = "consensus/internal/autobahn/avail/inner_test.go"
+lines = 839
+verdict = "issues"
+note = "Reviewed every queue restoration and prune-anchor case; the loaded AppQC success fixture cannot pass the live pruning invariants."
+
+[file.007]
+path = "consensus/internal/autobahn/avail/queue.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed queue first/next arithmetic, retained map entries, forward-only pruning and insertion; pruning past the tail advances both cursors and removes the old entries."
+
+[file.008]
+path = "consensus/internal/autobahn/avail/queue_test.go"
+lines = 73
+verdict = "clean"
+note = "Reviewed empty/nonempty queue insertion, pruning and boundary assertions against the production queue cursor contract."
+
+[file.009]
+path = "consensus/internal/autobahn/avail/state.go"
+lines = 804
+verdict = "issues"
+note = "Reviewed live verification, subscriptions, lane admission, durable cursors, recovery pruning and full-certificate production. Recovery anchor validation is missing; the header budget issue is anchored in autobahn.proto."
+
+[file.010]
+path = "consensus/internal/autobahn/avail/state_test.go"
+lines = 777
+verdict = "issues"
+note = "Reviewed every persistence, startup, pruning and live availability case. The past-tail anchor fixture does not advance a lane or assert durable lane truncation."
+
+[file.011]
+path = "consensus/internal/autobahn/avail/subscriptions.go"
+lines = 105
+verdict = "clean"
+note = "Reviewed subscription cursors, blocking wakeups, cancellation and retained-range handling against availability queues and global-block delivery."
+
+[file.012]
+path = "consensus/internal/autobahn/avail/testonly.go"
+lines = 90
+verdict = "clean"
+note = "Reviewed test network construction, real committee/key setup and task lifecycle helpers against availability/data state constructors; test-only code is explicitly named."
+
+[file.013]
+path = "consensus/internal/autobahn/consensus/commit_votes.go"
+lines = 68
+verdict = "clean"
+note = "Reviewed commit vote consistency, duplicate signer accounting and committee quorum checks against CommitVote and CommitQC production."
+
+[file.014]
+path = "consensus/internal/autobahn/consensus/inner.go"
+lines = 260
+verdict = "clean"
+note = "Reviewed proposal/view progression, leader verification, prepare/commit/timeout state transitions and persisted safety state against typed QC constructors."
+
+[file.015]
+path = "consensus/internal/autobahn/consensus/inner_test.go"
+lines = 944
+verdict = "clean"
+note = "Reviewed all inner consensus transitions, valid/invalid votes, view timeout and quorum assertions against actual consensus types."
+
+[file.016]
+path = "consensus/internal/autobahn/consensus/persist/blocks.go"
+lines = 337
+verdict = "clean"
+note = "Reviewed per-lane indexed WAL loading, prune floors, proposal decoding and cursors against availability persistence callbacks and restart consumers."
+
+[file.017]
+path = "consensus/internal/autobahn/consensus/persist/blocks_test.go"
+lines = 500
+verdict = "clean"
+note = "Reviewed lane WAL sequence, pruning, loading and empty-tail recovery cases against real block persisters and signed lane proposals."
+
+[file.018]
+path = "consensus/internal/autobahn/consensus/persist/commitqcs.go"
+lines = 194
+verdict = "clean"
+note = "Reviewed road-index QC sequencing, pruning, durable callbacks and reopen loading against the availability retained-range contract."
+
+[file.019]
+path = "consensus/internal/autobahn/consensus/persist/commitqcs_test.go"
+lines = 467
+verdict = "clean"
+note = "Reviewed real CommitQC WAL append/reopen/prune and cursor assertions against contiguous road-index semantics."
+
+[file.020]
+path = "consensus/internal/autobahn/consensus/persist/fullcommitqcs.go"
+lines = 166
+verdict = "clean"
+note = "Reviewed global-range cursor derivation, QC WAL persistence and reload verification. Codec header-limit disagreement originates in autobahn.proto and is recorded there."
+
+[file.021]
+path = "consensus/internal/autobahn/consensus/persist/fullcommitqcs_test.go"
+lines = 293
+verdict = "clean"
+note = "Reviewed full-certificate persistence, range-aware pruning, retained-QC reload and initial-block numbering fixtures against the production persister."
+
+[file.022]
+path = "consensus/internal/autobahn/consensus/persist/globalblocks.go"
+lines = 231
+verdict = "clean"
+note = "Reviewed global block numbered WAL encoding, common-prefix pruning, tail truncation and startup cursor restoration including empty/past-tail states."
+
+[file.023]
+path = "consensus/internal/autobahn/consensus/persist/globalblocks_test.go"
+lines = 296
+verdict = "clean"
+note = "Reviewed global-block real WAL round trips, monotonic sequence errors, truncation and recovery cursor cases against persisted block numbering."
+
+[file.024]
+path = "consensus/internal/autobahn/consensus/persist/persist.go"
+lines = 315
+verdict = "clean"
+note = "Reviewed alternating snapshot sequence/checksum selection, atomic publication, corruption distinctions and propagation of OS errors to restart callers."
+
+[file.025]
+path = "consensus/internal/autobahn/consensus/persist/persist_test.go"
+lines = 404
+verdict = "issues"
+note = "Reviewed every snapshot durability/error case. Permission-only failure injection does not guarantee errors for privileged test processes."
+
+[file.026]
+path = "consensus/internal/autobahn/consensus/persist/testonly.go"
+lines = 8
+verdict = "clean"
+note = "Reviewed SetLoadedForTest in full: it overrides GlobalBlockPersister loaded data under the state lock and is explicitly a test-only hook."
+
+[file.027]
+path = "consensus/internal/autobahn/consensus/persist/wal.go"
+lines = 211
+verdict = "clean"
+note = "Reviewed indexed WAL encode/decode, fsync, cursor continuity, reopen handling and truncation semantics against storage/wal and protobuf converters."
+
+[file.028]
+path = "consensus/internal/autobahn/consensus/persist/wal_test.go"
+lines = 596
+verdict = "clean"
+note = "Reviewed indexed WAL persistence, reopening, truncation and error assertions through the actual disk-backed implementation."
+
+[file.029]
+path = "consensus/internal/autobahn/consensus/persisted_inner.go"
+lines = 214
+verdict = "clean"
+note = "Reviewed the persisted consensus safety snapshot, converter required fields and reconstruction of view/prepare/commit state."
+
+[file.030]
+path = "consensus/internal/autobahn/consensus/persisted_inner_test.go"
+lines = 47
+verdict = "clean"
+note = "Reviewed safety-state persistence and decoding assertions against the same typed snapshot emitted by the consensus inner state."
+
+[file.031]
+path = "consensus/internal/autobahn/consensus/prepare_votes.go"
+lines = 82
+verdict = "clean"
+note = "Reviewed prepare vote identity, signer uniqueness and weighted PrepareQC threshold against committee verification and proposal identity."
+
+[file.032]
+path = "consensus/internal/autobahn/consensus/state.go"
+lines = 339
+verdict = "clean"
+note = "Reviewed consensus event loop wiring, persistence before dependent publication, availability interactions, cancellation and timeout lifecycle against the inner state."
+
+[file.033]
+path = "consensus/internal/autobahn/consensus/state_test.go"
+lines = 328
+verdict = "clean"
+note = "Reviewed real consensus network progress, view-change and persistence coverage against the state/availability API and committee quorum semantics."
+
+[file.034]
+path = "consensus/internal/autobahn/consensus/testonly.go"
+lines = 83
+verdict = "clean"
+note = "Reviewed test-only multi-node setup, real certificate generation and network lifecycle helpers against production consensus constructors."
+
+[file.035]
+path = "consensus/internal/autobahn/consensus/timeout_votes.go"
+lines = 60
+verdict = "clean"
+note = "Reviewed timeout vote view matching, latest prepare certificate selection, duplicate signers and committee quorum construction."
+
+[file.036]
+path = "consensus/internal/autobahn/data/metrics.go"
+lines = 59
+verdict = "clean"
+note = "Reviewed metric registration, labels and updates against data execution/persistence call sites; these are metrics-library interfaces, not hosted HTTP metrics routes."
+
+[file.037]
+path = "consensus/internal/autobahn/data/state.go"
+lines = 826
+verdict = "issues"
+note = "Reviewed global block/QC retention, execution cursors, application hash quorum, persistence and pruning. First-batch parallel persistence has a startup reconciliation gap."
+
+[file.038]
+path = "consensus/internal/autobahn/data/state_first_block_test.go"
+lines = 66
+verdict = "clean"
+note = "Reviewed nonzero FirstBlock initialization, global numbering and restart expectations against committee-aware data and WAL constructors."
+
+[file.039]
+path = "consensus/internal/autobahn/data/state_test.go"
+lines = 1126
+verdict = "clean"
+note = "Reviewed all data execution, retention, persistence and reconcile scenarios. Existing later-batch crash coverage does not establish first-batch safety; finding is anchored in data/state.go."
+
+[file.040]
+path = "consensus/internal/autobahn/data/testonly.go"
+lines = 188
+verdict = "clean"
+note = "Reviewed typed TestAppQC/TestLaneQC/TestCommitQC certificate helpers and the explicitly named MockState implementation of StateAPI, including capacity, pruning and mock collector methods; its injected blocks are test inputs rather than consensus path evidence."
+
+[file.041]
+path = "consensus/internal/autobahn/pb/autobahn.hashable.go"
+lines = 16
+verdict = "generated"
+note = "Generated hashable definitions from consensus/internal/autobahn/autobahn.proto; verdict follows generator ownership. Change the schema/source and regenerate rather than editing this output."
+
+[file.042]
+path = "consensus/internal/autobahn/pb/autobahn.wireguard.go"
+lines = 204
+verdict = "generated"
+note = "Generated wire bounds from consensus/internal/autobahn/autobahn.proto; verdict follows generator ownership. The source schema finding covers FullCommitQC max_count and its generated decoder."
+
+[file.043]
+path = "consensus/internal/autobahn/producer/mempool.go"
+lines = 222
+verdict = "clean"
+note = "Reviewed real CheckTx responses, effective gas normalization, nonce exhaustion, lane capacity, transaction lookup and pruning. Restart index initialization is recorded on producer/state.go."
+
+[file.044]
+path = "consensus/internal/autobahn/producer/mempool_test.go"
+lines = 482
+verdict = "issues"
+note = "Reviewed all nonce, admission, sealing and workload cases. The gas-estimate oracle never accumulates its claimed limiting quantity."
+
+[file.045]
+path = "consensus/internal/autobahn/producer/state.go"
+lines = 164
+verdict = "issues"
+note = "Reviewed producer startup, lane counter restoration, capacity, block publication and execution-driven pruning. Pending transaction indexes are not restored with the lane."
+
+[file.046]
+path = "consensus/internal/consensus/byzantine_test.go"
+lines = 304
+verdict = "issues"
+note = "Read the complete historical test text; the entire equivocation scenario is commented out and provides no executable safety evidence."
+
+[file.047]
+path = "consensus/internal/consensus/common_test.go"
+lines = 1149
+verdict = "clean"
+note = "Reviewed consensus test setup, application/state construction, real key/vote helpers, subscriptions and bounded event synchronization used by the member tests."
+
+[file.048]
+path = "consensus/internal/consensus/invalid_test.go"
+lines = 309
+verdict = "issues"
+note = "Reviewed malformed peer bit-array and vote scenarios; the invalid-precommit scenario remains unconditionally skipped."
+
+[file.049]
+path = "consensus/internal/consensus/leader_source_test.go"
+lines = 178
+verdict = "clean"
+note = "Reviewed per-height LeaderSource refresh, errors, activation and disabled schedule assertions against the production state setter and schedule adapter."
+
+[file.050]
+path = "consensus/internal/consensus/memory_limit_test.go"
+lines = 53
+verdict = "clean"
+note = "Reviewed declared allocation bounds, invalid proposal part counts and real PeerState validation assertions against maximum block-part limits."
+
+[file.051]
+path = "consensus/internal/consensus/mempool_test.go"
+lines = 358
+verdict = "clean"
+note = "Reviewed consensus proposal/mempool interactions, transaction availability and block progression against the current state and application test paths."
+
+[file.052]
+path = "consensus/internal/consensus/metrics.go"
+lines = 279
+verdict = "issues"
+note = "Reviewed all registrations and call sites; step latency has an uninitialized/reset baseline and round duration uses height-start time."
+
+[file.053]
+path = "consensus/internal/consensus/msgs.go"
+lines = 504
+verdict = "clean"
+note = "Reviewed each channel message conversion, required fields, ValidateBasic bounds, peer vote bits and typed errors against protobuf consumers."
+
+[file.054]
+path = "consensus/internal/consensus/msgs_test.go"
+lines = 718
+verdict = "issues"
+note = "Reviewed message encode/decode and invalid-field cases; the WAL fixture omits the live receive timestamp needed by PBTS."
+
+[file.055]
+path = "consensus/internal/consensus/pbts_test.go"
+lines = 724
+verdict = "clean"
+note = "Reviewed proposal timestamp, synchrony bounds, local-clock wait and replay-relevant timeliness expectations. Nonzero-round wait regression is proposed on state.go."
+
+[file.056]
+path = "consensus/internal/consensus/peer_state.go"
+lines = 502
+verdict = "clean"
+note = "Reviewed synchronized peer round state, proposal/part/vote bitsets, range checks and JSON exposure against reactor message handlers and consensus RPC consumers."
+
+[file.057]
+path = "consensus/internal/consensus/peer_state_test.go"
+lines = 335
+verdict = "clean"
+note = "Reviewed peer height/start-time regression, nil/out-of-range vote and proposal part-limit assertions against actual PeerState methods."
+
+[file.058]
+path = "consensus/internal/consensus/pinned_wait_test.go"
+lines = 106
+verdict = "clean"
+note = "Reviewed pinned proposer versus standby waiting and transaction wakeup behavior against the state pin activation and timeout paths."
+
+[file.059]
+path = "consensus/internal/consensus/reactor.go"
+lines = 1022
+verdict = "clean"
+note = "Reviewed channel decode guards, message validation, peer lifecycle, gossip workers and real state dispatch. Retained catchup-vote allocation is owned by HeightVoteSet and recorded there."
+
+[file.060]
+path = "consensus/internal/consensus/reactor_test.go"
+lines = 515
+verdict = "issues"
+note = "Reviewed all reactor setup, channel and consensus progress scenarios; the named memory-limit coverage case invokes no consumer and asserts nothing."
+
+[file.061]
+path = "consensus/internal/consensus/replay.go"
+lines = 499
+verdict = "clean"
+note = "Reviewed WAL catchup and application handshake ordering, message dispatch, replay-mode lifecycle and height checks. Loss of replay receive time is owned by wal.go."
+
+[file.062]
+path = "consensus/internal/consensus/replay_stubs.go"
+lines = 45
+verdict = "clean"
+note = "Reviewed newMockProxyApp and mockProxyApp in full: replay uses recorded FinalizeBlock responses and a no-op Commit to avoid committing the real application twice; this adapter does not prove fresh execution."
+
+[file.063]
+path = "consensus/internal/consensus/replay_test.go"
+lines = 1144
+verdict = "clean"
+note = "Reviewed replay/handshake height alignment and application/block recovery cases. The timed-proposal restart proof missing from the codec is proposed on wal.go and msgs_test.go."
+
+[file.064]
+path = "consensus/internal/consensus/sequencer_source_test.go"
+lines = 130
+verdict = "clean"
+note = "Reviewed sealed batch proposal consumption, source availability and application failure behavior against the in-node SequencerSource contract."
+
+[file.065]
+path = "consensus/internal/consensus/sequencer_timeouts_test.go"
+lines = 154
+verdict = "clean"
+note = "Reviewed sequencer-enabled timeout selection and commit/standby behavior against consensus config and pinned leader state; kernel sequencing is in-node."
+
+[file.066]
+path = "consensus/internal/consensus/state.go"
+lines = 2847
+verdict = "issues"
+note = "Reviewed the complete receive/timeout/propose/vote/commit state machine, leader refresh, pin/source wiring and scanner integration. Nonzero-round proposer wait resumes round zero."
+
+[file.067]
+path = "consensus/internal/consensus/state_test.go"
+lines = 2915
+verdict = "issues"
+note = "Reviewed every state scenario in full, including lock/relock, valid rounds and commit behavior. Legacy proposer cases still assert GetProposer priority rotation."
+
+[file.068]
+path = "consensus/internal/consensus/ticker.go"
+lines = 94
+verdict = "clean"
+note = "Reviewed timeout replacement, ordering, cancellation and delivery lifecycle against timeoutInfo and consensus receive handlers."
+
+[file.069]
+path = "consensus/internal/consensus/ticker_test.go"
+lines = 61
+verdict = "clean"
+note = "Reviewed ticker scheduling, stop and timeout ordering assertions against the production timeout ticker."
+
+[file.070]
+path = "consensus/internal/consensus/types/height_vote_set.go"
+lines = 270
+verdict = "issues"
+note = "Reviewed height/round vote maps, catchup allowances, POL queries and reset lifecycle. Allocation precedes signature validation and lacks a cumulative peer-churn bound."
+
+[file.071]
+path = "consensus/internal/consensus/types/height_vote_set_test.go"
+lines = 90
+verdict = "clean"
+note = "Reviewed vote quorum, round advancement and per-peer catchup limit cases against real VoteSet verification; churn allocation proof is proposed on height_vote_set.go."
+
+[file.072]
+path = "consensus/internal/consensus/types/leader_pin_test.go"
+lines = 236
+verdict = "clean"
+note = "Reviewed leader list/key rejection, activation and deterministic round rotation against the immutable LeaderPin contract."
+
+[file.073]
+path = "consensus/internal/consensus/types/leader_schedule.go"
+lines = 25
+verdict = "clean"
+note = "Reviewed schedule conversion, disabled activation, key validation and Applies semantics against LeaderSource refresh and LeaderPin construction."
+
+[file.074]
+path = "consensus/internal/consensus/types/leader_schedule_test.go"
+lines = 107
+verdict = "clean"
+note = "Reviewed schedule activation/disabled conversion and invalid key/list cases against the real schedule adapter."
+
+[file.075]
+path = "consensus/internal/consensus/types/peer_round_state.go"
+lines = 72
+verdict = "clean"
+note = "Reviewed peer HRS snapshots, deep bit-array copying and proposal/vote fields against PeerState and reactor gossip consumers."
+
+[file.076]
+path = "consensus/internal/consensus/types/peer_round_state_test.go"
+lines = 30
+verdict = "clean"
+note = "Reviewed copied bit-array independence and peer round-state value assertions against the actual snapshot type."
+
+[file.077]
+path = "consensus/internal/consensus/types/round_state.go"
+lines = 618
+verdict = "clean"
+note = "Reviewed safe round-state locking, all getters/setters, leader hash/weight selection, pin precedence and event snapshots against the consensus state callers."
+
+[file.078]
+path = "consensus/internal/consensus/types/round_state_test.go"
+lines = 124
+verdict = "clean"
+note = "Reviewed safe state snapshot/getter/transition assertions against real RoundState and event fields."
+
+[file.079]
+path = "consensus/internal/consensus/wal.go"
+lines = 294
+verdict = "issues"
+note = "Reviewed WAL serialization, maximum message sizes, sync/reopen and last-height scan behavior. Message receive timestamps are lost across the codec."
+
+[file.080]
+path = "consensus/internal/consensus/wal_test.go"
+lines = 75
+verdict = "clean"
+note = "Reviewed real WAL append/sync/reopen, last-height boundary and size/error cases; existing coverage does not prove nonzero proposal ReceiveTime replay."
+
+[file.081]
+path = "consensus/internal/consensus/wiring_test.go"
+lines = 58
+verdict = "issues"
+note = "Reviewed channel wrapper wireguard tests. The assembled-block guard case asserts only a source substring and lacks producer-to-consumer path evidence."
+
+[file.082]
+path = "storage/proto/commit_info.go"
+lines = 7
+verdict = "clean"
+note = "Reviewed the entire CommitID.String method: it formats the existing Version and Hash as CommitID{version:HEX}; it changes neither commit encoding nor persisted hash bytes."
+
+[file.083]
+path = "storage/proto/memiavl/changelog.proto"
+lines = 37
+verdict = "clean"
+note = "Reviewed NamedChangeSet, TreeNameUpgrade, MultiTreeMetadata and ChangelogEntry field numbers and types against memiavl persistence consumers; this protobuf schema is generator input."
+
+[file.084]
+path = "storage/proto/memiavl/commit_info.proto"
+lines = 27
+verdict = "clean"
+note = "Reviewed CommitInfo and StoreInfo names, field types, encoding and root/version semantics against storage/proto/commit_info.go and memiavl commit readers."
+
+[finding.full-qc-header-bound]
+file = "consensus/internal/autobahn/autobahn.proto"
+line = 141
+class = "interface-mismatch"
+severity = "high"
+observed = "FullCommitQC.headers permits only 100 entries in the generated WireguardScan decoder, but avail.State.WaitForLaneQCs selects up to 10 blocks per lane and fullCommitQC concatenates every lane. An admitted 11-lane committee can therefore produce 110 headers. NewFullCommitQC and Verify accept that certificate; FullCommitQCPersister writes it through FullCommitQCConv, but reopening its indexed WAL invokes the bounded decoder and rejects the same bytes."
+expected = "A certificate emitted by availability and accepted by certificate verification must survive transport and persistence/restart with identical finalized block headers. The committee constructor does not constrain the committee to ten lanes."
+proposal = "In consensus/internal/autobahn/avail/state.go and consensus/autobahn/types/proposal.go, define and enforce a shared total certificate header budget during proposal selection and verification, consistent with consensus/internal/autobahn/autobahn.proto. Regenerate codec outputs from the agreed schema and prove an 11-lane, ten-block-per-lane workload through the real full-certificate producer, wire decoder, persister and reopened data state without dropping finalized blocks."
+owner_domain = 5
+interface = "15.proto-consensus-internal-autobahn-full-commit-qc-j57"
+
+[finding.wal-proposal-receive-time]
+file = "consensus/internal/consensus/wal.go"
+line = 114
+class = "interface-mismatch"
+severity = "high"
+observed = "WALMessage.toProto serializes msgInfo.Msg and PeerID but omits ReceiveTime; walFromProto restores a zero timestamp. WAL.Append adds a different envelope Time, which walFromBytes also discards. readReplayMessage passes the restored msgInfo directly to handleMsg, defaultSetProposal stores its zero ReceiveTime, and proposalIsTimely can reject a proposal that was timely before the crash, changing the recovered prevote decision."
+expected = "Consensus message persistence must preserve the input used by PBTS timeliness checks so replay reconstructs the same proposal and vote decision. Private-validator double-sign protection does not reconstruct a discarded receive timestamp."
+proposal = "In consensus/internal/consensus/wal.go and the owning consensus protobuf schema, persist the actual proposal receive timestamp and restore it on replay with an explicit compatibility policy for older WAL entries. Add a real timed-proposal WAL append, sync, close, reopen and catchupReplay regression that asserts the recovered PBTS result and resulting vote without weakening signature protection."
+owner_domain = 5
+interface = "15.go-consensus-internal-consensus-open-wal-j57"
+
+[finding.first-batch-wal-crash]
+file = "consensus/internal/autobahn/data/state.go"
+line = 98
+class = "restart-recovery"
+severity = "medium"
+observed = "DataWAL.reconcile reports corruption and requires statesync whenever CommitQCs.Next equals FirstBlock while Blocks.Next is greater. runPersist writes the first block batch and first QC batch in parallel, so a crash after the block write is durable but before the first QC write reaches disk creates exactly this state. NewDataWAL fails before the node can resume its normal recovery path."
+expected = "A crash at either durability boundary of the first legitimate persistence batch should have a defined recovery path, just as the later blocks-ahead-of-QCs case is reconciled. Normal partial persistence must be distinguished from irreversible data corruption."
+proposal = "In consensus/internal/autobahn/data/state.go, order certificate durability before dependent block durability or persist a shared recovery watermark that identifies an incomplete first batch. Extend data/state_test.go with a real first-batch persistence interruption and reopen test, proving safe tail reconciliation and subsequent execution without requiring operator statesync."
+owner_domain = 5
+interface = "15.go-consensus-internal-autobahn-data-new-data-wal-j57"
+
+[finding.unverified-prune-anchor]
+file = "consensus/internal/autobahn/avail/state.go"
+line = 119
+class = "restart-recovery"
+severity = "medium"
+observed = "loadPersistedState decodes PersistedAvailPruneAnchor and immediately filters loaded QCs and lane blocks with it. NewState then durably truncates their WALs. newInner.prune checks the road index but does not verify signatures or AppQC.GlobalNumber membership in CommitQC.GlobalRange, unlike live PushAppQC. A syntactically valid but inconsistent persisted anchor can therefore control recovery pruning."
+expected = "Recovered pruning authority must satisfy the same committee, certificate and global-range invariants as live pruning before any retained data is filtered or removed. This is a local persisted-state consistency boundary, not evidence of an unauthenticated remote write."
+proposal = "In consensus/internal/autobahn/avail/state.go, pass the active committee into anchor loading and verify both certificates, matching road indices and global-number range before filtering or truncating. Return an explicit invalid-anchor startup error. Prove restart rejection of inconsistent signed anchors and faithful recovery of an anchor emitted by live PushAppQC through the real persisters."
+owner_domain = 5
+interface = "15.proto-consensus-internal-autobahn-persisted-avail-prune-anchor-j57"
+
+[finding.impossible-anchor-fixture]
+file = "consensus/internal/autobahn/avail/inner_test.go"
+line = 272
+class = "test-gap"
+severity = "medium"
+observed = "TestNewInnerLoadedCommitQCsWithAppQC supplies an AppQC for global block 10 but constructs every CommitQC with nil lane QCs, leaving their global ranges empty. It expects newInner to accept this anchor even though the live State.PushAppQC path rejects an AppQC outside its CommitQC global range. The fixture hides the recovery validation disagreement."
+expected = "Recovery fixtures must originate from certificates and finalized lane ranges the live producer can emit and accept. A fixture rejected by the live pruning API cannot demonstrate correct restoration of that API state."
+proposal = "Rewrite the recovery cases in consensus/internal/autobahn/avail/inner_test.go around actual signed lane blocks and lane QCs, finalize them through availability and persist the resulting AppQC/CommitQC pair. Assert restoration of the same global range and retained queues; add a distinct negative case for the impossible anchor rather than treating it as successful recovery."
+owner_domain = 5
+
+[finding.lane-truncation-unasserted]
+file = "consensus/internal/autobahn/avail/state_test.go"
+line = 712
+class = "test-gap"
+severity = "medium"
+observed = "The subtest named anchor past all persisted blocks truncates lane WAL creates CommitQCs with nil lane QCs, so the alleged anchor lane range never advances past persisted blocks 0 through 2. It checks only FirstCommitQC and the restored AppQC road index, without checking the lane range, persisted block tail or a second reopening. Its stated lane-WAL truncation behavior is not exercised."
+expected = "A recovery test claiming durable lane truncation must use a producer-valid anchor whose lane range actually crosses the retained blocks and must observe the disk state after recovery."
+proposal = "In consensus/internal/autobahn/avail/state_test.go, generate real certified lane progress and a live pruning anchor beyond the old block tail, persist it through the normal path, reopen availability and assert FirstBlock/NextBlock plus the retained WAL entries. Reopen once more to prove durable truncation and retain a separate valid anchor-inside-tail case."
+owner_domain = 5
+
+[finding.producer-pending-index-restart]
+file = "consensus/internal/autobahn/producer/state.go"
+line = 50
+class = "restart-recovery"
+severity = "medium"
+observed = "producer.NewState resumes first and next at Avail.NextBlock but initializes blocks, evmNonces and evmTxs empty. Persisted local lane blocks can still be unexecuted when ingress starts. EvmNextPendingNonce and insertTx then fall back to the committed application nonce, forgetting already sequenced transactions and permitting a duplicate nonce or rejecting the correct following nonce until execution catches up."
+expected = "After restart, pending nonce and transaction lookup behavior must account for retained local unexecuted lane payloads before new transactions are admitted. Resuming the lane counter alone does not restore the pending transaction index."
+proposal = "In consensus/internal/autobahn/producer/state.go and producer/mempool.go, rebuild the pending nonce and transaction-hash index from retained local unexecuted lane payloads, or hold transaction admission behind a completed replay barrier. Prove a persisted local lane transaction survives a producer restart with the same pending nonce, hash lookup and admission of the following nonce."
+owner_domain = 5
+interface = "15.go-consensus-internal-autobahn-producer-new-state-j57"
+
+[finding.nonzero-proposer-timeout]
+file = "consensus/internal/consensus/state.go"
+line = 934
+class = "runtime-risk"
+severity = "medium"
+observed = "enterPropose schedules a RoundStepNewRound timeout with the current round when the local proposer must wait for LastBlockTime. handleTimeout processes that timeout by calling enterPropose with round 0. At a nonzero round the entry guard rejects round 0, so the waiting local proposer neither resumes proposal production nor installs its normal propose timeout."
+expected = "A proposer delayed by the previous block timestamp must resume the same height and round when its wait expires, including standby rounds above zero."
+proposal = "In consensus/internal/consensus/state.go, preserve the scheduled timeout round when resuming enterPropose. Extend the PBTS/standby-round tests with a real nonzero-round local proposer and a future LastBlockTime, and assert that the fired timeout advances that round to proposing and allows the real proposal path to proceed."
+owner_domain = 5
+
+[finding.estimated-gas-test-oracle]
+file = "consensus/internal/autobahn/producer/mempool_test.go"
+line = 343
+class = "test-gap"
+severity = "medium"
+observed = "blockStats.Push increments count, sizeBytes and gasWanted but never increments gasEstimated before checking MaxGasEstimatedPerBlock. The producer normalizes estimates below 21000 or above gasWanted to gasWanted, whereas the generated small-gas fixtures do not model that normalization. The block-sealing oracle can therefore accept a result without checking the estimated-gas limit it claims to cover."
+expected = "The producer test oracle must account for the same effective gas units and normalization as real CheckTx responses, with an estimated-gas limit that can independently cause block sealing."
+proposal = "In consensus/internal/autobahn/producer/mempool_test.go, accumulate effective normalized estimated gas and use realistic transaction gas values. Drive the real producer with a workload where estimated gas binds before count, byte size and wanted gas, and assert both that every emitted block stays within the bound and that the next transaction causes sealing."
+owner_domain = 5
+
+[finding.catchup-vote-churn]
+file = "consensus/internal/consensus/types/height_vote_set.go"
+line = 127
+class = "security"
+severity = "medium"
+observed = "HeightVoteSet.AddVote allocates prevote and precommit sets for a new catchup round and records the peer before VoteSet.AddVote verifies the vote signature. Its two-round allowance is per peer ID, and peerCatchupRounds and roundVoteSets survive until the height resets. Peer-ID churn during a stalled height can retain increasing numbers of empty vote sets even when each attempted signature is invalid."
+expected = "Untrusted catchup votes must not cause retained memory to grow with cumulative peer identities at a stalled height. Per-connection admission limits alone do not bound state retained after disconnect."
+proposal = "In consensus/internal/consensus/types/height_vote_set.go, enforce a global per-height catchup allocation budget and validate vote identity/signature before allocating new round state. Define safe disconnect/round retirement cleanup through consensus/reactor.go, preserving genuine catchup votes. Add a real invalid-signature and peer-churn path test that asserts retained vote-set bounds and continued valid catchup."
+owner_domain = 5
+interface = "15.go-consensus-internal-consensus-types-new-height-vote-set-j57"
+
+[finding.step-latency-baseline]
+file = "consensus/internal/consensus/metrics.go"
+line = 259
+class = "runtime-risk"
+severity = "medium"
+observed = "MarkStepLatency subtracts lastRecordedStepLatencyNano from the current Unix nanoseconds, but the field is initially zero. The first observation therefore adds time since the Unix epoch to a step gauge. ClearStepMetrics resets the displayed gauges at a height transition without resetting the sampling baseline, so the next sample can also include time outside the new height."
+expected = "Per-height step latency must measure elapsed consensus work from an initialized sampling boundary, so startup and height changes do not produce misleading latency values for operators."
+proposal = "In consensus/internal/consensus/metrics.go, initialize the timing baseline on the first sample and reset it at the same height boundary as the step gauges. Add a real metrics collection test around startup and two height transitions that asserts plausible elapsed intervals and no epoch-sized first observation."
+owner_domain = 5
+interface = "15.met-consensus-internal-consensus-step-latency-j57"
+
+[finding.round-duration-origin]
+file = "consensus/internal/consensus/metrics.go"
+line = 206
+class = "runtime-risk"
+severity = "low"
+observed = "MarkRound observes time.Since(st) as RoundDuration, but updateRoundStep supplies RoundState.StartTime, which is the height start rather than a per-round start. At successive nonzero rounds the histogram includes all earlier rounds in the same height instead of measuring each completed round."
+expected = "The declared consensus round duration histogram should observe each round interval once so operators can compare round timing and tune proposer/standby timeouts from its samples."
+proposal = "In consensus/internal/consensus/metrics.go and state.go, maintain a round-start boundary separate from the height start and observe the outgoing round interval at each actual round transition. Add metrics assertions spanning multiple rounds of one height to distinguish per-round duration from cumulative height time."
+owner_domain = 5
+interface = "15.met-consensus-internal-consensus-round-duration-j57"
+
+[finding.equivocation-test-commented]
+file = "consensus/internal/consensus/byzantine_test.go"
+line = 3
+class = "test-gap"
+severity = "medium"
+observed = "The entire historical TestByzantinePrevoteEquivocation implementation is commented out, with a note about flakiness and deadlock. This member contains no executable test proving the reactor and consensus behavior under the equivocation scenario its name advertises."
+expected = "The pre-upgrade consensus safety suite needs executable coverage of equivocation through the real peer, vote and state paths; retained commented test text provides no such evidence."
+proposal = "Replace the commented case in consensus/internal/consensus/byzantine_test.go with a bounded real-network equivocation test that sends correctly signed conflicting prevotes, observes evidence/peer handling and proves honest nodes preserve agreement. Resolve the original synchronization problem without skips, fake transport or weakened assertions."
+owner_domain = 5
+
+[finding.invalid-precommit-test-skipped]
+file = "consensus/internal/consensus/invalid_test.go"
+line = 155
+class = "test-gap"
+severity = "medium"
+observed = "TestReactorInvalidPrecommit unconditionally calls t.Skip with the explanation that the test does not check anything useful. The remaining setup therefore cannot establish how the current reactor handles an invalid precommit, and no assertion in that skipped path is upgrade evidence."
+expected = "Malformed or invalid precommit handling must be verified through a running reactor and observable consensus state without unconditional skips."
+proposal = "In consensus/internal/consensus/invalid_test.go, replace the inert scenario with a real connected reactor case that injects a specifically invalid precommit, asserts rejection and unchanged vote power, then proves subsequent valid votes still progress consensus. Use bounded event synchronization rather than suppressing the case."
+owner_domain = 5
+
+[finding.memory-coverage-test-inert]
+file = "consensus/internal/consensus/reactor_test.go"
+line = 501
+class = "test-gap"
+severity = "medium"
+observed = "TestReactorMemoryLimitCoverage only constructs PeerState, assigns height and round, and logs a coverage claim. It sends no proposal, invokes no reactor handler, and has no assertion, so it cannot demonstrate the claimed rejection or silent handling of excessive proposal parts."
+expected = "A memory-limit regression must execute the actual oversized-proposal consumer path and assert rejection and bounded retained allocation. Naming a coverage case does not establish this behavior."
+proposal = "Rewrite TestReactorMemoryLimitCoverage in consensus/internal/consensus/reactor_test.go to send an encoded over-limit proposal through the real reactor channel, assert no oversized parts allocation or accepted proposal, and then deliver a valid proposal to prove continued operation. Keep all memory bounds and signature checks active."
+owner_domain = 5
+
+[finding.assembled-block-source-assertion]
+file = "consensus/internal/consensus/wiring_test.go"
+line = 53
+class = "test-gap"
+severity = "medium"
+observed = "TestWiring_AssembledBlock reads state.go and checks only that the substring tmproto.SchemaForBlock.Scan occurs. It does not assemble an encoded block or reach the scanner/unmarshal consumer, so dead code, incorrect ordering or an ignored scanner error would still satisfy this test."
+expected = "The assembled-block wire guard requires proof through the real producer, part transport, reassembly and rejection path before unmarshal or state allocation, as required by the audit brief path rule."
+proposal = "In consensus/internal/consensus/wiring_test.go, construct a real block-parts flow that exceeds the declared nested bound and feed it through the running consensus state. Assert the scanner error and absence of accepted proposal state, then show a within-bound producer block assembles successfully. Retain schema checks without treating a source substring as path proof."
+owner_domain = 5
+
+[finding.legacy-proposer-test-shape]
+file = "consensus/internal/consensus/state_test.go"
+line = 74
+class = "test-gap"
+severity = "medium"
+observed = "TestStateProposerSelection0 and TestStateProposerSelection2 inspect Validators.GetProposer and fixed priority-rotation indices. The production selection path uses RoundState.Leader, a stateless weighted hash draw or an active LeaderPin. Those legacy expectations do not describe the actual signed proposal source used by the running state."
+expected = "Proposer-selection tests must assert the same leader function and activation behavior used by proposal creation and verification, including weighted validators and round transitions."
+proposal = "Update the two proposer-selection cases in consensus/internal/consensus/state_test.go to derive expected leaders from RoundState.Leader and assert actual signed proposals/NewRound events across heights and nonzero rounds. Cover unequal voting powers and active/disabled pins without depending on the separate legacy GetProposer rotation."
+owner_domain = 5
+
+[finding.permission-error-fixtures]
+file = "consensus/internal/autobahn/consensus/persist/persist_test.go"
+line = 179
+class = "test-gap"
+severity = "medium"
+observed = "TestPersistWriteErrorDoesNotAdvanceSeq uses chmod 0000 on a directory to demand a write failure, and TestLoadPersistedOSErrorPropagates similarly demands an unreadable file. These fixtures do not produce the required OS errors when the test process has root filesystem privileges; they skip only Windows. This is a source-level portability finding, not a claim that a Go test was run here."
+expected = "Persistence error-path tests must induce a real reproducible filesystem error in supported qualification environments while still checking sequence preservation and propagation of non-corruption errors."
+proposal = "In consensus/internal/autobahn/consensus/persist/persist_test.go, replace permission-only triggers with deterministic real filesystem conflicts, using the existing rename-directory-to-file failure pattern where applicable. Exercise the real persister, prove the failed write leaves the valid backup and sequence intact, and assert read errors are propagated without platform skips."
+owner_domain = 5
+
+[finding.wal-test-zero-time]
+file = "consensus/internal/consensus/msgs_test.go"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "TestWALMsgProto builds its successful msgInfo fixture without ReceiveTime and expects only Msg and PeerID in the protobuf. A zero-value fixture therefore agrees with the lossy codec while never testing the nonzero proposal receive timestamp supplied by the live reactor and required by PBTS replay."
+expected = "The WAL round-trip test must cover the actual live proposal message shape, including the timestamp that affects consensus behavior after recovery."
+proposal = "In consensus/internal/consensus/msgs_test.go and replay_test.go, capture a real timed proposal, append it through WAL, close and reopen it, and assert both receive timestamp preservation and the recovered timeliness decision. Keep protobuf conversion assertions but make them reflect the producer shape rather than the current timestamp omission."
+owner_domain = 5
+interface = "15.go-consensus-internal-consensus-open-wal-j57"
+
+[finding.leader-lifecycle-doc-stale]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 715
+class = "doc-drift"
+severity = "medium"
+observed = "The Consensus leader pin section calls LeaderSource, LeaderPinFromSchedule and per-height schedule refresh planned, and its interface rows still give planned locations. These functions and refresh behavior are present in consensus/state.go and types/leader_schedule.go, with production node wiring through consensus/node/node.go SetLeaderSource. The page identifies a historical revision, but its HEAD and planned wording is stale for upgrade operation."
+expected = "The current node-runtime contract must distinguish its frozen historical inventory from implemented leader schedule behavior and describe how activation, disabling and schedule-source errors affect consensus."
+proposal = "Amend spec/layerx-merge/contracts/sequencer.md under its versioned change-control rule: replace the planned leader-source rows with current owning paths and describe the implemented per-height refresh, disabled schedule and fail-stop error lifecycle. Preserve the pinned revision as historical context and link the executable leader-source/leader-schedule tests."
+owner_domain = 5
+interface = "5.go-consensus-internal-consensus-state-set-leader-source-j32"
+
+[finding.retired-config-reader-doc]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 1744
+class = "doc-drift"
+severity = "medium"
+observed = "The Node config keys section names cmd/layerxd and cmd/layerx-guarantor as Go configuration readers. Those are retired daemon paths, so this current-tense operator description points configuration ownership at components excluded from the merged one-network runtime."
+expected = "The merged network runs paxd with the kernel inside the node. Its operational configuration contract must name current readers and clearly identify retired components as historical rather than live deployment targets."
+proposal = "Amend the Node config keys section of spec/layerx-merge/contracts/sequencer.md to name the current daemon/paxd, node and consensus/config readers and their supported keys. Remove retired commands from the operational reader list, retaining any necessary migration history explicitly labeled as retired, and reconcile the section with the retired-component inventory."
+owner_domain = 5
+
+[doc.consensus-fork]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Read as the explicitly frozen source-revision 2a1033aa2 interface/acceptance contract, not as current runtime completion evidence. Its planned locations and UNRUN qualifications are historical; current code readiness was checked against the package requirements and real member implementations. FullCommitQC and restart disagreements are recorded against the owning source paths."
+
+[doc.sequencer]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "stale"
+notes = "Read the node-runtime, leader-pin and configuration contract, retaining its pinned revision and versioned amendment rule. Lines 715 onward describe implemented leader refresh as planned and line 1744 lists retired daemon configuration readers. Amend these operational sections as proposed in leader-lifecycle-doc-stale and retired-config-reader-doc."

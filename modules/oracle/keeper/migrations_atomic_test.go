@@ -39,7 +39,11 @@ func TestMigrate5To6RejectsInconsistentCountersAtomically(t *testing.T) {
 			}
 			store.Set(firstKey, firstBytes)
 			store.Set(secondKey, secondBytes)
-			require.Error(t, keeper.NewMigrator(input.OracleKeeper).Migrate5To6(ctx))
+			require.Error(t, keeper.NewMigrator(input.OracleKeeper, keeper.VotePeriodHistory{
+				StartHeight: 1, EndHeight: 25,
+				VotePeriod:  input.OracleKeeper.VotePeriod(ctx),
+				SlashWindow: input.OracleKeeper.SlashWindow(ctx),
+			}).Migrate5To6(ctx))
 			require.Equal(t, firstBytes, store.Get(firstKey))
 			require.Equal(t, secondBytes, store.Get(secondKey))
 		})
@@ -48,9 +52,13 @@ func TestMigrate5To6RejectsInconsistentCountersAtomically(t *testing.T) {
 
 func TestMigrate5To6AcceptsZeroSuccessBoundary(t *testing.T) {
 	input := testutils.CreateTestInput(t)
-	ctx := input.Ctx.WithBlockHeight(25)
+	ctx := input.Ctx.WithBlockHeight(50)
 	address := testutils.ValAddrs[0]
 	input.OracleKeeper.SetVotePenaltyCounter(ctx, address, 12, 13, 0)
-	require.NoError(t, keeper.NewMigrator(input.OracleKeeper).Migrate5To6(ctx))
+	require.NoError(t, keeper.NewMigrator(input.OracleKeeper, keeper.VotePeriodHistory{
+		StartHeight: 1, EndHeight: 50,
+		VotePeriod:  input.OracleKeeper.VotePeriod(ctx),
+		SlashWindow: input.OracleKeeper.SlashWindow(ctx),
+	}).Migrate5To6(ctx))
 	require.Equal(t, types.VotePenaltyCounter{MissCount: 12, AbstainCount: 13, SuccessCount: 0}, input.OracleKeeper.GetVotePenaltyCounter(ctx, address))
 }

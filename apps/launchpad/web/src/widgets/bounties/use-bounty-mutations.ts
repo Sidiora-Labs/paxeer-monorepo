@@ -11,7 +11,7 @@ import { accountSession, readAccountAsset, subscribeAccount, uploadAccountAsset,
 import { queryKeys } from '@/core/query-keys';
 import { bountiesContract, type Bounty, type BountyFailure } from './bounties-contract';
 import { validateSubmission, type BountySubmission } from './use-bounty';
-import { gasCostUpperBound, validatePreparedTransaction, type TransactionRequest, type ValidatedTransaction } from './prepared-transaction';
+import { gasCostUpperBound, validatePreparedTransaction, type BountyTransactionIntent, type TransactionRequest, type ValidatedTransaction } from './prepared-transaction';
 
 export type BountyCreateBody = V2ContractTypes['BountyCreateBody'];
 export type BountyCreateResponse = V2ContractTypes['BountyCreateResponse'];
@@ -126,7 +126,7 @@ export function useSubmitBounty(bountyId: string) {
   return { signedIn: operations !== null && wallet !== null, wallet, mutation };
 }
 
-export interface AcceptInput { submissionId: string; awardRaw: string; expectedBountyRevision: string }
+export interface AcceptInput { submissionId: string; winnerWallet: string; awardRaw: string; expectedBountyRevision: string }
 
 /** IF_BOUNTY_ACCEPT `POST .../submissions/{submissionId}:accept` (creator only); answers the settlement transaction. */
 export function useAcceptSubmission(bounty: Bounty) {
@@ -142,6 +142,7 @@ export function useAcceptSubmission(bounty: Bounty) {
           path: { bountyId: bounty.bountyId, submissionId: input.submissionId },
           body: { awardRaw: input.awardRaw, expectedBountyRevision: input.expectedBountyRevision },
         });
+        if (response.data.submission.authorWallet.toLowerCase() !== input.winnerWallet.toLowerCase()) throw new Error('Accepted winner differs from the reviewed submission');
         return validateAccepted(response, bounty.bountyId, input.submissionId, input.awardRaw);
       } catch (error) {
         throw failureOf(MUTATION_OPERATIONS.accept, error);
@@ -288,7 +289,9 @@ function message(error: unknown, fallback: string): string {
  * waits for its receipt. A failure after the wallet was invoked is reported as
  * uncertain, never as success or as a clean failure.
  */
-export function usePreparedTransaction(request: TransactionRequest | null) {
+export function usePreparedTransaction(request: TransactionRequest | null, intent: BountyTransactionIntent) {
+  const intentKey = JSON.stringify(intent);
+  const reviewedIntent = useMemo(() => JSON.parse(intentKey) as BountyTransactionIntent, [intentKey]);
   const wallet = useAccount();
   const publicClient = usePublicClient({ chainId: 125 });
   const { authority, unavailableReason } = useRuntimeAuthority();
@@ -312,7 +315,7 @@ export function usePreparedTransaction(request: TransactionRequest | null) {
     if (!deployment) { setState({ kind: 'invalid', error: "Can't reach the network right now, try again" }); return; }
     let tx: ValidatedTransaction;
     try {
-      tx = validatePreparedTransaction(request, { wallet: address, deployment });
+      tx = validatePreparedTransaction(request, { wallet: address, deployment, intent: reviewedIntent });
     } catch (error) {
       console.error('[bounty transaction check]', error);
       setState({ kind: 'invalid', error: "This transaction doesn't look right, so it wasn't sent to your wallet" });
@@ -332,7 +335,7 @@ export function usePreparedTransaction(request: TransactionRequest | null) {
       }
     })();
     return () => { cancelled = true; };
-  }, [request, address, chainId, deployment, publicClient, unavailableReason, attempt]);
+  }, [request, reviewedIntent, address, chainId, deployment, publicClient, unavailableReason, attempt]);
 
   const sign = useCallback(async () => {
     if (state.kind !== 'review' || busy.current || !publicClient) return;
@@ -342,7 +345,7 @@ export function usePreparedTransaction(request: TransactionRequest | null) {
     let hash: Hex | null = null;
     try {
       if (!request || !wallet.connector || !authority || authority.expiresAt <= Date.now()) throw new Error(unavailableReason ?? 'Network authority expired; refresh before signing');
-      const tx = validatePreparedTransaction(request, { wallet: wallet.address ?? '', deployment: authority.network.network.addresses });
+      const tx = validatePreparedTransaction(request, { wallet: wallet.address ?? '', deployment: authority.network.network.addresses, intent: reviewedIntent });
       if (tx.to !== reviewed.tx.to || tx.data !== reviewed.tx.data || tx.from !== reviewed.tx.from) throw new Error('Prepared transaction changed after review');
       const provider = await connectorProvider(wallet.connector);
       if (!isWalletProvider(provider)) throw new Error('Wallet provider unavailable');
@@ -374,7 +377,7 @@ export function usePreparedTransaction(request: TransactionRequest | null) {
     } finally {
       busy.current = false;
     }
-  }, [state, publicClient, request, wallet.connector, wallet.address, authority, unavailableReason]);
+  }, [state, publicClient, request, reviewedIntent, wallet.connector, wallet.address, authority, unavailableReason]);
 
   /** Re-validate and re-estimate after a clean failure (never after an uncertain broadcast). */
   const retry = useCallback(() => {

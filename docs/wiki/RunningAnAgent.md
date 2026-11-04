@@ -78,10 +78,11 @@ already-configured `beta` profile
 (`tools/platform/cli/src/config.rs:121-126`).
 
 Non-loopback endpoints must use `https://`
-(`tools/platform/cli/src/http.rs:27-37`). The hosted gateway Ingress host
-in `layerx-testnet` is `api-mainnet-beta.paxeer.network`
-(`services/platform/hosted/gateway/deployment.yaml:182, 190-192`). The CLI
-does not default that URL.
+(`tools/platform/cli/src/http.rs:27-37`). Obtain the hosted gateway origin
+from its operator. The checked-in Ingress names the public node hostname,
+but that hostname serves node JSON-RPC at the root path, chain ID `125`;
+it does not establish a public gateway endpoint. The CLI does not default
+that URL.
 
 Success envelope kind `environment.selected`. Printed `data` fields:
 `name`, `endpoint`, `network_id`, `sequencer_trust_anchor`

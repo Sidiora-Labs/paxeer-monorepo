@@ -1,0 +1,2618 @@
+[audit.22.30.131]
+task = "22.30.131"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 346
+findings = 58
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["withdrawal-vault", "settlement-broadcast", "solana-outstanding"]
+produces_reviewed = 366
+consumes_reviewed = 105
+interface_notes = "Attestation HTTP paths, decimal strings, digest fields and ordered signatures agree with the Rust relayer. Vault/precompile ABI, Solana recipient layout/PDA and explorer account repository configuration were compared with their real producers. Registry token-name matches such as version, track and symbol do not create runtime HTTP/configuration dependencies; retired instrumentation/middleware entries are absent as intended. Ledger, lifecycle, cap and registry disagreements are recorded below."
+
+[file.1]
+path = "apps/bridge/.pnpmfile.cjs"
+lines = 7
+verdict = "clean"
+
+[file.2]
+path = "apps/bridge/AGENTS.md"
+lines = 9
+verdict = "generated"
+note = "Generated Next.js agent instructions, identified by the BEGIN:nextjs-agent-rules marker and generator reference; retained as framework guidance."
+
+[file.3]
+path = "apps/bridge/README.md"
+lines = 36
+verdict = "issues"
+
+[file.4]
+path = "apps/bridge/dx.json"
+lines = 12
+verdict = "clean"
+
+[file.5]
+path = "apps/bridge/eslint.config.mjs"
+lines = 482
+verdict = "clean"
+
+[file.6]
+path = "apps/bridge/next.config.ts"
+lines = 17
+verdict = "clean"
+
+[file.7]
+path = "apps/bridge/package.json"
+lines = 123
+verdict = "clean"
+
+[file.8]
+path = "apps/bridge/pnpm-workspace.yaml"
+lines = 20
+verdict = "clean"
+
+[file.9]
+path = "apps/bridge/src/app/layout.tsx"
+lines = 53
+verdict = "clean"
+
+[file.10]
+path = "apps/bridge/src/app/page.tsx"
+lines = 54
+verdict = "clean"
+
+[file.11]
+path = "apps/bridge/src/app/theme-init.spec.tsx"
+lines = 83
+verdict = "clean"
+
+[file.12]
+path = "apps/bridge/src/app/theme-init.ts"
+lines = 2
+verdict = "clean"
+
+[file.13]
+path = "apps/bridge/src/components/bridge/bridge-card.tsx"
+lines = 541
+verdict = "issues"
+
+[file.14]
+path = "apps/bridge/src/components/bridge/how-it-works.tsx"
+lines = 116
+verdict = "clean"
+
+[file.15]
+path = "apps/bridge/src/components/bridge/import-transfer.tsx"
+lines = 106
+verdict = "issues"
+
+[file.16]
+path = "apps/bridge/src/components/bridge/providers.tsx"
+lines = 32
+verdict = "clean"
+
+[file.17]
+path = "apps/bridge/src/components/bridge/route-panels.tsx"
+lines = 309
+verdict = "clean"
+
+[file.18]
+path = "apps/bridge/src/components/bridge/site-header.tsx"
+lines = 223
+verdict = "clean"
+
+[file.19]
+path = "apps/bridge/src/components/bridge/transfer-actions.spec.ts"
+lines = 166
+verdict = "clean"
+
+[file.20]
+path = "apps/bridge/src/components/bridge/transfer-actions.ts"
+lines = 332
+verdict = "issues"
+
+[file.21]
+path = "apps/bridge/src/components/bridge/transfers-panel.tsx"
+lines = 357
+verdict = "clean"
+
+[file.22]
+path = "apps/bridge/src/components/dx/theme-toggle.tsx"
+lines = 296
+verdict = "clean"
+
+[file.23]
+path = "apps/bridge/src/components/theme-provider.browser-render.spec.tsx"
+lines = 145
+verdict = "clean"
+
+[file.24]
+path = "apps/bridge/src/components/theme-provider.spec.tsx"
+lines = 36
+verdict = "clean"
+
+[file.25]
+path = "apps/bridge/src/components/theme-provider.tsx"
+lines = 101
+verdict = "issues"
+
+[file.26]
+path = "apps/bridge/src/components/trading/chain-selector.tsx"
+lines = 239
+verdict = "clean"
+
+[file.27]
+path = "apps/bridge/src/components/trading/deposit-status.tsx"
+lines = 249
+verdict = "issues"
+
+[file.28]
+path = "apps/bridge/src/components/trading/numeral.tsx"
+lines = 84
+verdict = "clean"
+
+[file.29]
+path = "apps/bridge/src/components/trading/token-icon.tsx"
+lines = 108
+verdict = "issues"
+
+[file.30]
+path = "apps/bridge/src/components/trading/transfer-history.tsx"
+lines = 303
+verdict = "issues"
+
+[file.31]
+path = "apps/bridge/src/components/ui/alert.tsx"
+lines = 43
+verdict = "clean"
+
+[file.32]
+path = "apps/bridge/src/components/ui/avatar.tsx"
+lines = 45
+verdict = "clean"
+
+[file.33]
+path = "apps/bridge/src/components/ui/badge.tsx"
+lines = 39
+verdict = "clean"
+
+[file.34]
+path = "apps/bridge/src/components/ui/button.tsx"
+lines = 62
+verdict = "clean"
+
+[file.35]
+path = "apps/bridge/src/components/ui/card.tsx"
+lines = 76
+verdict = "clean"
+
+[file.36]
+path = "apps/bridge/src/components/ui/collapsible.tsx"
+lines = 26
+verdict = "clean"
+
+[file.37]
+path = "apps/bridge/src/components/ui/dialog.tsx"
+lines = 115
+verdict = "clean"
+
+[file.38]
+path = "apps/bridge/src/components/ui/dropdown-menu.tsx"
+lines = 160
+verdict = "clean"
+
+[file.39]
+path = "apps/bridge/src/components/ui/empty.tsx"
+lines = 50
+verdict = "clean"
+
+[file.40]
+path = "apps/bridge/src/components/ui/field.tsx"
+lines = 82
+verdict = "clean"
+
+[file.41]
+path = "apps/bridge/src/components/ui/hover-card.tsx"
+lines = 36
+verdict = "clean"
+
+[file.42]
+path = "apps/bridge/src/components/ui/input-group.tsx"
+lines = 77
+verdict = "clean"
+
+[file.43]
+path = "apps/bridge/src/components/ui/input.tsx"
+lines = 24
+verdict = "clean"
+
+[file.44]
+path = "apps/bridge/src/components/ui/kbd.tsx"
+lines = 22
+verdict = "clean"
+
+[file.45]
+path = "apps/bridge/src/components/ui/label.tsx"
+lines = 19
+verdict = "clean"
+
+[file.46]
+path = "apps/bridge/src/components/ui/popover.tsx"
+lines = 52
+verdict = "issues"
+
+[file.47]
+path = "apps/bridge/src/components/ui/progress.tsx"
+lines = 33
+verdict = "clean"
+
+[file.48]
+path = "apps/bridge/src/components/ui/scroll-area.tsx"
+lines = 54
+verdict = "clean"
+
+[file.49]
+path = "apps/bridge/src/components/ui/select.tsx"
+lines = 100
+verdict = "clean"
+
+[file.50]
+path = "apps/bridge/src/components/ui/separator.tsx"
+lines = 19
+verdict = "clean"
+
+[file.51]
+path = "apps/bridge/src/components/ui/sheet.tsx"
+lines = 84
+verdict = "clean"
+
+[file.52]
+path = "apps/bridge/src/components/ui/skeleton.tsx"
+lines = 21
+verdict = "clean"
+
+[file.53]
+path = "apps/bridge/src/components/ui/sonner.tsx"
+lines = 34
+verdict = "clean"
+
+[file.54]
+path = "apps/bridge/src/components/ui/spinner.tsx"
+lines = 26
+verdict = "clean"
+
+[file.55]
+path = "apps/bridge/src/components/ui/table.tsx"
+lines = 56
+verdict = "clean"
+
+[file.56]
+path = "apps/bridge/src/components/ui/tabs.tsx"
+lines = 71
+verdict = "clean"
+
+[file.57]
+path = "apps/bridge/src/components/ui/toggle-group.tsx"
+lines = 50
+verdict = "clean"
+
+[file.58]
+path = "apps/bridge/src/components/ui/toggle.tsx"
+lines = 28
+verdict = "clean"
+
+[file.59]
+path = "apps/bridge/src/components/ui/tooltip.tsx"
+lines = 92
+verdict = "clean"
+
+[file.60]
+path = "apps/bridge/src/lib/bridge/amount.spec.ts"
+lines = 20
+verdict = "clean"
+
+[file.61]
+path = "apps/bridge/src/lib/bridge/amount.ts"
+lines = 64
+verdict = "clean"
+
+[file.62]
+path = "apps/bridge/src/lib/bridge/attestation-api.spec.ts"
+lines = 152
+verdict = "clean"
+
+[file.63]
+path = "apps/bridge/src/lib/bridge/attestation-api.ts"
+lines = 235
+verdict = "clean"
+
+[file.64]
+path = "apps/bridge/src/lib/bridge/attestation-routes.spec.ts"
+lines = 51
+verdict = "clean"
+
+[file.65]
+path = "apps/bridge/src/lib/bridge/card-state.spec.ts"
+lines = 148
+verdict = "clean"
+
+[file.66]
+path = "apps/bridge/src/lib/bridge/card-state.ts"
+lines = 86
+verdict = "issues"
+
+[file.67]
+path = "apps/bridge/src/lib/bridge/chains.spec.ts"
+lines = 47
+verdict = "clean"
+
+[file.68]
+path = "apps/bridge/src/lib/bridge/chains.ts"
+lines = 281
+verdict = "clean"
+
+[file.69]
+path = "apps/bridge/src/lib/bridge/config.spec.ts"
+lines = 47
+verdict = "clean"
+
+[file.70]
+path = "apps/bridge/src/lib/bridge/config.ts"
+lines = 93
+verdict = "issues"
+
+[file.71]
+path = "apps/bridge/src/lib/bridge/contracts.spec.ts"
+lines = 68
+verdict = "clean"
+
+[file.72]
+path = "apps/bridge/src/lib/bridge/contracts.ts"
+lines = 81
+verdict = "clean"
+
+[file.73]
+path = "apps/bridge/src/lib/bridge/csp.ts"
+lines = 32
+verdict = "issues"
+
+[file.74]
+path = "apps/bridge/src/lib/bridge/digests.spec.ts"
+lines = 57
+verdict = "clean"
+
+[file.75]
+path = "apps/bridge/src/lib/bridge/digests.ts"
+lines = 171
+verdict = "clean"
+
+[file.76]
+path = "apps/bridge/src/lib/bridge/enrich.spec.ts"
+lines = 134
+verdict = "clean"
+
+[file.77]
+path = "apps/bridge/src/lib/bridge/enrich.ts"
+lines = 21
+verdict = "clean"
+
+[file.78]
+path = "apps/bridge/src/lib/bridge/errors-registry.spec.ts"
+lines = 46
+verdict = "clean"
+
+[file.79]
+path = "apps/bridge/src/lib/bridge/errors.spec.ts"
+lines = 71
+verdict = "clean"
+
+[file.80]
+path = "apps/bridge/src/lib/bridge/errors.ts"
+lines = 92
+verdict = "clean"
+
+[file.81]
+path = "apps/bridge/src/lib/bridge/explorer.spec.ts"
+lines = 34
+verdict = "clean"
+
+[file.82]
+path = "apps/bridge/src/lib/bridge/explorer.ts"
+lines = 68
+verdict = "clean"
+
+[file.83]
+path = "apps/bridge/src/lib/bridge/import.spec.ts"
+lines = 272
+verdict = "clean"
+
+[file.84]
+path = "apps/bridge/src/lib/bridge/import.ts"
+lines = 121
+verdict = "issues"
+
+[file.85]
+path = "apps/bridge/src/lib/bridge/layerx-bridge-abi.json"
+lines = 1
+verdict = "clean"
+
+[file.86]
+path = "apps/bridge/src/lib/bridge/limits.spec.ts"
+lines = 132
+verdict = "clean"
+
+[file.87]
+path = "apps/bridge/src/lib/bridge/limits.ts"
+lines = 95
+verdict = "issues"
+
+[file.88]
+path = "apps/bridge/src/lib/bridge/phase.spec.ts"
+lines = 65
+verdict = "issues"
+
+[file.89]
+path = "apps/bridge/src/lib/bridge/phase.ts"
+lines = 35
+verdict = "clean"
+
+[file.90]
+path = "apps/bridge/src/lib/bridge/registry.spec.ts"
+lines = 49
+verdict = "clean"
+
+[file.91]
+path = "apps/bridge/src/lib/bridge/settlement.spec.ts"
+lines = 67
+verdict = "issues"
+
+[file.92]
+path = "apps/bridge/src/lib/bridge/settlement.ts"
+lines = 26
+verdict = "issues"
+
+[file.93]
+path = "apps/bridge/src/lib/bridge/solana-route.spec.ts"
+lines = 36
+verdict = "clean"
+
+[file.94]
+path = "apps/bridge/src/lib/bridge/solana-route.ts"
+lines = 19
+verdict = "clean"
+
+[file.95]
+path = "apps/bridge/src/lib/bridge/solana.spec.ts"
+lines = 165
+verdict = "clean"
+
+[file.96]
+path = "apps/bridge/src/lib/bridge/solana.ts"
+lines = 156
+verdict = "clean"
+
+[file.97]
+path = "apps/bridge/src/lib/bridge/submission.spec.ts"
+lines = 65
+verdict = "clean"
+
+[file.98]
+path = "apps/bridge/src/lib/bridge/submission.ts"
+lines = 65
+verdict = "clean"
+
+[file.99]
+path = "apps/bridge/src/lib/bridge/submitted.spec.ts"
+lines = 83
+verdict = "issues"
+
+[file.100]
+path = "apps/bridge/src/lib/bridge/submitted.ts"
+lines = 45
+verdict = "issues"
+
+[file.101]
+path = "apps/bridge/src/lib/bridge/topics.spec.ts"
+lines = 30
+verdict = "clean"
+
+[file.102]
+path = "apps/bridge/src/lib/bridge/transfers.spec.ts"
+lines = 133
+verdict = "clean"
+
+[file.103]
+path = "apps/bridge/src/lib/bridge/transfers.ts"
+lines = 133
+verdict = "clean"
+
+[file.104]
+path = "apps/bridge/src/lib/bridge/use-bridge-state.ts"
+lines = 308
+verdict = "clean"
+
+[file.105]
+path = "apps/bridge/src/lib/bridge/wagmi.ts"
+lines = 35
+verdict = "clean"
+
+[file.106]
+path = "apps/bridge/src/lib/ease.ts"
+lines = 25
+verdict = "clean"
+
+[file.107]
+path = "apps/bridge/src/lib/trading.ts"
+lines = 166
+verdict = "clean"
+
+[file.108]
+path = "apps/bridge/src/lib/utils.ts"
+lines = 6
+verdict = "clean"
+
+[file.109]
+path = "apps/bridge/src/proxy.spec.ts"
+lines = 81
+verdict = "clean"
+
+[file.110]
+path = "apps/bridge/src/proxy.ts"
+lines = 19
+verdict = "clean"
+
+[file.111]
+path = "apps/bridge/src/test/harness.spec.ts"
+lines = 19
+verdict = "clean"
+
+[file.112]
+path = "apps/bridge/src/test/manifest.spec.ts"
+lines = 95
+verdict = "issues"
+
+[file.113]
+path = "apps/bridge/src/test/proof_attestation_api.spec.ts"
+lines = 245
+verdict = "issues"
+
+[file.114]
+path = "apps/bridge/src/test/proof_components.spec.ts"
+lines = 297
+verdict = "issues"
+
+[file.115]
+path = "apps/bridge/src/test/proof_config.spec.ts"
+lines = 184
+verdict = "clean"
+
+[file.116]
+path = "apps/bridge/src/test/proof_ledger.spec.ts"
+lines = 269
+verdict = "issues"
+
+[file.117]
+path = "apps/bridge/src/test/proof_lib.spec.ts"
+lines = 320
+verdict = "issues"
+
+[file.118]
+path = "apps/bridge/src/test/proof_security_headers.spec.ts"
+lines = 161
+verdict = "clean"
+
+[file.119]
+path = "apps/bridge/src/test/proof_settlement.spec.ts"
+lines = 316
+verdict = "issues"
+
+[file.120]
+path = "apps/bridge/src/test/proof_solana_route.spec.ts"
+lines = 257
+verdict = "issues"
+
+[file.121]
+path = "apps/bridge/src/test/proof_submission.spec.ts"
+lines = 194
+verdict = "clean"
+
+[file.122]
+path = "apps/bridge/svgo.config.format.js"
+lines = 22
+verdict = "clean"
+
+[file.123]
+path = "apps/bridge/svgo.config.js"
+lines = 18
+verdict = "clean"
+
+[file.124]
+path = "apps/bridge/tsconfig.json"
+lines = 57
+verdict = "clean"
+
+[file.125]
+path = "apps/bridge/vitest.config.ts"
+lines = 20
+verdict = "clean"
+
+[file.126]
+path = "apps/explorer/toolkit/chakra/accordion.tsx"
+lines = 134
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.127]
+path = "apps/explorer/toolkit/chakra/alert.tsx"
+lines = 95
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.128]
+path = "apps/explorer/toolkit/chakra/avatar.tsx"
+lines = 74
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.129]
+path = "apps/explorer/toolkit/chakra/badge.tsx"
+lines = 41
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.130]
+path = "apps/explorer/toolkit/chakra/button.tsx"
+lines = 113
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.131]
+path = "apps/explorer/toolkit/chakra/checkbox.tsx"
+lines = 50
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.132]
+path = "apps/explorer/toolkit/chakra/close-button.tsx"
+lines = 27
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.133]
+path = "apps/explorer/toolkit/chakra/collapsible.tsx"
+lines = 107
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.134]
+path = "apps/explorer/toolkit/chakra/color-mode.tsx"
+lines = 40
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.135]
+path = "apps/explorer/toolkit/chakra/dialog.tsx"
+lines = 82
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.136]
+path = "apps/explorer/toolkit/chakra/drawer.tsx"
+lines = 64
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.137]
+path = "apps/explorer/toolkit/chakra/empty-state.tsx"
+lines = 93
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.138]
+path = "apps/explorer/toolkit/chakra/field.tsx"
+lines = 112
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.139]
+path = "apps/explorer/toolkit/chakra/heading.tsx"
+lines = 36
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.140]
+path = "apps/explorer/toolkit/chakra/icon-button.tsx"
+lines = 62
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.141]
+path = "apps/explorer/toolkit/chakra/image.tsx"
+lines = 67
+verdict = "issues"
+
+[file.142]
+path = "apps/explorer/toolkit/chakra/input-group.tsx"
+lines = 128
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.143]
+path = "apps/explorer/toolkit/chakra/input.tsx"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.144]
+path = "apps/explorer/toolkit/chakra/link.tsx"
+lines = 148
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.145]
+path = "apps/explorer/toolkit/chakra/menu.tsx"
+lines = 124
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.146]
+path = "apps/explorer/toolkit/chakra/pin-input.tsx"
+lines = 27
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.147]
+path = "apps/explorer/toolkit/chakra/popover.tsx"
+lines = 108
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.148]
+path = "apps/explorer/toolkit/chakra/progress-circle.tsx"
+lines = 38
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.149]
+path = "apps/explorer/toolkit/chakra/progress.tsx"
+lines = 19
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.150]
+path = "apps/explorer/toolkit/chakra/provider.tsx"
+lines = 18
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.151]
+path = "apps/explorer/toolkit/chakra/radio.tsx"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.152]
+path = "apps/explorer/toolkit/chakra/rating.tsx"
+lines = 43
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.153]
+path = "apps/explorer/toolkit/chakra/recipe-props.ts"
+lines = 14
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.154]
+path = "apps/explorer/toolkit/chakra/select.tsx"
+lines = 357
+verdict = "issues"
+
+[file.155]
+path = "apps/explorer/toolkit/chakra/skeleton.tsx"
+lines = 68
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.156]
+path = "apps/explorer/toolkit/chakra/slider.tsx"
+lines = 82
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.157]
+path = "apps/explorer/toolkit/chakra/stat.tsx"
+lines = 9
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.158]
+path = "apps/explorer/toolkit/chakra/switch.tsx"
+lines = 46
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.159]
+path = "apps/explorer/toolkit/chakra/table.tsx"
+lines = 118
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.160]
+path = "apps/explorer/toolkit/chakra/tabs.tsx"
+lines = 52
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.161]
+path = "apps/explorer/toolkit/chakra/tag.tsx"
+lines = 80
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.162]
+path = "apps/explorer/toolkit/chakra/textarea.tsx"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.163]
+path = "apps/explorer/toolkit/chakra/toaster.tsx"
+lines = 61
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.164]
+path = "apps/explorer/toolkit/chakra/tooltip.tsx"
+lines = 165
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.165]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/AdaptiveTabs.tsx"
+lines = 84
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.166]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/AdaptiveTabsList.tsx"
+lines = 208
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.167]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/AdaptiveTabsMenu.tsx"
+lines = 77
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.168]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/index.ts"
+lines = 4
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.169]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/types.ts"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.170]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/useAdaptiveTabs.tsx"
+lines = 75
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.171]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/useScrollToActiveTab.tsx"
+lines = 49
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.172]
+path = "apps/explorer/toolkit/components/AdaptiveTabs/utils.ts"
+lines = 21
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.173]
+path = "apps/explorer/toolkit/components/Hint/Hint.tsx"
+lines = 39
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.174]
+path = "apps/explorer/toolkit/components/RoutedTabs/RoutedTabs.tsx"
+lines = 72
+verdict = "issues"
+
+[file.175]
+path = "apps/explorer/toolkit/components/RoutedTabs/index.ts"
+lines = 2
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.176]
+path = "apps/explorer/toolkit/components/RoutedTabs/useActiveTabFromQuery.tsx"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.177]
+path = "apps/explorer/toolkit/components/buttons/AddButton.tsx"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.178]
+path = "apps/explorer/toolkit/components/buttons/BackToButton.tsx"
+lines = 34
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.179]
+path = "apps/explorer/toolkit/components/buttons/ClearButton.tsx"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.180]
+path = "apps/explorer/toolkit/components/buttons/RemoveButton.tsx"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.181]
+path = "apps/explorer/toolkit/components/charts/Chart.tsx"
+lines = 185
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.182]
+path = "apps/explorer/toolkit/components/charts/ChartFullscreenDialog.tsx"
+lines = 89
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.183]
+path = "apps/explorer/toolkit/components/charts/ChartWidget.tsx"
+lines = 194
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.184]
+path = "apps/explorer/toolkit/components/charts/ChartWidgetContent.tsx"
+lines = 87
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.185]
+path = "apps/explorer/toolkit/components/charts/index.ts"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.186]
+path = "apps/explorer/toolkit/components/charts/parts/ChartArea.tsx"
+lines = 62
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.187]
+path = "apps/explorer/toolkit/components/charts/parts/ChartAxis.tsx"
+lines = 77
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.188]
+path = "apps/explorer/toolkit/components/charts/parts/ChartGridLine.tsx"
+lines = 38
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.189]
+path = "apps/explorer/toolkit/components/charts/parts/ChartLegend.tsx"
+lines = 61
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.190]
+path = "apps/explorer/toolkit/components/charts/parts/ChartLine.tsx"
+lines = 73
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.191]
+path = "apps/explorer/toolkit/components/charts/parts/ChartMenu.tsx"
+lines = 200
+verdict = "issues"
+
+[file.192]
+path = "apps/explorer/toolkit/components/charts/parts/ChartOverlay.tsx"
+lines = 16
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.193]
+path = "apps/explorer/toolkit/components/charts/parts/ChartSelectionX.tsx"
+lines = 145
+verdict = "issues"
+
+[file.194]
+path = "apps/explorer/toolkit/components/charts/parts/ChartTooltip.tsx"
+lines = 196
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.195]
+path = "apps/explorer/toolkit/components/charts/parts/ChartWatermark.tsx"
+lines = 23
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.196]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/ChartTooltipBackdrop.tsx"
+lines = 46
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.197]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/ChartTooltipContent.tsx"
+lines = 101
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.198]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/ChartTooltipLine.tsx"
+lines = 21
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.199]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/ChartTooltipPoint.tsx"
+lines = 94
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.200]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/ChartTooltipRow.tsx"
+lines = 96
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.201]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/ChartTooltipTitle.tsx"
+lines = 36
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.202]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/pointerTracker.ts"
+lines = 72
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.203]
+path = "apps/explorer/toolkit/components/charts/parts/tooltip/utils.ts"
+lines = 16
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.204]
+path = "apps/explorer/toolkit/components/charts/sankey/SankeyChart.tsx"
+lines = 161
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.205]
+path = "apps/explorer/toolkit/components/charts/sankey/constants.ts"
+lines = 38
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.206]
+path = "apps/explorer/toolkit/components/charts/sankey/index.ts"
+lines = 6
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.207]
+path = "apps/explorer/toolkit/components/charts/sankey/parts/SankeyLink.tsx"
+lines = 109
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.208]
+path = "apps/explorer/toolkit/components/charts/sankey/parts/SankeyNode.tsx"
+lines = 74
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.209]
+path = "apps/explorer/toolkit/components/charts/sankey/types.ts"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.210]
+path = "apps/explorer/toolkit/components/charts/sankey/useSankeyController.ts"
+lines = 71
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.211]
+path = "apps/explorer/toolkit/components/charts/types.tsx"
+lines = 95
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.212]
+path = "apps/explorer/toolkit/components/charts/utils/animations.ts"
+lines = 33
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.213]
+path = "apps/explorer/toolkit/components/charts/utils/calculateInnerSize.ts"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.214]
+path = "apps/explorer/toolkit/components/charts/utils/formatters.ts"
+lines = 19
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.215]
+path = "apps/explorer/toolkit/components/charts/utils/getDateLabel.ts"
+lines = 16
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.216]
+path = "apps/explorer/toolkit/components/charts/utils/timeChartAxis.ts"
+lines = 104
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.217]
+path = "apps/explorer/toolkit/components/charts/utils/useChartBrushX.tsx"
+lines = 38
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.218]
+path = "apps/explorer/toolkit/components/charts/utils/useChartLegend.tsx"
+lines = 16
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.219]
+path = "apps/explorer/toolkit/components/charts/utils/useChartZoom.tsx"
+lines = 23
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.220]
+path = "apps/explorer/toolkit/components/charts/utils/useTimeChartController.tsx"
+lines = 62
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.221]
+path = "apps/explorer/toolkit/components/filters/FilterInput.tsx"
+lines = 90
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.222]
+path = "apps/explorer/toolkit/components/forms/components/FormFieldError.tsx"
+lines = 11
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.223]
+path = "apps/explorer/toolkit/components/forms/components/index.ts"
+lines = 1
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.224]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldAddress.tsx"
+lines = 33
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.225]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldCheckbox.tsx"
+lines = 57
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.226]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldCheckboxGroup.tsx"
+lines = 55
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.227]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldColor.tsx"
+lines = 110
+verdict = "issues"
+
+[file.228]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldEmail.tsx"
+lines = 30
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.229]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldNumber.tsx"
+lines = 15
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.230]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldRadio.tsx"
+lines = 71
+verdict = "issues"
+
+[file.231]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldSelect.tsx"
+lines = 58
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.232]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldSelectAsync.tsx"
+lines = 58
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.233]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldSwitch.tsx"
+lines = 59
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.234]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldText.tsx"
+lines = 100
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.235]
+path = "apps/explorer/toolkit/components/forms/fields/FormFieldUrl.tsx"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.236]
+path = "apps/explorer/toolkit/components/forms/fields/image/FormFieldImagePreview.tsx"
+lines = 49
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.237]
+path = "apps/explorer/toolkit/components/forms/fields/image/useImageField.tsx"
+lines = 95
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.238]
+path = "apps/explorer/toolkit/components/forms/fields/index.ts"
+lines = 15
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.239]
+path = "apps/explorer/toolkit/components/forms/fields/types.ts"
+lines = 27
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.240]
+path = "apps/explorer/toolkit/components/forms/inputs/file/DragAndDropArea.tsx"
+lines = 80
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.241]
+path = "apps/explorer/toolkit/components/forms/inputs/file/FileInput.tsx"
+lines = 67
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.242]
+path = "apps/explorer/toolkit/components/forms/inputs/file/FileSnippet.tsx"
+lines = 82
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.243]
+path = "apps/explorer/toolkit/components/forms/inputs/file/utils.ts"
+lines = 68
+verdict = "issues"
+
+[file.244]
+path = "apps/explorer/toolkit/components/forms/inputs/index.ts"
+lines = 3
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.245]
+path = "apps/explorer/toolkit/components/forms/utils/getFormFieldErrorText.ts"
+lines = 9
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.246]
+path = "apps/explorer/toolkit/components/forms/utils/index.ts"
+lines = 1
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.247]
+path = "apps/explorer/toolkit/components/forms/validators/address.ts"
+lines = 11
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.248]
+path = "apps/explorer/toolkit/components/forms/validators/color.ts"
+lines = 21
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.249]
+path = "apps/explorer/toolkit/components/forms/validators/email.ts"
+lines = 3
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.250]
+path = "apps/explorer/toolkit/components/forms/validators/index.ts"
+lines = 7
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.251]
+path = "apps/explorer/toolkit/components/forms/validators/signature.ts"
+lines = 1
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.252]
+path = "apps/explorer/toolkit/components/forms/validators/text.ts"
+lines = 13
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.253]
+path = "apps/explorer/toolkit/components/forms/validators/transaction.ts"
+lines = 5
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.254]
+path = "apps/explorer/toolkit/components/forms/validators/url.ts"
+lines = 32
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.255]
+path = "apps/explorer/toolkit/components/loaders/ContentLoader.tsx"
+lines = 33
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.256]
+path = "apps/explorer/toolkit/components/truncation/TruncatedText.tsx"
+lines = 53
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.257]
+path = "apps/explorer/toolkit/components/truncation/TruncatedTextTooltip.tsx"
+lines = 94
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.258]
+path = "apps/explorer/toolkit/hooks/useClientRect.tsx"
+lines = 37
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.259]
+path = "apps/explorer/toolkit/hooks/useClipboard.tsx"
+lines = 56
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.260]
+path = "apps/explorer/toolkit/hooks/useDisclosure.tsx"
+lines = 24
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.261]
+path = "apps/explorer/toolkit/hooks/useFirstMountState.tsx"
+lines = 14
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.262]
+path = "apps/explorer/toolkit/hooks/useIsSticky.tsx"
+lines = 34
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.263]
+path = "apps/explorer/toolkit/hooks/useUpdateEffect.tsx"
+lines = 15
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.264]
+path = "apps/explorer/toolkit/hooks/useViewportSize.tsx"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.265]
+path = "apps/explorer/toolkit/package/README.md"
+lines = 181
+verdict = "issues"
+
+[file.266]
+path = "apps/explorer/toolkit/package/package.json"
+lines = 84
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.267]
+path = "apps/explorer/toolkit/package/src/index.ts"
+lines = 129
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.268]
+path = "apps/explorer/toolkit/package/tsconfig.json"
+lines = 49
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.269]
+path = "apps/explorer/toolkit/package/tsconfig.node.json"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.270]
+path = "apps/explorer/toolkit/package/vite.config.ts"
+lines = 103
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.271]
+path = "apps/explorer/toolkit/theme/foundations/animations.ts"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.272]
+path = "apps/explorer/toolkit/theme/foundations/borders.spec.ts"
+lines = 19
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.273]
+path = "apps/explorer/toolkit/theme/foundations/borders.ts"
+lines = 17
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.274]
+path = "apps/explorer/toolkit/theme/foundations/breakpoints.ts"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.275]
+path = "apps/explorer/toolkit/theme/foundations/colors.spec.ts"
+lines = 46
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.276]
+path = "apps/explorer/toolkit/theme/foundations/colors.ts"
+lines = 483
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.277]
+path = "apps/explorer/toolkit/theme/foundations/durations.ts"
+lines = 15
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.278]
+path = "apps/explorer/toolkit/theme/foundations/semanticTokens.spec.ts"
+lines = 43
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.279]
+path = "apps/explorer/toolkit/theme/foundations/semanticTokens.ts"
+lines = 561
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.280]
+path = "apps/explorer/toolkit/theme/foundations/shadows.ts"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.281]
+path = "apps/explorer/toolkit/theme/foundations/tokens.spec.ts"
+lines = 283
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.282]
+path = "apps/explorer/toolkit/theme/foundations/typography.spec.ts"
+lines = 46
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.283]
+path = "apps/explorer/toolkit/theme/foundations/typography.ts"
+lines = 105
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.284]
+path = "apps/explorer/toolkit/theme/foundations/zIndex.ts"
+lines = 19
+verdict = "issues"
+
+[file.285]
+path = "apps/explorer/toolkit/theme/globalCss.ts"
+lines = 63
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.286]
+path = "apps/explorer/toolkit/theme/globals/address-entity.ts"
+lines = 37
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.287]
+path = "apps/explorer/toolkit/theme/globals/entity.ts"
+lines = 8
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.288]
+path = "apps/explorer/toolkit/theme/globals/recaptcha.ts"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.289]
+path = "apps/explorer/toolkit/theme/globals/scrollbar.ts"
+lines = 32
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.290]
+path = "apps/explorer/toolkit/theme/recipes/accordion.recipe.ts"
+lines = 145
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.291]
+path = "apps/explorer/toolkit/theme/recipes/alert.recipe.ts"
+lines = 150
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.292]
+path = "apps/explorer/toolkit/theme/recipes/badge.recipe.spec.ts"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.293]
+path = "apps/explorer/toolkit/theme/recipes/badge.recipe.ts"
+lines = 176
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.294]
+path = "apps/explorer/toolkit/theme/recipes/button.recipe.spec.ts"
+lines = 39
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.295]
+path = "apps/explorer/toolkit/theme/recipes/button.recipe.ts"
+lines = 422
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.296]
+path = "apps/explorer/toolkit/theme/recipes/checkbox.recipe.ts"
+lines = 56
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.297]
+path = "apps/explorer/toolkit/theme/recipes/checkmark.recipe.ts"
+lines = 73
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.298]
+path = "apps/explorer/toolkit/theme/recipes/close-button.recipe.ts"
+lines = 34
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.299]
+path = "apps/explorer/toolkit/theme/recipes/code.recipe.ts"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.300]
+path = "apps/explorer/toolkit/theme/recipes/dialog.recipe.ts"
+lines = 216
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.301]
+path = "apps/explorer/toolkit/theme/recipes/drawer.recipe.ts"
+lines = 190
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.302]
+path = "apps/explorer/toolkit/theme/recipes/empty-state.recipe.ts"
+lines = 59
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.303]
+path = "apps/explorer/toolkit/theme/recipes/field.recipe.ts"
+lines = 175
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.304]
+path = "apps/explorer/toolkit/theme/recipes/index.ts"
+lines = 76
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.305]
+path = "apps/explorer/toolkit/theme/recipes/input.recipe.spec.ts"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.306]
+path = "apps/explorer/toolkit/theme/recipes/input.recipe.ts"
+lines = 126
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.307]
+path = "apps/explorer/toolkit/theme/recipes/link.recipe.ts"
+lines = 79
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.308]
+path = "apps/explorer/toolkit/theme/recipes/list.recipe.ts"
+lines = 67
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.309]
+path = "apps/explorer/toolkit/theme/recipes/menu.recipe.ts"
+lines = 105
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.310]
+path = "apps/explorer/toolkit/theme/recipes/pillSizing.ts"
+lines = 90
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.311]
+path = "apps/explorer/toolkit/theme/recipes/pin-input.recipe.ts"
+lines = 35
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.312]
+path = "apps/explorer/toolkit/theme/recipes/popover.recipe.ts"
+lines = 71
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.313]
+path = "apps/explorer/toolkit/theme/recipes/progress-circle.recipe.ts"
+lines = 74
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.314]
+path = "apps/explorer/toolkit/theme/recipes/progress.recipe.ts"
+lines = 115
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.315]
+path = "apps/explorer/toolkit/theme/recipes/radio-group.recipe.ts"
+lines = 73
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.316]
+path = "apps/explorer/toolkit/theme/recipes/radiomark.recipe.ts"
+lines = 91
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.317]
+path = "apps/explorer/toolkit/theme/recipes/rating-group.recipe.ts"
+lines = 93
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.318]
+path = "apps/explorer/toolkit/theme/recipes/recipes.spec.ts"
+lines = 245
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.319]
+path = "apps/explorer/toolkit/theme/recipes/select.recipe.spec.ts"
+lines = 23
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.320]
+path = "apps/explorer/toolkit/theme/recipes/select.recipe.ts"
+lines = 293
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.321]
+path = "apps/explorer/toolkit/theme/recipes/separator.recipe.ts"
+lines = 9
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.322]
+path = "apps/explorer/toolkit/theme/recipes/skeleton.recipe.ts"
+lines = 76
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.323]
+path = "apps/explorer/toolkit/theme/recipes/spinner.recipe.ts"
+lines = 31
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.324]
+path = "apps/explorer/toolkit/theme/recipes/stat.recipe.spec.ts"
+lines = 36
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.325]
+path = "apps/explorer/toolkit/theme/recipes/stat.recipe.ts"
+lines = 146
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.326]
+path = "apps/explorer/toolkit/theme/recipes/switch.recipe.ts"
+lines = 159
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.327]
+path = "apps/explorer/toolkit/theme/recipes/table.recipe.spec.ts"
+lines = 27
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.328]
+path = "apps/explorer/toolkit/theme/recipes/table.recipe.ts"
+lines = 120
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.329]
+path = "apps/explorer/toolkit/theme/recipes/tabs.recipe.spec.ts"
+lines = 35
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.330]
+path = "apps/explorer/toolkit/theme/recipes/tabs.recipe.ts"
+lines = 268
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.331]
+path = "apps/explorer/toolkit/theme/recipes/tag.recipe.spec.ts"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.332]
+path = "apps/explorer/toolkit/theme/recipes/tag.recipe.ts"
+lines = 178
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.333]
+path = "apps/explorer/toolkit/theme/recipes/textarea.recipe.ts"
+lines = 86
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.334]
+path = "apps/explorer/toolkit/theme/recipes/toast.recipe.ts"
+lines = 98
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.335]
+path = "apps/explorer/toolkit/theme/recipes/tooltip.recipe.ts"
+lines = 63
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.336]
+path = "apps/explorer/toolkit/theme/theme.ts"
+lines = 41
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.337]
+path = "apps/explorer/toolkit/theme/utils/entries.ts"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.338]
+path = "apps/explorer/toolkit/utils/consts.ts"
+lines = 16
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.339]
+path = "apps/explorer/toolkit/utils/file.ts"
+lines = 23
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.340]
+path = "apps/explorer/toolkit/utils/getComponentDisplayName.ts"
+lines = 11
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.341]
+path = "apps/explorer/toolkit/utils/guards.ts"
+lines = 7
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.342]
+path = "apps/explorer/toolkit/utils/htmlEntities.ts"
+lines = 27
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.343]
+path = "apps/explorer/toolkit/utils/isBrowser.ts"
+lines = 3
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.344]
+path = "apps/explorer/toolkit/utils/regexp.ts"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.345]
+path = "apps/explorer/toolkit/utils/url.ts"
+lines = 13
+verdict = "vendored"
+note = "Imported Blockscout UI toolkit source; provenance is explicit in toolkit/package/README.md:5 and package/package.json repository metadata. Local integration issues, where observed, have separate findings."
+
+[file.346]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account.ex"
+lines = 86
+verdict = "clean"
+
+[finding.withdrawal-vault]
+file = "apps/bridge/src/lib/bridge/submitted.ts"
+line = 43
+class = "interface-mismatch"
+severity = "high"
+observed = "withdrawalRecord emits no vault; BridgeCard persists that row at bridge-card.tsx:229-232, enrichRecord adds only the burn nonce, and buildVerifiedRelease at transfer-actions.ts:262 refuses the resulting row. releaseCheckOf also cannot observe its release. Reimport keeps the existing row at import-transfer.tsx:27."
+expected = "A submitted EVM withdrawal must survive storage and reload and reach verified release and nullifier observation. Requirement 14492.2 explicitly omits the vault, conflicting with these actual release consumers."
+proposal = "Resolve the 14492.2 contract conflict in domain 14: derive the authoritative registered vault for release or persist a verified vault in submitted.ts; migrate existing rows and prove submission, reload, nonce enrichment and successful verified release without adding fields in a fixture."
+owner_domain = 14
+interface = "14.ts-bridge-lib-bridge-submitted-withdrawalrecord-j55"
+
+[finding.settlement-broadcast]
+file = "apps/bridge/src/lib/bridge/settlement.ts"
+line = 9
+class = "restart-recovery"
+severity = "high"
+observed = "phaseOf returns settled for any claimTxHash or releaseTxHash. transfers-panel.tsx:197-211 writes those hashes and completion timestamps when the wallet broadcasts, then lines 159-173 disable chain checks. A dropped, replaced or reverted settlement stays completed after reload and settledRefusal blocks another attempt."
+expected = "Settlement completion must mean a successful committed claim or release, confirmed by receipt and nullifier state; pending broadcast is recoverable and cannot permanently suppress status checks or retry."
+proposal = "In settlement.ts and transfers-panel.tsx persist broadcast as a pending attempt, observe receipts and authoritative nullifiers through reload, and reconcile replacement, revert and dropped transactions before setting completion timestamps; retain an explicit retry action."
+owner_domain = 14
+interface = "14.ts-bridge-lib-bridge-settlement-phaseof-j55"
+
+[finding.solana-outstanding]
+file = "apps/bridge/src/lib/bridge/card-state.ts"
+line = 42
+class = "interface-mismatch"
+severity = "high"
+observed = "cardInputError passes vaultState.outstanding into amountLimitError for Solana withdrawals. useVaultState disables all reads without an EVM vault/viemChain and returns outstanding=0, so limits.ts:23 rejects every positive SOL or SID withdrawal even when the configured program and recipient PDA are valid."
+expected = "A configured Solana route must admit a valid withdrawal using Solana custody and Paxeer pair limits, with the same safety checks as the actual destination producer instead of a permanently zero EVM-only state."
+proposal = "Give card-state.ts and use-bridge-state.ts a route-specific custody state sourced from the deployed Solana program; preserve outstanding and cap bounds using that authoritative state and prove a positive registered-recipient withdrawal through the actual card."
+owner_domain = 14
+interface = "14.ts-bridge-lib-bridge-card-state-cardstate-j55"
+
+[finding.solana-release-observation]
+file = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 118
+class = "wiring-gap"
+severity = "medium"
+observed = "releaseCheckOf supports only viemChain vaults, so readTransferLive always reports released=false for Solana. TransfersPanel chooses chain.viemChain.id for release and offers a Switch to Solana button whose handler cannot switch; it never observes the backend's automatic Solana payout."
+expected = "Users withdrawing to Solana need an observable relay/payout lifecycle and confirmed destination release after restart; an EVM wallet chain switch cannot complete a Solana custody release."
+proposal = "In transfer-actions.ts and transfers-panel.tsx implement Solana release-nullifier/PDA or verified relay receipt observation, show relay progress and payout links, and render a route-appropriate recovery action instead of the inactive EVM switch button."
+owner_domain = 14
+
+[finding.solana-import-recipient]
+file = "apps/bridge/src/lib/bridge/import.ts"
+line = 115
+class = "restart-recovery"
+severity = "medium"
+observed = "importWithdrawal stores BridgeOut.args.recipient as recipient for every chain. For Solana this is the 20-byte handle, while withdrawalRecord persists the full base58 destination. Browser-loss recovery therefore changes the destination representation and cannot display the original payout key."
+expected = "Recovered Solana withdrawals must resolve the on-chain handle through its registered RecipientRecord and preserve the same full destination key that submitted transfers and the relay use."
+proposal = "In import.ts resolve Solana recipient handles through the deployed custody program and validate the PDA owner, layout and key-derived handle before saving; retain handle separately and exercise recovery from a real burn and recipient record."
+owner_domain = 14
+
+[finding.csp-effective-rpc]
+file = "apps/bridge/src/lib/bridge/csp.ts"
+line = 7
+class = "config-drift"
+severity = "medium"
+observed = "connect-src includes only explicit foreignRpcUrls. wagmi.ts:23 uses viem's public default transport when an override is absent, so a vault-configured route can be open while its actual browser RPC origin is prohibited by this CSP."
+expected = "Every effective transport selected by deployment configuration must be allowed by the deployed CSP, including documented/default transports, without opening arbitrary origins."
+proposal = "Share effective per-chain RPC resolution between wagmi.ts and csp.ts, or require an explicit RPC before a route opens; retain the bounded origin allowlist and verify a vault-configured route with no override in a browser."
+owner_domain = 14
+
+[finding.zero-vault-caps]
+file = "apps/bridge/src/lib/bridge/limits.ts"
+line = 17
+class = "interface-mismatch"
+severity = "medium"
+observed = "amountLimitError treats perTx=0 and total=0 as absent limits. PaxeerXVault._admitDeposit at lines 239-240 treats total=0 as AssetNotEnabled and rejects any positive amount above a zero perTx; the loaded zero-cap asset can still appear ready in the card."
+expected = "Loaded zero caps must have the same disabling/rejecting semantics as the EVM vault; unavailable configuration must be represented separately from an authoritative zero value."
+proposal = "Update limits.ts/card-state.ts to distinguish unloaded state from loaded zero caps and present the vault's asset-disabled or cap blocker; keep strict contract limits and cover both zero-cap cases against PaxeerXVault."
+owner_domain = 14
+interface = "6.sol-paxeerxvault-caps-66d97b21"
+
+[finding.withdrawal-finality]
+file = "apps/bridge/src/components/bridge/bridge-card.tsx"
+line = 229
+class = "runtime-risk"
+severity = "medium"
+observed = "The submission callback persists requiredConfirmations=foreign.finalityDepth for both directions. readTransferLive counts Paxeer blocks for withdrawals and importWithdrawal uses one committed block, so the same burn gets different confirmation targets and a foreign-chain ETA depending on how it enters the ledger."
+expected = "A Paxeer burn is final at its committed block; withdrawal progress and imported/submitted records must use source-chain finality consistently, independently of the destination chain's deposit depth."
+proposal = "Make bridge-card.tsx choose finality by source direction, migrate saved withdrawal targets and make transfers-panel.tsx derive ETA from the source; prove the same committed burn produces identical status through submit and import."
+owner_domain = 14
+
+[finding.receipt-multiple-events]
+file = "apps/bridge/src/lib/bridge/import.ts"
+line = 50
+class = "restart-recovery"
+severity = "medium"
+observed = "importDeposit picks events[0] and nonceFromBridgeOutLogs picks the first burn nonce. transferIdOf keys rows only by hash and direction, so a smart-account batch containing several bridge events can expose/recover only the first and cannot retain a separate row for each event."
+expected = "Each distinct vault deposit or bridge burn must remain individually recoverable using its chain and event identity, even when several events share a transaction hash."
+proposal = "Add event selection or import all matching events in import.ts; use chain plus transaction plus logIndex/burn nonce as the transfers.ts identity, migrate legacy keys and prove a receipt with multiple genuine bridge events survives reload."
+owner_domain = 14
+
+[finding.import-does-not-refresh]
+file = "apps/bridge/src/components/bridge/import-transfer.tsx"
+line = 27
+class = "restart-recovery"
+severity = "medium"
+observed = "importTransferReceipt prefers existing over the freshly receipt-derived transfer and saves it unchanged. Reimporting a tracked withdrawal does not restore its missing vault/nonce or reconcile incorrect historical metadata even though the mined receipt supplied authoritative replacements."
+expected = "An import used for recovery must reconcile chain-verified identity fields into an existing ledger row while retaining separately verified settlement history."
+proposal = "Merge validated receipt-derived fields into the existing record in import-transfer.tsx with explicit conflict handling and a schema migration; prove reimport repairs a legacy incomplete withdrawal without discarding confirmed settlement evidence."
+owner_domain = 14
+
+[finding.rpc-errors-as-state]
+file = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 105
+class = "runtime-risk"
+severity = "medium"
+observed = "readTransferLive converts receipt/head read failures to null and isNullified read failures to false. RPC unavailability therefore becomes zero confirmations or uncredited state in a successful query result rather than an observable unavailable status."
+expected = "An unavailable authoritative read must be distinguishable from a verified absent receipt or unused nullifier, preserving the last known state and giving the user a retryable status."
+proposal = "Return typed unavailable/error state or propagate these failures from transfer-actions.ts; have transfers-panel.tsx retain prior verified data and show a retryable RPC error rather than resetting confirmations or credit status."
+owner_domain = 14
+
+[finding.api-base-url]
+file = "apps/bridge/src/lib/bridge/config.ts"
+line = 14
+class = "config-drift"
+severity = "medium"
+observed = "readUrl accepts an attestation base with a query or fragment, but attestation-api.ts:49 concatenates the route onto the raw string. With https://host?key=x the /v1 path becomes query text; with a fragment it is not transmitted at all."
+expected = "An accepted API base must produce the declared /v1/deposit and /v1/release pathname and preserve any supported authentication/query configuration unambiguously."
+proposal = "Either reject query/fragment-bearing API bases in config.ts with a deployment error or join routes using URL pathname semantics in attestation-api.ts while deliberately preserving supported query parameters; cover both inputs."
+owner_domain = 14
+
+[finding.manifest-typecheck-assertion]
+file = "apps/bridge/src/test/manifest.spec.ts"
+line = 79
+class = "test-gap"
+severity = "medium"
+observed = "The manifest test requires the exact typecheck script 'tsc --noEmit -p tsconfig.json', while package.json:12 declares 'next typegen && tsc --noEmit -p tsconfig.json'. These checked-in strings disagree."
+expected = "The manifest assertion must recognize the actual required Next type generation and TypeScript check pipeline without deleting either qualification step."
+proposal = "Update manifest.spec.ts to assert the intended next typegen followed by tsc pipeline and its order, retaining both commands and the existing test; qualify that change through its owning task."
+owner_domain = 14
+
+[finding.submitted-test-vault]
+file = "apps/bridge/src/lib/bridge/submitted.spec.ts"
+line = 75
+class = "test-gap"
+severity = "medium"
+observed = "withdrawalRecordKeepsTheTypedDestination explicitly asserts that a withdrawal has no vault. This follows 14492.2 but does not test the real EVM release consumer, which refuses exactly that emitted record."
+expected = "The withdrawal record test must cover the settled product contract after the 14492.2 conflict is resolved, including the producer-to-release crossing rather than only the incomplete local shape."
+proposal = "Extend submitted.spec.ts with the resolved authoritative-vault behavior and a real withdrawalRecord to storage/reload to buildVerifiedRelease path, preserving destination checks and all signature refusals."
+owner_domain = 14
+
+[finding.ledger-test-vault]
+file = "apps/bridge/src/test/proof_ledger.spec.ts"
+line = 128
+class = "test-gap"
+severity = "medium"
+observed = "The ledger proof asserts vault is undefined for outbound records and stops short of the release builder. The producer/storage/reload portions can pass while their consumer cannot release a submitted EVM withdrawal."
+expected = "Requirement 21148 and the brief require persisted state to remain usable by the actual consumer after reopening; a locally round-tripped row that cannot settle is insufficient evidence."
+proposal = "Extend proof_ledger.spec.ts to consume its reloaded withdrawalRecord output in the actual release-verification path with authoritative vault resolution; assert successful readiness and a genuine refusal without patching missing producer fields."
+owner_domain = 14
+
+[finding.component-test-injected-vault]
+file = "apps/bridge/src/test/proof_components.spec.ts"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "The component proof constructs readyWithdrawal by adding vault and bridgeOutNonce to the submitted withdrawal. Adding the missing vault in the test bypasses the exact shape mismatch between BridgeCard's producer and buildVerifiedRelease."
+expected = "Requirement 21147's component path must reach the real consumer using the shape produced by the running submission and enrichment path, with no fixture-only repair."
+proposal = "In proof_components.spec.ts pass the actual persisted/enriched submitted row to the real release consumer, obtaining chain evidence through its real path, and assert both a valid release request and the existing signed-field refusal cases."
+owner_domain = 14
+
+[finding.settlement-test-broadcast]
+file = "apps/bridge/src/lib/bridge/settlement.spec.ts"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "The settlement test asserts that claimTxHash alone and releaseTxHash alone imply settled without live confirmation. Those assertions encode the broadcast-as-completion defect instead of testing receipt finality and recovery."
+expected = "Tests must distinguish broadcast, confirmed success, revert, replacement and dropped settlement attempts and require confirmed settlement evidence before reporting completion."
+proposal = "Replace the incorrect completion expectations in settlement.spec.ts with the corrected lifecycle assertions as part of the settlement repair; retain all scenarios and add reopen/retry coverage rather than skipping any case."
+owner_domain = 14
+
+[finding.phase-test-broadcast]
+file = "apps/bridge/src/lib/bridge/phase.spec.ts"
+line = 60
+class = "test-gap"
+severity = "medium"
+observed = "The history test expects completed as soon as claimTxHash or releaseTxHash exists, with live state undefined. This makes an unmined wallet broadcast indistinguishable from the confirmed destination payout."
+expected = "History must display pending settlement until a successful receipt or verified destination nullifier confirms completion and must recover failed pending attempts."
+proposal = "Update phase.spec.ts alongside the repaired phase producer to assert pending broadcast and confirmed completion separately, including a reverted attempt after reload and the retained retry action."
+owner_domain = 14
+
+[finding.settlement-proof-producer]
+file = "apps/bridge/src/test/proof_settlement.spec.ts"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "sourceTransfer includes a vault even for withdrawals instead of consuming withdrawalRecord, and the proof uses manually encoded receipts. It therefore proves consumers of a different outbound shape and misses the actual missing-vault submission path."
+expected = "Requirement 21146 must exercise the emitted submission and persisted record through real receipt/state consumers, including restart, without supplying fields absent from the producer."
+proposal = "Drive proof_settlement.spec.ts from the real submission record and actual chain-emitted receipt, reopen storage before release observation, and assert broadcast/revert recovery as well as a successful confirmed payout."
+owner_domain = 14
+
+[finding.attestation-proof-producer]
+file = "apps/bridge/src/test/proof_attestation_api.spec.ts"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "produceAttestations hand-builds signed response bodies in TypeScript. The decoder checks are useful, but the path does not exercise the Rust relayer's attestation_api.rs serializer and HTTP handler that produce the deployed /v1 responses."
+expected = "Requirement 21151 and brief fact 7 require producer, HTTP transport and TypeScript consumer agreement to be proven using the real service's emitted response shape and errors."
+proposal = "Add a cross-service proof in proof_attestation_api.spec.ts that starts the actual relayer API with real persisted attestation data, fetches through the exported client, and checks accepted and refused requests after service reopening."
+owner_domain = 14
+
+[finding.lib-proof-service-double]
+file = "apps/bridge/src/test/proof_lib.spec.ts"
+line = 250
+class = "test-gap"
+severity = "medium"
+observed = "The broad library proof starts a handwritten Node HTTP server that serves manually assembled attestation JSON and adds vault to an outbound fixture at line 263. Neither the real relayer serializer nor the unmodified withdrawal producer reaches settlement."
+expected = "The library proof must complement unit fixtures with the real relayer transport and submitted ledger record, so producer drift and missing release identity cannot be concealed."
+proposal = "Replace the service substitution in the integration proof with the actual relayer handler and consume a real submitted/reloaded withdrawal in proof_lib.spec.ts; retain unit decoder refusals and strict threshold checks."
+owner_domain = 14
+
+[finding.solana-proof-program-double]
+file = "apps/bridge/src/test/proof_solana_route.spec.ts"
+line = 76
+class = "test-gap"
+severity = "medium"
+observed = "The Solana proof manually encodes the 62-byte RecipientRecord and serves an in-memory accounts Map from a Node HTTP server. It tests the HTTP client and hook but does not invoke register_recipient or RecipientRecord::encode from the custody program."
+expected = "Requirement 21152 calls for the actual producer/transport/consumer path, including persistence; an independently reconstructed layout can agree with the client while the deployed program emits another shape."
+proposal = "Extend proof_solana_route.spec.ts to register a recipient using the real Solana program, read that persisted PDA via Solana RPC after reopening, and consume it in the real hook/card path with a positive withdrawal and an unregistered-key refusal."
+owner_domain = 14
+
+[finding.theme-storage-write]
+file = "apps/bridge/src/components/theme-provider.tsx"
+line = 76
+class = "runtime-risk"
+severity = "medium"
+observed = "readPreference handles a storage SecurityError, but setTheme and setAccent call localStorage.setItem before updating React state without handling SecurityError or quota failure. A user who can load the page with blocked storage cannot change the displayed theme."
+expected = "Optional persistence failures must not prevent the in-session theme/accent control from working; the UI must distinguish persistence from the active preference."
+proposal = "Update theme-provider.tsx to apply the in-memory preference and handle expected storage failures explicitly, retaining cross-document synchronization when storage works; cover denied writes as well as denied reads."
+owner_domain = 14
+
+[finding.token-image-retry]
+file = "apps/bridge/src/components/trading/token-icon.tsx"
+line = 38
+class = "runtime-risk"
+severity = "low"
+observed = "TokenIcon sets failed=true after an image error and never resets it when src or symbol changes. Reusing the component for a new valid asset image leaves the letter fallback permanently visible."
+expected = "A changed image source must start a fresh load lifecycle so a previous asset's failure does not suppress a new valid asset logo."
+proposal = "Reset TokenIcon's failure state on source identity changes or key the image lifecycle by source in token-icon.tsx; verify failed URL followed by a valid new URL renders the new logo."
+owner_domain = 14
+
+[finding.clipboard-false-success]
+file = "apps/bridge/src/components/trading/transfer-history.tsx"
+line = 97
+class = "runtime-risk"
+severity = "low"
+observed = "CopyText swallows a rejected clipboard write and sets copied=true even when navigator.clipboard is unavailable. The accessible label and success icon then claim a transaction hash/address was copied when it was not."
+expected = "The copy affordance must acknowledge success only after a clipboard write succeeds and offer a recoverable result when browser permissions deny it."
+proposal = "Await clipboard completion in transfer-history.tsx before setting copied and invoking the success callback; show a brief failure/manual-copy option for unavailable or rejected clipboard writes."
+owner_domain = 14
+
+[finding.popover-align-offset]
+file = "apps/bridge/src/components/ui/popover.tsx"
+line = 24
+class = "wiring-gap"
+severity = "low"
+observed = "PopoverContent accepts Positioner.alignOffset in its public type but leaves it in props spread onto Popup; Positioner receives only align, side and sideOffset. The caller's alignment offset never reaches the positioning primitive."
+expected = "The declared PopoverContent positioning props must be forwarded to the primitive that owns their layout behavior."
+proposal = "Destructure alignOffset in ui/popover.tsx and pass it to PopoverPrimitive.Positioner, keeping Popup props separate; cover a nonzero alignment offset at the component boundary."
+owner_domain = 14
+
+[finding.registry-transfer-step]
+file = "apps/bridge/src/components/trading/deposit-status.tsx"
+line = 21
+class = "interface-mismatch"
+severity = "medium"
+observed = "The declared registry TransferStep union lists submitted, confirming, credited and failed, while the exported type and live phase consumer also use attesting and ready. Registry-based integrations do not receive the full current lifecycle vocabulary."
+expected = "The domain 14 registry signature and client contract must enumerate the complete lifecycle emitted by phase.ts and accepted by DepositStatus, with compatible consumer behavior."
+proposal = "Reconcile interface 14.ts-bridge-components-trading-deposit-status-transferstep and the domain 14 bridge-client contract with the current attesting/ready states, and prove all states through the real display consumer."
+owner_domain = 14
+interface = "14.ts-bridge-components-trading-deposit-status-transferstep"
+
+[finding.registry-deposit-log]
+file = "apps/bridge/src/lib/bridge/import.ts"
+line = 9
+class = "interface-mismatch"
+severity = "medium"
+observed = "The registry declares matchDepositLog returns {logIndex: bigint, nonce: bigint}. The implementation returns a viem parsed event with numeric logIndex and nonce nested under args.nonce; enrich/import consumers use that actual nested representation."
+expected = "Published interface documentation must describe the same names, nesting and log-index type used by the producer and its live consumers, so new callers do not read an undefined top-level nonce."
+proposal = "Update the domain 14 registry and bridge-client ledger contract to the actual parsed-event shape, or deliberately adapt the export and every consumer together; add an exact producer-to-enrichment shape assertion."
+owner_domain = 14
+interface = "14.ts-bridge-lib-bridge-import-matchdepositlog-j55"
+
+[finding.unloaded-route-state]
+file = "apps/bridge/src/lib/bridge/limits.ts"
+line = 70
+class = "runtime-risk"
+severity = "medium"
+observed = "routeBlockers checks registration, enablement and pause only when paxeerState.loaded is true and adds no loading blocker. It likewise accepts an unloaded vaultState. For a native deposit, cardState can become ready before those authoritative reads have finished."
+expected = "Submission readiness must wait for the enabled/registered/unpaused state used to authorize that route, rather than treating an unknown initial state as verified eligibility."
+proposal = "Make limits.ts/card-state.ts block initial submission until required Paxeer and destination custody state is loaded and verified, with route-specific loading messages; prove a delayed paused/disabled response never exposes a ready action."
+owner_domain = 14
+
+[finding.explorer-image-retry]
+file = "apps/explorer/toolkit/chakra/image.tsx"
+line = 19
+class = "runtime-risk"
+severity = "medium"
+observed = "Image retains error=true across src changes, then returns fallback before mounting any new image. A transient failure or bad asset URL permanently suppresses a later valid source unless a caller happens to remount it."
+expected = "The shared image component must start a fresh loading/error lifecycle when its source changes and allow recovery to a valid asset image."
+proposal = "Reset loading and error on source identity changes in toolkit/chakra/image.tsx or key its internal load state by src; prove a failed image followed by a successful replacement recovers without a parent remount."
+owner_domain = 14
+
+[finding.async-select-race]
+file = "apps/explorer/toolkit/chakra/select.tsx"
+line = 309
+class = "runtime-risk"
+severity = "medium"
+observed = "SelectAsync applies every loadOptions promise with then(setCollection), without cancellation, generation checks or rejection handling. A slow response for an old query can replace a newer result collection and a rejected load becomes an unhandled promise."
+expected = "Async explorer filters must display options for the current query/value and expose recoverable load failure without accepting a stale response after a newer request or unmount."
+proposal = "Add request sequencing/cancellation and an explicit error/loading lifecycle to SelectAsync in chakra/select.tsx, retaining current options while appropriate; cover reversed response order, rejection and unmount."
+owner_domain = 14
+
+[finding.async-select-controlled-value]
+file = "apps/explorer/toolkit/chakra/select.tsx"
+line = 304
+class = "wiring-gap"
+severity = "medium"
+observed = "SelectAsync keeps a private value=[] for loadOptions but passes a controlled props.value through rest to SelectRoot. A parent-provided default value or later form reset changes the selected value without changing the value sent to the option loader."
+expected = "The async option producer must receive the current controlled selection, including form initialization and reset, so selected labels remain resolvable and the visible collection agrees with form state."
+proposal = "Use props.value when controlled and internal state only when uncontrolled in chakra/select.tsx; pass that same effective selection to loadOptions and SelectRoot, and cover a preset value plus a later form reset."
+owner_domain = 14
+
+[finding.routed-tabs-scroll]
+file = "apps/explorer/toolkit/components/RoutedTabs/RoutedTabs.tsx"
+line = 47
+class = "wiring-gap"
+severity = "low"
+observed = "RoutedTabs creates tabsRef and uses tabsRef.current.scrollIntoView for scroll_to_tabs, but never attaches that ref to AdaptiveTabs or any rendered element. It deletes the query flag even though no scroll can happen."
+expected = "The scroll_to_tabs navigation option must scroll the mounted tabs into view before its one-shot URL instruction is cleared."
+proposal = "Attach a supported ref or wrapper in RoutedTabs.tsx, wait for router/element readiness and remove the query flag immutably after the action; cover a deep link that requests tab scrolling."
+owner_domain = 14
+
+[finding.color-field-form-value]
+file = "apps/explorer/toolkit/components/forms/fields/FormFieldColor.tsx"
+line = 52
+class = "wiring-gap"
+severity = "medium"
+observed = "FormFieldColor displays an independent useState('') value at line 102 after spreading field props. Existing react-hook-form defaultValue and later reset values affect validation and the swatch but remain absent or stale in the text input."
+expected = "The color input, swatch, validation and submitted form value must reflect the same value at initialization, user edits and form reset."
+proposal = "Use field.value as the displayed source of truth in FormFieldColor.tsx or explicitly synchronize controlled draft state on initialization/reset; prove editing an existing color and resetting the form keep all representations aligned."
+owner_domain = 14
+
+[finding.radio-field-rules]
+file = "apps/explorer/toolkit/components/forms/fields/FormFieldRadio.tsx"
+line = 34
+class = "wiring-gap"
+severity = "medium"
+observed = "FormFieldRadioProps exposes rules, but FormFieldRadio never passes rules to useController; it leaves that key in rest spread onto RadioGroup. Required/custom validators supplied by form callers therefore do not participate in react-hook-form validation."
+expected = "Declared form validation rules must reach the actual form controller and prevent an invalid submission just as other field wrappers do."
+proposal = "Destructure and pass rules to useController in FormFieldRadio.tsx, forwarding only presentation props to RadioGroup; prove required and custom validator refusal through a real form submission."
+owner_domain = 14
+
+[finding.file-entry-error-pending]
+file = "apps/explorer/toolkit/components/forms/inputs/file/utils.ts"
+line = 60
+class = "runtime-risk"
+severity = "medium"
+observed = "convertFileEntryToFile creates a Promise with resolve only and supplies no error callback to entry.file. If an entry becomes unreadable or disappears, the Promise never settles and DragAndDropArea awaits Promise.all forever."
+expected = "An unreadable dropped file must produce a bounded, actionable error and release the upload interaction instead of leaving a permanent pending operation."
+proposal = "Reject on the FileSystemFileEntry.file error callback in inputs/file/utils.ts and handle it explicitly in DragAndDropArea.tsx, restoring drag state and showing the affected path; cover a file removed or denied after enumeration."
+owner_domain = 14
+
+[finding.directory-read-partial]
+file = "apps/explorer/toolkit/components/forms/inputs/file/utils.ts"
+line = 56
+class = "runtime-risk"
+severity = "medium"
+observed = "readEntriesPromise catches directory read errors and returns undefined. readAllDirectoryEntries treats that as end-of-directory, so the drop can silently submit only an earlier subset of the selected directory tree."
+expected = "A directory upload must either include all selected files or report which reads failed; a permission or I/O failure cannot be interpreted as a successful empty directory."
+proposal = "Propagate typed read errors from file/utils.ts and have DragAndDropArea show an explicit incomplete-selection refusal or user-approved retry, preserving prior files; cover failure after the first directory page."
+owner_domain = 14
+
+[finding.chart-csv-date-alignment]
+file = "apps/explorer/toolkit/components/charts/parts/ChartMenu.tsx"
+line = 112
+class = "runtime-risk"
+severity = "medium"
+observed = "CSV export iterates charts[0].items and reads chart.items[index].value for every other series. TimeChartData permits independently sized/date-indexed series, so missing points can throw and differently sampled dates can be exported under the wrong date."
+expected = "Exported explorer statistics must align values by date and represent missing points explicitly, matching the date-aware display and tooltip instead of implying unrelated observations share a timestamp."
+proposal = "Join all series by timestamp/date range in ChartMenu.tsx, use a documented empty value for missing points and preserve units/labels; cover unequal lengths and different sampling dates in a CSV export proof."
+owner_domain = 14
+
+[finding.chart-selection-origin]
+file = "apps/explorer/toolkit/components/charts/parts/ChartSelectionX.tsx"
+line = 79
+class = "runtime-risk"
+severity = "low"
+observed = "ChartSelectionX uses truthiness for startX.current in both drawing and mouse-up. A drag starting at SVG x=0 is a valid range but is never drawn or selected."
+expected = "Chart selection must accept coordinate zero as a valid endpoint and distinguish it from an uninitialized coordinate."
+proposal = "Use explicit undefined checks for both selection endpoints in ChartSelectionX.tsx and cover dragging from the plot's left edge while retaining the minimum-span bound."
+owner_domain = 14
+
+[finding.chart-global-selection-handler]
+file = "apps/explorer/toolkit/components/charts/parts/ChartSelectionX.tsx"
+line = 125
+class = "runtime-risk"
+severity = "low"
+observed = "Every ChartSelectionX installs the same body mouseup.selectionX handler, and any unmount clears that shared namespace. Multiple chart instances overwrite each other's outside-release handler, so a drag can remain active when released outside its chart."
+expected = "Each visible chart must own and clean up its own outside-release listener without replacing or removing another chart's selection lifecycle."
+proposal = "Give body listeners an instance-specific namespace or native listener identity in ChartSelectionX.tsx; prove two mounted charts retain independent outside-release behavior when either one unmounts."
+owner_domain = 14
+
+[finding.modal-stacking-scale]
+file = "apps/explorer/toolkit/theme/foundations/zIndex.ts"
+line = 13
+class = "runtime-risk"
+severity = "low"
+observed = "modal2 is 14001 while tooltip is 1550 and toast is 1700. Live consumers use modal2 for the Reown wallet overlay and ZetaChain filter positioning, so those overlays can cover the notifications/tooltips the scale intends to place above modals."
+expected = "The theme stacking order must preserve accessible notifications and tooltip visibility above active modals, consistent with the adjacent token comments and component use."
+proposal = "Reconcile the modal2 numeric scale with its live overlay consumers in theme/foundations/zIndex.ts, using an ordered value such as 1401 if appropriate; verify a tooltip and toast remain visible over each modal2 consumer."
+owner_domain = 14
+
+[finding.toolkit-provider-doc]
+file = "apps/explorer/toolkit/package/README.md"
+line = 105
+class = "doc-drift"
+severity = "medium"
+observed = "The toolkit README requires Chakra UI 3 but instructs applications to render <ChakraProvider theme={theme}>. The actual toolkit/chakra/provider.tsx uses the Chakra 3 value={theme} interface."
+expected = "Installation guidance for the declared Chakra 3 dependency must use its actual provider API so a copied quick-start starts with the same system as the shipped wrapper."
+proposal = "Correct the provider example in toolkit/package/README.md to use value={theme} or the exported provider, preserving the explicit upstream-only publishing provenance, and validate the example with the declared dependency."
+owner_domain = 14
+
+[finding.bridge-readme-setup]
+file = "apps/bridge/README.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The bridge README still directs edits to app/page.tsx although the source is src/app/page.tsx and otherwise contains only the create-next-app template. It gives no deployment guidance for required Paxeer RPC, vaults, attestation API or Solana recipient prerequisites."
+expected = "Bridge operators need the actual source entry and build-time configuration needed to open verified routes, including the default RPC/CSP constraint and the current Solana wallet limitations."
+proposal = "Replace the template setup in apps/bridge/README.md with a bridge deployment guide naming src/app/page.tsx, actual NEXT_PUBLIC variables, rebuild behavior, authoritative deployment records and supported/recovery flows."
+owner_domain = 14
+
+[finding.root-network-description]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The repository overview says the network has two execution domains and describes layerxd as a separate C17 daemon whose checkpoints settle through layerxAnchor; later build/operations sections retain that separate-daemon model."
+expected = "The finished network is one paxd BFT chain with its kernel integrated and committed receipts final; the separate LayerX daemon and checkpoint settlement deployment are retired."
+proposal = "Rewrite README.md's network, build and operations overview around integrated paxd, chain 125, node-root RPC and committed-block finality; remove instructions to deploy or operate the retired separate layerxd service."
+owner_domain = 17
+
+[finding.quickstart-merged-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs calls to POST /rpc and /rpc/ws at lines 20, 167-168 and 214-217, retains 0x1014 checkpoint/bond settlement at 131-132, and repeats router/checkpoint flows later in the walkthrough."
+expected = "A new user must reach the integrated chain's root JSON-RPC at the declared api1-api14/mainnet-beta node names and understand that a committed receipt is final without a separate checkpoint settlement service."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md endpoint, funding, tool and finality walkthroughs against the merged node and current hosted gateway contract; replace the retired /rpc family and anchor settlement journey with runnable current examples."
+owner_domain = 17
+
+[finding.beta-control-router]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The beta control page says public custody credit is submitted to the router. This presents the retired router as an active part of funding the merged public network."
+expected = "Private/disposable control procedures may remain scoped as such, but public funding instructions must identify the current custody/node or hosted service boundary without a router."
+proposal = "Update the public funding introduction in docs/site/docs/operators/beta-control.md to the current custody credit transport and integrated-chain confirmation, retaining the explicit private/disposable operating scope."
+owner_domain = 17
+
+[finding.beta-cluster-separate-daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster guide adds a LayerX Network daemon beside paxd, documents layerxd --custody-profile at line 50, separate checkpoint/custody bring-up, and sequencer-id/batch trust material at line 68."
+expected = "Disposable cluster instructions must exercise the same integrated paxd execution and committed finality model as the finished network, with no standalone layerxd or separate sequencer lifecycle."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md image topology, bootstrap, custody input, trust material and recovery sections around the integrated paxd deployment; identify historical standalone fixtures explicitly instead of prescribing them for merged bring-up."
+owner_domain = 17
+
+[finding.faucet-router-site]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet introduction says public accounts are funded through custody credit submitted to the router, presenting a retired network transport as current funding guidance."
+expected = "Funding guidance must describe the current integrated-chain custody or hosted service path and distinguish it from private-network faucet operations."
+proposal = "Replace router-dependent funding wording in docs/site/docs/platform/faucet.md with the current custody credit service/node transport and committed receipt lifecycle, and synchronize the site and wiki versions."
+owner_domain = 17
+
+[finding.faucet-scope-site]
+file = "docs/site/docs/platform/faucet.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The opening declares the faucet private/disposable-network only, but lines 13-15 describe approved allocations through this same service on mainnet beta with real value. The page gives two incompatible deployment policies."
+expected = "Operators and integrators must receive one explicit supported faucet scope and the correct public funding alternative for a real-value network."
+proposal = "Resolve the product policy in docs/site/docs/platform/faucet.md with the faucet owner and document private-only operation or the precise approved mainnet allocation exception; align the opening, claims walkthrough and wiki/site twins without weakening funding authorization."
+owner_domain = 17
+
+[finding.faucet-router-wiki]
+file = "docs/wiki/HostedFaucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet introduction says public accounts are funded through custody credit submitted to the router, presenting a retired network transport as current funding guidance."
+expected = "Funding guidance must describe the current integrated-chain custody or hosted service path and distinguish it from private-network faucet operations."
+proposal = "Replace router-dependent funding wording in docs/wiki/HostedFaucet.md with the current custody credit service/node transport and committed receipt lifecycle, and synchronize the site and wiki versions."
+owner_domain = 17
+
+[finding.faucet-scope-wiki]
+file = "docs/wiki/HostedFaucet.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The opening declares the faucet private/disposable-network only, but lines 13-15 describe approved allocations through this same service on mainnet beta with real value. The page gives two incompatible deployment policies."
+expected = "Operators and integrators must receive one explicit supported faucet scope and the correct public funding alternative for a real-value network."
+proposal = "Resolve the product policy in docs/wiki/HostedFaucet.md with the faucet owner and document private-only operation or the precise approved mainnet allocation exception; align the opening, claims walkthrough and wiki/site twins without weakening funding authorization."
+owner_domain = 17
+
+[finding.cli-rpc-path-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires remote RPC URLs ending in /rpc (again at line 131 and later command examples). This teaches integrators to use the retired unified router path."
+expected = "Merged public node JSON-RPC uses the root path on the declared mainnet-beta node names; hosted px_ methods must be described against their separate declared gateway contract."
+proposal = "Rewrite endpoint validation and invocation examples in docs/site/docs/platform/cli.md around the merged root node RPC and current hosted gateway API; remove /rpc, /rpc/ws and schema-router assumptions and align the wiki/site copies."
+owner_domain = 17
+
+[finding.cli-command-inventory-site]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The implemented command table lists wallet and token commands, then lines 106-138 say those same groups/flags have no counterpart and describe only an intended surface. A reader cannot determine what the shipped CLI actually supports."
+expected = "A command reference must give one consistent implemented inventory with current per-command flags, refusal behavior and public/private scope."
+proposal = "Reconcile the contradictory tables in docs/site/docs/platform/cli.md against the actual tools/platform/cli command definitions; remove obsolete unimplemented labels, retain real refusals, and generate or maintain one synchronized site/wiki command inventory."
+owner_domain = 17
+
+[finding.cli-rpc-path-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires remote RPC URLs ending in /rpc (again at line 131 and later command examples). This teaches integrators to use the retired unified router path."
+expected = "Merged public node JSON-RPC uses the root path on the declared mainnet-beta node names; hosted px_ methods must be described against their separate declared gateway contract."
+proposal = "Rewrite endpoint validation and invocation examples in docs/wiki/Cli.md around the merged root node RPC and current hosted gateway API; remove /rpc, /rpc/ws and schema-router assumptions and align the wiki/site copies."
+owner_domain = 17
+
+[finding.cli-command-inventory-wiki]
+file = "docs/wiki/Cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The implemented command table lists wallet and token commands, then lines 106-138 say those same groups/flags have no counterpart and describe only an intended surface. A reader cannot determine what the shipped CLI actually supports."
+expected = "A command reference must give one consistent implemented inventory with current per-command flags, refusal behavior and public/private scope."
+proposal = "Reconcile the contradictory tables in docs/wiki/Cli.md against the actual tools/platform/cli command definitions; remove obsolete unimplemented labels, retain real refusals, and generate or maintain one synchronized site/wiki command inventory."
+owner_domain = 17
+
+[finding.gateway-router-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page describes a sole unified router mixing eth_, lx_ and px_ namespaces, and serves /rpc, /rpc/schema and /rpc/ws at lines 50-52 and its route table. It also retains a separate daemon producer description."
+expected = "The merged network exposes node JSON-RPC at root with debug, echo, eth, net, pax, test and txpool; px_ belongs to the hosted gateway contract and the router/LayerX endpoint family is retired."
+proposal = "Rewrite architecture, method ownership, route tables, subscriptions and upstream producer sections in docs/site/docs/platform/hosted-gateway.md for integrated paxd plus the declared hosted gateway API, using services/platform/hosted/gateway/openrpc.json for current px_ methods."
+owner_domain = 17
+
+[finding.gateway-router-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page describes a sole unified router mixing eth_, lx_ and px_ namespaces, and serves /rpc, /rpc/schema and /rpc/ws at lines 50-52 and its route table. It also retains a separate daemon producer description."
+expected = "The merged network exposes node JSON-RPC at root with debug, echo, eth, net, pax, test and txpool; px_ belongs to the hosted gateway contract and the router/LayerX endpoint family is retired."
+proposal = "Rewrite architecture, method ownership, route tables, subscriptions and upstream producer sections in docs/wiki/HostedGateway.md for integrated paxd plus the declared hosted gateway API, using services/platform/hosted/gateway/openrpc.json for current px_ methods."
+owner_domain = 17
+
+[finding.gateway-method-catalog]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 51
+class = "doc-drift"
+severity = "medium"
+observed = "The site gateway overview counts 15 methods while the corresponding wiki overview counts 18 for the same described interface. The duplicated catalogs no longer provide a single reliable contract count."
+expected = "The site and wiki should describe the same current hosted gateway method catalog derived from its declared OpenRPC schema, separately from node namespaces."
+proposal = "Generate the method list and counts in docs/site/docs/platform/hosted-gateway.md and docs/wiki/HostedGateway.md from the current hosted gateway OpenRPC contract, checking both pages together after the merged-route rewrite."
+owner_domain = 17
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 145 and 181 retain the separate-daemon/checkpoint deployment model; replace with the integrated paxd network."
+
+[doc.2]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Retired /rpc family at lines 20, 167-168, 214-217 and 302; separate settlement at 131-132 and 644-646; tool examples also need the merged endpoint model."
+
+[doc.3]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Line 5 describes custody credit submitted to the retired router; private/disposable control scope is otherwise explicit."
+
+[doc.4]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3, 26/34, 50 and 68 prescribe standalone daemon, legacy custody/checkpoint deployment and sequencer trust material."
+
+[doc.5]
+path = "docs/site/docs/platform/faucet.md"
+status = "misleading"
+notes = "Retired router at line 5; private-only opening conflicts with mainnet-beta approved allocations at lines 13-15. Site also carries starter-credit refusal details absent from the wiki."
+
+[doc.6]
+path = "docs/wiki/HostedFaucet.md"
+status = "misleading"
+notes = "Retired router at line 5; private-only opening conflicts with mainnet-beta approved allocations at lines 13-15. Site also carries starter-credit refusal details absent from the wiki."
+
+[doc.7]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Line 8 and 131 require the retired /rpc path; lines 106-138 contradict the preceding implemented wallet/token command inventory."
+
+[doc.8]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Line 8 and 131 require the retired /rpc path; lines 106-138 contradict the preceding implemented wallet/token command inventory."
+
+[doc.9]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Unified router and mixed namespaces at lines 39-42; /rpc family at 50-52 and 198-200; legacy daemon description later. Site/wiki method counts differ (15 versus 18)."
+
+[doc.10]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Unified router and mixed namespaces at lines 39-42; /rpc family at 50-52 and 198-200; legacy daemon description later. Site/wiki method counts differ (15 versus 18)."
+
+[doc.11]
+path = "docs/site/docs/programs/workspace.md"
+status = "accurate"
+notes = "Workspace/program build and input documentation is consistent within its stated scope; cited historical source paths alone do not assert a standalone deployed daemon."
+
+[doc.12]
+path = "docs/site/docs/interop/ramps.md"
+status = "accurate"
+notes = "Ramp market-maker accounts, verified payout/reversal and restart/reconciliation guidance retain ordinary account authority and match the scoped product model."
+
+[doc.13]
+path = "apps/bridge/README.md"
+status = "stale"
+notes = "Template instructions name app/page.tsx instead of src/app/page.tsx and omit build-time bridge configuration, route prerequisites and recovery guidance."
+
+[doc.14]
+path = "apps/bridge/AGENTS.md"
+status = "accurate"
+notes = "Generated Next.js agent-rule pointer correctly directs framework code changes to the installed documentation; this audit changes no application code."
+
+[doc.15]
+path = "apps/explorer/toolkit/package/README.md"
+status = "stale"
+notes = "Line 5 explicitly documents the imported upstream toolkit provenance; line 105 still uses the pre-Chakra-3 theme provider prop despite Chakra 3 dependency guidance."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/bridge-client.md"
+status = "accurate"
+notes = "Explicitly pinned historical interface/spec snapshot at revision 2a1033aa2, with planned/UNRUN labels; it must be read as that snapshot. Current ledger and registry disagreements are recorded separately."

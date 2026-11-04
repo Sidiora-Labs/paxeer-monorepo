@@ -1,0 +1,431 @@
+# Pre-upgrade audit: programme apps/web slice. Source review; proposed repairs only.
+
+[audit.22.30.185]
+task = "22.30.185"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 9
+findings = 27
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["receipt-deployment-wiring"]
+
+[file.1]
+path = "CONTRIBUTING.md"
+lines = 92
+verdict = "issues"
+note = "Read all 92 lines. The contribution workflow preserves fail-closed execution, but the architecture still advertises the retired daemon."
+
+[file.2]
+path = "apps/web/next.config.mjs"
+lines = 94
+verdict = "issues"
+note = "Read all 94 lines. HTTPS origin validation, Human /v1 and readiness rewrites, no-store readiness and webpack extension aliases are present. Build-time rewrites can disagree with runtime Human configuration."
+
+[file.3]
+path = "apps/web/src/api/gateway-actions.ts"
+lines = 9
+verdict = "issues"
+note = "Read all 9 lines. The server action forwards the exact receipt hash and preserves bigint block numbers, null-as-undefined and success/reverted status through the Next server-action transport. The shipped deployment omits its gateway configuration."
+
+[file.4]
+path = "apps/web/src/app/exchange/actions.ts"
+lines = 33
+verdict = "issues"
+note = "Read all 33 lines. Preflight checks address and word-aligned calldata, targets 0x1015, preserves revert detail and normalizes GatewayUnavailableError. The account resolver has no caller."
+
+[file.5]
+path = "apps/web/src/app/exchange/exchange-client.tsx"
+lines = 503
+verdict = "issues"
+note = "Read all 503 lines. All thirteen write signatures match precompiles/perps/abi/abi.json via src/api/sdk.ts and the agent SDK. USD amounts and leverage use 18 decimals, collateral uses six; approve targets the token and venue, not retired custody. The wallet transaction builder pins type 2 and chainId 0x7d. Remaining findings concern lifecycle, selections, labels and real-path coverage."
+
+[file.6]
+path = "docker/web/Dockerfile"
+lines = 21
+verdict = "issues"
+note = "Read all 21 lines. The image builds the agent SDK and web UI, copies standalone output and static assets and runs as UID 65532. The wallet source dependency tree is not provisioned for the Next TypeScript pass."
+
+[file.7]
+path = "scripts/gates/run_gate.py"
+lines = 94
+verdict = "issues"
+note = "Read all 94 lines. Commands run from the repository root without a shell, with combined output, first-failure stopping and a bounded 200-line failure tail. Evidence retention and spawn failure handling have gaps."
+
+[file.8]
+path = "scripts/gates/test_run_gate.py"
+lines = 231
+verdict = "issues"
+note = "Read all 231 lines. Tests exercise real subprocesses, CLI parsing, root-relative execution, command ordering, exit propagation and log tails. They do not cover repeated evidence paths, source changes during a run or executable launch failure."
+
+[file.9]
+path = "scripts/gates/wave-programme.sh"
+lines = 28
+verdict = "clean"
+note = "Read all 28 lines. The four commands and --list match 16.cli-scripts-gates-wave-programme-j58; argument arrays preserve the fixed commands without eval, the runner receives programme and a durable logs/waves/programme directory, and no retired service is invoked. The --deleted scan checks absence of retired callers. Shared runner defects are recorded on run_gate.py."
+
+[finding.contributor-daemon]
+file = "CONTRIBUTING.md"
+line = 18
+class = "retired-reference"
+severity = "medium"
+observed = "The repository layout describes layerxd as the LayerX kernel alongside paxd; line 72 also directs readers to qualification material built around separate settlement."
+expected = "Brief network facts 1 and 2 define one paxd network with the embedded kernel; layerxd is a retired running component."
+proposal = "Update CONTRIBUTING.md to describe the embedded C kernel and paxd execution domain, retain library build boundaries, and point contributors at merged-network qualification."
+owner_domain = 17
+
+[finding.human-build-runtime-origin]
+file = "apps/web/next.config.mjs"
+line = 30
+class = "config-drift"
+severity = "medium"
+observed = "rewrites() reads LAYERX_HUMAN_SERVICE_URL when next build creates the standalone routes. docker/web/Dockerfile:10-11 bakes the build argument, while src/api/server.ts:12 reads the deployment environment at runtime. Changing that environment can send browser /human/v1 and /v1 requests to a different Human service than server renders."
+expected = "The Human service configuration must select the same authenticated backend for server reads, browser requests and readiness throughout an image deployment."
+proposal = "In apps/web/next.config.mjs and the web deployment, make the effective Human origin a single validated configuration: either implement a runtime proxy or enforce and expose the immutable build origin so deployment cannot silently override only server reads."
+owner_domain = 14
+interface = "14.env-web-layerx-human-service-url"
+
+[finding.receipt-deployment-wiring]
+file = "apps/web/src/api/gateway-actions.ts"
+line = 8
+class = "wiring-gap"
+severity = "high"
+observed = "gatewayTransactionReceipt delegates to gateway.ts, whose gatewayEndpoint requires LAYERX_GATEWAY_URL. services/platform/hosted/human/web-deployment.yaml supplies no LAYERX_GATEWAY_URL and its egress policy admits node Human and registry destinations, not the hosted gateway. The Dockerfile supplies neither a runtime gateway origin nor this missing deployment edge. In that shipped configuration receipt reads and exchange preflight cannot reach their producer."
+expected = "Requirement 14034.1 and registry row 14.ts-web-api-gateway-ethtransactionreceipt-j53 require eth_getTransactionReceipt through the hosted gateway to reach the wallet consumer; null means a pending transaction, not an unconfigured transport."
+proposal = "Wire LAYERX_GATEWAY_URL to the hosted gateway HTTPS root in services/platform/hosted/human/web-deployment.yaml, admit the corresponding gateway egress and ingress, retain CA verification, and prove the deployed server action returns a real committed receipt to the market UI."
+owner_domain = 8
+interface = "14.ts-web-api-gateway-ethtransactionreceipt-j53"
+
+[finding.unused-account-action]
+file = "apps/web/src/app/exchange/actions.ts"
+line = 15
+class = "dead-code"
+severity = "low"
+observed = "resolvePerpsAccount exports a server action for pxResolveAccount, but the exchange page and client use the EVM account directly and no repository caller references resolvePerpsAccount."
+expected = "The native perps UI identifies its trader by EVM address; an exposed server action should serve a current product flow with a real consumer."
+proposal = "Remove resolvePerpsAccount and its unused imports from apps/web/src/app/exchange/actions.ts unless a current account-resolution flow is specified and wired to it."
+owner_domain = 14
+interface = "14.ts-web-api-gateway-pxresolveaccount"
+
+[finding.exchange-selection-refresh]
+file = "apps/web/src/app/exchange/exchange-client.tsx"
+line = 261
+class = "runtime-risk"
+severity = "medium"
+observed = "marketId, positionId, orderId and orderInputs.market are initialized from props once. router.refresh preserves component state after opening, closing or cancelling, and changing account props does not reconcile those IDs. Close and cancel validate only presence or numeric form rather than membership in the refreshed lists; an old market can also remain selectable for sending after it is removed."
+expected = "The choices displayed for the current account must agree with the IDs used by each write after refreshed chain state or a wallet switch."
+proposal = "In ExchangeActions, reconcile selections when account or available IDs change, clear outcomes belonging to another account, require current membership before every send, and cover open-refresh-close, cancel-refresh and account switching through the mounted UI."
+owner_domain = 14
+interface = "14.ts-web-app-exchange-exchange-client-exchangeactions"
+
+[finding.exchange-native-recovery]
+file = "apps/web/src/app/exchange/exchange-client.tsx"
+line = 265
+class = "restart-recovery"
+severity = "medium"
+observed = "Native write hashes and outcomes live only in openOutcome, closeOutcome, cancelOutcome, marginOutcome and orderOutcome. After receipt polling returns sent without a receipt or unconfirmed, no exchange reconciliation loop resumes that hash; reloading loses it and enables a new order or deposit with a new nonce."
+expected = "Brief check 5 requires recovery of a submitted state-changing operation without losing its identity or inviting duplicate submission while its result is unknown."
+proposal = "Retain native operation identity by chain, account and hash before leaving the submission flow in apps/web/src/api/wallet.ts and ExchangeActions; resume receipt lookup after reload and keep the affected action pending until its existing transaction is reconciled."
+owner_domain = 14
+interface = "14.ts-web-api-wallet-sendwalletprecompilecall"
+
+[finding.approval-stage-outcome]
+file = "apps/web/src/app/exchange/exchange-client.tsx"
+line = 57
+class = "runtime-risk"
+severity = "medium"
+observed = "sendPerpsWrite returns an unconfirmed approval as the requested operation outcome, and if an approval later times out in waitLaunchpadApproval its hash is discarded by walletSendFailure. The same SendOutcome panel can therefore describe an approval as the exchange action or say the transaction was not sent although an approval was broadcast."
+expected = "Approval and perps submission are distinct transactions; the user must know which stage was submitted and retain its hash when confirmation is unavailable."
+proposal = "Give sendPerpsWrite a retained approval stage in apps/web/src/app/exchange/exchange-client.tsx, display its hash and pending status separately, and resume that approval before offering to send the intended perps write."
+owner_domain = 14
+interface = "14.ts-web-app-exchange-exchange-client-sendperpswrite"
+
+[finding.perps-real-path-proof]
+file = "apps/web/src/app/exchange/exchange-client.tsx"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "apps/web/e2e/exchange-perps.test.ts supplies a callback-based walletWindow and a createServer gateway with hand-built ANSWERS and encoded receipts. Its opening_a_position_sends_the_precompile_perps_write_without_an_approve case passes pull=0 although the production Open position path passes openCollateral. ABI encoding is covered, but this cannot prove the actual approval, committed receipt and browser server-action path."
+expected = "Brief network fact 7 and requirements 21138.1 and 22095.1 require the real producer, transport and consumer; the default production collateral-pull branch must be exercised with real chain state."
+proposal = "Extend the owning apps/web exchange integration suite to fund a real disposable chain account, drive the mounted Open position control through its approval and server action, verify emitted ABI calls and committed receipts, and reopen the page to prove recovery; retain the existing ABI checks."
+owner_domain = 14
+interface = "14.ts-web-app-exchange-exchange-client-sendperpswrite"
+
+[finding.perps-size-units]
+file = "apps/web/src/app/exchange/exchange-client.tsx"
+line = 196
+class = "runtime-risk"
+severity = "medium"
+observed = "The Order size and Close size fields omit their unit while the client encodes both as 18-decimal numbers. The ABI declares sizeUsd and closeSizeUsd, and the page separately presents USDL collateral; a trader can interpret size as a base-asset quantity."
+expected = "The amount a trader authorizes must explicitly identify USD notional versus base quantity and USDL collateral before a wallet confirmation."
+proposal = "Label these controls Order size (USD) and Close size (USD), explain USD notional in apps/web/src/app/exchange/exchange-client.tsx, and show the parsed notional in the review before signing."
+owner_domain = 14
+
+[finding.web-image-wallet-dependencies]
+file = "docker/web/Dockerfile"
+line = 8
+class = "wiring-gap"
+severity = "medium"
+observed = "The Dockerfile copies sdk/wallet and installs apps/web but never provisions the services/wallet pnpm workspace or sdk/wallet dependencies. apps/web/tsconfig.json maps @paxeer/wallet to ../../sdk/wallet/src; that source imports viem and @supabase/supabase-js. Those dependencies are absent from the root package-lock.json, and apps/web/node_modules is outside the wallet source ancestor resolution path. The webpack rule in next.config.mjs does not configure TypeScript module resolution."
+expected = "Requirement 17054.2 requires the production web build to resolve every imported wallet SDK package; a clean image must supply the same dependency graph as the source type check."
+proposal = "Provision the pinned wallet workspace dependencies in docker/web/Dockerfile before the web build, or consume a correctly built and packaged wallet SDK with declarations; include the owning workspace manifests and lock in that repair and qualify the real image build."
+owner_domain = 16
+interface = "16.fmt-dock-web-dockerfile"
+
+[finding.gate-log-overwrite]
+file = "scripts/gates/run_gate.py"
+line = 49
+class = "runtime-risk"
+severity = "medium"
+observed = "Every invocation writes wave-<wave>-<index>.log with mode w. wave-programme.sh reuses logs/waves/programme, so a later invocation or concurrent process truncates the log named by an earlier evidence line, potentially replacing output from a different revision."
+expected = "Recorded qualification evidence must remain attributable to its original revision and command after later qualification attempts."
+proposal = "Keep the declared per-command names inside a unique immutable attempt directory under the requested evidence root in scripts/gates/run_gate.py, refuse collisions, and print each retained path in its evidence line."
+owner_domain = 16
+interface = "16.cli-scripts-gates-run-gate-j58"
+
+[finding.gate-mutable-source]
+file = "scripts/gates/run_gate.py"
+line = 38
+class = "runtime-risk"
+severity = "medium"
+observed = "run_gate captures HEAD once before all commands and prints that revision for every result without checking tracked changes or a changed HEAD. Commands execute directly against ROOT, so evidence can name one revision while the files being built or tested belong to another tree."
+expected = "The programme qualification command and its evidence must identify the source tree actually exercised, rather than only the initial branch tip."
+proposal = "In scripts/gates/run_gate.py, qualify an immutable checkout or refuse source changes before and after each command, including a dirty starting tree; distinguish permitted build outputs explicitly and retain evidence of a source-identity refusal."
+owner_domain = 16
+interface = "16.cli-scripts-gates-run-gate-j58"
+
+[finding.gate-launch-error]
+file = "scripts/gates/run_gate.py"
+line = 51
+class = "runtime-risk"
+severity = "medium"
+observed = "subprocess.run can raise FileNotFoundError or PermissionError when a required command is missing or cannot execute. That exception escapes before the evidence print, leaving an empty opened log and a Python traceback instead of the command-specific outcome the operator needs."
+expected = "A qualification launch failure must stop the sequence and name the attempted command, source revision, failure code and retained cause without claiming that a child ran."
+proposal = "Handle executable launch failures in scripts/gates/run_gate.py, retain the operating-system error in the command log and emit a distinct launch-failure record with a nonzero status; never fabricate child execution evidence."
+owner_domain = 16
+interface = "16.cli-scripts-gates-run-gate-j58"
+
+[finding.gate-retention-tests]
+file = "scripts/gates/test_run_gate.py"
+line = 117
+class = "test-gap"
+severity = "medium"
+observed = "Each subprocess test creates a fresh TemporaryDirectory and uses an executable that starts successfully. No test repeats a wave in the same directory, runs competing writers, changes the audited tree during execution or attempts an absent executable, so the suite misses the evidence defects on run_gate.py."
+expected = "Qualification evidence needs tests that prove the original log remains intact and that failed launches and source-identity changes are reported without false revision attribution."
+proposal = "Add real-subprocess cases in scripts/gates/test_run_gate.py for repeated and concurrent log paths, an isolated temporary git repository whose source changes, and an absent or non-executable command; assert preserved logs, exact failure records and no later command."
+owner_domain = 16
+
+[finding.doc-1]
+file = "docs/QUALIFICATION.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Retired DA, guarantor and reserve gates at lines 20-21 and 79-82, plus the separate-network claim at line 100, are presented as current deployment qualification."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Replace the retired custody/checkpoint/guarantor and sequencer-offline exit gates with committed-block, native-balance, receipt and merged paxd recovery qualification; retain the useful arithmetic and replay safety criteria."
+owner_domain = 17
+
+[finding.doc-2]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 advertises layerxd, line 29 lists relay archive, and lines 70-72 retain checkpoint registration, guarantor bonds and emergency-exit custody boundaries."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Describe the embedded kernel and one paxd execution domain, remove relay archive from the active tree and explain the current bank, ledger and bridge authority boundaries."
+owner_domain = 17
+
+[finding.doc-3]
+file = "docs/site/docs/overview/monorepo.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 14 describe two networks and independent release boundaries; line 9 uses obsolete agent/, human/ and platform/ paths, and line 29 advertises retired custody, bonds and emergency exits."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Rewrite the overview for one merged network, current services/ and apps/ paths, and native block finality; preserve the distinction between library build targets and deployment authority."
+owner_domain = 17
+
+[finding.doc-4]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Line 18 says ordinary LayerX activity needs no Paxeer transaction and is settled by periodic checkpoints with custody, bonds and emergency exits. Lines 98-104 still list layerxd and moved service directories."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Translate the merged-network execution and committed-block finality model into Portuguese and update the path table and receipt examples to current native operations."
+owner_domain = 17
+
+[finding.doc-5]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Line 18 says ordinary LayerX activity needs no Paxeer transaction and settles through periodic checkpoints, guarantor bonds and emergency exits; lines 98-104 advertise layerxd and moved service directories."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Translate the merged-network execution model into German and update the repository table and receipt examples to native transactions and committed-block finality."
+owner_domain = 17
+
+[finding.doc-6]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 sends custody credit to the router; lines 229, 293-299 and 335 depend on separate receipt authority, LNI and its backend funding token."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Document the private control service against the merged chain funding and receipt paths, remove the router/custody-credit/LNI instructions and replace retired dependency and credential tables."
+owner_domain = 8
+
+[finding.doc-7]
+file = "docs/site/docs/operators/qualification.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20-21 and 79-82 require retired DA withholding, guarantor disagreement, reserve reconciliation and a sequencer-offline checkpoint emergency exit; line 100 describes independent networks."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Publish the same merged-network qualification rewrite as docs/QUALIFICATION.md, with native bank conservation, committed receipts and paxd restart/recovery evidence."
+owner_domain = 17
+
+[finding.doc-8]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page starts a separate LayerX daemon and receipt authority. Lines 26, 40-50, 68 and 90 prescribe retired settlement deployment, 0x1013 custody credit, layerxd profiles, batch pins and explorer funding through custody proofs."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Replace the cluster topology, bootstrap, funding, retained-material and recovery procedures with the paxd embedded kernel, native bank sends and committed-state proof paths, removing retired image and secret inventories."
+owner_domain = 8
+
+[finding.doc-9]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary is described as sitting in front of layerxd; lines 23, 43, 69-93, 118-150 and 314-330 depend on LNI, a replica, sealed batches and a standalone daemon for routes, readiness, submission and recovery."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Rewrite Hosted core around the kept chain-backed interfaces and committed receipts, remove the retired LNI/replica/batch routes and update readiness, authorization and recovery examples together."
+owner_domain = 8
+
+[finding.doc-10]
+file = "docs/site/docs/platform/registry.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The registry uses a separate receipt-authority endpoint and replica identity at lines 28 and 179-186; lines 67 and 86 describe ABI-1/2-only state restoration and reject other ABI values despite the current ABI-5 host registration work."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Update registry reads and recovery to committed chain state and the current program ABI versions, replacing retired receipt-authority credentials, replica pins and obsolete ABI-only refusal guidance."
+owner_domain = 8
+
+[finding.doc-11]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 and 125 describe two execution domains with layerxd and checkpoint settlement through layerxAnchor. The diagram at lines 147-225 includes relay archive, guarantor, LNI, custody credit and pending exchange intents."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Rewrite the German overview and diagrams for one paxd execution domain, retired 0x1013/0x1014 refusals, native perps state and block finality, and the current services/ and apps/ layout."
+owner_domain = 17
+
+[finding.doc-12]
+file = "docs/wiki/HostedCore.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki copy also describes layerxd behind core; lines 23, 43, 69-93, 118-150 and 314-330 document LNI, replicas, batch authority and standalone-daemon tests as current operations."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Update docs/wiki/HostedCore.md alongside the site Hosted core page to the chain-backed submission, committed receipt, readiness and restart contracts; preserve working links in each publication."
+owner_domain = 8
+
+[finding.doc-13]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The current client state-read rule still calls the hosted px_* access a router even though brief network fact 2 retires the router concept. The same table defines the receipt rung contract separately from the newer web ethTransactionReceipt requirement."
+expected = "The pre-upgrade brief describes one paxd network, no standalone layerxd, LNI transport, router, custody credit or separate checkpoint finality; operator and integrator pages must describe its current supported path."
+proposal = "Amend the client contract to describe the hosted gateway by its current name and explicitly distinguish node sequencer receipt evidence from the web committed EVM receipt read so integrators can choose the required proof."
+owner_domain = 17
+
+[doc.1]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 20. Retired DA, guarantor and reserve gates at lines 20-21 and 79-82, plus the separate-network claim at line 100, are presented as current deployment qualification."
+
+[doc.2]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 3. Line 3 advertises layerxd, line 29 lists relay archive, and lines 70-72 retain checkpoint registration, guarantor bonds and emergency-exit custody boundaries."
+
+[doc.3]
+path = "docs/site/docs/overview/monorepo.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 3. Lines 3 and 14 describe two networks and independent release boundaries; line 9 uses obsolete agent/, human/ and platform/ paths, and line 29 advertises retired custody, bonds and emergency exits."
+
+[doc.4]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 18. Line 18 says ordinary LayerX activity needs no Paxeer transaction and is settled by periodic checkpoints with custody, bonds and emergency exits. Lines 98-104 still list layerxd and moved service directories."
+
+[doc.5]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 18. Line 18 says ordinary LayerX activity needs no Paxeer transaction and settles through periodic checkpoints, guarantor bonds and emergency exits; lines 98-104 advertise layerxd and moved service directories."
+
+[doc.6]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 5. Line 5 sends custody credit to the router; lines 229, 293-299 and 335 depend on separate receipt authority, LNI and its backend funding token."
+
+[doc.7]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 20. Lines 20-21 and 79-82 require retired DA withholding, guarantor disagreement, reserve reconciliation and a sequencer-offline checkpoint emergency exit; line 100 describes independent networks."
+
+[doc.8]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 3. The page starts a separate LayerX daemon and receipt authority. Lines 26, 40-50, 68 and 90 prescribe retired settlement deployment, 0x1013 custody credit, layerxd profiles, batch pins and explorer funding through custody proofs."
+
+[doc.9]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 6. The boundary is described as sitting in front of layerxd; lines 23, 43, 69-93, 118-150 and 314-330 depend on LNI, a replica, sealed batches and a standalone daemon for routes, readiness, submission and recovery."
+
+[doc.10]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 28. The registry uses a separate receipt-authority endpoint and replica identity at lines 28 and 179-186; lines 67 and 86 describe ABI-1/2-only state restoration and reject other ABI values despite the current ABI-5 host registration work."
+
+[doc.11]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 37. Lines 37-39 and 125 describe two execution domains with layerxd and checkpoint settlement through layerxAnchor. The diagram at lines 147-225 includes relay archive, guarantor, LNI, custody credit and pending exchange intents."
+
+[doc.12]
+path = "docs/wiki/HostedCore.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 6. The wiki copy also describes layerxd behind core; lines 23, 43, 69-93, 118-150 and 314-330 document LNI, replicas, batch authority and standalone-daemon tests as current operations."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Read the page; rewrite starts at line 20. The current client state-read rule still calls the hosted px_* access a router even though brief network fact 2 retires the router concept. The same table defines the receipt rung contract separately from the newer web ethTransactionReceipt requirement."
+
+[doc.14]
+path = "CONTRIBUTING.md"
+status = "stale"
+notes = "Read the complete contribution page. The working rules are useful; line 18 advertises retired layerxd and needs the architecture rewrite in contributor-daemon."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/web-client.md"
+status = "accurate"
+notes = "Reviewed the generated api, app, env and web-gateway-receipts anchors as contracts pinned to revision 2a1033aa2. Current receipt and reverted arms agree with the web requirements; historical planned statuses and line numbers are pinned source references, not claims of current implementation completion."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/tools-ops.md"
+status = "accurate"
+notes = "Reviewed the generated wave-gates anchor. Its frozen four-command programme list, first-failure behavior and revision/command/exit/log evidence contract agree with the shell wrapper. Historical planned markers are explicitly pinned."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "accurate"
+notes = "Reviewed the generated docker-env and docker-formats anchors. Runtime NODE_ENV, PORT and HOSTNAME agree with the Dockerfile. The source-path note about apps/web/server.js is a historical generated-output observation; server.js is produced by the standalone build, not an authored source file."
+

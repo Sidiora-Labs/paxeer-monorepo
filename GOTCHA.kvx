@@ -14610,3 +14610,23 @@ fix = "22.99.159 restores the fixture from its producer (the signed consent insi
 title = "A crate manifest change left four workspace lockfiles stale and every locked build on main failed"
 symptom = "Commit 051e6c3e0 (task 13.99.1) removed the wasm32 spin dependency from programs/crates/layerx-programs-ai-market/Cargo.toml; the crate is a path dependency named in programs/Cargo.lock, services/agent/Cargo.lock, services/human/Cargo.lock and services/platform/Cargo.lock, none of which followed, so cargo build --locked in those workspaces and make paxd-native-libs (programs-release-build, Makefile:2738) fail with the lock file needs to be updated."
 fix = "22.99.160 refreshes the four lockfiles with cargo update --workspace; decision 2513 makes every manifest-changing task refresh and carry every workspace lock naming the crate."
+
+[gotcha.2958]
+title = "Extending an exact receipt field set is a producer change that every consumer fixture must follow"
+symptom = "22.23.11 added paymentDenom to RECEIPTED_FIELDS and matched the receipted and committed rungs with Fields::exact; its verify ran only the layerx-client tests, so the daemon's receipt fixtures (ops/program.rs, human_runtime.rs, tests/support/mod.rs and the receipt mocks under tests/) kept decoding as Malformed and 9.35.19 attempt 8 failed seven unrelated tests on main."
+fix = "A task that adds a field to an exact field set lists every consumer crate's fixture files in its paths, adds the field there in the same change and runs those crates' tests in its verify; 9.98.4 repairs the fixtures."
+
+[gotcha.2959]
+title = "A header rename at a paid gateway is a producer change every client must follow"
+symptom = "The x-websearch gateway reads LAYERX-PAYER-ADDRESS (an EVM address) and ignores the former LAYERX-PAYER-DID header, so the TypeScript and python web-search clients kept sending the retired header and failed only through the replayed exchange the gateway recorded (400 unrecorded_request on the metered search)."
+fix = "When a producer renames or re-types a request header, git grep the old name across every client and queue one consumer task per owning domain; the recorded exchange is the contract both sides must match, and a header the producer silently ignores is still a defect."
+
+[gotcha.2960]
+title = "A package-wide Go test run is not a repair task's gate when the package carries service-bound tests"
+symptom = "Repair tasks in services/launchpad packages passed their own tests and failed the gate on pre-existing tests that need PostgreSQL, Redis, S3, Anvil or a live RPC endpoint; others wrote repair tests that themselves skip-fail without such services."
+fix = "A repair task's verification runs only its own TestRepair_N_* functions, and those run in-process; the package's other tests must keep compiling and follow any behaviour the repair changes."
+
+[gotcha.2961]
+title = "A durable approval's actor is an EVM address; a DID comparison on it never matches"
+symptom = "The approval budget facts operation compared a managed agent DID with the held activity actor, which the hold validation fixes to the 40-hex address form, and parsed that actor as a DID; the operation refused every real held approval."
+fix = "Resolve the managed agent by its signing address and use its DID afterwards (decision 2517); never parse a durable approval actor as a DID."

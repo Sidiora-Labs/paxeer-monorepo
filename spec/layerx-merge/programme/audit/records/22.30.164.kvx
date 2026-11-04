@@ -1,0 +1,586 @@
+# Pre-upgrade source audit; repairs remain proposals of the owning domains.
+
+[audit.22.30.164]
+task = "22.30.164"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 15
+findings = 36
+docs_reviewed = 15
+upgrade_ready = false
+blocking = []
+readiness_note = "No high finding is claimed: disconnected simulation defects and unproven scheduler lifecycle risks are medium or low. Readiness is withheld because requirement 15022.2 is not enforced and the simulation qualification path is disconnected. All findings are proposals; no source repairs or Go behavior gates were performed."
+interfaces_reviewed = 52
+interface_transport = "The 52 package rows are in-process Go APIs and process-local metric emissions, with no additional JSON transport in this slice. Source comparison covers request/checksum/response, store and abort shapes, tracer lifecycle, operation/future-operation JSON, parameter callbacks, signer inputs and ABCI key/vote/evidence types. OTel is volatile instrumentation; speculative scheduler state is reconstructed for each batch by current application callers and is committed by the parent application store, not persisted as a scheduler WAL."
+security_note = "Production members expose no HTTP or RPC handler and contain no credential default or signature bypass. GenTx signs configured TxConfig bytes and Deliver reaches the real application decoder/runTx path. The local profiler started by a test is reported separately. Tenant state is selected by the supplied context and keepers; no fixed tenant or retired endpoint appears in the member sources."
+
+[file.1]
+path = "sdk/tasks/legacy_metrics_test.go"
+lines = 54
+verdict = "clean"
+note = "Read in full. The real scheduler and multiversion store force one stale read and exactly one retry; legacy sink keys and OTel deltas agree with requirements 15046.1 and 15045.1. No retired runtime reference."
+produces = []
+consumes = []
+
+[file.2]
+path = "sdk/tasks/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Read in full. The paxcosmos_tasks Int64Counter names, count units and scheduler emission types agree with both stable OTel registry rows and oteltest.CounterSum; no legacy emission remains."
+produces = ["15.met-otel-tasks-scheduler-incarnations-j56", "15.met-otel-tasks-scheduler-retries-j56"]
+consumes = []
+
+[file.3]
+path = "sdk/tasks/otel_metrics_test.go"
+lines = 64
+verdict = "clean"
+note = "Read in full. The two conflicting request entries are consumed by NewScheduler and its actual store wrappers; response values, parent state, attempts and both counter deltas are asserted. This is a source audit, not a claim that the Go test was executed."
+produces = []
+consumes = []
+
+[file.4]
+path = "sdk/tasks/scheduler.go"
+lines = 583
+verdict = "issues"
+note = "Read all 583 lines. node/abci.go and sdk/baseapp/abci.go construct one scheduler per batch. DeliverTxEntry request bytes, SdkTx, checksum32 and absolute index reach DeliverTx unchanged; ResponseDeliverTx is returned in request order. TxTracer injection/reset/commit and Abort.DependentTxIdx agree with their producers. Multiversion read/write sets use the same indices and cache-store interfaces. Both legacy metric rows are intentionally retired by 15046.1; telemetry.IncrCounter is no longer consumed here. OTel names match. Ordering, cancellation and reuse findings qualify the lifecycle review."
+produces = ["15.go-tasks-new-scheduler-j76", "15.met-legacy-tasks-scheduler-271-j56", "15.met-legacy-tasks-scheduler-274-j56"]
+consumes = ["15.go-store-multiversion-multi-version-store-j76", "15.go-store-multiversion-new-multi-version-store-j76", "15.go-store-multiversion-version-indexed-store-j76", "15.go-telemetry-incr-counter-j76", "15.go-types-deliver-tx-entry-j76", "15.go-types-occ-abort-j76", "15.go-types-tx-tracer-j76", "15.go-utils-tracing-info-j76", "15.go-utils-tracing-new-tracing-info-j76", "5.go-consensus-abci-types-request-deliver-tx-v2", "5.go-consensus-abci-types-response-deliver-tx"]
+
+[file.5]
+path = "sdk/tasks/scheduler_rerun_test.go"
+lines = 125
+verdict = "issues"
+note = "Read in full. Invalidated writes become estimates and read/iterator sets are cleared; unchanged validated tasks retain their response. Direct helper sequencing leaves the public dispatch precondition unproven."
+produces = []
+consumes = []
+
+[file.6]
+path = "sdk/tasks/scheduler_test.go"
+lines = 416
+verdict = "issues"
+note = "Read all 416 lines. RequestDeliverTxV2 and cachemulti.NewStore fixture shapes match their producers. Response and tracer checks cover heavy conflict cases; mixed-case assertions and profiler ownership have findings. In-memory store tests do not claim process-restart recovery."
+produces = []
+consumes = ["15.go-store-cachemulti-new-store-j76", "15.go-types-cache-wrapper-j76", "15.go-utils-tracing-new-tracing-info-j76"]
+
+[file.7]
+path = "sdk/x/simulation/event_stats.go"
+lines = 55
+verdict = "issues"
+note = "Read in full. Nested route/operation/result JSON counters have no external network transport or persistent consensus role. Print loses output errors; ExportJSON makes write failures visible."
+produces = []
+consumes = []
+
+[file.8]
+path = "sdk/x/simulation/expected_keepers.go"
+lines = 16
+verdict = "clean"
+note = "Read in full. AccountKeeper.GetAccount returns auth AccountI and BankKeeper.SpendableCoins returns sdk.Coins, agreeing with the real keepers, OperationInput and the wasm simulation consumer. Account-existence handling is a delivery-helper finding."
+produces = ["15.go-x-simulation-bank-keeper-j76"]
+consumes = []
+
+[file.9]
+path = "sdk/x/simulation/log.go"
+lines = 79
+verdict = "issues"
+note = "Read in full. OperationEntry marshals as entry_kind, height, order and raw operation JSON. The log filename collision can erase diagnostics; this disconnected reporting helper is not a chain WAL or restart mechanism."
+produces = []
+consumes = []
+
+[file.10]
+path = "sdk/x/simulation/mock_tendermint.go"
+lines = 219
+verdict = "issues"
+note = "Read all 219 lines. PubKeyFromProto accepts the Ed25519 protobuf variant used here; addresses are derived from the key, powers are int64, and DUPLICATE_VOTE evidence fields match the ABCI structures. Vote state, validator updates and evidence-history bounds have findings. These helpers have no in-tree driver, so their defects are simulation risks rather than demonstrated live consensus failures."
+produces = []
+consumes = ["15.go-consensus-crypto-pub-key-from-proto-j57", "15.go-types-simulation-transition-matrix-j76", "5.go-consensus-abci-types-evidence", "5.go-consensus-abci-types-last-commit-info", "5.go-consensus-abci-types-misbehavior-type-duplicate-vote", "5.go-consensus-abci-types-request-begin-block", "5.go-consensus-abci-types-validator", "5.go-consensus-abci-types-vote-info"]
+
+[file.11]
+path = "sdk/x/simulation/operation.go"
+lines = 158
+verdict = "issues"
+note = "Read in full. OperationMsg raw JSON and msg/queued_msg entry kinds match sdk/types/simulation and the epoch module. WeightedOperation Weight/Op methods satisfy the module-manager interface. Height queues retain FIFO and height precedence; time queues and weight selection are defective and the private driver is disconnected."
+produces = ["15.go-x-simulation-msg-entry-kind-j76", "15.go-x-simulation-new-weighted-operation-j76", "15.go-x-simulation-weighted-operations-j76"]
+consumes = ["15.go-types-simulation-future-operation-j76", "15.go-types-simulation-operation-j76", "15.go-types-simulation-operation-msg-j76", "15.go-types-simulation-select-op-fn-j76"]
+
+[file.12]
+path = "sdk/x/simulation/params.go"
+lines = 182
+verdict = "issues"
+note = "Read all 182 lines. NewSimParamChange preserves subspace/key/SimValFn and its composed key matches proposal consumers. WeightedProposalContent preserves configuration key/default weight/ContentSimulatorFn used by distribution, gov and params. Default transition columns are positive and Ed25519 agrees with consensus. The private genesis consensus generator has no caller."
+produces = ["15.go-x-simulation-new-sim-param-change-j76", "15.go-x-simulation-new-weighted-proposal-content-j76"]
+consumes = ["15.go-consensus-types-abci-pub-key-type-ed25519-j57", "15.go-types-simulation-content-simulator-fn-j76", "15.go-types-simulation-rand-int-between-j76", "15.go-types-simulation-sim-val-fn-j76", "15.go-types-simulation-transition-matrix-j76", "15.go-x-staking-types-get-genesis-state-from-app-state-j76"]
+
+[file.13]
+path = "sdk/x/simulation/simulate.go"
+lines = 7
+verdict = "issues"
+note = "Read in full. AverageBlockTime is a simulation constant used by randomConsensusParams; the file supplies no runnable simulation entry point. No standalone LayerX daemon or retired RPC call exists in this source."
+produces = []
+consumes = []
+
+[file.14]
+path = "sdk/x/simulation/transition_matrix.go"
+lines = 80
+verdict = "issues"
+note = "Read all 80 lines. Column-oriented NextState satisfies sdk/types/simulation.TransitionMatrix and the positive fixed gov/default matrices use the same orientation. Public input validation and ownership of caller-provided weights need repair."
+produces = ["15.go-x-simulation-create-transition-matrix-j76"]
+consumes = ["15.go-types-simulation-transition-matrix-j76"]
+
+[file.15]
+path = "sdk/x/simulation/util.go"
+lines = 190
+verdict = "issues"
+note = "Read all 190 lines. OperationInput names/types and sdk.Coins fee subtraction agree with staking, gov, distribution, feegrant and wasm callers. DefaultGenTxGas is 10000000 throughout callers. BaseApp.Deliver encodes and decodes the actual Tx before runTx; account numbers, sequence, chain ID and signing mode are transported through the configured TxConfig. Existing callers use LegacyMsg and may legitimately omit Cdc. RandomFees empty balances and NoOpMsg OK=false semantics agree. Memo reproducibility, signer errors and absent accounts have findings."
+produces = ["15.go-x-simulation-default-gen-tx-gas-j76", "15.go-x-simulation-gen-and-deliver-tx-j76", "15.go-x-simulation-gen-and-deliver-tx-with-rand-fees-j76", "15.go-x-simulation-gen-tx-j76", "15.go-x-simulation-operation-input-j76"]
+consumes = ["15.go-codec-proto-codec-j76", "15.go-types-simulation-future-operation-j76", "15.go-types-simulation-new-operation-msg-j76", "15.go-types-simulation-no-op-msg-j76", "15.go-types-simulation-operation-msg-j76", "15.go-types-simulation-rand-int-between-j76", "15.go-types-simulation-rand-string-of-length-j76", "15.go-types-simulation-random-fees-j76"]
+
+[finding.validation-order]
+file = "sdk/tasks/scheduler.go"
+line = 428
+class = "runtime-risk"
+severity = "medium"
+observed = "ProcessAll starts len(tasks) validation workers at lines 297-298, and validateAll dispatches every task through DoValidate without waiting for the preceding index or stopping at the first invalid task. The ordered, fail-fast precondition stated at lines 363-366 is not enforced."
+expected = "Requirement 15022.2 permits only ordered, fail-fast validation; the NewScheduler lifecycle must enforce the ordering on which shouldRerun relies."
+proposal = "In sdk/tasks/scheduler.go, validate in transaction-index order and stop the validation pass on the first invalid predecessor; prove this through ProcessAll with delayed predecessors and conflicting reads and iterators."
+owner_domain = 15
+interface = "15.go-tasks-new-scheduler-j76"
+
+[finding.scheduler-reuse]
+file = "sdk/tasks/scheduler.go"
+line = 227
+class = "runtime-risk"
+severity = "medium"
+observed = "tryInitMultiVersionStore retains the first context stores forever. ProcessAll replaces task maps but retains versioned writes, read sets, metrics.retries, maxIncarnation and synchronous. A second call can read or flush writes from the previous batch into the first parent store and re-emit old retry counts. Current node/abci.go and sdk/baseapp/abci.go create a fresh scheduler for each batch."
+expected = "A Scheduler must have an explicit single-batch lifecycle or isolate all state for each ProcessAll call; scheduler counters describe the current round and contexts must never share stale speculative writes."
+proposal = "In sdk/tasks/scheduler.go, enforce and document single-use scheduling with a typed refusal on reuse, or initialize fresh stores and round state on every call; add a two-context, two-batch test that checks parent writes and metric deltas."
+owner_domain = 15
+interface = "15.go-store-multiversion-new-multi-version-store-j76"
+
+[finding.cancelled-worker-hang]
+file = "sdk/tasks/scheduler.go"
+line = 149
+class = "runtime-risk"
+severity = "medium"
+observed = "Worker goroutines return as soon as ctx.Done is selected, but executeAll and validateAll wait on WaitGroups whose remaining jobs are still queued. A cancelled context can leave ProcessAll waiting forever; the error return is never populated by these paths."
+expected = "Cancellation of a batch must terminate execution and validation with an explicit error, leaving no waiter dependent on workers that have exited."
+proposal = "In sdk/tasks/scheduler.go, propagate cancellation through job submission and completion accounting, join workers before returning, and prove cancellation before dispatch and during execution without publishing a partial batch."
+owner_domain = 15
+interface = "15.go-tasks-new-scheduler-j76"
+
+[finding.rerun-driver-proof]
+file = "sdk/tasks/scheduler_rerun_test.go"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "The two rerun tests invoke executeTask and shouldRerun directly in a chosen serial order. They prove invalidation and the unchanged-read case, but never exercise ProcessAll, its concurrent validation dispatch, or the ordered fail-fast condition required by 15022.2."
+expected = "The declared rerun rule must be demonstrated through the scheduler entry point and its actual dispatch lifecycle as well as through the local state-transition helpers."
+proposal = "Extend sdk/tasks/scheduler_rerun_test.go with a ProcessAll path that forces a lower-index retry after a later reader has executed, checks validation order and final committed state, and preserves the existing direct invalidation assertions."
+owner_domain = 15
+interface = "15.go-tasks-new-scheduler-j76"
+
+[finding.mixed-conflict-no-assertions]
+file = "sdk/tasks/scheduler_test.go"
+line = 247
+class = "test-gap"
+severity = "medium"
+observed = "The Test some tx accesses same key case supplies an empty assertions callback. The surrounding harness checks only response count, errors and incarnation bounds, so wrong shared-key values or responses pass this case."
+expected = "A mixed conflicting and independent transaction workload must assert the serially equivalent response sequence and the final parent-store values."
+proposal = "In sdk/tasks/scheduler_test.go, assert the previous shared value for every tenth transaction, the unchanged response for independent transactions and the final shared value after the batch."
+owner_domain = 15
+
+[finding.test-profiler-lifecycle]
+file = "sdk/tasks/scheduler_test.go"
+line = 80
+class = "runtime-risk"
+severity = "low"
+observed = "TestProcessAll enables process-wide block profiling and starts http.ListenAndServe on localhost:6060 without checking its error, closing the server, or restoring the profiling setting."
+expected = "Scheduler tests must own and release listeners and profiling state so repeated test execution is isolated and port collisions are observable."
+proposal = "Remove the unconditional profiler from sdk/tasks/scheduler_test.go or make diagnostics explicitly opt-in with an owned listener, checked startup and cleanup registered on the test."
+owner_domain = 15
+
+[finding.stats-output-errors]
+file = "sdk/x/simulation/event_stats.go"
+line = 41
+class = "runtime-risk"
+severity = "low"
+observed = "EventStats.Print discards the return value and error from fmt.Fprintln. A closed pipe or full output device therefore produces an apparently successful statistics export with missing evidence."
+expected = "Failure to write simulation statistics must be visible to the caller, as ExportJSON already makes file-write failures visible."
+proposal = "In sdk/x/simulation/event_stats.go, expose the writer error and require the simulation reporting caller to report or propagate it; cover a writer failure when the maintained driver is connected."
+owner_domain = 15
+
+[finding.simulation-log-overwrite]
+file = "sdk/x/simulation/log.go"
+line = 54
+class = "runtime-risk"
+severity = "medium"
+observed = "createLogFile names output only to the second and opens it with os.Create. Two PrintLogs calls or two simulator processes in one HOME within that second select the same path and truncate the earlier diagnostic log."
+expected = "Distinct simulation runs must retain distinct diagnostic evidence; exporting a later run must not destroy an earlier run log."
+proposal = "In sdk/x/simulation/log.go, create each log exclusively with a unique run identifier and return the actual path, preserving write and close errors for the reporting caller."
+owner_domain = 15
+
+[finding.validator-power-update]
+file = "sdk/x/simulation/mock_tendermint.go"
+line = 100
+class = "runtime-risk"
+severity = "medium"
+observed = "updateValidators emits the updated event when an existing validator receives nonzero power, but never assigns update to current[str].val. Subsequent VoteInfo and TotalVotingPower calculations continue to use the old voting power."
+expected = "The simulation validator set must apply the same power updates as consensus before producing the next abci.Validator and evidence voting-power fields."
+proposal = "In sdk/x/simulation/mock_tendermint.go, replace the existing validator value while retaining its liveness state and prove a power change through generated BeginBlock votes and evidence. The helper currently has no in-repository caller."
+owner_domain = 15
+interface = "5.go-consensus-abci-types-validator"
+
+[finding.validator-liveness-update]
+file = "sdk/x/simulation/mock_tendermint.go"
+line = 133
+class = "runtime-risk"
+severity = "medium"
+observed = "RandomRequestBeginBlock copies validators[key] into mVal and advances mVal.livenessState, but never stores mVal back. Each block starts again from the original liveness state rather than the previous transition."
+expected = "The declared transition-matrix model must carry a validator liveness state forward across simulated blocks so consecutive downtime and recovery are represented."
+proposal = "In sdk/x/simulation/mock_tendermint.go, persist each transitioned validator back into the map and demonstrate a deterministic online-to-offline-to-recovered sequence across successive requests."
+owner_domain = 15
+interface = "15.go-types-simulation-transition-matrix-j76"
+
+[finding.evidence-history-bounds]
+file = "sdk/x/simulation/mock_tendermint.go"
+line = 188
+class = "runtime-risk"
+severity = "medium"
+observed = "RandomRequestBeginBlock indexes pastTimes and pastVoteInfos by a height sampled from header.Height, although only len(pastTimes) > 0 is checked. Short histories, a non-one starting height, unequal histories or an empty historical vote set can panic before evidence is returned."
+expected = "Historical evidence generation must select an available height with matching timestamp and nonempty vote information, or report that no eligible historical evidence exists."
+proposal = "In sdk/x/simulation/mock_tendermint.go, represent the history height range explicitly, validate matching histories and select only populated entries; prove sparse history and validator-set removal cases."
+owner_domain = 15
+interface = "5.go-consensus-abci-types-evidence"
+
+[finding.lost-timed-operations]
+file = "sdk/x/simulation/operation.go"
+line = 102
+class = "runtime-risk"
+severity = "medium"
+observed = "queueOperations appends time-based FutureOperation values to a slice passed by value and neither returns the updated slice nor updates a caller-owned slice header. Inserting into an empty or grown slice loses the queued operations from the caller view. Height-based insertion correctly mutates the shared map."
+expected = "FutureOperation.BlockTime must retain the scheduled operation for later execution just as BlockHeight does, with FIFO order for equal due times."
+proposal = "In sdk/x/simulation/operation.go, return the updated time queue or own it in a queue object, connect it to the maintained simulation driver and prove operations remain visible after reallocation and execute in due-time order."
+owner_domain = 15
+interface = "15.go-types-simulation-future-operation-j76"
+
+[finding.weighted-selection-boundary]
+file = "sdk/x/simulation/operation.go"
+line = 149
+class = "runtime-risk"
+severity = "medium"
+observed = "getSelectOpFn draws x in [0,totalWeight) but selects an operation when x <= Weight(). With weights [1,1], the first operation is always selected; a leading zero-weight operation can also execute when x is zero. This private selector currently has no caller."
+expected = "WeightedOperations must select each operation in proportion to its declared nonnegative weight, and a zero-weight operation must never execute."
+proposal = "In sdk/x/simulation/operation.go, use half-open cumulative weight intervals and add deterministic boundary tests for equal weights and leading, middle and trailing zero weights before wiring the selector."
+owner_domain = 15
+interface = "15.go-x-simulation-weighted-operations-j76"
+
+[finding.invalid-operation-weights]
+file = "sdk/x/simulation/operation.go"
+line = 147
+class = "runtime-risk"
+severity = "medium"
+observed = "NewWeightedOperation accepts any integer and getSelectOpFn sums weights without checking negativity, overflow or an empty/all-zero list. Calling the resulting selector can panic in rand.Intn or select an unintended operation."
+expected = "Application-supplied simulation operation weights need a validated nonnegative, nonoverflowing total with at least one positive executable operation."
+proposal = "In sdk/x/simulation/operation.go, validate the complete weight set at driver admission and return an actionable configuration error for invalid totals or nil selected operations; retain zero weights as disabled operations."
+owner_domain = 15
+interface = "15.go-x-simulation-new-weighted-operation-j76"
+
+[finding.unused-consensus-generator]
+file = "sdk/x/simulation/params.go"
+line = 153
+class = "dead-code"
+severity = "low"
+observed = "randomConsensusParams is package-private and has no call site in the repository. Its genesis-to-consensus evidence-age conversion and random block limits are never applied by an in-tree simulation driver."
+expected = "Simulation consensus settings should have a maintained caller and a real genesis-to-BeginBlock path, or be explicitly retired when that simulation mode is unsupported."
+proposal = "In sdk/x/simulation/params.go and the owning fork simulation harness, either connect the generator to the supported simulation entry point with staking-genesis assertions or remove the inaccessible generator after confirming the intended harness."
+owner_domain = 15
+interface = "15.go-x-staking-types-get-genesis-state-from-app-state-j76"
+
+[finding.missing-simulation-driver]
+file = "sdk/x/simulation/simulate.go"
+line = 7
+class = "wiring-gap"
+severity = "medium"
+observed = "simulate.go contains only AverageBlockTime. There is no in-tree caller of queueOperations, getSelectOpFn, newMockValidators, updateValidators, RandomRequestBeginBlock, getBlockSize or NewLogWriter, and no tests in sdk/x/simulation. Module simulation operations are constructed but these driver paths do not execute them."
+expected = "The fork must identify a supported simulation execution path that exercises operation selection, future operations and consensus state transitions against the application."
+proposal = "Provide the maintained fork simulation entry point and focused application-driven coverage under sdk/x/simulation, or explicitly retire its disconnected private driver helpers and document the replacement qualification path."
+owner_domain = 15
+
+[finding.transition-weight-validation]
+file = "sdk/x/simulation/transition_matrix.go"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "CreateTransitionMatrix validates only squareness. It returns nil error for empty matrices, negative weights, zero-total columns and overflowing totals. NextState later calls rand.Intn on those totals and indexes i without validation; GetMemberOfInitialState has the same unchecked weight-total behavior."
+expected = "A successfully created transition matrix must have valid nonnegative weights and positive bounded totals, with a valid state index before sampling."
+proposal = "In sdk/x/simulation/transition_matrix.go, reject invalid weights, empty state sets and overflowing or zero columns during construction, validate state bounds and cover error paths through the public constructor and NextState."
+owner_domain = 15
+interface = "15.go-x-simulation-create-transition-matrix-j76"
+
+[finding.transition-weight-alias]
+file = "sdk/x/simulation/transition_matrix.go"
+line = 41
+class = "runtime-risk"
+severity = "medium"
+observed = "CreateTransitionMatrix retains the caller weights slice while caching totals. A caller that changes a row after construction changes the transition weights without updating totals; NextState can then return -1 or use a distribution different from the admitted matrix."
+expected = "An admitted transition matrix must retain one consistent set of weights and totals throughout its lifetime, independent of later caller mutations."
+proposal = "In sdk/x/simulation/transition_matrix.go, take ownership of immutable matrix data by copying the supplied rows, and prove mutating the original input does not change the created transition matrix."
+owner_domain = 15
+interface = "15.go-x-simulation-create-transition-matrix-j76"
+
+[finding.unseeded-transaction-memo]
+file = "sdk/x/simulation/util.go"
+line = 136
+class = "runtime-risk"
+severity = "medium"
+observed = "GenTx seeds a new random source from time.Now().UnixNano for every memo even though the operation caller already supplies a seeded random generator in OperationInput.R. Replaying the same simulation seed produces different signed transaction bytes and hashes."
+expected = "Simulation transactions must be reproducible from the recorded simulation seed, account state and operation inputs so failures can be replayed exactly."
+proposal = "In sdk/x/simulation/util.go and its module simulation callers, derive the memo from the operation random source or pass the memo explicitly; prove two replays produce identical encoded transactions and state."
+owner_domain = 15
+interface = "15.go-x-simulation-gen-tx-j76"
+
+[finding.transaction-signing-errors]
+file = "sdk/x/simulation/util.go"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "GenTx indexes accSeqs and accNums by private-key position without checking lengths. Later GetSignBytes, private-key Sign and SetSignatures failures panic despite the public function returning an error; earlier builder errors correctly return normally."
+expected = "Malformed signer metadata and signing failures should be reported through GenTx error results so the simulation identifies the failed operation without an unexpected process panic."
+proposal = "In sdk/x/simulation/util.go, validate signer-array alignment and nonnil keys before constructing the transaction and propagate signing errors through the declared error return; prove invalid signer metadata and real signing-mode errors."
+owner_domain = 15
+interface = "15.go-x-simulation-gen-tx-j76"
+
+[finding.missing-simulation-account]
+file = "sdk/x/simulation/util.go"
+line = 87
+class = "runtime-risk"
+severity = "medium"
+observed = "GenAndDeliverTxWithRandFees and GenAndDeliverTx dereference AccountKeeper.GetAccount immediately. GetAccount returns AccountI and may return nil for an absent address, so a stale or missing simulation account panics rather than yielding an operation refusal."
+expected = "An absent account in OperationInput should be reported explicitly before reading its balance, account number or sequence."
+proposal = "In sdk/x/simulation/util.go, check account existence in both public delivery helpers and return a descriptive NoOpMsg or error according to the simulation contract; exercise an absent account against the real account keeper."
+owner_domain = 15
+interface = "15.go-x-simulation-operation-input-j76"
+
+[finding.docs-index-retired-lni]
+file = "docs/README.md"
+line = 22
+class = "doc-drift"
+severity = "low"
+observed = "The documentation index advertises wiki/LNI.md as Node interface v1.7 without a retirement notice and gives no merged-network entry point. The retired component inventory identifies LNI as deleted."
+expected = "The primary documentation index must direct operators to the merged paxd interfaces and clearly label historical daemon/LNI material."
+proposal = "Update docs/README.md to link the merged-network references and label or replace the legacy LNI navigation entry, preserving historical material only with an explicit archive notice."
+owner_domain = 16
+
+[finding.chain-docs-two-domains]
+file = "docs/paxeer-chain-docs.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-5 describe Paxeer as a custody/checkpoint settlement L1 beside LayerX with two trust boundaries; line 17 continues to direct readers to custody, bonds and exits as separate settlement contracts."
+expected = "Audit brief network facts 1-3 define one BFT network with the kernel inside paxd and block commit as finality, with retired custody and checkpoint flows."
+proposal = "Rewrite the introduction of docs/paxeer-chain-docs.md around the single network and current node APIs; remove the separate settlement-directory explanation while retaining the applicable Swagger instructions."
+owner_domain = 16
+
+[finding.network-overview-two-domains]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-20 describe ordinary LayerX activity outside Paxeer, periodic checkpoint settlement, independent sequencer replay and separate trust boundaries; lines 38-40 still describe anchor and custody settlement modules as active."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, and finality follows block commit; anchor, custody and separate LayerX execution flows are retired."
+proposal = "Rewrite docs/paxeer-network.md architecture and module tables for native kernel execution and committed chain state, retaining the accurate chain id and tenant-domain description."
+owner_domain = 16
+
+[finding.qualification-root-retired]
+file = "docs/QUALIFICATION.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The evidence table and settlement section require DA withholding, guarantor disagreement, custody reconciliation and sequencer-offline checkpoint exits; line 100 frames Paxeer and LayerX as independent systems, and line 24 points only to the old protocol task board."
+expected = "Release qualification must prove the merged paxd network and real block-commit recovery paths; retired guarantor, DA and separate custody-exit services cannot define the active operator procedure."
+proposal = "Update docs/QUALIFICATION.md to the merge specification and actual node qualification targets, retaining evidence-level distinctions and replacing retired service drills with the maintained commit, replay and recovery procedures."
+owner_domain = 16
+
+[finding.qualification-site-retired]
+file = "docs/site/docs/operators/qualification.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The evidence table and settlement section require DA withholding, guarantor disagreement, custody reconciliation and sequencer-offline checkpoint exits; line 100 frames Paxeer and LayerX as independent systems, and line 24 points only to the old protocol task board."
+expected = "Release qualification must prove the merged paxd network and real block-commit recovery paths; retired guarantor, DA and separate custody-exit services cannot define the active operator procedure."
+proposal = "Update docs/site/docs/operators/qualification.md to the merge specification and actual node qualification targets, retaining evidence-level distinctions and replacing retired service drills with the maintained commit, replay and recovery procedures."
+owner_domain = 16
+
+[finding.reference-spec-paths]
+file = "docs/site/docs/reference/index.md"
+line = 27
+class = "doc-drift"
+severity = "medium"
+observed = "The specification table names spec/.beta/layerx-agent-interface/spec.kvx and lines 29-31 assert that it is checked in there, but that path does not exist. The table omits spec/layerx-merge/spec.kvx, which governs the audited interfaces."
+expected = "The reference index must name existing normative sources for the merged network rather than sending integrators to a nonexistent specification path."
+proposal = "Correct docs/site/docs/reference/index.md to link existing normative specifications, add layerx-merge and derive their displayed statuses from the checked-in meta blocks."
+owner_domain = 16
+
+[finding.cli-retired-rpc-path]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 8, 131, 278 and 298 require or advertise the retired /rpc URL path and describe a separate gateway/LayerX endpoint. The command table also retains old lx_ faucet and token-read method names."
+expected = "Audit brief facts 2-3 require root-path node JSON-RPC and the hosted gateway px_ contract, with no unified /rpc path or separate LayerX interface."
+proposal = "Rewrite docs/site/docs/platform/cli.md endpoint and method guidance from the supported CLI transport and current gateway OpenRPC contract, using root-path node URLs for chain transactions."
+owner_domain = 16
+
+[finding.cli-command-contradiction]
+file = "docs/site/docs/platform/cli.md"
+line = 105
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 26-53 say the wallet/token groups are implemented, while lines 105-140 list those same commands as unimplemented and deny the existence of global --rpc and gateway credential flags described in the opening paragraph."
+expected = "A CLI reference must give one consistent implementation status and input contract for each command so users can tell which operations are available."
+proposal = "Reconcile the duplicate command tables and flag descriptions in docs/site/docs/platform/cli.md against the current clap definitions and behavior, clearly marking only remaining unavailable operations."
+owner_domain = 16
+
+[finding.agent-boundary-retired-transport]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 297
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes LNI as the submission transport at lines 3-5 and 234-260, configures a layerxd.lni.sock at line 297, and presents a real layerxd sequencer and authority replica as required test services at lines 418-420."
+expected = "LNI and the standalone layerxd runtime are retired; merged writes are native chain transactions and receipt reads bind to committed chain evidence."
+proposal = "Rewrite docs/site/docs/platform/agent-boundary.md around the supported merged boundary and native node submission/receipt path, removing daemon sockets, replica provisioning and retired REST submission guidance."
+owner_domain = 16
+
+[finding.core-retired-daemon]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 6 and 23 document a TLS boundary in front of layerxd with sibling daemon, LNI socket, replica and supervisor; lines 118-155 and 314-336 require those retired transports and processes for submission, readiness and tests."
+expected = "The merged network runs its kernel inside paxd and has no separate layerxd sequencer or LNI/authority-replica provisioning requirement."
+proposal = "Replace the architecture, configuration, readiness and qualification guidance in docs/site/docs/platform/hosted-core.md with the maintained paxd-backed component contract and explicit retirement notices for removed services."
+owner_domain = 16
+
+[finding.gateway-retired-router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-51 call one router the only unified endpoint, advertise /rpc, /rpc/schema and /rpc/ws, and claim an exact 15-method contract. The current openrpc.json declares 17 methods; lines 198-200 and 609 repeat the retired routes."
+expected = "Audit brief facts 2-3 define root-path node RPC and the hosted px_ contract without a router or unified /rpc path; method documentation must match the declared OpenRPC surface."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md to distinguish native node namespaces from hosted px_ methods and generate the method list from openrpc.json after obsolete server aliases are retired."
+owner_domain = 16
+
+[finding.programs-retired-runtime]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 119-138 describe LNI simulate and daemon entry points as the active program path; lines 48-56 advertise retired fee governance, and lines 404-439 explain settlement through a separate kernel batch finalizer and replica replay."
+expected = "Programs execute inside the merged chain; LNI, standalone daemon, kernel fee-relay activity and separate batch-seal/replica runtime are retired by the component inventory."
+proposal = "Rewrite docs/site/docs/programs/index.md runtime, fee-governance and simulation sections for native 0x101D transactions, maintained queries and committed-block lifecycle evidence, preserving the still-supported guest ABI details."
+owner_domain = 16
+
+[finding.programs-existing-assets-denied]
+file = "docs/site/docs/programs/index.md"
+line = 144
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-19, 144-146 and 281-282 say the LXT-20 codecs/example and pay5 fixtures are not in this tree. programs/sdk/rust/src/lxt20.rs, examples/token-lxt20, programs/fixtures/pay5 and its account-authorization-vectors.json all exist."
+expected = "The program reference must identify the actual buildable examples and available producer-emitted fixtures so integrators can reproduce ABI and authorization behavior."
+proposal = "Correct docs/site/docs/programs/index.md to link the existing LXT-20 source, token example and pay5 vectors, replacing the false absence statements with current usage instructions."
+owner_domain = 16
+
+[finding.programs-wrong-example-build]
+file = "docs/site/docs/programs/index.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+observed = "Within the LXT-20 reference, the Build the reference guest command selects programs/sdk/rust/examples/payments-merchant/Cargo.toml. That command builds the merchant example instead of the token-lxt20 example described by the surrounding interface."
+expected = "The build command beneath an example interface must produce the guest implementing that interface and its stated calldata and state behavior."
+proposal = "In docs/site/docs/programs/index.md, give the token-lxt20 manifest command in the LXT-20 instructions and move the payments-merchant command to a separately identified merchant example section."
+owner_domain = 16
+
+[finding.openrpc-retired-server-alias]
+file = "services/platform/hosted/gateway/openrpc.json"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The declared OpenRPC servers list still includes https://api-mainnet-beta.paxeer.network/rpc as Paxeer X RPC path; info.description describes a same-endpoint EVM and LayerX relay although the declared methods are now px_ plus pax_sequencerReceipt."
+expected = "Audit brief facts 2-3 require a root-path node surface and a separately identified hosted gateway contract, without the retired unified /rpc server alias."
+proposal = "In services/platform/hosted/gateway/openrpc.json, remove the obsolete /rpc server alias and update the introductory transport and namespace description to the maintained merged-network contract."
+owner_domain = 8
+
+[doc.1]
+path = "docs/README.md"
+status = "stale"
+notes = "Navigation is mostly accurate, but line 22 presents the retired LNI interface without archive labeling; see docs-index-retired-lni."
+
+[doc.2]
+path = "docs/paxeer-chain-docs.md"
+status = "stale"
+notes = "Read all 94 lines. Separate settlement and trust-boundary statements at lines 3-17 conflict with the merged network; Swagger instructions are a separate retained concern."
+
+[doc.3]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Read all 101 lines. Evidence levels remain useful; lines 20, 24, 80-84 and 100 point to retired service drills, old normative sources and the two-system model."
+
+[doc.4]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read all 97 lines. Chain id 125 and virtual-chain tenancy agree with the brief; lines 3-20 and the settlement module/build descriptions retain the pre-merge model."
+
+[doc.5]
+path = "docs/perps-abi-change-history.md"
+status = "accurate"
+notes = "Read all 57 lines. This is explicitly a history pinned to revision 210639d0360c53f5c2fdd81c9c7c5e84b24b8c84 and does not claim the listed pending work is still pending today; it makes no scheduler or simulation API claim."
+
+[doc.6]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "Read all 101 lines. The site copy repeats the retired qualification drills, old task-board link and separate-system explanation of the root page."
+
+[doc.7]
+path = "docs/site/docs/reference/index.md"
+status = "stale"
+notes = "Read all 46 lines. The agent-interface path at line 27 is missing from the tree and the merged-network normative specification is absent from the table."
+
+[doc.8]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read all 403 lines. Lines 8, 131, 278 and 298 retain /rpc routing; lines 26-53 and 105-140 contradict each other about wallet/token implementation and global flags."
+
+[doc.9]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Read all 457 lines. Lines 3-5, 234-260, 297 and 418-420 instruct operators to use retired LNI and daemon/replica processes."
+
+[doc.10]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "stale"
+notes = "Read all 340 lines. Lines 6, 23, 118-155 and 314-336 describe the removed standalone daemon and its LNI/replica lifecycle as operational dependencies."
+
+[doc.11]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Read all 632 lines. Lines 39-51, 198-200 and 609 advertise the retired router and /rpc paths, and the claimed 15 methods disagree with the 17-method OpenRPC declaration."
+
+[doc.12]
+path = "docs/site/docs/programs/index.md"
+status = "misleading"
+notes = "Read all 583 lines. Lines 48-56, 119-138 and 404-439 retain retired runtime/lifecycle advice; lines 18-19, 144-146 and 281-282 deny existing source assets; line 244 builds the wrong example."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Read the relevant go-api, legacy-telemetry, occ, otel-instruments and scheduler acceptance rows. This is a frozen pinned-revision contract, not current test execution evidence. Its 15022.2 ordering rule is the source of the validation-order finding."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Read the consumed go-api key conversion and Ed25519 rows. The registry and current PubKeyFromProto implementation both accept the same Ed25519 key representation; pinned source references are historical."
+
+[doc.15]
+path = "services/platform/hosted/gateway/openrpc.json"
+status = "stale"
+notes = "Read server metadata and all 17 declared method names to compare the gateway page. The obsolete /rpc server alias and old dual-surface introductory text need the openrpc-retired-server-alias rewrite."
+

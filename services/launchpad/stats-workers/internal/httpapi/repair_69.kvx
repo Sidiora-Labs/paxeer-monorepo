@@ -1,0 +1,20 @@
+[task]
+id = "22.31.69"
+audit = "22.30.40"
+finding = "public_search_source"
+implementation = "Store.Search reads active_v2 revision, documents_v2 payloads and current authority_v2, validates the production document and emits only the frozen Hit fields; the handler enforces the 2048-byte output cursor bound."
+proof = ["TestRepair_69_PublicSearchSourceDeliveryAndRestart", "TestRepair_69_FrozenQueriesAndCursorBounds"]
+proof_boundary = "Real delivery.Store.Produce commits source facts and codec-produced outbox bytes; Relay, file-backed JetStream, natsdriver and Projection deliver creation, metadata and visibility into production v2 tables, followed by RegisterSearch and the frozen Go SearchResponse validator, including reopened PostgreSQL pools, cursor continuity, metadata authority lag and moderation."
+fixture_boundary = "Canonical creation and metadata/visibility source inputs are constructed in the isolated database; the upstream indexer and metadata authority implementations, core/api proxy and JavaScript parser are outside this proof."
+baseline = "No baseline gate was run: the explicit ordered gate instructions prohibit verification before completed implementation; no pre-existing failing tests are claimed."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; the final response copies its final evidence line."
+prerequisite = "The integration test requires PostgreSQL through STATS_TEST_POSTGRES_DSN and the nats-server executable; the broker uses an isolated temporary file store."
+
+[wiring]
+indexer = "services/launchpad/indexer/internal: launchpad indexer owner to extend the canonical creation producer integration proof through its committed source/outbox into TestRepair_69_PublicSearchSourceDeliveryAndRestart."
+metadata = "services/launchpad/metadata/internal and visibility authority owner: bind production metadata/visibility source views and prove their emitted deliveries against the public IF_SEARCH route."
+proxy = "services/launchpad/api/internal/rest: core/api owner to drive RegisterV2SearchProxy against the repaired stats route with committed production events."
+parser = "apps/launchpad/web/src/core/app-foundation/search-client.ts and sdk/launchpad/packages/sdk/src/transport.ts: web/SDK owners to run searchEntities and decodeV2Contract on the proxied response after restart."
+
+[gotcha]
+observation = "The public-route failure is masked by tests that populate legacy search tables; the repair test installs only the production v2 migration and asserts the legacy generation table is absent."

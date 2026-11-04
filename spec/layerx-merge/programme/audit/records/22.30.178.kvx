@@ -1,0 +1,1515 @@
+[audit.22.30.178]
+task = "22.30.178"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 108
+findings = 73
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["19", "20", "21"]
+
+[file.1]
+path = ".opencode/opencode.json"
+lines = 14
+verdict = "clean"
+note = "Reviewed the coding-tool schema and local agent configuration; no running-network endpoint or retired daemon dependency is configured."
+
+[file.2]
+path = "docker/localnode/Dockerfile"
+lines = 60
+verdict = "clean"
+note = "Reviewed the local image build inputs, tool installation and copied startup scripts; startup defects are recorded against the owning scripts."
+
+[file.3]
+path = "docker/localnode/config/app.toml"
+lines = 343
+verdict = "clean"
+note = "Reviewed every application setting against current application sections and storage/API options; local-only development exposure is explicit."
+
+[file.4]
+path = "docker/localnode/config/config.toml"
+lines = 419
+verdict = "clean"
+note = "Reviewed every consensus, RPC, peer and state-sync setting against current hyphenated native config keys and local deployment use."
+
+[file.5]
+path = "docker/localnode/scripts/deploy.sh"
+lines = 69
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 7 describe the disagreements and owning-path proposals."
+
+[file.6]
+path = "docker/localnode/scripts/step0_build.sh"
+lines = 22
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 8 describe the disagreements and owning-path proposals."
+
+[file.7]
+path = "docker/localnode/scripts/step1_configure_init.sh"
+lines = 71
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 9 describe the disagreements and owning-path proposals."
+
+[file.8]
+path = "docker/localnode/scripts/step2_genesis.sh"
+lines = 71
+verdict = "clean"
+note = "Reviewed genesis account aggregation and initialization ordering against the shared local deployment artifacts and denomination."
+
+[file.9]
+path = "docker/localnode/scripts/step3_add_validator_to_genesis.sh"
+lines = 18
+verdict = "clean"
+note = "Reviewed validator gentx construction and shared genesis inputs against the current paxd command shape."
+
+[file.10]
+path = "docker/localnode/scripts/step4_config_override.sh"
+lines = 159
+verdict = "clean"
+note = "Reviewed section-specific config edits, including state-commit sc-write-mode placement, against the native configuration consumer."
+
+[file.11]
+path = "docker/localnode/scripts/step5_start_pax.sh"
+lines = 13
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 10 describe the disagreements and owning-path proposals."
+
+[file.12]
+path = "scripts/SidioraProxyGovernance.s.sol"
+lines = 130
+verdict = "clean"
+note = "Reviewed Solidity governance deployment and broadcast inputs against its contract calls and explicit signer environment."
+
+[file.13]
+path = "scripts/check-paxd-native-digest.sh"
+lines = 22
+verdict = "clean"
+note = "Reviewed native digest computation and embedded identity comparison, including absent-library and mismatch refusal paths."
+
+[file.14]
+path = "scripts/codify.sh"
+lines = 94
+verdict = "clean"
+note = "Reviewed local Codify launcher argument forwarding and executable discovery; it does not configure a network component."
+
+[file.15]
+path = "scripts/dump_app_state_for_height.sh"
+lines = 38
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 16 describe the disagreements and owning-path proposals."
+
+[file.16]
+path = "scripts/evm_stress.sh"
+lines = 125
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 11, 12 describe the disagreements and owning-path proposals."
+
+[file.17]
+path = "scripts/generate-changelog.sh"
+lines = 53
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 14, 15 describe the disagreements and owning-path proposals."
+
+[file.18]
+path = "scripts/initialize_local_chain.sh"
+lines = 206
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 13 describe the disagreements and owning-path proposals."
+
+[file.19]
+path = "scripts/package-static-wasm.py"
+lines = 150
+verdict = "clean"
+note = "Reviewed static archive discovery, member extraction and deterministic packaging against the native Wasm link inputs."
+
+[file.20]
+path = "scripts/paxd_problems_detector.py"
+lines = 214
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 17 describe the disagreements and owning-path proposals."
+
+[file.21]
+path = "scripts/protoc.sh"
+lines = 43
+verdict = "clean"
+note = "Reviewed protobuf tool discovery, input handling and generated output routing against the repository module layout."
+
+[file.22]
+path = "scripts/qualification/paxeer-x/program-event-bounds.py"
+lines = 155
+verdict = "clean"
+note = "Reviewed actual native event-boundary targets and emitted fixture fields; bounded-event and rejected-overflow expectations agree with the producer."
+
+[file.23]
+path = "scripts/qualification/paxeer-x/program-http-producer.py"
+lines = 496
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 43 describe the disagreements and owning-path proposals."
+
+[file.24]
+path = "scripts/qualification/paxeer-x/program-terminal-v5.py"
+lines = 144
+verdict = "clean"
+note = "Reviewed terminal-v5 case dispatch and real native binary evidence against the implemented terminal producer corpus and refusal cases."
+
+[file.25]
+path = "scripts/qualification/paxeer-x/reference-custody.py"
+lines = 197
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 53 describe the disagreements and owning-path proposals."
+
+[file.26]
+path = "scripts/qualify-mirror-live.sh"
+lines = 109
+verdict = "clean"
+note = "Reviewed live mirror producer acquisition and evidence arguments against the current mirror verification path; artifact mirror is not treated as node JSON-RPC."
+
+[file.27]
+path = "scripts/qualify-mirror-verification-live.sh"
+lines = 112
+verdict = "clean"
+note = "Reviewed verification command composition and explicit evidence/refusal handling against its mirror consumer contract."
+
+[file.28]
+path = "scripts/run-sha256sum.sh"
+lines = 38
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 18 describe the disagreements and owning-path proposals."
+
+[file.29]
+path = "scripts/run_blocktests.sh"
+lines = 183
+verdict = "clean"
+note = "Reviewed isolated local block-test setup and explicit reset acknowledgement; commands target paxd and the selected disposable home."
+
+[file.30]
+path = "scripts/run_snapshot.sh"
+lines = 80
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 22 describe the disagreements and owning-path proposals."
+
+[file.31]
+path = "scripts/snapshot.sh"
+lines = 11
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 19 describe the disagreements and owning-path proposals."
+
+[file.32]
+path = "scripts/specgen.sh"
+lines = 5
+verdict = "clean"
+note = "Reviewed spec generator launch and forwarded arguments against the repository spec tool entry point."
+
+[file.33]
+path = "scripts/start_faucet.sh"
+lines = 9
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 23, 24 describe the disagreements and owning-path proposals."
+
+[file.34]
+path = "scripts/state_sync.sh"
+lines = 57
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 20, 21 describe the disagreements and owning-path proposals."
+
+[file.35]
+path = "scripts/test_paxd_native_digest.py"
+lines = 72
+verdict = "clean"
+note = "Reviewed digest test cases and native executable/library identity assertions against the actual check script behavior."
+
+[file.36]
+path = "scripts/update-swagger-ui-statik.sh"
+lines = 10
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 25 describe the disagreements and owning-path proposals."
+
+[file.37]
+path = "scripts/wallet/check-deploy.sh"
+lines = 256
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 58 describe the disagreements and owning-path proposals."
+
+[file.38]
+path = "scripts/wallet/check-live.sh"
+lines = 892
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 57 describe the disagreements and owning-path proposals."
+
+[file.39]
+path = "scripts/wallet/gate-lint.sh"
+lines = 271
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 59 describe the disagreements and owning-path proposals."
+
+[file.40]
+path = "scripts/wallet/gate-test.sh"
+lines = 254
+verdict = "clean"
+note = "Reviewed target discovery, command execution, timeout accounting and failure propagation; optional target overrides are explicit in its interface."
+
+[file.41]
+path = "scripts/wallet/scan-secrets.sh"
+lines = 123
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 60 describe the disagreements and owning-path proposals."
+
+[file.42]
+path = "tests/storage/lxp_test_log.c"
+lines = 94
+verdict = "clean"
+note = "Reviewed log append/read, encoding and error assertions against native storage declarations; historical record enums are deliberate compatibility/refusal inputs."
+
+[file.43]
+path = "tests/storage/lxp_test_log_durability.c"
+lines = 459
+verdict = "clean"
+note = "Reviewed real durability fault boundaries and recovery assertions against the native log sync and durable-head contracts."
+
+[file.44]
+path = "tests/storage/lxp_test_projection.c"
+lines = 51
+verdict = "clean"
+note = "Reviewed SQLite projection application, watermark and idempotency assertions against native record and projection APIs."
+
+[file.45]
+path = "tests/storage/lxp_test_rebuild.c"
+lines = 124
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 26 describe the disagreements and owning-path proposals."
+
+[file.46]
+path = "tests/storage/lxp_test_recovery.c"
+lines = 451
+verdict = "clean"
+note = "Reviewed truncated/corrupt log recovery and resume behavior against native recovery APIs; retired record inputs test explicit refusal rather than active services."
+
+[file.47]
+path = "tools/benchmark/loadtest/contracts/evm/bindings/erc20/abi.json"
+lines = 354
+verdict = "generated"
+note = "Generated Solidity ABI or abigen binding; generation provenance and ERC20/ERC721 ABI metadata were inspected rather than reviewing generated wrapper bodies. Companion ABI and embedded binding metadata agree on method/event names and types."
+
+[file.48]
+path = "tools/benchmark/loadtest/contracts/evm/bindings/erc20/erc20.go"
+lines = 759
+verdict = "generated"
+note = "Generated Solidity ABI or abigen binding; generation provenance and ERC20/ERC721 ABI metadata were inspected rather than reviewing generated wrapper bodies. Companion ABI and embedded binding metadata agree on method/event names and types."
+
+[file.49]
+path = "tools/benchmark/loadtest/contracts/evm/bindings/erc721/abi.json"
+lines = 318
+verdict = "generated"
+note = "Generated Solidity ABI or abigen binding; generation provenance and ERC20/ERC721 ABI metadata were inspected rather than reviewing generated wrapper bodies. Companion ABI and embedded binding metadata agree on method/event names and types."
+
+[file.50]
+path = "tools/benchmark/loadtest/contracts/evm/bindings/erc721/erc721.go"
+lines = 961
+verdict = "generated"
+note = "Generated Solidity ABI or abigen binding; generation provenance and ERC20/ERC721 ABI metadata were inspected rather than reviewing generated wrapper bodies. Companion ABI and embedded binding metadata agree on method/event names and types."
+
+[file.51]
+path = "tools/chain/cmd.go"
+lines = 16
+verdict = "clean"
+note = "Reviewed chain tool command registration and context forwarding against its supported CLI operations."
+
+[file.52]
+path = "tools/chain/upgrade-replay/appsetup.go"
+lines = 265
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 55 describe the disagreements and owning-path proposals."
+
+[file.53]
+path = "tools/chain/upgrade-replay/fixture.go"
+lines = 170
+verdict = "clean"
+note = "Reviewed fixture store creation and upgrade-height construction against the actual application setup and replay inputs."
+
+[file.54]
+path = "tools/chain/upgrade-replay/main.go"
+lines = 191
+verdict = "clean"
+note = "Reviewed CLI modes, path resolution and failure propagation; copied-home dependency loss is recorded against run.sh."
+
+[file.55]
+path = "tools/chain/upgrade-replay/probe.go"
+lines = 154
+verdict = "clean"
+note = "Reviewed replay state probes and account/store query shapes against the current application and database interfaces."
+
+[file.56]
+path = "tools/chain/upgrade-replay/replay.go"
+lines = 525
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 56 describe the disagreements and owning-path proposals."
+
+[file.57]
+path = "tools/chain/upgrade-replay/run.sh"
+lines = 75
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 54 describe the disagreements and owning-path proposals."
+
+[file.58]
+path = "tools/codebase-map/README.md"
+lines = 44
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 6 describe the disagreements and owning-path proposals."
+
+[file.59]
+path = "tools/codebase-map/app.js"
+lines = 1165
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 4 describe the disagreements and owning-path proposals."
+
+[file.60]
+path = "tools/codebase-map/generate.mjs"
+lines = 478
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 1, 2, 3 describe the disagreements and owning-path proposals."
+
+[file.61]
+path = "tools/codebase-map/package.json"
+lines = 13
+verdict = "clean"
+note = "Reviewed module type, runtime commands and test/generate scripts against the actual tool entry points."
+
+[file.62]
+path = "tools/codebase-map/serve.mjs"
+lines = 62
+verdict = "clean"
+note = "Reviewed static path resolution, content types and HTTP serving boundaries against the generated map asset consumer."
+
+[file.63]
+path = "tools/codebase-map/test/map.test.mjs"
+lines = 248
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 5 describe the disagreements and owning-path proposals."
+
+[file.64]
+path = "tools/deps/README.md"
+lines = 48
+verdict = "clean"
+note = "Reviewed advisory floor semantics, lockfile precedence and readonly checking instructions against lockfloor.py and the floor manifests."
+
+[file.65]
+path = "tools/deps/floors/blockscout.json"
+lines = 59
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this blockscout advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.66]
+path = "tools/deps/floors/contracts-launchpad.json"
+lines = 27
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this contracts-launchpad advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.67]
+path = "tools/deps/floors/contracts.json"
+lines = 40
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this contracts advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.68]
+path = "tools/deps/floors/dapp-tests.json"
+lines = 45
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this dapp-tests advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.69]
+path = "tools/deps/floors/docs-pip.json"
+lines = 7
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this docs-pip advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.70]
+path = "tools/deps/floors/explorer-tools.json"
+lines = 78
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this explorer-tools advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.71]
+path = "tools/deps/floors/explorer-web.json"
+lines = 75
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this explorer-web advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.72]
+path = "tools/deps/floors/go-launchpad.json"
+lines = 105
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this go-launchpad advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.73]
+path = "tools/deps/floors/go-root.json"
+lines = 53
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this go-root advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.74]
+path = "tools/deps/floors/go-vendored.json"
+lines = 28
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this go-vendored advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.75]
+path = "tools/deps/floors/jvm.json"
+lines = 18
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this jvm advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.76]
+path = "tools/deps/floors/launchpad-web.json"
+lines = 37
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this launchpad-web advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.77]
+path = "tools/deps/floors/names.json"
+lines = 20
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this names advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.78]
+path = "tools/deps/floors/perps-web.json"
+lines = 84
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this perps-web advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.79]
+path = "tools/deps/floors/platform-node.json"
+lines = 32
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this platform-node advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.80]
+path = "tools/deps/floors/rpc-tests.json"
+lines = 27
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this rpc-tests advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.81]
+path = "tools/deps/floors/rust-services.json"
+lines = 29
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this rust-services advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.82]
+path = "tools/deps/floors/rust-vendored.json"
+lines = 95
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this rust-vendored advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.83]
+path = "tools/deps/floors/wallet-app.json"
+lines = 29
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this wallet-app advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.84]
+path = "tools/deps/floors/wallet-services.json"
+lines = 34
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this wallet-services advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.85]
+path = "tools/deps/floors/web-sdk-misc.json"
+lines = 24
+verdict = "clean"
+note = "Reviewed every dependency floor and range in this web-sdk-misc advisory manifest against lockfloor.py input grammar and the corresponding dependency group; floors are advisory minima and do not replace resolved lock versions."
+
+[file.86]
+path = "tools/deps/lockfloor.py"
+lines = 329
+verdict = "clean"
+note = "Reviewed all manifest adapters, advisory version floors, range parsing and refusal behavior against the checked-in floor declarations and tests."
+
+[file.87]
+path = "tools/deps/tests/test_android_sample_dependencies.py"
+lines = 147
+verdict = "clean"
+note = "Reviewed Android sample dependency and repository assertions against the sample Gradle producer inputs."
+
+[file.88]
+path = "tools/deps/tests/test_go_root_checksums.py"
+lines = 56
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 27 describe the disagreements and owning-path proposals."
+
+[file.89]
+path = "tools/deps/tests/test_lockfloor.py"
+lines = 422
+verdict = "clean"
+note = "Reviewed real temporary manifest/lockfile cases and dependency-floor assertions against lockfloor.py adapters."
+
+[file.90]
+path = "tools/deps/tests/test_lockfloor_range.py"
+lines = 84
+verdict = "clean"
+note = "Reviewed range and minimum-version cases against the actual advisory range semantics implemented by lockfloor.py."
+
+[file.91]
+path = "tools/deps/tests/test_vendored_checksums.py"
+lines = 65
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 28 describe the disagreements and owning-path proposals."
+
+[file.92]
+path = "tools/hpx/README.md"
+lines = 127
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 42 describe the disagreements and owning-path proposals."
+
+[file.93]
+path = "tools/hpx/fleet-keygen.sh"
+lines = 89
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 29 describe the disagreements and owning-path proposals."
+
+[file.94]
+path = "tools/hpx/get-hpx.sh"
+lines = 109
+verdict = "clean"
+note = "Reviewed mirror selection, download/checksum verification and installation handoff against the published artifact names."
+
+[file.95]
+path = "tools/hpx/hosting/deploy.sh"
+lines = 157
+verdict = "clean"
+note = "Reviewed Fly deployment arguments, artifact volume configuration and explicit runtime source paths against the registry service."
+
+[file.96]
+path = "tools/hpx/hosting/deploy.test.sh"
+lines = 38
+verdict = "clean"
+note = "Reviewed deployment argument-capture cases and failure assertions against the hosting deploy script contract."
+
+[file.97]
+path = "tools/hpx/hosting/fly.toml"
+lines = 55
+verdict = "clean"
+note = "Reviewed process, health, port and persistent-volume declarations against the registry and artifact-serving deployment."
+
+[file.98]
+path = "tools/hpx/install.sh"
+lines = 69
+verdict = "clean"
+note = "Reviewed verified CLI download, executable installation and host setup boundaries against the HPX mirror layout."
+
+[file.99]
+path = "tools/hpx/publish.sh"
+lines = 162
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 35 describe the disagreements and owning-path proposals."
+
+[file.100]
+path = "tools/hpx/registry/main.go"
+lines = 666
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 36, 37, 38, 39, 40 describe the disagreements and owning-path proposals."
+
+[file.101]
+path = "tools/hpx/registry/main_test.go"
+lines = 217
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 41 describe the disagreements and owning-path proposals."
+
+[file.102]
+path = "tools/hpx/stake-fleet.sh"
+lines = 372
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 30, 31, 32, 33, 34 describe the disagreements and owning-path proposals."
+
+[file.103]
+path = "tools/hpx/uninstall.sh"
+lines = 43
+verdict = "clean"
+note = "Reviewed explicit uninstall selection and removal boundaries against installed CLI, service and node state locations."
+
+[file.104]
+path = "tools/qualification/beta_driver.py"
+lines = 1656
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 44, 45, 46, 47 describe the disagreements and owning-path proposals."
+
+[file.105]
+path = "tools/qualification/paxeer-x/human-owner-evidence.py"
+lines = 649
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 52 describe the disagreements and owning-path proposals."
+
+[file.106]
+path = "tools/qualification/paxeer-x/interop-archive-contract.py"
+lines = 1388
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 49 describe the disagreements and owning-path proposals."
+
+[file.107]
+path = "tools/qualification/paxeer-x/registry-contract.py"
+lines = 1438
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 48 describe the disagreements and owning-path proposals."
+
+[file.108]
+path = "tools/qualification/paxeer-x/registry-router-bootstrap.py"
+lines = 1472
+verdict = "issues"
+note = "Reviewed the complete file against its declared CLI/configuration/data contracts and merged-network requirements; findings 50, 51 describe the disagreements and owning-path proposals."
+
+[finding.1]
+file = "tools/codebase-map/generate.mjs"
+line = 11
+class = "wiring-gap"
+severity = "medium"
+observed = "The generator requires spec/layerx-platform/spec.kvx and throws when it is absent; that feature path does not exist in this tree."
+expected = "The map must obtain requirements and tasks from the active layerx-merge specification and generate a usable repository snapshot."
+proposal = "In tools/codebase-map/generate.mjs resolve the active feature through the supported spec configuration and read spec/layerx-merge/spec.kvx; retain an explicit error for a missing authoritative source."
+owner_domain = 16
+
+[finding.2]
+file = "tools/codebase-map/generate.mjs"
+line = 168
+class = "runtime-risk"
+severity = "medium"
+observed = "parsePlatformSpec recognizes only req and task section headers; any following decision or other section leaves current active and its assignments overwrite the preceding task or requirement."
+expected = "Each task and requirement must contain only assignments inside its own KVX section, including when unrelated sections are interleaved."
+proposal = "In tools/codebase-map/generate.mjs end the current block on every section header and select only req and task blocks; cover a task followed by a decision with overlapping title and status fields."
+owner_domain = 16
+
+[finding.3]
+file = "tools/codebase-map/generate.mjs"
+line = 432
+class = "config-drift"
+severity = "low"
+observed = "The snapshot sources description advertises graph schema 10 while GRAPH_SCHEMA_VERSION is 14 and the generator requires schema 14."
+expected = "The published map must describe the graph schema that actually supplied its nodes and edges so consumers can identify compatible snapshots."
+proposal = "Derive the source description from GRAPH_SCHEMA_VERSION in tools/codebase-map/generate.mjs and keep schema identity consistent with the database compatibility check."
+owner_domain = 16
+
+[finding.4]
+file = "tools/codebase-map/app.js"
+line = 382
+class = "runtime-risk"
+severity = "medium"
+observed = "The default task view materializes every deliverable, filters the entire task array once per task, and applies an all-pairs force simulation for repeated frames."
+expected = "Opening the task map for the active programme must remain responsive as the number of deliverables grows, while preserving discovery of every task."
+proposal = "In tools/codebase-map/app.js group tasks by wave once, initially show a bounded wave or aggregate view, and use a scalable layout with explicit expansion and searchable access to all tasks."
+owner_domain = 16
+
+[finding.5]
+file = "tools/codebase-map/test/map.test.mjs"
+line = 51
+class = "test-gap"
+severity = "medium"
+observed = "Snapshot referential completeness, live count comparison and first browser render are skipped when codebase-map.json is missing, allowing an absent generator output to leave only parser checks running."
+expected = "The map qualification must fail when its required generated snapshot is missing and must exercise the actual generator-to-browser data path."
+proposal = "Make tools/codebase-map/test/map.test.mjs require a snapshot produced from the current graph and active spec during its declared setup, then run the existing completeness and render assertions without a missing-output skip."
+owner_domain = 16
+
+[finding.6]
+file = "tools/codebase-map/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The README directs readers to spec/layerx-platform/spec.kvx and spec/paxeer-x/spec.kvx, which are absent, as the source of the repository map and active work."
+expected = "Map instructions must identify the active layerx-merge requirements and tasks and the graph schema accepted by the current generator."
+proposal = "Rewrite tools/codebase-map/README.md around spec/layerx-merge/spec.kvx, the supported graph generation flow and current output prerequisites; keep the commands aligned with the generator repair."
+owner_domain = 16
+
+[finding.7]
+file = "docker/localnode/scripts/deploy.sh"
+line = 14
+class = "runtime-risk"
+severity = "medium"
+observed = "Every node deletes the shared build/generated coordination directory before waiting on marker files, so a late node can erase another node's progress; the waits have no failure deadline."
+expected = "A local multi-node deployment must initialize shared state once and either bring up the complete cluster or report the failed stage within a bounded time."
+proposal = "In docker/localnode/scripts/deploy.sh give one coordinator ownership of a run-specific shared directory, publish stage results atomically, and stop all waiters on a stage failure or startup deadline."
+owner_domain = 16
+interface = "16.cli-dock-localnode-scripts-deploy"
+
+[finding.8]
+file = "docker/localnode/scripts/step0_build.sh"
+line = 12
+class = "wiring-gap"
+severity = "medium"
+observed = "The script does not stop on failing make commands and unconditionally writes build/generated/build.complete, allowing other nodes to proceed with a missing or stale paxd binary."
+expected = "The build marker must mean the requested paxd build succeeded and the executable to be launched belongs to that build."
+proposal = "Make docker/localnode/scripts/step0_build.sh propagate clean and build failures, validate the resulting executable, and publish build.complete only after successful completion with an explicit failure signal for waiters."
+owner_domain = 16
+interface = "16.cli-dock-localnode-scripts-step0-build"
+
+[finding.9]
+file = "docker/localnode/scripts/step1_configure_init.sh"
+line = 48
+class = "security"
+severity = "medium"
+observed = "Local validator keys use the fixed passphrase 12345678 and operator private keys are exported into the shared exported_keys tree without an explicit private directory mode."
+expected = "Local development credentials must be clearly disposable and must not expose reusable operator key material through shared files or predictable encryption credentials."
+proposal = "In docker/localnode/scripts/step1_configure_init.sh enforce a disposable local-only context, create key-export directories with private permissions, avoid persistent plaintext exports and document checked cleanup before any shared deployment."
+owner_domain = 16
+interface = "16.cli-dock-localnode-scripts-step1-configure-init"
+
+[finding.10]
+file = "docker/localnode/scripts/step5_start_pax.sh"
+line = 13
+class = "wiring-gap"
+severity = "medium"
+observed = "The start script backgrounds paxd and immediately appends launch.complete without checking process survival or node readiness, so deploy.sh can announce successful startup after a daemon failure."
+expected = "The local cluster startup result must reflect live nodes serving the configured chain rather than successful shell backgrounding."
+proposal = "In docker/localnode/scripts/step5_start_pax.sh supervise the daemon, check its chain identity and readiness under a deadline, and publish launch success only while it is healthy; propagate early exit to deploy.sh."
+owner_domain = 16
+interface = "16.cli-dock-localnode-scripts-step5-start-pax"
+
+[finding.11]
+file = "scripts/evm_stress.sh"
+line = 36
+class = "config-drift"
+severity = "medium"
+observed = "The documented no-environment stress command invokes initialize_local_chain.sh with NO_RUN=1 but omits its required PAX_LOCAL_RESET=1 reset acknowledgement, so initialization refuses the run."
+expected = "The advertised stress workflow must meet the initializer's explicit disposable-home reset contract before submitting any EVM load."
+proposal = "Update scripts/evm_stress.sh to select and disclose a disposable test home and pass the required reset acknowledgement for that home, preserving the initializer's protection for operator state."
+owner_domain = 16
+interface = "16.cli-scr-evm-stress"
+
+[finding.12]
+file = "scripts/evm_stress.sh"
+line = 10
+class = "config-drift"
+severity = "medium"
+observed = "The stress script fixes its binary to HOME/go/bin/paxd and patches HOME/.pax while the initializer accepts PAXD_BIN and PAX_HOME, so supplied overrides can initialize a different binary or home from the one loaded."
+expected = "Genesis initialization, account patching and the started stress node must use the same explicit executable and disposable chain home."
+proposal = "Resolve PAXD_BIN and PAX_HOME once in scripts/evm_stress.sh and pass those exact values through initialization, genesis modification, node startup and cleanup."
+owner_domain = 16
+interface = "16.cli-scr-evm-stress"
+
+[finding.13]
+file = "scripts/initialize_local_chain.sh"
+line = 176
+class = "config-drift"
+severity = "medium"
+observed = "The Linux sed branch updates timeout_prevote, timeout_precommit, timeout_commit and skip_timeout_commit, whereas current consensus config consumes hyphenated unsafe timeout override keys; the macOS branch already uses those keys."
+expected = "Both supported operating systems must configure the same local consensus timing through the keys actually read by consensus/config/config.go."
+proposal = "Align the Linux edits in scripts/initialize_local_chain.sh with unsafe-vote-timeout-override, unsafe-commit-timeout-override and unsafe-bypass-commit-timeout-override, checking that each intended section key is present."
+owner_domain = 16
+interface = "16.cli-scr-initialize-local-chain"
+
+[finding.14]
+file = "scripts/generate-changelog.sh"
+line = 17
+class = "config-drift"
+severity = "medium"
+observed = "Generated pull-request links always target Paxeer-Network/paxeer-v3-matrix-release, regardless of the repository whose commits were inspected."
+expected = "A release changelog must link each extracted pull request to the repository that owns the release history."
+proposal = "In scripts/generate-changelog.sh derive the canonical repository from validated release metadata or accept an explicit repository setting, then construct links for that repository."
+owner_domain = 16
+interface = "16.cli-scr-generate-changelog"
+
+[finding.15]
+file = "scripts/generate-changelog.sh"
+line = 29
+class = "runtime-risk"
+severity = "medium"
+observed = "Branch preflight verifies the local branch name but git log uses origin/<branch>; a local-only release branch passes preflight and then fails because its remote-tracking ref is absent."
+expected = "The changelog command must verify and compare exactly the refs it will read, including after fetching an absent release branch."
+proposal = "Resolve each requested branch to an explicit ref or commit in scripts/generate-changelog.sh, fetch the required ref when appropriate and pass those resolved revisions unchanged to git log."
+owner_domain = 16
+interface = "16.cli-scr-generate-changelog"
+
+[finding.16]
+file = "scripts/dump_app_state_for_height.sh"
+line = 31
+class = "config-drift"
+severity = "medium"
+observed = "The dump loops over a fixed legacy IAVL module list in application.db, omits current EVM and native stores, and still creates a zip after unchecked iaviewer failures."
+expected = "A height-specific state export must identify its supported stores and either include the complete current state or explicitly refuse an unsupported storage layout."
+proposal = "Replace the legacy dump path in scripts/dump_app_state_for_height.sh with the current node state export interface, include a store and height manifest, and require every export to succeed before publishing the archive."
+owner_domain = 16
+interface = "16.cli-scr-dump-app-state-for-height"
+
+[finding.17]
+file = "scripts/paxd_problems_detector.py"
+line = 124
+class = "runtime-risk"
+severity = "medium"
+observed = "parse_go_duration_to_seconds sums regex matches without requiring full input consumption; a nonempty invalid duration such as garbage becomes zero and a value with trailing garbage becomes a valid partial duration."
+expected = "Diagnostics must distinguish invalid consensus or mempool duration configuration from a valid zero duration and must not declare a malformed value healthy."
+proposal = "In scripts/paxd_problems_detector.py parse the entire Go duration grammar, reject unmatched characters and nonfinite values, and report a configuration failure instead of deriving a misleading duration."
+owner_domain = 16
+interface = "16.cli-scr-paxd-problems-detector"
+
+[finding.18]
+file = "scripts/run-sha256sum.sh"
+line = 27
+class = "runtime-risk"
+severity = "medium"
+observed = "find writes checksum.list in the current directory without excluding that output or sorting inputs; auditing the current directory can hash the file while it is being written and produce an order-dependent aggregate."
+expected = "A directory digest must be reproducible for unchanged input files and must never include the mutable manifest used to compute it."
+proposal = "In scripts/run-sha256sum.sh stage the manifest outside the input tree, hash a stable sorted file list with safe filename encoding, exclude the final manifest and publish it only after all hashes succeed."
+owner_domain = 16
+interface = "16.cli-scr-run-sha256sum"
+
+[finding.19]
+file = "scripts/snapshot.sh"
+line = 6
+class = "restart-recovery"
+severity = "high"
+observed = "The snapshot command moves priv_validator_state.json out of the live validator home, never restores it, and archives data without stopping or quiescing paxd; restart can lose its anti-double-sign state and the archive can be inconsistent."
+expected = "A snapshot must preserve the validator's last signed height and round in its original durable location and capture a coherent recoverable chain state."
+proposal = "Replace scripts/snapshot.sh with a checked offline or native consistent snapshot flow that preserves local signing state, excludes private identity from distribution and verifies restoration before allowing validator restart."
+owner_domain = 16
+interface = "16.cli-scr-snapshot"
+
+[finding.20]
+file = "scripts/state_sync.sh"
+line = 25
+class = "restart-recovery"
+severity = "high"
+observed = "The script moves config, data and wasm away, removes the remaining home contents and restores only validator/node key JSONs and signing state; config.toml, app.toml and genesis are absent when sed runs, and paxd is never stopped."
+expected = "State-sync recovery must preserve chain identity, node configuration and validator safety state, stop writers before replacing state and leave a complete restartable home."
+proposal = "Rework scripts/state_sync.sh into a checked stopped-node recovery transaction with a complete private backup, validated trust inputs, restored config and genesis, explicit rollback and a startup verification before discarding the backup."
+owner_domain = 16
+interface = "16.cli-scr-state-sync"
+
+[finding.21]
+file = "scripts/state_sync.sh"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "The script edits rpc_servers, trust_height, trust_hash and persistent_peers in config.toml, but consensus/config/config.go consumes rpc-servers, trust-height, trust-hash and persistent-peers; the substitutions cannot configure the current node."
+expected = "Registry rows 5.cfg-config-toml-statesync-rpc-servers, 5.cfg-config-toml-statesync-trust-height, 5.cfg-config-toml-statesync-trust-hash and 5.cfg-config-toml-p2p-persistent-peers must round-trip into the native config decoder."
+proposal = "In scripts/state_sync.sh write the current hyphenated keys in their proper sections and verify them through the real consensus config loader before starting recovery; coordinate the config contract with domain 5."
+owner_domain = 16
+interface = "5.cfg-config-toml-statesync-rpc-servers"
+
+[finding.22]
+file = "scripts/run_snapshot.sh"
+line = 62
+class = "runtime-risk"
+severity = "medium"
+observed = "Each loop starts paxd, sleeps ten seconds and takes a snapshot without waiting for the configured halt height or the child exit; PAXD_PID is not used to prevent overlapping live processes."
+expected = "Periodic snapshot production must wait for a committed halt height and stopped writer, and must not start a replacement node while the previous child is still running."
+proposal = "In scripts/run_snapshot.sh supervise and wait for the child, confirm the committed target height and clean halt, check snapshot completion, and only then advance the halt height and restart."
+owner_domain = 16
+interface = "16.cli-scr-run-snapshot"
+
+[finding.23]
+file = "scripts/start_faucet.sh"
+line = 7
+class = "security"
+severity = "medium"
+observed = "The script downloads an unpinned installer into predictable /tmp/faucet_install.sh and executes that path with sudo without checking transfer success, provenance or safe file ownership."
+expected = "Installing a funding service with elevated privileges must execute only a verified release artifact held in a private staging directory."
+proposal = "In scripts/start_faucet.sh select a supported pinned faucet release, authenticate its artifact, use private temporary storage and execute the verified file only after all download and ownership checks pass."
+owner_domain = 16
+interface = "16.cli-scr-start-faucet"
+
+[finding.24]
+file = "scripts/start_faucet.sh"
+line = 9
+class = "wiring-gap"
+severity = "medium"
+observed = "The final faucet command names ./build/newd, which is not a built chain executable in this monorepo, so the installed service cannot submit funding transactions through the advertised command."
+expected = "The development faucet must use the supported paxd transaction interface and the configured chain, denomination and disposable funding account."
+proposal = "Update scripts/start_faucet.sh to launch the maintained faucet against an explicitly resolved paxd binary and local chain configuration, and check an actual committed funding transaction."
+owner_domain = 16
+interface = "16.cli-scr-start-faucet"
+
+[finding.25]
+file = "scripts/update-swagger-ui-statik.sh"
+line = 10
+class = "config-drift"
+severity = "medium"
+observed = "The script uses BSD sed -i with an empty suffix argument, which GNU sed on Ubuntu interprets differently; preceding OpenAPI and statik generation commands are also unchecked."
+expected = "Swagger regeneration must work on the supported Linux development environment and must fail before publishing incomplete generated output."
+proposal = "Use a portable checked replacement in scripts/update-swagger-ui-statik.sh and propagate each generation failure before updating docs/swagger/statik.go."
+owner_domain = 16
+interface = "16.cli-scr-update-swagger-ui-statik"
+
+[finding.26]
+file = "tests/storage/lxp_test_rebuild.c"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "The projection digest helper exits its row loop on any sqlite3_step result and finalizes a digest without requiring SQLITE_DONE, allowing an I/O or query error to be treated as a complete partial projection."
+expected = "The real projection rebuild comparison must fail on every database read error rather than comparing hashes of incomplete row streams."
+proposal = "In tests/storage/lxp_test_rebuild.c retain the sqlite3_step result, require SQLITE_DONE and successful finalization, and propagate read failures into the rebuild assertion."
+owner_domain = 16
+interface = "1.c-lxp-projection-rebuild"
+
+[finding.27]
+file = "tools/deps/tests/test_go_root_checksums.py"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "test_go_root_nested_checksums resolves packages with go list and checks go mod verify but never compiles the four nested modules whose checksum repair acceptance includes a readonly build."
+expected = "Requirement 181545.1 needs evidence that the repaired nested module dependency sets build with readonly manifests, not only that their package graphs can be listed."
+proposal = "Extend tools/deps/tests/test_go_root_checksums.py to run the declared readonly builds of the affected modules while retaining dependency, checksum and unchanged-manifest assertions."
+owner_domain = 16
+
+[finding.28]
+file = "tools/deps/tests/test_vendored_checksums.py"
+line = 46
+class = "test-gap"
+severity = "medium"
+observed = "test_vendored_database_checksums verifies cached modules and resolves required imports but never builds either vendored database module."
+expected = "Requirement 181525.1 calls for a readonly build of the affected database modules; package listing does not prove compilation of those dependencies."
+proposal = "Add the required readonly compilation paths to tools/deps/tests/test_vendored_checksums.py and preserve both the required-import assertions and the exact go.mod/go.sum immutability checks."
+owner_domain = 16
+
+[finding.29]
+file = "tools/hpx/fleet-keygen.sh"
+line = 83
+class = "restart-recovery"
+severity = "medium"
+observed = "The command replaces operators.tsv with only successful hosts from this attempt, even when some hosts fail, and finishes successfully after warning; retrying drops previously collected operators that are temporarily unreachable."
+expected = "Fleet key collection must preserve established operator identities across retries and must report an incomplete roster before any funding phase consumes it."
+proposal = "In tools/hpx/fleet-keygen.sh persist the intended host roster and merge verified identities by host, retain failed hosts as unresolved, and return a failure until the full roster is complete."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-fleet-keygen"
+
+[finding.30]
+file = "tools/hpx/stake-fleet.sh"
+line = 209
+class = "restart-recovery"
+severity = "medium"
+observed = "phase_keygen truncates its temporary roster and replaces operators.tsv with successful hosts only, silently reducing the funding population after any unreachable host."
+expected = "The staking workflow must keep a stable intended operator roster and must not redistribute funds because a retry temporarily loses connectivity to a validator."
+proposal = "In tools/hpx/stake-fleet.sh persist and reconcile the full roster, retain known operator identities on partial retries, and block fund and stake-cmds until every intended host has a verified result."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-stake-fleet"
+
+[finding.31]
+file = "tools/hpx/stake-fleet.sh"
+line = 227
+class = "restart-recovery"
+severity = "medium"
+observed = "phase_fund recalculates each target from the remaining funding-wallet balance on every run, skips recipients above that new target and sends the full target to partially funded recipients; an interrupted run changes the distribution."
+expected = "The advertised idempotent fleet funding must preserve each validator's original allocation across retries and send only the outstanding amount."
+proposal = "In tools/hpx/stake-fleet.sh persist an immutable allocation plan before broadcasting, journal committed payments and calculate recipient deficits against that plan on every retry."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-stake-fleet"
+
+[finding.32]
+file = "tools/hpx/stake-fleet.sh"
+line = 238
+class = "runtime-risk"
+severity = "medium"
+observed = "phase_fund discards bank-send output, labels a successful CLI exit as funded and merely prints send FAILED before continuing to PHASE 3 done; it does not inspect committed transaction codes or balances."
+expected = "An operator funding result must identify a committed successful transaction for every planned transfer and fail the phase when any recipient remains unfunded."
+proposal = "Parse transaction identifiers and application results in tools/hpx/stake-fleet.sh, wait for committed success and the expected recipient balance, persist receipts and return nonzero for any unresolved payment."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-stake-fleet"
+
+[finding.33]
+file = "tools/hpx/stake-fleet.sh"
+line = 113
+class = "security"
+severity = "medium"
+observed = "The founder private key is exported as unarmored hex even in dry-run mode and is passed directly as an associate-address command argument when broadcasting, exposing it to process argument inspection."
+expected = "Funding and association must keep the founder secret inside a protected signer or private input channel and dry-run must not export private key bytes."
+proposal = "Replace the raw-hex association flow in tools/hpx/stake-fleet.sh with a supported protected signer interface in paxd; obtain only public identity and balances during dry-run and avoid secrets in command arguments."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-stake-fleet"
+
+[finding.34]
+file = "tools/hpx/stake-fleet.sh"
+line = 31
+class = "config-drift"
+severity = "medium"
+observed = "SELF_DIR/../../.env resolves to tools/.env rather than the repository root, and readonly HPX defaults are established before preflight sources that file, so documented file overrides do not configure those values."
+expected = "The fleet environment file location and loading order must agree with the documented repository configuration and the HPX_* values used by the workflow."
+proposal = "In tools/hpx/stake-fleet.sh resolve the intended repository environment path explicitly, source the selected configuration before deriving immutable settings, and define clear precedence for shell overrides."
+owner_domain = 16
+interface = "16.env-hpx-hpx-stake-fleet-hpx-env-file"
+
+[finding.35]
+file = "tools/hpx/publish.sh"
+line = 20
+class = "config-drift"
+severity = "medium"
+observed = "The publisher defaults HPX_PAXD_VERSION to v6.12.0 and labels the supplied SRC_BIN without checking its embedded release version or matching its embedded commit to source_revision; it captures the executable commit but does not establish agreement."
+expected = "An immutable node release must bind the advertised version and source revision to the exact executable distributed to operators."
+proposal = "In tools/hpx/publish.sh validate the executable release identity against tools/release/version.json and build provenance before publishing checksums or switching current; reject mismatched version and revision metadata."
+owner_domain = 16
+interface = "16.env-hpx-hpx-publish-hpx-paxd-version"
+
+[finding.36]
+file = "tools/hpx/registry/main.go"
+line = 164
+class = "restart-recovery"
+severity = "medium"
+observed = "Registry persistence writes a temporary JSON file and renames it but syncs neither the file nor its parent directory before returning registration success; an abrupt host loss can lose acknowledged peer state."
+expected = "A successful persisted node registration must survive process and host recovery, with one coherent prior or new registry image."
+proposal = "In tools/hpx/registry/main.go sync the completed temporary file, atomically rename it and sync the containing directory before acknowledging registration; exercise recovery with interrupted persistence."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-registry-main"
+
+[finding.37]
+file = "tools/hpx/registry/main.go"
+line = 186
+class = "restart-recovery"
+severity = "medium"
+observed = "upsert mutates the in-memory Nodes map before saveLocked; a failed save returns HTTP 500 while peers and nodes immediately expose the failed mutation, which disappears on restart."
+expected = "A rejected registration must not become observable peer state, and live registry state must agree with the durable committed image."
+proposal = "Stage the candidate registry update in tools/hpx/registry/main.go and commit it to the live map only after persistence succeeds, or restore the exact previous entry on every save error."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-registry-main"
+
+[finding.38]
+file = "tools/hpx/registry/main.go"
+line = 384
+class = "security"
+severity = "medium"
+observed = "Registration validates node_id syntax and observed source IP but has no proof that the caller owns the claimed CometBFT node ID; a caller can overwrite another known ID with its own address."
+expected = "Peer discovery must bind an advertised node identity to its owner so public registration cannot redirect an existing peer by copying its public identifier."
+proposal = "Require a replay-protected proof of node-key possession in tools/hpx/registry/main.go and the HPX registration client before creating or changing an identity-to-address binding; retain source-IP and rate-limit checks."
+owner_domain = 16
+interface = "16.http-hpx-hpx-registry-main-api-register"
+
+[finding.39]
+file = "tools/hpx/registry/main.go"
+line = 137
+class = "runtime-risk"
+severity = "medium"
+observed = "The durable Nodes map has no total bound or expiration; valid unique registrations accumulate forever, every update rewrites the whole map and peer responses continue returning stale entries."
+expected = "The public peer registry must bound retained resources and distinguish reachable active peers from expired registrations without unbounded storage and response growth."
+proposal = "Add a bounded retention and refresh policy to tools/hpx/registry/main.go, with explicit last-seen expiry, registration capacity and bounded peer response sizes while keeping stable configured seed peers."
+owner_domain = 16
+interface = "16.cli-hpx-hpx-registry-main"
+
+[finding.40]
+file = "tools/hpx/registry/main.go"
+line = 503
+class = "runtime-risk"
+severity = "medium"
+observed = "rpcGet does not check HTTP status or bound the response body, and rpcBlockHash accepts any nonempty hash without validating its 32-byte encoding, requested height or chain; statesync can return enable=true for invalid trust material."
+expected = "The /api/statesync producer must emit a valid anchor for the configured chain and requested committed height, and reject malformed or oversized upstream responses before enabling clients."
+proposal = "In tools/hpx/registry/main.go validate bounded successful RPC responses with typed chain, height and hash fields and require a 32-byte hash; exercise the actual HPX consumer against valid and rejected anchors."
+owner_domain = 16
+interface = "16.http-hpx-hpx-registry-main-api-statesync"
+
+[finding.41]
+file = "tools/hpx/registry/main_test.go"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The registry suite covers registration and peer behavior but does not drive /api/statesync through an actual upstream HTTP status and commit exchange, leaving its trust-anchor transport and decoding unqualified."
+expected = "The registry state-sync interface must be exercised from upstream consensus responses through the served JSON fields to the client configuration contract."
+proposal = "Add transport-level state-sync cases in tools/hpx/registry/main_test.go for wrapped and bare producer responses, exact trust height/hash, wrong-chain and malformed responses, upstream failures and timeouts."
+owner_domain = 16
+interface = "16.http-hpx-hpx-registry-main-api-statesync"
+
+[finding.42]
+file = "tools/hpx/README.md"
+line = 46
+class = "doc-drift"
+severity = "medium"
+observed = "Publishing and hosting examples use hpx/publish.sh, hpx/registry and hpx/hosting paths that do not resolve from this monorepo root, and the claimed version.json identity source disagrees with the publisher's default version variable."
+expected = "Operator publishing instructions must use the actual tools/hpx paths and describe how the executable version and revision are authenticated before becoming the current release."
+proposal = "Correct tools/hpx/README.md paths to tools/hpx and document the validated release identity flow alongside the publisher repair; retain the artifact mirror role of node.hyperpaxeer.com."
+owner_domain = 16
+
+[finding.43]
+file = "scripts/qualification/paxeer-x/program-http-producer.py"
+line = 29
+class = "retired-reference"
+severity = "medium"
+observed = "The producer inventory requires a layerxd artifact and derives its native binary directory from that daemon, alongside a separate receipt authority/control flow; this cannot qualify the merged paxd producer path."
+expected = "Program qualification must submit and observe programs through the one paxd network and hosted gateway, with receipt finality at block commit and no separately running layerxd."
+proposal = "Migrate scripts/qualification/paxeer-x/program-http-producer.py and its artifact consumers to genuine paxd and gateway producer evidence, preserving signed HTTP, deployment envelope and committed receipt assertions."
+owner_domain = 16
+interface = "16.cli-scr-qualification-paxeer-x-program-http-producer"
+
+[finding.44]
+file = "tools/qualification/beta_driver.py"
+line = 111
+class = "wiring-gap"
+severity = "medium"
+observed = "AGENT_MANIFEST points to ROOT/agent/Cargo.toml, which is absent; the agent workspace manifest is services/agent/Cargo.toml, so cases using agent_first cannot reach the current producer."
+expected = "Beta qualification must invoke the actual agent workspace and record evidence from supported executable targets in this tree."
+proposal = "Correct the workspace resolution in tools/qualification/beta_driver.py to services/agent/Cargo.toml and check the corresponding package and binary identities before starting qualification cases."
+owner_domain = 16
+interface = "16.cli-qual-qualification-beta-driver"
+
+[finding.45]
+file = "tools/qualification/beta_driver.py"
+line = 812
+class = "test-gap"
+severity = "medium"
+observed = "The Rust first-payment case succeeds after receipt.get even when authority facts are absent, leaving verification.performed false; when present, the verification key is taken from the same response being checked."
+expected = "A qualified payment journey must establish receipt authenticity against independently governed trust material and finality against its committed paxd block."
+proposal = "In tools/qualification/beta_driver.py require independent network trust facts and committed-block receipt verification, reject missing verification inputs and make unsuccessful or unperformed verification fail the case."
+owner_domain = 16
+interface = "16.cli-qual-qualification-beta-driver"
+
+[finding.46]
+file = "tools/qualification/beta_driver.py"
+line = 1638
+class = "test-gap"
+severity = "medium"
+observed = "The driver always emits real_stack=true although multiple real-node cases invoke local native or Cargo test targets without exercising stack.node as a deployed paxd producer boundary."
+expected = "Qualification evidence must distinguish unit/native fixture checks from real deployed node journeys and prove the claimed transport, producer and recovery behavior."
+proposal = "In tools/qualification/beta_driver.py bind each real-stack claim to a live paxd request, committed result and endpoint identity; keep local suite results explicitly scoped and refuse real-stack qualification without that evidence."
+owner_domain = 16
+interface = "16.cli-qual-qualification-beta-driver"
+
+[finding.47]
+file = "tools/qualification/beta_driver.py"
+line = 1124
+class = "retired-reference"
+severity = "medium"
+observed = "Crash and ledger cases still select test-finality-evidence, qualify-replay, test-batch-wal-recovery and settlement-domain behavior from the separate batch-finality architecture."
+expected = "The merged qualification must prove paxd block commit, native state recovery and tenant isolation without requiring the retired external finality or settlement domains."
+proposal = "Retarget the case catalogue in tools/qualification/beta_driver.py to current native commit and recovery producers with equivalent failure points, preserving genuine restart, idempotency and negative-boundary checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-beta-driver"
+
+[finding.48]
+file = "tools/qualification/paxeer-x/registry-contract.py"
+line = 462
+class = "retired-reference"
+severity = "medium"
+observed = "Discovery requires the deleted cmd/layerxd/lxp_daemon_protocol.c source and a layerxd artifact with exactly that basename, preventing the registry journey from using the merged network node."
+expected = "Registry qualification must obtain its native behavior and endpoint evidence from the current paxd network, keeping authenticated registry and restart tests on their real producer path."
+proposal = "Migrate tools/qualification/paxeer-x/registry-contract.py discovery, native role checks and launch adapters to the paxd-integrated runtime; retain the registry authentication, publication and recovery assertions."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-registry-contract"
+
+[finding.49]
+file = "tools/qualification/paxeer-x/interop-archive-contract.py"
+line = 718
+class = "retired-reference"
+severity = "medium"
+observed = "The archive journey acquires and launches layerxd and proves CP1/CX2 checkpoint/guarantor archive behavior rooted in the separate daemon rather than committed native paxd history."
+expected = "Merged-network archive evidence must authenticate committed native block history and the supported interop transport without a separate daemon or checkpoint finality authority."
+proposal = "Rebase tools/qualification/paxeer-x/interop-archive-contract.py on current paxd archive producers and consumers, retaining independent acquisition, corruption refusal and process-restart checks for the replacement contract."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-interop-archive-contract"
+
+[finding.50]
+file = "tools/qualification/paxeer-x/registry-router-bootstrap.py"
+line = 19
+class = "retired-reference"
+severity = "medium"
+observed = "The bootstrap proof requires router-activation and routed-proof stages and a public unified interface, treating the retired router as a required running product component."
+expected = "There is one paxd network with root JSON-RPC and a separately hosted px_ gateway contract; there is no router or separate LayerX interface to activate."
+proposal = "Rewrite tools/qualification/paxeer-x/registry-router-bootstrap.py to qualify registry publication and the actual paxd/gateway consumers directly, preserving staged dependency, identity and negative activation checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-registry-router-bootstrap"
+
+[finding.51]
+file = "tools/qualification/paxeer-x/registry-router-bootstrap.py"
+line = 605
+class = "config-drift"
+severity = "medium"
+observed = "The public-interface evidence demands DNS API1-API16, whereas the merged public node range is api1 through api14.mainnet-beta.paxeer.network plus api-mainnet-beta."
+expected = "Public qualification must use the declared current node names and root JSON-RPC endpoint contract rather than require two retired node names."
+proposal = "Update the public host inventory and runtime DNS/endpoint evidence in tools/qualification/paxeer-x/registry-router-bootstrap.py to the declared fourteen node hosts and aggregate hostname."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-registry-router-bootstrap"
+
+[finding.52]
+file = "tools/qualification/paxeer-x/human-owner-evidence.py"
+line = 158
+class = "retired-reference"
+severity = "medium"
+observed = "Human-owner material still provisions receipt-authority-replica-id and authority configuration from standalone native genesis, retaining a separate receipt authority in the qualification trust path."
+expected = "Human identity and policy ownership remain authenticated, while network receipt finality and trust must come from the merged paxd governed keys and committed blocks."
+proposal = "Migrate tools/qualification/paxeer-x/human-owner-evidence.py receipt trust material to the native merged network contract while preserving real owner authorization, private key handling, durable journals and restart evidence."
+owner_domain = 16
+interface = "16.fmt-schema-layerx-human-owner-bundle-v2"
+
+[finding.53]
+file = "scripts/qualification/paxeer-x/reference-custody.py"
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "The producer permanently lists authenticated-source-verification as unqualified and exits two even after native custody assertions pass, so it cannot supply a completed authenticated custody qualification."
+expected = "A completed reference-custody qualification must authenticate the real source chain producer and bind that evidence to the native custody verification path."
+proposal = "Connect scripts/qualification/paxeer-x/reference-custody.py to a supported authenticated-source producer and consumer with real proof material, retaining its explicit unqualified refusal until that path actually passes."
+owner_domain = 16
+interface = "16.cli-scr-qualification-paxeer-x-reference-custody"
+
+[finding.54]
+file = "tools/chain/upgrade-replay/run.sh"
+line = 66
+class = "wiring-gap"
+severity = "medium"
+observed = "The default replay copies only the supplied data directory to workdir/state, but prepareHome searches its parent for sibling config and wasm directories; original and generated fixture siblings are not copied there."
+expected = "A copied-state replay must reconstruct the source home's configuration and Wasm artifacts so its upgrade assertions operate on the actual supplied state."
+proposal = "In tools/chain/upgrade-replay/run.sh stage a coherent source home including required config and wasm siblings, or pass explicit source locations into prepareHome, while keeping the original state untouched."
+owner_domain = 16
+interface = "16.cli-tchain-chain-upgrade-replay-run"
+
+[finding.55]
+file = "tools/chain/upgrade-replay/appsetup.go"
+line = 72
+class = "test-gap"
+severity = "medium"
+observed = "forkPrecompiles groups historical verify, custody and anchor addresses as ordinary reachable fork precompiles, with no merged activation or retired-operation expectations attached to those entries."
+expected = "Upgrade replay must distinguish historical registration from supported merged behavior and explicit refusal of retired settlement/checkpoint operations."
+proposal = "Annotate the precompile expectations in tools/chain/upgrade-replay/appsetup.go by upgrade and supported operation, and supply actual merged-call and retired-refusal cases to the replay assertions."
+owner_domain = 16
+
+[finding.56]
+file = "tools/chain/upgrade-replay/replay.go"
+line = 339
+class = "test-gap"
+severity = "medium"
+observed = "assertPrecompiles and the reopened-state check prove address membership in the precompile map, not execution of the merged contract or refusal of retired verify/custody/anchor methods."
+expected = "Upgrade compatibility evidence must prove the externally visible call behavior and its persistence after reopen, rather than map registration alone."
+proposal = "Extend tools/chain/upgrade-replay/replay.go to execute supported merged precompile calls and exact retired-operation refusals before and after reopening state, preserving historical activation checks where required."
+owner_domain = 16
+
+[finding.57]
+file = "scripts/wallet/check-live.sh"
+line = 782
+class = "retired-reference"
+severity = "medium"
+observed = "The wallet live probe sends its hosted method request to base/rpc, the retired unified path, so its endpoint result does not establish the current root node or hosted gateway contract."
+expected = "Node JSON-RPC uses the root URL and node namespaces; px_ methods belong to the hosted gateway and must be probed through its declared endpoint."
+proposal = "In scripts/wallet/check-live.sh separate the configured node root from the hosted gateway endpoint, invoke each declared method at its actual owner and report failures against the correct public contract."
+owner_domain = 16
+interface = "16.cli-scr-wallet-check-live"
+
+[finding.58]
+file = "scripts/wallet/check-deploy.sh"
+line = 74
+class = "test-gap"
+severity = "medium"
+observed = "CONTINENTS assigns gru in Brazil to north-america and jnb in South Africa to asia-pacific, so deployment diversity checks can accept the wrong geographic spread or reject a valid one."
+expected = "Regional deployment evidence must classify the actual provider locations correctly before asserting the required geographic distribution."
+proposal = "Correct the region-to-continent inventory in scripts/wallet/check-deploy.sh using provider location data and cover South American and African deployments in the diversity assertions."
+owner_domain = 16
+interface = "16.cli-scr-wallet-check-deploy"
+
+[finding.59]
+file = "scripts/wallet/gate-lint.sh"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "GOFMT_CMD tests only captured stdout and does not propagate a failing gofmt exit; it runs in bash -c without errexit, so a parse error with no listed filenames can pass the formatting target."
+expected = "A formatting target must fail when its formatter fails to parse or inspect any required Go source, as well as when files need formatting."
+proposal = "In scripts/wallet/gate-lint.sh check the gofmt invocation exit explicitly before examining its output and preserve stderr in the target log; exercise a malformed Go input as a failing gate case."
+owner_domain = 16
+interface = "16.cli-scr-wallet-gate-lint"
+
+[finding.60]
+file = "scripts/wallet/scan-secrets.sh"
+line = 103
+class = "security"
+severity = "medium"
+observed = "The scanner suppresses grep stderr and unconditionally ignores xargs/grep failures, treating unreadable inputs or scanning errors as a clean scan when no matches are produced."
+expected = "A clean secret-scan result must mean every selected file was inspected successfully; no-match and incomplete-scan outcomes must remain distinct."
+proposal = "In scripts/wallet/scan-secrets.sh preserve scanning errors, distinguish grep no-match from error statuses and fail with affected paths whenever any selected file could not be inspected."
+owner_domain = 16
+interface = "16.cli-scr-wallet-scan-secrets"
+
+[finding.61]
+file = "README.md"
+line = 48
+class = "doc-drift"
+severity = "medium"
+observed = "The root README presents separate Paxeer and LayerX domains with layerxd/checkpoint architecture and advertises retired daemon build commands."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite README.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.62]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview presents a separate settlement and custody network rather than the single paxd network with the kernel integrated into consensus."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/paxeer-network.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.63]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo overview lists layerxd and separate network trust boundaries as active components, directing developers toward the pre-merge architecture."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/MONOREPO.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.64]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart uses /rpc and /rpc/ws, lx_ methods, custody funding and checkpoint finality instructions, including retired precompile responsibilities."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.65]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes two domains and periodic checkpoint finality, then lists layerxd and the old component paths in its repository guide near line 98."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.66]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes two domains and periodic checkpoint finality, then lists layerxd and the old component paths in its repository guide near line 98."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.67]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes two domains and periodic checkpoint finality, then lists layerxd and the old component paths in its repository guide near line 98."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.68]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes two domains and periodic checkpoint finality, then lists layerxd and the old component paths in its repository guide near line 98."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.69]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes two domains and periodic checkpoint finality, then lists layerxd and the old component paths in its repository guide near line 98."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.70]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes two domains and periodic checkpoint finality, then lists layerxd and the old component paths in its repository guide near line 98."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.71]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "This translated overview describes two domains and periodic checkpoint finality, then lists layerxd and the old component paths in its repository guide near line 98."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.72]
+file = "docs/site/docs/operators/qualification.md"
+line = 24
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification guide links deleted spec/layerx-protocol/tasks.md and separates Paxeer and LayerX qualification with retired DA, guarantor and sequencer-offline gates."
+expected = "The finished product is one paxd BFT network on EVM chain 125; receipts finalize at block commit, public node JSON-RPC uses the root path and px_ belongs to the hosted gateway."
+proposal = "Rewrite docs/site/docs/operators/qualification.md for the merged network: current executable and workspace paths, api1 through api14 plus the aggregate root endpoint, hosted gateway methods, tenant namespaces and native committed-block qualification; remove retired startup and finality instructions."
+owner_domain = 17
+
+[finding.73]
+file = "spec/layerx-merge/contracts/operations.md"
+line = 1364
+class = "doc-drift"
+severity = "medium"
+observed = "The generated operations contract still marks removed daemon release environment rows stable and retains pre-merge wallet /rpc and qualification environment contracts in its frozen source table."
+expected = "The operations contract must describe the running merged node, current gateway endpoints and supported qualification producers with lifecycle status matching the active interfaces."
+proposal = "After the owning tool and registry migrations, regenerate spec/layerx-merge/contracts/operations.md from the current interface sources and retire obsolete daemon and unified-path rows rather than editing generated tables by hand."
+owner_domain = 17
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.2]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.3]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.4]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.5]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.6]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.7]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.8]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.9]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.12]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "Pre-merge architecture or qualification instructions require the concrete rewrite recorded in the documentation finding for this page."
+
+[doc.13]
+path = "tools/codebase-map/README.md"
+status = "stale"
+notes = "The authoritative spec paths are absent; update active-feature and generation prerequisites with the generator migration."
+
+[doc.14]
+path = "tools/deps/README.md"
+status = "accurate"
+notes = "Advisory dependency floors, source lockfile precedence and range checking agree with the implemented lockfloor behavior."
+
+[doc.15]
+path = "tools/hpx/README.md"
+status = "stale"
+notes = "Artifact mirror and node role are correct, but repository command paths and release identity instructions disagree with the publisher."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "Reviewed the generated tools/operations contract and relevant produced/consumed interface tables; frozen daemon, wallet and qualification rows need regeneration after their source migrations."

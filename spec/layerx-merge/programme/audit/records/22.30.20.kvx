@@ -1,0 +1,1151 @@
+[audit.22.30.20]
+task = "22.30.20"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 117
+findings = 34
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["log-free-receipt-contract", "receipt-event-position-invented", "receipt-chain-identity-unchecked"]
+requirements_reviewed = ["22998.1", "21134.1", "4257.1", "4257.2", "4260.1", "4261.1", "4262.1", "4264.1", "22076.1", "21057.1", "21017.1"]
+produces_reviewed = 234
+consumes_reviewed = 400
+review_note = "All 117 member files were read in full; generated compressed fixture payloads are distinguished from executable source in the file note. Review covers interface shapes, routing, units, errors, identity, configuration, retirement, bounds, authorization, persistence/recovery and the listed requirements. Interface-registry caller lists contain lexical name matches across unrelated domains; those matches do not establish real runtime consumption. Source inspection records product defects and proposed repairs; it does not claim execution of member suites, deployment or a real-network qualification."
+
+[file.001]
+path = "apps/launchpad/web/src/ui/common/bounded-list.tsx"
+lines = 31
+verdict = "clean"
+note = "VirtualList bounds DOM rows with TanStack virtualization, preserves item order and distinguishes an empty collection from missing data."
+
+[file.002]
+path = "apps/launchpad/web/src/ui/common/error-boundary.tsx"
+lines = 42
+verdict = "clean"
+note = "ErrorBoundary catches render failures, displays a recovery action and resets its local failure state without synthesizing backend data."
+
+[file.003]
+path = "apps/launchpad/web/src/ui/common/source-notice.test.tsx"
+lines = 40
+verdict = "clean"
+note = "SourceNotice rendering assertions distinguish unavailable, loading, stale and partial loadable states without presenting absent values as zero."
+
+[file.004]
+path = "apps/launchpad/web/src/ui/common/source-notice.tsx"
+lines = 32
+verdict = "clean"
+note = "SourceNotice maps Loadable states into visible source-quality explanations and retains a placeholder for data that has not arrived."
+
+[file.005]
+path = "apps/launchpad/web/src/ui/primitives/avatar.tsx"
+lines = 157
+verdict = "issues"
+note = "Address marks and initials are deterministic; the mounted Avatar failure state does not recover when its src changes."
+
+[file.006]
+path = "apps/launchpad/web/src/ui/primitives/badges.tsx"
+lines = 375
+verdict = "clean"
+note = "Badge variants preserve missing versus zero values, format ages and percentages, and expose address copy/status semantics without chain requests."
+
+[file.007]
+path = "apps/launchpad/web/src/ui/primitives/button.tsx"
+lines = 151
+verdict = "issues"
+note = "Native button states and icon labels are explicit; the href branch retains navigation while reporting aria-disabled."
+
+[file.008]
+path = "apps/launchpad/web/src/ui/primitives/coin-card.tsx"
+lines = 194
+verdict = "clean"
+note = "CoinCard composes metadata, stat quality and pool navigation; it treats unknown prices and supply separately from numeric zero."
+
+[file.009]
+path = "apps/launchpad/web/src/ui/primitives/controls.tsx"
+lines = 705
+verdict = "issues"
+note = "Controls preserve typed values and disabled options, but SegmentedControl End navigation selects the wrong enabled item."
+
+[file.010]
+path = "apps/launchpad/web/src/ui/primitives/data.tsx"
+lines = 344
+verdict = "clean"
+note = "Raw money formatting and statistical displays keep units, missing values and nonfinite inputs explicit; countdown timers clean up their interval."
+
+[file.011]
+path = "apps/launchpad/web/src/ui/primitives/index.ts"
+lines = 16
+verdict = "clean"
+note = "The barrel re-exports the reviewed primitive implementation and its public prop types without adding an alternate runtime surface."
+
+[file.012]
+path = "apps/launchpad/web/src/ui/primitives/overlays.tsx"
+lines = 383
+verdict = "clean"
+note = "Menus, dialogs and tooltips use dismissal and portal helpers, restore focus and remove listeners; initial placement depends on the separately recorded positioning defect."
+
+[file.013]
+path = "apps/launchpad/web/src/ui/primitives/primitives.test.tsx"
+lines = 616
+verdict = "clean"
+note = "Primitive assertions cover formatting, stat quality, selection, disabled options, modal focus and error presentation; no gate execution is claimed here."
+
+[file.014]
+path = "apps/launchpad/web/src/ui/primitives/states.tsx"
+lines = 546
+verdict = "issues"
+note = "Error and unavailable states sanitize product text and keep missing data explicit; DisclosureRow links remain navigable while disabled."
+
+[file.015]
+path = "apps/launchpad/web/src/ui/primitives/use-popover.ts"
+lines = 94
+verdict = "issues"
+note = "Popover and dismissal hooks release listeners; the first positioning measurement precedes mounting the measured portal layer."
+
+[file.016]
+path = "apps/launchpad/web/src/ui/providers/app-providers.tsx"
+lines = 86
+verdict = "clean"
+note = "Provider order installs the iframe bridge before wallet configuration, binds private fixture origin and chain 125, and composes authority and principal barriers."
+
+[file.017]
+path = "apps/launchpad/web/src/ui/providers/principal-cache-barrier.test.tsx"
+lines = 134
+verdict = "clean"
+note = "Principal-cache tests exercise account/session transitions, inherited caches, stale asynchronous clears and failure behavior without exposing the former principal."
+
+[file.018]
+path = "apps/launchpad/web/src/ui/providers/query-provider.tsx"
+lines = 140
+verdict = "clean"
+note = "Query policy uses bounded transient retries; PrincipalCacheBarrier cancels/removes private queries and prevents publication from superseded transitions."
+
+[file.019]
+path = "apps/launchpad/web/src/ui/providers/web3-provider.tsx"
+lines = 28
+verdict = "clean"
+note = "Web3Provider passes the canonical wagmi config and SSR initial state through one provider while preserving the query context."
+
+[file.020]
+path = "apps/launchpad/web/src/ui/shared/backend-configuration-error.tsx"
+lines = 30
+verdict = "clean"
+note = "BackendConfigurationError displays configuration problem summaries as unavailable service states rather than choosing fallback production origins."
+
+[file.021]
+path = "apps/launchpad/web/src/ui/shared/cookie-banner.test.tsx"
+lines = 72
+verdict = "clean"
+note = "Cookie banner assertions cover consent persistence, navigation and phone/wide placement with the safe-area rule."
+
+[file.022]
+path = "apps/launchpad/web/src/ui/shared/cookie-banner.tsx"
+lines = 99
+verdict = "clean"
+note = "CookieBanner persists the explicit consent choice, handles storage exceptions and avoids blocking the wallet or rules interfaces."
+
+[file.023]
+path = "apps/launchpad/web/src/ui/shared/copy-address.tsx"
+lines = 52
+verdict = "clean"
+note = "CopyAddress shortens display only, copies the complete address and clears its confirmation timer; no address is used as an authorization decision."
+
+[file.024]
+path = "apps/launchpad/web/src/ui/shared/icon.tsx"
+lines = 18
+verdict = "clean"
+note = "Icon renders the existing local image asset with explicit size and accessible/decorative alt semantics."
+
+[file.025]
+path = "apps/launchpad/web/src/ui/shared/mini-sparkline.tsx"
+lines = 73
+verdict = "clean"
+note = "MiniSparkline handles absent, constant and varying series without requiring backend authority or treating an absent series as a current price."
+
+[file.026]
+path = "apps/launchpad/web/src/ui/shared/platform-rules-modal.test.tsx"
+lines = 155
+verdict = "clean"
+note = "Rules modal assertions cover persisted agreement, scrolling, focus containment, escape handling and reopening behavior."
+
+[file.027]
+path = "apps/launchpad/web/src/ui/shared/platform-rules-modal.tsx"
+lines = 170
+verdict = "clean"
+note = "PlatformRulesModal checks browser storage defensively, dispatches its agreement event and releases keyboard/focus listeners when closed."
+
+[file.028]
+path = "apps/launchpad/web/src/ui/shared/price-change.tsx"
+lines = 20
+verdict = "clean"
+note = "PriceChange distinguishes null/nonfinite values from zero, preserving sign and a clear placeholder."
+
+[file.029]
+path = "apps/launchpad/web/src/ui/shared/relative-time.tsx"
+lines = 25
+verdict = "clean"
+note = "RelativeTime handles numeric and string timestamps through date utilities, supports a supplied clock and leaves invalid timestamps unavailable."
+
+[file.030]
+path = "apps/launchpad/web/src/ui/shared/signed-out-state.tsx"
+lines = 47
+verdict = "clean"
+note = "SignedOutState renders the wallet sign-in action in panel, inline and table contexts without presenting private cached data."
+
+[file.031]
+path = "apps/launchpad/web/src/ui/shared/skeletons.tsx"
+lines = 186
+verdict = "clean"
+note = "Skeleton layouts carry loading semantics for lists, charts, cards and profiles and contain no remote data or retired network binding."
+
+[file.032]
+path = "apps/launchpad/web/src/ui/shared/stat-value.tsx"
+lines = 44
+verdict = "clean"
+note = "StatDash, StatChange and StatOr preserve the loaded/unavailable distinction and delegate raw formatting to the established stat type."
+
+[file.033]
+path = "apps/launchpad/web/src/ui/shared/toast-provider.tsx"
+lines = 34
+verdict = "clean"
+note = "ToastProvider configures the existing product toast surface without adding transport or mutable domain state."
+
+[file.034]
+path = "apps/launchpad/web/src/ui/shared/token-image.test.tsx"
+lines = 31
+verdict = "clean"
+note = "TokenImage tests cover remote SVG handling and fallback rendering, but do not exercise two failed URLs in sequence."
+
+[file.035]
+path = "apps/launchpad/web/src/ui/shared/token-image.tsx"
+lines = 133
+verdict = "issues"
+note = "TokenImage restricts remote SVG rendering and resets on new source identity; custom fallback failure never advances to the documented local placeholder."
+
+[file.036]
+path = "apps/launchpad/web/src/ui/shared/token-logo.tsx"
+lines = 43
+verdict = "issues"
+note = "TokenLogo uses the registered metadata /logo/{file} route but retains the former token URL when tokenAddress becomes empty."
+
+[file.037]
+path = "apps/launchpad/web/src/ui/shared/wallet-gate.tsx"
+lines = 31
+verdict = "clean"
+note = "WalletGate reads the current wallet runtime and exposes the existing connection action before rendering wallet-dependent children."
+
+[file.038]
+path = "sdk/launchpad/shared/chain/client.go"
+lines = 1828
+verdict = "issues"
+note = "Verified RPC reads bind chain 125 and node-reported block hashes, bound response/range/coalescing work and quarantine identity conflicts; frozen log-free receipt projection remains incompatible."
+
+[file.039]
+path = "sdk/launchpad/shared/chain/client_test.go"
+lines = 1651
+verdict = "issues"
+note = "Chain tests cover endpoint identity, fallback, pinned reads, bounded coalescing and measurement artifacts; the shared responder emits a fixed JSON-RPC response ID."
+
+[file.040]
+path = "sdk/launchpad/shared/chain/contracts.go"
+lines = 155
+verdict = "clean"
+note = "Contract handles validate nonzero configured addresses and bind role ABIs at 0x1017 while preserving distinct NFT and beacon addresses."
+
+[file.041]
+path = "sdk/launchpad/shared/chain/contracts_test.go"
+lines = 334
+verdict = "issues"
+note = "Binding assertions check configured destinations and role composition; the multi-request responder does not preserve JSON-RPC request IDs."
+
+[file.042]
+path = "sdk/launchpad/shared/chain/pool_surface_test.go"
+lines = 112
+verdict = "clean"
+note = "Pool surface tests compare the reviewed BeaconProxy/runtime and membership identity checks, refusing mutated or foreign deployments."
+
+[file.043]
+path = "sdk/launchpad/shared/chain/profile/manifest.go"
+lines = 36
+verdict = "clean"
+note = "Manifest binding compares embedded deployment, capability and interface identities before returning a typed immutable binding."
+
+[file.044]
+path = "sdk/launchpad/shared/chain/profile/manifest_test.go"
+lines = 37
+verdict = "clean"
+note = "Manifest binding tests alter identity hashes to ensure the generated deployment cannot be relabelled by caller configuration."
+
+[file.045]
+path = "sdk/launchpad/shared/chain/profile/profile.go"
+lines = 95
+verdict = "clean"
+note = "Profile fixes chain 125 and six-decimal USDL, rejects malformed unsigned raw values, and implements exact decimal unit conversion with big.Int."
+
+[file.046]
+path = "sdk/launchpad/shared/chain/profile/profile_test.go"
+lines = 49
+verdict = "clean"
+note = "Profile assertions cover wrong chains, USDL decimals, canonical integer bounds and lossless human/raw amount conversion."
+
+[file.047]
+path = "sdk/launchpad/shared/chain/readpolicy/coalesce.go"
+lines = 157
+verdict = "clean"
+note = "Coalescer separates request identities, copies result bytes, bounds workers/waiters and retains capacity until actual I/O exits after cancellation."
+
+[file.048]
+path = "sdk/launchpad/shared/chain/readpolicy/coalesce_test.go"
+lines = 198
+verdict = "clean"
+note = "Coalescing assertions cover a thousand readers, leader cancellation, identity separation and slow canceled workers retaining capacity."
+
+[file.049]
+path = "sdk/launchpad/shared/chain/readpolicy/head.go"
+lines = 76
+verdict = "clean"
+note = "HeadWorker polls observed committed heads at a bounded cadence, reports failures without manufacturing progress and respects cancellation."
+
+[file.050]
+path = "sdk/launchpad/shared/chain/readpolicy/head_test.go"
+lines = 17
+verdict = "clean"
+note = "The head worker test refuses a missing reader; polling behavior is also exercised through adapter consumers and live reported-hash coverage."
+
+[file.051]
+path = "sdk/launchpad/shared/chain/readpolicy/measurement.go"
+lines = 373
+verdict = "clean"
+note = "Measurement capture binds input artifacts to file descriptors, bounds sample rows/bytes and derives latency distributions and digests from retained observations."
+
+[file.052]
+path = "sdk/launchpad/shared/chain/readpolicy/measurement_test.go"
+lines = 173
+verdict = "clean"
+note = "Measurement assertions cover actual I/O sample distribution, missing/mutated artifacts, histogram thresholds and malformed/duplicate samples."
+
+[file.053]
+path = "sdk/launchpad/shared/chain/readpolicy/policy.go"
+lines = 180
+verdict = "clean"
+note = "Read policy classifies semantic versus retryable errors, splits bounded ranges, matches batch IDs and enforces a streamed response byte limit."
+
+[file.054]
+path = "sdk/launchpad/shared/chain/readpolicy/policy_test.go"
+lines = 67
+verdict = "clean"
+note = "Policy assertions cover semantic failure classification, inclusive range splitting, batch identity mismatches and chunked response size refusal."
+
+[file.055]
+path = "sdk/launchpad/shared/chain/readpolicy/receipt.go"
+lines = 75
+verdict = "clean"
+note = "TransactionState distinguishes submission, replacement, wallet rejection and committed success/failure, validates reported block and log identities, and does not use elapsed time as finality."
+
+[file.056]
+path = "sdk/launchpad/shared/chain/readpolicy/receipt_test.go"
+lines = 72
+verdict = "clean"
+note = "Receipt-state assertions check committed identity, changed hashes and distinct wallet/replacement outcomes without inventing an event index."
+
+[file.057]
+path = "sdk/launchpad/shared/chain/reported_hash_live_test.go"
+lines = 301
+verdict = "clean"
+note = "Live tests explicitly require configured chain endpoints and compare node-reported hashes; the protocol proof here exercises its actual stateless ABI membership decoder and malformed-result refusal."
+
+[file.058]
+path = "services/launchpad/api/internal/app/app.go"
+lines = 684
+verdict = "issues"
+note = "App constructs real DB/broker/auth/readiness resources and drains runtime state, but production REST registration bypasses its per-client quota group."
+
+[file.059]
+path = "services/launchpad/api/internal/app/app_test.go"
+lines = 219
+verdict = "clean"
+note = "App tests inspect readiness, status, removal of legacy REST routes and a real Redis-backed SSE round-trip; they do not qualify the production router's quota coverage."
+
+[file.060]
+path = "services/launchpad/api/internal/app/authority.go"
+lines = 399
+verdict = "clean"
+note = "Production authority binds reviewed document bytes and revision, reads healthy committed heads and attests manifest code identities; preflight projection is validated against the exact frozen fields."
+
+[file.061]
+path = "services/launchpad/api/internal/app/dev_authority.go"
+lines = 443
+verdict = "clean"
+note = "Development authority uses the embedded manifest and production attestation/preflight builders; cache refresh is coalesced, bounded and never publishes beyond the stale limit."
+
+[file.062]
+path = "services/launchpad/api/internal/app/dev_authority_cache_test.go"
+lines = 238
+verdict = "clean"
+note = "Authority cache assertions exercise concurrency, stale data budgets, failure backoff and finality-bound identity using the production cache and attestation paths."
+
+[file.063]
+path = "services/launchpad/api/internal/app/dev_authority_contract_test.go"
+lines = 285
+verdict = "clean"
+note = "Authority contract tests validate eligible publication through the generated decoder and distinguish all builder fields from the public projection."
+
+[file.064]
+path = "services/launchpad/api/internal/app/dev_authority_test.go"
+lines = 570
+verdict = "clean"
+note = "Development authority tests bind reviewed source inputs and exercise origin policy, real node attestation and capability refusal; endpoint-dependent cases explicitly disclose prerequisites."
+
+[file.065]
+path = "services/launchpad/api/internal/app/dev_history_discovery.go"
+lines = 30
+verdict = "clean"
+note = "History/search/discovery registration mounts the actual development store handlers with the configured admission and response-cache dependencies."
+
+[file.066]
+path = "services/launchpad/api/internal/app/dev_history_discovery_test.go"
+lines = 76
+verdict = "clean"
+note = "Development history/search tests populate real PostgreSQL/Redis inputs and compare routed history and discovery responses, including malformed and missing inputs."
+
+[file.067]
+path = "services/launchpad/api/internal/app/dev_market_reads.go"
+lines = 17
+verdict = "clean"
+note = "Market read wiring passes the actual store, admission controller and NetworkRPCURL to the shared REST implementation."
+
+[file.068]
+path = "services/launchpad/api/internal/app/dev_market_reads_test.go"
+lines = 65
+verdict = "clean"
+note = "Development market tests check live mounted pool/stat/ranking routes and source unavailability rather than synthesizing success for absent data."
+
+[file.069]
+path = "services/launchpad/api/internal/app/dev_network_reads.go"
+lines = 120
+verdict = "clean"
+note = "Development network mounting uses the shared receipt/deployment producer and explicitly returns frozen unavailable envelopes for absent optional stores."
+
+[file.070]
+path = "services/launchpad/api/internal/app/dev_network_reads_app_test.go"
+lines = 51
+verdict = "clean"
+note = "App-level development network tests verify routes are reachable through App.Router and reject obsolete plain-text fallback behavior."
+
+[file.071]
+path = "services/launchpad/api/internal/app/dev_network_reads_test.go"
+lines = 291
+verdict = "clean"
+note = "Network read assertions use the frozen operation catalog, reviewed manifest and a real simulated EVM for transfer/revert receipts; position disagreement is recorded on the common producer."
+
+[file.072]
+path = "services/launchpad/api/internal/app/dev_reads.go"
+lines = 40
+verdict = "clean"
+note = "Development registration calls each market, history, authority and network registrar once through the REST group and propagates construction failure."
+
+[file.073]
+path = "services/launchpad/api/internal/app/dev_stream.go"
+lines = 49
+verdict = "clean"
+note = "Development stream construction passes committed store, configured chain endpoint and actual broker dependencies to the v2 stream implementation."
+
+[file.074]
+path = "services/launchpad/api/internal/app/dev_stream_close_test.go"
+lines = 87
+verdict = "clean"
+note = "Terminal stream tests verify websocket close codes accompany terminal protocol frames and do not leave a stream silently live."
+
+[file.075]
+path = "services/launchpad/api/internal/app/dev_stream_test.go"
+lines = 784
+verdict = "clean"
+note = "Development stream tests drive ticket authorization, origin/session restrictions, chain events, catch-up/snapshot handoff and replay ordering through real transport components."
+
+[file.076]
+path = "services/launchpad/api/internal/app/discovery_alert_routes_test.go"
+lines = 57
+verdict = "clean"
+note = "Fallback alert-route assertions check authentication and frozen JSON error envelopes for the declared alert operations."
+
+[file.077]
+path = "services/launchpad/api/internal/app/discovery_routes_test.go"
+lines = 45
+verdict = "clean"
+note = "Fallback discovery assertions check squads and notification routes exist and return the expected authentication/refusal contract."
+
+[file.078]
+path = "services/launchpad/api/internal/app/network_reads.go"
+lines = 239
+verdict = "issues"
+note = "Network envelope shape and HTTP input bounds are explicit, but receipt projection invents log index zero and omits verified chain/committed inclusion identity."
+
+[file.079]
+path = "services/launchpad/api/internal/app/network_reads_production_test.go"
+lines = 197
+verdict = "issues"
+note = "Production network tests bind real authority document bytes and inspect a historical swap; they omit the event index and cannot detect position divergence."
+
+[file.080]
+path = "services/launchpad/api/internal/app/production_unserved.go"
+lines = 54
+verdict = "clean"
+note = "Production unserved operations are explicit frozen method/path pairs and preserve private/no-store error caching and malformed-query refusal."
+
+[file.081]
+path = "services/launchpad/api/internal/app/production_unserved_mount_test.go"
+lines = 53
+verdict = "clean"
+note = "Mount assertions enumerate every unavailable production operation and decode its frozen 503 envelope, preserving non-retryable behavior."
+
+[file.082]
+path = "services/launchpad/api/internal/app/production_unserved_test.go"
+lines = 39
+verdict = "clean"
+note = "Catalog assertions ensure the 21 production operations are unique API operations and disjoint from the development-only unavailable inventory."
+
+[file.083]
+path = "services/launchpad/api/internal/app/proof_launchpad_api_test.go"
+lines = 231
+verdict = "clean"
+note = "The stateless API proof traverses real registration, HTTP and generated error decoders, checking refusal, request identity, query rejection and admission release."
+
+[file.084]
+path = "services/launchpad/api/internal/app/stream_relay.go"
+lines = 245
+verdict = "clean"
+note = "Relay validates configuration and R3/file/replay stream capture, asserts the restoration epoch transaction fence, drains committed outbox batches and reports lag/quarantine readiness."
+
+[file.085]
+path = "services/launchpad/api/internal/app/stream_relay_production_test.go"
+lines = 477
+verdict = "issues"
+note = "The relay test covers real durable publication and restart behavior, but its initial missing-grant assertion contradicts the current reviewed runtime role."
+
+[file.086]
+path = "tools/launchpad/production/dispatcher/README.md"
+lines = 80
+verdict = "issues"
+note = "Coordinator lifecycle and evidence boundaries are documented, but command examples and production-spec paths retain the old standalone repository layout."
+
+[file.087]
+path = "tools/launchpad/production/dispatcher/__init__.py"
+lines = 2
+verdict = "clean"
+note = "The package initializer describes the local coordinator tool; it creates no implicit process, network route or mutable production state."
+
+[file.088]
+path = "tools/launchpad/production/dispatcher/acceptance.py"
+lines = 260
+verdict = "clean"
+note = "Acceptance authenticates qualified candidate bindings and historical evidence, validates current fences, flushes files and atomically records acceptance before retiring the lease."
+
+[file.089]
+path = "tools/launchpad/production/dispatcher/cli.py"
+lines = 153
+verdict = "clean"
+note = "CLI binds capacity observations, ownership, reviewed checks and candidate identity; file locking serializes coordinator control mutations."
+
+[file.090]
+path = "tools/launchpad/production/dispatcher/evidence.py"
+lines = 359
+verdict = "clean"
+note = "Evidence binds source/checker/tool bytes, requires positive native proof, retains exact failure diagnostics and authenticates immutable result files before publication."
+
+[file.091]
+path = "tools/launchpad/production/dispatcher/graph.py"
+lines = 139
+verdict = "clean"
+note = "Graph validates dependencies, waves, ownership disjointness and execution-plan projection; readiness uses only satisfied dependencies in the lowest eligible wave."
+
+[file.092]
+path = "tools/launchpad/production/dispatcher/patches.py"
+lines = 225
+verdict = "issues"
+note = "Patch construction guards path traversal, symlinks and ownership and verifies staged source, but reserved paths and exact leaf exceptions predate the monorepo move."
+
+[file.093]
+path = "tools/launchpad/production/dispatcher/qualification.py"
+lines = 168
+verdict = "clean"
+note = "Qualification harness distinguishes fifty OS workers from AI capacity and exercises races, expiry, process cancellation and authenticated acceptance with isolated fixtures."
+
+[file.094]
+path = "tools/launchpad/production/dispatcher/qualification_cli.py"
+lines = 30
+verdict = "clean"
+note = "CLI qualification drives real subprocess commands through candidate, patch, check registration, acceptance and deterministic staging on an explicitly private fixture source."
+
+[file.095]
+path = "tools/launchpad/production/dispatcher/qualification_fixture.py"
+lines = 28
+verdict = "clean"
+note = "Fixture normalization copies projections and modifies only task statuses, recomputing spec identity while preserving layout and rejecting inconsistencies in the Graph consumer."
+
+[file.096]
+path = "tools/launchpad/production/dispatcher/qualification_leases.py"
+lines = 133
+verdict = "clean"
+note = "Lease qualification exercises real process expiry, takeover, restart and resource admission without changing the canonical production specification."
+
+[file.097]
+path = "tools/launchpad/production/dispatcher/qualification_paths.py"
+lines = 93
+verdict = "clean"
+note = "Path qualification drives archive, patch and evidence consumers through traversal, link, ownership and staging attacks using isolated filesystem trees."
+
+[file.098]
+path = "tools/launchpad/production/dispatcher/qualification_timeout.py"
+lines = 74
+verdict = "clean"
+note = "Timeout qualification starts real descendants, verifies termination and restart fencing and records process cleanup evidence."
+
+[file.099]
+path = "tools/launchpad/production/dispatcher/source_policy.py"
+lines = 14
+verdict = "issues"
+note = "Source policy excludes caches, outputs and secret material, but exact legitimate-source exceptions no longer match moved SDK paths."
+
+[file.100]
+path = "tools/launchpad/production/dispatcher/store.py"
+lines = 304
+verdict = "clean"
+note = "SQLite Store uses immediate transactions, monotonic fences, boot/coordinator identity and resource bounds; stale tokens cannot complete or heartbeat newer attempts."
+
+[file.101]
+path = "tools/launchpad/production/dispatcher/tests/__init__.py"
+lines = 0
+verdict = "clean"
+note = "The empty test package initializer declares no executable behavior or retired network dependency."
+
+[file.102]
+path = "tools/launchpad/production/dispatcher/tests/test_acceptance.py"
+lines = 100
+verdict = "clean"
+note = "Acceptance assertions cover lease expiry, source/proof tampering, signed orphan rejection, durable acceptance across restart and authenticated staging."
+
+[file.103]
+path = "tools/launchpad/production/dispatcher/tests/test_evidence.py"
+lines = 211
+verdict = "clean"
+note = "Evidence assertions cover actual native results, byte bindings, source drift, external outputs and secret/link refusal; no permissive fallback qualifies failed checks."
+
+[file.104]
+path = "tools/launchpad/production/dispatcher/tests/test_failure_diagnostics.py"
+lines = 114
+verdict = "clean"
+note = "Failure diagnostics retain raw command output and exact failing invocation without overwriting prior signed evidence or confusing parser failure with native success."
+
+[file.105]
+path = "tools/launchpad/production/dispatcher/tests/test_graph.py"
+lines = 85
+verdict = "issues"
+note = "Graph invariants are asserted, but the canonical graph fixture is opened from an absolute developer checkout unrelated to the current tree."
+
+[file.106]
+path = "tools/launchpad/production/dispatcher/tests/test_owned_leaf_artifacts.py"
+lines = 29
+verdict = "issues"
+note = "Leaf ownership assertions preserve strict refusal cases but prove exceptions and frozen directories only at pre-move client/shared paths."
+
+[file.107]
+path = "tools/launchpad/production/dispatcher/tests/test_patches.py"
+lines = 161
+verdict = "issues"
+note = "Patch tests cover add/modify/delete, disjointness, reconstruction and cleanup; the fifty-lane case reads a hardcoded foreign checkout."
+
+[file.108]
+path = "tools/launchpad/production/dispatcher/tests/test_qualification_fixture.py"
+lines = 30
+verdict = "issues"
+note = "Fixture normalization assertions preserve canonical status and projection identity, but the default source root is the old developer checkout."
+
+[file.109]
+path = "tools/launchpad/production/dispatcher/tests/test_source_policy.py"
+lines = 62
+verdict = "issues"
+note = "Source-policy assertions validate digest, archive and stage behavior using old root paths, hiding exclusion of actual moved SDK source."
+
+[file.110]
+path = "tools/launchpad/production/dispatcher/tests/test_store.py"
+lines = 265
+verdict = "clean"
+note = "Store assertions cover heartbeat/complete, expiry, restart, tampering, all resource caps, port collisions, fresh AI observations and concurrent claims."
+
+[file.111]
+path = "tools/launchpad/production/dispatcher/tests/test_tap_proof.py"
+lines = 60
+verdict = "clean"
+note = "TAP proof assertions accept real positive native passes and reject skip/todo/cancellation/failure, forged summary counts and non-native output."
+
+[file.112]
+path = "tools/launchpad/production/dispatcher/tests/test_workspace.py"
+lines = 130
+verdict = "clean"
+note = "Workspace assertions cover deterministic archive contents, source versus ignored links, safe extraction limits, namespace uniqueness and descendant cleanup."
+
+[file.113]
+path = "tools/launchpad/production/dispatcher/workspace.py"
+lines = 214
+verdict = "clean"
+note = "Workspace archives and extracts bounded source trees without links or path escapes, excludes operational secrets and terminates child process groups on timeout/interruption."
+
+[file.114]
+path = "tools/launchpad/production/tests/test_gradle_source_policy.py"
+lines = 42
+verdict = "clean"
+note = "Gradle policy assertions distinguish exact .gradle cache basenames from real wrapper/source files across digest, evidence input and archive consumers."
+
+[file.115]
+path = "tools/launchpad/production/tests/test_serial_execution.py"
+lines = 47
+verdict = "clean"
+note = "Serial execution assertions retain fresh output and historical source provenance, refuse empty native proof and terminate child/grandchild processes on cancellation."
+
+[file.116]
+path = "tools/launchpad/production/tests/test_serial_gate.py"
+lines = 385
+verdict = "issues"
+note = "Serial gate code and refusal cases were reviewed; embedded compressed ownership/source fixtures are generated opaque data. The full exact-control case resolves source bytes through a broken pre-move path."
+
+[file.117]
+path = "tools/launchpad/test_coverage_gate.py"
+lines = 110
+verdict = "clean"
+note = "Coverage gate tests check the moved sdk/launchpad shared/protocol profiles plus API coverage and reject missing/empty/incomplete profile inputs."
+
+[finding.avatar-recovery]
+file = "apps/launchpad/web/src/ui/primitives/avatar.tsx"
+line = 64
+class = "runtime-risk"
+severity = "medium"
+observed = "Avatar remembers failed across all src changes; after one image fails, replacement profile/token images never load on the mounted component."
+expected = "A changed image URL must recover independently of the failed URL."
+proposal = "Reset image failure when src changes in apps/launchpad/web/src/ui/primitives/avatar.tsx and exercise failure followed by a new successful URL."
+owner_domain = 4
+
+[finding.disabled-button-link]
+file = "apps/launchpad/web/src/ui/primitives/button.tsx"
+line = 73
+class = "runtime-risk"
+severity = "medium"
+observed = "Button renders href even when disabled and only sets aria-disabled; pointer and keyboard activation still navigate."
+expected = "Disabled navigation controls must refuse activation in all input modes."
+proposal = "Render a non-navigable disabled state or prevent activation in button.tsx, with keyboard and pointer coverage."
+owner_domain = 4
+
+[finding.segmented-end]
+file = "apps/launchpad/web/src/ui/primitives/controls.tsx"
+line = 67
+class = "runtime-risk"
+severity = "medium"
+observed = "SegmentedControl handles End with move(options.length,-1). enabled.indexOf returns -1, so with two or more enabled options it selects the penultimate enabled option instead of the last."
+expected = "End must select and focus the last enabled option, including lists with disabled trailing options."
+proposal = "Select enabled[enabled.length-1] explicitly for End in controls.tsx and cover one, two and disabled trailing options."
+owner_domain = 4
+
+[finding.disabled-disclosure-link]
+file = "apps/launchpad/web/src/ui/primitives/states.tsx"
+line = 430
+class = "runtime-risk"
+severity = "medium"
+observed = "DisclosureRow with href retains an active Link even when disabled, using aria-disabled without preventing navigation."
+expected = "A disabled disclosure link must not navigate via pointer or keyboard."
+proposal = "Implement a non-navigable disabled variant in states.tsx and verify both activation paths."
+owner_domain = 4
+
+[finding.initial-popover-position]
+file = "apps/launchpad/web/src/ui/primitives/use-popover.ts"
+line = 27
+class = "runtime-risk"
+severity = "medium"
+observed = "usePopoverPosition first measures with layerRef null; after position causes the portal to mount it does not remeasure until resize or scroll, so actual layer dimensions never inform initial clamping or flipping."
+expected = "Opening menus/tooltips must fit the viewport using their rendered dimensions."
+proposal = "Remeasure after portal mount and on layer size changes in use-popover.ts; cover right/bottom edge openings."
+owner_domain = 4
+
+[finding.cleared-token-logo]
+file = "apps/launchpad/web/src/ui/shared/token-logo.tsx"
+line = 17
+class = "runtime-risk"
+severity = "medium"
+observed = "TokenLogo returns early for an empty tokenAddress without clearing src, keeping the previous token's logo visible."
+expected = "Changing or clearing a token identity must not display another token's image."
+proposal = "Derive/reset logo URL from tokenAddress in token-logo.tsx and cover address A to empty to B."
+owner_domain = 4
+
+[finding.token-image-double-failure]
+file = "apps/launchpad/web/src/ui/shared/token-image.tsx"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "TokenImage represents every image failure with one errored boolean. When both src and a custom fallbackSrc fail, handleError leaves resolvedSrc on the broken fallback, despite the component's documented final placeholder behavior."
+expected = "After the primary and custom fallback fail, the token image must display the local placeholder and recover when a new primary URL arrives."
+proposal = "Track primary, custom fallback and local placeholder attempts in apps/launchpad/web/src/ui/shared/token-image.tsx; add a two-failure regression to token-image.test.tsx."
+owner_domain = 4
+
+[finding.log-free-receipt-contract]
+file = "sdk/launchpad/shared/chain/client.go"
+line = 1206
+class = "interface-mismatch"
+severity = "high"
+observed = "Client.ReceiptState verifies a committed receipt and computes an included state, then returns ErrReceiptPosition and no Receipt for len(receipt.Logs)==0. Native transfers and reverted transactions legitimately have no logs. The API projects the same Receipt contract with logIndex zero, so the two public adapters disagree."
+expected = "Every valid committed transaction must round-trip its receipt to consumers, including log-free success and reversion, with one agreed transaction-position representation."
+proposal = "Define a transaction-level receipt position in sdk/launchpad/shared/interfaces and its source contract, regenerate the Go and TypeScript consumers, and update both sdk/launchpad/shared/chain/client.go and services/launchpad/api/internal/app/network_reads.go. Prove transfer, reversion and event-bearing receipts through the real node path."
+owner_domain = 4
+interface = "4.go-shared-interfaces-v2-receipt"
+
+[finding.receipt-event-position-invented]
+file = "services/launchpad/api/internal/app/network_reads.go"
+line = 233
+class = "interface-mismatch"
+severity = "high"
+observed = "networkReads.transaction ignores receipt.logs and always emits position.logIndex as decimal zero. The SDK instead uses the first real receipt log's block-global Index. A transaction whose first event is not block log zero therefore gets different ChainPosition identities from the two producers."
+expected = "ChainPosition must identify the same real chain event across producers and consumers; transaction-only positions need an explicitly agreed separate representation."
+proposal = "Align the receipt position contract and services/launchpad/api/internal/app/network_reads.go with sdk/launchpad/shared/chain/client.go, preserving actual event indices where events exist. Cover a receipt whose first log index exceeds zero and the agreed log-free case."
+owner_domain = 4
+interface = "4.go-shared-interfaces-v2-chain-position"
+
+[finding.receipt-chain-identity-unchecked]
+file = "services/launchpad/api/internal/app/network_reads.go"
+line = 177
+class = "security"
+severity = "high"
+observed = "networkReads.transaction trusts eth_getTransactionReceipt fields and labels the response complete with position.chainId 125. It never checks eth_chainId or compares the reported block and transaction inclusion with committed chain evidence. newNetworkAuthority constructs its preflight engine without attesting the endpoint; RegisterNetworkReads can therefore publish a wrong-chain or conflicting receipt independently of authority readiness."
+expected = "A receipt advertised as a complete chain-125 result must be bound to the reviewed chain and its committed block and transaction, refusing conflicting or foreign evidence."
+proposal = "Use the verified chain and reported-hash inclusion checks from sdk/launchpad/shared/chain in services/launchpad/api/internal/app/network_reads.go, or perform equivalent pinned identity checks before projection. Prove wrong-chain, conflicting-block and missing-receipt refusal through the HTTP consumer."
+owner_domain = 4
+interface = "4.http-api-get-v2-transactions-transaction-hash-network-reads"
+
+[finding.rpc-fixture-correlation]
+file = "sdk/launchpad/shared/chain/client_test.go"
+line = 55
+class = "test-gap"
+severity = "medium"
+observed = "rpcServer responds with id 1 for every request, while Client.ChainID and BlockNumber perform a probe and subsequent calls with distinct JSON-RPC IDs. The fixture is not the response shape a conforming node emits and does not prove request/response correlation."
+expected = "RPC transport fixtures must echo each request ID so multiple calls exercise the same correlation contract as the real node."
+proposal = "Decode and echo the incoming JSON-RPC id in sdk/launchpad/shared/chain/client_test.go, preserving all success, failure and failover assertions and checking consecutive request identities."
+owner_domain = 4
+interface = "4.go-shared-chain-client-chain-id"
+
+[finding.contract-fixture-correlation]
+file = "sdk/launchpad/shared/chain/contracts_test.go"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "TestRolesBindToPrecompile issues eth_getLogs and PoolBeacon eth_call on one client, but its responder hardcodes id 1 for both responses and omits decoding request IDs."
+expected = "Binding tests must use node-shaped JSON-RPC responses that preserve the actual request identities for every ABI call."
+proposal = "Echo each incoming id in sdk/launchpad/shared/chain/contracts_test.go and retain the precompile filter and separate PoolBeacon destination assertions."
+owner_domain = 4
+interface = "4.go-shared-chain-create-contracts"
+
+[finding.production-rest-budget-bypass]
+file = "services/launchpad/api/internal/app/app.go"
+line = 394
+class = "wiring-gap"
+severity = "medium"
+observed = "The REST limiter and per-IP/key RateLimit middleware are installed on a chi group containing /status and development reads. Production accounting, market, authority, preflight, discovery and search handlers are registered later on router itself, outside that group. Aggregate Admission limits concurrency but does not apply the configured per-client request quota."
+expected = "Production public REST handlers must pass through the configured request-rate policy as well as their workload admission limits."
+proposal = "Mount production REST registrations inside the rate-limited group in services/launchpad/api/internal/app/app.go and prove quota exhaustion and recovery on representative cached, aggregate and preflight routes."
+owner_domain = 4
+interface = "4.go-shared-http-rate-limit"
+
+[finding.relay-test-outdated-grant-assumption]
+file = "services/launchpad/api/internal/app/stream_relay_production_test.go"
+line = 193
+class = "test-gap"
+severity = "medium"
+observed = "TestProductionStreamRelayPublishesCommittedFrames expects newStreamRelay to reject api_rest_runtime before an ad hoc GRANT. launchpad/spec/production-system/integration/migrations/grants.json already grants that role EXECUTE on recovery.assert_epoch(bigint,text), and NewAPIRuntimeDatabase applies those reviewed grants, contradicting the test's missing-permission premise."
+expected = "The production relay qualification must succeed using the reviewed deployment role and test missing permissions with an explicitly restricted independent role."
+proposal = "Update services/launchpad/api/internal/app/stream_relay_production_test.go to start the relay under the unchanged reviewed grants. Preserve the missing-grant refusal using a separate least-privilege role and retain stale-epoch and publication recovery assertions."
+owner_domain = 4
+interface = "4.go-shared-queue-epoch-guard-assert"
+
+[finding.dispatcher-reserved-paths-before-move]
+file = "tools/launchpad/production/dispatcher/patches.py"
+line = 37
+class = "config-drift"
+severity = "medium"
+observed = "_reserved protects shared/interfaces and client/packages/production-contracts and permits leaf artifacts only at client/packages/sdk and client/apps/mobile. The live monorepo paths are sdk/launchpad/shared/interfaces, sdk/launchpad/packages and apps/launchpad/mobile, so frozen schema inputs escape those directory guards while legitimate moved leaf manifests are rejected."
+expected = "Dispatcher ownership and reserved-path policy must describe the actual source layout, retaining frozen contract protection and narrowly scoped lane exceptions."
+proposal = "Rebind tools/launchpad/production/dispatcher/patches.py to the reviewed monorepo ownership paths and launchpad/spec handoffs; cover the real moved contract directories, SDK generated leaf and mobile manifest without broadening ownership."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-dispatcher-patches"
+
+[finding.source-policy-drops-moved-code]
+file = "tools/launchpad/production/dispatcher/source_policy.py"
+line = 11
+class = "wiring-gap"
+severity = "medium"
+observed = "ignored grants source exceptions only to protocol/coverage and shared/secrets at the root. The live sdk/launchpad/protocol/coverage and sdk/launchpad/shared/secrets directories hit IGNORED_DIRS and are pruned from source digests, archives and patches, omitting legitimate protocol and credential-management Go source."
+expected = "Qualification source identity and workspaces must include all legitimate moved protocol and secrets-management source while excluding actual secrets and generated coverage output."
+proposal = "Update exact source exceptions in tools/launchpad/production/dispatcher/source_policy.py for the monorepo paths and prove that edits to the actual Go files change the digest, survive archive/stage and remain distinct from secret material."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-dispatcher-source-policy"
+
+[finding.source-policy-tests-old-layout]
+file = "tools/launchpad/production/dispatcher/tests/test_source_policy.py"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "SourcePolicyTests constructs protocol/coverage and shared/secrets fixtures only at their pre-move root paths. Its passing source-digest and archive assertions do not cover the actual sdk/launchpad locations that ignored currently excludes."
+expected = "Source-boundary regression cases must use the repository's current producer paths and verify inclusion and exclusion through every source consumer."
+proposal = "Extend tools/launchpad/production/dispatcher/tests/test_source_policy.py with sdk/launchpad/protocol/coverage and sdk/launchpad/shared/secrets cases across digest, declared inputs, archives and patch staging, retaining nested secret and symlink refusals."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-dispatcher-tests-test-source-policy"
+
+[finding.owned-leaf-tests-old-layout]
+file = "tools/launchpad/production/dispatcher/tests/test_owned_leaf_artifacts.py"
+line = 8
+class = "test-gap"
+severity = "medium"
+observed = "OwnedLeafArtifactTests proves exceptions for client/packages/sdk and client/apps/mobile, plus frozen shared/interfaces paths. These are pre-move locations and cannot establish ownership behavior for the live sdk/launchpad and apps/launchpad tree."
+expected = "The owned-leaf proof must exercise actual SDK/mobile producers and current frozen interface paths rather than an obsolete directory model."
+proposal = "Rebase tools/launchpad/production/dispatcher/tests/test_owned_leaf_artifacts.py on the reviewed current ownership map and retain every foreign-lane, lockfile, generated sibling and traversal refusal."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-dispatcher-tests-test-owned-leaf-artifacts"
+
+[finding.graph-test-machine-root]
+file = "tools/launchpad/production/dispatcher/tests/test_graph.py"
+line = 14
+class = "test-gap"
+severity = "medium"
+observed = "GraphTests reads the production spec and execution plan from the absolute developer checkout /root/mk-falcon/KindleLaunch. That location is unrelated to this monorepo checkout, whose production documents live under launchpad/spec/production-system."
+expected = "Inventory qualification must read the canonical documents in the current checkout without depending on a developer machine's filesystem."
+proposal = "Derive the checkout root and launchpad/spec/production-system paths in tools/launchpad/production/dispatcher/tests/test_graph.py, preserving all graph bounds, dependency and ownership assertions."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-dispatcher-tests-test-graph"
+
+[finding.patch-test-machine-root]
+file = "tools/launchpad/production/dispatcher/tests/test_patches.py"
+line = 142
+class = "test-gap"
+severity = "medium"
+observed = "test_canonical_fifty_lane_ownership opens /root/mk-falcon/KindleLaunch/spec/production-system/spec.kvx instead of the canonical production specification in this checkout."
+expected = "The fifty-lane ownership proof must use the same current checkout and reviewed specification as the dispatcher it qualifies."
+proposal = "Resolve launchpad/spec/production-system/spec.kvx from the checkout in tools/launchpad/production/dispatcher/tests/test_patches.py and keep all fifty lane and handoff-boundary checks intact."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-dispatcher-tests-test-patches"
+
+[finding.fixture-test-machine-root]
+file = "tools/launchpad/production/dispatcher/tests/test_qualification_fixture.py"
+line = 12
+class = "test-gap"
+severity = "medium"
+observed = "FixtureTests defaults PRODUCTION_DISPATCHER_SPEC_ROOT to /root/mk-falcon/KindleLaunch and appends spec/production-system. Without an external override, it reads another machine's checkout rather than this monorepo's launchpad/spec."
+expected = "Standalone fixture qualification must locate the current canonical specification by default while retaining an explicit fixture override."
+proposal = "Derive the current production-document root in tools/launchpad/production/dispatcher/tests/test_qualification_fixture.py and preserve the status normalization and projection mismatch assertions."
+owner_domain = 4
+interface = "4.env-lp-tools-production-dispatcher-spec-root"
+
+[finding.serial-control-source-path]
+file = "tools/launchpad/production/tests/test_serial_gate.py"
+line = 154
+class = "test-gap"
+severity = "medium"
+observed = "test_exact_v2_full_gate_retains_signed_fifty_and_candidate_equality reads source controls through SOURCE.parent.parent/path. SOURCE is tools/launchpad/production and the frozen paths start tools/production, so the resulting source path is tools/tools/production rather than the existing tools/launchpad/production controls."
+expected = "The exact serial gate proof must copy the real reviewed control files into its isolated fixture before checking their authenticated identities."
+proposal = "Resolve the monorepo source files explicitly in tools/launchpad/production/tests/test_serial_gate.py while retaining the fixture's frozen relative layout, fifty authenticated acceptances and control-byte tampering refusal."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-tests-test-serial-gate"
+
+[finding.quickstart-retired-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart prescribes public POST /rpc, /rpc/ws (lines 167-168), LayerX payment commitment rungs, network 402 (154), and settlement/custody precompiles 0x1014 and 0x1013 (131-132,298-302) as current integration inputs."
+expected = "The merged network uses root-path node JSON-RPC on chain 125 and committed-block finality; retired kernel custody and checkpoint surfaces are not integration targets."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around the approved api1-api14 and api-mainnet-beta node roots, chain 125, user-signed transactions and committed receipts; remove the old endpoint, custody and checkpoint bootstrap instructions."
+owner_domain = 16
+
+[finding.settlement-split-network]
+file = "docs/site/docs/concepts/paxeer-settlement.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page separates ordinary LayerX activity from Paxeer transactions, assigns custody and guarantor checkpoints to a second settlement domain, and tells users to recover through the latest checkpoint when a sequencer fails (44-49)."
+expected = "One paxd BFT network executes the merged constructs and finalizes receipts on block commit; the guarantor and kernel checkpoint settlement system is retired."
+proposal = "Replace docs/site/docs/concepts/paxeer-settlement.md with the single-chain execution and settlement model, chain-125 committed evidence and current recovery paths, removing the retired balance, custody and emergency-exit architecture."
+owner_domain = 16
+
+[finding.boundary-retired-suite]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment section instructs operators to deploy the LayerX settlement suite through deploy-contracts.sh and publish GuarantorBond and CheckpointRegistry addresses (119-129), backed by retired LXGD/LXRR genesis and custody validation."
+expected = "The TLS chain boundary may relay current node RPC, but it must not require retired kernel settlement contracts or their deployment lifecycle."
+proposal = "Rewrite the deployment section of docs/site/docs/concepts/paxeer-boundary.md to describe the current chain boundary, trust pins and chain-125 readiness, removing settlement-suite activation and guarantor requirements."
+owner_domain = 16
+
+[finding.checkpoint-retired-finality]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes periodic LayerX checkpoints registered on Paxeer, active bonded guarantor replay (17-30), and accepted/sealed/distributed/attested/settled and executed/batched/finalised finality ladders (35-37). Its linked guarantor page explicitly says that producer is retired."
+expected = "Public finality is the committed BFT block; guarantor checkpoint certificates and the prior multi-stage settlement ladder are retired."
+proposal = "Replace docs/site/docs/concepts/checkpoints.md with an explicit retirement notice and the current committed-block evidence model, linking the maintained node and finality documentation rather than instructing checkpoint operation."
+owner_domain = 16
+
+[finding.settlement-witness-tooling-retired]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The operator guide prescribes registerCheckpoint, publishCheckpointWitnesses and vault authority setup, and later autonomous guarantor evidence publication, as a live settlement operating procedure."
+expected = "Operators must use committed chain receipts and current chain evidence; the guarantor publication and kernel settlement contract workflow is retired."
+proposal = "Retire the publication runbook in docs/site/docs/operators/settlement-evidence.md and replace it with current receipt/block evidence collection and recovery instructions, preserving legacy wire details only as clearly historical material."
+owner_domain = 16
+
+[finding.beta-cluster-retired-bringup]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 26
+class = "doc-drift"
+severity = "medium"
+observed = "The bring-up guide deploys settlement contracts and a layerx-node-settlement ConfigMap, applies layerxd --custody-profile (50), and describes separate LayerX sequencer and authority roles alongside Paxeer."
+expected = "Bring-up must operate the merged paxd BFT network with embedded kernel behavior, without a separate layerxd service, guarantors or kernel settlement contract bootstrapping."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the merged chain and tenant-domain service layout, with current deployment artifacts, readiness and restart/recovery steps; remove the obsolete daemon and settlement phase."
+owner_domain = 16
+
+[finding.agent-rpc-and-finality-drift]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The agent guide sends eth_sendRawTransaction to /rpc and returns a submitted rung, while its verification_defaults table still advertises sequencer-signed, batch-included, checkpoint-finalised and settlement-anchored policies (701)."
+expected = "Agent chain access uses the approved root-path chain-125 RPC and the current receipt verification and committed-block finality model."
+proposal = "Update docs/site/docs/agents/running.md endpoint and verification-policy instructions against the maintained agent configuration schema and root-path node methods; retain tenant authentication and secret-storage requirements."
+owner_domain = 16
+
+[finding.cli-gateway-path-drift]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI reference requires --rpc URLs to end in /rpc, repeats that restriction at 131, and documents transaction submission through the gateway /rpc surface (278-298)."
+expected = "Current node RPC endpoints are approved HTTPS host roots; the merged network has no unified /rpc endpoint."
+proposal = "Rewrite docs/site/docs/platform/cli.md connection and wallet examples for the current root-path chain-125 node transport, matching the implemented CLI URL validation and committed receipt behavior."
+owner_domain = 16
+
+[finding.hosted-node-retired-daemon]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-node runbook builds and operates layerxd, a sequencer supervisor and authority replica (39-40), persistent guarantors (42), network 402 and kernel settlement/checkpoint precompiles (261-303) as running infrastructure."
+expected = "Hosted deployment must describe paxd and the merged chain; tenant domains require no independent daemon/sequencer and retired guarantor settlement components cannot be readiness dependencies."
+proposal = "Replace docs/site/docs/platform/hosted-node.md with the current paxd and hosted-service deployment, persistence and recovery model, approved chain-125 node origins and tenant configuration."
+owner_domain = 16
+
+[finding.dispatcher-readme-moved-commands]
+file = "tools/launchpad/production/dispatcher/README.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Every dispatcher command example uses tools/production/dispatcher and spec/production-system, although the executable now lives at tools/launchpad/production/dispatcher and the production documents at launchpad/spec/production-system."
+expected = "Coordinator documentation must provide runnable paths from the monorepo root and correctly distinguish real source paths from illustrative fixture layouts."
+proposal = "Update tools/launchpad/production/dispatcher/README.md command paths, production-document locations and the real module input example; retain the explicit fixture-versus-production evidence limits."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-dispatcher-cli"
+
+[finding.services-contract-old-receipt-rule]
+file = "spec/layerx-merge/contracts/services.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The generated service contract requires all receipts to verify against ReceiptKeys and signed sequencer pins; its catalogue still describes private-to-router node RPC, and the platform gateway section names public POST /rpc (749). These rules contradict the finished-network audit brief."
+expected = "Service contracts must use current chain receipt and committed-block identity requirements and root-path node RPC without a separate LayerX router."
+proposal = "Amend the source service contracts and regenerate spec/layerx-merge/contracts/services.md to state the merged BFT receipt authority and approved root-path transports, distinguishing any retained internal compatibility interfaces."
+owner_domain = 17
+
+[finding.transaction-test-position-coverage]
+file = "services/launchpad/api/internal/app/network_reads_production_test.go"
+line = 138
+class = "test-gap"
+severity = "medium"
+observed = "TestProductionNetworkReadsFromBoundAuthorityDocument checks a fixed transaction at transactionIndex zero and decodes no position.logIndex. It cannot detect the API's hardcoded event index or establish consistency with the SDK receipt projection."
+expected = "The production receipt proof must compare the complete agreed position against real producer evidence, including a nonzero event index and valid log-free transactions."
+proposal = "Extend services/launchpad/api/internal/app/network_reads_production_test.go after the receipt contract is aligned to assert full position identity through the public consumer, including nonzero first-log indices and log-free success/reversion."
+owner_domain = 4
+interface = "4.go-shared-interfaces-v2-chain-position"
+
+[doc.01]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read in full. Lines 20,167-219,596-599 prescribe /rpc and /rpc/ws; lines 131-132 and 298-302 retain retired settlement/custody addresses, and line 154 retains network 402. Rewrite for root-path chain-125 committed receipts."
+
+[doc.02]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "stale"
+notes = "Read in full. Lines 3-24 split LayerX activity from Paxeer execution, lines 28-40 require checkpoint-backed custody, and lines 44-49 prescribe retired sequencer emergency exits."
+
+[doc.03]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Read in full. TLS trust pins and chain-125 boundary behavior remain useful, but lines 119-129 and 155-159 require retired settlement contracts and kernel genesis deployment validation."
+
+[doc.04]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "stale"
+notes = "Read in full. Lines 3-30 present active periodic checkpoints and guarantors; lines 35-46 use retired finality ladders and CheckpointRegistry. The linked guarantor page now states retirement."
+
+[doc.05]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Read in full. Lines 3-9,30-39 and 95-105 prescribe retired witness-publication contracts and autonomous guarantor operation rather than committed chain evidence."
+
+[doc.06]
+path = "docs/site/docs/operators/guarantor.md"
+status = "accurate"
+notes = "Read all 10 lines. Explicitly retires guarantor production and publication tooling and states that the committed chain block supplies settlement finality."
+
+[doc.07]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read in full for this slice. The kernel/program ABI, canonical encoding, resource limits and refusal guidance apply to the embedded kernel; no separate running service is required by the audited chain adapters."
+
+[doc.08]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read in full. Lines 26-50 retain settlement-suite bootstrap and layerxd custody profiles; later sequencer/authority and standalone node instructions describe the pre-merge deployment."
+
+[doc.09]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Read in full. Line 512 sends eth_sendRawTransaction to /rpc, and line 701 lists retired checkpoint/settlement verification policies. Tenant and private credential guidance should survive the rewrite."
+
+[doc.10]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Read in full. The chain evidence trust and refusal guidance uses the maintained eth_/pax_ surfaces and explicit block/receipt verification rather than treating node.hyperpaxeer.com as an RPC origin."
+
+[doc.11]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Read in full. Lines 8,131,278-298 require gateway /rpc URLs and document the obsolete transport; revise the CLI connection and transaction examples to approved root-path chain-125 nodes."
+
+[doc.12]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Read in full. Lines 4-22,39-43,161 and 261-303 describe layerxd/separate sequencer roles, guarantors, network 402 and kernel checkpoint/settlement operation, all incompatible with merged bring-up."
+
+[doc.13]
+path = "tools/launchpad/production/dispatcher/README.md"
+status = "stale"
+notes = "Read all 80 lines. Commands at 14-23,29,35-41,62-66 and 72-76 still use tools/production and spec/production-system. Actual monorepo command and document roots include launchpad."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "accurate"
+notes = "Consulted launchpad shared-Go, protocol-Go and web-app sections (319-347,680-817) as the registry's frozen contract context. They identify current source roots and separate planned changes from existing API exports; they do not settle the receipt-position defect."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Consulted global rules and launchpad API section (3046 onward). Rule 2 at line 28 requires old ReceiptKeys/sequencer verification for all receipts; the catalogue and gateway line 749 retain a router /rpc model. Current API method/path refusal requirements remain relevant."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Consulted launchpad-tools registry context (7040 onward), especially dispatcher CLI flags at 7187-7212, and on-chain ABI ownership context. Tables are revision-labelled contract inventories, not evidence that dispatcher qualification has executed."

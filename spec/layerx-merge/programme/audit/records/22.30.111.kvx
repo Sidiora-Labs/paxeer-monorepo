@@ -1,0 +1,831 @@
+# Pre-upgrade audit of the native committed mirror and x402 adapter slice.
+# Source-only audit; no runtime, live-chain or independent interoperability qualification is claimed.
+
+[audit.22.30.111]
+task = "22.30.111"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 43
+findings = 48
+docs_reviewed = 11
+upgrade_ready = false
+blocking = ["1", "2", "3", "4", "5", "6", "7", "8"]
+review_basis = "All 43 members read in full against package requirements and produced/consumed registry rows, with native receipt RPC, gateway settlement, committed proof, signer and external archive program boundaries cross-checked. Findings distinguish concrete round-trip/recovery failures from declaration drift; no source repairs are included."
+
+[file.1]
+path = "services/interop/crates/layerx-mirror/Cargo.toml"
+lines = 24
+verdict = "clean"
+note = "Read all dependencies and binary declarations; package wiring matches the concrete source, TLS, signer and archive implementations. No generated or vendored member is present."
+
+[file.2]
+path = "services/interop/crates/layerx-mirror/README.md"
+lines = 16
+verdict = "issues"
+note = "Read the entire crate entry page and followed configuration and signer links; wording and verifier example drift are recorded."
+
+[file.3]
+path = "services/interop/crates/layerx-mirror/src/bin/layerx-mirror-publisher.rs"
+lines = 49
+verdict = "clean"
+note = "Read the complete argument/configuration startup and error path; it calls the real runtime and does not introduce a retired native transport."
+
+[file.4]
+path = "services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs"
+lines = 357
+verdict = "issues"
+note = "Read the complete strict config/request loader, target construction, policy selection and output/error paths; configuration and selector declaration drift are recorded."
+
+[file.5]
+path = "services/interop/crates/layerx-mirror/src/committed.rs"
+lines = 313
+verdict = "issues"
+note = "Read source pinning, quorum acquisition, parent continuity, receipt authentication, coordinate/header parsing and archive validation; served declaration mismatches are recorded."
+
+[file.6]
+path = "services/interop/crates/layerx-mirror/src/ethereum.rs"
+lines = 1318
+verdict = "issues"
+note = "Read all ABI encoding/decoding, target code/chain pinning, signing, finality/reorg and retrieval paths; Prepared resume and journal transition failures are recorded."
+
+[file.7]
+path = "services/interop/crates/layerx-mirror/src/lib.rs"
+lines = 17
+verdict = "issues"
+note = "Read every module/export and crate description; exports match source modules, but batch-era documentation remains."
+
+[file.8]
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+lines = 1816
+verdict = "issues"
+note = "Read all archive v4 framing, limits, commitment, generic publication, cursor/freshness and inline tests; construction declaration drift is recorded and concrete recovery gaps are owned by chain clients."
+
+[file.9]
+path = "services/interop/crates/layerx-mirror/src/rpc.rs"
+lines = 627
+verdict = "issues"
+note = "Read quorum backend identity, endpoint authentication, TLS, broadcast ambiguity, JSON-RPC/HTTP framing and limits; request-wide deadline gap is recorded."
+
+[file.10]
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+lines = 1815
+verdict = "issues"
+note = "Read strict schemas, workers, state recovery, status listener/readiness, redaction and all inline tests; head wiring, unbounded history, status and native fixture drift are recorded."
+
+[file.11]
+path = "services/interop/crates/layerx-mirror/src/signer.rs"
+lines = 463
+verdict = "issues"
+note = "Read UDS/mTLS framing, authentication, signature verification and bounded request/response code; Ed25519 digest API disagreement with real signer is recorded."
+
+[file.12]
+path = "services/interop/crates/layerx-mirror/src/solana.rs"
+lines = 1718
+verdict = "issues"
+note = "Read account/PDA/instruction encoding, target/loader verification, signed transaction, rooted finality, reorg/expiry and archive retrieval; Prepared resume and stale registry wire version are recorded."
+
+[file.13]
+path = "services/interop/crates/layerx-mirror/src/source.rs"
+lines = 518
+verdict = "clean"
+note = "Read every source selector, pinned target observation, complete-source failover/agreement and recheck path. Unknown head lag stays explicit; no archive/observation mixing or retired native endpoint is introduced."
+
+[file.14]
+path = "services/interop/crates/layerx-mirror/src/store.rs"
+lines = 1047
+verdict = "issues"
+note = "Read permission/symlink boundaries, journal framing/hash chain/head seals, spool encoding, transition table and reopen logic; concrete transition, crash-tail and format declaration gaps are recorded."
+
+[file.15]
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+lines = 483
+verdict = "issues"
+note = "Read all receipt verification, observation/freshness and refusal handling, including inline tests. Signature-only committed receipt semantics match req 11301; stale registry APIs and broader refusal-test contradiction are recorded separately."
+
+[file.16]
+path = "services/interop/crates/layerx-mirror/tests/committed_freshness.rs"
+lines = 185
+verdict = "clean"
+note = "Read every block-lag, differing-coordinate, source freshness and publisher readiness assertion. These are bounded public-type tests; live-head runtime wiring is separately recorded on runtime.rs."
+
+[file.17]
+path = "services/interop/crates/layerx-mirror/tests/committed_source.rs"
+lines = 908
+verdict = "issues"
+note = "Read the full TLS/quorum fixture and all native source identity, receipt, continuity and archive tests; retired native request route is recorded."
+
+[file.18]
+path = "services/interop/crates/layerx-mirror/tests/proof_mirror_archive.rs"
+lines = 369
+verdict = "clean"
+note = "Read all archive-to-verifier reconstruction, mutation and trust-window cases. The suite explicitly exercises the bounded public Rust archive boundary and does not claim live chain/client qualification."
+
+[file.19]
+path = "services/interop/crates/layerx-mirror/tests/publish.rs"
+lines = 987
+verdict = "issues"
+note = "Read every generic Ethereum/Solana publication, stall, retrieval and reorg scenario; synthetic chain implementations leave concrete durable recovery unproved."
+
+[file.20]
+path = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"
+lines = 329
+verdict = "issues"
+note = "Read every shared fixture classification and signature/receipt assertion; three V3 consumer-refusal expectations are not exercised as required."
+
+[file.21]
+path = "services/interop/crates/layerx-mirror/tests/state_directory.rs"
+lines = 294
+verdict = "clean"
+note = "Read all real directory/journal/spool permission, symlink, corruption, rollback and persistence cases. They correctly test their bounded persistence contracts; torn-tail recovery is recorded on store.rs."
+
+[file.22]
+path = "services/interop/crates/layerx-mirror/tests/support/mod.rs"
+lines = 318
+verdict = "issues"
+note = "Read the full native TLS TestRpc server, certificate/token generation, framing, dispatch and cleanup; inherited retired native /rpc path is recorded."
+
+[file.23]
+path = "services/interop/crates/layerx-x402/COMPATIBILITY.md"
+lines = 28
+verdict = "issues"
+note = "Read all transport and qualification claims; economic effect and crash-recovery claims exceed the cited in-memory evidence."
+
+[file.24]
+path = "services/interop/crates/layerx-x402/Cargo.toml"
+lines = 22
+verdict = "clean"
+note = "Read package/dependencies and pinned Rust interfaces; dependencies support the actual model, gateway, receipt and committed-proof consumers."
+
+[file.25]
+path = "services/interop/crates/layerx-x402/src/buyer.rs"
+lines = 964
+verdict = "issues"
+note = "Read offer selection, plane construction, complete evidence/proof/log decoders, purpose and native payment capture, plus inline tests. Settlement shape, identifier, scheme, trust and identity defects are recorded."
+
+[file.26]
+path = "services/interop/crates/layerx-x402/src/codec.rs"
+lines = 29
+verdict = "clean"
+note = "Read all base64 header encoding/decoding and 64 KiB checks. Canonical serialization delegates to the typed caller and rejects oversized/invalid encoded content."
+
+[file.27]
+path = "services/interop/crates/layerx-x402/src/facilitator.rs"
+lines = 971
+verdict = "issues"
+note = "Read support declarations, verify/settle identity, gateway transitions, receipt/log/commit validation and inline tests; advertised grant handling and emitted buyer evidence disagreements are recorded."
+
+[file.28]
+path = "services/interop/crates/layerx-x402/src/lib.rs"
+lines = 71
+verdict = "clean"
+note = "Read every public module/export and adapter conformance declaration. Registration names, pinned specification and gateway role boundaries match the actual crate surface."
+
+[file.29]
+path = "services/interop/crates/layerx-x402/src/model.rs"
+lines = 654
+verdict = "clean"
+note = "Read every wire type, amount encoding, strict field validator, account/asset derivation, purpose and error mapping. Model identifier acceptance is consistent with seller and native identities; buyer divergence is recorded on buyer.rs."
+
+[file.30]
+path = "services/interop/crates/layerx-x402/src/seller.rs"
+lines = 1076
+verdict = "clean"
+note = "Read complete offer/settlement paths, native exact/drawn log binding, purpose, proof rendering and inline tests. Seller emits the buyer evidence shape with logs/proof; consumer and trust-boundary gaps are recorded on buyer/facilitator paths."
+
+[file.31]
+path = "services/interop/crates/layerx-x402/src/transport.rs"
+lines = 311
+verdict = "issues"
+note = "Read HTTP, MCP and A2A core/facilitator codecs, envelope discriminators and validation; non-HTTP core decode bypasses the common size budget."
+
+[file.32]
+path = "services/interop/crates/layerx-x402/tests/buyer.rs"
+lines = 1177
+verdict = "issues"
+note = "Read all selection, build, capture, refusal, native log and grant tests; wire identity preservation remains unproved by the named sidecar-only test."
+
+[file.33]
+path = "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs"
+lines = 916
+verdict = "issues"
+note = "Read all recorded receipt/log, committed proof, seller-to-buyer and mutation cases; proofs select their own validator authority and chain without an independent anchor."
+
+[file.34]
+path = "services/interop/crates/layerx-x402/tests/e2e.rs"
+lines = 604
+verdict = "issues"
+note = "Read every mock-plane flow, offer/transport/pending/idempotency assertion; independent implementation and completed settlement claims exceed this boundary."
+
+[file.35]
+path = "services/interop/crates/layerx-x402/tests/errors.rs"
+lines = 69
+verdict = "clean"
+note = "Read all public X402Error code comparisons and refusal classifications. Exact error strings match the model/gateway mapping and preserve typed failures."
+
+[file.36]
+path = "services/interop/crates/layerx-x402/tests/evidence_format.rs"
+lines = 339
+verdict = "issues"
+note = "Read complete real seller-to-buyer receipt and purpose cases; identifier case coverage omits accepted uppercase bare inputs."
+
+[file.37]
+path = "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs"
+lines = 791
+verdict = "issues"
+note = "Read every recorded receipt, native event, refusal, pending and committed proof test; output is never consumed by the strict buyer evidence decoder."
+
+[file.38]
+path = "services/interop/crates/layerx-x402/tests/layerx_evidence.rs"
+lines = 361
+verdict = "clean"
+note = "Read all recorded LayerX profile, account/asset/payee binding, metadata mutation and valid native log cases. Assertions use the real model/seller boundaries and preserve rejection checks."
+
+[file.39]
+path = "services/interop/crates/layerx-x402/tests/pinned_spec.rs"
+lines = 43
+verdict = "clean"
+note = "Read all exact revision/count/digest, pinned document and malformed pin assertions. They exercise actual PinnedSpec validation without claiming independent live interoperability."
+
+[file.40]
+path = "services/interop/crates/layerx-x402/tests/seller.rs"
+lines = 1594
+verdict = "clean"
+note = "Read every offer, translation, executed/pending/refusal, ledger exact/drawn, purpose and mutation case. Tests correctly assert seller-local contracts, including both grant schemes; buyer subscription divergence is recorded on buyer.rs."
+
+[file.41]
+path = "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs"
+lines = 693
+verdict = "issues"
+note = "Read all recorded settlement classifications, receipt/proof parsing, digest/transaction bindings and facilitator mutations; a third evidence wire shape is asserted."
+
+[file.42]
+path = "services/interop/crates/layerx-x402/tests/transports.rs"
+lines = 994
+verdict = "issues"
+note = "Read every HTTP/MCP/A2A codec/identity/facilitator and fault sequence. Useful local parity coverage is distinct from missing process-reopen and authoritative economic-effect evidence."
+
+[file.43]
+path = "services/interop/crates/layerx-x402/tests/vectors.rs"
+lines = 618
+verdict = "issues"
+note = "Read all pinned first-party corpus cases, model validation, canonical wire/limits and transport assertions; independent implementation wording overstates local conformance evidence."
+
+[finding.1]
+file = "services/interop/crates/layerx-x402/src/facilitator.rs"
+line = 650
+class = "interface-mismatch"
+severity = "high"
+observed = "settle_executed emits receipt, receiptDigest and verificationLevel, adding only blockNumber and blockHash for committed responses. Buyer::capture_settlement deserializes mandatory logs and requires proof for committed evidence, so a successful facilitator response cannot be captured by the buyer."
+expected = "The facilitator, transport and buyer must exchange the same locally verifiable settlement evidence; a success response must retain the authenticated log view and the inclusion proof for its claimed rung."
+proposal = "In layerx-x402/src/facilitator.rs and seller.rs share the evidence renderer, including canonical logs and committed proof. Prove facilitator settle through each transport into Buyer::capture_settlement for receipted and committed results."
+owner_domain = 11
+interface = "11.fmt-x402-layerx-evidence"
+
+[finding.2]
+file = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 516
+class = "interface-mismatch"
+severity = "high"
+observed = "capture_settlement selects PaymentDrawn and the 128-byte grant layout only when scheme equals metered. A subscription offer takes the PaymentExact branch, although seller::pay_drawn_matches accepts the subscription PaymentDrawn settlement."
+expected = "Both supported grant schemes, metered and subscription, must bind grantId, idempotencyKey and purposeHash to the same native ledger PaymentDrawn event throughout seller and buyer."
+proposal = "In layerx-x402/src/buyer.rs dispatch both grant schemes to the draw verifier and reject unsupported schemes explicitly. Add a subscription settlement produced by Seller and captured by Buyer, including wrong grant, purpose and reference refusals."
+owner_domain = 11
+interface = "11.rs-x402-buyer-capture-settlement"
+
+[finding.3]
+file = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 656
+class = "interface-mismatch"
+severity = "high"
+observed = "The buyer unhex helper accepts bare identifiers only when all letters are lowercase. PaymentRequirements::parse_hex32 accepts uppercase bare asset and payTo identifiers, and seller::matches_identifier compares them case-insensitively. A valid accepted offer can settle at the seller and fail buyer capture."
+expected = "Every identifier representation accepted by the payment requirements model and seller must decode to the same 32 bytes at buyer capture, independently of hexadecimal letter case."
+proposal = "Use the shared bounded 32-byte identifier parser in layerx-x402/src/buyer.rs, model.rs and seller.rs. Exercise lowercase and uppercase, prefixed and bare asset/payTo values through model validation, seller settlement and buyer capture."
+owner_domain = 11
+interface = "11.fmt-x402-payment-requirements"
+
+[finding.4]
+file = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 246
+class = "security"
+severity = "high"
+observed = "verify_committed_evidence obtains both validators and chainId from the untrusted PAYMENT-RESPONSE proof and passes them as the trust inputs to verify_committed. Receipt keys authenticate execution but do not authenticate that validator set. A genuine receipt can be placed in a privately signed consensus history and accepted as committed."
+expected = "A committed claim for Paxeer must anchor the consensus chain identity and validator authority independently of the response being checked, including authorised validator-set changes."
+proposal = "Extend the buyer trust configuration and capture boundary in layerx-x402/src/buyer.rs with a trusted consensus anchor for the offered network and validated set transitions. Reject response-selected chains and self-signed validator sets; retain receipt and inclusion checks."
+owner_domain = 11
+interface = "11.rs-x402-buyer-capture-settlement"
+
+[finding.5]
+file = "services/interop/crates/layerx-mirror/src/ethereum.rs"
+line = 436
+class = "restart-recovery"
+severity = "high"
+observed = "prepare_and_broadcast durably appends Prepared with TransactionIdentity::None before signing. After a crash in that window, advance routes the existing Prepared record to observe_stage, which immediately requires TransactionIdentity::Ethereum and returns Transaction on every restart."
+expected = "A durable prepared publication that has never been signed or sent must resume its exact stage after restart without requiring manual journal replacement or losing publication progress."
+proposal = "Handle Prepared explicitly in EthereumArchiveClient::advance and resume signing the persisted stage after checking its payload digest. Add process-reopen cases at Prepared, Signed and broadcast boundaries using the concrete client and journal."
+owner_domain = 11
+interface = "11.rs-mirror-ethereum-archive-client-advance"
+
+[finding.6]
+file = "services/interop/crates/layerx-mirror/src/solana.rs"
+line = 483
+class = "restart-recovery"
+severity = "high"
+observed = "prepare_and_broadcast persists Prepared with no transaction identity before sign_transaction. advance resumes that record in observe_stage, whose Solana identity pattern fails immediately. A restart between the durable preparation and signed append permanently stalls this archive stage."
+expected = "Solana mirror publication must recover every persisted pre-broadcast state and continue with a valid blockhash while preserving the stage payload and archive commitment."
+proposal = "Route Prepared to a verified resume-signing path in layerx-mirror/src/solana.rs. Reopen the real journal at each signing and broadcast boundary, and prove that the intended manifest/chunk/finalize instruction is published exactly once."
+owner_domain = 11
+interface = "11.rs-mirror-solana-archive-client-advance"
+
+[finding.7]
+file = "services/interop/crates/layerx-mirror/src/store.rs"
+line = 588
+class = "restart-recovery"
+severity = "high"
+observed = "validate_transition permits Pending only to Pending, Finalized or PermanentRefusal. Ethereum observe_stage can move Pending to BroadcastUnknown or Reorged; Solana can move it to BroadcastUnknown or BroadcastExpired. The journal rejects these observations as InvalidTransition, preventing expiry replacement or reorg recovery."
+expected = "The durable publication state machine must represent all legitimate observations produced by both concrete chain clients while preserving identity checks and ambiguity protection."
+proposal = "Reconcile validate_transition in layerx-mirror/src/store.rs with ethereum.rs and solana.rs using an explicit recovery transition table. Prove persisted pending disappearance, expired Solana blockhash and canonical-hash replacement through the real clients, without permitting unverified rebroadcast."
+owner_domain = 11
+interface = "11.rs-mirror-publication-journal-append"
+
+[finding.8]
+file = "services/interop/crates/layerx-x402/src/facilitator.rs"
+line = 578
+class = "interface-mismatch"
+severity = "high"
+observed = "validate_supported accepts configured metered and subscription kinds, but settle_executed recognises only PaymentExact and its 64-byte data layout. A supported grant payment returns PaymentDrawn with a 128-byte layout and is refused; no grant purpose is rendered for buyer verification."
+expected = "A facilitator must settle every advertised scheme using its actual native event and bind grant identity, draw reference and purpose for metered or subscription payments."
+proposal = "Implement the native grant event verification and purpose evidence in layerx-x402/src/facilitator.rs, sharing the seller grant rules; until implemented reject unsupported grant kinds when constructing the support declaration. Prove advertised kinds against real settlement output."
+owner_domain = 11
+interface = "11.rs-x402-facilitator-settle"
+
+[finding.9]
+file = "services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs"
+line = 24
+class = "config-drift"
+severity = "medium"
+observed = "The strict verifier Config requires receipt_keys and rejects unknown fields. The README-linked deploy/mirror/verify-config.example.json supplies sequencer_id_hex, sequencer_public_key_hex and first/last_batch_number instead, so the documented example cannot start this binary."
+expected = "The shipped verifier example must deserialize through the current Config and provide bounded receipt-key height windows using the same names and types as the loader."
+proposal = "Update services/interop/deploy/mirror/verify-config.example.json to receipt_keys and the current source schema. Add an example-loading test through the actual verifier Config boundary in layerx-mirror/src/bin/layerx-mirror-verify.rs."
+owner_domain = 11
+interface = "11.cli-mirror-verify"
+
+[finding.10]
+file = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 279
+class = "wiring-gap"
+severity = "medium"
+observed = "The acquisition worker requests only the next numeric block and never calls latest_committed. A null next block becomes Unavailable and record_committed clears readiness even when the publisher is caught up. Freshness is measured against the last acquired block, and only one block is acquired per poll interval."
+expected = "A healthy caught-up mirror must stay ready, and lag must be measured against the observed native finalized head rather than a locally advanced acquisition cursor."
+proposal = "In layerx-mirror/src/runtime.rs poll latest_committed separately, retain healthy caught-up status, and drain a bounded range up to that head per poll. Prove steady tip, advancing head, backlog and endpoint refusal as distinct status outcomes."
+owner_domain = 11
+interface = "11.rs-mirror-committed-block-source-latest-j48"
+
+[finding.11]
+file = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 491
+class = "runtime-risk"
+severity = "medium"
+observed = "ordered_archives loads and decodes every spooled archive into a vector each chain poll. Each lane repeatedly walks historical archives and recreates stage work; the spool and journals have no retention limit, so memory, disk and RPC work grow with the entire chain history."
+expected = "Continuous mirror publication must have bounded per-poll work and memory, with durable progress and a retention policy that preserves recovery and the promised archive availability."
+proposal = "Add a durable ordered spool index and per-lane progress cursor in layerx-mirror/src/runtime.rs and store.rs. Limit each poll and reorg window, and define archival/retention ownership so verified history is not repeatedly loaded or silently discarded."
+owner_domain = 11
+
+[finding.12]
+file = "services/interop/crates/layerx-mirror/src/store.rs"
+line = 625
+class = "restart-recovery"
+severity = "medium"
+observed = "append writes and syncs the framed log before replacing its head. replay accepts complete hash-linked extensions, but a crash leaving an incomplete unsealed frame returns Corrupt or an actual_length mismatch; the intact sealed prefix cannot reopen automatically."
+expected = "A crash during append must permit recovery of the last authenticated sealed prefix without accepting sealed corruption, rollback, or a partially persisted publication."
+proposal = "In layerx-mirror/src/store.rs distinguish a verified unsealed crash suffix from corruption inside the sealed prefix and define an explicit durable recovery/truncation operation. Add fault injection during frame and head writes; continue refusing authenticated-prefix damage."
+owner_domain = 11
+
+[finding.13]
+file = "services/interop/crates/layerx-mirror/src/rpc.rs"
+line = 341
+class = "runtime-risk"
+severity = "medium"
+observed = "RpcEndpoint uses blocking to_socket_addrs and socket read/write timeouts. read_json_rpc performs repeated reads without an overall deadline, so a peer that drips bytes before each timeout or slow DNS can exceed request_timeout_ms indefinitely. Quorum calls visit endpoints sequentially."
+expected = "The configured RPC deadline must bound the whole DNS/connect/TLS/request/body exchange so one endpoint cannot prevent source or chain-worker progress indefinitely."
+proposal = "Apply one monotonic end-to-end request budget across resolver, connection, TLS and body reads in layerx-mirror/src/rpc.rs. Test a slow-drip body and delayed resolution, and ensure other independent endpoints can still establish quorum."
+owner_domain = 11
+
+[finding.14]
+file = "services/interop/crates/layerx-mirror/src/signer.rs"
+line = 162
+class = "interface-mismatch"
+severity = "medium"
+observed = "RemoteChainSigner::sign_digest permits an Ed25519 configuration and encodes an empty message. The real mirror-signer rejects Ed25519 requests without a nonempty message as required by deploy/mirror/signer-protocol.md. The runtime Solana path correctly uses sign_message, so the mismatch is in the public digest API."
+expected = "The exposed signer methods must accept only request shapes the actual signer authorises: secp256k1 digest signing and Ed25519 signing of the complete bounded message."
+proposal = "Restrict sign_digest to secp256k1 at the public boundary in layerx-mirror/src/signer.rs and direct Ed25519 callers to sign_message. Exercise each method against the actual mirror-signer request decoder and refusal codes."
+owner_domain = 11
+interface = "11.fmt-msigner-request"
+
+[finding.15]
+file = "services/interop/crates/layerx-x402/src/transport.rs"
+line = 285
+class = "security"
+severity = "medium"
+observed = "decode_core deserializes MCP/A2A JSON by cloning Value directly, bypassing MAXIMUM_JSON_BYTES. HTTP decode_header and encode_json/decode_json enforce the 64 KiB budget, but object-valued payload and extension contents allow oversized MCP/A2A core messages to pass model validation."
+expected = "All supported transports must enforce the same bounded core message contract before cloning or decoding potentially large payment payloads and extension objects."
+proposal = "Use a shared bounded decoding boundary for MCP/A2A core messages in layerx-x402/src/transport.rs and bound ingress before constructing unbounded Values. Exercise just-below and over-limit payloads through each real transport decoder."
+owner_domain = 11
+interface = "11.rs-x402-decode-payment-payload"
+
+[finding.16]
+file = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 400
+class = "interface-mismatch"
+severity = "medium"
+observed = "build_payment checks only that the plane output is an object and stores the caller idempotency_key separately. It does not require payload.idempotencyKey to match. The live interop-service BuyerPlane ignores PaymentBuildRequest and returns caller JSON; seller may derive a different key and the resulting valid settlement fails buyer capture."
+expected = "A successful buyer build must carry the same nonzero settlement identity across BuiltPayment, encoded PAYMENT-SIGNATURE, seller submission and later buyer capture."
+proposal = "Validate the constructed scheme identity against PaymentBuildRequest in layerx-x402/src/buyer.rs and make services/interop/crates/layerx-interop-service/src/server.rs construct the bound payload. Add build-to-seller-to-capture cases with missing and conflicting keys."
+owner_domain = 11
+interface = "11.rs-x402-buyer-build-payment"
+
+[finding.17]
+file = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"
+line = 286
+class = "test-gap"
+severity = "medium"
+observed = "The shared V3 activity-id, sequence-hash and tampered-log cases unwrap a successful committed_receipt result. The tampered-log branch merely checks the fixture string refusedAt equals R5. This does not prove the requirement 11369.2 claim that the mirror consumer refuses every V3 case."
+expected = "Requirement 11369.2 calls for refusal by the actual mirror consumer, with raw-transaction, log-view and sequence context available at the boundary where those checks are claimed."
+proposal = "Resolve the evidence-boundary contradiction in domain 11: extend the real mirror verification path with the context needed for R4/R5/R6 and assert consumer refusal in tests/sequencer_vectors.rs. Preserve signature-only coverage as a separately named, limited claim."
+owner_domain = 11
+
+[finding.18]
+file = "services/interop/crates/layerx-mirror/tests/publish.rs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The publication/reorg scenarios use in-memory EthereumArchiveWrite and SolanaArchiveWrite implementations with synthetic transaction identities, signatures and finality. They bypass concrete advance, RPC, remote signer and durable journal transitions, leaving the Prepared and pending recovery failures unexercised."
+expected = "Mirror publication and restart claims require evidence along the concrete client, transport, signer, chain contract and reopened persistence path, in addition to useful generic-publisher unit scenarios."
+proposal = "Add concrete-client publication/recovery coverage alongside layerx-mirror/tests/publish.rs, using real request/response codecs and contract instructions. Reopen state at each phase and assert byte-identical archive retrieval after pending, expiry and reorg observations."
+owner_domain = 11
+
+[finding.19]
+file = "services/interop/crates/layerx-mirror/tests/committed_source.rs"
+line = 234
+class = "retired-reference"
+severity = "medium"
+observed = "The native Paxeer TLS fixture configures https://address/rpc and asserts POST /rpc HTTP/1.1. It therefore proves the retired unified route rather than the merged node root JSON-RPC endpoint."
+expected = "The audit brief specifies native Paxeer JSON-RPC at the root path; source acquisition tests must exercise the producer endpoint the merged network actually serves."
+proposal = "Change the native endpoint fixture and request assertion in layerx-mirror/tests/committed_source.rs to the root path, retaining TLS, token, quorum and receipt checks. Keep external-chain endpoint paths independently configurable."
+owner_domain = 11
+
+[finding.20]
+file = "services/interop/crates/layerx-mirror/tests/support/mod.rs"
+line = 232
+class = "retired-reference"
+severity = "medium"
+observed = "The shared TestRpc native CommittedSourceConfig uses /rpc and the loopback server requires POST /rpc. Every consumer of this helper inherits a pre-merge native endpoint fixture."
+expected = "Shared native source fixtures must model root-path Paxeer JSON-RPC without relying on the retired router path described in brief network fact 2."
+proposal = "Update TestRpc in layerx-mirror/tests/support/mod.rs to serve and assert POST / for native requests, and run its acquisition consumers against that shape while preserving the existing trust and backend independence checks."
+owner_domain = 11
+
+[finding.21]
+file = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 1221
+class = "retired-reference"
+severity = "medium"
+observed = "Runtime native configuration tests still use paxeer-a/b/c.invalid/rpc endpoints, even though the publisher renderer uses the current paxeer configuration object. These fixtures preserve the retired native /rpc deployment convention."
+expected = "Native runtime configuration examples and tests must use root-path Paxeer node endpoints; an arbitrary external-chain RPC path is a different configuration contract."
+proposal = "Update the native Paxeer fixture URLs in layerx-mirror/src/runtime.rs and the native URLs in deploy/mirror/config.example.json to root paths. Assert rendered native configuration against the real source loader without changing Ethereum/Solana provider paths."
+owner_domain = 11
+
+[finding.22]
+file = "services/interop/crates/layerx-mirror/src/committed.rs"
+line = 100
+class = "interface-mismatch"
+severity = "medium"
+observed = "Served registry rows describe latest_committed() returning u64 and acquire_next(&mut self) returning Option without arguments. The implementation takes previous coordinates and returns CommittedCoordinate/CommittedBlock; CommittedCoordinate contains only height and block_hash, not the declared chain_id/genesis_hash."
+expected = "The published served API registry must describe the exact callable source signatures and where chain/genesis identity is pinned, so downstream consumers can implement the declared boundary."
+proposal = "Reconcile the source and coordinate rows in spec/layerx-merge/interfaces.kvx with layerx-mirror/src/committed.rs, recording the existing configured chain/genesis trust and previous-coordinate continuity contract; verify declared callers against the resulting types."
+owner_domain = 11
+interface = "11.rs-mirror-committed-block-source-latest-j48"
+related_interfaces = ["11.rs-mirror-committed-block-source-acquire-next-j48", "11.rs-mirror-committed-coordinate-j48"]
+
+[finding.23]
+file = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 154
+class = "interface-mismatch"
+severity = "medium"
+observed = "The served archive-from-committed registry signature takes only &CommittedBlock, while Archive::from_committed actually also requires network_id and NodeHead and uses them for archive identity and freshness."
+expected = "The declared construction contract must include every identity and freshness input required by the real producer, rather than advertising an unavailable one-argument API."
+proposal = "Update the archive construction row and its contract in spec/layerx-merge/interfaces.kvx to the concrete signature in layerx-mirror/src/publisher.rs, documenting network validation and head semantics and checking downstream constructors."
+owner_domain = 11
+interface = "11.rs-mirror-archive-from-committed-j48"
+
+[finding.24]
+file = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 179
+class = "interface-mismatch"
+severity = "medium"
+observed = "The served committed_receipt row advertises a tx_hash argument and MirrorEvidence result; the implementation takes index plus receipt-key windows and returns MirrorVerification<Receipt>. committed takes no height argument, and the stable from_source(observed, trust) constructor has been replaced by from_committed_source."
+expected = "Verifier declarations and registered SDK/explorer consumers must identify the actual evidence lookup, trust inputs, result type and constructor for committed archives."
+proposal = "Reconcile these verifier rows and caller inventories in spec/layerx-merge/interfaces.kvx with layerx-mirror/src/verify.rs. Update downstream contract examples to index/key-window lookup and observed committed sources, keeping receipt authentication explicit."
+owner_domain = 11
+interface = "11.rs-mirror-mirror-verifier-committed-receipt-j48"
+related_interfaces = ["11.rs-mirror-mirror-verifier-committed-j48", "11.rs-mirror-mirror-verifier-from-source"]
+
+[finding.25]
+file = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 31
+class = "interface-mismatch"
+severity = "medium"
+observed = "The stable runtime node configuration row still requires NodeFileConfig, while RuntimeConfig denies unknown fields and accepts paxeer, first_height and freshness_budget_blocks. The served paxeer row flattens endpoints/quorum/genesis_hash; the real CommittedSourceConfig nests rpc and uses genesis_hash_hex."
+expected = "The registry must distinguish retired node/checkpoint configuration from the exact current native source schema accepted by the strict loader and emitted by deploy/mirror/render-config.py."
+proposal = "Reconcile the runtime and paxeer configuration rows in spec/layerx-merge/interfaces.kvx to layerx-mirror/src/runtime.rs and committed.rs; retire removed keys explicitly and document the nested RPC and receipt-key windows used by the working renderer."
+owner_domain = 11
+interface = "11.cfg-mirror-runtime-config-node"
+related_interfaces = ["11.cfg-mirror-paxeer-section-j48"]
+
+[finding.26]
+file = "services/interop/crates/layerx-mirror/src/store.rs"
+line = 13
+class = "interface-mismatch"
+severity = "medium"
+observed = "The stable head format row still declares LXMHED02; journal/spool rows declare LXMJNL02 and LXMSPL02 with checkpoint coordinates. The actual writer and reader require version-3 magic and committed coordinates. Existing v2 state is refused, and the declarations do not describe an upgrade/migration boundary."
+expected = "Durable state format declarations must match the bytes written and read and specify how operators preserve retained publication state across an incompatible format change."
+proposal = "Update the head/journal/spool contracts and registry in spec/layerx-merge/interfaces.kvx for layerx-mirror/src/store.rs v3. Define a verified migration or explicit retained-state upgrade procedure rather than deleting journals or silently accepting incompatible bytes."
+owner_domain = 11
+interface = "11.fmt-mirror-store-head"
+related_interfaces = ["11.fmt-mirror-store-journal", "11.fmt-mirror-store-spool"]
+
+[finding.27]
+file = "services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs"
+line = 67
+class = "interface-mismatch"
+severity = "medium"
+observed = "EvidenceRequest implements receipt with a required index or committed with no state selector. The stable mirror-evidence-request row still declares receipt | state, so a client using the registered state request is rejected by the strict tagged decoder."
+expected = "The CLI request registry must describe the actual supported evidence selectors and fields, including that arbitrary state proof verification is not currently exposed."
+proposal = "Reconcile 11.fmt-mirror-evidence-request and the CLI contract in spec/layerx-merge/interfaces.kvx with layerx-mirror/src/bin/layerx-mirror-verify.rs. Publish canonical request examples and exercise each through the real decoder."
+owner_domain = 11
+interface = "11.fmt-mirror-evidence-request"
+
+[finding.28]
+file = "services/interop/crates/layerx-mirror/src/solana.rs"
+line = 24
+class = "interface-mismatch"
+severity = "medium"
+observed = "The client and real Solana archive program both use instruction version 4 and a committed block hash. The consumed instruction registry row still describes version 3 and checkpoint_id, with notes claiming the old manifest shape remains current. This is declaration drift, not a client/program wire disagreement."
+expected = "The declared Solana transport must match the producer/program version and coordinate semantics so another publisher can encode and recover the actual archive instructions."
+proposal = "Update the Solana instruction, manifest and chunk account declarations in spec/layerx-merge/interfaces.kvx and contracts/interop-mirror-contracts.md to the v4 producer in solana.rs and contracts/solana-mirror/src/lib.rs, preserving exact byte layouts."
+owner_domain = 11
+interface = "11.fmt-solana-mirror-instruction"
+
+[finding.29]
+file = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 136
+class = "config-drift"
+severity = "medium"
+observed = "RuntimeStatus serializes native_network_id and native_protocol_version, but run initializes them through Default and no worker assigns them. They remain zero even for a successfully pinned native source; checkpoint-named fields also continue to carry committed-block progress."
+expected = "Operator status must identify the actual configured native network and protocol and describe committed-block lag without implying a separate checkpoint lifecycle."
+proposal = "Populate verified identity in layerx-mirror/src/runtime.rs or explicitly version/remove unsupported status fields; rename committed progress in a documented status revision and update 11.fmt-mirror-runtime-status and its consumers together."
+owner_domain = 11
+interface = "11.fmt-mirror-runtime-status"
+
+[finding.30]
+file = "services/interop/crates/layerx-mirror/src/lib.rs"
+line = 1
+class = "doc-drift"
+severity = "low"
+observed = "The crate-level description still advertises batch archive publication although the public source and archive decoder now operate on native committed block archives."
+expected = "Public crate documentation must describe the current committed-block archive and pure external-chain storage role without reviving a separate batch/checkpoint network lifecycle."
+proposal = "Rewrite the module description in layerx-mirror/src/lib.rs to committed-block archive publication, retrieval and receipt verification, and link the current source and trust configuration."
+owner_domain = 11
+
+[finding.31]
+file = "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs"
+line = 402
+class = "test-gap"
+severity = "medium"
+observed = "Facilitator evidence tests inspect response and gateway settlement fields but never pass the emitted success extension through Buyer::capture_settlement. Wire validation allows an arbitrary layerx object, hiding the missing logs and committed proof in the real facilitator producer."
+expected = "Settlement tests must consume the exact evidence emitted by the facilitator through the declared buyer boundary for every claimed rung, beyond checking generic SettlementResponse validation."
+proposal = "Extend layerx-x402/tests/facilitator_evidence.rs with facilitator-to-transport-to-buyer receipted and committed captures using the returned extension unchanged, including malformed log and proof refusals."
+owner_domain = 11
+
+[finding.32]
+file = "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs"
+line = 160
+class = "test-gap"
+severity = "medium"
+observed = "The receipted/submitted vector assertions require a two-field layerx object with signedReceipt, while the live seller/facilitator use receipt and verificationLevel and the buyer requires logs. These vectors validate a third evidence shape without buyer capture."
+expected = "Shared settlement vectors must be produced or replayed through the actual adapter output and accepted/refused by the corresponding real consumer, with one canonical evidence encoding."
+proposal = "Regenerate the settlement fixtures consumed by layerx-x402/tests/sequenced_vectors.rs from the current seller/facilitator renderer and run them through Buyer::capture_settlement. Retain explicit pending and missing-proof rejection cases."
+owner_domain = 11
+
+[finding.33]
+file = "services/interop/crates/layerx-x402/tests/evidence_format.rs"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "buyer_accepts_the_model_asset_format varies only empty versus 0x prefixes using lowercase helper output. It does not cover uppercase bare identifiers that the model and seller accept, so its model-format parity claim misses the buyer parsing disagreement."
+expected = "The model-format compatibility matrix must cover all accepted identifier case and prefix forms using actual seller-produced settlement evidence."
+proposal = "Expand layerx-x402/tests/evidence_format.rs to exercise asset/payTo case and prefix combinations through the shared producer-to-buyer path, retaining negative width, malformed digit and mismatched identifier assertions."
+owner_domain = 11
+
+[finding.34]
+file = "services/interop/crates/layerx-x402/tests/buyer.rs"
+line = 801
+class = "test-gap"
+severity = "medium"
+observed = "buyer_built_payment_preserves_idempotency_key gives the plane only an authorization field and asserts the sidecar BuiltPayment.idempotency_key. It never asserts that the encoded payload carries that same key or settles under it at the seller."
+expected = "A preserved idempotency identity must survive wire encoding and seller interpretation, rather than being checked only in a local wrapper field."
+proposal = "Extend layerx-x402/tests/buyer.rs to decode the returned PAYMENT-SIGNATURE and settle it through Seller before capture, asserting matching native reference. Include missing and conflicting plane-provided keys as construction refusals."
+owner_domain = 11
+
+[finding.35]
+file = "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs"
+line = 486
+class = "test-gap"
+severity = "medium"
+observed = "Committed proof helpers create a validator from a local 0x39 seed and chain x402-buyer-proof for an eip155:125 offer. Successful buyer capture authenticates only those response-provided validators; no test supplies an independent consensus trust anchor or refuses another self-selected chain."
+expected = "Committed buyer tests must prove trust in the configured Paxeer consensus chain and authorised validator set, including rejection of a cryptographically valid proof from an unrelated chain."
+proposal = "Update layerx-x402/tests/buyer_sequencer.rs alongside the buyer trust boundary to use an independently configured anchor and test valid set progression, foreign chains and response-selected validators with genuine receipt signatures."
+owner_domain = 11
+
+[finding.36]
+file = "services/interop/crates/layerx-x402/tests/transports.rs"
+line = 830
+class = "test-gap"
+severity = "medium"
+observed = "settlement_recovers_after_a_crash_without_a_second_economic_effect retains the same in-memory GatewayCore and FaultInjectingPlane. A simulated crash is an error return; there is no process restart, durable state reopen or native ledger economic effect to count."
+expected = "A claim of crash recovery with exactly one economic effect requires persistence across a real restart and observation of the authoritative ledger effect, in addition to transport identity unit coverage."
+proposal = "Add durable service reopen and native ledger settlement coverage for layerx-x402/tests/transports.rs, retaining the existing local fault cases under their bounded claim. Check the same economic identity after pending response, lost acknowledgement and duplicate delivery."
+owner_domain = 11
+
+[finding.37]
+file = "services/interop/crates/layerx-x402/tests/e2e.rs"
+line = 2
+class = "test-gap"
+severity = "medium"
+observed = "The e2e module claims testing against independent x402 implementations, but its payment planes are local mocks and the happy flow ends at SellerOutcome::Pending. It does not prove a settled seller/facilitator response is accepted by the buyer."
+expected = "End-to-end and independent interoperability claims must reach verified settlement through an independently produced or real service output, while local pending adapter tests state their actual boundary."
+proposal = "Correct the claim in layerx-x402/tests/e2e.rs and add the real build, submit, settle, transport and buyer capture flow with independent producer evidence; keep the existing pending and validation assertions."
+owner_domain = 11
+
+[finding.38]
+file = "services/interop/crates/layerx-x402/tests/vectors.rs"
+line = 1
+class = "test-gap"
+severity = "low"
+observed = "The vector harness says it verifies interoperability with independent x402 implementations, but it loads the first-party services/interop/specs/conformance/x402 corpus and uses local encode/decode paths."
+expected = "First-party wire conformance results must be distinguished from independently sourced implementation interoperability, as the compatibility page itself requires."
+proposal = "Correct the module claim in layerx-x402/tests/vectors.rs and add pinned upstream vectors or an independently operated implementation before publishing an independent interoperability result."
+owner_domain = 11
+
+[finding.39]
+file = "services/interop/crates/layerx-mirror/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The README describes LayerX batch archives and a Paxeer X chain, then links a verifier example that the strict current binary cannot load. It omits committed-block receipt-key configuration and the actual verifier request selectors."
+expected = "The crate entry page must guide operators to committed native Paxeer archives and runnable publisher/verifier configuration with honest receipt and inclusion trust boundaries."
+proposal = "Rewrite services/interop/crates/layerx-mirror/README.md around native committed blocks, chain 125, receipt-key windows and receipt/committed request examples. Update its linked verifier example and explain durable state upgrade ownership."
+owner_domain = 11
+
+[finding.40]
+file = "services/interop/crates/layerx-x402/COMPATIBILITY.md"
+line = 24
+class = "doc-drift"
+severity = "medium"
+observed = "The compatibility matrix reports crash recovery and exactly-once economic effect as pass, and line 28 says local fault injection attests that effect. Its cited transport suite retains in-memory state and substitutes plane outcomes, with no reopened service or native economic ledger."
+expected = "Published qualification claims must be bounded to the evidence executed: local adapter identity and receipt verification until durable restart and authoritative economic effects are exercised."
+proposal = "Revise layerx-x402/COMPATIBILITY.md to describe the exact local matrix boundary and list durable recovery/economic-effect qualification as pending. Promote those claims only with real service restart and native ledger evidence."
+owner_domain = 11
+
+[finding.41]
+file = "docs/site/docs/interop/index.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The interoperability index says 402LXP remains the only balance writer and frames mirror coverage as batch/checkpoint archives under the old platform specification, rather than the merged native payment ledger and committed-block model."
+expected = "The public interop overview must describe adapters as edges of the single Paxeer network and use the actual native ledger and current evidence rungs."
+proposal = "Update docs/site/docs/interop/index.md to native ledger 0x101a, receipted/committed evidence and pure committed-block mirrors, linking current merged contracts and qualified adapter boundaries."
+owner_domain = 11
+
+[finding.42]
+file = "docs/wiki/Interop.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki interop overview presents old platform task status and production-client gaps as current for mirror publisher/verify and rollup tasks, without explaining the implemented native committed source and concrete Ethereum/Solana clients."
+expected = "Readers need a current, evidence-bounded interop inventory for the merged network instead of historical platform task rollups presented as present product status."
+proposal = "Rewrite docs/wiki/Interop.md status paragraphs against the current native source, concrete chain clients and known qualification gaps. Link the merged interop contracts and separate implementation availability from independently qualified live service claims."
+owner_domain = 11
+
+[finding.43]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operator page describes the separate LayerX node/daemon lifecycle, LXGD/LXRR bootstrap around line 34, layerxd custody around line 50 and LNI preparation around lines 112-116. Those instructions describe retired boundaries in the single-network target."
+expected = "Operator bring-up and custody instructions must follow the merged paxd network and its current native modules and public root RPC surface, without requiring retired daemon artifacts."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md with the owning platform bootstrap and kernel teams: remove retired daemon/LXGD/LXRR/LNI instructions, document current custody/native state initialization and retain only demonstrated deployment/recovery steps."
+owner_domain = 8
+
+[finding.44]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The x402 page instructs gateway POST /rpc and lx_sendActivity, executed/batched/finalised rungs, checkpoint certificates, sequencer-signed evidence and lxp: transaction binding (also lines 132-154, 247-253 and 410). Current adapters use native receipted/committed evidence and 0x transaction hashes."
+expected = "Integration instructions must use the merged network transport, native ledger, current supported commitment rungs and the exact evidence object emitted and consumed by the adapters."
+proposal = "Rewrite docs/site/docs/interop/x402.md request/response examples, lifecycle, error table and qualification claims from the current model/seller/buyer/facilitator paths. Remove retired router, batch-header and checkpoint procedures and distinguish unqualified live interoperability."
+owner_domain = 11
+
+[finding.45]
+file = "docs/site/docs/interop/mirrors.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The mirror page says anyone can verify LayerX state from a mirror, while the CLI supports receipt and committed coordinates only. Its freshness instructions around lines 29-31 describe latest batch/checkpoint rather than native committed-block lag."
+expected = "The public mirror guide must state the actual evidence selectors, configured publisher/receipt trust and per-source committed-block freshness without claiming arbitrary state proof support."
+proposal = "Rewrite docs/site/docs/interop/mirrors.md for pure v4 committed-block archives, receipt verification and committed coordinates; document unknown head freshness and configured trust, and remove unsupported state and checkpoint claims."
+owner_domain = 11
+
+[finding.46]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki x402 copy repeats retired POST /rpc, lx_sendActivity, executed/batched/finalised rungs, checkpoint and sequencer-signed/lxp: response instructions. It disagrees with the same current evidence producer and buyer boundary as the site page."
+expected = "The wiki and site must describe the same current native x402 transport and evidence lifecycle, with wire fields and trust inputs matching the real adapters."
+proposal = "Rewrite docs/wiki/X402Transport.md together with docs/site/docs/interop/x402.md from canonical current examples and native receipted/committed semantics; remove old router/checkpoint examples and state the actual qualification boundary."
+owner_domain = 11
+
+[finding.47]
+file = "docs/wiki/Mirrors.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki lists the removed node module and LniArchiveSource and claims the verifier checks a trusted batch header and inclusion around lines 40-42. The actual mirror source is committed.rs and receipt verification authenticates signatures under configured height-window keys."
+expected = "The mirror API guide must list current exported modules/types and explain the actual committed archive, configured source/publisher trust, receipt check and freshness semantics."
+proposal = "Update docs/wiki/Mirrors.md to CommittedBlockSource and current constructors/request selectors, remove LNI and signed-batch-header verification claims and document the evidence and trust retained by v4 archives."
+owner_domain = 11
+
+[finding.48]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki beta-cluster instructions retain the separate LayerX node bootstrap, LXGD/LXRR deployment handoff, daemon custody and LNI preparation flow. They mirror the retired operational lifecycle described by the site operator page."
+expected = "The wiki must direct operators to the same merged paxd initialization, custody and recovery procedure as the current network and site guide."
+proposal = "Rewrite docs/wiki/BetaCluster.md with domain 8 and native bootstrap owners alongside the site beta-cluster page; replace daemon artifacts and LNI readiness with current node/module configuration and retain only evidenced operations."
+owner_domain = 8
+
+[doc.1]
+path = "docs/site/docs/interop/index.md"
+status = "stale"
+notes = "Lines 3-5 and 14 retain old balance-writer and batch/checkpoint framing; rewrite for the native ledger and committed network."
+
+[doc.2]
+path = "docs/wiki/Interop.md"
+status = "stale"
+notes = "Lines 18-23 retain historical platform status and production-client gaps; present current implementations and qualification limits."
+
+[doc.3]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Lines 3, 34, 50 and 112-116 describe retired daemon/bootstrap/LNI operations; needs merged native operational procedure."
+
+[doc.4]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Lines 90-108, 132-154, 247-253 and 410 describe retired transport/rungs/evidence; align examples, errors and claims to actual native adapters."
+
+[doc.5]
+path = "docs/site/docs/interop/mirrors.md"
+status = "misleading"
+notes = "Line 8 promises state verification not exposed by the CLI; lines 29-31 retain checkpoint freshness instead of committed-block semantics."
+
+[doc.6]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+notes = "Mirrors the stale site x402 transport/rung/evidence descriptions, including /rpc at line 91; both copies need the same current contract."
+
+[doc.7]
+path = "docs/wiki/Mirrors.md"
+status = "stale"
+notes = "Lines 17-26 list removed node/LNI types; lines 40-42 describe signed batch-header inclusion absent from the current committed receipt path."
+
+[doc.8]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Separate node/bootstrap and LNI instructions remain; coordinate rewrite with the site operator procedure and native ownership."
+
+[doc.9]
+path = "services/interop/crates/layerx-mirror/README.md"
+status = "stale"
+notes = "Lines 3-5 describe batch/Paxeer X branding and line 12 links the incompatible verifier example; signer framing link remains applicable."
+
+[doc.10]
+path = "services/interop/crates/layerx-x402/COMPATIBILITY.md"
+status = "misleading"
+notes = "Lines 24-28 claim durable crash recovery and exactly-once economic effect beyond the cited in-memory local fault-injection suite."
+
+[doc.11]
+path = "services/interop/deploy/mirror/signer-protocol.md"
+status = "accurate"
+notes = "Read the complete bounded request/response, policy and algorithm framing; Ed25519 requires a message and the actual signer enforces that contract."
+

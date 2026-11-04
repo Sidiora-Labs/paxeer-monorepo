@@ -1,0 +1,1673 @@
+[audit.22.30.45]
+task = "22.30.45"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 170
+findings = 52
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["sign-state-after-save-error", "grpc-concurrent-filepv", "grpc-chain-boundary", "grpc-vote-chain-argument", "autobahn-key-in-wrong-table", "json-named-string-map", "fixture-v2-source-contract", "init-recovery-mnemonic-shadow", "flatkv-module-key-collision", "split-recovery-incomplete-wal", "separate-evm-iterator-range"]
+
+[file.001]
+path = "consensus/config/autobahn.go"
+lines = 144
+verdict = "clean"
+note = "Autobahn URL/validator/quorum validation requires persisted safety state unless the explicit throwaway-test opt-out is selected."
+
+[file.002]
+path = "consensus/config/autobahn_test.go"
+lines = 160
+verdict = "clean"
+note = "Autobahn tests match persistence validation, path conflicts and validator configuration consumers."
+
+[file.003]
+path = "consensus/config/config.go"
+lines = 1565
+verdict = "issues"
+note = "Top-level configuration omits P2P validation and accepts invalid reservoir sizing; findings cover the real construction path."
+
+[file.004]
+path = "consensus/config/config_test.go"
+lines = 334
+verdict = "clean"
+note = "Configuration tests cover defaults, bounds and sequencer/Autobahn exclusion with the current validation API."
+
+[file.005]
+path = "consensus/config/db.go"
+lines = 58
+verdict = "clean"
+note = "Database context and directory resolution preserve backend identifiers and configured roots."
+
+[file.006]
+path = "consensus/config/db_test.go"
+lines = 120
+verdict = "clean"
+note = "Database directory tests exercise the actual provider and path-resolution contract."
+
+[file.007]
+path = "consensus/config/statesync_compat_test.go"
+lines = 98
+verdict = "clean"
+note = "State-sync compatibility tests retain expert knobs deliberately hidden from new templates."
+
+[file.008]
+path = "consensus/config/toml.go"
+lines = 785
+verdict = "issues"
+note = "TOML producer misplaces Autobahn's root key and interpolates unescaped user strings."
+
+[file.009]
+path = "consensus/config/toml_test.go"
+lines = 143
+verdict = "issues"
+note = "Sequencer round-trip is proved by source assertions, but the template tests leave Autobahn at its empty default."
+
+[file.010]
+path = "consensus/internal/mempool/cache.go"
+lines = 126
+verdict = "clean"
+note = "Hash-based cache membership and eviction agree with mempool admission and recheck callers."
+
+[file.011]
+path = "consensus/internal/mempool/cache_bench_test.go"
+lines = 45
+verdict = "clean"
+note = "Cache benchmarks use actual transaction-hash insertion and lookup operations."
+
+[file.012]
+path = "consensus/internal/mempool/cache_test.go"
+lines = 446
+verdict = "clean"
+note = "Cache tests cover duplicate membership, capacity, reset and eviction."
+
+[file.013]
+path = "consensus/internal/mempool/lru.go"
+lines = 86
+verdict = "clean"
+note = "Generic LRU keeps list/map membership and capacity consistent for cache callers."
+
+[file.014]
+path = "consensus/internal/mempool/mempool.go"
+lines = 534
+verdict = "clean"
+note = "Admission, recheck, reaping, constraint and cache lifecycles agree with proxy response fields; virtual domains share EVM nonce and balance state."
+
+[file.015]
+path = "consensus/internal/mempool/mempool_bench_test.go"
+lines = 46
+verdict = "clean"
+note = "Benchmarks use current admission/reap APIs and explicit transaction constraints."
+
+[file.016]
+path = "consensus/internal/mempool/mempool_test.go"
+lines = 1046
+verdict = "clean"
+note = "Mempool tests assert real transaction storage, limits, invalid responses and reap behavior."
+
+[file.017]
+path = "consensus/internal/mempool/metrics.go"
+lines = 144
+verdict = "clean"
+note = "Metric counters/gauges and names match the registered rows and update sites."
+
+[file.018]
+path = "consensus/internal/mempool/reactor/reactor.go"
+lines = 257
+verdict = "issues"
+note = "P2P transaction messages and peer handling agree, but startup readiness can block canceled shutdown."
+
+[file.019]
+path = "consensus/internal/mempool/reactor/reactor_test.go"
+lines = 443
+verdict = "clean"
+note = "Reactor tests cover propagation and peer eviction against the real protobuf message path."
+
+[file.020]
+path = "consensus/internal/mempool/recheck_drain_test.go"
+lines = 261
+verdict = "clean"
+note = "Recheck-drain tests assert actual completion and interrupted drain lifecycle."
+
+[file.021]
+path = "consensus/internal/mempool/testonly.go"
+lines = 17
+verdict = "clean"
+note = "Mempool testing helpers provide the declared proxy and constraint shapes."
+
+[file.022]
+path = "consensus/internal/mempool/tx.go"
+lines = 699
+verdict = "clean"
+note = "Sender/nonce indexes, replacements, ordering and pending transitions match shared EVM account semantics across domain IDs."
+
+[file.023]
+path = "consensus/internal/mempool/tx_test.go"
+lines = 791
+verdict = "clean"
+note = "Transaction-store tests exercise replacement, nonce gaps and ordering against the actual stored types."
+
+[file.024]
+path = "consensus/internal/mempool/types.go"
+lines = 25
+verdict = "clean"
+note = "Admission errors, reap limits and transaction constraints retain the shapes callers consume."
+
+[file.025]
+path = "consensus/libs/CHANGELOG.md"
+lines = 449
+verdict = "clean"
+note = "Complete historical upstream changelog reviewed; old symbols are release history rather than current operating instructions."
+
+[file.026]
+path = "consensus/libs/bits/bit_array.go"
+lines = 437
+verdict = "issues"
+note = "Bit-array encoding and operations reviewed; dual locking and unequal-size OR have findings."
+
+[file.027]
+path = "consensus/libs/bits/bit_array_test.go"
+lines = 296
+verdict = "clean"
+note = "Bit-array tests match current encodings but do not exercise the identified self-lock and extra-word OR defects."
+
+[file.028]
+path = "consensus/libs/bytes/bytes.go"
+lines = 96
+verdict = "clean"
+note = "HexBytes encoding preserves uppercase hexadecimal JSON/text and protobuf sizing semantics."
+
+[file.029]
+path = "consensus/libs/bytes/bytes_test.go"
+lines = 111
+verdict = "clean"
+note = "HexBytes tests exercise real marshaling, nil handling and malformed input refusal."
+
+[file.030]
+path = "consensus/libs/bytes/byteslice.go"
+lines = 10
+verdict = "clean"
+note = "Fingerprint safely truncates the display prefix while preserving byte formatting."
+
+[file.031]
+path = "consensus/libs/cli/helper.go"
+lines = 111
+verdict = "clean"
+note = "CLI output/error helpers and environment-prefix normalization match command consumers."
+
+[file.032]
+path = "consensus/libs/cli/setup.go"
+lines = 134
+verdict = "clean"
+note = "Home/trace/completion flags and Viper environment binding preserve the declared CLI surface."
+
+[file.033]
+path = "consensus/libs/cli/setup_test.go"
+lines = 289
+verdict = "clean"
+note = "CLI setup tests use real Cobra/Viper resolution for flags and environment."
+
+[file.034]
+path = "consensus/libs/json/decoder.go"
+lines = 209
+verdict = "issues"
+note = "Concrete JSON decoding matches scalar rules but named-string map reconstruction panics."
+
+[file.035]
+path = "consensus/libs/json/decoder_test.go"
+lines = 125
+verdict = "clean"
+note = "Decoder tests cover current scalar/collection/struct fixtures; named string map keys are absent."
+
+[file.036]
+path = "consensus/libs/json/doc.go"
+lines = 98
+verdict = "issues"
+note = "Package overview promises RegisterType and wrapped interfaces that the current decoder rejects."
+
+[file.037]
+path = "consensus/libs/json/encoder.go"
+lines = 220
+verdict = "clean"
+note = "Encoder integer strings, bytes, UTC times and custom marshaling match concrete consumers; map round-trip defect is owned by the decoder."
+
+[file.038]
+path = "consensus/libs/json/encoder_test.go"
+lines = 92
+verdict = "clean"
+note = "Encoder tests assert actual emitted integer, byte, collection and custom-marshaler representations."
+
+[file.039]
+path = "consensus/libs/json/helpers_test.go"
+lines = 76
+verdict = "clean"
+note = "Shared JSON fixtures define concrete types without a third wire representation."
+
+[file.040]
+path = "consensus/libs/json/structs.go"
+lines = 88
+verdict = "clean"
+note = "Struct metadata respects exported fields, JSON tags and omitempty for both directions."
+
+[file.041]
+path = "consensus/libs/math/fraction.go"
+lines = 48
+verdict = "clean"
+note = "Fraction parser checks numerator/denominator bounds and rejects invalid ratios."
+
+[file.042]
+path = "consensus/libs/math/fraction_test.go"
+lines = 86
+verdict = "clean"
+note = "Fraction tests exercise exported parser successes and refusals."
+
+[file.043]
+path = "consensus/libs/math/math.go"
+lines = 31
+verdict = "clean"
+note = "Integer minimum/maximum helpers preserve the declared operand types."
+
+[file.044]
+path = "consensus/libs/math/safemath.go"
+lines = 60
+verdict = "clean"
+note = "Safe arithmetic detects overflow according to each exported function's error/panic contract."
+
+[file.045]
+path = "consensus/libs/net/net.go"
+lines = 43
+verdict = "clean"
+note = "Protocol/address parsing and network connect helpers agree with socket and CLI callers."
+
+[file.046]
+path = "consensus/libs/net/net_test.go"
+lines = 43
+verdict = "clean"
+note = "Network tests exercise protocol defaults and temporary local listener allocation."
+
+[file.047]
+path = "consensus/libs/os/os.go"
+lines = 111
+verdict = "clean"
+note = "Filesystem helpers propagate real copy/directory errors and honor supplied modes."
+
+[file.048]
+path = "consensus/libs/os/os_test.go"
+lines = 109
+verdict = "clean"
+note = "Filesystem tests use actual temporary paths for directory/copy success and failure."
+
+[file.049]
+path = "consensus/libs/rand/random.go"
+lines = 344
+verdict = "clean"
+note = "Random helper source locking and generated byte/string shapes agree with consensus callers."
+
+[file.050]
+path = "consensus/libs/rand/random_test.go"
+lines = 45
+verdict = "clean"
+note = "Random tests exercise the exported generator lengths and alphabets."
+
+[file.051]
+path = "consensus/libs/service/service.go"
+lines = 211
+verdict = "issues"
+note = "BaseService failed OnStart leaves an installed state with completion never closed."
+
+[file.052]
+path = "consensus/libs/service/service_test.go"
+lines = 131
+verdict = "clean"
+note = "Service tests assert ordinary start/stop and spawned-task lifetimes; failed-start cleanup is not proved."
+
+[file.053]
+path = "consensus/libs/strings/string.go"
+lines = 62
+verdict = "clean"
+note = "ASCII trimming, splitting and string-slice equality retain caller-visible semantics."
+
+[file.054]
+path = "consensus/libs/strings/string_test.go"
+lines = 89
+verdict = "clean"
+note = "String tests match actual trim/split/equality results for empty and ordinary values."
+
+[file.055]
+path = "consensus/libs/sync/deadlock.go"
+lines = 18
+verdict = "clean"
+note = "Deadlock build-tag aliases preserve the sync mutex API."
+
+[file.056]
+path = "consensus/libs/sync/sync.go"
+lines = 16
+verdict = "clean"
+note = "Normal build-tag aliases select standard sync mutexes."
+
+[file.057]
+path = "consensus/libs/time/mocks/source.go"
+lines = 46
+verdict = "generated"
+note = "Generated mockery Source implementation; marked generated instead of claiming handwritten implementation qualification."
+
+[file.058]
+path = "consensus/libs/time/time.go"
+lines = 31
+verdict = "clean"
+note = "Source clock and UTC canonicalization agree with DefaultSource and Now consumers."
+
+[file.059]
+path = "consensus/libs/utils/channels.go"
+lines = 74
+verdict = "clean"
+note = "Atomic channel helpers handle cancellation, closure and send/receive results consistently."
+
+[file.060]
+path = "consensus/libs/utils/im/im.go"
+lines = 100
+verdict = "clean"
+note = "Immutable map wrapper copies mutations and keeps read/iteration ownership clear."
+
+[file.061]
+path = "consensus/libs/utils/math.go"
+lines = 48
+verdict = "clean"
+note = "Clamp/duration helpers preserve caller units and bounds."
+
+[file.062]
+path = "consensus/libs/utils/math_test.go"
+lines = 170
+verdict = "clean"
+note = "Math tests assert actual clamping and duration results."
+
+[file.063]
+path = "consensus/libs/utils/mutex.go"
+lines = 234
+verdict = "clean"
+note = "Mutex value access remains tied to iterator lifetime and unlocks when iteration ends."
+
+[file.064]
+path = "consensus/libs/utils/mutex_test.go"
+lines = 40
+verdict = "clean"
+note = "Mutex tests cover real range-based access and mutual exclusion."
+
+[file.065]
+path = "consensus/libs/utils/option.go"
+lines = 80
+verdict = "clean"
+note = "Option preserves absence separately from a present zero value through conversion and access."
+
+[file.066]
+path = "consensus/libs/utils/option_test.go"
+lines = 32
+verdict = "clean"
+note = "Option tests exercise actual presence/absence and transformations."
+
+[file.067]
+path = "consensus/libs/utils/panic.go"
+lines = 17
+verdict = "clean"
+note = "Panic/error helpers preserve recovered errors and scoped task context."
+
+[file.068]
+path = "consensus/libs/utils/proto.go"
+lines = 124
+verdict = "clean"
+note = "Protobuf helpers propagate encoding errors and use the message API expected by callers."
+
+[file.069]
+path = "consensus/libs/utils/require/require.go"
+lines = 113
+verdict = "clean"
+note = "Require helpers fail their supplied testing object with the package's comparison semantics."
+
+[file.070]
+path = "consensus/libs/utils/ringbuf.go"
+lines = 83
+verdict = "clean"
+note = "Ring buffer remains bounded and preserves insertion/iteration order."
+
+[file.071]
+path = "consensus/libs/utils/scope/global.go"
+lines = 80
+verdict = "clean"
+note = "Global scope owns startup and cancellation of registered goroutines."
+
+[file.072]
+path = "consensus/libs/utils/scope/parallel.go"
+lines = 41
+verdict = "clean"
+note = "Parallel scope propagates sibling errors and cancellation through its task lifecycle."
+
+[file.073]
+path = "consensus/libs/utils/scope/parallel_test.go"
+lines = 54
+verdict = "clean"
+note = "Parallel tests exercise actual completion/error/cancellation behavior."
+
+[file.074]
+path = "consensus/libs/utils/scope/start.go"
+lines = 166
+verdict = "clean"
+note = "Scope startup registers owned tasks before waiting and forwards cancellation/errors."
+
+[file.075]
+path = "consensus/libs/utils/semaphore.go"
+lines = 24
+verdict = "clean"
+note = "Semaphore acquisition honors context cancellation and releases scoped capacity."
+
+[file.076]
+path = "consensus/libs/utils/tcp/tcp.go"
+lines = 392
+verdict = "clean"
+note = "TCP helpers preserve framing and propagate socket/context failures."
+
+[file.077]
+path = "consensus/libs/utils/tcp/tcp_test.go"
+lines = 64
+verdict = "clean"
+note = "TCP tests use real local sockets for transport and cancellation assertions."
+
+[file.078]
+path = "consensus/libs/utils/testonly.go"
+lines = 234
+verdict = "issues"
+note = "GenString ignores its supplied RNG and Shuffle excludes the current index; both reduce reproducible input coverage."
+
+[file.079]
+path = "consensus/libs/utils/wait.go"
+lines = 172
+verdict = "clean"
+note = "Wait helpers preserve context cancellation, notification and deadline behavior."
+
+[file.080]
+path = "consensus/libs/utils/wait_test.go"
+lines = 23
+verdict = "clean"
+note = "Wait tests exercise actual success, cancellation and timeout paths."
+
+[file.081]
+path = "consensus/privval/doc.go"
+lines = 27
+verdict = "clean"
+note = "Private-validator overview describes local signing and remote transports without retired network-daemon wiring."
+
+[file.082]
+path = "consensus/privval/errors.go"
+lines = 35
+verdict = "clean"
+note = "Remote signer error codes and timeout types agree with client consumers."
+
+[file.083]
+path = "consensus/privval/file.go"
+lines = 484
+verdict = "issues"
+note = "FilePV canonical signing, HRS checks and reload reviewed; failed persistence can expose an unpersisted signature on retry."
+
+[file.084]
+path = "consensus/privval/file_test.go"
+lines = 309
+verdict = "clean"
+note = "FilePV tests cover HRS/reload/reuse but not a failed-save followed by retry and reopen."
+
+[file.085]
+path = "consensus/privval/grpc/client.go"
+lines = 96
+verdict = "issues"
+note = "gRPC client loses connection ownership and forwards vote/proposal chain arguments inconsistently."
+
+[file.086]
+path = "consensus/privval/grpc/client_test.go"
+lines = 166
+verdict = "clean"
+note = "gRPC client tests do not prove Close shuts down the supplied connection."
+
+[file.087]
+path = "consensus/privval/grpc/server.go"
+lines = 72
+verdict = "issues"
+note = "gRPC server ignores configured chain identity, directly invokes unlocked safety state and dereferences optional payloads."
+
+[file.088]
+path = "consensus/privval/grpc/server_test.go"
+lines = 192
+verdict = "issues"
+note = "MockPV/direct-call server tests leave actual RPC, FilePV concurrency and restart unproved."
+
+[file.089]
+path = "consensus/privval/grpc/util.go"
+lines = 126
+verdict = "issues"
+note = "gRPC setup swallows dial failures, silently downgrades partial TLS and exits the process on credential loading failures."
+
+[file.090]
+path = "consensus/privval/msgs.go"
+lines = 40
+verdict = "clean"
+note = "Signer message wrappers map supported requests/responses to their declared protobuf oneofs."
+
+[file.091]
+path = "consensus/privval/msgs_test.go"
+lines = 95
+verdict = "clean"
+note = "Message tests assert the same oneof variants the endpoint transports."
+
+[file.092]
+path = "consensus/privval/retry_signer_client.go"
+lines = 104
+verdict = "issues"
+note = "Signing retries ignore context cancellation in the sleep/retry loop."
+
+[file.093]
+path = "consensus/privval/secret_connection.go"
+lines = 460
+verdict = "clean"
+note = "SecretConnection cryptographic framing/handshake reviewed; selecting an authorized remote identity is missing at socket integration."
+
+[file.094]
+path = "consensus/privval/signer_client.go"
+lines = 136
+verdict = "issues"
+note = "Socket signer validates signing/pubkey response variants, but Ping converts failures to success."
+
+[file.095]
+path = "consensus/privval/signer_client_test.go"
+lines = 420
+verdict = "issues"
+note = "Vote/proposal tests discard mutated protobuf values and compare unchanged unsigned model signatures."
+
+[file.096]
+path = "consensus/privval/signer_dialer_endpoint.go"
+lines = 109
+verdict = "clean"
+note = "Dialer endpoint owns reconnection, connection closing and endpoint mutex lifecycle."
+
+[file.097]
+path = "consensus/privval/signer_endpoint.go"
+lines = 159
+verdict = "clean"
+note = "Endpoint uses bounded delimited-protobuf I/O with declared deadlines."
+
+[file.098]
+path = "consensus/privval/signer_listener_endpoint.go"
+lines = 220
+verdict = "clean"
+note = "Listener endpoint serializes request exchange and handles accepted/replaced connection ownership."
+
+[file.099]
+path = "consensus/privval/signer_listener_endpoint_test.go"
+lines = 211
+verdict = "clean"
+note = "Listener tests exercise actual acceptance, timeout and reconnection."
+
+[file.100]
+path = "consensus/privval/signer_requestHandler.go"
+lines = 91
+verdict = "clean"
+note = "Default socket request handler checks chain identity before dispatch; gRPC lacks the equivalent boundary."
+
+[file.101]
+path = "consensus/privval/signer_server.go"
+lines = 106
+verdict = "clean"
+note = "Socket server serializes handler execution and stops its request loop on cancellation."
+
+[file.102]
+path = "consensus/privval/socket_dialers.go"
+lines = 42
+verdict = "clean"
+note = "TCP dialer negotiates encryption without pinning the remote key; shared identity finding covers both endpoints."
+
+[file.103]
+path = "consensus/privval/socket_dialers_test.go"
+lines = 58
+verdict = "issues"
+note = "Closed-port refusal is asserted to be a timeout in the fundamental-timeout test."
+
+[file.104]
+path = "consensus/privval/socket_listeners.go"
+lines = 190
+verdict = "clean"
+note = "TCP listener accepts any completed SecretConnection peer; shared identity proposal covers the listener and dialer."
+
+[file.105]
+path = "consensus/privval/socket_listeners_test.go"
+lines = 133
+verdict = "clean"
+note = "Socket listener tests exercise accept and I/O deadlines on real local connections."
+
+[file.106]
+path = "consensus/privval/utils.go"
+lines = 51
+verdict = "issues"
+note = "Timeout classification ignores Timeout's value; TCP listener identity is ephemeral and unpinned."
+
+[file.107]
+path = "consensus/privval/utils_test.go"
+lines = 14
+verdict = "clean"
+note = "Classifier tests omit a refusal-versus-deadline distinction through nested wrapping."
+
+[file.108]
+path = "daemon/committed-fixture/main.go"
+lines = 883
+verdict = "issues"
+note = "Recorder configures real primary/standby/observer homes and distinct keys; released port reservations can race process startup."
+
+[file.109]
+path = "daemon/committed-fixture/main_test.go"
+lines = 462
+verdict = "clean"
+note = "Recorder tests match current home configuration, key separation and command setup."
+
+[file.110]
+path = "daemon/committed-fixture/vector_v1.go"
+lines = 284
+verdict = "issues"
+note = "V1 emits a type-2 two-log creation but lacks the later required Programs-call outcome case."
+
+[file.111]
+path = "daemon/committed-fixture/vector_v1_test.go"
+lines = 114
+verdict = "clean"
+note = "V1 test authenticates creation/log effects but explicitly requires no call destination, leaving Programs-call coverage missing."
+
+[file.112]
+path = "daemon/committed-fixture/vector_v2.go"
+lines = 228
+verdict = "issues"
+note = "V2 refuses the standby pin set and generates transactions/provenance incompatible with the copied conformance case."
+
+[file.113]
+path = "daemon/committed-fixture/vector_v2_test.go"
+lines = 142
+verdict = "issues"
+note = "V2 source equality assertions run only against stored JSON, never the current recorder's output."
+
+[file.114]
+path = "daemon/committed-fixture/vector_v3.go"
+lines = 243
+verdict = "clean"
+note = "V3 mutations are explicitly identified as constructed refusal vectors from a signed baseline."
+
+[file.115]
+path = "daemon/committed-fixture/vector_v3_test.go"
+lines = 213
+verdict = "clean"
+note = "V3 tests authenticate baseline and reject every named mutation without claiming live execution for synthetic cases."
+
+[file.116]
+path = "daemon/committed-fixture/vector_v4.go"
+lines = 458
+verdict = "clean"
+note = "V4 collects real execution/settlement headers, commits and proofs; inclusion uses ReceiptAtRoot and Ed25519Digest."
+
+[file.117]
+path = "daemon/committed-fixture/vector_v4_test.go"
+lines = 282
+verdict = "clean"
+note = "V4 binds execution_commit to execution header and next-header last_commit_hash, and verifies payment/inclusion refusals."
+
+[file.118]
+path = "daemon/paxd/cmd/app_config.go"
+lines = 69
+verdict = "clean"
+note = "App configuration mapstructure names agree with EVM/replay/blocktest/wasm/storage template reader keys."
+
+[file.119]
+path = "daemon/paxd/cmd/app_config_test.go"
+lines = 97
+verdict = "clean"
+note = "App config tests decode real non-default templates through actual consumers."
+
+[file.120]
+path = "daemon/paxd/cmd/blocktest.go"
+lines = 125
+verdict = "clean"
+note = "Blocktest command configures the real app and dispatches the EVM block test path."
+
+[file.121]
+path = "daemon/paxd/cmd/ethreplay.go"
+lines = 80
+verdict = "issues"
+note = "Replay command starts pprof on all interfaces while claiming localhost."
+
+[file.122]
+path = "daemon/paxd/cmd/flatkv_config_test.go"
+lines = 37
+verdict = "clean"
+note = "FlatKV tests round-trip non-default app.toml through the actual configuration parser."
+
+[file.123]
+path = "daemon/paxd/cmd/genaccounts.go"
+lines = 238
+verdict = "issues"
+note = "Genesis account/vesting checks reviewed; key lookup stops at unrelated nonlocal keyring entries."
+
+[file.124]
+path = "daemon/paxd/cmd/genreceiptkey.go"
+lines = 128
+verdict = "clean"
+note = "Receipt-key CLI validates canonical key and height interval, preserves pins and updates sequencer genesis."
+
+[file.125]
+path = "daemon/paxd/cmd/genreceiptkey_test.go"
+lines = 192
+verdict = "clean"
+note = "Receipt-key tests cover append and refused invalid/duplicate inputs preserving genesis bytes."
+
+[file.126]
+path = "daemon/paxd/cmd/genseqleader.go"
+lines = 97
+verdict = "clean"
+note = "Leader CLI checks nonzero key and duplicates before appending to genesis leaders."
+
+[file.127]
+path = "daemon/paxd/cmd/genseqleader_test.go"
+lines = 148
+verdict = "clean"
+note = "Leader tests exercise actual genesis mutation and unchanged-file refusal."
+
+[file.128]
+path = "daemon/paxd/cmd/genwasm.go"
+lines = 27
+verdict = "clean"
+note = "Wasm command registers the SDK's actual genesis-message subcommands."
+
+[file.129]
+path = "daemon/paxd/cmd/init.go"
+lines = 263
+verdict = "issues"
+note = "Init preserves existing genesis/config by policy but shadows the recovery mnemonic before validator key creation."
+
+[file.130]
+path = "daemon/paxd/cmd/init_test.go"
+lines = 391
+verdict = "clean"
+note = "Init tests cover preservation/templates but omit mnemonic recovery reaching real key initialization."
+
+[file.131]
+path = "daemon/paxd/cmd/log.go"
+lines = 133
+verdict = "clean"
+note = "Log CLI uses declared admin gRPC request/response types and closes command connections."
+
+[file.132]
+path = "daemon/paxd/cmd/log_test.go"
+lines = 231
+verdict = "clean"
+note = "Log tests invoke the actual admin service for logger list/get/set operations."
+
+[file.133]
+path = "daemon/paxd/cmd/new_app_test.go"
+lines = 163
+verdict = "clean"
+note = "Application tests prove exposed sequencer Node and missing-WAL startup refusal."
+
+[file.134]
+path = "daemon/paxd/cmd/proof_node_cli_test.go"
+lines = 256
+verdict = "clean"
+note = "CLI proof runs a built paxd subprocess through actual command/genesis producer and consumer paths."
+
+[file.135]
+path = "daemon/paxd/cmd/root.go"
+lines = 536
+verdict = "clean"
+note = "Root registers required genesis/sequencer/wasm flags and reads current config; returned app owns sequencer lifecycle."
+
+[file.136]
+path = "daemon/paxd/cmd/root_commands_test.go"
+lines = 26
+verdict = "clean"
+note = "Root command tests inspect the actual Cobra registrations."
+
+[file.137]
+path = "daemon/paxd/cmd/sequencer.go"
+lines = 60
+verdict = "clean"
+note = "Receipt seed generation uses exclusive 0600 file creation and prints only the public key."
+
+[file.138]
+path = "daemon/paxd/cmd/sequencer_genesis_conformance_test.go"
+lines = 89
+verdict = "clean"
+note = "Genesis conformance test invokes the actual root CLI sequence and validates typed sequencer genesis."
+
+[file.139]
+path = "daemon/paxd/cmd/sequencer_test.go"
+lines = 116
+verdict = "clean"
+note = "Receipt-seed tests cover loader compatibility, exclusive creation and mode."
+
+[file.140]
+path = "daemon/paxd/cmd/snapshot.go"
+lines = 120
+verdict = "clean"
+note = "Snapshot CLI selects home/height and constructs the actual snapshot store/app before creation."
+
+[file.141]
+path = "daemon/paxd/cmd/start_flags_test.go"
+lines = 55
+verdict = "clean"
+note = "Start-flag tests inspect actual wasm and sequencer registrations on start."
+
+[file.142]
+path = "daemon/paxd/main.go"
+lines = 21
+verdict = "clean"
+note = "paxd entrypoint executes the declared root through the SDK server command helper."
+
+[file.143]
+path = "node/ante/cosmos_checktx.go"
+lines = 666
+verdict = "clean"
+note = "Cosmos admission checks nested EVM exclusion, signatures, sequence, gasless paths and fee requirements."
+
+[file.144]
+path = "node/ante/cosmos_delivertx.go"
+lines = 101
+verdict = "clean"
+note = "Cosmos delivery charges real account/feegrant keepers and emits SDK-compatible fee events."
+
+[file.145]
+path = "node/ante/evm_checktx.go"
+lines = 492
+verdict = "clean"
+note = "EVM admission resolves active domain IDs and fees with explicit root/legacy-zero behavior; EVM state is shared by contract."
+
+[file.146]
+path = "node/ante/evm_checktx_domain_test.go"
+lines = 139
+verdict = "clean"
+note = "Domain tests exercise active/paused/retired/unknown chain admission against real keeper context."
+
+[file.147]
+path = "node/ante/evm_checktx_test.go"
+lines = 53
+verdict = "clean"
+note = "EVM admission tests assert actual envelope/signature/nonce/fee behavior."
+
+[file.148]
+path = "node/ante/evm_delivertx.go"
+lines = 117
+verdict = "clean"
+note = "EVM delivery handles association, fees and nonce callback; fee helper independently resolves the signed domain and shared accounts remain intentional."
+
+[file.149]
+path = "node/ante/evm_delivertx_test.go"
+lines = 182
+verdict = "clean"
+note = "Delivery tests exercise fee/signature handling and nonce fallback on actual ante helpers."
+
+[file.150]
+path = "node/ante/types.go"
+lines = 18
+verdict = "clean"
+note = "Auth/body/signature interfaces expose the methods actual Cosmos admission uses."
+
+[file.151]
+path = "storage/state_db/ss/backend/backend_pebbledb.go"
+lines = 11
+verdict = "clean"
+note = "Pebble tagged backend points to the actual MVCC opener."
+
+[file.152]
+path = "storage/state_db/ss/backend/backend_rocksdb.go"
+lines = 19
+verdict = "clean"
+note = "RocksDB tagged backend points to native MVCC when enabled."
+
+[file.153]
+path = "storage/state_db/ss/backend/backend_rocksdb_stub.go"
+lines = 14
+verdict = "clean"
+note = "Non-RocksDB build returns unsupported instead of silently selecting an engine."
+
+[file.154]
+path = "storage/state_db/ss/backend/resolve.go"
+lines = 20
+verdict = "clean"
+note = "Backend name resolution selects supported tagged openers and rejects unknown names."
+
+[file.155]
+path = "storage/state_db/ss/composite/recovery_test.go"
+lines = 293
+verdict = "clean"
+note = "Recovery tests replay real WAL/database state but omit diverged latest versions with empty/truncated WAL."
+
+[file.156]
+path = "storage/state_db/ss/composite/store.go"
+lines = 653
+verdict = "issues"
+note = "Composite routing, snapshot conversion, versions and recovery have namespace/error/coverage findings."
+
+[file.157]
+path = "storage/state_db/ss/composite/store_test.go"
+lines = 1518
+verdict = "issues"
+note = "Composite ASCII-key fixtures and importer doubles omit colliding namespace keys and real EVM filter lifecycle."
+
+[file.158]
+path = "storage/state_db/ss/cosmos/store.go"
+lines = 78
+verdict = "clean"
+note = "Cosmos wrapper forwards module/version/iterator arguments through StateStore unchanged."
+
+[file.159]
+path = "storage/state_db/ss/evm/config_test.go"
+lines = 49
+verdict = "clean"
+note = "EVM configuration tests cover actual unified/separate database and backend options."
+
+[file.160]
+path = "storage/state_db/ss/evm/db_test.go"
+lines = 479
+verdict = "clean"
+note = "EVM tests exercise versioned reads/writes/reopen; unrestricted separate-database iteration remains unproved."
+
+[file.161]
+path = "storage/state_db/ss/evm/store.go"
+lines = 381
+verdict = "issues"
+note = "Separate-database iteration routes solely by start; unified import can leak its forwarding goroutine after early error."
+
+[file.162]
+path = "storage/state_db/ss/evm/types.go"
+lines = 60
+verdict = "clean"
+note = "EVM aliases preserve storage/common/keys on-disk prefix definitions."
+
+[file.163]
+path = "storage/state_db/ss/offload/aws_msk_iam.go"
+lines = 131
+verdict = "clean"
+note = "MSK IAM provider obtains credentials and produces Kafka authentication tokens through the configured identity source."
+
+[file.164]
+path = "storage/state_db/ss/offload/kafka.go"
+lines = 223
+verdict = "clean"
+note = "Kafka Stream preserves changelog version/payload and ack/error shapes expected by callers."
+
+[file.165]
+path = "storage/state_db/ss/offload/kafka_test.go"
+lines = 67
+verdict = "clean"
+note = "Kafka tests assert configured encoding and acknowledgement/error behavior."
+
+[file.166]
+path = "storage/state_db/ss/offload/types.go"
+lines = 27
+verdict = "clean"
+note = "Stream/Ack declarations distinguish delivery offset and failure as consumed by offload code."
+
+[file.167]
+path = "storage/state_db/ss/pruning/manager.go"
+lines = 98
+verdict = "clean"
+note = "Pruning uses latest-minus-retention and idempotent stop; composite suppression of EVM failures is recorded at its owner."
+
+[file.168]
+path = "storage/state_db/ss/pruning/manager_test.go"
+lines = 152
+verdict = "clean"
+note = "Pruning tests cover retention, interval and lifecycle through StateStore operations."
+
+[file.169]
+path = "storage/state_db/ss/store.go"
+lines = 15
+verdict = "issues"
+note = "Factory delegates to composite but its comment describes removed WriteMode/ReadMode switches."
+
+[file.170]
+path = "storage/state_db/ss/store_test.go"
+lines = 52
+verdict = "clean"
+note = "Factory tests use actual backend selection and composite configuration behavior."
+
+[finding.sign-state-after-save-error]
+file = "consensus/privval/file.go"
+line = 453
+class = "restart-recovery"
+severity = "high"
+observed = "saveSigned mutates LastSignState before Save. After a failed disk write, identical same-HRS retries return that cached signature without retrying persistence at lines 386-404 and 434-439. Reopening loads the older HRS, allowing a conflicting signature after an unpersisted signature was released."
+expected = "Validator signing must never release a signature without its durable HRS safety record; retry and reopen must preserve the same non-equivocation boundary."
+proposal = "In consensus/privval/file.go retain an uncommitted pending signature and fail closed until its state is durably written. Add real filesystem-write failure, identical retry, reopen and conflicting-vote refusal coverage."
+owner_domain = 15
+interface = "15.go-consensus-privval-file-pv-j57"
+
+[finding.grpc-concurrent-filepv]
+file = "consensus/privval/grpc/server.go"
+line = 46
+class = "runtime-risk"
+severity = "high"
+observed = "SignVote and SignProposal invoke the shared PrivValidator without synchronization. grpc.NewServer in consensus/cmd/priv_val_server/main.go dispatches concurrently; FilePV has no lock around HRS check/sign/save, so two conflicting requests can both observe the old state."
+expected = "Remote signing must serialize the complete safety-state comparison, signature and durable write across vote and proposal requests, preserving one accepted history."
+proposal = "Serialize signing in consensus/privval/grpc/server.go or inside FilePV across all transports. Prove conflicting concurrent real gRPC requests and reopen accept only one history; preserve the socket server's existing serialization."
+owner_domain = 15
+interface = "15.go-consensus-privval-grpc-new-signer-server-j57"
+
+[finding.grpc-chain-boundary]
+file = "consensus/privval/grpc/server.go"
+line = 49
+class = "security"
+severity = "high"
+observed = "NewSignerServer stores chainID but passes req.ChainId directly to FilePV; GetPubKey also ignores the configured chain. A different-chain request can advance the same persisted HRS and deny subsequent signing for the intended network."
+expected = "The chain-configured signer must refuse a different chain before reading or changing signing state, matching DefaultValidationRequestHandler on the socket transport."
+proposal = "Validate request ChainId against ss.chainID in consensus/privval/grpc/server.go and return InvalidArgument on mismatch. Exercise real RPC/FilePV requests and reopen to prove rejected chains leave disk HRS unchanged."
+owner_domain = 15
+interface = "15.go-consensus-privval-grpc-new-signer-server-j57"
+
+[finding.grpc-nil-payload]
+file = "consensus/privval/grpc/server.go"
+line = 47
+class = "security"
+severity = "medium"
+observed = "Optional Vote and Proposal protobuf pointers are forwarded without nil checks and FilePV dereferences them. Production installs a Prometheus unary interceptor without panic recovery; a malformed signing RPC can terminate the signer process."
+expected = "A missing signing payload must return InvalidArgument without terminating the signer or altering safety state, followed by continued service to valid requests."
+proposal = "Check nil requests and nested payloads in consensus/privval/grpc/server.go. Send encoded empty messages through the real server, assert refusal and then a successful valid sign from the same process."
+owner_domain = 15
+interface = "15.go-consensus-privval-grpc-new-signer-server-j57"
+
+[finding.grpc-close-loses-connection]
+file = "consensus/privval/grpc/client.go"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "NewSignerClient initializes chainID and client but never stores conn. Close checks sc.conn, which remains nil, so it returns success without closing the gRPC transport or its background resources."
+expected = "A signer client must release its owned connection when closed, including repeated node start/stop, and expose transport shutdown to its lifecycle caller."
+proposal = "Store conn in consensus/privval/grpc/client.go and exercise a real connection entering connectivity.Shutdown on Close, including repeated cleanup."
+owner_domain = 15
+interface = "15.go-consensus-privval-grpc-new-signer-client-j57"
+
+[finding.grpc-vote-chain-argument]
+file = "consensus/privval/grpc/client.go"
+line = 70
+class = "interface-mismatch"
+severity = "high"
+observed = "SignVote ignores its chainID argument and sends sc.chainID, while SignProposal forwards the argument. A caller requesting chain B on a client configured for A receives success with a signature over chain A's vote bytes."
+expected = "The PrivValidator chain argument must bind the returned signature to the canonical bytes the caller verifies, or a configuration mismatch must be refused explicitly."
+proposal = "Reject a mismatched chain consistently in consensus/privval/grpc/client.go for votes and proposals. Verify returned signatures against requested canonical bytes through the real gRPC transport and assert mismatch refusal."
+owner_domain = 15
+interface = "15.go-consensus-types-priv-validator-j57"
+
+[finding.grpc-dial-error-swallowed]
+file = "consensus/privval/grpc/util.go"
+line = 120
+class = "runtime-risk"
+severity = "medium"
+observed = "DialRemoteSigner logs DialContext failure then calls NewSignerClient with conn even if it is nil; that constructor always returns nil error. Node startup can receive apparent success and fail later when using an invalid client."
+expected = "A transport construction failure must reach the node startup caller with no usable client instead of being converted to successful signer initialization."
+proposal = "Return the dial error in consensus/privval/grpc/util.go and reject nil connections in client.go; exercise an actually invalid target through the real dial path and assert no client is returned."
+owner_domain = 15
+interface = "15.go-consensus-privval-grpc-dial-remote-signer-j57"
+
+[finding.partial-tls-downgrade]
+file = "consensus/privval/grpc/util.go"
+line = 103
+class = "security"
+severity = "medium"
+observed = "AreSecurityOptionsPresent requires certificate, key and CA all nonempty. Any incomplete tuple falls through to insecure.NewCredentials without validation, silently downgrading an operator's attempted authenticated signer connection."
+expected = "Supplying any signer TLS identity material must require a complete valid tuple; missing material must not downgrade a validator signing transport to plaintext."
+proposal = "Add all-or-none validation in consensus/config/config.go and enforce it before dialing in consensus/privval/grpc/util.go. Require explicit insecure selection and cover every incomplete tuple through actual transport setup."
+owner_domain = 15
+interface = "5.go-consensus-config-priv-validator-config-are-security-options-present"
+
+[finding.tls-loader-process-exit]
+file = "consensus/privval/grpc/util.go"
+line = 68
+class = "runtime-risk"
+severity = "medium"
+observed = "GenerateTLS invokes os.Exit for certificate loading, CA reading or invalid CA PEM errors. DialRemoteSigner cannot return these failures through its declared error result, and normal application cleanup cannot run."
+expected = "Credential construction must return actionable initialization errors so the caller can fail node startup through its ordinary lifecycle."
+proposal = "Change TLS construction in consensus/privval/grpc/util.go to return errors and propagate them from DialRemoteSigner. Exercise missing files and invalid PEM without terminating the host process."
+owner_domain = 15
+interface = "15.go-consensus-privval-grpc-dial-remote-signer-j57"
+
+[finding.retry-signing-cancellation]
+file = "consensus/privval/retry_signer_client.go"
+line = 74
+class = "runtime-risk"
+severity = "medium"
+observed = "SignVote and SignProposal retry using time.Sleep without checking ctx.Done. With retries zero they loop indefinitely after endpoint cancellation; GetPubKey already uses a cancellation-aware wait."
+expected = "A canceled consensus request or validator shutdown must stop signing retries promptly, including unlimited-retry mode."
+proposal = "Check context before attempts and select a timer against ctx.Done in consensus/privval/retry_signer_client.go. Exercise both methods against an unavailable real endpoint and require bounded cancellation."
+owner_domain = 15
+interface = "15.go-consensus-privval-new-retry-signer-client-j57"
+
+[finding.ping-false-success]
+file = "consensus/privval/signer_client.go"
+line = 64
+class = "runtime-risk"
+severity = "medium"
+observed = "Ping returns nil after SendRequest error. If GetPingResponse is nil it returns err, already nil, so both failed transport and a wrong response oneof appear healthy to the caller."
+expected = "Signer liveness probes must propagate transport failures and return ErrUnexpectedResponse for the wrong response variant."
+proposal = "Repair the two branches in consensus/privval/signer_client.go; exercise a disconnected endpoint and a mismatched protobuf response through the actual framing path."
+owner_domain = 15
+
+[finding.socket-peer-identity]
+file = "consensus/privval/utils.go"
+line = 44
+class = "security"
+severity = "medium"
+observed = "NewSignerListener generates a new SecretConnection identity each restart; socket_dialers.go and socket_listeners.go never compare the negotiated remote key with an authorized peer. The encrypted handshake proves possession of an arbitrary key rather than the intended signer/node identity."
+expected = "TCP signing endpoints need stable authorized identities across restart and must reject an unapproved peer before exchanging validator signing requests or responses."
+proposal = "Add persisted local identity and configured remote-key pinning in consensus/privval/utils.go, socket_dialers.go and socket_listeners.go. Prove authorized reconnect after reopen and refusal of an unpinned peer before dispatch."
+owner_domain = 15
+interface = "15.go-consensus-privval-new-signer-listener-j57"
+
+[finding.timeout-classification]
+file = "consensus/privval/utils.go"
+line = 17
+class = "runtime-risk"
+severity = "medium"
+observed = "IsConnTimeout tests an unwrapped timeoutError interface without calling Timeout; network errors can satisfy the interface with Timeout false. It also looks through only one unwrap for that branch, missing deeper timeout wrapping."
+expected = "Refused connections and expired deadlines must remain distinct, and supported timeout errors must be recognized through ordinary nested wrapping."
+proposal = "Use errors.As and the actual Timeout result in consensus/privval/utils.go; cover a real refusal, real stalled-handshake deadline and multiple wrapping layers."
+owner_domain = 15
+
+[finding.timeout-test-is-refusal]
+file = "consensus/privval/socket_dialers_test.go"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "TestIsConnTimeoutForFundamentalTimeouts dials a released localhost port with no listener and asserts a timeout. The ordinary failure is connection refused, so the test entrenches the classifier's false-positive behavior."
+expected = "Timeout tests must create an expired deadline and separately assert that a refused connection is not a timeout."
+proposal = "Use a real accepted connection that stalls its handshake in consensus/privval/socket_dialers_test.go; retain a separate closed-port refusal case with the opposite classification assertion."
+owner_domain = 15
+
+[finding.signer-tests-discard-signatures]
+file = "consensus/privval/signer_client_test.go"
+line = 154
+class = "test-gap"
+severity = "medium"
+observed = "Proposal/vote tests pass want.ToProto() and have.ToProto() temporaries into signing, then compare want.Signature with have.Signature on unchanged source objects. Both remain unsigned, so the comparison does not inspect the returned signature."
+expected = "Transport tests must retain and authenticate the mutated protobuf signature against the original canonical chain-bound bytes, including persistent signer behavior."
+proposal = "Keep protobuf variables and verify nonempty signatures with the real validator public key in consensus/privval/signer_client_test.go. Add FilePV-backed transport/reopen coverage instead of comparing untouched models."
+owner_domain = 15
+
+[finding.grpc-tests-no-safety-state]
+file = "consensus/privval/grpc/server_test.go"
+line = 55
+class = "test-gap"
+severity = "medium"
+observed = "Server signing tests use MockPV and direct method calls, bypassing actual gRPC dispatch and the persistent HRS state used by production FilePV. Concurrent conflicting requests and reopened safety history are unproved."
+expected = "The real signer interface must carry a request through transport to durable state and preserve success/refusal behavior across reopen without a substituted signer."
+proposal = "Extend consensus/privval/grpc/server_test.go with a local gRPC server and disk-backed FilePV, conflicting concurrent requests, chain mismatch and reopen. Retain direct handler tests as narrower unit coverage."
+owner_domain = 15
+interface = "15.go-consensus-privval-grpc-new-signer-server-j57"
+
+[finding.config-skips-p2p-validation]
+file = "consensus/config/config.go"
+line = 136
+class = "config-drift"
+severity = "medium"
+observed = "Config.ValidateBasic validates other sections but never invokes P2P.ValidateBasic. Invalid negative P2P rates, payload size or timeouts can pass top-level startup validation although the dedicated section validator rejects them."
+expected = "Node startup configuration must apply the declared P2P bounds before constructing network components, with an actionable section-qualified error."
+proposal = "Call cfg.P2P.ValidateBasic in consensus/config/config.go and test invalid P2P values through the actual top-level parse/validation path."
+owner_domain = 5
+interface = "5.go-consensus-config-config-validate-basic"
+
+[finding.config-reservoir-bounds]
+file = "consensus/config/config.go"
+line = 942
+class = "config-drift"
+severity = "medium"
+observed = "Mempool validation omits DropPriorityReservoirSize, allowing zero/negative sizes to reach reservoir.New via tx.go and panic. DropPriorityThreshold above one or NaN also passes; pending limits are unchecked."
+expected = "Invalid mempool sizes and percentages must be refused before construction, rather than panicking or silently clamping operator intent."
+proposal = "Validate positive reservoir size, finite percentages in [0,1] and nonnegative pending limits in consensus/config/config.go; cover the real configuration-to-mempool construction path and specific refusal errors."
+owner_domain = 5
+interface = "5.go-consensus-config-mempool-config-validate-basic"
+
+[finding.autobahn-key-in-wrong-table]
+file = "consensus/config/toml.go"
+line = 654
+class = "interface-mismatch"
+severity = "high"
+observed = "autobahn-config-file is written after [self-remediation], making it a nested TOML key. Config.AutobahnConfigFile expects a root key, so a configured nonempty path disappears on Viper read and consensus-mode exclusion cannot see it."
+expected = "WriteConfigFile and the real decoder must preserve the root Autobahn path consumed by node setup and sequencer/Autobahn conflict validation."
+proposal = "Move the assignment before every TOML table in consensus/config/toml.go and round-trip a nonempty path through Viper, then assert the decoded conflicting sequencer configuration is refused."
+owner_domain = 5
+interface = "5.cfg-config-toml-autobahn-config-file"
+
+[finding.toml-unescaped-input]
+file = "consensus/config/toml.go"
+line = 92
+class = "config-drift"
+severity = "medium"
+observed = "Moniker and several configured strings are interpolated directly inside TOML quotes. Quotes, backslashes or newlines in accepted string values can corrupt syntax or create unintended assignments on the next read."
+expected = "The configuration writer must preserve accepted string values as data and emit TOML the actual reader can decode without changing those values."
+proposal = "Use a TOML-correct quoting helper or encoder in consensus/config/toml.go, including moniker and Autobahn paths; round-trip quote/backslash/newline values through the real reader."
+owner_domain = 5
+interface = "5.go-consensus-config-config-write-to-template"
+
+[finding.toml-tests-default-autobahn]
+file = "consensus/config/toml_test.go"
+line = 62
+class = "test-gap"
+severity = "medium"
+observed = "The template test round-trips only SequencerConfig while the general checkConfig uses default-output substrings. An empty AutobahnConfigFile hides its root assignment being nested under self-remediation."
+expected = "Configuration proof must carry non-default producer values through the real decoder into each live consumer key and associated exclusion check."
+proposal = "Extend consensus/config/toml_test.go with nonempty Autobahn path equality after Viper decoding and decoded sequencer-plus-Autobahn refusal, preserving the current sequencer round-trip assertions."
+owner_domain = 5
+interface = "5.cfg-config-toml-autobahn-config-file"
+
+[finding.reactor-readiness-shutdown]
+file = "consensus/internal/mempool/reactor/reactor.go"
+line = 181
+class = "runtime-risk"
+severity = "medium"
+observed = "processMempoolCh waits on readyToStart without selecting ctx.Done. Stopping the service before readiness leaves the spawned goroutine blocked and BaseService.Stop waiting for it forever."
+expected = "Every background reactor task must terminate under context cancellation, including before readiness during partial node startup or synchronization."
+proposal = "Select readiness against cancellation in consensus/internal/mempool/reactor/reactor.go and exercise actual start/stop before readiness with a bounded completion assertion."
+owner_domain = 15
+interface = "15.go-consensus-internal-mempool-reactor-new-reactor-j57"
+
+[finding.service-failed-start-state]
+file = "consensus/libs/service/service.go"
+line = 120
+class = "runtime-risk"
+severity = "medium"
+observed = "Start installs inner before OnStart; an OnStart error returns before launching cleanup and never closes done. IsRunning stays true, Stop/Wait block, and subsequent Start reports nil without starting the service."
+expected = "Failed startup must expose a stopped state and support bounded cleanup of partially started work, never successful no-op startup of a permanently failed service."
+proposal = "Add a complete failed-start transition in consensus/libs/service/service.go that cancels, cleans resources, waits owned tasks and closes completion once. Cover failing OnStart with spawned work and Stop/Wait."
+owner_domain = 15
+interface = "15.go-consensus-libs-service-base-service-j57"
+
+[finding.bitarray-lock-order]
+file = "consensus/libs/bits/bit_array.go"
+line = 137
+class = "runtime-risk"
+severity = "medium"
+observed = "Or, And, Sub and Update lock receiver then operand. Self operations lock the same nonreentrant mutex twice; reciprocal concurrent a.Or(b) and b.Or(a) can each hold one lock and wait for the other."
+expected = "Mutex-protected bit-array operations must terminate on self operands and reciprocal concurrent use without a lock-order cycle."
+proposal = "Handle identity and use separately acquired snapshots or consistent lock ordering in consensus/libs/bits/bit_array.go. Add bounded self/reciprocal concurrency cases for every two-array operation."
+owner_domain = 15
+interface = "15.go-consensus-libs-bits-bit-array-j57"
+
+[finding.bitarray-or-right-tail]
+file = "consensus/libs/bits/bit_array.go"
+line = 140
+class = "runtime-risk"
+severity = "medium"
+observed = "Or copies only the left operand then ORs the smaller word count. Remaining words from a longer right operand are lost; a 1-bit left and a 65-bit right with bit 64 set returns that bit cleared."
+expected = "The documented zero-padding OR must preserve the union of all bits and remain commutative when operand word counts differ."
+proposal = "Copy or OR remaining right words in consensus/libs/bits/bit_array.go. Cover both operand orders at 1/64/65/129-bit boundaries and compare every bit with the mathematical union."
+owner_domain = 15
+interface = "15.go-consensus-libs-bits-bit-array-j57"
+
+[finding.json-named-string-map]
+file = "consensus/libs/json/decoder.go"
+line = 161
+class = "interface-mismatch"
+severity = "high"
+observed = "Marshal accepts any map key with String kind, including a declared string type. decodeReflectMap accepts that kind but passes builtin string keys into SetMapIndex, which panics because they are not assignable to the declared key type."
+expected = "Every accepted string-keyed map emitted by the codec must decode into its original declared type or return a documented error, never panic on its own wire representation."
+proposal = "Convert keys to rv.Type().Key in consensus/libs/json/decoder.go and round-trip actual Marshal/Unmarshal for named-string map keys, nested maps and invalid values."
+owner_domain = 15
+interface = "15.go-consensus-libs-json-unmarshal-j57"
+
+[finding.json-doc-retired-registration]
+file = "consensus/libs/json/doc.go"
+line = 67
+class = "doc-drift"
+severity = "medium"
+observed = "Package documentation promises RegisterType and type/value interface wrappers, but RegisterType is absent and decoder.go explicitly rejects interfaces. The documented example is unusable with the current exported package."
+expected = "Codec documentation must describe supported concrete types and the actual tagged-codec alternative, while preserving current integer-string and byte encoding rules."
+proposal = "Rewrite consensus/libs/json/doc.go with compilable current API examples, document concrete-only decoding and direct polymorphic users to the separate tagged codec."
+owner_domain = 15
+
+[finding.generator-ignores-seed]
+file = "consensus/libs/utils/testonly.go"
+line = 150
+class = "test-gap"
+severity = "low"
+observed = "GenString accepts Rng but uses package-global rand.Intn for characters. A recorded supplied RNG seed cannot reproduce generated strings together with the other randomized inputs."
+expected = "A generator accepting an explicit RNG must consume that source consistently so a failing randomized input sequence can be replayed."
+proposal = "Use rng.Intn in consensus/libs/utils/testonly.go and add same-seed reproducibility coverage across string and other input generators."
+owner_domain = 15
+interface = "15.go-consensus-libs-utils-gen-string-j57"
+
+[finding.shuffle-excludes-identity]
+file = "consensus/libs/utils/testonly.go"
+line = 158
+class = "test-gap"
+severity = "low"
+observed = "Shuffle chooses rng.Intn(i), excluding the current index. A two-element slice always swaps, so the advertised uniform permutation never includes identity and larger permutations are biased."
+expected = "The shared shuffle must use uniform Fisher-Yates selection including the current position and preserve explicit-seed replay."
+proposal = "Use rng.Intn(i+1) in consensus/libs/utils/testonly.go; cover two-element identity and swap using real controlled seeds and compare replayed sequences."
+owner_domain = 15
+interface = "15.go-consensus-libs-utils-shuffle-j57"
+
+[finding.fixture-v2-rejects-standby-pins]
+file = "daemon/committed-fixture/vector_v2.go"
+line = 88
+class = "runtime-risk"
+severity = "medium"
+observed = "recordV2 requires exactly one receipt key. main.run prepares a standby first and pins its distinct receipt key in primary genesis, so the recorder's normal two-pin setup is rejected before the V2 transaction is sent."
+expected = "The recorder must accept its real primary/standby authorization set and select the generated primary key without refusing the required standby pin."
+proposal = "Select the primary pin within the validated set in daemon/committed-fixture/vector_v2.go, retain all pins for verification and exercise V2 after actual primary/standby bootstrap."
+owner_domain = 5
+interface = "5.cli-committed-fixture-record-j33"
+
+[finding.fixture-v1-programs-case-missing]
+file = "daemon/committed-fixture/vector_v1.go"
+line = 38
+class = "test-gap"
+severity = "medium"
+observed = "V1 emits only v1Creation contract creation; vector_v1_test.go requires tx.To nil and constructor bytecode. No Programs call with ProgramCallOutcome is recorded despite the later conformance criterion 22085.1."
+expected = "V1 conformance must include the required accepted Programs call and authenticated ProgramCallOutcome log while retaining type-2 creation coverage and exact canonical-copy equality."
+proposal = "Extend daemon/committed-fixture/vector_v1.go and its test with the real Programs deployment/call producer. Verify the signed outcome log and derive copies from the canonical source with transaction-hash equality checks."
+owner_domain = 5
+interface = "5.cli-committed-fixture-record-j33"
+
+[finding.fixture-v2-source-contract]
+file = "daemon/committed-fixture/vector_v2.go"
+line = 126
+class = "interface-mismatch"
+severity = "high"
+observed = "recordV2 creates a new signed deadbeef-selector transaction using a per-run home key and never sets Provenance.Source. vector_v2_test.go demands exact transaction/receipt/pin/LXP-code/source-reference equality with conformance V2-layerxledger-revert, an insufficient-balance case."
+expected = "The V2 recorder and consumers must round-trip identical transaction identity, signed bytes, authorization, refusal code and provenance; copied groups must equal their canonical source under 22078.1."
+proposal = "Unify the real V2 recipe and canonical-source pipeline in daemon/committed-fixture/vector_v2.go. Drive the intended insufficient-balance call, publish authenticated provenance and regenerate every copy from that producer without relaxing equality assertions."
+owner_domain = 5
+interface = "5.cli-committed-fixture-record-j33"
+
+[finding.fixture-v2-test-never-records]
+file = "daemon/committed-fixture/vector_v2_test.go"
+line = 21
+class = "test-gap"
+severity = "medium"
+observed = "The V2 test loads only committed JSON then compares it with conformance bytes. It never invokes recordV2, leaving its incompatible pin-count and newly generated source/provenance behavior outside the assertions."
+expected = "Recorder conformance must execute the real producer and feed its unchanged result into strict signature, authorization and canonical-source verifiers."
+proposal = "Add an actual built-paxd recorder integration case in daemon/committed-fixture/vector_v2_test.go after primary/standby bootstrap; pass its emitted case into existing strict verifiers without replacement objects or mocks."
+owner_domain = 5
+interface = "5.cli-committed-fixture-record-j33"
+
+[finding.fixture-port-reservation-race]
+file = "daemon/committed-fixture/main.go"
+line = 360
+class = "runtime-risk"
+severity = "medium"
+observed = "configure listens on temporary ports, writes their addresses, then closes listeners before starting paxd. Another recorder or process can bind a released port, producing intermittent real-node startup failure."
+expected = "Concurrent recorder runs must acquire reachable distinct endpoints without a reservation gap before their node processes own the listeners."
+proposal = "Use process-assigned port zero with bound-address discovery or inherited listeners in daemon/committed-fixture/main.go. Prove concurrent complete recorder starts receive distinct reachable endpoints."
+owner_domain = 5
+interface = "5.cli-committed-fixture-record-j33"
+
+[finding.replay-pprof-public-bind]
+file = "daemon/paxd/cmd/ethreplay.go"
+line = 35
+class = "security"
+severity = "medium"
+observed = "ReplayCmd logs profiling on localhost but calls ListenAndServe with :6060 and default mux, exposing pprof on all interfaces without authentication when an operator runs the command."
+expected = "Local profiling must bind loopback by default; remote profiling must require explicit operator configuration and an owned shutdown lifecycle."
+proposal = "Bind loopback or a validated explicit setting in daemon/paxd/cmd/ethreplay.go, close the server on cancellation and verify the actual listener address rather than the log text."
+owner_domain = 5
+interface = "5.cli-paxd-ethreplay-ethreplay"
+
+[finding.keyring-stops-before-match]
+file = "daemon/paxd/cmd/genaccounts.go"
+line = 218
+class = "runtime-risk"
+severity = "medium"
+observed = "getPrivateKeyOfAddr returns not local key on any non-LocalInfo entry before checking its address. An unrelated offline/ledger entry listed before the requested local account blocks genesis setup."
+expected = "Looking up an account must distinguish unrelated entries from an unsupported type belonging to the selected account and find a valid local match regardless of list ordering."
+proposal = "Use address lookup or skip unrelated keys before validating selected type in daemon/paxd/cmd/genaccounts.go. Exercise a real mixed keyring with the matching local key listed after a nonlocal key."
+owner_domain = 5
+interface = "5.go-daemon-paxd-cmd-add-genesis-account-cmd"
+
+[finding.init-recovery-mnemonic-shadow]
+file = "daemon/paxd/cmd/init.go"
+line = 129
+class = "restart-recovery"
+severity = "high"
+observed = "Init declares an empty outer mnemonic then uses mnemonic, err := inside recoverFlag's block. Valid operator input is discarded; InitializeNodeValidatorFilesFromMnemonic receives empty string and generates a random validator identity for a fresh recovery home."
+expected = "Successful paxd init --recover must restore the consensus identity derived from the supplied mnemonic instead of silently replacing it with a new key."
+proposal = "Assign the parsed input to the outer mnemonic in daemon/paxd/cmd/init.go. Run a real --recover subprocess with a known valid mnemonic, compare the expected validator public key and reopen the files to prove identity preservation."
+owner_domain = 5
+interface = "5.cli-paxd-init-flag-recover"
+
+[finding.flatkv-module-key-collision]
+file = "storage/state_db/ss/composite/store.go"
+line = 343
+class = "interface-mismatch"
+severity = "high"
+observed = "convertFlatKVNodes strips moduleName then parses all inner keys as EVM. The real FlatKV writer encodes non-EVM keys as LegacyData regardless of prefix. A valid non-EVM key 0x07 plus 20 bytes is decoded as CodeData and routed to evm; 0x08 plus 20 bytes instead hits unexpected-kind refusal."
+expected = "SnapshotNode must round-trip opaque keys/values in every original module; optimized EVM family decoding applies only inside the evm namespace."
+proposal = "Gate EVM parsing on moduleName==evm in storage/state_db/ss/composite/store.go and always decode other modules as LegacyData. Prove actual FlatKV export to composite import/reopen with colliding 21/53-byte keys, comparing module/key/value."
+owner_domain = 5
+interface = "5.go-storage-db-engine-types-snapshot-node"
+
+[finding.split-store-errors-swallowed]
+file = "storage/state_db/ss/composite/store.go"
+line = 252
+class = "runtime-risk"
+severity = "medium"
+observed = "SetLatestVersion and SetEarliestVersion log EVM errors then return nil; Prune returns only the Cosmos result after an EVM error. Reported latest progress is Cosmos-only, so consumers can report successful maintenance while the EVM store remains behind."
+expected = "Required backend failures must propagate through composite operations, and reported progress used for pruning/recovery must not exceed the safe joint state."
+proposal = "Return contextualized EVM failures in storage/state_db/ss/composite/store.go and report safe joint progress. Preserve recovery history for lagging backends and exercise real backend failures plus reopen and caller-visible errors."
+owner_domain = 5
+interface = "5.go-storage-db-engine-types-state-store"
+
+[finding.split-recovery-incomplete-wal]
+file = "storage/state_db/ss/composite/store.go"
+line = 534
+class = "restart-recovery"
+severity = "high"
+observed = "Recovery starts at min(Cosmos,EVM latest), but ReplayWAL accepts empty WAL and never verifies retained-version continuity. Post-recovery checks compare only earliest. Different latest versions with equal earliest can open successfully despite missing EVM history after an empty/truncated WAL."
+expected = "Startup must recover all required versions through its durable target or refuse the split database; incomplete retained history must not appear synchronized to query consumers."
+proposal = "Validate required WAL coverage/continuity and both latest versions after replay in storage/state_db/ss/composite/store.go. Add disk-backed divergence cases with empty WAL and missing leading entries, requiring explicit state-sync recovery refusal."
+owner_domain = 5
+interface = "5.go-storage-state-db-ss-composite-new-composite-state-store"
+
+[finding.split-rawiterate-omits-evm]
+file = "storage/state_db/ss/composite/store.go"
+line = 210
+class = "runtime-risk"
+severity = "medium"
+observed = "RawIterate always calls cosmosStore even when EVM point/iterator reads route separately. Split writes strip EVM data from Cosmos, so EVM raw history can be reported as an empty successful traversal; EVMStateStore itself returns unsupported."
+expected = "A StateStore history traversal must use the same dataset as point reads or return explicit unsupported rather than silently omitting routed EVM history."
+proposal = "Implement EVM raw traversal and composite routing in storage/state_db/ss/evm/store.go and composite/store.go; compare complete versioned history before/after real split-store reopen."
+owner_domain = 5
+interface = "5.go-storage-db-engine-types-state-store"
+
+[finding.separate-evm-iterator-range]
+file = "storage/state_db/ss/evm/store.go"
+line = 110
+class = "interface-mismatch"
+severity = "high"
+observed = "Separate-db Iterator/ReverseIterator route solely from start. Nil start errors; a one-byte EVM prefix is classified Legacy because ParseEVMKey expects a full key length. Cross-family ranges visit only one database although writes populate several."
+expected = "Switching EVM storage configuration must preserve StateStore prefix, unbounded and cross-family range semantics in both directions over all successfully written keys."
+proposal = "Handle prefix-only bounds and merge ordered per-family iterators in storage/state_db/ss/evm/store.go. Compare actual unified/separate backends after reopen with nil, prefix-only and cross-family bounds in forward/reverse order."
+owner_domain = 5
+interface = "5.go-storage-db-engine-types-state-store"
+
+[finding.evm-import-filter-leak]
+file = "storage/state_db/ss/evm/store.go"
+line = 289
+class = "runtime-risk"
+severity = "medium"
+observed = "Unified Import launches a filtering goroutine sending to a bounded channel, then returns db.Import directly. An early backend return can strand the filter on send, stop draining composite input and leave snapshot import hung."
+expected = "A backend import failure must cancel or drain all owned forwarding goroutines and return the error without leaving blocked upstream producers."
+proposal = "Coordinate cancellation/draining in storage/state_db/ss/evm/store.go with composite import. Exercise a real backend early failure with more than channel capacity and assert bounded return and complete goroutine cleanup."
+owner_domain = 5
+interface = "5.go-storage-db-engine-types-state-store"
+
+[finding.flatkv-tests-avoid-key-collision]
+file = "storage/state_db/ss/composite/store_test.go"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "Conversion tests use ASCII legacy keys such as bank-key, never matching EVM family prefixes/lengths. Import-failure doubles bypass the actual EVMStateStore filtering layer, hiding namespace and failure-lifecycle defects."
+expected = "Snapshot qualification must pass actual producer bytes with colliding namespace keys through real exporters, routers, backend importers and reopen, including a refused path."
+proposal = "Add disk-backed FlatKV export/composite import/reopen cases in storage/state_db/ss/composite/store_test.go using colliding non-EVM keys and a real importer failure; keep narrow unit cases without treating them as full-path evidence."
+owner_domain = 5
+interface = "5.go-storage-db-engine-types-snapshot-node"
+
+[finding.state-store-comment-old-modes]
+file = "storage/state_db/ss/store.go"
+line = 11
+class = "doc-drift"
+severity = "low"
+observed = "The factory comment describes WriteMode/ReadMode equal to cosmos_only as controlling EVM store opening. These fields are absent; current StateStoreConfig and composite construction use EVMSplit."
+expected = "Factory documentation must name the active split option and current startup/state-sync requirements rather than removed configuration switches."
+proposal = "Update storage/state_db/ss/store.go documentation to describe EVMSplit and current unified/separate EVM database selection, linking explicit recovery/state-sync refusal behavior."
+owner_domain = 5
+interface = "5.go-storage-state-db-ss-new-state-store"
+
+[finding.v4-doc-api-site]
+file = "docs/site/docs/agents/sdk-verification.md"
+line = 93
+class = "doc-drift"
+severity = "medium"
+observed = "The V4 instructions require BatchHeader and ReceiptInclusion from layerxproof/verify/receipt.go. These functions are absent; current vector_v4_test.go uses ReceiptAtRoot and Ed25519Digest under criterion 8362.1."
+expected = "Published verification instructions must name existing primitives and preserve independently trusted header authorization, signature, protocol/range and settlement commit checks."
+proposal = "Rewrite the V4 section in docs/site/docs/agents/sdk-verification.md around daemon/committed-fixture/vector_v4_test.go, naming ReceiptAtRoot and Ed25519Digest and identifying the authorization/range checks the caller must perform explicitly."
+owner_domain = 5
+
+[finding.v4-doc-api-wiki]
+file = "docs/wiki/SdkTerminalVerification.md"
+line = 93
+class = "doc-drift"
+severity = "medium"
+observed = "The V4 instructions require BatchHeader and ReceiptInclusion from layerxproof/verify/receipt.go. These functions are absent; current vector_v4_test.go uses ReceiptAtRoot and Ed25519Digest under criterion 8362.1."
+expected = "Published verification instructions must name existing primitives and preserve independently trusted header authorization, signature, protocol/range and settlement commit checks."
+proposal = "Rewrite the V4 section in docs/wiki/SdkTerminalVerification.md around daemon/committed-fixture/vector_v4_test.go, naming ReceiptAtRoot and Ed25519Digest and identifying the authorization/range checks the caller must perform explicitly."
+owner_domain = 5
+
+[finding.readme-retired-daemon]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README presents layerxd as the running separate kernel daemon, directs make layerxd and describes the merge as a draft with periodic checkpoint settlement."
+expected = "The audit brief defines one paxd BFT network with kernel execution in its proposal path and receipts final at block commit; retired daemon and separate periodic settlement instructions must not describe current operation."
+proposal = "Rewrite README.md for integrated paxd operation, BFT receipt finality and current beta access. Remove retired daemon run/build guidance and separate-network deployment claims; retain source-library build boundaries only where applicable."
+owner_domain = 5
+
+[finding.network-doc-separate-execution]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The guide states ordinary LayerX activity stays outside Paxeer and periodic checkpoints settle on it, with separate trust/release boundaries; it also advertises a public faucet."
+expected = "The audit brief defines one paxd BFT network with kernel execution in its proposal path and receipts final at block commit; retired daemon and separate periodic settlement instructions must not describe current operation."
+proposal = "Rewrite docs/paxeer-network.md for integrated paxd operation, BFT receipt finality and current beta access. Remove retired daemon run/build guidance and separate-network deployment claims; retain source-library build boundaries only where applicable."
+owner_domain = 5
+
+[finding.monorepo-doc-retired-daemon]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The guide lists layerxd as the operating kernel alongside paxd and retains separate execution versus checkpoint-settlement ownership."
+expected = "The audit brief defines one paxd BFT network with kernel execution in its proposal path and receipts final at block commit; retired daemon and separate periodic settlement instructions must not describe current operation."
+proposal = "Rewrite docs/MONOREPO.md for integrated paxd operation, BFT receipt finality and current beta access. Remove retired daemon run/build guidance and separate-network deployment claims; retain source-library build boundaries only where applicable."
+owner_domain = 5
+
+[finding.site-index-old-finality]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site index says activity executes in LayerX and periodic checkpoints settle on Paxeer, continuing the pre-merge split as the operating finality model."
+expected = "The audit brief defines one paxd BFT network with kernel execution in its proposal path and receipts final at block commit; retired daemon and separate periodic settlement instructions must not describe current operation."
+proposal = "Rewrite docs/site/docs/index.md for integrated paxd operation, BFT receipt finality and current beta access. Remove retired daemon run/build guidance and separate-network deployment claims; retain source-library build boundaries only where applicable."
+owner_domain = 5
+
+[finding.site-monorepo-separate-network]
+file = "docs/site/docs/overview/monorepo.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview describes LayerX and Paxeer as separately deployed trust boundaries and assigns protocol execution separately from Paxeer checkpoint settlement."
+expected = "The audit brief defines one paxd BFT network with kernel execution in its proposal path and receipts final at block commit; retired daemon and separate periodic settlement instructions must not describe current operation."
+proposal = "Rewrite docs/site/docs/overview/monorepo.md for integrated paxd operation, BFT receipt finality and current beta access. Remove retired daemon run/build guidance and separate-network deployment claims; retain source-library build boundaries only where applicable."
+owner_domain = 5
+
+[doc.001]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "stale"
+notes = "Read complete page and mirror; V4 lines 93-104 name removed verification APIs. V1 creation and stored V2 source descriptions are narrower than recorder regeneration requirements; concrete producer findings name the gaps."
+
+[doc.002]
+path = "docs/site/docs/programs/workspace.md"
+status = "accurate"
+notes = "Read complete Programs workspace guide and mirror: ABI manifest, deterministic build, dependency/module-boundary checks and fixture recipes describe tooling rather than a separate running network service."
+
+[doc.003]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "accurate"
+notes = "Read complete portable verifier page and mirror. Explicitly limits evidence to sequencer-signed receipts with independent AuthorizedBatch trust, records protocol/format restrictions and does not claim chain finality."
+
+[doc.004]
+path = "docs/wiki/PortableVerifier.md"
+status = "accurate"
+notes = "Read complete portable verifier page and mirror. Explicitly limits evidence to sequencer-signed receipts with independent AuthorizedBatch trust, records protocol/format restrictions and does not claim chain finality."
+
+[doc.005]
+path = "docs/wiki/SdkTerminalVerification.md"
+status = "stale"
+notes = "Read complete page and mirror; V4 lines 93-104 name removed verification APIs. V1 creation and stored V2 source descriptions are narrower than recorder regeneration requirements; concrete producer findings name the gaps."
+
+[doc.006]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "accurate"
+notes = "Read complete Programs workspace guide and mirror: ABI manifest, deterministic build, dependency/module-boundary checks and fixture recipes describe tooling rather than a separate running network service."
+
+[doc.007]
+path = "README.md"
+status = "stale"
+notes = "Read complete page. Separate execution/checkpoint operating model or retired layerxd instructions conflict with the integrated network brief; exact lines and owning rewrite are recorded."
+
+[doc.008]
+path = "docs/README.md"
+status = "accurate"
+notes = "Read complete documentation index; source/site/wiki locations and normative-spec authority are accurate. Misleading operating-model claims are recorded on the destination pages themselves."
+
+[doc.009]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read complete page. Separate execution/checkpoint operating model or retired layerxd instructions conflict with the integrated network brief; exact lines and owning rewrite are recorded."
+
+[doc.010]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read complete page. Separate execution/checkpoint operating model or retired layerxd instructions conflict with the integrated network brief; exact lines and owning rewrite are recorded."
+
+[doc.011]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Read complete page. Separate execution/checkpoint operating model or retired layerxd instructions conflict with the integrated network brief; exact lines and owning rewrite are recorded."
+
+[doc.012]
+path = "docs/site/docs/overview/monorepo.md"
+status = "stale"
+notes = "Read complete page. Separate execution/checkpoint operating model or retired layerxd instructions conflict with the integrated network brief; exact lines and owning rewrite are recorded."
+
+[doc.013]
+path = "spec/layerx-merge/contracts/virtual-chains.md"
+status = "accurate"
+notes = "Read complete contract including admission, fees, RPC, indexer, wallet, SDK and closure. Domain identities/fees share EVM account state; they do not create private nonce or balance trees."
+
+[doc.014]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Consulted introductory status rules, CLI declarations and registry-linked signer/config contexts. Generated tables pin historical source locations and explicitly distinguish planned declarations from qualification evidence; not a claim of reading unrelated generated tables."
+
+[doc.015]
+path = "consensus/libs/CHANGELOG.md"
+status = "accurate"
+notes = "Read complete historical upstream changelog. Old API references document past releases and removals rather than instructions to operate a retired network component."
+
+[doc.016]
+path = "consensus/libs/json/doc.go"
+status = "stale"
+notes = "Read complete package overview. RegisterType and registered interface-wrapper examples at lines 67-102 disagree with the current decoder; see json-doc-retired-registration."
+
+[doc.017]
+path = "consensus/privval/doc.go"
+status = "accurate"
+notes = "Read complete private-validator overview. Describes local/remote signing responsibilities; concrete transport and persistence defects are recorded on their implementation paths."

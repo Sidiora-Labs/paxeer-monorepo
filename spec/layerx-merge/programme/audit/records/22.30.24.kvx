@@ -1,0 +1,1226 @@
+# Pre-upgrade audit: findings propose repairs and do not alter execution.
+
+[audit.22.30.24]
+task = "22.30.24"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 163
+findings = 21
+docs_reviewed = 2
+upgrade_ready = false
+blocking = ["f01", "f02", "f03", "f04", "f05"]
+
+[file.001]
+path = "modules/launchpad/client/cli/proof_module_cli_test.go"
+lines = 316
+verdict = "issues"
+note = "Reviewed complete fixtures and assertions for TestProofModuleCli, including success/refusal behavior against the actual producer and consumer shapes. Specific disagreements are recorded below."
+
+[file.002]
+path = "modules/launchpad/client/cli/query.go"
+lines = 39
+verdict = "clean"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query."
+
+[file.003]
+path = "modules/launchpad/client/cli/query_airdrop.go"
+lines = 69
+verdict = "issues"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_airdrop."
+
+[file.004]
+path = "modules/launchpad/client/cli/query_airdrop_test.go"
+lines = 212
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCmdQueryAirdropArgs, TestCmdQueryAirdropNetwork, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.005]
+path = "modules/launchpad/client/cli/query_feeright.go"
+lines = 62
+verdict = "issues"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_feeright."
+
+[file.006]
+path = "modules/launchpad/client/cli/query_feeright_test.go"
+lines = 196
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCmdQueryFeeRightArgs, TestCmdQueryFeeRightNetwork, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.007]
+path = "modules/launchpad/client/cli/query_ledger.go"
+lines = 54
+verdict = "clean"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_ledger."
+
+[file.008]
+path = "modules/launchpad/client/cli/query_ledger_test.go"
+lines = 182
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCmdQueryLedgerArgs, TestCmdQueryLedgerNetwork, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.009]
+path = "modules/launchpad/client/cli/query_market.go"
+lines = 54
+verdict = "issues"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_market."
+
+[file.010]
+path = "modules/launchpad/client/cli/query_market_test.go"
+lines = 130
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCmdQueryMarketArgs, TestCmdQueryMarketNetwork, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.011]
+path = "modules/launchpad/client/cli/query_markets.go"
+lines = 90
+verdict = "issues"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_markets."
+
+[file.012]
+path = "modules/launchpad/client/cli/query_markets_test.go"
+lines = 201
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCmdQueryMarketsArgs, TestCmdQueryMarketsNetwork, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.013]
+path = "modules/launchpad/client/cli/query_params.go"
+lines = 53
+verdict = "issues"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_params."
+
+[file.014]
+path = "modules/launchpad/client/cli/query_params_test.go"
+lines = 157
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCmdQueryParamsArgs, TestCmdQueryParamsNetwork, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.015]
+path = "modules/launchpad/client/cli/query_price.go"
+lines = 81
+verdict = "issues"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_price."
+
+[file.016]
+path = "modules/launchpad/client/cli/query_price_test.go"
+lines = 169
+verdict = "issues"
+note = "Reviewed complete fixtures and assertions for TestCmdQueryPriceArgs, TestCmdQueryPriceNetwork, including success/refusal behavior against the actual producer and consumer shapes. Specific disagreements are recorded below."
+
+[file.017]
+path = "modules/launchpad/client/cli/query_surface.go"
+lines = 77
+verdict = "issues"
+note = "Reviewed Cobra registration, argument/flag validation, decimal/address encodings, actual QueryClient dispatch, error propagation and protobuf output for query_surface."
+
+[file.018]
+path = "modules/launchpad/client/cli/query_surface_test.go"
+lines = 194
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCmdQuerySurfaceArgs, TestCmdQuerySurfaceNetwork, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.019]
+path = "modules/launchpad/client/cli/query_test.go"
+lines = 50
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestGetQueryCmdListsLaunchpadQueries, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.020]
+path = "modules/launchpad/client/rest/grpc_query_ledger_test.go"
+lines = 121
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestRESTLedgerRoutes, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.021]
+path = "modules/launchpad/client/rest/grpc_query_market_test.go"
+lines = 173
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestRESTMarketRoutes, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.022]
+path = "modules/launchpad/client/rest/grpc_query_registry_test.go"
+lines = 233
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestRESTRegistryRoutes, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.023]
+path = "modules/launchpad/keeper/airdrop.go"
+lines = 365
+verdict = "clean"
+note = "Reviewed epoch creation, historical balance/supply basis, per-holder claim markers and custody/liability updates against pool and NFT consumers."
+
+[file.024]
+path = "modules/launchpad/keeper/airdrop_test.go"
+lines = 426
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestAirdropEpochs, TestAirdropRoundingResidue, TestLegacyAirdropProof, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.025]
+path = "modules/launchpad/keeper/custody.go"
+lines = 332
+verdict = "clean"
+note = "Reviewed all nested ERC20 transfer paths, balance deltas, token-specific treasury keys and uint256 ledgers. Funded asset changes are recorded in f04; registered-error transport limitations are recorded in f10 and f22."
+
+[file.026]
+path = "modules/launchpad/keeper/custody_test.go"
+lines = 363
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCustodyLedgers, TestUsdlMovesAreContractCalls, TestPayoutsAndLedgerMoves, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.027]
+path = "modules/launchpad/keeper/feerights.go"
+lines = 363
+verdict = "issues"
+note = "Reviewed NFT authorization, approvals, minting, owner/global enumeration and strategy gates. Market copy divergence is recorded in f06; owner-order recovery is recorded in f02."
+
+[file.028]
+path = "modules/launchpad/keeper/feerights_test.go"
+lines = 261
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestFeeRightGate, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.029]
+path = "modules/launchpad/keeper/fees.go"
+lines = 584
+verdict = "clean"
+note = "Reviewed protocol/pool splits, optical hooks, strategy authority, surplus and liabilities through custody and token consumers. Registered-error transport limitations are recorded in f10."
+
+[file.030]
+path = "modules/launchpad/keeper/fees_test.go"
+lines = 382
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestRecordFeeSplit, TestStrategyDistributions, TestLiabilityBacking, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.031]
+path = "modules/launchpad/keeper/fixtures_test.go"
+lines = 297
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestFixtureFilesParse, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.032]
+path = "modules/launchpad/keeper/genesis.go"
+lines = 414
+verdict = "issues"
+note = "Reviewed all imports and exports, role installation and quote accounting reconstruction. Nonce loss and owner enumeration loss are recorded in f01 and f02."
+
+[file.033]
+path = "modules/launchpad/keeper/genesis_test.go"
+lines = 106
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestGenesisPoolMetadataRoundTrip, TestGenesisRejectsPoolWithoutMetadata, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.034]
+path = "modules/launchpad/keeper/grpc_query.go"
+lines = 69
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query."
+
+[file.035]
+path = "modules/launchpad/keeper/grpc_query_airdrop_claimed.go"
+lines = 24
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_airdrop_claimed."
+
+[file.036]
+path = "modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go"
+lines = 125
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryAirdropClaimedServes, TestQueryAirdropClaimedRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.037]
+path = "modules/launchpad/keeper/grpc_query_airdrop_epoch.go"
+lines = 48
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_airdrop_epoch."
+
+[file.038]
+path = "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go"
+lines = 225
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryAirdropEpochServes, TestQueryAirdropEpochRefusals, TestQueryAirdropEpochABCICodes, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.039]
+path = "modules/launchpad/keeper/grpc_query_fee_accounting.go"
+lines = 25
+verdict = "issues"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_fee_accounting."
+
+[file.040]
+path = "modules/launchpad/keeper/grpc_query_fee_accounting_test.go"
+lines = 99
+verdict = "issues"
+note = "Reviewed complete fixtures and assertions for TestQueryFeeAccountingServes, TestQueryFeeAccountingRefusals, including success/refusal behavior against the actual producer and consumer shapes. Specific disagreements are recorded below."
+
+[file.041]
+path = "modules/launchpad/keeper/grpc_query_fee_right.go"
+lines = 50
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_fee_right."
+
+[file.042]
+path = "modules/launchpad/keeper/grpc_query_fee_right_test.go"
+lines = 118
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryFeeRightServes, TestQueryFeeRightRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.043]
+path = "modules/launchpad/keeper/grpc_query_has_role.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_has_role."
+
+[file.044]
+path = "modules/launchpad/keeper/grpc_query_has_role_test.go"
+lines = 155
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryHasRoleServes, TestQueryHasRoleRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.045]
+path = "modules/launchpad/keeper/grpc_query_market.go"
+lines = 24
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_market."
+
+[file.046]
+path = "modules/launchpad/keeper/grpc_query_market_by_address.go"
+lines = 53
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_market_by_address."
+
+[file.047]
+path = "modules/launchpad/keeper/grpc_query_market_by_address_test.go"
+lines = 106
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryMarketByAddressServes, TestQueryMarketByAddressRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.048]
+path = "modules/launchpad/keeper/grpc_query_market_test.go"
+lines = 79
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryMarketServes, TestQueryMarketRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.049]
+path = "modules/launchpad/keeper/grpc_query_markets.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_markets."
+
+[file.050]
+path = "modules/launchpad/keeper/grpc_query_markets_by_creator.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_markets_by_creator."
+
+[file.051]
+path = "modules/launchpad/keeper/grpc_query_markets_by_creator_test.go"
+lines = 109
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryMarketsByCreatorServes, TestQueryMarketsByCreatorRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.052]
+path = "modules/launchpad/keeper/grpc_query_markets_test.go"
+lines = 117
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryMarketsServes, TestQueryMarketsRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.053]
+path = "modules/launchpad/keeper/grpc_query_params.go"
+lines = 15
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_params."
+
+[file.054]
+path = "modules/launchpad/keeper/grpc_query_params_test.go"
+lines = 96
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryParamsServes, TestQueryParamsRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.055]
+path = "modules/launchpad/keeper/grpc_query_pool_metadata.go"
+lines = 34
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_pool_metadata."
+
+[file.056]
+path = "modules/launchpad/keeper/grpc_query_pool_metadata_test.go"
+lines = 136
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryPoolMetadataServes, TestQueryPoolMetadataRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.057]
+path = "modules/launchpad/keeper/grpc_query_price_history.go"
+lines = 19
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_price_history."
+
+[file.058]
+path = "modules/launchpad/keeper/grpc_query_price_history_test.go"
+lines = 125
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryPriceHistoryServes, TestQueryPriceHistoryRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.059]
+path = "modules/launchpad/keeper/grpc_query_quote.go"
+lines = 45
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_quote."
+
+[file.060]
+path = "modules/launchpad/keeper/grpc_query_quote_ledger.go"
+lines = 40
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_quote_ledger."
+
+[file.061]
+path = "modules/launchpad/keeper/grpc_query_quote_ledger_test.go"
+lines = 117
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryQuoteLedgerServes, TestQueryQuoteLedgerRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.062]
+path = "modules/launchpad/keeper/grpc_query_quote_test.go"
+lines = 129
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryQuoteServes, TestQueryQuoteRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.063]
+path = "modules/launchpad/keeper/grpc_query_retired.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_retired."
+
+[file.064]
+path = "modules/launchpad/keeper/grpc_query_retired_test.go"
+lines = 105
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryRetiredServes, TestQueryRetiredRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.065]
+path = "modules/launchpad/keeper/grpc_query_surface.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_surface."
+
+[file.066]
+path = "modules/launchpad/keeper/grpc_query_surface_test.go"
+lines = 145
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQuerySurfaceServes, TestQuerySurfaceRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.067]
+path = "modules/launchpad/keeper/grpc_query_test.go"
+lines = 398
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQuerierRegistersOnGRPCRouter, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.068]
+path = "modules/launchpad/keeper/grpc_query_treasury.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed request validation, registered query dispatch, state lookup, response fields and integer/address encodings, nil handling and returned errors for grpc_query_treasury."
+
+[file.069]
+path = "modules/launchpad/keeper/grpc_query_treasury_test.go"
+lines = 149
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryTreasuryServes, TestQueryTreasuryRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.070]
+path = "modules/launchpad/keeper/guardian.go"
+lines = 52
+verdict = "clean"
+note = "Reviewed pending and accepted guardian transitions, caller authorization, bech32/EVM identity conversion and emitted events."
+
+[file.071]
+path = "modules/launchpad/keeper/guardian_test.go"
+lines = 84
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestTransferGuardian, TestAcceptGuardian, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.072]
+path = "modules/launchpad/keeper/history_test.go"
+lines = 324
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestAirdropHoldingHistory, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.073]
+path = "modules/launchpad/keeper/invariants.go"
+lines = 164
+verdict = "clean"
+note = "Reviewed quote custody backing, fee liabilities, pool solvency and malformed-ledger refusals. Quote-token changes can invalidate backing as recorded in f04."
+
+[file.074]
+path = "modules/launchpad/keeper/invariants_test.go"
+lines = 256
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestSolvencyPerPool, TestLiabilitiesBacked, TestCustodyInvariantNonQuoteTreasury, TestCustodyInvariant, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.075]
+path = "modules/launchpad/keeper/keeper.go"
+lines = 250
+verdict = "issues"
+note = "Reviewed store layout, authority, market/creator indexing, pagination and params. Funded quote-token changes and native error transport are recorded in f04 and f05."
+
+[file.076]
+path = "modules/launchpad/keeper/keeper_test.go"
+lines = 1308
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCreateMarketChargesFeeAndEscrowsSupply, TestSwapVectors, TestBuyMovesUsdlIntoCustody, TestSnapshotRingWraps and remaining declared tests, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.077]
+path = "modules/launchpad/keeper/locks.go"
+lines = 88
+verdict = "clean"
+note = "Reviewed role and per-pool transient locks, reentry errors, release behavior and isolation between EVM contexts."
+
+[file.078]
+path = "modules/launchpad/keeper/locks_test.go"
+lines = 146
+verdict = "issues"
+note = "Reviewed complete fixtures and assertions for TestPoolLockRefusesReentry, TestFeeAccumulatorAndTreasuryLocks, TestViewsAnswerUnderLock, including success/refusal behavior against the actual producer and consumer shapes. Specific disagreements are recorded below."
+
+[file.079]
+path = "modules/launchpad/keeper/market.go"
+lines = 417
+verdict = "clean"
+note = "Reviewed initialization, CREATE2 derivation, nonce advancement, metadata, roles, fee rights and event emission. Embedded Solidity creation bytecode is a generated deployment asset. Nonce recovery is recorded in f01."
+
+[file.080]
+path = "modules/launchpad/keeper/market_error_test.go"
+lines = 49
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestMustMarketKeepsUnknownMarketCode, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.081]
+path = "modules/launchpad/keeper/market_test.go"
+lines = 487
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestCreateMarketEmitsMarketCreated, TestCreateMarketRefusalEmitsNoMarketCreated, TestCreateMarketRefusesUnapprovedOptical, TestCreateMarket, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.082]
+path = "modules/launchpad/keeper/migrate_v6120.go"
+lines = 448
+verdict = "clean"
+note = "Reviewed cached migration ordering, reconciliation, pool/role installation, fee-right conversion and invariant gates before commit. Historical execution remains height-selected."
+
+[file.083]
+path = "modules/launchpad/keeper/migrate_v6120_read.go"
+lines = 1081
+verdict = "clean"
+note = "Reviewed all layout-based storage decoding, fixture checks, pools, fee rights, owner enumeration, role tables and creator nonce import against migration consumers."
+
+[file.084]
+path = "modules/launchpad/keeper/migrate_v6120_read_test.go"
+lines = 114
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestMigrateV6120Signature, TestParamsFromProtocolConfig, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.085]
+path = "modules/launchpad/keeper/migrate_v6120_test.go"
+lines = 1226
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestMigrationLeavesGenerationOnePrefixesEmpty, TestEveryPoolMigrates, TestPoolFieldsMatchGolden, TestPoolTokensStayContracts and remaining declared tests, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.086]
+path = "modules/launchpad/keeper/migrate_v6120_usdl.go"
+lines = 340
+verdict = "clean"
+note = "Reviewed golden USDL balances, permitted roles, custody drains, conservation checks and migration guards on the nested ERC20 path."
+
+[file.087]
+path = "modules/launchpad/keeper/migrate_v6120_usdl_test.go"
+lines = 393
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestUsdlBalancesMustMatchGolden, TestUsdlGoldenVector, TestTreasuryWithdrawnIntoCustody, TestUsdlStorageUntouched and remaining declared tests, including success/refusal behavior against the actual producer and consumer shapes. Embedded bytecode constants are generated fixture assets; handwritten setup and assertions were reviewed."
+
+[file.088]
+path = "modules/launchpad/keeper/migration_record.go"
+lines = 326
+verdict = "clean"
+note = "Reviewed book-held deltas, fee-right ID mappings and retired-address persistence, iteration and migration event fields."
+
+[file.089]
+path = "modules/launchpad/keeper/migration_record_test.go"
+lines = 298
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestBookHeldDeltaRecord, TestUnlistedDeltaRefuses, TestNativeMarketGuard, TestRetiredListRecorded and remaining declared tests, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.090]
+path = "modules/launchpad/keeper/msg_server.go"
+lines = 163
+verdict = "clean"
+note = "Reviewed the two Msg handlers, governance authority, cached commit and Cosmos/EVM event propagation. UpdateParams inherits f04 and f05 from its keeper call."
+
+[file.091]
+path = "modules/launchpad/keeper/msg_server_test.go"
+lines = 289
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestUpdateParamsEmitsConfigUpdated, TestRoleAdministrationByGovernance, TestTreasuryWithdrawByGovernance, TestRoleAdministrationByGovernanceFeeAccountingGenesis, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.092]
+path = "modules/launchpad/keeper/price_history.go"
+lines = 25
+verdict = "clean"
+note = "Reviewed denom lookup and inclusive height/ring validation through Market.PriceHistory without reinstating native holding-history writers."
+
+[file.093]
+path = "modules/launchpad/keeper/price_history_test.go"
+lines = 87
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestPriceHistoryRange, TestPriceHistoryRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.094]
+path = "modules/launchpad/keeper/proof_module_keeper_test.go"
+lines = 263
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestProofModuleKeeperEndToEnd, TestProofModuleKeeperCorruptProducerRefused, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.095]
+path = "modules/launchpad/keeper/roles.go"
+lines = 152
+verdict = "clean"
+note = "Reviewed role membership, default-admin preservation, governance grants/revokes, caller checks and migration role naming."
+
+[file.096]
+path = "modules/launchpad/keeper/roles_manifest_test.go"
+lines = 84
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestGeneration2RolesMatchManifest, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.097]
+path = "modules/launchpad/keeper/roles_test.go"
+lines = 190
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestSurfaceRegistry, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.098]
+path = "modules/launchpad/keeper/surfaces.go"
+lines = 129
+verdict = "clean"
+note = "Reviewed fixed generation-two addresses, per-pool bindings, shared runtime installation and role/address validation against forwarding consumers."
+
+[file.099]
+path = "modules/launchpad/keeper/swap.go"
+lines = 450
+verdict = "clean"
+note = "Reviewed quote/swap arithmetic, buy/sell boundaries, reserve updates, prepaid input, snapshots and fees through custody and ERC20 consumers."
+
+[file.100]
+path = "modules/launchpad/keeper/swap_test.go"
+lines = 311
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestSwapGoldenVectors, TestSnapshotGate, TestDynamicFeeVectors, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.101]
+path = "modules/launchpad/keeper/sweep_test.go"
+lines = 21
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestMain, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.102]
+path = "modules/launchpad/keeper/sync.go"
+lines = 59
+verdict = "clean"
+note = "Reviewed book/held reconciliation, reserve bounds, quote-custody deltas and pool-state update events."
+
+[file.103]
+path = "modules/launchpad/keeper/sync_test.go"
+lines = 65
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestSyncReserves, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.104]
+path = "modules/launchpad/keeper/treasury.go"
+lines = 260
+verdict = "clean"
+note = "Reviewed token-keyed balances, held versus surplus accounting, authorized payouts and liability-preserving ERC20 transfers."
+
+[file.105]
+path = "modules/launchpad/keeper/treasury_test.go"
+lines = 169
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestTreasuryLedger, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.106]
+path = "modules/launchpad/launchpadtest/domain_test.go"
+lines = 453
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestLaunchpadDomainWiring, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.107]
+path = "modules/launchpad/launchpadtest/query_test.go"
+lines = 74
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryThroughTestApp, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.108]
+path = "modules/launchpad/launchpadtest/store.go"
+lines = 65
+verdict = "clean"
+note = "Reviewed isolated mounted KV store construction used by real domain/query proofs without replacing EVM or query producers."
+
+[file.109]
+path = "modules/launchpad/legacy/v610/keeper/fees.go"
+lines = 300
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.110]
+path = "modules/launchpad/legacy/v610/keeper/genesis.go"
+lines = 124
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.111]
+path = "modules/launchpad/legacy/v610/keeper/history.go"
+lines = 195
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.112]
+path = "modules/launchpad/legacy/v610/keeper/history_test.go"
+lines = 251
+verdict = "clean"
+note = "Reviewed the complete v6.10 tests and fixtures as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.113]
+path = "modules/launchpad/legacy/v610/keeper/invariants.go"
+lines = 42
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.114]
+path = "modules/launchpad/legacy/v610/keeper/keeper.go"
+lines = 308
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.115]
+path = "modules/launchpad/legacy/v610/keeper/keeper_test.go"
+lines = 1144
+verdict = "clean"
+note = "Reviewed the complete v6.10 tests and fixtures as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.116]
+path = "modules/launchpad/legacy/v610/keeper/legacy_test.go"
+lines = 137
+verdict = "clean"
+note = "Reviewed the complete v6.10 tests and fixtures as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.117]
+path = "modules/launchpad/legacy/v610/keeper/market.go"
+lines = 130
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.118]
+path = "modules/launchpad/legacy/v610/keeper/msg_server.go"
+lines = 23
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.119]
+path = "modules/launchpad/legacy/v610/keeper/swap.go"
+lines = 214
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.120]
+path = "modules/launchpad/legacy/v610/types/codec.go"
+lines = 58
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.121]
+path = "modules/launchpad/legacy/v610/types/errors.go"
+lines = 43
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.122]
+path = "modules/launchpad/legacy/v610/types/errors_test.go"
+lines = 126
+verdict = "clean"
+note = "Reviewed the complete v6.10 tests and fixtures as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.123]
+path = "modules/launchpad/legacy/v610/types/events.go"
+lines = 34
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.124]
+path = "modules/launchpad/legacy/v610/types/expected_keepers.go"
+lines = 35
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.125]
+path = "modules/launchpad/legacy/v610/types/genesis.go"
+lines = 152
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.126]
+path = "modules/launchpad/legacy/v610/types/keys.go"
+lines = 146
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.127]
+path = "modules/launchpad/legacy/v610/types/market.go"
+lines = 158
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.128]
+path = "modules/launchpad/legacy/v610/types/math.go"
+lines = 259
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.129]
+path = "modules/launchpad/legacy/v610/types/math_test.go"
+lines = 194
+verdict = "clean"
+note = "Reviewed the complete v6.10 tests and fixtures as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.130]
+path = "modules/launchpad/legacy/v610/types/msgs.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.131]
+path = "modules/launchpad/legacy/v610/types/params.go"
+lines = 88
+verdict = "clean"
+note = "Reviewed the complete v6.10 implementation as the height-selected historical replay path. Legacy bank/native market behavior is intentional here and is not a live merged-network route."
+
+[file.132]
+path = "modules/launchpad/module.go"
+lines = 154
+verdict = "clean"
+note = "Reviewed Msg/Query registration, HTTP gateway binding, genesis and streaming paths, version 1 and nil native tx command."
+
+[file.133]
+path = "modules/launchpad/module_services_test.go"
+lines = 314
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestRegisterServicesServesQuery, TestRegisterGatewayRoutesMountsLaunchpad, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.134]
+path = "modules/launchpad/module_test.go"
+lines = 80
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestModuleSurfaceFrozen, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.135]
+path = "modules/launchpad/simulation/decoder.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed active-store decoding and explicit unknown-prefix behavior without reviving retired native key handling."
+
+[file.136]
+path = "modules/launchpad/simulation/decoder_test.go"
+lines = 82
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestDecodeStore, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.137]
+path = "modules/launchpad/types/codec.go"
+lines = 59
+verdict = "clean"
+note = "Reviewed Amino and protobuf registration for the two current native messages and their service interface."
+
+[file.138]
+path = "modules/launchpad/types/errors.go"
+lines = 235
+verdict = "clean"
+note = "Reviewed all registered numeric codes, keeper-only reasons and Solidity selector/argument mappings. Native wrapper transport loss is recorded in f05 and proof limitations in f10."
+
+[file.139]
+path = "modules/launchpad/types/errors_test.go"
+lines = 306
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestLaunchpadErrorStrings, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.140]
+path = "modules/launchpad/types/events.go"
+lines = 45
+verdict = "clean"
+note = "Reviewed event and attribute constants against keeper emission, including market-created pointer=TokenAddress and fee, guardian and pool-state attributes."
+
+[file.141]
+path = "modules/launchpad/types/expected_keepers.go"
+lines = 45
+verdict = "clean"
+note = "Reviewed EVM, account and related keeper contracts used by custody, migration, token deployment and identity conversion against their concrete consumers."
+
+[file.142]
+path = "modules/launchpad/types/genesis.go"
+lines = 490
+verdict = "clean"
+note = "Reviewed params, markets, fee rights, custody, accounting and roles plus refusal of all six retired native-state collections. Missing nonce and owner-order recovery fields are recorded at their producer in f01 and f02."
+
+[file.143]
+path = "modules/launchpad/types/genesis_test.go"
+lines = 433
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestGenesisRefusesGenerationOneState, TestGenesisValidate, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.144]
+path = "modules/launchpad/types/keys.go"
+lines = 122
+verdict = "clean"
+note = "Reviewed active and reserved store prefixes, key encodings and launchpad address constants. Reserved native prefixes do not reinstate live writers."
+
+[file.145]
+path = "modules/launchpad/types/market.go"
+lines = 255
+verdict = "clean"
+note = "Reviewed generation-dependent field encodings, validation, reserves, metadata limits and fee-strategy bounds against keeper/query consumers."
+
+[file.146]
+path = "modules/launchpad/types/market_test.go"
+lines = 179
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestMarketValidate, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.147]
+path = "modules/launchpad/types/math.go"
+lines = 268
+verdict = "clean"
+note = "Reviewed integer widths, rounding, reserve and floor constraints, dynamic fees and arithmetic errors against buy/sell consumers."
+
+[file.148]
+path = "modules/launchpad/types/math_test.go"
+lines = 252
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestFeeLibAgeFactor, TestFeeLibVolatilityAndConcentrationFactors, TestFeeLibDynamicFee, TestFeeLibVolatility and remaining declared tests, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.149]
+path = "modules/launchpad/types/msgs.go"
+lines = 96
+verdict = "clean"
+note = "Reviewed type names, signers, sign bytes, bech32/address checks and role-assignment shapes against native handlers."
+
+[file.150]
+path = "modules/launchpad/types/params.go"
+lines = 109
+verdict = "clean"
+note = "Reviewed defaults, ratio/amount bounds, quote-token encoding and update input shape. Safe funded asset mutation requires f04."
+
+[file.151]
+path = "modules/launchpad/types/params_test.go"
+lines = 127
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestDefaultParamsMatchProtocolConfig, TestParamsHaveNoQuoteDenom, TestValidateMatchesProtocolConfigBounds, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.152]
+path = "modules/launchpad/types/price.go"
+lines = 31
+verdict = "clean"
+note = "Reviewed ring dimensions, oldest-first snapshot ordering, inclusive height filtering and malformed ring/range refusals."
+
+[file.153]
+path = "modules/launchpad/types/price_test.go"
+lines = 154
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestMarketPriceHistoryOrdersRing, TestMarketPriceHistoryRefusals, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.154]
+path = "modules/launchpad/types/proof_launchpad_errors_test.go"
+lines = 313
+verdict = "issues"
+note = "Reviewed complete fixtures and assertions for TestProofLaunchpadErrorsRegistry, TestProofLaunchpadErrorsValidation, TestProofLaunchpadErrorsKeeper, including success/refusal behavior against the actual producer and consumer shapes. Specific disagreements are recorded below."
+
+[file.155]
+path = "modules/launchpad/types/query_ledger.go"
+lines = 28
+verdict = "clean"
+note = "Reviewed exact ledger-kind vocabulary and every FeeAccountingInfo scalar/count conversion. Incomplete query population is recorded in f07."
+
+[file.156]
+path = "modules/launchpad/types/query_ledger_test.go"
+lines = 120
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestParseQuoteLedgerKind, TestFeeAccountingInfoOf, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.157]
+path = "modules/launchpad/types/query_market.go"
+lines = 61
+verdict = "clean"
+note = "Reviewed all MarketInfo fields, decimal integer encoding and independent ring slices. Stale source fee-right copies are recorded at their mutation in f06."
+
+[file.158]
+path = "modules/launchpad/types/query_market_test.go"
+lines = 118
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestMarketInfoOfCopiesEveryField, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.159]
+path = "modules/launchpad/types/query_registry.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed every fee-right, epoch and retired-address field, amount and enum conversion against query wire types."
+
+[file.160]
+path = "modules/launchpad/types/query_registry_test.go"
+lines = 79
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestRegistryInfoOfCopiesEveryField, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.161]
+path = "modules/launchpad/types/query_test.go"
+lines = 232
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryServiceDescriptor, TestQueryGatewayPatterns, including success/refusal behavior against the actual producer and consumer shapes."
+
+[file.162]
+path = "modules/launchpad/types/query_validate.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed page limits 1..100, offset overflow, strict nonzero 0x-prefixed 20-byte addresses and SDK-aware error wrappers."
+
+[file.163]
+path = "modules/launchpad/types/query_validate_test.go"
+lines = 96
+verdict = "clean"
+note = "Reviewed complete fixtures and assertions for TestQueryPageBounds, TestQueryHexAddress, including success/refusal behavior against the actual producer and consumer shapes."
+
+[finding.f01]
+file = "modules/launchpad/keeper/genesis.go"
+line = 178
+class = "restart-recovery"
+severity = "high"
+observed = "ExportGenesis exports markets, metadata and contract ledgers but omits factoryNoncePrefix (0x50), and InitGenesis never restores it. FactoryNonce then returns zero for a creator whose deployPoolToken already advanced it. Repeating the original name and symbol reuses the original CREATE2 salt and can collide with the preserved ERC20. This also loses nonces imported by readFactoryNonces during migration."
+expected = "Factory getNonce and subsequent token creation must preserve the per-creator nonce across genesis export/import, together with the existing EVM code and market records."
+proposal = "Add validated per-creator factory nonces to modules/launchpad/types/genesis.go, export every nonce and restore it in keeper/genesis.go. In keeper/genesis_test.go create several markets, export/import with EVM state and prove getNonce and another creation with repeated metadata continue correctly."
+owner_domain = 4
+interface = "4.go-launchpad-keeper-keeper-export-genesis"
+
+[finding.f02]
+file = "modules/launchpad/keeper/genesis.go"
+line = 159
+class = "restart-recovery"
+severity = "high"
+observed = "initFeeRights rebuilds owner enumeration from c.Tokens in global tokenByIndex order, and exportFeeRights exports only that global order. TransferFeeRight removes an owned token by moving the last token into its slot. Minting 1, 2, 3 to A then transferring 1 away leaves A with [3,2]; export/import reconstructs [2,3]."
+expected = "FeeRightOfOwnerByIndex and SidioraNFT.tokenOfOwnerByIndex must round-trip through genesis recovery after transfers, as well as preserving ownership, approvals and total supply."
+proposal = "Extend FeeRightCollection in modules/launchpad/types/genesis.go with validated per-owner token order or equivalent owner indexes, export the owner enumeration and restore it in keeper/genesis.go. Prove every owner index through the NFT surface before and after export/import following swap-last removals and incoming transfers."
+owner_domain = 4
+interface = "4.go-launchpad-keeper-keeper-fee-right-of-owner-by-index"
+
+[finding.f03]
+file = "modules/launchpad/client/cli/query_price.go"
+line = 63
+class = "interface-mismatch"
+severity = "high"
+observed = "CmdQueryQuote parses amount-in as uint64 before sending QueryQuoteRequest.AmountIn. Querier.Quote accepts positive decimal sdk.Int values and swap math supports uint256. The CLI rejects 18446744073709551616 before sending the request even though the service accepts that decimal encoding."
+expected = "The quote CLI and Query/Quote must accept the same positive decimal amount domain and preserve uint256 token amounts as decimal strings without narrowing them to uint64."
+proposal = "Replace the amount parser in modules/launchpad/client/cli/query_price.go with positive decimal validation matching keeper/grpc_query_quote.go and the uint256 math limit. Add a funded live CLI-to-query comparison above MaxUint64 and matching malformed, zero and overflow refusals."
+owner_domain = 4
+interface = "4.cli-launchpad-query-quote-j28"
+
+[finding.f04]
+file = "modules/launchpad/keeper/keeper.go"
+line = 116
+class = "runtime-risk"
+severity = "high"
+observed = "UpdateParams can replace Params.QuoteToken while markets, HeldQuote, FeeHeld and fee liabilities remain populated. custody.go reads the new quoteToken, but HeldQuoteKey(pool) and FeeHeldKey(accumulator) contain no token. Existing reserves and fees become liabilities in a different asset while their original ERC20 backing stays in custody."
+expected = "A governance parameter update must preserve the asset backing of every funded market and fee claim; existing liquidity cannot silently change denomination or be paid from another token balance."
+proposal = "In modules/launchpad/keeper/keeper.go reject QuoteToken changes once a market or quote liability exists, unless a separately specified atomic migration moves every reserve, fee ledger and backing balance. Add native governance-message tests with funded pools and pending fees proving refusal preserves params and both token balances."
+owner_domain = 4
+interface = "4.go-launchpad-keeper-keeper-update-params"
+
+[finding.f05]
+file = "modules/launchpad/keeper/keeper.go"
+line = 114
+class = "interface-mismatch"
+severity = "high"
+observed = "UpdateParams wraps ErrUnauthorized with fmt.Errorf and msgServer.UpdateParams returns it unchanged. sdk/types/errors/abci.go follows Cause(), not Unwrap(), so the native message refusal becomes codespace undefined / code 1 instead of launchpad / 23. Local errors.Is succeeds while the declared code cannot round-trip through ABCI."
+expected = "The registered unauthorized error must retain codespace launchpad and code 23 through the keeper, Msg handler, ABCI response and client decoder while still preventing all unauthorized state changes."
+proposal = "Use SDK Wrap/Wrapf in modules/launchpad/keeper/keeper.go and audit active launchpad producers for the same wrapper incompatibility. Extend keeper/msg_server_test.go and types/proof_launchpad_errors_test.go to serialize the exact unauthorized UpdateParams result through ABCI and require the registered client error without manual unwrapping."
+owner_domain = 4
+interface = "4.err-sdk-launchpad-23-unauthorized"
+
+[finding.f06]
+file = "modules/launchpad/keeper/feerights.go"
+line = 304
+class = "runtime-risk"
+severity = "medium"
+observed = "TransferFeeRight updates only right.Owner, and SetFeeRightStrategy updates only right.Strategy. The NFT precompile invokes these directly. Market.FeeRightsHolder and Market.FeeStrategy retain old values, which MarketInfoOf exposes through market queries while FeeRight and fee execution use the updated NFT record."
+expected = "Operator market views must identify the current fee-right holder and strategy consistently with NFT views and with the authority used for claiming or distributing that market's fees."
+proposal = "Synchronize linked market copies on every mutation in modules/launchpad/keeper/feerights.go, or derive current owner and strategy in a shared keeper query projection. Add real NFT transfer and setFeeStrategy calls followed by Market and FeeRight queries, including export/import."
+owner_domain = 4
+interface = "4.go-launchpad-keeper-keeper-set-fee-right-strategy"
+
+[finding.f07]
+file = "modules/launchpad/keeper/grpc_query_fee_accounting.go"
+line = 21
+class = "runtime-risk"
+severity = "medium"
+observed = "FeeAccounting passes a synthetic FeeAccounting containing only PendingProtocolFees and TotalLiabilities to FeeAccountingInfoOf. PoolCount, EpochCount and ClaimCount consequently remain zero even when exportFeeAccounting can enumerate persisted pools, epochs and claims. Operators see empty accounting collections alongside populated liabilities and history."
+expected = "The public FeeAccountingInfo collection counts must describe the persisted accounting collections; the required zero pending protocol fees must not erase unrelated metadata."
+proposal = "Populate accounting metadata in modules/launchpad/keeper/grpc_query_fee_accounting.go using maintained counts or an agreed bounded query design. Add a network query after pool creation, epoch trigger and claim that checks real collection counts alongside exact liabilities and zero pending protocol fees."
+owner_domain = 4
+interface = "4.qry-launchpad-fee-accounting-j28"
+
+[finding.f08]
+file = "modules/launchpad/keeper/locks_test.go"
+line = 115
+class = "test-gap"
+severity = "medium"
+observed = "TestViewsAnswerUnderLock derives PoolLock from market.Pointer. createMarket populates PoolAddress and TokenAddress but leaves the retired Pointer field empty. The test therefore holds the zero-address pool lock rather than the lock belonging to the market whose views it exercises."
+expected = "The lock-view proof must hold the actual created pool's write lock and show that views of that same pool continue answering while its lock is held."
+proposal = "Use market.PoolAddress in modules/launchpad/keeper/locks_test.go, assert it is nonzero and matches the registered pool surface, then exercise matching EVM views under that lock. Retain the separate-context lock reset checks."
+owner_domain = 4
+
+[finding.f09]
+file = "modules/launchpad/client/cli/query_price_test.go"
+line = 75
+class = "test-gap"
+severity = "medium"
+observed = "The quote amount test requires a strconv.NumError for 18446744073709551616, making the CLI uint64 restriction an expected result. That decimal is inside the service and uint256 math domain, so this test preserves the producer/consumer discrepancy in f03."
+expected = "CLI tests must distinguish uint64 height limits from uint256 amount limits and prove valid large decimal amounts reach the real query service unchanged."
+proposal = "In modules/launchpad/client/cli/query_price_test.go retain height overflow coverage, replace the large-amount refusal with a funded network quote comparison above MaxUint64, and retain malformed, nonpositive and actual uint256 overflow refusals."
+owner_domain = 4
+interface = "4.cli-launchpad-query-quote-j28"
+
+[finding.f10]
+file = "modules/launchpad/types/proof_launchpad_errors_test.go"
+line = 283
+class = "test-gap"
+severity = "medium"
+observed = "TestProofLaunchpadErrorsKeeper transports real GenesisState.Validate, GetQuoteLedger, MoveQuote, PullQuote and PayQuote errors but asserts undefined / 1 and NotErrorIs for their registered sentinels. It also expects undefined / 1 for RecordFee's ErrInvalidHookResponse. This proves the current transport loss rather than registered error identity."
+expected = "A registered-error proof must assert declared codes through the actual producer, ABCI encoding and remote decoder. Local errors.Is and a separate correct EVM custom selector do not establish ABCI agreement."
+proposal = "After correcting active wrappers or SDK unwrapping, strengthen modules/launchpad/types/proof_launchpad_errors_test.go to require the actual launchpad codes for these producers and add the native UpdateParams refusal from f05. Retain exact EVM selector checks as an independent assertion."
+owner_domain = 4
+interface = "4.err-sdk-launchpad-42-invalid-configuration"
+
+[finding.f11]
+file = "modules/launchpad/client/cli/query_airdrop.go"
+line = 16
+class = "retired-reference"
+severity = "medium"
+observed = "The airdrop-epoch and airdrop-claimed help examples at lines 16 and 45 invoke layerxd query launchpad. layerxd is retired; an operator copying the public examples is directed to a daemon the merged network does not run."
+expected = "BRIEF network facts 1 and 2 require one Paxeer node daemon, paxd. Public help and associated CLI registry rows must describe commands accepted by that daemon."
+proposal = "Replace layerxd with paxd in both examples in modules/launchpad/client/cli/query_airdrop.go and align the corresponding CLI registry and contract entries. Check generated help through the existing paxd root command."
+owner_domain = 4
+interface = "4.cli-launchpad-query-airdrop-epoch-j28"
+
+[finding.f12]
+file = "modules/launchpad/client/cli/query_feeright.go"
+line = 16
+class = "retired-reference"
+severity = "medium"
+observed = "CmdQueryFeeRight's help example invokes layerxd query launchpad fee-right. The running merged node command is paxd, so the example directs an operator to the retired daemon."
+expected = "The fee-right command must be documented under the single merged paxd node command, consistently with BRIEF network facts 1 and 2."
+proposal = "Replace the layerxd example in modules/launchpad/client/cli/query_feeright.go with paxd and align the fee-right CLI registry and contract entries. Exercise help from the existing paxd root command."
+owner_domain = 4
+interface = "4.cli-launchpad-query-fee-right-j28"
+
+[finding.f13]
+file = "modules/launchpad/client/cli/query_market.go"
+line = 13
+class = "retired-reference"
+severity = "medium"
+observed = "The market and market-by-address help examples at lines 13 and 36 invoke layerxd query launchpad. The merged network runs paxd; copying either example uses the retired daemon name."
+expected = "Market lookup instructions and their registry command declarations must use the merged paxd daemon required by BRIEF network facts 1 and 2."
+proposal = "Replace both layerxd examples with paxd in modules/launchpad/client/cli/query_market.go, align the matching CLI registry and contract entries, and check the generated help through the actual paxd root command."
+owner_domain = 4
+interface = "4.cli-launchpad-query-market-j28"
+
+[finding.f14]
+file = "modules/launchpad/client/cli/query_markets.go"
+line = 44
+class = "retired-reference"
+severity = "medium"
+observed = "CmdQueryMarketsByCreator advertises layerxd query launchpad markets-by-creator. layerxd is retired, while the actual merged root command is paxd."
+expected = "Creator market pagination examples must run under paxd and preserve the existing creator argument and paging flags on the merged network."
+proposal = "Use paxd in modules/launchpad/client/cli/query_markets.go and align the markets-by-creator CLI registry and contract entries. Check help under the existing paxd root while preserving the same pagination semantics."
+owner_domain = 4
+interface = "4.cli-launchpad-query-markets-by-creator-j28"
+
+[finding.f15]
+file = "modules/launchpad/client/cli/query_params.go"
+line = 35
+class = "retired-reference"
+severity = "medium"
+observed = "CmdQueryFeeAccounting's example tells operators to run layerxd query launchpad fee-accounting. The finished network has a paxd node and no layerxd daemon."
+expected = "Fee-accounting help must use the same paxd command that registers and serves the merged launchpad query service."
+proposal = "Change the example in modules/launchpad/client/cli/query_params.go to paxd and align its CLI registry and contract declarations. Check the resulting help using the existing paxd root command."
+owner_domain = 4
+interface = "4.cli-launchpad-query-fee-accounting-j28"
+
+[finding.f16]
+file = "modules/launchpad/client/cli/query_surface.go"
+line = 57
+class = "retired-reference"
+severity = "medium"
+observed = "CmdQueryHasRole's help example invokes layerxd query launchpad has-role despite the actual node root being paxd. It publishes the retired daemon as the way to inspect a migrated role table."
+expected = "Role inspection examples must use paxd consistently with the merged node and preserve their contract, role and account encodings."
+proposal = "Use paxd in modules/launchpad/client/cli/query_surface.go and update the associated CLI registry and contract declarations. Check generated has-role help through the existing paxd root command."
+owner_domain = 4
+interface = "4.cli-launchpad-query-has-role-j28"
+
+[finding.f17]
+file = "modules/launchpad/client/cli/proof_module_cli_test.go"
+line = 188
+class = "retired-reference"
+severity = "medium"
+observed = "The subprocess proof compiles daemon/paxd as a binary named layerxd, requires layerxd examples in help, and says in its header that eventual usage should be layerxd. The actual command reports paxd, so the test enforces retired daemon wording."
+expected = "A real command proof must use and document paxd consistently; the merged network has no layerxd daemon or future switch back to that command name."
+proposal = "Name the subprocess paxd in modules/launchpad/client/cli/proof_module_cli_test.go, require paxd help examples, and rewrite the header around the merged command. Preserve the real subprocess ABCI query and refusal checks."
+owner_domain = 4
+interface = "4.cli-launchpad-query-market-j28"
+
+[finding.f18]
+file = "modules/launchpad/client/cli/proof_module_cli_test.go"
+line = 147
+class = "test-gap"
+severity = "medium"
+observed = "The subprocess fee-accounting assertion constructs expected FeeAccounting with only zero pending protocol fees and TotalLiabilities. The seeded genesis contains pools, epochs and a claimed holder, but the expected object has zero collection counts and reproduces the incomplete query shape in f07."
+expected = "The CLI proof must compare accounting metadata with the domain state it seeded, including nonempty pool, epoch and claim collections, rather than duplicating a partial response producer."
+proposal = "Derive expected accounting counts from the seeded genesis in modules/launchpad/client/cli/proof_module_cli_test.go and compare every FeeAccountingInfo field after querying the subprocess. Correct the query under f07 before requiring the real counts."
+owner_domain = 4
+interface = "4.proto-launchpad-fee-accounting-info-j28"
+
+[finding.f19]
+file = "spec/layerx-merge/contracts/launchpad.md"
+line = 211
+class = "doc-drift"
+severity = "medium"
+observed = "The contract describes launchpad_market_created() as having no emit site, and lines 233-256 describe the 17 CLI commands as planned layerxd commands. createMarket now emits denom, pointer=TokenAddress, creator and strategy, and query/CLI services are registered on paxd."
+expected = "The launchpad contract must distinguish its frozen historical snapshot from the finished merged surface and provide the current event attributes, reachable queries and paxd command names."
+proposal = "Refresh the module event, query, CLI and error sections of spec/layerx-merge/contracts/launchpad.md from their authoritative spec sources while preserving anchors. Document the four market-created attributes, served methods and paxd examples, and regenerate interface tables through the owning tooling."
+owner_domain = 4
+
+[finding.f20]
+file = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+line = 245
+class = "doc-drift"
+severity = "medium"
+observed = "The launchpad narrative says the keeper currently omits the Cosmos market-created event and that operator queries and CLI are planned. Line 19 likewise presents adding 17 queries and retiring native bookkeeping as pending although these paths are implemented at this revision."
+expected = "Architecture guidance for the upgrade must identify currently served event, query and CLI paths and distinguish historical task planning from work that remains."
+proposal = "Update the launchpad row and runtime section of spec/layerx-merge/docs/architecture/markets-and-launchpad.md with the implemented four-attribute event, 17 queries and paxd CLI while retaining the v6.10 replay distinction. Label the appended frozen inventory as historical instead of current upgrade status."
+owner_domain = 4
+
+[finding.f22]
+file = "modules/launchpad/keeper/grpc_query_fee_accounting_test.go"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "TestQueryFeeAccountingRefusals extracts registeredErr using errors.As and passes that inner sentinel to ABCIInfo. The actual query returns the outer fmt-wrapped getLedgerAmount error. This proves sentinel registration while bypassing the encoder behavior that loses the code on the returned error."
+expected = "A query error transport test must encode the exact returned error and compare the resulting client codespace and code, including wrapped overflow failures."
+proposal = "Encode the returned error without manual unwrapping in modules/launchpad/keeper/grpc_query_fee_accounting_test.go and add an actual ABCI/gRPC network refusal query. Repair the owning wrapper or SDK traversal first and retain the existing store-preservation assertions."
+owner_domain = 4
+interface = "4.qry-launchpad-fee-accounting-j28"
+
+[doc.launchpad_contract]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "stale"
+notes = "Reviewed module event/error/CLI sections and relevant keeper/query entries. Lines 211 and 233-256 retain missing-event, planned-query and retired-daemon claims. The page identifies itself as a frozen 2a1033aa2 inventory. Finding f19 covers current product drift; registry contract paths resolve relative to the feature directory."
+
+[doc.markets_architecture]
+path = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+status = "stale"
+notes = "Reviewed the venue/activation narrative and launchpad migration/runtime section at lines 191-245, including fixed role addresses. Lines 19 and 245 describe implemented work as pending; f20 proposes the rewrite. The appended cross-domain inventory was not treated as a fresh review of every other venue."

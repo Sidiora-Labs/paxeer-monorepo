@@ -15,7 +15,7 @@
     },
     "beta": {
       "humanUrl": "https://api-mainnet-beta.paxeer.network",
-      "rpcUrl": "https://api-mainnet-beta.paxeer.network/rpc",
+      "rpcUrl": "https://api-mainnet-beta.paxeer.network",
       "resourceUrl": "http://127.0.0.1:8081/paid",
       "scheme": "exact",
       "network": "eip155:125",
