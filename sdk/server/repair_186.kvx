@@ -1,0 +1,10 @@
+[repair.22.31.186]
+finding = "export-consensus-loss"
+tests = ["TestRepair_186_ExportConsensusRoundTrip", "TestRepair_186_ExportConsensusNilAware"]
+implementation = "Both ExportCmd modes use the complete nil-aware consensus UpdateConsensusParams conversion, starting with consensus defaults for omitted groups and durations. Explicit exported values remain authoritative."
+proof = "Real BaseApp and x/params store produce the export parameters; ExportCmd writes JSON or the streaming metadata file; GenesisDoc parsing and ToRequestInitChain feed a fresh BaseApp InitChain, commit, close and reopen; all seven recovered groups and timeout behavior are asserted."
+baseline = "No unchanged-tree baseline was run: the explicit gate order prohibits testing before implementation and running verify_cmd by hand. The seeded previous attempt at revision 1bdb2ac9b52a17d365e3602c1ea65176bc697b65 reported TestInterceptConfigsWithBadPermissions failing outside the declared TestRepair_186_ gate; its supplied evidence is retained in /out/run/gate.json under seed.reason."
+qualification = "The runner's /out/run/gates.jsonl ledger records the verified candidate revision, exact build and hf-done commands, exit codes and private evidence locations; both gates must pass on the same candidate."
+wiring_requests = []
+known_unrelated = "Audit finding export-stream-error already records that sdk/server/export.go unconditionally returns error writing genesis state to file: <nil> after a successful streaming write; this task checks the emitted metadata without repairing that separate finding."
+repair_cycle = "The first hf-done compiled the test and rejected unsupported Marshal/Unmarshal calls on the plain RequestInitChain struct; use the production ToRequestInitChain interface directly, and close the real multistore for recovery without invoking BaseApp.Close twice on its shared database."

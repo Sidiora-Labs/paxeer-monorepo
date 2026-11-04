@@ -29,6 +29,9 @@ import (
 
 var logger = paxlog.NewLogger("cosmos", "store", "rootmulti")
 
+// ErrVersionedStateUnsupported indicates that the legacy store cannot supply a committed snapshot.
+var ErrVersionedStateUnsupported = errors.New("legacy rootmulti versioned state is unsupported; use sdk/storev2/rootmulti")
+
 const (
 	latestVersionKey = "s/latest"
 	pruneHeightsKey  = "s/pruneheights"
@@ -500,17 +503,11 @@ func (rs *Store) CacheMultiStore() types.CacheMultiStore {
 	return cachemulti.NewStore(rs.db, stores, rs.keysByName, nil, rs.traceWriter, rs.getTracingContext(), rs.earliestVersion)
 }
 
-// CacheMultiStoreWithVersion is analogous to CacheMultiStore except that it
-// attempts to load stores at a given version (height). An error is returned if
-// any store cannot be loaded. This should only be used for querying and
-// iterating at past heights.
+// CacheMultiStoreWithVersion rejects versioned reads because the legacy DB
+// adapters expose mutable state, including writes after the latest commit.
+// Unversioned callers can explicitly branch working state with CacheMultiStore.
 func (rs *Store) CacheMultiStoreWithVersion(version int64) (types.CacheMultiStore, error) {
-	cachedStores := make(map[types.StoreKey]types.CacheWrapper)
-	for key, store := range rs.stores {
-		cachedStores[key] = store
-	}
-
-	return cachemulti.NewStore(rs.db, cachedStores, rs.keysByName, nil, rs.traceWriter, rs.getTracingContext(), rs.earliestVersion), nil
+	return nil, errors.Wrapf(ErrVersionedStateUnsupported, "requested height %d", version)
 }
 
 func (rs *Store) CacheMultiStoreForExport(version int64) (types.CacheMultiStore, error) {
@@ -590,6 +587,11 @@ func (rs *Store) Query(ctx context.Context, req abci.RequestQuery) abci.Response
 	queryable, ok := store.(types.Queryable)
 	if !ok {
 		return sdkerrors.QueryResult(sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "store %s (type %T) doesn't support queries", firstPath, store))
+	}
+
+	if req.Height != 0 {
+		_, err := rs.CacheMultiStoreWithVersion(req.Height)
+		return sdkerrors.QueryResult(sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error()))
 	}
 
 	// trim the path and make the query
