@@ -199350,7 +199350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1288]
 title = "Repair audit record 22.30.66 medium findings in wasm/x/wasm/keeper (part 1 of 1): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.184", "22.31.463"]
@@ -199615,7 +199615,7 @@ do_14 = "Attempt 4 (continue after 22.31.463): the test binary of interchain/tes
 
 [task.22.33.1271]
 title = "Repair audit record 22.30.63 medium findings in wasm/benchmarks (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -199800,7 +199800,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1249]
 title = "Repair audit record 22.30.61 medium findings in modules/xweb/types (part 1 of 1): interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.128", "22.31.129", "22.31.463"]
@@ -200135,7 +200135,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1240]
 title = "Repair audit record 22.30.60 medium findings in modules/evm/client/cli (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.179", "22.31.180", "22.31.181", "22.31.463"]
@@ -277376,7 +277376,7 @@ do_9 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could 
 
 [task.22.33.1283]
 title = "Repair audit record 22.30.65 medium findings in precompiles/pointer (part 1 of 1): interface-mismatch, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.130", "22.31.463"]
@@ -277529,7 +277529,7 @@ do_13 = "Attempt 4 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1267]
 title = "Repair audit record 22.30.62 medium findings in precompiles/gov (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277637,7 +277637,7 @@ do_10 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/ib
 
 [task.22.33.1264]
 title = "Repair audit record 22.30.62 medium findings in precompiles/addr/legacy/v575 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277673,7 +277673,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/add
 
 [task.22.33.1263]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v562 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277709,7 +277709,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/dis
 
 [task.22.33.1262]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v555 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277745,7 +277745,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/dis
 
 [task.22.33.1261]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v640 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277819,7 +277819,7 @@ do_10 = "Attempt 5 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1259]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v620 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277856,7 +277856,7 @@ do_10 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/di
 
 [task.22.33.1258]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v614 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277928,7 +277928,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/dis
 
 [task.22.33.1256]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v606 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -277964,7 +277964,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/dis
 
 [task.22.33.1255]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v605 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -278000,7 +278000,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/dis
 
 [task.22.33.1254]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v580 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -278435,7 +278435,7 @@ do_9 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could 
 
 [task.22.33.1201]
 title = "Repair audit record 22.30.57 medium findings in precompiles/staking (part 1 of 1): security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126", "22.31.463"]
@@ -279369,7 +279369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.454]
 title = "Close the pion dtls and stun advisories in the root Go module and the embedded geth module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -322601,7 +322601,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1019]
 title = "Repair audit record 22.30.37 medium findings in services/launchpad/pnl-tracker/internal/production/l18 (part 1 of 1): config-drift, restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.62", "22.31.63", "22.31.64"]
@@ -326831,7 +326831,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.719]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/recovery/phase2 (part 1 of 1): doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
