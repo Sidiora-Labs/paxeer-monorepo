@@ -1,0 +1,48 @@
+[repair]
+task = "22.33.1387"
+audit = "22.30.76"
+acceptance = "22998.1"
+qualification = "hf-build then hf-done qualify the identical candidate; the private gate ledger records its exact revision, command, exit and log. No gate is claimed before that evidence exists."
+baseline = "Not run: step 5 conflicts with the explicit order prohibiting verification until implementation is complete and requiring hf-done as the only verifier. No pre-change test failure is claimed."
+
+[finding.topology-retired-baseline]
+test = "test_topology_retired_baseline"
+transport_test = "test_native_rpc_producer_transport_consumer"
+refusal_test = "test_native_rpc_transport_refuses_invalid_response"
+cli_test = "test_topology_cli_consumer_uses_native_inputs"
+dns_test = "test_native_missing_peer_and_dns_are_not_silently_external"
+repair = "Rebase the executable regression on the committed native node manifest, paxd RPC 8545 and native-home literal block. Exact named root/tenant RPC contract peers exercise both production YAML parsers, namespace precedence, optional/required ConfigMap references and ExternalName, service-port, selector, target-port, ingress, egress and DNS fault refusals. Preserve Human evidence ordering while requiring native-only beta startup."
+path = "The actual topology-check shell entry and regressions share the production Python resolver and existing policy methods in-process, removing the Go toolchain prerequisite. The real SDK ChainsClient sends production-encoded root chain lookup and tenant ledger calls over HTTP to a loopback peer, whose responses use the production ABI encoder; malformed IDs and headers are refused."
+fixtures = "fixtures/native-rpc-topology.yaml declares contract clients, not deployed adapters. The real node manifest supplies the RPC service, workload, ConfigMap and ingress policy. No legacy adapter manifest is silently admitted as native."
+
+[wiring]
+request_1 = "services/platform/hosted/gateway/deployment.yaml; owning domain fm-platform: migrate gateway adapter upstreams to native root RPC and governed receipt keys before enabling the native beta adapter matrix."
+request_2 = "services/platform/hosted/testnet/deployment.yaml and services/platform/hosted/registry/deployment.yaml; owning domain fm-platform: migrate retired core/authority interfaces to native root/tenant RPC before adding these adapters to native beta deployment."
+request_3 = "services/platform/hosted/internal/deployment.yaml, services/platform/hosted/webhooks/deployment.yaml and services/platform/hosted/human/deployment.yaml; owning domain fm-platform: replace retired daemon listener and producer contracts before admitting these manifests into the native deployment inventory."
+
+[gotcha.1]
+observed = "The general workflow requests GOTCHA/spec writes and publication, but this task restricts writes to hosted tests and forbids commits and pushes."
+resolution = "Record findings and gotchas in this scoped record and leave publication and qualification bookkeeping to the runner."
+
+[gotcha.2]
+observed = "The prior regression imports a shared Go topology subprocess, requiring a toolchain even though the declared Python gate permits no binary or subprocess toolchain."
+resolution = "Use the existing production Python policy methods directly with strict Service resolution in the actual CLI checker; tests do not replace or mock its transport."
+
+[gotcha.3]
+observed = "The existing bring-up assertion expected human_evidence_provision, but beta_cluster_up now delegates only to native_cluster_up."
+resolution = "Retain all ordering assertions within human_evidence_provision and rebase the deployment assertion on native manifest application, committed receipt readiness and material save, excluding unmigrated adapters."
+
+[gotcha.4]
+observed = "Codify's graph search does not currently index all hosted test files; requested paths can exist despite a no-hits result."
+resolution = "Read the task's named files directly and use repository text searches for their dependencies."
+
+[gotcha.5]
+observed = "A two-label external-looking DNS name is also a valid Kubernetes service.namespace name, so it exercises missing Service resolution rather than external-host refusal."
+resolution = "Use an unambiguous three-label external DNS name for the offcluster alias mutation; retain the exact refusal count and detail assertion."
+
+[qualification.first_verify]
+revision = "c412e978e066c9b51cbed83fd74e5342ca6e65f3"
+command = "cg spec done 22.33.1387 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Ten tests passed; the offcluster fault fixture used an ambiguous two-label Service name. Correct the fixture and rebuild before verification."
