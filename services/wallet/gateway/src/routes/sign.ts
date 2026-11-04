@@ -28,7 +28,7 @@ import {
   type SigningWallet,
 } from '../db/wallets.js';
 import { getPool } from '../db/pool.js';
-import { evaluate } from '../policy/index.js';
+import { evaluate, reserveHumanDailyValue } from '../policy/index.js';
 import { env } from '../env.js';
 import {
   AttestorError,
@@ -339,19 +339,15 @@ export async function signRoutes(
       throw err;
     }
 
-    const decision = await evaluate({ user_id: ctx.subject, value_wei: valueWei });
-    if (!decision.allow) {
-      return refuse(403, `policy_${decision.code.toLowerCase()}`, {
-        error: decision.code,
-        message: decision.message,
-      });
-    }
-
     const client = await pool.connect();
     let completed: Completed;
+    let dailyReservationId: string | null = null;
     try {
       await client.query('BEGIN');
-      const sw = await loadWalletForSigning(client, ctx.subject);
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [
+        `human-sign:${ctx.subject}`,
+      ]);
+      let sw = await loadWalletForSigning(client, ctx.subject);
       if (!sw) {
         const archived = await archivedWalletGuard({ userId: ctx.subject, kind: 'standard' });
         if (archived) throw new RouteRefusal(archived.status, 'wallet_archived', archived.body);
@@ -384,8 +380,54 @@ export async function signRoutes(
         }
         throw err;
       }
+      const decision = await evaluate(
+        { user_id: ctx.subject, value_wei: valueWei },
+        client.query.bind(client),
+      );
+      if (!decision.allow) {
+        throw new RouteRefusal(decision.code === 'POLICY_UNAVAILABLE' ? 503 : 403,
+          `policy_${decision.code.toLowerCase()}`,
+          { error: decision.code, message: decision.message });
+      }
       if (ctx.attestorOnly) requireQuorumWallet(sw);
-      const signer = await walletSigner(sw, attestors, bearerToken(req), client);
+      if (valueWei > 0n) {
+        try {
+          dailyReservationId = await reserveHumanDailyValue(client, {
+            user_id: ctx.subject, wallet_id: sw.row.id, address: sw.row.address,
+            kind: ctx.kind, to_address: ctx.to, value_wei: valueWei,
+            chain_id: sw.row.chain_id, request_hash: ctx.requestHash,
+            ip: req.ip, user_agent: req.headers['user-agent'] ?? null,
+          });
+        } catch {
+          throw new RouteRefusal(503, 'policy_unavailable', {
+            error: 'POLICY_UNAVAILABLE',
+            message: 'daily signing authority could not be reserved',
+          });
+        }
+      }
+      // This charge survives signing errors, uncertain broadcasts and process loss.
+      await client.query('COMMIT');
+      await client.query('BEGIN');
+      sw = await loadWalletForSigning(client, ctx.subject);
+      if (!sw || sw.row.id !== walletId || sw.row.is_disabled) {
+        throw new RouteRefusal(403, 'wallet_disabled', { error: 'WALLET_DISABLED' });
+      }
+      if (ctx.attestorOnly) requireQuorumWallet(sw);
+      const accountSigner = await walletSigner(sw, attestors, bearerToken(req), client);
+      const signer: WalletSigner = {
+        ...accountSigner,
+        async signTransaction(tx) {
+          const signed = await accountSigner.signTransaction(tx);
+          if (dailyReservationId !== null) {
+            const recorded = await pool.query(
+              'update wallet_signatures set tx_hash=$2 where id=$1 and wallet_id=$3',
+              [dailyReservationId, keccak256(signed.value), sw!.row.id],
+            );
+            if (recorded.rowCount !== 1) throw new Error('daily reservation hash was not persisted');
+          }
+          return signed;
+        },
+      };
       completed = await work({ client, sw, signer });
       await client.query('COMMIT');
     } catch (err) {
@@ -425,7 +467,9 @@ export async function signRoutes(
     }
     client.release();
 
-    if (completed.signatureLog) await logSignature(completed.signatureLog);
+    if (completed.signatureLog && dailyReservationId === null) {
+      await logSignature(completed.signatureLog);
+    }
     await recordSigningAudit(pool, {
       requestId: ctx.requestId,
       clientSubject: ctx.subject,
