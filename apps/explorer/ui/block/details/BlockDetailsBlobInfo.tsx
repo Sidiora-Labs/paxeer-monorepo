@@ -75,7 +75,7 @@ const BlockDetailsBlobInfo = ({ data }: Props) => {
           label="Excess blob gas"
           hint="A running total of blob gas consumed in excess of the target, prior to the block."
         >
-          <GasPriceValue amount={ data.excess_blob_gas }/>
+          <Text>{ BigNumber(data.excess_blob_gas).toFormat() } gas</Text>
         </ScanKeyValue>
       ) }
       <DetailedInfo.ItemDivider data-scan-divider/>
