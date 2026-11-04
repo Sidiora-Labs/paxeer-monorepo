@@ -51,6 +51,19 @@ def test_go_root_nested_checksums():
                 f"{module}: go mod verify exited {verified.returncode}\n"
                 f"{verified.stdout}\n{verified.stderr}"
             )
+
+            built = subprocess.run(
+                ["go", "build", "-mod=readonly", "./..."],
+                cwd=module,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert built.returncode == 0, (
+                f"{module}: go build exited {built.returncode}\n"
+                f"{built.stdout}\n{built.stderr}"
+            )
     finally:
         for path, snapshot in snapshots.items():
             assert path.read_bytes() == snapshot, f"{path} changed during verification"

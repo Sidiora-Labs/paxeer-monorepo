@@ -3,6 +3,7 @@
 mod assertion;
 mod binding;
 mod provision;
+pub mod provision_head;
 mod state;
 mod wire;
 

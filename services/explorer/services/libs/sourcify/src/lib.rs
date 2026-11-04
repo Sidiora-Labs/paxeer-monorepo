@@ -3,6 +3,9 @@ mod keccak;
 mod types;
 mod v2;
 
+#[cfg(test)]
+mod test_service;
+
 pub use client::{Client, ClientBuilder};
 pub use types::{
     EmptyCustomError, GetSourceFilesResponse, MatchType, VerifyFromEtherscanError,
@@ -34,7 +37,9 @@ pub enum SourcifyError<E: std::error::Error> {
 pub enum Error<E: std::error::Error> {
     #[error("invalid Sourcify response: {0}")]
     InvalidResponse(String),
-    #[error("Sourcify verification did not complete within 60 seconds")]
+    #[error("invalid Sourcify client configuration: {0}")]
+    InvalidConfiguration(String),
+    #[error("Sourcify operation exceeded its configured total deadline")]
     VerificationTimeout,
     #[error("error occurred while sending request: {0}")]
     Reqwest(#[from] reqwest::Error),

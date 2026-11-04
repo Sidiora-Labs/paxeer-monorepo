@@ -24139,3 +24139,179 @@ symbol = "program.rs"
 observed = "The dependent-crate check of the human service fails on a consumer test of the Quantity type change."
 assumption = "A producer-to-consumer break repaired by 22.31.443, not a defect of this task."
 severity = "low"
+
+[finding.22.31.425.1]
+task = "22.31.425"
+file = "tools/qualification/audit_repairs/test_repair_22_31_425.py"
+symbol = "test_repair_22_31_425.py"
+observed = "Attempt 2: the verify command passed on an earlier revision and the final revision carries a later commit with no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.338.1]
+task = "22.33.338"
+file = "apps/web/e2e/repair-22-33-338.test.ts"
+symbol = "repair-22-33-338.test.ts"
+observed = "The web application's type-check fails inside sdk/wallet/src/receipt.ts before any test runs."
+assumption = "A producer-to-consumer type break repaired by 22.31.456, not a defect of this task."
+severity = "low"
+
+[finding.22.31.382.1]
+task = "22.31.382"
+file = "apps/explorer/ui/pages/repair-22-31-382.spec.ts"
+symbol = "repair-22-31-382.spec.ts"
+observed = "Attempt 1: four cases pass and the suite fails in cleanup on an undefined fetch request."
+assumption = "A fixture pattern defect, not a defect of the routes."
+severity = "medium"
+
+[finding.22.33.367.1]
+task = "22.33.367"
+file = "apps/explorer/ui/block/repair-22-33-367.spec.ts"
+symbol = "repair-22-33-367.spec.ts"
+observed = "Attempt 1: both cases fail on an undefined fetch request in teardown; a correction was written after the last verify."
+assumption = "A fixture pattern defect, not a defect of the chain scoping."
+severity = "medium"
+
+[finding.18.1562.1.7]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 12: the fund step of the committed runtime fixture reverts with the gas-exhausted code after the chain domain was corrected."
+assumption = "A gas allowance defect of the fixture."
+severity = "medium"
+
+[finding.22.33.161.2]
+task = "22.33.161"
+file = "apps/wallet/src/account/repair-22-33-161.test.ts"
+symbol = "repair-22-33-161.test.ts"
+observed = "Attempt 4: two ladder cases fail, one on an expected rung list and one waiting for commitment; the fixture mismatch repair was built but not re-verified."
+assumption = "Expectation and fixture defects, not defects of the ladder."
+severity = "medium"
+
+[finding.22.33.225.1]
+task = "22.33.225"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 1: the programs core test target fails to compile on an undeclared retired constant in the attempt's own test."
+assumption = "A retired identifier used by the new test, not a pre-existing break."
+severity = "medium"
+
+[finding.22.33.269.3]
+task = "22.33.269"
+file = "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts"
+symbol = "repair-22-33-269.spec.ts"
+observed = "Attempt 3: the native select keeps its previous option after the controlled value is cleared; the other cases pass."
+assumption = "A production defect in the wrapper, within the task's paths."
+severity = "medium"
+
+[finding.22.33.290.1]
+task = "22.33.290"
+file = "apps/explorer/ui/address/repair-22-33-290.spec.ts"
+symbol = "repair-22-33-290.spec.ts"
+observed = "Attempt 1: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.632.1]
+task = "22.33.632"
+file = "sdk/x/simulation/repair_m632_test.go"
+symbol = "repair_m632_test.go"
+observed = "Attempt 1: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.689.1]
+task = "22.33.689"
+file = "sdk/x/staking/keeper/repair_m689_test.go"
+symbol = "repair_m689_test.go"
+observed = "Attempt 1: the last repair landed after the repair budget was spent; the final revision has no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.503.2]
+task = "22.33.503"
+file = "apps/explorer/ui/paxeerX/anchors/repair-22-33-503.spec.ts"
+symbol = "repair-22-33-503.spec.ts"
+observed = "Attempt 2: the loading case finds no loading marker on the copy control; the other cases pass."
+assumption = "A production or expectation gap within the task's paths."
+severity = "medium"
+
+[finding.22.33.580.2]
+task = "22.33.580"
+file = "apps/perps/tests/repair-22-33-580.test.ts"
+symbol = "repair-22-33-580.test.ts"
+observed = "Attempt 2: the consent case reads an undefined category enumeration at runtime; the other cases pass."
+assumption = "A runtime import defect of the test."
+severity = "medium"
+
+[finding.22.33.616.1]
+task = "22.33.616"
+file = "sdk/integrations/fastapi/tests/test_repair_22_33_616.py"
+symbol = "test_repair_22_33_616.py"
+observed = "Attempt 1: both HTTP proofs are refused with verification-failure because the recorded receipt and the mounted offer disagree."
+assumption = "A fixture mismatch, not a defect of the integration."
+severity = "medium"
+
+[finding.22.33.619.1]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 1: the example install fails with a registry not-found error for the local integration package."
+assumption = "A manifest wiring gap of the example, repaired in place."
+severity = "medium"
+
+[finding.22.33.659.1]
+task = "22.33.659"
+file = "sdk/x/auth/types/repair_m659_test.go"
+symbol = "repair_m659_test.go"
+observed = "Attempt 1: the key-address agreement case compares private codec caches and fails; the other cases pass."
+assumption = "An over-specified assertion in the new test."
+severity = "medium"
+
+[finding.22.33.665.1]
+task = "22.33.665"
+file = "sdk/x/bank/keeper/repair_m665_test.go"
+symbol = "repair_m665_test.go"
+observed = "Attempt 1: the metadata and paginated supply cases fail; the invariant regression passes."
+assumption = "Expectation and height-selection defects of the new tests."
+severity = "medium"
+
+[finding.22.33.695.1]
+task = "22.33.695"
+file = "sdk/x/staking/client/testutil/repair_m695_test.go"
+symbol = "repair_m695_test.go"
+observed = "Attempt 1: one case fails comparing a typed collection with a plain slice; two proofs pass."
+assumption = "A type-shape defect of the assertion."
+severity = "low"
+
+[finding.22.33.704.1]
+task = "22.33.704"
+file = "tools/jev/checks/test_repair_22_33_704.py"
+symbol = "test_repair_22_33_704.py"
+observed = "Attempt 1: the verify command passed on an earlier revision and the final revision carries a later commit with no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.728.1]
+task = "22.33.728"
+file = "tools/deploy/tests/test_repair_22_33_728.py"
+symbol = "test_repair_22_33_728.py"
+observed = "Attempt 1: the verify command passed on an earlier revision and the final revision carries a later commit with no verify record."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.708.1]
+task = "22.33.708"
+file = "precompiles/spot/repair_m708_test.go"
+symbol = "repair_m708_test.go"
+observed = "Attempt 1: two cases fail on structural comparison of zero big integers; the other cases pass."
+assumption = "An assertion shape defect of the new tests."
+severity = "low"
+
+[finding.22.33.729.1]
+task = "22.33.729"
+file = "tools/rollout/repair_m729_test.go"
+symbol = "repair_m729_test.go"
+observed = "Attempt 1: the tests were prepared but not run; the attempt waited for a clarification about runtimes."
+assumption = "A misreading of the gate rules, not a blocker."
+severity = "low"

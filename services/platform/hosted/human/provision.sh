@@ -40,6 +40,7 @@ import yaml
 value = yaml.safe_load(open(sys.argv[1]))
 value['metadata']['namespace'] = sys.argv[3]
 pod = value['spec']['template']['spec']
+pod['containers'] = [c for c in pod['containers'] if c['name'] != 'validate-account-head']
 for container in pod['containers'] + pod['initContainers']:
     container['image'] = sys.argv[4]
 pod['nodeName'] = json.load(open(sys.argv[5]))['items'][0]['spec']['nodeName']
@@ -50,8 +51,7 @@ PY
         --from-file=owner-request.json="$input/owner-request.json" \
         --from-file=recovery-policy.json="$input/recovery-policy.json" \
         --from-file=treasury-request.json="$input/treasury-request.json" \
-        --from-file=sequencer-request.json="$input/sequencer-request.json" \
-        --from-file=account-head-request.json="$input/account-head-request.json"
+        --from-file=sequencer-request.json="$input/sequencer-request.json"
     kube create -f "$manifest" > /dev/null
     kube -n "$TESTNET_NAMESPACE" wait --for=condition=complete --timeout=150s job/layerx-human-provision-owner > /dev/null \
         || fail 'layerx-human-provision-owner: Job did not complete; owner result not published'
@@ -59,7 +59,6 @@ PY
     python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" --validate-owner-result \
         --work-dir "$WORK_DIR" --request "$output.pending"
     mv "$output.pending" "$output"
-    kube -n "$TESTNET_NAMESPACE" logs job/layerx-human-provision-owner -c validate-account-head > "$input/account-head-result.json"
     local account
     for account in treasury sequencer; do
         kube -n "$TESTNET_NAMESPACE" logs job/layerx-human-provision-owner -c "provision-$account" > "$input/$account.json"
@@ -297,4 +296,74 @@ human_native_provision() (
         --produce-owner-registration --work-dir "$WORK_DIR"
     python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" \
         --validate-owner-registration --work-dir "$WORK_DIR"
+    human_account_head_observe
+)
+
+human_account_head_observe() (
+    set -euo pipefail
+    umask 077
+    local input="$WORK_DIR/human-evidence-input" job
+    local manifest="$WORK_DIR/human-account-head-job.json"
+    python3 - "$REPO_ROOT" "$WORK_DIR" "$manifest" "$TESTNET_NAMESPACE" "$(image_ref layerx-human)" <<'PY_ACCOUNT_HEAD'
+import json
+import ssl
+import sys
+from pathlib import Path
+import yaml
+root, work = Path(sys.argv[1]), Path(sys.argv[2])
+sys.path.insert(0, str(root / 'services/platform/hosted/human'))
+from provision import protected_bytes, protected_json, require, write_json, owner_policy
+from merged_owner import account_id
+inputs = work / 'human-evidence-input'
+config = protected_json(inputs / 'owner-native.json')
+registration = protected_json(inputs / 'owner-registration.json')
+owner = protected_json(work / 'human-owner-result.json')
+require(config['rpc_url'].startswith('https://') and config['chain_id'] > 0,
+        inputs, 'authenticated committed chain endpoint')
+require(registration['identity']['did'] == owner['did'] == 'did:layerx:' + registration['authority']
+        and registration['owner_account'] == account_id(registration['authority'], config['asset_id']),
+        inputs, 'original provisioned owner and merged asset account')
+ca = protected_bytes(config['rpc_ca_file'], 65536).decode('ascii')
+request = dict(rpc_url=config['rpc_url'], rpc_ca_der_hex=[ssl.PEM_cert_to_DER_cert(ca).hex()],
+    chain_id=config['chain_id'], owner_did=owner['did'], owner_account=registration['owner_account'],
+    asset_id=config['asset_id'], maximum_age_seconds=owner_policy()['maximum_age_seconds'])
+write_json(inputs / 'account-observation-request.json', request)
+value = yaml.safe_load((root / 'services/platform/hosted/human/provision-owner-job.yaml').read_text())
+value['metadata'].pop('name')
+value['metadata']['generateName'] = 'layerx-human-account-head-'
+value['metadata']['namespace'] = sys.argv[4]
+pod = value['spec']['template']['spec']
+validator = next(c for c in pod['containers'] if c['name'] == 'validate-account-head')
+validator['image'] = sys.argv[5]
+pod['containers'] = [validator]
+pod.pop('initContainers')
+pod['volumes'] = [dict(name='input', secret=dict(secretName='layerx-human-account-head-input', defaultMode=0o444))]
+with open(sys.argv[3], 'w') as output:
+    json.dump(value, output)
+PY_ACCOUNT_HEAD
+    apply_secret "$TESTNET_NAMESPACE" layerx-human-account-head-input \
+        --from-file=account-head-request.json="$input/account-observation-request.json"
+    job=$(kube create -f "$manifest" -o jsonpath='{.metadata.name}')
+    kube -n "$TESTNET_NAMESPACE" wait --for=condition=complete --timeout=150s "job/$job" > /dev/null \
+        || fail 'committed owner account observation refused; limits not published'
+    kube -n "$TESTNET_NAMESPACE" logs "job/$job" -c validate-account-head > "$input/account-observation.json.pending"
+    python3 - "$REPO_ROOT/services/platform/hosted/human" "$input" <<'PY_ACCOUNT_RESULT'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from provision import fields, protected_json, require, write_json
+root = Path(sys.argv[2])
+request = protected_json(root / 'account-observation-request.json')
+result = protected_json(root / 'account-observation.json.pending')
+fields(result, 'schema chain_id owner_did account asset_id committed_height block_hash state_root observed_at balance consumed',
+       root, 'committed account observation')
+require(result['schema'] == 'layerx.human.account-head.v1'
+        and result['chain_id'] == request['chain_id'] and result['owner_did'] == request['owner_did']
+        and result['account'] == request['owner_account'] and result['asset_id'] == request['asset_id']
+        and type(result['committed_height']) is int and result['committed_height'] > 0
+        and type(result['consumed']) is int and result['consumed'] == 0,
+        root, 'verified original owner account and supported unused limit')
+(root / 'account-observation.json.pending').replace(root / 'account-observation.json')
+write_json(root / 'account-head-result.json', dict(consumed=result['consumed']))
+PY_ACCOUNT_RESULT
 )

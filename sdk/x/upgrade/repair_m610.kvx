@@ -1,0 +1,26 @@
+[repair.22.33.610]
+audit = "22.30.162"
+acceptance = "22998.1"
+baseline = "Not run: the explicit ordered gates require complete implementation before hf-build and hf-done and forbid running verify_cmd by hand; no pre-change test failures are claimed. Concepts and client examples were already corrected at the starting revision; doc.go still used obsolete APIs."
+verified_revision_source = "The final hf-done JSON line and private /out/run/gates.jsonl ledger name the exact candidate revision, command, exit code and evidence log; this record makes no independent qualification claim."
+wiring_request = "None: node/legacyabci/begin_block.go (node domain) already calls upgrade.BeginBlocker after epoch and before the remaining module hooks; sdk/server/api/server.go (SDK API domain) already supplies the gateway marshaler used by these tests."
+
+[finding.upgrade-setup-api]
+tests = ["TestRepairM_610_SetupAPI", "TestRepairM_610_BeginBlockRestart"]
+repair = "Document module BeginBlocker, types.Plan, the VersionMap/error UpgradeHandler contract, error propagation and types.UpgradeStoreLoader before database loading, preserving scheduling, cancellation and completion semantics."
+path_proof = "AST equality binds the documented functions and imports to compiled test functions; real governance proposal handler, keeper, cache/store, handler success/error, version-map retention and cancellation execute those examples. Real handoff file configures BaseApp's store loader during restart."
+
+[finding.upgrade-endblock-doc]
+tests = ["TestRepairM_610_BeginBlockRestart"]
+repair = "Retain the corrected BeginBlock timing and node ordering, and link the real halt/restart/commit regression proof."
+path_proof = "Schedule and commit H-1, invoke production BeginBlocker at H without a handler and assert panic/no H commit, close the old app/store, reopen with the real upgrade-info file and store rename, migrate and commit H, then close/reopen and assert durable versions/data/completion with no repeated migration. Node hook source order is checked against the documented ordering."
+
+[finding.upgrade-plan-shape]
+tests = ["TestRepairM_610_CurrentPlanShape"]
+repair = "Retain structured Plan and absent-plan examples and bind them to outputs from the real query, node gateway marshaler and CLI printer."
+path_proof = "Keeper.ScheduleUpgrade -> registered module gRPC server -> generated QueryClient -> real node API gateway and generated HTTP handler -> JSON; the same response supplies real CLI JSON/YAML printing and protobuf JSON with grpcurl field/default settings. ClearUpgradePlan proves successful null/omitted responses."
+
+[finding.upgrade-grpc-service]
+tests = ["TestRepairM_610_GRPCService"]
+repair = "Retain cosmos.upgrade.v1beta1.Query commands and validate their exact method paths, request bodies and example responses against module registration."
+path_proof = "Keeper produces scheduled plan and stored module versions; AppModule.RegisterServices installs the real service; documented CurrentPlan and both ModuleVersions invocations pass through a real in-process gRPC connection, protobuf transport, keeper and response decoder, without external binaries or endpoints."

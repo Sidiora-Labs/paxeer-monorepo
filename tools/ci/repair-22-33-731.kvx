@@ -1,0 +1,22 @@
+[task.22.33.731]
+audit = "22.30.171"
+finding_010 = "tools/ci/tests/test_repair_22_33_731.py::test_finding_010_merge_result_requires_its_own_evidence"
+parent_coverage = "tools/ci/tests/test_repair_22_33_731.py::test_finding_010_parent_covered_changes_need_no_merge_entry"
+closure = "tools/ci/tests/test_repair_22_33_731.py::test_finding_010_merge_evidence_closes_the_refusal"
+implementation = "Read every revision with Git raw combined diffs. A consensus path changed relative to every merge parent needs merge evidence; a path inherited unchanged from any parent remains covered by that parent's revision. All ordinary parent revisions retain their independent ledger requirements."
+proof = "Committed transcripts emitted by Git log and Git show over real commit-tree histories exercise the production NUL codec and the same ledger consumer used by the live gate, without spawning Git during qualification. Includes two-parent and octopus merges, conflict resolution, deletion, parent selection, clean merges, root commits, test-only edits and unusual filenames."
+baseline = "Not run: the explicit gate order prohibits verification before the completed implementation and forbids running verify_cmd by hand. No baseline failure is claimed."
+wiring_requests = "None; the repair and all proving fixtures fit tools/ci."
+evidence = "hf-build and hf-done emit the qualified candidate revision, exact command, exit code and private log path; those external records are authoritative and avoid changing the candidate after qualification."
+
+[gotcha.1]
+observed = "The existing test_listed_or_test_only_commit_passes explicitly accepted a merge-only consensus change."
+resolution = "Replace that finding-specific assertion with refusal and require the merge hash and consensus path in the report; retain every other test assertion."
+
+[gotcha.2]
+observed = "The generated task requests an unchanged-tree baseline but its explicit gate order requires implementation before the first build or verify and prohibits invoking verify_cmd manually."
+resolution = "Follow the explicit gate order and disclose the missing baseline rather than claiming one ran. Root GOTCHA.kvx is outside the authorized paths, so session observations are recorded here."
+
+[gotcha.3]
+observed = "The first build passed and all 15 verification tests passed, but py_compile bytecode was included by the directory-scoped candidate collector, making their revisions differ."
+resolution = "Remove generated __pycache__ files before candidate collection and disable interpreter bytecode writes during verification; qualify the repaired candidate with matching build and verify evidence."

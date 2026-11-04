@@ -1,3 +1,5 @@
+Code.require_file("repair_price_feed.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   use Explorer.DataCase
 
@@ -9,6 +11,14 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
 
   @fixtures Path.expand("../../../support/fixture/paxeer_x/price_feed", __DIR__)
   @feeder "0xb97e177fe6e701db2cf85c1ba1307688166318cc"
+
+  test "price_feed_recovery_concurrency uses independent database connections" do
+    Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases.price_feed_concurrent_compaction()
+  end
+
+  test "price_feed_recovery_concurrency restarts the production fetcher" do
+    Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases.price_feed_restarted_fetcher()
+  end
 
   setup do
     body = @fixtures |> Path.join("block_txs.json") |> File.read!() |> Jason.decode!()

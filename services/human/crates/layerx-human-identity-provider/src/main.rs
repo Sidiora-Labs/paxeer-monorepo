@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 mod probe;
-mod provision_head;
 
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
@@ -110,7 +109,15 @@ fn run() -> io::Result<()> {
         return probe::run();
     }
     if command.as_deref() == Some("validate-account-head") {
-        return provision_head::run();
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(io::Error::other)?
+            .as_millis();
+        return layerx_human_identity_provider::provision_head::validate_account_head(
+            io::stdin().lock(),
+            io::stdout().lock(),
+            u64::try_from(now_ms).map_err(io::Error::other)?,
+        );
     }
     if command.as_deref() == Some("provision-account") {
         return provision_account();

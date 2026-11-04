@@ -23,6 +23,7 @@ pub enum PayerTransactionRefusal {
     TargetRefused,
     SelectorRefused,
     SignatureRefused,
+    ChainIdRefused,
 }
 
 impl PayerTransactionRefusal {
@@ -32,6 +33,7 @@ impl PayerTransactionRefusal {
             Self::TargetRefused => "transaction_target_refused",
             Self::SelectorRefused => "transaction_selector_refused",
             Self::SignatureRefused => "transaction_signature_refused",
+            Self::ChainIdRefused => "transaction_chain_id_refused",
         }
     }
 }
@@ -119,6 +121,10 @@ pub(crate) fn decode_pay_exact(
         EvmTransactionError::BadSignature => PayerTransactionRefusal::SignatureRefused,
         _ => PayerTransactionRefusal::Malformed,
     })?;
+    // Startup accepts only the Paxeer deployment chain (LAYERX_INTEROP_CHAIN_ID=125).
+    if transaction.chain_id != crate::config::PAXEER_CHAIN_ID {
+        return Err(PayerTransactionRefusal::ChainIdRefused);
+    }
     if transaction.to != LAYERX_LEDGER {
         return Err(PayerTransactionRefusal::TargetRefused);
     }
