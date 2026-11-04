@@ -116,7 +116,7 @@ fn reserve_operation(
     record: KeyRecord,
     trace: TraceId,
 ) -> OutgoingResponse {
-    let observed_at = now().unwrap_or(1);
+    let observed_at = mandate_now_seconds().unwrap_or(1);
     let adapter = route.adapter().map_or("operation", HostedAdapter::surface);
     let request_digest = gateway_digest(&[
         b"interop-ingress-v1",
@@ -1120,7 +1120,7 @@ fn verified_x402_transfer_reference(
     {
         return Err("payment_requirements_mismatch");
     }
-    if observed_at > transfer.expires_at {
+    if payment_expired(transfer.expires_at, observed_at) {
         return Err("activity_time_window_refused");
     }
     Ok((transfer, transaction_hash))
@@ -1190,14 +1190,17 @@ fn x402_verify(
     if parse_hex32(&record.signer_public_key).is_err() {
         return Dispatch::error(503, "pending", "authenticated_signer_invalid");
     }
-    let Ok(server_now) = now() else {
+    let Ok(server_now) = mandate_now_seconds() else {
         return Dispatch::error(503, "pending", "clock_unavailable");
     };
     let Ok(mut gateway) = gateway_core(config, trace, server_now) else {
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
     let mut plane = X402VerifyPlane {
-        observed_at: server_now,
+        observed_at: match payment_now_millis() {
+            Ok(value) => value,
+            Err(_) => return Dispatch::error(503, "pending", "clock_unavailable"),
+        },
         receipt_keys: &config.receipt_keys,
     };
     match facilitator.verify(
@@ -1335,13 +1338,19 @@ fn x402_settle(
     let Ok(facilitator) = Facilitator::new(config.manifest.x402_supported.clone()) else {
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
-    let Ok(server_now) = now() else {
+    let Ok(server_now) = mandate_now_seconds() else {
         return Dispatch::error(503, "pending", "clock_unavailable");
     };
     let Ok(mut gateway) = gateway_core(config, trace, server_now) else {
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
-    let Ok(mut plane) = X402SettlePlane::new(config, server_now) else {
+    let Ok(mut plane) = X402SettlePlane::new(
+        config,
+        match payment_now_millis() {
+            Ok(value) => value,
+            Err(_) => return Dispatch::error(503, "pending", "clock_unavailable"),
+        },
+    ) else {
         return Dispatch::error(503, "pending", "settlement_unavailable");
     };
     let settled = facilitator.settle(
@@ -1422,7 +1431,7 @@ fn ap2(
     {
         return Dispatch::error(503, "pending", "authenticated_principal_invalid");
     }
-    let Ok(server_now) = now() else {
+    let Ok(server_now) = mandate_now_seconds() else {
         return Dispatch::error(503, "pending", "clock_unavailable");
     };
     let mut matched = None;
@@ -1557,7 +1566,38 @@ fn ap2_authorize_and_execute(
     let Ok(mut gateway) = gateway_core(config, trace, server_now) else {
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
-    ap2_execute(&payment, &activity, &relay, &mut gateway, trace, server_now)
+    let Some(signers) = &config.ap2_receipt_signers else {
+        return Dispatch::error(503, "pending", "ap2_receipt_signers_unconfigured");
+    };
+    let Ok(mut signers) = signers.lock() else {
+        return Dispatch::error(503, "pending", "ap2_receipt_signers_unavailable");
+    };
+    let mut result = ap2_execute(&payment, &activity, &relay, &mut gateway, trace, server_now);
+    if result.durable_state != "completed" || result.error.is_some() {
+        return result;
+    }
+    let Some(receipt) = result
+        .receipt_hex
+        .as_ref()
+        .and_then(|receipt| decode_hex(receipt, MAX_BODY).ok())
+    else {
+        return Dispatch::error(503, "pending", "receipt_verification_failed");
+    };
+    let exported = match signers.export(
+        verified,
+        payment.checkout_id(),
+        &receipt,
+        &activity,
+        &relay.receipt_keys,
+        server_now,
+    ) {
+        Ok(exported) => exported,
+        Err(_) => return Dispatch::error(503, "pending", "ap2_receipt_export_unavailable"),
+    };
+    result.result["payment_receipt_jwt"] = json!(exported.payment_receipt_jwt);
+    result.result["checkout_receipt_jwt"] = json!(exported.checkout_receipt_jwt);
+    result.result["layerx"] = json!(exported.layerx);
+    result
 }
 
 fn ap2_execute(
@@ -1580,7 +1620,10 @@ fn ap2_execute(
     {
         return Dispatch::error(400, "refused", "mandate_payment_mismatch");
     }
-    if server_now > transfer.expires_at {
+    let Ok(payment_now) = payment_now_millis() else {
+        return Dispatch::error(503, "pending", "clock_unavailable");
+    };
+    if payment_expired(transfer.expires_at, payment_now) {
         return Dispatch::error(400, "refused", "activity_time_window_refused");
     }
     let Ok(adapter) = AdapterId::new("ap2") else {
@@ -1857,7 +1900,7 @@ impl UcpPaymentPlane for UcpServicePlane {
             self.refusal = Some("checkout_payment_mismatch");
             return Ok(UcpPlaneResult::Refused);
         }
-        if self.observed_at > transfer.expires_at {
+        if payment_expired(transfer.expires_at, self.observed_at) {
             self.refusal = Some("activity_time_window_refused");
             return Ok(UcpPlaneResult::Refused);
         }
@@ -1947,7 +1990,7 @@ fn ucp(
     let Ok(activity) = decode_hex(&body.activity, MAX_BODY) else {
         return Dispatch::error(400, "refused", "typed_intent_required");
     };
-    let Ok(server_now) = now() else {
+    let Ok(server_now) = mandate_now_seconds() else {
         return Dispatch::error(503, "pending", "clock_unavailable");
     };
     let Ok(mut gateway) = gateway_core(config, trace, server_now) else {
@@ -1959,7 +2002,10 @@ fn ucp(
     let mut plane = UcpServicePlane {
         relay,
         transaction: activity,
-        observed_at: server_now,
+        observed_at: match payment_now_millis() {
+            Ok(value) => value,
+            Err(_) => return Dispatch::error(503, "pending", "clock_unavailable"),
+        },
         order_id: body.order_id,
         permalink_url: body.permalink_url,
         receipt_hex: None,
@@ -2096,7 +2142,7 @@ fn visa(
     let registry = VisaRegistry {
         pins: &config.manifest.visa_agents,
     };
-    let Ok(observed_at) = now() else {
+    let Ok(observed_at) = mandate_now_seconds() else {
         return Dispatch::error(503, "pending", "server_clock_unavailable");
     };
     let Ok(verified) =
@@ -2173,7 +2219,14 @@ fn visa(
     let Ok(relay) = chain_relay(config) else {
         return Dispatch::error(503, "pending", "settlement_unavailable");
     };
-    visa_execute(&relay, activity_binding, observed_at)
+    visa_execute(
+        &relay,
+        activity_binding,
+        match payment_now_millis() {
+            Ok(value) => value,
+            Err(_) => return Dispatch::error(503, "pending", "clock_unavailable"),
+        },
+    )
 }
 
 fn visa_execute(
@@ -2184,7 +2237,7 @@ fn visa_execute(
     let Some(activity) = activity_binding else {
         return Dispatch::error(400, "refused", "typed_intent_required");
     };
-    if observed_at > activity.transfer.expires_at {
+    if payment_expired(activity.transfer.expires_at, observed_at) {
         return Dispatch::error(400, "refused", "activity_time_window_refused");
     }
     let evidence = match relay.relay(
@@ -2571,7 +2624,10 @@ impl FiatPlane for FiatServicePlane {
             self.refusal = Some("provider_payment_mismatch");
             return Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused));
         }
-        if self.observed_at > transfer.expires_at {
+        if payment_expired(
+            transfer.expires_at,
+            payment_now_millis().map_err(|_| FiatError::ReceiptRequired)?,
+        ) {
             self.refusal = Some("activity_time_window_refused");
             return Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused));
         }
@@ -2642,7 +2698,7 @@ fn fiat(
                 Ok(value) if !value.is_empty() => value,
                 _ => return Dispatch::error(400, "refused", "typed_intent_required"),
             };
-            let Ok(observed_at) = now() else {
+            let Ok(observed_at) = mandate_now_seconds() else {
                 return Dispatch::error(503, "pending", "server_clock_unavailable");
             };
             let Ok(mut gateway) = gateway_core(config, trace, observed_at) else {
@@ -2883,7 +2939,11 @@ struct SettlementReadiness {
 fn adapter_configured(config: &Config, adapter: &str, now: u64) -> bool {
     match adapter {
         "x402" => !config.manifest.x402_supported.kinds.is_empty(),
-        "ap2" => !config.manifest.ap2_keys.is_empty() && !config.manifest.ap2_assets.is_empty(),
+        "ap2" => {
+            !config.manifest.ap2_keys.is_empty()
+                && !config.manifest.ap2_assets.is_empty()
+                && config.ap2_receipt_signers.is_some()
+        }
         "ucp" => true,
         "visa-tap" => {
             !config.manifest.visa_targets.is_empty()
@@ -2967,8 +3027,8 @@ fn receipt_keys_ready(
 impl SettlementReadiness {
     fn components(&self) -> Value {
         json!({
-            "durable_gateway_store": readiness(self.durable),
-            "sequencer": readiness(self.sequencer)
+            "durable_gateway_store": crate::operations::ComponentStatus::from_ready(self.durable),
+            "sequencer": crate::operations::ComponentStatus::from_ready(self.sequencer)
         })
     }
 
@@ -3143,7 +3203,7 @@ fn trace(request: &IncomingRequest) -> TraceId {
     digest.update(request.path.as_bytes());
     digest.update([0]);
     digest.update(&request.body);
-    digest.update(now().unwrap_or(1).to_be_bytes());
+    digest.update(mandate_now_seconds().unwrap_or(1).to_be_bytes());
     let output = digest.finalize();
     let mut entropy = [0_u8; 16];
     entropy.copy_from_slice(&output[..16]);
@@ -3153,7 +3213,18 @@ fn trace(request: &IncomingRequest) -> TraceId {
     )
 }
 
-fn now() -> Result<u64, String> {
+pub const fn payment_expired(expires_at_ms: u64, payment_now_ms: u64) -> bool {
+    expires_at_ms <= payment_now_ms
+}
+
+pub fn payment_now_millis() -> Result<u64, String> {
+    let elapsed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "system clock precedes Unix epoch".to_owned())?;
+    u64::try_from(elapsed.as_millis()).map_err(|_| "payment clock exceeds its bound".to_owned())
+}
+
+fn mandate_now_seconds() -> Result<u64, String> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_secs())
@@ -5350,7 +5421,11 @@ mod tests {
             verified_x402_transfer(&mismatched, observed_at),
             Err("protocol_idempotency_mismatch"),
         );
-        assert!(verified_x402_transfer(&request, transfer.expires_at).is_ok());
+        assert!(verified_x402_transfer(&request, transfer.expires_at - 1).is_ok());
+        assert_eq!(
+            verified_x402_transfer(&request, transfer.expires_at),
+            Err("activity_time_window_refused"),
+        );
         assert_eq!(
             verified_x402_transfer(&request, transfer.expires_at + 1),
             Err("activity_time_window_refused"),
