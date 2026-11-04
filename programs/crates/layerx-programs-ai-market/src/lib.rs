@@ -52,16 +52,19 @@ pub const MERGED_CHAIN_DOMAIN: [u8; 32] = [
 ];
 
 pub fn deployment_chain_domain() -> CodecResult<ChainDomain> {
-    deployment::chain_domain()
+    deployment_chain_domain_from_setting(option_env!("PAXAI_CHAIN_DOMAIN"))
+}
+
+/// Validates a packaging domain against Paxeer chain 125, using its domain when unset.
+///
+/// # Errors
+/// Returns `WRONG_DOMAIN` for a malformed setting or any foreign chain domain.
+pub fn deployment_chain_domain_from_setting(setting: Option<&str>) -> CodecResult<ChainDomain> {
+    deployment::chain_domain(setting)
 }
 
 mod deployment {
     use crate::{errors::WRONG_DOMAIN, ChainDomain, CodecResult};
-
-    const CHAIN_DOMAIN: Option<[u8; 32]> = match option_env!("PAXAI_CHAIN_DOMAIN") {
-        Some(hex) => parse_domain(hex.as_bytes()),
-        None => Some(crate::MERGED_CHAIN_DOMAIN),
-    };
 
     const fn nibble(byte: u8) -> Option<u8> {
         match byte {
@@ -97,8 +100,11 @@ mod deployment {
         ChainDomain::new(bytes.ok_or(WRONG_DOMAIN)?).map_err(|_| WRONG_DOMAIN)
     }
 
-    pub(super) fn chain_domain() -> CodecResult<ChainDomain> {
-        let domain = checked_domain(CHAIN_DOMAIN)?;
+    pub(super) fn chain_domain(setting: Option<&str>) -> CodecResult<ChainDomain> {
+        let domain = checked_domain(match setting {
+            Some(hex) => parse_domain(hex.as_bytes()),
+            None => Some(crate::MERGED_CHAIN_DOMAIN),
+        })?;
         if domain.bytes() != crate::merged_chain_domain(crate::MERGED_CHAIN_ID) {
             return Err(WRONG_DOMAIN);
         }
@@ -107,7 +113,7 @@ mod deployment {
 
     #[cfg(test)]
     mod tests {
-        use super::{chain_domain, checked_domain, parse_domain, CHAIN_DOMAIN};
+        use super::{chain_domain, checked_domain, parse_domain};
         use crate::{
             codec::{decode_envelope, derive_market, encode_envelope, Envelope},
             dispatch::BeginAggregation,
@@ -127,11 +133,15 @@ mod deployment {
                 parse_domain(b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
             assert_eq!(DOMAIN, Some(BYTES));
             assert_eq!(checked_domain(DOMAIN)?.bytes(), BYTES);
-            let configured = checked_domain(CHAIN_DOMAIN)?;
+            let setting = option_env!("PAXAI_CHAIN_DOMAIN");
+            let configured = checked_domain(match setting {
+                Some(hex) => parse_domain(hex.as_bytes()),
+                None => Some(crate::MERGED_CHAIN_DOMAIN),
+            })?;
             if configured.bytes() == crate::merged_chain_domain(crate::MERGED_CHAIN_ID) {
-                assert_eq!(chain_domain()?, configured);
+                assert_eq!(chain_domain(setting)?, configured);
             } else {
-                assert_eq!(chain_domain(), Err(WRONG_DOMAIN));
+                assert_eq!(chain_domain(setting), Err(WRONG_DOMAIN));
             }
             Ok(())
         }
