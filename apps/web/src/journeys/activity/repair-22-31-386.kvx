@@ -1,0 +1,17 @@
+[repair.22.31.386]
+finding = "activity-detail-shape"
+test = "apps/web/e2e/repair-22-31-386.test.ts:activity_detail_shape_producer_http_decoder_and_rendering"
+producer_test = "server::production_reads::activity_detail_contract_tests::activity_detail_http_contract"
+path = "Durable Feed and verified receipt -> EntryDetail -> production activity_detail_json codec -> schema-validated HTTP -> generated client decoder -> ActivityDetailFacts and ActivityDetailAmount used by the detail page. Nonmonetary cases also execute activity_entry_json."
+units = "Money.amount remains the exact receipt base-unit integer; currency is joined to the gateway asset catalog; the detail explicitly labels base units rather than assuming token decimal precision."
+baseline = "No baseline verification was run: the ordered task instructions prohibit gates until the entire implementation is complete and prohibit running verify_cmd by hand; the specified test did not exist on the starting tree. Its timestamp, omitted-optionals, currency, direction and copy-key assertions reject the audited output."
+gotcha = "ActivityEntryId allows only lowercase letters and digits after act_; display assertions must check both the accessible currency-code prefix and the visible signed amount, and use the catalog's Money in/Money out wording."
+continuation_failure = "The supplied attempt-1 evidence at revision 35e3d2b5e3b3c9fa6a080bac594e9953478de58a reports activity_detail_http_contract failing at EventDelivery::new with OutOfRange(receipt_reference_rung); no successful qualification is inherited."
+continuation_repair = "Encode the receipt's batch as a block height, authorize its signature against a pinned key id and height range, assert the real verifier establishes Receipted, and derive the display verification label through EvidenceBundle::verify_receipt. EventDelivery validation and all existing assertions remain enforced."
+producer_fixture = "activity-detail-http.json records the exact HTTP responses emitted by activity_detail_http_contract during implementation; the Node test serves these committed producer transcripts over loopback HTTP and drives the real generated client, decoder and detail components without a subprocess or environment variable."
+producer_command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib server::production_reads::activity_detail_contract_tests::activity_detail_http_contract -- --exact --nocapture"
+producer_log = "/out/logs/activity-detail-producer.log"
+producer_exit = 0
+producer_result = "1 passed; 0 failed; receipt rung asserted Receipted; all six HTTP responses validated with ApiSchema before recording."
+evidence = "The hf-build/hf-done private ledger records the exact candidate revision, command, exit code and log; no qualification is claimed here in advance."
+wiring_requests = []
