@@ -1,0 +1,53 @@
+[repair.22.33.806]
+audit = "22.30.178"
+mode = "BUILD"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+findings = ["42", "29", "35", "34", "33", "30", "31", "32"]
+implementation = "Existing HPX entrypoints now share durable roster and funding state; publisher validates the staged executable before checksums and activation."
+qualification = "hf-build then hf-done; the private gate ledger records the exact content-addressed candidate revision, command, exit and evidence log. No native build or live funds are claimed."
+baseline = "The test module did not exist on the unchanged base. No baseline verify ran: the ordered task instructions prohibit testing before complete implementation and require verification only through hf-done. No pre-change test failure is claimed."
+
+[finding.42]
+tests = ["test_f42_documented_paths_identity_and_artifact_mirror"]
+repair = "README uses tools/hpx paths, retains the artifact mirror role, and documents manifest, executable, checkout and reviewed provenance agreement before current switches."
+
+[finding.29]
+tests = ["test_f29_roster_survives_stop_reopen_and_partial_discovery", "test_repaired_shells_parse_and_guard_production_commands", "test_roster_refuses_changed_duplicate_and_malformed_identities"]
+repair = "Both collectors persist the union of intended hosts before SSH, retain known identities on failure, require verified results for all intended hosts and return nonzero for incomplete collection."
+
+[finding.35]
+tests = ["test_f35_validated_identity_agrees_with_manifest_and_build_record", "test_f35_mismatched_release_metadata_is_refused", "test_f35_missing_provenance_or_advertised_override_is_refused"]
+repair = "The staged binary identity must agree with version.json and reviewed build provenance in version, full checkout revision, executable name and artifact SHA-256 before publishing checksums or current."
+
+[finding.34]
+tests = ["test_f34_configuration_loaded_before_defaults_and_shell_wins"]
+repair = "Repository-root environment selection precedes immutable settings; explicit shell overrides win over the selected trusted configuration, then defaults. An explicitly missing file fails."
+
+[finding.33]
+tests = ["test_f33_dry_run_only_public_queries_and_association_uses_keyring"]
+repair = "Dry-run returns after public keyring and balance queries. Association uses the native no-positional-key --from interface and protected file keyring by default; no private-key export or secret command argument remains."
+
+[finding.30]
+tests = ["test_f30_legacy_roster_retained_and_consumers_block_incomplete_state", "test_f29_roster_survives_stop_reopen_and_partial_discovery"]
+repair = "Legacy identities import as unverified, retries retain full intended roster, and fund/stake/stake-cmds require complete canonical state before consuming a freshly materialized operators.tsv."
+
+[finding.31]
+tests = ["test_f31_plan_persists_original_allocation_and_only_deficits", "test_f31_f32_full_funding_driver_reconciles_before_new_signing", "test_f31_dry_run_reports_only_original_deficit_after_restart", "test_f31_f32_recovery_after_commit_before_receipt_keeps_one_payment", "test_f32_prepared_payment_rebroadcasts_exact_bytes_after_restart"]
+repair = "Allocation targets and sender/chain identity persist before signing; each retry computes only outstanding deficits. Exact signed bytes and hash persist before broadcast, so a restart reconciles or rebroadcasts the same payment."
+
+[finding.32]
+tests = ["test_f32_unresolved_results_never_become_receipts", "test_f32_missing_application_code_is_not_success", "test_f32_native_transport_journals_signed_hash_before_broadcast", "test_f31_f32_recovery_after_commit_before_receipt_keeps_one_payment"]
+repair = "Sync broadcast checks hash and CheckTx code; committed queries require matching hash, positive height, application code zero and recipient target balance before saving a receipt. Unresolved or failed payments fail the phase and block new signing."
+
+[proof]
+executed_by_gate = "Pytest parses the three repaired shells with bash -n, executes real configuration loading via the help entrypoint, reopens the production durable state across interruption boundaries, and drives JSON receipts from a transactional in-memory peer store into production recovery and receipt consumers."
+source_contracts = "Pytest checks the actual native CLI signer branch, shell funding/keygen guards, native sign/encode/broadcast/query command composition, receipt validation, release manifest policy, publisher validation ordering and documentation paths."
+review_only = "Native cryptographic signing, native CLI execution, live chain inclusion/indexing, actual SSH hosts, native executable loading and artifact publication are not executed; supported native interfaces and publication wiring are checked in source. Trusted provenance origin remains an operator/build-domain responsibility."
+restart_boundaries = "Roster partial success and failed discovery, immutable allocation after sender depletion, prepared-before-submit and committed-before-local-receipt all reopen production state and assert preserved identities, targets, exact payment bytes, receipts and no duplicate payment."
+
+[wiring.1]
+request = "tools/release/build-paxd.sh — owning domain 16 (tools/operations): emit and retain a reviewed per-binary provenance JSON with version, full source_revision and paxd_sha256 alongside release artifacts; HPX requires this record through HPX_BUILD_PROVENANCE and fails closed without it."
+
+[scope_notes]
+unchanged_inherited = "The runner's pre-existing .cgignore and spec task-status changes were left untouched; no commit or push is performed by this worker."
+gotcha = "The declared bash -n command passes multiple positional scripts, so pytest additionally parses each repaired shell individually; no undeclared gate is run."

@@ -4,11 +4,8 @@
 //! stronger submission rung were silently ignored before preparing/signing a
 //! transaction. `action` now refuses them before opening the key or using RPC.
 //!
-//! Finding outside touches: `services/agent/crates/layerx-sdk/src/rpc.rs::
-//! RpcWallet::balance` passes a 32-byte
-//! wallet account ID to `RpcClient::get_balance`, whose `validate_address`
-//! requires a 0x-prefixed 20-byte EVM address. The expected eventual behaviour
-//! is a wallet balance read; the proof preserves the current InvalidRequest.
+//! Native and token balance success and version-2 summary receipt recovery are
+//! also qualified in-process by bridge_native_token_balances_and_verified_summary_survive_reopen.
 //! Finding outside touches: `services/agent/sdk/typescript/src/wallet.ts::
 //! WalletRpc.waitFor` still sends activity_id/commitment, whereas the binary
 //! requires txHash/rung. All three retired commitments must currently refuse.
@@ -193,7 +190,7 @@ fn refused(outcome: (bool, Value)) {
 }
 
 fn configuration(endpoint: &str) -> Value {
-    json!({"endpoint":endpoint, "protocol_version":"3", "network_id":"125",
+    json!({"endpoint":endpoint, "rpc_route":"node", "protocol_version":"3", "network_id":"125",
         "native_asset":"03".repeat(32), "sequencer_id":"01".repeat(32),
         "sequencer_key":"02".repeat(32), "first_batch":"1", "last_batch":"100"})
 }
@@ -204,7 +201,7 @@ fn malformed_and_retired_requests_are_refused_before_transport() -> Outcome {
     listener.set_nonblocking(true)?;
     let state = PrivateState::new()?;
     let key = state.persist("seed", &[0x42; 64])?;
-    let mut config = configuration(&format!("http://{}/rpc", listener.local_addr()?));
+    let mut config = configuration(&format!("http://{}", listener.local_addr()?));
     config["evm_key_ref"] = json!(key);
     config["account_index"] = json!("0");
     let payload = Payment::OpenAccount { asset: [3; 32] }
@@ -288,10 +285,10 @@ fn manifest_and_existing_balance_consumer_preserve_the_contract() -> Outcome {
     assert!(proof.contains("producer = \"test-owned loopback JSON-RPC listener"));
     assert!(proof.contains("clock = \"test-owned private runtime-clock protocol listener\""));
     assert!(!proof.contains("configuration_env"));
-    let rpc = RpcClient::connect("http://127.0.0.1:1/rpc", None).map_err(rpc_error)?;
-    let account = derive_from_seed(&[0x42; 64], 0)?;
+    let rpc = RpcClient::connect("http://127.0.0.1:1", None).map_err(rpc_error)?;
+    audit::root_wallet_request_and_method_response();
     assert!(matches!(
-        rpc.wallet([3; 32]).balance(&account.did(), [3; 32]),
+        rpc.wallet([3; 32]).balance("did:layerx:alice", [3; 32]),
         Err(RpcError::InvalidRequest)
     ));
     Ok(())
@@ -367,7 +364,7 @@ fn submitted_acknowledgement_survives_signer_and_process_restart() -> Outcome {
     let hash = format!("0x{}", hex(&transaction_hash(&raw)));
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.set_nonblocking(true)?;
-    let config = configuration(&format!("http://{}/rpc", listener.local_addr()?));
+    let config = configuration(&format!("http://{}", listener.local_addr()?));
     let input = serde_json::to_vec(&json!({"action":"wait", "configuration":config,
         "txHash":hash, "rung":"submitted", "timeout_ms":"0"}))?;
     let path = state.persist("wait.json", &input)?;
@@ -407,13 +404,13 @@ fn real_client(config: &Value, clock: &ClockProducer) -> Result<RpcClient, Box<d
         None
     };
     let client = if config.get("ca_der").is_some() {
-        RpcClient::connect_with_ca_der(
+        RpcClient::connect_node_with_ca_der(
             field(config, "endpoint")?,
             credential,
             &unhex(field(config, "ca_der")?)?,
         )
     } else {
-        RpcClient::connect(field(config, "endpoint")?, credential)
+        RpcClient::connect_node(field(config, "endpoint")?, credential)
     };
     Ok(client
         .map_err(rpc_error)?
@@ -534,16 +531,20 @@ fn action() -> Outcome {
             .into_value(),
         accounts["result"]
     );
-    // Preserve the existing consumer's address-width refusal, without fixing rpc.rs.
-    assert!(matches!(
-        rpc.wallet(asset).balance(&did, asset),
-        Err(RpcError::InvalidRequest)
-    ));
-    refused(call(
+    assert_eq!(
+        rpc.wallet(asset).balance(&did, asset).map_err(rpc_error)?,
+        json!("0x63")
+    );
+    let (success, balance) = call(
         &json!({"action":"balance", "configuration":config, "did":did,
         "asset":hex(&asset)}),
         Some(&clock),
-    )?);
+    )?;
+    assert!(success, "reopened balance must succeed: {balance}");
+    assert_eq!(
+        balance["result"],
+        json!({"account_id":hex(&from),"asset_id":hex(&asset),"balance":"99"})
+    );
 
     let recovered_submission: Value = serde_json::from_slice(&fs::read(submitted_path)?)?;
     let wait = json!({"action":"wait", "configuration":config,
@@ -790,7 +791,7 @@ impl NodeProducer {
             listener.local_addr()?.ip().is_loopback(),
             "proof_layerx_wallet_rpc.rs: producer must be test-owned loopback"
         );
-        let endpoint = format!("http://{}/rpc", listener.local_addr()?);
+        let endpoint = format!("http://{}", listener.local_addr()?);
         listener.set_nonblocking(true)?;
         let raw_path = directory.join("node-transaction");
         let receipt_path = directory.join("node-receipt");
@@ -836,7 +837,7 @@ impl NodeProducer {
                     header.push(byte[0]);
                 }
                 let header = checked(std::str::from_utf8(&header));
-                assert!(header.starts_with("POST /rpc HTTP/1.1\r\n"));
+                assert!(header.starts_with("POST / HTTP/1.1\r\n"));
                 let length = header
                     .lines()
                     .find_map(|line| {
@@ -857,6 +858,48 @@ impl NodeProducer {
                     "eth_getTransactionCount" => {
                         assert_eq!(params, &json!([format!("0x{}", hex(&sender)), "pending"]));
                         json!(format!("0x{sequence:x}"))
+                    }
+                    "eth_blockNumber" => {
+                        assert_eq!(params, &json!([]));
+                        json!("0x1")
+                    }
+                    "eth_getBalance" => {
+                        assert_eq!(params, &json!([format!("0x{}", hex(&sender)), "pending"]));
+                        json!(format!("0x{:x}", if stored.is_some() { 99 } else { 100 }))
+                    }
+                    "eth_call" => {
+                        let data = checked(unhex(
+                            params[0]["data"]
+                                .as_str()
+                                .expect("calldata")
+                                .strip_prefix("0x")
+                                .expect("prefix"),
+                        ));
+                        let mut result = [0; 32];
+                        if data[..4] == layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX {
+                            assert_eq!(
+                                &data[4..],
+                                &derive_from_seed(&[0x42; 64], 0)
+                                    .expect("owner")
+                                    .layerx_public_key()
+                            );
+                            assert_eq!(params[1], "pending");
+                            result[12..].copy_from_slice(&sender);
+                        } else {
+                            assert_eq!(
+                                &data[..4],
+                                &layerx_crypto::disclosure::call::ledger_selector(
+                                    "balanceOf(bytes32,bytes32)"
+                                )
+                            );
+                            assert_eq!(&data[4..36], &debit.from);
+                            assert_eq!(&data[36..68], &debit.asset);
+                            assert_eq!(params[1], "0x1");
+                            result[16..].copy_from_slice(
+                                &(if stored.is_some() { 99_u128 } else { 100 }).to_be_bytes(),
+                            );
+                        }
+                        json!(format!("0x{}", hex(&result)))
                     }
                     "eth_chainId" => {
                         assert_eq!(params, &json!([]));
@@ -979,4 +1022,13 @@ impl NodeProducer {
     fn stop(self) -> Result<NodeRun, Box<dyn Error>> {
         self.worker.finish()
     }
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn bridge_native_token_balances_and_verified_summary_survive_reopen() {
+    audit::bridge_balances_and_summary_receipt_survive_reopen();
 }

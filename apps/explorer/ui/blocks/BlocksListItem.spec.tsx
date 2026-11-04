@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import { mobileBlockChainLink } from './blocksChainTest';
 import BlocksListItem from './BlocksListItem';
 
 const renderItem = (data = blockMock.base) => render(<BlocksListItem data={ data }/>);
@@ -53,3 +54,5 @@ describe('BlocksListItem', () => {
     expect(container.querySelectorAll('svg').length).toBeGreaterThan(0);
   });
 });
+
+it(mobileBlockChainLink, mobileBlockChainLink);

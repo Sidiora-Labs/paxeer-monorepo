@@ -1,0 +1,4 @@
+ActiveState=active
+MainPID={{PID}}
+@@journal
+ERR UPGRADE "v6.12.0" NEEDED at height: 23869862: {"binaries":{}}

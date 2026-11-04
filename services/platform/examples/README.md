@@ -17,20 +17,34 @@ settlement additionally require operator-deployed services and credentials.
 Mainnet-beta carries real value; an environment label does not imply free funds
 or a reset schedule.
 
-Each `layerx.example.json` declares public configuration and the environment
-variable names for account-specific inputs. These are server-side Node.js
-applications. Keep credentials and signing material outside profile JSON.
+Each application's `layerx.example.json` declares its own `rpcUrl` and
+`receiptKeysEnvironment`, plus environment variable names for account-specific
+inputs. The merged-chain setup uses the **beta** profiles below. These are
+server-side Node.js applications. Keep credentials and signing material outside
+profile JSON.
+
+| Application | Beta `rpcUrl` (root JSON-RPC) | Beta `receiptKeysEnvironment` |
+| --- | --- | --- |
+| Buyer agent | `https://api-mainnet-beta.paxeer.network` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| Paid API | `https://api-mainnet-beta.paxeer.network` | `LAYERX_RECEIPT_KEYS_JSON` |
+| Merchant shop | `https://api-mainnet-beta.paxeer.network` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| Programs marketplace | `https://api-mainnet-beta.paxeer.network` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+
+Supply independently pinned receipt keys to each application's named variable;
+setting the buyer's variable does not configure the paid API. Native node
+JSON-RPC uses `/`, not `/rpc`. A human API, settlement URL or emulator health
+endpoint cannot substitute for `rpcUrl`.
 
 Install the locked Node workspace from the repository root with `npm ci` and
 compile the SDK and middleware with `npm run build`. The four projects declared
 in [reference-apps.json](reference-apps.json) provide these launch commands:
 
-| Application | Emulator profile | Beta profile |
-| --- | --- | --- |
-| [Buyer agent](buyer-agent/) | `npm run start:emulator --workspace @sidiora/layerx-example-buyer-agent` | `npm run start:beta --workspace @sidiora/layerx-example-buyer-agent` |
-| [Paid API](paid-api/) | `npm run start:emulator --workspace @sidiora/layerx-example-paid-api` | `npm run start:beta --workspace @sidiora/layerx-example-paid-api` |
-| [Merchant shop](merchant-shop/) | `npm run start:emulator --workspace @sidiora/layerx-example-merchant-shop` | `npm run start:beta --workspace @sidiora/layerx-example-merchant-shop` |
-| [Programs marketplace](marketplace/) | `npm run start:emulator --workspace @sidiora/layerx-example-marketplace` | `npm run start:beta --workspace @sidiora/layerx-example-marketplace` |
+| Application | Beta launch command |
+| --- | --- |
+| [Buyer agent](buyer-agent/) | `npm run start:beta --workspace @sidiora/layerx-example-buyer-agent` |
+| [Paid API](paid-api/) | `npm run start:beta --workspace @sidiora/layerx-example-paid-api` |
+| [Merchant shop](merchant-shop/) | `npm run start:beta --workspace @sidiora/layerx-example-merchant-shop` |
+| [Programs marketplace](marketplace/) | `npm run start:beta --workspace @sidiora/layerx-example-marketplace` |
 
 `merchant-checkout` remains a compatibility workspace for the merchant service.
 The marketplace has deploy, list and buy commands and a no-std guest under
@@ -80,9 +94,15 @@ batch-authority object. Its resolver reports verification level `receipted`
 even when the node returns a committed receipt; it does not prove BFT finality.
 
 Fulfillment records bind the request digest and idempotency key and retain the
-resource and commitment evidence. Pending returns 202; unknown or unreachable
-evidence returns 503; refused evidence prevents release. Reusing an idempotency
-key with a different request remains a conflict.
+resource and commitment evidence. These outcomes remain distinct:
+
+| State | Evidence and resource behavior |
+| --- | --- |
+| `pending` | A matching `submitted` receipt returns 202 with retry advice; no resource is released. |
+| `unknown` | Unreachable RPC, mismatched evidence or an unrecognized rung returns 503 with retry advice; no resource is released. |
+| `refused` | RPC refusal or failed receipt verification prevents release; it is not treated as pending or paid. |
+
+Reusing an idempotency key with a different request remains a conflict.
 
 ## Buyer, merchant and hosted bindings
 
@@ -106,13 +126,19 @@ See [PaymentsQuickstart](../../../docs/wiki/PaymentsQuickstart.md),
 [CommitmentLevels](../../../docs/wiki/CommitmentLevels.md) and the
 [receipt authority](../hosted/authority/README.md) for related contracts.
 
-## Running the whole journey
+## Running the merged-chain journey
 
 `node services/platform/examples/run-reference-apps.mjs --check` checks project,
 package and profile declarations. `--scenario beta` runs the applications using
 the supplied `LAYERX_TESTNET_*` inputs and deployed services. The scenario
 attempts buyer payment, merchant checkout, then marketplace deploy/list/buy;
 only actual successful outcomes establish that journey.
+
+## Historical emulator workflow
+
+The retained `start:emulator` scripts and scenario below describe the historical
+emulator workflow, not the merged production path. They do not provision the
+native chain RPC or independently pinned receipt keys required above.
 
 `--scenario emulator` currently provisions a scratch CLI profile, four signing
 keys and a local emulator. It resolves the CLI from `$LAYERX_BIN`,
@@ -126,7 +152,8 @@ That bootstrap still uses local quote/commit, state and receipt routes. Its
 provided receipt-key variable is `LAYERX_EMULATOR_RECEIPT_KEYS_JSON`, while the
 paid API reads `LAYERX_RECEIPT_KEYS_JSON`; its chosen endpoint also differs from
 the paid API's native RPC profile. Those prerequisites must agree before this
-scenario can establish a native payment journey. The pre-merge `/rpc` paths retained in emulator profiles are retired network coordinates.
+scenario can establish a native payment journey. The pre-merge `/rpc` paths
+retained in emulator profiles are retired network coordinates.
 Do not infer native compatibility from declaration checks or emulator health.
 
 ## Building and checking against real receipts
@@ -143,15 +170,21 @@ The script compiles the SDK and three middleware packages, builds the CLI and
 marketplace guest, and records the source revision and artifact hashes. It
 requires the source tree to remain clean.
 
-Set `PAXEER_X_EVIDENCE_DIR` to an existing owner-only external directory, then run:
+For merged-chain qualification, configure each beta profile's `rpcUrl` and
+`receiptKeysEnvironment` as above, supply its account and hosted-service inputs,
+and set `PAXEER_X_EVIDENCE_DIR` to an existing owner-only external directory.
+Select beta explicitly:
 
 ```sh
+export PAXEER_X_REFERENCE_APPS_ENVIRONMENT=beta
 node services/platform/examples/qualify-reference-apps.mjs
 ```
 
 This consumes the prebuilt artifacts and checks actual paid-resource, merchant
 and marketplace outcomes, retaining private process logs and state. It defaults
-to emulator; `PAXEER_X_REFERENCE_APPS_ENVIRONMENT=beta` selects deployed services.
+to the historical emulator workflow when the environment variable is omitted;
+that default does not qualify the merged production path. Declaration checks,
+emulator health and artifact hashes alone do not prove a successful payment.
 The prerequisites above still apply. Missing artifacts, authentic receipt keys,
 or successful receipts fail qualification; these commands do not create
 production credentials or prove a higher commitment than their verifiers check.
