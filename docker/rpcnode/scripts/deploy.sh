@@ -1,17 +1,15 @@
 #!/usr/bin/env sh
 
+umask 077
+
 SKIP_BUILD=${SKIP_BUILD:-""}
 
 # Set up env
-export GOPATH=$HOME/go
-export GOBIN=$GOPATH/bin
+export GOPATH="$HOME/go"
+export GOBIN="$GOPATH/bin"
 export BUILD_PATH=/pax-protocol/pax-chain/build
-export PATH=$GOBIN:$PATH:/usr/local/go/bin:$BUILD_PATH
-echo "export GOPATH=$HOME/go" >> /root/.bashrc
-echo "GOBIN=$GOPATH/bin" >> /root/.bashrc
-echo "export PATH=$GOBIN:$PATH:/usr/local/go/bin:$BUILD_PATH" >> /root/.bashrc
-/bin/bash -c "source /root/.bashrc"
-mkdir -p $GOBIN
+export PATH="$GOBIN:$PATH:/usr/local/go/bin:$BUILD_PATH"
+mkdir -p "$GOBIN"
 
 # Step 1 build paxd
 if [ -z "$SKIP_BUILD" ]

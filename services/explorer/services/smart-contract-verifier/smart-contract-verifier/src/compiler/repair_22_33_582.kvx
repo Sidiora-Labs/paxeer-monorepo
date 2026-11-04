@@ -1,0 +1,35 @@
+[repair.22.33.582]
+audit = "22.30.160"
+requirement = "22998.1"
+test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_582.rs"
+baseline = "No baseline gate run: the explicit implementation-first order and bounded hf-build/hf-done gates prohibit a pre-change verification run; no pre-change failures are claimed."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; no unrun gate is claimed here."
+wiring_requests = []
+
+[finding.cache-restart-integrity]
+proofs = ["restart_valid_cache_is_authenticated_without_redownload", "restart_truncated_executable_is_redownloaded", "restart_wrong_version_and_local_checksum_are_not_trusted", "restart_symlink_even_with_matching_bytes_is_replaced_without_touching_target", "restart_peer_writable_executable_is_replaced_with_private_bytes", "restart_socket_entry_is_never_opened_as_a_compiler", "rejected_recovery_never_becomes_a_hit_when_replacement_fails"]
+implementation = "Startup discovers candidates only; the real compiler pool authenticates them through the fetcher's trusted version-to-SHA256 catalogue before a cache hit. Unsafe types are rejected and invalid entries are atomically replaced through the regular fetch path. Local checksum sidecars confer no trust. Fetchers without authenticated reuse support explicitly reject recovered entries and redownload."
+identity = "Two committed opaque distribution payloads have different version-bound SHA256 values. Swapping the binaries proves identity rejection without executing an external compiler. The same optional production validator runs on fresh installs and authenticated recovered files."
+
+[finding.compiler-install-permissions]
+proofs = ["install_uses_service_owned_private_directories_and_executable", "install_rejects_peer_writable_and_symlink_directories", "install_ignores_predictable_temporary_symlink_during_download", "concurrent_installs_do_not_share_temporary_files", "bounded_binary_stream_keeps_checksum_validation_and_leaves_no_residue"]
+implementation = "A random create-new NamedTempFile remains owned until validation and atomic rename; the installed descriptor's bytes, type, inode, links and permissions are checked. Failed validation drops the temporary file. Directory and file modes are 0700, independent of umask."
+cache_ownership = "Configure a dedicated cache owned by the service account under trusted parents. Symlink directories, foreign owners and peer-writable cache/version directories fail closed. Existing service-owned directories without peer write access can be tightened to 0700. Final-name symlinks are atomically replaced without opening or chmodding their targets."
+
+[finding.compiler-download-bounds]
+proofs = ["catalogue_rejects_http_errors_including_redirect_without_location", "binary_rejects_typed_http_errors_before_installation", "catalogue_bounds_content_length_and_chunked_bodies", "binary_bounds_content_length_and_chunked_bodies_before_installation", "exact_body_limits_allow_valid_chunked_catalogue_and_binary", "bounded_binary_stream_keeps_checksum_validation_and_leaves_no_residue", "catalogue_deadline_covers_headers_and_streamed_body", "binary_typed_deadline_covers_headers_and_streamed_body", "total_deadline_is_not_reset_by_progress_on_chunked_responses"]
+implementation = "Discovery, periodic refresh and binary retrieval share a configured reqwest client with connection and total deadlines. Non-success statuses fail before reading bodies. Content-Length and streamed chunk counts enforce separate catalogue/compiler caps, and SHA256 is updated while the bounded stream arrives. Timeout, BodyTooLarge and HttpStatus are distinct FetchError variants."
+default_limits = "10 seconds connection; 120 seconds total per request; 8 MiB catalogue; 128 MiB compiler. ListFetcher::builder configures each limit without environment variables."
+fixtures = "The integration tests run real public ListFetcher and EvmCompilersPool paths against a loopback TCP HTTP server; restart cases drop and reopen the real pool against the persisted cache. No credential, external endpoint, executable or subprocess is needed."
+
+[gotcha.gate_order]
+observed = "The task's baseline-verification step conflicts with its explicit implementation-first gate order; the explicit order is followed without inventing baseline evidence."
+
+[gotcha.runner_state]
+observed = "Runner-provided .cgignore and spec.kvx changes were present before implementation; no existing compiler repair or gate ledger was present. They were preserved."
+
+[gotcha.cache_tests]
+observed = "The existing recovery unit test used the shared system temporary directory; it now creates a dedicated private cache and authenticates via get instead of expecting discovery alone to admit a compiler."
+
+[gotcha.tooling]
+observed = "The sandbox cargo executable is a native binary, not a readable wrapper, and there is no source registry under the default root cargo path. Tool inspection must avoid treating executable bytes as text."
