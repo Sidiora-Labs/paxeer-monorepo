@@ -148159,7 +148159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.936]
 title = "Repair audit record 22.30.23 medium findings in apps/launchpad/web/src/widgets/terminal (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.32", "22.31.33"]
@@ -148268,7 +148268,7 @@ do_10 = "Attempt 2 (continue): two causes. The chart selection status reappears 
 
 [task.22.33.929]
 title = "Repair audit record 22.30.22 medium findings in apps/launchpad/mobile/test/vitest (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.30", "22.31.31"]
@@ -148337,7 +148337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.927]
 title = "Repair audit record 22.30.22 medium findings in apps/launchpad/mobile/src/runtime (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.30", "22.31.31"]
@@ -148474,7 +148474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.921]
 title = "Repair audit record 22.30.21 medium findings in apps/launchpad/web/src/widgets/social (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.28", "22.31.29"]
@@ -206323,7 +206323,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.951]
 title = "Repair audit record 22.30.27 medium findings in sdk/launchpad/shared/config/capabilities/cmd/measure (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.38", "22.31.39"]
@@ -206466,7 +206466,7 @@ do_9 = "Attempt 2 (continue): the two failing cases show the custody and hook wr
 
 [task.22.33.945]
 title = "Repair audit record 22.30.24 medium findings in modules/launchpad/client/cli (part 2 of 2): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.34", "22.31.35"]
@@ -322198,7 +322198,7 @@ do_8 = "Attempt 2 (continue): every test passed; the result was held because the
 
 [task.22.33.942]
 title = "Repair audit record 22.30.23 medium findings in tools/launchpad/production/bootstrap/security (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.32", "22.31.33"]
@@ -322267,7 +322267,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.940]
 title = "Repair audit record 22.30.23 medium findings in tools/launchpad/production/bootstrap/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.32", "22.31.33"]
