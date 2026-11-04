@@ -36,7 +36,7 @@ defmodule Indexer.Fetcher.Optimism.EIP1559ConfigUpdate do
   import Explorer.Helper, only: [hash_to_binary: 1]
 
   alias EthereumJSONRPC.Blocks
-  alias Explorer.Chain
+  alias Explorer.{Chain, Repo}
   alias Explorer.Chain.{Block, Hash}
   alias Explorer.Chain.Block.Reader.General, as: BlockGeneralReader
   alias Explorer.Chain.Cache.Counters.LastFetchedCounter
@@ -121,12 +121,13 @@ defmodule Indexer.Fetcher.Optimism.EIP1559ConfigUpdate do
          # if we set INDEXER_OPTIMISM_L2_JOVIAN_TIMESTAMP for the first time after Jovian activation,
          # we reset the last handled block hash to the activation block hash to continue
          # the `extraData` handling from that block
-         (if jovian_first_time_defined?(timestamp_jovian) and timestamp_jovian <= timestamp_latest do
-            timestamp_jovian
-            |> block_number_by_timestamp(optimism_env[:block_duration], json_rpc_named_arguments)
-            |> block_hash_by_number(json_rpc_named_arguments)
-            |> Optimism.set_last_block_hash(@counter_type_last_l2_block_hash)
-          end),
+         :ok <-
+           initialize_jovian_backfill(
+             timestamp_jovian,
+             timestamp_latest,
+             optimism_env[:block_duration],
+             json_rpc_named_arguments
+           ),
          {:ok, last_l2_block_number} <- get_last_l2_block_number(json_rpc_named_arguments) do
       Logger.info("l2_block_number = #{l2_block_number}")
       Logger.info("last_l2_block_number = #{last_l2_block_number}")
@@ -668,40 +669,37 @@ defmodule Indexer.Fetcher.Optimism.EIP1559ConfigUpdate do
     end
   end
 
-  # Returns `true` if Jovian activation timestamp is defined for the first time. Otherwise, returns `false`.
-  # Also, remembers the fact of the Jovian timestamp definition in the database.
-  #
-  # ## Parameters
-  # - `timestamp`: The currently defined Jovian activation timestamp. `nil` if not defined.
-  #
-  # ## Returns
-  # - The boolean result.
-  @spec jovian_first_time_defined?(non_neg_integer() | nil) :: boolean()
-  defp jovian_first_time_defined?(timestamp) do
-    jovian_defined_now = !is_nil(timestamp)
-    jovian_defined_before = !is_nil(LastFetchedCounter.get(@counter_type_jovian_defined, nullable: true))
+  @doc false
+  def initialize_jovian_backfill(timestamp, latest_timestamp, block_duration, json_rpc_named_arguments) do
+    marker = LastFetchedCounter.get(@counter_type_jovian_defined, nullable: true)
 
-    result =
-      cond do
-        is_nil(LastFetchedCounter.get(@counter_type_last_l2_block_hash, nullable: true)) ->
-          # Holocene handler never worked before, so we don't need to reset the last handled block hash
-          false
+    if not is_nil(timestamp) and timestamp <= latest_timestamp and is_nil(marker) do
+      hash =
+        if is_nil(LastFetchedCounter.get(@counter_type_last_l2_block_hash, nullable: true)) do
+          nil
+        else
+          timestamp
+          |> block_number_by_timestamp(block_duration, json_rpc_named_arguments)
+          |> block_hash_by_number(json_rpc_named_arguments)
+        end
 
-        !jovian_defined_before ->
-          # Jovian never defined before. We return `true` if the Jovian is defined now. Otherwise, return `false`
-          jovian_defined_now
+      if hash == @empty_hash do
+        {:error, :jovian_activation_block_unavailable}
+      else
+        case Repo.transaction(fn ->
+               if hash do
+                 {:ok, _} = Optimism.set_last_block_hash(hash, @counter_type_last_l2_block_hash)
+               end
 
-        true ->
-          # Holocene handler worked before and Jovian was defined before
-          false
+               {:ok, _} = LastFetchedCounter.upsert(%{counter_type: @counter_type_jovian_defined, value: 1})
+             end) do
+          {:ok, _} -> :ok
+          {:error, reason} -> {:error, reason}
+        end
       end
-
-    if jovian_defined_now and !jovian_defined_before do
-      # if Jovian activation timestamp is defined for the first time, we record this in the database
-      LastFetchedCounter.upsert(%{counter_type: @counter_type_jovian_defined, value: 1})
+    else
+      :ok
     end
-
-    result
   end
 
   def fetcher_name, do: @fetcher_name

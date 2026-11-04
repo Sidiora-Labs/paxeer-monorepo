@@ -1,0 +1,17 @@
+[repair.22.33.504]
+audit = "22.30.151"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+qualification = "The hf-done ledger supplies the exact verified candidate revision, command, exit and private evidence location."
+baseline = "Not run: task gate order forbids verification before implementation; no pre-change execution result is claimed. On the base, the latest-window test would observe limit=100 and ascending-history traversal, and the navigation test would find no tenant link."
+
+[finding.chains-full-history-pagination]
+tests = ["chainsFullHistoryPaginationUsesOneLatestWindow", "recentActivityRejectsBrokenOrderingAndUnsupportedProducer", "recentActivityRendersEmptyBoundedWindows"]
+repair = "Request one limit=20&order=desc page for transfers and events through the tenant-aware API query hook; retain producer row-ID ordering, enforce the window and descending IDs with integer precision, and never follow next_cursor."
+status = "Consumer repaired; production closure requires platform wiring below. Loopback peers exercise the requested contract, not the currently ascending-only Rust producer."
+wiring_request = "Domain 8 (platform): services/platform/hosted/indexer/src/api.rs and src/store.rs must accept order=desc for /v1/chains/:id/{transfers,events}, select ORDER BY id DESC with id < cursor for continuation, default to existing ascending order, and return at most limit rows with next_cursor; current parse_query rejects order with HTTP 400."
+
+[finding.chain-list-detail-link]
+tests = ["chainListDetailLinkKeepsSelectedTenantInEveryQuery"]
+repair = "Link the chain name to /chains/{chain.id}; match the emitted URL with the real Next route matcher, mount the registered pages/chains/[id] page and assert the record, summary, transfer and event HTTP paths carry the selected tenant ID for two tenants."
+status = "Consumer repaired; tested with an explicitly configured indexer through the real multichain context."
+wiring_request = "Domain 14 (web-explorer-bridge): apps/explorer/configs/app/apis.ts must supply paxeerXIndexer for standalone chain pages; it currently has no such API configuration, while configured multichain contexts already support it."

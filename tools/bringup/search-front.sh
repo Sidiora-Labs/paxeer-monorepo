@@ -14,7 +14,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
 	cat <<'EOF'
-usage: tools/bringup/search-front.sh names | render | config | deploy <service-host>
+usage: tools/bringup/search-front.sh names | render | config | qualify | deploy <service-host>
 
 The search front of search.paxeer.network: the Railway service configured by
 services/interop/deploy/search-front/railway.env.example and built from
@@ -40,6 +40,9 @@ render    prints the upstream list that nginx includes at http level: a
           challenge and its retry; nginx checks current readiness on that
           backend before every paid request.
 
+qualify   validates mounted render output from stdin against discovered serving
+          names, primary/backup eligibility and fresh typed readiness.
+
 config    prints the serving sidecar configuration of
           services/interop/crates/x-websearch/config.example.json with every "${NAME}"
           string replaced by the environment variable NAME and the note
@@ -55,9 +58,9 @@ deploy <service-host>
 Environment:
   BRINGUP_HOSTS_FILE   the private host map, as tools/bringup/check-live.sh
   CHECK_LIVE_TIMEOUT   seconds per ssh call, default 30
-  SEARCH_FRONT_PRIMARY the pinned serving name, default api15.paxeer.network
+  SEARCH_FRONT_PRIMARY the pinned serving name, default the first declared RPC node
   SEARCH_FRONT_BACKUP  the serving name pinned while the primary is not
-                       ready, default api1.paxeer.network
+                       ready, default the second declared RPC node
   SEARCH_FRONT_READINESS_TIMEOUT seconds per HTTPS readiness probe, default 5
 
 Exits 1 when a destination or configuration step fails; 2 on a usage
@@ -66,11 +69,12 @@ EOF
 }
 
 search_front_host="search.paxeer.network"
-search_front_primary="${SEARCH_FRONT_PRIMARY:-api15.paxeer.network}"
-search_front_backup="${SEARCH_FRONT_BACKUP:-api1.paxeer.network}"
+search_front_primary="${SEARCH_FRONT_PRIMARY:-}"
+search_front_backup="${SEARCH_FRONT_BACKUP:-}"
 search_front_config_template="services/interop/crates/x-websearch/config.example.json"
 
 search_front_names() {
+	load_rpc_inventory || return 1
 	local -a dests validators lines=()
 	local k v reply name role status
 	read -r -a dests <<<"$RPC_HOSTS"
@@ -83,8 +87,8 @@ search_front_names() {
 			return 1
 		fi
 		read -r name _ <<<"$reply"
-		case "$name" in
-		api[1-9] | api1[0-6]) ;;
+		case " ${rpc_names[*]} " in
+		*" $name.$rpc_domain "*) ;;
 		*)
 			echo "search-front: RPC_HOSTS[$k] site=none" >&2
 			return 1
@@ -158,7 +162,7 @@ try:
     expected = {
         "paid_delivery": {"index", "content_storage", "payment_journal", "settlement_authority"},
         "evm_attestor": {"evm_chain", "registered_peer_quorum", "attestor_progress", "attestation_journal"},
-        "kernel_relay": {"evm_chain", "registered_peer_quorum", "kernel_authority", "relay_progress", "kernel_journal"},
+        "program_relay": {"evm_chain", "registered_peer_quorum", "relay_progress", "program_journal"},
     }
     seen_roles = set()
     states = {"starting", "ready", "unavailable", "stale"}
@@ -194,18 +198,26 @@ try:
         raise ValueError("missing serving role")
     if value["ready"] != all(role["state"] == "ready" for role in roles):
         raise ValueError("readiness aggregate")
+    if not value["ready"]:
+        raise ValueError("serving backend is not ready")
 except Exception:
     sys.exit(1)
 PY
 }
 
 search_front_render() {
+	load_rpc_inventory || return 1
 	local name pinned admitted=0
+	[ -n "$search_front_primary" ] || search_front_primary="${rpc_names[0]}"
+	[ -n "$search_front_backup" ] || search_front_backup="${rpc_names[1]}"
 	for name in "$search_front_primary" "$search_front_backup"; do
-		if [[ ! "$name" =~ ^api([1-9]|1[0-6])\.([a-z0-9-]+\.)?paxeer\.network$ ]]; then
-			echo "search-front: $name is not a serving apiN name" >&2
+		case " ${rpc_names[*]} " in
+		*" $name "*) ;;
+		*)
+			echo "search-front: $name is not a declared serving apiN name" >&2
 			return 1
-		fi
+			;;
+		esac
 	done
 	if [ "$search_front_primary" = "$search_front_backup" ]; then
 		echo "search-front: the backup repeats the primary" >&2
@@ -231,6 +243,40 @@ search_front_render() {
 	echo '    default 0;'
 	echo "    $pinned $admitted;"
 	echo '}'
+}
+
+# qualify reads the mounted renderer output on stdin, checks the single pin
+# and exact eligibility map against discovery, then probes that serving node
+# through the same bounded typed readiness consumer used by render.
+search_front_qualify() {
+	local mounted listing pin
+	mounted="$(cat)"
+	listing="$1"
+	pin="$(python3 -c '
+import re
+import sys
+
+mounted, listing, primary, backup = sys.argv[1:]
+try:
+    serving, validators = set(), set()
+    for line in listing.splitlines():
+        role, name = line.split()
+        (serving if role == "serve" else validators).add(name)
+    if primary == backup or any(name not in serving or name in validators for name in (primary, backup)):
+        raise ValueError("primary/backup must be distinct serving nodes")
+    text = re.sub(r"(?m)^\s*#.*$", "", mounted).strip()
+    contract = re.fullmatch(r"""split_clients\s+"\$\{xweb_client\}"\s+\$xweb_node\s*\{\s*\*\s+([a-z0-9.-]+);\s*\}\s*map\s+\$xweb_node\s+\$xweb_eligible\s*\{\s*default\s+0;\s*([a-z0-9.-]+)\s+([01]);\s*\}""", text)
+    if not contract:
+        raise ValueError("single pin and eligibility map required")
+    pin, eligible, admitted = contract.groups()
+    if pin not in (primary, backup) or eligible != pin or admitted != "1":
+        raise ValueError("pin is unknown, ineligible or unready")
+    print(pin)
+except ValueError as error:
+    sys.exit("search-front: " + str(error))
+' "$mounted" "$listing" "$search_front_primary" "$search_front_backup")" || return 1
+	search_front_candidate "$pin" || { echo "search-front: pinned backend readiness refused" >&2; return 1; }
+	printf '%s\n' "$pin"
 }
 
 search_front_config() {
@@ -268,13 +314,16 @@ PY
 }
 
 
+# Helpers may be sourced by qualification without executing the CLI.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
+
 mode="${1:-}"
 case "$mode" in
 -h | --help)
 	usage
 	exit 0
 	;;
-names | render | config | deploy) ;;
+names | render | config | qualify | deploy) ;;
 *)
 	usage >&2
 	exit 2
@@ -288,6 +337,7 @@ if [ "$#" -ne "$expected_args" ]; then
 fi
 
 tools=(timeout)
+case "$mode" in names | render | qualify | deploy) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;; esac
 [ "$mode" != names ] || tools+=(ssh sort)
 [ "$mode" = names ] || tools+=(python3)
 [ "$mode" != deploy ] || tools+=(base64)
@@ -304,6 +354,11 @@ names)
 	search_front_names
 	;;
 render) search_front_render ;;
+qualify)
+	load_hosts
+	listing="$(search_front_names)" || exit 1
+	search_front_qualify "$listing"
+	;;
 config) search_front_config ;;
 deploy)
 	upstreams="$(search_front_render | base64 -w0)"

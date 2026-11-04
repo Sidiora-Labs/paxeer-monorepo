@@ -4,43 +4,84 @@ order: 3
 
 # Messages
 
-In this section we describe the processing of messages for the authz module.
+The authz message definitions are in
+[tx.proto](../../../proto/cosmos/authz/v1beta1/tx.proto). The processing below follows
+[message validation](../msgs.go), the [message server](../keeper/msg_server.go), and
+[grant storage and dispatch](../keeper/keeper.go). See [Concepts](01_concepts.md)
+for authorization types and [Client](05_client.md) for commands.
 
 ## MsgGrant
 
-An authorization grant is created using the `MsgGrant` message.
-If there is already a grant for the `(granter, grantee, Authorization)` triple, then the new grant will overwrite the previous one. To update or extend an existing grant, a new grant with the same `(granter, grantee, Authorization)` triple should be created.
+`/cosmos.authz.v1beta1.MsgGrant` contains `granter`, `grantee`, and a `grant` holding
+an authorization `Any` and `expiration`. The granter signs. A new grant overwrites
+the stored grant for the same `(granter, grantee, authorization.MsgTypeURL())` tuple,
+including its previous allowance and expiration.
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.43.0-beta1/proto/cosmos/authz/v1beta1/tx.proto#L32-L37
+Basic validation rejects invalid addresses, equal granter and grantee addresses,
+an authorization that does not unpack to `authz.Authorization`, or an authorization
+whose own `ValidateBasic` fails. The handler rejects a missing unpacked
+authorization with `ErrUnpackAny` and a type URL without a registered
+`MsgServiceRouter` handler with `ErrInvalidType`. Successful storage emits
+`EventGrant`.
 
-The message handling should fail if:
+Grant creation requires `expiration.After(ctx.BlockTime())`: expiration must be
+strictly later than the current chain block time, including nanoseconds. An
+expiration before or equal to that time is rejected with `ErrInvalidExpirationTime`,
+codespace `authz`, code `3`. There is no grant storage write and no `EventGrant`
+on rejection; an existing grant for the same tuple remains unchanged. Both the
+message server and `SaveGrant` enforce this policy. `NewGrant` takes the chain
+block time explicitly. Message construction and `ValidateBasic` only check
+structure and authorization validity, since they do not have a chain clock.
 
-- both granter and grantee have the same address.
-- provided `Expiration` time is less than current unix timestamp.
-- provided `Grant.Authorization` is not implemented.
-- `Authorization.MsgTypeURL()` is not defined in the router (there is no defined handler in the app router to handle that Msg types).
+### Genesis import policy
+
+Genesis validation checks addresses, distinct granter and grantee, unpacked typed
+authorizations and their validation, supported message types, and duplicate storage
+tuples before initialization writes anything. An imported expiration is preserved,
+even if already expired: exports may contain such records. Import does not create
+`EventGrant` events. Restored expired records cannot authorize execution. This
+policy uses no local wall clock and permits faithful export/import and restart.
 
 ## MsgRevoke
 
-A grant can be removed with the `MsgRevoke` message.
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.43.0-beta1/proto/cosmos/authz/v1beta1/tx.proto#L60-L64
-
-The message handling should fail if:
-
-- both granter and grantee have the same address.
-- provided `MsgTypeUrl` is empty.
-
-NOTE: The `MsgExec` message removes a grant if the grant has expired.
+`/cosmos.authz.v1beta1.MsgRevoke` contains `granter`, `grantee`, and `msg_type_url`.
+The granter signs. Basic validation rejects invalid or equal addresses and an empty
+type URL. The handler deletes the matching grant and emits `EventRevoke`; if no
+grant exists, it returns `ErrNotFound` with `authorization not found`.
 
 ## MsgExec
 
-When a grantee wants to execute a transaction on behalf of a granter, they must send `MsgExec`.
+`/cosmos.authz.v1beta1.MsgExec` contains the signing `grantee` and a non-empty list
+of messages packed as `Any`. Basic validation rejects an invalid grantee or an
+empty list. The handler must unpack every entry as `sdk.Msg` before dispatch.
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.43.0-beta1/proto/cosmos/authz/v1beta1/tx.proto#L47-L53
+For each inner message, dispatch performs these steps in order:
 
-The message handling should fail if:
+1. Require exactly one signer, or return `ErrInvalidRequest`.
+2. If that signer is the grantee, proceed without an authorization. Otherwise,
+   load the grant for the signer as granter, the grantee, and the inner message's
+   type URL. A missing or expired authorization returns `ErrUnauthorized` with
+   `authorization not found`.
+3. For an action requiring a grant, call `Authorization.Accept`. Propagate its
+   error, apply its requested deletion or authorization update, and reject
+   `Accept: false` with `ErrUnauthorized`.
+4. Find the inner message's `MsgServiceRouter` handler. An absent handler returns
+   `ErrUnknownRequest`. Execute the handler and propagate any failure, including
+   the target module's balance and policy errors.
 
-- provided `Authorization` is not implemented.
-- grantee doesn't have permission to run the transaction.
-- if granted authorization is expired.
+Successful execution returns one result byte slice per message and emits the
+inner events with an `authz_msg_index` attribute identifying the zero-based message
+index. Grant updates and inner message writes participate in the transaction's
+cached state; a failed SDK transaction does not commit those message writes.
+
+### Expiration and cleanup
+
+`GetCleanAuthorization` treats a grant as expired when
+`!expiration.After(ctx.BlockTime())` is true. Equality with block time is expired. For an expired grant, it calls `DeleteGrant` in the supplied context
+and returns no authorization.
+
+This cleanup is subject to that context's commit rules. In particular, deletion
+attempted by a failing `MsgExec` is rolled back with the transaction's message
+state; a query does not commit a deletion to chain state. Do not rely on a failed
+execution to persistently remove expired grants. Unfiltered list queries can still
+return stored expired grants; revoke explicitly when persistent removal is needed.

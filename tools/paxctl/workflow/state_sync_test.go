@@ -35,6 +35,9 @@ func TestPreflightPhaseError(t *testing.T) {
 	if !strings.Contains(failed.Error(), "holds the node") {
 		t.Errorf("Failed refusal must explain the node stays held; got %q", failed.Error())
 	}
+	if !strings.Contains(failed.Error(), "--name alone does not recover") {
+		t.Errorf("Failed refusal must require removal before a fresh name; got %q", failed.Error())
+	}
 }
 
 // The Complete handoff hands the operator the node-side catch-up check: the
@@ -46,6 +49,7 @@ func TestEmitCompleteHandoff(t *testing.T) {
 	out := b.String()
 	for _, want := range []string{
 		"node rpc-node-0 released",
+		"paxd is restarting",
 		"seictl node watch rpc-node-0 --until=caught-up -n pacific-1",
 	} {
 		if !strings.Contains(out, want) {

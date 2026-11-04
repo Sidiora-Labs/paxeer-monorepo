@@ -1,0 +1,10 @@
+{
+  "status": {
+    "node_info": {"id": "1111111111111111111111111111111111111111", "network": "repair-m840"},
+    "sync_info": {"latest_block_height": "5000", "catching_up": false}
+  },
+  "block": {
+    "block_id": {"hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+    "block": {"header": {"chain_id": "repair-m840", "height": "3000"}}
+  }
+}

@@ -7,7 +7,7 @@ import { layerLabels } from 'lib/rollups/utils';
 
 const dappEntityName = (getFeaturePayload(config.features.marketplace)?.titles.entity_name ?? '').toLowerCase();
 
-const TEMPLATE_MAP: Record<Route['pathname'], string> = {
+const TEMPLATE_MAP: Record<Route['pathname'], string> & Record<'/chains' | '/chains/[id]', string> = {
   '/': '%network_name% blockchain explorer - View %network_name% stats',
   '/txs': '%network_name% transactions - %network_name% explorer',
   '/internal-txs': '%network_name% internal transactions - %network_name% explorer',
@@ -18,6 +18,8 @@ const TEMPLATE_MAP: Record<Route['pathname'], string> = {
   '/block/countdown': '%network_name% block countdown index',
   '/block/countdown/[height]': '%network_name% block %height% countdown',
   '/accounts': '%network_name% top accounts',
+  '/chains': '%network_name% chains',
+  '/chains/[id]': '%network_name% chain %id%',
   '/accounts/label/[slug]': '%network_name% addresses search by label',
   '/address/[hash]': '%network_name% address details for %hash%',
   '/verified-contracts': 'Verified %network_name% contracts lookup - %network_name% explorer',
@@ -111,7 +113,8 @@ const TEMPLATE_MAP: Record<Route['pathname'], string> = {
   '/api/config': '%network_name% node API app config',
 };
 
-const TEMPLATE_MAP_ENHANCED: Partial<Record<Route['pathname'], string>> = {
+const TEMPLATE_MAP_ENHANCED: Partial<Record<keyof typeof TEMPLATE_MAP, string>> = {
+  '/chains/[id]': '%network_name% chain %chain_name%',
   '/token/[hash]': '%network_name% %symbol_or_name% token details',
   '/token/[hash]/instance/[id]': '%network_name% token instance for %symbol_or_name%',
   '/apps/[id]': '%network_name% - %app_name%',

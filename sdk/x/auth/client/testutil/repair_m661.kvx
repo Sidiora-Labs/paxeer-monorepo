@@ -1,0 +1,11 @@
+[repair.22.33.661]
+finding = "auth-cli-network-signature"
+test = "TestRepairM_661_AuthCLINetworkSignature"
+change = "Pass the suite testing handle to network.DefaultConfig; retain both norace build constraints and every network-backed case using the default one-validator network."
+proof = "The regression checks the tagged entry point and executes the complete IntegrationTestSuite against the real in-process network, application, transaction codecs and CLI handlers."
+baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+evidence = "The runner records the verified candidate revision, exact command, exit code and private log in /out/run/gates.jsonl; a passing hf-done is required for qualification."
+wiring_requests = []
+previous_attempt = "The previous attempt failed before CLI cases because requesting two validators conflicted with the one-validator consensus genesis; this continuation restores the default network and funds a separate account in the two-signer case."
+case_inputs = "Use fees covering the default global minimum gas price and fund multisig accounts for those fees, preserving exact balance, signature and error assertions."
+repair_cycle = "The first continuation gate reached all cases; update the unsigned-output expectation to include the production signature-count diagnostic and generate the absent multisig address with the configured Bech32 prefix."

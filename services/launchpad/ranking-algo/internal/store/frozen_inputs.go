@@ -64,13 +64,14 @@ type VisibilityReader interface {
 type CanonicalInputReader struct {
 	SourceSchema, StatsSchema, SourceStream, ProjectionVersion string
 	Visibility                                                 VisibilityReader
+	Evidence                                                   *HTTPCanonicalEvidence
 }
 
 func NewCanonicalInputReader(source, stats, stream, version string, visibility VisibilityReader) (*CanonicalInputReader, error) {
 	if !schemaNameValid(source) || !schemaNameValid(stats) || stream == "" || len(stream) > 128 || version == "" || len(version) > 64 || visibility == nil {
 		return nil, ranker.ErrUnavailable
 	}
-	return &CanonicalInputReader{source, stats, stream, version, visibility}, nil
+	return &CanonicalInputReader{SourceSchema: source, StatsSchema: stats, SourceStream: stream, ProjectionVersion: version, Visibility: visibility}, nil
 }
 func schemaNameValid(value string) bool {
 	if len(value) < 1 || len(value) > 63 {
@@ -137,6 +138,13 @@ func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx
 	in.CutoffHeight = uint64(typed)
 	revision := strconv.FormatInt(typed, 10)
 	in.Provenance = &ranker.Provenance{Watermark: v1.Watermark{ChainId: "125", Height: v1.UInt256(revision), BlockHash: blockHash, ProjectionRevision: v1.PositiveUInt256(revision), ObservedAt: completed.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}, StatsRevision: r.ProjectionVersion + ":" + revision, ModerationRevision: visibility.Revision, ActivityRevision: ranker.ActivityModelVersion + ":" + revision, WindowStart: cutoff.Unix() - 86400, WindowEnd: cutoff.Unix()}
+	evidence := CanonicalRankingEvidence{}
+	if r.Evidence != nil {
+		evidence, err = r.Evidence.Read(ctx, uint64(typed), cutoff.Unix(), blockHash)
+		if err != nil {
+			return in, err
+		}
+	}
 	query := r.universeQuery()
 	rows, err := tx.Query(ctx, query, r.ProjectionVersion, typed, cutoff.Unix())
 	if err != nil {
@@ -144,7 +152,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx
 	}
 	for rows.Next() {
 		var row universeRow
-		if err = rows.Scan(&row.pool, &row.creationHeight, &row.transactionIndex, &row.logIndex, &row.created, &row.day, &row.hour, &row.five, &row.buys, &row.sells, &row.actors, &row.self, &row.boughtTokens, &row.soldTokens, &row.reserveIn, &row.reserveOut, &row.holders, &row.lastUSDL, &row.lastToken, &row.lastDecimals, &row.referenceUSDL, &row.referenceToken, &row.referenceDecimals); err != nil {
+		if err = rows.Scan(&row.pool, &row.creationHeight, &row.transactionIndex, &row.logIndex, &row.created, &row.day, &row.hour, &row.five, &row.buys, &row.sells, &row.actors, &row.roundTrip, &row.boughtTokens, &row.soldTokens, &row.reserveIn, &row.reserveOut, &row.holders, &row.lastUSDL, &row.lastToken, &row.lastDecimals, &row.referenceUSDL, &row.referenceToken, &row.referenceDecimals); err != nil {
 			rows.Close()
 			return in, err
 		}
@@ -153,6 +161,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx
 			rows.Close()
 			return in, errors.New("ranking visibility universe incomplete")
 		}
+		row.evidence = evidence.Pools[row.pool]
 		c, err := row.candidate(cutoff.Unix())
 		if err != nil {
 			rows.Close()

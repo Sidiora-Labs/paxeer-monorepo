@@ -1,6 +1,7 @@
 package com.sidiora.layerx.example;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sidiora.layerx.spring.LayerXResource;
 import com.sidiora.layerx.spring.LayerXResourceHandler;
 import com.sidiora.layerx.spring.LayerXWebhookEventHandler;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SpringBootApplication
 @RestController
 public class PaidApiApplication {
+    private static final ObjectMapper JSON = new ObjectMapper();
     private final List<Map<String, Object>> settlements = new ArrayList<>();
 
     public static void main(String[] arguments) {
@@ -37,7 +39,7 @@ public class PaidApiApplication {
         return (JsonNode event, String deliveryId) -> {
             Map<String, Object> record = new LinkedHashMap<>();
             record.put("deliveryId", deliveryId);
-            record.put("event", event);
+            record.put("event", JSON.convertValue(event, Object.class));
             synchronized (settlements) {
                 settlements.add(record);
             }

@@ -1,0 +1,15 @@
+[repair.22.33.295]
+audit = "22.30.134"
+finding = "chain_title"
+test_file = "apps/explorer/lib/metadata/templates/repair-22-33-295.spec.ts"
+tests = ["chainDirectoryMetadataIncludesNetwork", "chainDetailMetadataIncludesNetworkAndRouteId", "chainDetailMetadataUsesSelectedChainName"]
+implementation = "Require both real chain page paths in the exhaustive title map; supply a network directory title, an ID-based detail title before enrichment, and a selected chain_name detail title after enrichment. Existing route coverage and title promotion behavior are retained."
+proof = "Production generate consumes the title templates and compiles configured network, route ID and selected chain name into both document and Open Graph metadata titles; the selected name comes through the production chain response codec from committed chain fixtures."
+proof_boundary = "Reflect.apply drives the production generator's runtime boundary without changing its public types or the generated route declaration. This is a template/generator proof; it does not claim that ChainDetail currently supplies enriched metadata."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build then hf-done and forbids running verify_cmd manually. No pre-change failing test is claimed; the unmodified map lacks both chain paths and returns the literal undefined title."
+wiring_request_routes = "apps/explorer/nextjs/nextjs-routes.d.ts | domain 14 (fm-web-explorer-bridge): regenerate from pages/chains/index.tsx and pages/chains/[id].tsx; keep exhaustive description and Open Graph classification repairs with their owning tasks."
+wiring_request_data = "apps/explorer/lib/metadata/types.ts and apps/explorer/ui/paxeerX/chains/ChainDetail.tsx | domain 14 (fm-web-explorer-bridge): declare chain detail ApiData with chain_name and pass the selected validated record.name to metadata.update after the chain query succeeds."
+wiring_request_record = "spec/layerx-merge/spec.kvx | domain 14 (fm-web-explorer-bridge): attach chain_title and its three proving tests, plus the runner's exact qualified revision, command, exit and private evidence location to task 22.33.295."
+qualification = "Only the runner hf-build/hf-done ledger may establish qualification; this source record makes no unrun gate claim."
+formatting = "Repository ESLint layout formatting was applied to the two touched TypeScript files and imports were ordered as reported. Its expect-expect and valid-title rules reject the task-required named-function registrations; the registered functions retain all assertions, and no check is disabled."
+repair = "The first hf-done at c331e1eea881c075d065572b265c248a9363e945 returned exit 0 (/out/logs/verify-1.log), but Vitest reported three todo tests and zero execution because test(function) supplies no test body. No qualification is claimed for that run. Register each declared function as test(function.name, function) to execute all assertions; keep every test and assertion intact."

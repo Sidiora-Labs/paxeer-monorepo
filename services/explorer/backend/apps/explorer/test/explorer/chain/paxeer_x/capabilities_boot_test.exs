@@ -1,3 +1,5 @@
+Code.require_file("repair_transport.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.CapabilitiesBootTest do
   @moduledoc """
   What the capability probe is allowed to do to the boot of the application.
@@ -22,7 +24,8 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesBootTest do
   @bytecode "0x60806040523480156100105760006000fd"
   @view_calls %{
     "0x0000000000000000000000000000000000001015" => "0xb71d031c" <> String.duplicate("0", 64),
-    "0x0000000000000000000000000000000000001016" => "0xb187bd26"
+    "0x0000000000000000000000000000000000001016" => "0xb187bd26",
+    "0x0000000000000000000000000000000000001017" => "0x8eec5d70"
   }
   @view_word "0x" <> String.duplicate("0", 64)
 
@@ -116,6 +119,10 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesBootTest do
         assert Capabilities.live?(surface)
       end
     end
+  end
+
+  test "capability_boot_transport_proof re-probes after process restart" do
+    Explorer.Chain.PaxeerX.Repair2233523.Transport.capability_recovery()
   end
 
   # A node that holds every request it is given instead of answering it, the way

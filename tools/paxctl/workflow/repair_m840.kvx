@@ -1,0 +1,29 @@
+[task.22.33.840]
+mode = "BUILD"
+audit = "spec/layerx-merge/programme/audit/records/22.30.180.kvx"
+baseline = "The starting tree had no repair_m840_test.go, workflow edits or gate ledger. No baseline verification ran: the task's ordered gate instructions prohibit testing before implementation and prohibit running verify_cmd by hand. No pre-change test failure is claimed."
+evidence = "The runner's private /out/run/gates.jsonl and /out/logs/build-*.log and verify-*.log record the exact qualified candidate revision, command, exit and evidence location. The final response copies the last hf-done evidence line; this record does not claim a gate before it runs."
+
+[finding.workflow-witness-promise]
+tests = ["TestRepairM_840_DistinctRenderedWitnesses", "TestRepairM_840_WitnessFailureBeforeWipe", "TestRepairM_840_QuorumLossAfterWipeRetainsHoldOnReopen", "TestRepairM_840_RecoveryGuidanceOverAPI"]
+repair = "Align the guide and command help with the prerequisite sidecar's live independent-witness preflight before reset erasure and again before configuration. Validate explicit distinct host:port witnesses after all rendering overrides. Explain intact data on pre-reset failure, potentially cleared data on later failure, retained hold, exact last-sign preservation and safe operator recovery with paxd naming. Correct Failed guidance so a fresh --name never substitutes for removing the adopted failure."
+proof = "Render the real CR, serialize its JSON and pass the received stateSync parameters through the production engine and typed sidecar reset/configure handlers. Serve the committed witness transcript over loopback, execute real hold/stop handlers and SQLite persistence, assert independent quorum failure precedes erasure, then exercise healthy erasure, later quorum loss, store close/reopen, retained hold and recovered failure. Restore witnesses and verify the real config writer persists both endpoints and agreed trust point without releasing the hold. Fetch a rendered Failed CR over real Kubernetes client HTTP and assert actionable CLI recovery guidance."
+boundary = "The test explicitly transfers the rendered stateSync parameters to each sidecar handler. It does not claim to exercise or repair the external controller planner; that connection remains the wiring request below."
+
+[wiring.controller-witness-preflight]
+request = "github.com/sei-protocol/sei-k8s-controller workflow StateSync planner (domain 16, fm-tools-ops): forward the same resolved or explicit spec.stateSync.rpcServers into reset-data and configure-state-sync and retain the adopted hold on either runtime failure; qualify that deployed planner-to-sidecar path before destructive use."
+
+[wiring.sidecar-process-profile]
+request = "tools/paxctl/serve.go and deployment profiles (domain 16, fm-tools-ops): pass the deployed paxd home/RPC/process configuration consistently and share its PID namespace; keep hold/release/destructive operations mutually exclusive during operator recovery."
+
+[gotcha.baseline-order]
+observed = "The repair steps request pre-change verify, but the explicit task order forbids verification before implementation and running verify_cmd by hand."
+action = "Follow the bounded ordered gates and record that no baseline failures were measured; do not invent pre-change evidence."
+
+[gotcha.toolchain]
+observed = "The sandbox defaults to Go 1.25.8 while tools/paxctl/go.mod declares Go 1.26.0."
+action = "Use the declared Go 1.26.0 toolchain for formatting and both bounded gates without changing the module version."
+
+[gotcha.scope]
+observed = "The witness planner and sidecar implementation are outside this task's workflow-only scope; the sidecar prerequisite already contains the pre-erasure check."
+action = "Keep the repair, proof, gotchas and wiring requests inside tools/paxctl/workflow; leave the root GOTCHA.kvx and spec records unchanged as required by the direct scope instruction."

@@ -57,11 +57,22 @@ fn exchange<S: Read + Write>(config: &Arc<config::Config>, stream: &mut S) -> Re
 
 fn run() -> Result<(), String> {
     let arguments: Vec<_> = std::env::args().skip(1).collect();
-    if !arguments.is_empty() {
-        return Err("invalid interoperability gateway arguments".to_owned());
-    }
+    layerx_interop_service::operations::validate_startup_arguments(&arguments)?;
     let config = Arc::new(config::load()?);
     let listener = TcpListener::bind(config.listen).map_err(|error| error.to_string())?;
+    let retention_config = Arc::clone(&config);
+    thread::spawn(move || {
+        let relay = layerx_interop_service::relay::ChainRelay::from_config(&retention_config);
+        loop {
+            if relay.compact_finalized().is_err() {
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "interop relay retention unavailable; recovery claims retained"
+                );
+            }
+            thread::sleep(Duration::from_secs(60));
+        }
+    });
     for incoming in listener.incoming() {
         let tcp = incoming.map_err(|error| error.to_string())?;
         if ACTIVE_CONNECTIONS.fetch_add(1, Ordering::AcqRel) >= MAX_CONNECTIONS {

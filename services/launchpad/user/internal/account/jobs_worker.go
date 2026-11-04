@@ -102,12 +102,8 @@ func (w Worker) prepareExport(ctx context.Context, j jobLease) (failure error) {
 	if e != nil {
 		return e
 	}
-	sealed, e := Seal(w.Runtime.ExportKey, snapshot, []byte(j.ID.String()))
+	object, e := w.writeExportObject(ctx, j, snapshot)
 	if e != nil {
-		return e
-	}
-	object := "account-exports/" + j.ID.String() + "/" + strconv.FormatInt(j.Fence, 10)
-	if e = w.Runtime.Objects.Put(ctx, object, bytes.NewReader(sealed), int64(len(sealed)), "application/octet-stream"); e != nil {
 		return e
 	}
 	ready := false
@@ -133,6 +129,23 @@ func (w Worker) prepareExport(ctx context.Context, j jobLease) (failure error) {
 	w.Runtime.Metrics.Observe("export", "success", time.Since(j.RequestedAt))
 	return nil
 }
+
+// writeExportObject is the worker's encrypted object publication boundary.
+func (w Worker) writeExportObject(ctx context.Context, j jobLease, snapshot json.RawMessage) (string, error) {
+	if w.Runtime == nil || w.Runtime.Objects == nil || len(w.Runtime.ExportKey) != 32 {
+		return "", errors.New("DEPENDENCY_UNAVAILABLE")
+	}
+	sealed, e := Seal(w.Runtime.ExportKey, snapshot, []byte(j.ID.String()))
+	if e != nil {
+		return "", e
+	}
+	object := "account-exports/" + j.ID.String() + "/" + strconv.FormatInt(j.Fence, 10)
+	if e = w.Runtime.Objects.Put(ctx, object, bytes.NewReader(sealed), int64(len(sealed)), "application/octet-stream"); e != nil {
+		return "", e
+	}
+	return object, nil
+}
+
 func newExportMetadata(key []byte, job uuid.UUID, object string, at time.Time) ([]byte, [32]byte, error) {
 	raw := make([]byte, 32)
 	if _, e := rand.Read(raw); e != nil {

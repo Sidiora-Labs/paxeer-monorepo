@@ -1,0 +1,19 @@
+[task.22.33.1146]
+audit = "22.30.52"
+implementation = "Read the retained receipt WAL in a closed recovery phase before opening MVCC, then apply entries above the persisted head before exposing the store; hold receipt ownership across the handoff."
+baseline = "Not run: the explicit allowed-gate order requires complete implementation before hf-build and hf-done and prohibits a manual verify, superseding step 7's unchanged-tree request; no baseline test failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-build/hf-done ledger."
+wiring_requests = []
+qualification_note = "The initial hf-done stopped at an unused test import; remove it and rebuild before verification because go build does not compile _test.go files."
+
+[finding.receipt-recovery-handle-lifecycle]
+tests = ["TestRepairM_1146_HandleLifecycle", "TestRepairM_1146_EmptyRecovery", "TestRepairM_1146_ReplayReadErrorClosesHandle"]
+repair = "One recovery WAL is closed on every return before MVCC owns the WAL; constructor failures release ownership, and Close terminates the owner. Tests count live WAL workers and descriptors across repeated recovery and error returns."
+
+[finding.receipt-recovery-masks-io-errors]
+tests = ["TestRepairM_1146_OffsetErrors", "TestRepairM_1146_UnreadableRecoveryMetadata", "TestRepairM_1146_ReplayReadErrorClosesHandle"]
+repair = "Only two zero offsets with no errors mean empty; offset/open/replay errors preserve their causes and refuse recovery. Tests use actual closed WAL handles, unreadable on-disk metadata and a corrupted protobuf tail."
+
+[finding.receipt-recovery-test-misses-singleton]
+tests = ["TestRepairM_1146_SingletonRecovery", "TestRepairM_1146_MultiEntryRecovery", "TestRepairM_1146_SingletonAfterAppliedPrefix", "TestRecoverReceiptStoreReplaysChangelog"]
+repair = "Public receipt writers produce WAL entries; restoring older Pebble files retains unapplied singleton and multi-entry crash tails. Public constructors recover exact receipt objects, bytes and versions across three close/reopen cycles."

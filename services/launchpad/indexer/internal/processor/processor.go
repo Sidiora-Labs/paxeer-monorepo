@@ -44,6 +44,40 @@ type ReserveReader interface {
 	PoolReserves(context.Context, common.Address, common.Hash) (receipt.PoolReserves, error)
 }
 
+// ProcessorStore is the persistence boundary used by the processor. Canonical
+// projections must use the transaction-bound store supplied by the backend.
+type ProcessorStore interface {
+	AcquireLease(ctx context.Context, chain int32, stream, owner string, ttl time.Duration) (int64, error)
+	CanonicalEpochGuarded() bool
+	CommitProjectedCanonical(ctx context.Context, b store.CanonicalBatch, project func(context.Context, *store.Store) ([]store.OutboxIntent, error)) error
+	CommitProjectedCanonicalTx(ctx context.Context, b store.CanonicalBatch, project func(context.Context, store.CanonicalTx) ([]store.OutboxIntent, error)) error
+	GetCanonicalWatermark(ctx context.Context, chain int32, stream string) (int64, error)
+	GetCursor(ctx context.Context, chainID int32) (*int64, error)
+	GetPoolByAddress(ctx context.Context, poolAddress string) (*sqlcdb.IndexerPool, error)
+	GetPoolByNftID(ctx context.Context, nftID int64) (*sqlcdb.IndexerPool, error)
+	GetPoolByPoolID(ctx context.Context, poolID string) (*sqlcdb.IndexerPool, error)
+	IngestReady(ctx context.Context, chain int32, stream, owner string, fence int64) error
+	InsertAirdropClaim(ctx context.Context, p sqlcdb.InsertAirdropClaimParams) error
+	InsertConfigUpdate(ctx context.Context, p sqlcdb.InsertConfigUpdateParams) error
+	InsertFeeDistribution(ctx context.Context, p sqlcdb.InsertFeeDistributionParams) error
+	InsertFeeEvent(ctx context.Context, p sqlcdb.InsertFeeEventParams) error
+	InsertFeeStrategyChange(ctx context.Context, p sqlcdb.InsertFeeStrategyChangeParams) error
+	InsertOpticalExecution(ctx context.Context, p sqlcdb.InsertOpticalExecutionParams) error
+	InsertPool(ctx context.Context, p sqlcdb.InsertPoolParams) error
+	InsertPoolStateSnapshot(ctx context.Context, p sqlcdb.InsertPoolStateSnapshotParams) error
+	InsertSwap(ctx context.Context, p sqlcdb.InsertSwapParams) error
+	InsertTokenForTokenSwap(ctx context.Context, p sqlcdb.InsertTokenForTokenSwapParams) error
+	LifecycleEnabled() bool
+	PoisonRetryDue(ctx context.Context, chain int32, stream, transaction string, index uint32) (bool, error)
+	ReconcileCanonicalCommit(ctx context.Context, b store.CanonicalBatch) (bool, error)
+	ReleaseLease(ctx context.Context, chain int32, stream, owner string, fence int64) error
+	RenewLease(ctx context.Context, chain int32, stream, owner string, fence int64, ttl time.Duration) error
+	RetainPoison(ctx context.Context, p store.PoisonRecord) error
+	UpsertCursor(ctx context.Context, chainID int32, lastProcessedBlock int64) error
+}
+
+var _ ProcessorStore = (*store.Store)(nil)
+
 type Deps struct {
 	Quarantine                  *QuarantinePolicy
 	HistoricalReplay            *ReplayRunner
@@ -61,7 +95,7 @@ type Deps struct {
 	InventoryBaselineWaitBlocks int64
 	Source                      source.LogSource
 	Head                        source.HeadSource
-	Store                       *store.Store
+	Store                       ProcessorStore
 	Publisher                   *publisher.Publisher
 	Decoder                     *decode.Decoder
 	NFT                         NFTResolver
@@ -88,6 +122,7 @@ type Processor struct {
 	readyFence       *atomic.Int64
 	canonicalFence   int64
 	canonicalRenewed time.Time
+	pendingCanonical *store.CanonicalBatch
 	deps             Deps
 	monitored        []string
 	nftCache         map[string]*int64
@@ -161,6 +196,27 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		// Resolve the original immutable batch before observing a head that can
+		// advance the live source's durable-height fence or choosing a new range.
+		if p.pendingCanonical != nil {
+			batch := p.pendingCanonical
+			committed, err := p.reconcilePendingCanonical(ctx)
+			if err != nil {
+				p.deps.Logger.Error("canonical commit reconciliation failed, retrying", slog.String("err", err.Error()))
+				if !sleep(ctx, p.deps.PollInterval) {
+					return ctx.Err()
+				}
+				continue
+			}
+			if committed {
+				last = batch.Blocks[len(batch.Blocks)-1].Height
+				size = min(p.deps.BatchSize, size*2)
+			} else {
+				// A definitive rollback can retry a smaller range. An unknown
+				// outcome must retain the original range until reconciled.
+				size = max(1, size/2)
+			}
+		}
 		head, err := p.deps.Head.Head(ctx)
 		if err != nil {
 			p.deps.Logger.Error("get head failed, retrying", slog.String("err", err.Error()))
@@ -185,7 +241,9 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 			// A range whose qualification cannot finish inside the bounded
 			// read window (dense protocol activity) is retried smaller, so one
 			// heavy range never stalls ingestion; it regrows after success.
-			size = max(1, size/2)
+			if p.pendingCanonical == nil {
+				size = max(1, size/2)
+			}
 			if !sleep(ctx, 5*time.Second) {
 				return ctx.Err()
 			}
@@ -206,6 +264,19 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		}
 		if p.deps.CanonicalStreamID == "" || p.deps.CanonicalOwner == "" {
 			return fmt.Errorf("canonical stream and process owner required")
+		}
+		if p.pendingCanonical != nil {
+			pending := p.pendingCanonical
+			committed, err := p.reconcilePendingCanonical(ctx)
+			if err != nil {
+				return err
+			}
+			if committed {
+				if pending.PreviousHeight == from-1 && pending.Blocks[len(pending.Blocks)-1].Height == to {
+					return nil
+				}
+				return store.ErrWatermark
+			}
 		}
 		if p.canonicalFence == 0 {
 			fence, err := p.deps.Store.AcquireLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, 30*time.Second)
@@ -270,7 +341,11 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 			}
 			return nil
 		}
-		return p.ProcessQualifiedCanonicalBatch(ctx, batch, receipts)
+		if err = p.ProcessQualifiedCanonicalBatch(ctx, batch, receipts); err != nil {
+			p.pendingCanonical = &batch
+			return err
+		}
+		return nil
 	}
 	events, err := p.collect(ctx, from, to)
 	if err != nil {
@@ -284,6 +359,17 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		p.deps.Publisher.PublishBatch(ctx, events)
 	}
 	return nil
+}
+
+// reconcilePendingCanonical retains the candidate on an unavailable database;
+// only a definitive reconciliation result permits another source range.
+func (p *Processor) reconcilePendingCanonical(ctx context.Context) (bool, error) {
+	committed, err := p.deps.Store.ReconcileCanonicalCommit(ctx, *p.pendingCanonical)
+	if err != nil {
+		return false, err
+	}
+	p.pendingCanonical = nil
+	return committed, nil
 }
 
 // collect fetches the range, decodes + persists every matched event, and

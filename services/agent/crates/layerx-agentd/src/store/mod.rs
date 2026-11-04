@@ -888,6 +888,74 @@ impl Store {
         Ok(())
     }
 
+    pub(crate) fn record_authenticated_receipt(
+        &mut self,
+        receipt_keys: &[TenantKey],
+        receipt_bytes: &[u8],
+        metadata: Vec<(TenantKey, Option<Vec<u8>>, Vec<u8>)>,
+    ) -> Result<(), StoreError> {
+        let tenant = receipt_keys
+            .first()
+            .ok_or(StoreError::Corrupt("empty receipt transaction"))?
+            .tenant();
+        let mut unique = BTreeSet::new();
+        for key in receipt_keys {
+            if key.kind() != ObjectKind::Receipt
+                || key.tenant() != tenant
+                || !unique.insert(key.clone())
+            {
+                return Err(StoreError::Corrupt("invalid receipt transaction index"));
+            }
+            if self.entries.get(key).is_some_and(|value| {
+                value.class != StorageClass::CoreProducedCache || value.bytes != receipt_bytes
+            }) {
+                return Err(StoreError::Corrupt("conflicting receipt index"));
+            }
+        }
+        if metadata.is_empty() {
+            return Err(StoreError::Corrupt("empty receipt transaction metadata"));
+        }
+        for (key, expected, _) in &metadata {
+            if key.kind() != ObjectKind::Configuration
+                || key.tenant() != tenant
+                || !unique.insert(key.clone())
+                || self
+                    .entries
+                    .get(key)
+                    .is_some_and(|value| value.class != StorageClass::LocalOnly)
+                || self.entries.get(key).map(|value| value.bytes.as_slice()) != expected.as_deref()
+            {
+                return Err(StoreError::Corrupt(
+                    "conflicting receipt transaction metadata",
+                ));
+            }
+        }
+        let before = self.entries.clone();
+        for key in receipt_keys {
+            self.entries.insert(
+                key.clone(),
+                StoredValue {
+                    class: StorageClass::CoreProducedCache,
+                    bytes: receipt_bytes.to_vec(),
+                },
+            );
+        }
+        for (key, _, bytes) in metadata {
+            self.entries.insert(
+                key,
+                StoredValue {
+                    class: StorageClass::LocalOnly,
+                    bytes,
+                },
+            );
+        }
+        if let Err(error) = self.persist() {
+            self.entries = before;
+            return Err(error);
+        }
+        Ok(())
+    }
+
     /// Atomically records exact core event bytes, their local evidence
     /// metadata and the durable ingestion watermark.
     ///

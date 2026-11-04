@@ -12,6 +12,7 @@ import { useMemo } from 'react';
 import { PAX_ICON_URL } from '@/lib/constants';
 import { usePortfolioQuery } from '@/lib/queries';
 import { SWAP_TOKENS, type SwapToken } from '@/lib/swap';
+import { supportedTokenDecimals } from './util';
 
 export function useHeldTokens(address: string | undefined): SwapToken[] {
   const portfolioQuery = usePortfolioQuery(address);
@@ -32,14 +33,16 @@ export function useHeldTokens(address: string | undefined): SwapToken[] {
     ];
 
     if (portfolio.token_holdings) {
-      portfolio.token_holdings.forEach((h: any) => {
+      portfolio.token_holdings.forEach((h) => {
+        const decimals = supportedTokenDecimals(h.decimals);
+        if (decimals === null) return;
         const bal = BigInt(h.balance_raw || '0');
         if (bal > BigInt(0)) {
           list.push({
             symbol: h.symbol || '???',
             name: h.name || 'Unknown',
             address: (h.contract_address || '').toLowerCase(),
-            decimals: h.decimals || 18,
+            decimals,
             iconUrl: h.icon_url || undefined,
           });
         }

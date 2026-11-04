@@ -20,7 +20,7 @@ hosts     runs ssh true against every destination of every role of the host
           could not connect, 124 when CHECK_LIVE_TIMEOUT elapsed)
           Exits 0 only when every role passes.
 
-rpc-nodes asks each of the sixteen public RPC names api1..api16 of the
+rpc-nodes asks each of the declared public RPC names numbered nodes of the
           network domain for eth_blockNumber over https, and asks every
           RPC_HOSTS destination over ssh which public name its nginx site
           serves, the ActiveState of its paxd.service unit and how many
@@ -36,13 +36,13 @@ rpc-nodes asks each of the sixteen public RPC names api1..api16 of the
           serves no apiN site prints "fail RPC_HOSTS[k] site=none".
           Exits 0 only when every name passes.
 archive-node  reads the archive host's retention keys, paxd unit state and
-          public RPC name over ssh, then asks that name and the sixteen
+          public RPC name over ssh, then asks that name and the declared
           public RPC names over HTTPS, printing three lines:
   retention  "pass ARCHIVE_HOST retention min-retain-blocks=0 ss-keep-recent=0 paxd=active"
              or the fail line with the values read (ssh=<exit> when the host
              did not answer)
   head       "pass ARCHIVE_HOST eth_blockNumber archive=<n> head=<m> gap=<d>"
-             where head is the highest answer of the sixteen public names
+             where head is the highest answer of the declared public names
              and the gap is at most ten blocks
   history    "pass ARCHIVE_HOST eth_getBlockByNumber height=<h> hash=<hash>"
              for h = archive head minus 200000, twice the 100000 blocks the
@@ -99,10 +99,10 @@ hpx       reads the hpx registry at CHECK_LIVE_HPX_ORIGIN, by default
 
 explorer  reads the deployed explorer at CHECK_LIVE_EXPLORER_ORIGIN, by default
           https://paxscan.io, its envs.js, its backend and its databases, and
-          asks the sixteen public RPC names for their head and the lowest
+          asks the declared public RPC names for their head and the lowest
           block they serve, one line per check:
   frontend   the origin answers 200 and the NEXT_PUBLIC_NETWORK_RPC_URL of its
-             /assets/envs.js is https://<one of the sixteen public names>
+             /assets/envs.js is https://<one of the declared public names>
   archive    that name serves a lower first block than every other name
              within ten blocks of the head (the pruned floor)
   backend    GET /api/health and /api/v2/stats at the NEXT_PUBLIC_API_HOST of
@@ -249,6 +249,11 @@ Environment:
   CHECK_LIVE_RELAY_ACTIVITY  file of original signed activity bytes, required by relay
   CHECK_LIVE_RELAY_ACTIVITY_ID  the activity id the hosted gateway answers for it
   CHECK_LIVE_RELAY_KEY_FILE  file holding the hosted gateway API key; never printed
+  CHECK_LIVE_EDGE_NGINX_DIR  edge nginx root, default /etc/nginx
+  CHECK_LIVE_EDGE_BOX_CA     edge box upstream trust, default /etc/layerx/ca.crt
+  CHECK_LIVE_EDGE_READINESS_PATH  HTTP readiness path, default /readyz
+  CHECK_LIVE_INTERNAL_CONNECT_<GROUP>  private host:port reachable from KERNEL_HOST;
+                       TLS retains the deployed service name
   CHECK_LIVE_TIMEOUT   seconds per request, ssh or flyctl call, default 30
   LAYERX_CA_DIR        the internal CA directory on this host, default
                        /etc/layerx/ca
@@ -294,8 +299,26 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 roles=(EDGE_HOST ARCHIVE_HOST VALIDATOR_HOSTS RPC_HOSTS OLD_WALLET_HOST)
 
-# The sixteen public RPC names of docs/site/docs/reference/public-rpc.md.
-rpc_names=(api{1..16}.mainnet-beta.paxeer.network)
+# Shared production validator, installed from tools/bringup/cmd/bringup-inspect.
+bringup_inspect() {
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$@"
+}
+
+rpc_inventory="$repo_root/docs/site/docs/reference/public-rpc.md"
+rpc_names=()
+node_endpoints=()
+rpc_public_names=()
+load_rpc_inventory() {
+	local names endpoints
+	names="$(bringup_inspect rpc-names "$rpc_inventory")" || return 1
+	endpoints="$(bringup_inspect node-endpoints "$rpc_inventory")" || return 1
+	mapfile -t rpc_names <<<"$names"
+	mapfile -t node_endpoints <<<"$endpoints"
+	mapfile -t rpc_public_names < <(printf '%s\n' "${node_endpoints[@]#https://}")
+	rpc_name_count="${#rpc_names[@]}"
+	rpc_domain="${rpc_names[0]#*.}"
+}
+
 
 # load_hosts: sources BRINGUP_HOSTS_FILE and exits 2 naming the first role it
 # lacks. Nothing read from the file is ever printed.
@@ -498,7 +521,7 @@ print(("pass" if ok else "fail") + " machines started=%d regions=%s" % (len(star
 }
 
 rpc_domain="mainnet-beta.paxeer.network"
-rpc_name_count=16
+rpc_name_count=0
 rpc_max_lag=10
 rpc_min_active=3600
 # shellcheck disable=SC2016
@@ -522,6 +545,7 @@ rpc_unit() {
 }
 
 check_rpc_nodes() {
+	load_rpc_inventory || { echo "fail rpc inventory=unreadable"; finish 1; }
 	local -a dests heads
 	local -A units=()
 	local k reply status name state secs n head lag ok polls top=0 failures=0
@@ -535,15 +559,15 @@ check_rpc_nodes() {
 			continue
 		fi
 		read -r name state secs <<<"$reply"
-		case "$name" in
-		api[1-9] | api1[0-6]) units[$name]="$state $secs" ;;
+		case " ${rpc_names[*]} " in
+		*" $name.$rpc_domain "*) units[$name]="$state $secs" ;;
 		*)
 			echo "fail RPC_HOSTS[$k] site=none"
 			failures=$((failures + 1))
 			;;
 		esac
 	done
-	# The sixteen names are asked at once so that the ten-block window is not
+	# The declared names are asked at once so that the ten-block window is not
 	# eaten by the chain advancing between one request and the next.
 	polls="$(mktemp -d)"
 	trap 'rm -rf "$polls"' EXIT
@@ -585,6 +609,17 @@ check_rpc_nodes() {
 			failures=$((failures + 1))
 		fi
 	done
+	local canonical_chain canonical_head
+	canonical_chain="$(bringup_inspect rpc "${node_endpoints[0]}" eth_chainId '[]')" || canonical_chain=""
+	canonical_head="$(bringup_inspect rpc "${node_endpoints[0]}" eth_blockNumber '[]')" || canonical_head=""
+	canonical_head="$(hex_to_dec "$canonical_head")"
+	if [ "$canonical_chain" = 0x7d ] && [ -n "$canonical_head" ] && [ "$top" -gt 0 ] &&
+		[ $((top - canonical_head)) -le "$rpc_max_lag" ] && [ $((canonical_head - top)) -le "$rpc_max_lag" ]; then
+		echo "pass canonical chain_id=125 head=$canonical_head"
+	else
+		echo "fail canonical chain-or-head=invalid"
+		failures=$((failures + 1))
+	fi
 	finish "$failures"
 }
 
@@ -610,6 +645,7 @@ rpc_addrs() {
 # may run the full-node unit and listen on HTTP and HTTPS for the retained
 # names' nginx sites only. Destinations are named by role and index only.
 check_rpc_placement() {
+	load_rpc_inventory || { echo "fail rpc inventory=unreadable"; finish 1; }
 	local -a rpcs validators heads addrs
 	local -A retained=() kept=()
 	local k j n r name head lag at validator ok polls status reply state ports sites site top=0 failures=0
@@ -781,6 +817,7 @@ unit=$(systemctl is-active paxd 2>/dev/null)
 printf "%s %s %s %s\n" "${name:-none}" "${retain:-none}" "${keep:-none}" "${unit:-none}"'
 
 check_archive_node() {
+	load_rpc_inventory || { echo "fail rpc inventory=unreadable"; finish 1; }
 	local failures=0 status=0 facts name retain keep unit dir i verdict value n head=0 archive="" deep hash
 	facts="$(timeout "$timeout" ssh -n -o BatchMode=yes -- "$ARCHIVE_HOST" "$archive_facts" 2>/dev/null)" || status=$?
 	read -r name retain keep unit <<<"$facts" || true
@@ -797,11 +834,11 @@ check_archive_node() {
 
 	dir="$(mktemp -d)"
 	trap 'rm -rf "$dir"' EXIT
-	for i in "${!rpc_names[@]}"; do
-		rpc "${rpc_names[$i]}" eth_blockNumber '[]' >"$dir/$i" &
+	for i in "${!rpc_public_names[@]}"; do
+		rpc "${rpc_public_names[$i]}" eth_blockNumber '[]' >"$dir/$i" &
 	done
 	wait
-	for i in "${!rpc_names[@]}"; do
+	for i in "${!rpc_public_names[@]}"; do
 		read -r verdict value <"$dir/$i" || true
 		n="$(hex_to_dec "${value:-}")"
 		if [ "$verdict" = result ] && [ -n "$n" ] && [ "$n" -gt "$head" ]; then
@@ -1178,6 +1215,7 @@ print("inside")
 '
 
 check_explorer() {
+	load_rpc_inventory || { echo "fail rpc inventory=unreadable"; finish 1; }
 	local origin="${CHECK_LIVE_EXPLORER_ORIGIN:-https://paxscan.io}" failures=0
 	local dir i verdict value n head=0 floor="" code envs api rpc_url name="" archive_low="" var missing=""
 	local first ceiling dst legacy paxscan answer
@@ -1185,12 +1223,12 @@ check_explorer() {
 
 	dir="$(mktemp -d)"
 	trap 'rm -rf "$dir"' EXIT
-	for i in "${!rpc_names[@]}"; do
-		rpc "${rpc_names[$i]}" eth_blockNumber '[]' >"$dir/head.$i" &
-		earliest "${rpc_names[$i]}" >"$dir/low.$i" &
+	for i in "${!rpc_public_names[@]}"; do
+		rpc "${rpc_public_names[$i]}" eth_blockNumber '[]' >"$dir/head.$i" &
+		earliest "${rpc_public_names[$i]}" >"$dir/low.$i" &
 	done
 	wait
-	for i in "${!rpc_names[@]}"; do
+	for i in "${!rpc_public_names[@]}"; do
 		read -r verdict value <"$dir/head.$i" || true
 		n="$(hex_to_dec "${value:-}")"
 		if [ "$verdict" = result ] && [ -n "$n" ] && [ "$n" -gt "$head" ]; then
@@ -1213,9 +1251,9 @@ host = get("NEXT_PUBLIC_API_HOST")
 proto = get("NEXT_PUBLIC_API_PROTOCOL") or "https"
 print((proto + "://" + host if host else "none") + " " + (get("NEXT_PUBLIC_NETWORK_RPC_URL") or "none"))
 ')" || true
-	for i in "${!rpc_names[@]}"; do
-		if [ "${rpc_url%/}" = "https://${rpc_names[$i]}" ]; then
-			name="${rpc_names[$i]}"
+	for i in "${!rpc_public_names[@]}"; do
+		if [ "${rpc_url%/}" = "https://${rpc_public_names[$i]}" ]; then
+			name="${rpc_public_names[$i]}"
 			archive_low="$(cat "$dir/low.$i")"
 		fi
 	done
@@ -1227,10 +1265,10 @@ print((proto + "://" + host if host else "none") + " " + (get("NEXT_PUBLIC_NETWO
 	fi
 
 	# The pruned floor: the lowest height any other name at the head serves.
-	for i in "${!rpc_names[@]}"; do
+	for i in "${!rpc_public_names[@]}"; do
 		n="$(cat "$dir/n.$i")"
 		value="$(cat "$dir/low.$i")"
-		if [ "${rpc_names[$i]}" != "$name" ] && [ -n "$n" ] && [ -n "$value" ] && [ $((head - n)) -le 10 ]; then
+		if [ "${rpc_public_names[$i]}" != "$name" ] && [ -n "$n" ] && [ -n "$value" ] && [ $((head - n)) -le 10 ]; then
 			if [ -z "$floor" ] || [ "$value" -lt "$floor" ]; then
 				floor=$value
 			fi
@@ -1431,7 +1469,7 @@ check_identity() {
 # the same X-Search-Node, one of those names. One line per check.
 check_search_front() {
 	local host=search.paxeer.network
-	local app status headers code listing mounted expected validators listed first second failures=0
+	local app status headers code listing mounted expected validators listed="" first second failures=0
 	if ! command -v "$railway_bin" >/dev/null 2>&1; then
 		echo "check-live: $railway_bin is required" >&2
 		exit 2
@@ -1464,24 +1502,18 @@ check_search_front() {
 		expected="$(sed -n 's/^serve //p' <<<"$listing" | sort)"
 		validators="$(sed -n 's/^validator //p' <<<"$listing" | sort)"
 		mounted="$(railway_ssh "$app" "cat /etc/nginx/search/upstreams.conf" </dev/null)" || mounted=""
-		listed="$(sed -n 's/^[[:space:]]*\([0-9.]*%\|\*\)[[:space:]]\{1,\}\([a-z0-9.-]*\);.*/\2/p' <<<"$mounted" | sort)"
-		first="$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$listed") | grep -c . || true)"
-		second="$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$listed") | grep -c . || true)"
-		code="$(comm -12 <(printf '%s\n' "$validators") <(printf '%s\n' "$listed") | grep -c . || true)"
-		if [ -z "$mounted" ]; then
-			echo "fail upstreams app=$app list=unreadable"
-			failures=$((failures + 1))
-		elif [ "$first" -eq 0 ] && [ "$second" -eq 0 ] && [ "$code" -eq 0 ]; then
-			echo "pass upstreams listed=$(grep -c . <<<"$listed")/$(grep -c . <<<"$expected") validator=0"
+		if listed="$("$repo_root/tools/bringup/search-front.sh" qualify <<<"$mounted")"; then
+			echo "pass upstreams pinned=$listed eligible=1 validator=0 readiness=typed"
 		else
-			echo "fail upstreams missing=$first extra=$second validator=$code"
+			echo "fail upstreams pin-or-readiness=invalid"
 			failures=$((failures + 1))
+			listed=""
 		fi
 	fi
 
 	first="$(curl -sS --max-time "$timeout" -D - -o /dev/null "https://$host/xweb/health" 2>/dev/null | sed -n 's/^x-search-node:[[:space:]]*//Ip' | tr -d '\r')" || first=""
 	second="$(curl -sS --max-time "$timeout" -D - -o /dev/null "https://$host/xweb/health" 2>/dev/null | sed -n 's/^x-search-node:[[:space:]]*//Ip' | tr -d '\r')" || second=""
-	if [ -n "$first" ] && [ "$first" = "$second" ] && grep -qxF "$first" <<<"$expected"; then
+	if [ -n "$first" ] && [ "$first" = "$second" ] && [ "$first" = "$listed" ]; then
 		echo "pass sticky node=$first requests=2"
 	else
 		echo "fail sticky first=${first:-none} second=${second:-none}"
@@ -1490,111 +1522,119 @@ check_search_front() {
 	finish "$failures"
 }
 
-# check_edge: the names tools/bringup/edge.sh registered on the edge host, read
-# with its rendered sites over ssh from EDGE_HOST. The manifest names at least
-# one name; no rendered site names a validator host; every name resolves only
-# to EDGE_HOST's addresses; an http name answers the readiness route of its
-# app's toml (the first http check path) over TLS verified for the name with
-# 200, the Fly edge's fly-request-id header and the body the app's fly.dev name
-# answers; a stream name presents through the edge the certificate its app
-# presents at its fly.dev name for that SNI. One line per check, no address.
+# The registered edge contract is shared by edge and ramp. Decode every row;
+# a malformed row fails qualification instead of silently disappearing.
 # shellcheck disable=SC2016
-edge_cmd='cat /etc/nginx/edge/manifest 2>/dev/null; echo @@sites; for f in /etc/nginx/sites-available/* /etc/nginx/edge/stream/*.conf; do head -n 1 "$f" 2>/dev/null | grep -q "^# rendered by tools/bringup/edge.sh" && cat "$f"; done; true'
-edge_route_py='
-import sys
-import tomllib
+edge_cmd='cat "$nginx_dir/edge/manifest" 2>/dev/null; echo @@sites; for f in "$nginx_dir"/sites-available/* "$nginx_dir"/edge/stream/*.conf; do head -n 1 "$f" 2>/dev/null | grep -q "^# rendered by tools/bringup/edge.sh" && cat "$f"; done; true'
 
-with open(sys.argv[1], "rb") as handle:
-    doc = tomllib.load(handle)
-for check in (doc.get("http_service") or {}).get("checks") or []:
-    if check.get("path"):
-        print(check["path"])
-        break
-'
-check_edge() {
-	local reply status=0 manifest sites edge_addrs addrs v named=0 name mode app port at toml route
-	local out headers code fly_id body app_body tls first fp_edge fp_app failures=0
-	reply="$(ssh_read "$EDGE_HOST" "$edge_cmd")" || status=$?
-	if [ "$status" -ne 0 ] || [[ "$reply" != *@@sites* ]]; then
-		echo "fail EDGE_HOST manifest ssh=$status"
-		finish 1
-	fi
-	manifest="$(grep -E '^[a-z0-9.-]+ (http|stream) [a-z0-9-]+ [0-9]+$' <<<"${reply%%@@sites*}" || true)"
-	sites="${reply#*@@sites}"
-	if [ -z "$manifest" ]; then
-		echo "fail manifest names=0"
-		finish 1
-	fi
-	echo "pass manifest names=$(grep -c . <<<"$manifest")"
-	for v in $VALIDATOR_HOSTS; do
-		if grep -qF -- "${v#*@}" <<<"$sites"; then
-			named=$((named + 1))
-		fi
-	done
-	if [ "$named" -eq 0 ]; then
-		echo "pass sites validator=0"
-	else
-		echo "fail sites validator=$named"
-		failures=$((failures + 1))
-	fi
+edge_read() {
+	local command
+	printf -v command 'nginx_dir=%q; %s' "${CHECK_LIVE_EDGE_NGINX_DIR:-/etc/nginx}" "$edge_cmd"
+	ssh_read "$EDGE_HOST" "$command"
+}
+
+edge_manifest() {
+	python3 "$repo_root/tools/bringup/edge-contract.py"
+}
+
+# edge_probe <six manifest fields>: verify the actual public and upstream
+# responses. Upstream requests originate on the edge, where private box routes
+# and the box CA exist. TLS URLs retain SNI while --connect-to selects the
+# manifest's actual host:port. No provider request-id or Fly metadata is needed.
+edge_probe() {
+	local name="$1" mode="$2" upstream="$3" port="$4" kind="$5" sni="$6"
+	local addrs edge_addrs first fp_edge fp_up public direct command identity scheme host ca="" route
+	local members member payload='' failures=0
 	edge_addrs="$(getent ahosts "${EDGE_HOST#*@}" 2>/dev/null | awk '{print $1}' | sort -u)"
-	while read -r name mode app port; do
-		addrs="$(getent ahosts "$name" 2>/dev/null | awk '{print $1}' | sort -u)"
-		at=no
-		if [ -n "$addrs" ] && [ -n "$edge_addrs" ] && [ -z "$(comm -23 <(printf '%s\n' "$addrs") <(printf '%s\n' "$edge_addrs"))" ]; then
-			at=yes
+	addrs="$(getent ahosts "$name" 2>/dev/null | awk '{print $1}' | sort -u)"
+	if [ -z "$addrs" ] || [ -z "$edge_addrs" ] || [ -n "$(comm -23 <(printf '%s\n' "$addrs") <(printf '%s\n' "$edge_addrs"))" ]; then
+		echo "fail $name mode=$mode edge=no"
+		return 1
+	fi
+	if [ "$mode" = stream ]; then
+		first="$(head -n 1 <<<"$addrs")"
+		fp_edge="$(timeout "$timeout" openssl s_client -connect "$first:$port" -servername "$name" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null)" || fp_edge=""
+		printf -v command 'timeout %q openssl s_client -connect %q -servername %q </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null' "$timeout" "$upstream" "$name"
+		fp_up="$(ssh_read "$EDGE_HOST" "$command")" || fp_up=""
+		if [ -n "$fp_edge" ] && [ "$fp_edge" = "$fp_up" ]; then
+			echo "pass $name mode=stream edge=yes certificate=match"
+			return 0
 		fi
-		if [ "$mode" = stream ]; then
-			first="$(head -n 1 <<<"$addrs")"
-			fp_edge=""
-			[ -z "$first" ] || fp_edge="$(timeout "$timeout" openssl s_client -connect "$first:$port" -servername "$name" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)" || fp_edge=""
-			fp_app="$(timeout "$timeout" openssl s_client -connect "$app.fly.dev:$port" -servername "$name" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)" || fp_app=""
-			out="$name mode=stream app=$app port=$port edge=$at presented=${fp_edge:-none} app-presents=${fp_app:-none}"
-			if [ "$at" = yes ] && [ -n "$fp_edge" ] && [ "$fp_edge" = "$fp_app" ]; then
-				echo "pass $out"
-			else
-				echo "fail $out"
+		echo "fail $name mode=stream certificate=differ"
+		return 1
+	fi
+	route="${CHECK_LIVE_EDGE_READINESS_PATH:-/readyz}"
+	if [ "$mode" = rpc ]; then
+		route=/
+		payload='{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+	fi
+	local -a request=()
+	[ -z "$payload" ] || request=(-H 'Content-Type: application/json' --data "$payload")
+	public="$(curl -fsS --max-time "$timeout" "${request[@]}" "https://$name$route")" || public=""
+	if [ -z "$public" ]; then
+		echo "fail $name mode=$mode public=unready"
+		return 1
+	fi
+	if [ "$mode" = rpc ]; then
+		if ! python3 -c 'import json,sys; v=json.load(sys.stdin); assert v.get("jsonrpc") == "2.0" and type(v.get("id")) is int and v["id"] == 1 and v.get("result") == "0x7d" and "error" not in v' <<<"$public"; then
+			echo "fail $name mode=rpc chain-id=invalid"
+			return 1
+		fi
+		members="$(python3 "$repo_root/tools/bringup/edge-contract.py" "$name" "$port" <<<"$edge_reply")" || return 1
+		while read -r member; do
+			printf -v command 'curl -fsS --max-time %q -H %q --data %q %q' "$timeout" 'Content-Type: application/json' "$payload" "https://$member/"
+			direct="$(ssh_read "$EDGE_HOST" "$command")" || direct=""
+			if ! python3 -c 'import json,sys; a,b=map(json.loads,sys.argv[1:]); assert a == b' "$public" "$direct"; then
 				failures=$((failures + 1))
 			fi
-			continue
-		fi
-		route=""
-		toml="$(git -C "$repo_root" grep -l -E "^app = \"$app\"$" -- '*.toml' 2>/dev/null | head -n 1)" || toml=""
-		[ -z "$toml" ] || route="$(python3 -c "$edge_route_py" "$repo_root/$toml" 2>/dev/null)" || route=""
-		if [ -z "$route" ]; then
-			echo "fail $name mode=http app=$app edge=$at route=unknown"
-			failures=$((failures + 1))
-			continue
-		fi
-		status=0
-		out="$(curl -sS --max-time "$timeout" -D - "https://$name$route" 2>&1)" || status=$?
-		tls=verified
-		code=none
-		fly_id=absent
-		body=""
-		if [ "$status" -ne 0 ]; then
-			tls="curl-$status"
-		else
-			headers="${out%%$'\r\n\r\n'*}"
-			body="${out#*$'\r\n\r\n'}"
-			code="$(sed -n '1s/^HTTP\/[0-9.]* \([0-9]*\).*/\1/p' <<<"$headers")"
-			if grep -qiE '^fly-request-id: *[^[:space:]]' <<<"$headers"; then
-				fly_id=present
-			fi
-		fi
-		app_body="$(curl -sS --max-time "$timeout" -D - "https://$app.fly.dev$route" 2>/dev/null)" || app_body=""
-		app_body="${app_body#*$'\r\n\r\n'}"
-		v=differ
-		if [ -n "$body" ] && [ "$body" = "$app_body" ]; then
-			v=match
-		fi
-		out="$name mode=http app=$app edge=$at tls=$tls route=$route http=${code:-none} fly-request-id=$fly_id body=$v"
-		if [ "$at" = yes ] && [ "$tls" = verified ] && [ "$code" = 200 ] && [ "$fly_id" = present ] && [ "$v" = match ]; then
-			echo "pass $out"
-		else
-			echo "fail $out"
-			failures=$((failures + 1))
-		fi
+		done <<<"$members"
+	else
+		scheme=http
+		identity="${upstream%:*}"
+		[ "$sni" = - ] || identity="$sni"
+		host="$name"
+		if [ "$kind" = railway ]; then scheme=https; host="$identity"; fi
+		if [ "$kind" = box ] && [ "$sni" != - ]; then scheme=https; printf -v ca ' --cacert %q' "${CHECK_LIVE_EDGE_BOX_CA:-/etc/layerx/ca.crt}"; fi
+		printf -v command 'curl -fsS --max-time %q%s --connect-to %q -H %q %q' "$timeout" "$ca" "$identity:${upstream##*:}:$upstream" "Host: $host" "$scheme://$identity:${upstream##*:}$route"
+		direct="$(ssh_read "$EDGE_HOST" "$command")" || direct=""
+		[ "$public" = "$direct" ] || failures=1
+	fi
+	if [ "$failures" = 0 ]; then
+		echo "pass $name mode=$mode kind=$kind edge=yes tls=verified body=match"
+		return 0
+	fi
+	echo "fail $name mode=$mode kind=$kind upstream=differ"
+	return 1
+}
+
+# The ramp consumer uses the same rendered-route and upstream contract as edge.
+check_ramp_edge() {
+	local ramp_name="$1" edge_reply manifest line name mode upstream port kind sni
+	edge_reply="$(edge_read)" || { echo "fail edge $ramp_name manifest=unreadable"; return 1; }
+	manifest="$(edge_manifest <<<"$edge_reply")" || { echo "fail edge $ramp_name manifest=invalid"; return 1; }
+	line="$(awk -v n="$ramp_name" '$1 == n && $2 == "http" && $4 == 443' <<<"$manifest")"
+	if [ -z "$line" ] || [ "$(wc -l <<<"$line")" != 1 ]; then
+		echo "fail edge $ramp_name route=absent-or-ambiguous"
+		return 1
+	else
+		read -r name mode upstream port kind sni <<<"$line"
+		CHECK_LIVE_EDGE_READINESS_PATH=/readyz edge_probe "$name" "$mode" "$upstream" "$port" "$kind" "$sni" || return 1
+	fi
+
+}
+
+check_edge() {
+	local edge_reply manifest sites v named=0 name mode upstream port kind sni failures=0
+	edge_reply="$(edge_read)" || { echo 'fail EDGE_HOST manifest=unreadable'; finish 1; }
+	manifest="$(edge_manifest <<<"$edge_reply")" || { echo 'fail manifest contract=invalid'; finish 1; }
+	echo "pass manifest names=$(grep -c . <<<"$manifest")"
+	sites="${edge_reply#*@@sites}"
+	for v in $VALIDATOR_HOSTS; do
+		if grep -qF -- "${v#*@}" <<<"$sites"; then named=$((named + 1)); fi
+	done
+	if [ "$named" = 0 ]; then echo 'pass sites validator=0'; else echo "fail sites validator=$named"; failures=$((failures + 1)); fi
+	while read -r name mode upstream port kind sni; do
+		edge_probe "$name" "$mode" "$upstream" "$port" "$kind" "$sni" || failures=$((failures + 1))
 	done <<<"$manifest"
 	finish "$failures"
 }
@@ -1760,13 +1800,14 @@ check_human_session() {
 # found with their listen and node ports, the loopback socat hops to port 443
 # with the RPC name each dials, and every boundary is asked for eth_chainId and
 # eth_blockNumber over TLS verified against this host's internal CA for the
-# name localhost, at once with the sixteen public RPC names, so the ten-block
+# name localhost, at once with the declared public RPC names, so the ten-block
 # window is not eaten between the answers. Two boundaries must answer 0x7d
 # within ten blocks of the highest public answer, each through its own hop,
 # and the two hops must name two different serving RPC names of
 # tools/bringup/search-front.sh names, neither a validator host's. One line
 # per check, the boundaries numbered by listen port.
 check_paxeer_boundary() {
+	load_rpc_inventory || { echo "fail rpc inventory=unreadable"; finish 1; }
 	# shellcheck disable=SC2016
 	local script='d=$(mktemp -d)
 ca="$d/ca.pem"
@@ -1776,7 +1817,7 @@ ask() {
 	echo "$?" >"$d/$3.exit"
 }
 pub() {
-	curl -sS -m "$T" -H "content-type: application/json" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_blockNumber\",\"params\":[]}" "https://api$1.mainnet-beta.paxeer.network/" >"$d/p$1.body" 2>/dev/null
+	curl -sS -m "$T" -H "content-type: application/json" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_blockNumber\",\"params\":[]}" "https://api$1.$RPC_DOMAIN/" >"$d/p$1.body" 2>/dev/null
 	echo "$?" >"$d/p$1.exit"
 }
 result() {
@@ -1804,7 +1845,7 @@ for l in $(sed -n "s/^boundary \([0-9][0-9]*\) .*/\1/p" "$d/found"); do
 	ask "$l" eth_blockNumber "h$l" &
 done
 n=1
-while [ "$n" -le 16 ]; do
+while [ "$n" -le "$RPC_COUNT" ]; do
 	pub "$n" &
 	n=$((n + 1))
 done
@@ -1814,7 +1855,7 @@ for l in $(sed -n "s/^boundary \([0-9][0-9]*\) .*/\1/p" "$d/found"); do
 	echo "head $l $(result "h$l")"
 done
 n=1
-while [ "$n" -le 16 ]; do
+while [ "$n" -le "$RPC_COUNT" ]; do
 	echo "public $n $(result "p$n")"
 	n=$((n + 1))
 done
@@ -1835,7 +1876,7 @@ rm -rf "$d"'
 		echo "fail paxeer-boundary app=$app ca=absent"
 		finish 1
 	fi
-	reply="$(fly_ssh "$app" - "sh -s" < <(printf "T=%s\nCA='%s'\n%s\n" "$(((timeout + 1) / 2))" "$(cat "$ca_dir/ca.pem")" "$script"))" || reply=""
+	reply="$(fly_ssh "$app" - "sh -s" < <(printf "T=%s\nRPC_COUNT=%s\nRPC_DOMAIN=%s\nCA='%s'\n%s\n" "$(((timeout + 1) / 2))" "$rpc_name_count" "$rpc_domain" "$(cat "$ca_dir/ca.pem")" "$script"))" || reply=""
 	if [ -z "$reply" ]; then
 		echo "fail paxeer-boundary app=$app machine=unreadable"
 		finish 1
@@ -2049,15 +2090,7 @@ gas_eth_prefix=0x19457468657265756d205369676e6564204d6573736167653a0a3332
 # check's RPC URL, a string as is and anything else as compact JSON; status 1
 # when there is no result.
 gas_rpc() {
-	curl -sS -m "$timeout" -H 'content-type: application/json' \
-		-d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}" "$gas_rpc_url" 2>/dev/null | python3 -c '
-import json, sys
-try:
-    r = json.load(sys.stdin)["result"]
-except Exception:
-    sys.exit(1)
-print(r if isinstance(r, str) else json.dumps(r, separators=(",", ":")))
-'
+	bringup_inspect rpc "$gas_rpc_url" "$1" "$2"
 }
 
 # gas_post <route> <request file> <response file>: POSTs the file to the
@@ -2079,6 +2112,7 @@ gas_sign() {
 }
 
 check_gas() {
+	load_rpc_inventory || { echo "fail rpc inventory=unreadable"; finish 1; }
 	local name
 	local app answer config chain token endpoints first paymaster gas_limit priority
 	local account code rate price nonce auth_nonce gas_cost w status body quote sponsor amount maximum deadline qnonce
@@ -2095,25 +2129,35 @@ check_gas() {
 		exit 2
 	fi
 	gas_origin="${CHECK_LIVE_GAS_ORIGIN:-https://chain.paxeer.network}"
-	gas_rpc_url="${CHECK_LIVE_GAS_RPC:-https://api-mainnet-beta.paxeer.network}"
+	gas_rpc_url="${CHECK_LIVE_GAS_RPC:-${node_endpoints[0]}}"
+	if ! printf '%s\n' "${node_endpoints[@]}" | grep -qxF -- "$gas_rpc_url"; then
+		echo "fail gas rpc=undeclared-node-endpoint"
+		finish 1
+	fi
 	if ! app="$(railway_service gas-station)"; then
 		echo "fail gas rollout=absent"
 		finish 1
 	fi
 	railway_deployment "$app" /data || failures=$((failures + 1))
 
-	config="$(railway_ssh "$app" "cat /data/gas-station/station.json" </dev/null | python3 -c '
+	local station
+	station="$(railway_ssh "$app" "cat /data/gas-station/station.json" </dev/null)" || station=""
+	if ! bringup_inspect gas-config "$rpc_inventory" <<<"$station" >/dev/null; then
+		echo "fail config app=$app endpoints=undeclared-or-invalid"
+		finish $((failures + 1))
+	fi
+	config="$(python3 -c '
 import json, sys
 c = json.load(sys.stdin)
 print(c["chain_id"], c["token"], len(c["endpoints"]), c["endpoints"][0], c["paymaster"], c["gas_limit"], c["max_priority_fee_per_gas"], c["max_rate_age"])
-' 2>/dev/null)" || config=""
+' <<<"$station" 2>/dev/null)" || config=""
 	read -r chain token endpoints first paymaster gas_limit priority max_age <<<"${config:-none none none none none none none none}"
 	if [ -z "$config" ]; then
 		echo "fail config app=$app station.json=unreadable"
 		finish $((failures + 1))
 	fi
-	if [ "$chain" = 125 ] && [ "${token,,}" = "${gas_sid,,}" ] && [ "$endpoints" = 3 ] && [ "$first" = https://api-mainnet-beta.paxeer.network ]; then
-		echo "pass config app=$app chain_id=125 token=SID endpoints=3 first=node paymaster=$paymaster"
+	if [ "$chain" = 125 ] && [ "${token,,}" = "${gas_sid,,}" ] && [ "$endpoints" -gt 0 ] && [ "$first" = "${node_endpoints[0]}" ]; then
+		echo "pass config app=$app chain_id=125 token=SID endpoints=$endpoints first=node paymaster=$paymaster"
 	else
 		echo "fail config app=$app chain_id=$chain token=$token endpoints=$endpoints first=$first"
 		finish $((failures + 1))
@@ -2303,9 +2347,25 @@ echo "@@pin $(base64 <"$(env_of LAYERX_EVENTS_UPSTREAM_CA_DER)" 2>/dev/null | tr
 # shellcheck disable=SC2016
 internal_ready_script='for group in "$group"; do
 	status=0
-	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "https://$app.railway.internal:9443/readyz" 2>&1) || status=$?
+	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "${url}" ${connect:+--connect-to "$connect"} 2>&1) || status=$?
 	echo "@@$group $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
 done'
+# The kernel box must have the private route and DNS of the deployed service.
+# An explicit private connect target can override routing while preserving the
+# service URL's TLS identity. Never move the Human key to the target role.
+internal_probe() {
+	local app="$1" group="$2" variable target command
+	variable="CHECK_LIVE_INTERNAL_CONNECT_${group^^}"
+	target="${!variable:-}"
+	if [ -n "$target" ] && ! [[ "$target" =~ ^[a-zA-Z0-9.:-]+:[0-9]+$ ]]; then
+		echo "check-live: $variable must be a private host:port" >&2
+		return 2
+	fi
+	[ -z "$target" ] || target="$app.railway.internal:9443:$target"
+	printf -v command 'tls=%q app=%q group=%q limit=%q url=%q connect=%q sh -c %q' "$tls_dir/human-event-client" "$app" "$group" "$timeout" "https://$app.railway.internal:9443/readyz" "$target" "$internal_ready_script"
+	ssh_read "$KERNEL_HOST" "$command"
+}
+
 check_internal() {
 	local node=api-mainnet-beta.paxeer.network
 	local connect="${CHECK_LIVE_ROUTER_CONNECT:-api-mainnet-beta.paxeer.network:443}"
@@ -2384,9 +2444,9 @@ check_internal() {
 
 	for group in kms journeys payments approvals programs; do
 		app="$(railway_service "internal-$group")"
-		kernel="$app"
+		kernel=KERNEL_HOST
 		url="https://$app.railway.internal:9443/readyz"
-		reply="$(printf '%s\n' "$internal_ready_script" | railway_ssh "$app" "tls=$tls_dir/human-event-client app=$app group=$group limit=$timeout sh -s")" || reply=""
+		reply="$(internal_probe "$app" "$group")" || reply=""
 		line="$(sed -n "s/^@@$group //p" <<<"$reply" | head -n 1)"
 		read -r status code body <<<"${line:-none none}"
 		if [ "$status" = 0 ] && [ "$code" = 200 ] && [[ "$body" == *'"ready":true'* ]]; then
@@ -2519,14 +2579,14 @@ check_bridge() {
 }
 
 # check_wallet: the public wallet endpoint name is the wallet_endpoint of
-# [decision.public_names] in the spec, which must be a host name. The
+# [contract_context.108.decision.public_names] in the spec, which must be a host name. The
 # wallet feature's cutover gate reads that name, its gateway gate reads the
 # wallet gateway app of services/wallet/deploy/gateway.toml at its fly.dev name
 # with CHECK_LIVE_GATEWAY_TOKEN passed through, and the app runs started
 # machines in two regions. The gates' check lines are printed as they come
 # without their summary lines, and a failing gate counts as one failure.
 check_wallet() {
-	local spec=spec/paxeer-x-bringup/spec.kvx
+	local spec=spec/layerx-merge/spec.kvx
 	local app name output status answer failures=0
 	local host_re='^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:[0-9]{1,5})?$'
 	if [ -z "${CHECK_LIVE_GATEWAY_TOKEN:-}" ]; then
@@ -2542,7 +2602,7 @@ check_wallet() {
 		finish 1
 	fi
 
-	name="$(sed -n '/^\[decision\.public_names\]$/,/^\[/s/^wallet_endpoint[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$repo_root/$spec" 2>/dev/null | head -n 1)" || name=""
+	name="$(bringup_inspect wallet-name "$repo_root/$spec")" || name=""
 	if grep -Eq "$host_re" <<<"$name"; then
 		echo "pass endpoint name=$name source=spec"
 		status=0
@@ -2567,133 +2627,38 @@ check_wallet() {
 	finish "$failures"
 }
 
-# check_router: CHECK_LIVE_ROUTER_URL names the operator-deployed hosted
-# gateway of services/wallet/deploy/endpoint.toml in kernel mode. Through its
-# /rpc: eth_chainId 0x7d, px_getNetwork consensus object with catching_up false,
-# and lx_getAccount answering a read for the bound account CHECK_LIVE_ROUTER_ACCOUNT. The app
-# runs started machines in at least two regions (fly_regions); /readyz through the gateway,
-# forced to the first started machine of each region with
-# fly-force-instance-id, answers 200 with durable_store (its Redis round trip)
-# and every configured backend ready. The wallet gateway of
-# services/wallet/deploy/gateway.toml, read inside its machine, reports its
-# rpc_pool up with the configured hosted gateway URL first. One line per check.
+# Node root methods and hosted OpenRPC reads have separate owners and routes.
 check_router() {
-	local url="${CHECK_LIVE_ROUTER_URL:-}" account="${CHECK_LIVE_ROUTER_ACCOUNT:-}"
-	local app wallet method params body answer regions region code failures=0
 	router_prerequisite
-	if [ -z "$url" ]; then
-		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_ROUTER_URL)" >&2
+	load_rpc_inventory || { echo "fail rpc inventory=unreadable"; finish 1; }
+	local gateway="${CHECK_LIVE_GATEWAY_RPC:-}" account="${CHECK_LIVE_ROUTER_ACCOUNT:-}"
+	local app wallet body answer failures=0
+	if [ -z "$gateway" ]; then
+		echo "check-live: CHECK_LIVE_GATEWAY_RPC must name the hosted gateway JSON-RPC URL" >&2
 		exit 2
 	fi
-	if ! command -v "$railway_bin" >/dev/null 2>&1; then
-		echo "check-live: $railway_bin is required" >&2
-		exit 2
-	fi
-	if ! app="$(railway_service router)"; then
-		echo "fail router rollout=absent"
+	if ! app="$(railway_service gateway)"; then
+		echo "fail gateway rollout=absent"
 		finish 1
 	fi
-
-	for method in eth_chainId px_getNetwork lx_getAccount; do
-		params='[]'
-		if [ "$method" = lx_getAccount ]; then
-			if [[ ! "$account" =~ ^[A-Za-z0-9:._-]+$ ]]; then
-				echo "fail lx_getAccount account=${account:+invalid}${account:-unset}"
-				failures=$((failures + 1))
-				continue
-			fi
-			params="[\"$account\"]"
-		fi
-		body="$(curl -sS -m "$timeout" -H 'content-type: application/json' \
-			-d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" "$url/rpc" 2>/dev/null)" || body=""
-		answer="$(python3 -c '
-import json
-import sys
-
-method = sys.argv[1]
-try:
-    doc = json.loads(sys.stdin.read())
-except ValueError:
-    print("fail %s answer=unreadable" % method)
-    sys.exit(0)
-if not isinstance(doc, dict) or "result" not in doc:
-    error = doc.get("error") if isinstance(doc, dict) else None
-    print("fail %s error=%s" % (method, (error or {}).get("code", "none") if isinstance(error, dict) else "none"))
-    sys.exit(0)
-result = doc["result"]
-if method == "eth_chainId":
-    print("%s eth_chainId result=%s" % ("pass" if result == "0x7d" else "fail", result))
-elif method == "px_getNetwork":
-    consensus = result.get("consensus") if isinstance(result, dict) else None
-    if isinstance(consensus, dict) and consensus.get("catching_up") is False:
-        print("pass px_getNetwork consensus.latest_height=%s catching_up=false" % consensus.get("latest_height"))
-    else:
-        reason = result.get("reason") if isinstance(result, dict) else None
-        print("fail px_getNetwork consensus=null reason=%s" % (reason or "none"))
-else:
-    ok = isinstance(result, dict) and len(result) > 0
-    print("%s lx_getAccount read=%s" % ("pass" if ok else "fail", "answered" if ok else "empty"))
-' "$method" <<<"$body")"
-		echo "$answer"
-		[ "${answer%% *}" = pass ] || failures=$((failures + 1))
-	done
-
+	bringup_inspect route-check "$rpc_inventory" "$gateway" "$account" || failures=$((failures + 1))
 	railway_deployment "$app" || failures=$((failures + 1))
-	regions="$(railway_instance "$app" | python3 -c '
-import json, sys
-config = json.load(sys.stdin)["latestDeployment"]["meta"]["serviceManifest"]["deploy"]
-print("\n".join(sorted(config["multiRegionConfig"])))
-' 2>/dev/null)" || regions=""
-	while read -r region; do
-		[ -n "$region" ] || continue
-		body="$(railway_ssh "$app" "curl -sS -m $timeout -w '\n%{http_code}' http://127.0.0.1:8080/readyz" </dev/null)" || body=""
-		code="${body##*$'\n'}"
-		answer="$(python3 -c '
-import json
-import sys
-
-code = sys.argv[1]
-try:
-    backends = json.loads(sys.stdin.read()).get("backends") or {}
-except (ValueError, AttributeError):
-    print("fail http=%s backends=unreadable" % (code or "none"))
-    sys.exit(0)
-configured = sorted(n for n, b in backends.items() if (b or {}).get("reason") != "not_configured")
-unready = [n for n in configured if (backends[n] or {}).get("state") != "ready"]
-store = (backends.get("durable_store") or {}).get("state", "absent")
-registry = (backends.get("program_registry") or {}).get("reason", "absent")
-missing = registry in ("absent", "not_configured")
-ok = code == "200" and not unready and store == "ready" and not missing
-line = "http=%s durable_store=%s configured=%d/%d" % (code or "none", store, len(configured) - len(unready), len(configured))
-print(("pass " if ok else "fail ") + line + (" unready=" + ",".join(unready) if unready else "") + (" missing=program_registry" if missing else ""))
-' "$code" <<<"${body%$'\n'*}")"
-		echo "${answer%% *} readyz app=$app region=$region ${answer#* }"
-		[ "${answer%% *}" = pass ] || failures=$((failures + 1))
-	done <<<"$regions"
-
+	if ! body="$(railway_ssh "$app" "curl -fsS -m $timeout http://127.0.0.1:8080/readyz" </dev/null)" ||
+		! bringup_inspect gateway-readiness <<<"$body"; then
+		echo "fail readyz service=hosted-gateway"
+		failures=$((failures + 1))
+	fi
 	if ! wallet="$(railway_service wallet-gateway)"; then
 		echo "fail wallet-gateway rollout=absent"
 		finish $((failures + 1))
 	fi
 	body="$(railway_ssh "$wallet" 'node -e "fetch(\"http://127.0.0.1:8080/readyz\").then(r => r.text()).then(t => process.stdout.write(t))"' </dev/null | tail -n 1)" || body=""
-	answer="$(python3 -c '
-import json
-import sys
-
-router = sys.argv[1]
-try:
-    pool = json.loads(sys.stdin.read())["components"]["rpc_pool"]
-except (ValueError, KeyError, TypeError):
-    print("fail rpc_pool=unreadable")
-    sys.exit(0)
-endpoints = pool.get("endpoints") or []
-first = (endpoints[0].get("url") or "").rstrip("/") if endpoints else ""
-place = "router" if first == router else ("other" if first else "none")
-ok = pool.get("state") == "up" and place == "router"
-print("%s rpc_pool=%s healthy=%s first=%s" % ("pass" if ok else "fail", pool.get("state") or "none", pool.get("healthy", 0), place))
-' "$url" <<<"$body")"
-	echo "${answer%% *} wallet-gateway app=$wallet ${answer#* }"
-	[ "${answer%% *}" = pass ] || failures=$((failures + 1))
+	if answer="$(bringup_inspect pool-check "$rpc_inventory" <<<"$body")"; then
+		echo "$answer app=$wallet"
+	else
+		echo "fail wallet-gateway app=$wallet rpc_pool=invalid-node-endpoints"
+		failures=$((failures + 1))
+	fi
 	finish "$failures"
 }
 
@@ -3662,8 +3627,8 @@ PY
 # check_ramp: the reference ramp app of services/platform/ramps/fly.toml runs one
 # started machine with one volume; ramp.paxeer.network is registered on the
 # edge host as an http site of that app, resolves to the edge host and
-# answers /readyz 200 under a publicly verified certificate with Fly's
-# request id and the body the app's fly.dev name answers; and
+# answers /readyz 200 under a publicly verified certificate and the
+# matching upstream readiness body; and
 # services/platform/ramps/sandbox-journey.sh against the name records done for one
 # on-ramp and one off-ramp order. The journey's inputs are its own variables
 # (LAYERX_RAMP_CUSTOMER_TOKEN, LAYERX_RAMP_OPERATOR_URL,
@@ -3673,7 +3638,7 @@ PY
 # LAYERX_RAMP_CA_PEM defaults to the system CA file. One line per check,
 # never printing a token or an address.
 check_ramp() {
-	local ramp_name=ramp.paxeer.network name app answer
+	local ramp_name="${CHECK_LIVE_RAMP_NAME:-ramp.paxeer.network}" name app answer
 	local reply status=0 manifest line edge_addrs addrs at out headers body code railway_id app_body v failures=0
 	for name in LAYERX_RAMP_CUSTOMER_TOKEN LAYERX_RAMP_OPERATOR_URL LAYERX_RAMP_OPERATOR_TOKEN LAYERX_RAMP_ON_QUOTE_ID \
 		LAYERX_RAMP_OFF_QUOTE_ID LAYERX_RAMP_OFF_GRANT_JSON LAYERX_RAMP_ON_ACCOUNT_SEQUENCE LAYERX_RAMP_OFF_RECEIVER_SEQUENCE; do
@@ -3694,55 +3659,7 @@ check_ramp() {
 	fi
 	railway_deployment "$app" /data || failures=$((failures + 1))
 
-	reply="$(ssh_read "$EDGE_HOST" "$edge_cmd")" || status=$?
-	manifest="$(grep -E '^[a-z0-9.-]+ (http|stream) [a-z0-9-]+ [0-9]+$' <<<"${reply%%@@sites*}" || true)"
-	line="$(awk -v n="$ramp_name" '$1 == n' <<<"$manifest" | head -n 1)"
-	edge_addrs="$(getent ahosts "${EDGE_HOST#*@}" 2>/dev/null | awk '{print $1}' | sort -u)"
-	addrs="$(getent ahosts "$ramp_name" 2>/dev/null | awk '{print $1}' | sort -u)"
-	at=no
-	if [ -n "$addrs" ] && [ -n "$edge_addrs" ] && [ -z "$(comm -23 <(printf '%s\n' "$addrs") <(printf '%s\n' "$edge_addrs"))" ]; then
-		at=yes
-	fi
-	if [ "$status" -ne 0 ] || [[ "$reply" != *@@sites* ]]; then
-		echo "fail edge $ramp_name manifest ssh=$status"
-		failures=$((failures + 1))
-	elif [ "$line" = "$ramp_name http $app 443" ] && [ "$at" = yes ]; then
-		echo "pass edge $ramp_name mode=http app=$app edge=yes"
-	else
-		read -r _ v name _ <<<"${line:-none none none}"
-		echo "fail edge $ramp_name mode=$v app=$name want=$app edge=$at"
-		failures=$((failures + 1))
-	fi
-
-	status=0
-	out="$(curl -sS --max-time "$timeout" -D - "https://$ramp_name/readyz" 2>&1)" || status=$?
-	code=none
-	railway_id=absent
-	body=""
-	if [ "$status" -eq 0 ]; then
-		headers="${out%%$'\r\n\r\n'*}"
-		body="${out#*$'\r\n\r\n'}"
-		code="$(sed -n '1s/^HTTP\/[0-9.]* \([0-9]*\).*/\1/p' <<<"$headers")"
-		if grep -qiE '^x-railway-request-id: *[^[:space:]]' <<<"$headers"; then
-			railway_id=present
-		fi
-	fi
-	answer="$(railway_origin "$app")" || answer=""
-	app_body="$(curl -sS --max-time "$timeout" -D - "$answer/readyz" 2>/dev/null)" || app_body=""
-	app_body="${app_body#*$'\r\n\r\n'}"
-	v=differ
-	if [ -n "$body" ] && [ "$body" = "$app_body" ]; then
-		v=match
-	fi
-	if [ "$status" -ne 0 ]; then
-		echo "fail readyz https://$ramp_name/readyz curl=$status"
-		failures=$((failures + 1))
-	elif [ "$code" = 200 ] && [ "$railway_id" = present ] && [ "$v" = match ]; then
-		echo "pass readyz https://$ramp_name/readyz tls=verified http=200 x-railway-request-id=present body=match"
-	else
-		echo "fail readyz https://$ramp_name/readyz tls=verified http=${code:-none} x-railway-request-id=$railway_id body=$v"
-		failures=$((failures + 1))
-	fi
+	check_ramp_edge "$ramp_name" || failures=$((failures + 1))
 
 	status=0
 	LAYERX_RAMP_URL="https://$ramp_name" LAYERX_RAMP_CA_PEM="${LAYERX_RAMP_CA_PEM:-/etc/ssl/certs/ca-certificates.crt}" \
@@ -5028,6 +4945,9 @@ if [ "$#" -ne 1 ]; then
 fi
 
 tools=(ssh timeout curl python3 openssl sha256sum)
+case "$mode" in
+rpc-nodes | rpc-placement | archive-node | explorer | paxeer-boundary | gas | wallet | router | ca) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;;
+esac
 [ "$mode" != explorer ] || tools=(curl python3 psql)
 case "$mode" in
 ca | identity | search-front | internal | wallet | router | ramp | indexer | developers) tools+=("$railway_bin") ;;

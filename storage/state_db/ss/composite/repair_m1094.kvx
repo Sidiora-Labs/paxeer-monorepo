@@ -1,0 +1,25 @@
+[repair.22.33.1094]
+audit = "22.30.45"
+baseline = "Not run: the ordered instructions prohibit testing before full implementation and require verification exclusively through hf-done; no pre-change failures are claimed."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done ledger records the exact verified candidate revision, commands, exits and private log locations."
+
+[finding.split-rawiterate-omits-evm]
+test = "TestRepairM_1094_RawHistory"
+proof = "Real FlatKV commits emit WAL changesets for all five EVM families, overwrites and deletion; composite raw history equals every non-tombstone version before and after disk reopen in unsplit, unified split and separate split modes; early termination visits exactly one row."
+
+[finding.split-store-errors-swallowed]
+tests = ["TestRepairM_1094_MaintenanceErrors", "TestRepairM_1094_JointProgressAndRecovery", "TestRepairM_1094_JointEarliest", "TestRepairM_1094_SubDBProgress"]
+proof = "Real MVCC validation and closed-backend failures reach callers; failed EVM maintenance leaves Cosmos history intact across reopen. Joint latest is the lower head, joint earliest is the higher boundary; refused pruning and boundary advancement preserve lagging-backend WAL recovery in both directions and both EVM layouts."
+
+[finding.flatkv-tests-avoid-key-collision]
+tests = ["TestRepairM_1094_FlatKVCollisions", "TestRepairM_1094_ImportFailure"]
+proof = "store_test.go full-path helpers commit and export disk FlatKV data with all 21/53-byte family-prefix collisions in bank/staking/auth, route into real composite importers and reopen in every layout. A real closed EVM importer refuses a stream larger than both routing buffers, returning an error while draining the producer."
+
+[gotcha.gate-order]
+observed = "The task's baseline-test step conflicts with its explicit gate order and sole hf-done allowance; follow the ordered gate instructions and do not claim baseline results."
+
+[gotcha.deletion-fixture]
+observed = "The first verification fixture combined Delete=true with a non-nil value; MVCC identifies deletion by nil Value, so the fixture produced an extra live version."
+repair = "Emit nil Value alongside Delete=true for the deletion; retain the 19-row complete-history and deleted-read assertions unchanged."
+evidence = "revision=759818cdb8ead1d09cffebeab40f2bc113ad040d; command=cg spec done 22.33.1094 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; raw=/out/logs/repair-m1094-first.log"

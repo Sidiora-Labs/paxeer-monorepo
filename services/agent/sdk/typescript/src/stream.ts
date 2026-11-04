@@ -28,6 +28,10 @@ export type StreamPageSource<T> = (
   signal?: AbortSignal,
 ) => Promise<StreamPage<T>>;
 
+/** Duplicate IDs are refused within the last 1024 delivered events and each page. */
+export const STREAM_REPLAY_WINDOW = 1024;
+export const STREAM_EVENT_ID_MAX_LENGTH = 512;
+
 export class ResumableStream<T> {
   #cursor: StreamCursor;
   readonly #seen = new Set<string>();
@@ -40,7 +44,17 @@ export class ResumableStream<T> {
     return this.#cursor;
   }
 
+  public get retainedEventCount(): number {
+    return this.#seen.size;
+  }
+
   public accept(page: StreamPage<T>): readonly StreamEvent<T>[] {
+    const accepted = this.validate(page);
+    for (const event of accepted) this.acknowledge(event);
+    return accepted;
+  }
+
+  private validate(page: StreamPage<T>): readonly StreamEvent<T>[] {
     if (page.requestedCursor !== this.#cursor) {
       throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
     }
@@ -50,7 +64,9 @@ export class ResumableStream<T> {
     for (const event of page.events) {
       if (
         event.eventId.length === 0
+        || event.eventId.length > STREAM_EVENT_ID_MAX_LENGTH
         || event.previousCursor !== expected
+        || event.cursor === expected
         || this.#seen.has(event.eventId)
         || pageEventIds.has(event.eventId)
       ) {
@@ -63,18 +79,27 @@ export class ResumableStream<T> {
     if (page.nextCursor !== expected) {
       throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
     }
-    for (const eventId of pageEventIds) {
-      this.#seen.add(eventId);
-    }
-    this.#cursor = page.nextCursor;
     return Object.freeze(accepted);
+  }
+
+  private acknowledge(event: StreamEvent<T>): void {
+    if (event.previousCursor !== this.#cursor || this.#seen.has(event.eventId)) {
+      throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
+    }
+    this.#seen.add(event.eventId);
+    if (this.#seen.size > STREAM_REPLAY_WINDOW) {
+      this.#seen.delete(this.#seen.values().next().value!);
+    }
+    this.#cursor = event.cursor;
   }
 
   public async *events(source: StreamPageSource<T>, signal?: AbortSignal): AsyncGenerator<StreamEvent<T>> {
     while (signal?.aborted !== true) {
       const page = await source(this.#cursor, signal);
-      const events = this.accept(page);
+      const events = this.validate(page);
       for (const event of events) {
+        if (signal?.aborted) return;
+        this.acknowledge(event);
         yield event;
       }
     }

@@ -1,0 +1,8 @@
+[repair.22.33.1073]
+finding = "22.30.43.f012"
+implementation = "Compare the validated prefix length against the original segment length when truncating a corrupt tail."
+proving_tests = ["TestRepairM_1073_BinaryRestartRecovery", "TestRepairM_1073_JSONRestartRecovery"]
+coverage = "Real WAL writes, close, corrupt suffix injection, production recovery, exact prefix and recovered entries, append and second restart; equal, shorter and longer suffixes, multiple entries and healthy segments."
+baseline = "Not run: the numbered gate order requires complete implementation before the only hf-build and hf-done runs; no pre-change failures are claimed."
+wiring_requests = "None; the proposal is entirely within storage/wal."
+qualification = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log location."

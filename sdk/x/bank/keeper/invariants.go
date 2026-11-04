@@ -15,7 +15,7 @@ func TotalSupply(k Keeper) sdk.Invariant {
 		supply, err := CollectAllTotalSupply(ctx, k)
 		if err != nil {
 			return sdk.FormatInvariant(types.ModuleName, "query supply",
-				fmt.Sprintf("error querying total supply %v", err)), false
+				fmt.Sprintf("error querying total supply %v", err)), true
 		}
 
 		k.IterateAllBalances(ctx, func(_ sdk.AccAddress, balance sdk.Coin) bool {

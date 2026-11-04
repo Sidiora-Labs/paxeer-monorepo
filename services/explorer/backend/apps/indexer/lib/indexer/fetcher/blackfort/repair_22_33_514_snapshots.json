@@ -1,0 +1,10 @@
+{
+  "initial": [
+    {"address":"0x7301cfa0e1756b71869e93d4e4dca5c7d0eb0aa6","name":"Validator A","commission":"10","self_bonded_amount":"1000000000000000000","delegated_amount":"2000000000000000000","slashing_status":{"is_slashed":false,"by_block":0,"multiplier":1}},
+    {"address":"0x9a4a90e2732f3fa4087b0bb4bf85c76d14833df1","name":"Validator B","commission":"20","self_bonded_amount":"3000000000000000000","delegated_amount":"4000000000000000000","slashing_status":{"is_slashed":false,"by_block":0,"multiplier":1}}
+  ],
+  "replacement": [
+    {"address":"0x9a4a90e2732f3fa4087b0bb4bf85c76d14833df1","name":"Validator B updated","commission":"25","self_bonded_amount":"5000000000000000000","delegated_amount":"6000000000000000000","slashing_status":{"is_slashed":true,"by_block":12345,"multiplier":2}},
+    {"address":"0x867305d19606aadba405ce534e303d0e225f9556","name":"Validator C","commission":"30","self_bonded_amount":"7000000000000000000","delegated_amount":"8000000000000000000","slashing_status":{"is_slashed":false,"by_block":0,"multiplier":1}}
+  ]
+}

@@ -55,9 +55,9 @@ def check(root, manifest, schemas=None):
             if defs is not None and name not in defs: failures.append(ident+': unresolved generated schema '+name)
     return failures
 
-def main():
-    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--manifest');p.add_argument('--schemas');p.add_argument('--schemas-required',action='store_true');p.add_argument('--check',action='store_true',required=True)
-    a=p.parse_args();manifest=a.manifest or str(Path(a.root)/'spec/production-system/integration/contracts/v1/compatibility.json')
+def main(argv=None):
+    p=argparse.ArgumentParser();p.add_argument('--root',required=True);p.add_argument('--manifest',required=True);p.add_argument('--schemas');p.add_argument('--schemas-required',action='store_true');p.add_argument('--check',action='store_true',required=True)
+    a=p.parse_args(argv);manifest=a.manifest
     if a.schemas_required and not a.schemas:p.error('--schemas-required needs --schemas')
     failures=check(a.root,manifest,a.schemas)
     print(json.dumps({'status':'failed' if failures else 'passed','assertion':'source-grounded compatibility assessment only; runtime adapters and v1 handlers pending','contracts':len(EXPECTED),'generated_schema_refs_checked':bool(a.schemas),'failures':failures},indent=2));return bool(failures)

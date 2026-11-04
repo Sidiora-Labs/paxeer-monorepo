@@ -39,7 +39,9 @@ message Params {
     (gogoproto.customtype) = "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.Dec",
     (gogoproto.nullable) = false
   ];
+  // Removed reward_distribution_window: field 8 must never be reused.
   reserved 8;
+  // Snapshot retention and maximum positive TWAP query lookback, in seconds.
   uint64 lookback_duration = 9 [(gogoproto.moretags) = "yaml:\"lookback_duration\""];
 }
 

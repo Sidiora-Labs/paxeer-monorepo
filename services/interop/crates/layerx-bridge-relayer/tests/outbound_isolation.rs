@@ -1,3 +1,6 @@
+#[path = "support/capture_prerequisite.rs"]
+pub mod capture_prerequisite;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read as _, Write as _};
@@ -6,8 +9,8 @@ use std::os::unix::fs::PermissionsExt as _;
 use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::sync::OnceLock;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use layerx_bridge_relayer::config::{RelayerConfig, SignerTransportConfig};
 use layerx_bridge_relayer::journal::{Journal, JournalError, Observation, State};
@@ -175,9 +178,11 @@ fn digest(path: &Path) -> Result<String> {
 }
 
 fn relative(root: &Path, path: &Path) -> Result<PathBuf> {
-    if path.as_os_str().is_empty() || path.components().any(|part| {
-        !matches!(part, std::path::Component::Normal(_))
-    }) {
+    if path.as_os_str().is_empty()
+        || path
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
         return Err("capture paths must be nonempty normal relative paths".into());
     }
     Ok(root.join(path))
@@ -198,13 +203,19 @@ impl Corpus {
         let path = PathBuf::from(std::env::var(MANIFEST_ENV).map_err(|_| {
             "missing LAYERX_BRIDGE_CAPTURE_MANIFEST; genuine captured boundary corpus is required"
         })?);
-        let expected = std::env::var(MANIFEST_PIN_ENV).map_err(|_| {
-            "missing independent LAYERX_BRIDGE_CAPTURE_MANIFEST_SHA256 pin"
-        })?;
-        if !path.is_absolute() || !pin(&expected, 64) || digest(&path)? != expected {
+        let expected = std::env::var(MANIFEST_PIN_ENV)
+            .map_err(|_| "missing independent LAYERX_BRIDGE_CAPTURE_MANIFEST_SHA256 pin")?;
+        Self::load_from(&path, &expected)
+    }
+
+    fn load_from(path: &Path, expected: &str) -> Result<Self> {
+        if !path.is_absolute() || !pin(expected, 64) || digest(path)? != expected {
             return Err("capture manifest path or independent SHA256 pin refused".into());
         }
-        let root = path.parent().ok_or("capture root missing")?.canonicalize()?;
+        let root = path
+            .parent()
+            .ok_or("capture root missing")?
+            .canonicalize()?;
         let manifest: Manifest = serde_json::from_slice(&read(&path)?)?;
         if manifest.schema != "layerx.bridge.outbound-isolation/v1"
             || manifest.capture_kind != "genuine-boundary-capture"
@@ -217,30 +228,46 @@ impl Corpus {
         if manifest.artifacts.len() > 64 || manifest.artifacts.is_empty() {
             return Err("capture artifact count is out of bounds".into());
         }
-        let corpus = Self { root, manifest, pin: expected };
+        let corpus = Self {
+            root,
+            manifest,
+            pin: expected.to_owned(),
+        };
         for (name, artifact) in &corpus.manifest.artifacts {
-            if name.is_empty() || !pin(&artifact.sha256, 64)
-                || !matches!(artifact.kind.as_str(), "capture" | "provenance" | "executable" | "config" | "journal")
+            if name.is_empty()
+                || !pin(&artifact.sha256, 64)
+                || !matches!(
+                    artifact.kind.as_str(),
+                    "capture" | "provenance" | "executable" | "config" | "journal"
+                )
             {
                 return Err("capture artifact declaration refused".into());
             }
             corpus.artifact(name, &artifact.kind)?;
         }
         let provenance: Provenance = serde_json::from_slice(&read(
-            &corpus.artifact(&corpus.manifest.provenance, "provenance")?
+            &corpus.artifact(&corpus.manifest.provenance, "provenance")?,
         )?)?;
         if provenance.capture_id != corpus.manifest.capture_id
             || provenance.producer_revision != corpus.manifest.producer_revision
             || provenance.captured_at_utc != corpus.manifest.captured_at_utc
-            || provenance.source.is_empty() || provenance.captures.is_empty()
+            || provenance.source.is_empty()
+            || provenance.captures.is_empty()
         {
             return Err("capture provenance does not bind this corpus".into());
         }
         for capture in &provenance.captures {
             corpus.artifact(capture, "capture")?;
         }
-        let faults: BTreeSet<_> = corpus.manifest.scenarios.iter().map(|case| case.fault.as_str()).collect();
-        if corpus.manifest.scenarios.len() != 3 || faults != BTreeSet::from(["rpc", "receipt", "signer"]) {
+        let faults: BTreeSet<_> = corpus
+            .manifest
+            .scenarios
+            .iter()
+            .map(|case| case.fault.as_str())
+            .collect();
+        if corpus.manifest.scenarios.len() != 3
+            || faults != BTreeSet::from(["rpc", "receipt", "signer"])
+        {
             return Err("RPC, receipt and signer fault scenarios are all mandatory".into());
         }
         for case in &corpus.manifest.scenarios {
@@ -251,18 +278,34 @@ impl Corpus {
             if case.fault == "receipt" && case.seed_journal.is_none() {
                 return Err("receipt fault requires a genuine pending journal capture".into());
             }
-            if case.failing_chain == case.ready_chain || case.failing_chain == SOLANA_CHAIN_ID
-                || case.ready_chain == SOLANA_CHAIN_ID || case.failure_requests_per_pass == 0
-                || case.failure_requests_per_pass > 8 || case.failure_operation.is_empty()
+            if case.failing_chain == case.ready_chain
+                || case.failing_chain == SOLANA_CHAIN_ID
+                || case.ready_chain == SOLANA_CHAIN_ID
+                || case.failure_requests_per_pass == 0
+                || case.failure_requests_per_pass > 8
+                || case.failure_operation.is_empty()
             {
                 return Err("independent destination or bounded fault declaration refused".into());
             }
-            let items: BTreeSet<_> = [&case.failing_item, &case.blocked_item, &case.evm_item, &case.solana_item].into_iter().collect();
+            let items: BTreeSet<_> = [
+                &case.failing_item,
+                &case.blocked_item,
+                &case.evm_item,
+                &case.solana_item,
+            ]
+            .into_iter()
+            .collect();
             if items.len() != 4 || items.iter().any(|item| item.is_empty()) {
                 return Err("four distinct captured items are required".into());
             }
-            let roles: BTreeSet<_> = case.services.iter().map(|service| service.role.as_str()).collect();
-            if roles != BTreeSet::from(["paxeer", "failing-evm", "ready-evm", "solana", "signer"]) || case.services.len() != 5 {
+            let roles: BTreeSet<_> = case
+                .services
+                .iter()
+                .map(|service| service.role.as_str())
+                .collect();
+            if roles != BTreeSet::from(["paxeer", "failing-evm", "ready-evm", "solana", "signer"])
+                || case.services.len() != 5
+            {
                 return Err("all five production service roles are required".into());
             }
             for service in &case.services {
@@ -270,7 +313,17 @@ impl Corpus {
                 relative(Path::new("/"), &service.ready_file)?;
             }
             let phases: BTreeSet<_> = case.actions.keys().map(String::as_str).collect();
-            if phases != BTreeSet::from(["down", "repeat", "restart", "finalize_first", "finalize_all", "journal_failure", "snapshot"]) {
+            if phases
+                != BTreeSet::from([
+                    "down",
+                    "repeat",
+                    "restart",
+                    "finalize_first",
+                    "finalize_all",
+                    "journal_failure",
+                    "snapshot",
+                ])
+            {
                 return Err("capture scenario lacks a required bounded phase".into());
             }
             for action in case.actions.values() {
@@ -281,11 +334,22 @@ impl Corpus {
     }
 
     fn artifact(&self, name: &str, kind: &str) -> Result<PathBuf> {
-        let entry = self.manifest.artifacts.get(name).ok_or("capture artifact is not declared")?;
+        let entry = self
+            .manifest
+            .artifacts
+            .get(name)
+            .ok_or("capture artifact is not declared")?;
         let path = relative(&self.root, &entry.path)?.canonicalize()?;
-        let maximum = if kind == "executable" { 512 * 1024 * 1024 } else { MAX_DOCUMENT };
-        if entry.kind != kind || !path.starts_with(&self.root) || !path.is_file()
-            || fs::metadata(&path)?.len() > maximum || digest(&path)? != entry.sha256
+        let maximum = if kind == "executable" {
+            512 * 1024 * 1024
+        } else {
+            MAX_DOCUMENT
+        };
+        if entry.kind != kind
+            || !path.starts_with(&self.root)
+            || !path.is_file()
+            || fs::metadata(&path)?.len() > maximum
+            || digest(&path)? != entry.sha256
         {
             return Err("capture artifact kind, confinement or SHA256 mismatch".into());
         }
@@ -297,7 +361,10 @@ impl Corpus {
 
     fn command(&self, invocation: &Invocation, dir: &Path, case: &Scenario) -> Result<Command> {
         let mut command = Command::new(self.artifact(&invocation.executable, "executable")?);
-        command.process_group(0).env_clear().current_dir(dir)
+        command
+            .process_group(0)
+            .env_clear()
+            .current_dir(dir)
             .env("PATH", "/usr/bin:/bin")
             .env("LAYERX_BRIDGE_CAPTURE_ROOT", &self.root)
             .env("LAYERX_BRIDGE_CASE_DIR", dir)
@@ -306,9 +373,18 @@ impl Corpus {
             .env("LAYERX_BRIDGE_CAPTURE_FAULT", &case.fault)
             .stdin(Stdio::null());
         for argument in &invocation.arguments {
-            command.arg(argument.replace("{capture_root}", self.root.to_str().ok_or("capture root is not text")?)
-                .replace("{case_dir}", dir.to_str().ok_or("case directory is not text")?)
-                .replace("{fault}", &case.fault));
+            command.arg(
+                argument
+                    .replace(
+                        "{capture_root}",
+                        self.root.to_str().ok_or("capture root is not text")?,
+                    )
+                    .replace(
+                        "{case_dir}",
+                        dir.to_str().ok_or("case directory is not text")?,
+                    )
+                    .replace("{fault}", &case.fault),
+            );
         }
         Ok(command)
     }
@@ -316,8 +392,12 @@ impl Corpus {
 
 fn terminate(child: &mut Child) {
     let group = format!("-{}", child.id());
-    let _ = Command::new("/bin/kill").args(["-KILL", "--", &group])
-        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    let _ = Command::new("/bin/kill")
+        .args(["-KILL", "--", &group])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -353,7 +433,8 @@ fn startup(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<Services> {
             return Err("stale service readiness artifact refused".into());
         }
         let mut command = corpus.command(&service.command, dir, case)?;
-        command.stdout(File::create(dir.join(format!("{}.stdout", service.role)))?)
+        command
+            .stdout(File::create(dir.join(format!("{}.stdout", service.role)))?)
             .stderr(File::create(dir.join(format!("{}.stderr", service.role)))?);
         children.0.push(command.spawn()?);
     }
@@ -364,7 +445,11 @@ fn startup(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<Services> {
                 return Err("production capture service exited before readiness".into());
             }
         }
-        if case.services.iter().all(|service| relative(dir, &service.ready_file).is_ok_and(|path| path.is_file())) {
+        if case
+            .services
+            .iter()
+            .all(|service| relative(dir, &service.ready_file).is_ok_and(|path| path.is_file()))
+        {
             break;
         }
         if Instant::now() >= deadline {
@@ -374,8 +459,10 @@ fn startup(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<Services> {
     }
     for service in &case.services {
         let ready: Ready = serde_json::from_slice(&read(&relative(dir, &service.ready_file)?)?)?;
-        if ready.capture_id != corpus.manifest.capture_id || ready.manifest_sha256 != corpus.pin
-            || ready.fault != case.fault || ready.role != service.role
+        if ready.capture_id != corpus.manifest.capture_id
+            || ready.manifest_sha256 != corpus.pin
+            || ready.fault != case.fault
+            || ready.role != service.role
         {
             return Err("service readiness is not bound to this captured case".into());
         }
@@ -386,7 +473,8 @@ fn startup(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<Services> {
 fn action(corpus: &Corpus, case: &Scenario, dir: &Path, phase: &str) -> Result<()> {
     let invocation = case.actions.get(phase).ok_or("required phase missing")?;
     let mut command = corpus.command(invocation, dir, case)?;
-    command.stdout(File::create(dir.join(format!("{phase}.stdout")))?)
+    command
+        .stdout(File::create(dir.join(format!("{phase}.stdout")))?)
         .stderr(File::create(dir.join(format!("{phase}.stderr")))?);
     let mut child = command.spawn()?;
     if !wait(&mut child, deadline(20))?.success() {
@@ -402,11 +490,15 @@ fn snapshot(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<Trace> {
     }
     action(corpus, case, dir, "snapshot")?;
     let trace: Trace = serde_json::from_slice(&read(&path)?)?;
-    if trace.capture_id != corpus.manifest.capture_id || trace.manifest_sha256 != corpus.pin || trace.fault != case.fault {
+    if trace.capture_id != corpus.manifest.capture_id
+        || trace.manifest_sha256 != corpus.pin
+        || trace.fault != case.fault
+    {
         return Err("transport trace is not bound to this captured case".into());
     }
     for (index, event) in trace.events.iter().enumerate() {
-        if event.sequence != index as u64 || !matches!(event.kind.as_str(), "rpc" | "sign" | "send") {
+        if event.sequence != index as u64 || !matches!(event.kind.as_str(), "rpc" | "sign" | "send")
+        {
             return Err("transport trace has a gap or unknown event kind".into());
         }
         layerx_bridge_relayer::hex::decode(&event.payload_hex)?;
@@ -422,14 +514,26 @@ fn since<'a>(before: &Trace, after: &'a Trace) -> Result<&'a [Event]> {
 }
 
 fn loopback(url: &str) -> Result<()> {
-    let authority = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))
-        .ok_or("non-HTTP capture endpoint refused")?.split('/').next().ok_or("endpoint authority missing")?;
+    let authority = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .ok_or("non-HTTP capture endpoint refused")?
+        .split('/')
+        .next()
+        .ok_or("endpoint authority missing")?;
     let host = if authority.starts_with('[') {
-        authority.split(']').next().ok_or("IPv6 endpoint malformed")?.trim_start_matches('[')
+        authority
+            .split(']')
+            .next()
+            .ok_or("IPv6 endpoint malformed")?
+            .trim_start_matches('[')
     } else {
         authority.split(':').next().ok_or("endpoint host missing")?
     };
-    if !host.parse::<IpAddr>().is_ok_and(|address| address.is_loopback()) {
+    if !host
+        .parse::<IpAddr>()
+        .is_ok_and(|address| address.is_loopback())
+    {
         return Err("capture adapters must target numeric loopback endpoints only".into());
     }
     Ok(())
@@ -438,14 +542,25 @@ fn loopback(url: &str) -> Result<()> {
 fn config(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<PathBuf> {
     fn expand(value: &mut Value, root: &str, dir: &str) {
         match value {
-            Value::String(text) => *text = text.replace("{capture_root}", root).replace("{case_dir}", dir),
+            Value::String(text) => {
+                *text = text
+                    .replace("{capture_root}", root)
+                    .replace("{case_dir}", dir)
+            }
             Value::Array(values) => values.iter_mut().for_each(|value| expand(value, root, dir)),
-            Value::Object(values) => values.values_mut().for_each(|value| expand(value, root, dir)),
+            Value::Object(values) => values
+                .values_mut()
+                .for_each(|value| expand(value, root, dir)),
             _ => {}
         }
     }
-    let mut value: Value = serde_json::from_slice(&read(&corpus.artifact(&case.config, "config")?)?)?;
-    expand(&mut value, corpus.root.to_str().ok_or("capture root not text")?, dir.to_str().ok_or("case directory not text")?);
+    let mut value: Value =
+        serde_json::from_slice(&read(&corpus.artifact(&case.config, "config")?)?)?;
+    expand(
+        &mut value,
+        corpus.root.to_str().ok_or("capture root not text")?,
+        dir.to_str().ok_or("case directory not text")?,
+    );
     value["journal_path"] = json!(dir.join("journal.jsonl"));
     if !value["cosign_directory"].is_null() {
         return Err("focused capture must use a complete local remote-signer authority".into());
@@ -460,11 +575,18 @@ fn config(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<PathBuf> {
             return Err("Paxeer capture request bound exceeded".into());
         }
     }
-    let handles: BTreeSet<_> = config.chains.iter().map(|chain| chain.submitter.handle.as_str()).collect();
+    let handles: BTreeSet<_> = config
+        .chains
+        .iter()
+        .map(|chain| chain.submitter.handle.as_str())
+        .collect();
     if handles.len() != 2 {
         return Err("destination-specific signer refusal needs distinct submitter handles".into());
     }
-    let solana = config.solana.as_ref().ok_or("Solana releases are required")?;
+    let solana = config
+        .solana
+        .as_ref()
+        .ok_or("Solana releases are required")?;
     if solana.release_mints.is_empty() {
         return Err("Solana release mint missing".into());
     }
@@ -472,7 +594,12 @@ fn config(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<PathBuf> {
     if chains != BTreeSet::from([case.failing_chain, case.ready_chain]) {
         return Err("captured destination identities differ from production config".into());
     }
-    for rpc in config.chains.iter().map(|chain| &chain.rpc).chain(std::iter::once(&solana.rpc)) {
+    for rpc in config
+        .chains
+        .iter()
+        .map(|chain| &chain.rpc)
+        .chain(std::iter::once(&solana.rpc))
+    {
         if rpc.connect_timeout_ms > 2000 || rpc.request_timeout_ms > 2000 {
             return Err("destination capture request bound exceeded".into());
         }
@@ -501,18 +628,27 @@ fn phase(config: &Path, dir: &Path, mode: &str) -> Result<Option<Report>> {
     }
     let mut command = if mode == "unwritable" {
         let mut shell = Command::new("/bin/sh");
-        shell.arg("-c").arg("trap '' XFSZ; ulimit -f 0; exec \"$@\"")
-            .arg("bridge-journal-limit").arg(&executable);
+        shell
+            .arg("-c")
+            .arg("trap '' XFSZ; ulimit -f 0; exec \"$@\"")
+            .arg("bridge-journal-limit")
+            .arg(&executable);
         shell
     } else {
         Command::new(executable)
     };
-    command.process_group(0).args(["--exact", "outbound_isolation_phase_worker", "--nocapture"])
-        .env_clear().env("PATH", "/usr/bin:/bin")
+    command
+        .process_group(0)
+        .args(["--exact", "outbound_isolation_phase_worker", "--nocapture"])
+        .env_clear()
+        .env("PATH", "/usr/bin:/bin")
         .env("LAYERX_BRIDGE_PHASE_CONFIG", config)
         .env("LAYERX_BRIDGE_PHASE_OUTPUT", &output)
         .env("LAYERX_BRIDGE_PHASE_MODE", mode)
-        .current_dir(dir).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+        .current_dir(dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
     let mut child = command.spawn()?;
     let outcome = wait(&mut child, deadline(60));
     let mut diagnostic = Vec::new();
@@ -521,9 +657,15 @@ fn phase(config: &Path, dir: &Path, mode: &str) -> Result<Option<Report>> {
     }
     fs::write(dir.join(format!("phase-{mode}.stderr")), diagnostic)?;
     let status = outcome?;
-    let expected = match mode { "unwritable" => 74, "corrupt" => 75, _ => 0 };
+    let expected = match mode {
+        "unwritable" => 74,
+        "corrupt" => 75,
+        _ => 0,
+    };
     if status.code() != Some(expected) {
-        return Err(format!("real relayer phase {mode} returned {status}, expected {expected}").into());
+        return Err(
+            format!("real relayer phase {mode} returned {status}, expected {expected}").into(),
+        );
     }
     if expected == 0 {
         Ok(Some(serde_json::from_slice(&read(&output)?)?))
@@ -534,18 +676,26 @@ fn phase(config: &Path, dir: &Path, mode: &str) -> Result<Option<Report>> {
 
 #[test]
 fn outbound_isolation_phase_worker() -> Result<()> {
-    let Some(path) = std::env::var_os("LAYERX_BRIDGE_PHASE_CONFIG") else { return Ok(()); };
+    let Some(path) = std::env::var_os("LAYERX_BRIDGE_PHASE_CONFIG") else {
+        return Ok(());
+    };
     let mode = std::env::var("LAYERX_BRIDGE_PHASE_MODE")?;
     let config = RelayerConfig::load(Path::new(&path))?;
     let setup = config.build();
     if mode == "corrupt" {
-        assert!(matches!(setup, Err(RelayerError::Journal(JournalError::Corrupt { .. }))));
+        assert!(matches!(
+            setup,
+            Err(RelayerError::Journal(JournalError::Corrupt { .. }))
+        ));
         std::process::exit(75);
     }
     let mut relayer = Relayer::new(setup?)?;
     let step = relayer.outbound_step();
     if mode == "unwritable" {
-        assert!(matches!(&step, Err(RelayerError::Journal(JournalError::Io(_)))));
+        assert!(matches!(
+            &step,
+            Err(RelayerError::Journal(JournalError::Io(_)))
+        ));
         assert_eq!(relayer.outbound_step(), step);
         assert_eq!(relayer.inbound_step(0), step);
         assert_eq!(relayer.solana_step(), step);
@@ -555,21 +705,31 @@ fn outbound_isolation_phase_worker() -> Result<()> {
         std::process::exit(74);
     }
     let report = step?;
-    let failures: Vec<Value> = relayer.failures().iter().map(|failure| {
-        let kind = match &failure.error {
-            RelayerError::Rpc(RpcFault::Unavailable) => "rpc",
-            RelayerError::Rpc(RpcFault::Malformed) | RelayerError::Abi(_) | RelayerError::ReceiptFailed => "receipt",
-            RelayerError::Key(_) => "signer",
-            _ => "unexpected",
-        };
-        json!({"item": failure.item, "chain_id": failure.chain_id, "kind": kind})
-    }).collect();
-    fs::write(PathBuf::from(std::env::var_os("LAYERX_BRIDGE_PHASE_OUTPUT").ok_or("phase output missing")?),
+    let failures: Vec<Value> = relayer
+        .failures()
+        .iter()
+        .map(|failure| {
+            let kind = match &failure.error {
+                RelayerError::Rpc(RpcFault::Unavailable) => "rpc",
+                RelayerError::Rpc(RpcFault::Malformed)
+                | RelayerError::Abi(_)
+                | RelayerError::ReceiptFailed => "receipt",
+                RelayerError::Key(_) => "signer",
+                _ => "unexpected",
+            };
+            json!({"item": failure.item, "chain_id": failure.chain_id, "kind": kind})
+        })
+        .collect();
+    fs::write(
+        PathBuf::from(
+            std::env::var_os("LAYERX_BRIDGE_PHASE_OUTPUT").ok_or("phase output missing")?,
+        ),
         serde_json::to_vec(&json!({
             "observed": report.observed, "submitted": report.submitted,
             "completed": report.completed, "waiting": report.waiting,
             "refused": report.refused, "failures": failures
-        }))?)?;
+        }))?,
+    )?;
     Ok(())
 }
 
@@ -582,22 +742,35 @@ fn assert_fault(report: &Report, case: &Scenario) {
     assert_eq!(report.failures[0].item, case.failing_item);
     assert_eq!(report.failures[0].chain_id, case.failing_chain);
     assert_eq!(report.failures[0].kind, case.fault);
-    assert!(report.waiting >= 2, "failed and nonce-dependent items stay visible");
+    assert!(
+        report.waiting >= 2,
+        "failed and nonce-dependent items stay visible"
+    );
     assert_eq!(report.refused, 0);
 }
 
 fn assert_bounded(before: &Trace, after: &Trace, case: &Scenario) -> Result<()> {
-    let requests = since(before, after)?.iter().filter(|event| {
-        event.item == case.failing_item && event.chain_id == case.failing_chain
-            && event.operation == case.failure_operation
-    }).count();
+    let requests = since(before, after)?
+        .iter()
+        .filter(|event| {
+            event.item == case.failing_item
+                && event.chain_id == case.failing_chain
+                && event.operation == case.failure_operation
+        })
+        .count();
     assert_eq!(requests, case.failure_requests_per_pass);
-    assert!(!since(before, after)?.iter().any(|event| event.item == case.blocked_item));
+    assert!(!since(before, after)?
+        .iter()
+        .any(|event| event.item == case.blocked_item));
     Ok(())
 }
 
 fn sends<'a>(trace: &'a Trace, item: &str) -> Vec<&'a Event> {
-    trace.events.iter().filter(|event| event.kind == "send" && event.item == item).collect()
+    trace
+        .events
+        .iter()
+        .filter(|event| event.kind == "send" && event.item == item)
+        .collect()
 }
 
 fn assert_rebroadcast(trace: &Trace, item: &str, raw: &[u8]) -> Result<()> {
@@ -626,18 +799,33 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
     assert_eq!(down.submitted, 2);
     let first = state(dir)?;
     assert_eq!(first.items.len(), 4);
-    for (key, chain) in [(&case.failing_item, case.failing_chain), (&case.blocked_item, case.failing_chain), (&case.evm_item, case.ready_chain), (&case.solana_item, SOLANA_CHAIN_ID)] {
-        assert!(matches!(first.items[key].observation, Observation::Outbound { chain_id, .. } if chain_id == chain));
+    for (key, chain) in [
+        (&case.failing_item, case.failing_chain),
+        (&case.blocked_item, case.failing_chain),
+        (&case.evm_item, case.ready_chain),
+        (&case.solana_item, SOLANA_CHAIN_ID),
+    ] {
+        assert!(
+            matches!(first.items[key].observation, Observation::Outbound { chain_id, .. } if chain_id == chain)
+        );
     }
     assert!(first.items[&case.failing_item].is_open());
     if case.fault == "receipt" {
-        let pending = first.items[&case.failing_item].pending().ok_or("receipt fault lacks a pending transaction")?;
+        let pending = first.items[&case.failing_item]
+            .pending()
+            .ok_or("receipt fault lacks a pending transaction")?;
         assert_eq!(pending.nonce, case.failing_nonce);
     }
     assert!(first.items[&case.blocked_item].submissions.is_empty());
     assert!(first.items[&case.blocked_item].signature.is_none());
-    let evm = first.items[&case.evm_item].pending().ok_or("ready EVM did not advance")?.clone();
-    let solana = first.items[&case.solana_item].pending_release().ok_or("ready Solana did not advance")?.clone();
+    let evm = first.items[&case.evm_item]
+        .pending()
+        .ok_or("ready EVM did not advance")?
+        .clone();
+    let solana = first.items[&case.solana_item]
+        .pending_release()
+        .ok_or("ready Solana did not advance")?
+        .clone();
     assert_eq!(evm.nonce, case.evm_nonce);
     let first_trace = snapshot(corpus, case, dir)?;
     assert_bounded(&initial, &first_trace, case)?;
@@ -647,9 +835,12 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
         (&case.evm_item, "LayerX/bridge/ethereum-eip1559/v1"),
         (&case.solana_item, "LayerX/bridge/solana-tx/v1"),
     ] {
-        assert!(first_trace.events.iter().any(|event| {
-            event.kind == "sign" && event.item == *item && event.operation == operation
-        }), "ready destination must use its real remote signer domain");
+        assert!(
+            first_trace.events.iter().any(|event| {
+                event.kind == "sign" && event.item == *item && event.operation == operation
+            }),
+            "ready destination must use its real remote signer domain"
+        );
     }
     for (item, raw) in [(&case.evm_item, &evm.raw), (&case.solana_item, &solana.raw)] {
         for sent in sends(&first_trace, item) {
@@ -674,7 +865,10 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
     assert!(restart.failures.is_empty());
     let replayed = state(dir)?;
     assert_eq!(replayed.items[&case.evm_item].pending(), Some(&evm));
-    assert_eq!(replayed.items[&case.solana_item].pending_release(), Some(&solana));
+    assert_eq!(
+        replayed.items[&case.solana_item].pending_release(),
+        Some(&solana)
+    );
     assert_eq!(replayed.items[&case.evm_item].submissions.len(), 1);
     assert_eq!(replayed.items[&case.solana_item].releases.len(), 1);
     let restart_trace = snapshot(corpus, case, dir)?;
@@ -684,9 +878,15 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
     if let Some(pending) = first.items[&case.failing_item].pending() {
         assert_eq!(replayed.items[&case.failing_item].pending(), Some(pending));
         let sends = sends(&restart_trace, &case.failing_item);
-        assert!(!sends.is_empty(), "captured pending failure must be rebroadcast after recovery");
+        assert!(
+            !sends.is_empty(),
+            "captured pending failure must be rebroadcast after recovery"
+        );
         for sent in sends {
-            assert_eq!(layerx_bridge_relayer::hex::decode(&sent.payload_hex)?, pending.raw);
+            assert_eq!(
+                layerx_bridge_relayer::hex::decode(&sent.payload_hex)?,
+                pending.raw
+            );
         }
     }
     assert!(!since(&repeat_trace, &restart_trace)?.iter().any(|event| {
@@ -700,7 +900,12 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
         assert_eq!(report.refused, 0);
     }
     let final_state = state(dir)?;
-    for item in [&case.failing_item, &case.blocked_item, &case.evm_item, &case.solana_item] {
+    for item in [
+        &case.failing_item,
+        &case.blocked_item,
+        &case.evm_item,
+        &case.solana_item,
+    ] {
         assert!(final_state.items[item].completion.is_some());
         assert!(!final_state.items[item].is_open());
         assert_eq!(final_state.items[item].transactions(), 1);
@@ -708,24 +913,54 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
     let failing = &final_state.items[&case.failing_item].submissions[0];
     let blocked = &final_state.items[&case.blocked_item].submissions[0];
     assert_eq!(failing.nonce, case.failing_nonce);
-    assert_eq!(blocked.nonce, case.failing_nonce.checked_add(1).ok_or("nonce exhausted")?);
+    assert_eq!(
+        blocked.nonce,
+        case.failing_nonce.checked_add(1).ok_or("nonce exhausted")?
+    );
     assert_eq!(failing.submitter, blocked.submitter);
     let completed = snapshot(corpus, case, dir)?;
-    let first_failed_send = completed.events.iter().position(|event| event.kind == "send" && event.item == case.failing_item).ok_or("failed destination never recovered")?;
-    let first_blocked_send = completed.events.iter().position(|event| event.kind == "send" && event.item == case.blocked_item).ok_or("blocked item never advanced")?;
+    let first_failed_send = completed
+        .events
+        .iter()
+        .position(|event| event.kind == "send" && event.item == case.failing_item)
+        .ok_or("failed destination never recovered")?;
+    let first_blocked_send = completed
+        .events
+        .iter()
+        .position(|event| event.kind == "send" && event.item == case.blocked_item)
+        .ok_or("blocked item never advanced")?;
     assert!(first_failed_send < first_blocked_send);
-    for item in [&case.failing_item, &case.blocked_item, &case.evm_item, &case.solana_item] {
+    for item in [
+        &case.failing_item,
+        &case.blocked_item,
+        &case.evm_item,
+        &case.solana_item,
+    ] {
         assert_eq!(completed.effects.get(item), Some(&1));
     }
     let idle = phase(&config_path, dir, "normal")?.ok_or("idle report missing")?;
-    assert_eq!((idle.observed, idle.submitted, idle.completed, idle.waiting, idle.refused), (0, 0, 0, 0, 0));
+    assert_eq!(
+        (
+            idle.observed,
+            idle.submitted,
+            idle.completed,
+            idle.waiting,
+            idle.refused
+        ),
+        (0, 0, 0, 0, 0)
+    );
     assert!(idle.failures.is_empty());
     assert_eq!(state(dir)?, final_state);
     let idle_trace = snapshot(corpus, case, dir)?;
-    assert!(!since(&completed, &idle_trace)?.iter().any(|event| matches!(event.kind.as_str(), "sign" | "send")));
+    assert!(!since(&completed, &idle_trace)?
+        .iter()
+        .any(|event| matches!(event.kind.as_str(), "sign" | "send")));
     assert_eq!(idle_trace.effects, completed.effects);
 
-    OpenOptions::new().append(true).open(dir.join("journal.jsonl"))?.write_all(b"not a journal record\n")?;
+    OpenOptions::new()
+        .append(true)
+        .open(dir.join("journal.jsonl"))?
+        .write_all(b"not a journal record\n")?;
     phase(&config_path, dir, "corrupt")?;
     let corrupt_trace = snapshot(corpus, case, dir)?;
     assert!(since(&idle_trace, &corrupt_trace)?.is_empty());
@@ -734,7 +969,9 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
     let before_failure = snapshot(corpus, case, dir)?;
     phase(&config_path, dir, "unwritable")?;
     let after_failure = snapshot(corpus, case, dir)?;
-    assert!(!since(&before_failure, &after_failure)?.iter().any(|event| matches!(event.kind.as_str(), "sign" | "send")));
+    assert!(!since(&before_failure, &after_failure)?
+        .iter()
+        .any(|event| matches!(event.kind.as_str(), "sign" | "send")));
     assert_eq!(after_failure.effects, before_failure.effects);
     assert_eq!(state(dir)?, first);
     Ok(())
@@ -742,9 +979,42 @@ fn run_case(corpus: &Corpus, case: &Scenario, dir: &Path) -> Result<()> {
 
 #[test]
 fn outbound_isolation_captured_production_boundaries() -> Result<()> {
+    use capture_prerequisite::{prerequisite, Disposition, REQUIRED_ENV};
+    let path = std::env::var_os(MANIFEST_ENV).map(PathBuf::from);
+    let expected = match std::env::var(MANIFEST_PIN_ENV) {
+        Ok(value) => Some(value),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(_) => return Err("LAYERX_BRIDGE_CAPTURE_MANIFEST_SHA256 must be Unicode hex".into()),
+    };
+    let required = match std::env::var(REQUIRED_ENV) {
+        Err(std::env::VarError::NotPresent) => false,
+        Ok(value) if value == "1" => true,
+        _ => return Err("LAYERX_BRIDGE_CAPTURE_REQUIRED must be 1 when configured".into()),
+    };
+    match prerequisite(path.as_deref(), expected.as_deref(), required)? {
+        Disposition::MissingPrerequisite(reason) => {
+            eprintln!("MISSING PREREQUISITE: {reason}");
+            assert!(path.is_none() && expected.is_none() && !required);
+            Ok(())
+        }
+        Disposition::Required { .. } => required_captured_production_boundaries(),
+    }
+}
+
+pub fn validate_capture_manifest(path: &Path, expected: &str) -> Result<()> {
+    Corpus::load_from(path, expected).map(|_| ())
+}
+
+// Qualification calls this path with mandatory producer inputs; it never
+// converts missing or invalid artifacts into a prerequisite disposition.
+pub fn required_captured_production_boundaries() -> Result<()> {
     let _ = DEADLINE.set(Instant::now() + Duration::from_secs(12 * 60));
     let corpus = Corpus::load()?;
-    let root = std::env::temp_dir().join(format!("bridge-outbound-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()));
+    let root = std::env::temp_dir().join(format!(
+        "bridge-outbound-{}-{}",
+        std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
+    ));
     fs::create_dir(&root)?;
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
     let deadline = Instant::now() + Duration::from_secs(12 * 60);

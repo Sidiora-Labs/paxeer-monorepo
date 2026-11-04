@@ -42,6 +42,10 @@ type ResultStore interface {
 	// persisted it Failed), which a stale-only scan would miss.
 	LatestByType(taskType string) (*TaskResult, error)
 
+	// Readiness restores the persisted release/hold lifecycle. Only a completed
+	// mark-ready newer than every hold attempt releases the gate; ties are held.
+	Readiness() (bool, error)
+
 	// Ping verifies the store is responsive. Used by liveness checks.
 	Ping() error
 

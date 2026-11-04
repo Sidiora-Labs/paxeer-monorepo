@@ -1,5 +1,11 @@
 //! Deterministic WASM binary construction for validation and execution tests.
 
+/// Counts actual host-linker registrations on this test thread.
+#[must_use]
+pub fn host_linker_constructions_on_current_thread() -> usize {
+    crate::host::linker_constructions_on_current_thread()
+}
+
 /// The `i32` value type code.
 pub const TYPE_I32: u8 = 0x7f;
 /// The `i64` value type code.

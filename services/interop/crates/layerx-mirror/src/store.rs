@@ -222,7 +222,9 @@ impl From<PublicationStage> for PublicationStageKey {
 impl PublicationJournal {
     /// Opens and fully replays a lane after validating the atomically sealed
     /// high-water offset and hash chain. A truncated but internally valid
-    /// prefix is rejected against the independent head file.
+    /// prefix is rejected against the independent head file. An incomplete
+    /// unsealed append returns `RecoveryRequired` without discarding bytes;
+    /// use `recover_unsealed_suffix` explicitly after preserving the directory.
     ///
     /// # Errors
     /// Returns an error for invalid batch origin, lock conflict, corrupt journal or filesystem failure.
@@ -231,10 +233,34 @@ impl PublicationJournal {
         chain: MirrorChain,
         first_batch_number: u64,
     ) -> Result<Self, StoreError> {
+        Self::open_inner(directory.into(), chain, first_batch_number, false)
+    }
+
+    /// Explicitly recovers an incomplete unsealed append after validating the
+    /// sealed head and every complete frame. Retains complete valid extensions,
+    /// truncates only the incomplete suffix, syncs it, then atomically seals the
+    /// recovered head. Stop the publisher and retain a copy of the state first.
+    ///
+    /// # Errors
+    /// Refuses missing recovery authority, sealed-prefix damage, invalid complete
+    /// frames, rollback, lock conflicts and filesystem failures without truncation.
+    pub fn recover_unsealed_suffix(
+        directory: impl Into<PathBuf>,
+        chain: MirrorChain,
+        first_batch_number: u64,
+    ) -> Result<Self, StoreError> {
+        Self::open_inner(directory.into(), chain, first_batch_number, true)
+    }
+
+    fn open_inner(
+        directory: PathBuf,
+        chain: MirrorChain,
+        first_batch_number: u64,
+        recover: bool,
+    ) -> Result<Self, StoreError> {
         if first_batch_number == 0 {
             return Err(StoreError::InvalidTransition);
         }
-        let directory = directory.into();
         fs::create_dir_all(&directory).map_err(StoreError::Io)?;
         let log_path = directory.join(format!("{}.journal", lane_name(chain)));
         let head_path = directory.join(format!("{}.head", lane_name(chain)));
@@ -255,7 +281,19 @@ impl PublicationJournal {
             .map_err(StoreError::Io)?;
         let on_disk_head = read_head(&head_path)?;
         let (head, records) = replay(&mut log, chain, on_disk_head)?;
+        let actual_length = log.metadata().map_err(StoreError::Io)?.len();
+        if actual_length != head.offset {
+            if !recover {
+                return Err(StoreError::RecoveryRequired {
+                    valid_bytes: head.offset,
+                    trailing_bytes: actual_length - head.offset,
+                });
+            }
+            log.set_len(head.offset).map_err(StoreError::Io)?;
+            log.sync_all().map_err(StoreError::Io)?;
+        }
         if on_disk_head != Some(head) {
+            log.sync_all().map_err(StoreError::Io)?;
             write_head(&directory, &head_path, head)?;
         }
         Ok(Self {
@@ -500,6 +538,12 @@ pub enum StoreError {
     Conflict,
     InvalidTransition,
     Rollback,
+    /// A verified sealed prefix and complete extensions precede an incomplete
+    /// append. Ordinary open never discards it; use `recover_unsealed_suffix`.
+    RecoveryRequired {
+        valid_bytes: u64,
+        trailing_bytes: u64,
+    },
 }
 
 impl Clone for StoreError {
@@ -511,6 +555,13 @@ impl Clone for StoreError {
             Self::Conflict => Self::Conflict,
             Self::InvalidTransition => Self::InvalidTransition,
             Self::Rollback => Self::Rollback,
+            Self::RecoveryRequired {
+                valid_bytes,
+                trailing_bytes,
+            } => Self::RecoveryRequired {
+                valid_bytes: *valid_bytes,
+                trailing_bytes: *trailing_bytes,
+            },
         }
     }
 }
@@ -519,6 +570,16 @@ impl PartialEq for StoreError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Io(left), Self::Io(right)) => left.kind() == right.kind(),
+            (
+                Self::RecoveryRequired {
+                    valid_bytes: left,
+                    trailing_bytes: left_tail,
+                },
+                Self::RecoveryRequired {
+                    valid_bytes: right,
+                    trailing_bytes: right_tail,
+                },
+            ) => left == right && left_tail == right_tail,
             (Self::Corrupt, Self::Corrupt)
             | (Self::Length, Self::Length)
             | (Self::Conflict, Self::Conflict)
@@ -576,20 +637,15 @@ fn validate_transition(
                 | PublicationPhase::Pending
                 | PublicationPhase::PermanentRefusal
         ),
-        PublicationPhase::BroadcastUnknown => matches!(
-            next.phase,
+        PublicationPhase::BroadcastUnknown | PublicationPhase::Pending => match next.phase {
             PublicationPhase::BroadcastUnknown
-                | PublicationPhase::BroadcastExpired
-                | PublicationPhase::Pending
-                | PublicationPhase::Finalized
-                | PublicationPhase::PermanentRefusal
-        ),
-        PublicationPhase::Pending => matches!(
-            next.phase,
-            PublicationPhase::Pending
-                | PublicationPhase::Finalized
-                | PublicationPhase::PermanentRefusal
-        ),
+            | PublicationPhase::Pending
+            | PublicationPhase::Finalized
+            | PublicationPhase::PermanentRefusal => true,
+            PublicationPhase::Reorged => previous.chain == MirrorChain::Ethereum,
+            PublicationPhase::BroadcastExpired => previous.chain == MirrorChain::Solana,
+            _ => false,
+        },
         PublicationPhase::Finalized => matches!(
             next.phase,
             PublicationPhase::Finalized
@@ -630,31 +686,55 @@ fn replay(
         offset: 0,
         digest: [0; 32],
     };
-    let mut sealed_prefix_seen = expected_head.is_none() || expected_head == Some(head);
+    let mut sealed_prefix_seen = expected_head == Some(head);
+    let actual_length = log.metadata().map_err(StoreError::Io)?.len();
     loop {
-        let mut sequence_bytes = [0_u8; 8];
-        match log.read_exact(&mut sequence_bytes) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(error) => return Err(StoreError::Io(error)),
+        let remaining = actual_length
+            .checked_sub(head.offset)
+            .ok_or(StoreError::Corrupt)?;
+        if remaining == 0 {
+            break;
         }
+        // A partial frame is recoverable only beyond a verified independent head.
+        // Missing heads and incomplete authenticated prefixes never authorize loss.
+        if remaining < 8 {
+            if !sealed_prefix_seen {
+                return Err(StoreError::Corrupt);
+            }
+            break;
+        }
+        let mut sequence_bytes = [0_u8; 8];
+        log.read_exact(&mut sequence_bytes)
+            .map_err(StoreError::Io)?;
         let sequence = u64::from_be_bytes(sequence_bytes);
+        if sequence != head.sequence.checked_add(1).ok_or(StoreError::Length)? {
+            return Err(StoreError::Corrupt);
+        }
+        if remaining < 12 {
+            if !sealed_prefix_seen {
+                return Err(StoreError::Corrupt);
+            }
+            break;
+        }
         let mut length_bytes = [0_u8; 4];
-        log.read_exact(&mut length_bytes)
-            .map_err(|_| StoreError::Corrupt)?;
+        log.read_exact(&mut length_bytes).map_err(StoreError::Io)?;
         let length =
             usize::try_from(u32::from_be_bytes(length_bytes)).map_err(|_| StoreError::Length)?;
         if length == 0 || length > MAX_RECORD_BYTES {
             return Err(StoreError::Length);
         }
+        let frame_length = 12 + u64::try_from(length).map_err(|_| StoreError::Length)? + 32;
+        if remaining < frame_length {
+            if !sealed_prefix_seen {
+                return Err(StoreError::Corrupt);
+            }
+            break;
+        }
         let mut body = vec![0_u8; length];
-        log.read_exact(&mut body).map_err(|_| StoreError::Corrupt)?;
+        log.read_exact(&mut body).map_err(StoreError::Io)?;
         let mut digest = [0_u8; 32];
-        log.read_exact(&mut digest)
-            .map_err(|_| StoreError::Corrupt)?;
-        if sequence != head.sequence.checked_add(1).ok_or(StoreError::Length)?
-            || digest != record_digest(head.digest, sequence, &body)
-        {
+        log.read_exact(&mut digest).map_err(StoreError::Io)?;
+        if digest != record_digest(head.digest, sequence, &body) {
             return Err(StoreError::Corrupt);
         }
         let record = decode_record(&body)?;
@@ -682,11 +762,7 @@ fn replay(
             sealed_prefix_seen = true;
         }
     }
-    let actual_length = log.metadata().map_err(StoreError::Io)?.len();
-    if actual_length != head.offset {
-        return Err(StoreError::Corrupt);
-    }
-    if !sealed_prefix_seen {
+    if expected_head.is_some() && !sealed_prefix_seen {
         return Err(StoreError::Rollback);
     }
     log.seek(SeekFrom::End(0)).map_err(StoreError::Io)?;

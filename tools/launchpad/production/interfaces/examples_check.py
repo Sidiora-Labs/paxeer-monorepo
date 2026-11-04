@@ -246,17 +246,18 @@ def check(actual, expected):
     if actual.get('inputs') != expected['inputs']: raise ExampleError('Stale example input hashes')
     if actual != expected: raise ExampleError('Examples missing, stale, invalid or non-deterministic')
 
-def main():
+def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--spec',default='launchpad/spec/production-system/spec.kvx')
-    parser.add_argument('--contracts',default='launchpad/spec/production-system/integration/contracts/v1')
+    source=parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--spec')
+    source.add_argument('--catalog')
+    parser.add_argument('--contracts',required=True)
     parser.add_argument('--major',type=int,default=1)
     parser.add_argument('--api-base')
-    parser.add_argument('--catalog')
     parser.add_argument('--examples', help='examples artifact path; defaults to contracts/examples.json')
     parser.add_argument('--materializer',default=str(pathlib.Path(__file__).with_name('materialize.py')))
     mode=parser.add_mutually_exclusive_group(required=True);mode.add_argument('--check',action='store_true');mode.add_argument('--write',action='store_true')
-    args=parser.parse_args();directory=pathlib.Path(args.contracts)
+    args=parser.parse_args(argv);directory=pathlib.Path(args.contracts)
     spec=json.loads(pathlib.Path(args.catalog).read_text()) if args.catalog else tomllib.loads(pathlib.Path(args.spec).read_text())
     if 'sections' in spec:spec=spec['sections']
     expected=generate(spec,directory,load_materializer(args.materializer),args.major,args.api_base)

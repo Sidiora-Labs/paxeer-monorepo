@@ -32,7 +32,19 @@ export interface RankingErrorResponse {
   supported?: RankingCategory[]; restart?: boolean; retainLastResult?: boolean;
 }
 export interface RankingQuery { limit?: number; cursor?: string | null; signal?: AbortSignal }
-export interface HttpClientConfig { baseUrl: string; headers?: HeadersInit }
+export interface HttpClientConfig { baseUrl: string; headers?: HeadersInit; timeoutMs?: number }
+export const DEFAULT_RANKING_TIMEOUT_MS = 10_000;
+export const MAX_RANKING_TIMEOUT_MS = 60_000;
+export const MAX_RANKINGS_RESPONSE_BYTES = 1024 * 1024;
+export const MAX_RANKING_ERROR_RESPONSE_BYTES = 64 * 1024;
+export class RankingResponseTooLargeError extends RangeError {
+  readonly status: number;
+  readonly limit: number;
+  constructor(status: number, limit: number) {
+    super(`Ranking response exceeds ${limit} bytes`);
+    this.name = 'RankingResponseTooLargeError'; this.status = status; this.limit = limit;
+  }
+}
 export class RankingHttpError extends Error {
   readonly status: number;
   readonly body: string;
@@ -128,14 +140,42 @@ function parseRankings(value: unknown, requested: RankingCategory): RankingsResp
   if (!rankings(value, requested)) throw new TypeError('Invalid rankings response');
   return value;
 }
+async function readRankingResponse(response: Response): Promise<string> {
+  const limit = response.ok ? MAX_RANKINGS_RESPONSE_BYTES : MAX_RANKING_ERROR_RESPONSE_BYTES;
+  const length = response.headers.get('Content-Length');
+  if (length !== null && /^[0-9]+$/.test(length) && Number(length) > limit) {
+    throw new RankingResponseTooLargeError(response.status, limit);
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let body = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limit) throw new RankingResponseTooLargeError(response.status, limit);
+      body += decoder.decode(value, { stream: true });
+    }
+    return body + decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+}
 export class RankingHttpClient {
-  private config: HttpClientConfig | undefined;
+  private config: (HttpClientConfig & { timeoutMs: number }) | undefined;
   configure(config: HttpClientConfig): void {
     const url = new URL(config.baseUrl);
     if (!['http:', 'https:'].includes(url.protocol) || url.search || url.hash || url.username || url.password) {
       throw new TypeError('Ranking baseUrl must be an HTTP(S) URL without credentials, query or fragment');
     }
-    this.config = { baseUrl: url.href.replace(/\/$/, ''), headers: new Headers(config.headers) };
+    const timeoutMs = config.timeoutMs ?? DEFAULT_RANKING_TIMEOUT_MS;
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_RANKING_TIMEOUT_MS) {
+      throw new RangeError(`timeoutMs must be an integer from 1 to ${MAX_RANKING_TIMEOUT_MS}`);
+    }
+    this.config = { baseUrl: url.href.replace(/\/$/, ''), headers: new Headers(config.headers), timeoutMs };
   }
   async getRankings(requested: RankingCategory, query: RankingQuery = {}): Promise<RankingsResponse> {
     if (!this.config) throw new Error('Ranking HTTP client is not configured');
@@ -152,10 +192,28 @@ export class RankingHttpClient {
     }
     const headers = new Headers(this.config.headers);
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
-    const response = await fetch(url, { headers, signal: query.signal });
-    if (!response.ok) throw new RankingHttpError(response.status, await response.text(), response.headers.get('Retry-After'));
-    const body: unknown = await response.json();
-    return parseRankings(body, requested);
+    const controller = new AbortController();
+    const callerSignal = query.signal;
+    const cancel = () => controller.abort(callerSignal?.reason);
+    if (callerSignal?.aborted) cancel();
+    else callerSignal?.addEventListener('abort', cancel, { once: true });
+    const timer = setTimeout(() => {
+      controller.abort(new DOMException('Ranking request deadline exceeded', 'TimeoutError'));
+    }, this.config.timeoutMs);
+    try {
+      const response = await fetch(url, { headers, signal: controller.signal });
+      const text = await readRankingResponse(response);
+      if (!response.ok) throw new RankingHttpError(response.status, text, response.headers.get('Retry-After'));
+      const body: unknown = JSON.parse(text);
+      return parseRankings(body, requested);
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      controller.abort(error);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', cancel);
+    }
   }
 }
 export const httpClient = new RankingHttpClient();

@@ -353,7 +353,6 @@ impl CallGraph {
         evidence
     }
 
-    #[cfg(feature = "host-ffi")]
     pub(crate) fn write_canonical_evidence(&self, evidence: &mut Vec<u8>) {
         evidence.clear();
         evidence.extend_from_slice(GRAPH_DOMAIN);
@@ -661,6 +660,22 @@ pub trait ProgramResolver: fmt::Debug {
         Ok(capabilities.clone())
     }
 
+    /// Resolves exactly the historical identity authorized by an open dispute.
+    fn dispute_artifact(
+        &self,
+        _program: ProgramId,
+        _hash: [u8; 32],
+        _abi: u16,
+        _metering: u32,
+    ) -> Option<std::sync::Arc<crate::CompiledModule>> {
+        None
+    }
+
+    /// Resolves the authenticated historical fee schedule, never node-current prices.
+    fn dispute_fee_schedule(&self, _version: u32) -> Option<crate::FeeSchedule> {
+        None
+    }
+
     /// Returns the validated module deployed under a program identifier.
     fn program_module(&self, program: ProgramId) -> Option<&ValidatedModule>;
 }
@@ -671,6 +686,7 @@ pub trait ProgramResolver: fmt::Debug {
 #[derive(Debug, Default)]
 pub struct ProgramCatalog {
     modules: BTreeMap<ProgramId, ValidatedModule>,
+    dispute_artifacts: crate::dispute_artifacts::DisputeArtifacts,
 }
 
 impl ProgramCatalog {
@@ -680,7 +696,17 @@ impl ProgramCatalog {
     pub fn new() -> Self {
         Self {
             modules: BTreeMap::new(),
+            dispute_artifacts: crate::dispute_artifacts::DisputeArtifacts::default(),
         }
+    }
+
+    #[must_use]
+    pub fn with_dispute_artifacts(
+        mut self,
+        artifacts: crate::dispute_artifacts::DisputeArtifacts,
+    ) -> Self {
+        self.dispute_artifacts = artifacts;
+        self
     }
 
     /// Publishes one caller-supplied validated module under its program
@@ -714,6 +740,20 @@ impl ProgramCatalog {
 }
 
 impl ProgramResolver for ProgramCatalog {
+    fn dispute_artifact(
+        &self,
+        program: ProgramId,
+        hash: [u8; 32],
+        abi: u16,
+        metering: u32,
+    ) -> Option<std::sync::Arc<crate::CompiledModule>> {
+        self.dispute_artifacts.module(program, hash, abi, metering)
+    }
+
+    fn dispute_fee_schedule(&self, version: u32) -> Option<crate::FeeSchedule> {
+        self.dispute_artifacts.fee_schedule(version)
+    }
+
     fn program_module(&self, program: ProgramId) -> Option<&ValidatedModule> {
         self.modules.get(&program)
     }

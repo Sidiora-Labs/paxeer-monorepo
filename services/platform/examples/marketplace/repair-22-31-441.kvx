@@ -1,0 +1,24 @@
+[repair.22.31.441]
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+implementation = "Remove the marketplace ganache devDependency and refresh the root npm workspace lock, including the buyer-agent manifest's existing undici devDependency metadata."
+proving_test = "services/platform/examples/test/repair-22-31-349.test.mjs::repair2231349"
+production_module = "services/platform/examples/marketplace/deploy-payload.mjs; readLifecycleAnchor and marketplaceCallRequest run through their real SDK imports and HTTP transport."
+fixture_source = "services/platform/examples/test/marketplace-chain-125.fixture.json; 23 JSON-RPC request/result exchanges recorded from Ganache 7.9.2 using the deterministic chain-125, 2026-01-01 genesis, one-second blocks, funded deriveFromSeed(fill(7)) account and storage/echo runtime of the original repair test at base_revision."
+fixture_provenance = "The original repair committed a Ganache scenario but no RPC transcript; this task re-records that scenario during fixture authoring, signing its deployment/list/buy transactions with eth_signTransaction and capturing eth_sendRawTransaction, receipts, blocks, nonces, transaction inputs, eth_call, code and storage results. The fixture contains no private key."
+fixture_transport = "A node:http server listens on 127.0.0.1 at an ephemeral port, checks every request in transcript order, returns only the recorded result with the caller's JSON-RPC ID, and closes through node:test cleanup. Unexpected requests fail the test. EVM address comparison in the replay accepts checksum casing; production anchor envelopes are independently asserted verbatim."
+kept_anchor_assertions = "Root POST path, bearer header, JSON content type, exact request and response envelopes, latest block and pending sender selector, nonces 0/1/2/3, state roots and their changes, seconds-to-milliseconds conversion, bounded expiry, frozen anchors and absence of px_ requests."
+kept_evm_assertions = "Successful deployment/list/buy receipts, deployed contract address and runtime, EIP-1559 transaction type, sender, nonce and production calldata, eth_call calldata echo and first calldata word stored at slot zero. The SDK additionally decodes each recorded raw transaction, recovers its signer and checks its chain, hash, destination, fees, gas, value and access list before submission."
+kept_negative_assertions = "Missing, null, empty, DID-shaped, short and non-hex EVM senders refuse before any network request; a stopped peer reports unknown identity_sequence_unreachable."
+added_negative_assertions = "Wrong JSON-RPC version or numeric/string ID, missing result, error with/without result, null/array block, missing/short/non-hex root, missing/noncanonical/overflowing timestamp, millisecond/expiry overflow, missing block/nonce method, malformed nonce envelope and null/numeric/empty/noncanonical/negative/uppercase/overflowing nonce all retain exact refusal or unknown classifications."
+runtime_dependencies = "Only committed fixture data, node built-ins and the workspace SDK built by the declared gate; no installation, subprocess, Ganache import, credential, environment variable or live endpoint at test time."
+proof_limit = "This proves production payload and anchor compatibility with recorded standard-EVM results; it does not execute EVM bytecode during the gate or qualify the native marketplace guest or merged paxd."
+verified_revision = "The candidate revision in the final passing hf-done row of /out/run/gates.jsonl; the runner publishes that unchanged candidate."
+evidence = "The private /out/run/gates.jsonl ledger and /out/logs/build-*.log and verify-*.log hold exact candidate revision, command, exit and log; the final response copies the last gate evidence."
+
+[baseline.22.31.441]
+revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+command = "npm --prefix /work/paxeer-monorepo ci --no-audit --no-fund"
+exit = 1
+log = "/out/logs/node-deps.log"
+observed = "Runner preparation ran the unchanged root workspace install before implementation: npm EUSAGE, Missing: ganache@7.9.2 from lock file; /out/logs/run-task.log records exit 1 and /root/.npm/_logs/2026-11-04T04_34_42_087Z-debug-0.log records the exact argv and exit. This evidence is reused without rerunning a baseline gate."
+baseline_limit = "The preparatory baseline did not include --ignore-scripts; the task's implementation-first and hf-build/hf-done-only gate order prohibits an additional unchanged-tree run. The exact declared --ignore-scripts command is qualified only on the final candidate through those gates."

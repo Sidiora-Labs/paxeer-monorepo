@@ -4,37 +4,91 @@ order: 3
 
 # AnteHandlers
 
-The `x/auth` module presently has no transaction handlers of its own, but does expose the special `AnteHandler`, used for performing basic validity checks on a transaction, such that it could be thrown out of the mempool.
-The `AnteHandler` can be seen as a set of decorators that check transactions within the current context, per [ADR 010](https://github.com/cosmos/cosmos-sdk/blob/v0.43.0-alpha1/docs/architecture/adr-010-modular-antehandler.md).
-
-Note that the `AnteHandler` is called on both `CheckTx` and `DeliverTx`, as Tendermint proposers presently have the ability to include in their proposed block transactions which fail `CheckTx`.
+An `AnteHandler` checks transaction authentication and other prerequisites before
+message execution. SDK decorators compose through `sdk.ChainAnteDecorators`.
+Checks run for mempool admission (`CheckTx`) and committed execution
+(`DeliverTx`); individual decorators may treat simulation and rechecking
+differently. Passing a node's admission checks does not guarantee execution will
+succeed, and block validation must enforce its own checks.
 
 ## Decorators
 
-The auth module provides `AnteDecorator`s that are recursively chained together into a single `AnteHandler` in the following order:
+The default SDK constructor,
+[`sdk/x/auth/ante.NewAnteHandler`](../ante/ante.go), chains these decorators in
+this order:
 
-- `SetUpContextDecorator`: Sets the `GasMeter` in the `Context` and wraps the next `AnteHandler` with a defer clause to recover from any downstream `OutOfGas` panics in the `AnteHandler` chain to return an error with information on gas provided and gas used.
+1. `SetUpContextDecorator`, created by `NewDefaultSetUpContextDecorator`: installs
+   the gas meter and recovers downstream out-of-gas panics.
+2. `RejectExtensionOptionsDecorator`: rejects unsupported extension options.
+3. `ValidateBasicDecorator`: runs transaction basic validation.
+4. `TxTimeoutHeightDecorator`: checks the transaction's timeout height.
+5. `ValidateMemoDecorator`: checks memo length against auth parameters.
+6. `ConsumeTxSizeGasDecorator`, created by `NewConsumeGasForTxSizeDecorator`:
+   charges gas for transaction bytes.
+7. `DeductFeeDecorator`: invokes the configured fee checker, charges effective
+   fees to the payer or approved fee granter, and sets transaction priority.
+8. `SetPubKeyDecorator`: sets signer public keys before signature processing.
+9. `ValidateSigCountDecorator`: enforces the configured signature limit.
+10. `SigGasConsumeDecorator`: charges signature verification gas.
+11. `SigVerificationDecorator`: checks signer metadata and signatures using the
+    configured sign-mode handler.
+12. `IncrementSequenceDecorator`: increments and persists each signer's sequence.
 
-- `RejectExtensionOptionsDecorator`: Rejects all extension options which can optionally be included in protobuf transactions.
+### Fee checking and deduction
 
-- `MempoolFeeDecorator`: Checks if the `tx` fee is above local mempool `minFee` parameter during `CheckTx`.
+`DeductFeeDecorator` uses `HandlerOptions.TxFeeChecker` when supplied, otherwise
+`CheckTxFeeWithValidatorMinGasPrices`. Minimum-price filtering and fee-based
+priority calculation occur inside that checker. There is no separate
+`MempoolFeeDecorator` in this constructed chain. See
+[Gas & Fees](01_concepts.md#gas--fees) for global/local price merging, eligible
+fee denominations and priority precision.
 
-- `ValidateBasicDecorator`: Calls `tx.ValidateBasic` and returns any non-nil error.
+The transaction must implement `sdk.FeeTx`. Fees are charged to `FeePayer()`
+unless `FeeGranter()` is set. A distinct granter must authorize the payer through
+`UseGrantedFees`; setting a granter when no feegrant keeper is configured returns
+`ErrInvalidRequest`. The paying account must exist. The bank keeper's
+`DeferredSendCoinsFromAccountToModule` moves fees to `fee_collector`;
+insufficient funds return `ErrInsufficientFunds`. Successful deduction emits
+`tx` event attributes `fee` and `fee_payer` and passes the priority through the
+context. See [`ante/fee.go`](../ante/fee.go). As with other ante mutations, the
+caller must discard the cached state if a later decorator rejects the transaction;
+fee deduction precedes signature verification in this SDK chain.
 
-- `TxTimeoutHeightDecorator`: Check for a `tx` height timeout.
+### Signatures and sequences
 
-- `ValidateMemoDecorator`: Validates `tx` memo with application parameters and returns any non-nil error.
+[`SigVerificationDecorator`](../ante/sigverify.go) rejects an explicit sequence
+mismatch with `ErrWrongSequence` unless `DisableSeqnoCheck` is enabled. Signature
+verification still uses signer data containing the SDK chain ID, account number
+and stored sequence. Simulation and `ReCheckTx` skip cryptographic verification
+in this decorator. Sequence increments are a separate decorator and are not
+disabled by the parameter. See [Parameters](07_params.md#sequence-checking) for
+the exact scope of that setting.
 
-- `ConsumeGasTxSizeDecorator`: Consumes gas proportional to the `tx` size based on application parameters.
+## Handlers
 
-- `DeductFeeDecorator`: Deducts the `FeeAmount` from first signer of the `tx`. If the `x/feegrant` module is enabled and a fee granter is set, it will deduct fees from the fee granter account.
+The SDK default above is a reusable constructor. Paxeer installs its own
+application constructor from [`node/ante.go`](../../../../node/ante.go) in
+[`node/app.go`](../../../../node/app.go).
 
-- `SetPubKeyDecorator`: Sets the pubkey from a `tx`'s signers that does not already have its corresponding pubkey saved in the state machine and in the current context.
+The application's SDK chain starts with context setup, then a `GaslessDecorator`
+wrapping `DeductFeeDecorator`, followed by simulation-gas limiting, extension
+checks, oracle checks, basic validation, timeout, memo and transaction-size gas.
+It applies `PriorityDecorator` before public-key and signature processing, then
+increments sequences and runs EVM-address association, nested-authz, revocation
+and IBC checks. Its fee checker wrapper also handles the configured fee-token
+feature. Consequently, fee deduction is earlier in this chain than in the SDK
+default list.
 
-- `ValidateSigCountDecorator`: Validates the number of signatures in `tx` based on app-parameters.
+The specialized SDK handlers
+[`CosmosCheckTxAnte`](../../../../node/ante/cosmos_checktx.go) and
+[`CosmosDeliverTxAnte`](../../../../node/ante/cosmos_delivertx.go), called by
+[`node/legacyabci/check_tx.go`](../../../../node/legacyabci/check_tx.go) and
+[`deliver_tx.go`](../../../../node/legacyabci/deliver_tx.go), perform their checks
+directly. They check memo, transaction size, public keys and signatures and update
+signers before fee charging. The admission path uses `CheckAndChargeFees` and
+`DecoratePriority`; the committed path uses `ChargeFees`.
 
-- `SigGasConsumeDecorator`: Consumes parameter-defined amount of gas for each signature. This requires pubkeys to be set in context for all signers as part of `SetPubKeyDecorator`.
-
-- `SigVerificationDecorator`: Verifies all signatures are valid. This requires pubkeys to be set in context for all signers as part of `SetPubKeyDecorator`.
-
-- `IncrementSequenceDecorator`: Increments the account sequence for each signer to prevent replay attacks.
+EVM transactions use a separate ante chain selected inside the node. That chain
+checks EVM fields, chain/domain identity, preprocessing, basic validity, fees,
+signatures and gas. The SDK decorator list must not be used as the EVM validation
+order. Both transaction forms are part of the same network.

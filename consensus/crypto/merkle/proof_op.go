@@ -37,12 +37,18 @@ func (poz ProofOperators) VerifyValue(root []byte, keypath string, value []byte)
 }
 
 func (poz ProofOperators) Verify(root []byte, keypath string, args [][]byte) (err error) {
+	if len(poz) == 0 {
+		return errors.New("proof has no operations")
+	}
 	keys, err := KeyPathToKeys(keypath)
 	if err != nil {
 		return
 	}
 
 	for i, op := range poz {
+		if op == nil {
+			return fmt.Errorf("nil proof operator at index %d", i)
+		}
 		key := op.GetKey()
 		if len(key) != 0 {
 			if len(keys) == 0 {
@@ -58,6 +64,9 @@ func (poz ProofOperators) Verify(root []byte, keypath string, args [][]byte) (er
 		if err != nil {
 			return
 		}
+	}
+	if len(args) != 1 {
+		return fmt.Errorf("expected 1 root result, got %d", len(args))
 	}
 	if !bytes.Equal(root, args[0]) {
 		return fmt.Errorf("calculated root hash is invalid: expected %X but got %X", root, args[0])
@@ -100,6 +109,12 @@ func (prt *ProofRuntime) Decode(pop tmcrypto.ProofOp) (ProofOperator, error) {
 }
 
 func (prt *ProofRuntime) DecodeProof(proof *tmcrypto.ProofOps) (ProofOperators, error) {
+	if proof == nil {
+		return nil, errors.New("nil proof")
+	}
+	if len(proof.Ops) == 0 {
+		return nil, errors.New("proof has no operations")
+	}
 	poz := make(ProofOperators, 0, len(proof.Ops))
 	for _, pop := range proof.Ops {
 		operator, err := prt.Decode(pop)

@@ -52,6 +52,11 @@ defmodule BlockScoutWeb.Schemas.API.V2.General do
     "price_update"
   ]
 
+  @transaction_type_alternatives Enum.join(["blob_transaction" | @base_transaction_types], "|")
+  @transaction_type_pattern Regex.compile!(
+                              "^(#{@transaction_type_alternatives})(,(#{@transaction_type_alternatives}))*$"
+                            )
+
   case @chain_type do
     :ethereum ->
       @allowed_transaction_types ["blob_transaction" | @base_transaction_types]
@@ -372,10 +377,15 @@ defmodule BlockScoutWeb.Schemas.API.V2.General do
     %Parameter{
       name: :type,
       in: :query,
-      schema: %Schema{type: :string, enum: ["blob_transaction", "price_update"]},
+      schema: %Schema{type: :string, pattern: @transaction_type_pattern},
       required: false,
       description: """
       Filter by transaction type. Comma-separated list of:
+      * coin_transfer - Native coin transfer transactions
+      * contract_call - Contract method call transactions
+      * contract_creation - Contract deployment transactions
+      * token_transfer - Token transfer transactions
+      * token_creation - Token creation transactions
       * blob_transaction - Only show blob transactions
       * price_update - Only show native price-feed submissions
       """

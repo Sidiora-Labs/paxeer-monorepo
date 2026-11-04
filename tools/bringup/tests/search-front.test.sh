@@ -40,7 +40,7 @@ fixture_env=(
 	X_WEBSEARCH_RECEIPT_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_SEQUENCER_ID=0505050505050505050505050505050505050505050505050505050505050505
 	X_WEBSEARCH_SEQUENCER_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
-	X_WEBSEARCH_EVM_ENDPOINT=https://api15.paxeer.network/
+	X_WEBSEARCH_EVM_ENDPOINT=https://api1.mainnet-beta.paxeer.network/
 	X_WEBSEARCH_PAYER_ADDRESS=0x1111111111111111111111111111111111111111
 )
 
@@ -49,14 +49,14 @@ env "${fixture_env[@]}" "$front" render >"$work/upstreams.conf" 2>"$work/render.
 check render_exit '[ "$status" -eq 0 ]'
 check render_pins_primary_unadmitted 'diff - <(grep -v "^#" "$work/upstreams.conf") <<"WANT"
 split_clients "${xweb_client}" $xweb_node {
-    * api15.paxeer.network;
+    * api1.mainnet-beta.paxeer.network;
 }
 map $xweb_node $xweb_eligible {
     default 0;
-    api15.paxeer.network 0;
+    api1.mainnet-beta.paxeer.network 0;
 }
 WANT'
-check render_names_both_unready 'grep -Fq "neither api15.paxeer.network nor api1.paxeer.network" "$work/render.err"'
+check render_names_both_unready 'grep -Fq "neither api1.mainnet-beta.paxeer.network nor api2.mainnet-beta.paxeer.network" "$work/render.err"'
 
 deploy_prints_upstreams_and_edge_registration() {
 	local status=0
@@ -80,10 +80,10 @@ deploy_prints_upstreams_and_edge_registration() {
 check deploy_prints_upstreams_and_edge_registration deploy_prints_upstreams_and_edge_registration
 
 status=0
-env "${fixture_env[@]}" SEARCH_FRONT_BACKUP=api15.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
+env "${fixture_env[@]}" SEARCH_FRONT_BACKUP=api1.mainnet-beta.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
 check render_refuses_repeated_backup '[ "$status" -eq 1 ]'
 status=0
-env "${fixture_env[@]}" SEARCH_FRONT_PRIMARY=api17.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
+env "${fixture_env[@]}" SEARCH_FRONT_PRIMARY=api15.mainnet-beta.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
 check render_refuses_non_api_name '[ "$status" -eq 1 ]'
 
 status=0

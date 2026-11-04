@@ -17,7 +17,7 @@ use layerx_programs_runtime::{Meter, Storage};
 #[cfg(any(feature = "host-ffi", test))]
 use crate::usage::record_expiry_occupancy_settlement;
 use crate::{
-    sandbox_state_key, EscrowRefusal, Lease, LeaseId, LeaseRefusal, LeaseState, UsageRefusal,
+    sandbox_terminal_key, EscrowRefusal, Lease, LeaseId, LeaseRefusal, LeaseState, UsageRefusal,
 };
 #[cfg(any(feature = "host-ffi", test))]
 use crate::{DurableUsageState, UsageReceipt};
@@ -69,13 +69,15 @@ impl AuthenticatedTerminalRecord {
         {
             return Err(ExpiryRefusal::InvalidProtocolReceipt);
         }
-        let key = sandbox_state_key(2, expected_lease.bytes())
-            .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+        let key = sandbox_terminal_key(expected_lease.bytes());
         let bytes = commitment
             .value
             .as_deref()
             .ok_or(ExpiryRefusal::InvalidProtocolReceipt)?;
-        if commitment.store_name != "lxphost" || commitment.key != key {
+        if commitment.store_name != "lxphost"
+            || commitment.key != key
+            || commitment.proof_ops != evidence.terminal_ops
+        {
             return Err(ExpiryRefusal::InvalidProtocolReceipt);
         }
         verify_state(&head, "lxphost", &key, bytes, &evidence.terminal_ops)
@@ -350,6 +352,35 @@ impl TerminalLeaseRecord {
         bytes
     }
 
+    fn decode_state(bytes: &[u8], terminal_digest: [u8; 32]) -> Result<Self, ExpiryRefusal> {
+        let mut cursor = QueueCursor { bytes, offset: 0 };
+        if cursor.take(TERMINAL_DOMAIN.len())? != TERMINAL_DOMAIN {
+            return Err(ExpiryRefusal::InvalidTerminalRecord);
+        }
+        let record = Self {
+            lease: LeaseId::new(cursor.array()?).map_err(ExpiryRefusal::Lease)?,
+            tenant: cursor.array()?,
+            host_program: cursor.array()?,
+            expiry: u64::from_be_bytes(cursor.array()?),
+            destroyed_at: u64::from_be_bytes(cursor.array()?),
+            reclaimed_cells: u64::from_be_bytes(cursor.array()?),
+            reclaimed_bytes: u64::from_be_bytes(cursor.array()?),
+            metered_cleanup_work: u64::from_be_bytes(cursor.array()?),
+            occupancy_charged: u128::from_be_bytes(cursor.array()?),
+            refunded: u128::from_be_bytes(cursor.array()?),
+            refund_transfer_root: cursor.array()?,
+            expiry_receipt_digest: cursor.array()?,
+            destroy_receipt_digest: cursor.array()?,
+            prior_lease_digest: cursor.array()?,
+            terminal_digest,
+        };
+        if cursor.offset != bytes.len() {
+            return Err(ExpiryRefusal::InvalidTerminalRecord);
+        }
+        record.verify()?;
+        Ok(record)
+    }
+
     /// # Errors
     ///
     /// Returns a refusal when the terminal digest, expiry or cleanup accounting is invalid.
@@ -618,9 +649,28 @@ const fn flipped(mut value: [u8; 32]) -> [u8; 32] {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+struct TerminalHistory {
+    records: Vec<TerminalLeaseRecord>,
+}
+
+impl TerminalHistory {
+    fn reserve(&mut self, additional: usize) -> Result<(), ExpiryRefusal> {
+        let count = self
+            .records
+            .len()
+            .checked_add(additional)
+            .ok_or(ExpiryRefusal::AccountingOverflow)?;
+        u32::try_from(count).map_err(|_| ExpiryRefusal::AccountingOverflow)?;
+        self.records
+            .try_reserve(additional)
+            .map_err(|_| ExpiryRefusal::QueueFull)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExpiryQueue {
     scheduled: Vec<(u64, LeaseId)>,
-    terminal: Vec<TerminalLeaseRecord>,
+    terminal: TerminalHistory,
 }
 
 impl ExpiryQueue {
@@ -628,7 +678,9 @@ impl ExpiryQueue {
     pub const fn new() -> Self {
         Self {
             scheduled: Vec::new(),
-            terminal: Vec::new(),
+            terminal: TerminalHistory {
+                records: Vec::new(),
+            },
         }
     }
 
@@ -638,14 +690,17 @@ impl ExpiryQueue {
     pub fn schedule(&mut self, lease: &Lease) -> Result<(), ExpiryRefusal> {
         let key = (lease.expiry(), lease.id());
         if lease.state() == LeaseState::Destroyed
-            || self.terminal.iter().any(|v| v.lease == lease.id())
-            || self.scheduled.binary_search(&key).is_ok()
+            || self.terminal.records.iter().any(|v| v.lease == lease.id())
+            || self.scheduled.iter().any(|(_, id)| *id == lease.id())
         {
             return Err(ExpiryRefusal::Replay);
         }
         if self.scheduled.len() == MAX_EXPIRY_QUEUE_ENTRIES {
             return Err(ExpiryRefusal::QueueFull);
         }
+        self.scheduled
+            .try_reserve(1)
+            .map_err(|_| ExpiryRefusal::QueueFull)?;
         let at = self.scheduled.binary_search(&key).unwrap_or_else(|at| at);
         self.scheduled.insert(at, key);
         Ok(())
@@ -693,19 +748,26 @@ impl ExpiryQueue {
             .scheduled
             .binary_search(&key)
             .map_err(|_| ExpiryRefusal::Replay)?;
-        if self.terminal.len() == MAX_EXPIRY_QUEUE_ENTRIES
-            || self.terminal.iter().any(|v| v.lease == record.lease)
+        if self
+            .terminal
+            .records
+            .iter()
+            .any(|v| v.lease == record.lease)
         {
             return Err(ExpiryRefusal::Replay);
         }
-        self.terminal.push(record);
+        self.terminal.reserve(1)?;
+        self.terminal.records.push(record);
         self.scheduled.remove(at);
         Ok(())
     }
 
     #[must_use]
     pub fn terminal(&self, lease: LeaseId) -> Option<&TerminalLeaseRecord> {
-        self.terminal.iter().find(|record| record.lease == lease)
+        self.terminal
+            .records
+            .iter()
+            .find(|record| record.lease == lease)
     }
 
     /// # Errors
@@ -724,11 +786,11 @@ impl ExpiryQueue {
             bytes.extend_from_slice(&lease.bytes());
         }
         bytes.extend_from_slice(
-            &u32::try_from(self.terminal.len())
+            &u32::try_from(self.terminal.records.len())
                 .map_err(|_| ExpiryRefusal::AccountingOverflow)?
                 .to_be_bytes(),
         );
-        for record in &self.terminal {
+        for record in &self.terminal.records {
             let record_bytes = record.canonical_bytes();
             bytes.extend_from_slice(&record.lease.bytes());
             bytes.extend_from_slice(
@@ -740,6 +802,53 @@ impl ExpiryQueue {
             bytes.extend_from_slice(&record.terminal_digest);
         }
         Ok(bytes)
+    }
+
+    /// # Errors
+    ///
+    /// Refuses malformed durable state, duplicate leases, oversized active queues or invalid terminals.
+    pub fn decode_state(bytes: &[u8]) -> Result<Self, ExpiryRefusal> {
+        let mut cursor = QueueCursor { bytes, offset: 0 };
+        if cursor.take(SWEEP_STATE_DOMAIN.len())? != SWEEP_STATE_DOMAIN {
+            return Err(ExpiryRefusal::InvalidEvidence);
+        }
+        let count = cursor.count(40)?;
+        if count > MAX_EXPIRY_QUEUE_ENTRIES {
+            return Err(ExpiryRefusal::QueueFull);
+        }
+        let mut queue = Self::new();
+        queue
+            .scheduled
+            .try_reserve_exact(count)
+            .map_err(|_| ExpiryRefusal::QueueFull)?;
+        let mut ids = std::collections::BTreeSet::new();
+        for _ in 0..count {
+            let expiry = u64::from_be_bytes(cursor.array()?);
+            let id = LeaseId::new(cursor.array()?).map_err(ExpiryRefusal::Lease)?;
+            let key = (expiry, id);
+            if queue.scheduled.last().is_some_and(|prior| prior >= &key) || !ids.insert(id) {
+                return Err(ExpiryRefusal::Replay);
+            }
+            queue.scheduled.push(key);
+        }
+        let count = cursor.count(36 + TERMINAL_DOMAIN.len() + 296 + 32)?;
+        queue.terminal.reserve(count)?;
+        for _ in 0..count {
+            let id = LeaseId::new(cursor.array()?).map_err(ExpiryRefusal::Lease)?;
+            let length = usize::try_from(u32::from_be_bytes(cursor.array()?))
+                .map_err(|_| ExpiryRefusal::AccountingOverflow)?;
+            let body = cursor.take(length)?;
+            let digest = cursor.array()?;
+            let record = TerminalLeaseRecord::decode_state(body, digest)?;
+            if record.lease != id || !ids.insert(id) {
+                return Err(ExpiryRefusal::Replay);
+            }
+            queue.terminal.records.push(record);
+        }
+        if cursor.offset != bytes.len() {
+            return Err(ExpiryRefusal::InvalidEvidence);
+        }
+        Ok(queue)
     }
 
     /// # Errors
@@ -778,6 +887,39 @@ impl ExpiryQueue {
     }
 }
 
+struct QueueCursor<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> QueueCursor<'a> {
+    fn take(&mut self, length: usize) -> Result<&'a [u8], ExpiryRefusal> {
+        let end = self
+            .offset
+            .checked_add(length)
+            .ok_or(ExpiryRefusal::AccountingOverflow)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(ExpiryRefusal::InvalidEvidence)?;
+        self.offset = end;
+        Ok(value)
+    }
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], ExpiryRefusal> {
+        self.take(N)?
+            .try_into()
+            .map_err(|_| ExpiryRefusal::InvalidEvidence)
+    }
+    fn count(&mut self, minimum_bytes: usize) -> Result<usize, ExpiryRefusal> {
+        let count = usize::try_from(u32::from_be_bytes(self.array()?))
+            .map_err(|_| ExpiryRefusal::AccountingOverflow)?;
+        if count > (self.bytes.len() - self.offset) / minimum_bytes {
+            return Err(ExpiryRefusal::InvalidEvidence);
+        }
+        Ok(count)
+    }
+}
+
 impl Default for ExpiryQueue {
     fn default() -> Self {
         Self::new()
@@ -797,6 +939,7 @@ where
     F: FnMut(LeaseId, u64) -> Result<TerminalLeaseRecord, ExpiryRefusal>,
 {
     let page = queue.due(boundary, limit)?;
+    queue.terminal.reserve(page.leases.len())?;
     for lease in page.leases.iter().copied() {
         let record = destroy_due(lease, boundary)?;
         if record.lease() != lease || record.destroyed_at() != boundary {
@@ -856,6 +999,19 @@ mod source_cases {
     use super::*;
     use crate::LeaseLimits;
     use layerx_programs_runtime::{PrincipalId, ProgramId};
+
+    #[test]
+    fn terminal_history_reservation_refuses_unencodable_count_before_allocation() {
+        let mut history = TerminalHistory {
+            records: Vec::new(),
+        };
+        assert_eq!(
+            history.reserve(usize::MAX),
+            Err(ExpiryRefusal::AccountingOverflow)
+        );
+        assert!(history.records.is_empty());
+        assert_eq!(history.records.capacity(), 0);
+    }
 
     fn lease(id: u8, expiry: u64) -> Lease {
         Lease::request(

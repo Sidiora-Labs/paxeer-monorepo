@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import { decodeSequencerReceipt } from '../src/receipt.js';
+import { committedReceipt, nodeVector, receiptPins } from './support/receipt-recordings.js';
 
-function sdk_fixtures_carry_one_answer_per_sequencer_and_explorer_rung(): void {
+export function sdk_fixtures_carry_one_answer_per_sequencer_and_explorer_rung(): void {
   const sequencer = JSON.parse(
     readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8')
   ) as Record<string, Record<string, unknown>>;
@@ -13,27 +15,15 @@ function sdk_fixtures_carry_one_answer_per_sequencer_and_explorer_rung(): void {
   const address = /^0x[0-9a-f]{40}$/;
   const quantity = /^0x(?:0|[1-9a-f][0-9a-f]*)$/;
   const bytes = /^0x(?:[0-9a-f]{2})*$/;
-  const receiptFields = [
-    'seq',
-    'height',
-    'index',
-    'timestamp',
-    'status',
-    'returnData',
-    'logs',
-    'gasUsed',
-    'cumulativeGasUsed',
-    'effectiveGasPrice',
-    'feeDenom',
-    'feeAmount',
-    'sponsor',
-    'from',
-    'to',
-    'contractAddress',
-    'vmError',
-    'keyId',
-    'receipt',
-  ];
+  const produced = {
+    submitted: {
+      rung: 'submitted',
+      txHash: nodeVector('V1-pax-transfer').receiptJson.txHash,
+      nonce: '0x0',
+    },
+    receipted: nodeVector('V1-pax-transfer').receiptJson,
+    committed: committedReceipt,
+  };
 
   expect(Object.keys(sequencer).sort()).toEqual([...rungs].sort());
   expect(Object.keys(explorer).sort()).toEqual([...rungs].sort());
@@ -53,9 +43,10 @@ function sdk_fixtures_carry_one_answer_per_sequencer_and_explorer_rung(): void {
       }
     }
 
-    const fields = ['rung', 'txHash', 'nonce'];
+    const source = produced[rung as keyof typeof produced];
+    expect(answer).toEqual(source);
+    expect(decodeSequencerReceipt(answer, source.txHash, receiptPins(source))).toEqual(source);
     if (rung !== 'submitted') {
-      fields.push(...receiptFields);
       for (const field of [
         'seq',
         'height',
@@ -74,14 +65,15 @@ function sdk_fixtures_carry_one_answer_per_sequencer_and_explorer_rung(): void {
       }
       expect(answer.status).toBe('0x1');
       expect(answer.returnData).toMatch(bytes);
-      expect(answer.logs).toEqual([]);
+      expect(answer.logs).toEqual('logs' in source ? source.logs : undefined);
+      expect(answer.paymentDenom).toBe('uhpx');
+      expect(answer.signingKey).toBe(receiptPins(source)[0]!.publicKey);
       expect(answer.feeDenom).toBe('uhpx');
       expect(answer.vmError).toBe('');
       expect(answer.keyId).toMatch(hash);
       expect(answer.receipt).toMatch(/^0x(?:[0-9a-f]{2})+$/);
     }
     if (rung === 'committed') {
-      fields.push('blockNumber', 'blockHash');
       expect(answer.blockNumber).toMatch(quantity);
       expect(answer.blockHash).toMatch(hash);
       expect(BigInt(answer.blockNumber as string) >= BigInt(answer.height as string)).toBe(true);
@@ -90,7 +82,7 @@ function sdk_fixtures_carry_one_answer_per_sequencer_and_explorer_rung(): void {
       expect(status.committed_height).toBeGreaterThanOrEqual(status.block_number as number);
       expect(BigInt(answer.blockNumber as string)).toBe(BigInt(status.block_number as number));
     }
-    expect(Object.keys(answer).sort()).toEqual(fields.sort());
+    expect(Object.keys(answer).sort()).toEqual(Object.keys(source).sort());
   }
 }
 

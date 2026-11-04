@@ -9,13 +9,14 @@
 //! authoritative; the logged record must agree with them field for field, and
 //! a deposit whose record and receipt disagree is refused, never signed.
 
+use super::journal::{BackfillContinuation, BackfillJournal, SignatureCursor};
 use super::rpc::{
     AccountData, Commitment, Instruction, SignatureInfo, SolanaRpc, SolanaTransaction,
 };
 use super::{base58_fixed, inbound_tx_hash, HANDLE_BYTES};
 use crate::attestation::{uint256_from_u64, InboundAttestation};
 use crate::hex;
-use crate::journal::{Observation, Position};
+use crate::journal::{Entry, Journal, JournalError, Observation, Position};
 use crate::relayer::RelayerError;
 use crate::rpc::RpcFault;
 
@@ -44,6 +45,9 @@ const PROGRAM_LOG: &str = "Program log: ";
 
 /// The page size of every `getSignaturesForAddress` call.
 pub const SIGNATURE_PAGE: usize = 1000;
+
+/// Maximum pages (and at most this many times SIGNATURE_PAGE transactions) per pass.
+pub const MAX_SCAN_PAGES: usize = 2;
 
 /// The reason a deposit whose logged record and receipt disagree is refused.
 pub const DISAGREEMENT: &str = "the logged deposit record disagrees with its receipt";
@@ -439,50 +443,206 @@ fn transaction_findings(
     Ok(findings)
 }
 
-/// The successful signatures of the program in slots `from..=to`, oldest
-/// first, paging back from the newest until a slot below `from`.
+struct SignaturePage {
+    signatures: Vec<SignatureInfo>,
+    before: Option<SignatureCursor>,
+    complete: bool,
+}
+
+fn signature_page(
+    rpc: &SolanaRpc,
+    settings: &SolanaSettings,
+    window: &BackfillContinuation,
+) -> Result<SignaturePage, RelayerError> {
+    let page = rpc.get_signatures_for_address(
+        &settings.program_id,
+        window.before.as_ref().map(|before| &before.signature),
+        SIGNATURE_PAGE,
+        settings.commitment,
+    )?;
+    let mut previous_slot = window.before.map_or(u64::MAX, |before| before.slot);
+    let mut seen = std::collections::BTreeSet::new();
+    let mut found = Vec::new();
+    let mut reached_start = false;
+    for info in &page {
+        if info.slot > previous_slot
+            || window
+                .before
+                .is_some_and(|before| before.signature == info.signature)
+            || !seen.insert(info.signature)
+        {
+            return Err(malformed());
+        }
+        previous_slot = info.slot;
+        if info.slot < window.from {
+            reached_start = true;
+        } else if info.slot <= window.to && !info.failed {
+            found.push(*info);
+        }
+    }
+    Ok(SignaturePage {
+        signatures: found,
+        before: page.last().map(|last| SignatureCursor {
+            signature: last.signature,
+            slot: last.slot,
+        }),
+        complete: reached_start || page.len() < SIGNATURE_PAGE,
+    })
+}
+
+/// Compatibility scan for a complete small window. An incomplete budget is an
+/// explicit error: callers must use observe_deposits_pass to resume durably.
 fn signatures_in(
     rpc: &SolanaRpc,
     settings: &SolanaSettings,
     from: u64,
     to: u64,
 ) -> Result<Vec<SignatureInfo>, RelayerError> {
+    let mut window = BackfillContinuation::new(settings, from, to);
     let mut found = Vec::new();
-    let mut before: Option<[u8; 64]> = None;
-    let mut previous_slot = u64::MAX;
-    loop {
-        let page = rpc.get_signatures_for_address(
-            &settings.program_id,
-            before.as_ref(),
-            SIGNATURE_PAGE,
-            settings.commitment,
-        )?;
-        let mut reached_start = false;
-        for info in &page {
-            if info.slot > previous_slot {
-                return Err(malformed());
-            }
-            previous_slot = info.slot;
-            if info.slot < from {
-                reached_start = true;
-                break;
-            }
-            if info.slot <= to && !info.failed {
-                found.push(*info);
-            }
+    for _ in 0..MAX_SCAN_PAGES {
+        let page = signature_page(rpc, settings, &window)?;
+        found.extend(page.signatures);
+        if page.complete {
+            found.reverse();
+            return Ok(found);
         }
-        match page.last() {
-            Some(last) if !reached_start && page.len() == SIGNATURE_PAGE => {
-                if before == Some(last.signature) {
-                    return Err(malformed());
-                }
-                before = Some(last.signature);
-            }
-            _ => break,
-        }
+        window.before = page.before;
     }
-    found.reverse();
-    Ok(found)
+    Err(RelayerError::Configuration(
+        "Solana scan budget exhausted; use journaled observe_deposits_pass".to_owned(),
+    ))
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ScanProgress {
+    pub pages: usize,
+    pub transactions: usize,
+    pub observed: usize,
+    pub refused: usize,
+    pub complete: bool,
+}
+
+/// Runs one bounded backfill pass. Findings are synced to the relay journal
+/// before the pagination checkpoint moves; the slot cursor moves only when the
+/// entire fixed window is covered. Replaying a page after a crash is idempotent.
+/// The caller supplies an exclusively owned checkpoint beside its relay journal.
+///
+/// # Errors
+/// Returns RPC, evidence or journal faults without skipping unrecorded history.
+pub fn observe_deposits_pass(
+    rpc: &SolanaRpc,
+    settings: &SolanaSettings,
+    journal: &mut Journal,
+    backfill: &mut BackfillJournal,
+) -> Result<ScanProgress, RelayerError> {
+    if settings.max_slot_range == 0 {
+        return Err(RelayerError::Configuration(
+            "Solana slot range is zero".to_owned(),
+        ));
+    }
+    let stream = format!("in:{}", settings.chain_id);
+    let from = journal
+        .state()
+        .cursors
+        .get(&stream)
+        .copied()
+        .unwrap_or(settings.start_slot);
+    if let Some(pending) = backfill.pending() {
+        pending.validate(settings)?;
+        if from == pending.to + 1 {
+            // The cursor synced just before a crash while clearing the checkpoint.
+            backfill.save(None)?;
+            return Ok(ScanProgress {
+                complete: true,
+                ..ScanProgress::default()
+            });
+        }
+        if from != pending.from {
+            return Err(JournalError::Conflict(
+                "Solana cursor disagrees with backfill window".to_owned(),
+            )
+            .into());
+        }
+    } else {
+        let head = rpc.get_slot(settings.commitment)?;
+        let Some(safe) = head.checked_sub(settings.finality_depth) else {
+            return Ok(ScanProgress::default());
+        };
+        if from > safe {
+            return Ok(ScanProgress::default());
+        }
+        let to = from
+            .saturating_add(settings.max_slot_range - 1)
+            .min(safe)
+            .min(u64::MAX - 1);
+        if from > to {
+            return Err(RelayerError::Configuration(
+                "Solana slot cursor overflow".to_owned(),
+            ));
+        }
+        backfill.save(Some(BackfillContinuation::new(settings, from, to)))?;
+    }
+    let mut progress = ScanProgress::default();
+    for _ in 0..MAX_SCAN_PAGES {
+        let mut window = backfill.pending().cloned().ok_or_else(|| {
+            JournalError::Conflict("Solana backfill window is missing".to_owned())
+        })?;
+        let page = signature_page(rpc, settings, &window)?;
+        progress.pages += 1;
+        // Keep only one bounded page of signatures and one transaction's findings.
+        for info in page.signatures.iter().rev() {
+            let transaction = rpc
+                .get_transaction(&info.signature, settings.commitment)?
+                .ok_or(RelayerError::Rpc(RpcFault::Unavailable))?;
+            progress.transactions += 1;
+            for finding in transaction_findings(rpc, settings, info, &transaction)? {
+                let (observation, refusal) = match finding {
+                    Finding::Deposit(observation) => (observation, None),
+                    Finding::Refused {
+                        observation,
+                        reason,
+                    } => (observation, Some(reason)),
+                };
+                let item = observation.key();
+                if let Some(existing) = journal.lookup(&item)? {
+                    if existing.observation != observation {
+                        return Err(JournalError::Conflict(format!(
+                            "{item} observed with different content"
+                        ))
+                        .into());
+                    }
+                } else {
+                    journal.append(&Entry::Observed {
+                        item: item.clone(),
+                        observation,
+                    })?;
+                    progress.observed += 1;
+                }
+                if let Some(reason) = refusal {
+                    if journal
+                        .lookup(&item)?
+                        .is_some_and(|record| record.refusal.is_none())
+                    {
+                        journal.append(&Entry::Refused { item, reason })?;
+                        progress.refused += 1;
+                    }
+                }
+            }
+        }
+        if page.complete {
+            journal.append(&Entry::Cursor {
+                stream,
+                next_block: window.to + 1,
+            })?;
+            backfill.save(None)?;
+            progress.complete = true;
+            break;
+        }
+        window.before = page.before;
+        backfill.save(Some(window))?;
+    }
+    Ok(progress)
 }
 
 /// Observes every deposit into the custody program in slots `from..=to`.
@@ -494,7 +654,8 @@ fn signatures_in(
 ///
 /// Returns the first RPC fault, or `Malformed` for a transaction, receipt or
 /// asset record that cannot be read as the program writes it; the scan is
-/// retried from the same slot on the next pass.
+/// retried from the same slot on the next pass. Windows exceeding the page
+/// budget require the persisted `observe_deposits_pass` API.
 pub fn observe_deposits(
     rpc: &SolanaRpc,
     settings: &SolanaSettings,

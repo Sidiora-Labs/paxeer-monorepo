@@ -66,6 +66,19 @@ func (s *internalDenomTestSuite) TestConvertCoins() {
 		Coin{natom, NewInt(1001001000)},
 	})
 	s.Require().NoError(coins.Validate())
+	for _, tc := range []struct {
+		input string
+		want  Coins
+	}{
+		{"0.0000000006atom,0.0000006matom,0.0006uatom", NewCoins(NewInt64Coin(natom, 1))},
+		{"0atom,0matom,0uatom", Coins{}},
+		{"0.0000000001atom,0.0000001matom", Coins{}},
+	} {
+		normalized, err := ParseCoinsNormalized(tc.input)
+		s.Require().NoError(err)
+		s.Require().Equal(tc.want, normalized)
+		s.Require().NoError(normalized.Validate())
+	}
 
 	testCases := []struct {
 		input  Coin

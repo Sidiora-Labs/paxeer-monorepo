@@ -2,10 +2,12 @@ import React from 'react';
 
 import type { AdvancedFilterParams, AdvancedFiltersSearchParams } from 'types/api/advancedFilter';
 
+import config from 'configs/app';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import type { ColumnsIds } from 'ui/advancedFilter/constants';
 import TableColumnFilterWrapper from 'ui/shared/filters/TableColumnFilterWrapper';
 
-import { NATIVE_TOKEN } from './constants';
+import { getNativeToken } from './constants';
 import type { AddressFilterMode } from './filters/AddressFilter';
 import AddressFilter from './filters/AddressFilter';
 import AddressRelationFilter from './filters/AddressRelationFilter';
@@ -26,6 +28,8 @@ type Props = {
 };
 
 const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searchParams, isLoading }: Props) => {
+  const multichainContext = useMultichainContext();
+  const currency = (multichainContext?.chain.app_config ?? config).chain.currency;
   const commonProps = { columnName, handleFilterChange, isLoading };
   switch (column) {
     case 'type': {
@@ -129,17 +133,22 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
       const tokens = searchParams?.tokens;
 
       const value = tokens ?
-        Object.entries(tokens).map(([ address, token ]) => {
+        Object.entries(tokens).filter(([ address ]) => (
+          address !== 'native' && (
+            filters.token_contract_address_hashes_to_include?.some(i => i.toLowerCase() === address.toLowerCase()) ||
+            filters.token_contract_address_hashes_to_exclude?.some(i => i.toLowerCase() === address.toLowerCase())
+          )
+        )).map(([ address, token ]) => {
           const mode = filters.token_contract_address_hashes_to_include?.find(i => i.toLowerCase() === address.toLowerCase()) ?
             'include' as AssetFilterMode :
             'exclude' as AssetFilterMode;
           return ({ token, mode });
         }) : [];
       if (filters.token_contract_address_hashes_to_include?.includes('native')) {
-        value.unshift({ token: NATIVE_TOKEN, mode: 'include' });
+        value.unshift({ token: getNativeToken(currency), mode: 'include' });
       }
       if (filters.token_contract_address_hashes_to_exclude?.includes('native')) {
-        value.unshift({ token: NATIVE_TOKEN, mode: 'exclude' });
+        value.unshift({ token: getNativeToken(currency), mode: 'exclude' });
       }
       return (
         <TableColumnFilterWrapper
@@ -148,7 +157,7 @@ const FilterByColumn = ({ column, filters, columnName, handleFilterChange, searc
           selected={ Boolean(value.length) }
           w="382px"
         >
-          <AssetFilter { ...commonProps } value={ value }/>
+          <AssetFilter { ...commonProps } value={ value } currency={ currency }/>
         </TableColumnFilterWrapper>
       );
     }

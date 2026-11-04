@@ -17,7 +17,6 @@ import (
 	"net/netip"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -118,8 +117,13 @@ func TestProofConfigurationCommands(t *testing.T) {
 
 			t.Setenv("PERPS_CHAIN_ID", "126")
 			fresh, err := service.Load()
-			if err != nil || fresh == nil || fresh.ChainID != 126 || producer.ChainID != 125 {
-				t.Fatalf("startup did not independently reread the environment: %v", err)
+			if fresh != nil || err == nil || err.Error() != string(service)+" config: PERPS_CHAIN_ID must be 125 (the only supported network)" || producer.ChainID != 125 {
+				t.Fatalf("startup did not refuse the newly configured unsupported chain: %v", err)
+			}
+			t.Setenv("PERPS_CHAIN_ID", "125")
+			fresh, err = service.Load()
+			if err != nil || fresh == nil || fresh == producer || fresh.ChainID != 125 {
+				t.Fatalf("startup did not independently recover after refusal: %v", err)
 			}
 			t.Setenv("PERPS_CHAIN_ID", "not-a-number")
 			refused, err := service.Load()
@@ -226,12 +230,14 @@ func TestProofConfigurationUnusedProxies(t *testing.T) {
 		t.Run(string(service), func(t *testing.T) {
 			proofConfigurationEnv(t)
 			t.Setenv(ratelimit.EnvTrustedProxies, "malformed-unused-cidr")
+			var previous *config.Config
 			for attempt := 0; attempt < 2; attempt++ {
-				t.Setenv("PERPS_CHAIN_ID", strconv.Itoa(125+attempt))
+				t.Setenv("PERPS_CHAIN_ID", "125")
 				cfg, err := service.Load()
-				if err != nil || cfg == nil || cfg.ChainID != uint64(125+attempt) || len(cfg.TrustedProxies) != 0 {
+				if err != nil || cfg == nil || cfg == previous || cfg.ChainID != 125 || len(cfg.TrustedProxies) != 0 {
 					t.Fatalf("unused proxy variable affected %s startup: %v, %v", service, cfg, err)
 				}
+				previous = cfg
 			}
 		})
 	}

@@ -27,8 +27,11 @@ import {
   type PaxeerEIP1193Provider,
 } from "../src/core/wallet/embedded/eip1193";
 import { PaxeerWallet } from "../src/core/wallet/embedded/sdk";
-import { constructionDigest, toWireConstruction } from "../../../sdk/wallet/src/provider";
-import type { DigestConstruction } from "../../../sdk/wallet/src/types";
+import {
+  constructionDigest,
+  toWireConstruction,
+} from "@paxeer/wallet/provider";
+import type { DigestConstruction } from "@paxeer/wallet/types";
 
 interface Identity {
   url: string;

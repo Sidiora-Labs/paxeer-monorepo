@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -70,6 +71,12 @@ func (suite *HandlerTestSuite) SetupTest() {
 func (suite *HandlerTestSuite) TestMsgSubmitEvidence() {
 	pk := ed25519.GenPrivKey()
 	s := sdk.AccAddress("test________________")
+	malformed := types.FromABCIEvidence(abci.Evidence{
+		Height: 13, Time: time.Now().UTC(),
+		Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+	}).(*types.Equivocation)
+	malformed.ConsensusAddress = pk.PubKey().Address().String()
+	suite.Require().ErrorIs(malformed.ValidateBasic(), types.ErrInvalidEvidence)
 
 	testCases := []struct {
 		msg       sdk.Msg
@@ -78,12 +85,10 @@ func (suite *HandlerTestSuite) TestMsgSubmitEvidence() {
 		{
 			testMsgSubmitEvidence(
 				suite.Require(),
-				&types.Equivocation{
-					Height:           11,
-					Time:             time.Now().UTC(),
-					Power:            100,
-					ConsensusAddress: pk.PubKey().Address().String(),
-				},
+				types.FromABCIEvidence(abci.Evidence{
+					Height: 11, Time: time.Now().UTC(),
+					Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+				}),
 				s,
 			),
 			false,
@@ -91,24 +96,30 @@ func (suite *HandlerTestSuite) TestMsgSubmitEvidence() {
 		{
 			testMsgSubmitEvidence(
 				suite.Require(),
-				&types.Equivocation{
-					Height:           10,
-					Time:             time.Now().UTC(),
-					Power:            100,
-					ConsensusAddress: pk.PubKey().Address().String(),
-				},
+				types.FromABCIEvidence(abci.Evidence{
+					Height: 10, Time: time.Now().UTC(),
+					Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+				}),
 				s,
 			),
 			true,
 		},
+		{testMsgSubmitEvidence(suite.Require(), malformed, s), true},
 	}
 
 	for i, tc := range testCases {
 		ctx := suite.app.BaseApp.NewContext(false, tmproto.Header{Height: suite.app.LastBlockHeight() + 1})
 
-		res, err := suite.handler(ctx, tc.msg)
+		wire, err := suite.app.AppCodec().Marshal(tc.msg.(*types.MsgSubmitEvidence))
+		suite.Require().NoError(err)
+		var decoded types.MsgSubmitEvidence
+		suite.Require().NoError(suite.app.AppCodec().Unmarshal(wire, &decoded))
+		res, err := suite.handler(ctx, &decoded)
 		if tc.expectErr {
 			suite.Require().Error(err, "expected error; tc #%d", i)
+			suite.Require().Nil(res)
+			_, found := suite.app.EvidenceKeeper.GetEvidence(ctx, decoded.GetEvidence().Hash())
+			suite.Require().False(found)
 		} else {
 			suite.Require().NoError(err, "unexpected error; tc #%d", i)
 			suite.Require().NotNil(res, "expected non-nil result; tc #%d", i)
@@ -116,7 +127,11 @@ func (suite *HandlerTestSuite) TestMsgSubmitEvidence() {
 			msg := tc.msg.(exported.MsgSubmitEvidenceI)
 
 			var resultData types.MsgSubmitEvidenceResponse
-			suite.app.AppCodec().Unmarshal(res.Data, &resultData)
+			suite.Require().NoError(suite.app.AppCodec().Unmarshal(res.Data, &resultData))
+			stored, found := suite.app.EvidenceKeeper.GetEvidence(ctx, decoded.GetEvidence().Hash())
+			suite.Require().True(found)
+			suite.Require().Equal(pk.PubKey().Address().Bytes(), stored.(*types.Equivocation).GetConsensusAddress().Bytes())
+			suite.Require().Equal(msg.GetEvidence(), stored)
 			suite.Require().Equal(msg.GetEvidence().Hash().Bytes(), resultData.Hash, "invalid hash; tc #%d", i)
 		}
 	}

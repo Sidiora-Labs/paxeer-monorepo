@@ -3,6 +3,7 @@ package sender
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -13,7 +14,7 @@ var (
 	meter = otel.Meter("paxload/sender")
 
 	meteredChainWorkers = &chainWorkerObserver{
-		workers: make(map[chainWorkerID]*Worker),
+		workers: make(map[*Worker]struct{}),
 	}
 
 	metrics = struct {
@@ -38,9 +39,10 @@ var (
 			metric.WithInt64Callback(func(ctx context.Context, observer metric.Int64Observer) error {
 				meteredChainWorkers.lock.RLock()
 				defer meteredChainWorkers.lock.RUnlock()
-				for _, worker := range meteredChainWorkers.workers {
+				for worker := range meteredChainWorkers.workers {
 					observer.Observe(int64(worker.GetChannelLength()), metric.WithAttributes(
 						attribute.String("endpoint", worker.GetEndpoint()),
+						attribute.Int64("run_id", int64(worker.runID)),
 						attribute.Int("worker_id", worker.id),
 						attribute.String("chain_id", worker.paxChainID),
 					))
@@ -50,25 +52,23 @@ var (
 	}
 )
 
+var workerRunID atomic.Uint64
+
 type chainWorkerObserver struct {
 	lock    sync.RWMutex
-	workers map[chainWorkerID]*Worker
-}
-type chainWorkerID struct {
-	workerID int
-	chainID  string
+	workers map[*Worker]struct{}
 }
 
 func meterWorkerQueueLength(worker *Worker) {
 	meteredChainWorkers.lock.Lock()
 	defer meteredChainWorkers.lock.Unlock()
-	id := chainWorkerID{
-		workerID: worker.id,
-		chainID:  worker.paxChainID,
-	}
-	if _, exists := meteredChainWorkers.workers[id]; !exists {
-		meteredChainWorkers.workers[id] = worker
-	}
+	meteredChainWorkers.workers[worker] = struct{}{}
+}
+
+func unmeterWorkerQueueLength(worker *Worker) {
+	meteredChainWorkers.lock.Lock()
+	defer meteredChainWorkers.lock.Unlock()
+	delete(meteredChainWorkers.workers, worker)
 }
 
 func statusAttrFromError(err error) attribute.KeyValue {

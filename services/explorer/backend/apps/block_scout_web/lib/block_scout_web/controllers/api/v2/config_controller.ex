@@ -113,7 +113,7 @@ defmodule BlockScoutWeb.API.V2.ConfigController do
     ]
 
   def indexer(conn, _params) do
-    indexer_enabled? = System.get_env("DISABLE_INDEXER") !== "true"
+    indexer_enabled? = Application.get_env(:indexer, Indexer.Supervisor)[:enabled] == true
 
     internal_transactions_fetcher_enabled? =
       indexer_enabled? &&

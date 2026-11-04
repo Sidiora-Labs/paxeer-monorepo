@@ -11,17 +11,17 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
   use BlockScoutWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
+  alias BlockScoutWeb.API.V2.PaxeerX.TransactionStatusView
   alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
   alias Explorer.Chain
   alias Explorer.Chain.Hash
-  alias Explorer.Chain.PaxeerX.{Finality, SequencerReceipt, Status}
+  alias Explorer.Chain.PaxeerX.{Finality, ReceiptEvidence, SequencerReceipt, Status}
   alias Explorer.HttpClient
 
   action_fallback(BlockScoutWeb.API.V2.FallbackController)
 
   @api_true [api?: true]
   @router_timeout 10_000
-  @sequence_batch_domain "PAXEER/v1/sequence-batch\0"
 
   tags(["paxeer-x"])
 
@@ -50,7 +50,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
          {:ok, %Status{} = status} <- status_of(transaction_hash) do
       conn
       |> put_status(200)
-      |> render(:status, %{status: status})
+      |> json(TransactionStatusView.render("status.json", %{status: status}))
     end
   end
 
@@ -78,60 +78,15 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
     with url when is_binary(url) <- router_url,
          {:ok, %{} = answer} <- sequencer_receipt(url, transaction_hash),
          {:ok, receipt_keys} <- SequencerReceipt.receipt_keys(url) do
-      case committed_options(url, transaction_hash) do
+      case ReceiptEvidence.options(url, transaction_hash, answer) do
         {:ok, opts} -> SequencerReceipt.verify(transaction_hash, answer, receipt_keys, opts)
-        _unavailable -> SequencerReceipt.verify(transaction_hash, answer, receipt_keys)
+        :disabled -> SequencerReceipt.verify(transaction_hash, answer, receipt_keys)
+        {:error, step} -> {:error, step}
       end
     else
       _unavailable -> nil
     end
   end
-
-  defp committed_options(router_url, transaction_hash) do
-    with {:ok, %{"blockNumber" => block_number} = eth_receipt} <-
-           router_call(router_url, "eth_getTransactionReceipt", [to_string(transaction_hash)]),
-         {:ok, height} <- quantity(block_number),
-         true <- height > 0,
-         {:ok, commit} <- SequencerReceipt.commit(height, router_url),
-         {:ok, validators} <- SequencerReceipt.validators(height, router_url),
-         {:ok, batch_answer} <- router_call(router_url, "px_getSequenceBatch", [Integer.to_string(height)]),
-         {:ok, batch} <- sequence_batch(batch_answer, height),
-         %{"header" => %{"chain_id" => chain_id}} <- Map.get(commit, "signed_header", commit),
-         true <- is_binary(chain_id) and chain_id != "" do
-      {:ok,
-       [
-         eth_receipt: eth_receipt,
-         batch: batch,
-         chain_id: chain_id,
-         commit: commit,
-         validators: validators
-       ]}
-    else
-      _unavailable -> :disabled
-    end
-  end
-
-  defp sequence_batch(%{"height" => batch_height, "tx" => "0x" <> tx}, height) do
-    with true <- batch_height == Integer.to_string(height),
-         {:ok, <<@sequence_batch_domain, tx_height::64, from_seq::64, to_seq::64, _rest::binary-size(192)>>} <-
-           Base.decode16(tx, case: :mixed),
-         true <- tx_height == height do
-      {:ok, %{from_seq: from_seq, to_seq: to_seq}}
-    else
-      _invalid -> :error
-    end
-  end
-
-  defp sequence_batch(_answer, _height), do: :error
-
-  defp quantity("0x" <> digits) when digits != "" do
-    case Integer.parse(digits, 16) do
-      {height, ""} when height >= 0 -> {:ok, height}
-      _invalid -> :error
-    end
-  end
-
-  defp quantity(_value), do: :error
 
   defp sequencer_receipt(router_url, %Hash{} = transaction_hash) do
     router_call(router_url, "pax_sequencerReceipt", [to_string(transaction_hash)])

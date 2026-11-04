@@ -1,0 +1,16 @@
+[repair.22.33.972]
+audit = "22.30.30"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/charts-engine/test_repair_22_33_972.py"
+verified_revision_evidence = "hf-done records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl and its final JSON line."
+baseline = "Not run: the explicit task order requires complete implementation before gates and prohibits running verify_cmd by hand; no baseline failures are claimed."
+proof_boundary = "Real phase4 binding, scheduler, subprocess, capture and cleanup with committed diagnostic peers and a loopback HTTP server; no provider, recovery or 24-hour qualification is claimed."
+wiring_requests = []
+
+[finding.chart-controller-timeout]
+tests = ["test_chart_controller_timeout_valid_binding_reaches_execution", "test_chart_controller_timeout_rejects_invalid", "test_chart_controller_timeout_accepts_integer_boundaries", "test_chart_controller_runtime_limit_terminates_real_process", "test_chart_controller_retains_digest_checks"]
+repair = "Use the one-argument type check and retain the strict integer timeout range 1 through 86400."
+
+[finding.chart-controller-log-budget]
+tests = ["test_chart_controller_timeout_valid_binding_reaches_execution", "test_chart_controller_log_budget_bounds_real_capture", "test_chart_controller_runtime_limit_terminates_real_process", "test_chart_controller_retains_digest_checks"]
+repair = "Pass the plan maximumCommandLogBytes into every controller run_command invocation; prove stdout/stderr capture budgets for every controller kind and the measurement peer."

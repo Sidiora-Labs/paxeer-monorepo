@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { TransferLive } from '@/components/bridge/transfer-actions';
 import { historyStatusOf, phaseOf, stepOf } from './phase';
+import { settlementBroadcastPatch } from './settlement';
 import type { BridgeTransfer } from './transfers';
 
 const deposit: BridgeTransfer = {
@@ -56,10 +57,27 @@ function historyStatusOfReportsAFailedSource(): void {
   }
   expect(historyStatusOf('settling')).toBe('processing');
   expect(historyStatusOf(phaseOf(deposit, { ...finalLive, credited: true }, false))).toBe('completed');
-  expect(historyStatusOf(phaseOf({ ...deposit, claimedAt: 0 }, undefined, false))).toBe('completed');
-  expect(historyStatusOf(phaseOf({ ...deposit, claimTxHash: '0xabcd' }, undefined, false))).toBe('completed');
-  expect(historyStatusOf(phaseOf({ ...deposit, direction: 'out', releaseTxHash: '0xabcd' }, undefined, false))).toBe('completed');
+  expect(historyStatusOf(phaseOf({ ...deposit, claimedAt: 0 }, undefined, false))).toBe('processing');
+  expect(historyStatusOf(phaseOf({ ...deposit, claimTxHash: '0xabcd' }, undefined, false))).toBe('processing');
+  expect(historyStatusOf(phaseOf({ ...deposit, direction: 'out', releaseTxHash: '0xabcd' }, undefined, false))).toBe('processing');
 }
 
-test(stepOfKeepsAttestingAndReadyApart);
-test(historyStatusOfReportsAFailedSource);
+function phaseBroadcastIsPendingUntilDestinationConfirmation(): void {
+  for (const direction of [ 'in', 'out' ] as const) {
+    const transfer = { ...deposit, direction };
+    const broadcast = { ...transfer, ...settlementBroadcastPatch(transfer, '0xabcd', 1001) };
+    expect(phaseOf(broadcast, undefined, true)).toBe('settling');
+    expect(historyStatusOf(phaseOf(broadcast, undefined, true))).toBe('processing');
+    const confirmed = { ...finalLive, credited: direction === 'in', released: direction === 'out', settlementStatus: 'confirmed' as const };
+    expect(phaseOf(broadcast, confirmed, true)).toBe('settled');
+    expect(historyStatusOf(phaseOf(broadcast, confirmed, true))).toBe('completed');
+    const reopened: BridgeTransfer = JSON.parse(JSON.stringify({ ...broadcast, settlementStatus: 'reverted' }));
+    expect(phaseOf(reopened, undefined, true)).toBe('ready');
+    expect(historyStatusOf(phaseOf(reopened, undefined, true))).toBe('processing');
+    expect(phaseOf(reopened, undefined, false)).toBe('confirming');
+  }
+}
+
+test(stepOfKeepsAttestingAndReadyApart.name, stepOfKeepsAttestingAndReadyApart);
+test(historyStatusOfReportsAFailedSource.name, historyStatusOfReportsAFailedSource);
+test(phaseBroadcastIsPendingUntilDestinationConfirmation.name, phaseBroadcastIsPendingUntilDestinationConfirmation);

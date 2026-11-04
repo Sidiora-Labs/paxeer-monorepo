@@ -1,0 +1,24 @@
+[repair.22.33.120]
+audit = "22.30.113"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test repair_22_33_120"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; this record makes no unexecuted qualification claim."
+baseline = "Not run: the explicit ordered gates prohibit testing before complete implementation and manual verification. At session start the runner reported zero builds and zero verification runs, with no earlier gate ledger and no repair_22_33_120 test; no baseline test failure is claimed."
+
+[finding.readme-metered]
+test = "readme_metered_documents_exact_receipt_verification_and_receiver_identity"
+repair = "Document exact-only offers, authenticated receipt verification and refusals, retired ledger grants/draws and the still-required receiver identity. The shared production-path proof exercises four real offers, producer receipts, HTTP refusals, one release per payment and reopened durable delivery journals."
+wiring = "Domain 6 owns the ledger precompile's grant/draw refusal and the committed exact receipt producer; this task consumes their existing transcripts and requests no restoration of retired kernel activity types."
+
+[finding.readme-endpoint]
+test = "readme_endpoint_matches_distinct_settlement_and_watcher_authorities"
+repair = "Name gateway.endpoint as the settlement authority shared with readiness and evm.endpoint as the watcher/relay URL, update example substitutions, and explicitly support distinct URLs on the same chain. A real PaymentGate and HTTP server use distinct loopback peers; only the settlement peer serves receipt lookup, and method/chain failures close paid-route eligibility."
+wiring = "Domain 11: align spec/layerx-merge/spec.kvx req.11394 and contracts/interop-websearch.md with gateway.endpoint as settlement/readiness authority and evm.endpoint as watcher/relay authority, as already requested by repair 22.33.118; those paths are outside this task's scope."
+
+[finding.readme-peer-recovery]
+test = "readme_peer_recovery_preserves_pre_quorum_bytes_and_retirement_tombstones"
+repair = "Document watcher work, persisted attestation/response/local and collected signatures, identity binding and signed-transaction recovery as distinct stages. Link the existing pre-quorum restart proof; additionally stop/reopen all exchanges and stores below quorum, change the index, preserve exact answer bytes and signatures, collect the third signer through production HTTP and decode the observation. Verify quorum alone keeps the answer active and durable retirement hides it while retaining signatures and preventing re-signing after another reopen."
+
+[session_gotcha.1]
+observed = "The task steps request baseline verification and a spec task record while the explicit order disallows pre-implementation tests and the scope forbids spec changes."
+action = "Use this in-scope finding-to-test record and run only hf-build then hf-done; leave GOTCHA.kvx and spec files untouched."

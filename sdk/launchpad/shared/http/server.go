@@ -85,26 +85,46 @@ func realIP(trusted []netip.Prefix) func(http.Handler) http.Handler {
 }
 
 // resolveClientIP returns the trustworthy client IP, or "" to leave RemoteAddr
-// unchanged. When the direct peer is a trusted proxy it walks X-Forwarded-For
-// right-to-left and returns the first non-trusted hop (the real client), falling
-// back to X-Real-IP. Untrusted peers never have their forwarded headers honoured.
+// unchanged. Forwarded addresses must be bare IP literals, without ports or
+// zones; accepted addresses are canonicalized and IPv4-mapped IPv6 is unmapped.
+// For a trusted peer, every hop in every X-Forwarded-For field is validated
+// before selecting the rightmost untrusted hop. Any invalid or empty hop, or an
+// all-trusted chain, keeps the connection peer and never falls back to X-Real-IP.
+// Only when X-Forwarded-For is absent may a single valid X-Real-IP be used.
+// Untrusted peers never have their forwarded headers honoured.
 func resolveClientIP(remoteAddr string, h http.Header, trusted []netip.Prefix) string {
 	if len(trusted) == 0 || !ipInPrefixes(hostOnly(remoteAddr), trusted) {
 		return ""
 	}
-	if xff := h.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		for i := len(parts) - 1; i >= 0; i-- {
-			cand := strings.TrimSpace(parts[i])
-			if cand != "" && !ipInPrefixes(cand, trusted) {
-				return cand
+	if fields := h.Values("X-Forwarded-For"); len(fields) != 0 {
+		client := ""
+		for _, field := range fields {
+			for _, hop := range strings.Split(field, ",") {
+				addr, ok := forwardedAddr(hop)
+				if !ok {
+					return ""
+				}
+				if cand := addr.String(); !ipInPrefixes(cand, trusted) {
+					client = cand
+				}
 			}
 		}
+		return client
 	}
-	if xr := strings.TrimSpace(h.Get("X-Real-IP")); xr != "" {
-		return xr
+	if fields := h.Values("X-Real-IP"); len(fields) == 1 {
+		if addr, ok := forwardedAddr(fields[0]); ok {
+			return addr.String()
+		}
 	}
 	return ""
+}
+
+func forwardedAddr(raw string) (netip.Addr, bool) {
+	addr, err := netip.ParseAddr(strings.TrimSpace(raw))
+	if err != nil || addr.Zone() != "" {
+		return netip.Addr{}, false
+	}
+	return addr.Unmap(), true
 }
 
 // hostOnly strips an optional :port from an address (host:port -> host).
@@ -118,10 +138,15 @@ func hostOnly(addr string) string {
 // ipInPrefixes reports whether ip parses and falls within any of the prefixes.
 func ipInPrefixes(ip string, prefixes []netip.Prefix) bool {
 	addr, err := netip.ParseAddr(ip)
-	if err != nil {
+	if err != nil || addr.Zone() != "" {
 		return false
 	}
+	addr = addr.Unmap()
 	for _, p := range prefixes {
+		// Apply the same IPv4 identity to mapped proxy ranges as to hops.
+		if p.Addr().Is4In6() && p.Bits() >= 96 {
+			p = netip.PrefixFrom(p.Addr().Unmap(), p.Bits()-96)
+		}
 		if p.Contains(addr) {
 			return true
 		}
