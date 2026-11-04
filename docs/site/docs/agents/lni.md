@@ -1,68 +1,86 @@
 # LayerX Node Interface (LNI)
 
-`layerx-agentd` reaches the C17 core only through the LayerX Node Interface:
-a versioned, canonical-binary request, response, and streaming protocol
-carrying canonical LayerX bytes plus the proofs required to verify them
-(`spec/.beta/layerx-agent-interface/spec.kvx`, decision `boundary` and
-requirement 2).
+LNI is retired. The canonical-binary node socket protocol and its `NodeInfo`,
+batch-header and checkpoint handshake are historical interfaces. Current
+agents use native chain JSON-RPC and committed-state evidence through
+`NodeRpc` and `SequencerEndpoint`; do not configure an LNI socket or construct
+a separate node-interface client from the old beta design.
 
-Unix domain socket is the default transport. TCP with mutual TLS is permitted
-for remote deployment. The agent workspace must not open the node SQLite
-projection, read the append-only log files, or bind struct layouts from
-`include/layerx/`.
+Paxeer mainnet-beta is one BFT network with EVM chain id **125** (`0x7d`).
+The kernel is part of the network and proposes blocks. A receipt is final
+when its block is committed. Tenant domains are database namespaces, not
+additional chains requiring new infrastructure.
 
-The platform and beta specifications refer to this document as
-`spec/layerx-agent-interface`. The checked-in file is
-`spec/.beta/layerx-agent-interface/spec.kvx`.
+## Node connection
 
-## Handshake
+Public JSON-RPC uses HTTPS at the root of
+`https://api-mainnet-beta.paxeer.network/` or the numbered nodes
+`api1.mainnet-beta.paxeer.network` through
+`api14.mainnet-beta.paxeer.network`. The ordinary node namespaces are
+`debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
+The old router and /rpc, /rpc/ws and /rpc/schema paths are retired.
+`node.hyperpaxeer.com` is only the library mirror, not an RPC endpoint.
 
-Every connection begins with `NodeInfo`. The layer exchanges node-interface
-version, `protocol_version`, `network_id`, node role, chain head sequence,
-latest sealed batch number, latest finalised checkpoint, and the sequencer
-public key currently authorised. It refuses a `network_id` or
-`protocol_version` it was not configured for, and refuses a major
-node-interface version it was not built against.
+`NodeRpc::connect` checks `eth_chainId` against configuration and applies
+bounded request deadlines. Its environment configuration requires
+`LAYERX_AGENT_NODE_RPC_URL` and `LAYERX_AGENT_NODE_CHAIN_ID`; the latter
+accepts decimal or `0x` hexadecimal. These variables configure the node
+client, not a hosted gateway deployment or every full-mode agent reader.
+See [Agentd configuration](agentd.md#config-keys) for that distinction.
 
-Unknown capabilities are not emulated. Requests that need a missing capability
-fail as unavailable.
+Sources: `services/agent/crates/layerx-agentd/src/node_rpc.rs`,
+`services/agent/crates/layerx-client/src/sequencer.rs`.
 
-## Messages
+## Native operations and evidence
 
-The design body (`spec/.beta/layerx-agent-interface/design.body.md` §5.2)
-lists these messages:
-
-| Message | Carries |
+| Operation | Current interface |
 | --- | --- |
-| `NodeInfo` | Versions, network, role, heads, authorised sequencer key, capabilities |
-| `Submit` | Signed activity bytes → admission acknowledgement |
-| `GetReceipt` | Receipt bytes by activity id, idempotency key, or sequence |
-| `GetAccount` | Account state bytes and optional state inclusion proof |
-| `GetHistory` | Canonical activity, receipt, and event bytes over a sequence range |
-| `GetBatchHeader` | Batch header bytes and sequencer signature |
-| `GetCheckpoint` | Certificate, guarantor signatures, settlement reference |
-| `GetProof` | Activity and state inclusion proofs |
-| `FetchAvailability` | DA chunks and chunk inclusion proofs |
-| `SubscribeEvents` | Ordered event records from a cursor |
+| Chain identity | `eth_chainId`, checked against the configured id |
+| Pending nonce and call preparation | `eth_getTransactionCount`, `eth_estimateGas`, `eth_call` |
+| Submit signed EIP-1559 bytes | `eth_sendRawTransaction` |
+| Standard transaction receipt | `eth_getTransactionReceipt` |
+| Signed native receipt and progress | `pax_sequencerReceipt` |
+| Receipt-key discovery | `px_getReceiptKeys`, produced by the node and relayed by the hosted gateway |
+| Blocks and head | `eth_getBlockByNumber`, `eth_blockNumber` |
 
-Admission is not execution. The client considers an activity resolved only when
-a core-produced receipt has been retrieved and verified.
+The `px_` namespace belongs to the hosted gateway contract; key discovery
+is a node-produced compatibility method also consumed directly by agent
+readiness. The table does not imply that every public node serves the whole
+hosted catalogue. The hosted contract additionally declares `px_getCommit`,
+`px_getValidators` and `px_getSequenceBatch` for consensus and inclusion reads.
+
+A submission hash establishes `submitted`, a verified signed receipt
+establishes `receipted`, and a verified CometBFT commit at the receipt height
+establishes `committed`. Admission is not execution. Published signing-key
+intervals must be checked under the caller's trust policy; a key supplied
+beside a receipt is not independent authority. Consensus chain identity and
+validators are separate trust inputs. Storage witnesses and precompile
+results must bind to the authenticated committed state.
+
+Sources: `rpc/sequencer_receipt.go`,
+`services/agent/crates/layerx-agentd/src/{boot,finality}.rs`,
+`services/agent/crates/layerx-agentd/src/read/{checkpoint,committed}.rs`.
+The [Agentd evidence guide](agentd.md#protocol-evidence) describes readiness,
+verification refusals and recovery in more detail.
 
 ## Hosted path
 
-The hosted TLS surface that submits signed activities onto node LNI is
-[Hosted agent boundary](../platform/agent-boundary.md). That binary is not
-`layerx-agentd`. The disposable beta cluster does not start agentd; it
-forwards the agent-boundary Service
-([Quickstart](../overview/quickstart.md)).
+The hosted gateway is an optional application boundary in
+`services/platform/hosted/gateway`, with its method contract in
+`services/platform/hosted/gateway/openrpc.json`. It declares authenticated
+activity submission, scoped subscriptions and native reads, plus selected
+EVM and native-receipt forwarding. It is not an LNI transport and does not
+create another network or another finality event.
 
-## Pre-queue authentication (beta)
+Check the gateway's capabilities and method contract before relying on a
+surface. In particular, its declared EVM forwarding refuses transactions to
+some native precompiles with `-32003 surface_unavailable`; a direct node call
+and a hosted call are not interchangeable. Missing backends or evidence must
+produce an explicit refusal rather than fabricated balances or finality.
 
-The beta specification (`spec/layerx-beta/spec.kvx`, requirement 3) requires
-signature and authority verification before queue insertion. An LNI admission
-acknowledgement means the activity was authenticated and durably queued.
-Unauthenticated submissions must not consume sequencer queue capacity. Batch
-and WAL validation keep verifying independently.
+MCP uses an authenticated agent session, not the retired LNI boundary.
+See [MCP](mcp.md), [Agentd](agentd.md) and the
+[Hosted agent boundary](../platform/agent-boundary.md) for the respective
+client, daemon and hosted surfaces.
 
-That repair is a beta requirement. Treat it as specified behaviour of the
-native submit path, qualified under `spec/layerx-beta`.
+[Home](../index.md)
