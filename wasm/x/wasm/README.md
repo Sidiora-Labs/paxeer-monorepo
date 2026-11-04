@@ -15,9 +15,20 @@ query_gas_limit = 300000
 # This defines the memory size for Wasm modules that we can keep cached to speed-up instantiation
 # The value is in MiB not bytes
 memory_cache_size = 300
+# A quoted positive decimal SDK gas limit, or empty for the consensus block limit
+simulation_gas_limit = ""
 ```
 
 When a key is not set, `query_gas_limit` defaults to 3000000 and `memory_cache_size` to 100 MiB.
+The node template uses a query limit of 300000.
+
+`simulation_gas_limit` is a string in both the node template and the start flag.
+For example, `simulation_gas_limit = "987654"` sets the simulation gas meter to
+987654 SDK gas. An absent key or `""` uses the consensus maximum block gas when
+positive; without a positive block maximum, the existing simulation meter is
+retained. `"0"` is rejected, as are negative, fractional, overflowing or malformed
+values and TOML integers such as `simulation_gas_limit = 987654`. Quote the
+number to apply the bound. This option affects simulations only.
 
 ## Messages
 

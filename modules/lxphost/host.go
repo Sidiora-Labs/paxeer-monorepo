@@ -93,6 +93,39 @@ typedef struct lxphost_outcome {
     size_t encoded_length;
 } lxphost_outcome;
 
+static int32_t lxphost_receipt_authority_add(lxphost_node *node,
+    lxp_byte_span encoded, uint64_t height)
+{
+    lxp_receipt receipt;
+    lxp_verified_receipt_facts facts = {0};
+    lxp_verified_receipt_index *index = &node->verified_receipts;
+    size_t at;
+    int32_t status = lxp_verified_receipt_index_add_height_authority(
+        index, encoded, height, &node->arena);
+    if (status != LXP_OK) return status;
+    status = lxp_receipt_decode(encoded.bytes, encoded.length, false, &receipt);
+    if (status == LXP_OK)
+        status = lxp_receipt_digest(&receipt, &node->arena, facts.receipt_digest);
+    if (status != LXP_OK) return status;
+    facts.result_code = receipt.result_code;
+    facts.global_sequence = receipt.global_sequence;
+    facts.timestamp = receipt.timestamp;
+    memcpy(facts.asset, receipt.asset, 32);
+    facts.amount = receipt.amount;
+    memcpy(facts.resulting_state_root, receipt.resulting_state_root, 32);
+    for (at = 0; at < index->count; ++at) {
+        int order = memcmp(index->entries[at].receipt_digest, facts.receipt_digest, 32);
+        if (order == 0) return LXP_OK;
+        if (order > 0) break;
+    }
+    if (index->count == LXP_VERIFIED_RECEIPT_INDEX_MAX) return LXP_ERR_LENGTH_LIMIT;
+    memmove(&index->entries[at + 1], &index->entries[at],
+        (index->count - at) * sizeof(index->entries[0]));
+    index->entries[at] = facts;
+    ++index->count;
+    return LXP_OK;
+}
+
 static void lxphost_release_blobs(lxp_kernel *kernel)
 {
     size_t i;
@@ -867,7 +900,7 @@ func lxphost_bind_assets(node *C.lxphost_node, networkID uint32, bindingAuthorit
 	return result(C.lxphost_bind_assets(node, C.uint32_t(networkID), C.bool(bindingAuthority)))
 }
 
-func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, authorities ...ReceiptAuthority) error {
+func prepareReceiptAuthorities(node *C.lxphost_node, cfg Config, branch *branchCtx, authorities []ReceiptAuthority) error {
 	if err := result(C.lxp_verified_receipt_index_bind_authority_network(&node.verified_receipts, C.uint32_t(cfg.NetworkID))); err != nil {
 		return err
 	}
@@ -876,10 +909,16 @@ func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindin
 			return codeNonCanonical
 		}
 		encoded := C.lxp_byte_span{bytes: bytesPtr(authority.CanonicalReceipt), length: C.size_t(len(authority.CanonicalReceipt))}
-		if err := result(C.lxp_verified_receipt_index_add_height_authority(&node.verified_receipts, encoded,
-			C.uint64_t(authority.BlockHeight), &node.arena)); err != nil {
+		if err := result(C.lxphost_receipt_authority_add(node, encoded, C.uint64_t(authority.BlockHeight))); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, authorities ...ReceiptAuthority) error {
+	if err := prepareReceiptAuthorities(node, cfg, branch, authorities); err != nil {
+		return err
 	}
 	balance, err := fee_balance(node)
 	if err != nil {
@@ -1203,6 +1242,24 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err := lxphost_outcome_read(h.node, &outcome); err != nil {
 		return Receipt{}, err
 	}
+	receipt := receiptFromOutcome(module, &outcome)
+	stagedBlobs, err := h.moduleBlobs()
+	if err != nil {
+		return Receipt{}, err
+	}
+	if err := branch.commit(h, did); err != nil {
+		return Receipt{}, err
+	}
+	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
+	branch.commitPaymentReference(activity, receipt)
+	return receipt, nil
+}
+
+func releaseOutcome(outcome *lxphost_outcome) {
+	C.lxphost_outcome_release(outcome)
+}
+
+func receiptFromOutcome(module uint16, outcome *lxphost_outcome) Receipt {
 	receipt := Receipt{
 		FeeCharged:         readAmount(C.struct_lxp_u128{hi: outcome.fee_hi, lo: outcome.fee_lo}),
 		ResultCode:         Code(outcome.result_code),
@@ -1247,16 +1304,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 			Events:                  C.GoBytes(unsafe.Pointer(program.event_envelope_payload.bytes), C.int(program.event_envelope_payload.length)),
 		}
 	}
-	stagedBlobs, err := h.moduleBlobs()
-	if err != nil {
-		return Receipt{}, err
-	}
-	if err := branch.commit(h, did); err != nil {
-		return Receipt{}, err
-	}
-	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
-	branch.commitPaymentReference(activity, receipt)
-	return receipt, nil
+	return receipt
 }
 
 func (h *Host) ServiceApplyDefaultOutcomes(ctx sdk.Context) (Receipt, error) {

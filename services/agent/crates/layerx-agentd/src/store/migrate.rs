@@ -1,13 +1,11 @@
 //! Forward-only store schema migrations.
 
 use std::fmt::{Display, Formatter};
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
-use std::path::Path;
+use std::io;
+
+use super::protected::ProtectedRoot;
 
 const MAGIC: &[u8; 4] = b"LXAS";
-const STORE_FILE: &str = "store.bin";
-const MIGRATION_TEMP_FILE: &str = "store.bin.migrating";
 
 /// Current durable store schema.
 pub const CURRENT_SCHEMA_VERSION: u32 = 3;
@@ -65,17 +63,15 @@ impl From<io::Error> for MigrationError {
 }
 
 /// Migrates a store forward without deriving any protocol fact locally.
-pub(super) fn migrate_store(root: &Path) -> Result<MigrationReport, MigrationError> {
-    let path = root.join(STORE_FILE);
-    if !path.exists() {
+pub(super) fn migrate_store(root: &ProtectedRoot) -> Result<MigrationReport, MigrationError> {
+    let Some(mut bytes) = root.read()? else {
         return Ok(MigrationReport {
             original_version: CURRENT_SCHEMA_VERSION,
             final_version: CURRENT_SCHEMA_VERSION,
             steps: Vec::new(),
             core_produced_records_preserved: 0,
         });
-    }
-    let mut bytes = fs::read(&path)?;
+    };
     let original_version = schema_version(&bytes)?;
     let mut version = original_version;
     if version > CURRENT_SCHEMA_VERSION {
@@ -110,16 +106,7 @@ pub(super) fn migrate_store(root: &Path) -> Result<MigrationReport, MigrationErr
         version += 1;
     }
     let core_produced_records_preserved = validate_v2_or_v3(&bytes, version)?;
-    let temp_path = root.join(MIGRATION_TEMP_FILE);
-    let mut file = OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .open(&temp_path)?;
-    file.write_all(&bytes)?;
-    file.sync_all()?;
-    fs::rename(temp_path, path)?;
-    File::open(root)?.sync_all()?;
+    root.write(&bytes)?;
     Ok(MigrationReport {
         original_version,
         final_version: version,

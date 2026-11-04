@@ -169,6 +169,10 @@ def validate(manifest, directory, selected_revision=None):
             manifest["build"].get("rust_toolchain") == pin and
             manifest["build"].get("rustc_version", "").startswith("rustc " + pin + " "),
             "build compiler differs from source pin")
+    # Drive the closure check through the verified runtime inspector and its
+    # verified shared libraries, after provenance and digest validation.
+    command([str(directory / "bringup-inspect"), "runtime-sources", str(ROOT)],
+            env=dict(os.environ, LD_LIBRARY_PATH=str(directory)))
     return manifest
 
 
@@ -344,6 +348,10 @@ def verify_sources():
             "missing chain build target")
     require((ROOT / "services/wallet/attestor/cmd/attestor/main.go").is_file(),
             "missing attestor build source")
+    # The source-bound inspector consumes the recorded go list -deps closure
+    # and native build includes. A list with the right binary names can still be incomplete.
+    command([os.environ.get("BRINGUP_INSPECT_BIN", "bringup-inspect"),
+             "runtime-sources", str(ROOT)])
 
 
 def main():
