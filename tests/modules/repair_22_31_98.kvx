@@ -1,0 +1,22 @@
+[repair.22.31.98]
+finding = "22.30.5.1"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+implementation = "Registration and version 3 encoding/decoding share complete record validation, including decimals <= 38 and nonzero asset identity; refusals preserve codec output."
+proving_tests = ["test_asset_record_codec_validation", "test_asset_record_save_restore"]
+verify_target = "test-asset-registry"
+qualification_revision = "The runner-owned hf-done evidence JSON identifies the exact verified candidate revision, command, exit code and private log."
+baseline = "Not run: the explicit task order prohibits testing before complete implementation and permits verification only through hf-done after hf-build; no baseline failures are claimed."
+wiring_requests = []
+
+[proof.test_asset_record_codec_validation]
+criterion = "Both issuer kinds round-trip every accepted decimals value 0..38 and maximum field sizes; invalid records leave encoding bytes/length and registry fees/sequence/count unchanged; truncated and invalid decoded records leave output unchanged."
+
+[proof.test_asset_record_save_restore]
+criterion = "Signed registration activities pass through real kernel dispatch and asset_save; persisted bytes match exported encoding and restore through lx_asset_runtime_restore. Both issuer kinds cover decimals 0 and 38. Refused decimals 39 preserve prior codec bytes/length, committed state root and readable restored records."
+
+[qualification.initial]
+revision = "36ca7fcfc7c229c747e44d0a339b785d62097c73"
+command = "cg spec done 22.31.98 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new test required an explicit uint8_t conversion; repaired that assignment and preserved the journal sequence after refused registration rollback."
