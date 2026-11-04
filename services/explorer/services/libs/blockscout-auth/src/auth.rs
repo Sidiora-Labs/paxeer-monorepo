@@ -11,13 +11,44 @@ use url::Url;
 #[derive(Debug, Clone, Deserialize)]
 pub struct AuthSuccess {
     pub avatar: Option<String>,
-    pub email: String,
+    #[serde(deserialize_with = "Option::<String>::deserialize")]
+    pub email: Option<String>,
     pub id: i64,
     pub name: Option<String>,
     pub nickname: Option<String>,
     pub uid: String,
-    pub watchlist_id: i64,
+    #[serde(default, deserialize_with = "deserialize_watchlist_id")]
+    pub watchlist_id: Option<i64>,
     pub email_verified: bool,
+}
+
+fn deserialize_watchlist_id<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    i64::deserialize(deserializer).map(Some)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionProfile<'a> {
+    Wallet,
+    UnverifiedEmail(&'a str),
+    VerifiedEmail(&'a str),
+}
+
+impl AuthSuccess {
+    pub fn session_profile(&self) -> SessionProfile<'_> {
+        match (self.email.as_deref(), self.email_verified) {
+            (None, _) => SessionProfile::Wallet,
+            (Some(email), false) => SessionProfile::UnverifiedEmail(email),
+            (Some(email), true) => SessionProfile::VerifiedEmail(email),
+        }
+    }
+
+    pub fn require_watchlist(&self) -> Result<i64, Error> {
+        self.watchlist_id
+            .ok_or_else(|| Error::Forbidden("session has no watchlist".into()))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

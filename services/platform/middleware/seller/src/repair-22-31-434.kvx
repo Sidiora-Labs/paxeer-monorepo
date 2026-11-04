@@ -1,0 +1,62 @@
+[repair.22.31.434]
+audit = "22.30.86"
+mode = "BUILD"
+status = "implemented-with-wiring-requests"
+verification = "hf-build then hf-done; private gate ledger records the exact candidate revision, command, exit and log."
+baseline = "Not run: the explicit gate order forbids pre-implementation testing and manual verify_cmd execution; no before-change gate result is claimed."
+native_gate = "The declared Node gate cannot execute the Go precompile; its keeper bridge remains native-unqualified."
+
+[finding.node-root-rejected]
+test = "nodeRootRejected"
+implementation = "Root-only eth/pax PaymentRpc and separate hosted px HostedGatewayRpc share the authenticated, redirect-refusing, deadline- and body-bounded transport."
+
+[finding.seller-draw-recipient]
+test = "sellerDrawRecipient"
+implementation = "Draw calldata recipient equals payTo; grant lookup independently binds the source, asset, recipient and recovered execution address before submission."
+limitation = "Recipient validation and distinct-account codec binding are covered; a node-produced successful grant receipt is unavailable while the keeper retires grants."
+
+[finding.draw-producer-unavailable]
+test = "drawProducerUnavailable"
+implementation = "The precompile delegates draw to the existing authorized keeper and emits its real transfer/PaymentDrawn events only on success; seller authority refuses absent or inactive grant capability before execution."
+status = "blocked-by-owning-ledger-domain"
+
+[finding.seller-grant-final-verifier]
+test = "sellerGrantFinalVerifier"
+implementation = "Shared pinned verification routes exact to PaymentExact and grant schemes to PaymentDrawn, binding calldata, grant ID, source, recipient, amount, asset, purpose, idempotency and context."
+limitation = "The real node exact transcript is refused for grant offers; successful node grant through buyer and durable fulfillment requires the external producer and buyer wiring below."
+
+[finding.seller-network-unbound]
+test = "sellerNetworkUnbound"
+implementation = "The seller authenticates the EIP-1559 sender, destination and chain ID; an authentic other-chain witness under the same receipt pin is refused by seller, real buyer capture, merchant checkout and RPC verification."
+
+[finding.receipt-reuse-principal]
+test = "receiptReusePrincipal, interruptedReleaseNeverDebitsAgain"
+implementation = "Receipt identity is network/payee scoped while requestDigest binds the principal and full request; the durable repository atomically persists a claim before release and preserves uncertain outcomes across reopen."
+
+[finding.commitment-inclusion-unverified]
+test = "commitmentInclusionUnverified"
+implementation = "Recompute the real Comet header hash, verify the node sequence-batch transaction Merkle path against DataHash, verify its pinned signature and bind its activity list and sequence roots to the signed receipt; preserve every proof field in portable encoding."
+node_contract = "The node commits sequence-batch coverage, not a synthetic receipt-root field; this follows the existing layerx-client ReceiptCommitEvidence producer contract."
+
+[finding.commitment-validator-trust]
+test = "commitmentValidatorTrust"
+implementation = "Require an independently configured network/height resolver, bind its consensus chain identity and validator hash to the header and the entire supplied set, and verify quorum; reject a cryptographically valid foreign self-signed set and unsigned-member substitutions."
+
+[wiring.ledger]
+request = "modules/layerxledger/keeper/{grants.go,draw.go,views.go} and owning kernel grant modules — ledger domain: restore authenticated grant issuance/lookup/authorization, persisted debit accounting and replay recovery, then provide a real successful PaymentDrawn transcript; the currently retired keeper cannot implement decision 2515 from this task's paths."
+
+[wiring.buyer]
+request = "services/platform/middleware/buyer/src/index.ts — middleware buyer domain: bind grant calldata recipient to payTo rather than payer in grantDrawTransaction/captureGrantSettlement and report the grant source from verified PaymentDrawn; its current pre-check rejects a correct distinct-recipient draw."
+
+[wiring.applications]
+request = "services/platform/examples/{paid-api/index.mjs,support/merchant-app.mjs} — middleware examples domain: migrate FileFulfillmentRepository/FileFulfillments to DurableFulfillmentRepository or provide the same persisted atomic claim contract before release."
+
+[wiring.commitment-resolvers]
+request = "services/platform/middleware/{buyer,agent}/src and services/platform/examples/support/runtime.mjs — middleware owners: forward resolveValidators with commitment resolvers and configure independently trusted network/height anchors; metadata-only commitment evidence is now refused."
+
+[wiring.fixtures]
+request = "daemon/committed-fixture and sdk/platform/conformance/fixtures — node/conformance domain: record EIP-1559 committed payments and live grant success/reopen evidence; the current committed node transcript uses a legacy transaction and cannot serve as a positive EIP-1559 seller fulfillment."
+
+[qualification.compatibility]
+observed = "Historical tests outside this task positively accept PaymentExact for metered terms, principal-scoped duplicate releases, metadata-only commits and /rpc node URLs; their assertions contradict this repair and were neither edited nor run."
+assumption = "Owning domains update these contract assertions and resolver adapters in their own scoped tasks."

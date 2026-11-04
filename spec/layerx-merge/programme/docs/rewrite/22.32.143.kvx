@@ -1,0 +1,46 @@
+[manifest]
+task = "22.32.143"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 4
+
+[page.1]
+path = "services/explorer/README.md"
+status = "stale"
+bytes = 13501
+source_1 = "record 22.30.132 [doc.13] (stale): Finding explorer-frontend-location: The component table and build instructions place the frontend in services/explorer/frontend and tell operators to cd frontend and read frontend/.nvmrc; this package frontend actually lives in apps/explorer."
+source_2 = "record 22.30.133 [doc.13] (stale): Read in full: frontend build/test paths still use frontend/ after the move to apps/explorer. Disposable database and license guidance remain useful but path mappings require correction."
+source_3 = "record 22.30.141 [doc.13] (stale): The backend builder and independent process boundary are described, but lines 10,29-30 and 110-111 still locate the frontend under the removed frontend directory."
+source_4 = "record 22.30.150 [doc.013] (stale): Upstream revisions and local explorer purpose remain identifiable, but lines 10, 18, 30, 111 and 254 retain the old frontend/explorer workspace paths; finding 021 proposes current directories and license paths."
+source_5 = "record 22.30.153 [doc.13] (stale): Lines 10 onward describe obsolete operating behavior; finding explorer-readme-layout records the exact contradiction and concrete rewrite proposal."
+
+[page.2]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+bytes = 2251
+source_1 = "record 22.30.132 [doc.14] (stale): Finding explorer-upstream-location: The provenance table and import notes use frontend/ and explorer/ paths though the frontend import now lives at apps/explorer. The pinned revisions remain usable for full-byte upstream comparisons."
+source_2 = "record 22.30.133 [doc.15] (stale): Read in full: exact Blockscout pins establish vendor provenance; frontend paths require a current mapping after the layout move."
+source_3 = "record 22.30.134 [doc.13] (stale): Upstream revision pins and import limitations remain useful; lines 3 and 23-32 retain pre-move explorer/frontend paths."
+source_4 = "record 22.30.136 [doc.13] (stale): Full provenance page reviewed. Upstream frontend v2.7.2 and backend v10.2.6 pins are retained as provenance; lines 3,9-11 and import paths predate the move to apps/explorer and services/explorer."
+source_5 = "record 22.30.141 [doc.14] (stale): Retains the backend and Rust upstream revision and licence provenance, but its frontend path and frontend/configs references need the apps/explorer mapping."
+source_6 = "record 22.30.145 [doc.16] (stale): Pinned import revisions and licenses were reviewed; current-layout documentation drift is recorded below."
+source_7 = "record 22.30.150 [doc.016] (stale): Exact upstream revision and license identities support the imported-file provenance comparison, but current tree and license locations retain pre-relocation paths at lines 3-16; finding 023 proposes path updates without changing provenance."
+source_8 = "record 22.30.154 [doc.13] (stale): Pinned Blockscout revisions and byte-identical import provenance remain useful, but line 3 and the path labels predate the monorepo move; finding upstream_layout_paths."
+
+[page.3]
+path = "services/explorer/backend/README.md"
+status = "stale"
+bytes = 2900
+source_1 = "record 22.30.132 [doc.15] (stale): Finding backend-archive-route-doc: The API list advertises /paxeer-x/anchors and /paxeer-x/receipts as ordinary routes; api_router.ex registers historical material under /paxeer-x/archive/anchors and /paxeer-x/archive/receipts beside native account/capabilities."
+source_2 = "record 22.30.133 [doc.14] (stale): Read in full: lists removed live anchors/receipts paths instead of explicit archive APIs and omits native feed routes."
+source_3 = "record 22.30.136 [doc.14] (stale): Full page reviewed. Lines 35-37 list retired live anchors/receipts routes; current router serves archive variants and feed routes that the page omits."
+source_4 = "record 22.30.142 [doc.13] (stale): Lines 36-38 advertise retired /paxeer-x/anchors and /receipts paths and omit the live signature and frozen archive paths."
+source_5 = "record 22.30.145 [doc.17] (stale): The backend application split and runtime settings were reviewed; advertised archive paths are stale and recorded below."
+source_6 = "record 22.30.150 [doc.014] (stale): Lines 35-36 advertise anchors/receipts without the registered archive path component; finding 022 proposes archive-only endpoint documentation beside the live interfaces."
+source_7 = "record 22.30.154 [doc.14] (stale): Lines 35-36 advertise old archive paths that now return not-found; finding backend_archive_routes. The chain type, RPC variant and umbrella layout match their configuration."
+
+[page.4]
+path = "services/explorer/backend/apps/block_scout_web/API blueprint.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.148 [doc.13] (stale): Legacy generated controller examples reviewed throughout. HOST at line 2 and account/v1 examples at 9-2102 do not document the current account/v2 router; see blueprint-account-api-version."

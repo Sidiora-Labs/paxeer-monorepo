@@ -22,7 +22,8 @@ var triggerRefusals = []error{
 	types.ErrNoLiquidity, types.ErrSlippageExceeded, types.ErrInsufficientMargin, types.ErrOpenInterestCap,
 	types.ErrReduceOnlyViolation, types.ErrLeverageTooHigh, types.ErrMinOrderValue, types.ErrMaxOrderValue,
 	types.ErrLotSize, types.ErrFokNotFilled, types.ErrPostOnlyWouldCross, types.ErrUnknownPosition,
-	types.ErrPriceStale, types.ErrMarketDisabled,
+	types.ErrPriceStale, types.ErrMarketDisabled, types.ErrDeadlineExpired, types.ErrPaused,
+	types.ErrInsufficientCollateral,
 }
 
 // AttachedTpSl is the value of prefix 0x11: the order ids of the take-profit
@@ -112,6 +113,9 @@ func (k *Keeper) TriggerInsert(ctx sdk.Context, order types.Order) error {
 	key := triggerKey(order)
 	id := order.ID.Bytes32()
 	k.store(ctx).Set(key, id[:])
+	if order.ReduceOnly {
+		k.store(ctx).Set(protectiveTriggerKey(order), id[:])
+	}
 	return nil
 }
 
@@ -122,6 +126,9 @@ func (k *Keeper) TriggerRemove(ctx sdk.Context, order types.Order) error {
 	}
 	key := triggerKey(order)
 	k.store(ctx).Delete(key)
+	if order.ReduceOnly {
+		k.store(ctx).Delete(protectiveTriggerKey(order))
+	}
 	return nil
 }
 
@@ -148,9 +155,13 @@ func (k *Keeper) crossedInDirection(ctx sdk.Context, marketID uint64, direction 
 	paused bool) ([]uint256.Int, error) {
 	var ids []uint256.Int
 	prefix := types.TriggerDirectionPrefix(marketID, direction)
+	if paused {
+		prefix = append([]byte{0x19}, prefix[len(types.TriggerPrefix):]...)
+	}
 	iterator := sdk.KVStorePrefixIterator(k.store(ctx), prefix)
 	defer iterator.Close()
-	for ; iterator.Valid() && uint64(len(ids)) < limit; iterator.Next() {
+	for visits := uint64(0); iterator.Valid() && visits < limit; iterator.Next() {
+		visits++
 		key, value := iterator.Key(), iterator.Value()
 		if len(key) != triggerKeyLength || len(value) != 32 {
 			return nil, types.ErrInvalidParams.Wrapf("trigger entry %x", key)
@@ -259,6 +270,16 @@ func isTriggerRefusal(err error) bool {
 // market after the fills, or the closed position's id. A condition that does
 // not hold returns ErrTriggerNotReached.
 func (k *Keeper) ExecuteOrder(ctx sdk.Context, orderID uint256.Int) (uint256.Int, []types.EventRecord, error) {
+	cacheCtx, write := ctx.CacheContext()
+	id, events, err := k.executeOrder(cacheCtx, orderID)
+	if err != nil {
+		return uint256.Int{}, nil, err
+	}
+	write()
+	return id, events, nil
+}
+
+func (k *Keeper) executeOrder(ctx sdk.Context, orderID uint256.Int) (uint256.Int, []types.EventRecord, error) {
 	order, err := k.triggerOrderRecord(ctx, orderID)
 	if err != nil {
 		return uint256.Int{}, nil, err
@@ -308,12 +329,41 @@ func (k *Keeper) freshMark(ctx sdk.Context, marketID uint64) (uint256.Int, error
 // trigger types run as IOC orders through Match. A filled attached TP/SL
 // order cancels the other order of its pair.
 func (k *Keeper) triggerOrder(ctx sdk.Context, market types.Market, order types.Order, mark uint256.Int) (uint256.Int, []types.EventRecord, error) {
+	if err := orderDeadline(ctx, order); err != nil {
+		return uint256.Int{}, nil, err
+	}
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return uint256.Int{}, nil, err
+	}
+	if !order.ReduceOnly {
+		if params.Paused {
+			return uint256.Int{}, nil, types.ErrPaused.Wrap("opening triggers are paused")
+		}
+		live := order
+		price := mark
+		if order.Type == types.OrderTypeStopLimit {
+			price = order.LimitPrice
+		}
+		if _, overflow := live.SizeUsd.MulDivOverflow(&order.SizeBase, &price, priceScale); overflow {
+			return uint256.Int{}, nil, types.ErrOverflow.Wrap("live trigger notional")
+		}
+		if err := checkOrderValue(params, market, live); err != nil {
+			return uint256.Int{}, nil, err
+		}
+		if err := checkOrderLeverage(market, live); err != nil {
+			return uint256.Int{}, nil, err
+		}
+		if err := k.checkOpeningOrder(ctx, params, market, live); err != nil {
+			return uint256.Int{}, nil, err
+		}
+	}
 	positionBefore, err := k.triggerPositionID(ctx, order.Account, order.MarketID)
 	if err != nil {
 		return uint256.Int{}, nil, err
 	}
 	if order.ReduceOnly || order.Type == types.OrderTypeTakeProfit || order.Type == types.OrderTypeStopLoss {
-		_, err := k.triggerPositionRecord(ctx, positionBefore)
+		position, err := k.triggerPositionRecord(ctx, positionBefore)
 		if positionBefore.IsZero() || errors.Is(err, types.ErrUnknownPosition) {
 			cancelled, err := k.cancelUntriggered(ctx, order)
 			return uint256.Int{}, cancelled, err
@@ -321,6 +371,22 @@ func (k *Keeper) triggerOrder(ctx sdk.Context, market types.Market, order types.
 		if err != nil {
 			return uint256.Int{}, nil, err
 		}
+		if position.IsLong == order.IsLong {
+			return uint256.Int{}, nil, types.ErrReduceOnlyViolation.Wrap("trigger is on the live position side")
+		}
+		if order.SizeBase.Gt(&position.SizeBase) {
+			order.SizeBase = position.SizeBase
+			if _, overflow := order.SizeUsd.MulDivOverflow(&order.SizeBase, &mark, priceScale); overflow {
+				return uint256.Int{}, nil, types.ErrOverflow.Wrap("reduced trigger notional")
+			}
+		}
+	}
+	pair, err := k.GetAttachedTpSl(ctx, positionBefore)
+	if err != nil {
+		return uint256.Int{}, nil, err
+	}
+	if err := k.detachOrderLeg(ctx, order); err != nil {
+		return uint256.Int{}, nil, err
 	}
 	if err := k.TriggerRemove(ctx, order); err != nil {
 		return uint256.Int{}, nil, err
@@ -350,7 +416,9 @@ func (k *Keeper) triggerOrder(ctx sdk.Context, market types.Market, order types.
 			return uint256.Int{}, nil, err
 		}
 	case types.OrderTypeStopMarket, types.OrderTypeTakeProfit, types.OrderTypeStopLoss:
-		order.TimeInForce = types.TimeInForceIOC
+		if order.TimeInForce != types.TimeInForceFOK {
+			order.TimeInForce = types.TimeInForceIOC
+		}
 		k.setTriggerOrderRecord(ctx, order)
 		matched, err := k.Match(ctx, market, order)
 		if err != nil {
@@ -359,7 +427,14 @@ func (k *Keeper) triggerOrder(ctx sdk.Context, market types.Market, order types.
 		order = matched.Taker
 		events = append(events, matched.Events...)
 		if order.Type != types.OrderTypeStopMarket && !order.FilledBase.IsZero() && !positionBefore.IsZero() {
-			ocoEvents, err := k.cancelOtherLeg(ctx, positionBefore, order.ID)
+			var other uint256.Int
+			if pair.TakeProfitOrderID == order.ID {
+				other = pair.StopLossOrderID
+			} else if pair.StopLossOrderID == order.ID {
+				other = pair.TakeProfitOrderID
+			}
+			k.store(ctx).Delete(types.AttachedTpSlKey(positionBefore))
+			ocoEvents, err := k.cancelOpenLeg(ctx, other)
 			if err != nil {
 				return uint256.Int{}, nil, err
 			}
@@ -633,26 +708,10 @@ func (k *Keeper) cancelUntriggered(ctx sdk.Context, order types.Order) ([]types.
 	if err := k.TriggerRemove(ctx, order); err != nil {
 		return nil, err
 	}
-	if err := k.adjustOpenOrders(ctx, order.Account, false, 0); err != nil {
+	if err := k.closeOrder(ctx, order, types.OrderStatusCancelled); err != nil {
 		return nil, err
 	}
-	store := k.store(ctx)
-	order.Status = types.OrderStatusCancelled
-	k.setTriggerOrderRecord(ctx, order)
-	store.Delete(types.AccountOrderKey(order.Account, order.ID))
-	if order.Cloid != ([16]byte{}) {
-		cloidKey := types.CloidKey(order.Account, order.MarketID, order.Cloid)
-		if bz := store.Get(cloidKey); len(bz) == 32 {
-			var id uint256.Int
-			if id.SetBytes32(bz).Eq(&order.ID) {
-				store.Delete(cloidKey)
-			}
-		}
-	}
-	if order.Deadline != 0 {
-		store.Delete(types.ExpiryKey(order.Deadline, order.ID))
-	}
-	return []types.EventRecord{{Name: types.EventOrderCancelled, Args: []any{order.ID.ToBig(), order.Account}}}, nil
+	return []types.EventRecord{orderCancelled(order)}, nil
 }
 
 func orderTriggered(order types.Order, mark uint256.Int) types.EventRecord {
@@ -741,4 +800,47 @@ func (k *Keeper) triggerPositionID(ctx sdk.Context, account common.Address, mark
 	var id uint256.Int
 	id.SetBytes32(bz)
 	return id, nil
+}
+
+// protectiveTriggerKey keeps paused exits independent of opening-trigger count.
+func protectiveTriggerKey(order types.Order) []byte {
+	key := triggerKey(order)
+	return append([]byte{0x19}, key[len(types.TriggerPrefix):]...)
+}
+
+func (k *Keeper) detachOrderLeg(ctx sdk.Context, order types.Order) error {
+	if !order.ReduceOnly {
+		return nil
+	}
+	id, err := k.triggerPositionID(ctx, order.Account, order.MarketID)
+	if err != nil || id.IsZero() {
+		return err
+	}
+	pair, err := k.GetAttachedTpSl(ctx, id)
+	if err != nil {
+		return err
+	}
+	if pair.TakeProfitOrderID == order.ID {
+		pair.TakeProfitOrderID.Clear()
+	}
+	if pair.StopLossOrderID == order.ID {
+		pair.StopLossOrderID.Clear()
+	}
+	if pair.TakeProfitOrderID.IsZero() && pair.StopLossOrderID.IsZero() {
+		k.store(ctx).Delete(types.AttachedTpSlKey(id))
+	} else {
+		k.store(ctx).Set(types.AttachedTpSlKey(id), pair.marshal())
+	}
+	return nil
+}
+
+func orderDeadline(ctx sdk.Context, order types.Order) error {
+	now, err := blockTimeSeconds(ctx)
+	if err != nil {
+		return err
+	}
+	if order.Deadline != 0 && order.Deadline < now {
+		return types.ErrDeadlineExpired.Wrapf("order %s deadline %d below block time %d", order.ID.Dec(), order.Deadline, now)
+	}
+	return nil
 }

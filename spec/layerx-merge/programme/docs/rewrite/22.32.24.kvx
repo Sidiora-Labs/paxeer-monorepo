@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.24"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 1
+
+[page.1]
+path = "sdk/launchpad/packages/sdk/README.md"
+status = "stale"
+bytes = 4224
+source_1 = "record 22.30.41 [doc.4] (stale): Read in full. Lines 3 and 17 retain removed phase2 evidence/qualification guidance; generator reproducibility currently lacks the authoritative bundle. Finding 10 proposes the owning documentation repair."

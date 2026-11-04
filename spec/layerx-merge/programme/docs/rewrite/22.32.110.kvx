@@ -1,0 +1,38 @@
+[manifest]
+task = "22.32.110"
+domain = 13
+owner_role = "fm-programs"
+pages = 2
+
+[page.1]
+path = "docs/site/docs/programs/index.md"
+status = "misleading"
+bytes = 25932
+source_1 = "record 22.30.123 [doc.001] (stale): Lines 17-20 deny implemented features; 90-137 describe retired daemon simulation; 292-317 and 569 retain obsolete ABI root/admission values."
+source_2 = "record 22.30.124 [doc.01] (misleading): Read in full. Lines 13-19,119-138,292-310,404-427 retain retired receipt/LNI/finality guidance and obsolete example/ABI inventory; see programs-site-current-model."
+source_3 = "record 22.30.125 [doc.programs_site] (misleading): Read full page. Lines 112-128 and 137 retain ABI-2-only CALL and retired LNI/daemon simulation; 144-146 falsely mark existing LXT-20 paths absent; 248-250 retain old submission; 292, 307-319 and 554 onward omit frozen ABIs 3-5; 325-333 describe old hosted pins. See programs_site_abi, programs_site_retired and programs_site_missing_example."
+source_4 = "record 22.30.126 [doc.1] (stale): Read in full; simulate lines 119-138 cite retired daemon/LNI transport; ABI admission statements are stale separately."
+source_5 = "record 22.30.127 [doc.1] (stale): Full page read. Guest ABI/default/admission at 113-115, 298-319 and 569-570 are obsolete. Simulation/submission at 119-137 and 248-249 and external settlement at 325-331 retain retired paths. Findings 10 and 12 propose the rewrite."
+source_6 = "record 22.30.128 [doc.10] (stale): Lines 18/145/282 deny existing codecs and fixtures; lines 119-138 present retired daemon LNI invocation. Reviewed activity layouts, module versions, ABI, custody, query and receipt sections."
+source_7 = "record 22.30.129 [doc.003] (misleading): Lines 18 and 143 describe present code as missing, lines 298 and 307 retain obsolete ABI admission, and the call/simulation section uses retired LNI/layerxd."
+source_8 = "record 22.30.130 [doc.1] (stale): Full page read. Lines 118-140 retain daemon/LNI simulation; lines 288-312 describe obsolete ABI defaults/admission. Transport and periodic-finality guidance needs the merged-node rewrite."
+source_9 = "record 22.30.139 [doc.11] (stale): The page says payments-merchant and LXT20 are absent despite the existing merchant example manifest and programs/sdk/rust/src/lxt20.rs; its own later merchant build example around line 244 contradicts the absence claim at line 145. Rewrite: Describe the current example programs and real build/deploy entrypoints, distinguish examples from supported production features, and retain guest ABI/domain/payload constraints."
+source_10 = "record 22.30.144 [doc.11] (stale): Stale at lines 117-126 and Calls and receipt reads ingress. The custody-retirement notice at lines 531-537 is accurate."
+source_11 = "record 22.30.152 [doc.8] (stale): Simulation section lines118-138 uses the retired daemon/LNI and hosted Programs REST. Later CALL settlement section (site404, wiki445) needs native committed-block semantics and current guest ABI/payload limits."
+source_12 = "record 22.30.154 [doc.11] (stale): Lines 18 and 145 wrongly say shipped LXT-20 sources are absent; lines 120-137 present daemon simulation as active. Findings program_examples_exist and program_daemon_simulation."
+source_13 = "record 22.30.156 [doc.09] (stale): Lines 48, 120-137, 249 and 418-435 retain fee governance, daemon simulation, lx_sendActivity and replay-batch lifecycle. Preserve guest ABI while documenting merged execution."
+source_14 = "record 22.30.162 [doc.010] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in programs-site."
+source_15 = "record 22.30.164 [doc.12] (misleading): Read all 583 lines. Lines 48-56, 119-138 and 404-439 retain retired runtime/lifecycle advice; lines 18-19, 144-146 and 281-282 deny existing source assets; line 244 builds the wrong example."
+source_16 = "record 22.30.4 [doc.008] (stale): Lines 48-58, 113-115, 137, 292-310 and 418-438 retain fee relay, an obsolete ABI ceiling, daemon simulation and replica occupancy finalization. Findings: 032, 033."
+source_17 = "record 22.30.5 [doc.03] (stale): Read all 583 lines. Lines 48,119-138,248-249,323-340,405-437 retain fee governance, retired ingress and replica/batch settlement; custody-retirement notice is accurate."
+source_18 = "record 22.30.55 [doc.8] (stale): Read all 583 lines; existing merchant/LXT-20 fixtures are described as absent and the simulation source cites the retired daemon. See programs-feature-inventory and programs-daemon-simulation."
+source_19 = "record 22.30.6 [doc.11] (stale): Read all 583 lines. Useful ABI detail coexists with retired daemon LNI simulation at 119-137 and old hosted genesis/replay descriptions; see programs-retired-simulation."
+source_20 = "record 22.30.78 [doc.11] (stale): Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+source_21 = "record 22.30.9 [doc.10] (stale): Lines 119-138 prescribe retired LNI simulation and lines 144-146 deny three source/example paths that now exist."
+source_22 = "record 22.30.94 [doc.12] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in programs_missing_feature_claim, programs_retired_transport."
+
+[page.2]
+path = "docs/site/docs/programs/sandbox.md"
+status = "stale"
+bytes = 10551
+source_1 = "record 22.30.128 [doc.11] (stale): Full lifecycle, capabilities and snapshot metering page reviewed; missing production chain-proof/key contracts and undisclosed native-fixture limitations prevent treating it as the current integration contract."

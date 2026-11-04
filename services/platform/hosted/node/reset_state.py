@@ -376,7 +376,10 @@ class Store:
                 raise StoreError("state_too_large")
             state = decode(raw)
             self._validate(state)
+            was_active = state["active"]
             state = self._materialized(state)
+            if was_active is not None and state["active"] is None:
+                self._save(descriptor, state)
             return state
         finally:
             os.close(file)
@@ -559,24 +562,11 @@ class Store:
                     != digest
                 ):
                     return False
-            sequencer = self._runtime_environment("sequencer.env")
-            replica = self._runtime_environment("replica.env")
-            if not self._probe(
-                sequencer["LAYERX_NODE_PROGRAM_ADDRESS"],
-                sequencer["LAYERX_NODE_PROGRAM_PORT"],
-                sequencer["LAYERX_NODE_PROGRAM_BEARER_TOKEN"],
-                "/v1/programs/account-state/changes?after_sequence=0",
-                200,
-            ):
+            if decode(self._data_file(".activation-durable.json", 8192)) != expected:
                 return False
-            zero = "0" * 64
-            return self._probe(
-                replica["LAYERX_AUTHORITY_ADDRESS"],
-                replica["LAYERX_AUTHORITY_PORT"],
-                replica["LAYERX_AUTHORITY_BEARER_TOKEN"],
-                "/v1/batches/" + zero + "/receipt-authority?receipt_digest=" + zero,
-                404,
-            )
+            from native_runtime import activated_ready
+
+            return activated_ready(self.data_dir, self.run_dir, expected)
         except (OSError, StoreError, KeyError, ValueError, http.client.HTTPException):
             return False
 
@@ -617,62 +607,6 @@ class Store:
             if file is not None:
                 os.close(file)
             os.close(descriptor)
-
-    def _runtime_environment(self, name):
-        result = {}
-        for line in self._data_file(name, 64 * 1024).decode("utf-8").splitlines():
-            if not line:
-                continue
-            key, separator, value = line.partition("=")
-            if (
-                not separator
-                or not re.fullmatch(r"LAYERX_[A-Z0-9_]+", key)
-                or key in result
-                or any(ord(c) < 32 or ord(c) == 127 for c in value)
-            ):
-                raise StoreError("unsafe_runtime_environment")
-            result[key] = value
-        return result
-
-    @staticmethod
-    def _probe(address, port, token, path, expected):
-        if (
-            address != "127.0.0.1"
-            or not port.isdecimal()
-            or not 1 <= int(port) <= 65535
-            or not token
-            or len(token) > 4096
-            or any(ord(c) <= 32 or ord(c) >= 127 for c in token)
-        ):
-            return False
-        connection = http.client.HTTPConnection(address, int(port), timeout=0.5)
-        try:
-            connection.request(
-                "GET",
-                path,
-                headers={"Authorization": "Bearer " + token, "Connection": "close"},
-            )
-            response = connection.getresponse()
-            raw = response.read(128 * 1024 + 1)
-            if response.status != expected or len(raw) > 128 * 1024:
-                return False
-            if expected == 200:
-                page = decode(raw)
-                return (
-                    isinstance(page, dict)
-                    and set(page)
-                    == {
-                        "records",
-                        "complete_through",
-                        "scanned_through_sequence",
-                        "caught_up",
-                    }
-                    and isinstance(page["records"], list)
-                    and type(page["caught_up"]) is bool
-                )
-            return True
-        finally:
-            connection.close()
 
     def _lookup(self, state, request, peer):
         record = state["records"].get(request["reset_id"])

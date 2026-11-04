@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.95"
+domain = 10
+owner_role = "fm-human"
+pages = 2
+
+[page.1]
+path = "services/human/schema/human-api/intent.kvx"
+status = "stale"
+bytes = 6853
+source_1 = "record 22.30.103 [doc.17] (stale): Read in full as the normative intent contract. Strict unknown-observation and digest/replan rules are current, but the spine, no_new_verb and IntentDomain text still describe active dual-domain deposit/withdraw planning."
+
+[page.2]
+path = "services/human/schema/human-api/journeys.kvx"
+status = "stale"
+bytes = 4170
+source_1 = "record 22.30.103 [doc.16] (stale): Read in full as the normative response contract. JourneyState lacks the engine-produced closed state, and completion prose retains separate LayerX/Paxeer finality despite current rung mapping."

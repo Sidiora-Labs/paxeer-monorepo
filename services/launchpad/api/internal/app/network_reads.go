@@ -140,7 +140,7 @@ func (d *networkReads) deployment(w http.ResponseWriter, r *http.Request) {
 // included_reverted from its status field; a transaction the node knows
 // without a receipt is submitted; anything else is unknown. Missing receipts
 // for mined transactions and conflicting chain evidence are refused. Log-free
-// receipts cannot be projected by the frozen event-position contract.
+// receipts share the SDK projection and its transaction identity with logIndex zero.
 func (d *networkReads) transaction(w http.ResponseWriter, r *http.Request) {
 	raw := chi.URLParam(r, "transactionHash")
 	if !transactionHashPattern.MatchString(raw) || len(r.URL.Query()) != 0 {
@@ -158,7 +158,7 @@ func (d *networkReads) transaction(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		d.logger.Warn("transaction status unavailable", "reason", err.Error())
 		code := "DEPENDENCY_UNAVAILABLE"
-		if errors.Is(err, chain.ErrReceiptIntegrity) || errors.Is(err, chain.ErrReceiptPosition) {
+		if errors.Is(err, chain.ErrReceiptIntegrity) {
 			code = "INTEGRITY_QUARANTINED"
 		}
 		rest.WriteV2APIError(w, r, 503, code)

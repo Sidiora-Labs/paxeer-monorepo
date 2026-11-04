@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.157"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 2
+
+[page.1]
+path = "sdk/x/staking/spec/09_client.md"
+status = "stale"
+bytes = 53762
+source_1 = "record 22.30.168 [doc.19] (stale): All 2088 lines read; upstream network examples and obsolete Params responses need current Paxeer producer captures."
+
+[page.2]
+path = "sdk/x/upgrade/spec/01_concepts.md"
+status = "stale"
+bytes = 4886
+source_1 = "record 22.30.162 [doc.039] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in upgrade-endblock-doc."

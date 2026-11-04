@@ -390,6 +390,7 @@ impl Calldata {
             .data
             .len()
             .checked_add(additional)
+            .and_then(|length| length.checked_add(1))
             .ok_or(CodecError::InvalidLength)?;
         if total > MAX_CALLDATA_BYTES {
             return Err(CodecError::InputTooLarge);

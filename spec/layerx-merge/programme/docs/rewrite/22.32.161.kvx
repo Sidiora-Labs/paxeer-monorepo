@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.161"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = ".github/pull_request_template.md"
+status = "stale"
+bytes = 1151
+source_1 = "record 22.30.182 [doc.15] (stale): Evidence, no-weakening and private-material guidance remains applicable, but line 22 names the retired 402LXP sole writer; see pr-template-old-authority."

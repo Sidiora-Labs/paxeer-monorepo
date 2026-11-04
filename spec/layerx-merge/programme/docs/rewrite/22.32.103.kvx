@@ -1,0 +1,35 @@
+[manifest]
+task = "22.32.103"
+domain = 12
+owner_role = "fm-wallet"
+pages = 5
+
+[page.1]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md"
+status = "stale"
+bytes = 758
+source_1 = "record 22.30.116 [doc.14] (stale): Read all bug-report prompts and checked repository template discovery; nested path is not discovered."
+
+[page.2]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md"
+status = "stale"
+bytes = 613
+source_1 = "record 22.30.116 [doc.15] (stale): Read feature-request prompts and checked repository template discovery; nested path is not discovered."
+
+[page.3]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/question.md"
+status = "stale"
+bytes = 371
+source_1 = "record 22.30.116 [doc.16] (stale): Read question prompts and checked repository template discovery; nested path is not discovered."
+
+[page.4]
+path = "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md"
+status = "stale"
+bytes = 1414
+source_1 = "record 22.30.116 [doc.17] (stale): Read review and testing checklist; repository pull-request creation does not discover this nested template."
+
+[page.5]
+path = "apps/wallet/CHANGELOG.md"
+status = "stale"
+bytes = 1496
+source_1 = "record 22.30.116 [doc.19] (stale): Read complete release history and links; placeholder release date and imported repository identity are recorded."

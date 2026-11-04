@@ -1,0 +1,12 @@
+[manifest]
+task = "22.32.188"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/release-v6-12-0/contracts/data-services.md"
+status = "stale"
+bytes = 91552
+source_1 = "record 22.30.18 [doc.14] (stale): Reviewed the service contract, especially storage/delivery/replay, REST/socket/GraphQL mappings, portal, windows, configuration and spot boards. Lines 472-474 retain startup-only refresh and ungated readiness; section 13 retains eight removed roots; line 755 allows an optional zero start height. Section 25 metadata and unknown-kind contract also disagree with current code; preserve those protections in the owning repairs."
+source_2 = "record 22.30.87 [doc.3] (stale): All 836 lines reviewed. Section 6 still supplies ABI conformance, but current seed units (210), phantom-root behavior (537-544), code paths (7/710) and refresh/config (474) differ; see archived-contract-as-current-guide."
