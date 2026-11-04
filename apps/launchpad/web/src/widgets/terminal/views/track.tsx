@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Radar, UserPlus } from 'lucide-react';
 import { HttpError } from '@kindle/sdk';
 import { socialReadUrl } from '@/core/sdk-config';
@@ -14,8 +14,8 @@ import { openAuthModal } from '@/shell/auth-modal-store';
 import { useFollowingTicker } from '@/shell/use-ticker';
 import { useFollowStats } from '@/widgets/social/use-follow';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
-import { accountSession } from '@/widgets/profile/account-transport';
-import { AgeChip, Avatar, Button, EmptyState, ErrorState, Skeleton, UnavailableState } from '@/ui/primitives';
+import { accountSession, assertAccount, subscribeAccount } from '@/widgets/profile/account-transport';
+import { AgeChip, Avatar, Button, EmptyState, ErrorState, LoadMore, Skeleton, UnavailableState } from '@/ui/primitives';
 import { TableRowsSkeleton } from '@/ui/shared/skeletons';
 import { formatCount, shortAddress } from '@/utils/format';
 
@@ -65,14 +65,20 @@ export function parseFollowing(value: unknown, owner: string): FollowingPage {
  * `GET /v2/social/users/{wallet}/following`, Authenticate). The web origin is
  * cross-site to the gateway, so the session travels as a bearer.
  */
-export async function fetchFollowing(owner: string, signal?: AbortSignal, fetcher: typeof fetch = fetch): Promise<FollowingPage> {
+export async function fetchFollowing(owner: string, signal?: AbortSignal, fetcher: typeof fetch = fetch, cursor: string | null = null): Promise<FollowingPage> {
   if (!walletPattern.test(owner)) throw new TypeError('Invalid wallet address');
   const wallet = owner.toLowerCase();
-  const token = accountSession()?.accessToken;
-  if (!token) throw new HttpError(401);
-  const response = await fetcher(socialReadUrl(`/v2/social/users/${wallet}/following?limit=50`), { signal, cache: 'no-store', credentials: 'omit', redirect: 'error', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+  const scope = accountSession();
+  if (!scope) throw new HttpError(401);
+  assertAccount(scope);
+  const params = new URLSearchParams({ limit: '50' });
+  if (cursor) params.set('cursor', cursor);
+  const requestSignal = signal ? AbortSignal.any([signal, scope.signal]) : scope.signal;
+  const response = await fetcher(socialReadUrl(`/v2/social/users/${wallet}/following?${params}`), { signal: requestSignal, cache: 'no-store', credentials: 'omit', redirect: 'error', headers: { Accept: 'application/json', Authorization: `Bearer ${scope.accessToken}` } });
   if (!response.ok) { await response.body?.cancel(); throw new HttpError(response.status); }
-  return parseFollowing(await response.json(), wallet);
+  const page = parseFollowing(await response.json(), wallet);
+  assertAccount(scope);
+  return page;
 }
 
 export interface TrackRow {
@@ -158,18 +164,44 @@ function FollowedActivity() {
   );
 }
 
-function FollowingList({ wallet }: { wallet: string }) {
-  const query = useQuery({
-    queryKey: queryKeys.terminalFollowing(wallet),
-    queryFn: ({ signal }) => fetchFollowing(wallet, signal),
+const noFollowingSession = () => null;
+
+export function FollowingList() {
+  const scope = useSyncExternalStore(subscribeAccount, accountSession, noFollowingSession);
+  const client = useQueryClient();
+  const wallet = scope?.session.wallet.toLowerCase() ?? '';
+  useEffect(() => subscribeAccount(() => {
+    const current = accountSession();
+    const predicate = (query: { queryKey: readonly unknown[] }) => query.queryKey[0] === 'private-account' && query.queryKey[5] === 'terminal' && query.queryKey[6] === 'following' && (query.queryKey[1] !== current?.session.sessionId || query.queryKey[4] !== String(current?.epoch));
+    void client.cancelQueries({ predicate });
+    client.removeQueries({ predicate });
+  }), [client]);
+  const query = useInfiniteQuery({
+    queryKey: ['private-account', scope?.session.sessionId, wallet, '125', String(scope?.epoch), ...queryKeys.terminalFollowing(wallet)],
+    queryFn: ({ pageParam, signal }) => {
+      if (!scope) throw new HttpError(401);
+      assertAccount(scope);
+      return fetchFollowing(wallet, signal, fetch, pageParam);
+    },
+    enabled: scope !== null,
+    initialPageParam: null as string | null,
+    getNextPageParam: last => last.nextCursor || undefined,
     retry: false,
     staleTime: 30_000,
   });
-  const page = query.data ?? null;
+  const page = useMemo(() => {
+    if (!query.data) return null;
+    const items = new Map<string, FollowedWallet>();
+    for (const page of query.data.pages) {
+      for (const item of page.items) if (!items.has(item.wallet)) items.set(item.wallet, item);
+    }
+    return { owner: wallet, items: [...items.values()], nextCursor: query.data.pages.at(-1)?.nextCursor ?? null };
+  }, [query.data, wallet]);
   const wallets = useMemo(() => page?.items.map(item => item.wallet) ?? [], [page]);
   const { identities } = useWalletIdentities(wallets);
   const rows = useMemo(() => (page ? trackRows(page, identities) : []), [page, identities]);
-  const state = loadable(query, followingOperation);
+  const state = loadable(query.isFetchNextPageError && query.data ? { ...query, status: 'success' } : query, followingOperation);
+  if (!scope) return null;
   return (
     <section aria-labelledby="terminal-track-following" className="flex min-h-0 flex-col overflow-hidden rounded-md bg-surface-1">
       <header className="flex h-8 shrink-0 items-center justify-between px-3">
@@ -182,12 +214,13 @@ function FollowingList({ wallet }: { wallet: string }) {
         {state.state === 'loading' ? <><span className="sr-only" role="status">Loading followed wallets</span><TableRowsSkeleton rows={6} columns={3} /></> : null}
         {state.state === 'unsupported' ? <UnavailableState title="Followed wallets" operation={state.operation} status={state.status} onRetry={() => { void query.refetch(); }} /> : null}
         {state.state === 'error' ? <ErrorState title="Followed wallets can't load right now" message={userFacingMessage(state.error)} onRetry={state.retry} variant="inline" /> : null}
-        {state.state === 'ready' && rows.length === 0 ? <EmptyState icon={UserPlus} title="You are not following anyone yet" body="Follow traders from their profile or a callout and they show up here." action={<Button variant="secondary" size="sm" href="/leaderboard">Find traders</Button>} /> : null}
+        {state.state === 'ready' && rows.length === 0 ? <EmptyState icon={UserPlus} title={query.hasNextPage ? 'No followed wallets found yet' : 'You are not following anyone yet'} body={query.hasNextPage ? 'Load more to keep looking.' : 'Follow traders from their profile or a callout and they show up here.'} action={<Button variant="secondary" size="sm" href="/leaderboard">Find traders</Button>} /> : null}
         {state.state === 'ready' && rows.length > 0 ? (
           <ul aria-label="Followed wallets" className="flex flex-col gap-0.5 bg-canvas">
             {rows.map(row => <TrackRowItem key={row.wallet} row={row} />)}
           </ul>
         ) : null}
+        {state.state === 'ready' && query.hasNextPage ? <LoadMore auto={false} hasMore loading={query.isFetchingNextPage} error={query.isFetchNextPageError} label="Load more followed wallets" onLoadMore={() => { if (!query.isFetching) void query.fetchNextPage(); }} /> : null}
       </div>
     </section>
   );
@@ -206,7 +239,7 @@ export default function TerminalTrackView() {
   }
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-1 overflow-y-auto lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:overflow-hidden">
-      <FollowingList wallet={wallet} />
+      <FollowingList />
       <div className="min-h-0 overflow-y-auto"><FollowedActivity /></div>
     </div>
   );

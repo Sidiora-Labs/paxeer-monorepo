@@ -49,20 +49,13 @@ thread_local! {
         const { RefCell::new(None) };
 }
 
-struct DestroyTerminal {
-    bytes: Vec<u8>,
-}
-thread_local! { static DESTROY_TERMINAL: RefCell<Option<DestroyTerminal>> = const { RefCell::new(None) }; }
+#[path = "host_ffi/terminal.rs"]
+mod terminal;
+use terminal::publish_destroy;
 
 unsafe extern "C" {
     fn layerx_programs_sandbox_destroy_state_length(token: u64, kind: u16) -> i32;
     fn layerx_programs_sandbox_destroy_state_byte(token: u64, kind: u16, offset: u32) -> i32;
-    fn layerx_programs_sandbox_destroy_archive(
-        token: u64,
-        kind: u16,
-        bytes: *const u8,
-        length: u32,
-    ) -> i32;
     fn layerx_programs_sandbox_destroy_refund(
         token: u64,
         from: *const u8,
@@ -188,52 +181,6 @@ fn read_destroy_state(
     })
 }
 
-fn publish_destroy(
-    token: u64,
-    state: &DurableUsageState,
-    ledger_bytes: &[u8],
-    usage_lease_bytes: &[u8],
-    receipt_digest: [u8; 32],
-    transfer_root: [u8; 32],
-    amount: u128,
-) -> Result<(), i32> {
-    let lease_bytes = state
-        .lease
-        .canonical_state_bytes()
-        .map_err(|_| NON_CANONICAL)?;
-    let escrow_bytes = state.escrow.canonical_state();
-    for (kind, bytes) in [
-        (0u16, lease_bytes.as_slice()),
-        (1, escrow_bytes.as_slice()),
-        (2, ledger_bytes),
-        (3, usage_lease_bytes),
-    ] {
-        if unsafe {
-            layerx_programs_sandbox_destroy_archive(
-                token,
-                kind,
-                bytes.as_ptr(),
-                u32::try_from(bytes.len()).map_err(|_| NON_CANONICAL)?,
-            )
-        } != OK
-        {
-            return Err(NON_CANONICAL);
-        }
-    }
-    let mut terminal = Vec::new();
-    terminal.extend_from_slice(&receipt_digest);
-    terminal.extend_from_slice(&transfer_root);
-    terminal.extend_from_slice(&amount.to_be_bytes());
-    terminal.extend_from_slice(&state.lease.state_digest().map_err(|_| NON_CANONICAL)?);
-    terminal.extend_from_slice(
-        &hash_bytes(HashAlgorithm::Sha256, &escrow_bytes).map_err(|_| NON_CANONICAL)?,
-    );
-    DESTROY_TERMINAL.with(|slot| {
-        *slot.borrow_mut() = Some(DestroyTerminal { bytes: terminal });
-    });
-    Ok(())
-}
-
 #[no_mangle]
 pub extern "C" fn layerx_programs_sandbox_destroy_host(
     token: u64,
@@ -258,29 +205,6 @@ pub extern "C" fn layerx_programs_sandbox_destroy_host(
         destroy_host(token, id, root, activity, expected_sequence, boundary)
     })
     .map_or(NON_CANONICAL, |()| OK)
-}
-
-#[no_mangle]
-pub extern "C" fn layerx_programs_sandbox_destroy_terminal(
-    _token: u64,
-    output: *mut u8,
-    capacity: u32,
-) -> i32 {
-    if output.is_null() {
-        return NON_CANONICAL;
-    }
-    DESTROY_TERMINAL.with(|slot| {
-        let Some(value) = slot.borrow_mut().take() else {
-            return NON_CANONICAL;
-        };
-        if value.bytes.len() > capacity as usize {
-            return NON_CANONICAL;
-        }
-        unsafe {
-            core::ptr::copy_nonoverlapping(value.bytes.as_ptr(), output, value.bytes.len());
-        }
-        OK
-    })
 }
 
 const fn low_word(value: u128) -> u64 {

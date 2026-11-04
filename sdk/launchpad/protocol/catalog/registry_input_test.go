@@ -1,14 +1,16 @@
 package catalog
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func TestArchivedRevisionRequiresExactReviewedArtifactAndProvenance(t *testing.T) {
@@ -63,62 +65,13 @@ func TestArchivedRevisionRequiresExactReviewedArtifactAndProvenance(t *testing.T
 }
 
 func TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "..", "contracts", "launchpad")
-	artifactPath := "artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json"
-	artifact, err := os.ReadFile(filepath.Join(root, artifactPath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var compiled struct {
-		ABI json.RawMessage `json:"abi"`
-	}
-	if err = json.Unmarshal(artifact, &compiled); err != nil {
-		t.Fatal(err)
-	}
-	source, err := os.ReadFile(filepath.Join(root, "contracts/opticals/OpticalRegistry.sol"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	debug, err := os.ReadFile(filepath.Join(root, "artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.dbg.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var dbg struct {
-		BuildInfo string `json:"buildInfo"`
-	}
-	if err = json.Unmarshal(debug, &dbg); err != nil {
-		t.Fatal(err)
-	}
-	build, err := os.ReadFile(filepath.Join(root, filepath.Dir(artifactPath), dbg.BuildInfo))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var info struct {
-		Compiler string `json:"solcLongVersion"`
-	}
-	if err = json.Unmarshal(build, &info); err != nil {
-		t.Fatal(err)
-	}
-	hash := func(raw []byte) string { sum := sha256.Sum256(raw); return hex.EncodeToString(sum[:]) }
-	var value any
-	if err = json.Unmarshal(compiled.ABI, &value); err != nil {
-		t.Fatal(err)
-	}
-	canonical, err := json.Marshal(value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := Bundle{Name: "OpticalRegistry", SourceName: "contracts/opticals/OpticalRegistry.sol", ArtifactPath: artifactPath, ArtifactHash: hash(artifact), ABIHash: hash(canonical), SourceHash: hash(source), BuildHash: hash(build), Compiler: info.Compiler, ABI: compiled.ABI}
-	raw, err := json.Marshal(OpticalRegistryReview{SchemaVersion: 1, Kind: "reviewed-optical-registry", Bundle: b})
-	if err != nil {
-		t.Fatal(err)
-	}
+	b, raw, digest := reviewedOpticalRegistryFixture(t)
 	base, err := New(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ds := []Deployment{{ChainID: 125, Address: common.HexToAddress("0x123"), Family: b.Name, Version: b.ABIHash, From: 100, Attested: true}}
-	admitted, err := base.WithReviewedOpticalRegistry(ds, raw, hash(raw))
+	admitted, err := base.WithReviewedOpticalRegistry(ds, raw, digest)
 	if err != nil || !admitted.RevisionKnown(b.Name, b.ABIHash) {
 		t.Fatal("real reviewed optional artifact unavailable", err)
 	}
@@ -129,7 +82,125 @@ func TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation(t *
 		t.Fatal("unreviewed optical artifact admitted")
 	}
 	ds[0].Attested = false
-	if _, err = base.WithReviewedOpticalRegistry(ds, raw, hash(raw)); err == nil {
+	if _, err = base.WithReviewedOpticalRegistry(ds, raw, digest); err == nil {
 		t.Fatal("optional deployment auto-enabled")
 	}
+}
+
+//go:embed testdata/repair-m924/*.json
+var opticalRegistryFixture embed.FS
+
+const opticalRegistryReviewSHA256 = "da1d4cad4551158d234430a096addde5ec3432065ebd05be99aaf6cb7e6e3408"
+
+func opticalFixtureSHA256(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func reviewedOpticalRegistryFixture(t *testing.T) (Bundle, []byte, string) {
+	t.Helper()
+	read := func(name string) []byte {
+		t.Helper()
+		raw, err := opticalRegistryFixture.ReadFile("testdata/repair-m924/" + name + ".json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	raw := read("review")
+	if opticalFixtureSHA256(raw) != opticalRegistryReviewSHA256 {
+		t.Fatal("checked-in optical review digest differs")
+	}
+	var review OpticalRegistryReview
+	if err := json.Unmarshal(raw, &review); err != nil {
+		t.Fatal(err)
+	}
+	b := review.Bundle
+	artifact, build := read("artifact"), read("build-input")
+	if opticalFixtureSHA256(artifact) != b.ArtifactHash || opticalFixtureSHA256(build) != b.BuildHash {
+		t.Fatal("checked-in compiler artifact or build input digest differs")
+	}
+	var compiled struct {
+		ABI      json.RawMessage `json:"abi"`
+		Metadata string          `json:"metadata"`
+		EVM      struct {
+			Bytecode struct {
+				Object string `json:"object"`
+			} `json:"bytecode"`
+			DeployedBytecode struct {
+				Object string `json:"object"`
+			} `json:"deployedBytecode"`
+		} `json:"evm"`
+	}
+	var info struct {
+		Compiler string `json:"solcLongVersion"`
+		Input    struct {
+			Language string `json:"language"`
+			Sources  map[string]struct {
+				Content string `json:"content"`
+			} `json:"sources"`
+			Settings struct {
+				Optimizer struct {
+					Enabled bool `json:"enabled"`
+					Runs    int  `json:"runs"`
+				} `json:"optimizer"`
+				ViaIR bool `json:"viaIR"`
+			} `json:"settings"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(artifact, &compiled); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(build, &info); err != nil {
+		t.Fatal(err)
+	}
+	var metadata struct {
+		Compiler struct {
+			Version string `json:"version"`
+		} `json:"compiler"`
+		Sources map[string]struct {
+			Keccak256 string `json:"keccak256"`
+		} `json:"sources"`
+		Settings struct {
+			CompilationTarget map[string]string `json:"compilationTarget"`
+		} `json:"settings"`
+	}
+	if err := json.Unmarshal([]byte(compiled.Metadata), &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if info.Compiler != b.Compiler || !strings.HasPrefix(info.Compiler, metadata.Compiler.Version) ||
+		metadata.Settings.CompilationTarget[b.SourceName] != b.Name || info.Input.Language != "Solidity" ||
+		!info.Input.Settings.Optimizer.Enabled || info.Input.Settings.Optimizer.Runs != 200 || !info.Input.Settings.ViaIR ||
+		len(common.FromHex(compiled.EVM.Bytecode.Object)) == 0 || len(common.FromHex(compiled.EVM.DeployedBytecode.Object)) == 0 {
+		t.Fatal("actual compiler identity, target, settings or bytecode missing")
+	}
+	source, ok := info.Input.Sources[b.SourceName]
+	if !ok || opticalFixtureSHA256([]byte(source.Content)) != b.SourceHash {
+		t.Fatal("reviewed source differs from compiler input")
+	}
+	if len(metadata.Sources) == 0 || len(metadata.Sources) != len(info.Input.Sources) {
+		t.Fatal("compiler source inventory differs")
+	}
+	for name, source := range info.Input.Sources {
+		if crypto.Keccak256Hash([]byte(source.Content)).Hex() != metadata.Sources[name].Keccak256 {
+			t.Fatalf("compiler metadata source identity differs: %s", name)
+		}
+	}
+	canonicalABI := func(raw json.RawMessage) []byte {
+		t.Helper()
+		var value any
+		if err := json.Unmarshal(raw, &value); err != nil {
+			t.Fatal(err)
+		}
+		canonical, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return canonical
+	}
+	canonical := canonicalABI(compiled.ABI)
+	if opticalFixtureSHA256(canonical) != b.ABIHash || !bytes.Equal(canonical, canonicalABI(b.ABI)) {
+		t.Fatal("reviewed ABI differs from actual compiler artifact")
+	}
+	return b, raw, opticalRegistryReviewSHA256
 }

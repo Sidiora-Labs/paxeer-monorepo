@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { metadataApiUrl } from '@/core/sdk-config';
 
 interface TokenLogoProps {
@@ -11,12 +11,16 @@ interface TokenLogoProps {
 }
 
 export default function TokenLogo({ tokenAddress, symbol, size = 32, className = '' }: TokenLogoProps) {
-  const [src, setSrc] = useState<string | null>(null);
+  const [logo, setLogo] = useState({ tokenAddress, failed: false });
+  const sameToken = logo.tokenAddress === tokenAddress;
 
-  useEffect(() => {
-    if (!tokenAddress) return;
-    setSrc(metadataApiUrl(`/logo/${tokenAddress}.png`));
-  }, [tokenAddress]);
+  if (!sameToken) {
+    setLogo({ tokenAddress, failed: false });
+  }
+
+  const src = tokenAddress && (!sameToken || !logo.failed)
+    ? metadataApiUrl(`/logo/${tokenAddress}.png`)
+    : null;
 
   if (!src) {
     return (
@@ -37,7 +41,9 @@ export default function TokenLogo({ tokenAddress, symbol, size = 32, className =
       width={size}
       height={size}
       className={`rounded-full object-cover ${className}`}
-      onError={() => setSrc(null)}
+      onError={() => setLogo((current) => (
+        current.tokenAddress === tokenAddress ? { tokenAddress, failed: true } : current
+      ))}
     />
   );
 }

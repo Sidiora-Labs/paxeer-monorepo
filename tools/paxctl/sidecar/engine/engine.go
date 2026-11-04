@@ -74,12 +74,26 @@ type cancelEntry struct {
 // Callers MUST install handler dependencies on e.Config before
 // RehydrateStaleTasks, else a rehydrated handler races with the write.
 func NewEngine(ctx context.Context, handlers map[TaskType]TaskHandler, store ResultStore) *Engine {
-	return &Engine{
+	e := &Engine{
 		handlers: handlers,
 		ctx:      ctx,
 		store:    store,
 		cancels:  make(map[string]cancelEntry),
 	}
+	// Restore before probes can observe the engine, even with no stale tasks.
+	_ = e.restoreReadiness()
+	return e
+}
+
+func (e *Engine) restoreReadiness() error {
+	ready, err := e.store.Readiness()
+	if err != nil {
+		e.ready.Store(false)
+		log.Error("failed to restore readiness; keeping gate closed", "err", err)
+		return err
+	}
+	e.ready.Store(ready)
+	return nil
 }
 
 // RehydrateStaleTasks re-executes tasks left in "running" state by a
@@ -87,6 +101,9 @@ func NewEngine(ctx context.Context, handlers map[TaskType]TaskHandler, store Res
 // NOT incremented — rehydration is crash recovery of an incomplete
 // run, not a new run. Must be called only after Config is installed.
 func (e *Engine) RehydrateStaleTasks() {
+	if err := e.restoreReadiness(); err != nil {
+		return
+	}
 	stale, err := e.store.ListStaleTasks()
 	if err != nil {
 		log.Error("failed to list stale tasks", "err", err)
@@ -216,7 +233,14 @@ func (e *Engine) Submit(task Task) (string, error) {
 	run := 1
 	if existing, _ := e.store.Get(id); existing != nil {
 		switch existing.Status {
-		case TaskStatusRunning, TaskStatusCompleted:
+		case TaskStatusCompleted:
+			if TaskType(existing.Type) == TaskMarkReady || TaskType(existing.Type) == TaskMarkNotReady {
+				if err := e.restoreReadiness(); err != nil {
+					return "", fmt.Errorf("restore readiness: %w", err)
+				}
+			}
+			return id, nil
+		case TaskStatusRunning:
 			return id, nil
 		case TaskStatusFailed:
 			run = existing.Run + 1
@@ -341,8 +365,21 @@ func (e *Engine) runTaskSync(ctx context.Context, id string, taskType TaskType, 
 		tr.Status = TaskStatusCompleted
 	}
 
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if storeErr := e.store.Save(tr); storeErr != nil {
 		log.Error("failed to persist task result", "id", id, "err", storeErr)
+		return
+	}
+	// Publish readiness only after its successful result is durable. A late
+	// release cannot override a newer persisted hold, including a failed hold.
+	if err == nil {
+		switch taskType {
+		case TaskMarkReady:
+			_ = e.restoreReadiness()
+		case TaskMarkNotReady:
+			e.ready.Store(false)
+		}
 	}
 }
 
@@ -394,24 +431,6 @@ func (e *Engine) execute(ctx context.Context, taskType TaskType, handler TaskHan
 	elapsed := time.Since(start)
 	log.Info("task completed", "type", taskType, "elapsed", elapsed.Round(time.Millisecond))
 	taskDuration.WithLabelValues(string(taskType), "completed").Observe(elapsed.Seconds())
-	// These two hooks are the only writers of e.ready: mark-ready flips it true,
-	// mark-not-ready flips it false to re-arm the start gate for a node hold.
-	// The flip happens only on handler success — a failed mark-not-ready purge
-	// leaves readiness untouched (fail-safe: nothing half-held).
-	//
-	// Crash-recovery ordering is enforced in RehydrateStaleTasks, which runs a
-	// stranded mark-not-ready synchronously (purging stranded mark-ready rows)
-	// before dispatching anything else, so no Store(true)/Store(false) race can
-	// transiently release a hold. The one interlock this engine does NOT own: on
-	// the live path, a controller-submitted mark-ready concurrent with an active
-	// hold — that mutual exclusion is the controller's (reapproval suppression
-	// keyed on adoptedWorkflow), not enforced here.
-	switch taskType {
-	case TaskMarkReady:
-		e.ready.Store(true)
-	case TaskMarkNotReady:
-		e.ready.Store(false)
-	}
 	return result, nil
 }
 
@@ -438,23 +457,26 @@ func (e *Engine) Status() StatusResponse {
 }
 
 // RecentResults returns the most recent task results across all states.
-func (e *Engine) RecentResults() []TaskResult {
+func (e *Engine) RecentResults() ([]TaskResult, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	results, err := e.store.List(100)
 	if err != nil {
-		log.Error("store.List failed", "err", err)
-		return nil
+		return nil, fmt.Errorf("list task results: %w", err)
 	}
-	return results
+	return results, nil
 }
 
-// GetResult returns a task by ID, or nil if not found.
-func (e *Engine) GetResult(id string) *TaskResult {
+// GetResult returns (nil, nil) only for confirmed absence. Store errors must
+// reach callers so they can distinguish an unavailable task from a missing one.
+func (e *Engine) GetResult(id string) (*TaskResult, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	r, err := e.store.Get(id)
 	if err != nil {
-		log.Error("store.Get failed", "id", id, "err", err)
-		return nil
+		return nil, fmt.Errorf("get task result %q: %w", id, err)
 	}
-	return r
+	return r, nil
 }
 
 // RemoveResult removes a task by ID. It returns (found, err): found reports

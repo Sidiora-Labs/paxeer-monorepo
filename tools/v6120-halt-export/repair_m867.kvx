@@ -1,0 +1,34 @@
+[repair.22.33.867]
+audit = "22.30.182"
+acceptance = "22998.1"
+revision_evidence = "The runner's hf-done JSON revision identifies the verified candidate; its private log includes the declared go test command and result."
+baseline = "Not run: the explicit gate order forbids testing before full implementation and permits verification only through hf-done after hf-build; no baseline failure is claimed."
+wiring_request = "node/testdata/v6120-halt-export.height (domain 5, node-runtime): explicitly regenerate the legacy height-only record with an operator-verified chain-125 block pin and publish the corresponding export and upgrade heights as one generation; this task refuses the unbound legacy sidecar."
+
+[finding.halt-export-rpc-path]
+test = "TestRepairM_867_RPCPathAndPinnedSnapshot"
+repair = "Preserve the already-root default endpoint, require a block-hash pin, validate expected chain 125, head and exact block identity before fetching, and address reads by canonical block hash."
+
+[finding.halt-export-snapshot-binding]
+test = "TestRepairM_867_SnapshotBindingRestart"
+repair = "Bind negative reads to height, EVM and genesis chain identities, pinned block hash and exact layout, export and upgrade-height digests; restart imports the real published genesis and refuses changed inputs or a legacy record."
+
+[finding.halt-export-network-deadline]
+test = "TestRepairM_867_NetworkDeadlinesAndRecovery"
+repair = "Expose finite positive request and overall timeouts, propagate both through dial, identity, height and batch requests, and checkpoint each entirely validated batch for restart after either deadline."
+
+[finding.halt-export-atomic-publication]
+test = "TestRepairM_867_AtomicPublicationInterruption"
+repair = "Sync immutable export, fetch record, heights and digest manifest plus directories before atomically committing the shared generation pointer; reopen recovers an interrupted alias installation and rejects mixed sidecars."
+
+[additional_proof]
+test = "TestRepairM_867_RejectInvalidBatchWithoutProgress"
+criterion = "A malformed later batch element cannot durably mark earlier elements fetched or mutate the published generation."
+
+[gotcha.legacy-record]
+observed = "The checked-in height sidecar has only height and absent keys, so it cannot prove chain, block, layout or export identity and must not be silently upgraded."
+resolution = "Refuse it with an explicit regeneration error; record its out-of-scope fixture update as the domain-5 wiring request above."
+
+[gotcha.rpc-root]
+observed = "The task base already has the public RPC root URL although the audit describes the former /rpc suffix."
+resolution = "Preserve the correct URL and prove it together with the missing chain and snapshot validation."

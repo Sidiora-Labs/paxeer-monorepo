@@ -119,13 +119,13 @@ func (acc *BaseAccount) SetSequence(seq uint64) error {
 
 // Validate checks for errors on the account fields
 func (acc BaseAccount) Validate() error {
-	if acc.Address == "" || acc.PubKey == nil {
-		return nil
-	}
-
 	accAddr, err := sdk.AccAddressFromBech32(acc.Address)
 	if err != nil {
 		return err
+	}
+
+	if acc.PubKey == nil {
+		return nil
 	}
 
 	if !bytes.Equal(acc.GetPubKey().Address().Bytes(), accAddr.Bytes()) {

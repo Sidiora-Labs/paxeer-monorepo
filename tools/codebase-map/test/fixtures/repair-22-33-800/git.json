@@ -1,0 +1,8 @@
+{
+  "recording": "Git output for the production files used by this repair, captured at the task base.",
+  "tracked": "100644 74faf729c4f6e03c67f97750fd5c00b2a7339bce 0\ttools/codebase-map/app.js\u0000100644 892b1a1c7d56e8bc4e1621ba4de0e763e5be3771 0\ttools/codebase-map/delivery.mjs\u0000100644 f831962f7d7dc66d546d4b9529f907448dcd8710 0\ttools/codebase-map/generate.mjs\u0000100644 25dd40d2a424f5a2421da8c2dc11a6a4ffed32d7 0\ttools/codebase-map/package.json\u0000",
+  "status": "",
+  "commit": "0e1d5eb94cabe89e2260279a849b7154911ef8ee",
+  "branch": "task/22.33.800",
+  "graphUpdatedAt": "2026-11-04T07:04:00.000Z"
+}

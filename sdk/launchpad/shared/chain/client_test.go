@@ -37,21 +37,26 @@ func rpcServer(t *testing.T, results map[string]string, failAll bool) *httptest.
 			http.Error(w, "boom", http.StatusInternalServerError)
 			return
 		}
-		body, _ := io.ReadAll(r.Body)
-		s := string(body)
-		var method string
-		for m := range results {
-			if strings.Contains(s, `"`+m+`"`) {
-				method = m
-				break
-			}
+		var req struct {
+			ID     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
 		}
-		w.Header().Set("Content-Type", "application/json")
-		if method == "" {
-			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}`)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Error(err)
+			http.Error(w, "invalid JSON-RPC request", http.StatusBadRequest)
 			return
 		}
-		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":"`+results[method]+`"}`)
+		w.Header().Set("Content-Type", "application/json")
+		result, ok := results[req.Method]
+		if !ok {
+			if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": map[string]any{"code": -32601, "message": "method not found"}}); err != nil {
+				t.Error(err)
+			}
+			return
+		}
+		if err := json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result}); err != nil {
+			t.Error(err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	return srv

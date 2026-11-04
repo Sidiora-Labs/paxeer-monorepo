@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/rollout"))
 from rollout import API, GHCR, IN_PROGRESS, TERMINAL, Malformed, load_digests  # noqa: E402
+from rollout import graphql_error, mask, redact  # noqa: E402
 
 MANIFEST = ROOT / "deploy/railway-perps-project.kvx"
 # maxTrustedProxies in services/platform/perps-data/internal/ratelimit/ratelimit.go:
@@ -126,14 +127,21 @@ def parse_prefix(entry):
 
 
 def http_transport(token):
+    mask(token)
+
     def call(query, variables):
         req = urllib.request.Request(
             API, data=json.dumps({"query": query, "variables": variables}).encode(),
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.load(resp)
-        if body.get("errors"):
-            raise RuntimeError(json.dumps(body["errors"]))
+            try:
+                body = json.load(resp)
+            except ValueError:
+                raise RuntimeError("Railway returned a response that is not JSON") from None
+        if not isinstance(body, dict):
+            raise RuntimeError(graphql_error(body, variables))
+        if body.get("errors") or not isinstance(body.get("data"), dict):
+            raise RuntimeError(graphql_error(body.get("errors", body), variables))
         return body["data"]
     return call
 
@@ -145,8 +153,11 @@ def replay_transport(path):
         op = re.match(r"\s*(?:query|mutation)\s+(\w+)", query).group(1)
         for e in entries:
             if e["op"] == op and e.get("variables", {}) == variables:
+                if "errors" in e:
+                    raise RuntimeError(graphql_error(e["errors"], variables))
                 return e["data"]
-        raise RuntimeError(f"replay has no response for {op} {json.dumps(variables, sort_keys=True)}")
+        raise RuntimeError(graphql_error(
+            [{"message": f"replay has no response for {op} {json.dumps(variables, sort_keys=True)}"}], variables))
     return call
 
 
@@ -375,13 +386,15 @@ def main(argv, transport=None):
     if missing:
         print(f"digest map has no digest for: {','.join(missing)}", file=sys.stderr)
         return 2
+    mask(token, os.environ.get("GHCR_USERNAME"), os.environ.get("GHCR_TOKEN"),
+         *(os.environ.get(v[4:]) for s in plan for v in s["vars"].values() if v.startswith("env:")))
     if transport is None:
         transport = replay_transport(opts["--replay"]) if opts["--replay"] else http_transport(token)
     gql = read_only(transport) if mode == "plan" else transport
     try:
         state = current_state(gql, meta, plan)
     except (RuntimeError, OSError, KeyError, TypeError) as e:
-        print(f"railway query failed: {e}", file=sys.stderr)
+        print(f"railway query failed: {redact(e)}", file=sys.stderr)
         return 1
     print(f"railway-perps-project {mode} project={meta['project']} env={meta['environment']}")
     print(f"project {meta['project']} {'exists' if state['project'] else 'create'}")
@@ -432,7 +445,7 @@ def main(argv, transport=None):
                           "later waves were not applied", file=sys.stderr)
                     return 1
     except (RuntimeError, OSError, KeyError, TypeError) as e:
-        print(f"railway write failed: {e}", file=sys.stderr)
+        print(f"railway write failed: {redact(e)}", file=sys.stderr)
         return 1
     return 0
 

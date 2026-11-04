@@ -526,6 +526,24 @@ where
         if call.to != account || call.value != word(0) || call.data != expected {
             return Err(ServiceError::Refused);
         }
+        // A retained failed execution still refuses a repeated submission after
+        // restart. Finalized settlement is handled by the station's recovery
+        // pass and is not required to report the sequencer's existing refusal.
+        if let Some(submission) = self
+            .station
+            .journal()
+            .state()
+            .items
+            .get(&key)
+            .filter(|item| item.completion.is_none())
+            .and_then(|item| item.submission.as_ref())
+        {
+            if executed(self.sequencer_summary(key.sponsor, submission.nonce, &submission.hash)?)
+                .is_some_and(|(_, run)| !run.succeeded)
+            {
+                return Err(ServiceError::Refused);
+            }
+        }
         let local_now = self.now()?;
         if deadline < local_now
             && self

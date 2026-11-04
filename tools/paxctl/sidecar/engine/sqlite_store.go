@@ -179,6 +179,39 @@ func (s *SQLiteStore) LatestByType(taskType string) (*TaskResult, error) {
 	return r, nil
 }
 
+func (s *SQLiteStore) Readiness() (bool, error) {
+	rows, err := s.db.Query(`SELECT type, submitted_at FROM task_results
+		WHERE type = ? OR (type = ? AND status = ?)`,
+		string(TaskMarkNotReady), string(TaskMarkReady), string(TaskStatusCompleted))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var release, hold time.Time
+	for rows.Next() {
+		var taskType, submittedAt string
+		if err := rows.Scan(&taskType, &submittedAt); err != nil {
+			return false, err
+		}
+		submitted, err := time.Parse(time.RFC3339Nano, submittedAt)
+		if err != nil {
+			return false, fmt.Errorf("parse readiness submitted_at: %w", err)
+		}
+		if taskType == string(TaskMarkNotReady) {
+			if submitted.After(hold) {
+				hold = submitted
+			}
+		} else if submitted.After(release) {
+			release = submitted
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return !release.IsZero() && release.After(hold), nil
+}
+
 // SaveTxMarker persists a pre-broadcast marker and fsyncs it (via checkpoint,
 // since the store runs synchronous=NORMAL) before returning, so it survives a
 // crash. Callers MUST let it return before broadcasting.
