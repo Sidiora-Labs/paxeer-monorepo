@@ -132170,7 +132170,7 @@ do_15 = "Attempt 3 (continue): the vitest suite spawned a Go harness, received H
 
 [task.22.31.23]
 title = "Repair audit record 22.30.19 findings in apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147359,7 +147359,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.256]
 title = "Repair audit record 22.30.124 findings in programs/crates/layerx-programs-registry/src: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147612,7 +147612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.229]
 title = "Repair audit record 22.30.99 findings in services/agent/qualification/pay2: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148214,7 +148214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.213]
 title = "Repair audit record 22.30.89 findings in tools/platform/cli/src/install: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148688,7 +148688,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.190]
 title = "Repair audit record 22.30.79 findings in services/agent/crates/layerx-sdk/src: interface-mismatch, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161943,7 +161943,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.187]
 title = "Repair audit record 22.30.70 findings in sdk/server/rosetta: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162018,7 +162018,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.184]
 title = "Repair audit record 22.30.66 findings in wasm/x/wasm/keeper: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162097,7 +162097,7 @@ do_9 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.181]
 title = "Repair audit record 22.30.60 findings in modules/evm: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
