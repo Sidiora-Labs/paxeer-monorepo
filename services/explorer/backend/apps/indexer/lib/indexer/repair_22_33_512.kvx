@@ -1,0 +1,56 @@
+[repair.22.33.512]
+audit = "22.30.152"
+acceptance = "22998.1"
+evidence = "The bounded hf-build/hf-done ledger records the exact verified candidate revision, command, exit and private log; no qualification is claimed before hf-done passes."
+baseline = "Not run: the explicit gate order requires complete implementation before build and hf-done and prohibits manual verification; the unchanged tree had no repair_22_33_512_test.exs, so no baseline test failures are claimed."
+wiring_requests = "None: production changes and this finding-to-test record are inside the declared indexer library scope."
+
+[finding.participant]
+audit_id = "dead-worker-log"
+test_1 = "participant / dead-worker-log: terminated participant diagnostics preserve monitor cleanup"
+test_2 = "participant / dead-worker-log: registered live queue reaches the memory monitor diagnostic"
+repair = "Handle nil from Process.info explicitly, retaining PID-only output after termination; use the shared helper for memory monitor diagnostics."
+proof = "Real registered process termination is ordered between monitor enumeration and check delivery; the running monitor logs the dead PID and removes it. A real BufferedTask with the production Token callback exercises registered live queue diagnostics."
+
+[finding.consensus-scan]
+test_1 = "bounded keyset batches preserve committed refetch markers across interruption and reopen"
+test_2 = "completed markers are idempotent on a fresh sweep and unmarked lower heights are revisited"
+repair = "Select at most 100 distinct mismatching block heights after the cursor with a 15000ms query deadline; update each batch through Block.set_refetch_needed inside a 15000ms transaction with a PostgreSQL 15s statement deadline. Skip persisted refetch markers and reset the cursor after each sweep."
+proof = "Recorded RPC block/receipt shapes feed the real decoder, token-transfer transformer, Block schema and transfer import runner into actual PostgreSQL tables on an isolated committed pool. Expanded identities produce 205 gapped mismatch heights with duplicate transfers, plus matching and premarked controls. Query telemetry pauses the real scanner after its second discovery so killing and reopening proves that committed markers and missing-block ranges survive; subsequent batches, fresh sweeps and cleared markers are asserted."
+
+[gotcha.1]
+observed = "The task detail requests a baseline verification and spec task edits, while the explicit gate order prohibits early verification and the scope prohibits spec edits."
+action = "Follow the explicit bounded gate order and retain the finding-to-test mapping in this in-scope task record."
+
+[gotcha.2]
+observed = "The requested participant finding is named dead-worker-log in audit record 22.30.152, and the current monitor has a separate PID formatter."
+action = "Record both finding names and route the existing monitor diagnostic formatter through the repaired production helper."
+
+[qualification.initial]
+revision = "00485cb0b0e19a0e9ff103ecc5f5dd231acbefc7"
+command = "cg spec done 22.33.512 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four tests ran: both participant tests passed; both consensus tests failed in fixture setup because the isolated PostgreSQL schema omitted the tokens table queried by the production transformer."
+repair = "Copy the production tokens table shape into the isolated test schema; retain every assertion and the real transformer lookup."
+
+[qualification.continuation]
+source_revision = "73896b14ddc29ff228b7f551f70e774eb70a08d2"
+observed = "The supplied previous-attempt result reports both consensus tests failing in Block insertion: expanded blocks reused the recorded parent hash despite the production one_consensus_child_per_parent unique index."
+repair = "Assign each expanded block the parent hash for its preceding height, retaining the copied production indexes, consensus distribution, full history size and every test assertion."
+
+[gotcha.3]
+observed = "Expanding recorded block identities without expanding parent identities violates the production unique consensus-child index."
+action = "Expand block and parent hashes together; keep PostgreSQL constraints intact so recorded-history tests exercise valid stored chain shapes."
+
+[qualification.bound_limit]
+revision = "54de78e993a05b2c296f0e792c836391117ff57d"
+command = "cg spec done 22.33.512 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both participant tests passed; both consensus tests reached the real scanner and failed because the query parameter assertion expected the 100-row limit to be bound rather than inlined by Ecto."
+repair = "Pin the unchanged batch-size constant in the Ecto limit expression, retaining the exact parameter assertions and every other test assertion."
+
+[gotcha.4]
+observed = "Ecto inlines an unpinned integer module attribute in LIMIT instead of including it in SQL query parameters."
+action = "Pin the batch-size constant when the query contract requires a bound limit parameter."

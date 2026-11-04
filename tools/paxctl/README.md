@@ -1,444 +1,142 @@
-# :control_knobs: `seictl`
+# Paxeer node operations (`seictl`)
 
-> Sei node operators' best friend
+This is the audited Paxeer adaptation of paxctl, vendored in the Paxeer
+monorepo. The executable is still named `seictl`; the Go import path, `SEI_*`
+environment variables, `sei.io/v1alpha1` CRDs and annotation keys retain their
+inherited spelling. These names do not select the chain. Use an explicit Paxeer
+chain ID, home, pinned `paxd` image and isolated Kubernetes context.
+[VENDOR.kvx](VENDOR.kvx) records the upstream import, not the revision of the
+subsequent monorepo repairs.
 
-A command-line utility for managing Sei blockchain daemon. `seictl` provides tools to patch and modify Sei node
-configuration files (TOML) and genesis files (JSON) with ease. More features to be added in due course.
+## Installation and provenance
 
-## Features
+Use a qualified Paxeer distribution from
+[Paxeer-Network/paxctl](https://github.com/Paxeer-Network/paxctl/releases), pinned
+to a reviewed release tag and its source revision. Do not substitute an upstream
+Sei release or an unpinned Go module installation for this adapted tool. If no
+qualified artifact exists for the desired monorepo revision, build that revision
+from the complete source tree below.
 
-- **Configuration Management**: Patch Sei daemon configuration files (`app.toml`, `client.toml`, `config.toml`)
-- **Genesis Management**: Apply merge patches to genesis JSON files
-- **Universal Patching**: Apply merge patches to any TOML or JSON file
-- **Smart Target Detection**: Automatically detects which configuration file to modify based on patch content
-- **Flexible Output**: Write to stdout, a specific file, or modify files in-place
-- **Atomic Writes**: Safe file modifications using atomic write operations
-- **Merge Patch Algorithm**: Intelligently merges patches with existing configurations
+| Native OS | CPU | Archive | Executable |
+| --- | --- | --- | --- |
+| Linux | amd64 | `seictl_Linux_x86_64.tar.gz` | `seictl` |
+| Linux | arm64 | `seictl_Linux_arm64.tar.gz` | `seictl` |
+| macOS | amd64 | `seictl_Darwin_x86_64.tar.gz` | `seictl` |
+| macOS | arm64 | `seictl_Darwin_arm64.tar.gz` | `seictl` |
 
-## Installation
+Windows and ARMv7 archives are unsupported. Containers target Linux amd64 and
+arm64, use a distroless runtime, and must be pinned by a qualified image digest.
+The archive checksum is mandatory; get `checksums.txt` from the same release.
+For example, after substituting a reviewed public tag:
 
-### Pre-built Binaries (Recommended)
-
-Pre-built binaries are available for Linux, macOS, and Windows. Download the latest release from
-the [releases page](https://github.com/sei-protocol/seictl/releases).
-
-#### Quick Install
-
-<details>
-<summary><b>Linux (x86_64)</b></summary>
-
-```bash
-curl -LO https://github.com/sei-protocol/seictl/releases/latest/download/seictl_Linux_x86_64.tar.gz
+```sh
+RELEASE_TAG='<reviewed-v-prefixed-tag>'
+RELEASE_BASE="https://github.com/Paxeer-Network/paxctl/releases/download/$RELEASE_TAG"
+curl --fail --location --remote-name "$RELEASE_BASE/seictl_Linux_x86_64.tar.gz"
+curl --fail --location --remote-name "$RELEASE_BASE/checksums.txt"
+# Select the exact archive entry, then verify it before extracting.
+awk '$2 == "seictl_Linux_x86_64.tar.gz" {print; found=1} END {if (!found) exit 1}' checksums.txt > selected-checksum.txt
+sha256sum --check selected-checksum.txt
 tar -xzf seictl_Linux_x86_64.tar.gz
-sudo mv seictl /usr/local/bin/
-```
-</details>
-
-<details>
-<summary><b>Linux (ARM64)</b></summary>
-
-```bash
-curl -LO https://github.com/sei-protocol/seictl/releases/latest/download/seictl_Linux_arm64.tar.gz
-tar -xzf seictl_Linux_arm64.tar.gz
-sudo mv seictl /usr/local/bin/
-```
-</details>
-
-<details>
-<summary><b>Linux (ARMv7)</b></summary>
-
-```bash
-curl -LO https://github.com/sei-protocol/seictl/releases/latest/download/seictl_Linux_armv7.tar.gz
-tar -xzf seictl_Linux_armv7.tar.gz
-sudo mv seictl /usr/local/bin/
-```
-</details>
-
-<details>
-<summary><b>macOS (Apple Silicon)</b></summary>
-
-```bash
-curl -LO https://github.com/sei-protocol/seictl/releases/latest/download/seictl_Darwin_arm64.tar.gz
-tar -xzf seictl_Darwin_arm64.tar.gz
-sudo mv seictl /usr/local/bin/
-```
-</details>
-
-<details>
-<summary><b>macOS (Intel)</b></summary>
-
-```bash
-curl -LO https://github.com/sei-protocol/seictl/releases/latest/download/seictl_Darwin_x86_64.tar.gz
-tar -xzf seictl_Darwin_x86_64.tar.gz
-sudo mv seictl /usr/local/bin/
-```
-</details>
-
-<details>
-<summary><b>Windows (x86_64)</b></summary>
-
-```powershell
-# Download from: https://github.com/sei-protocol/seictl/releases/latest/download/seictl_Windows_x86_64.zip
-# Extract and add to PATH
-```
-</details>
-
-#### Verify Installation
-
-```bash
-seictl --version
+./seictl --help
 ```
 
-#### Verify Download (Optional)
+Source prerequisites are Go 1.26.0 (as declared by `go.mod`), Git and Make.
+The source tree must include the sibling modules referenced by `go.mod`'s local
+`replace` directives. A standalone copy of this directory is insufficient.
 
-All releases include a `checksums.txt` file for verification, e.g.:
-
-```bash
-# Download checksums
-curl -LO https://github.com/sei-protocol/seictl/releases/latest/download/checksums.txt
-
-# Verify (Linux/macOS)
-sha256sum -c checksums.txt 2>&1 | grep seictl_Linux_x86_64.tar.gz
-```
-
-### Build from Source
-
-If you prefer to build from source or need a specific configuration:
-
-#### Prerequisites
-
-- Go 1.25.4 or higher
-
-#### Build
-
-```bash
-git clone https://github.com/sei-protocol/seictl.git
-cd seictl
+```sh
+SOURCE_REVISION='<reviewed-full-monorepo-commit-sha>'
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git
+cd paxeer-monorepo
+git checkout --detach "$SOURCE_REVISION"
+cd tools/paxctl
 make build
-```
-
-Or directly with `go`:
-
-```bash
-go build -o build/seictl .
-```
-
-### Install via Go
-
-```bash
-go install github.com/sei-protocol/seictl@latest
-```
-
-Or from a local clone:
-
-```bash
+./build/seictl --help
+# Optional local installation into Go's bin directory:
 make install
 ```
 
-## Usage
+`make build` reads and validates `version.json`, stamps
+`github.com/sei-protocol/seictl/internal/cliutil.Version`, and checks the real
+network, node and workflow provenance annotations through a loopback API
+fixture. A bare `go build` leaves the annotation at `dev` and is not a release.
+There is no registered `--version` flag; use the provenance verifier with the
+matching pinned source and the extracted native executable:
 
-```
-seictl [global options] command [command options] [arguments...]
-```
-
-### Global Options
-
-- `--home <path>`: Sei home directory (default: `~/.sei`, can be set via `SEI_HOME` environment variable)
-
-## Commands
-
-### Patch Command
-
-#### `patch`
-
-Apply a merge-patch to any TOML or JSON file. This is a universal patching command that works with any file format, not
-just Sei-specific configurations.
-
-```bash
-seictl patch --target <file-path> [patch-file]
+```sh
+go run ./internal/release verify --expected "$RELEASE_TAG" --binary /absolute/path/to/seictl
 ```
 
-**Options:**
+GoReleaser requires the release tag to equal the validated `version.json` value
+(including its `v` prefix). The native verification workflow checks all four
+archives on matching OS/CPU runners. Docker verifies the linked executable in
+its build stage on each target architecture. Build the image from the monorepo
+root so local Go replacements resolve:
 
-- `--target <path>`: Path to the TOML or JSON file to patch (required)
-- `-o, --output <path>`: Write output to specified file
-- `-i, --in-place-rewrite`: Modify the target file in-place
-
-**Examples:**
-
-```bash
-# Patch any TOML file
-seictl patch --target /path/to/config.toml patch.toml
-
-# Patch any JSON file from stdin
-echo '{"new_key": "value"}' | seictl patch --target /path/to/data.json
-
-# Patch and save to a new file
-seictl patch --target myconfig.toml patch.toml -o modified.toml
-
-# Patch and modify in-place
-seictl patch --target settings.json patch.json -i
+```sh
+docker build -f tools/paxctl/Dockerfile -t paxctl:local .
 ```
 
-**Note:** The file extension (`.toml` or `.json`) is used to determine the format automatically.
+The `seictl.sei.io/version` annotation is diagnostic provenance. Anyone allowed
+to edit a CR can forge it; it is not an authorization or integrity boundary.
 
-### Genesis Commands
+## Commands and prerequisites
 
-#### `genesis patch`
+| Surface | Actual commands | Requirements |
+| --- | --- | --- |
+| Genesis network | `network apply/get/list/delete/watch` | `SeiNetwork`, `genesis-chain` preset, explicit chain ID and paxd image |
+| Follower/RPC node | `node apply/get/list/delete/watch` | `SeiNode`, `rpc` preset, explicit chain ID, image and peer selection |
+| Controller recipe | `workflow apply/get/list/delete/watch`, `workflow state-sync` | `SeiNodeTaskWorkflow`, an adapted controller and target node |
+| Sidecar tasks | `task submit/get/list/delete`, `task snapshot-upload` | Pod proxy DNS connectivity, Kubernetes credentials, proxy RBAC and `--proxy-ca-file` |
+| Local editing | `patch`, `config patch`, `genesis patch` | Explicit `--home` or `--target`; review output before rewriting |
+| Other inherited tools | `serve`, `await`, `report divergence/list` | Qualified process, RPC and storage configuration for the selected Paxeer deployment |
 
-Apply a merge-patch to the Sei genesis JSON file.
+Kubernetes verbs use `--kubeconfig` (or `KUBECONFIG`) and `-n`; credentials need
+RBAC for the selected namespace/resources. `apply --dry-run` performs real
+server-side validation and still requires Kubernetes access. Network readiness
+is `Ready`; node readiness is `Running` (or the `caught-up` watch sentinel).
+Workflow `Complete` means its controller plan finished; inspect `.status.plan`
+on failure. `workflow state-sync` is destructive: use only a disposable follower
+after reviewing [workflow recovery guidance](workflow/README.md).
 
-```bash
-seictl genesis patch [patch-file]
+Task verbs connect to
+`https://<node>-0.<node>.<namespace>.svc.cluster.local:8443`. Supply the proxy's
+CA with `--proxy-ca-file`; the Kubernetes API CA is not automatically proxy
+trust. The credential must pass the proxy's TokenReview and SubjectAccessReview.
+The proxy must overwrite `X-Remote-User` before forwarding to the sidecar's
+loopback listener. A direct request with a self-chosen header is not a supported
+remote authentication method. Run task commands from a network that resolves
+and reaches that pod DNS name.
+
+`serve` defaults to `SEI_SIDECAR_AUTHN_MODE=trusted-header`, listening on
+`127.0.0.1:7777` (override port with `--port` or `SEI_SIDECAR_PORT`). It refuses
+unauthenticated mode because it installs signing and destructive handlers.
+Required environment: `SEI_CHAIN_ID`, `SEI_GENESIS_BUCKET`, `SEI_GENESIS_REGION`,
+`SEI_SNAPSHOT_BUCKET`, `SEI_SNAPSHOT_REGION`. A keyring is optional unless signing:
+`SEI_KEYRING_BACKEND=file` requires `SEI_KEYRING_PASSPHRASE`; `SEI_KEYRING_DIR`
+selects its directory. Keep credentials in deployment secret mechanisms.
+
+Local patch commands honor `--home` / `SEI_HOME`. No automatic `~/.sei` default
+is configured by the root command; pass a disposable Paxeer home explicitly.
+`serve` falls back to `/sei` if home is omitted. Generic editing examples:
+
+```sh
+seictl --home /tmp/paxeer-smoke config --target config patch patch.toml
+seictl --home /tmp/paxeer-smoke genesis patch patch.json
+seictl patch --target /tmp/paxeer-smoke/config/config.toml patch.toml
 ```
 
-**Options:**
-
-- `-o, --output <path>`: Write output to specified file
-- `-i, --in-place-rewrite`: Modify the genesis file in-place
-
-**Examples:**
-
-```bash
-# Patch from file and output to stdout
-seictl genesis patch patch.json
-
-# Patch from stdin
-echo '{"chain_id": "sei-testnet"}' | seictl genesis patch
-
-# Patch and save to a new file
-seictl genesis patch patch.json -o genesis-modified.json
-
-# Patch and modify the original file in-place
-seictl genesis patch patch.json -i
-```
-
-### Config Commands
-
-#### `config patch`
-
-Apply a merge-patch to a Sei configuration TOML file.
-
-```bash
-seictl config [--target <app|client|config>] patch [patch-file]
-```
-
-**Options:**
-
-- `--target <type>`: Specify which configuration file to patch (`app`, `client`, or `config`)
-    - If not specified, the target is automatically detected based on the patch content
-- `-o, --output <path>`: Write output to specified file
-- `-i, --in-place-rewrite`: Modify the configuration file in-place
-
-**Examples:**
-
-```bash
-# Patch with auto-detection
-seictl config patch patch.toml
-
-# Explicitly specify the target config
-seictl config --target app patch patch.toml
-
-# Patch from stdin and output to stdout
-echo 'minimum-gas-prices = "0.01usei"' | seictl config patch
-
-# Patch and modify in-place
-seictl config --target app patch patch.toml -i
-
-# Patch and save to specific location
-seictl config patch patch.toml -o /path/to/output.toml
-```
-
-## Configuration Targets
-
-The `config` command can work with three different configuration files:
-
-### `app.toml`
-
-Application-level configuration including:
-
-- Gas prices and block settings
-- State management (state-sync, state-commit, state-store)
-- EVM configuration
-- Telemetry and monitoring
-- API, gRPC, and Rosetta endpoints
-- IAVL and WASM settings
-
-### `client.toml`
-
-Client-level configuration including:
-
-- Chain ID
-- Keyring backend
-- Output format
-- Node endpoint
-- Broadcast mode
-
-### `config.toml`
-
-Node-level configuration including:
-
-- Proxy app and database settings
-- Logging configuration
-- RPC and P2P settings
-- Mempool and consensus parameters
-- State sync and block sync
-- Transaction indexing
-
-## Merge Patch Behavior
-
-The merge patch algorithm works as follows:
-
-1. **Nested merging**: Patches are merged recursively into nested structures
-2. **Null deletion**: Setting a value to `null` removes that key from the configuration
-3. **Addition**: New keys in the patch are added to the configuration
-4. **Replacement**: Existing scalar values are replaced with patch values
-
-**Example:**
-
-Original:
-
-```toml
-[api]
-enable = true
-address = "tcp://0.0.0.0:1317"
-```
-
-Patch:
-
-```toml
-[api]
-address = "tcp://0.0.0.0:1318"
-swagger = true
-```
-
-Result:
-
-```toml
-[api]
-enable = true
-address = "tcp://0.0.0.0:1318"
-swagger = true
-```
-
-## Examples
-
-<details>
-<summary><b>Update Minimum Gas Prices</b></summary>
-
-```bash
-echo 'minimum-gas-prices = "0.02usei"' | seictl config patch -i
-```
-</details>
-
-<details>
-<summary><b>Enable API Endpoint</b></summary>
-
-```bash
-cat > patch.toml << EOF
-[api]
-enable = true
-address = "tcp://0.0.0.0:1317"
-EOF
-
-seictl config --target app patch patch.toml -i
-```
-</details>
-
-<details>
-<summary><b>Modify Genesis Chain ID</b></summary>
-
-```bash
-echo '{"chain_id": "sei-mainnet-1"}' | seictl genesis patch -i
-```
-</details>
-
-<details>
-<summary><b>Update Multiple Configuration Sections</b></summary>
-
-```bash
-cat > patch.toml << EOF
-minimum-gas-prices = "0.01usei"
-
-[telemetry]
-enabled = true
-prometheus-retention-time = 60
-
-[api]
-enable = true
-swagger = true
-EOF
-
-seictl config patch patch.toml -i
-```
-</details>
-
-<details>
-<summary><b>Patch a Custom TOML Configuration</b></summary>
-
-```bash
-# Patch any TOML file outside the Sei directory structure
-cat > custom-patch.toml << EOF
-[database]
-host = "localhost"
-port = 5432
-EOF
-
-seictl patch --target /etc/myapp/config.toml custom-patch.toml -i
-```
-</details>
-
-<details>
-<summary><b>Patch a Custom JSON Data File</b></summary>
-
-```bash
-# Modify any JSON file
-echo '{"version": "2.0", "debug": true}' | seictl patch --target /path/to/settings.json -i
-```
-</details>
-
-<details>
-<summary><b>Using Custom Sei Home Directory</b></summary>
-
-```bash
-# Via environment variable
-export SEI_HOME=/custom/path/.sei
-seictl config patch patch.toml
-
-# Via flag
-seictl --home /custom/path/.sei config patch patch.toml
-```
-</details>
-
-## Command Comparison
-
-### When to Use Each Command
-
-- **`patch`**: Use for patching any arbitrary TOML or JSON file on your system. Requires explicit `--target` path.
-- **`genesis patch`**: Use specifically for Sei genesis files. Automatically uses `$HOME/.sei/config/genesis.json`.
-- **`config patch`**: Use specifically for Sei configuration files with automatic target detection. Automatically uses
-  files in `$HOME/.sei/config/`.
-
-## File Locations
-
-By default, `seictl` looks for configuration files in the following locations:
-
-- Genesis: `$HOME/.sei/config/genesis.json`
-- App config: `$HOME/.sei/config/app.toml`
-- Client config: `$HOME/.sei/config/client.toml`
-- Node config: `$HOME/.sei/config/config.toml`
-
-Where `$HOME` is the value of the `--home` flag or the `SEI_HOME` environment variable.
-
-## Safety Features
-
-- **Atomic Writes**: All file modifications use atomic write operations (write to temp file, then rename)
-- **Permission Preservation**: In-place modifications preserve original file permissions
-- **Format Validation**: Validates file extensions before processing (must be `.toml` or `.json`)
-- **Target Validation**: Prevents accidental modification of wrong configuration files
-- **Auto-detection Safety**: Refuses to proceed if patch could apply to multiple targets
-- **Early Validation**: Checks file format and existence before reading patch data
-
-## License
-
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE.md) file for details.
+Output defaults to stdout; `-o` selects a file and `-i` rewrites in place.
+Genesis patching edits JSON; it does not certify genesis validity or chain
+identity. Do not reuse upstream fee-denomination, address-prefix, AWS inventory,
+image, genesis or validator-key examples. Inherited `restart-seid`/`stop-seid`
+task identifiers remain wire names: deployment process discovery must target
+`paxd`. Sei-only onboarding/load-benchmark operations are unsupported; `onboard`,
+`bench`, and the retired node-deployment resource are not registered. Snapshot,
+genesis ceremony, governance signing and state-sync operations require Paxeer
+chain/process/controller qualification before use; the existence of a command
+is not a compatibility guarantee.
+
+Follow the [isolated smoke procedure](.agent/runbooks/seictl-smoke.md) for an
+explicit chain-identity check and non-destructive command validation.

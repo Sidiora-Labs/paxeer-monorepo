@@ -137,7 +137,7 @@ An iterator sees a snapshot of the keys present when it was created and must be 
 Garbage collection is suspended while an iterator is open. Iterators themselves are not safe for concurrent use.
 
 Both primary and secondary keys must not exceed 65,535 bytes (2^16 - 1); this is one byte less
-than 64 KiB. Values must not exceed 4,294,967,295 bytes (2^32 - 1). These are the checks in
+than 64 KiB. Values must not exceed 4,294,967,295 bytes (2^32 - 1, `math.MaxUint32`). These are the checks in
 [`DiskTable.PutBatch`](disktable/disk_table.go), which also backs `Put`. Nil key and value slices
 are rejected; non-nil empty slices are allowed. Supply non-nil requests and secondary-key entries.
 Keys must be unique within a table, including aliases. Duplicate keys within a single request are
@@ -145,12 +145,17 @@ rejected; callers must prevent collisions across requests. `Config.DoubleWritePr
 to false and is not a substitute for assigning unique keys. Do not mutate supplied byte slices or
 returned values; copy them if mutation is needed.
 
+For example, with `bytes` imported, `bytes.Repeat([]byte{'k'}, 65535)` is a legal key,
+while `bytes.Repeat([]byte{'k'}, 65536)` is rejected. A small value such as `[]byte("payload")`
+works with the legal key; the value limit is `math.MaxUint32`, not 2^32 bytes. Secondary keys
+have the same 65535-byte limit and must use distinct bytes from the primary and other aliases.
+
 Source: [put_request.go](types/put_request.go)
 
 ```go
 type PutRequest struct {
-	Key           []byte
-	Value         []byte
+	Key           []byte // at most 65,535 bytes (math.MaxUint16)
+	Value         []byte // at most 4,294,967,295 bytes (math.MaxUint32)
 	SecondaryKeys []*SecondaryKey // optional, may be nil
 }
 ```
@@ -159,7 +164,7 @@ Source: [secondary_key.go](types/secondary_key.go)
 
 ```go
 type SecondaryKey struct {
-	Key    []byte // a key alias unique within the table
+	Key    []byte // a unique alias, at most 65,535 bytes (math.MaxUint16)
 	Offset uint32 // byte offset into the parent value
 	Length uint32 // length of the byte range (Offset+Length <= len(Value))
 }
@@ -330,6 +335,14 @@ If `Flush()` is never called, data becomes durable through two mechanisms:
   disk before a successful return. Check its error. Writes overlapping `Close()` are not guaranteed durable;
   stop and join writers before closing.
 
+After stopping and joining writers, close the database and handle failure explicitly:
+
+```go
+if err := db.Close(); err != nil {
+	return fmt.Errorf("close LittDB: %w", err)
+}
+```
+
 `Flush()` makes no guarantees about the [durability](#durability) of data written concurrently with the call to
 `Flush()` or after the call to `Flush()` has returned. It's not harmful to write data concurrently with a call to
 `Flush()` as long as it is understood that this data may or may not be [durable](#durability) on disk when the call
@@ -427,6 +440,9 @@ group once on a fresh segment. `Segment.Write` still checks the bounds. After a 
 configured size target, reaching `MaxSegmentKeyCount`, or reaching `TargetSegmentKeyFileSize` also
 causes rollover. A single legal value may exceed a smaller configured target, but never the format limit.
 See [control_loop.go](disktable/control_loop.go) and [segment.go](disktable/segment/segment.go).
+The [capacity regression test](disktable/repair_111_test.go) exercises pre-write rotation at
+the uint32 boundary; [TestRepairM_1165_BoundedValue](repair_m1165_test.go) ties this documentation
+to the same disk write, address codec and recovery path.
 
 Each segment may split its data into multiple [shards](#shard). The number of shards in a segment is called the
 [sharding factor](#sharding-factor). The [sharding factor](#sharding-factor) is configurable, and different segments

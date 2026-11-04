@@ -1,5 +1,8 @@
-use dashmap::DashMap;
+use std::collections::HashMap;
+
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKey {
@@ -13,75 +16,106 @@ pub struct ApiKey {
     pub created_at: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ApiKeyError {
+    #[error("API key hash is already assigned to another key")]
+    DuplicateHash,
+}
+
 pub struct ApiKeyStore {
-    primary: DashMap<String, ApiKey>,
-    by_user: DashMap<[u8; 20], Vec<String>>,
-    by_hash: DashMap<String, String>,
+    inner: RwLock<ApiKeyIndexes>,
+}
+
+#[derive(Default)]
+struct ApiKeyIndexes {
+    primary: HashMap<String, ApiKey>,
+    by_user: HashMap<[u8; 20], Vec<String>>,
+    by_hash: HashMap<String, String>,
+}
+
+impl ApiKeyIndexes {
+    fn remove(&mut self, id: &str) -> Option<ApiKey> {
+        let key = self.primary.remove(id)?;
+        if self
+            .by_hash
+            .get(&key.key_hash)
+            .is_some_and(|owner| owner == id)
+        {
+            self.by_hash.remove(&key.key_hash);
+        }
+        if let Some(ids) = self.by_user.get_mut(&key.address) {
+            ids.retain(|old| old != id);
+            if ids.is_empty() {
+                self.by_user.remove(&key.address);
+            }
+        }
+        Some(key)
+    }
 }
 
 impl ApiKeyStore {
     pub fn new() -> Self {
         Self {
-            primary: DashMap::new(),
-            by_user: DashMap::new(),
-            by_hash: DashMap::new(),
+            inner: RwLock::new(ApiKeyIndexes::default()),
         }
     }
 
-    pub fn insert(&self, key: ApiKey) {
-        let id = key.id.clone();
-        let addr = key.address;
-        let hash = key.key_hash.clone();
-        self.by_hash.insert(hash, id.clone());
-        self.by_user.entry(addr).or_default().push(id.clone());
-        self.primary.insert(id, key);
+    pub fn insert(&self, key: ApiKey) -> Result<(), ApiKeyError> {
+        let mut inner = self.inner.write();
+        if inner
+            .by_hash
+            .get(&key.key_hash)
+            .is_some_and(|id| id != &key.id)
+        {
+            return Err(ApiKeyError::DuplicateHash);
+        }
+        inner.remove(&key.id);
+        inner.by_hash.insert(key.key_hash.clone(), key.id.clone());
+        inner
+            .by_user
+            .entry(key.address)
+            .or_default()
+            .push(key.id.clone());
+        inner.primary.insert(key.id.clone(), key);
+        Ok(())
     }
 
     pub fn get(&self, id: &str) -> Option<ApiKey> {
-        self.primary.get(id).map(|r| r.clone())
+        self.inner.read().primary.get(id).cloned()
     }
 
     pub fn get_by_hash(&self, hash: &str) -> Option<ApiKey> {
-        let id = self.by_hash.get(hash)?;
-        self.primary.get(id.value().as_str()).map(|r| r.clone())
+        let inner = self.inner.read();
+        let id = inner.by_hash.get(hash)?;
+        inner.primary.get(id).cloned()
     }
 
     pub fn by_user(&self, address: &[u8; 20]) -> Vec<ApiKey> {
-        let ids = self.by_user.get(address);
-        match ids {
-            Some(ids) => ids
-                .iter()
-                .filter_map(|id| self.primary.get(id.as_str()).map(|r| r.clone()))
-                .collect(),
-            None => vec![],
-        }
+        let inner = self.inner.read();
+        inner
+            .by_user
+            .get(address)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| inner.primary.get(id).cloned())
+            .collect()
     }
 
     pub fn remove(&self, id: &str) -> Option<ApiKey> {
-        if let Some((_, key)) = self.primary.remove(id) {
-            self.by_hash.remove(&key.key_hash);
-            self.by_user.entry(key.address).and_modify(|v| {
-                v.retain(|i| i != id);
-            });
-            Some(key)
-        } else {
-            None
-        }
+        self.inner.write().remove(id)
     }
 
     pub fn remove_by_user_and_id(&self, address: &[u8; 20], id: &str) -> Option<ApiKey> {
-        if let Some(key) = self.primary.get(id) {
-            if key.address != *address {
-                return None;
-            }
-        } else {
+        let mut inner = self.inner.write();
+        if inner.primary.get(id)?.address != *address {
             return None;
         }
-        self.remove(id)
+        inner.remove(id)
     }
 
     pub fn touch_last_used(&self, id: &str, timestamp: u64) -> bool {
-        if let Some(mut key) = self.primary.get_mut(id) {
+        let mut inner = self.inner.write();
+        if let Some(key) = inner.primary.get_mut(id) {
             key.last_used_at = Some(timestamp);
             true
         } else {
@@ -90,11 +124,11 @@ impl ApiKeyStore {
     }
 
     pub fn all(&self) -> Vec<ApiKey> {
-        self.primary.iter().map(|r| r.value().clone()).collect()
+        self.inner.read().primary.values().cloned().collect()
     }
 
     pub fn count(&self) -> usize {
-        self.primary.len()
+        self.inner.read().primary.len()
     }
 }
 
@@ -124,7 +158,9 @@ mod tests {
     #[test]
     fn insert_and_get() {
         let store = ApiKeyStore::new();
-        store.insert(make_key(test_addr(1), "uuid-1", "hash-1"));
+        store
+            .insert(make_key(test_addr(1), "uuid-1", "hash-1"))
+            .unwrap();
         let key = store.get("uuid-1").unwrap();
         assert_eq!(key.key_hash, "hash-1");
     }
@@ -132,7 +168,9 @@ mod tests {
     #[test]
     fn get_by_hash() {
         let store = ApiKeyStore::new();
-        store.insert(make_key(test_addr(1), "uuid-1", "hash-abc"));
+        store
+            .insert(make_key(test_addr(1), "uuid-1", "hash-abc"))
+            .unwrap();
         let key = store.get_by_hash("hash-abc").unwrap();
         assert_eq!(key.id, "uuid-1");
     }
@@ -141,16 +179,18 @@ mod tests {
     fn by_user() {
         let store = ApiKeyStore::new();
         let addr = test_addr(1);
-        store.insert(make_key(addr, "k1", "h1"));
-        store.insert(make_key(addr, "k2", "h2"));
-        store.insert(make_key(test_addr(2), "k3", "h3"));
+        store.insert(make_key(addr, "k1", "h1")).unwrap();
+        store.insert(make_key(addr, "k2", "h2")).unwrap();
+        store.insert(make_key(test_addr(2), "k3", "h3")).unwrap();
         assert_eq!(store.by_user(&addr).len(), 2);
     }
 
     #[test]
     fn remove() {
         let store = ApiKeyStore::new();
-        store.insert(make_key(test_addr(1), "uuid-1", "hash-1"));
+        store
+            .insert(make_key(test_addr(1), "uuid-1", "hash-1"))
+            .unwrap();
         assert!(store.remove("uuid-1").is_some());
         assert!(store.get("uuid-1").is_none());
         assert!(store.get_by_hash("hash-1").is_none());
@@ -159,15 +199,23 @@ mod tests {
     #[test]
     fn remove_wrong_user() {
         let store = ApiKeyStore::new();
-        store.insert(make_key(test_addr(1), "uuid-1", "hash-1"));
-        assert!(store.remove_by_user_and_id(&test_addr(2), "uuid-1").is_none());
+        store
+            .insert(make_key(test_addr(1), "uuid-1", "hash-1"))
+            .unwrap();
+        assert!(
+            store
+                .remove_by_user_and_id(&test_addr(2), "uuid-1")
+                .is_none()
+        );
         assert!(store.get("uuid-1").is_some());
     }
 
     #[test]
     fn touch_last_used() {
         let store = ApiKeyStore::new();
-        store.insert(make_key(test_addr(1), "uuid-1", "hash-1"));
+        store
+            .insert(make_key(test_addr(1), "uuid-1", "hash-1"))
+            .unwrap();
         assert!(store.touch_last_used("uuid-1", 5000));
         assert_eq!(store.get("uuid-1").unwrap().last_used_at, Some(5000));
     }

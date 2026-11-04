@@ -3,11 +3,11 @@ package app_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -73,44 +73,39 @@ func TestDevelopmentRegistersVersionedUDF(t *testing.T) {
 	}
 }
 
-func dialWS(t *testing.T, srv *httptest.Server, realIP string) string {
+func assertLegacyWSRetired(t *testing.T, srv *httptest.Server, realIP string) {
 	t.Helper()
 	header := http.Header{}
 	header.Set("X-Real-IP", realIP)
-	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http")+"/ws", header)
-	if err != nil {
-		t.Fatal(err)
+	header.Set("Origin", "https://untrusted.example")
+	conn, response, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http")+"/ws", header)
+	if conn != nil {
+		_ = conn.Close()
+		t.Fatal("retired route accepted a WebSocket")
 	}
-	t.Cleanup(func() { _ = conn.Close() })
-	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	_, msg, err := conn.ReadMessage()
-	if err != nil {
-		t.Fatal(err)
+	if response == nil {
+		t.Fatalf("retirement response missing: %v", err)
 	}
-	return string(msg)
+	defer response.Body.Close()
+	var body struct {
+		Code      string `json:"code"`
+		Retryable bool   `json:"retryable"`
+	}
+	if decodeErr := json.NewDecoder(response.Body).Decode(&body); decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	if !errors.Is(err, websocket.ErrBadHandshake) || response.StatusCode != http.StatusGone || body.Code != "LEGACY_STREAM_RETIRED" || body.Retryable || response.Header.Get("Link") != `</v2/stream>; rel="successor-version"` {
+		t.Fatalf("retirement: status=%d body=%+v err=%v", response.StatusCode, body, err)
+	}
 }
 
-// Behind Railway's edge every connection arrives from the proxy; with
-// TRUSTED_PROXY_CIDRS the per-IP WebSocket limit applies to the client
-// address the edge forwards, not to the proxy.
+// Retirement precedes upgrade regardless of proxy attribution or connection limits.
 func TestDevelopmentTrustedProxyPerIPLimit(t *testing.T) {
-	trusted := newDevApp(t, func(c *config.Config) { c.WSMaxPerIP = 1; c.TrustedProxyCIDRs = "127.0.0.0/8,::1/128" })
-	if msg := dialWS(t, trusted, "203.0.113.1"); !strings.Contains(msg, `"connected"`) {
-		t.Fatalf("first client: %s", msg)
-	}
-	if msg := dialWS(t, trusted, "203.0.113.2"); !strings.Contains(msg, `"connected"`) {
-		t.Fatalf("second client behind the same proxy: %s", msg)
-	}
-	if msg := dialWS(t, trusted, "203.0.113.1"); !strings.Contains(msg, "Too many connections") {
-		t.Fatalf("repeat client not limited: %s", msg)
-	}
-
-	untrusted := newDevApp(t, func(c *config.Config) { c.WSMaxPerIP = 1 })
-	if msg := dialWS(t, untrusted, "203.0.113.1"); !strings.Contains(msg, `"connected"`) {
-		t.Fatalf("first: %s", msg)
-	}
-	if msg := dialWS(t, untrusted, "203.0.113.2"); !strings.Contains(msg, "Too many connections") {
-		t.Fatalf("forged X-Real-IP honoured without a trusted proxy: %s", msg)
+	for _, proxies := range []string{"127.0.0.0/8,::1/128", ""} {
+		srv := newDevApp(t, func(c *config.Config) { c.WSMaxPerIP = 1; c.TrustedProxyCIDRs = proxies })
+		for _, ip := range []string{"203.0.113.1", "203.0.113.2", "203.0.113.1"} {
+			assertLegacyWSRetired(t, srv, ip)
+		}
 	}
 }
 

@@ -42,10 +42,15 @@ func TestParseSubmitProposalFlags(t *testing.T) {
 
 	// flags that can't be used with --proposal
 	for _, incompatibleFlag := range ProposalFlags {
-		fs.Set(incompatibleFlag, "some value")
-		_, err := parseSubmitProposalFlags(fs)
+		incompatible := NewCmdSubmitProposal().Flags()
+		require.NoError(t, incompatible.Set(FlagProposal, okJSON.Name()))
+		value := "some value"
+		if incompatibleFlag == FlagIsExpedited {
+			value = "true"
+		}
+		require.NoError(t, incompatible.Set(incompatibleFlag, value))
+		_, err := parseSubmitProposalFlags(incompatible)
 		require.Error(t, err)
-		fs.Set(incompatibleFlag, "")
 	}
 
 	// no --proposal, only flags

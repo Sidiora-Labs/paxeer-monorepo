@@ -24,7 +24,8 @@ use crate::state::pubsub::{Channel, PubSubBus, PubSubMessage};
 use crate::storage::candle_store::CandleStore;
 use crate::storage::event_store::EventStore;
 use crate::storage::snapshot::{
-    self, DailyStatsEntry, SnapshotMarketState, SnapshotRecovery, StateSnapshot, TickCheckpoint,
+    self, CompleteStateSnapshot, DailyStatsEntry, RelationalSnapshot, SnapshotMarketState,
+    SnapshotRecovery, StateSnapshot, TickCheckpoint,
 };
 use crate::storage::tick_store::TickStore;
 use crate::storage::wal::{WalConfig, WalEntry, WalPosition, WalWriter};
@@ -237,7 +238,7 @@ impl PerfDb {
             Some(WriterLease::acquire(&config.data_dir)?)
         };
 
-        let snap = snapshot::load_latest_engine_snapshot(&config.snapshots_dir())?;
+        let snap = snapshot::load_latest_complete_engine_snapshot(&config.snapshots_dir())?;
         let snapshot_position = snap
             .as_ref()
             .map(|(_, recovery)| recovery.position)
@@ -352,20 +353,37 @@ impl PerfDb {
         let pubsub = PubSubBus::with_capacity(config.pubsub_capacity);
 
         let users = UserStore::new();
-        let referrals = ReferralEngine::new();
         let checkpoint = CheckpointStore::empty();
 
         let events = EventStore::new();
         let trader_stats = TraderStatsStore::new();
         let daily_stats = DailyStatsStore::new();
         let leaderboard = Leaderboard::new(config.leaderboard_max);
-        let alerts = AlertStore::new();
-        let api_keys = ApiKeyStore::new();
-        let competitions = CompetitionStore::new();
+        let (alerts, api_keys, competitions, referrals) = match snap
+            .as_ref()
+            .and_then(|(image, _)| image.relational.as_ref())
+        {
+            Some(relational) => {
+                let stores = relational.restore_owned()?;
+                (
+                    stores.alerts,
+                    stores.api_keys,
+                    stores.competitions,
+                    stores.referrals,
+                )
+            }
+            None => (
+                AlertStore::new(),
+                ApiKeyStore::new(),
+                CompetitionStore::new(),
+                ReferralEngine::new(),
+            ),
+        };
 
-        if let Some((snap, _)) = snap {
+        if let Some((image, _)) = snap {
+            let snap = &image.state;
             restore_snapshot(
-                &snap,
+                snap,
                 &market_state,
                 &positions,
                 &orders,
@@ -374,7 +392,7 @@ impl PerfDb {
                 &checkpoint,
                 &trader_stats,
                 &daily_stats,
-            );
+            )?;
             tracing::info!(
                 block = snap.checkpoint.last_block,
                 positions = snap.positions.len(),
@@ -1318,9 +1336,30 @@ impl PerfDb {
             snapshot_timestamp: self.checkpoint.last_block_timestamp(),
         };
 
-        snapshot::write_engine_snapshot(
+        let referrals = self.referrals.lock();
+        let relational = RelationalSnapshot::capture_stores(
+            0,
+            self.alerts.next_id(),
+            &self.alerts,
+            &self.api_keys,
+            &self.competitions,
+            &referrals,
+        );
+        // Preserve the legacy image for untouched default relational stores.
+        // The allocator remains state even when every alert has been deleted.
+        let has_relational_state = relational.next_alert_id != 1
+            || !relational.alerts.is_empty()
+            || !relational.api_keys.is_empty()
+            || !relational.competitions.is_empty()
+            || !relational.competition_entries.is_empty()
+            || referrals.tiers() != ReferralEngine::new().tiers();
+        snapshot::write_complete_engine_snapshot(
             &self.config.snapshots_dir(),
-            &snap,
+            &CompleteStateSnapshot {
+                version: 1,
+                state: snap,
+                relational: has_relational_state.then_some(relational),
+            },
             SnapshotRecovery {
                 position: mutation.position,
                 events: mutation.events.clone(),
@@ -1421,7 +1460,7 @@ fn restore_snapshot(
     checkpoint: &CheckpointStore,
     trader_stats: &TraderStatsStore,
     daily_stats: &DailyStatsStore,
-) {
+) -> Result<(), PerfDbError> {
     checkpoint.save(
         snap.checkpoint.last_block,
         snap.checkpoint.last_block_hash.clone(),
@@ -1441,7 +1480,9 @@ fn restore_snapshot(
     }
 
     for user in &snap.users {
-        users.upsert(user.clone());
+        users
+            .upsert(user.clone())
+            .map_err(|error| PerfDbError::Corruption(error.to_string()))?;
     }
 
     for ts in &snap.trader_stats {
@@ -1473,6 +1514,7 @@ fn restore_snapshot(
             ms.price_change_pct_24h,
         );
     }
+    Ok(())
 }
 
 /// Convert a unix timestamp (seconds) to YYYYMMDD u32.

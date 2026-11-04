@@ -1,0 +1,51 @@
+[task]
+id = "22.31.63"
+audit = "22.30.37"
+status = "implemented_not_qualified"
+scope = "launchpad/spec/production-system/integration/migrations; sdk/launchpad/shared/db/production/coordinatortest; services/launchpad/pnl-tracker/internal/production/l16"
+baseline = "The supplied attempt-2 evidence reports TestRepair_63_ActiveSnapshotUpdateGrant and TestRepair_63_WalletRangeSchemaMigrated failing before this repair. No earlier gate ledger exists in this sandbox. The unchanged-tree verification was not repeated because the current explicit order requires complete implementation, formatting and hf-build before hf-done."
+evidence = "The runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit and private log location. The runner creates the candidate revision from this record and sources; no passing gate is claimed in advance."
+
+[finding.active-snapshot-update-grant]
+status = "implemented_awaiting_qualification"
+test = "TestRepair_63_ActiveSnapshotUpdateGrant"
+repair = "grants.json preserves SELECT/INSERT and adds only UPDATE(generation,snapshot_digest,height) on pnl.inventory_l16_active_v2 for pnl_runtime without grant option."
+proof = "The retained behavioral test renders real coordinator grants, checks exact runtime column bounds, activates the first archive and later live replay snapshots, decodes transactional outbox evidence, closes and reopens the runtime pool, and checks recovered snapshots and notices."
+
+[finding.wallet-range-schema-not-migrated]
+status = "implemented_awaiting_qualification"
+test = "TestRepair_63_WalletRangeSchemaMigrated"
+repair = "Checksum-bound transactional migration 160004 depends on 160002 and copies both v3 wallet tables, latest index and immutable triggers from RebuildDDL without changing prior migration checksums. Both tables revoke PUBLIC access and admit only SELECT/INSERT for pnl_runtime."
+proof = "The retained behavioral test checks registered migrations and runtime grants, then exercises PublishRebuiltWallet/commitRebuiltHistoryTx, interval COPY and IntervalHistory, verifies immutable trigger errors through an administrator and compares history after reopening the runtime pool."
+consumer_grants = "Migration 160004 publishes explicit-column security-barrier wallet range and interval read views. The discovery-owning api_runtime and api_rest_runtime manifests grant only column-scoped SELECT on these versioned interfaces; RoleManifest.GrantSQL supplies schema USAGE."
+wiring_request = "Domain 4 (fm-launchpad), services/launchpad/discovery/leaderboard.go SQLIntervalAuthority.Intervals: read pnl.inventory_l16_wallet_ranges_read_v3 and pnl.inventory_l16_wallet_intervals_read_v3 instead of foreign base tables, using the admitted API runtime role; consumer query changes and qualification are outside this task's scope."
+
+[test.coordinator_contract]
+name = "TestRepair_63_CoordinatorWalletContract"
+proof = "Offline comparison against production RebuildDDL binds the coordinator's wallet table/index and immutable trigger definitions to the producer schema; real RoleManifest.GrantSQL validates and renders discovery's exact read-view privileges and checks append-only wallet and column-scoped active-pointer grants."
+fixture = "TestRepair_63_MigrationFixturePaths resolves inputs from coordinatortest.RepositoryRoot beneath launchpad/, checks every SQL file with production.Checksum, and renders the actual pnl_runtime manifest. The coordinator readBound helper maps reviewed spec/production-system paths beneath launchpad/ before reading and verifying checksums, matching its registry directory."
+
+[qualification]
+environment_conflict = "The retained behavioral assertions still require the coordinator's real PostgreSQL bootstrap via PNL_TEST_POSTGRES_DSN, contrary to do_8/do_11. No database assertion is skipped, weakened or replaced; this limitation remains even if the supplied PostgreSQL fixture admits the behavioral gate."
+rpc_repair = "The first bounded hf-done passed both migration/contract tests and reached both behavioral tests after coordinator bootstrap, then failed at L16_BASELINE_RPC. Runtime setup now starts separate loopback primary/archive peers from the indexer's checksum-bound committed market transcript; receipt and header bytes remain producer records, token state reads use its canonical transfer history through decodeTransfer, and unknown calls fail explicitly. No live RPC variable is read."
+first_gate = "revision=e19a25f56debef4eda55c93644e2d1e7410835ab; command=cg spec done 22.31.63 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log"
+known_external_dependency = "The retained earlier record identifies nonexistent l18 sequence grants in unmodified pnl_runtime bootstrap. This task does not filter missing-object GRANT failures or investigate that separate audit finding."
+closure = "Neither finding is declared qualified until hf-done passes on the same candidate as hf-build. Gate evidence is retained by the runner and copied exactly in the final response; no source changes follow the final verification."
+gotcha = "Coordinator registry paths are relative to launchpad/, not the repository root or the Go working directory; go build does not compile test imports."
+transcript_repair = "Attempt 5 preserves the recorded eth_call block identifier through rpc.BlockNumberOrHash, accepting string block tags and blockHash objects; malformed parameters name eth_call params[1] and the transcript record number. Recorded RPC errors are replayed verbatim instead of being rejected for lacking a result. TestRepair_63_TranscriptBlockParameter checks both forms and diagnostic rejection; both retained behavioral cases remain unchanged."
+build_environment = "revision=36ef619c7fedb90c2303c0efbf3adf7eac7cdf2d; command=cd services/launchpad/pnl-tracker && go build ./internal/production/l16/...; exit=1; log=/out/logs/build-1.log; observed=the parent workspace declares Go 1.25 but includes a sibling requiring Go 1.27; assumption=GOWORK=off uses pnl-tracker's existing local shared/protocol replacements without changing workspace files."
+transcript_header_repair = "revision=3a33a07d69281e0b489009619ae391b8f0311154; command=cg spec done 22.31.63 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; migration, grants and block parameter tests passed; both behavioral cases requested hash-only blocks recorded by number with full transactions. Replay now projects the producer-recorded transaction hashes while retaining every header field, and resolves the same recorded blocks by number and hash."
+
+[qualification.attempt_6]
+implementation = "Retain every prior migration, grant, loader and behavioral assertion. Supplement the checksum-bound indexer transcript with testdata/repair_63_headers.jsonl containing the two unmodified eth_getBlockByNumber results for 0x2063ed5 and 0x2063ec4, recorded once from https://api2.mainnet-beta.paxeer.network at implementation time after eth_chainId returned 0x7d."
+fixture_sha256 = "fb6c89748c9e21bc2824fcc4df39cd8dc448332f1fcf1141e2e1cee2826db418"
+proof = "TestRepair_63_RecordedReplayHeaders drives production reportedHeaderByNumber and reportedBlockByNumber through the loopback transcript peer, checks both reported hashes and transaction presence, resolves the same headers by hash, and binds each new hash to the next block's parent in the existing producer recording. Both original behavioral cases remain unchanged."
+gotcha = "api1, api14 and the aggregate public endpoint have pruned these historical heights; api2 retains them. No RPC endpoint is contacted by the verification tests."
+workspace = "Task 22.31.461 is done and services/launchpad/go.work declares Go 1.27.0. Qualification uses the declared hf-build and hf-done commands without a GOWORK override, on one final candidate with no edits after passing verification."
+evidence = "Exact revision, command, exit and private log are emitted by the final hf-done line and retained in /out/run/gates.jsonl; the task's final response copies that evidence. No successful qualification is claimed before those gates run."
+
+[qualification.attempt_6_repair]
+first_gate = "revision=93ad74d068598008105a6b28173114f038fbc3d1; command=cg spec done 22.31.63 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; migration, grant, block parameter and recorded header tests passed, then both behavioral cases failed because the legacy fixture uses feeBps while the current accounting codec requires feeBPS."
+repair = "Fixture setup explicitly re-encodes the two recorded fills with the production accounting.DecodeFillV1, json encoding of accounting.FillV1, and accounting.FillDigest. It first reproduces and checks each original digest under its recorded spelling, proving that no economic value, provenance or other source fact changed; no decoder compatibility fallback or assertion relaxation is added."
+gotcha = "The producer's canonical fee spelling changed from feeBps to feeBPS; a retained transcript can have correct values but fail the current strict wire shape. Re-encoding must bind the old digest before issuing the current canonical digest."
+header_provenance = "The new public-node answers retain the committed block hashes and parents but report corrected receiptsRoot fields relative to the old recording. After checking the original fill digest, setup resolves the recorded header through production reportedHeaderByNumber, verifies its height/hash/timestamp binding, and reissues the fill's HeaderSHA256 and canonical digest with the production types. All amounts, actors, receipt bytes and accounting assertions are preserved."

@@ -124,7 +124,7 @@ func (s *Store) RecalculateRollingStats(ctx context.Context, poolAddress string,
 		rows, err := s.db.Query(ctx, `
 			SELECT volume_usdl, buy_count, sell_count
 			FROM stats.volume_buckets
-			WHERE pool_address = $1 AND bucket_start >= $2`, poolAddress, cutoff)
+			WHERE pool_address = $1 AND bucket_start >= $2 AND bucket_start <= $3`, poolAddress, cutoff, now)
 		if err != nil {
 			return fmt.Errorf("store: read rolling buckets: %w", err)
 		}
@@ -157,7 +157,7 @@ func (s *Store) RecalculateRollingStats(ctx context.Context, poolAddress string,
 			if err := s.db.QueryRow(ctx, `
 				SELECT COUNT(DISTINCT trader)
 				FROM stats.bucket_traders
-				WHERE pool_address = $1 AND bucket_start >= $2`, poolAddress, cutoff).
+				WHERE pool_address = $1 AND bucket_start >= $2 AND bucket_start <= $3`, poolAddress, cutoff, now).
 				Scan(&uniqueTraders24h); err != nil {
 				return fmt.Errorf("store: count unique traders: %w", err)
 			}
@@ -208,8 +208,8 @@ func (s *Store) ComputePriceChanges(ctx context.Context, poolAddress, currentPri
 		var oldPriceStr string
 		err := s.db.QueryRow(ctx, `
 			SELECT price FROM stats.price_snapshots
-			WHERE pool_address = $1 AND minute_ts >= $2
-			ORDER BY minute_ts ASC LIMIT 1`, poolAddress, targetTs-60).Scan(&oldPriceStr)
+			WHERE pool_address = $1 AND minute_ts >= $2 AND minute_ts <= $3
+			ORDER BY minute_ts ASC LIMIT 1`, poolAddress, targetTs-60, now).Scan(&oldPriceStr)
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
@@ -292,4 +292,158 @@ func (s *Store) UpdatePoolStatsPriceAndChanges(ctx context.Context, poolAddress,
 		}
 		return nil
 	})
+}
+
+// RefreshIdleWindows refreshes at most limit pools, including idle pools. The
+// caller advances the address cursor only on success and resets it after a
+// complete sweep. Each pool is locked before reading its clock/price and every
+// window is committed together. Restarting the sweep is safe and idempotent.
+func (s *Store) RefreshIdleWindows(ctx context.Context, now int64, after string, limit int) (string, bool, error) {
+	if now < 0 || limit < 1 || limit > 100 {
+		return after, false, fmt.Errorf("store: invalid idle window batch")
+	}
+	rows, err := s.db.Query(ctx, `SELECT pool_address FROM stats.pool_stats WHERE pool_address > $1 ORDER BY pool_address LIMIT $2`, after, limit)
+	if err != nil {
+		return after, false, err
+	}
+	pools := []string{}
+	for rows.Next() {
+		var pool string
+		if err = rows.Scan(&pool); err != nil {
+			rows.Close()
+			return after, false, err
+		}
+		pools = append(pools, pool)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return after, false, err
+	}
+	for _, pool := range pools {
+		if err = s.refreshIdlePool(ctx, pool, now); err != nil {
+			return after, false, err
+		}
+	}
+	if len(pools) < limit {
+		return "", false, nil
+	}
+	return pools[len(pools)-1], true, nil
+}
+
+func (s *Store) refreshIdlePool(ctx context.Context, pool string, now int64) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var price string
+	var updated int64
+	if err = tx.QueryRow(ctx, `SELECT price,updated_at FROM stats.pool_stats WHERE pool_address=$1 FOR UPDATE`, pool).Scan(&price, &updated); err != nil {
+		return err
+	}
+	if updated > now {
+		return fmt.Errorf("store: idle window clock regressed")
+	}
+	st := s.WithTx(tx)
+	if err = st.refreshRollingTransactions(ctx, pool, now); err != nil {
+		return err
+	}
+	changes, err := st.ComputePriceChanges(ctx, pool, price, now)
+	if err != nil {
+		return err
+	}
+	high, ok := new(big.Int).SetString(price, 10)
+	if !ok {
+		return fmt.Errorf("store: invalid idle pool price")
+	}
+	low := new(big.Int).Set(high)
+	rows, err := tx.Query(ctx, `SELECT price FROM stats.price_snapshots WHERE pool_address=$1 AND minute_ts >= $2 AND minute_ts <= $3`, pool, now-86400, now)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var raw string
+		if err = rows.Scan(&raw); err != nil {
+			rows.Close()
+			return err
+		}
+		value, valid := new(big.Int).SetString(raw, 10)
+		if !valid {
+			rows.Close()
+			return fmt.Errorf("store: invalid idle snapshot price")
+		}
+		if value.Cmp(high) > 0 {
+			high.Set(value)
+		}
+		if value.Cmp(low) < 0 {
+			low.Set(value)
+		}
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	query := `UPDATE stats.pool_stats SET high_24h=$2,low_24h=$3,updated_at=$4`
+	args := []any{pool, high.String(), low.String(), now}
+	for _, window := range priceChangeWindows {
+		for _, col := range []string{window.pctCol, window.dollarCol} {
+			value, exists := changes[col]
+			if !exists {
+				value = "0"
+			}
+			args = append(args, value)
+			query += fmt.Sprintf(", %s=$%d", col, len(args))
+		}
+	}
+	if _, err = tx.Exec(ctx, query+` WHERE pool_address=$1`, args...); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// Idle refreshes use full event timestamps so the boundary is independent of
+// minute-bucket rounding and agrees with platform settlement totals.
+func (s *Store) refreshRollingTransactions(ctx context.Context, pool string, now int64) error {
+	rows, err := s.db.Query(ctx, `SELECT sender,is_buy,amount_in,amount_out,block_timestamp
+        FROM stats.pool_transactions WHERE pool_address=$1 AND block_timestamp >= $2 AND block_timestamp <= $3`, pool, now-86400, now)
+	if err != nil {
+		return err
+	}
+	totals := [3]*big.Int{new(big.Int), new(big.Int), new(big.Int)}
+	buys, sells := 0, 0
+	traders := map[string]bool{}
+	for rows.Next() {
+		var sender, input, output string
+		var buy bool
+		var at int64
+		if err = rows.Scan(&sender, &buy, &input, &output, &at); err != nil {
+			rows.Close()
+			return err
+		}
+		raw := output
+		if buy {
+			raw = input
+			buys++
+		} else {
+			sells++
+		}
+		amount, valid := new(big.Int).SetString(raw, 10)
+		if !valid || amount.Sign() < 0 {
+			rows.Close()
+			return fmt.Errorf("store: invalid rolling settlement amount")
+		}
+		for i, window := range rollingWindows {
+			if at >= now-window.seconds {
+				totals[i].Add(totals[i], amount)
+			}
+		}
+		traders[sender] = true
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	_, err = s.db.Exec(ctx, `UPDATE stats.pool_stats SET volume_5m=$2,volume_1h=$3,volume_24h=$4,
+        buy_count_24h=$5,sell_count_24h=$6,unique_traders_24h=$7,updated_at=$8 WHERE pool_address=$1`, pool, totals[0].String(), totals[1].String(), totals[2].String(), buys, sells, len(traders), now)
+	return err
 }

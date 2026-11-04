@@ -1,7 +1,9 @@
 import json
 import os
 import stat
-import subprocess
+import re
+import ssl
+import urllib.parse
 import urllib.request
 
 
@@ -44,58 +46,72 @@ class RpcError(RuntimeError):
         self.data = error.get("data")
 
 
+def root_endpoint(endpoint):
+    url = urllib.parse.urlsplit(endpoint)
+    assert (
+        url.scheme == "https" and url.hostname and url.path in ("", "/")
+        and not url.username and not url.password and not url.query and not url.fragment
+    ), "journeys require explicit HTTPS root endpoints"
+    return endpoint.rstrip("/") + "/"
+
+
+def authorization(config):
+    text = protected(config).decode().removesuffix("\n")
+    match = re.fullmatch(r'header = "Authorization: ([A-Za-z-]+ [A-Za-z0-9_.:-]+)"', text)
+    assert match, "one explicit Authorization header is required"
+    return match[1]
+
+
 class JourneyRpc:
-    def __init__(self, gateway, ca, auth_config, output):
-        assert gateway.startswith("https://")
-        protected(auth_config)
-        self.gateway = gateway.rstrip("/")
-        self.ca = ca
+    HOSTED_METHODS = frozenset({"px_requestFunds", "px_getBalances"})
+    NODE_METHODS = frozenset({
+        "eth_chainId", "eth_getBalance", "eth_getTransactionCount", "eth_gasPrice",
+        "eth_estimateGas", "eth_sendRawTransaction", "pax_sequencerReceipt",
+    })
+
+    def __init__(self, gateway, ca, auth_config, output, *, node, node_auth_config=None):
+        self.gateway = root_endpoint(gateway)
+        self.node = root_endpoint(node)
+        authorization(auth_config)
+        if node_auth_config is not None:
+            authorization(node_auth_config)
         self.auth_config = auth_config
+        self.node_auth_config = node_auth_config
         self.output = output
         self.counter = 0
+        self.opener = urllib.request.build_opener(
+            NoRedirect(), urllib.request.HTTPSHandler(
+                context=ssl.create_default_context(cafile=str(ca))
+            )
+        )
 
     def rpc(self, method, params, *, auth_config=None):
-        assert method.startswith(("px_", "eth_", "pax_")), method
-        config = self.auth_config if auth_config is None else auth_config
-        protected(config)
+        assert method in self.HOSTED_METHODS | self.NODE_METHODS, method
+        if method in self.HOSTED_METHODS:
+            endpoint = self.gateway
+            config = self.auth_config if auth_config is None else auth_config
+        else:
+            assert auth_config is None, "hosted credentials cannot be used on the node"
+            endpoint, config = self.node, self.node_auth_config
+        headers = {"Content-Type": "application/json"}
+        if config is not None:
+            headers["Authorization"] = authorization(config)
         self.counter += 1
         body = json.dumps(
             {"jsonrpc": "2.0", "id": self.counter, "method": method, "params": params}
         ).encode()
-        request = write(self.output / f"{self.counter:02d}-request.json", body)
-        result = subprocess.run(
-            [
-                "curl",
-                "--fail-with-body",
-                "--silent",
-                "--show-error",
-                "--max-time",
-                "120",
-                "--cacert",
-                str(self.ca),
-                "--config",
-                str(config),
-                "--request",
-                "POST",
-                self.gateway + "/rpc",
-                "--header",
-                "Content-Type: application/json",
-                "--data-binary",
-                "@" + str(request),
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        write(self.output / f"{self.counter:02d}-response.json", result.stdout)
-        value = json.loads(result.stdout)
-        assert result.returncode == 0, f"journey transport failed: {result.returncode}"
-        assert value.get("jsonrpc") == "2.0" and value.get("id") == self.counter, value
+        write(self.output / f"{self.counter:02d}-request.json", body)
+        request = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
+        with self.opener.open(request, timeout=120) as response:
+            raw = response.read(9 * 1048576 + 1)
+            assert len(raw) <= 9 * 1048576, "oversized journey response"
+        write(self.output / f"{self.counter:02d}-response.json", raw)
+        value = json.loads(raw)
+        assert value.get("jsonrpc") == "2.0" and type(value.get("id")) is int, value
+        assert value["id"] == self.counter, value
         assert ("error" in value) != ("result" in value), value
         if "error" in value:
             error = value["error"]
-            assert type(error.get("code")) is int and isinstance(
-                error.get("message"), str
-            )
+            assert type(error.get("code")) is int and isinstance(error.get("message"), str)
             raise RpcError(method, error)
         return value["result"]

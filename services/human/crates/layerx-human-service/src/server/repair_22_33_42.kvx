@@ -1,0 +1,57 @@
+[repair.22.33.42]
+audit = "22.30.104"
+status = "implemented-awaiting-bounded-qualification"
+baseline = "Not run: the explicit user gate order forbids verification before implementation; the integration target did not exist at task entry. No baseline failure is claimed."
+evidence = "Only hf-build and hf-done qualify this task; exact candidate revision, command, exit and private evidence are recorded by /out/run/gates.jsonl."
+scope = "Server sources and tests/repair_22_33_42.rs; pre-existing .cgignore and spec task-start changes preserved."
+
+[finding.identity_field_allocation]
+repair = "Before allocating, successful LXIP response counts must match the operation arity and fit remaining length prefixes. Checked field lengths, exact frame consumption and UTF-8 validation remain mandatory."
+test = "identity_field_allocation_is_bounded_on_the_provider_transport"
+coverage = "Real RemoteIdentityProvider Unix framing and credential checks, maximal count, missing prefixes, short envelope, overlong field, trailing bytes, invalid UTF-8 and a valid recorded response after refusals."
+
+[finding.auth_index_growth]
+repair = "Bound transient and durable-account admission separately; atomically compact expired discoveries and abandoned capabilities using a persisted monotonic time watermark. Current producer admission and maintenance supply time. Account bindings survive expiry, capability consumption remains durable, and concurrent index writers are refused. Version 1 index files explicitly migrate to version 2 on the next write."
+test = "auth_index_compacts_with_admission_and_replay_refusal_after_reopen"
+coverage = "Fill discovery admission, expire it, admit new work, issue and consume real bearer capabilities, reopen both store and index, retain account/live-discovery bindings, refuse consumed/expired capabilities and refuse time rollback."
+
+[finding.protocol_selection_ignored]
+repair = "The actual environment loader reads LAYERX_HUMAN_PROTOCOL_VERSION before dependency setup, defaults to 3, and rejects every unsupported or malformed value, including invalid Unicode. Both custody backends enforce merged protocol 3."
+test = "protocol_selection_uses_the_real_environment_loader"
+coverage = "Complete self-contained production loader configuration: absent, explicit 3, empty, legacy 2, unsupported, overflowing and nonnumeric values; an invalid protocol is not hidden by configured attestor settings. No provider is contacted."
+
+[finding.attestor_send_lifetime_ceiling]
+repair = "Production attestor signing uses a MAC-authenticated, exclusively locked durable journal. Persist exact reservations and wallet/chain nonce floors before contacting the quorum, then validate and atomically complete with signed bytes. Reconcile expired authorizations against durable nonce floors before eviction; expired disclosures cannot sign again. Capacity bounds retained requests and admitted wallets, not lifetime sends. Runtime clock is injected by the production composition."
+test = "attestor_send_journal_continues_beyond_capacity_and_preserves_duplicates_after_restart"
+coverage = "Real bank-call producer, EIP-1559 signatures and signing journal: more than 4096 completed sends, bounded retention, exact replay after reopen, changed-disclosure and evicted-nonce collisions, unfinished reservation recovery, exclusive writer, wrong MAC key and tamper refusal. The external attestor quorum itself is not started by this portable gate."
+
+[finding.balance_fixture]
+repair = "The existing unit fixture now uses AccountBalance::evidence_material for None and every current rung; old invented ranks and settlement labels are removed."
+test = "balance_fixture_uses_production_material_through_persistence_reopen_and_http"
+coverage = "Production balance material encoder and decoder, principal-scoped durable cache, actual Router HTTP/schema handling, production evidence.get, two stop/reopen cycles per rung, byte identity, label/class equality and HTTP refusal of tampered labels."
+
+[finding.projection_legacy_rank]
+repair = "Managed evidence, spend and exported receipt fields are typed Rung. Per-field managed-state marker 0xa3 precedes the current 0/1/2 rank; managed receipt export uses envelope version 3. Unversioned retained records are explicitly refused rather than silently relabelled. Projection accepts typed rungs only."
+test = "projection_uses_versioned_typed_rungs_through_peer_codec_and_reopen"
+coverage = "Real versioned managed producer codec, retained/reopened peer response, Unix transport, AgentRuntime consumer, evidence/spend projection and strict agent.get schema at every rung. Legacy and retired-rank responses are refused. Actual agentd producer wiring and retained agent-domain record migration remain external."
+
+[wiring.requests]
+managed_producers = "services/agent/crates/layerx-agentd/src/managed_agent.rs and managed evidence producers — agent domain: emit typed 0/1/2 rungs with marker 0xa3, emit managed receipt envelope version 3, and migrate retained legacy verification records with explicit provenance; never infer committed state from ambiguous old bytes."
+attestor_callers = "Out-of-scope direct AttestorKms::connect callers under services/human — Human custody integration domain: use connect_durable with a private replay root, stable authentication key and injected Clock for send signing; operation 11 explicitly refuses non-durable construction."
+
+[gotcha.session]
+notes = ["GOTCHA.kvx and spec files are outside the explicit user scope; task-local findings and wiring are recorded here.", "The task asks for a baseline verify despite explicitly forbidding it in its authoritative gate order; implementation-first order wins.", "Managed agentd producers still emit legacy ranks; local typed decoding must refuse their old unversioned records until the owning domain migrates them.", "The standard attestor cluster test fixture invokes external native tools; this portable gate exercises the production signing journal with real locally signed bank transactions instead.", "A directory fsync can fail after rename; publish the renamed state in memory before reporting that failure so a running process cannot forget a spent capability or reserved nonce.", "The cargo registry is not under the default root cargo path in this sandbox; no dependency files were changed to probe it."]
+
+[qualification.repair1]
+revision = "084a04589fd751fa2073f8303cce75ac3505a953"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Use the public journeys::AgentBoundaryError import and bind the MutexGuard explicitly before borrowing the PrincipalStore in the integration transport adapter."
+
+[qualification.repair2]
+revision = "d3ead5e805b652c2f30ba5427b618d1f64ce394b"
+command = "cg spec done 22.33.42 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Five integration cases passed; balance HTTP authentication returned 401 because evidence.get requires browser cookies. Replace bearer-only fixture authorization with genuine signed WebAuthn registration/assertion, persisted browser session discovery, production session authorization and actual access cookies; preserve every evidence/tamper assertion."

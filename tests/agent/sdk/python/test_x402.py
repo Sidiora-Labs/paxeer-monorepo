@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-import importlib.util
+import copy
 import json
 import unittest
-from dataclasses import replace
 from hashlib import sha256
-from pathlib import Path
-
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from layerx_sdk import (
-    AuthorizedReceiptBatch,
     PlatformSdkError,
     ReceiptFailureCode,
     ReceiptVerificationError,
@@ -25,7 +20,10 @@ from layerx_sdk.account_derivation import (
     sign_bind_transaction,
 )
 from layerx_sdk.production import SdkErrorCode
-from layerx_sdk.revert import LXP_RETRYABLE, REVERT_SELECTOR, RevertReasonError
+from layerx_sdk.revert import (
+    LXP_RETRYABLE, REVERT_SELECTOR, RevertReasonError, decode_revert_reason,
+)
+from layerx_sdk.verifier import SequencerReceiptVerificationError
 from layerx_sdk.x402 import PAYMENT_RECEIPT_PROTOCOL_VERSIONS, receipt_protocol_version
 from layerx_sdk.x402_rpc import (
     PaymentRpcError,
@@ -39,169 +37,100 @@ from layerx_sdk.x402_rpc import (
     verify_rpc_payment,
 )
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-_SIGNATURES_PATH = (
-    _REPO_ROOT
-    / "sdk"
-    / "integrations"
-    / "fastapi"
-    / "layerx_fastapi"
-    / "signatures.py"
-)
-_FIXTURES = _REPO_ROOT / "sdk" / "platform" / "conformance" / "fixtures"
+from payment_receipt_evidence import ROOT, payment_terms, receipt_key, receipt_vector, unhex
+
+_FIXTURES = ROOT / "sdk/platform/conformance/fixtures"
 
 
-def _signature_verifier_class() -> type:
-    spec = importlib.util.spec_from_file_location(
-        "layerx_fastapi_signatures", _SIGNATURES_PATH
-    )
-    if spec is None or spec.loader is None:
-        raise AssertionError(f"cannot load {_SIGNATURES_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.LayerXSignatureVerifier
-
-
-LayerXSignatureVerifier = _signature_verifier_class()
-
-
-def _fixture(version: int) -> dict:
-    return json.loads(
-        (_FIXTURES / f"receipt-positive-v{version}.json").read_text(encoding="utf-8")
-    )
-
-
-def _authorized(fixture: dict) -> AuthorizedReceiptBatch:
-    batch = fixture["authorized_batch"]
-    return AuthorizedReceiptBatch(
-        batch_id=bytes.fromhex(batch["batch_id_hex"]),
-        asset=bytes.fromhex(batch["asset_hex"]),
-        previous_state_root=bytes.fromhex(batch["previous_state_root_hex"]),
-        resulting_state_root=bytes.fromhex(batch["resulting_state_root_hex"]),
-        sequencer_public_key=bytes.fromhex(batch["sequencer_public_key_hex"]),
-    )
-
-
-def _verify(
-    fixture: dict,
-    canonical: bytes | None = None,
-    *,
-    payer: str | None = None,
-    amount: str | None = None,
-):
-    expected = fixture["expected"]
+def _verify(vector, canonical=None, **changes):
+    terms = {**payment_terms(vector), **changes}
     return verify_payment_receipt(
-        (
-            bytes.fromhex(fixture["canonical_receipt_hex"])
-            if canonical is None
-            else canonical
-        ),
-        _authorized(fixture),
-        LayerXSignatureVerifier(),
-        amount=expected["amount"] if amount is None else amount,
-        asset=fixture["authorized_batch"]["asset_hex"],
-        pay_to=expected["to_hex"],
-        payer=expected["from_hex"] if payer is None else payer,
+        unhex(vector["signedReceipt"]) if canonical is None else canonical,
+        unhex(vector["rawTransaction"]),
+        (receipt_key(vector),),
+        **terms,
     )
 
 
 def _revert_data(code: str) -> bytes:
+    # ABI codec vectors; these are never signed or presented as node evidence.
     text = f"{code}: payment refused; ledger".encode()
-    return (
-        REVERT_SELECTOR
-        + (32).to_bytes(32, "big")
-        + len(text).to_bytes(32, "big")
-        + text
-        + bytes(-len(text) % 32)
-    )
-
-
-def _signed_revert(
-    fixture: dict, return_data: bytes
-) -> tuple[bytes, AuthorizedReceiptBatch]:
-    canonical = bytearray.fromhex(fixture["canonical_receipt_hex"])
-    canonical[126:158] = sha256(return_data).digest()
-    canonical[158:162] = (1).to_bytes(4, "big", signed=True)
-    key = Ed25519PrivateKey.generate()
-    digest = sha256(b"LXP/v1/receipt\0" + canonical[:-69] + b"\0").digest()
-    canonical[-64:] = key.sign(digest)
-    authorized = replace(
-        _authorized(fixture), sequencer_public_key=key.public_key().public_bytes_raw()
-    )
-    return bytes(canonical), authorized
+    return (REVERT_SELECTOR + (32).to_bytes(32, "big")
+            + len(text).to_bytes(32, "big") + text + bytes(-len(text) % 32))
 
 
 class VerifyPaymentReceiptTest(unittest.TestCase):
     def test_supported_versions(self) -> None:
+        # Historical version inspection remains distinct from payment authority.
         self.assertEqual(PAYMENT_RECEIPT_PROTOCOL_VERSIONS, (2, 3))
-
-    def test_version_three_receipt_verifies(self) -> None:
-        fixture = _fixture(3)
-        verified = _verify(fixture)
-        self.assertEqual(verified.receipt.protocol_version, 3)
-        self.assertEqual(
-            verified.receipt_digest.hex(), fixture["expected"]["receipt_digest_hex"]
-        )
-        self.assertEqual(
-            receipt_protocol_version(bytes.fromhex(fixture["canonical_receipt_hex"])), 3
-        )
-
-    def test_version_two_receipt_verifies(self) -> None:
-        fixture = _fixture(2)
-        verified = _verify(fixture)
+        vector = receipt_vector()
+        verified = _verify(vector)
         self.assertEqual(verified.receipt.protocol_version, 2)
-        self.assertEqual(
-            verified.receipt_digest.hex(), fixture["expected"]["receipt_digest_hex"]
-        )
-        self.assertEqual(
-            receipt_protocol_version(bytes.fromhex(fixture["canonical_receipt_hex"])), 2
-        )
+        self.assertEqual(verified.level, "sequencer-signed")
+
+    def test_sequencer_receipt_verifies_with_raw_transaction_and_governed_key(self) -> None:
+        vector = receipt_vector()
+        verified = _verify(vector)
+        self.assertEqual(verified.canonical_bytes, unhex(vector["signedReceipt"]))
+        self.assertEqual(verified.receipt_digest, unhex(vector["receiptDigest"]))
+        self.assertEqual(verified.height, int(vector["receiptJson"]["height"], 16))
+        self.assertEqual(verified.receipt.activity_id, keccak256(unhex(vector["rawTransaction"])))
+        self.assertEqual(verified.receipt.context_hash, receipt_key(vector).key_id)
+
+    def test_version_three_layout_is_only_historical_and_refused_for_payment(self) -> None:
+        vector = receipt_vector()
+        canonical = unhex(vector["signedReceipt"])
+        historical = b"\x00\x03" + canonical[2:4] + b"\x00\x03" + canonical[6:]
+        self.assertEqual(receipt_protocol_version(historical), 3)
+        with self.assertRaises(SequencerReceiptVerificationError) as raised:
+            _verify(vector, historical)
+        self.assertEqual(raised.exception.check, "bad_signature")
 
     def test_unsupported_version_is_refused_by_name(self) -> None:
-        fixture = _fixture(1)
-        canonical = bytes.fromhex(fixture["canonical_receipt_hex"])
-        self.assertEqual((canonical[0:2], canonical[4:6]), (b"\x00\x01", b"\x00\x01"))
-        with self.assertRaises(ReceiptVerificationError) as raised:
-            _verify(fixture)
-        self.assertIs(raised.exception.check, ReceiptFailureCode.PROTOCOL_VERSION)
-        with self.assertRaises(ReceiptVerificationError) as raised:
-            receipt_protocol_version(canonical)
-        self.assertIs(raised.exception.check, ReceiptFailureCode.PROTOCOL_VERSION)
-        recorded = bytes.fromhex(_fixture(3)["canonical_receipt_hex"])
+        vector = receipt_vector()
+        canonical = unhex(vector["signedReceipt"])
         for changed in (
-            b"\x00\x04" + recorded[2:4] + b"\x00\x04" + recorded[6:],
-            b"\x00\x03" + recorded[2:4] + b"\x00\x02" + recorded[6:],
+            b"\x00\x01" + canonical[2:4] + b"\x00\x01" + canonical[6:],
+            b"\x00\x04" + canonical[2:4] + b"\x00\x04" + canonical[6:],
+            b"\x00\x03" + canonical[2:4] + b"\x00\x02" + canonical[6:],
         ):
             with self.assertRaises(ReceiptVerificationError) as raised:
-                _verify(_fixture(3), changed)
-            self.assertIs(raised.exception.check, ReceiptFailureCode.PROTOCOL_VERSION)
+                receipt_protocol_version(changed)
+            self.assertIs(raised.exception.check, ReceiptFailureCode.RECEIPT_VERSION)
+            with self.assertRaises(SequencerReceiptVerificationError) as refused:
+                _verify(vector, changed)
+            self.assertEqual(refused.exception.check, "bad_signature")
         with self.assertRaises(ReceiptVerificationError) as raised:
-            receipt_protocol_version(recorded[:5])
+            receipt_protocol_version(canonical[:5])
         self.assertIs(raised.exception.check, ReceiptFailureCode.DECODE)
 
     def test_carried_version_does_not_bypass_the_signature(self) -> None:
-        fixture = _fixture(2)
-        canonical = bytes.fromhex(fixture["canonical_receipt_hex"])
-        downgraded = (
-            b"\x00\x02"
-            + canonical[2:4]
-            + b"\x00\x02"
-            + bytes.fromhex(_fixture(3)["canonical_receipt_hex"])[6:]
-        )
-        with self.assertRaises(ReceiptVerificationError):
-            _verify(_fixture(3), downgraded)
-        corrupted = canonical[:-1] + bytes([canonical[-1] ^ 1])
-        with self.assertRaises(ReceiptVerificationError):
-            _verify(fixture, corrupted)
+        vector = receipt_vector()
+        canonical = unhex(vector["signedReceipt"])
+        for changed in (
+            canonical[:-1] + bytes([canonical[-1] ^ 1]),
+            canonical[:126] + bytes([canonical[126] ^ 1]) + canonical[127:],
+        ):
+            with self.assertRaises(SequencerReceiptVerificationError) as raised:
+                _verify(vector, changed)
+            self.assertEqual(raised.exception.check, "bad_signature")
+        wrong = copy.deepcopy(vector)
+        raw = unhex(vector["rawTransaction"])
+        wrong["rawTransaction"] = "0x" + (raw[:-1] + bytes([raw[-1] ^ 1])).hex()
+        with self.assertRaises(SequencerReceiptVerificationError) as raised:
+            _verify(wrong)
+        self.assertEqual(raised.exception.check, "hash_mismatch")
 
     def test_payment_terms_still_bind(self) -> None:
-        for version in (2, 3):
-            fixture = _fixture(version)
-            with self.assertRaises(PlatformSdkError):
-                _verify(fixture, payer="ab" * 32)
-            with self.assertRaises(PlatformSdkError):
-                _verify(fixture, amount=str(int(fixture["expected"]["amount"]) + 1))
-
+        vector = receipt_vector()
+        terms = payment_terms(vector)
+        for changed in (
+            {"payer": "ab" * 32}, {"asset": "ab" * 32},
+            {"pay_to": "ab" * 32}, {"amount": str(int(terms["amount"]) + 1)},
+        ):
+            with self.subTest(changed=changed), self.assertRaises(PlatformSdkError) as raised:
+                _verify(vector, **changed)
+            self.assertIs(raised.exception.code, SdkErrorCode.VERIFICATION_FAILURE)
 
 class PaymentRpcProtocolTest(unittest.TestCase):
     @classmethod
@@ -379,106 +308,60 @@ class PaymentRpcProtocolTest(unittest.TestCase):
 
 
 class PaymentRevertBindingTest(unittest.TestCase):
-    def verify(self, fixture, canonical, authorized, return_data):
-        expected = fixture["expected"]
-        return verify_payment_receipt(
-            canonical,
-            authorized,
-            LayerXSignatureVerifier(),
-            amount=expected["amount"],
-            asset=fixture["authorized_batch"]["asset_hex"],
-            pay_to=expected["to_hex"],
-            payer=expected["from_hex"],
-            return_data=return_data,
-        )
+    def verify(self, vector, canonical=None, return_data=None):
+        return _verify(vector, canonical, return_data=return_data)
 
     def test_signed_revert_reports_retriable_and_terminal_codes(self) -> None:
-        for version in (2, 3):
-            for code in ("LXP_ACCOUNT_FROZEN", "LXP_IDEMPOTENT_REPLAY", "LXP_UNKNOWN"):
-                with self.subTest(version=version, code=code):
-                    fixture = _fixture(version)
-                    data = _revert_data(code)
-                    canonical, authorized = _signed_revert(fixture, data)
-                    with self.assertRaises(RevertReasonError) as raised:
-                        self.verify(fixture, canonical, authorized, data)
-                    self.assertEqual(
-                        (raised.exception.code, raised.exception.retryable),
-                        (code, LXP_RETRYABLE[code]),
-                    )
+        vector = receipt_vector("V2-layerxledger-revert")
+        data = unhex(vector["receiptJson"]["returnData"])
+        with self.assertRaises(RevertReasonError) as raised:
+            self.verify(vector, return_data=data)
+        self.assertEqual((raised.exception.code, raised.exception.retryable),
+                         ("LXP_INSUFFICIENT_BALANCE", True))
+        # Other registry codes remain codec assertions, not fabricated receipts.
+        for code in ("LXP_ACCOUNT_FROZEN", "LXP_IDEMPOTENT_REPLAY", "LXP_UNKNOWN"):
+            decoded = decode_revert_reason(_revert_data(code))
+            self.assertEqual((decoded.code, decoded.retryable), (code, LXP_RETRYABLE[code]))
+            self.assertEqual(decoded.detail, "ledger")
 
     def test_unbound_return_data_is_refused_before_decoding_the_revert(self) -> None:
-        fixture = _fixture(2)
-        data = _revert_data("LXP_ACCOUNT_FROZEN")
-        canonical, authorized = _signed_revert(fixture, data)
+        vector = receipt_vector("V2-layerxledger-revert")
         with self.assertRaises(PlatformSdkError) as raised:
-            self.verify(
-                fixture, canonical, authorized, _revert_data("LXP_IDEMPOTENT_REPLAY")
-            )
+            self.verify(vector, return_data=_revert_data("LXP_IDEMPOTENT_REPLAY"))
         self.assertIs(raised.exception.code, SdkErrorCode.VERIFICATION_FAILURE)
         self.assertEqual(raised.exception.retry, "never")
 
     def test_revert_signature_is_required_before_return_data_is_decoded(self) -> None:
-        fixture = _fixture(2)
-        data = _revert_data("LXP_ACCOUNT_FROZEN")
-        canonical, authorized = _signed_revert(fixture, data)
+        vector = receipt_vector("V2-layerxledger-revert")
+        canonical = unhex(vector["signedReceipt"])
         corrupt = canonical[:-1] + bytes([canonical[-1] ^ 1])
-        with self.assertRaises(ReceiptVerificationError) as raised:
-            self.verify(fixture, corrupt, authorized, data)
-        self.assertIs(raised.exception.check, ReceiptFailureCode.SEQUENCER_SIGNATURE)
+        with self.assertRaises(SequencerReceiptVerificationError) as raised:
+            self.verify(vector, corrupt, unhex(vector["receiptJson"]["returnData"]))
+        self.assertEqual(raised.exception.check, "bad_signature")
 
     def test_revert_without_return_data_keeps_the_result_code_refusal(self) -> None:
-        fixture = _fixture(2)
-        canonical, authorized = _signed_revert(
-            fixture, _revert_data("LXP_ACCOUNT_FROZEN")
-        )
         with self.assertRaises(ReceiptVerificationError) as raised:
-            self.verify(fixture, canonical, authorized, None)
-        self.assertIs(raised.exception.check, ReceiptFailureCode.RESULT_CODE)
+            self.verify(receipt_vector("V2-layerxledger-revert"))
+        self.assertIs(raised.exception.check, ReceiptFailureCode.FIELDS)
 
     def test_sequencer_transport_propagates_the_revert_registry_class(self) -> None:
-        fixture = _fixture(2)
-        transaction_hash = bytes.fromhex(fixture["expected"]["activity_id_hex"])
-        data = _revert_data("LXP_ACCOUNT_FROZEN")
-        canonical, authorized = _signed_revert(fixture, data)
-        result = {
-            "rung": "receipted",
-            "txHash": "0x" + transaction_hash.hex(),
-            "receipt": "0x" + canonical.hex(),
-            "keyId": "0x" + authorized.sequencer_public_key.hex(),
-            "status": "0x0",
-            "returnData": "0x" + data.hex(),
-        }
+        vector = receipt_vector("V2-layerxledger-revert")
         with self.assertRaises(RevertReasonError) as raised:
-            _sequencer_result(result, transaction_hash)
-        self.assertEqual(
-            (raised.exception.code, raised.exception.retryable),
-            ("LXP_ACCOUNT_FROZEN", True),
-        )
+            _sequencer_result(vector["receiptJson"], keccak256(unhex(vector["rawTransaction"])))
+        self.assertEqual((raised.exception.code, raised.exception.retryable),
+                         ("LXP_INSUFFICIENT_BALANCE", True))
 
     def test_rpc_payment_propagates_the_signed_revert_code(self) -> None:
-        fixture = _fixture(2)
-        data = _revert_data("LXP_IDEMPOTENT_REPLAY")
-        canonical, authorized = _signed_revert(fixture, data)
-        expected = fixture["expected"]
+        vector = receipt_vector("V2-layerxledger-revert")
+        terms = payment_terms(vector)
         with self.assertRaises(RevertReasonError) as raised:
             verify_rpc_payment(
-                {
-                    "activity_id": expected["activity_id_hex"],
-                    "receipt": canonical.hex(),
-                    "returnData": "0x" + data.hex(),
-                },
-                expected["activity_id_hex"],
-                expected["from_hex"],
-                authorized,
-                LayerXSignatureVerifier(),
-                amount=expected["amount"],
-                asset=fixture["authorized_batch"]["asset_hex"],
-                pay_to=expected["to_hex"],
+                vector["receiptJson"], vector["receiptJson"]["txHash"],
+                "0x" + terms.pop("payer"), receipt_keys=(receipt_key(vector),),
+                raw_transaction=unhex(vector["rawTransaction"]), **terms,
             )
-        self.assertEqual(
-            (raised.exception.code, raised.exception.retryable),
-            ("LXP_IDEMPOTENT_REPLAY", False),
-        )
+        self.assertEqual((raised.exception.code, raised.exception.retryable),
+                         ("LXP_INSUFFICIENT_BALANCE", True))
 
 
 if __name__ == "__main__":

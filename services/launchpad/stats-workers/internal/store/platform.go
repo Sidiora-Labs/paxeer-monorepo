@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+	"sort"
+	"strconv"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -11,19 +16,20 @@ import (
 // PlatformMetrics is the aggregated platform-wide metrics payload. JSON tags
 // match the TS computePlatformMetrics return object (camelCase) for parity.
 type PlatformMetrics struct {
-	TotalVolume24h       string `json:"totalVolume24h"`
-	TotalVolume1h        string `json:"totalVolume1h"`
-	TotalMarketCap       string `json:"totalMarketCap"`
-	TotalFees24h         string `json:"totalFees24h"`
-	TotalTransactions24h int    `json:"totalTransactions24h"`
-	TotalTransactions1h  int    `json:"totalTransactions1h"`
-	TotalBuys24h         int    `json:"totalBuys24h"`
-	TotalSells24h        int    `json:"totalSells24h"`
-	UniqueTraders24h     int    `json:"uniqueTraders24h"`
-	TotalTokensLaunched  int    `json:"totalTokensLaunched"`
-	NewTokens24h         int    `json:"newTokens24h"`
-	CrossTokenSwaps24h   int    `json:"crossTokenSwaps24h"`
-	UpdatedAt            int64  `json:"updatedAt"`
+	TotalVolume24h       string             `json:"totalVolume24h"`
+	TotalVolume1h        string             `json:"totalVolume1h"`
+	TotalMarketCap       string             `json:"totalMarketCap"`
+	TotalFees24h         []PlatformAssetFee `json:"totalFees24h"`
+	FeeSchema            string             `json:"feeSchema"`
+	TotalTransactions24h int                `json:"totalTransactions24h"`
+	TotalTransactions1h  int                `json:"totalTransactions1h"`
+	TotalBuys24h         int                `json:"totalBuys24h"`
+	TotalSells24h        int                `json:"totalSells24h"`
+	UniqueTraders24h     int                `json:"uniqueTraders24h"`
+	TotalTokensLaunched  int                `json:"totalTokensLaunched"`
+	NewTokens24h         int                `json:"newTokens24h"`
+	CrossTokenSwaps24h   int                `json:"crossTokenSwaps24h"`
+	UpdatedAt            int64              `json:"updatedAt"`
 }
 
 // PlatformMetrics computes the platform-wide aggregates. Ports
@@ -35,49 +41,40 @@ func (s *Store) PlatformMetrics(ctx context.Context, now int64) (PlatformMetrics
 	var m PlatformMetrics
 	m.UpdatedAt = now
 
-	if err := s.db.QueryRow(ctx, `
-		SELECT
-			COALESCE(SUM(CAST(volume_24h AS NUMERIC)), 0)::TEXT,
-			COALESCE(SUM(CAST(volume_1h  AS NUMERIC)), 0)::TEXT,
-			COALESCE(SUM(CAST(market_cap AS NUMERIC)), 0)::TEXT,
-			COALESCE(SUM(buy_count_24h),  0)::INT,
-			COALESCE(SUM(sell_count_24h), 0)::INT,
-			COUNT(*)::INT
-		FROM stats.pool_stats`).
-		Scan(&m.TotalVolume24h, &m.TotalVolume1h, &m.TotalMarketCap,
-			&m.TotalBuys24h, &m.TotalSells24h, &m.TotalTokensLaunched); err != nil {
+	if err := s.db.QueryRow(ctx, `SELECT
+        COALESCE(SUM(CAST(market_cap AS NUMERIC)),0)::TEXT, COUNT(*)::INT
+        FROM stats.pool_stats`).Scan(&m.TotalMarketCap, &m.TotalTokensLaunched); err != nil {
 		return PlatformMetrics{}, fmt.Errorf("store: platform pool_stats agg: %w", err)
 	}
-
-	if err := s.db.QueryRow(ctx, `
-		SELECT COUNT(DISTINCT trader)::INT FROM stats.bucket_traders WHERE bucket_start >= $1`, cutoff24h).
-		Scan(&m.UniqueTraders24h); err != nil {
-		return PlatformMetrics{}, fmt.Errorf("store: platform unique traders: %w", err)
+	if err := s.db.QueryRow(ctx, `SELECT
+        COALESCE(SUM(CASE WHEN is_buy THEN CAST(amount_in AS NUMERIC) ELSE CAST(amount_out AS NUMERIC) END),0)::TEXT,
+        COALESCE(SUM(CASE WHEN block_timestamp >= $2 THEN CASE WHEN is_buy THEN CAST(amount_in AS NUMERIC) ELSE CAST(amount_out AS NUMERIC) END ELSE 0 END),0)::TEXT,
+        COALESCE(SUM(CASE WHEN is_buy THEN 1 ELSE 0 END),0)::INT,
+        COALESCE(SUM(CASE WHEN NOT is_buy THEN 1 ELSE 0 END),0)::INT,
+        COUNT(*)::INT,
+        COALESCE(SUM(CASE WHEN block_timestamp >= $2 THEN 1 ELSE 0 END),0)::INT,
+        COUNT(DISTINCT sender)::INT
+        FROM stats.pool_transactions WHERE block_timestamp >= $1 AND block_timestamp <= $3`, cutoff24h, cutoff1h, now).
+		Scan(&m.TotalVolume24h, &m.TotalVolume1h, &m.TotalBuys24h, &m.TotalSells24h,
+			&m.TotalTransactions24h, &m.TotalTransactions1h, &m.UniqueTraders24h); err != nil {
+		return PlatformMetrics{}, fmt.Errorf("store: platform rolling transactions: %w", err)
 	}
-
-	if err := s.db.QueryRow(ctx, `
-		SELECT COALESCE(SUM(CAST(fee AS NUMERIC)), 0)::TEXT, COUNT(*)::INT
-		FROM stats.pool_transactions WHERE block_timestamp >= $1`, cutoff24h).
-		Scan(&m.TotalFees24h, &m.TotalTransactions24h); err != nil {
-		return PlatformMetrics{}, fmt.Errorf("store: platform fees agg: %w", err)
+	fees, err := s.platformFees(ctx, cutoff24h, now)
+	if err != nil {
+		return PlatformMetrics{}, err
 	}
+	m.TotalFees24h, m.FeeSchema = fees, "asset-fees-v1"
 
 	if err := s.db.QueryRow(ctx, `
-		SELECT COUNT(*)::INT FROM stats.pool_stats WHERE created_at >= $1`, cutoff24h).
+		SELECT COUNT(*)::INT FROM stats.pool_stats WHERE created_at >= $1 AND created_at <= $2`, cutoff24h, now).
 		Scan(&m.NewTokens24h); err != nil {
 		return PlatformMetrics{}, fmt.Errorf("store: platform new tokens: %w", err)
 	}
 
 	if err := s.db.QueryRow(ctx, `
-		SELECT COUNT(*)::INT FROM stats.cross_token_swaps WHERE block_timestamp >= $1`, cutoff24h).
+		SELECT COUNT(*)::INT FROM stats.cross_token_swaps WHERE block_timestamp >= $1 AND block_timestamp <= $2`, cutoff24h, now).
 		Scan(&m.CrossTokenSwaps24h); err != nil {
 		return PlatformMetrics{}, fmt.Errorf("store: platform cross swaps: %w", err)
-	}
-
-	if err := s.db.QueryRow(ctx, `
-		SELECT COUNT(*)::INT FROM stats.pool_transactions WHERE block_timestamp >= $1`, cutoff1h).
-		Scan(&m.TotalTransactions1h); err != nil {
-		return PlatformMetrics{}, fmt.Errorf("store: platform tx 1h: %w", err)
 	}
 
 	return m, nil
@@ -124,11 +121,11 @@ func (s *Store) PressureStats(ctx context.Context, poolAddress string, cutoff1h 
 	if err := s.db.QueryRow(ctx, `
 		SELECT
 			COALESCE(SUM(CASE WHEN is_buy = true  THEN CAST(amount_in AS NUMERIC) ELSE 0 END), 0)::TEXT,
-			COALESCE(SUM(CASE WHEN is_buy = false THEN CAST(amount_in AS NUMERIC) ELSE 0 END), 0)::TEXT,
+			COALESCE(SUM(CASE WHEN is_buy = false THEN CAST(amount_out AS NUMERIC) ELSE 0 END), 0)::TEXT,
 			COALESCE(SUM(CASE WHEN is_buy = true  THEN 1 ELSE 0 END), 0)::INT,
 			COALESCE(SUM(CASE WHEN is_buy = false THEN 1 ELSE 0 END), 0)::INT
 		FROM stats.pool_transactions
-		WHERE pool_address = $1 AND block_timestamp >= $2`, poolAddress, cutoff1h).
+		WHERE pool_address = $1 AND block_timestamp >= $2 AND block_timestamp <= $3`, poolAddress, cutoff1h, cutoff1h+3600).
 		Scan(&ps.BuyVolume1h, &ps.SellVolume1h, &ps.BuyCount1h, &ps.SellCount1h); err != nil {
 		return PressureStats{}, false, fmt.Errorf("store: pressure 1h breakdown: %w", err)
 	}
@@ -187,4 +184,84 @@ func (s *Store) Search(ctx context.Context, isAddress bool, likePattern string, 
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// PlatformAssetFee never combines different assets, scales or fee dispositions.
+// No USDL conversion is implied by this contract.
+type PlatformAssetFee struct {
+	Asset       string `json:"assetAddress"`
+	Decimals    uint8  `json:"assetDecimals"`
+	Disposition string `json:"disposition"`
+	Raw         string `json:"raw"`
+}
+
+func (s *Store) platformFees(ctx context.Context, start, end int64) ([]PlatformAssetFee, error) {
+	if s.accountingProjection == "" {
+		return nil, fmt.Errorf("store: canonical fee evidence unavailable: projection required")
+	}
+	rows, err := s.db.Query(ctx, `SELECT p.id,p.pool_address,p.is_buy,p.amount_in,p.amount_out,p.fee,p.block_timestamp,
+        c.source_fact_digest,c.fill
+        FROM stats.pool_transactions p LEFT JOIN stats.accounting_market_commits c
+        ON c.projection_version=$3 AND p.id=(c.fill->'position'->>'transactionHash')||'-'||(c.fill->'position'->>'logIndex')
+        WHERE p.block_timestamp >= $1 AND p.block_timestamp <= $2
+        ORDER BY p.id`, start, end, s.accountingProjection)
+	if err != nil {
+		return nil, fmt.Errorf("store: canonical fees: %w", err)
+	}
+	defer rows.Close()
+	totals := map[PlatformAssetFee]*big.Int{}
+	scales := map[string]uint8{}
+	for rows.Next() {
+		var id, pool, input, output, fee string
+		var isBuy bool
+		var timestamp int64
+		var digest *string
+		var raw []byte
+		if err := rows.Scan(&id, &pool, &isBuy, &input, &output, &fee, &timestamp, &digest, &raw); err != nil {
+			return nil, err
+		}
+		fill, err := accounting.DecodeFillV1(raw)
+		if err != nil || digest == nil {
+			return nil, fmt.Errorf("store: canonical fee evidence unavailable for %s", id)
+		}
+		computed, err := accounting.FillDigest(fill)
+		out := fill.USDLAmountRaw
+		asset := fill.Token
+		if fill.Side == "buy" {
+			out, asset = fill.TokenAmountRaw, fill.Settlement
+		}
+		if err != nil || string(computed) != *digest || pool != fill.PoolAddress || isBuy != (fill.Side == "buy") ||
+			input != fill.PaidInputRaw || output != out || fee != fill.FeeRaw ||
+			strconv.FormatInt(timestamp, 10) != fill.BlockTimestampSeconds {
+			return nil, fmt.Errorf("store: canonical fee evidence mismatch for %s", id)
+		}
+		if scale, exists := scales[asset.Address]; exists && scale != asset.Decimals {
+			return nil, fmt.Errorf("store: canonical fee asset decimals mismatch")
+		}
+		scales[asset.Address] = asset.Decimals
+		key := PlatformAssetFee{Asset: asset.Address, Decimals: asset.Decimals, Disposition: fill.FeeDisposition}
+		if totals[key] == nil {
+			totals[key] = new(big.Int)
+		}
+		value, _ := accounting.Uint(fill.FeeRaw)
+		totals[key].Add(totals[key], value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]PlatformAssetFee, 0, len(totals))
+	for key, value := range totals {
+		key.Raw = value.String()
+		out = append(out, key)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Asset != out[j].Asset {
+			return out[i].Asset < out[j].Asset
+		}
+		if out[i].Decimals != out[j].Decimals {
+			return out[i].Decimals < out[j].Decimals
+		}
+		return out[i].Disposition < out[j].Disposition
+	})
+	return out, nil
 }

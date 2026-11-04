@@ -249,7 +249,10 @@ func TestRepair_329_TLSSubmission(t *testing.T) {
 			t.Fatal(err)
 		}
 		if result.Status == sidecar.Completed {
-			stored := eng.GetResult(id.String())
+			stored, err := eng.GetResult(id.String())
+			if err != nil {
+				t.Fatal(err)
+			}
 			if stored == nil || stored.Status != engine.TaskStatusCompleted || stored.Type != string(engine.TaskMarkNotReady) {
 				t.Fatalf("real engine did not persist submitted hold: %+v", stored)
 			}
