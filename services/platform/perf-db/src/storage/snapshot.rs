@@ -105,8 +105,7 @@ impl From<MarketSnapshot> for SnapshotMarketState {
 const SNAPSHOT_MAGIC: &[u8; 8] = b"PDBSNAP1";
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-/// An owned tier name is used on disk; the relational engine currently requires
-/// static names, resolved explicitly by the caller when restoring the table.
+/// Owned tier definitions shared by the snapshot and relational WAL codecs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotReferralTier {
     pub tier: String,
@@ -209,16 +208,36 @@ pub fn write_engine_snapshot(
     state: &StateSnapshot,
     recovery: SnapshotRecovery,
 ) -> Result<PathBuf, PerfDbError> {
-    let image = EngineSnapshot {
-        version: 2,
-        complete: CompleteStateSnapshot {
+    write_complete_engine_snapshot(
+        dir,
+        &CompleteStateSnapshot {
             version: 1,
             state: state.clone(),
             relational: None,
         },
         recovery,
+    )
+}
+
+pub(crate) fn write_complete_engine_snapshot(
+    dir: &Path,
+    complete: &CompleteStateSnapshot,
+    recovery: SnapshotRecovery,
+) -> Result<PathBuf, PerfDbError> {
+    if complete.version != 1 || complete.relational.as_ref().is_some_and(|r| r.version != 1) {
+        return Err(PerfDbError::InvalidArgument(
+            "unsupported snapshot version".into(),
+        ));
+    }
+    let image = EngineSnapshot {
+        version: 2,
+        complete: complete.clone(),
+        recovery,
     };
-    let path = dir.join(format!("snapshot_{:012}.bin", state.checkpoint.last_block));
+    let path = dir.join(format!(
+        "snapshot_{:012}.bin",
+        complete.state.checkpoint.last_block
+    ));
     atomic_publish(&path, &encode_image(&image)?)?;
     Ok(path)
 }
@@ -412,6 +431,19 @@ pub fn load_latest_engine_snapshot(
                 .into(),
         )),
         Some((image, Some(recovery))) => Ok(Some((image.state, recovery))),
+        Some((_, None)) => Err(PerfDbError::Corruption(
+            "legacy snapshot has no exact WAL recovery cursor; explicit migration is required"
+                .into(),
+        )),
+        None => Ok(None),
+    }
+}
+
+pub(crate) fn load_latest_complete_engine_snapshot(
+    dir: &Path,
+) -> Result<Option<(CompleteStateSnapshot, SnapshotRecovery)>, PerfDbError> {
+    match load_latest_with_recovery(dir)? {
+        Some((image, Some(recovery))) => Ok(Some((image, recovery))),
         Some((_, None)) => Err(PerfDbError::Corruption(
             "legacy snapshot has no exact WAL recovery cursor; explicit migration is required"
                 .into(),
