@@ -36,6 +36,7 @@ ureq.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+serde_yaml = "=0.9.34"
 native-tls.workspace = true
 layerx-platform-gateway = { path = "../gateway" }
 ed25519-dalek.workspace = true

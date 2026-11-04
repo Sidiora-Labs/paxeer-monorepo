@@ -6,9 +6,9 @@
 // Repairs: config.go::BoundsConfig.UnmarshalJSON refuses millisecond latency
 // overflow before MergeBounds can wrap it; settings.go::LoadSettings preserves
 // uint64 transaction bounds that Viper's float64 JSON decoding used to round.
-// Outside scope: tools/loadtest/main.go::runLoadTest does not call MergeBounds.
-// Profile bounds should reach Settings there; TestProofPaxloadBoundsCallerGap
-// records its current LoadSettings/ResolveSettings behavior without that merge.
+// The CLI now calls MergeBounds before LoadSettings/ResolveSettings.
+// TestProofPaxloadBoundsCallerGap retains the historical missing-merge
+// characterization; repair_321_test.go proves the actual CLI wiring.
 package config_test
 
 import (
@@ -236,7 +236,7 @@ func TestProofPaxloadBoundsCallerGap(t *testing.T) {
 	require.NoError(t, err)
 	var decoded config.LoadConfig
 	require.NoError(t, json.Unmarshal(encoded, &decoded))
-	// This is the current runLoadTest sequence, which omits MergeBounds.
+	// Omitting the merge reproduces the historical runLoadTest caller gap.
 	require.NoError(t, config.LoadSettings(decoded.Settings))
 	observed := config.ResolveSettings()
 	require.Zero(t, observed.MinTPS)
