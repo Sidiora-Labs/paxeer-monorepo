@@ -64,20 +64,20 @@ impl ChainHeader {
                     .map_err(|_| ChainProofError::NonCanonical)?,
             },
             last_block_id: HeaderBlockId {
-                hash: bytes_value(block_id[0])?.to_vec(),
+                hash: default_bytes_value(block_id[0])?.to_vec(),
                 part_set_total: u32::try_from(varint_value(part_set[0])?)
                     .map_err(|_| ChainProofError::NonCanonical)?,
-                part_set_hash: bytes_value(part_set[1])?.to_vec(),
+                part_set_hash: default_bytes_value(part_set[1])?.to_vec(),
             },
-            last_commit_hash: bytes_value(fields[5])?.to_vec(),
-            data_hash: bytes_value(fields[6])?.to_vec(),
-            validators_hash: bytes_value(fields[7])?.to_vec(),
-            next_validators_hash: bytes_value(fields[8])?.to_vec(),
-            consensus_hash: bytes_value(fields[9])?.to_vec(),
-            app_hash: bytes_value(fields[10])?.to_vec(),
-            last_results_hash: bytes_value(fields[11])?.to_vec(),
-            evidence_hash: bytes_value(fields[12])?.to_vec(),
-            proposer_address: bytes_value(fields[13])?.to_vec(),
+            last_commit_hash: default_bytes_value(fields[5])?.to_vec(),
+            data_hash: default_bytes_value(fields[6])?.to_vec(),
+            validators_hash: default_bytes_value(fields[7])?.to_vec(),
+            next_validators_hash: default_bytes_value(fields[8])?.to_vec(),
+            consensus_hash: default_bytes_value(fields[9])?.to_vec(),
+            app_hash: default_bytes_value(fields[10])?.to_vec(),
+            last_results_hash: default_bytes_value(fields[11])?.to_vec(),
+            evidence_hash: default_bytes_value(fields[12])?.to_vec(),
+            proposer_address: default_bytes_value(fields[13])?.to_vec(),
         };
         header.validate()?;
         Ok(header)
@@ -107,9 +107,15 @@ impl ChainHeader {
             u64::from(self.last_block_id.part_set_total),
             &mut part_set,
         );
-        encode_bytes(2, &self.last_block_id.part_set_hash, &mut part_set);
+        if !self.last_block_id.part_set_hash.is_empty() {
+            encode_bytes(2, &self.last_block_id.part_set_hash, &mut part_set);
+        }
         let mut block_id = Vec::new();
-        encode_bytes(1, &self.last_block_id.hash, &mut block_id);
+        if !self.last_block_id.hash.is_empty() {
+            encode_bytes(1, &self.last_block_id.hash, &mut block_id);
+        }
+        // The Go BlockID always encodes its non-nullable PartSetHeader,
+        // including the empty message in an initial-height predecessor.
         encode_bytes(2, &part_set, &mut block_id);
 
         let mut height = Vec::new();
@@ -143,20 +149,22 @@ impl ChainHeader {
             || !(-62_135_596_800..=253_402_300_799).contains(&self.time.seconds)
             || !(0..1_000_000_000).contains(&self.time.nanos)
             || self.proposer_address.len() != 20
+            // Header.Hash requires a validator commitment even though Go's
+            // stateless ValidateBasic accepts an empty ValidatorsHash.
+            || self.validators_hash.len() != 32
+            || self.last_block_id.part_set_total > 1_601
             || [
                 &self.last_block_id.hash,
                 &self.last_block_id.part_set_hash,
                 &self.last_commit_hash,
                 &self.data_hash,
-                &self.validators_hash,
                 &self.next_validators_hash,
                 &self.consensus_hash,
-                &self.app_hash,
                 &self.last_results_hash,
                 &self.evidence_hash,
             ]
             .iter()
-            .any(|hash| hash.len() != 32)
+            .any(|hash| !matches!(hash.len(), 0 | 32))
         {
             return Err(ChainProofError::NonCanonical);
         }
@@ -185,6 +193,13 @@ fn bytes_value(value: Option<ProtoValue<'_>>) -> Result<&[u8], ChainProofError> 
     match value {
         Some(ProtoValue::Bytes(bytes)) => Ok(bytes),
         _ => Err(ChainProofError::NonCanonical),
+    }
+}
+
+fn default_bytes_value(value: Option<ProtoValue<'_>>) -> Result<&[u8], ChainProofError> {
+    match value {
+        None => Ok(&[]),
+        value => bytes_value(value),
     }
 }
 
@@ -219,7 +234,10 @@ fn encode_bytes(number: u32, value: &[u8], output: &mut Vec<u8>) {
 
 fn wrap_bytes(bytes: &[u8]) -> Vec<u8> {
     let mut output = Vec::new();
-    encode_bytes(1, bytes, &mut output);
+    // Go cdcEncode returns nil for both nil and zero-length byte slices.
+    if !bytes.is_empty() {
+        encode_bytes(1, bytes, &mut output);
+    }
     output
 }
 
