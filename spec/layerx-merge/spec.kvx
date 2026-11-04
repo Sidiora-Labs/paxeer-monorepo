@@ -173829,7 +173829,7 @@ do_14 = "Attempt 3 (continue): keep the layerx_proof checkpoint module and its T
 
 [task.22.33.1556]
 title = "Repair audit record 22.30.97 medium findings in services/agent/crates/layerx-mcp (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.223", "22.31.224", "22.31.225", "22.31.443"]
@@ -206267,7 +206267,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.453]
 title = "Close the pion dtls and stun advisories in the launchpad Go modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.461"]
@@ -209616,7 +209616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.797]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 6 of 7): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.319"]
@@ -210905,7 +210905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.683]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/gov/client/testutil (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.33.676", "22.31.463"]
