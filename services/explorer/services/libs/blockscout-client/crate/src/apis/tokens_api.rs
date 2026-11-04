@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait TokensApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TokensApi>;
+
     /// GET /api/v2/tokens/{address_hash}/instances/{id}
     ///
     ///
@@ -123,11 +126,15 @@ pub trait TokensApi: Send + Sync {
 
 pub struct TokensApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl TokensApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -239,6 +246,13 @@ pub struct RefetchTokenInstanceMetadataParams {
 
 #[async_trait]
 impl TokensApi for TokensApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TokensApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_nft_instance(
         &self,
         params: GetNftInstanceParams,
@@ -315,7 +329,10 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -419,7 +436,10 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -569,7 +589,10 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -621,7 +644,10 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -672,7 +698,10 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
@@ -728,7 +757,10 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();

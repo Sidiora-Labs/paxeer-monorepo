@@ -1,0 +1,88 @@
+[task.22.31.326]
+mode = "BUILD"
+status = "implemented-awaiting-bounded-qualification"
+audit = "spec/layerx-merge/programme/audit/records/22.30.180.kvx"
+baseline = "Continued the 28-path implementation from attempt 2, revision c92d2ad50485a8b6712913482c53a9626efd21c7. Its recorded verification failed in TestRepair_326_GenesisAddressPrefix at keeper-store commit: multiple IAVL stores shared the explicit database prefix. No fresh pre-change verification was run: the ordered gate instructions prohibit manual verification before hf-done."
+evidence = "The runner's private hf-build/hf-done ledger and final evidence JSON identify the candidate revision, exact command, exit code and log."
+
+[finding.reset-live-or-validator-state]
+test = "TestRepair_326_ResetLiveOrValidatorState"
+repair = "Require persisted completed workflow hold and stop, no newer release, confirmed paxd process absence, full mode, no active genesis validator or remote signer, and independent witness agreement. Retain last-sign bytes and fsync a copy outside data; reopen recovers the original bytes. Refuse noncanonical signer paths instead of guessing."
+
+[finding.paxd-process-invisible]
+test = "TestRepair_326_PaxdProcessInvisible"
+repair = "Discover paxd start by comm and argv, with explicit name, home and RPC configuration. Distinguish confirmed absence from discovery failures. Preserve task and action identifiers; stop, restart and await-condition share the real finder and explicit RPC configuration. The test executable hosts the committed process/RPC peer; production /proc discovery, signals and HTTP clients control actual child processes without an external daemon binary."
+
+[finding.witness-duplication]
+test = "TestRepair_326_WitnessDuplication"
+repair = "Require distinct endpoints and public node identities on the configured chain; compare chain, height and SHA-256 trust hash across reachable witnesses. Run the same preflight before reset erasure and on configure replay."
+
+[finding.native-fee-denom]
+test = "TestRepair_326_NativeFeeDenom"
+repair = "Explicit uhpx fee and proposal-deposit policy agrees with node/params/config.go; all three governance handlers pass through production signing and JSON-RPC transport to real account queries, signature/sequence verification, transaction decoding and keeper-backed fee admission."
+
+[finding.genesis-address-prefix]
+test = "TestRepair_326_GenesisAddressPrefix"
+repair = "Initialize the ceremony/client SDK with pax, paxvaloper and paxvalcons and the node's 20/32-byte verifier. Exercise generated gentx, external accounts and vesting serialization; both tests consume the same producers through real SDK collect-gentxs and auth/bank/staking/genutil genesis initialization, including validator creation and committed keeper state."
+
+[finding.genesis-key-leak]
+test = "TestRepair_326_GenesisKeyLeak"
+repair = "Upload only a public DTO with derived node ID and public key; validate their relationship and reject unknown/secret fields in the assembler consumer. Qualify producer, actual AWS HTTP transport and peers consumer."
+
+[finding.genesis-hash-recovery]
+test = "TestRepair_326_GenesisHashRecovery"
+repair = "Atomically fsync a chain/bucket/request-bound assembly result in the completion record before returning; engine rehydration after reopen recovers the uploaded bytes' hash without storage access or a previously persisted engine result."
+
+[finding.unverified-genesis]
+test = "TestRepair_326_UnverifiedGenesis"
+repair = "Require canonical authenticated SHA-256 for every S3 path including Fetch, verify chain identity, stage verified bytes before atomic publication, bind completion to chain/digest, and recheck installed bytes on every replay."
+
+[finding.config-path-traversal]
+test = "TestRepair_326_ConfigPathTraversal"
+repair = "Allowlist three contract filenames, prevalidate/serialize the whole request, pin directories with O_NOFOLLOW, reject symlink destinations and atomically publish through directory descriptors."
+
+[finding.snapshot-extraction-symlinks]
+test = "TestRepair_326_SnapshotExtractionSymlinks"
+repair = "Reject links, special files and escaping paths; extract bounded entries through O_NOFOLLOW directory descriptors into a fresh stage, fsync it, and atomically exchange/adopt only a fully validated snapshot. Bound compressed writes and expanded archive bytes."
+
+[finding.tx-marker-adopts-different-request]
+test = "TestRepair_326_TxMarkerAdoptsDifferentRequest"
+repair = "Retained signed transaction bytes serve as the request tombstone after SQLite deletion/reopen. Verify the recorded signature against chain/account/sequence metadata, and validate hash, signer/public key and canonical message/fee/gas/memo fingerprint before adoption or any network access; serialize signing by UUID and require a checkpointer."
+
+[wiring.engine-admission]
+request = "tools/paxctl/sidecar/engine (domain 16): bind admission and completed UUID results to immutable canonical request fingerprints, make first marker insertion compare-and-set across processes, and retain tombstones for every deletion path; task handlers now reject conflicting retained transaction identities."
+
+[wiring.destructive-exclusion]
+request = "tools/paxctl/sidecar/engine and tools/paxctl/serve.go (domain 16): serialize hold/release/config/process/destructive operations and pass NodeProcessConfig with the deployed home and RPC endpoint; deployment profiles must share the paxd PID namespace."
+
+[wiring.workflow-witnesses]
+request = "tools/paxctl/workflow and controller workflow planners (domain 16): carry authenticated explicit RPC witness endpoints into reset-data as well as configure-state-sync; direct reset now fails closed without a fresh independent quorum."
+
+[wiring.paxd-qualification]
+request = "daemon/paxd, node and tools/paxctl/go.mod (domain 16): maintain full deployed-paxd InitChain/transaction admission qualification when migrating the nested legacy SDK; this self-contained gate uses real nested-SDK keepers/codecs and a committed RPC/process peer, without external binaries or native artifacts."
+
+[wiring.client-addresses]
+request = "tools/paxctl client and tools/paxctl/go.mod (domain 16): migrate the separate CLI/client SDK dependency to the deployed Paxeer address and transaction contract; task-local SDK configuration now uses the node's explicit prefixes and address lengths."
+
+[wiring.key-rotation]
+request = "Ceremony deployment and shared S3 identity artifacts (domain 16 operations): inventory identities published by the former secret-bearing uploader, rotate the exposed P2P authentication keys under a node hold, replace public identity manifests/peers and revoke/delete historical secret-bearing object versions."
+
+[gotcha.toolchain]
+observed = "The sandbox pins GOTOOLCHAIN=go1.25.8 while tools/paxctl/go.mod requires Go 1.26.0."
+action = "Install the declared Go 1.26.0 toolchain and pass GOTOOLCHAIN=go1.26.0 to both bounded gates; do not lower the module's version."
+
+[gotcha.ceremony-fixture]
+observed = "The identity producer intentionally emits a bare app_state; the SDK gentx validator requires staking params and the uhpx bond denom."
+action = "Initialize real module-default genesis fixtures before gentx generation, then exercise the produced bytes through genesis initialization and staking keeper delivery."
+
+[gotcha.process-qualification]
+observed = "The inherited process test required PAXD_BINARY, contradicting the self-contained gate contract."
+action = "Run the committed process/RPC peer in the test executable under paxd argv/comm and use production discovery, signals and transport; record deployed daemon linkage under its owning domain."
+
+[gotcha.sdk-store-commit]
+observed = "The nested SDK CommitMultiStore.Commit method requires an explicit bumpVersion boolean; the first gate caught a missing argument in the new genesis proof."
+action = "Commit genesis keeper state with Commit(true); preserve the first failed gate evidence in the runner ledger."
+
+[gotcha.sdk-store-prefix]
+observed = "The nested SDK prefixes every explicit MountStoreWithDB database with s/_/; sharing the same explicit database between module stores collides at the first commit."
+action = "Mount with nil to use the multistore database and its unique per-key prefixes; commit and reopen the real genesis stores and assert validator power, external balances and vesting account type survive."

@@ -371,6 +371,16 @@ export class NativeApprovalController {
     readonly canUnlock: () => boolean,
   ) {
     this.client = nativeClient(services);
+    services.setOperationWallet(
+      {
+        supportedChain: wallet.supportedChain,
+        get connectedAccount() {
+          return wallet.connectedAccount;
+        },
+        signMessage: (message, signal) => wallet.signMessage(message, signal),
+      },
+      canUnlock,
+    );
   }
   get blocking() {
     return (
