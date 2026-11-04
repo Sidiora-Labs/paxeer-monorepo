@@ -3,53 +3,103 @@ order: 2
 ---
 # BFT Time
 
-Tendermint provides a deterministic, Byzantine fault-tolerant, source of time.
-Time in Tendermint is defined with the Time field of the block header.
+Block time is agreed as part of consensus. The current tree has different time
+rules for the classic and Autobahn paths; neither obtains block time by taking
+the weighted median of the previous commit's vote timestamps. See the
+[consensus mode map](consensus.md#consensus-modes) before applying a time rule.
 
-It satisfies the following properties:
+## Representation
 
-- Time Monotonicity: Time is monotonically increasing, i.e., given
-a header H1 for height h1 and a header H2 for height `h2 = h1 + 1`, `H1.Time < H2.Time`.
-- Time Validity: Given a set of Commit votes that forms the `block.LastCommit` field, a range of
-valid values for the Time field of the block header is defined only by  
-Precommit messages (from the LastCommit field) sent by correct processes, i.e.,
-a faulty process cannot arbitrarily increase the Time value.  
+Classic headers, proposals, and votes use Go `time.Time`, encoded as protobuf
+seconds since the Unix epoch plus a nanosecond component. Autobahn's
+[`Timestamp`](../../internal/autobahn/autobahn.proto) also has `seconds` and
+`nanos`; [`TimeConv`](../../autobahn/types/time.go) converts these fields to and
+from UTC `time.Time`. These are not integer Unix milliseconds. The deterministic
+microsecond spacing described below is an algorithmic increment, not the wire
+unit. Ethereum-facing block timestamps have whole-second precision, so clients
+must not infer a distinct EVM timestamp for every microsecond-spaced block.
 
-In the context of Tendermint, time is of type int64 and denotes UNIX time in milliseconds, i.e.,
-corresponds to the number of milliseconds since January 1, 1970. Before defining rules that need to be enforced by the
-Tendermint consensus protocol, so the properties above holds, we introduce the following definition:
+## Classic proposal timestamps
 
-- median of a Commit is equal to the median of `Vote.Time` fields of the `Vote` messages,
-where the value of `Vote.Time` is counted number of times proportional to the process voting power. As in Tendermint
-the voting power is not uniform (one process one vote), a vote message is actually an aggregator of the same votes whose
-number is equal to the voting power of the process that has casted the corresponding votes message.
+[`State.MakeBlock`](../../internal/state/state.go) uses the proposer clock for
+an ordinary new block. The integrated sealed-block path in
+[`CreateProposalBlock`](../../internal/state/execution.go) instead takes the
+pending block's `OpenTime` and requires it to be later than `LastBlockTime`.
+The proposer waits when its clock has not advanced past the previous block time.
 
-Let's consider the following example:
+[`validateBlock`](../../internal/state/validation.go) requires a block after the
+initial height to have `Time > LastBlockTime`. At the initial height, time must
+be at least genesis time. The consensus state machine also requires
+`Proposal.Timestamp == ProposalBlock.Time` before voting for the block.
 
-- we have four processes p1, p2, p3 and p4, with the following voting power distribution (p1, 23), (p2, 27), (p3, 10)
-and (p4, 10). The total voting power is 70 (`N = 3f+1`, where `N` is the total voting power, and `f` is the maximum voting
-power of the faulty processes), so we assume that the faulty processes have at most 23 of voting power.
-Furthermore, we have the following vote messages in some LastCommit field (we ignore all fields except Time field):
-    - (p1, 100), (p2, 98), (p3, 1000), (p4, 500). We assume that p3 and p4 are faulty processes. Let's assume that the
-      `block.LastCommit` message contains votes of processes p2, p3 and p4. Median is then chosen the following way:
-      the value 98 is counted 27 times, the value 1000 is counted 10 times and the value 500 is counted also 10 times.
-      So the median value will be the value 98. No matter what set of messages with at least `2f+1` voting power we
-      choose, the median value will always be between the values sent by correct processes.
+For a fresh proposal (`POLRound == -1`) when the validator is not locked,
+[`defaultDoPrevote`](../../internal/consensus/state.go) checks reception time
+with [`Proposal.IsTimely`](../../types/proposal.go). With timestamp `T`, receive
+time `R`, precision `P`, and effective message delay `D`, the accepted interval is:
 
-We ensure Time Monotonicity and Time Validity properties by the following rules:
-  
-- let rs denotes `RoundState` (consensus internal state) of some process. Then
-`rs.ProposalBlock.Header.Time == median(rs.LastCommit) &&
-rs.Proposal.Timestamp == rs.ProposalBlock.Header.Time`.
+```text
+T - P <= R <= T + D + P
+```
 
-- Furthermore, when creating the `vote` message, the following rules for determining `vote.Time` field should hold:
+`P` is `ConsensusParams.Synchrony.Precision`. `D` starts at
+`Synchrony.MessageDelay` and doubles every ten rounds, with overflow protection.
+A validator prevotes nil for an untimely fresh proposal. The check is conditional:
+a certified reproposal or an existing lock does not follow this fresh-proposal
+branch. Timestamp equality and block validation still apply. The
+[proposer-based timestamp material](proposer-based-timestamp/README.md) supplies
+protocol background; the local implementation defines the active checks.
 
-    - if `rs.LockedBlock` is defined then
-    `vote.Time = max(rs.LockedBlock.Timestamp + time.Millisecond, time.Now())`, where `time.Now()`
-        denotes local Unix time in milliseconds
+## Autobahn timestamps
 
-    - else if `rs.Proposal` is defined then
-    `vote.Time = max(rs.Proposal.Timestamp + time.Millisecond,, time.Now())`,
+The rules are implemented in
+[`autobahn/types/proposal.go`](../../autobahn/types/proposal.go). A proposal
+orders a half-open range of global blocks `[First, Next)`. If its base timestamp
+is `T`, the block at global number `n` receives:
 
-    - otherwise, `vote.Time = time.Now())`. In this case vote is for `nil` so it is not taken into account for
-    the timestamp of the next block.
+```text
+BlockTimestamp(n) = T + (n - First) * 1 microsecond
+NextTimestamp    = T + (Next - First) * 1 microsecond
+```
+
+`BlockTimestamp` returns no value outside the proposal's range. Checked
+arithmetic rejects a timestamp-offset overflow. The first proposal's lower bound
+is the committee's genesis timestamp; later proposals must start at or after the
+previous commit certificate's `NextTimestamp`. `NewProposal` raises a supplied
+creation time to this lower bound when needed. Blocks within a nonempty proposal
+therefore have increasing assigned times, and the next nonempty range starts
+after the preceding range's last block. An empty range consumes no time offset.
+
+Fresh proposals also have an upper bound.
+`FullProposal.VerifyAt` checks timeliness using the validator's consensus clock;
+`verifyTimeliness` requires the last assigned block timestamp (or the base time
+for an empty range) to be no later than `now + MaxFutureProposalDrift`.
+`MaxFutureProposalDrift` is one second. Violation returns
+`ErrFutureProposalTime`; this assumes honest consensus clocks remain within that
+bound after synchrony.
+
+A valid timeout certificate carrying a prepared reproposal preserves the
+certified proposal and its timestamp. After verifying that justification and
+matching the reproposed hash, `VerifyAt` does not apply the fresh-proposal
+wall-clock test. Historical commit-certificate verification is likewise
+independent of the verifier's current clock. This exception does not allow a
+leader to invent a different timestamp for the prepared value.
+
+The application receives the assigned global time in `RequestFinalizeBlock.Header.Time`.
+The lane payload's `CreatedAt` is separate metadata; it is not the formula above.
+See [Creating a proposal](creating-proposal.md#autobahn-proposals) for the
+proposal range and byte bounds.
+
+## Historical weighted-median rule
+
+The inherited Tendermint BFT-time design counted each included vote timestamp
+with its validator's voting power and chose a weighted median. With less than
+one-third Byzantine power and a valid supermajority commit, the median lies
+within the honest included timestamps. For example, included votes with weights
+27, 10, and 10 at times 98, 1000, and 500 respectively have weighted median 98.
+
+This remains useful protocol history, but it is not a validation rule of either
+current path. The old recipe that forced votes to be at least one millisecond
+after a locked/proposed block is also not the current signing implementation:
+[`signVote`](../../internal/consensus/state.go) initializes votes with the local
+clock. Do not derive current block time or application timeouts from that
+historical recipe.
