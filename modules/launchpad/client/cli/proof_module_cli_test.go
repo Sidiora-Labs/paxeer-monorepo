@@ -185,7 +185,11 @@ func TestProofModuleCli(t *testing.T) {
 		"fee-accounting", "airdrop-epoch", "airdrop-claimed"} {
 		stdout, stderr, err := run(name, "--help")
 		require.NoError(t, err, stderr)
-		require.Contains(t, stdout, "layerxd query launchpad "+name)
+		if name == "has-role" {
+			require.NotContains(t, stdout, "layerxd")
+		} else {
+			require.Contains(t, stdout, "layerxd query launchpad "+name)
+		}
 		require.Contains(t, stdout, "paxd query launchpad "+name)
 	}
 }
