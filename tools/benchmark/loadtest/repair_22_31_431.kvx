@@ -1,0 +1,19 @@
+[repair.22.31.431]
+audit = "22.30.182"
+finding = "benchmark-rpc-envelope"
+requirement = "22998.1"
+implementation = "Both metrics block readers use get_block to check HTTP status, reject JSON-RPC errors, decode result.block and normalize only null transaction arrays to empty lists. Missing or invalid transaction arrays fail explicitly. The CLI main guard permits importing the real client without parsing the test runner arguments or reading operator files."
+proving_tests = ["test_benchmark_rpc_envelope_populated_block", "test_benchmark_rpc_envelope_empty_block", "test_benchmark_rpc_envelope_block_statistics", "test_benchmark_rpc_envelope_http_errors", "test_benchmark_rpc_envelope_jsonrpc_errors", "test_benchmark_rpc_envelope_invalid_responses", "test_benchmark_rpc_envelope_invalid_transactions", "test_benchmark_rpc_envelope_missing_transactions"]
+proof_path = "Recorded consensus /block HTTP JSON bodies -> loopback HTTP server with application/json -> real requests client -> get_block -> get_block_info/get_block_time/get_transaction_breakdown. No transport or client mocks, external services or subprocesses are used by the gate."
+baseline = "Not run: the explicit task gate order prohibits testing before implementation or invoking verify_cmd separately from hf-done. No pre-change failing test is claimed."
+qualification = "The runner hf-build/hf-done ledger and final task evidence identify the verified candidate revision, exact commands, exit codes and private logs."
+continuation = "Preserved the previous implementation, all 34 test cases and the recorded transcripts. Removed the two inherited compiled cache files before qualification; both gates direct Python bytecode to private output storage using PYTHONPYCACHEPREFIX so build and verification snapshot the same sources. The runner-provided .cgignore and spec status changes remain untouched."
+wiring_requests = ["consensus/rpc/jsonrpc/server/http_uri_handler.go and http_server.go (consensus domain): align the GET /block response with the declared JSON-RPC envelope; this checkout calls writeHTTPResponse, which currently serializes a bare result/error, whereas writeRPCResponse serializes the envelope."]
+
+[fixtures]
+source = "Public consensus HTTP GET responses recorded from https://cosmos-rpc.publicnode.com/block at fixed heights 33716909 (two signed protobuf transactions: staking MsgDelegate and bank MsgSend) and 33716908 (empty array); error transcript requests height 9999999999999. Response bodies are stored verbatim in scripts/fixtures/consensus_block_*.json."
+null_variant = "The empty-block test also substitutes only txs:[] with txs:null to cover the nil-slice representation explicitly emitted by consensus/libs/json/encoder.go:encodeReflectList. Header, block ID and remaining payload stay intact; this variant is not claimed as an unmodified recording."
+
+[gotcha.22.31.431]
+observed = "The audit envelope contract and current URI handler disagree; exercising only a synthesized block would hide the discrepancy. Historical consensus documentation also shows an obsolete data array instead of the current data.txs object."
+repair = "Use recorded full consensus response bodies in the consumer proof and request producer wiring from its owning domain. Keep the repository-wide gotcha and spec ledgers untouched under the task scope restriction."
