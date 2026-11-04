@@ -1,0 +1,52 @@
+[task]
+id = "22.33.84"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Regenerate the existing spot contract as OpenAPI 3.0.3: replace 34 null branches and 19 nullable type arrays with explicit typed nullable schemas, retaining every non-null alternative, required field, bound, format, pattern and annotation. Translate four singleton Schema Object examples arrays into the supported example field. No production code changes."
+wiring_requests = ["Domain 3 (fm-markets): reconcile apps/perps/swagger_spot.json response shapes with apps/perps/src/core/spot/api.ts and the external services/platform/perps-data/internal/rest/spotusers.go producer through the data-service owner; the pre-existing trades/stats breakdown versus totalTrades/bySource/byContract and positions items versus positions differences are preserved by this dialect-only task."]
+
+[finding.spot-openapi-dialect]
+audit = "22.30.11"
+file = "apps/perps/swagger_spot.json"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 3
+resolution = "The document still declares 3.0.3 and now uses scalar OpenAPI 3.0 types with nullable=true. Null is admitted by exactly one branch of each oneOf, including integer-or-string unions; nullable is never placed on an untyped union wrapper. Existing singleton oneOf wrappers retain their outer and inner descriptions."
+tests = ["test_spot_openapi_303_schema_dialect", "test_spot_entire_contract_preserves_baseline_semantics", "test_spot_nullable_fields_match_producer_and_consumer_sources", "test_spot_producer_transport_consumer_source_path", "test_spot_dialect_repair_record_and_proving_tests"]
+closure = "Qualification requires hf-build and hf-done passing on the same candidate revision; the private gate ledger is authoritative evidence."
+
+[baseline]
+working_tree = "Initial git status/diff contained only runner-prepared .cgignore and task status changes. Both scoped repair artifacts were absent; neither setup change was overwritten."
+ledger = "No /out/run/gates.jsonl existed; gate.json recorded zero builds and verification runs used, with two repair cycles available."
+verification = "No unchanged-tree verification ran: the explicit ordered implementation-first and hf-done-only rules override do_5's baseline request. No pre-change failing test is claimed; this module did not exist on the unchanged tree."
+semantic_sha256 = "cd6bafe2e763cbc5d5bbb46ee37ff5e88fb0974527e25c882dddf108884d7916"
+fingerprint = "Computed from the actual unchanged swagger_spot.json before regeneration. The test canonicalizes null unions across dialects and singleton example spelling, hashes the entire parsed document, and preserves all remaining facts including every required list, route, response, parameter, non-null alternative, constraint and description. It reads no git state or subprocess."
+
+[proof]
+source_facts = "Five pytest tests parse the real document with duplicate-key rejection; inspect all parameter and response schemas recursively for the supported OpenAPI 3.0 vocabulary, scalar primitive types and typed nullable schemas; prove all 53 nullable locations, the full baseline semantic fingerprint and 33 nullable Go pointer fields against the real TypeScript consumers; preserve mixed scalar alternatives and required trade statistics; and check the finding-to-declared-test map."
+producer_transport_consumer = "Static source assertions connect SpotUsers.Register routes, serveUser dispatch and spotWrite's successful JSON delivery in services/platform/perps-data/internal/rest/spotusers.go to the contract paths, GET/Accept/json parsing in apps/perps/src/core/spot/api.ts and the portfolio's getPositions consumer. Go struct JSON tags and TypeScript nullable declarations are checked against the real contract fields. This is source evidence, not execution of Go or TypeScript."
+review_only = "The gate does not run Go/TypeScript, databases, HTTP services, client generators or a complete external OpenAPI validator. It proves the repaired dialect source facts and semantic preservation; generator interoperability, live responses, unrelated pre-existing response-shape differences and full producer/consumer conformance require owning-domain review. No runtime interface or persisted state changes, so restart/recovery is inapplicable."
+dependencies = "Python standard library and pytest only; no environment variable, credential, endpoint, external binary, subprocess toolchain, native artifact or device. No repository generator for swagger_spot.json was found; the existing artifact is regenerated in place from its unchanged schema facts."
+
+[qualification]
+build_gate = "hf-build"
+build_cmd = "python3 --version"
+verify_gate = "hf-done"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_84.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done output and private gate ledger name the exact verified candidate revision, command, exit code and private log. The runner retains and publishes that evidence. This record is finalized before qualification: editing it afterward would change the candidate revision and invalidate the build/verify match."
+
+[format]
+policy = "No configured Python or KVX formatter exists for these paths. Apply UTF-8, LF, final-newline and trailing-whitespace rules after implementation. Keep the existing four-space JSON serialization to avoid unrelated whole-file indentation churn."
+
+[gotcha.1]
+observed = "The task's older unchanged-tree baseline clause conflicts with its ordered implementation-first, hf-done-only gates."
+resolution = "Follow the explicit ordered gates and record the absent baseline honestly. Keep task-local notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The graph initially indexed only apps/perps/.gitignore; broad ledger/audit reads exceeded output limits and guessed sibling filenames were absent."
+resolution = "Use bounded direct source reads and actual scoped paths. The gate syncs task paths before checking the graph."
+
+[gotcha.3]
+observed = "OpenAPI 3.0 Schema Objects also reject the schema-level examples array; all four existing arrays contain one example."
+resolution = "Translate each to example without losing its value; the semantic fingerprint normalizes only that spelling and the nullable representations."
