@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	cggmprefresh "github.com/getamis/alice/crypto/tss/ecdsa/cggmp/refresh"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 func repairM130RequireWiped(t *testing.T, share *big.Int, words []big.Word) {

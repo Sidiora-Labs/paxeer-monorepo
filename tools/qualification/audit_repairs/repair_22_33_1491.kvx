@@ -1,0 +1,31 @@
+[task.22.33.1491]
+acceptance = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+readme_revision = "09622872e82c7c96667e2266ecbf4edd2afd7897"
+repair = "Consume the root README rewrite landed by 22.31.470 under decision 2525 and add a focused offline regression proof for root-overview-retired-daemon; README.md is outside this task's scope and is unchanged."
+source_proof = "The six-test pytest module reads the actual README and audit record. It checks one embedded-kernel paxd BFT network, chain 125, api1 through api14 root JSON-RPC, the parsed eth_chainId curl JSON request, the mirror-only library host, transaction submission and receipt rungs, commitment finality, topology and ordered receipt diagrams, retirement and archive-only language, and parsed merged-node build/start commands. Static comparisons connect these claims to the real node host, root RPC dispatcher, transaction accept/forward paths, durable WAL release before receipt publication, committed sequence coverage, retirement gates and paxd build target. It parses this KVX and maps the finding to every declared source test."
+review_only = "Native Go/C/Rust execution, actual URL availability, transaction execution, cryptography, BFT commitment, upgrade activation and WAL restart/recovery are not executed. This is a documentation finding, with no production interface or persistent-state change; source facts establish documented connections, not runtime certification. README shell examples are parsed in Python; no shell script, unit file, manifest or native build is repaired here."
+baseline = "Both scoped files were absent; git status/diff showed only runner-prepared .cgignore and spec bookkeeping. gate.json recorded zero builds and verifies and no gates.jsonl existed. Baseline verification was not run: the explicit implementation-first order and exclusive hf-done gate supersede the older pre-change-verify clause. No pre-change test failures are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1491.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified revision, command, exit code and log. Build and verification must pass on the same candidate revision. This record is finalized before the gates because inserting its own candidate hash would change that hash; the runner retains the evidence and publishes the task."
+wiring_requests = []
+
+[finding.root-overview-retired-daemon]
+audit = "22.30.88"
+file = "README.md"
+expected = "The finished network described by the audit brief is one paxd BFT chain containing the kernel, with root node RPC and finality at block commitment."
+owning_task_wiring = "README.md -> owning domain 8 / task 22.31.470: rewrite the network overview, draft-merge and standalone setup narrative around merged paxd and committed receipts; fulfilled by the inherited README, with no missing expected fact or outstanding wiring request."
+tests = ["test_root_overview_describes_one_merged_paxd_bft_network", "test_root_rpc_hosts_and_chain_probe_are_current", "test_transaction_receipt_flow_requires_committed_block_evidence", "test_custody_and_checkpoint_executors_are_retired_refusal_surfaces", "test_production_setup_uses_paxd_without_standalone_deployment"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only after implementation is complete."
+
+[gotcha.context]
+observed = "Broad combined reads exceeded output limits and Codify brief/next/survey reported unrelated tasks or cached changes."
+resolution = "Use bounded task and audit sections, actual Git status/diff, the gate configuration and private ledger. Record task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.baseline_order]
+observed = "The inherited audit step asks for unchanged-tree verification while the explicit task order permits verification only through hf-done after complete implementation and hf-build."
+resolution = "Follow the explicit bounded gate order, record that no baseline test ran, and claim closure only on a passing hf-done result."
