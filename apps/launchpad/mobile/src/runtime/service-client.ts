@@ -11,6 +11,7 @@ import * as accountRoutes from './routes/account.ts';
 import * as notificationsRoutes from './routes/notifications.ts';
 import * as chatRoutes from './routes/chat.ts';
 import * as activityRoutes from './routes/activity.ts';
+import { validateDeviceProof, type DeviceProofInput } from './device-proof.ts';
 import {
   SdkClient,
   decodeContract,
@@ -478,6 +479,100 @@ export class MobileServices {
         idempotencyKey: string;
       }>)
     | undefined;
+  createDeviceAuthorization(wallet: OperationWallet, unlocked: () => boolean) {
+    const authorize: NonNullable<
+      MobileServices['deviceAuthorization']
+    > = async (input) => {
+      const identity = await this.currentSession(input.signal);
+      const generation = this.identityGeneration;
+      const assertCurrent = () => {
+        input.signal.throwIfAborted();
+        if (
+          generation !== this.identityGeneration ||
+          !this.identity ||
+          !sameOperationIdentity(identity, this.identity) ||
+          !unlocked() ||
+          wallet.supportedChain !== 125 ||
+          wallet.connectedAccount?.toLowerCase() !==
+            identity.wallet.toLowerCase()
+        )
+          throw new Error(
+            'Device operation wallet, account, session or local unlock changed',
+          );
+      };
+      if (!/^\/v1\/me\/devices\/[0-9a-f-]{36}$/i.test(input.path))
+        throw new Error('Installation device operation path required');
+      const result = await signAccountOperation(
+        wallet,
+        identity,
+        {
+          ...input,
+          action: input.method === 'PUT' ? 'device.register' : 'device.revoke',
+        },
+        this.requestId,
+        input.signal,
+        assertCurrent,
+      );
+      const refreshed = await this.currentSession(input.signal);
+      assertCurrent();
+      if (
+        !sameOperationIdentity(identity, refreshed) ||
+        Date.now() >= result.expiresAt * 1000
+      )
+        throw new Error('Device operation authority changed before delivery');
+      return result;
+    };
+    return authorize;
+  }
+  async issueDeviceProof(input: DeviceProofInput) {
+    const identity = await this.currentSession(input.signal);
+    const generation = this.identityGeneration;
+    if (
+      identity.accountId !== input.accountId ||
+      identity.sessionId !== input.sessionId
+    )
+      throw new Error('Current installation proof identity required');
+    const response = await this.cookieFetch(
+      `${this.config.canonicalOrigin}/v1/me/devices/${identifier(input.installationId)}/proof`,
+      {
+        method: 'POST',
+        signal: input.signal,
+        headers: {
+          Origin: this.config.canonicalOrigin,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': this.csrf,
+        },
+        body: JSON.stringify({
+          installationId: input.installationId,
+          accountId: input.accountId,
+          sessionId: input.sessionId,
+          platform: input.platform,
+          provider: input.provider,
+          token: input.token,
+        }),
+      },
+    );
+    if (!response.ok) throw new HttpError(response.status);
+    const value: unknown = await response.json();
+    input.signal.throwIfAborted();
+    if (
+      generation !== this.identityGeneration ||
+      !this.identity ||
+      !sameOperationIdentity(identity, this.identity)
+    )
+      throw new Error('Identity changed during installation proof issuance');
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      !('data' in value) ||
+      !value.data ||
+      typeof value.data !== 'object' ||
+      !('proof' in value.data)
+    )
+      throw new Error('Installation proof issuer response required');
+    return validateDeviceProof(value.data.proof, input);
+  }
   private async deviceOperation<
     N extends 'DeviceRegisterResponse' | 'DeviceRevokeResponse',
   >(

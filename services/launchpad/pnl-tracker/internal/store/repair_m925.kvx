@@ -1,0 +1,12 @@
+[repair.22.33.925]
+finding = "22.30.21/legacy-fold-order"
+implementation = "FoldTrade replays the persisted journal through projectOrderedPosition under the existing per-user/pool transaction lock before updating the position; errors roll back the journal insert and position together. Block number and the numeric block-global log index retained in the txHash-logIndex ID determine canonical order."
+proof = ["TestRepairM_925_DelayedSell", "TestRepairM_925_DelayedBuy", "TestRepairM_925_MixedRealtimeBackfill", "TestRepairM_925_CanonicalLogOrder", "TestRepairM_925_PreservesTokenAndRejectsCorruptJournal", "TestRepairM_925_BlockOrderPrecedesTimestamp"]
+proof_scope = "The bounded tests run the production journal projection used by FoldTrade, using in-memory persisted-row fixtures without PostgreSQL; SQL transaction integration is covered by TestFoldTradeRebuildsDelayedTrades in the existing database-dependent suite and is not claimed as run by this gate."
+baseline = "Not run: the explicit task order requires complete implementation before any test and permits verification only through hf-done; no pre-change test failures are claimed."
+evidence = "The runner gate ledger records the exact verified candidate revision, command, exit status and private log location; this record is included in that candidate."
+wiring_requests = []
+
+[gotcha.legacy-fold-order]
+observed = "A transaction lock and trade primary key prevent concurrent double counting but do not make remaining-inventory cost basis independent of delivery order."
+resolution = "Rebuild from block-global numeric log order inside the journal insertion transaction; never use lexical transaction hashes, lexical log suffixes or block timestamps as chain order."

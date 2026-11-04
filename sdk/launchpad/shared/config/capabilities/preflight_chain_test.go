@@ -202,7 +202,7 @@ func withSurfaceTreasuryCreationFees(t *testing.T, inspect func(context.Context,
 	if err := json.Unmarshal(encoded, &artifacts); err != nil {
 		t.Fatal(err)
 	}
-	manifest := deployment.Current()
+	manifest := historicalPreflightManifest(t)
 	manifest.Status = "eligible"
 	manifest.ActivationHeight = 1
 	trader := common.HexToAddress("0x1000000000000000000000000000000000000005")
@@ -268,10 +268,6 @@ func withSurfaceTreasuryCreationFees(t *testing.T, inspect func(context.Context,
 	}
 	for name, role := range manifest.Roles {
 		address := common.HexToAddress(role.Address)
-		if role.Kind == "surface" && name != "Treasury" {
-			role.Kind = "erc1967"
-			role.ImplementationAddress = common.BytesToAddress(crypto.Keccak256([]byte("creation-fee-implementation/" + name))[12:]).Hex()
-		}
 		switch role.Kind {
 		case "erc1967":
 			role.RuntimeHash = crypto.Keccak256Hash(install("UUPSProxy", address)).Hex()
@@ -488,7 +484,7 @@ func TestPinnedQuoteReadsActualQuoterPoolAndProtocolBytecode(t *testing.T) {
 	if err != nil || len(actual) != 96 || new(big.Int).SetBytes(actual[:32]).String() != quote.AmountOut {
 		t.Fatal("preflight differs from exact actual Quoter return")
 	}
-	manifest := deployment.Current()
+	manifest := historicalPreflightManifest(t)
 	// Exercise the pre-handoff epoch explicitly; the shipped manifest is active.
 	manifest.Status = "pending-beacon-acceptance"
 	manifest.ActivationHeight = 1
@@ -521,9 +517,207 @@ func TestPinnedQuoteReadsActualQuoterPoolAndProtocolBytecode(t *testing.T) {
 	}
 }
 
+func historicalPreflightManifest(t *testing.T) deployment.Manifest {
+	t.Helper()
+	manifest, ok := deployment.Approved(32_226_215)
+	if !ok {
+		t.Fatal("approved historical Solidity deployment missing")
+	}
+	for name, role := range manifest.Roles {
+		switch role.Kind {
+		case "erc1967", "beacon", "direct":
+		default:
+			t.Fatalf("historical Solidity fixture cannot install %s kind %s", name, role.Kind)
+		}
+	}
+	return manifest
+}
+
+func TestPinnedPreflightCurrentNativeSurfaces(t *testing.T) {
+	assertCurrentNativePreflightDrift(t)
+}
+
+func assertCurrentNativePreflightDrift(t *testing.T) {
+	t.Helper()
+	assertRecordedPreflightDrift(t, true)
+}
+
+func assertRecordedPreflightDrift(t *testing.T, native bool) {
+	t.Helper()
+	for _, scenario := range []struct {
+		name              string
+		supported         bool
+		reason            ReasonCode
+		creationSupported bool
+		quoteSupported    bool
+	}{
+		{"fee", true, "", false, true},
+		{"optical", false, OpticalQuoteUnsupported, true, true},
+		{"quoter_identity", false, IdentityUnverified, true, false},
+		{"governance", false, IdentityUnverified, false, false},
+		{"pool_state", true, "", true, true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			c := repair38OpenChain(t, native)
+			selected := historicalPreflightManifest(t)
+			if native {
+				selected = deployment.Current()
+			}
+			selectedHash, err := selected.Hash()
+			if err != nil {
+				t.Fatal(err)
+			}
+			engineHash, err := c.engine.manifest.Hash()
+			if err != nil || engineHash != selectedHash {
+				t.Fatalf("fixture changed the selected deployment: %s want %s: %v", engineHash, selectedHash, err)
+			}
+			b, pool := c.peer, c.peer.epoch.Pool
+			block := b.blocks[0]
+			publication, err := c.engine.Capabilities(c.ctx, block)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for name, role := range selected.Roles {
+				identity, found := publication.ObservedIdentities[name]
+				if !found || !identity.Verified || identity.Address != role.Address {
+					t.Fatalf("selected %s identity was not attested: %+v", name, identity)
+				}
+				if role.Kind == "surface" && (identity.RuntimeHash != role.RuntimeHash || identity.ImplementationAddress != "" || identity.ImplementationHash != "" || identity.BeaconAddress != "") {
+					t.Fatalf("native %s was interpreted as a proxy: %+v", name, identity)
+				}
+			}
+			request := c.request(PlainQuote, block)
+			request.Pool = pool
+			previous, err := c.engine.Preflight(c.ctx, request)
+			if err != nil || !previous.Supported || previous.Pool == nil || previous.Quote == nil {
+				t.Fatalf("selected deployment did not produce a pinned quote: %+v %v", previous, err)
+			}
+			if duplicate, err := c.engine.Revalidate(c.ctx, previous, request); err != nil || duplicate.ObservedRevisionSHA256 != previous.ObservedRevisionSHA256 {
+				t.Fatalf("unchanged disclosure was not idempotent: %+v %v", duplicate, err)
+			}
+			changedRequest := request
+			changedRequest.AmountIn = "1000001"
+			if _, err := c.engine.Revalidate(c.ctx, previous, changedRequest); err == nil {
+				t.Fatal("changed request reused the old disclosure")
+			}
+			connected := c.connected(request)
+			if !connected.Supported || !connected.Pool.Present || connected.Pool.Value == nil || !connected.Quote.Present || connected.Quote.Value == nil || connected.Pool.Value.ImplementationVersion != previous.Pool.ImplementationVersion || connected.Quote.Value.AmountOut != previous.Quote.AmountOut || connected.RequestSha256 != previous.RequestSHA256 || connected.BlockHash != previous.BlockHash || connected.Revision.RevisionSha256 != previous.Revision.RevisionSHA256 {
+				t.Fatalf("HTTP consumer lost pinned producer state: %+v", connected)
+			}
+			next := b.blocks[1]
+			unchangedRequest := request
+			unchangedRequest.BlockHash = next
+			if unchanged, err := c.engine.RevalidateAt(c.ctx, previous, unchangedRequest); err != nil || !unchanged.Supported || unchanged.ObservedRevisionSHA256 != previous.ObservedRevisionSHA256 {
+				t.Fatalf("moving to an unchanged committed state invalidated the disclosure: %+v %v", unchanged, err)
+			}
+			override := func(address common.Address, signature string, value []byte, args ...any) {
+				t.Helper()
+				key := repair38Key(address, repair38Call(t, signature, args...), next)
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				if _, recorded := b.calls[key]; !recorded {
+					t.Fatalf("drift has no recorded baseline: %s", key)
+				}
+				b.overrides[key] = value
+			}
+			switch scenario.name {
+			case "fee":
+				override(b.address("ProtocolConfig"), "creationFee()", repair38Word(2_000_000))
+			case "optical":
+				override(pool, "opticalAddress()", repair38Address(c.trader))
+				if native {
+					key := repair38Key(b.address("PoolRegistry"), repair38Call(t, "getPoolMetadata(address)", pool), next)
+					metadata := append([]byte(nil), b.calls[key]...)
+					copy(metadata[64:96], repair38Address(c.trader))
+					override(b.address("PoolRegistry"), "getPoolMetadata(address)", metadata, pool)
+				}
+			case "quoter_identity":
+				b.mu.Lock()
+				if native {
+					b.codes[b.address("Quoter")] = append([]byte(nil), b.codes[b.address("USDL")]...)
+				} else {
+					b.storage[b.address("Quoter").Hex()+"/"+deployment.ImplementationSlot.Hex()] = repair38Address(common.HexToAddress(selected.Roles["Router"].ImplementationAddress))
+				}
+				b.mu.Unlock()
+			case "governance":
+				override(b.address("PoolBeacon"), "pendingOwner()", repair38Address(c.trader))
+			case "pool_state":
+				next = b.blocks[2]
+			}
+			request.BlockHash = next
+			changed, err := c.engine.RevalidateAt(c.ctx, previous, request)
+			var unavailable Unavailable
+			if !errors.As(err, &unavailable) || unavailable.ReasonCode != RevisionMismatch || changed.ObservedRevisionSHA256 == previous.ObservedRevisionSHA256 || changed.Supported != scenario.supported || (!scenario.supported && (changed.ExecutionPermitted || changed.ReasonCode != scenario.reason)) {
+				t.Fatalf("%s drift reused a disclosure or lost its refusal: %+v %v", scenario.name, changed, err)
+			}
+			consumed := c.connected(request)
+			if consumed.Supported != changed.Supported || consumed.ExecutionPermitted != changed.ExecutionPermitted || consumed.RequestSha256 != changed.RequestSHA256 || consumed.BlockHash != changed.BlockHash || consumed.Revision.RevisionSha256 != changed.Revision.RevisionSHA256 || (!scenario.supported && (!consumed.ReasonCode.Present || consumed.ReasonCode.Value != string(scenario.reason))) {
+				t.Fatalf("HTTP consumer lost drift outcome: %+v", consumed)
+			}
+			afterPublication, err := c.engine.Capabilities(c.ctx, next)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (scenario.name == "fee" || scenario.name == "quoter_identity" || scenario.name == "governance") && afterPublication.ObservedRevisionSHA256 == publication.ObservedRevisionSHA256 {
+				t.Fatal("contract drift reused the capability publication revision")
+			}
+			for _, published := range afterPublication.Families {
+				capability := published.Capability
+				if capability.Family == Creation && capability.Supported != scenario.creationSupported {
+					t.Fatalf("creation dependency isolation changed: %+v", capability)
+				}
+				if capability.Family == PlainQuote && capability.Supported != scenario.quoteSupported {
+					t.Fatalf("quote dependency isolation changed: %+v", capability)
+				}
+				if (capability.Family == Creation || capability.Family == PlainQuote) && capability.OracleRequired {
+					t.Fatal("core capability acquired an optional oracle dependency")
+				}
+				if capability.Family == DisplayConversion && (capability.Supported || capability.ReasonCode != DisplayUnavailable) {
+					t.Fatal("display outage fabricated a price")
+				}
+			}
+			if scenario.name == "optical" && (changed.Pool == nil || changed.Pool.Optical != c.trader.Hex() || changed.Quote != nil) {
+				t.Fatal("optical drift retained an executable quote")
+			}
+			if scenario.name == "pool_state" {
+				if changed.Pool == nil || changed.Pool.RealUSDLBalance != "997000" || changed.Quote == nil || changed.Quote.AmountOut == previous.Quote.AmountOut {
+					t.Fatal("committed pool trade did not change the disclosed state and quote")
+				}
+				oldRequest := request
+				oldRequest.BlockHash = block
+				old, err := c.engine.Revalidate(c.ctx, previous, oldRequest)
+				if err != nil || old.Pool == nil || *old.Pool != *previous.Pool || old.Quote == nil || *old.Quote != *previous.Quote {
+					t.Fatalf("later state contaminated the pinned block: %+v %v", old, err)
+				}
+			}
+			canceled, cancel := context.WithCancel(c.ctx)
+			cancel()
+			if _, err := c.engine.Capabilities(canceled, next); err == nil {
+				t.Fatal("interrupted inspection published cached capabilities")
+			}
+			if native {
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				for name, role := range selected.Roles {
+					address := common.HexToAddress(role.Address)
+					if role.Kind == "surface" && (b.seen["code/"+address.Hex()] == 0 || b.seen["storage/"+address.Hex()+"/"+deployment.ImplementationSlot.Hex()] != 0) {
+						t.Fatalf("native %s was not read as a surface", name)
+					}
+					if role.Kind == "precompile" && b.seen["code/"+address.Hex()] != 0 {
+						t.Fatal("native dispatcher was interpreted as EVM bytecode")
+					}
+				}
+				if b.seen["storage/"+pool.Hex()+"/"+deployment.BeaconSlot.Hex()] != 0 {
+					t.Fatal("native pool was interpreted as a beacon proxy")
+				}
+			}
+		})
+	}
+}
+
 func assertActualPreflightDrift(t *testing.T, ctx context.Context, client *rpc.Client, reader *PinnedRPCReader, clock *blockClock, artifacts map[string]quoteArtifact, pool, trader common.Address, mine func() common.Hash, set func(common.Address, common.Hash, common.Hash)) {
 	t.Helper()
-	manifest := deployment.Current()
+	manifest := historicalPreflightManifest(t)
 	manifest.Status = "eligible"
 	manifest.ActivationHeight = 1
 	install := func(name string, address common.Address) []byte {
