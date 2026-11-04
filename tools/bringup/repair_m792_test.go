@@ -109,7 +109,7 @@ func TestRepairM_792_FoundationWrapperRetiredTarget(t *testing.T) {
 	if !reflect.DeepEqual(plan, producer) || !reflect.DeepEqual(plan.Names, []string{"paxd", "attestor", "bringup-inspect"}) {
 		t.Fatalf("producer/consumer plan differs: %+v", plan)
 	}
-	for _, required := range []string{"Makefile", "chain.mk", "modules", "src", "include", "programs", "services", "go.mod", "go.sum", "rust-toolchain.toml"} {
+	for _, required := range []string{"Makefile", "chain.mk", "modules", "layerxproof", "src", "include", "programs", "services", "go.mod", "go.sum", "rust-toolchain.toml"} {
 		found := false
 		for _, path := range plan.GoPaths {
 			found = found || path == required
@@ -130,7 +130,7 @@ func TestRepairM_792_FoundationWrapperRetiredTarget(t *testing.T) {
 			t.Fatalf("producer lost source/output proof %s", required)
 		}
 	}
-	for _, retired := range []string{"layerxd", "layerx-genesis-build", "layerx-module-registry", "custodyproof", "layerxproof", "checkpoint-settlement"} {
+	for _, retired := range []string{"layerxd", "layerx-genesis-build", "layerx-module-registry", "custodyproof", "checkpoint-settlement"} {
 		if strings.Contains(producerSource, retired) {
 			t.Fatalf("artifact producer retains %s", retired)
 		}
