@@ -1,0 +1,9 @@
+[repair.22.31.397]
+finding = "ws-handle-after-failback"
+test = "EthereumJSONRPC.Repair2231397Test: original subscription remains cancellable through primary outage, fallback and primary recovery"
+proof = "Loopback Cowboy WebSockets replay committed new_head_full.json chain data through the production WebSocket client, RetryWorker, supervisor and EthereumJSONRPC subscribe/unsubscribe interface; stop/reopen of the primary listener causes real fallback and client replacement. The original handle receives headers on all three connections and sends eth_unsubscribe with the recovered server ID to its owning connection, which confirms removal."
+fixture = "apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/new_head_full.json: captured block 24203006 and its parity-header projection; the loopback peer implements JSON-RPC subscription state per WebSocket connection."
+baseline = "Attempt 1 failed verify with exit 2 before qualification; its record reports reaching fallback delivery and a test configuration shape mismatch. No extra baseline run: the explicit implementation-first order and hf-done-only verification rule take precedence."
+continuation = "Retained attempt 1 stable-name implementation and recovery/cancellation assertions; replaced the test's downloaded Geth subprocesses with in-process loopback peers as required by gotcha 2962. No prior gate ledger was present in this continuation."
+wiring_requests = []
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log; hf-done runs last on the final source tree."
