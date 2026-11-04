@@ -1,0 +1,49 @@
+[repair.22.33.673]
+audit = "22.30.167"
+acceptance = "22998.1"
+baseline = "No baseline gate executed: task Order 1/4 prohibits testing before complete implementation and prohibits invoking verify_cmd by hand; initial gate ledger was absent and both counters were zero."
+qualification = "The runner records the exact candidate revision, commands, exits and private evidence locations through hf-build and hf-done."
+
+[finding.distribution-test-config]
+repair = "The norace CLI entry point passes t to network.DefaultConfig and retains all CLI assertions."
+proof = "TestRepairM_673_TestConfig"
+
+[finding.distribution-default-fixture]
+repair = "Exact JSON/text parameter fixtures derive all four fields from types.DefaultParams and are checked against real genesis-initialized keeper queries."
+proof = "TestRepairM_673_DefaultFixture"
+
+[finding.distribution-output-denom]
+repair = "A deterministic genesis funds the fee collector and community pool; real BeginBlocker allocation proves exact amounts at heights three/five, and every original CLI assertion executes over real loopback RPC for both the default and a custom bond denomination."
+proof = "TestRepairM_673_OutputDenom"
+
+[wiring.network]
+request = "sdk/testutil/network/network.go: domain 15 owns distribution of the configured genesis through AppConstructor (audit network-app-config, task 22.33.672); this task exercises distribution keepers directly and does not repair that out-of-scope constructor."
+
+[qualification.repair_1]
+observed = "The first hf-done found a test adapter compile error: the production query router returns ResponseQuery by value."
+repair = "Pass the returned ResponseQuery value directly to the real RPC response envelope."
+
+[qualification.continued_attempt]
+baseline = "The inherited attempt failed TestRepairM_673_TestConfig, TestRepairM_673_DefaultFixture and both TestRepairM_673_OutputDenom cases at the first block: Commit(false) returned version zero instead of one."
+repair = "Advance block versions with Commit(true); retain and reopen each block's actual committed database bytes because the legacy store explicitly rejects historical version reads."
+
+[wiring.historical_store]
+request = "sdk/store/rootmulti/store.go: domain 15 owns historical query support for network-backed CLI queries; CacheMultiStoreWithVersion currently refuses all versioned reads, so the focused gate serves reopened committed database fixtures."
+
+[qualification.dependency_build]
+revision = "8d0854e4e80f685f7b0a0848ed0605d6f46f73f6"
+command = "go build ./sdk/x/distribution/client/testutil/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Unchanged out-of-scope auth, staking and tokenfactory CLI callers expect one return value from tx.NewFactoryCLI, which now returns (Factory, error); the task cannot qualify until those owners update their callers."
+
+[wiring.cli_factory]
+request = "sdk/x/auth/client/cli/tx_multisign.go, tx_sign.go, validate_sigs.go and sdk/x/staking/client/cli/tx.go: domain 15 must handle tx.NewFactoryCLI errors; modules/tokenfactory/client/cli/tx.go: the tokenfactory owning domain must handle the same return contract."
+
+[qualification.attempt_3_repair]
+revision = "105481a3636a22dc7c039023df485d7cc904b430"
+command = "cg spec done 22.33.673 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Parameter CLI assertions failed because sdk.Dec formatting omitted quotes; reward CLI assertions timed out because the status fixture omitted the chain identity required by the real RPC client."
+repair = "Quote decimal String values in all exact output fixtures; supply the fixture chain identity and committed height, and assert successful status transport before using the CLI suite."
