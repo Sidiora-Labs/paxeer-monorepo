@@ -15,9 +15,18 @@ export default function DmThread({ conversationId, peerAddress, peerName }: { co
  const editor=useRef<HTMLInputElement>(null);
  useEffect(()=>{setInput('');setOffset(0);setEditing(undefined);wallet.current=address;},[address,conversationId]);
  const markRead=chat.markRead;
- useEffect(()=>{if(document.visibilityState==='visible')markRead();},[chat.messages,markRead]);
  const current=wallet.current===address;
  const visible=current ? chat.messages.slice(Math.max(0,chat.messages.length-200-offset),Math.max(0,chat.messages.length-offset)) : [];
+ const cancelMarkRead=chat.cancelMarkRead;
+ const through=visible.reduce((highest,message)=>message.sender.toLowerCase()!==address?.toLowerCase()&&!message.deleted&&BigInt(message.sequence)>BigInt(highest)?message.sequence:highest,'0');
+ const firstVisible=visible.at(0)?.id;
+ const lastVisible=visible.at(-1)?.id;
+ useEffect(()=>{
+  const update=()=>{cancelMarkRead();if(document.visibilityState==='visible'&&through!=='0')markRead(through);};
+  update();
+  document.addEventListener('visibilitychange',update);
+  return()=>{document.removeEventListener('visibilitychange',update);cancelMarkRead();};
+ },[through,firstVisible,lastVisible,offset,markRead,cancelMarkRead]);
  const submit=async()=>{const draft=input;if(await chat.sendMessage(draft))setInput(value=>value===draft?'':value);};
  return <div className="flex h-full flex-col">
   <header className="bg-surface-1 px-4 py-3"><a href={`/profile/${peerAddress}`}>{peerName||formatAddress(peerAddress,6)}</a></header>
