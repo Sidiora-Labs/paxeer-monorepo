@@ -1,12 +1,12 @@
 //! Peer-credential admitted Unix listener for the daemon-bound protocol transport.
 
 use std::fs;
-use std::io::BufReader;
+use std::io::{self, BufReader, Read, Write};
 use std::os::unix::ffi::OsStrExt as _;
 use std::os::unix::fs::{FileTypeExt as _, MetadataExt as _, PermissionsExt as _};
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Component, Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::boundary::ToolBoundary;
 use crate::stdio::{DaemonClientSession, Session};
@@ -141,7 +141,7 @@ impl Listener {
         Ok(bound)
     }
 
-    /// Serves admitted connections one at a time against the bound daemon session.
+    /// Serves admitted connections with a total connection lifetime of `config.deadline`.
     ///
     /// # Errors
     ///
@@ -160,10 +160,7 @@ impl Listener {
 
     fn serve_protocol(
         &self,
-        mut serve: impl FnMut(
-            &mut BufReader<std::os::unix::net::UnixStream>,
-            &mut std::os::unix::net::UnixStream,
-        ) -> Result<(), String>,
+        mut serve: impl FnMut(&mut BufReader<Connection>, &mut Connection) -> Result<(), String>,
     ) -> Result<(), ListenerError> {
         loop {
             let (stream, _) = self.listener.accept().map_err(|_| ListenerError::Accept)?;
@@ -177,20 +174,56 @@ impl Listener {
             {
                 continue;
             }
-            if stream.set_read_timeout(Some(self.config.deadline)).is_err()
-                || stream
-                    .set_write_timeout(Some(self.config.deadline))
-                    .is_err()
-            {
-                continue;
-            }
+            let started = Instant::now();
             let Ok(writable) = stream.try_clone() else {
                 continue;
             };
-            let mut reader = BufReader::new(stream);
-            let mut writer = writable;
+            let mut reader = BufReader::new(Connection {
+                stream,
+                started,
+                deadline: self.config.deadline,
+            });
+            let mut writer = Connection {
+                stream: writable,
+                started,
+                deadline: self.config.deadline,
+            };
             let _ = serve(&mut reader, &mut writer);
         }
+    }
+}
+
+struct Connection {
+    stream: UnixStream,
+    started: Instant,
+    deadline: Duration,
+}
+
+impl Connection {
+    fn remaining(&self) -> io::Result<Duration> {
+        self.deadline
+            .checked_sub(self.started.elapsed())
+            .filter(|duration| !duration.is_zero())
+            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "connection deadline elapsed"))
+    }
+}
+
+impl Read for Connection {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.stream.set_read_timeout(Some(self.remaining()?))?;
+        self.stream.read(bytes)
+    }
+}
+
+impl Write for Connection {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.stream.set_write_timeout(Some(self.remaining()?))?;
+        self.stream.write(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.remaining()?;
+        self.stream.flush()
     }
 }
 
