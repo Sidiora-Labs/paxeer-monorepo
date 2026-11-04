@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.124"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 3
+
+[page.1]
+path = "contracts/rpc.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.033] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.2]
+path = "contracts/sdk-js.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.034] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.3]
+path = "contracts/verifier-http.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.148 [doc.17] (missing): The verifier transport contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."

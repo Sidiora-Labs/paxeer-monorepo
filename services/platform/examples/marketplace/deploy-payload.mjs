@@ -1,6 +1,5 @@
 import {
   decodeNativeProgramDeploy,
-  decodePxResolvedIdentities,
   encodeNativeProgramDeploy,
 } from "@sidiora/layerx-sdk";
 import {
@@ -65,27 +64,37 @@ export async function readLifecycleAnchor({
   endpoint,
   token,
   did,
+  evmAddress,
   fetchImplementation = fetch,
 }) {
   accountNameForDid(did);
-  const state = await readJson(
+  if (
+    typeof evmAddress !== "string" ||
+    !/^0x[0-9a-fA-F]{40}$/u.test(evmAddress)
+  ) {
+    throw new LayerXApplicationStateError(
+      "refused",
+      "invalid_signing_key_evm_address",
+    );
+  }
+  const block = await callRpc(
     endpoint,
-    "v1/state",
     token,
+    "eth_getBlockByNumber",
+    ["latest", false],
     fetchImplementation,
-    "program_state",
   );
-  const identitySequence = await readIdentitySequence({
-    endpoint,
-    token,
-    did,
-    networkMode: state.network_mode,
-    fetchImplementation,
-  });
-  const notBefore = unsigned64(
-    state.timestamp_ms,
-    "program_state_timestamp_ms",
-  );
+  if (
+    block === null ||
+    typeof block !== "object" ||
+    Array.isArray(block) ||
+    typeof block.stateRoot !== "string" ||
+    !/^0x[0-9a-fA-F]{64}$/u.test(block.stateRoot)
+  ) {
+    throw new LayerXApplicationStateError("unknown", "invalid_program_state_block");
+  }
+  const notBefore =
+    rpcUnsigned64(block.timestamp, "program_state_timestamp") * 1000n;
   const expiresAt = notBefore + LIFECYCLE_WINDOW_MS;
   if (expiresAt > MAX_U64) {
     throw new LayerXApplicationStateError(
@@ -93,85 +102,19 @@ export async function readLifecycleAnchor({
       "invalid_program_state_timestamp_ms",
     );
   }
-  return Object.freeze({
-    identitySequence,
-    notBefore,
-    expiresAt,
-    previousStateRoot: Buffer.from(hex32(state.canonical_state_root)).toString(
-      "hex",
-    ),
-  });
-}
-
-async function readIdentitySequence({
-  endpoint,
-  token,
-  did,
-  networkMode,
-  fetchImplementation,
-}) {
-  if (networkMode === "emulator") {
-    const snapshot = await readJson(
-      endpoint,
-      `v1/dids/${did}/sequence`,
-      token,
-      fetchImplementation,
-      "identity_sequence",
-    );
-    return identityNextSequence(snapshot, did);
-  }
-  if (networkMode !== "hosted") {
-    throw new LayerXApplicationStateError(
-      "unknown",
-      "program_state_omitted_network_mode",
-    );
-  }
-  const account = decodePxResolvedIdentities(
-    await callRpc(
-      endpoint,
-      token,
-      "px_resolveAccount",
-      [did],
-      fetchImplementation,
-    ),
-  );
-  if (
-    !account.bound ||
-    account.layerxDid !== did ||
-    account.evmAddress === null
-  ) {
-    throw new LayerXApplicationStateError(
-      "refused",
-      "did_evm_binding_required",
-    );
-  }
   const nonce = await callRpc(
     endpoint,
     token,
     "eth_getTransactionCount",
-    [account.evmAddress, IDENTITY_SEQUENCE_SELECTOR],
+    [evmAddress, IDENTITY_SEQUENCE_SELECTOR],
     fetchImplementation,
   );
-  if (
-    typeof nonce !== "string" ||
-    !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(nonce)
-  ) {
-    throw new LayerXApplicationStateError(
-      "unknown",
-      "invalid_identity_next_sequence",
-    );
-  }
-  return BigInt(nonce);
-}
-
-function identityNextSequence(snapshot, did) {
-  if (snapshot.did !== did) {
-    throw new LayerXApplicationStateError(
-      "unknown",
-      "identity_sequence_named_another_did",
-    );
-  }
-  return unsigned64(snapshot.next_sequence, "identity_next_sequence");
+  return Object.freeze({
+    identitySequence: rpcUnsigned64(nonce, "identity_next_sequence"),
+    notBefore,
+    expiresAt,
+    previousStateRoot: Buffer.from(hex32(block.stateRoot)).toString("hex"),
+  });
 }
 
 export const LIST_OPERATION = 1;
@@ -247,32 +190,11 @@ export function u128(value) {
   return bytes;
 }
 
-async function readJson(endpoint, path, token, fetchImplementation, source) {
-  let response;
-  try {
-    response = await fetchImplementation(
-      new URL(path, secureBaseUrl(endpoint)),
-      {
-        headers: {
-          accept: "application/json",
-          authorization: `Bearer ${token}`,
-        },
-      },
-    );
-  } catch {
-    throw new LayerXApplicationStateError("unknown", `${source}_unreachable`);
-  }
-  const body = await response.json().catch(() => undefined);
-  if (!response.ok) throw httpFailure(response.status, source);
-  const envelope = exactObject(body);
-  return exactObject(envelope.result ?? envelope);
-}
-
 async function callRpc(endpoint, token, method, params, fetchImplementation) {
   let response;
   try {
     response = await fetchImplementation(
-      new URL("rpc", secureBaseUrl(endpoint)),
+      new URL("/", secureBaseUrl(endpoint)),
       {
         method: "POST",
         headers: {
@@ -347,16 +269,12 @@ function httpFailure(status, source) {
   return new LayerXApplicationStateError("unknown", `${source}_http_${status}`);
 }
 
-function unsigned64(value, name) {
-  const text =
-    typeof value === "number" && Number.isSafeInteger(value) && value >= 0
-      ? value.toString()
-      : value;
-  if (typeof text !== "string" || !/^(0|[1-9][0-9]{0,19})$/u.test(text)) {
+function rpcUnsigned64(value, name) {
+  if (
+    typeof value !== "string" ||
+    !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(value)
+  ) {
     throw new LayerXApplicationStateError("unknown", `invalid_${name}`);
   }
-  const parsed = BigInt(text);
-  if (parsed > MAX_U64)
-    throw new LayerXApplicationStateError("unknown", `invalid_${name}`);
-  return parsed;
+  return BigInt(value);
 }

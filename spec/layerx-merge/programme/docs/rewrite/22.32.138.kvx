@@ -1,0 +1,20 @@
+[manifest]
+task = "22.32.138"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 2
+
+[page.1]
+path = "docs/wiki/HostedBetaControl.md"
+status = "stale"
+bytes = 28204
+source_1 = "record 22.30.155 [doc.4] (stale): Lines 5 and 144 retain router custody funding and pre-merge node identity; operator lifecycle needs a merged-chain rewrite."
+
+[page.2]
+path = "docs/wiki/HostedFaucet.md"
+status = "misleading"
+bytes = 27331
+source_1 = "record 22.30.131 [doc.6] (misleading): Retired router at line 5; private-only opening conflicts with mainnet-beta approved allocations at lines 13-15. Site also carries starter-credit refusal details absent from the wiki."
+source_2 = "record 22.30.147 [doc.11] (stale): line 5: wiki-faucet-network — The wiki faucet introduction sends public funding through custody credit to a router and publishes lx_requestFunds as the JSON-RPC service-claim interface."
+source_3 = "record 22.30.153 [doc.12] (misleading): Lines 5 onward describe obsolete operating behavior; finding wiki-faucet-router-credit records the exact contradiction and concrete rewrite proposal."
+source_4 = "record 22.30.16 [doc.12] (stale): Read in full; funding at line 5 requires retired router and later legacy lx_requestFunds flow needs reconciliation with actual hosted OpenRPC. Preserve private faucet restrictions."

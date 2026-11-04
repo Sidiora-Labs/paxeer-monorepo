@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.6"
+domain = 3
+owner_role = "fm-markets"
+pages = 3
+
+[page.1]
+path = "contracts/markets.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.17 [doc.13] (missing): Current interface registry links here for a normative market/client contract, but the page is absent at the audited revision; restore it or reconcile links to an existing verified contract."
+
+[page.2]
+path = "contracts/perps-client.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.17 [doc.15] (missing): Current interface registry links here for a normative market/client contract, but the page is absent at the audited revision; restore it or reconcile links to an existing verified contract."
+
+[page.3]
+path = "contracts/perps-data.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.17 [doc.14] (missing): Current interface registry links here for a normative market/client contract, but the page is absent at the audited revision; restore it or reconcile links to an existing verified contract."

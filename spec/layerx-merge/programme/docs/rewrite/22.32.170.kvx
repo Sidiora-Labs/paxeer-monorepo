@@ -1,0 +1,35 @@
+[manifest]
+task = "22.32.170"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 5
+
+[page.1]
+path = "tests/integration/README.md"
+status = "stale"
+bytes = 4644
+source_1 = "record 22.30.172 [doc.013] (stale): All 80 lines read. Python invocation is real; shared YAML authoring promises lack the Go grammar restrictions and differing precedence. See yaml-eval-contract."
+
+[page.2]
+path = "tests/integration/dapp_tests/README.md"
+status = "stale"
+bytes = 2443
+source_1 = "record 22.30.172 [doc.014] (stale): All 45 lines read. Scenario descriptions are recognizable, but environment-selected network guidance omits the independent legacy constants used for native/pointer operations."
+
+[page.3]
+path = "tests/integration/evm_module/rpc_io_test/RPC_IO_README.md"
+status = "misleading"
+bytes = 7938
+source_1 = "record 22.30.172 [doc.015] (misleading): All 128 lines read. Binding syntax and invocation match; line 85 wrongly treats equal aggregate counts as parity despite potentially different failing case identities."
+
+[page.4]
+path = "tests/integration/rpc_tests/README.md"
+status = "stale"
+bytes = 11133
+source_1 = "record 22.30.172 [doc.016] (stale): All 224 lines read. Serial bootstrap/reference orchestration matches code; line 164 unset/latest fork block cannot start the declared configuration."
+
+[page.5]
+path = "tests/integration/rpc_tests/hardhat/README.md"
+status = "stale"
+bytes = 1620
+source_1 = "record 22.30.172 [doc.017] (stale): All 40 lines read. Optional fork isolation is sound but lines 4 and 31 advertise a latest-block default rejected by the config."

@@ -799,8 +799,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         };
         let mut operations = self.lock_operations()?;
         operations.authority.authorize_subject(peer)?;
-        let registry = operations.authority.registry(peer).map_err(map_core)?;
-        let bound = subject::for_did(&operations.store, peer, &owner_did, &registry)?;
+        let bound = operations.subject_for_did(peer, &owner_did)?;
         let snapshot = core_preparation_snapshot(
             operations.chain.as_ref(),
             &operations.authority,
@@ -900,6 +899,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     }
 }
 mod subject;
+
+pub use subject::{bind_retained_registration, bind_subject_transaction};
 fn human_receipt_node_error(error: crate::node_rpc::NodeRpcError) -> HumanOperationError {
     match error {
         crate::node_rpc::NodeRpcError::Unavailable => HumanOperationError::Unavailable,
@@ -4187,11 +4188,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 return Err(HumanOperationError::Unavailable);
             }
             layerx_client::rpc::receipt::Lookup::Verified(receipt) => {
-                let proof_peer = subject::for_activity(
-                    &operations.store,
+                let proof_peer = operations.subject_for_activity(
                     context.peer(),
+                    &context.principal().agent,
                     &signed_activity,
-                    &registry,
                 )?;
                 let authority = operations.authority.authorized_activity(
                     &proof_peer,
@@ -5099,8 +5099,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     ) -> Result<HumanPeer, HumanOperationError> {
         let mut operations = self.lock_operations()?;
         operations.authorize_subject(peer)?;
-        let registry = operations.authority.registry(peer).map_err(map_core)?;
-        subject::for_did(&operations.store, peer, agent, &registry)
+        operations.subject_for_did(peer, agent)
     }
 
     /// Resolves the owner of a session held by the shared session registry.
@@ -10446,12 +10445,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
                     let identity = operations
                         .subject_identity(peer, &did)
                         .map_err(|_| HumanOperationError::Refused)?;
-                    let bound = subject::for_activity(
-                        &operations.store,
-                        peer,
-                        &signed_activity,
-                        &registry,
-                    )?;
+                    let bound = operations.subject_for_activity(peer, &did, &signed_activity)?;
                     let authority = operations.authority.authorized_activity(
                         &bound,
                         &signed_activity,
@@ -10553,12 +10547,17 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         peer: &HumanPeer,
         request: HumanCapabilityInstall,
     ) -> Result<HumanResponse, HumanOperationError> {
-        let response = install_capability(
-            &mut self.lock_operations()?.authority,
-            &self.store,
-            peer,
-            &request,
-        )?;
+        let response = {
+            let mut operations = self.lock_operations()?;
+            let operations = &mut *operations;
+            install_capability(
+                &mut operations.authority,
+                operations.chain.as_ref(),
+                &self.store,
+                peer,
+                &request,
+            )?
+        };
         let Some((enrolment, agent, mcp_peer)) = self.mcp_enrolment.clone() else {
             return Ok(response);
         };
@@ -10724,8 +10723,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         let did = Did::new(agent_did.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
         let state = {
             let mut operations = self.lock_operations()?;
-            let registry = operations.authority.registry(peer).map_err(map_core)?;
-            let bound = subject::for_did(&operations.store, peer, &did, &registry)?;
+            let bound = operations.subject_for_did(peer, &did)?;
             operations
                 .authority
                 .key_rotation_policy(&bound, &did, recovery)?
@@ -11711,8 +11709,62 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     }
 }
 
+fn bound_subject_for_did(
+    authority: &mut dyn HumanAuthorityBoundary,
+    chain: &dyn HumanNode,
+    shared: &Arc<Mutex<Store>>,
+    peer: &HumanPeer,
+    did: &Did,
+) -> Result<HumanPeer, HumanOperationError> {
+    let Some(scope) = &peer.subject else {
+        return Ok(peer.clone());
+    };
+    if did.as_bytes() == scope.owner.as_bytes() {
+        return Ok(peer.clone());
+    }
+    let owner = Did::new(scope.owner.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+    let identity = authority
+        .core_identity(peer, &owner)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let address = subject_bound_address(chain, &identity)?;
+    let chain_id = chain.chain_id().map_err(human_receipt_node_error)?;
+    let store = shared
+        .lock()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    subject::bind_retained_registration(&store, peer, did, chain_id, address)
+}
+
+fn subject_bound_address(
+    chain: &dyn HumanNode,
+    identity: &CoreIdentity,
+) -> Result<[u8; 20], HumanOperationError> {
+    if identity.frozen
+        || identity.head_sequence == 0
+        || identity.verification_level < VerificationLevel::CHECKPOINT_FINALISED
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let mut addresses = std::collections::BTreeSet::new();
+    for authority in &identity.authorities {
+        if let ProtocolAuthority::PrimaryKey(key) = authority {
+            if let Some(address) = chain.bound_address(key).map_err(human_receipt_node_error)? {
+                addresses.insert(address);
+            }
+        }
+    }
+    if addresses.len() != 1 {
+        return Err(HumanOperationError::Refused);
+    }
+    addresses
+        .into_iter()
+        .next()
+        .filter(|address| *address != [0; 20])
+        .ok_or(HumanOperationError::Refused)
+}
+
 fn install_capability<A: HumanAuthorityBoundary>(
     authority: &mut A,
+    chain: &dyn HumanNode,
     shared_store: &Arc<Mutex<Store>>,
     peer: &HumanPeer,
     request: &HumanCapabilityInstall,
@@ -11758,8 +11810,7 @@ fn install_capability<A: HumanAuthorityBoundary>(
             .put_local(replay_key.clone(), pending)
             .map_err(|_| HumanOperationError::Unavailable)?;
     }
-    let registry = authority.registry(peer).map_err(map_core)?;
-    let bound = subject::for_did(shared_store, peer, &did, &registry)?;
+    let bound = bound_subject_for_did(authority, chain, shared_store, peer, &did)?;
     let (capability, observed) = validate_capability(authority, &bound, &tenant, &did, request)?;
     let mut store = shared_store
         .lock()
@@ -12808,6 +12859,43 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         })
     }
 
+    fn subject_for_did(
+        &mut self,
+        peer: &HumanPeer,
+        did: &Did,
+    ) -> Result<HumanPeer, HumanOperationError> {
+        bound_subject_for_did(
+            &mut self.authority,
+            self.chain.as_ref(),
+            &self.store,
+            peer,
+            did,
+        )
+    }
+
+    fn subject_for_activity(
+        &mut self,
+        peer: &HumanPeer,
+        did: &Did,
+        bytes: &[u8],
+    ) -> Result<HumanPeer, HumanOperationError> {
+        if peer.subject.is_none() {
+            return Ok(peer.clone());
+        }
+        let bound = self.subject_for_did(peer, did)?;
+        let identity = self
+            .authority
+            .core_identity(&bound, did)
+            .map_err(|_| HumanOperationError::Refused)?;
+        let address = subject_bound_address(self.chain.as_ref(), &identity)?;
+        subject::bind_subject_transaction(
+            &bound,
+            bytes,
+            self.chain.chain_id().map_err(human_receipt_node_error)?,
+            address,
+        )
+    }
+
     fn subject_owner(
         &mut self,
         peer: &HumanPeer,
@@ -12842,11 +12930,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         peer: &HumanPeer,
         did: &Did,
     ) -> Result<CoreIdentity, IdentityError> {
-        let registry = self
-            .authority
-            .registry(peer)
-            .map_err(|_| IdentityError::Unverified)?;
-        let bound = subject::for_did(&self.store, peer, did, &registry)
+        let bound = self
+            .subject_for_did(peer, did)
             .map_err(|_| IdentityError::Unverified)?;
         self.authority.core_identity(&bound, did)
     }
@@ -15162,7 +15247,13 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         peer: &HumanPeer,
         request: HumanCapabilityInstall,
     ) -> Result<HumanResponse, HumanOperationError> {
-        install_capability(&mut self.authority, &self.store, peer, &request)
+        install_capability(
+            &mut self.authority,
+            self.chain.as_ref(),
+            &self.store,
+            peer,
+            &request,
+        )
     }
     fn agent_lifecycle_publish(
         &mut self,

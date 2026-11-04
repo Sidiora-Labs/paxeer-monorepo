@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.61"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 3
+
+[page.1]
+path = "docs/wiki/DataAvailability.md"
+status = "stale"
+bytes = 4438
+source_1 = "record 22.30.64 [doc.10] (stale): Read in full against the site copy. The same standalone daemon availability transport and checkpoint lifecycle require the integrated-node rewrite."
+
+[page.2]
+path = "docs/wiki/Porting.md"
+status = "stale"
+bytes = 43627
+source_1 = "record 22.30.64 [doc.09] (stale): Read in full against the site copy. The shared-state refusal at lines 392-394 contradicts both its later portable Shared binding and the implementation."
+
+[page.3]
+path = "docs/wiki/Sequencing.md"
+status = "stale"
+bytes = 5538
+source_1 = "record 22.30.64 [doc.08] (stale): Read in full. Lines 3-5 separate sequencing from chain custody; lines 109-111 claim independent LayerX operation during Paxeer unavailability; rewrite for one BFT network."

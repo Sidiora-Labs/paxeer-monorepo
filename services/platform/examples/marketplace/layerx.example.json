@@ -6,7 +6,7 @@
       "endpoint": "http://127.0.0.1:9402",
       "network": "eip155:125",
       "cliBinaryEnvironment": "LAYERX_BIN",
-      "rpcUrl": "http://127.0.0.1:9402/rpc",
+      "rpcUrl": "http://127.0.0.1:9402",
       "receiptKeysEnvironment": "LAYERX_EMULATOR_RECEIPT_KEYS_JSON",
       "tokenEnvironment": "LAYERX_EMULATOR_TOKEN",
       "programIdEnvironment": "LAYERX_EMULATOR_MARKETPLACE_PROGRAM_ID",

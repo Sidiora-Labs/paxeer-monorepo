@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.84"
+domain = 8
+owner_role = "fm-platform"
+pages = 1
+
+[page.1]
+path = "tools/platform/cli/README.md"
+status = "misleading"
+bytes = 12785
+source_1 = "record 22.30.89 [doc.readme] (misleading): Read in full. Lines19,83,97-103,139-153,168-177 and194 contain retired endpoint, method, policy and finality/watch guidance; write examples must include the required EVM key export."

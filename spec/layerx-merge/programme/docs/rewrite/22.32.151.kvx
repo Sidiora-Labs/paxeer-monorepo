@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.151"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 6
+
+[page.1]
+path = "sdk/x/authz/spec/01_concepts.md"
+status = "stale"
+bytes = 2254
+source_1 = "record 22.30.168 [doc.05] (stale): Line 43 misstates exclusive allow/deny policy and grant-versus-exec gas timing; remaining capability model agrees with the module."
+
+[page.2]
+path = "sdk/x/authz/spec/03_messages.md"
+status = "stale"
+bytes = 1656
+source_1 = "record 22.30.168 [doc.07] (stale): Line 19 promises expiration rejection absent in the current grant handler; other grant/revoke/exec routing conditions were checked."
+
+[page.3]
+path = "sdk/x/authz/spec/05_client.md"
+status = "stale"
+bytes = 3151
+source_1 = "record 22.30.168 [doc.09] (stale): Full page read; simd/cosmos/stake examples and incomplete command coverage need Paxeer-specific replacement."
+
+[page.4]
+path = "sdk/x/bank/spec/01_state.md"
+status = "stale"
+bytes = 380
+source_1 = "record 22.30.166 [doc.13] (stale): Lines 7-12 omit fractional wei balances, denom allowlists and the deferred-balance lifecycle; see bank-state-extra-stores-doc."
+
+[page.5]
+path = "sdk/x/bank/spec/02_keepers.md"
+status = "stale"
+bytes = 5400
+source_1 = "record 22.30.166 [doc.14] (stale): Embedded interfaces beginning at line 62 omit current fork capabilities/signatures; line 116 overstates lookup complexity; see bank-keeper-capabilities-doc."
+
+[page.6]
+path = "sdk/x/bank/spec/03_messages.md"
+status = "stale"
+bytes = 824
+source_1 = "record 22.30.166 [doc.15] (stale): Failure conditions at lines 12-27 omit both sender and recipient denom allowlist authorization; see bank-message-allowlist-doc."

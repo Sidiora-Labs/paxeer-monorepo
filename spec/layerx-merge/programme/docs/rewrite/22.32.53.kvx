@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.53"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 2
+
+[page.1]
+path = "rpc/AGENTS.md"
+status = "stale"
+bytes = 4272
+source_1 = "record 22.30.52 [doc.28] (stale): Read in full: line 7 claims universal pending/latest equivalence, contrary to live open/idle provider semantics; other RPC unsupported/deprecation instructions remain separately scoped."
+
+[page.2]
+path = "rpc/README.md"
+status = "stale"
+bytes = 10095
+source_1 = "record 22.30.52 [doc.22] (stale): Read entire interface guide; pending identity and deprecated API recommendations contradict current behavior."

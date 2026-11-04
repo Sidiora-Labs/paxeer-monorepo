@@ -1,0 +1,22 @@
+[manifest]
+task = "22.32.104"
+domain = 12
+owner_role = "fm-wallet"
+pages = 1
+
+[page.1]
+path = "docs/site/docs/protocol/xweb.md"
+status = "misleading"
+bytes = 25646
+source_1 = "record 22.30.112 [doc.12] (stale): Read the complete page. Drift at line 44: The xweb protocol guide says the gateway executes lx_sendActivity and recovers via lx_getActivityStatus or lx_getReceipt; line 24 retains single sequencer trust and kernel network configuration, and line 172 describes a separate sequencer batching observations."
+source_2 = "record 22.30.113 [doc.02] (stale): Read all 292 lines. Lines 41-48 give retired payer/activity settlement; lines 154-166 and closing upgrade narrative retain the old program path; line 114 omits active storage kind 4."
+source_3 = "record 22.30.115 [doc.10] (stale): Stale payment/settlement path at 5, 24 and 44-45; later sealed-credential request material was also reviewed."
+source_4 = "record 22.30.118 [doc.012] (stale): Lines 5 and 24 retain a separate kernel/gateway trust model; lines 43-49 submit via lx_sendActivity/lx_getReceipt; kernel-path text describes sequencer web-root batches."
+source_5 = "record 22.30.119 [doc.03] (misleading): Read the page; lines 41-44 use retired LX payment RPC, 169-172 describe obsolete kernel batching, and 292 names retired kernel paths. The web_read-disabled statement at 167 and 173-175 is retained and correct."
+source_6 = "record 22.30.124 [doc.06] (misleading): Read in full. The web_read retirement notice at 167,173-175 is accurate; sequencer settlement at 24,44-46 and batch-header commitment at 172 need merged-chain guidance; see xweb-settlement-model."
+source_7 = "record 22.30.125 [doc.xweb] (misleading): Read full page. Lines 168-176 mix correctly retired web_read with a live kernel fee/pending-request/web-root story, especially 170-173; line 292 points to retired sources. Origin-2 xweb module requests, escrow, shared attestors and keeper results should replace that lifecycle; see xweb_retired_kernel."
+source_8 = "record 22.30.126 [doc.5] (stale): Read in full; separate sequencer/batch commitment wording at 172 and opening unified-interface link at 5 drift; retired web_read refusal itself agrees with host/web.rs."
+source_9 = "record 22.30.136 [doc.04] (stale): Full page reviewed. Lines 46-48 describe retired lx_* settlement/recovery, line 170 uses sequencer batch finality and line 292 retains obsolete source paths; disabled web_read is correctly identified."
+source_10 = "record 22.30.4 [doc.011] (misleading): Lines 169-172 retain pending kernel web request storage, kernel attestor intake and sequencer web roots; the live xweb module/query/event lifecycle must replace that pipeline. Findings: 038."
+source_11 = "record 22.30.5 [doc.06] (stale): Read all 292 lines. Lines 45-57 and179-195 retain DID/activity settlement and kernel batch web roots; web_read retirement notice is accurate."
+source_12 = "record 22.30.9 [doc.5] (stale): Payment steps near lines 40-49 still prescribe payer grants and draw despite the typed ledger refusals; current sidecar/web import distinctions need a coherent rewrite."

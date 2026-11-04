@@ -1,0 +1,29 @@
+[manifest]
+task = "22.32.55"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 4
+
+[page.1]
+path = "storage/state_db/bench/README.md"
+status = "stale"
+bytes = 3377
+source_1 = "record 22.30.55 [doc.17] (stale): Read in full; advertised backend/distribution runs are contradicted by factory setup and scenario wiring. See benchmark-backend-doc."
+
+[page.2]
+path = "storage/state_db/bench/cryptosim/README.md"
+status = "stale"
+bytes = 3740
+source_1 = "record 22.30.55 [doc.18] (stale): Read in full; retained-database continuation lacks the promised counter/receipt/shutdown continuity. See cryptosim-persistence-doc."
+
+[page.3]
+path = "storage/state_db/sc/migration/OPERATIONS.md"
+status = "stale"
+bytes = 29785
+source_1 = "record 22.30.48 [doc.14] (stale): Read in full; parallel dispatch at line 49, terminal-mode bypass at line 37 and cursor-only partition at line 38 need rewriting. Explicit proposed-tool roadmap items remain proposals."
+
+[page.4]
+path = "storage/state_db/sc/migration/README.md"
+status = "stale"
+bytes = 7197
+source_1 = "record 22.30.48 [doc.13] (stale): Read in full; terminal-mode bootstrap and missing-WriteMode claims at lines 3, 19, 27 and 63 contradict current router construction."

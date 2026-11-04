@@ -1,0 +1,67 @@
+[repair.22.31.274]
+audit = "22.30.146"
+mode = "BUILD"
+status = "implemented; qualification is determined only by hf-build and hf-done evidence"
+evidence = "Exact candidate revision, command, exit and private log are emitted by the gate ledger and copied to the final response."
+baseline = "No baseline gate ran: the explicit gate-only order prohibits verification before the complete implementation, overriding step 15's conflicting baseline instruction. No pre-change test failure is claimed."
+inherited_verification = "The supplied attempt-1 output reports address_cursors, block_cursors, contract_cursors, daily_balance_envelope, homepage_native_items, internal_cursors, search_cursors, token_cursors, transaction_cursors, transfer_cursors and withdrawal_cursors failing because BLOCKSCOUT_REPAIR_BASE_URL was absent; the two cursor validation tests passed. This is prior-attempt evidence, not an unchanged-baseline run."
+continuation = "Preserve the applied API repairs and every test assertion; replace required live-explorer configuration with a per-test loopback HTTP peer per the supplied continuation ruling. The peer checks exact paths and complete decoded query vectors, including duplicates, against the original filters plus every cursor member."
+
+[proof.homepage-native-items]
+test = "homepage_native_items"
+[proof.daily-balance-envelope]
+test = "daily_balance_envelope"
+[proof.address-cursors]
+test = "address_cursors"
+[proof.block-cursors]
+test = "block_cursors"
+[proof.internal-cursors]
+test = "internal_cursors"
+[proof.transfer-cursors]
+test = "transfer_cursors"
+[proof.token-cursors]
+test = "token_cursors"
+[proof.transaction-cursors]
+test = "transaction_cursors"
+[proof.contract-cursors]
+test = "contract_cursors"
+[proof.withdrawal-cursors]
+test = "withdrawal_cursors"
+[proof.search-cursors]
+test = "search_cursors"
+
+[wiring.schema]
+request = "Domain 14: update services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml and its source overrides with the API feed union, daily items/days envelope and lossless cursor query parameters; retain these scoped API repairs on regeneration."
+[wiring.feed-model]
+request = "Domain 14: regenerate services/explorer/services/libs/blockscout-client/crate/src/models/get_txs_200_response.rs from the shared feed schema; the scoped transaction and homepage APIs currently share apis/feed.rs."
+[wiring.daily-model]
+request = "Domain 14: generate the daily-history envelope under services/explorer/services/libs/blockscout-client/crate/src/models from the corrected schema; the scoped API currently declares DailyCoinBalanceHistory."
+[fixtures]
+source = "tests/recorded/eth_blockscout_com explorer transcripts, compiled into the integration test with include_str; their list items are partitioned into two nonempty pages without rewriting item fields."
+additional = "The recordings lack native homepage, daily balance, withdrawal, state-change and top-address responses; explicit HTTP peer examples follow FeedView.prepare_update, AddressView, WithdrawalView and TransactionView. Singleton internal-call and NFT-collection recordings have explicit second-item scenarios; NFT list items project recorded collection instances through AddressView's token association shape. These are peer examples, not captured producer executions."
+transport = "Each test binds an ephemeral loopback TCP port, retains the server for the client lifetime and aborts it on drop. Production ApiClient, reqwest middleware, request construction, cursor merge and both generated success codecs remain under test. No endpoint, credential, external binary or environment variable is required."
+assertions = "Every pre-existing test and assertion remains: mixed feed variants and every native field, daily entries and day window, ordered typed items, nonempty disjoint pages, terminal null, cursor/filter conflicts, scalar validation and exact uint256 numeric spelling. The loopback peer rejects any path/query mismatch instead of returning a fallback page."
+
+[gotcha.cursor-precision]
+observed = "serde_json::Value can round unquoted token IDs larger than u64 before a cursor is serialized."
+resolution = "ResponseContent::next_page_cursor validates the original JSON text and preserves numeric cursor spelling."
+[gotcha.scope]
+observed = "The schema, generated models, specification and root gotcha ledger lie outside this task's explicit writable scope."
+resolution = "Keep implementation and this record under apis; list outside wiring here and do not modify those files."
+
+[gotcha.test-macro]
+observed = "The first build failed because the optional macro expansion contained no matched repeating metavariable."
+resolution = "The request calls expand their original optional parameter expression directly; the task-scoped repair retains every test and assertion."
+[gotcha.producer-environment]
+observed = "The continuation sandbox also supplies no BLOCKSCOUT_REPAIR_ environment variables or seeded explorer endpoint."
+resolution = "The continuation ruling explicitly authorizes loopback peers and committed fixtures. Required environment configuration is removed; all client and response assertions remain intact."
+[fixture.token]
+requirement = "Use the complete committed ERC-1155 token and uint256 instance identifiers in request paths. Filter expectations retain ERC-1155 transfer filters and ERC-721 NFT filters; these replay tests assert query transport, not backend filtering semantics."
+
+[gotcha.recording-coverage]
+observed = "The committed recordings contain one page per route and omit several operations; they cannot alone prove a fresh backend traversal."
+resolution = "Partition recorded list items for deterministic transport coverage, explicitly identify additional producer-view peer examples, and retain every typed assertion so unrelated model incompatibilities remain visible."
+[gotcha.inherited-bookkeeping]
+observed = "The starting working tree already modifies .cgignore and the task status in spec.kvx outside the explicit scope."
+resolution = "Leave runner bookkeeping untouched; make all continuation edits only to the declared test and this in-scope repair record."
+

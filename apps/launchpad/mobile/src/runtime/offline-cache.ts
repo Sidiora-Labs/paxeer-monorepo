@@ -92,6 +92,8 @@ export class SnapshotCache {
       cap = account === null ? this.publicCap : this.privateCap;
     if (bytes > cap) throw new Error('Snapshot exceeds cache budget');
     const copy = JSON.parse(JSON.stringify(value)) as T;
+    if (persist && account === null && approvedPublicKey(key) && this.storage)
+      validatePublicSnapshot(key, copy);
     this.entries.delete(key);
     const snapshot = { value: copy, storedAt: now, expiresAt, account, bytes };
     this.entries.set(key, snapshot);
@@ -105,8 +107,11 @@ export class SnapshotCache {
         this.entries.delete(entry);
     }
     if (persist && account === null && approvedPublicKey(key) && this.storage) {
-      validatePublicSnapshot(key, snapshot.value);
-      const encoded = JSON.stringify(snapshot);
+      const encoded = JSON.stringify({
+        formatVersion: 2,
+        contractVersion: key === 'live' ? 2 : 1,
+        ...snapshot,
+      });
       this.persistence = this.persistence
         .then(() => this.storage!.write(key, encoded))
         .catch(() => {
@@ -143,11 +148,32 @@ export class SnapshotCache {
     const candidate: unknown = JSON.parse(saved);
     if (!candidate || typeof candidate !== 'object')
       throw new Error('Invalid public snapshot');
-    const snapshot = candidate as Snapshot<unknown>;
+    const snapshot = candidate as Snapshot<unknown> & {
+      formatVersion?: number;
+      contractVersion?: number;
+    };
+    const legacy =
+      snapshot.formatVersion === undefined &&
+      snapshot.contractVersion === undefined;
+    if (
+      legacy
+        ? key === 'live'
+        : snapshot.formatVersion !== 2 ||
+          snapshot.contractVersion !== (key === 'live' ? 2 : 1)
+    )
+      throw new Error('Unsupported public snapshot version');
     if (
       Object.keys(snapshot).some(
         (k) =>
-          !['value', 'storedAt', 'expiresAt', 'account', 'bytes'].includes(k),
+          ![
+            'formatVersion',
+            'contractVersion',
+            'value',
+            'storedAt',
+            'expiresAt',
+            'account',
+            'bytes',
+          ].includes(k),
       ) ||
       snapshot.account !== null ||
       !Number.isSafeInteger(snapshot.storedAt) ||
@@ -173,6 +199,10 @@ export class SnapshotCache {
       ...retained,
       value: JSON.parse(JSON.stringify(snapshot.value)) as T,
     };
+  }
+  async flush() {
+    await this.persistence;
+    if (this.persistenceError) throw new Error(this.persistenceError);
   }
   purgePrivate() {
     for (const [key, item] of this.entries)

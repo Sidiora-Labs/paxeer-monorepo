@@ -1,0 +1,24 @@
+[repair.22.31.349]
+audit = "22.30.79"
+finding = "020"
+base_revision = "7f80bc77d69d432a30797265253debe7936b8dfb"
+implementation = "Read latest EVM block stateRoot and timestamp, convert seconds to milliseconds, retain the bounded lifecycle window and read the signing EVM account nonce at pending through root JSON-RPC."
+signer = "The example reads evm_address from LAYERX_EVM_KEY_FILE (wallet derive export), requires its DID to match the selected signing key, and uses the configured rpcUrl."
+proving_test = "services/platform/examples/test/repair-22-31-349.test.mjs::marketplaceRootAnchorDrivesEvmDeploymentAndCalls"
+negative_tests = ["marketplaceAnchorRequiresEvmSender", "marketplaceAnchorReportsUnavailableNode"]
+proof = "Execute the real deploy-payload module in process against a loopback Ganache EVM node on chain 125; assert root request/response envelopes and real block state, then consume its nonces in EIP-1559 deployment/list/buy calldata transactions and assert EVM receipts, transaction inputs and storage."
+proof_limit = "The test proves standard EVM anchoring and transaction inputs; its storage/echo contract is not the native marketplace guest or the merged paxd implementation."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification prohibit the contradictory unchanged-tree verify step; no baseline test result is claimed."
+previous_attempt = "Attempt 2 verification failed before test registration while resolving the SDK; the declared gate now builds the SDK first, and named node:test subtests dynamically import its built dist and the production example so dependency and assertion failures retain their test context."
+evidence = "The bounded hf-build and hf-done ledger in /out/run/gates.jsonl records the exact candidate revision, command, exit and private log; the final response copies the last gate evidence."
+wiring_cli = "tools/platform/cli/src/main.rs and tools/platform/cli/src/programs.rs — platform-tools owner: reconcile the separate existing marketplace index lifecycle flags with the current EVM key-file CLI contract; no CLI source changes in this repair."
+wiring_node = "rpc/ — chain node owner: run the retained native marketplace deployment/call release qualification against merged paxd; this task has only the declared JavaScript gates and no paxd build target."
+preexisting_test_contract = "marketplace/test/deploy-payload.test.mjs still asserts retired emulator/kernel and lx_getSequence contracts (including selector identity); it was already inconsistent with the pending selector at the base and was neither changed nor run."
+
+[qualification.initial]
+revision = "c738bfedea7ce5f28bffbd999c3b6124fcc1e85e"
+command = "cg spec done 22.31.349 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Deployment/call proof passed; the negative tests disconnected Ganache before asynchronous initialization completed."
+repair = "Await and assert the real eth_chainId response before starting each loopback node, including nodes used only for refusal and unavailable-transport tests."

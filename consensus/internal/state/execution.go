@@ -266,17 +266,12 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
 	if blockExec.sequencer != nil && blockExec.sequencer.Sequenced(height) {
-		reaped, _ := blockExec.mempool.ReapTxs(mempool.ReapLimits{
+		if err := blockExec.admitProposalTransactions(ctx, height, mempool.ReapLimits{
 			MaxBytes:        utils.Some(maxDataBytes),
 			MaxGasWanted:    utils.Some(maxGasWanted),
 			MaxGasEstimated: utils.Some(maxGas),
-		}, true)
-		if len(reaped) > 0 {
-			admitted, err := blockExec.sequencer.Admit(ctx, height, reaped)
-			logger.Info("admitted consensus mempool transactions", "height", height, "reaped", len(reaped), "admitted", admitted)
-			if err != nil {
-				return nil, fmt.Errorf("admit height %d: %w", height, err)
-			}
+		}); err != nil {
+			return nil, fmt.Errorf("admit height %d: %w", height, err)
 		}
 		sealed, err := blockExec.sequencer.Seal(ctx, height)
 		if err != nil {

@@ -25,6 +25,8 @@ spec:
           env:
             - name: LAYERX_HUMAN_SERVICE_URL
               value: https://layerx-human.layerx-testnet.svc:9443
+            - name: LAYERX_GATEWAY_URL
+              value: https://layerx-gateway.layerx-testnet.svc.cluster.local/
             - name: LAYERX_EXPLORER_API_ORIGIN
               value: https://layerx-human.layerx-testnet.svc:9443
             - name: LAYERX_HUMAN_WEB_ORIGIN
@@ -222,6 +224,33 @@ spec:
     - podSelector:
         matchLabels:
           app: layerx-program-registry
+    ports:
+    - protocol: TCP
+      port: 9443
+  - to:
+    - podSelector:
+        matchLabels:
+          app: layerx-gateway
+    ports:
+    - protocol: TCP
+      port: 9443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: layerx-human-web-gateway
+  namespace: layerx-testnet
+spec:
+  podSelector:
+    matchLabels:
+      app: layerx-gateway
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: layerx-human-web
     ports:
     - protocol: TCP
       port: 9443
