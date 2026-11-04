@@ -135,7 +135,16 @@ and `secret_key`. `bucket` is required; configure a valid AWS region or a custom
 endpoint. Credentials can be supplied through the SDK credential resolution or
 explicit settings. The conversion and initialization are in
 [services/common.rs](src/services/common.rs). Do not keep both variants in the
-same fetcher configuration.
+same fetcher configuration. For example, replacing the zksolc list table with:
+
+```toml
+[zksync_solidity.zk_fetcher.s3]
+bucket = "compiler-inventory"
+region = "us-east-1"
+```
+
+The same S3 table shape applies to `evm_fetcher` and `era_evm_fetcher`; it changes
+the inventory source, not the cache directory or refresh schedule.
 
 ### Environment variables
 
@@ -253,6 +262,17 @@ default optimization behavior.
 Use `bytecode`, `bytecodeType`, `compilerVersion`, serialized `input` and optional
 `metadata`, as defined by `VerifyVyperStandardJsonRequest` in the
 [v2 contract](../smart-contract-verifier-proto/proto/v2/smart-contract-verifier.proto).
+For example, this outer request carries supported settings inside `input`:
+
+```json
+{
+  "bytecode": "0x00",
+  "bytecodeType": "DEPLOYED_BYTECODE",
+  "compilerVersion": "v0.3.7+commit.6020b8bb",
+  "input": "{\"language\":\"Vyper\",\"sources\":{\"A.vy\":{\"content\":\"@external\\n@view\\ndef value() -> uint256:\\n    return 1\\n\"}},\"settings\":{\"optimize\":false,\"evmVersion\":\"istanbul\",\"bytecodeMetadata\":true,\"search_paths\":[]}}"
+}
+```
+
 The current [Vyper settings model](../smart-contract-verifier/src/verify/vyper_compiler_input.rs)
 accepts `settings.optimize` as a boolean, for example `{"optimize": false}`, and
 also supports `evmVersion`, `bytecodeMetadata`, `outputSelection` and
@@ -271,6 +291,17 @@ one non-empty code value. Multipart uses `sources` (not `sourceFiles`), optional
 `evmVersion` and optional `optimizationRuns`. Standard JSON uses a serialized
 `input` string. See the [batch request contract](../smart-contract-verifier-proto/proto/v2/smart-contract-verifier.proto)
 and [complete Standard JSON request fixture](tests/test_cases_batch_solidity/basic_standard_json.json).
+A multipart request uses this shape:
+
+```json
+{
+  "contracts": [{"runtimeCode": "0x00"}],
+  "compilerVersion": "v0.8.18+commit.87f61d96",
+  "sources": {"A.sol": "pragma solidity ^0.8.18; contract A {}"},
+  "optimizationRuns": 200
+}
+```
+
 The response family is `BatchVerifyResponse`.
 
 ### Sourcify
@@ -307,23 +338,34 @@ This API takes `code` (deployed code), optional `constructorArguments`,
 The [Greeter fixture](tests/test_cases_zksync_solidity/simple_standard_json.json)
 contains full deployed code, constructor arguments and input for zksolc `v1.4.0`
 and solc `v0.8.17+commit.8df45f5f`. Its response family is the ZkSync
-`VerifyResponse`, described separately below.
+`VerifyResponse`, described separately below. For example:
+
+```json
+{
+  "code": "0x00",
+  "zkCompiler": "v1.4.0",
+  "solcCompiler": "v0.8.17+commit.8df45f5f",
+  "input": "{\"language\":\"Solidity\",\"sources\":{\"A.sol\":{\"content\":\"pragma solidity ^0.8.17; contract A {}\"}},\"settings\":{\"optimizer\":{\"enabled\":true,\"mode\":\"3\"},\"libraries\":{}}}"
+}
+```
 
 ## Outputs
 
 Select the response decoder by endpoint. Solo verification, Solidity batch
 verification and ZkSync verification have distinct envelopes. The success
-examples below are excerpts using values from the linked compiler fixtures;
-large source, bytecode and artifact fields are omitted.
+examples below are valid JSON excerpts using values from the linked compiler
+fixtures; large source, bytecode and artifact fields are omitted. The regression
+test compares these fields with production response conversion and decodes both
+protobuf and HTTP JSON, without executing a compiler.
 
-### Success
+### Solo success
 
 Solo Solidity, Vyper and Sourcify routes return `VerifyResponse`. A successful
 response has `message: "OK"`, `status: "SUCCESS"` and a `source`. For example,
 selected fields for the [manually linked library fixture](tests/test_cases_solidity/libraries_manually_linked.json)
 are:
 
-```json5
+```json
 {
   "message": "OK",
   "status": "SUCCESS",
@@ -336,9 +378,7 @@ are:
     "libraries": {
       "contracts/1_Storage.sol:Journal": "0x7d53f102f4d4aa014db4e10d6deec2009b3cda6b"
     }
-    // sourceFiles, compilerSettings, abi and artifact fields omitted
   }
-  // extraData and postActionResponses omitted
 }
 ```
 
@@ -358,7 +398,7 @@ locally compiled bytecode parts with `type` (`main` or `meta`) and hex `data`.
 Sourcify returns empty part arrays. For local verification the arrays may also
 be empty when there is no CBOR auxiliary-data partition to report.
 
-### Verification Failure
+### Solo verification failure
 
 A compilation failure, invalid Standard JSON content, or a bytecode mismatch
 can be an HTTP 200 / gRPC OK response with solo `status: "FAILURE"`:
@@ -381,7 +421,7 @@ has either `success` or `failure`; a mismatch is `{"failure": {}}`. An excerpt
 of a successful item from the [batch fixture](tests/test_cases_batch_solidity/basic_standard_json.json)
 is:
 
-```json5
+```json
 {
   "contractVerificationResults": {
     "items": [{
@@ -391,7 +431,6 @@ is:
         "language": "SOLIDITY",
         "fileName": "contracts/VerifierAlliance.sol",
         "contractName": "Storage"
-        // bytecode, sources, settings, artifacts and match details omitted
       }
     }]
   }
@@ -403,12 +442,19 @@ Batch success fields include `creationCode`, `runtimeCode`, `sources`,
 `runtimeCodeArtifacts`, and optional `creationMatchDetails` and
 `runtimeMatchDetails`. Settings and artifacts are serialized JSON strings.
 Match details have `matchType` plus JSON-string `values` and `transformations`.
-A compilation or Standard JSON content failure instead uses:
+A mismatching contract produces an item failure, for example:
 
-```json5
+```json
+{"contractVerificationResults":{"items":[{"failure":{}}]}}
+```
+
+A compilation or Standard JSON content failure instead uses (diagnostic text
+varies; this example shows the compilation-error prefix):
+
+```json
 {
   "compilationFailure": {
-    "message": "Compilation error: ..." // diagnostic text varies
+    "message": "Compilation error: [\n    \"Invalid standard json\",\n]"
   }
 }
 ```
@@ -422,7 +468,7 @@ The ZkSync envelope contains exactly one of `verificationSuccess`,
 `verificationFailure` or `compilationFailure`. Selected success fields for the
 [Greeter fixture](tests/test_cases_zksync_solidity/simple_standard_json.json) are:
 
-```json5
+```json
 {
   "verificationSuccess": {
     "fileName": "contracts/Greeter.sol",
@@ -430,7 +476,6 @@ The ZkSync envelope contains exactly one of `verificationSuccess`,
     "zkCompiler": {"compiler": "zksolc", "version": "v1.4.0"},
     "evmCompiler": {"compiler": "solc", "version": "v0.8.17+commit.8df45f5f"},
     "language": "SOLIDITY"
-    // sources, settings, artifacts and matches omitted
   }
 }
 ```
@@ -449,11 +494,17 @@ A mismatch returns:
 }
 ```
 
-Compilation or Standard JSON content failures use `compilationFailure.message`
-as in the batch example. These outcomes are HTTP 200 / gRPC OK and have no solo
+Compilation or Standard JSON content failures use `compilationFailure.message`,
+for example (diagnostic text varies):
+
+```json
+{"compilationFailure":{"message":"Compilation error: [\"Invalid standard json\"]"}}
+```
+
+These outcomes are HTTP 200 / gRPC OK and have no solo
 `status` field.
 
-### Bad Request
+### Transport errors
 
 Transport errors are distinct from the verification outcomes above. Malformed
 hex, an invalid bytecode type, an invalid compiler version or a compiler absent
@@ -512,3 +563,23 @@ former `contract_libraries` field. The local response conversion is in
 event decodings. [Env-collector](../../libs/env-collector/README.md) explains how
 to maintain environment tables from a serializable settings type and an example
 configuration; its output covers the example's shape, not every fetcher variant.
+
+## Repair 22.33.598 trace
+
+| Audit finding | Proving integration test in `tests/repair_22_33_598.rs` |
+| --- | --- |
+| `undocumented-enabled-zksync` | `undocumented_enabled_zksync`, `undocumented_enabled_zksync_startup_and_transport` |
+| `obsolete-request-examples` | `obsolete_request_examples` |
+| `response-family-docs` | `response_family_docs` |
+| `manual-library-response-docs` | `manual_library_response_docs` |
+
+Wiring request — domain 14: update `config/base.toml` and `config/base.env`
+with the ZkSync, all three list/S3 fetcher and tracing examples above; these two
+files are outside this task's permitted paths.
+
+Baseline: the base already contains substantial corrected prose, but has no
+`repair_22_33_598` test target. No unchanged-tree verification was run: this task's
+explicit gate order requires implementation before `hf-build` and `hf-done`.
+Qualification revision, command, exit and private log are recorded by those
+gates; this table maps the findings to their regression cases, not a claim that
+a gate has passed.
