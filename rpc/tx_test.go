@@ -16,25 +16,34 @@ import (
 
 	"math/big"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/mock"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/hd"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keyring"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	receiptstore "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
 	occutils "github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/cosmos/go-bip39"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/export"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
@@ -397,7 +406,7 @@ func TestCumulativeGasUsedPopulation(t *testing.T) {
 
 func TestGetTransactionReceiptFailedTxWithZeroGas(t *testing.T) {
 	// This tests the receipt population logic for ante handler failures
-	txHash := common.HexToHash("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	txHash := tx1.Hash()
 
 	// Create a failed receipt with 0 gas (ante handler failure case)
 	receipt := &types.Receipt{
@@ -425,9 +434,11 @@ func TestGetTransactionReceiptFailedTxWithZeroGas(t *testing.T) {
 	// The receipt should be returned even if tx not found in block
 	// This tests that the code path for Status==0 && GasUsed==0 is executed
 	result := resObj["result"]
-	if result != nil {
-		// If result exists, verify it has the expected structure
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["status"])
 	}
 }
@@ -610,7 +621,7 @@ func TestEncodeReceiptTransactionNotFound(t *testing.T) {
 func TestEncodeReceiptWithEthTxAndEmptyFrom(t *testing.T) {
 	// This test uses an existing transaction that should have a receipt
 	// The test verifies that receipts are properly encoded with from field
-	txHash := common.HexToHash("0xa16d8f7ea8741acd23f15fc19b0dd26512aff68c01c6260d7c3a51b297399d32")
+	txHash := tx1.Hash()
 
 	body := fmt.Sprintf(`{"jsonrpc": "2.0","method": "eth_getTransactionReceipt","params":["%s"],"id":"test"}`, txHash.Hex())
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s:%d", TestAddr, TestPort), strings.NewReader(body))
@@ -625,15 +636,18 @@ func TestEncodeReceiptWithEthTxAndEmptyFrom(t *testing.T) {
 
 	// Should successfully get receipt with from field populated
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["from"])
 	}
 }
 
 func TestEncodeReceiptContractAddress(t *testing.T) {
 	// Test coverage for lines 456-463: contract address handling
-	txHash := common.HexToHash("0xbbbb0000000000000000000000000000000000000000000000000000000000bb")
+	txHash := tx1.Hash()
 
 	// Create a receipt with contract address but no "to" field (contract creation)
 	receipt := &types.Receipt{
@@ -661,15 +675,18 @@ func TestEncodeReceiptContractAddress(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Should have contractAddress field set
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		require.NotNil(t, resultMap["contractAddress"])
 	}
 }
 
 func TestEncodeReceiptWithToAddress(t *testing.T) {
 	// Test coverage for lines 461-463: receipt.To != ""
-	txHash := common.HexToHash("0xcccc0000000000000000000000000000000000000000000000000000000000cc")
+	txHash := tx1.Hash()
 
 	// Create a receipt with "to" field set (regular transaction)
 	receipt := &types.Receipt{
@@ -697,8 +714,11 @@ func TestEncodeReceiptWithToAddress(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Should have "to" field set
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		require.NotNil(t, resultMap["to"])
 	}
 }
@@ -706,7 +726,7 @@ func TestEncodeReceiptWithToAddress(t *testing.T) {
 func TestGetTransactionReceiptContractCreationFailure(t *testing.T) {
 	// Test coverage for lines 131-135: contract creation with failed tx (etx.To() == nil)
 	// This tests the else branch where contract address is calculated
-	txHash := common.HexToHash("0xdddd1111000000000000000000000000000000000000000000000000000000dd")
+	txHash := tx1.Hash()
 
 	// Create a failed receipt with 0 gas for a contract creation (no "to" address)
 	receipt := &types.Receipt{
@@ -736,31 +756,17 @@ func TestGetTransactionReceiptContractCreationFailure(t *testing.T) {
 	// The receipt should be processed even if tx not found in block
 	// This exercises the contract creation code path
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["status"])
 	}
 }
 
 func TestGetTransactionByHashFromMempool(t *testing.T) {
-	// Test coverage for lines 210-233: finding transaction in mempool
-	// Uses the UnconfirmedTx that's set up in the mock client
-	txHash := common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234")
-
-	body := fmt.Sprintf(`{"jsonrpc": "2.0","method": "eth_getTransactionByHash","params":["%s"],"id":"test"}`, txHash.Hex())
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s:%d", TestAddr, TestPort), strings.NewReader(body))
-	require.Nil(t, err)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
-	require.Nil(t, err)
-	resBody, err := io.ReadAll(res.Body)
-	require.Nil(t, err)
-	resObj := map[string]interface{}{}
-	require.Nil(t, json.Unmarshal(resBody, &resObj))
-
-	// Should return transaction from mempool or nil if not found
-	// This exercises the mempool search code path
-	_ = resObj["result"]
+	repairM1297TransactionLookups(t)
 }
 
 func TestGetTransactionByBlockHashAndIndexSuccess(t *testing.T) {
@@ -778,15 +784,18 @@ func TestGetTransactionByBlockHashAndIndexSuccess(t *testing.T) {
 
 	// Should successfully get transaction by block hash and index
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["hash"])
 	}
 }
 
 func TestEncodeReceiptWithEthTxToField(t *testing.T) {
 	// Test coverage for lines 451-454: etx.To() != nil branch
-	txHash := common.HexToHash("0xeeee0000000000000000000000000000000000000000000000000000000000ee")
+	txHash := tx1.Hash()
 
 	// Create a receipt with empty From to trigger the etx != nil && receipt.From == "" path
 	receipt := &types.Receipt{
@@ -814,8 +823,11 @@ func TestEncodeReceiptWithEthTxToField(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Should have from and to fields populated
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		// Either from is populated from receipt or recovered from tx
 		require.NotNil(t, resultMap["status"])
 	}
@@ -823,7 +835,7 @@ func TestEncodeReceiptWithEthTxToField(t *testing.T) {
 
 func TestEncodeReceiptContractAddressNil(t *testing.T) {
 	// Test coverage for lines 458-460: else branch where contractAddress is set to nil
-	txHash := common.HexToHash("0xffff0000000000000000000000000000000000000000000000000000000000ff")
+	txHash := tx1.Hash()
 
 	// Create a receipt with both ContractAddress and To set (should result in contractAddress = nil)
 	receipt := &types.Receipt{
@@ -851,8 +863,11 @@ func TestEncodeReceiptContractAddressNil(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Should have contractAddress set to nil (not the contract address from receipt)
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		// contractAddress should be nil when To is set
 		require.NotNil(t, resultMap["to"])
 	}
@@ -911,7 +926,7 @@ func TestGetTransactionWithBlockNonEVMTransaction(t *testing.T) {
 func TestEncodeRPCTransactionBlockHeight1(t *testing.T) {
 	// Test coverage for lines 323-327: block.Block.Height > 1 vs else branch
 	// This tests the baseFeePerGas calculation for block height 1
-	txHash := common.HexToHash("0x2222333300000000000000000000000000000000000000000000000022223333")
+	txHash := tx1.Hash()
 
 	receipt := &types.Receipt{
 		TxHashHex:        txHash.Hex(),
@@ -937,8 +952,11 @@ func TestEncodeRPCTransactionBlockHeight1(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Should successfully encode receipt for block 1
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		require.NotNil(t, resultMap["status"])
 	}
 }
@@ -1240,7 +1258,7 @@ func TestReplaceFromWithEmptyAddress(t *testing.T) {
 	// Test coverage for lines 339-342: replaceFrom function
 	// This is tested indirectly through encodeRPCTransaction
 	// We test by creating a receipt that triggers the replaceFrom logic
-	txHash := common.HexToHash("0xaaaa1111000000000000000000000000000000000000000000000000aaaa1111")
+	txHash := tx1.Hash()
 
 	receipt := &types.Receipt{
 		TxHashHex:        txHash.Hex(),
@@ -1266,8 +1284,11 @@ func TestReplaceFromWithEmptyAddress(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Should have from field populated
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		require.NotNil(t, resultMap["from"])
 	}
 }
@@ -1306,7 +1327,7 @@ func TestGetEvmTxIndexWithWasmMsg(t *testing.T) {
 
 func TestEncodeReceiptWithLogs(t *testing.T) {
 	// Test coverage for lines 426-429: log processing
-	txHash := common.HexToHash("0x4444555500000000000000000000000000000000000000000000000044445555")
+	txHash := tx1.Hash()
 
 	receipt := &types.Receipt{
 		TxHashHex:        txHash.Hex(),
@@ -1334,8 +1355,11 @@ func TestEncodeReceiptWithLogs(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Should have logs field
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		require.NotNil(t, resultMap["logs"])
 	}
 }
@@ -1469,8 +1493,11 @@ func TestGetTransactionReceiptFailedTxWithToAddress(t *testing.T) {
 	resObj := sendRequestGood(t, "getTransactionReceipt", txHash.Hex())
 
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		// Verify the receipt was populated from the transaction in the block
 		require.NotNil(t, resultMap["from"])
 		require.NotNil(t, resultMap["to"])
@@ -1486,8 +1513,11 @@ func TestGetTransactionByHashMempoolTransaction(t *testing.T) {
 	resObj := sendRequestGood(t, "getTransactionByHash", txHash.Hex())
 
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		// Verify all expected transaction fields are present
 		require.NotNil(t, resultMap["hash"])
 		require.NotNil(t, resultMap["from"])
@@ -1520,8 +1550,11 @@ func TestEncodeReceiptWithEmptyFrom(t *testing.T) {
 	resObj := sendRequestGood(t, "getTransactionReceipt", txHash.Hex())
 
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		// Verify from was recovered from the transaction
 		require.NotNil(t, resultMap["from"])
 	}
@@ -1549,8 +1582,11 @@ func TestReplaceFromWithEmptyFromField(t *testing.T) {
 	resObj := sendRequestGood(t, "getTransactionByBlockNumberAndIndex", "0x8", "0x0")
 
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		// Verify from field is present (either from tx or receipt)
 		require.NotNil(t, resultMap["from"])
 	}
@@ -1560,8 +1596,11 @@ func TestGetTransactionByBlockNumberAndIndexSuccess(t *testing.T) {
 	// Test retrieving a transaction by block number and index
 	resObj := sendRequestGood(t, "getTransactionByBlockNumberAndIndex", "0x8", "0x0")
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["hash"])
 		require.NotNil(t, resultMap["blockHash"])
 		require.NotNil(t, resultMap["blockNumber"])
@@ -1574,7 +1613,7 @@ func TestGetTransactionByBlockNumberAndIndexSuccess(t *testing.T) {
 
 func TestGetTransactionByHashSuccess(t *testing.T) {
 	// Test retrieving a committed transaction by hash
-	txHash := common.HexToHash("0xef123456000000000000000000000000000000000000000000000000ef123456")
+	txHash := tx1.Hash()
 
 	receipt := &types.Receipt{
 		TxHashHex:        txHash.Hex(),
@@ -1591,8 +1630,11 @@ func TestGetTransactionByHashSuccess(t *testing.T) {
 
 	resObj := sendRequestGood(t, "getTransactionByHash", txHash.Hex())
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["hash"])
 		require.NotNil(t, resultMap["from"])
 	}
@@ -1613,15 +1655,19 @@ func TestGetTransactionByBlockHashAndIndexFullSuccess(t *testing.T) {
 
 	// Should successfully return transaction
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["hash"])
 	}
 }
 
 func TestEncodeReceiptFullPath(t *testing.T) {
+	repairM1297TransactionLookups(t)
 	// Test receipt encoding with logs and bloom filter
-	txHash := common.HexToHash("0xgh789012000000000000000000000000000000000000000000000000gh789012")
+	txHash := tx1.Hash()
 
 	receipt := &types.Receipt{
 		TxHashHex:         txHash.Hex(),
@@ -1647,8 +1693,11 @@ func TestEncodeReceiptFullPath(t *testing.T) {
 
 	resObj := sendRequestGood(t, "getTransactionReceipt", txHash.Hex())
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["blockHash"])
 		require.NotNil(t, resultMap["blockNumber"])
 		require.NotNil(t, resultMap["transactionHash"])
@@ -1683,8 +1732,11 @@ func TestGetEvmTxIndexSuccess(t *testing.T) {
 
 	// Should find the transaction via GetEvmTxIndex
 	result := resObj["result"]
-	if result != nil {
-		resultMap := result.(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, result)
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok, "result is %T", result)
 		require.NotNil(t, resultMap["hash"])
 		require.NotNil(t, resultMap["transactionIndex"])
 	}
@@ -1705,8 +1757,11 @@ func TestEncodeRPCTransactionSuccess(t *testing.T) {
 	require.Nil(t, json.Unmarshal(resBody, &resObj))
 
 	// Verify RPC transaction encoding
-	if resObj["result"] != nil {
-		resultMap := resObj["result"].(map[string]interface{})
+	{
+		require.Nil(t, resObj["error"])
+		require.NotNil(t, resObj["result"])
+		resultMap, ok := resObj["result"].(map[string]interface{})
+		require.True(t, ok, "result is %T", resObj["result"])
 		// These fields test encodeRPCTransaction
 		require.NotNil(t, resultMap["hash"])
 		require.NotNil(t, resultMap["blockHash"])
@@ -1722,3 +1777,237 @@ func TestEncodeRPCTransactionSuccess(t *testing.T) {
 		require.NotNil(t, resultMap["s"])
 	}
 }
+
+// repairM1297BlockTranscript serves the canonical block recorded from a real
+// executor, with the consensus envelope at index zero and EVM transaction at one.
+type repairM1297BlockTranscript struct {
+	*MockClient
+	block           *coretypes.ResultBlock
+	results         *coretypes.ResultBlockResults
+	unconfirmedHash common.Hash
+	unconfirmed     tmtypes.Tx
+}
+
+func (p *repairM1297BlockTranscript) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
+	if p.block != nil && (height == nil || *height == p.block.Block.Height) {
+		return p.block, nil
+	}
+	return p.MockClient.Block(ctx, height)
+}
+func (p *repairM1297BlockTranscript) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coretypes.ResultBlock, error) {
+	if p.block != nil && common.BytesToHash(hash) == common.BytesToHash(p.block.BlockID.Hash) {
+		return p.block, nil
+	}
+	return p.MockClient.BlockByHash(ctx, hash)
+}
+func (p *repairM1297BlockTranscript) BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
+	if p.block != nil && height != nil && *height == p.block.Block.Height {
+		return p.results, nil
+	}
+	return p.MockClient.BlockResults(ctx, height)
+}
+func (p *repairM1297BlockTranscript) EvmTxByHash(hash common.Hash) (tmtypes.Tx, bool) {
+	if hash == p.unconfirmedHash && len(p.unconfirmed) > 0 {
+		return p.unconfirmed, true
+	}
+	return nil, false
+}
+
+func repairM1297TransactionLookups(t *testing.T) {
+	t.Helper()
+	sender := occutils.NewSigner()
+	q := newSubscribeSequencer(t, sender)
+	raw, hash := subscribeRawTx(t, sender, 0, nil, big.NewInt(0), subscribeTwoLogsGas, subscribeTwoLogsInitCode)
+	accepted := q.send(t, raw, hash)
+	var signed ethtypes.Transaction
+	require.NoError(t, signed.UnmarshalBinary(raw))
+	require.Equal(t, hash, signed.Hash())
+	execution, err := sendSeqExecutionReceipt(accepted)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status, execution.VmError)
+	require.Len(t, execution.Logs, 2)
+	canonical := tmtypes.Tx(q.accepter.txBytes[0])
+	// Record the accepted transaction at the consensus mempool interface too;
+	// the RPC under test must decode its own signed submission through that path.
+	peer := &repairM1297BlockTranscript{MockClient: &MockClient{latestOverride: 1}, unconfirmedHash: hash, unconfirmed: canonical}
+	wm := evmrpc.NewWatermarkManager(peer, q.ctxProvider, nil, nil)
+	api := evmrpc.NewTransactionAPI(peer, &q.app.EvmKeeper, q.ctxProvider, q.txConfig, "", evmrpc.ConnectionTypeHTTP,
+		utils.None[time.Duration](), wm, evmrpc.NewBlockCache(10), &sync.Mutex{})
+	server := rpc.NewServer()
+	require.NoError(t, server.RegisterName("eth", api))
+	defer server.Stop()
+	httpServer := httptest.NewServer(server)
+	defer httpServer.Close()
+	consumer, err := rpc.DialHTTP(httpServer.URL)
+	require.NoError(t, err)
+	defer consumer.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var pending *export.RPCTransaction
+	require.NoError(t, consumer.CallContext(ctx, &pending, "eth_getTransactionByHash", hash))
+	require.NotNil(t, pending)
+	require.Equal(t, hash, pending.Hash)
+	require.Equal(t, sender.EvmAddress, pending.From)
+	require.EqualValues(t, signed.Gas(), pending.Gas)
+	require.EqualValues(t, signed.Type(), pending.Type)
+	require.Equal(t, signed.GasPrice(), pending.GasPrice.ToInt())
+	require.EqualValues(t, signed.Nonce(), pending.Nonce)
+	require.NotNil(t, pending.Value)
+	require.Zero(t, signed.Value().Cmp(pending.Value.ToInt()))
+	require.NotNil(t, pending.V)
+	require.Nil(t, pending.BlockHash)
+	require.Nil(t, pending.BlockNumber)
+	require.NotNil(t, pending.R)
+	require.NotNil(t, pending.S)
+	require.True(t, pending.R.ToInt().Sign() > 0)
+	require.True(t, pending.S.ToInt().Sign() > 0)
+
+	batch, err := q.exec.Seal(2)
+	require.NoError(t, err)
+	batch.Store.Write()
+	q.committed = 2
+	require.EqualValues(t, 2, q.app.CommitMultiStore().Commit(true).Version)
+	// Preserve the consensus transaction's slot without fabricating an EVM
+	// receipt: an encoded empty Cosmos envelope is filtered from eth_* output.
+	builder := q.app.GetTxConfig().NewTxBuilder()
+	envelope, err := q.app.GetTxConfig().TxEncoder()(builder.GetTx())
+	require.NoError(t, err)
+	blockHash := crypto.Keccak256Hash(canonical)
+	peer.block = &coretypes.ResultBlock{BlockID: tmtypes.BlockID{Hash: blockHash.Bytes()}, Block: &tmtypes.Block{
+		Header: mockBlockHeader(2), Data: tmtypes.Data{Txs: []tmtypes.Tx{envelope, canonical}}, LastCommit: &tmtypes.Commit{Height: 1},
+	}}
+	peer.results = &coretypes.ResultBlockResults{Height: 2, TxsResults: []*abci.ExecTxResult{{}, accepted.Result}}
+	peer.unconfirmed = nil
+	peer.MockClient.latestOverride = 2
+	store := q.app.EvmKeeper.ReceiptStore()
+	require.NotNil(t, store)
+	require.NoError(t, store.SetReceipts(batch.Ctx, []receiptstore.ReceiptRecord{{TxHash: hash, Receipt: execution}}))
+	require.NoError(t, store.SetEarliestVersion(1))
+	require.NoError(t, store.SetLatestVersion(2))
+	require.Eventually(t, func() bool { _, err := q.app.EvmKeeper.GetReceipt(q.ctxProvider(2), hash); return err == nil }, 5*time.Second, time.Millisecond)
+	for _, lookup := range []struct {
+		method string
+		args   []any
+	}{
+		{"eth_getTransactionByHash", []any{hash}},
+		{"eth_getTransactionByBlockNumberAndIndex", []any{"0x2", "0x0"}},
+		{"eth_getTransactionByBlockHashAndIndex", []any{blockHash, "0x0"}},
+	} {
+		var result *export.RPCTransaction
+		require.NoError(t, consumer.CallContext(ctx, &result, lookup.method, lookup.args...))
+		require.NotNil(t, result, lookup.method)
+		require.Equal(t, hash, result.Hash)
+		require.Equal(t, sender.EvmAddress, result.From)
+		require.NotNil(t, result.BlockHash)
+		require.Equal(t, blockHash, *result.BlockHash)
+		require.NotNil(t, result.BlockNumber)
+		require.Equal(t, big.NewInt(2), result.BlockNumber.ToInt())
+		require.NotNil(t, result.TransactionIndex)
+		require.Zero(t, *result.TransactionIndex)
+	}
+	var receipt *ethtypes.Receipt
+	require.NoError(t, consumer.CallContext(ctx, &receipt, "eth_getTransactionReceipt", hash))
+	require.NotNil(t, receipt)
+	require.Equal(t, hash, receipt.TxHash)
+	require.EqualValues(t, signed.Type(), receipt.Type)
+	require.Equal(t, blockHash, receipt.BlockHash)
+	require.Equal(t, big.NewInt(2), receipt.BlockNumber)
+	require.EqualValues(t, 1, receipt.Status)
+	require.Equal(t, execution.GasUsed, receipt.GasUsed)
+	require.Equal(t, execution.CumulativeGasUsed, receipt.CumulativeGasUsed)
+	require.Equal(t, new(big.Int).SetUint64(execution.EffectiveGasPrice), receipt.EffectiveGasPrice)
+	require.Equal(t, crypto.CreateAddress(sender.EvmAddress, 0), receipt.ContractAddress)
+	require.Len(t, receipt.Logs, 2)
+	require.NotEqual(t, ethtypes.Bloom{}, receipt.Bloom)
+	require.Zero(t, receipt.TransactionIndex)
+	for i, log := range receipt.Logs {
+		require.Equal(t, hash, log.TxHash)
+		require.Equal(t, blockHash, log.BlockHash)
+		require.Equal(t, receipt.ContractAddress, log.Address)
+		require.Equal(t, []common.Hash{common.BigToHash(big.NewInt(int64(i + 1)))}, log.Topics)
+	}
+	var unknown *export.RPCTransaction
+	require.NoError(t, consumer.CallContext(ctx, &unknown, "eth_getTransactionByHash", common.HexToHash("0x1297")))
+	require.Nil(t, unknown)
+}
+
+func repairM1297TransactionLookupsProof(t *testing.T) {
+	repairM1297TransactionLookups(t)
+}
+
+// The trace policy consumes consensus block transcripts; tracing itself reads
+// genuine persisted TraceDB rows through the enabled legacy HTTP methods.
+type repairM1297TraceTranscript struct{ *MockClient }
+
+func (p *repairM1297TraceTranscript) Block(_ context.Context, height *int64) (*coretypes.ResultBlock, error) {
+	h := int64(100)
+	if height != nil {
+		h = *height
+	}
+	return &coretypes.ResultBlock{BlockID: tmtypes.BlockID{Hash: common.BigToHash(big.NewInt(h)).Bytes()}, Block: &tmtypes.Block{
+		Header: mockBlockHeader(h), Data: tmtypes.Data{Txs: []tmtypes.Tx{}}, LastCommit: &tmtypes.Commit{Height: h - 1},
+	}}, nil
+}
+func (p *repairM1297TraceTranscript) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coretypes.ResultBlock, error) {
+	h := new(big.Int).SetBytes(hash).Int64()
+	return p.Block(ctx, &h)
+}
+func (p *repairM1297TraceTranscript) BlockResults(_ context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
+	return &coretypes.ResultBlockResults{Height: *height, TxsResults: []*abci.ExecTxResult{}}, nil
+}
+
+func repairM1297LegacyTraceLookback(t *testing.T) {
+	a := app.Setup(t, false, false, false)
+	primeReceiptStore(t, a.EvmKeeper.ReceiptStore(), 100)
+	cache, err := evmkeeper.NewTraceDB(t.TempDir())
+	require.NoError(t, err)
+	defer cache.Close()
+	a.EvmKeeper.SetTraceDB(cache)
+	require.NoError(t, cache.PutBlock(100, "callTracer", json.RawMessage(`[]`)))
+	require.NoError(t, cache.PutBlock(1, "callTracer", json.RawMessage(`[]`)))
+	base := a.GetContextForDeliverTx(nil).WithBlockHeight(100)
+	base = base.WithConsensusParams(a.GetConsensusParams(base))
+	provider := func(height int64) sdk.Context {
+		if height < 0 {
+			height = 100
+		}
+		ctx, _ := base.CacheContext()
+		return ctx.WithBlockHeight(height)
+	}
+	cfg := evmrpcconfig.DefaultConfig
+	cfg.HTTPAddress = TestAddr
+	cfg.HTTPPort = seqReceiptFreePort9005(t)
+	cfg.MaxTraceLookbackBlocks = 10
+	cfg.EnabledLegacyPaxApis = []string{"pax_traceBlockByNumberExcludeTraceFail", "pax_traceBlockByHashExcludeTraceFail"}
+	peer := &repairM1297TraceTranscript{MockClient: &MockClient{latestOverride: 100}}
+	server, err := evmrpc.NewEVMHTTPServer(cfg, peer, &a.EvmKeeper, a.BeginBlockKeepers, a.BaseApp, a.TracerAnteHandler, provider,
+		func(int64) client.TxConfig { return a.GetTxConfig() }, "", nil)
+	require.NoError(t, err)
+	require.NoError(t, server.Start())
+	defer server.Stop()
+	for _, tag := range []string{"latest", "safe", "finalized", "0x64"} {
+		answer, rpcErr := callSeqReceipt9005(t, cfg.HTTPPort, "pax_traceBlockByNumberExcludeTraceFail", tag, map[string]any{"tracer": "callTracer"})
+		require.Nil(t, rpcErr, "tag %s", tag)
+		require.JSONEq(t, `[]`, string(answer))
+	}
+	answer, rpcErr := callSeqReceipt9005(t, cfg.HTTPPort, "pax_traceBlockByHashExcludeTraceFail", common.BigToHash(big.NewInt(100)), map[string]any{"tracer": "callTracer"})
+	require.Nil(t, rpcErr)
+	require.JSONEq(t, `[]`, string(answer))
+	for _, lookup := range []struct {
+		method   string
+		selector any
+	}{
+		{"pax_traceBlockByNumberExcludeTraceFail", "0x1"},
+		{"pax_traceBlockByHashExcludeTraceFail", common.BigToHash(big.NewInt(1))},
+	} {
+		_, rpcErr := callSeqReceipt9005(t, cfg.HTTPPort, lookup.method, lookup.selector, map[string]any{"tracer": "callTracer"})
+		require.NotNil(t, rpcErr)
+		require.Contains(t, rpcErr.Message, "block number 1 is beyond max lookback of 10")
+	}
+}
+
+func init() {
+	evmrpc.RepairM1297Proofs["transaction-tests-vacuous"] = repairM1297TransactionLookupsProof
+}
+
+func init() { evmrpc.RepairM1297Proofs["legacy-trace-lookback"] = repairM1297LegacyTraceLookback }

@@ -29955,3 +29955,259 @@ symbol = "ai_market.ts"
 observed = "Attempt 36: 50 of 52 cases passed; two plan-leg cases outside the paths encoded the retired nested call shape."
 assumption = "A verify target outside the paths encoding a retired shape; the task owns the decoder it exercises."
 severity = "low"
+
+[finding.22.31.497.1]
+task = "22.31.497"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 1: build passed, dependents passed, 4 of 6 cases passed; the loopback node fixture refused px_getValidators, the actor reported Unavailable, the fixture Drop panicked and the binary aborted before the report; the second target never ran."
+assumption = "The fixture lags the production node calls the authority module now makes; the module itself is the reference."
+severity = "high"
+
+[finding.22.31.488.2]
+task = "22.31.488"
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+symbol = "sandbox.rs"
+observed = "Attempt 2: the attempt-1 changes stood and the requalify built the daemon tests; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.487.2]
+task = "22.31.487"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+symbol = "agent_envelope.rs"
+observed = "Attempt 2: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.496.1]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 1: the lifecycle keeper, the daemon test and the crypto call change built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.494.1]
+task = "22.31.494"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs"
+symbol = "repair_22_31_494.rs"
+observed = "Attempt 1: the Rust SDK change built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.14.3]
+task = "22.33.14"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs"
+symbol = "repair_22_33_14.rs"
+observed = "Attempt 3: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.223.5]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 6: the AI-market routing changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1535.3]
+task = "22.33.1535"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"
+symbol = "repair_22_33_1535.rs"
+observed = "Attempt 3: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1533.2]
+task = "22.33.1533"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1533.rs"
+symbol = "repair_22_33_1533.rs"
+observed = "Attempt 2: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1571.3]
+task = "22.33.1571"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1571.rs"
+symbol = "repair_22_33_1571.rs"
+observed = "Attempt 3: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.9.98.4.6]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 4: the fixture changes and the conflict resolution are complete; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.495.1]
+task = "22.31.495"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"
+symbol = "repair_22_31_495.rs"
+observed = "Attempt 1: the service change compiled; the daemon test build failed on three initialisers of DecisionRequest in an included test module that the task's own field addition broke."
+assumption = "The task changed an interface its own included test module consumes; the module was outside the paths."
+severity = "high"
+
+[finding.22.33.889.1]
+task = "22.33.889"
+file = "tools/release/tests/test_repair_22_33_889.py"
+symbol = "test_repair_22_33_889.py"
+observed = "Attempt 1: 8 of 9 cases passed; the merged-scenario check failed on wiring that belongs to 22.33.893."
+assumption = "Producer task not yet on main; consumer test correct."
+severity = "low"
+
+[finding.22.33.1513.2]
+task = "22.33.1513"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs"
+symbol = "repair_22_33_1513.rs"
+observed = "Attempt 2: the result was refused because two changed files lay outside the paths; the daemon test build is broken on main."
+assumption = "Scope declaration and a pre-existing consumer break, not a defect of the change."
+severity = "low"
+
+[finding.22.33.1537.3]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 3: the daemon test build failed on an undefined support helper the outbox recovery test calls, besides the two targets broken on main."
+assumption = "A helper named but never written; the paths already cover it."
+severity = "high"
+
+[finding.22.33.750.2]
+task = "22.33.750"
+file = "rpc/repair_m750_test.go"
+symbol = "repair_m750_test.go"
+observed = "Attempt 2: one case failed; the CBOR trailer of the recorded bytecode names a metadata hash that matches neither encoding of the recorded metadata string."
+assumption = "Two recordings from two compiler runs; the assertion is correct."
+severity = "high"
+
+[finding.22.33.7.3]
+task = "22.33.7"
+file = "tests/repair_22_33_7.kvx"
+symbol = "repair_22_33_7.kvx"
+observed = "Attempt 3: the C proofs passed; the aggregate python suite failed on cases of other tasks (gotcha 3043)."
+assumption = "Gate scope, not a defect of the change."
+severity = "low"
+
+[finding.22.33.1336.4]
+task = "22.33.1336"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+symbol = "repair_22_33_1336.rs"
+observed = "Attempt 6: 150 of 156 cases passed before the binary aborted in a destructor; the report was lost."
+assumption = "A destructor that asserts, a read that never completes, and six cases behind them."
+severity = "high"
+
+[finding.22.33.1439.1]
+task = "22.33.1439"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+symbol = "repair_22_33_1439.rs"
+observed = "Attempt 1: 27 of 35 cases passed; four refused on a single RPC URL, four on a source-observation row that was never written."
+assumption = "Fixture gaps against the production preconditions; no gateway defect shown."
+severity = "high"
+
+[finding.22.31.492.1]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 1: 12 of 13 cases passed; one pre-existing buyer fixture still carries the old receipt digest."
+assumption = "A consumer fixture of the redefined digest (decision 2538), outside the original paths."
+severity = "high"
+
+[finding.22.33.1034.2]
+task = "22.33.1034"
+file = "tests/codec/lxp_test_binding_authority_receive.c"
+symbol = "lxp_test_binding_authority_receive.c"
+observed = "Attempt 2: one case failed; a hand-encoded refusal receipt did not verify."
+assumption = "Fixture encoding, with a possible producer drift to record if it persists."
+severity = "high"
+
+[finding.22.33.1236.2]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 2: two targets failed at fixture initialisation; the runtime binding was refused."
+assumption = "Fixture binding against the current kernel contract."
+severity = "high"
+
+[finding.22.33.196.4]
+task = "22.33.196"
+file = "apps/perps/tests/repair-22-33-196.test.ts"
+symbol = "repair-22-33-196.test.ts"
+observed = "Attempt 4: refused on a stale scope record; 7 cases failed on the chart price results."
+assumption = "Scope record lag plus seven failing assertions inside the paths."
+severity = "high"
+
+[finding.22.33.270.3]
+task = "22.33.270"
+file = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+symbol = "repair-22-33-270.spec.ts"
+observed = "Attempt 3: an install root entered the change set; the placeholder pseudo-class and the radio validator cases failed."
+assumption = "Change-set hygiene and two fixture cases."
+severity = "low"
+
+[finding.22.33.360.3]
+task = "22.33.360"
+file = "tools/qualification/audit_repairs/test_repair_22_33_360.py"
+symbol = "test_repair_22_33_360.py"
+observed = "Attempt 3: 6 of 6 passed; two changed files lay outside the paths then declared."
+assumption = "Scope declaration only."
+severity = "low"
+
+[finding.22.33.516.1]
+task = "22.33.516"
+file = "apps/explorer/repair-22-33-516.spec.ts"
+symbol = "repair-22-33-516.spec.ts"
+observed = "Attempt 1: the accessor change lay outside the paths; the proof did not run."
+assumption = "Scope of the repair wider than declared."
+severity = "high"
+
+[finding.22.33.194.5]
+task = "22.33.194"
+file = "apps/perps/tests/repair-22-33-194.test.ts"
+symbol = "repair-22-33-194.test.ts"
+observed = "Attempt 7: 8 of 8 cases passed; the final revision was not verified."
+assumption = "Unverified final revision only."
+severity = "low"
+
+[finding.22.33.593.3]
+task = "22.33.593"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+symbol = "repair_22_33_593.rs"
+observed = "Attempt 3: 3 of 3 tests passed; the graph check failed on a mis-declared record path."
+assumption = "Path declaration only."
+severity = "low"
+
+[finding.22.31.447.6]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 5: no gate ran; the qualification environment stopped on a deleted manifest."
+assumption = "Environmental; fixed in the qualification environment."
+severity = "low"
+
+[finding.17.5.2.9]
+task = "17.5.2"
+file = "spec/layerx-merge/programme/tests/test_wave_1_gate.py::test_wave_1_gate_passes"
+symbol = "test_wave_1_gate.py::test_wave_1_gate_passes"
+observed = "Attempt 11: the build stopped on a crate since deleted from main."
+assumption = "Pre-existing break removed on main."
+severity = "low"
+
+[finding.17.5.3.5]
+task = "17.5.3"
+file = "spec/layerx-merge/programme/tests/test_wave_2_gate.py::test_wave_2_gate_passes"
+symbol = "test_wave_2_gate.py::test_wave_2_gate_passes"
+observed = "Attempt 9: the build stopped on a crate since deleted from main."
+assumption = "Pre-existing break removed on main."
+severity = "low"
+
+[finding.17.5.4.4]
+task = "17.5.4"
+file = "spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes"
+symbol = "test_wave_3_gate.py::test_wave_3_gate_passes"
+observed = "Attempt 9: the build stopped on a crate since deleted from main."
+assumption = "Pre-existing break removed on main."
+severity = "low"
