@@ -1,4 +1,4 @@
-//! Structured, byte-bound descriptions of canonical activities.
+//! Byte-bound EIP-1559 call disclosure and deprecated activity compatibility.
 
 pub mod call;
 
@@ -1117,7 +1117,7 @@ impl Disclosure {
         self.validated_digest().map(|_| ())
     }
 
-    /// Checks the canonical activity bytes consumed by preparation and approval.
+    /// Checks canonical transaction or deprecated activity bytes against the disclosure.
     ///
     /// # Errors
     /// Refuses changed semantics, another source kind, or different canonical bytes.
@@ -1128,7 +1128,7 @@ impl Disclosure {
         Ok(())
     }
 
-    /// Re-encodes the activity represented by this disclosure.
+    /// Re-encodes the transaction or deprecated activity represented by this disclosure.
     ///
     /// # Errors
     ///
@@ -1137,7 +1137,7 @@ impl Disclosure {
         self.validate_fields()?;
         match &self.source {
             Source::Activity(activity) => encode_unsigned(activity).map_err(DisclosureError::from),
-            Source::Call(_) => Err(DisclosureError::FieldMismatch("source")),
+            Source::Call(call) => Ok(call.encode_unsigned()),
         }
     }
 
@@ -1354,6 +1354,9 @@ impl Disclosure {
 /// # Errors
 ///
 /// Returns a typed wire, payload, commitment, or unsupported-activity refusal.
+#[deprecated(
+    note = "Use disclosure::call::bind_call with a canonical EIP-1559 call and explicit sender"
+)]
 pub fn bind(canonical: &[u8], registry: &ModuleRegistry) -> Result<Disclosure, DisclosureError> {
     bind_with(canonical, registry, None)
 }
@@ -1366,6 +1369,9 @@ pub fn bind(canonical: &[u8], registry: &ModuleRegistry) -> Result<Disclosure, D
 /// Returns a typed wire, payload or commitment refusal, `UnsupportedActivity`
 /// for any other activity type, and `MalformedPayload` when the context does not
 /// match what the canonical bytes and actor derive.
+#[deprecated(
+    note = "Use disclosure::call::bind_call with a canonical EIP-1559 call and explicit sender"
+)]
 pub fn bind_budget_mutation(
     canonical: &[u8],
     registry: &ModuleRegistry,
