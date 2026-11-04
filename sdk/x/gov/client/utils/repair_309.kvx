@@ -1,0 +1,6 @@
+[repair.22.31.309]
+finding = "historical-deposit-owner"
+proof = "TestRepair_309_HistoricalDepositOwner"
+path = "Governance RunMsgs and keeper -> indexed ABCI events and encoded transactions -> local consensus RPC -> QueryDepositByTxQuery -> codec-decoded deposit; both owners retain their aggregate amounts after EndBlocker removes live deposits."
+baseline = "Not run: the explicit bounded gate order requires implementation before hf-build and hf-done, overriding the embedded unchanged-tree verification step."
+wiring_requests = []

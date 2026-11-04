@@ -48,6 +48,11 @@ func (q Keeper) UpgradedClientState(c context.Context, req *clienttypes.QueryUpg
 	return q.ClientKeeper.UpgradedClientState(c, req)
 }
 
+// UpgradedConsensusState implements the IBC QueryServer interface
+func (q Keeper) UpgradedConsensusState(c context.Context, req *clienttypes.QueryUpgradedConsensusStateRequest) (*clienttypes.QueryUpgradedConsensusStateResponse, error) {
+	return q.ClientKeeper.UpgradedConsensusState(c, req)
+}
+
 // Connection implements the IBC QueryServer interface
 func (q Keeper) Connection(c context.Context, req *connectiontypes.QueryConnectionRequest) (*connectiontypes.QueryConnectionResponse, error) {
 	return q.ConnectionKeeper.Connection(c, req)

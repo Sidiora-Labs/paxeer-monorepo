@@ -1,0 +1,38 @@
+[repair.22.31.325]
+audit = "22.30.180"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+qualification = "The hf-build and hf-done private ledger records identify the exact verified candidate revision, command, exit and log; no gate is claimed before those commands finish."
+baseline = "No baseline test run: the explicit implementation-first order and bounded hf-build/hf-done gates prohibit the audit step's additional unchanged-tree verify; no baseline test failures are claimed."
+
+[finding.unsafe-default-auth]
+tests = ["TestRepair_325_UnsafeDefaultAuth"]
+repair = "Default to trusted-header and literal loopback; require SEI_SIDECAR_ISOLATED_DEVELOPMENT=true for explicit unauthenticated mode; refuse wildcard trusted-header listeners and all unauthenticated task writes; serve refuses its signing/destructive registry before opening the keyring or recovering tasks."
+
+[finding.task-param-number-precision]
+tests = ["TestRepair_325_TaskParamNumberPrecision", "TestRepair_325_GenesisOverridePrecision", "TestRepair_325_TaskStoreEnvelope", "TestRepair_325_RejectInvalidTaskJSON"]
+repair = "Preserve top-level parameter values as json.RawMessage through HTTP and the production typed decoder; wire TaskStore's exact-JSON string envelope over real SQLite before engine construction, including every recovery/read method and the existing transaction checkpointer."
+proof = "Typed client producer -> real HTTP handler -> real engine typed decoder using GovVoteRequest -> real SDK keyring signing and transaction decoding; stop engine, close SQLite, reopen and rehydrate; assert proposal ID and signed gas at 2^53 boundaries and MaxUint64, and exact nested raw genesis override values before/after restart."
+legacy = "New accepted requests retain exact JSON; legacy rows containing float64 numbers fail closed because the underlying SQLite scanner already discarded their lexical precision."
+
+[wiring.1]
+request = "Domain 16 (cfg-paxctl): tools/paxctl/task/submit.go must retain raw JSON or use json.Decoder.UseNumber when parsing --params before the client serializes it."
+
+[wiring.2]
+request = "Domain 16 (cfg-paxctl): tools/paxctl/internal/cliutil/parse.go must preserve genesis override numeric JSON through the Kubernetes unstructured producer path without float64 conversion."
+
+[wiring.3]
+request = "Domain 16 (cfg-paxctl engine): tools/paxctl/sidecar/engine/sqlite_store.go must decode original legacy params JSON losslessly and migrate legacy numeric rows to the versioned exact-JSON envelope before allowing their recovery; retain TaskStore envelope compatibility for rows written by this repair."
+
+[gotcha.gate-order]
+observed = "The audit's unchanged-tree baseline request conflicts with the explicit implementation-first bounded gate order; the bounded task order takes precedence."
+
+[gotcha.scope]
+observed = "The numeric-loss proposal includes three paths outside this task's scope; producer and legacy migration changes are wiring requests, not local edits."
+
+[qualification.environment]
+revision = "76244e0ed001a046fe02fd0f33d73fbbf487332c"
+command = "cd tools/paxctl && go build ./sidecar/server/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The sandbox forces GOTOOLCHAIN=go1.25.8 while tools/paxctl/go.mod requires Go 1.26.0; compilation did not start."
+assumption = "Select GOTOOLCHAIN=go1.26.0 for the remaining bounded gates; no module or source requirement is weakened."

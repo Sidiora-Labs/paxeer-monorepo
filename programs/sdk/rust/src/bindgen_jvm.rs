@@ -270,7 +270,7 @@ BigInteger number(int n,boolean signed){byte[] value=take(n);return signed?new B
 void done(){if(at!=bytes.length)throw refusal("TRAILING_BYTES");}
 }
 private static byte[] callBytes(byte[] discriminator,int convention,byte[] payload){
-if(payload.length>MAX_BYTES-1)throw refusal("INVALID_VALUE");
+if(payload.length>MAX_BYTES-5)throw refusal("INVALID_VALUE");
 byte[] result=new byte[5+payload.length];System.arraycopy(discriminator,0,result,0,4);result[4]=(byte)convention;System.arraycopy(payload,0,result,5,payload.length);return result;
 }
 "#;
@@ -330,7 +330,7 @@ fun number(n: Int,signed: Boolean): BigInteger {val value=take(n);return if(sign
 fun done(){if(at!=bytes.size)throw refusal("TRAILING_BYTES")}
 }
 private fun callBytes(discriminator: ByteArray,convention: Int,payload: ByteArray): ByteArray {
-if(payload.size>MAX_BYTES-1)throw refusal("INVALID_VALUE")
+if(payload.size>MAX_BYTES-5)throw refusal("INVALID_VALUE")
 val result=ByteArray(5+payload.size);discriminator.copyInto(result,0);result[4]=convention.toByte();payload.copyInto(result,5);return result
 }
 "#;

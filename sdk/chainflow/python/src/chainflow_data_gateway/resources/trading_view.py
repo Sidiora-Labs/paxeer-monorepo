@@ -98,7 +98,11 @@ class TradingViewResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/config", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=UdfConfig,
         )
@@ -159,7 +163,11 @@ class TradingViewResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/time", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=str,
         )
@@ -222,6 +230,7 @@ class TradingViewResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/symbols", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -294,6 +303,7 @@ class TradingViewResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/search", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -375,6 +385,7 @@ class TradingViewResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/history", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -444,6 +455,7 @@ class TradingViewResource(SyncAPIResource):
         return self._get(
             path_template("/api/{market}/quotes", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -520,7 +532,11 @@ class AsyncTradingViewResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/config", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=UdfConfig,
         )
@@ -581,7 +597,11 @@ class AsyncTradingViewResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/time", **{"market": market}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=str,
         )
@@ -644,6 +664,7 @@ class AsyncTradingViewResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/symbols", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -716,6 +737,7 @@ class AsyncTradingViewResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/search", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -797,6 +819,7 @@ class AsyncTradingViewResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/history", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -866,6 +889,7 @@ class AsyncTradingViewResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/{market}/quotes", **{"market": market}),
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,

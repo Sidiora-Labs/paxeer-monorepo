@@ -19,6 +19,19 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct GetMarketChart200Response {
-    pub available_supply: String,
+    pub available_supply: AvailableSupply,
     pub chart_data: Vec<models::MarketChartItem>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AvailableSupply {
+    String(String),
+    Integer(i64),
+}
+
+impl Default for AvailableSupply {
+    fn default() -> Self {
+        Self::Integer(0)
+    }
 }

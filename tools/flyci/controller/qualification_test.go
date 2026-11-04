@@ -21,6 +21,14 @@ var qTestOnce sync.Once
 var qTestRSA *rsa.PrivateKey
 var qTestSign ed25519.PrivateKey
 
+func qTestCanonical(t *testing.T, v any) []byte {
+	t.Helper()
+	b, e := qCanonical(v)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return b
+}
 func qTestKeys(t *testing.T) (*rsa.PrivateKey, ed25519.PrivateKey) {
 	t.Helper()
 	qTestOnce.Do(func() {
@@ -45,7 +53,7 @@ func qTestRequest(t *testing.T) qualificationRequest {
 	}
 	hash := strings.Repeat("a", 64)
 	m := qualificationManifest{Schema: qualificationSchema, CandidateSHA256: hash, Revision: strings.Repeat("b", 40), Tree: strings.Repeat("c", 40), EnvironmentSHA256: hash, InputsSHA256: hash, ImagesSHA256: hash, WorkflowSHA256: hash, ContractSHA256: hash, RequiredAcceptance: []string{"14.1"}, Cells: []qualificationCell{{ID: "duration", Selector: "0.6", GateIdentity: hash, Acceptance: []string{"14.1"}, Matrix: map[string]string{"language": "go"}, Command: []string{"tools/paxeer-x/gates/0.6.sh"}, MinimumSeconds: 60, TimeoutSeconds: 120, Thresholds: map[string]qualificationThreshold{"accepted": {Operator: "min", Value: 1, Unit: "count"}}, ArtifactKinds: []string{"result"}, Runner: "fly-linux"}}}
-	return qualificationRequest{Manifest: m, LogicalID: qHash(append([]byte("paxeer-x.logical.v1\x00"), qCanonical(m)...)), Ref: "refs/tags/qualification-test", Recipient: base64.StdEncoding.EncodeToString(pub)}
+	return qualificationRequest{Manifest: m, LogicalID: qHash(append([]byte("paxeer-x.logical.v1\x00"), qTestCanonical(t, m)...)), Ref: "refs/tags/qualification-test", Recipient: base64.StdEncoding.EncodeToString(pub)}
 }
 func qTestRegistry(t *testing.T) (*qualificationRegistry, qualificationRequest) {
 	t.Helper()
@@ -64,11 +72,13 @@ func qTestComplete(t *testing.T) qualificationCompleted {
 	req := qTestRequest(t)
 	now := time.Now().UTC().Add(-time.Second)
 	b := []byte("actual local artifact bytes; no provider execution claim")
-	result := qualificationResult{CellID: "duration", LogicalID: req.LogicalID, CandidateSHA256: req.Manifest.CandidateSHA256, ManifestSHA256: qHash(qCanonical(req.Manifest)), Revision: req.Manifest.Revision, Tree: req.Manifest.Tree, EndRevision: req.Manifest.Revision, EndTree: req.Manifest.Tree, RunID: 1, Attempt: 1, Tests: 1, StartedAt: now.Add(-61 * time.Second), CompletedAt: now, UninterruptedNanoseconds: int64(61 * time.Second), Measurements: map[string]int64{"accepted": 1}, Artifacts: []qualificationArtifact{{"result", qHash(b), b}}}
+	result := qualificationResult{CellID: "duration", LogicalID: req.LogicalID, CandidateSHA256: req.Manifest.CandidateSHA256, ManifestSHA256: qHash(qTestCanonical(t, req.Manifest)), Revision: req.Manifest.Revision, Tree: req.Manifest.Tree, EndRevision: req.Manifest.Revision, EndTree: req.Manifest.Tree, RunID: 1, Attempt: 1, Tests: 1, StartedAt: now.Add(-61 * time.Second), CompletedAt: now, UninterruptedNanoseconds: int64(61 * time.Second), Measurements: map[string]int64{"accepted": 1}, Artifacts: []qualificationArtifact{{"result", qHash(b), b}}}
 	job := qualificationJobProof{ID: 2, RunID: 1, Name: "qualification-duration", Status: "completed", Conclusion: "success", RunnerID: 3, RunnerName: "local-harness", StartedAt: now.Add(-62 * time.Second), CompletedAt: now.Add(time.Second)}
 	out := qualificationCompleted{Schema: "paxeer-x.completed-qualification.v1", Request: req, RunID: 1, Attempt: 1, Repository: "local/harness", Workflow: ".github/workflows/paxeer-x-qualification.yml", Status: "completed", Conclusion: "success", ObservedAt: now, Domain: "local-harness", Results: []qualificationResult{result}, Jobs: []qualificationJobProof{job}, ArchiveDigests: map[string]string{"duration": qHash(b)}}
 	_, key := qTestKeys(t)
-	qSign(&out, key)
+	if e := qSign(&out, key); e != nil {
+		t.Fatal(e)
+	}
 	return out
 }
 func TestDurableQualificationRegistry(t *testing.T) {
@@ -134,7 +144,7 @@ func TestQualificationProcessHelper(t *testing.T) {
 }
 func TestDurableQualificationConcurrentProcesses(t *testing.T) {
 	r, req := qTestRegistry(t)
-	if e := qWrite(filepath.Join(r.root, "request.json"), qCanonical(req)); e != nil {
+	if e := qWrite(filepath.Join(r.root, "request.json"), qTestCanonical(t, req)); e != nil {
 		t.Fatal(e)
 	}
 	commands := make([]*exec.Cmd, 2)
@@ -185,7 +195,7 @@ func TestDurableQualificationManifest(t *testing.T) {
 	}
 	for _, change := range []func(*qualificationManifest){func(m *qualificationManifest) { m.Cells = nil }, func(m *qualificationManifest) { m.Cells = append(m.Cells, m.Cells[0]) }, func(m *qualificationManifest) { m.RequiredAcceptance = append(m.RequiredAcceptance, "14.2") }, func(m *qualificationManifest) { m.Cells[0].MinimumSeconds = 1000000 }, func(m *qualificationManifest) { m.Cells[0].Runner = "macos" }, func(m *qualificationManifest) { m.Cells[0].Command = []string{"sh", "-c", "true"} }} {
 		var m qualificationManifest
-		_ = json.Unmarshal(qCanonical(req.Manifest), &m)
+		_ = json.Unmarshal(qTestCanonical(t, req.Manifest), &m)
 		change(&m)
 		if m.validate() == nil {
 			t.Fatal("invalid manifest accepted")
@@ -237,7 +247,9 @@ func TestDurableQualificationEvidenceRefusals(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c := qTestComplete(t)
 			change(&c)
-			qSign(&c, key)
+			if e := qSign(&c, key); e != nil {
+				t.Fatal(e)
+			}
 			if qValidateCompleted(c, key.Public().(ed25519.PublicKey), "local-harness", time.Now().Add(time.Second)) == nil {
 				t.Fatal("invalid completed evidence accepted")
 			}
@@ -281,7 +293,7 @@ func TestDurableQualificationReadOnlyControl(t *testing.T) {
 		t.Fatal(e)
 	}
 	for _, operation := range []string{"status", "export"} {
-		out := qHandle(r, qJSON(qualificationControl{Operation: operation, LogicalID: req.LogicalID}))
+		out := qHandle(r, qTestCanonical(t, qualificationControl{Operation: operation, LogicalID: req.LogicalID}))
 		if operation == "status" && out.Error != "" {
 			t.Fatal(out.Error)
 		}
@@ -313,13 +325,13 @@ func TestDurableQualificationActualAssignmentLifetime(t *testing.T) {
 func TestDurableQualificationEncryptedLogTransport(t *testing.T) {
 	req := qTestRequest(t)
 	key, _ := qTestKeys(t)
-	plain := qCanonical(qTestComplete(t).Results[0])
+	plain := qTestCanonical(t, qTestComplete(t).Results[0])
 	binding := req.LogicalID + "-duration-1"
 	sealed, e := qSeal(plain, binding, req.Recipient)
 	if e != nil {
 		t.Fatal(e)
 	}
-	payload := qCanonical(sealed)
+	payload := qTestCanonical(t, sealed)
 	encoded := base64.StdEncoding.EncodeToString(payload)
 	mid := len(encoded) / 2
 	line1 := "2026-10-01T00:00:00Z PAXEER_X_ENCRYPTED_V1 " + binding + " 0 2 " + qHash(payload) + " " + encoded[:mid] + "\n"

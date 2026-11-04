@@ -1,0 +1,10 @@
+[repair.22.31.414]
+audit_record = "22.30.163"
+finding = "011"
+test = "test/repair-22-31-414.test.mjs:repair_22_31_414_paid_route_reopens_and_replays_receipt"
+proof = "Conformance receipt producer and buyer payload encoder drive the real example HTTP route; exact stored receipt fields, signature refusal, conflict refusal, shutdown, reopen and byte-identical resource and settlement replay are asserted."
+baseline = "No baseline verification ran: the bounded gate order requires complete implementation before hf-build and hf-done; the declared repair test did not exist on the starting tree."
+setup_finding = "Runner setup recorded npm E404 for the unpublished express integration version; the example now links the adjacent real integration package."
+wiring_requests = []
+qualification = "The runner's private gate ledger records the candidate revision, exact command, exit code and log; no qualification is claimed by this record."
+qualification_repair = "The first hf-done reached the real paid response and exposed a test expectation error: settlement.payer is a lowercase 32-byte receipt address, while recoverEip1559Sender returns a checksummed 20-byte address; the exact expected value now pads and lowercases the recovered sender."

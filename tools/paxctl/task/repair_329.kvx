@@ -1,0 +1,17 @@
+[repair.22.31.329]
+finding = "proxy-plaintext"
+proof = ["TestRepair_329_TLSSubmission", "TestRepair_329_RejectUntrustedProxy", "TestRepair_329_RejectRedirect", "TestRepair_329_RequireExplicitTrust", "TestRepair_329_AllVerbsExposeProxyTrust"]
+baseline = "Not run: the explicit task order permits verification only through hf-done after full implementation and hf-build; no pre-change failures are claimed."
+transport = "Explicit HTTPS pod URL, mandatory proxy-specific CA file, pod DNS verification independent of API-server TLS settings, client-go credentials and timeout, redirects refused."
+qualification = "The runner records the verified candidate revision, command, exit code and private log through hf-done; this record does not claim an unrun gate."
+local_proof = "Real client and client-go transport submit through a real TLS reverse proxy authenticated with verified client certificates into the trusted-header sidecar server, actual hold handler and SQLite store; bearer receipt is asserted only after TLS."
+wiring_shared_client = "Domain 16: tools/paxctl/sidecar/client/client.go must expose explicit authenticated HTTPS proxy URL/trust options for other callers; task CLI uses the existing explicit-URL constructor within this scope."
+wiring_deployment = "Domain 16: tools/paxctl/node and the owning kube-rbac-proxy deployment must provision a service CA and matching pod DNS SAN certificates, distribute the CA to task callers via --proxy-ca-file, and qualify task submission against deployed TLS proxy TokenReview/SAR; deployment qualification is not claimed by the local gate."
+
+[qualification.build_blocker]
+revision = "e3bcb4f5317d31649ae77f9d8f5aa7338da2d29e"
+command = "cd tools/paxctl && go build ./task/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Before compilation, Go refused the existing module's Go 1.26.0 requirement because the environment forces GOTOOLCHAIN=go1.25.8."
+assumption = "Pre-existing environment failure is recorded without changing out-of-scope module requirements or rerunning the recorded finding; verification did not run and no qualification is claimed."

@@ -1,0 +1,28 @@
+[task.22.31.231]
+finding = "mirror_manifest_event"
+repair = "Use the producer's seven-field ManifestOpened ABI in the production Ethereum receipt verifier, including committed blockHash."
+proving_tests = ["Repair2231231Test.testManifestOpenedSevenFieldReceiptAndStoredCoordinate", "Repair2231231Test.testManifestReceiptPublisherProcessRestartAndResumeChunks"]
+producer_transport_consumer = "Foundry deploys LayerXMirrorArchive; two independent Anvil nodes deploy identical creation code; the production publisher uses HTTPS quorum RPC and the production UDS signer, exits after begin, reopens its actual journal, verifies the original begin receipt, resumes chunks, exits/reopens again, finalizes and retrieves the exact recorded producer archive."
+baseline = "Not run: the ordered instructions prohibit testing before complete implementation and require the sole verify invocation through hf-done; the planned Foundry file is absent at the starting revision, so no pre-change failing test is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location; this record does not claim a gate outcome before qualification."
+continuation = "The previous attempt passed testManifestOpenedSevenFieldReceiptAndStoredCoordinate but failed testManifestReceiptPublisherProcessRestartAndResumeChunks because Anvil returned a null deployment receipt before mining; wait for actual mined deployment and publication receipts with a bounded deadline, retaining all receipt, state, recovery and replay assertions."
+
+[qualification.first]
+revision = "fcb77e0a513ea1ee54a5343e3d5ba3f2cdadc5cf"
+command = "cg spec done 22.31.231 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The event/state case passed; the process-recovery case stopped at unsupported Anvil setup RPC anvil_setPrevRandao; retain Anvil's deterministic parent-derived randomness and every receipt/state assertion."
+
+[qualification.continuation_first]
+revision = "cada93af6619ee0b7adfdc989a993a69429129a2"
+command = "cg spec done 22.31.231 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The event/state case passed and real deployment completed; publisher open returned Rpc(Unavailable) because the local HTTPS relay closed TCP without TLS close_notify; send the TLS shutdown record before closing, as the existing production transport tests do."
+
+[wiring.schema]
+request = "Owning domain 11 (fm-interop): update sdk/platform/schema/mirror-v2.kvx manifest_opened_event to ManifestOpened(bytes32,uint32,uint64,bytes32,uint64,uint32,bytes32)."
+
+[wiring.registry]
+request = "Owning domain 11 (fm-interop): update spec/layerx-merge/interfaces.kvx registry interface.11.sevt-mirror-archive-manifest-opened signature, selector and notes to the seven-field ABI and regenerate its declared documentation."

@@ -12,7 +12,7 @@
 use super::rpc::{
     AccountData, Commitment, Instruction, SignatureInfo, SolanaRpc, SolanaTransaction,
 };
-use super::{base58_encode, base58_fixed, inbound_tx_hash, HANDLE_BYTES};
+use super::{base58_fixed, inbound_tx_hash, HANDLE_BYTES};
 use crate::attestation::{uint256_from_u64, InboundAttestation};
 use crate::hex;
 use crate::journal::{Observation, Position};
@@ -226,33 +226,30 @@ pub fn program_log_lines<'a>(
     logs: &'a [String],
     program: &[u8; 32],
 ) -> Result<Vec<&'a str>, RelayerError> {
-    let program = base58_encode(program);
-    let mut stack: Vec<&str> = Vec::new();
+    let invocations = super::rpc::invocation_logs(logs).map_err(RelayerError::Rpc)?;
+    // Return slices of the original log in execution order, after rollback
+    // outcomes for the entire invocation tree have been established.
+    let mut stack = Vec::new();
+    let mut next = 0;
     let mut lines = Vec::new();
     for line in logs {
-        if line == "Log truncated" {
-            return Err(malformed());
-        }
         if let Some(message) = line.strip_prefix(PROGRAM_LOG) {
-            if stack.last() == Some(&program.as_str()) {
+            if stack.last().is_some_and(|index: &usize| {
+                invocations[*index].program == *program && invocations[*index].committed
+            }) {
                 lines.push(message);
             }
-            continue;
+        } else if let Some((_, event)) = line
+            .strip_prefix("Program ")
+            .and_then(|rest| rest.split_once(' '))
+        {
+            if event.starts_with("invoke [") {
+                stack.push(next);
+                next += 1;
+            } else if event == "success" || event.starts_with("failed: ") {
+                stack.pop();
+            }
         }
-        let Some(rest) = line.strip_prefix("Program ") else {
-            continue;
-        };
-        let Some((id, event)) = rest.split_once(' ') else {
-            continue;
-        };
-        if event.starts_with("invoke [") {
-            stack.push(id);
-        } else if (event == "success" || event.starts_with("failed")) && stack.pop() != Some(id) {
-            return Err(malformed());
-        }
-    }
-    if !stack.is_empty() {
-        return Err(malformed());
     }
     Ok(lines)
 }
@@ -351,28 +348,48 @@ fn transaction_findings(
     {
         return Err(malformed());
     }
-    let calls: Vec<DepositCall<'_>> = transaction
-        .instructions
-        .iter()
-        .filter(|instruction| instruction.program == settings.program_id)
-        .filter_map(|instruction| {
-            deposit_instruction(&instruction.data).map(|(amount, recipient)| DepositCall {
+    let mut calls = Vec::new();
+    for (index, instruction) in transaction.instructions.iter().enumerate() {
+        if instruction.program != settings.program_id {
+            continue;
+        }
+        let Some((amount, recipient)) = deposit_instruction(&instruction.data) else {
+            continue;
+        };
+        let invocation = transaction
+            .invocations
+            .iter()
+            .find(|invocation| invocation.instruction_index == Some(index))
+            .ok_or_else(malformed)?;
+        if !invocation.committed {
+            continue;
+        }
+        if instruction.accounts.len() != DEPOSIT_ACCOUNTS {
+            return Err(malformed());
+        }
+        let records = invocation
+            .log_messages
+            .iter()
+            .filter(|line| line.split(' ').next() == Some(DEPOSIT_RECORD))
+            .map(|line| DepositRecord::parse(line).ok_or_else(malformed))
+            .collect::<Result<Vec<_>, _>>()?;
+        // Success requires its own single producer record; a sibling cannot
+        // supply evidence for this call.
+        if records.len() != 1 {
+            return Err(malformed());
+        }
+        calls.push((
+            DepositCall {
                 instruction,
                 amount,
                 recipient,
-            })
-        })
-        .collect();
-    if calls
-        .iter()
-        .any(|call| call.instruction.accounts.len() != DEPOSIT_ACCOUNTS)
-    {
-        return Err(malformed());
+            },
+            records[0],
+        ));
     }
-    let records = deposit_records(&transaction.log_messages, &settings.program_id)?;
     let tx_hash = inbound_tx_hash(&info.signature);
     let mut findings = Vec::with_capacity(calls.len());
-    for (index, call) in calls.iter().enumerate() {
+    for (call, record) in &calls {
         let receipt = DepositReceipt::decode(
             &program_account(
                 rpc,
@@ -409,8 +426,7 @@ fn transaction_findings(
                 block_hash: transaction.recent_blockhash,
             },
         );
-        let consistent = records.len() == calls.len()
-            && agrees(&records[index], &receipt, &asset, call, transaction.slot);
+        let consistent = agrees(record, &receipt, &asset, call, transaction.slot);
         findings.push(if consistent {
             Finding::Deposit(observation)
         } else {
@@ -501,6 +517,7 @@ pub fn observe_deposits(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solana::base58_encode;
 
     const PROGRAM: &str = "A7SZbByPYuHpunZ9pyMDMrhMYvK44ANT1AVqb8U1FpM9";
     const TOKEN: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";

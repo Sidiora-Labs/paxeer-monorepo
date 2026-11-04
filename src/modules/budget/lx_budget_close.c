@@ -86,6 +86,7 @@ lxp_result lx_budget_defund_execute(lxp_module_ctx *ctx,
                                     lxp_receipt *receipt)
 {
     lx_budget_record *record;
+    lx_budget_record updated;
     lxp_u128 balance;
     lxp_u128 adjusted_limit;
     lxp_result status = validate(request, &record);
@@ -97,9 +98,15 @@ lxp_result lx_budget_defund_execute(lxp_module_ctx *ctx,
     status = lx_budget_defund_limit(record, balance, request->amount,
                                     &adjusted_limit);
     if (status != LXP_OK) return status;
+    updated = *record;
+    if (lxp_u128_is_zero(updated.configured_period_limit))
+        updated.configured_period_limit = record->per_period_limit;
+    updated.per_period_limit = adjusted_limit;
+    status = lx_budget_record_validate(&updated);
+    if (status != LXP_OK) return status;
     status = emit_return(ctx, request, request->amount, receipt);
     if (status != LXP_OK) return status;
-    record->per_period_limit = adjusted_limit;
+    *record = updated;
     return LXP_OK;
 }
 
@@ -108,6 +115,7 @@ static lxp_result drain(lxp_module_ctx *ctx,
                         bool revoke, lxp_receipt *receipt)
 {
     lx_budget_record *record;
+    lx_budget_record updated;
     lxp_u128 balance;
     lxp_result status = validate(request, &record);
     if (status != LXP_OK) return status;
@@ -117,12 +125,18 @@ static lxp_result drain(lxp_module_ctx *ctx,
     status = lxp_state_balance_get(request->budget_account, record->asset_id,
                                    &balance);
     if (status != LXP_OK) return status;
+    updated = *record;
+    if (lxp_u128_is_zero(updated.configured_period_limit))
+        updated.configured_period_limit = record->per_period_limit;
+    updated.revocation_sequence = request->revocation_sequence;
+    updated.revoked = revoke;
+    updated.closed = !revoke;
+    updated.per_period_limit = updated.spent_this_period;
+    status = lx_budget_record_validate(&updated);
+    if (status != LXP_OK) return status;
     status = emit_return(ctx, request, balance, receipt);
     if (status != LXP_OK) return status;
-    record->revocation_sequence = request->revocation_sequence;
-    record->revoked = revoke;
-    record->closed = !revoke;
-    record->per_period_limit = record->spent_this_period;
+    *record = updated;
     return LXP_OK;
 }
 
