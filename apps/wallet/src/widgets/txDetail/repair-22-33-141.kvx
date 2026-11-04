@@ -1,0 +1,23 @@
+[repair.22.33.141]
+mode = "BUILD"
+source = "spec/layerx-merge/programme/audit/records/22.30.115.kvx"
+evidence = "The runner records the qualified revision, command, exit code and private log in the hf-done gate ledger."
+baseline = "Not executed: the ordered task instructions require implementation before gates and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = "None; both proposals are implemented inside the allowed widget directory."
+
+[finding.tx-detail-first-transfer]
+tests = ["tx_detail_first_transfer_selects_wallet_endpoints", "tx_detail_multiple_wallet_transfers_keep_each_direction_and_counterparty", "tx_detail_unrelated_logs_are_not_wallet_movements"]
+repair = "Select wallet-related transfer endpoints, display each relevant movement with its direction and counterparty, and keep outer status and fee separate."
+
+[finding.tx-detail-zero-decimals]
+tests = ["tx_detail_zero_decimals_preserves_numeric_and_string_zero", "tx_detail_multiple_wallet_transfers_keep_each_direction_and_counterparty", "tx_detail_unknown_precision_stays_explicit_in_headline_and_rows"]
+repair = "Preserve numeric and string zero, accept only integer precision supported by ethers (0 through 80), and show raw units with an explicit unavailable amount for unknown or invalid precision before conversion."
+
+[test_path]
+producer = "Committed in-memory explorer peer derives transfer endpoints and raw values from ethers ERC-20 event encoding/decoding; zero precision is derived through the decimals ABI."
+transport = "Loopback HTTP server through the production Blockscout client, transaction API, wallet facade, query hook and QueryClient."
+consumer = "Production TxDetailWidget rendered with the real WalletProvider and committed EIP-6963 injected-wallet fixture."
+
+[qualification.registration]
+observed = "The first gate returned zero but registered five single-argument test(function) calls as todo; the registrations now pass both the declared function name and body so every regression executes."
+repair = "Retain all assertions and functions, then run hf-build and hf-done again on the corrected candidate."
