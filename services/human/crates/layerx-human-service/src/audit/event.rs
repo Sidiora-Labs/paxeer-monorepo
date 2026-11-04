@@ -289,6 +289,7 @@ pub enum SecurityChangeKind {
     WalletRebinding,
     AgentArchive,
     KeyExported,
+    KeyExportAcknowledged,
 }
 
 impl SecurityChangeKind {
@@ -304,6 +305,7 @@ impl SecurityChangeKind {
             Self::WalletRebinding => 8,
             Self::AgentArchive => 9,
             Self::KeyExported => 10,
+            Self::KeyExportAcknowledged => 11,
         }
     }
 
@@ -319,6 +321,7 @@ impl SecurityChangeKind {
             8 => Ok(Self::WalletRebinding),
             9 => Ok(Self::AgentArchive),
             10 => Ok(Self::KeyExported),
+            11 => Ok(Self::KeyExportAcknowledged),
             _ => Err(AuditError::Corrupt("unknown security change")),
         }
     }
