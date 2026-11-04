@@ -150031,7 +150031,7 @@ do_8 = "Attempt 2 (requalify): the build passes and the test registrations (the 
 
 [task.22.33.532]
 title = "Repair audit record 22.30.155 medium findings in apps/explorer/ui/txs (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.408", "22.31.409", "22.31.410"]
@@ -152873,7 +152873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.314]
 title = "Repair audit record 22.30.136 medium findings in apps/explorer/ui/pages (part 1 of 2): interface-mismatch, restart-recovery, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.382"]
@@ -156105,7 +156105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.132]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/lib/data/hooks (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
@@ -175816,7 +175816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1452]
 title = "Repair audit record 22.30.83 medium findings in services/platform/hosted/internal/src (part 1 of 1): restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.353", "22.31.354", "22.31.355", "22.31.356", "22.31.357"]
@@ -176360,7 +176360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1430]
 title = "Repair audit record 22.30.80 medium findings in services/platform/hosted/identity/src (part 1 of 1): restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.198", "22.31.199", "22.31.200", "22.31.201"]
@@ -179586,7 +179586,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.227]
 title = "Repair audit record 22.30.126 medium findings in programs/crates/layerx-programs-runtime/src/host (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.259", "22.31.260", "22.31.443"]
@@ -179951,7 +179951,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.214]
 title = "Repair audit record 22.30.121 medium findings in programs/crates/layerx-programs-arbiter/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.251", "22.31.252", "22.31.443"]
@@ -196866,7 +196866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1466]
 title = "Repair audit record 22.30.84 medium findings in sdk/client/rpc (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.203", "22.31.204", "22.31.205"]
@@ -198634,7 +198634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1307]
 title = "Repair audit record 22.30.70 medium findings in sdk/chainflow/go/internal/apijson (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -198812,7 +198812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1295]
 title = "Repair audit record 22.30.68 medium findings in rpc/ethbloom (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.339"]
@@ -319197,7 +319197,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1456]
 title = "Repair audit record 22.30.83 medium findings in services/platform/hosted/node/tests (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.353", "22.31.354", "22.31.355", "22.31.356", "22.31.357"]
@@ -366787,7 +366787,7 @@ do_11 = "Attempt 2 (continue): the one failing case is the finding itself, not a
 
 [task.22.33.538]
 title = "Repair audit record 22.30.156 medium findings in services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.411"]
@@ -366926,7 +366926,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.534]
 title = "Repair audit record 22.30.155 medium findings in services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations (part 1 of 1): config-drift, restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.408", "22.31.409", "22.31.410"]
@@ -367387,7 +367387,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.496]
 title = "Repair audit record 22.30.151 medium findings in services/explorer/backend/apps/explorer/lib/explorer/chain (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.399", "22.31.400", "22.31.401"]
@@ -369274,7 +369274,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.399]
 title = "Repair audit record 22.30.142 medium findings in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2 (part 2 of 2): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.390", "22.31.391"]
