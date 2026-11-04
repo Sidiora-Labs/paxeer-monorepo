@@ -2,111 +2,41 @@ import copy
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-script = (ROOT / 'services/platform/hosted/tests/topology-check.sh').read_text()
+DIRECTORY = Path(__file__).resolve().parent
+script = (DIRECTORY / 'topology-check.sh').read_text()
 code = script.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 module = {}
-exec(compile(code.rsplit('sys.exit(main())', 1)[0], str(Path('services/platform/hosted/tests/topology-check.sh')), 'exec'), module)
-paths = ['node', 'identity', 'paxeer', 'testnet', 'gateway', 'registry', 'internal', 'webhooks']
-
+exec(compile(code.rsplit('sys.exit(main())', 1)[0], str(DIRECTORY / 'topology-check.sh'), 'exec'), module)
+PARSERS = ('load_pyyaml', 'load_builtin')
+NATIVE_MANIFEST = ROOT / 'services/platform/hosted/node/deployment.yaml'
+ADAPTER_FIXTURE = DIRECTORY / 'fixtures/native-rpc-topology.yaml'
 RESOLVED_EDGES = (
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-pending-core.layerx-testnet.svc.cluster.local:9443 [env LAYERX_TESTNET_CORE_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-pending-core-admin.layerx-testnet.svc.cluster.local:9444 [env LAYERX_TESTNET_CORE_ADMIN_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-gateway.layerx-testnet.svc.cluster.local:443 [env LAYERX_TESTNET_GATEWAY_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> paxeer-boundary.layerx-testnet.svc.cluster.local:9443 [env LAYERX_TESTNET_PAXEER_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-identity.layerx-testnet.svc.cluster.local:9443 [env LAYERX_TESTNET_IDENTITY_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-faucet-public.layerx-testnet.svc.cluster.local:443 [env LAYERX_TESTNET_FAUCET_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443 [env LAYERX_TESTNET_RECEIPT_AUTHORITY_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-program-registry.layerx-testnet.svc.cluster.local:9420 [env LAYERX_TESTNET_REGISTRY_URL]',
-    'Deployment layerx-testnet/layerx-testnet-control -> layerx-faucet-redis.layerx-testnet.svc.cluster.local:6379 [env LAYERX_TESTNET_REDIS_URL]',
-    'Deployment layerx-testnet/layerx-faucet -> layerx-identity.layerx-testnet.svc.cluster.local:9443 [env LAYERX_IDENTITY_INTROSPECTION_URL]',
-    'Deployment layerx-testnet/layerx-faucet -> layerx-testnet-admin.layerx-testnet.svc.cluster.local:443 [env LAYERX_TESTNET_FUNDING_URL]',
-    'Deployment layerx-testnet/layerx-faucet -> layerx-faucet-redis.layerx-testnet.svc.cluster.local:6379 [env LAYERX_FAUCET_REDIS_URL]',
-    'CronJob layerx-testnet/layerx-testnet-reset -> layerx-testnet-admin.layerx-testnet.svc.cluster.local:443 [env LAYERX_TESTNET_ADMIN_URL]',
-    'CronJob layerx-testnet/layerx-testnet-status-publisher -> layerx-testnet-public.layerx-testnet.svc.cluster.local:443 [env LAYERX_TESTNET_STATUS_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-pending-core.layerx-testnet.svc.cluster.local:9443 [env LAYERX_GATEWAY_PUBLIC_CORE_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-agent-boundary.layerx-testnet.svc.cluster.local:9443 [env LAYERX_GATEWAY_COMPONENT_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443 [env LAYERX_GATEWAY_AUTHORITY_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-identity.layerx-testnet.svc.cluster.local:9443 [env LAYERX_GATEWAY_IDENTITY_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-program-registry.layerx-testnet.svc.cluster.local:9420 [env LAYERX_GATEWAY_PROGRAM_REGISTRY_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-faucet-public.layerx-testnet.svc.cluster.local:443 [env LAYERX_GATEWAY_FAUCET_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-gateway-redis.layerx-testnet.svc.cluster.local:6379 [env LAYERX_GATEWAY_REDIS_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> api1.mainnet-beta.paxeer.network:443 [env LAYERX_GATEWAY_PAXEER_RPC_URLS]',
-    'Deployment layerx-testnet/layerx-gateway -> api2.mainnet-beta.paxeer.network:443 [env LAYERX_GATEWAY_PAXEER_RPC_URLS]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> layerx-agent-boundary.layerx-testnet.svc.cluster.local:9443 [env LAYERX_REGISTRY_NODE_ENDPOINT]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443 [env LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> layerx-agent-boundary.layerx-testnet.svc.cluster.local:9443 [env LAYERX_EXPLORER_NODE_ENDPOINT]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443 [env LAYERX_EXPLORER_AUTHORITY_ENDPOINT]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> layerx-pending-core.layerx-testnet.svc.cluster.local:9443 [env LAYERX_EXPLORER_READ_ENDPOINT]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> layerx-gateway.layerx-testnet.svc.cluster.local:443 [env LAYERX_NETWORK_GATEWAY_ENDPOINT]',
-    'StatefulSet layerx-testnet/layerx-node -> layerx-gateway.layerx-testnet.svc.cluster.local:443 [env LAYERX_NETWORK_GATEWAY_ENDPOINT]',
-    'Deployment layerx-internal/payments -> layerx-gateway.layerx-testnet.svc:443 [env LAYERX_EVENTS_UPSTREAM_URL]',
-    'Deployment layerx-internal/programs -> layerx-gateway.layerx-testnet.svc:443 [env LAYERX_EVENTS_UPSTREAM_URL]',
-    'Deployment layerx-developer/layerx-webhooks -> layerx-agent-boundary.layerx-testnet.svc:9443 [env LAYERX_WEBHOOKS_COMPONENT_URL]',
-    'Deployment layerx-developer/layerx-webhooks -> redis.layerx-internal.svc:6379 [env LAYERX_WEBHOOKS_REDIS_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-webhooks -> kms.layerx-internal.svc:443 [env LAYERX_WEBHOOKS_KMS_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-webhooks -> identity.layerx-internal.svc:443 [env LAYERX_WEBHOOKS_IDENTITY_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-webhooks -> authority.layerx-internal.svc:443 [env LAYERX_WEBHOOKS_AUTHORITY_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-webhooks -> journeys.layerx-internal.svc:443 [env LAYERX_WEBHOOKS_JOURNEY_SOURCE_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-webhooks -> payments.layerx-internal.svc:443 [env LAYERX_WEBHOOKS_PAYMENT_SOURCE_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-webhooks -> approvals.layerx-internal.svc:443 [env LAYERX_WEBHOOKS_APPROVAL_SOURCE_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-webhooks -> programs.layerx-internal.svc:443 [env LAYERX_WEBHOOKS_PROGRAM_SOURCE_URL (ConfigMap layerx-developer-hosted)]',
-    'Deployment layerx-developer/layerx-dashboard-api -> redis.layerx-internal.svc:6379 [env LAYERX_WEBHOOKS_REDIS_URL (ConfigMap layerx-dashboard-hosted)]',
-    'Deployment layerx-developer/layerx-dashboard-api -> layerx-gateway-redis.layerx-testnet.svc.cluster.local:6379 [env LAYERX_DASHBOARD_GATEWAY_REDIS_URL (ConfigMap layerx-dashboard-hosted)]',
-    'Deployment layerx-developer/layerx-dashboard-api -> identity.layerx-internal.svc:443 [env LAYERX_DASHBOARD_IDENTITY_URL (ConfigMap layerx-dashboard-hosted)]',
-    'IngressController ingress-nginx/ingress-nginx -> layerx-testnet-public.layerx-testnet.svc:https [Ingress layerx-testnet/layerx-testnet-public beta.paxeer.network/]',
-    'IngressController ingress-nginx/ingress-nginx -> layerx-gateway.layerx-testnet.svc:https [Ingress layerx-testnet/layerx-gateway api-mainnet-beta.paxeer.network/]',
-    'IngressController ingress-nginx/ingress-nginx -> layerx-dashboard-api.layerx-developer.svc:https [Ingress layerx-developer/layerx-developer dev.paxeer.network/v1/dashboard]',
-    'IngressController ingress-nginx/ingress-nginx -> layerx-webhooks.layerx-developer.svc:https [Ingress layerx-developer/layerx-developer dev.paxeer.network/v1/webhooks]',
-    'IngressController ingress-nginx/ingress-nginx -> layerx-dashboard-web.layerx-developer.svc:http [Ingress layerx-developer/layerx-developer-web dev.paxeer.network/]',
+    'Deployment layerx-testnet/layerx-gateway -> native-rpc.layerx-testnet.svc:8545 [env LAYERX_GATEWAY_PAXEER_RPC_URL]',
+    'Deployment layerx-testnet/layerx-gateway -> native-rpc.layerx-testnet.svc:8545 [env LAYERX_GATEWAY_TENANT_RPC_URL]',
+    'Deployment layerx-testnet/layerx-testnet-control -> native-rpc.layerx-testnet.svc:8545 [env LAYERX_TESTNET_PAXEER_RPC_URL]',
+    'Deployment layerx-testnet/layerx-program-registry -> native-rpc.layerx-testnet.svc:8545 [env LAYERX_REGISTRY_CHAIN_RPC_URL]',
+    'Deployment layerx-developer/native-client -> native-rpc.layerx-testnet.svc:8545 [env LAYERX_TENANT_RPC_URL (ConfigMap native-client/rpc-url)]',
 )
 
-PRODUCER_EDGES = (
-    'Deployment layerx-testnet/layerx-gateway -> payments.layerx-internal.svc:443 [env LAYERX_EVENTS_PAYMENT_UPSTREAM_URL]',
-    'Deployment layerx-testnet/layerx-gateway -> layerx-webhooks.layerx-developer.svc:443 [env LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> programs.layerx-internal.svc:443 [env LAYERX_EVENTS_PROGRAM_UPSTREAM_URL]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> layerx-webhooks.layerx-developer.svc:443 [env LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL]',
-    'StatefulSet layerx-testnet/layerx-program-registry -> identity.layerx-internal.svc:443 [env LAYERX_REGISTRY_IDENTITY_URL]',
-    'StatefulSet layerx-testnet/layerx-node -> journeys.layerx-internal.svc:443 [env LAYERX_EVENTS_JOURNEY_UPSTREAM_URL]',
-    'StatefulSet layerx-testnet/layerx-node -> approvals.layerx-internal.svc:443 [env LAYERX_EVENTS_APPROVAL_UPSTREAM_URL]',
-    'StatefulSet layerx-testnet/layerx-node -> layerx-webhooks.layerx-developer.svc:443 [env LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL]',
-)
 
-HUMAN_EDGES = (
-    'Deployment layerx-internal/journeys -> layerx-human.layerx-testnet.svc:9443 [env LAYERX_EVENTS_UPSTREAM_URL]',
-    'Deployment layerx-internal/approvals -> layerx-human.layerx-testnet.svc:9443 [env LAYERX_EVENTS_UPSTREAM_URL]',
-)
-
-HUMAN_WEB_EDGES = (
-    'Deployment layerx-testnet/layerx-human-web -> layerx-human.layerx-testnet.svc:9443 [env LAYERX_HUMAN_SERVICE_URL]',
-    'Deployment layerx-testnet/layerx-human-web -> layerx-human.layerx-testnet.svc:9443 [env LAYERX_EXPLORER_API_ORIGIN]',
-    'Deployment layerx-testnet/layerx-human-web -> layerx-explorer-index.layerx-testnet.svc.cluster.local:9443 [env LAYERX_EXPLORER_INDEX_URL]',
-)
-
-SEPARATELY_OPERATED_EDGES = (
-    'CronJob layerx-testnet/layerx-testnet-status-publisher -> status-publisher.layerx-status.svc.cluster.local:443 [env LAYERX_STATUS_PUBLISH_URL]',
-)
-
-BASELINE_EDGES = RESOLVED_EDGES + PRODUCER_EDGES
-
-COMPLETE_EDGES = BASELINE_EDGES + HUMAN_EDGES + HUMAN_WEB_EDGES
-
-
-def load(parser):
+def load(parser, adapters=True):
     topology = module['Topology']()
-    for name in paths:
-        directory, _, filename = name.partition(':')
-        path = (ROOT / 'services/platform/hosted') / directory / (filename or 'deployment.yaml')
+    manifests = [(NATIVE_MANIFEST, 'incorrect-default')]
+    if adapters:
+        manifests.append((ADAPTER_FIXTURE, 'layerx-developer'))
+    for path, namespace in manifests:
         for document in module[parser](path.read_text()):
-            topology.add(document, str(path), 'layerx-developer' if directory == 'webhooks' else 'default')
+            topology.add(document, str(path), namespace)
     return topology
+
 
 def failures(topology):
     return [row for row in module['check'](topology) if row[0] == 'FAIL']
 
+
 def labelled(rows, status):
     return [row[1] for row in rows if row[0] in (status if isinstance(status, tuple) else (status,))]
 
-RESOLVED = ('ok', 'offcluster')
 
 def named(rows, status, expected, description):
     observed = labelled(rows, status)
@@ -118,36 +48,125 @@ def named(rows, status, expected, description):
     )
     assert len(observed) == len(expected), (description, len(observed), len(expected))
 
-def producer_edges():
-    original = paths[:]
-    paths.append('human')
-    paths.append('human:web-deployment.yaml')
-    for parser in ('load_pyyaml', 'load_builtin'):
+
+def native_baseline():
+    outcomes = []
+    for parser in PARSERS:
+        base = load(parser, adapters=False)
+        assert not failures(base) and not base.problems, (parser, failures(base), base.problems)
+        assert [workload['name'] for workload in base.workloads] == ['layerx-node']
+        assert all(workload['ns'] == 'layerx-testnet' for workload in base.workloads)
+        assert base.configmaps[('layerx-testnet', 'layerx-node-config')]['rpc-origin'] == 'http://layerx-native-chain.layerx-testnet.svc:8545'
         topology = load(parser)
-        assert not failures(topology), failures(topology)
-        named(module['check'](topology), RESOLVED, COMPLETE_EDGES, 'producer topology resolved edges (%s)' % parser)
-        for policy_name, edge_names in {
-            'payment-producer': ('LAYERX_EVENTS_PAYMENT_UPSTREAM_URL',),
-            'program-producer': ('LAYERX_EVENTS_PROGRAM_UPSTREAM_URL',),
-            'journey-producer': ('LAYERX_EVENTS_JOURNEY_UPSTREAM_URL',),
-            'approval-producer': ('LAYERX_EVENTS_APPROVAL_UPSTREAM_URL',),
-            'event-producers': ('LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL',),
-            'registry-principal-identity': ('LAYERX_REGISTRY_IDENTITY_URL',),
-            'layerx-human': ('LAYERX_EVENTS_UPSTREAM_URL',),
-        }.items():
-            changed = copy.deepcopy(topology)
-            policy = next(item for item in changed.policies if item['name'] == policy_name)
-            policy['ingress'] = []
-            refused = failures(changed)
-            assert refused, (parser, policy_name)
-            expected_count = {'event-producers': 3, 'layerx-human': 2}.get(policy_name, 1)
-            assert len(refused) == expected_count, (parser, policy_name, refused)
-            assert len(labelled(module['check'](changed), RESOLVED)) == len(COMPLETE_EDGES) - expected_count, (parser, policy_name)
-            assert all('ingress NetworkPolicy' in row[2] for row in refused), (parser, policy_name, refused)
-            for edge_name in edge_names:
-                assert any(edge_name in row[1] for row in refused), (parser, policy_name, edge_name, refused)
-            print('PASS producer ingress refusal:', parser, policy_name)
-    paths[:] = original
+        rows = module['check'](topology)
+        assert not failures(topology) and not topology.problems and not topology.notes, (parser, rows, topology.problems, topology.notes)
+        named(rows, 'ok', RESOLVED_EDGES, 'native root/tenant RPC edges (%s)' % parser)
+        assert len(rows) == len(RESOLVED_EDGES), rows
+        assert all('8545/TCP' in row[2] and 'layerx-native-chain' in row[2] for row in rows), rows
+        client = next(workload for workload in topology.workloads if workload['name'] == 'native-client')
+        assert client['ns'] == 'layerx-developer', client
+        outcomes.append(rows)
+    assert outcomes[0] == outcomes[1], outcomes
+    print('PASS native root/tenant RPC topology and full-manifest parser parity')
+
+
+def producer_edges():
+    for parser in PARSERS:
+        for name, expected_count in (('layerx-native-chain', 5), ('native-adapter-egress', 4), ('native-client-egress', 1)):
+            topology = load(parser)
+            policy = next(item for item in topology.policies if item['name'] == name)
+            direction = 'ingress' if name == 'layerx-native-chain' else 'egress'
+            policy[direction] = []
+            refused = failures(topology)
+            assert len(refused) == expected_count, (parser, name, refused)
+            assert all(direction + ' NetworkPolicy' in row[2] for row in refused), refused
+            named(module['check'](topology), 'ok',
+                  tuple(edge for edge in RESOLVED_EDGES if edge not in labelled(refused, 'FAIL')),
+                  'remaining native RPC edges')
+            print('PASS producer policy refusal:', parser, name)
+
+
+def topology_refusals():
+    for parser in PARSERS:
+        for change, expected, count in (
+            ('cycle', 'ExternalName cycle', 5),
+            ('missing', 'ExternalName target Service', 5),
+            ('offcluster', 'has no declared in-cluster Service', 5),
+            ('port', 'exposes 444', 5),
+            ('selector', 'selects no workload', 5),
+            ('target', 'targetPort missing', 5),
+            ('ingress', 'ingress NetworkPolicy', 5),
+            ('egress', 'egress NetworkPolicy', 1),
+            ('dns', 'does not admit DNS', 4),
+        ):
+            topology = load(parser)
+            alias = topology.services[('layerx-testnet', 'native-rpc')]
+            target = topology.services[('layerx-testnet', 'layerx-native-chain')]
+            if change == 'cycle':
+                alias['externalName'] = 'native-rpc.layerx-testnet.svc'
+            elif change == 'missing':
+                del topology.services[('layerx-testnet', 'layerx-native-chain')]
+            elif change == 'offcluster':
+                alias['externalName'] = 'absent.example.invalid'
+            elif change == 'port':
+                target['ports'][0]['port'] = '444'
+            elif change == 'selector':
+                target['selector'] = {'app': 'absent'}
+            elif change == 'target':
+                target['ports'][0]['targetPort'] = 'missing'
+            elif change == 'ingress':
+                next(p for p in topology.policies if p['name'] == 'layerx-native-chain')['ingress'] = []
+            elif change == 'egress':
+                next(p for p in topology.policies if p['name'] == 'native-client-egress')['egress'] = []
+            else:
+                policy = next(p for p in topology.policies if p['name'] == 'native-adapter-egress')
+                policy['egress'][0]['to'][0]['podSelector']['matchLabels']['k8s-app'] = 'not-dns'
+            result = failures(topology)
+            assert len(result) == count and all(expected in row[2] for row in result), (parser, change, result)
+            assert len(labelled(module['check'](topology), 'ok')) == len(RESOLVED_EDGES) - count
+            print('PASS refusal:', parser, change)
+
+
+def configmap_refusals():
+    for parser in PARSERS:
+        topology = load(parser)
+        client = next(workload for workload in topology.workloads if workload['name'] == 'native-client')
+        name, reference = client['env'][0]
+        topology.configmaps[('layerx-developer', 'native-client')].pop('rpc-url')
+        client['env'][0] = (name, reference[:3] + (True,))
+        assert list(topology.resolved_env(client)) == [] and not topology.problems
+        client['env'][0] = (name, reference[:3] + (False,))
+        assert list(topology.resolved_env(client)) == []
+        assert len(topology.problems) == 1 and 'references key rpc-url missing from ConfigMap native-client' in topology.problems[0]
+        print('PASS optional and required ConfigMap references:', parser)
+
+
+def native_container_parity():
+    parsed = []
+    for parser in PARSERS:
+        documents = module[parser](NATIVE_MANIFEST.read_text())
+        stateful = next(doc for doc in documents if doc['kind'] == 'StatefulSet')
+        spec = stateful['spec']['template']['spec']
+        assert [container['name'] for container in spec['containers']] == ['paxd']
+        paxd = spec['containers'][0]
+        assert paxd['command'] == ['python3', '/opt/layerx/kernel_runtime.py', '--home', '/data/layerx/node']
+        assert {port['name']: str(port['containerPort']) for port in paxd['ports']} == {
+            'p2p': '26656', 'rpc': '8545', 'consensus': '26657', 'health': '9460'}
+        env = {entry['name']: entry for entry in paxd['env']}
+        assert env['LAYERX_KERNEL_PROFILE']['value'] == 'native'
+        assert 'LAYERX_NODE_HANDOVER_AUTHORITY_PUBLIC_KEY' not in env
+        assert not any('RELAY' in name for name in env)
+        home = next(container for container in spec['initContainers'] if container['name'] == 'native-home')
+        assert home['command'] == ['python3', '-c'] and len(home['args']) == 1
+        assert "manifest['schema'] == 'layerx.beta.native-material.v1'" in home['args'][0]
+        assert "retained = home / '.native-material.json'" in home['args'][0]
+        assert 'securityContext' in home and 'volumeMounts' in home
+        assert {mount['name'] for mount in home['volumeMounts']} == {'data', 'native-inputs'}
+        # Scalar typing differs between YAML parsers; the literal block must not.
+        parsed.append(home['args'])
+    assert parsed[0] == parsed[1], parsed
+    print('PASS native-home sequence literal block and following fields')
+
 
 def short_dns_refusals():
     # Both actual YAML parsers feed the production resolver and policy checker.
@@ -237,128 +256,42 @@ spec:
     assert outcomes[0] == outcomes[1], outcomes
 
 
-short_dns_refusals()
+def naming_program_order():
+    cluster_script = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
+    provision_script = (ROOT / 'services/platform/hosted/human/provision.sh').read_text()
+    assert 'source "$REPO_ROOT/services/platform/hosted/human/provision.sh"\n' in cluster_script
+    assert cluster_script.count('\nnaming_program_deploy() {\n') == 1
+    evidence = provision_script.split('\nhuman_evidence_provision() (\n', 1)[1].split('\n)\n', 1)[0].split('\n')
+    ordered = [evidence.index('    ' + step) for step in (
+        'human_native_provision', 'naming_program_deploy', 'registry_deployment_produce', 'human_journal_deploy')]
+    assert ordered == sorted(ordered) and len(set(ordered)) == 4, (
+        'human_evidence_provision must call naming_program_deploy after human_native_provision, whose owner '
+        'admission requires a fresh native genesis head that a committed deployment advances, and before '
+        'human_journal_deploy, whose single registry journal export must hold the naming deployment pair', ordered)
+    assert evidence.count('    naming_program_deploy') == 1
+    calls = [line.strip() for line in cluster_script.split('\n')
+             if line.strip() in ('naming_program_deploy', 'human_evidence_provision')]
+    assert calls == [], ('native beta bring-up must not invoke the unmigrated Human deployment', calls)
+    assert '\nbeta_cluster_up() {\n    native_cluster_up "$1"\n}\n' in cluster_script
+    native_script = (DIRECTORY / 'beta-native.sh').read_text()
+    bring_up = native_script.split('\nnative_cluster_up() {\n', 1)[1].split('\n}\n', 1)[0]
+    steps = [bring_up.index('    ' + step + '\n') for step in (
+        'manifests_render', 'native_receipt_ready', 'material_save')]
+    assert steps == sorted(steps) and len(set(steps)) == 3, steps
+    assert 'kube apply -f "$MANIFESTS_DIR/node.yaml"' in bring_up
+    print('PASS naming program deployment follows the fresh-genesis-head owner admission and precedes the registry journal export')
 
-producer_edges()
 
-base = load('load_pyyaml')
-baseline = module['check'](base)
-named(baseline, 'FAIL', HUMAN_EDGES, 'baseline Human edges without the Human manifest')
-assert all('layerx-human' in row[2] for row in failures(base))
-named(baseline, RESOLVED, BASELINE_EDGES, 'baseline resolved edges')
-named(baseline, 'external', SEPARATELY_OPERATED_EDGES, 'baseline separately operated edges')
-parity_failed = False
-try:
-    assert baseline == module['check'](load('load_builtin'))
-except Exception as error:
-    parity_failed = True
-    print('FAIL full-manifest parser parity:', error)
-print('PASS baseline without the Human manifest resolves the %d named edges and leaves exactly the %d named Human edges unresolved' % (len(BASELINE_EDGES), len(HUMAN_EDGES)))
+def main():
+    short_dns_refusals()
+    native_baseline()
+    producer_edges()
+    topology_refusals()
+    configmap_refusals()
+    native_container_parity()
+    naming_program_order()
+    return 0
 
-for parser in ('load_pyyaml', 'load_builtin'):
-    for change, expected in [
-        ('cycle', 'ExternalName cycle'),
-        ('missing', 'ExternalName target Service'),
-        ('offcluster', 'has no declared in-cluster Service'),
-        ('port', 'exposes 444'),
-        ('selector', 'selects no workload'),
-        ('target', 'targetPort missing'),
-        ('ingress', 'ingress NetworkPolicy'),
-        ('egress', 'egress NetworkPolicy'),
-        ('dns', 'does not admit DNS'),
-    ]:
-        topology = copy.deepcopy(load(parser))
-        alias = topology.services[('layerx-internal', 'identity')]
-        target = topology.services[('layerx-testnet', 'internal-identity')]
-        if change == 'cycle':
-            alias['externalName'] = 'identity.layerx-internal.svc'
-        elif change == 'missing':
-            del topology.services[('layerx-testnet', 'internal-identity')]
-        elif change == 'offcluster':
-            alias['externalName'] = 'absent.example'
-        elif change == 'port':
-            target['ports'][0]['port'] = '444'
-        elif change == 'selector':
-            target['selector'] = {'app': 'absent'}
-        elif change == 'target':
-            target['ports'][0]['targetPort'] = 'missing'
-        elif change == 'ingress':
-            policy = next(p for p in topology.policies if p['name'] == 'layerx-node-ingress')
-            policy['ingress'] = []
-        elif change == 'egress':
-            policy = next(p for p in topology.policies if p['name'] == 'layerx-webhooks')
-            policy['egress'] = []
-        else:
-            policy = next(p for p in topology.policies if p['name'] == 'payments')
-            policy['egress'][0]['to'][0]['podSelector']['matchLabels']['k8s-app'] = 'not-dns'
-        result = failures(topology)
-        assert len(result) > len(HUMAN_EDGES) and any(expected in row[2] for row in result), (change, result)
-        print('PASS refusal:', parser, change)
 
-for parser in ('load_pyyaml', 'load_builtin'):
-    topology = load(parser)
-    node_workload = next(w for w in topology.workloads if w['name'] == 'layerx-node')
-    handover = [i for i, (name, _) in enumerate(node_workload['env']) if name == 'LAYERX_NODE_HANDOVER_AUTHORITY_PUBLIC_KEY']
-    assert len(handover) == 1 and node_workload['env'][handover[0]][1][3] is True, (parser, node_workload['env'])
-    assert 'handover-authority' not in topology.configmaps[('layerx-testnet', 'layerx-node-config')], parser
-    module['check'](topology)
-    assert not any('HANDOVER_AUTHORITY' in problem for problem in topology.problems), (parser, topology.problems)
-    topology.problems = []
-    name, reference = node_workload['env'][handover[0]]
-    node_workload['env'][handover[0]] = (name, reference[:3] + (False,))
-    list(topology.resolved_env(node_workload))
-    assert any('LAYERX_NODE_HANDOVER_AUTHORITY_PUBLIC_KEY references key handover-authority missing from ConfigMap layerx-node-config' in problem for problem in topology.problems), (parser, topology.problems)
-    print('PASS optional ConfigMap key reference absent from its ConfigMap is unset, a required one is refused:', parser)
-
-topology = module['Topology']()
-for document in module['load_pyyaml']((ROOT / 'services/platform/hosted/node/deployment.yaml').read_text()):
-    topology.add(document, 'node/deployment.yaml', 'incorrect-default')
-assert all(workload['ns'] == 'layerx-testnet' for workload in topology.workloads)
-assert all(workload['ns'] == 'layerx-developer' for workload in base.workloads if workload['source'].endswith('webhooks/deployment.yaml'))
-print('PASS explicit namespace precedence and kubectl apply fallback namespace')
-
-paths.append('human')
-paths.append('human:web-deployment.yaml')
-complete = load('load_pyyaml')
-assert not failures(complete), failures(complete)
-assert module['check'](complete) == module['check'](load('load_builtin'))
-named(module['check'](complete), RESOLVED, COMPLETE_EDGES, 'complete resolved edges')
-named(module['check'](complete), 'external', SEPARATELY_OPERATED_EDGES, 'complete separately operated edges')
-print('PASS complete topology including Human resolves the %d named edges with both parsers' % len(COMPLETE_EDGES))
-
-node = (ROOT / 'services/platform/hosted/node/deployment.yaml').read_text()
-for parser in ('load_pyyaml', 'load_builtin'):
-    documents = module[parser](node)
-    stateful = next(doc for doc in documents if doc['kind'] == 'StatefulSet')
-    containers = stateful['spec']['template']['spec']['containers']
-    relay = next(container for container in containers if container['name'] == 'paxeer-relay')
-    parsed = relay['args']
-    if parser == 'load_pyyaml':
-        expected_args = parsed
-    else:
-        assert parsed == expected_args, (parsed, expected_args)
-    assert 'exec socat' in parsed[0]
-    assert relay['env'][0]['name'] == 'LAYERX_NODE_PAXEER_RELAY_PORT'
-print('PASS node sequence literal block consumes body and preserves following env')
-
-cluster_script = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
-provision_script = (ROOT / 'services/platform/hosted/human/provision.sh').read_text()
-assert 'source "$REPO_ROOT/services/platform/hosted/human/provision.sh"\n' in cluster_script
-assert cluster_script.count('\nnaming_program_deploy() {\n') == 1
-evidence = provision_script.split('\nhuman_evidence_provision() (\n', 1)[1].split('\n)\n', 1)[0].split('\n')
-ordered = [evidence.index('    ' + step) for step in (
-    'human_native_provision', 'naming_program_deploy', 'registry_deployment_produce', 'human_journal_deploy')]
-assert ordered == sorted(ordered) and len(set(ordered)) == 4, (
-    'human_evidence_provision must call naming_program_deploy after human_native_provision, whose owner '
-    'admission requires a fresh native genesis head that a committed deployment advances, and before '
-    'human_journal_deploy, whose single registry journal export must hold the naming deployment pair', ordered)
-assert evidence.count('    naming_program_deploy') == 1
-calls = [line.strip() for line in cluster_script.split('\n')
-         if line.strip() in ('naming_program_deploy', 'human_evidence_provision')]
-assert calls == ['human_evidence_provision'], (
-    'the bring-up sequence must not deploy the naming program ahead of human_evidence_provision: the owner '
-    'admission requires a fresh native genesis head, and the deployment belongs inside human_evidence_provision '
-    'ahead of the registry journal export', calls)
-print('PASS naming program deployment follows the fresh-genesis-head owner admission and precedes the registry journal export')
-
-raise SystemExit(1 if parity_failed else 0)
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -43,6 +43,7 @@ overrides:
   ws@<8.21.0: 8.21.0
   zod: ^4.6.6
   '@babel/plugin-transform-modules-systemjs@<7.29.4': 7.29.4
+  deepmerge: npm:@stackline/deepmerge@1.1.0
 
 importers:
 
@@ -3103,6 +3104,10 @@ packages:
       typescript:
         optional: true
 
+  '@stackline/deepmerge@1.1.0':
+    resolution: {integrity: sha512-bEQ1EpXrlu9PTTgKD9z85MWYGjDMv79fF2qn2LYdmukpuj6onkn5kZlRAu0PaZvUv9ZQerwtDVgIEn2LYtsE7w==}
+    engines: {node: '>=14.17.0'}
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -4195,10 +4200,6 @@ packages:
   decode-uri-component@0.5.1:
     resolution: {integrity: sha512-vWHQkXgg2cE3BB4rR0c+PYw9BCQzLoNIRMI7AunIkZst74tw/vpPp7VLoYtsR/cy1f55g3XDWUslfeCZjiZJyA==}
     engines: {node: '>=14.16'}
-
-  deepmerge@4.3.1:
-    resolution: {integrity: sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==}
-    engines: {node: '>=0.10.0'}
 
   define-data-property@1.1.4:
     resolution: {integrity: sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A==}
@@ -10004,7 +10005,7 @@ snapshots:
       '@rollup/pluginutils': 3.1.0(rollup@3.30.0)
       '@types/resolve': 1.17.1
       builtin-modules: 3.3.0
-      deepmerge: 4.3.1
+      deepmerge: '@stackline/deepmerge@1.1.0'
       is-module: 1.0.0
       resolve: 1.22.12
       rollup: 3.30.0
@@ -10718,6 +10719,8 @@ snapshots:
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
 
+  '@stackline/deepmerge@1.1.0': {}
+
   '@standard-schema/spec@1.1.0': {}
 
   '@supabase/auth-js@2.105.4':
@@ -10833,7 +10836,7 @@ snapshots:
     dependencies:
       '@svgr/core': 8.1.0(typescript@5.5.2)
       cosmiconfig: 8.3.6(typescript@5.5.2)
-      deepmerge: 4.3.1
+      deepmerge: '@stackline/deepmerge@1.1.0'
       svgo: 3.3.5
     transitivePeerDependencies:
       - typescript
@@ -12325,8 +12328,6 @@ snapshots:
 
   decode-uri-component@0.5.1: {}
 
-  deepmerge@4.3.1: {}
-
   define-data-property@1.1.4:
     dependencies:
       es-define-property: 1.0.1
@@ -12737,7 +12738,7 @@ snapshots:
 
   extension-port-stream@3.0.0:
     dependencies:
-      readable-stream: 3.6.2
+      readable-stream: 4.8.0
       webextension-polyfill: 0.10.0
 
   fancy-canvas@2.1.0: {}
