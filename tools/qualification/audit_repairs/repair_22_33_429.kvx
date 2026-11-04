@@ -1,0 +1,46 @@
+[task.22.33.429]
+audit = "22.30.146"
+requirement = "22998.1"
+input_revision = "f0258720ce13493b46a14760693f7343fdcd5aaa"
+requested_base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+readme_revision = "38801bb427090ac96d47c86a026a63ec05e67315"
+repair = "Consume the root README rewrite published by task 22.31.470 under decision 2525 and add focused regression qualification for docs-root-architecture. README.md already describes the required architecture, native modules, quick start and current build/runtime targets; no README edit is authorized or needed here. Only this record and its test module are created."
+source_proof = "The module asserts README source facts against production app-to-cgo kernel wiring and the consensus source, parses the curl JSON request and root HTTPS URLs, checks transaction acceptance/forwarding and WAL acknowledgement before publication, checks receipt rungs and committed block coverage, and compares the native address table and actual upgrade-gated refusal branches. It parses Make target prerequisites and recipes, checks the paxd build output and start command, parses the release manifest, resolves repository links and asserts diagram order. No shell script, unit file or deployment manifest is changed or named by this finding; the documented shell example is parsed in-process without invoking a shell."
+review_only = "Native Go/C/Rust compilation, node startup, transaction execution, signature verification, WAL durability/restart/recovery, BFT consensus and public host availability are not executed. These documentation/source checks establish the documented producer, transport and consumer connections, not runtime certification. This doc-drift finding changes no production interface or stateful component, so no interface-driving or restart-recovery gate is claimed. Deployment membership, activation heights and real endpoint configuration remain operator review."
+baseline = "Initial git status/diff showed only existing .cgignore and spec/layerx-merge/spec.kvx bookkeeping; neither scoped file existed. The private gate configuration reported zero builds, zero verifies and two repair cycles available; /out/run/gates.jsonl did not exist. No pre-change verification was run: the explicit implementation-first order and hf-done-only verification rule supersede the older baseline clause. No baseline test failure is claimed. README facts were inspected without executing tests."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_429.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl identify the exact verified revision, command, exit code and log path. Build and verification must pass on the same candidate revision. The runner computes that revision from the completed scoped files; embedding the content-derived candidate hash in this record would change it. The input and README revisions above identify the reviewed sources, not an unrun gate. The runner retains qualification evidence and publishes the result; no manual commit or push is performed."
+missing_wiring_requests = []
+
+[finding.docs-root-architecture]
+audit = "22.30.146"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+disposition = "The owner rewrite removes the separate daemon/checkpoint deployment, documents one chain-125 paxd network with its embedded kernel and committed receipts, identifies native modules and retired refusal surfaces, and cites current build and initialized-node startup targets. Closure is conditional on hf-done passing; this record alone is not qualification evidence."
+tests = ["test_docs_root_architecture_embeds_kernel_in_chain_125", "test_docs_root_architecture_uses_root_node_rpc_hosts", "test_docs_root_architecture_submission_follows_node_wal_path", "test_docs_root_architecture_distinguishes_receipt_from_commit", "test_docs_root_architecture_native_inventory_and_retired_refusals", "test_docs_root_architecture_build_and_start_match_production", "test_docs_root_architecture_has_no_separate_deployment", "test_docs_root_architecture_record_maps_finding_to_proofs"]
+
+[wiring.root_readme]
+path = "README.md"
+owner_domain = 17
+owner_task = "22.31.470"
+request = "README.md -> domain 17 / fm-programme, task 22.31.470: provide the architecture, native module, root RPC, committed receipt, retired executor and paxd build/start rewrite required by docs-root-architecture; already supplied at readme_revision."
+status = "satisfied_by_owner"
+missing_facts = "None identified in the inherited README during implementation review; each expected fact remains an unconditional test assertion. Any qualification failure identifying an absent README fact belongs to 22.31.470 and must be recorded here without editing that file or weakening its assertion."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After implementation, apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace rules to the two scoped files."
+
+[gotcha.1]
+observed = "The older baseline-verify clause contradicts the explicit implementation-first ordering and exclusive hf-done verification gate."
+resolution = "Follow the explicit order; do not run the verify command manually or invent baseline failures."
+
+[gotcha.2]
+observed = "The requested base is 399c122802fbe3326c62ef9251760c3e53ee4060, while the runner-provided checkout HEAD is f0258720ce13493b46a14760693f7343fdcd5aaa and includes the README owner rewrite at 38801bb427090ac96d47c86a026a63ec05e67315."
+resolution = "Continue from the actual checkout and record both source revisions without reverting inherited work or changing runner bookkeeping."
+
+[gotcha.3]
+observed = "Combined broad context reads exceeded output limits; Codify searches cannot see production sources excluded by the runner's task-focused .cgignore."
+resolution = "Use bounded reads of exact task, finding, README and production source sections and direct source searches after Codify discovery. Keep task notes here because GOTCHA.kvx and spec files are outside scope."

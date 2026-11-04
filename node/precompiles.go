@@ -30,7 +30,7 @@ import (
 	authprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
 	ledgerprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
-	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
+	programsprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	perpsprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps"
 	pricefeedprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pricefeed"
 	spotprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
@@ -219,3 +219,5 @@ var _ spotprecompile.SpotKeepers = (*PrecompileKeepers)(nil)
 var _ pricefeedprecompile.PriceFeedKeepers = (*PrecompileKeepers)(nil)
 var _ ledgerprecompile.LedgerKeepers = (*PrecompileKeepers)(nil)
 var _ authprecompile.AuthKeepers = (*PrecompileKeepers)(nil)
+
+var _ programsprecompile.HostKeepers = (*PrecompileKeepers)(nil)

@@ -64,6 +64,18 @@ func quoteResult(t *testing.T, ctx sdk.Context, p *PrecompileExecutor, budget [7
 	values, err := programsABI.Methods["quoteCallFee"].Outputs.Unpack(encoded)
 	require.NoError(t, err)
 	require.Len(t, values, 3)
+	record, err := p.host.ReadFeeSchedule(ctx)
+	require.NoError(t, err)
+	schedule, err := decodeFeeScheduleRecord(record)
+	require.NoError(t, err)
+	view := programsABI.Methods["getCurrentFeeSchedule"]
+	viewBytes, err := p.Execute(ctx, &view, common.Address{}, common.Address{}, nil, nil, true, nil, nil)
+	require.NoError(t, err)
+	viewValues, err := view.Outputs.Unpack(viewBytes)
+	require.NoError(t, err)
+	require.Equal(t, schedule.Version, values[0])
+	require.Equal(t, schedule.Asset, values[2])
+	require.Equal(t, viewValues[2], values[2])
 	return values[0].(uint32), values[1].(*big.Int), values[2].([32]byte)
 }
 
