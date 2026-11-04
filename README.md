@@ -46,11 +46,46 @@ The node integrates the following components:
 - **Node and consensus.** `paxd` is built from [`daemon/paxd`](daemon/paxd/), with the application in [`node/`](node/), BFT consensus in [`consensus/`](consensus/), state machine modules in [`modules/`](modules/) and JSON-RPC servers in [`rpc/`](rpc/).
 - **Kernel and programs.** The C17 kernel in `src/` and `include/` runs inside `paxd` through [`modules/lxphost`](modules/lxphost/). The node links `build/liblayerx.a` and the programs sandbox from [`programs/`](programs/). [`node/sequencer`](node/sequencer/) supplies execution ordering and the consensus block source within the node.
 
-A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification. The standalone kernel daemon and external checkpoint settlement model are retired.
+A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification.
 
 Sub-chains are tenant domains stored in the database, managed by [`modules/layerxchains`](modules/layerxchains/). Creating a domain namespaces state within the shared network and does not require new node infrastructure.
 
 The monorepo also includes the agent daemon and MCP server, interop gateway and bridge relayer, hosted developer platform, human control plane, embedded wallet service, explorer and launchpad services. Applications include the Hyperpax perps frontend, wallet, web app, explorer and launchpad web and mobile apps.
+
+### Architecture
+
+| Component | Runtime boundary and source |
+| --- | --- |
+| Paxeer node | [`daemon/paxd`](daemon/paxd/) runs the application in [`node/`](node/) and the BFT network in [`consensus/`](consensus/); mainnet-beta has EVM chain ID **125** (`0x7d`) and consensus chain ID `hyperpax_125-1` |
+| Embedded kernel and proposer | [`modules/lxphost`](modules/lxphost/) links the C17 kernel and Programs sandbox into `paxd`; [`node/sequencer`](node/sequencer/) orders execution and supplies blocks inside the node |
+| Native state and finality | [`modules/`](modules/) and [`precompiles/`](precompiles/) expose application state; BFT block commit establishes receipt finality, including tenant domains in [`modules/layerxchains`](modules/layerxchains/) |
+| Public node RPC | [`rpc/`](rpc/) serves the node method contracts at root URLs; public endpoint configuration and the chain-ID check are [below](#documentation) |
+| Hosted gateway | [`services/platform/hosted/gateway`](services/platform/hosted/gateway/) exposes its operator-hosted `px_*` contract and relays admitted signed transactions and node reads; its origin, credentials and readiness are configured separately |
+
+```mermaid
+flowchart TB
+  Client["Applications, wallets and agents"]
+  Gateway["Optional hosted gateway: operator origin, POST /, px_* APIs"]
+  Client -->|"Public node root JSON-RPC"| RPC
+  Client -->|"Hosted service requests"| Gateway
+  Gateway -->|"Signed transaction relay and node reads"| RPC
+  subgraph Node["paxd: one BFT network, EVM chain ID 125"]
+    RPC["Node RPC: eth_*, net_*, pax_* and configured methods"]
+    Kernel["Embedded LayerX kernel: modules/lxphost and node/sequencer"]
+    Commit["BFT block commit: receipt finality"]
+    State["Committed native state and tenant domains"]
+    RPC -->|"Transaction admission"| Kernel
+    Kernel -->|"Proposal and deterministic execution"| Commit
+    Commit --> State
+    State -->|"Committed reads and receipt evidence"| RPC
+  end
+```
+
+The gateway is an application service outside the node; it does not add a consensus or settlement step. Its `px_*` contract does not establish availability on every public node. Hosted deployment inputs are described by [`services/platform/hosted/node/native_runtime.py`](services/platform/hosted/node/native_runtime.py) and [`deployment.yaml`](services/platform/hosted/node/deployment.yaml); checked-in deployment files alone do not certify a running service or published image.
+
+#### Historical model (retired)
+
+Before the merge, `layerxd` ran as a separate kernel/LNI sequencer and published checkpoints to `layerxAnchor` (`0x1014`). That standalone daemon, unified LayerX router, checkpoint settlement and provider/guarantor finality topology are retired. They describe archived deployments, not additional processes or settlement instructions for the merged network.
 
 ## Documentation
 
@@ -176,6 +211,20 @@ make paxd-build        # build/paxd, linked native libraries and release version
 ```
 
 `paxd-build` builds `build/liblayerx.a` and `programs/target/release/liblayerx_programs_sandbox.a` before invoking `chain.mk`. It stamps the version from [`tools/release/version.json`](tools/release/version.json). `make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version defaults.
+
+To run a prepared proposing node, use the integrated node flags used by [`start_native`](services/platform/hosted/node/native_runtime.py). Replace the example paths with an operator-provisioned node home and a protected receipt key file. The home must already contain the authoritative genesis, peer/application configuration and validator keys; for mainnet-beta, verify consensus chain ID `hyperpax_125-1` and EVM chain ID `125`. The receipt public key must be pinned in `app_state.sequencer.receipt_keys` in genesis, and the separate receipt seed file must have owner-only permissions. This example does not bootstrap or fund a network.
+
+```sh
+./build/paxd validate-genesis --home /path/to/prepared-node
+./build/paxd start --home /path/to/prepared-node \
+  --rpc.laddr tcp://127.0.0.1:26657 \
+  --evm.http_enabled true --evm.http_address 127.0.0.1 --evm.http_port 8545 \
+  --sequencer.enable true \
+  --sequencer.wal-dir /path/to/prepared-node/sequencer-wal \
+  --sequencer.receipt-key-file /path/to/protected-receipt.key
+```
+
+The `--sequencer.*` flags configure the embedded node role. Keep the node home, validator signing state and receipt WAL across restarts. Startup must reach committed readiness; an open RPC port or a signed receipt alone does not establish finality. Hosted lifecycle management uses the native runtime and its deployment configuration linked above; a normal node restart reuses its prepared state.
 
 For kernel library and development tools without rebuilding the node:
 

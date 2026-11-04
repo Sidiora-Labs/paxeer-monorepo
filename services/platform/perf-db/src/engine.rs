@@ -392,7 +392,7 @@ impl PerfDb {
                 &checkpoint,
                 &trader_stats,
                 &daily_stats,
-            );
+            )?;
             tracing::info!(
                 block = snap.checkpoint.last_block,
                 positions = snap.positions.len(),
@@ -1460,7 +1460,7 @@ fn restore_snapshot(
     checkpoint: &CheckpointStore,
     trader_stats: &TraderStatsStore,
     daily_stats: &DailyStatsStore,
-) {
+) -> Result<(), PerfDbError> {
     checkpoint.save(
         snap.checkpoint.last_block,
         snap.checkpoint.last_block_hash.clone(),
@@ -1480,7 +1480,9 @@ fn restore_snapshot(
     }
 
     for user in &snap.users {
-        users.upsert(user.clone());
+        users
+            .upsert(user.clone())
+            .map_err(|error| PerfDbError::Corruption(error.to_string()))?;
     }
 
     for ts in &snap.trader_stats {
@@ -1512,6 +1514,7 @@ fn restore_snapshot(
             ms.price_change_pct_24h,
         );
     }
+    Ok(())
 }
 
 /// Convert a unix timestamp (seconds) to YYYYMMDD u32.
