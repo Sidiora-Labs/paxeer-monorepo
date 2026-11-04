@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -52,17 +53,50 @@ def compiler(name, override):
     return Path(value).absolute()
 
 
-def manifest_parity():
+def admitted_abis():
+    policy = (ROOT / "programs/sdk/rust/src/abi_policy.rs").read_text()
+    constants = {name: int(value) for name, value in re.findall(
+        r"pub const (ABI_V\d+_VERSION): u16 = (\d+);", policy)}
+    match = re.search(r"const fn supported\(.*?match requested \{(.*?)=>\s*\{\s*Ok\(\(\)\)", policy, re.S)
+    if not match:
+        raise RuntimeError("canonical ABI admission policy could not be read")
+    names = re.findall(r"ABI_V\d+_VERSION", match[1])
+    versions = tuple(constants[name] for name in names)
+    if not versions or len(set(versions)) != len(versions) or tuple(sorted(versions)) != versions:
+        raise RuntimeError("canonical admitted ABI inventory is invalid")
+    return versions
+
+
+def unallocated_abi():
+    versions = admitted_abis()
+    return next(version for version in range(1, 65536) if version not in versions)
+
+
+def canonical_rows():
+    base = ROOT / "programs/crates/layerx-programs-runtime/src/abi"
+    source = (base / "manifest.rs").read_text()
     rows = []
-    for line in (ROOT / "programs/sdk/abi-manifest.tsv").read_text().splitlines():
-        version, module, name, signature = line.split("\t")
-        version = int(version)
-        if version not in range(1, 5) or module != "layerx_v" + str(version):
-            raise RuntimeError("noncanonical shared ABI namespace")
-        rows.append((version, module, name, signature))
-    if len(rows) != 28 or len({(row[1], row[2]) for row in rows}) != len(rows):
-        raise RuntimeError("shared ABI table is incomplete or duplicated")
-    for version in range(1, 5):
+    for version in admitted_abis():
+        if version == 1:
+            table = re.search(r"pub const HOST_FUNCTIONS:.*?= \[(.*?)\n\];",
+                              (base / "mod.rs").read_text(), re.S)
+            entries = re.findall(r'name: "([^"\n]+)",\s*signature: "([^"\n]+)"', table[1]) if table else []
+        else:
+            table = re.search(r"pub const ABI_V" + str(version) + r"_HOST_FUNCTIONS:.*?=\s*\[(.*?)\];", source, re.S)
+            entries = re.findall(r'host\(\s*"([^"\n]+)",\s*"([^"\n]+)"\s*,?\s*\)', table[1]) if table else []
+        if not entries:
+            raise RuntimeError("missing canonical versioned host table")
+        rows.extend((version, "layerx_v" + str(version), name, signature) for name, signature in entries)
+    return rows
+
+
+def manifest_parity(path=None):
+    rows = canonical_rows()
+    if len({(row[1], row[2]) for row in rows}) != len(rows):
+        raise RuntimeError("duplicate canonical host function")
+    checksums = dict(line.split() for line in (ROOT / "programs/abi-frozen.sha256").read_text().splitlines()
+                     if line and not line.startswith("#"))
+    for version in admitted_abis():
         encoded = version.to_bytes(2, "big")
         previous = None
         for introduced, module, name, signature in rows:
@@ -72,9 +106,40 @@ def manifest_parity():
                 encoded += module.encode() + b"\0"
                 previous = module
             encoded += (name + signature).encode() + b"\0"
-        frozen = bytes.fromhex((ROOT / f"programs/tests/vectors/abi-v{version}.hex").read_text())
-        if encoded != frozen:
-            raise RuntimeError("shared ABI table differs from frozen runtime manifest")
+        vector = (ROOT / f"programs/tests/vectors/abi-v{version}.hex").read_bytes()
+        frozen = bytes.fromhex(vector.decode("ascii"))
+        if encoded != frozen or hashlib.sha256(vector).hexdigest() != checksums[str(version)]:
+            raise RuntimeError("canonical host table differs from frozen runtime manifest")
+    # The published historical TSV is frozen separately; its v5 publication belongs to the SDK owner.
+    shared = ROOT / "programs/sdk/abi-manifest.tsv" if path is None else Path(path)
+    observed = [tuple(line.split("\t")) for line in shared.read_text().splitlines()]
+    expected = [tuple(map(str, row)) for row in rows if path is not None or row[0] <= 4]
+    if observed != expected:
+        raise RuntimeError("shared ABI table differs from canonical host tables")
+    return rows
+
+
+def write_manifest(path):
+    rows = manifest_parity()
+    with Path(path).open("x") as stream:
+        stream.write("".join("\t".join(map(str, row)) + "\n" for row in rows))
+    manifest_parity(path)
+    return Path(path)
+
+
+LINKER_TESTS = (
+    "finding_015_import_admission_matches_every_runtime_namespace",
+    "finding_015_v5_sdk_import_reaches_the_real_validator_and_linker",
+)
+
+
+def linker_output(output):
+    passed = re.findall(r"^test ([A-Za-z0-9_:]+) \.\.\. ok$", output, re.M)
+    summaries = re.findall(r"^test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;", output, re.M)
+    if (len(passed) != len(LINKER_TESTS) or set(passed) != set(LINKER_TESTS)
+            or summaries != [(str(len(LINKER_TESTS)), "0", "0")]):
+        raise RuntimeError("historical and v5 real guest validation/linker cases absent, failed or skipped")
+    return passed
 
 
 def rejected_artifacts(path, evidence):
@@ -211,6 +276,20 @@ def build(evidence, target, deadline):
     run([cargo, "build", "--offline", "--locked", "--manifest-path", ROOT / "programs/Cargo.toml",
         "-p", "layerx-program-lint", "--bin", "layerx-program-lint", "--target-dir", target / "runtime"],
         evidence, "build-rust-linter", deadline)
+    run([cargo, "test", "--offline", "--locked", "--manifest-path", ROOT / "programs/Cargo.toml",
+        "-p", "layerx-program-lint", "--test", "repair_22_33_247", "--no-run", "--message-format=json",
+        "--target-dir", target / "runtime"], evidence, "build-abi-linker", deadline)
+    linker_paths = []
+    for line in (evidence / "build-abi-linker.log").read_text().splitlines():
+        if not line.startswith("{"):
+            continue
+        event = json.loads(line)
+        if (event.get("reason") == "compiler-artifact"
+                and event.get("target", {}).get("name") == "repair_22_33_247"
+                and event.get("profile", {}).get("test") is True and event.get("executable")):
+            linker_paths.append(event['executable'])
+    if len(linker_paths) != 1:
+        raise RuntimeError("unique canonical ABI guest/linker artifact required")
     fragment = evidence / "native.mk"
     fragment.write_text(""".PHONY: programs-language-abi-build
 programs-language-abi-build: $(BUILD_DIR)/tests/programs_language_abi
@@ -226,38 +305,44 @@ $(BUILD_DIR)/tests/programs_language_abi: tests/programs/test_language_abi.c $(L
         raise RuntimeError("candidate source changed during build")
     artifacts = {language: {"path": str(target / (language + ".wasm")), "sha256": sha(target / (language + ".wasm"))}
         for language in LANGUAGES}
-    for name, path in [("native", target / "native/tests/programs_language_abi"), ("c_lint", target / "c-lint"),
+    for name, path in [("abi_linker", Path(linker_paths[0])), ("native", target / "native/tests/programs_language_abi"), ("c_lint", target / "c-lint"),
         ("rust_lint", target / "runtime/debug/layerx-program-lint")]:
         artifacts[name] = {"path": str(path), "sha256": sha(path)}
     save(evidence / "artifacts.json", {"revision": revision, "source": source, "artifacts": artifacts,
-        "abi_version": 4, "compiler": {"clang": str(clang), "rustc": str(rustc), "asc": str(asc)}})
+        "abi_versions": list(admitted_abis()), "compiler": {"clang": str(clang), "rustc": str(rustc), "asc": str(asc)}})
 
 
 def verify(evidence, deadline):
     manifest = json.loads((evidence / "artifacts.json").read_text())
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
         check=True, capture_output=True, text=True).stdout.strip()
-    if manifest["revision"] != revision or manifest["source"] != inventory() or manifest["abi_version"] != 4:
+    if manifest["revision"] != revision or manifest["source"] != inventory() or manifest["abi_versions"] != list(admitted_abis()):
         raise RuntimeError("candidate source identity mismatch")
     artifacts = manifest["artifacts"]
     for row in artifacts.values():
         if sha(row["path"]) != row["sha256"]:
             raise RuntimeError("candidate artifact missing or changed")
+    expanded = write_manifest(evidence / "abi-manifest.tsv")
     shared = ROOT / "programs/sdk/abi-manifest.tsv"
-    manifest_parity()
+    run([artifacts['abi_linker']['path'], '--exact', *LINKER_TESTS, '--test-threads=1'],
+        evidence, 'abi-linker', deadline)
+    linker_output((evidence / 'abi-linker.log').read_text())
     for language in LANGUAGES:
-        run([artifacts["c_lint"]["path"], "--abi-version", "4", "--abi-manifest", shared, artifacts[language]["path"]],
-            evidence, "lint-c-" + language, deadline)
-        run(["node", ROOT / "programs/sdk/assemblyscript/tools/determinism-lint.mjs", "--abi-version", "4",
-            "--abi-manifest", shared, artifacts[language]["path"]], evidence, "lint-as-" + language, deadline)
-        run([artifacts["rust_lint"]["path"], "--abi-version", "4", "--artifact", artifacts[language]["path"]],
-            evidence, "lint-rust-" + language, deadline)
-        for version in (0, 1, 2, 3, 5):
-            for label, command in [("c", [artifacts["c_lint"]["path"], "--abi-version", str(version),
-                "--abi-manifest", shared, artifacts[language]["path"]]), ("assemblyscript", ["node",
-                ROOT / "programs/sdk/assemblyscript/tools/determinism-lint.mjs", "--abi-version", str(version),
-                "--abi-manifest", shared, artifacts[language]["path"]]), ("rust", [artifacts["rust_lint"]["path"],
-                "--abi-version", str(version), "--artifact", artifacts[language]["path"]])]:
+        for version in admitted_abis():
+            selected = expanded if version >= 5 else shared
+            commands = [("c", [artifacts["c_lint"]["path"], "--abi-version", str(version), "--abi-manifest", selected, artifacts[language]["path"]]),
+                        ("assemblyscript", ["node", ROOT / "programs/sdk/assemblyscript/tools/determinism-lint.mjs", "--abi-version", str(version), "--abi-manifest", selected, artifacts[language]["path"]]),
+                        ("rust", [artifacts["rust_lint"]["path"], "--abi-version", str(version), "--artifact", artifacts[language]["path"]])]
+            for label, command in commands:
+                name = f"lint-{label}-{language}-v{version}"
+                if version >= 4:
+                    run(command, evidence, name, deadline)
+                else:
+                    refuse(command, evidence, name, deadline)
+        for version in (0, unallocated_abi(), 65535):
+            for label, command in [("c", [artifacts["c_lint"]["path"], "--abi-version", str(version), "--abi-manifest", shared, artifacts[language]["path"]]),
+                                   ("assemblyscript", ["node", ROOT / "programs/sdk/assemblyscript/tools/determinism-lint.mjs", "--abi-version", str(version), "--abi-manifest", shared, artifacts[language]["path"]]),
+                                   ("rust", [artifacts["rust_lint"]["path"], "--abi-version", str(version), "--artifact", artifacts[language]["path"]])]:
                 refuse(command, evidence, f"refuse-{label}-{language}-v{version}", deadline)
     for name, artifact in rejected_artifacts(artifacts["rust"]["path"], evidence):
         for label, command in [("c", [artifacts["c_lint"]["path"], "--abi-version", "4", "--abi-manifest", shared, artifact]),

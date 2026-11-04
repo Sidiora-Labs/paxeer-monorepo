@@ -636,7 +636,8 @@ static int admission_case(lxp_kernel *kernel, lxp_authority_resolved *authority,
     if (framed) {
         interface_length = interface_payload(payload + offset, hash);
         write_u16(payload + offset + 60U, abi);
-        if (abi == 3U || abi == 4U)
+        if (abi >= LX_PROGRAMS_GUEST_ABI_V3_VERSION &&
+            abi <= LX_PROGRAMS_GUEST_ABI_V5_VERSION)
             payload[offset + 26U] = (uint8_t)('0' + abi);
         if (invalid_capability) {
             size_t capabilities = offset + interface_length - 6U;
@@ -736,6 +737,25 @@ static int admission_case(lxp_kernel *kernel, lxp_authority_resolved *authority,
     return 0;
 }
 
+static size_t admission_abis(uint16_t *versions, size_t capacity,
+                              uint16_t *unallocated)
+{
+    size_t count = 0U;
+    *unallocated = 0U;
+    for (uint32_t candidate = 1U; candidate <= UINT16_MAX; ++candidate) {
+        lxp_result status = lxp_programs_abi_transition_validate(0U, (uint16_t)candidate);
+        if (status == LXP_OK) {
+            if (count == capacity) return 0U;
+            versions[count++] = (uint16_t)candidate;
+        } else if (status == LXP_ERR_VERSION_UNSUPPORTED) {
+            if (*unallocated == 0U) *unallocated = (uint16_t)candidate;
+        } else {
+            return 0U;
+        }
+    }
+    return *unallocated != 0U ? count : 0U;
+}
+
 static int all_form_validation(void)
 {
     static const uint8_t valid[] = {
@@ -764,6 +784,9 @@ static int all_form_validation(void)
     uint64_t parameters = 1U;
     unsigned int serial = 1U, cases = 0U;
     int failed = 0;
+    uint16_t versions[UINT8_MAX], unallocated;
+    size_t version_count = admission_abis(versions, UINT8_MAX, &unallocated);
+    if (version_count == 0U) return 1;
     (void)memset(authority.principal, 0x42, sizeof(authority.principal));
     if (lxp_state_store_init(&store, 1U) != LXP_OK ||
         lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) != LXP_OK ||
@@ -774,7 +797,8 @@ static int all_form_validation(void)
         lxp_kernel *active = phase == 0 ? &kernel : &restored;
         const char *phase_name = phase == 0 ? "initial" : "snapshot_replay";
         for (int form = 0; form < 2 && !failed; ++form) {
-            for (uint16_t abi = 1U; abi <= 4U && !failed; ++abi) {
+            for (size_t version = 0U; version < version_count && !failed; ++version) {
+                uint16_t abi = versions[version];
                 const struct {
                     const char *name;
                     const uint8_t *bytes;
@@ -794,7 +818,7 @@ static int all_form_validation(void)
             }
             if (failed) break;
             failed = admission_case(active, &authority, "unsupported_abi", form,
-                5U, valid, sizeof(valid), 0, LXP_ERR_VERSION_UNSUPPORTED,
+                unallocated, valid, sizeof(valid), 0, LXP_ERR_VERSION_UNSUPPORTED,
                 serial++, phase_name);
             if (failed) break;
             ++cases;
@@ -828,7 +852,8 @@ static int all_form_validation(void)
                 if (failed) break;
                 ++cases;
             }
-            for (uint16_t abi = 1U; abi <= 4U && !failed; ++abi) {
+            for (size_t version = 0U; version < version_count && !failed; ++version) {
+                uint16_t abi = versions[version];
                 failed = admission_case(active, &authority, "valid", form, abi,
                     valid, sizeof(valid), 0, LXP_OK, serial++, phase_name);
                 if (!failed) ++cases;

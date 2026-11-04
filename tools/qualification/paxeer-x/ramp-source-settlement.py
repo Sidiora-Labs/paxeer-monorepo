@@ -15,6 +15,9 @@ import urllib.parse
 import urllib.request
 
 sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).parent))
+import merged_qualification as merged
+
 ROOT = Path(__file__).resolve().parents[3]
 VERSION = "layerx-migration-source-v2"
 FIXTURE_VERSION = "layerx-ramp-source-settlement-fixture-v2"
@@ -92,6 +95,92 @@ def write_private(path, value):
         os.fsync(handle.fileno())
 
 
+def order_binding(order):
+    """Recompute the maintained RampOrder digest before trusting quote context."""
+    quote = order['quote']
+    require(quote['direction'] == 'on_ramp' and order['payer_grant'] is None
+            and order.get('payer_grant_purpose') is None,
+            'operator-funded source settlement order required')
+    require(order['context'] == quote['context'], 'order and quote context differ')
+    def text(value):
+        require(isinstance(value, str) and value, 'nonempty canonical order field required')
+        return value.encode('utf-8')
+    def integer(value, size):
+        require(type(value) is int and 0 <= value < 1 << (size * 8), 'canonical order integer required')
+        return value.to_bytes(size, 'big')
+    values = [text(quote['direction']), text(order['order_id']), text(quote['quote_id']),
+              text(order['customer']['principal_id']), text(order['customer']['account']),
+              text(order['operator']['principal_id']), text(order['operator']['account']),
+              text(order['operator']['signer_key_handle']), bytes(byte32(quote['layerx_asset'])),
+              integer(quote['layerx_amount'], 16), text(quote['external_currency']),
+              integer(quote['external_amount_minor'], 16), integer(quote['rate_numerator'], 16),
+              integer(quote['rate_denominator'], 16), integer(quote['fee_minor'], 16),
+              integer(quote['maximum_slippage_bps'], 2), bytes(byte32(order['context'])),
+              text(quote['provider_token']), text(quote['payout_token']), integer(quote['expires_at'], 8), b'', b'']
+    encoded = b'LXP/market-maker-ramp/order/v1\0' + b''.join(
+        len(value).to_bytes(16, 'big') + value for value in values)
+    require(hashlib.sha256(encoded).digest() == bytes(byte32(order['order_digest'])),
+            'order digest does not bind its context and principals')
+    return {'order_digest': bytes(order['order_digest']), 'context': bytes(order['context']),
+            'from': account_id(order['operator']['account']), 'to': account_id(order['customer']['account']),
+            'asset': bytes(quote['layerx_asset']), 'amount': quote['layerx_amount'],
+            'expires_at': quote['expires_at'] * 1000}
+
+
+def committed_destination(node, transaction_hash, expected):
+    closed(expected, ('order_digest', 'context', 'from', 'to', 'asset', 'amount', 'expires_at'),
+           'committed destination binding')
+    for name in ('order_digest', 'context', 'from', 'to', 'asset'):
+        require(isinstance(expected[name], bytes) and len(expected[name]) == 32 and any(expected[name]),
+                'nonzero destination binding required')
+    require(type(expected['amount']) is int and 0 < expected['amount'] < 1 << 128
+            and type(expected['expires_at']) is int and 0 < expected['expires_at'] < 1 << 64,
+            'destination amount or expiry refused')
+    proof = node.committed(transaction_hash)
+    transaction, _ = merged.evm.decode_signed(bytes.fromhex(proof['raw_transaction'][2:]))
+    address = '0x' + '00' * 18 + '101a'
+    method = merged.abi_method('layerxledger', 'payExact')
+    types = [node.abi_type(row) for row in method['inputs']]
+    arguments = [expected[name] for name in ('from', 'to', 'asset', 'amount', 'expires_at', 'order_digest')]
+    require(transaction.chain_id == 125 and transaction.value == 0
+            and transaction.to.hex() == address[2:]
+            and transaction.data == merged.evm.encode_call('payExact', types, arguments),
+            'committed destination transaction does not bind the order')
+    row = node.call('pax_sequencerReceipt', [transaction_hash])
+    # Authenticate this exact observation too; do not trust a second, mutable JSON log view.
+    merged.CHAIN._EXECUTION.verified_execution(row, bytes.fromhex(proof['raw_transaction'][2:]),
+                                             {'receipt_keys': node.receipt_keys})
+    topic = '0x' + merged.CHAIN.keccak256(b'PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)').hex()
+    payments = [log for log in row['logs'] if log['address'] == address and log['topics']
+                and log['topics'][0] == topic]
+    require(len(payments) == 1 and payments[0]['topics'] == [topic, '0x' + expected['order_digest'].hex(),
+            '0x' + expected['from'].hex(), '0x' + expected['to'].hex()]
+            and merged.decode_abi(['bytes32', 'uint128'], payments[0]['data'])
+            == [expected['asset'], expected['amount']], 'committed destination transfer event mismatch')
+    return {'verified': True, 'rung': 'committed', 'chain_id': 125,
+            'order_digest': expected['order_digest'].hex(), 'context': expected['context'].hex(),
+            'from': expected['from'].hex(), 'to': expected['to'].hex(),
+            'asset': expected['asset'].hex(), 'amount': str(expected['amount']), **proof}
+
+
+def destination_receipt(node, transaction_hash, expected, output):
+    evidence = committed_destination(node, transaction_hash, expected)
+    output = Path(output)
+    try:
+        write_private(output, evidence)
+    except FileExistsError:
+        require(document(output) == evidence, 'recovered destination proof changed')
+    return evidence
+
+
+def account_id(name):
+    require(isinstance(name, str) and name.startswith('agent:') and name.endswith(':main')
+            and all(character in 'abcdefghijklmnopqrstuvwxyz0123456789._-:' for character in name),
+            'canonical native main account required')
+    raw = name.encode('ascii')
+    return hashlib.sha256(b'LX:ACCOUNT:v1' + len(raw).to_bytes(4, 'big') + raw).digest()
+
+
 class Contract:
     def __init__(self, fixture):
         closed(fixture, ("version", "execution_domain", "authorize_funded_layerx",
@@ -107,7 +196,7 @@ class Contract:
         revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
                                            text=True).strip()
         require(fixture["source_revision"] == revision, "fixture candidate revision mismatch")
-        closed(fixture["artifacts"], ("reference_ramp", "interop_service", "receipt_verifier"), "artifacts")
+        closed(fixture["artifacts"], ("reference_ramp", "interop_service"), "artifacts")
         self.binaries = {name: artifact(record, revision)
                          for name, record in fixture["artifacts"].items()}
         self.fixture = fixture
@@ -282,24 +371,18 @@ class Contract:
         require(self.journal() == before, name + " mutated durable settlement")
         self.passed(name)
 
-    def receipt(self, case, order, activity, output, expected_success=True):
-        args = [self.binaries["receipt_verifier"], "--config-file", self.fixture["receipt_config_file"],
-                "--order-file", case["order_file"], "--activity-id", bytes(activity).hex(),
-                "--output-file", str(output)]
-        result = subprocess.run(args, cwd=ROOT, capture_output=True, timeout=120)
-        if not expected_success:
-            require(result.returncode != 0 and not output.exists(), "forged receipt authority accepted")
+    def receipt(self, case, order, transaction_hash, output, expected_success=True):
+        configuration = document(self.fixture['receipt_config_file'])
+        closed(configuration, ('node_url', 'receipt_keys'), 'destination receipt verifier configuration')
+        node = merged.CHAIN.Node(configuration['node_url'], configuration['receipt_keys'], context=self.context)
+        expected = order_binding(order)
+        try:
+            evidence = (destination_receipt(node, transaction_hash, expected, output) if expected_success
+                        else committed_destination(node, transaction_hash, expected))
+        except (ValueError, Refusal):
+            require(not expected_success and not output.exists(), 'genuine committed destination proof refused')
             return
-        require(result.returncode == 0, "independent genuine funded receipt verification refused")
-        evidence = document(output)
-        require(evidence["verified"] is True and evidence["maintained_batch"] is True
-                and evidence["order_digest"] == bytes(order["order_digest"]).hex()
-                and evidence["activity_id"] == bytes(activity).hex()
-                and evidence["asset"] == bytes(order["quote"]["layerx_asset"]).hex()
-                and evidence["amount"] == str(order["quote"]["layerx_amount"])
-                and evidence["context"] == bytes(order["context"]).hex()
-                and evidence["module_id"] == 1 and evidence["operation"] == 5
-                and evidence["result_code"] == 0, "funded receipt binding mismatch")
+        require(expected_success and evidence['rung'] == 'committed', 'forged receipt authority accepted')
 
     def accepted_case(self, case):
         closed(case, ("chain", "order_file", "evidence_file", "account_sequence"), "accepted case")
@@ -352,10 +435,9 @@ class Contract:
             time.sleep(0.2)
         else:
             raise Refusal("real funded receipt remained uncertain")
-        activity = byte32(current["presentation"]["activity_id"])
-        self.receipt(case, order, activity, self.work / (case["chain"] + "-receipt.json"))
-        invalid = activity.copy()
-        invalid[0] ^= 1
+        transaction_hash = current["presentation"]["transaction_hash"]
+        self.receipt(case, order, transaction_hash, self.work / (case["chain"] + "-receipt.json"))
+        invalid = "0x" + ("0" if transaction_hash[2] != "0" else "1") + transaction_hash[3:]
         self.receipt(case, order, invalid, self.work / (case["chain"] + "-forged.json"), False)
         before = self.journal()
         status, response = self.http("POST", "/internal/v2/source-settlements", request, "migration", "customer")
@@ -376,6 +458,7 @@ class Contract:
         status, health = self.http("GET", "/readyz")
         require(status == 200 and health["ready"] is True, "automatic independent source and receipt recovery refused")
         require(self.order(order["order_digest"])["stage"] == "done", "durable V2 settlement lost on restart")
+        self.receipt(case, order, transaction_hash, self.work / (case["chain"] + "-receipt.json"))
         before = self.journal()
         status, response = self.http("POST", "/internal/v2/source-settlements", request, "migration", "customer")
         require(status == 200 and response["state"] == "done" and self.journal() == before,
