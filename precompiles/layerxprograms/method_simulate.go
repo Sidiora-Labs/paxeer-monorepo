@@ -94,6 +94,8 @@ func simulateHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, a
 		return nil, fmt.Errorf("LXP_FATAL_INVARIANT: missing simulation program outcome")
 	}
 	outcome := receipt.ProgramOutcome
+	// Simulation shares call's terminal-frame contract, including evidence;
+	// responseCapacity applies to nested guest bytes (response.md).
 	return call.method.Outputs.Pack(outcome.Status, outcome.Kind, outcome.Response)
 }
 

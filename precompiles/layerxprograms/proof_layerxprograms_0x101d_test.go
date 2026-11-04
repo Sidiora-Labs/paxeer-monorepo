@@ -139,7 +139,7 @@ func quoteCallFee(t *testing.T, h *harness, budget [7]uint64) {
 	t.Helper()
 	record, err := h.host.ReadFeeSchedule(h.stateDB.Ctx())
 	require.NoError(t, err)
-	digest := sha256.Sum256(record)
+	asset := [32]byte(record[65:97])
 	expected := new(big.Int)
 	for i, limit := range budget {
 		price := binary.BigEndian.Uint64(record[9+i*8 : 17+i*8])
@@ -153,7 +153,7 @@ func quoteCallFee(t *testing.T, h *harness, budget [7]uint64) {
 		require.NoError(t, err)
 		values, err := lp.ProgramsABI.Methods["quoteCallFee"].Outputs.Unpack(output)
 		require.NoError(t, err)
-		require.Equal(t, []interface{}{binary.BigEndian.Uint32(record[5:9]), expected, digest}, values)
+		require.Equal(t, []interface{}{binary.BigEndian.Uint32(record[5:9]), expected, asset}, values)
 		require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 	}
 	// The ABI refuses malformed fixed-array input before kernel state can change.
