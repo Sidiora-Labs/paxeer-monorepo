@@ -165153,7 +165153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.472]
 title = "Requalify the explorer price-acceptance replay after the migration change and wire its runner into the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197040,7 +197040,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.468]
 title = "Create the perps spot board omission tables in a production migration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205683,7 +205683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1018]
 title = "Repair audit record 22.30.37 medium findings in services/launchpad/pnl-tracker/internal/production/l16 (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.62", "22.31.63", "22.31.64", "22.31.461"]
