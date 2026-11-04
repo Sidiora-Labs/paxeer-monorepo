@@ -1,0 +1,31 @@
+[task.22.31.140]
+mode = "BUILD"
+audit = "22.30.75"
+acceptance = "22998.1"
+proof = "services/platform/perf-db/tests/repair_22_31_140.rs"
+baseline = "No earlier gate ledger or implementation existed; baseline verification was not run because the task's controlling gate order permits verification only after complete implementation and hf-build."
+revision = "The runner records the exact source revision and private evidence in the final hf-done receipt."
+wiring = "No out-of-path implementation is required; the existing IndexedEvent block number, transaction hash/index and log index are bound to the persisted identity."
+
+[finding.tick-replay-history]
+tests = ["TestRepair_140_tick_replay_history_crash_boundaries", "TestRepair_140_tick_live_bucket_and_shutdown_cursor"]
+repair = "Durable tick/candle counts, exact WAL cursor and live builder state are atomically published after WAL and mmap sync; recovery rewinds uncommitted suffixes and replays strictly after that cursor, preserving equal tick occurrences."
+
+[finding.snapshot-event-boundary]
+tests = ["TestRepair_140_snapshot_same_block_exact_event_boundary", "TestRepair_140_snapshot_concurrent_mutation_boundary", "TestRepair_140_snapshot_cursor_and_dedup_survive_wal_pruning"]
+repair = "Snapshots share the engine mutation barrier and atomically publish exact WAL position, full state and the event identity/history ledger in a versioned image; legacy images remain readable by storage APIs but require explicit engine migration because they lack an exact boundary."
+
+[finding.event-redelivery-dedup]
+tests = ["TestRepair_140_event_redelivery_dedup_before_and_after_reopen", "TestRepair_140_event_conflicting_redelivery_refused_before_wal", "TestRepair_140_event_wal_redelivery_is_idempotent", "TestRepair_140_snapshot_cursor_and_dedup_survive_wal_pruning"]
+repair = "Transaction/log identity and canonical block/transaction/log slot are checked before append; identical redeliveries do not append or apply, and inconsistent payload or block bindings fail. The ledger is recovered from the same snapshot boundary and subsequent WAL."
+
+[finding.database-writer-lease]
+tests = ["TestRepair_140_database_writer_lease_and_live_inspection", "TestRepair_140_database_writer_lease_directory_alias", "TestRepair_140_inspection_ignores_uncommitted_mmap_suffix", "TestRepair_140_inspection_does_not_repair_wal_or_create_database"]
+repair = "An exclusive kernel file-description lease precedes writable store opens and lasts until every writable resource drops. Query CLI commands use read-only handles and private recovered stores, including alongside an active writer."
+
+[qualification.repair_1]
+revision = "717f0d06825da39b066ff37d4224fa6d95b40937"
+command = "cg spec done 22.31.140 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The same-block exact-boundary test recovered every event but a late lower-block event regressed the checkpoint; engine event and WAL checkpoint advances now preserve the maximum processed height without changing the assertion."
