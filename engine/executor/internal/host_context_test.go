@@ -6,12 +6,14 @@ import (
 
 	"github.com/ethereum/evmc/v12/bindings/go/evmc"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
 
 // TestStorageStatusLogic tests the storage status determination logic
-// This tests the algorithm used in SetStorage without needing a full StateDB
+// Expectations come from the EVMC storage transition contract.
 func TestStorageStatusLogic(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -74,7 +76,7 @@ func TestStorageStatusLogic(t *testing.T) {
 			original:       common.Hash{1, 2, 3},
 			current:        common.Hash{},        // deleted
 			newValue:       common.Hash{4, 5, 6}, // different non-zero
-			expectedStatus: evmc.StorageAssigned, // dirty && !restored && !(currentIsZero && valueIsZero)
+			expectedStatus: evmc.StorageDeletedAdded,
 		},
 		{
 			name:           "StorageModifiedDeleted - was modified, now delete",
@@ -87,45 +89,16 @@ func TestStorageStatusLogic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status := computeStorageStatus(tt.original, tt.current, tt.newValue)
+			host, db := repairM1131Host(t, false)
+			addr, key := common.Address{42}, common.Hash{17}
+			db.SetState(addr, key, tt.original)
+			db.Finalise(false)
+			db.SetState(addr, key, tt.current)
+			status := host.SetStorage(evmc.Address(addr), evmc.Hash(key), evmc.Hash(tt.newValue))
+			require.Equal(t, tt.newValue, db.GetState(addr, key))
 			require.Equal(t, tt.expectedStatus, status, "Storage status mismatch")
 		})
 	}
-}
-
-// computeStorageStatus replicates the logic from SetStorage for testing
-func computeStorageStatus(original, current, value common.Hash) evmc.StorageStatus {
-	dirty := original.Cmp(current) != 0
-	restored := original.Cmp(value) == 0
-	currentIsZero := current.Cmp(common.Hash{}) == 0
-	valueIsZero := value.Cmp(common.Hash{}) == 0
-
-	status := evmc.StorageAssigned
-	if !dirty && !restored {
-		if currentIsZero {
-			status = evmc.StorageAdded
-		} else if valueIsZero {
-			status = evmc.StorageDeleted
-		} else {
-			status = evmc.StorageModified
-		}
-	} else if dirty && !restored {
-		if currentIsZero && valueIsZero {
-			status = evmc.StorageDeletedAdded
-		} else if !currentIsZero && valueIsZero {
-			status = evmc.StorageModifiedDeleted
-		}
-	} else if dirty {
-		if currentIsZero {
-			status = evmc.StorageDeletedRestored
-		} else if valueIsZero {
-			status = evmc.StorageAddedDeleted
-		} else {
-			status = evmc.StorageModifiedRestored
-		}
-	}
-
-	return status
 }
 
 // TestAccessStatusLogic tests the access list status determination
@@ -295,12 +268,22 @@ func TestExecuteCodeSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var code []byte
-			if tt.kind == evmc.Create || tt.kind == evmc.Create2 {
-				code = tt.input // initcode is passed as input for contract creation
-			} else {
-				code = tt.recipientCode // fetch from recipient for calls
+			contract := vm.NewContract(repairM1131Caller, repairM1131Recipient, new(uint256.Int), 100000, nil)
+			contract.Code = tt.recipientCode
+			op := vm.CALL
+			switch tt.kind {
+			case evmc.Create:
+				op = vm.CREATE
+				contract.Code = tt.input
+			case evmc.Create2:
+				op = vm.CREATE2
+				contract.Code = tt.input
+			case evmc.DelegateCall:
+				op = vm.DELEGATECALL
 			}
+			message, err := (&EVMInterpreter{}).executionMessage(op, contract, tt.input)
+			require.NoError(t, err)
+			code := message.code
 			require.Equal(t, tt.expectedCode, code)
 		})
 	}

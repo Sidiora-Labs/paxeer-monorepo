@@ -43,6 +43,27 @@ def test_parallel_differential_rule_omits_batch_wal():
 
 def test_parallel_differential_links_without_batch_wal():
     test_parallel_differential_rule_omits_batch_wal()
+    target = "build/tests/programs_parallel_differential"
+    built = run_make(target)
+    assert built.returncode == 0, built.stdout + built.stderr
+    executed = subprocess.run(
+        [str(ROOT / target)],
+        cwd=ROOT,
+        env={**os.environ, "LC_ALL": "C"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = executed.stdout + executed.stderr
+    assert executed.returncode == 0, output
+    for workload in ("low-conflict", "all-conflicting"):
+        assert re.search(
+            rf"^program batch differential workload={workload} "
+            r"activities=32 levels=[1-9][0-9]* workers=8 "
+            r"serial_ns=[0-9]+ parallel_ns=[0-9]+$",
+            output,
+            re.M,
+        ), output
 
 
 def test_state_diff_rules_absent():

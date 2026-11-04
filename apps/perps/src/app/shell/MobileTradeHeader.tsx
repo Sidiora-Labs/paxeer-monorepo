@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X, Search } from "lucide-react";
 import { cn } from "@/ui/utils/cn";
-import { coinLogoUrl } from "@/core/perps/config";
+import { coinLogoUrl, getMarketCategory } from "@/core/perps/config";
 import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
@@ -68,8 +68,12 @@ export function MobileTradeHeader({
   };
 
   const mktFiltered = useMemo(() => {
-    let list = [...catalog];
-    if (mktTab !== "all") list = list.filter((m) => m.category === mktTab);
+    let list = catalog.filter((m) => m.enabled);
+    if (mktTab === "rwa") {
+      list = list.filter((m) => ["stocks", "indices", "commodities"].includes(getMarketCategory(m.marketId)));
+    } else if (mktTab === "new") {
+      list = list.filter((m) => m.category === "new");
+    }
     if (mktSearch) {
       const q = mktSearch.toLowerCase();
       list = list.filter((m) => m.symbol.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));

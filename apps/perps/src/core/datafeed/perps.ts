@@ -61,6 +61,12 @@ function candleToBar(c: SidPaxCandle): Bar {
   };
 }
 
+function barSeriesKey(symbol: string, resolution: ResolutionString): string {
+  const interval =
+    tvResolutionToKlineInterval(String(resolution)) ?? String(resolution);
+  return `${normalizeFeedSymbol(symbol)}:${interval}`;
+}
+
 export class PerpsDatafeed implements IBasicDataFeed {
   private lastBarCache: Record<string, Bar> = {};
   private subscribers: Record<string, BarSubscription> = {};
@@ -204,6 +210,10 @@ export class PerpsDatafeed implements IBasicDataFeed {
     onError: DatafeedErrorCallback,
   ): void {
     const { from, to, countBack } = periodParams;
+    const seriesKey = barSeriesKey(
+      symbolInfo.ticker ?? symbolInfo.name,
+      resolution,
+    );
     const qs = new URLSearchParams({
       symbol: symbolInfo.ticker ?? symbolInfo.name,
       resolution: String(resolution),
@@ -248,8 +258,9 @@ export class PerpsDatafeed implements IBasicDataFeed {
 
         if (bars.length > 0) {
           const lastBar = bars[bars.length - 1];
-          if (lastBar) {
-            this.lastBarCache[symbolInfo.ticker ?? symbolInfo.name] = lastBar;
+          const cached = this.lastBarCache[seriesKey];
+          if (lastBar && (!cached || lastBar.time > cached.time)) {
+            this.lastBarCache[seriesKey] = lastBar;
           }
         }
 
@@ -270,19 +281,16 @@ export class PerpsDatafeed implements IBasicDataFeed {
     onResetCacheNeededCallback: () => void,
   ): void {
     const symbolKey = symbolInfo.ticker ?? symbolInfo.name;
-    // Strip `PERP_…_USDC` wrapping that some symbol names carry; the
-    // market proxy maps lowercased bare tickers (e.g. "btc").
-    const bareSymbol = symbolKey
-      .toUpperCase()
-      .replace(/^PERP_/, "")
-      .replace(/_USDC$/, "");
+    // The market proxy and cache use the same bare ticker for all aliases.
+    const bareSymbol = normalizeFeedSymbol(symbolKey);
+    const seriesKey = barSeriesKey(symbolKey, resolution);
 
     // Helper — cache + forward a candle to TradingView, ignoring any
     // out-of-order frames. Shared by both WS and REST paths.
     const pushBar = (bar: Bar) => {
-      const cached = this.lastBarCache[symbolKey];
+      const cached = this.lastBarCache[seriesKey];
       if (!cached || bar.time >= cached.time) {
-        this.lastBarCache[symbolKey] = bar;
+        this.lastBarCache[seriesKey] = bar;
         onTick(bar);
       }
     };
@@ -299,7 +307,7 @@ export class PerpsDatafeed implements IBasicDataFeed {
         klineInterval,
         {
           onGap: () => {
-            delete this.lastBarCache[symbolKey];
+            delete this.lastBarCache[seriesKey];
             onResetCacheNeededCallback();
           },
           onSnapshot: (candles) => {

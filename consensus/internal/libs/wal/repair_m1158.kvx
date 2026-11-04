@@ -1,0 +1,7 @@
+[repair.22.33.1158]
+finding = "consensus-wal-reader-leak"
+tests = ["TestRepairM_1158_RepeatedSegmentSearchEOF", "TestRepairM_1158_RepeatedSegmentSearchCorruption"]
+proof = "Real Log.Append writes rotated segments; Log.ReadFile searches head and tails repeatedly with automatic GC disabled and exact descriptor assertions after every read and close; EOF coverage also closes and reopens the WAL. Corruption covers checksums, truncated headers and truncated payloads after a valid entry."
+baseline = "Not run: the ordered implementation-first instructions and prohibition on manual verify_cmd runs supersede the conflicting unchanged-tree baseline step; no baseline test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the candidate revision, command, exit code and private log through hf-build and hf-done."

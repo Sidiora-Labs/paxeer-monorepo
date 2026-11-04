@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -19,6 +20,33 @@ import (
 type KeyValuePair struct {
 	Key   []byte `json:"key"`
 	Value []byte `json:"value"`
+}
+
+// Binary KV files support keys up to 1 MiB and values up to 64 MiB.
+// Both bounds are checked before allocating a payload buffer.
+const (
+	MaxKVKeySize   uint32 = 1 << 20
+	MaxKVValueSize uint32 = 64 << 20
+)
+
+var ErrKVRecordTooLarge = errors.New("KV record exceeds supported size")
+
+// KVRecordLengthError describes an invalid length prefix or truncated payload.
+// Remaining is -1 when the available payload size is unknown.
+// Unwrap supports errors.Is with ErrKVRecordTooLarge and io.ErrUnexpectedEOF.
+type KVRecordLengthError struct {
+	Length    uint32
+	Limit     uint32
+	Remaining int64
+	Err       error
+}
+
+func (e *KVRecordLengthError) Error() string {
+	return fmt.Sprintf("invalid KV record length %d (limit %d, remaining %d): %v", e.Length, e.Limit, e.Remaining, e.Err)
+}
+
+func (e *KVRecordLengthError) Unwrap() error {
+	return e.Err
 }
 
 // Opens application db
@@ -54,17 +82,20 @@ func ReadKVEntriesFromFile(filename string) ([]KeyValuePair, error) {
 
 	var kvPairs []KeyValuePair
 	for {
-		key, err := readByteSlice(f)
+		key, err := readByteSlice(f, MaxKVKeySize)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read key: %w", err)
 		}
 
-		value, err := readByteSlice(f)
+		value, err := readByteSlice(f, MaxKVValueSize)
 		if err != nil {
-			return nil, err
+			if err == io.EOF {
+				err = &KVRecordLengthError{Limit: MaxKVValueSize, Remaining: 0, Err: io.ErrUnexpectedEOF}
+			}
+			return nil, fmt.Errorf("read value: %w", err)
 		}
 
 		kvPairs = append(kvPairs, KeyValuePair{Key: key, Value: value})
@@ -73,15 +104,44 @@ func ReadKVEntriesFromFile(filename string) ([]KeyValuePair, error) {
 	return kvPairs, nil
 }
 
-func readByteSlice(r io.Reader) ([]byte, error) {
+func readByteSlice(r io.Reader, limit uint32) ([]byte, error) {
 	var length uint32
 	if err := binary.Read(r, binary.LittleEndian, &length); err != nil {
+		if err == io.ErrUnexpectedEOF {
+			return nil, &KVRecordLengthError{Limit: limit, Remaining: -1, Err: err}
+		}
 		return nil, err
 	}
 
+	if length > limit {
+		return nil, &KVRecordLengthError{Length: length, Limit: limit, Remaining: -1, Err: ErrKVRecordTooLarge}
+	}
+	if f, ok := r.(*os.File); ok {
+		info, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode().IsRegular() {
+			offset, err := f.Seek(0, io.SeekCurrent)
+			if err != nil {
+				return nil, err
+			}
+			remaining := info.Size() - offset
+			if int64(length) > remaining {
+				return nil, &KVRecordLengthError{Length: length, Limit: limit, Remaining: remaining, Err: io.ErrUnexpectedEOF}
+			}
+		}
+	}
+
 	data := make([]byte, length)
-	_, err := io.ReadFull(r, data)
-	return data, err
+	n, err := io.ReadFull(r, data)
+	if err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, &KVRecordLengthError{Length: length, Limit: limit, Remaining: int64(n), Err: io.ErrUnexpectedEOF}
+		}
+		return nil, err
+	}
+	return data, nil
 }
 
 // NOTE: Assumes latencies is sorted

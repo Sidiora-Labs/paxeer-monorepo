@@ -68,9 +68,20 @@ func TestReIndexEventCheckHeight(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err := checkValidHeight(mockBlockStore, checkValidHeightArgs{startHeight: tc.startHeight, endHeight: tc.endHeight})
+		args := checkValidHeightArgs{startHeight: tc.startHeight, endHeight: tc.endHeight}
+		err := checkValidHeight(mockBlockStore, &args)
 		if tc.validHeight {
 			require.NoError(t, err)
+			wantStart := tc.startHeight
+			if wantStart == 0 {
+				wantStart = base
+			}
+			wantEnd := tc.endHeight
+			if wantEnd == 0 || wantEnd > height {
+				wantEnd = height
+			}
+			require.Equal(t, wantStart, args.startHeight)
+			require.Equal(t, wantEnd, args.endHeight)
 		} else {
 			require.Error(t, err)
 		}

@@ -1,0 +1,30 @@
+[repair.22.33.230]
+audit = "22.30.127"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+verification = "hf-done records the exact candidate revision, command, exit and private log; this record makes no pre-gate success claim."
+baseline = "Not run: repair_22_33_230.rs is absent on the unchanged tree, and the explicit gate order forbids testing before complete implementation or invoking verify_cmd by hand; no baseline failure is claimed."
+wiring_requests = []
+
+[finding.6]
+proving_test = "abi_linker::every_supported_abi_links_exact_frozen_imports_and_refuses_invalid_imports"
+path = "Production versioned validation and real linker instantiation for all frozen imports, both parameter and result type errors, unknown names, duplicates and every older revision."
+
+[finding.5]
+proving_tests = ["calldata_golden_vectors::boundaries_depth_and_size", "calldata_golden_vectors::generated_boundary_decodes_exact_published_bytes", "calldata_golden_vectors::unknown_generator_syntax_fails_explicitly"]
+path = "The unchanged published generator creates exactly 4102 serialized bytes; the real builder and parser agree and all eleven boundary vectors execute with zero skips."
+
+[finding.7]
+proving_test = "lifecycle::every_supported_abi_transition_preserves_lifecycle_history"
+path = "The shared ABI policy selects every admitted transition through v5; actual deploy, migration and upgrade receipts expose exact hashes, revisions and unchanged history after refused downgrades."
+
+[finding.8]
+proving_test = "monetary_law::monetary_law_raw_balance_and_issuance_imports_refuse_every_supported_abi"
+path = "Every policy-admitted ABI instantiates an allowed control and refuses every forbidden monetary import before instantiation/execution, preserving seeded storage and producing no receipt, monetary transfer set or other effects for a consumer to commit."
+
+[finding.9]
+proving_tests = ["signature_vectors::secp256k1_recover_published_test_vector_1", "signature_vectors::published_recovery_bytes_cross_the_real_signature_recover_host_transport"]
+path = "The upstream k256 recovery-ID-zero golden asserts the exact 65-byte public key; real Wasm memory carries the same digest/signature into signature_recover and checks the status and every recovered byte through guest loads."
+
+[qualification_note]
+observed = "The unchanged-tree verification request contradicts the required implementation-before-gates order; the latter is followed."
+assumption = "A scoped repair record replaces spec edits because the task expressly forbids modifying spec files; private runner evidence supplies the verified revision."
