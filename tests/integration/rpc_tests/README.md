@@ -141,6 +141,7 @@ npm run rpc:geth      # geth --dev on http://localhost:9547  (requires geth on P
 #    `make docker-cluster-start` from the repo root).
 
 # 3. (Optional, separate terminal) start a pinned fork for manual checks.
+#    Replace the URL and block with a block whose historical state your provider serves.
 ETH_MAINNET_UPSTREAM='https://your-ethereum-provider.example/' \
 ETH_MAINNET_FORK_BLOCK=21000000 npm run rpc:fork  # http://localhost:9546
 
@@ -150,6 +151,14 @@ npm run test:rpc      # bootstrap + run, recommended
 npm run rpc:bootstrap # writes runtime/runtime.json
 npm run rpc:run       # runs every spec outside _start/ via .mocharc.run.json
 ```
+
+Both fork variables are required, even for manual checks. Choose a positive
+safe-integer block number (at most `9007199254740991`) and keep it pinned across
+runs for reproducible reference data. The example uses block `21000000`; replace
+it with a block whose historical state your upstream serves. An unset, zero,
+negative, fractional or unsafe block fails during configuration loading; the fork
+never defaults to the latest block. These requirements apply to `npm run rpc:fork`,
+whose package script loads `hardhat/hardhat.config.ts`.
 
 > **Why a single process.** Every spec shares the one chain and the
 > bootstrap's funded-account pool, so a parallel run would make specs contend on

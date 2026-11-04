@@ -3,7 +3,9 @@
 The eight CLI producers are executed as real processes, including their help and
 malformed-input paths. Retired replay modes cross the actual make recipe. Registry
 material is produced and reopened by the production bootstrap qualification.
-The native crossing uses build/bin/layerx-genesis-build, never a substitute.
+The historical offline crossing uses build/bin/layerx-genesis-build, never a
+substitute. Current paxd qualification uses the committed native command/file
+transcript with the production bootstrap, generation broker and descriptor client.
 
 Repairs: envelope main used ad-hoc argv parsing (malformed input raised a
 traceback), and imported its runtime fixture before parsing CLI options;
@@ -17,7 +19,7 @@ The legacy replay CLI and make entries now refuse the retired batch-WAL modes
 instead of referring to producers removed by task 22.16.4. Every current daemon
 producer reference is checked by the repository producer-existence consumer.
 
-Outside scope: cmd/layerx-genesis/lxp_genesis_build_cli.c::parse_request still
+Historical offline regression: cmd/layerx-genesis/lxp_genesis_build_cli.c::parse_request still
 rejects a zero guarantor count. kernel-genesis.render_step correctly emits zero
 after retirement. The expected eventual behavior is successful native genesis
 creation; this proof preserves the current native refusal without inventing a
@@ -28,6 +30,8 @@ termination, and duplicate production is refused without changing it.
 import hashlib
 import importlib.util
 import json
+import os
+from contextlib import contextmanager
 from pathlib import Path
 import subprocess
 import sys
@@ -249,7 +253,7 @@ def test_native_genesis_crossing_reopens_real_request_and_preserves_known_refusa
     source, key = genesis_input(tmp_path)
     output = tmp_path / "rendered"
     renderer = ROOT / "tools/bringup/kernel-genesis.sh"
-    result = run(["bash", renderer, "render", source, output], tmp_path, code=1)
+    result = run(["bash", renderer, "offline-render", source, output], tmp_path, code=1)
     assert "layerx-genesis-build refused the rendered genesis (1)" in result.stderr
     request = output / "genesis-request.lxgb"
     produced = request.read_bytes()
@@ -261,7 +265,7 @@ def test_native_genesis_crossing_reopens_real_request_and_preserves_known_refusa
     # A new native process reopens the real producer's retained request.
     run([binary, request, key, tmp_path / "reopened"], tmp_path, code=1)
     assert request.read_bytes() == produced
-    duplicate = run(["bash", renderer, "render", source, output], tmp_path, code=1)
+    duplicate = run(["bash", renderer, "offline-render", source, output], tmp_path, code=1)
     assert "exists; the genesis is rendered into a new directory" in duplicate.stderr
     assert request.read_bytes() == produced
     # Real artifact producer/consumer functions agree after the native process
@@ -285,13 +289,116 @@ def test_genesis_bad_decimals_and_wrong_signer_refuse_before_output(tmp_path):
     source, key = genesis_input(tmp_path, decimals=39)
     renderer = ROOT / "tools/bringup/kernel-genesis.sh"
     invalid = tmp_path / "invalid"
-    result = run(["bash", renderer, "render", source, invalid], tmp_path, code=1)
+    result = run(["bash", renderer, "offline-render", source, invalid], tmp_path, code=1)
     assert "decimals must be 0..38" in result.stderr
     assert not invalid.exists()
     key.write_bytes(bytes(32))
-    result = run(["bash", renderer, "render", source, invalid], tmp_path, code=1)
+    result = run(["bash", renderer, "offline-render", source, invalid], tmp_path, code=1)
     assert "does not hold the key" in result.stderr
     assert not invalid.exists()
+
+
+@contextmanager
+def paxd_genesis_harness(tmp_path):
+    tests = ROOT / "services/platform/hosted/node/tests"
+    sys.path.insert(0, str(tests))
+    try:
+        from native_key_harness import NativeKeyHarness
+
+        harness = NativeKeyHarness(tmp_path, recorded=True)
+        try:
+            yield harness
+        finally:
+            harness.close()
+    finally:
+        sys.path.remove(str(tests))
+
+
+def test_paxd_genesis_producer_consumer_success_and_reopen(tmp_path):
+    import base64
+
+    with paxd_genesis_harness(tmp_path) as harness:
+        binding = harness.bootstrap()
+        native = sys.modules["native_runtime"]
+        reset = sys.modules["reset_state"]
+        fixtures = ROOT / "services/platform/hosted/node/tests/fixtures/repair_22_31_355"
+        genesis = (fixtures / "genesis.json").read_bytes()
+        expected = json.loads(genesis)
+        assert expected["chain_id"] == harness.config["chain_id"]
+        assert expected["validators"]
+        assert expected["app_state"]["bank"]["balances"]
+        assert expected["app_state"]["lxphost"]["last_sequence"] == 0
+        public = bytes.fromhex(harness.config["receipt_public_key"])
+        pins = expected["app_state"]["sequencer"]["receipt_keys"]
+        assert any(
+            base64.b64decode(pin["public_key"], validate=True) == public
+            and base64.b64decode(pin["key_id"], validate=True) == hashlib.sha256(public).digest()
+            and pin["first_height"] == 1 and pin["last_height"] >= 1
+            for pin in pins
+        )
+        assert binding["config/genesis.json"] == hashlib.sha256(genesis).hexdigest()
+        assert native.generation_binding(harness.data) == binding
+        commands = [json.loads(line) for line in harness.peer.journal.read_text().splitlines()]
+        assert [row["command"][1] for row in commands] == ["init", "validate-genesis"]
+        assert all(row["exit"] == 0 for row in commands)
+
+        retained = {name: (harness.data / name).read_bytes() for name in binding}
+        harness.close()
+        first = None
+        state = None
+        for _ in range(2):
+            # Each handoff closes its socket, descriptors and materialized view;
+            # the next one opens a new production broker on the retained store.
+            with harness.consume() as (result, adopted, view):
+                assert result["generation"] == 1 and result["reset_id"] is None
+                assert set(result["artifacts"]) == set(binding)
+                assert (view / "genesis.json").read_bytes() == genesis
+                assert json.loads((view / "genesis.json").read_bytes()) == expected
+                assert result["public"]["LAYERX_NODE_SEQUENCER_PUBLIC_KEY"] == public.hex()
+                assert adopted["LAYERX_CORE_SEQUENCER_ID"] == hashlib.sha256(public).hexdigest()
+                for name, digest in binding.items():
+                    artifact = view / name.rsplit("/", 1)[-1]
+                    assert hashlib.sha256(artifact.read_bytes()).hexdigest() == digest
+                    assert artifact.stat().st_mode & 0o777 == 0o600
+                if first is None:
+                    first = result
+                else:
+                    assert result == first
+            assert not view.exists()
+            reset.Store(harness.state, harness.data, harness.run, harness.config["network_id"],
+                        {"owner": "native-key-harness"}, os.getegid()).initialize()
+            recovered = (harness.state / "state.json").read_bytes()
+            if state is None:
+                state = recovered
+            else:
+                assert recovered == state
+            assert {name: (harness.data / name).read_bytes() for name in binding} == retained
+        assert native.generation_binding(harness.data) == binding
+
+
+def test_paxd_genesis_duplicate_and_tampered_reopen_refuse(tmp_path):
+    with paxd_genesis_harness(tmp_path) as harness:
+        binding = harness.bootstrap()
+        native = sys.modules["native_runtime"]
+        reset = sys.modules["reset_state"]
+        retained = {name: (harness.data / name).read_bytes() for name in binding}
+        with pytest.raises(ValueError, match="native bootstrap requires an empty generation"):
+            harness.bootstrap()
+        assert {name: (harness.data / name).read_bytes() for name in binding} == retained
+        with harness.consume() as (_, _, view):
+            assert (view / "genesis.json").read_bytes() == retained["config/genesis.json"]
+        proof = harness.data / ".generation-proof/config/genesis.json"
+        original = proof.read_bytes()
+        native.write_file(proof, original + b"\n")
+        with pytest.raises(reset.StoreError, match="generation_unavailable"):
+            with harness.consume():
+                pytest.fail("tampered genesis reached the production consumer")
+        assert native.generation_binding(harness.data) == binding
+        assert {name: (harness.data / name).read_bytes() for name in binding} == retained
+        native.write_file(proof, original)
+        with harness.consume() as (result, _, view):
+            assert result["generation"] == 1
+            assert (view / "genesis.json").read_bytes() == original
 
 
 def test_release_private_producer_reopened_by_real_artifact_readers(tmp_path):

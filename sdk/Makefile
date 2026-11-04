@@ -3,7 +3,7 @@
 PACKAGES_NOSIMULATION=$(shell go list ./... | grep -v '/simulation')
 PACKAGES_SIMTEST=$(shell go list ./... | grep '/simulation')
 VERSION := $(shell git describe --always --match 'paxeer-network/v*' | sed 's|^paxeer-network/v||')
-TMVERSION := $(shell go list -m github.com/tendermint/tendermint | sed 's:.* ::')
+TMVERSION := $(shell sed -n 's/^[[:space:]]*TMVersionDefault = "\(.*\)"/\1/p' ../consensus/version/version.go)
 COMMIT := $(shell git log -1 --format='%H')
 LEDGER_ENABLED ?= true
 BINDIR ?= $(GOPATH)/bin
@@ -57,31 +57,31 @@ build_tags_comma_sep := $(subst $(whitespace),$(comma),$(build_tags))
 
 # process linker flags
 
-ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=sim \
-		  -X github.com/cosmos/cosmos-sdk/version.AppName=simd \
-		  -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
-		  -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT) \
-		  -X "github.com/cosmos/cosmos-sdk/version.BuildTags=$(build_tags_comma_sep)" \
-			-X github.com/tendermint/tendermint/version.TMCoreSemVer=$(TMVERSION)
+ldflags = -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Name=sim \
+		  -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.AppName=simd \
+		  -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$(VERSION) \
+		  -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Commit=$(COMMIT) \
+		  -X "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.BuildTags=$(build_tags_comma_sep)" \
+			-X github.com/Sidiora-Labs/Paxeer-X-Network/consensus/version.TMVersion=$(TMVERSION)
 
 # DB backend selection
 ifeq (cleveldb,$(findstring cleveldb,$(COSMOS_BUILD_OPTIONS)))
-  ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=cleveldb
+  ldflags += -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.DBBackend=cleveldb
 endif
 ifeq (badgerdb,$(findstring badgerdb,$(COSMOS_BUILD_OPTIONS)))
-  ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=badgerdb
+  ldflags += -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.DBBackend=badgerdb
   BUILD_TAGS += badgerdb
 endif
 # handle rocksdb
 ifeq (rocksdb,$(findstring rocksdb,$(COSMOS_BUILD_OPTIONS)))
   CGO_ENABLED=1
   BUILD_TAGS += rocksdb
-  ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=rocksdb
+  ldflags += -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.DBBackend=rocksdb
 endif
 # handle boltdb
 ifeq (boltdb,$(findstring boltdb,$(COSMOS_BUILD_OPTIONS)))
   BUILD_TAGS += boltdb
-  ldflags += -X github.com/cosmos/cosmos-sdk/types.DBBackend=boltdb
+  ldflags += -X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.DBBackend=boltdb
 endif
 
 ifeq (,$(findstring nostrip,$(COSMOS_BUILD_OPTIONS)))
@@ -114,7 +114,7 @@ build: BUILD_ARGS=-o $(BUILDDIR)/
 build-linux:
 	GOOS=linux GOARCH=$(if $(findstring aarch64,$(shell uname -m)) || $(findstring arm64,$(shell uname -m)),arm64,amd64) LEDGER_ENABLED=false $(MAKE) build
 
-$(BUILD_TARGETS): go.sum $(BUILDDIR)/
+$(BUILD_TARGETS): ../go.sum $(BUILDDIR)/
 	go $@ -mod=readonly $(BUILD_FLAGS) $(BUILD_ARGS) ./...
 
 $(BUILDDIR)/:
@@ -153,10 +153,10 @@ clean:
 ###                          Tools & Dependencies                           ###
 ###############################################################################
 
-go.sum: go.mod
+../go.sum: ../go.mod
 	echo "Ensure dependencies have not been modified ..." >&2
-	go mod verify
-	go mod tidy
+	cd .. && go mod verify
+	cd .. && go mod tidy
 
 ###############################################################################
 ###                              Documentation                              ###
@@ -164,12 +164,12 @@ go.sum: go.mod
 
 update-swagger-docs: statik
 	$(BINDIR)/statik -src=client/docs/swagger-ui -dest=client/docs -f -m
-	@if [ -n "$(git status --porcelain)" ]; then \
-        echo "\033[91mSwagger docs are out of sync!!!\033[0m";\
-        exit 1;\
-    else \
-        echo "\033[92mSwagger docs are in sync\033[0m";\
-    fi
+	@if git diff --quiet HEAD -- client/docs/statik; then \
+		echo "\033[92mSwagger docs are in sync\033[0m"; \
+	else \
+		echo "\033[91mSwagger docs are out of sync!!!\033[0m" >&2; \
+		exit 1; \
+	fi
 .PHONY: update-swagger-docs
 
 godocs:
@@ -315,11 +315,11 @@ containerMarkdownLintFix=cosmos-sdk-markdownlint-fix
 golangci_lint_cmd=go run github.com/golangci/golangci-lint/cmd/golangci-lint
 
 lint: lint-go
-	@if docker ps -a --format '{{.Names}}' | grep -Eq "^${containerMarkdownLint}$$"; then docker start -a $(containerMarkdownLint); else docker run --name $(containerMarkdownLint) -i -v "$(CURDIR):/work" $(markdownLintImage); fi
+	@if docker ps -a --format '{{.Names}}' | grep -Eq "^${containerMarkdownLint}$$"; then docker start -a $(containerMarkdownLint); else docker run --name $(containerMarkdownLint) -i -v "$(CURDIR):/work" $(containerMarkdownLintImage); fi
 
 lint-fix:
 	$(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
-	@if docker ps -a --format '{{.Names}}' | grep -Eq "^${containerMarkdownLintFix}$$"; then docker start -a $(containerMarkdownLintFix); else docker run --name $(containerMarkdownLintFix) -i -v "$(CURDIR):/work" $(markdownLintImage) . --fix; fi
+	@if docker ps -a --format '{{.Names}}' | grep -Eq "^${containerMarkdownLintFix}$$"; then docker start -a $(containerMarkdownLintFix); else docker run --name $(containerMarkdownLintFix) -i -v "$(CURDIR):/work" $(containerMarkdownLintImage) . --fix; fi
 
 lint-go:
 	echo $(GIT_DIFF)

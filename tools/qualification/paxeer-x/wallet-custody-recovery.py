@@ -5,11 +5,13 @@ The Python gate checks the published provider contract and verifies node-produce
 transaction/receipt bytes with the production SDK. It does not certify a deployed
 TypeScript gateway, PostgreSQL, or attestor cluster.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 from urllib.error import HTTPError
@@ -26,6 +28,83 @@ from layerx_sdk.verifier import (
 
 RETIRED_METHODS = ('paxeer_recoverCustody', 'paxeer_signCustody')
 MAX_RESPONSE = 131072
+PACKAGE_PATHS = {'sdk': 'sdk/wallet', 'gateway': 'services/wallet/gateway'}
+
+
+def build_commands(node, root=ROOT):
+    return [([str(node), str(root / package / 'node_modules/typescript/bin/tsc'),
+              '-p', str(root / package / 'tsconfig.json')], root / package)
+            for package in PACKAGE_PATHS.values()]
+
+
+def candidate_binding(root=ROOT):
+    sources, artifacts = {}, {}
+    for package in PACKAGE_PATHS.values():
+        for directory, target in (('src', sources), ('dist', artifacts)):
+            folder = root / package / directory
+            require(folder.is_dir() and not folder.is_symlink(), 'complete package tree required')
+            paths = sorted(folder.rglob('*'))
+            require(not any(path.is_symlink() for path in paths), 'candidate symlinks refused')
+            files = [path for path in paths if path.is_file()]
+            require(files, 'empty package tree refused: ' + str(folder))
+            for path in files:
+                target[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+        for name in ('package.json', 'tsconfig.json'):
+            path = root / package / name
+            require(not path.is_symlink(), 'candidate symlinks refused')
+            sources[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {'packages': PACKAGE_PATHS, 'sources': sources, 'artifacts': artifacts}
+
+
+def build_candidate(node, evidence, root=ROOT):
+    evidence = Path(evidence)
+    evidence.mkdir(parents=True, exist_ok=True, mode=0o700)
+    require(not evidence.is_symlink() and evidence.stat().st_uid == os.getuid()
+            and evidence.stat().st_mode & 0o077 == 0, 'private build evidence required')
+    before = {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for package in PACKAGE_PATHS.values()
+              for path in [*(root / package / 'src').rglob('*'),
+                           root / package / 'package.json', root / package / 'tsconfig.json']
+              if path.is_file()}
+    for (name, _), (command, cwd) in zip(PACKAGE_PATHS.items(), build_commands(node, root)):
+        with (evidence / ('build-' + name + '.log')).open('wb') as output:
+            result = subprocess.run(command, cwd=cwd, stdout=output,
+                                    stderr=subprocess.STDOUT, timeout=240)
+        require(result.returncode == 0, 'package compilation failed: ' + name)
+    return seal_candidate(evidence, root, before)
+
+
+def seal_candidate(evidence, root=ROOT, expected_sources=None):
+    evidence = Path(evidence)
+    evidence.mkdir(parents=True, exist_ok=True, mode=0o700)
+    require(not evidence.is_symlink() and evidence.stat().st_uid == os.getuid()
+            and evidence.stat().st_mode & 0o077 == 0, 'private build evidence required')
+    binding = candidate_binding(root)
+    if expected_sources is not None:
+        require(binding['sources'] == expected_sources, 'package sources changed during compilation')
+    fd, temporary = tempfile.mkstemp(prefix='.candidate-', dir=evidence)
+    try:
+        with os.fdopen(fd, 'w') as output:
+            json.dump(binding, output, sort_keys=True)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, evidence / 'candidate.json')
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return binding
+
+
+def load_candidate(evidence, root=ROOT):
+    descriptor = os.open(Path(evidence) / 'candidate.json', os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor) as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                and info.st_mode & 0o077 == 0 and info.st_nlink == 1,
+                'private candidate manifest required')
+        binding = json.load(stream)
+    require(binding == candidate_binding(root), 'source/generated artifact seal mismatch')
+    return binding
 
 
 def require(condition, message):
@@ -201,7 +280,11 @@ class RecoveryQualification:
 
 
 def main(arguments=None):
-    require(not (sys.argv[1:] if arguments is None else arguments), 'only the declared qualification command is supported')
+    arguments = sys.argv[1:] if arguments is None else arguments
+    if len(arguments) == 3 and arguments[0] == '--build':
+        build_candidate(arguments[1], arguments[2])
+        return 0
+    require(not arguments, 'use the declared qualification command or --build NODE EVIDENCE')
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from wallet_recovery_recording import qualify_recording
     result = qualify_recording()

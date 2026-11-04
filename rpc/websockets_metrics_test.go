@@ -2,7 +2,9 @@ package evmrpc
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -10,43 +12,42 @@ import (
 	utilmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 	legacymetrics "github.com/armon/go-metrics"
 	gethrpc "github.com/ethereum/go-ethereum/rpc"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-func TestWSConnectDoesNotEmitLegacyCounter(t *testing.T) {
+func TestWSConnectEmitsBothCounters(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() {
 		require.NoError(t, provider.Shutdown(context.Background()))
 	})
-	counter, err := provider.Meter("evmrpc").Int64Counter("evmrpc_websocket_connects_total")
-	require.NoError(t, err)
-	previousCounter := metrics.wsConnectionCount
-	metrics.wsConnectionCount = counter
-	t.Cleanup(func() { metrics.wsConnectionCount = previousCounter })
+	previousMetrics := metrics
+	metrics = newRPCMetrics(provider.Meter("evmrpc"))
+	t.Cleanup(func() { metrics = previousMetrics })
 
 	legacySink := legacymetrics.NewInmemSink(time.Hour, 2*time.Hour)
 	legacyConfig := legacymetrics.DefaultConfig("")
 	legacyConfig.EnableHostname = false
 	legacyConfig.EnableRuntimeMetrics = false
 	previousLegacyMetrics := legacymetrics.Default()
-	_, err = legacymetrics.NewGlobal(legacyConfig, legacySink)
+	_, err := legacymetrics.NewGlobal(legacyConfig, legacySink)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_, err := legacymetrics.NewGlobal(legacyConfig, previousLegacyMetrics)
 		require.NoError(t, err)
 	})
 
-	readConnects := func() int64 {
+	readCount := func(name string) int64 {
 		t.Helper()
 		var data metricdata.ResourceMetrics
 		require.NoError(t, reader.Collect(t.Context(), &data))
 		for _, scope := range data.ScopeMetrics {
 			for _, metric := range scope.Metrics {
-				if metric.Name != "evmrpc_websocket_connects_total" {
+				if metric.Name != name {
 					continue
 				}
 				sum, ok := metric.Data.(metricdata.Sum[int64])
@@ -57,7 +58,7 @@ func TestWSConnectDoesNotEmitLegacyCounter(t *testing.T) {
 				return sum.DataPoints[0].Value
 			}
 		}
-		t.Fatal("evmrpc_websocket_connects_total was not collected")
+		t.Fatalf("%s was not collected", name)
 		return 0
 	}
 	readLegacyConnects := func() float64 {
@@ -74,22 +75,83 @@ func TestWSConnectDoesNotEmitLegacyCounter(t *testing.T) {
 		return total
 	}
 
-	counter.Add(t.Context(), 0)
+	metrics.wsConnectionCount.Add(t.Context(), 0)
+	metrics.wsConnectionAttemptCount.Add(t.Context(), 0)
 	utilmetrics.IncWebsocketConnects()
-	beforeConnects := readConnects()
 	beforeLegacy := readLegacyConnects()
-	require.Equal(t, int64(0), beforeConnects)
 	require.Equal(t, float64(1), beforeLegacy, "legacy telemetry must be active")
 
-	rpcServer := gethrpc.NewServer()
-	defer rpcServer.Stop()
-	server := httptest.NewServer(NewWSConnectionHandler(rpcServer.WebsocketHandler([]string{"*"})))
-	defer server.Close()
-	dialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second}
-	conn, _, err := dialer.DialContext(t.Context(), "ws"+strings.TrimPrefix(server.URL, "http"), nil)
-	require.NoError(t, err)
-	defer conn.Close()
-
-	require.Equal(t, beforeConnects+1, readConnects())
-	require.Equal(t, beforeLegacy, readLegacyConnects())
+	// Exercise both the ordinary and deny-list upgrade paths through the real stack.
+	var attempts, connects int64
+	for _, denyList := range [][]string{nil, {"web3_sha3"}} {
+		server := NewHTTPServer(gethrpc.DefaultHTTPTimeouts)
+		require.NoError(t, server.EnableWS([]gethrpc.API{{Namespace: "web3", Service: &Web3API{}}}, WsConfig{
+			Origins: []string{"http://allowed.example"}, DenyList: denyList,
+			RPCEndpointConfig: RPCEndpointConfig{JwtSecret: []byte("handshake-test-secret"), readLimit: 4096},
+		}))
+		t.Cleanup(server.Stop)
+		listener := httptest.NewServer(server)
+		t.Cleanup(listener.Close)
+		endpoint := "ws" + strings.TrimPrefix(listener.URL, "http")
+		token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+			IssuedAt: jwt.NewNumericDate(time.Now()),
+		}).SignedString([]byte("handshake-test-secret"))
+		require.NoError(t, err)
+		dialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second}
+		for _, scenario := range []struct {
+			origin, auth string
+			status       int
+		}{
+			{"http://allowed.example", "", http.StatusUnauthorized},
+			{"http://rejected.example", "Bearer " + token, http.StatusForbidden},
+			{"http://allowed.example", "Bearer " + token, http.StatusSwitchingProtocols},
+		} {
+			header := http.Header{"Origin": {scenario.origin}}
+			if scenario.auth != "" {
+				header.Set("Authorization", scenario.auth)
+			}
+			conn, response, err := dialer.DialContext(t.Context(), endpoint, header)
+			require.NotNil(t, response)
+			require.Equal(t, scenario.status, response.StatusCode)
+			attempts++
+			if scenario.status == http.StatusSwitchingProtocols {
+				require.NoError(t, err)
+				require.NoError(t, conn.WriteJSON(map[string]interface{}{
+					"jsonrpc": "2.0", "id": 1, "method": "web3_clientVersion", "params": []interface{}{},
+				}))
+				require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
+				var result struct {
+					Result string
+					Error  interface{}
+				}
+				require.NoError(t, conn.ReadJSON(&result))
+				require.Nil(t, result.Error)
+				require.Equal(t, "Geth/"+runtime.GOOS+"-"+runtime.GOARCH+"/"+runtime.Version(), result.Result)
+				require.NoError(t, conn.Close())
+				connects++
+			} else {
+				require.Error(t, err)
+				require.Nil(t, conn)
+				require.NoError(t, response.Body.Close())
+			}
+			require.Equal(t, attempts, readCount("evmrpc_websocket_connect_attempts_total"))
+			require.Equal(t, connects, readCount("evmrpc_websocket_connects_total"))
+			require.Equal(t, beforeLegacy+float64(connects), readLegacyConnects())
+		}
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, listener.URL, nil)
+		require.NoError(t, err)
+		request.Header = http.Header{
+			"Connection": {"Upgrade"}, "Upgrade": {"websocket"},
+			"Sec-Websocket-Version": {"12"}, "Sec-Websocket-Key": {"dGhlIHNhbXBsZSBub25jZQ=="},
+			"Origin": {"http://allowed.example"}, "Authorization": {"Bearer " + token},
+		}
+		response, err := listener.Client().Do(request)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		require.NoError(t, response.Body.Close())
+		attempts++
+		require.Equal(t, attempts, readCount("evmrpc_websocket_connect_attempts_total"))
+		require.Equal(t, connects, readCount("evmrpc_websocket_connects_total"))
+		require.Equal(t, beforeLegacy+float64(connects), readLegacyConnects())
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -17,16 +18,59 @@ import (
 
 const currentVersion uint16 = 2
 
-var versionOverride uint16
+// Pointer versions are process-wide because pointer consumers use CurrentVersion.
+// A test HTTP server owns the override until it stops or a replacement takes over.
+// Replaced owners cannot write or clear the replacement's state.
+var versionState struct {
+	sync.RWMutex
+	override uint16
+	owner    *VersionOverride
+}
 
-// SetVersionWithOffset allows for overriding the version for integration test scenarios
+type VersionOverride struct{ identity byte }
+
+// BeginVersionOverride starts a fresh test-node lifetime, resetting any old value.
+func BeginVersionOverride() *VersionOverride {
+	versionState.Lock()
+	defer versionState.Unlock()
+	owner := &VersionOverride{}
+	versionState.owner = owner
+	versionState.override = 0
+	return owner
+}
+
+func (o *VersionOverride) SetVersionWithOffset(offset int16) error {
+	versionState.Lock()
+	defer versionState.Unlock()
+	if versionState.owner != o {
+		return errors.New("pointer version override owner has stopped or been replaced")
+	}
+	versionState.override = uint16(int16(currentVersion) + offset) //nolint:gosec
+	return nil
+}
+
+// Close resets only this owner's override; it is safe to call more than once.
+func (o *VersionOverride) Close() {
+	versionState.Lock()
+	defer versionState.Unlock()
+	if versionState.owner == o {
+		versionState.override = 0
+		versionState.owner = nil
+	}
+}
+
+// SetVersionWithOffset supports explicit integration-test overrides outside RPC.
+// BeginVersionOverride resets these when a test HTTP server is created.
 func SetVersionWithOffset(offset int16) {
-	// this allows for negative offsets to mock lower versions
-	versionOverride = uint16(int16(currentVersion) + offset) //nolint:gosec
+	versionState.Lock()
+	defer versionState.Unlock()
+	versionState.override = uint16(int16(currentVersion) + offset) //nolint:gosec
 }
 
 func CurrentVersion(ctx sdk.Context) uint16 {
-	return config.GetVersionWthDefault(ctx, versionOverride, currentVersion)
+	versionState.RLock()
+	defer versionState.RUnlock()
+	return config.GetVersionWthDefault(ctx, versionState.override, currentVersion)
 }
 
 //go:embed CW20ERC20Pointer.abi

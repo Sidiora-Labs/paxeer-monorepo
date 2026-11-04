@@ -34,6 +34,8 @@ url = { workspace = true }
 verification-common = { workspace = true }
 
 [dev-dependencies]
+config = "0.13.4"
+prost = { workspace = true }
 blockscout-service-launcher = { workspace = true , features = ["test-server"]}
 foundry-compilers = { workspace = true, features = ["svm-solc"] }
 pretty_assertions = { workspace = true }
