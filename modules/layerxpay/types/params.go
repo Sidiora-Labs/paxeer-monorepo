@@ -52,9 +52,9 @@ func (g GenesisState) Validate() error {
 		}
 		metadataKeys[key] = struct{}{}
 	}
-	if len(g.KernelRecords) > MaxKernelRecords {
-		return ErrInvalidGenesis.Wrapf("kernel record count %d exceeds %d", len(g.KernelRecords), MaxKernelRecords)
-	}
+	// Kernel families retain records across their lifetime without an aggregate
+	// admission limit. Bound each record rather than rejecting valid exports by
+	// count; MaxKernelRecords bounds recovery chunks and admitted agent metadata.
 	records := make(map[string][]byte, len(g.KernelRecords))
 	for i, record := range g.KernelRecords {
 		if len(record.Key) < 4 || len(record.Key) > 3+MaxKernelKeyBytes || record.Key[0] != KernelKVPrefix[0] {
