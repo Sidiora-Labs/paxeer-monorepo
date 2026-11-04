@@ -320723,7 +320723,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.31.501]
 title = "Settle the bridge-credit retirement check on the absence proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -320752,7 +320752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.499]
 title = "Let the codec vector generator accept the retired budget-pull type's absence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
