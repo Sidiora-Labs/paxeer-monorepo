@@ -148,17 +148,19 @@ func (s *SSHSession) Mkdirs(path string) error {
 }
 
 // Rsync transfers files from the local machine to the remote machine using rsync. The throttle is ignored
-// if less than or equal to 0.
+// if less than or equal to 0. Success acknowledges durable file contents and
+// directory entries on the receiver; callers must retain snapshots on error.
+// The receiver requires rsync --fsync and GNU sync -f (syncfs).
 func (s *SSHSession) Rsync(sourceFile string, destFile string, throttleMB float64) error {
 
 	knownHostsFlag := ""
 	if s.knownHostsPath == "" {
 		knownHostsFlag = "-o StrictHostKeyChecking=no"
 	} else {
-		knownHostsFlag = fmt.Sprintf("-o UserKnownHostsFile=%s", s.knownHostsPath)
+		knownHostsFlag = fmt.Sprintf("-o %s", shellQuote("UserKnownHostsFile="+s.knownHostsPath))
 	}
 
-	sshCmd := fmt.Sprintf("ssh -i %s -p %d %s", s.keyPath, s.port, knownHostsFlag)
+	sshCmd := fmt.Sprintf("ssh -i %s -p %d %s", shellQuote(s.keyPath), s.port, knownHostsFlag)
 	target := fmt.Sprintf("%s@%s:%s", s.user, s.host, destFile)
 
 	// If the source file is a symlink, we actually want to send the thing the symlink points to.
@@ -179,6 +181,8 @@ func (s *SSHSession) Rsync(sourceFile string, destFile string, throttleMB float6
 	arguments := []string{
 		"rsync",
 		"-z",
+		"--fsync",
+		"--secluded-args",
 	}
 
 	if throttleMB > 0 {
@@ -187,7 +191,7 @@ func (s *SSHSession) Rsync(sourceFile string, destFile string, throttleMB float6
 		arguments = append(arguments, fmt.Sprintf("--bwlimit=%d", throttleKB))
 	}
 
-	arguments = append(arguments, "-e", sshCmd, sourceFile, target)
+	arguments = append(arguments, "-e", sshCmd, "--", sourceFile, target)
 
 	if s.verbose {
 		s.logger.Info("Executing", "command", strings.Join(arguments, " "))
@@ -201,7 +205,24 @@ func (s *SSHSession) Rsync(sourceFile string, destFile string, throttleMB float6
 		return fmt.Errorf("failed to rsync data: %w", err)
 	}
 
+	// rsync's file fsync alone does not persist its final rename or newly
+	// created directories. syncfs also commits those entries (including their
+	// ancestors) and reports receiver writeback failures before we acknowledge.
+	const acknowledgment = "litt-durable-v1\n"
+	command := fmt.Sprintf("sync -f -- %s && printf 'litt-durable-v1\\n'", shellQuote(destFile))
+	stdout, stderr, err := s.Exec(command)
+	if err != nil {
+		return fmt.Errorf("remote durable commit failed for %s: %w, stderr: %s", destFile, err, stderr)
+	}
+	if stdout != acknowledgment {
+		return fmt.Errorf("missing remote durable acknowledgment for %s: %q", destFile, stdout)
+	}
+
 	return nil
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 // Exec executes a command on the remote machine and returns the output. Returns the result of stdout and stderr.

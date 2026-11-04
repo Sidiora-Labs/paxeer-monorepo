@@ -1,0 +1,31 @@
+[task.22.31.112]
+audit = "22.30.53"
+acceptance = "22998.1"
+baseline = "Not run: task ordering and bounded-gate instructions prohibit verification before complete implementation; no baseline failures claimed."
+evidence = "The runner hf-done receipt records the verified candidate revision, command, exit code and private log."
+wiring_requests = []
+test_prerequisites = "OpenSSH client/server, ssh-keygen and rsync; missing tools fail the real integration tests rather than skipping them."
+
+[finding.push-destination-flag]
+test = "TestRepair_112_PushDestinationFlag"
+proof = "Registered --dst and -d parser actions transfer producer-emitted segments through SSH and rsync to each exact destination; LittDB reopens and reads the result."
+
+[finding.sync-destination-flag]
+test = "TestRepair_112_SyncDestinationFlag"
+proof = "Registered sync parser runs the real engine, transfers to both configured destinations, remotely prunes old segments, and reopens retained data."
+
+[finding.snapshot-reclaim-range]
+test = "TestRepair_112_SnapshotReclaimRange"
+additional_tests = ["TestRepair_112_SnapshotReclaimPrefix", "TestRepair_112_SnapshotUnpublished"]
+proof = "A real producer pauses after linking an unpublished segment; push reclaims only published data, then producer and consumer restart and recover the retained segment; a gapped acknowledged set cannot advance reclamation past the gap."
+
+[finding.remote-prune-sources]
+test = "TestRepair_112_RemotePruneSources"
+proof = "The engine command crosses real SSH and the remote shell into the registered prune parser and handler, deleting old and preserving fresh segments in multiple paths with spaces, quotes and shell metacharacters at the configured age."
+
+[qualification.repair_1]
+revision = "5264f2299e5ba16ba2e069b801a7322c533f60ca"
+command = "cg spec done 22.31.112 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new multi-root prune fixture omitted empty table segment directories on the other root; create the complete multi-root directory layout with SegmentPath.MakeDirectories while retaining every assertion."

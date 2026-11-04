@@ -1,0 +1,8 @@
+[repair.22.31.135]
+audit = "22.30.73"
+finding = "multisig-aligned-bit-count"
+tests = ["TestRepair_135_BitCountBounds", "TestRepair_135_MultisigTransactionVerification"]
+proof = "Real bit arrays cover empty, partial and aligned bounds; NewMultisig/AddSignature produce full and sparse 7/8/9/15/16/17-key signatures carried through the transaction builder, protobuf encoder/decoder and auth VerifySignature, with wrong-account and insufficient-threshold rejection."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and prohibits a manual verify run; no pre-change failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log path; qualification is claimed only on hf-done success."

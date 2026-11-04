@@ -83,6 +83,19 @@ func insertTestData(t *testing.T, db dbm.DB, data []toMigrate) {
 }
 
 func TestMigrations(t *testing.T) {
+	t.Run("MixedFormats", func(t *testing.T) {
+		for _, canonicalHeight := range []int64{7, 11} {
+			db := dbm.NewMemDB()
+			winner := repair121Seed(t, db, canonicalHeight, true)
+			for range 2 {
+				if err := Migrate(t.Context(), db); err != nil {
+					t.Fatal(err)
+				}
+				repair121AssertWinner(t, db, winner)
+			}
+			repair121Close(t, db)
+		}
+	})
 	t.Run("Sort", func(t *testing.T) {
 		t.Run("HandCraftedData", func(t *testing.T) {
 			testData := []toMigrate{

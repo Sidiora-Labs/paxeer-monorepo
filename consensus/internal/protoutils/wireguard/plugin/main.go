@@ -354,6 +354,9 @@ func emitSchema(g *protogen.GeneratedFile, m *protogen.Message, ctx emitCtx, ide
 		if nestedTarget != nil {
 			targetExpr := schemaVarForTarget(g, ctx, nestedTarget)
 			pieces = append(pieces, fmt.Sprintf("Nested: %s(%s)", idents.utilsSome, targetExpr))
+			if f.IsList() {
+				pieces = append(pieces, "Repeated: true")
+			}
 		}
 		g.P(fieldNumExpr, ": {", strings.Join(pieces, ", "), "},")
 	}

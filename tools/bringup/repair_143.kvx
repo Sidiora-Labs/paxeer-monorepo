@@ -1,0 +1,20 @@
+[repair.22.31.143]
+finding = "value-loop-crash-replay"
+audit = "22.30.76"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+implementation = "Retain signed native EIP-1559 bytes; derive and fsync their nonce and Keccak transaction hash before any broadcast; atomically replace and fsync the prepared/submitted journal and compatibility activity identity; serialize senders with flock; reconcile the retained hash through chain-checked native RPC and only rebroadcast identical bytes."
+proof = ["TestRepair_143_CrashAfterAcceptance", "TestRepair_143_RestartBeforeBroadcast", "TestRepair_143_RejectChangedOrIncompleteIdentity", "TestRepair_143_LegacyIdentityWithoutBytes"]
+restart_proof = "A real native signer emits the transaction; the value-loop process persists it and sends it over HTTP to a real geth transaction pool; a proxy withholds the actual acceptance response while the process is killed; new processes reopen its journal and recover the pending or committed hash without another broadcast; real execution proves one recipient unit and one consumed sender nonce."
+baseline = "Not run: the task's explicit ordered gate instructions forbid invoking verify_cmd by hand or before implementation; no earlier gate ledger existed and no baseline failure is claimed."
+build_command = "hf-build: go build ./tools/bringup/..."
+verify_command = "hf-done: cg spec done 22.31.143 -f layerx-merge --root $TASK_ROOT; verify_cmd go test -count=1 ./tools/bringup/"
+verified_revision = "The exact candidate revision, command, exit and private evidence location are recorded by hf-done in $HF_RUN_DIR/gates.jsonl and copied verbatim in the task handoff."
+wiring_requests = []
+boundary = "The separate value-loop-retired-submission finding still owns the LNI, receipt-authority and authorized-batch reporting lifecycle; this repair changes transfer persistence, native broadcast and hash reconciliation only."
+
+[qualification.repair_1]
+revision = "3928ce5f96c2057def475d23ab09be13bfdde164"
+command = "cg spec done 22.31.143 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The real geth test node at genesis has not started its transaction index and cannot answer absent-hash lookups; bootstrap a real block and wait for the real index before exercising recovery, and retain RPC method/error-code diagnostics without exposing response contents."

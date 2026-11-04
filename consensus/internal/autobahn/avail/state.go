@@ -545,11 +545,13 @@ func (s *State) WaitForLaneQCs(
 	for inner, ctrl := range s.inner.Lock() {
 		laneQCs := map[types.LaneID]*types.LaneQC{}
 		for {
+			remaining := types.MaxFullCommitQCHeaders
 			for lane := range c.Lanes().All() {
 				first := types.LaneRangeOpt(prev, lane).Next()
-				for i := range types.BlockNumber(BlocksPerLanePerCommit) {
+				for i := range types.BlockNumber(min(BlocksPerLanePerCommit, remaining)) {
 					if qc, ok := inner.laneQC(c, lane, first+i); ok {
 						laneQCs[lane] = qc
+						remaining--
 					} else {
 						break
 					}

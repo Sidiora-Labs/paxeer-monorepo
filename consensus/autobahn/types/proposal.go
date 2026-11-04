@@ -210,6 +210,10 @@ func (m *Proposal) checkedGlobalRange(c *Committee) (GlobalRange, error) {
 // Arbitrary deterministic minimal diff between consecutive blocks.
 const minTimestampDiff = time.Microsecond
 
+// MaxFullCommitQCHeaders is the total block budget of a proposal, matching
+// FullCommitQC.headers in consensus/internal/autobahn/autobahn.proto.
+const MaxFullCommitQCHeaders = 100
+
 // Monotone timestamp assigned to each block of the proposal.
 // Returns None, if n doed not belong to the proposal's global range.
 func (m *Proposal) BlockTimestamp(c *Committee, n GlobalBlockNumber) utils.Option[time.Time] {
@@ -249,6 +253,9 @@ func (m *Proposal) Verify(c *Committee) error {
 	}
 	if gr.First > gr.Next {
 		return fmt.Errorf("invalid global range [%v,%v)", gr.First, gr.Next)
+	}
+	if gr.Len() > MaxFullCommitQCHeaders {
+		return fmt.Errorf("proposal finalizes %d blocks, maximum is %d", gr.Len(), MaxFullCommitQCHeaders)
 	}
 	if _, err := timestampAfter(m.Timestamp(), gr.Len()); err != nil {
 		return err
