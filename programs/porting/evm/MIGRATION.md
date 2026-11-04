@@ -5,22 +5,42 @@ LayerX program. It maps the EVM vocabulary you already use onto the programs
 ABI, and it is explicit about the constructs that do not carry over,
 because the kit refuses those by name rather than emulating them.
 
+LayerX programs execute inside `paxd` on the single Paxeer BFT network. The
+kernel is part of the network and proposes blocks; a receipt is final when its
+block commits. Public Ethereum JSON-RPC uses the root URL, for example
+`https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network`,
+with chain ID 125 (`0x7d`). Program execution and monetary effects belong to the
+same chain transaction. Sub-chains are tenant domains in the database.
+
+For the same storage and payment model expressed in CosmWasm terms, see the
+[CosmWasm migration guide](../cosmwasm/MIGRATION.md).
+
 ## ABI v2 context and precompiles
 
-New ports target ABI v2. `semantics::context` maps `msg.sender` to the immediate
-calling program in a nested frame and to the invoking principal at the root,
-`address(this)` to the executing program, and `block.number` to the
-authenticated batch height. Its `keccak256` and `ecrecover` functions call the
-guest-reachable hash and secp256k1-recovery imports; the host-side Keccak code
-in this kit remains only for migration planning over exported state and never
-stands in for a digest computed by a running contract. Inputs use bounded or
-fixed-width SDK types, and every runtime refusal remains a `ProgramError`.
+The guest adapter is [`layerx_porting_evm_guest`](guest/src/lib.rs), separate
+from the host-side `semantics` module. `msg_sender()` uses the immediate
+calling program in a nested frame and the invoking principal at the root;
+`address_this()` uses the executing program. Both return the low 20 bytes of
+the respective 32-byte ID. They do not establish an Ethereum-address-to-DID
+ownership binding. Use full SDK IDs for authorization and storage isolation.
+`block_number()` reads the authenticated `Context::batch_height()`.
 
-`reference-v2/src/lib.rs` is the real guest source path requiring all five
-mappings. `make programs-porting-v2-references` builds its locked ABI v2 guest.
-Execution and receipt qualification require the production C transition that
-supplies authenticated context; that gate is recorded in `qualification.kvx`
-and is not represented by a fabricated local context.
+The adapter's `keccak256` and `ecrecover` call guest-reachable hash and
+secp256k1-recovery imports. `ecrecover` takes a 32-byte digest, a 64-byte
+signature and a typed `RecoveryId` (0 through 3), hashes the recovered
+uncompressed key without its prefix, and returns its low 20 bytes. Translate
+Ethereum `v` encodings explicitly. Invalid input returns `ProgramError`;
+this helper does not emulate Solidity's zero-address failure result.
+These are guest imports, not EVM calls to a precompile address.
+
+The host-side Keccak implementation computes migration keys, selectors and
+topics; use [`SDK crypto`](../../sdk/rust/src/crypto.rs) for dynamic guest
+input. [`reference-v2/src/lib.rs`](reference-v2/src/lib.rs) exercises the five
+context/crypto mappings. `make programs-porting-v2-references` builds the
+locked context references. Check the guest imports, deployment ABI declaration
+and [`ABI policy`](../../sdk/rust/src/abi_policy.rs) together; the directory
+name does not pin every SDK default to version 2. A guest build alone does not
+qualify execution through the node's production host or its committed receipt.
 
 The worked example is `contracts/PublicLock.sol` in the published archive: a
 paid-membership lock in the shape Unlock Protocol uses. Its complete port lives
@@ -38,9 +58,10 @@ a real `keccak256`:
 | Event `topic0` | `keccak256("Transfer(address,address,uint256)")` | the same 32 bytes, used as the program event topic |
 | Function selector | `bytes4(keccak256("purchase(uint256)"))` | the same 4 bytes, dispatched by `layerx_call` |
 
-Keeping these exact is the whole point of the compatibility layer: an exported
-state dump imports cell for cell, an existing indexer's filters keep matching,
-and a client that already encodes calldata keeps working.
+These helpers preserve the supported slot, topic and selector bytes. The
+caller-indexed collapse below changes the destination key and namespace.
+Clients and indexers still need the program dispatch and event framing; this
+is not a transparent replacement for an Ethereum contract address.
 
 ## Storage
 
@@ -52,8 +73,11 @@ inside a namespace that is `(program, principal)`, and that namespace is fixed
 by the runtime *before your code runs*. You cannot choose it, widen it, or read
 another principal's cell by choosing a key.
 
-The direct consequence: **a `mapping(address => V)` indexed only by
-`msg.sender` collapses onto its declared slot.**
+A `mapping(address => V)` indexed only by the authenticated invoking principal
+can collapse onto its declared slot. This is the PublicLock reference's
+root-call mapping. In a nested call, the guest's `msg_sender()` is a program
+while principal-scoped storage still belongs to the original principal; keep
+an explicit key if the contract needs that immediate-caller distinction.
 
 ```solidity
 mapping(address => uint256) public remainingPeriodsOf;   // slot 0
@@ -71,18 +95,21 @@ already carried by the namespace.
 
 ### Slot derivation for everything else
 
-`src/layout.rs` implements the EVM rules exactly, so state that is *not*
-caller-indexed keeps its EVM address:
+[`src/layout.rs`](src/layout.rs) provides these word-slot helpers:
 
 | Declaration | Address | Function |
 | --- | --- | --- |
 | `uint256 x` at slot `n` | `n` | `value_slot(n)` |
 | `mapping(K => V)` at slot `n` | `keccak256(k . n)` | `mapping_slot(n, k)` |
 | `mapping(K1 => mapping(K2 => V))` | applied outermost first | `nested_mapping_slot(n, [k1, k2])` |
-| `T[] a` at slot `n` | `keccak256(n) + i` | `array_slot(n, i)` |
+| one-word-per-element dynamic array at slot `n` | `keccak256(n) + i` | `array_slot(n, i)` |
 | struct member at offset `m` | `base + m` | `member_slot(base, m)` |
 
-Values stay 32-byte big-endian words. `storage_key(slot)` is the identity
+These helpers do not implement every Solidity layout: packed fields and
+arrays, dynamic `bytes`/`string`, signed key extension and non-word mapping keys
+need their own encoding from the compiler's storage layout. Establish that
+layout before importing a dump. The reference values are 32-byte big-endian
+words. `storage_key(slot)` is the identity
 function on the slot address: LayerX keys are arbitrary bounded byte strings, so
 there is nothing to re-derive.
 
@@ -94,8 +121,12 @@ namespace `(program)` instead of the principal-scoped namespace
 `(program, principal)`. Use `shared_key(slot)` to address it and the
 `layerx_program_sdk::storage::shared` module to read and write it.
 
-A total supply, a pool reserve, an order book, or any other cell every account
-must be able to read and write now has an honest representation.
+A total supply, pool reserve or order book can use shared keys under explicit
+`SharedStorageRead` and `SharedStorageWrite` grants. The program must enforce
+its own update permissions. [`src/shared_supply.rs`](src/shared_supply.rs)
+demonstrates shared supply alongside principal-scoped holder state. Shared and
+principal storage also support bounded prefix scans; see the
+[CosmWasm scan mapping](../cosmwasm/MIGRATION.md#scoped-iteration-and-remaining-storage-differences).
 
 ### Migrating existing state
 
@@ -108,7 +139,10 @@ anywhere, which is exactly why the mapping key was redundant.
 
 ### What has no equivalent
 
-- **`address(this).balance`.** A program has no account. See *Money*.
+- **`address(this).balance` is not an ambient EVM balance read.** Retained
+  value lives in a registered program-derived account. Use the explicit
+  account model in **Money** and the SDK's authenticated balance interface
+  when a balance observation is required.
 
 ## Events
 
@@ -131,8 +165,9 @@ topic  keccak256("Transfer(address,address,uint256)")   unchanged
 data   bytes32(TOKEN_ID)                                 32 bytes
 ```
 
-`from` is the mint sentinel and `to` is `msg.sender`; both are known from the
-envelope, so `EventAbi::envelope_derived(TRANSFER_EVENT, 2)` declares them and
+`from` is the reference's constant mint sentinel and `to` is its root
+invoking principal; the adapter reconstructs them from reference semantics and
+the envelope, so `EventAbi::envelope_derived(TRANSFER_EVENT, 2)` declares them and
 the payload carries only `tokenId`. For an event with nothing derivable, use
 `EventAbi::new`, which carries every argument in declaration order.
 
@@ -156,14 +191,17 @@ dispatcher sees exactly the bytes an EVM `CALL` would have delivered.
 
 Two differences you must design for:
 
-1. **Authority is not ambient.** A Solidity call inherits the caller's whole
-   authority. A program call carries only what the caller explicitly narrows,
+1. **Authority is explicit.** The port must supply narrowed program grants
+   rather than assume EVM call semantics carry over. A program call carries
+   only what the caller explicitly narrows,
    and narrowing can never raise a transfer limit. `CallRequest::authority`
    names the single grant the call needs; the caller must already hold it.
-2. **Return data does not cross the boundary.** `layerx_call` returns one
-   non-negative `i32` result code. A negative code refuses the whole call
-   graph. Results that used to come back as ABI-encoded return data are read
-   from state or from the emitted event instead.
+2. **Choose the result operation.** The classic `layerx_call` returns an
+   `i32` code; a negative code refuses the whole call graph. PublicLock uses
+   that path. The SDK's explicit `call::invoke_response` operation accepts a
+   bounded output buffer and returns `CallResponse` with a code and bytes.
+   A new port can publish return bytes through compatible SDK entry handlers;
+   classic calls do not acquire response bytes automatically.
 
 The ported contract exports both shapes: `layerx_reserve`/`layerx_call` for
 program-to-program calls with real calldata, and one named export per function
@@ -190,25 +228,44 @@ atomically and issues the receipt.
 
 `ValueFlow::translate_with_program_account` carries contract-funded payouts;
 `ValueFlow::translate` remains the context-free principal-only mapping and
-refuses a contract payout when no owner, seed and source were supplied. The
-remaining refusals are not a limitation to work around: a
-shadow ledger inside program storage that tracks "balances" would be a second,
-unauthenticated money supply, and the monetary law exists to make that
-impossible. Delegated spending is expressed the LayerX way - the payer grants a
-capped `Transfer402` capability at invocation time - not as allowance state a
-contract keeps about a third party.
+returns `ContractHeldBalance` for a contract payout without owner, seed and
+source. The context-aware path returns `TranslatedValueFlow::ProgramAccount`
+with a validated `ProgramAccountTransferPlan`; its `capability()` builds the
+owner-bound `ProgramSpend` grant. Invalid source context returns
+`InvalidProgramAccount`. `translate_all` and `portable()` remain
+principal-only helpers; they do not classify the context-aware custody path.
+Program storage may track claims and token accounting, but writing it alone
+never moves native money. For principal-funded transfers, the payer grants a
+capped `Transfer402` capability at invocation time. Stored allowances alone
+cannot authorize a native debit; the backed LXT-20 model below combines
+allowance checks with program-account spending authority.
 
 The amount crosses the integer-only ABI as two `i64` limbs, high first;
 `Transfer402Plan::amount_limbs` produces them.
 
 ### Escrow, splitting and refunds
 
-A contract that takes money now and pays it out later cannot be ported as-is,
-because "holding" is the part that does not exist. Restructure it so the payer
-is present at payout: one invocation that debits the payer and credits the
-recipients in one atomic transfer set. `PaymentSplitter`, for instance, becomes
-a program that emits one leg per payee inside a single execution, each capped by
-its own capability.
+Escrow, accumulated balances and later refunds use registered program-derived
+accounts. [`PreparedProgramAccount`](../../sdk/rust/src/payments.rs) derives
+the source and produces the native registration payload. The deployment's
+registration authority submits it before the account is funded.
+`ProgramDeposit` and `transfer::fund_program_account` stage a caller-funded
+deposit under an explicit funding grant.
+
+A later withdrawal runs in the owning program's frame using
+`ProgramAccountPayment` and `transfer::pay_from_program_account`, with a
+`ProgramSpend` grant binding the owner, seed, source, asset, recipient and
+ceiling. The runtime and kernel validate those fields and apply payments
+atomically with state changes. The original depositor need not pay again.
+Use `ValueFlow::ContractFunded` with `translate_with_program_account` to plan
+this case. A plan does not itself register an account or authorize a
+payment.
+
+A `PaymentSplitter` can therefore pay accumulated funds in bounded legs from
+its derived account, with matching grants, or forward caller-funded legs in
+one invocation. Record claims and consumed withdrawals in program state, and
+couple each update to its actual payment. An unbounded `selfdestruct` sweep
+remains `UnboundedBalanceSweep` on the context-aware path.
 
 ## Failure and gas
 
@@ -227,21 +284,22 @@ difference from a status code - a host function returning a nonzero status is
 *not* a revert. The port checks every status and traps, which is what
 `Code::trap_unless_ok` emits.
 
-Gas is deterministic fuel. There is no `gasleft()`, no gas stipend, and no
-reentrancy window created by a 2300-gas transfer, because a transfer is a typed
-request applied after your code returns rather than a call into the recipient.
+Program metering uses deterministic fuel. `Context::remaining_fuel()` exposes
+remaining fuel; it is not an EVM gas stipend. A typed payment stages a transfer
+without calling recipient code. Audit explicit program calls and authority
+separately from payment effects.
 
 ## Context mappings and unavailable constructs
 
-| Solidity | Why it cannot carry over |
+| Solidity | Mapping or remaining difference |
 | --- | --- |
-| `block.number` | `context::block_number`, backed by authenticated batch height |
+| `block.number` | `layerx_porting_evm_guest::block_number()`, backed by authenticated batch height |
 | `block.timestamp`, `blockhash` | no wall clock or ambient chain view; use explicit protocol facts or counted periods |
 | `tx.origin` | the authenticated invoking principal; unlike `msg.sender`, it does not change at nested program frames |
-| `address(this).balance` | a program has no account |
+| `address(this).balance` | explicit program-derived account and authenticated balance read; no implicit EVM balance slot |
 | `delegatecall` | there is no shared storage frame; every call runs in the callee's own namespace |
 | `create`/`create2` | programs are deployed through the lifecycle, not from inside an execution |
-| `ecrecover` | `context::ecrecover`, backed by typed secp256k1 recovery and guest-reachable Keccak-256 |
+| `ecrecover` | `layerx_porting_evm_guest::ecrecover`, backed by typed secp256k1 recovery and guest-reachable Keccak-256 |
 | floating point, randomness, `block.prevrandao` | refused at validation as non-deterministic |
 
 `keccak256` inside an ABI-v2 contract calls the guest-reachable primitive. The
@@ -277,27 +335,25 @@ function purchase(uint256 periods) external payable returns (uint256) {
 | `require(msg.value == keyPrice * periods)` | there is no `msg.value`; the program *requests* `keyPrice * periods`, and the capability caps it at exactly that |
 | `remainingPeriodsOf[msg.sender]` | `storage_read` at the collapsed key, returning `0` for an absent cell |
 | `remainingPeriodsOf[msg.sender] = extended` | `storage_write` of a 32-byte big-endian word |
-| `beneficiary.call{value: ...}("")` | `transfer_402(0, price, asset, beneficiary)` |
+| `beneficiary.call{value: ...}("")` | `transfer_402(0, keyPrice * periods, asset, beneficiary)` |
 | `require(paid)` | trap unless the status is `0` |
 | `emit Transfer(...)` on first purchase | `event_emit` with the unchanged `topic0` |
 | `emit KeyExtended(...)` | `event_emit` with the token id and new period count |
 | `return extended` | the export returns `i64` |
 
-`block.timestamp` expiry became a period count, which is the one place the
-semantics changed rather than being preserved, and it changed because the
-deterministic runtime has no clock. `getHasValidKey(address)` became
-`getHasValidKey()`: a program's state view is scoped to the invoking principal,
-so the only owner it can answer for is the caller.
+The reference replaces timestamp expiry with a period count because the guest
+has no ambient wall clock. This is a deliberate application-level change. `getHasValidKey(address)` became
+`getHasValidKey()` in this reference: it reads the invoking principal's
+namespace. A port that needs public owner lookups can instead retain owner keys
+in shared state and expose an authorized query.
 
 ## Deploying and verifying a port
 
-```rust
-let port = PublicLockPort::new(LockTerms { .. })?;
-let source = published_source(&port, "https://example.org/public-lock")?;
-let deployed = deploy_and_verify(&port, publication, &source, &mut lifecycle, &mut registry)?;
-```
+[`src/qualify.rs`](src/qualify.rs) supplies `source_archive`,
+`published_source`, `build_plan` and `deploy_and_verify` for `PublicLockPort`.
+The caller supplies the publication metadata, lifecycle and registry.
 
-`deploy_and_verify` runs the real pipeline end to end:
+`deploy_and_verify` runs the library pipeline:
 
 1. emit the module and hash it with `SHA-256` - that digest is the code hash the
    deployment activity authenticates;
@@ -315,23 +371,35 @@ build input, and the pinned toolchain and dependency lock the plan commits to by
 digest. The descriptor round-trips: `PublicLockPort::parse(&port.encode())` is
 the original port, which is why the rebuild is reproducible.
 
+The local `execute_purchase`, `execute_has_valid_key` and
+`execute_remaining_periods` helpers run the metered executor. `settle` calls
+`strict_settle` with a supplied `KernelTransferPrimitive`. These are library
+phases within qualification, not independent network services. In production,
+the node applies program and monetary effects in the chain transaction;
+committed blocks determine finality. Source verification alone does not prove
+account registration, inclusion or successful live execution.
+
 ## Checklist before you port
 
-1. Classify every variable as caller-indexed or shared. Caller-indexed
-   mappings collapse; shared state uses the shared namespace and its dedicated
+1. Classify every variable as principal-scoped or shared. Only mappings keyed
+   by the invoking principal collapse; shared state uses the shared namespace and its dedicated
    capabilities.
-2. Does any function pay out of the contract's balance? If yes, restructure it
-   so the payer is present.
+2. For retained funds, register and fund a derived account; plan each later
+   payout with its exact source and owner-frame `ProgramSpend` grant.
 3. Does any function depend on time? Replace it with a counted quantity.
 4. Does any external call need the callee to act with your authority? Narrow the
    capability explicitly; there is no ambient reach.
-5. Do you need return data from a call? Move the result into state or an event.
+5. Choose classic result codes or the bounded response operation explicitly,
+   and make the caller and callee use compatible bindings.
 
 ## ERC-20, LXT-20 and native assets
 
-`programs/sdk/rust/src/lxt20.rs` defines the seven LXT-20 request encodings.
-The runnable `programs/sdk/rust/examples/token-lxt20` guest implements the seven
-methods over registered program-derived backing accounts. Its runtime tests
+[`lxt20.rs`](../../sdk/rust/src/lxt20.rs) defines the seven LXT-20 request encodings.
+The
+[`token-lxt20`](../../sdk/rust/examples/token-lxt20/src/lib.rs) guest implements
+the seven request methods plus a separate one-time `initialize` export over
+registered program-derived backing accounts. These handlers require a direct
+principal call and refuse a nested program caller. Its runtime tests
 cover methods, allowances and refusal rollback. The bound interface and registry
 state-value inputs and signed native deployment/call receipts are committed under
 `programs/fixtures/pay5`. Run `python3 programs/fixtures/pay5/run_native_roundtrip.py`
@@ -354,6 +422,10 @@ payload length, and the method fields in declaration order. Identifiers are
 32 bytes and amounts are 16-byte big-endian integers. This is not Solidity ABI
 encoding and does not reuse ERC-20 Keccak selectors. See the committed
 `programs/sdk/rust/vectors/lxt20-requests.txt` vectors.
+
+Initialization is not an eighth `Request` variant. The `initialize` export
+accepts exactly `4c 58 14 00 01 20 00 00 00 00`; it verifies the configured
+issuer and refuses if supply is already initialized.
 
 The reference's recipient account must be derived from the recipient DID id32
 under this program. The recipient first calls `approve` (zero is sufficient),
