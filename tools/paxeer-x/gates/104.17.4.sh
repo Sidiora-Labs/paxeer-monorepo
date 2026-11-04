@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# paxeer-x-services: private-profile
+# paxeer-x-services: platform-gateway
+# paxeer-x-evidence-dimension: private-profile (caller-owned private evidence)
 set -euo pipefail
 exec python3 - <<'PY'
 import json
