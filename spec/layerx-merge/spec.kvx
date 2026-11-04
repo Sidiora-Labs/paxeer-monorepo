@@ -210641,7 +210641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.675]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/gov/client/cli (part 1 of 1): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309"]
