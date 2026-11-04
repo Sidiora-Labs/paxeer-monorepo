@@ -34,6 +34,24 @@ The two budget fields are JSON arrays of 32 byte values. Legacy input names
 both fields; an off-ramp requires both. Customer account identity comes from
 remote token introspection, not the order JSON.
 
+Current JSON order bodies (budget values are illustrative nonzero 32-byte arrays;
+provision a real customer-owned budget and its independently agreed purpose):
+
+```json
+{"order_id":"on-1","quote_id":"REPLACE_ON_RAMP_QUOTE"}
+```
+
+```json
+{"order_id":"off-1","quote_id":"REPLACE_OFF_RAMP_QUOTE","customer_budget_id":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"customer_budget_purpose":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]}
+```
+
+Replaying an `order_id` with the same authenticated customer, quote, budget ID
+and purpose returns the existing presentation. Changing any of those bindings
+returns HTTP 409 `order_id_conflict`. Missing or zero off-ramp budget/purpose,
+on-ramp authority fields and unknown request fields are refused. Sending an
+alias together with its canonical field is a duplicate-field error. Creating
+an off-ramp order does not enable customer payment submission.
+
 A domain-separated `OrderDigest` binds direction, quote and order IDs, customer
 and operator accounts/principals, non-exporting signer handle, asset and exact
 integer amount, external currency/minor units, rational rate, fees, slippage,
@@ -99,8 +117,11 @@ reversal records have additional evidence requirements in
 ## Production boundaries
 
 Configure [config.example.json](config.example.json) for the actual deployment;
-it contains replacement values and legacy service names, not proven production
-coordinates. The native client uses `layerx.rpc_endpoint`,
+it selects the private `layerx-testnet` profile and contains replacement
+credentials and keys. The merged root TLS endpoint is the gateway Service on
+443, forwarding to its pod on 9443; the gateway relays to `paxd` on 8545.
+Owner boundary Services use 9443. See the runbook for certificate mounts and
+required owner deployments; source configuration alone does not prove availability. The native client uses `layerx.rpc_endpoint`,
 `rpc_trust_anchor_der`, `chain_id`, `operator_address`, `receipt_keys`,
 `max_fee_per_gas`, `max_priority_fee_per_gas`, `gas_limit_cap`, `signer_endpoint`,
 `signer_token_file` and `actor_did`.
@@ -130,7 +151,7 @@ hosted verifier; it is not a required batch lookup for the native ramp client.
 Prepare the protected configuration and secret mounts, then from repository root:
 
 ```sh
-cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp -- /run/layerx-ramp/config.json
+cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp -- /run/layerx-ramp/config/config.json
 ```
 
 The service's TLS listener exposes `POST /v1/orders`,

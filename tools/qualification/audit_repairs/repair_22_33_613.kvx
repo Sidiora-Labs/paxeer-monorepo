@@ -1,0 +1,37 @@
+[repair]
+task = "22.33.613"
+acceptance = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "LayerXHolder reads the required publishable layerx_receipt_keys string into PublishableConfiguration.RECEIPT_KEYS_KEY before creating LayerXAndroid and WalletModel. Runtime resource lookup avoids referencing a generated R field absent until the out-of-scope Gradle publisher is wired. A missing resource throws INVALID_CONFIGURATION immediately; malformed, empty or untrusted pins retain the existing configuration and verification refusals. No default pins, event-key substitution or relay-derived trust is introduced."
+source_proof = "The pytest module checks executable Java source bodies: required resource binding and failure order, strict receipt-key parsing, configuration-to-gate pin propagation, WalletActivity payment through WalletModel, relay evidence transport/decode, evidence identity and pinned signed-receipt verification, height bounds, transaction binding and expected asset/recipient/amount checks. It parses existing Gradle resource mappings and source directories and the Android launcher manifest. These are source facts, not execution of the Java path. No shell scripts or unit files are repaired."
+review_only = "Android startup and a signed payment through the actual sample configuration, Android resource generation/escaping and release resource retention, Java compilation and cryptographic execution are not executed by this gate. The existing Gradle publisher still lacks receipt pins and the sample cannot start until the wiring request is fulfilled. Review traces the real configuration/relay/consumer code; full runtime closure is pending. This config-drift repair changes no persisted state or wire interface, so no restart-recovery or interface-mismatch execution is claimed."
+baseline = "No baseline verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit the older do_5 pre-change verify instruction. No baseline test failures are claimed. Initial git status/diff showed only runner bookkeeping in .cgignore and spec/layerx-merge/spec.kvx; the scoped repair and test files were absent. /out/run/gate.json reported zero build and verification runs; no /out/run/gates.jsonl existed. Source inspection confirmed the missing receipt pin binding and Gradle resource."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_613.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl bind this record to the exact content-derived revision, command, exit code and private log path. Build and verification must pass at the same revision. This record is finalized before qualification: embedding its own candidate hash would change that hash. No gate success is claimed before the gate runs. Publication belongs to the runner."
+
+[finding.005]
+audit = "22.30.163"
+file = "sdk/integrations/android/sample-app/app/src/main/java/com/sidiora/layerx/android/sample/LayerXHolder.java"
+class = "config-drift"
+severity = "medium"
+status = "source_repaired_pending_gradle_wiring_and_runtime_proof"
+tests = ["test_holder_binds_required_publishable_receipt_resource_before_startup", "test_declared_receipt_pins_reach_gate_without_relay_trust", "test_sample_payment_source_path_preserves_signed_receipt_and_payment_checks", "test_sample_build_and_manifest_wire_real_sources_and_launcher", "test_record_maps_finding_wiring_limits_and_private_evidence"]
+resolution = "The in-scope consumer now binds the public receipt-key resource to the actual strict configuration parser and existing payment gate; complete startup and payment closure requires the out-of-scope resource producer and runtime proof below."
+
+[wiring.receipt_resource]
+path = "sdk/integrations/android/sample-app/app/build.gradle.kts"
+owner_domain = 15
+request = "sdk/integrations/android/sample-app/app/build.gradle.kts | domain 15: publish the required layerx.receiptKeysJson Gradle property as the layerx_receipt_keys string resource with Android-safe JSON escaping, add layerx.receipt_keys to declaredKeys for public-key secret-scan exemptions, ensure resource shrinking retains the dynamically looked-up resource, and prove startup and a signed payment through the actual configured sample while retaining missing/malformed/untrusted-key refusals."
+
+[format]
+policy = "No Java, Python or KVX formatter is configured for these paths; preserve existing four-space Java style and repository .editorconfig whitespace conventions."
+
+[gotcha.scope]
+observed = "The proposal names a Gradle file outside the exclusive task scope; generic instructions also request edits to GOTCHA/spec and publication forbidden by this task."
+resolution = "Record the Gradle wiring request and gotchas here, preserve runner changes, make only scoped edits and leave commits and pushes to the runner."
+
+[gotcha.context]
+observed = "Large context reads were truncated, cg brief reported a stale unrelated task, and WalletModel/RelayReceiptResolver and LocalVerifier were not at initially guessed paths."
+resolution = "Use bounded actual source reads: shared sample classes are under android/src/sample/java, LocalVerifier under sdk/platform/jvm, and git status/diff and the private gate ledger are authoritative for this attempt."

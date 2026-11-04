@@ -1,4 +1,4 @@
-use super::{compiler_output::SharedCompilerOutput, Error};
+use super::{compiler_output::SharedCompilerOutput, compiler_process, Error};
 use crate::{
     compiler::DownloadCache, metrics, metrics::GuardedGauge, DetailedVersion, Fetcher, Language,
 };
@@ -11,12 +11,16 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
-use tokio::sync::Semaphore;
+use tokio::{
+    sync::{oneshot, Semaphore},
+    time::timeout,
+};
 use tracing::instrument;
 
 #[async_trait]
-pub trait EvmCompiler {
+pub trait EvmCompiler: Send + Sync + 'static {
     type CompilerInput: CompilerInput;
     type CompilationError: CompilationError + for<'de> Deserialize<'de>;
     // TODO: parameterize version via: `type Version: Version`
@@ -28,7 +32,7 @@ pub trait EvmCompiler {
     ) -> Result<Value, Error>;
 }
 
-pub trait CompilerInput: Serialize {
+pub trait CompilerInput: Serialize + Clone + Send + Sync + 'static {
     fn normalize_output_selection(&mut self, version: &semver::Version);
 
     /// Modifies input so that the corresponding bytecode
@@ -58,6 +62,9 @@ pub struct EvmCompilersPool<C: EvmCompiler> {
     cache: DownloadCache<DetailedVersion>,
     fetcher: Arc<dyn Fetcher<Version = DetailedVersion>>,
     threads_semaphore: Arc<Semaphore>,
+    admission_semaphore: Arc<Semaphore>,
+    queue_timeout: Duration,
+    execution_timeout: Duration,
     _phantom_data: PhantomData<C>,
 }
 
@@ -66,12 +73,39 @@ impl<C: EvmCompiler> EvmCompilersPool<C> {
         fetcher: Arc<dyn Fetcher<Version = DetailedVersion>>,
         threads_semaphore: Arc<Semaphore>,
     ) -> Self {
-        Self {
+        Self::new_with_limits(
+            fetcher,
+            threads_semaphore,
+            64,
+            Duration::from_secs(30),
+            compiler_process::DEFAULT_EXECUTION_TIMEOUT,
+        )
+        .expect("default compiler limits are valid")
+    }
+
+    pub fn new_with_limits(
+        fetcher: Arc<dyn Fetcher<Version = DetailedVersion>>,
+        threads_semaphore: Arc<Semaphore>,
+        max_admitted: usize,
+        queue_timeout: Duration,
+        execution_timeout: Duration,
+    ) -> Result<Self, Error> {
+        if max_admitted == 0
+            || max_admitted > Semaphore::MAX_PERMITS
+            || queue_timeout.is_zero()
+            || execution_timeout.is_zero()
+        {
+            return Err(Error::Compilation(vec!["compiler admission limit and deadlines must be positive and within semaphore capacity".into()]));
+        }
+        Ok(Self {
             cache: Default::default(),
             fetcher,
             threads_semaphore,
+            admission_semaphore: Arc::new(Semaphore::new(max_admitted)),
+            queue_timeout,
+            execution_timeout,
             _phantom_data: Default::default(),
-        }
+        })
     }
 
     pub async fn load_from_dir(&self, dir: &PathBuf) {
@@ -127,27 +161,46 @@ impl<C: EvmCompiler> EvmCompilersPool<C> {
         compiler_version: &DetailedVersion,
         input: &C::CompilerInput,
     ) -> Result<CompileResult<SharedCompilerOutput>, Error> {
-        let raw = {
-            let span = tracing::debug_span!(
-                "compile contract with foundry-compilers",
-                ver = compiler_version.to_string()
-            );
-            let _span_guard = span.enter();
-
+        let admission = self
+            .admission_semaphore
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| {
+                Error::Compilation(vec!["compiler admission capacity exhausted".into()])
+            })?;
+        let semaphore = self.threads_semaphore.clone();
+        let queue_timeout = self.queue_timeout;
+        let execution_timeout = self.execution_timeout;
+        let compiler_path = compiler_path.to_path_buf();
+        let compiler_version = compiler_version.clone();
+        let input = input.clone();
+        let (cancel_on_drop, mut cancelled) = oneshot::channel::<()>();
+        let compilation = tokio::spawn(async move {
+            let _admission = admission;
             let _permit = {
                 let _wait_timer_guard = metrics::COMPILATION_QUEUE_TIME.start_timer();
                 let _wait_gauge_guard = metrics::COMPILATIONS_IN_QUEUE.guarded_inc();
-                self.threads_semaphore
-                    .acquire()
-                    .await
-                    .context("acquiring lock")?
+                tokio::select! {
+                    biased;
+                    _ = &mut cancelled => return Err(Error::Compilation(vec!["compiler queue cancelled".into()])),
+                    permit = timeout(queue_timeout, semaphore.acquire_owned()) => {
+                        permit.map_err(|_| Error::Compilation(vec!["compiler queue deadline exceeded".into()]))?
+                            .context("acquiring compiler permit")?
+                    }
+                }
             };
-
             let _compile_timer_guard = metrics::COMPILE_TIME.start_timer();
             let _compile_gauge_guard = metrics::COMPILATIONS_IN_FLIGHT.guarded_inc();
-
-            C::compile(compiler_path, compiler_version, input).await?
-        };
+            compiler_process::supervise(
+                execution_timeout,
+                &mut cancelled,
+                C::compile(&compiler_path, &compiler_version, &input),
+            )
+            .await
+        });
+        let raw = compilation.await.context("joining compiler supervisor")?;
+        drop(cancel_on_drop);
+        let raw = raw?;
 
         validate_no_errors::<C::CompilationError>(&raw)?;
         let output: SharedCompilerOutput =

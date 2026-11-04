@@ -27995,3 +27995,27 @@ symbol = "repair_22_33_458.rs"
 observed = "Attempt 1: URL component encoding and five integration tests were implemented; cargo build --tests exit 101 on the unresolved database import."
 assumption = "A gate wiring gap: the feature the repair needs was not enabled."
 severity = "low"
+
+[finding.22.31.465.1]
+task = "22.31.465"
+file = "services/platform/hosted/paxeer"
+symbol = "paxeer"
+observed = "Attempt 1: cargo metadata and the webhooks build passed; four 1319 Go tests failed on the deployment manifest facts."
+assumption = "The four failures belong to the manifest crossing (gotcha 2998), reconciled by 22.31.481."
+severity = "low"
+
+[finding.22.33.1000.3]
+task = "22.33.1000"
+file = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+symbol = "repair_m1000_test.go"
+observed = "Attempt 3: the build and five repair tests passed; the generation case failed on one absent committed response (decimals of the pool token)."
+assumption = "One producer response is missing from the committed fixtures; the replay design is right."
+severity = "low"
+
+[finding.22.33.213.3]
+task = "22.33.213"
+file = "precompiles/layerxprograms/repair_m213_test.go"
+symbol = "repair_m213_test.go"
+observed = "Attempt 3: six of seven repair cases passed; the storage-environment response case failed on a fixture prefix length and a non-canonical lease-state record; the gate output showed only binary-file-matches lines."
+assumption = "The remaining failure is in the test fixture, and the gate output was hidden by binary bytes in the log."
+severity = "low"
