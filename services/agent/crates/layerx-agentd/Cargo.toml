@@ -46,5 +46,9 @@ path = "tests/proof_native_reads.rs"
 name = "limits-exactly-once"
 path = "../../tests/limits/exactly_once.rs"
 
+[[test]]
+name = "repair_22_33_1532"
+path = "tests/repair_22_33_1532.rs"
+
 [lints]
 workspace = true
