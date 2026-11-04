@@ -13,8 +13,8 @@ def reference_policy():
  return module
 
 
-def specification():
- return reference_policy().load_spec(SPEC)
+def specification(spec_path=SPEC):
+ return reference_policy().load_spec(spec_path)
 
 
 def inventory_references(inventory):
@@ -72,8 +72,8 @@ INHERITED = {
 'D05':('vendor','L40','Verify live media provider regions, retention/cost, voice semantics and staffed moderation together with L38'),
 }
 CONTRACT = {'PF01','PF02','PF05','PF06','PF07','PF11','PF15','PF18','PF19','PF20','PF22','OC01','OC02','OC03','OC04','OC05','OC06','OC09','OC13','OC20'}
-def build():
- s=specification(); features=[]; helper=reference_policy()
+def build(spec_path=SPEC):
+ s=specification(spec_path); features=[]; helper=reference_policy()
  legacy=json.loads((pathlib.Path(__file__).parent/'fixtures/retired-inventory.json').read_text())
  legacy_sections={'req.'+rid for feature in legacy['features'] for rid in feature['requirements']} | {'coverage.'+feature['id'] for feature in legacy['features']}
  if not any(section in s for section in legacy_sections) and not any(value.get('legacy_feature_id') for name,value in s.items() if name.startswith('req.')):

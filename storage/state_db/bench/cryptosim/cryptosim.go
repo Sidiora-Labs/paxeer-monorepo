@@ -117,7 +117,7 @@ func NewCryptoSim(
 	}
 
 	// The workload context is cancelled on Ctrl-C (or programmatically) to
-	// stop the benchmark loop and executors.
+	// stop block admission. Executors drain independently before store close.
 	ctx, cancel := context.WithCancel(ctx)
 
 	var err error
@@ -194,7 +194,7 @@ func NewCryptoSim(
 		if err != nil {
 			cancel()
 			for _, executor := range executors {
-				executor.Close()
+				err = errors.Join(err, executor.Close())
 			}
 			return nil, errors.Join(fmt.Errorf("failed to create receipt store simulator: %w", err), db.Close())
 		}
@@ -233,7 +233,7 @@ func NewCryptoSim(
 	if err != nil {
 		c.cancel()
 		for _, executor := range c.executors {
-			executor.Close()
+			err = errors.Join(err, executor.Close())
 		}
 		if c.receiptSimulator != nil {
 			close(c.recieptsChan)
@@ -429,6 +429,9 @@ func (c *CryptoSim) run() {
 			return
 		case blk := <-c.blockBuilder.blocksChan:
 			c.maybeThrottle()
+			if c.ctx.Err() != nil {
+				return
+			}
 			c.handleNextBlock(blk)
 		}
 
@@ -456,14 +459,15 @@ func (c *CryptoSim) maybeThrottle() {
 func (c *CryptoSim) handleNextBlock(blk *block) {
 	c.metrics.SetMainThreadPhase("send_to_executors")
 
-	for i := int64(0); i < blk.TransactionCount(); i++ {
-		c.database.IncrementTransactionCount()
-	}
-
 	// TODO: skip executor dispatch and FinalizeBlock when DisableTransactionExecution
 	// is true and only receipts are being benchmarked. FlatKV commits waste I/O here.
 	for txn := range blk.Iterator() {
-		c.executors[c.nextExecutorIndex].ScheduleForExecution(txn)
+		if err := c.executors[c.nextExecutorIndex].ScheduleForExecution(txn); err != nil {
+			c.closeErr = errors.Join(c.closeErr, fmt.Errorf("failed to schedule transaction: %w", err))
+			c.cancel()
+			return
+		}
+		c.database.IncrementTransactionCount()
 		c.nextExecutorIndex = (c.nextExecutorIndex + 1) % len(c.executors)
 	}
 
@@ -524,13 +528,15 @@ func (c *CryptoSim) teardown() {
 	c.cancel()
 	<-c.blockBuilder.done
 	for _, executor := range c.executors {
-		executor.Close()
+		c.closeErr = errors.Join(c.closeErr, executor.Close())
 	}
+	// Every worker is joined. Finalization no longer needs a queue barrier.
+	c.database.SetFlushFunc(nil)
 	if c.receiptSimulator != nil {
 		close(c.recieptsChan)
 		c.closeErr = errors.Join(c.closeErr, c.receiptSimulator.Wait())
 	}
-	if c.mostRecentBlock == nil {
+	if c.mostRecentBlock == nil || c.closeErr != nil {
 		c.closeErr = errors.Join(c.closeErr, c.database.CloseWithoutFinalizing())
 	} else {
 		c.closeErr = errors.Join(c.closeErr, c.database.Close(
@@ -583,10 +589,12 @@ func (c *CryptoSim) Close() error {
 }
 
 // Blocks until all pending transactions sent to the executors have been executed.
-func (c *CryptoSim) flushExecutors() {
+func (c *CryptoSim) flushExecutors() error {
+	var err error
 	for _, executor := range c.executors {
-		executor.Flush()
+		err = errors.Join(err, executor.Flush())
 	}
+	return err
 }
 
 // Blocks until the benchmark has halted.
