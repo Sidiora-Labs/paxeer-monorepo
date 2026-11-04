@@ -1,0 +1,2010 @@
+[audit.22.30.135]
+task = "22.30.135"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 232
+findings = 51
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["nft-token-revoke","precompile-table-coverage"]
+
+[file.001]
+path = "apps/explorer/ui/marketplace/Banner.tsx"
+lines = 75
+verdict = "clean"
+note = "Selects configured featured marketplace apps and renders desktop/mobile banner variants."
+
+[file.002]
+path = "apps/explorer/ui/marketplace/Banner/FeaturedApp.tsx"
+lines = 150
+verdict = "clean"
+note = "Desktop featured-app presentation uses configured category, rating, logo and route data."
+
+[file.003]
+path = "apps/explorer/ui/marketplace/Banner/FeaturedAppMobile.tsx"
+lines = 158
+verdict = "clean"
+note = "Mobile featured-app presentation retains configured app identity and navigation."
+
+[file.004]
+path = "apps/explorer/ui/marketplace/Banner/IframeBanner.tsx"
+lines = 51
+verdict = "clean"
+note = "Loads the configured banner iframe and bounds its visual container."
+
+[file.005]
+path = "apps/explorer/ui/marketplace/EmptySearchResult.tsx"
+lines = 42
+verdict = "clean"
+note = "Displays marketplace no-match guidance and the supported submission link."
+
+[file.006]
+path = "apps/explorer/ui/marketplace/FavoriteIcon.tsx"
+lines = 19
+verdict = "clean"
+note = "Selects the filled or outline favorite icon from the favorite state."
+
+[file.007]
+path = "apps/explorer/ui/marketplace/MarketplaceAppCard.tsx"
+lines = 200
+verdict = "issues"
+note = "Marketplace discovery card renders app metadata and actions; copied URL loses the deployed explorer prefix."
+
+[file.008]
+path = "apps/explorer/ui/marketplace/MarketplaceAppCardLink.tsx"
+lines = 37
+verdict = "clean"
+note = "Routes internal app navigation through the route helper and external apps through their configured URL."
+
+[file.009]
+path = "apps/explorer/ui/marketplace/MarketplaceAppGraphLinks.tsx"
+lines = 53
+verdict = "clean"
+note = "Builds optional explorer graph links from the marketplace app's configured integrations."
+
+[file.010]
+path = "apps/explorer/ui/marketplace/MarketplaceAppIframe.tsx"
+lines = 159
+verdict = "clean"
+note = "Embeds configured marketplace content with wallet integration and height/message handling."
+
+[file.011]
+path = "apps/explorer/ui/marketplace/MarketplaceAppInfo.pw.tsx"
+lines = 22
+verdict = "clean"
+note = "Visual coverage mounts app details with the marketplace app fixture."
+
+[file.012]
+path = "apps/explorer/ui/marketplace/MarketplaceAppInfo.tsx"
+lines = 22
+verdict = "clean"
+note = "Wraps app details content with the shared information layout."
+
+[file.013]
+path = "apps/explorer/ui/marketplace/MarketplaceAppInfo/Content.tsx"
+lines = 53
+verdict = "clean"
+note = "App details map configured description, categories and social/site links into the view."
+
+[file.014]
+path = "apps/explorer/ui/marketplace/MarketplaceAppInfo/SocialLink.tsx"
+lines = 32
+verdict = "clean"
+note = "Social links select the known service icon and expose external navigation."
+
+[file.015]
+path = "apps/explorer/ui/marketplace/MarketplaceAppInfo/WebsiteLink.tsx"
+lines = 32
+verdict = "clean"
+note = "Website links render the supplied app URL with the shared external-link treatment."
+
+[file.016]
+path = "apps/explorer/ui/marketplace/MarketplaceAppIntegrationIcon.tsx"
+lines = 51
+verdict = "clean"
+note = "Integration badges map the supported integration discriminator to tooltip and icon."
+
+[file.017]
+path = "apps/explorer/ui/marketplace/MarketplaceAppModal.pw.tsx"
+lines = 34
+verdict = "clean"
+note = "Visual coverage mounts the app modal with deterministic app and rating fixtures."
+
+[file.018]
+path = "apps/explorer/ui/marketplace/MarketplaceAppModal.tsx"
+lines = 285
+verdict = "issues"
+note = "App modal binds details, ratings and favorites; its copied URL omits the explorer mount."
+
+[file.019]
+path = "apps/explorer/ui/marketplace/MarketplaceAppTopBar.tsx"
+lines = 85
+verdict = "clean"
+note = "Marketplace top bar binds configured app identity, route navigation and wallet controls."
+
+[file.020]
+path = "apps/explorer/ui/marketplace/MarketplaceDisclaimerModal.tsx"
+lines = 67
+verdict = "clean"
+note = "The disclaimer requires explicit user acknowledgement before marketplace entry."
+
+[file.021]
+path = "apps/explorer/ui/marketplace/MarketplaceList.tsx"
+lines = 81
+verdict = "clean"
+note = "Renders app cards from the fetched/filter-selected marketplace list."
+
+[file.022]
+path = "apps/explorer/ui/marketplace/Rating/PopoverContent.tsx"
+lines = 91
+verdict = "clean"
+note = "Rating popover binds star selection and the marketplace rating update action."
+
+[file.023]
+path = "apps/explorer/ui/marketplace/Rating/Rating.tsx"
+lines = 77
+verdict = "clean"
+note = "Rating state derives from the app rating, wallet connection and submission lifecycle."
+
+[file.024]
+path = "apps/explorer/ui/marketplace/Rating/TriggerButton.tsx"
+lines = 80
+verdict = "clean"
+note = "Rating trigger renders aggregate and personal rating state with the proper interaction controls."
+
+[file.025]
+path = "apps/explorer/ui/marketplace/essentialDapps/EssentialDappCard.tsx"
+lines = 55
+verdict = "clean"
+note = "Essential app cards choose the registered app route and configured presentation."
+
+[file.026]
+path = "apps/explorer/ui/marketplace/essentialDapps/EssentialDappsList.tsx"
+lines = 72
+verdict = "clean"
+note = "Essential app enumeration follows enabled feature configuration and supported app definitions."
+
+[file.027]
+path = "apps/explorer/ui/marketplace/essentialDapps/multisend/Multisend.pw.tsx"
+lines = 25
+verdict = "clean"
+note = "Visual multisend coverage mounts the configured essential app route and wallet setup."
+
+[file.028]
+path = "apps/explorer/ui/marketplace/essentialDapps/multisend/Multisend.tsx"
+lines = 548
+verdict = "clean"
+note = "Multisend validates recipient/value inputs and submits through the selected chain's wallet transport."
+
+[file.029]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/Revoke.pw.tsx"
+lines = 23
+verdict = "clean"
+note = "Visual revoke coverage mounts the revoke route with its configured chain and account context."
+
+[file.030]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/Revoke.tsx"
+lines = 222
+verdict = "clean"
+note = "Revoke binds searched account, selected chain, account-match authorization and query lifecycle."
+
+[file.031]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/AddressEntity.tsx"
+lines = 17
+verdict = "clean"
+note = "Address entity delegates checksum/address display to the shared entity component."
+
+[file.032]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/Approvals.tsx"
+lines = 64
+verdict = "issues"
+note = "The approvals list forces the shared error display off instead of accepting scan failure state."
+
+[file.033]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/ApprovalsListItem.tsx"
+lines = 140
+verdict = "clean"
+note = "Mobile approval row binds permission details and only exposes revoke for the connected matching owner."
+
+[file.034]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/ApprovalsTable.tsx"
+lines = 60
+verdict = "clean"
+note = "Approval table retains typed permission rows and delegates revoke and hide actions."
+
+[file.035]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/ApprovalsTableItem.tsx"
+lines = 126
+verdict = "clean"
+note = "Desktop approval row presents spender/token data and connected-owner revoke controls."
+
+[file.036]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/ChainSelect.tsx"
+lines = 14
+verdict = "clean"
+note = "Revoke chain selector delegates the configured essential-app chain options to the shared selector."
+
+[file.037]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/Content.pw.tsx"
+lines = 31
+verdict = "clean"
+note = "Visual approval content coverage supplies loading and loaded permission fixtures."
+
+[file.038]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/Content.tsx"
+lines = 219
+verdict = "clean"
+note = "Content aggregates maximum risk per token and hides a permission row after the revoke hook reports success."
+
+[file.039]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/SearchInput.tsx"
+lines = 66
+verdict = "clean"
+note = "Revoke search input validates and submits an account through the supplied search callback."
+
+[file.040]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/StartScreen.tsx"
+lines = 49
+verdict = "clean"
+note = "Start screen explains account lookup and renders the configured chain selector."
+
+[file.041]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx"
+lines = 65
+verdict = "issues"
+note = "Chain/account query returns successful empty data after scan errors."
+
+[file.042]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useCoinBalanceQuery.tsx"
+lines = 64
+verdict = "clean"
+note = "Coin balance reads use the selected chain and account in the query identity."
+
+[file.043]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useGetBlockTimestamp.tsx"
+lines = 52
+verdict = "clean"
+note = "Block timestamps are read from the selected explorer chain, parsed from ISO timestamps and cached by chain id and block number for the mounted session."
+
+[file.044]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useRevoke.tsx"
+lines = 79
+verdict = "issues"
+note = "The revoke transaction path conflates token approvals with operator permissions and rewards with receipt tracking."
+
+[file.045]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx"
+lines = 239
+verdict = "issues"
+note = "ERC20 discovery joins logs, current allowance, balances and metadata with incomplete/error and valuation defects."
+
+[file.046]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx"
+lines = 283
+verdict = "issues"
+note = "NFT discovery joins log candidates to current permissions but drops or misattributes several permission cases."
+
+[file.047]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/createPublicClient.ts"
+lines = 18
+verdict = "clean"
+note = "Public clients are constructed from the selected configured essential-app chain id."
+
+[file.048]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/formatAllowance.ts"
+lines = 11
+verdict = "clean"
+note = "Allowance formatting renders the unlimited sentinel and bounded numeric display."
+
+[file.049]
+path = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/getLogs.ts"
+lines = 25
+verdict = "issues"
+note = "Recursive log splitting has no terminal one-block failure or global work bound."
+
+[file.050]
+path = "apps/explorer/ui/marketplace/essentialDapps/swap/Swap.tsx"
+lines = 69
+verdict = "clean"
+note = "Swap embeds the configured swap application through the marketplace wrapper."
+
+[file.051]
+path = "apps/explorer/ui/marketplace/useAutoConnectWallet.tsx"
+lines = 39
+verdict = "clean"
+note = "Auto-connect follows the configured wallet connector and skips absent wallet prerequisites."
+
+[file.052]
+path = "apps/explorer/ui/marketplace/useMarketplace.tsx"
+lines = 183
+verdict = "clean"
+note = "Marketplace state binds configured app filters, favorites and navigation behavior."
+
+[file.053]
+path = "apps/explorer/ui/marketplace/useMarketplaceApps.tsx"
+lines = 133
+verdict = "clean"
+note = "Marketplace app fetching composes server data with configured essential applications."
+
+[file.054]
+path = "apps/explorer/ui/marketplace/useMarketplaceCategories.tsx"
+lines = 57
+verdict = "clean"
+note = "Category choices derive from configured app categories and selected filters."
+
+[file.055]
+path = "apps/explorer/ui/marketplace/useMarketplaceWallet.tsx"
+lines = 97
+verdict = "clean"
+note = "Marketplace wallet integration uses supported connector/account/chain state and app messaging."
+
+[file.056]
+path = "apps/explorer/ui/marketplace/utils.spec.ts"
+lines = 60
+verdict = "clean"
+note = "Utility cases cover the category and app-normalization behavior they name."
+
+[file.057]
+path = "apps/explorer/ui/marketplace/utils.ts"
+lines = 70
+verdict = "clean"
+note = "Marketplace helpers normalize supported metadata and category values."
+
+[file.058]
+path = "apps/explorer/ui/multichain/accounts/MultichainAccounts.tsx"
+lines = 94
+verdict = "clean"
+note = "Multichain accounts preserve selected-chain options and paginated account query context."
+
+[file.059]
+path = "apps/explorer/ui/multichain/address/MultichainAddress.pw.tsx"
+lines = 52
+verdict = "clean"
+note = "Visual address-page coverage mounts multichain address data and available chain fixtures."
+
+[file.060]
+path = "apps/explorer/ui/multichain/address/MultichainAddress.tsx"
+lines = 157
+verdict = "clean"
+note = "Address page resolves selected chain context before dispatching its available tabs."
+
+[file.061]
+path = "apps/explorer/ui/multichain/address/MultichainAddressCoinBalanceHistory.tsx"
+lines = 52
+verdict = "clean"
+note = "Coin balance history delegates to the chain-scoped address chart inside the multichain context."
+
+[file.062]
+path = "apps/explorer/ui/multichain/address/MultichainAddressContract.tsx"
+lines = 73
+verdict = "clean"
+note = "Contract details select a supported chain and mount the shared contract interface with that context."
+
+[file.063]
+path = "apps/explorer/ui/multichain/address/MultichainAddressInternalTxs.tsx"
+lines = 99
+verdict = "clean"
+note = "Internal transaction tab scopes pagination and filters to the address and selected chain."
+
+[file.064]
+path = "apps/explorer/ui/multichain/address/MultichainAddressLogs.tsx"
+lines = 102
+verdict = "clean"
+note = "Address logs tab carries chain/address filters into log queries and pagination."
+
+[file.065]
+path = "apps/explorer/ui/multichain/address/MultichainAddressPortfolio.pw.tsx"
+lines = 56
+verdict = "clean"
+note = "Visual portfolio coverage supplies typed multichain token and balance data."
+
+[file.066]
+path = "apps/explorer/ui/multichain/address/MultichainAddressPortfolio.tsx"
+lines = 145
+verdict = "clean"
+note = "Portfolio page coordinates net worth, chain options and token views from the same account."
+
+[file.067]
+path = "apps/explorer/ui/multichain/address/MultichainAddressTokenTransfers.pw.tsx"
+lines = 63
+verdict = "clean"
+note = "Visual address-token-transfer coverage uses the transfer query's typed pagination fixture."
+
+[file.068]
+path = "apps/explorer/ui/multichain/address/MultichainAddressTokenTransfers.tsx"
+lines = 201
+verdict = "clean"
+note = "Address token transfers combine account and chain filters with typed paginated responses."
+
+[file.069]
+path = "apps/explorer/ui/multichain/address/MultichainAddressTxs.pw.tsx"
+lines = 63
+verdict = "clean"
+note = "Visual address-transaction coverage supplies the multichain transaction response shape."
+
+[file.070]
+path = "apps/explorer/ui/multichain/address/MultichainAddressTxs.tsx"
+lines = 184
+verdict = "clean"
+note = "Address transaction tab preserves account, chain and filter state while paging."
+
+[file.071]
+path = "apps/explorer/ui/multichain/address/getAvailableChainIds.ts"
+lines = 5
+verdict = "clean"
+note = "Available chain ids are derived from the supplied chain options."
+
+[file.072]
+path = "apps/explorer/ui/multichain/address/header/MultichainAddressEnsDomains.tsx"
+lines = 120
+verdict = "clean"
+note = "ENS/name display groups domains by the associated chain and routes through chain context."
+
+[file.073]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressPortfolioCard.tsx"
+lines = 77
+verdict = "clean"
+note = "Portfolio card renders the supplied chain identity and monetary totals."
+
+[file.074]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressPortfolioCards.tsx"
+lines = 119
+verdict = "clean"
+note = "Portfolio cards use chain-specific balance and asset data to build the account summary."
+
+[file.075]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressPortfolioNetWorth.tsx"
+lines = 155
+verdict = "clean"
+note = "Net-worth presentation aggregates typed balance/price inputs and exposes loading/unavailable values."
+
+[file.076]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressPortfolioTokens.pw.tsx"
+lines = 87
+verdict = "clean"
+note = "Visual portfolio-token coverage mounts deterministic token metadata and balances."
+
+[file.077]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressPortfolioTokens.tsx"
+lines = 257
+verdict = "clean"
+note = "Portfolio tokens preserve chain selection, token type and pagination context."
+
+[file.078]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressTokensListItem.tsx"
+lines = 110
+verdict = "clean"
+note = "Mobile portfolio token row uses the associated chain, token decimals and price fields."
+
+[file.079]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressTokensTable.tsx"
+lines = 39
+verdict = "clean"
+note = "Portfolio table maps typed token holdings into desktop rows."
+
+[file.080]
+path = "apps/explorer/ui/multichain/address/portfolio/MultichainAddressTokensTableItem.tsx"
+lines = 102
+verdict = "clean"
+note = "Desktop portfolio token row binds token identity, chain, quantity and monetary display."
+
+[file.081]
+path = "apps/explorer/ui/multichain/address/portfolio/utils.ts"
+lines = 12
+verdict = "clean"
+note = "Portfolio helpers transform the supplied typed holdings into display values."
+
+[file.082]
+path = "apps/explorer/ui/multichain/address/useChainSelectErc20.ts"
+lines = 16
+verdict = "clean"
+note = "ERC20 chain selection derives eligible options from the configured chain metadata."
+
+[file.083]
+path = "apps/explorer/ui/multichain/block/MultichainBlock.tsx"
+lines = 21
+verdict = "clean"
+note = "Block details are mounted inside the selected multichain chain context."
+
+[file.084]
+path = "apps/explorer/ui/multichain/blocks/MultichainBlocks.tsx"
+lines = 133
+verdict = "clean"
+note = "Blocks page selects the correct chain and feeds its paginated block list."
+
+[file.085]
+path = "apps/explorer/ui/multichain/blocks/MultichainBlocksContent.tsx"
+lines = 30
+verdict = "clean"
+note = "Blocks content delegates to the shared block list under the selected chain."
+
+[file.086]
+path = "apps/explorer/ui/multichain/components/ChainSelect.tsx"
+lines = 14
+verdict = "clean"
+note = "Shared multichain selector binds chain id/options to its selection callback."
+
+[file.087]
+path = "apps/explorer/ui/multichain/components/ClusterChainsPopover.tsx"
+lines = 85
+verdict = "clean"
+note = "Cluster popover groups configured chains and uses their declared explorer links."
+
+[file.088]
+path = "apps/explorer/ui/multichain/components/ListCounterText.tsx"
+lines = 35
+verdict = "clean"
+note = "Counter text renders the supplied typed count and loading state."
+
+[file.089]
+path = "apps/explorer/ui/multichain/components/NativeTokenIcon.tsx"
+lines = 41
+verdict = "clean"
+note = "Native token icon uses configured multichain chain metadata for the selected display context."
+
+[file.090]
+path = "apps/explorer/ui/multichain/ecosystems/MultichainEcosystems.pw.tsx"
+lines = 21
+verdict = "clean"
+note = "Visual ecosystems coverage supplies configured cluster-chain fixtures."
+
+[file.091]
+path = "apps/explorer/ui/multichain/ecosystems/MultichainEcosystems.tsx"
+lines = 93
+verdict = "clean"
+note = "Ecosystems listing binds configured clusters, sorting and loading state."
+
+[file.092]
+path = "apps/explorer/ui/multichain/ecosystems/MultichainEcosystemsListItem.tsx"
+lines = 128
+verdict = "clean"
+note = "Mobile ecosystem row renders cluster identity and its chain links."
+
+[file.093]
+path = "apps/explorer/ui/multichain/ecosystems/MultichainEcosystemsTable.tsx"
+lines = 68
+verdict = "clean"
+note = "Ecosystems table defines sortable columns and maps the supplied cluster data."
+
+[file.094]
+path = "apps/explorer/ui/multichain/ecosystems/MultichainEcosystemsTableItem.tsx"
+lines = 146
+verdict = "clean"
+note = "Desktop ecosystem row presents the same typed cluster/chain values as the mobile list."
+
+[file.095]
+path = "apps/explorer/ui/multichain/ecosystems/utils.ts"
+lines = 22
+verdict = "clean"
+note = "Ecosystem helpers normalize optional cluster values for sorting and display."
+
+[file.096]
+path = "apps/explorer/ui/multichain/home/ChainIndicators.tsx"
+lines = 123
+verdict = "issues"
+note = "Indicators bind network statistics but assume a two-point history and a fixed ETH market identity."
+
+[file.097]
+path = "apps/explorer/ui/multichain/home/ChainWidget.tsx"
+lines = 138
+verdict = "clean"
+note = "Chain widget joins configured chain metadata, statistics and explorer links."
+
+[file.098]
+path = "apps/explorer/ui/multichain/home/LatestTxs.tsx"
+lines = 60
+verdict = "clean"
+note = "Latest transaction selection dispatches to configured local/aggregate chain views."
+
+[file.099]
+path = "apps/explorer/ui/multichain/home/LatestTxsLocal.tsx"
+lines = 66
+verdict = "clean"
+note = "Local latest transactions use the selected chain's query and transaction response type."
+
+[file.100]
+path = "apps/explorer/ui/multichain/home/MultichainHome.pw.tsx"
+lines = 40
+verdict = "clean"
+note = "Visual multichain home coverage mounts deterministic homepage statistics and chain data."
+
+[file.101]
+path = "apps/explorer/ui/multichain/home/MultichainHome.tsx"
+lines = 46
+verdict = "clean"
+note = "Homepage composes widgets, statistics and transactions from the enabled multichain configuration."
+
+[file.102]
+path = "apps/explorer/ui/multichain/home/Stats.tsx"
+lines = 64
+verdict = "clean"
+note = "Statistics display uses declared multichain statistics fields and loading values."
+
+[file.103]
+path = "apps/explorer/ui/multichain/home/useChartDataQuery.ts"
+lines = 86
+verdict = "clean"
+note = "Chart adaptation converts declared market and transaction history shapes to chart points; feed identity is owned by useFetchParentChainApi."
+
+[file.104]
+path = "apps/explorer/ui/multichain/home/useFetchParentChainApi.tsx"
+lines = 16
+verdict = "issues"
+note = "The parent market fetcher hardcodes an Ethereum mainnet explorer independently of network configuration."
+
+[file.105]
+path = "apps/explorer/ui/multichain/internalTxs/MultichainInternalTxs.tsx"
+lines = 90
+verdict = "clean"
+note = "Multichain internal transactions preserve chain selection and filter/pagination state."
+
+[file.106]
+path = "apps/explorer/ui/multichain/searchResults/SearchResultListItem.tsx"
+lines = 39
+verdict = "clean"
+note = "Search list row dispatches its declared result discriminator to the corresponding typed item."
+
+[file.107]
+path = "apps/explorer/ui/multichain/searchResults/SearchResultTabContent.tsx"
+lines = 78
+verdict = "issues"
+note = "Search tab treats query failure like a successful empty result."
+
+[file.108]
+path = "apps/explorer/ui/multichain/searchResults/SearchResults.pw.tsx"
+lines = 74
+verdict = "clean"
+note = "Visual search coverage supplies typed result groups and paginated search fixtures."
+
+[file.109]
+path = "apps/explorer/ui/multichain/searchResults/SearchResults.tsx"
+lines = 163
+verdict = "clean"
+note = "Search page binds search term, selected chains, category and redirect behavior."
+
+[file.110]
+path = "apps/explorer/ui/multichain/searchResults/SearchResultsList.tsx"
+lines = 99
+verdict = "clean"
+note = "Search result list adapts typed category query pages to their corresponding result rows."
+
+[file.111]
+path = "apps/explorer/ui/multichain/searchResults/SearchResultsTabAll.tsx"
+lines = 54
+verdict = "issues"
+note = "View all category navigation discards the active search query and chain filter."
+
+[file.112]
+path = "apps/explorer/ui/multichain/searchResults/items/SearchResultItemAddress.tsx"
+lines = 48
+verdict = "clean"
+note = "Address search item renders chain-aware address identity and optional metadata."
+
+[file.113]
+path = "apps/explorer/ui/multichain/searchResults/items/SearchResultItemBlock.tsx"
+lines = 34
+verdict = "clean"
+note = "Block search item renders hash/number data with its associated chain route."
+
+[file.114]
+path = "apps/explorer/ui/multichain/searchResults/items/SearchResultItemBlockNumber.tsx"
+lines = 33
+verdict = "clean"
+note = "Block-number result links to the declared block within its chain context."
+
+[file.115]
+path = "apps/explorer/ui/multichain/searchResults/items/SearchResultItemDomain.tsx"
+lines = 33
+verdict = "clean"
+note = "Name/domain result renders the resolved address and associated chain link."
+
+[file.116]
+path = "apps/explorer/ui/multichain/searchResults/items/SearchResultItemToken.tsx"
+lines = 80
+verdict = "clean"
+note = "Token result uses token type, chain and verified metadata in its route and display."
+
+[file.117]
+path = "apps/explorer/ui/multichain/searchResults/items/SearchResultItemTx.tsx"
+lines = 34
+verdict = "clean"
+note = "Transaction result routes its hash through the associated chain context."
+
+[file.118]
+path = "apps/explorer/ui/multichain/searchResults/useSearchQuery.tsx"
+lines = 101
+verdict = "clean"
+note = "Search query construction carries search term and selected-chain ids into each category query."
+
+[file.119]
+path = "apps/explorer/ui/multichain/searchResults/useSearchRedirect.tsx"
+lines = 74
+verdict = "clean"
+note = "Unique-result redirect retains the result's type and selected chain identity."
+
+[file.120]
+path = "apps/explorer/ui/multichain/searchResults/utils.ts"
+lines = 33
+verdict = "clean"
+note = "Search constants and types agree on category ids, names and query discriminators."
+
+[file.121]
+path = "apps/explorer/ui/multichain/stats/MultichainStats.tsx"
+lines = 87
+verdict = "clean"
+note = "Statistics page uses configured chain choices and the declared statistics service routes."
+
+[file.122]
+path = "apps/explorer/ui/multichain/token/MultichainToken.tsx"
+lines = 25
+verdict = "clean"
+note = "Token details are mounted under the multichain-selected chain context."
+
+[file.123]
+path = "apps/explorer/ui/multichain/tokenInstance/MultichainTokenInstance.tsx"
+lines = 25
+verdict = "clean"
+note = "Token-instance details retain selected chain context for NFT data and navigation."
+
+[file.124]
+path = "apps/explorer/ui/multichain/tokenTransfers/MultichainTokenTransfers.tsx"
+lines = 123
+verdict = "clean"
+note = "Token-transfer page binds chain and token-type filters to the selected query path."
+
+[file.125]
+path = "apps/explorer/ui/multichain/tokenTransfers/MultichainTokenTransfersLocal.tsx"
+lines = 74
+verdict = "clean"
+note = "Local token-transfer view reads the selected chain and declared transfer response."
+
+[file.126]
+path = "apps/explorer/ui/multichain/tokens/MultichainTokens.tsx"
+lines = 161
+verdict = "clean"
+note = "Tokens listing preserves chain, token type, sorting and paginated query inputs."
+
+[file.127]
+path = "apps/explorer/ui/multichain/tx/MultichainTx.tsx"
+lines = 21
+verdict = "clean"
+note = "Transaction detail is wrapped in the selected multichain context."
+
+[file.128]
+path = "apps/explorer/ui/multichain/txs/MultichainTxs.tsx"
+lines = 71
+verdict = "clean"
+note = "Transactions page selects aggregate or local transaction listing from chain state."
+
+[file.129]
+path = "apps/explorer/ui/multichain/txs/MultichainTxsLocal.tsx"
+lines = 41
+verdict = "clean"
+note = "Local transaction list uses the selected chain's transaction API and paging state."
+
+[file.130]
+path = "apps/explorer/ui/multichain/userOps/MultichainUserOps.tsx"
+lines = 93
+verdict = "clean"
+note = "User operations retain feature enablement, chain selection and declared operation response shape."
+
+[file.131]
+path = "apps/explorer/ui/multichain/verifiedContracts/MultichainVerifiedContracts.tsx"
+lines = 119
+verdict = "clean"
+note = "Verified-contract listing preserves selected chain, filters and pagination."
+
+[file.132]
+path = "apps/explorer/ui/showcases/Accordion.tsx"
+lines = 72
+verdict = "clean"
+note = "Local Accordion showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.133]
+path = "apps/explorer/ui/showcases/Alert.pw.tsx"
+lines = 11
+verdict = "clean"
+note = "Visual Alert coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.134]
+path = "apps/explorer/ui/showcases/Alert.tsx"
+lines = 142
+verdict = "clean"
+note = "Local Alert showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.135]
+path = "apps/explorer/ui/showcases/Badge.pw.tsx"
+lines = 11
+verdict = "clean"
+note = "Visual Badge coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.136]
+path = "apps/explorer/ui/showcases/Badge.tsx"
+lines = 155
+verdict = "clean"
+note = "Local Badge showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.137]
+path = "apps/explorer/ui/showcases/Button.pw.tsx"
+lines = 18
+verdict = "clean"
+note = "Visual Button coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.138]
+path = "apps/explorer/ui/showcases/Button.tsx"
+lines = 273
+verdict = "clean"
+note = "Local Button showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.139]
+path = "apps/explorer/ui/showcases/Checkbox.pw.tsx"
+lines = 18
+verdict = "clean"
+note = "Visual Checkbox coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.140]
+path = "apps/explorer/ui/showcases/Checkbox.tsx"
+lines = 72
+verdict = "clean"
+note = "Local Checkbox showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.141]
+path = "apps/explorer/ui/showcases/Clipboard.tsx"
+lines = 38
+verdict = "clean"
+note = "Local Clipboard showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.142]
+path = "apps/explorer/ui/showcases/CloseButton.tsx"
+lines = 34
+verdict = "clean"
+note = "Local CloseButton showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.143]
+path = "apps/explorer/ui/showcases/Collapsible.tsx"
+lines = 57
+verdict = "clean"
+note = "Local Collapsible showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.144]
+path = "apps/explorer/ui/showcases/ContentLoader.tsx"
+lines = 23
+verdict = "clean"
+note = "Local ContentLoader showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.145]
+path = "apps/explorer/ui/showcases/Dialog.tsx"
+lines = 95
+verdict = "clean"
+note = "Local Dialog showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.146]
+path = "apps/explorer/ui/showcases/EmptyState.tsx"
+lines = 28
+verdict = "clean"
+note = "Local EmptyState showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.147]
+path = "apps/explorer/ui/showcases/Field.pw.tsx"
+lines = 11
+verdict = "clean"
+note = "Visual Field coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.148]
+path = "apps/explorer/ui/showcases/Field.tsx"
+lines = 84
+verdict = "clean"
+note = "Local Field showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.149]
+path = "apps/explorer/ui/showcases/IconButton.pw.tsx"
+lines = 18
+verdict = "clean"
+note = "Visual IconButton coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.150]
+path = "apps/explorer/ui/showcases/IconButton.tsx"
+lines = 133
+verdict = "clean"
+note = "Local IconButton showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.151]
+path = "apps/explorer/ui/showcases/Input.tsx"
+lines = 74
+verdict = "clean"
+note = "Local Input showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.152]
+path = "apps/explorer/ui/showcases/Link.pw.tsx"
+lines = 25
+verdict = "clean"
+note = "Visual Link coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.153]
+path = "apps/explorer/ui/showcases/Link.tsx"
+lines = 244
+verdict = "clean"
+note = "Local Link showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.154]
+path = "apps/explorer/ui/showcases/Menu.tsx"
+lines = 51
+verdict = "clean"
+note = "Local Menu showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.155]
+path = "apps/explorer/ui/showcases/Pagination.pw.tsx"
+lines = 18
+verdict = "clean"
+note = "Visual Pagination coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.156]
+path = "apps/explorer/ui/showcases/Pagination.tsx"
+lines = 52
+verdict = "clean"
+note = "Local Pagination showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.157]
+path = "apps/explorer/ui/showcases/PinInput.tsx"
+lines = 39
+verdict = "clean"
+note = "Local PinInput showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.158]
+path = "apps/explorer/ui/showcases/Popover.tsx"
+lines = 32
+verdict = "clean"
+note = "Local Popover showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.159]
+path = "apps/explorer/ui/showcases/Progress.tsx"
+lines = 31
+verdict = "clean"
+note = "Local Progress showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.160]
+path = "apps/explorer/ui/showcases/ProgressCircle.pw.tsx"
+lines = 18
+verdict = "clean"
+note = "Visual ProgressCircle coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.161]
+path = "apps/explorer/ui/showcases/ProgressCircle.tsx"
+lines = 46
+verdict = "clean"
+note = "Local ProgressCircle showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.162]
+path = "apps/explorer/ui/showcases/Radio.pw.tsx"
+lines = 18
+verdict = "clean"
+note = "Visual Radio coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.163]
+path = "apps/explorer/ui/showcases/Radio.tsx"
+lines = 92
+verdict = "clean"
+note = "Local Radio showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.164]
+path = "apps/explorer/ui/showcases/Rating.tsx"
+lines = 30
+verdict = "clean"
+note = "Local Rating showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.165]
+path = "apps/explorer/ui/showcases/Select.pw.tsx"
+lines = 36
+verdict = "clean"
+note = "Visual Select coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.166]
+path = "apps/explorer/ui/showcases/Select.tsx"
+lines = 184
+verdict = "clean"
+note = "Local Select showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.167]
+path = "apps/explorer/ui/showcases/Skeleton.tsx"
+lines = 25
+verdict = "clean"
+note = "Local Skeleton showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.168]
+path = "apps/explorer/ui/showcases/Spinner.tsx"
+lines = 25
+verdict = "clean"
+note = "Local Spinner showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.169]
+path = "apps/explorer/ui/showcases/Switch.pw.tsx"
+lines = 18
+verdict = "clean"
+note = "Visual Switch coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.170]
+path = "apps/explorer/ui/showcases/Switch.tsx"
+lines = 60
+verdict = "clean"
+note = "Local Switch showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.171]
+path = "apps/explorer/ui/showcases/Table.tsx"
+lines = 96
+verdict = "clean"
+note = "Local Table showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.172]
+path = "apps/explorer/ui/showcases/Tabs.pw.tsx"
+lines = 22
+verdict = "clean"
+note = "Visual Tabs coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.173]
+path = "apps/explorer/ui/showcases/Tabs.tsx"
+lines = 83
+verdict = "clean"
+note = "Local Tabs showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.174]
+path = "apps/explorer/ui/showcases/Tag.pw.tsx"
+lines = 11
+verdict = "clean"
+note = "Visual Tag coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.175]
+path = "apps/explorer/ui/showcases/Tag.tsx"
+lines = 108
+verdict = "clean"
+note = "Local Tag showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.176]
+path = "apps/explorer/ui/showcases/Textarea.pw.tsx"
+lines = 25
+verdict = "clean"
+note = "Visual Textarea coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.177]
+path = "apps/explorer/ui/showcases/Textarea.tsx"
+lines = 45
+verdict = "clean"
+note = "Local Textarea showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.178]
+path = "apps/explorer/ui/showcases/Toast.tsx"
+lines = 47
+verdict = "clean"
+note = "Local Toast showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.179]
+path = "apps/explorer/ui/showcases/Tooltip.tsx"
+lines = 33
+verdict = "clean"
+note = "Local Tooltip showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.180]
+path = "apps/explorer/ui/showcases/Values.pw.tsx"
+lines = 11
+verdict = "clean"
+note = "Visual Values coverage mounts the local showcase with deterministic display fixtures and screenshot expectations."
+
+[file.181]
+path = "apps/explorer/ui/showcases/Values.tsx"
+lines = 239
+verdict = "clean"
+note = "Local Values showcase exercises the toolkit component's supported props, display variants and local interaction state."
+
+[file.182]
+path = "apps/explorer/ui/showcases/parts.tsx"
+lines = 40
+verdict = "clean"
+note = "Shared showcase parts render labeled sections and component preview containers."
+
+[file.183]
+path = "apps/explorer/ui/showcases/utils.ts"
+lines = 2
+verdict = "clean"
+note = "Showcase utilities export the static sample paragraph used by local component demonstrations."
+
+[file.184]
+path = "services/explorer/backend/apps/block_scout_web/mix.exs"
+lines = 197
+verdict = "clean"
+note = "Phoenix application definition declares its real Elixir umbrella dependencies, compiler paths and assets aliases."
+
+[file.185]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/fetcher/coin_test.exs"
+lines = 100
+verdict = "clean"
+note = "Coin-fetcher cases exercise configured source responses and price-update handling."
+
+[file.186]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/fetcher/history_test.exs"
+lines = 263
+verdict = "clean"
+note = "Market history fetcher cases cover source histories, configured retention and persistence shapes."
+
+[file.187]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs"
+lines = 227
+verdict = "issues"
+note = "The success-path token price assertion indexes provider-id data by an incompatible token-hash key."
+
+[file.188]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/market_history_cache_test.exs"
+lines = 90
+verdict = "issues"
+note = "Market cache tests reset a different cache during teardown than the cache they populate."
+
+[file.189]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/market_history_test.exs"
+lines = 84
+verdict = "clean"
+note = "History tests check the market date, price and secondary-coin persistence behavior."
+
+[file.190]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/market_test.exs"
+lines = 138
+verdict = "clean"
+note = "Market tests use the declared Token fields, market source configuration and cache APIs."
+
+[file.191]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/source/coin_gecko_test.exs"
+lines = 684
+verdict = "clean"
+note = "CoinGecko cases cover native/secondary prices, token platform ids and history response conversion."
+
+[file.192]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/source/coin_market_cap_test.exs"
+lines = 316
+verdict = "clean"
+note = "CoinMarketCap cases cover API configuration, currency quotes and declared market token values."
+
+[file.193]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/source/crypto_compare_test.exs"
+lines = 162
+verdict = "clean"
+note = "CryptoCompare cases cover native/secondary quote and historical response conversion."
+
+[file.194]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/source/crypto_rank_test.exs"
+lines = 422
+verdict = "clean"
+note = "CryptoRank cases cover paged chain contract selection, nullable source fields and native/secondary daily history."
+
+[file.195]
+path = "services/explorer/backend/apps/explorer/test/explorer/market/source/dia_test.exs"
+lines = 437
+verdict = "clean"
+note = "DIA cases cover configured token/native price responses, decimals and market token conversion."
+
+[file.196]
+path = "services/explorer/deploy/tools/copy-blockscout-11-to-10.sh"
+lines = 924
+verdict = "issues"
+note = "Copy tool pins block/time cuts and persists progress but does not lock run ownership or verify copied content."
+
+[file.197]
+path = "services/explorer/deploy/tools/gen-swagger.py"
+lines = 1458
+verdict = "issues"
+note = "Swagger generation reflects explorer routes but retains retired anchor and sequencer wording in the public tag description."
+
+[file.198]
+path = "services/explorer/deploy/tools/mix-in-builder.sh"
+lines = 511
+verdict = "clean"
+note = "Builder wrapper resolves the actual Elixir umbrella application and carries declared compose/database environment into the builder."
+
+[file.199]
+path = "services/explorer/deploy/tools/rpc-fixture-server.py"
+lines = 359
+verdict = "clean"
+note = "Disposable RPC fixture serves its configured chain identity and bounded request body for local compose exercise; it is not a node deployment."
+
+[file.200]
+path = "services/explorer/deploy/tools/tests/compose-smoke-test.sh"
+lines = 265
+verdict = "clean"
+note = "Compose smoke checks target root node RPC and require capability keys without custody or anchor fields."
+
+[file.201]
+path = "services/explorer/deploy/tools/tests/copy-blockscout-test.sh"
+lines = 755
+verdict = "issues"
+note = "Migration scenarios exercise real PostgreSQL interruption/resume and count repair but omit equal-count content divergence."
+
+[file.202]
+path = "services/explorer/services/sig-provider/Cargo.toml"
+lines = 6
+verdict = "clean"
+note = "The isolated signature-provider Cargo workspace declares its three crates and registry launcher dependency."
+
+[file.203]
+path = "services/explorer/services/sig-provider/README.md"
+lines = 46
+verdict = "issues"
+note = "Service README omits the local precompile source and misstates the workspace launcher's dependency source."
+
+[file.204]
+path = "services/explorer/services/sig-provider/sig-provider-proto/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Protocol crate dependencies supply protobuf, tonic and Actix code generation types."
+
+[file.205]
+path = "services/explorer/services/sig-provider/sig-provider-proto/build.rs"
+lines = 45
+verdict = "clean"
+note = "Build generation uses the same protobuf and HTTP mapping for gRPC, Actix and Swagger bindings."
+
+[file.206]
+path = "services/explorer/services/sig-provider/sig-provider-proto/proto/api_config_http.yaml"
+lines = 22
+verdict = "clean"
+note = "HTTP mapping mounts signature import, function/event decoding, batch events and health at the declared paths."
+
+[file.207]
+path = "services/explorer/services/sig-provider/sig-provider-proto/proto/health.proto"
+lines = 64
+verdict = "vendored"
+note = "Vendored gRPC health schema adapted to the sig-provider package; canonical source and license are retained. The unknown-service behavior discrepancy is recorded against the server's health.rs implementation."
+
+[file.208]
+path = "services/explorer/services/sig-provider/sig-provider-proto/proto/sig-provider.proto"
+lines = 56
+verdict = "clean"
+note = "Protocol messages agree on ABI argument fields, optional indexed flags and ordered batch response envelopes."
+
+[file.209]
+path = "services/explorer/services/sig-provider/sig-provider-proto/src/lib.rs"
+lines = 8
+verdict = "clean"
+note = "Protocol crate exports the generated package and common HTTP/tonic types."
+
+[file.210]
+path = "services/explorer/services/sig-provider/sig-provider-proto/swagger/sig-provider.swagger.yaml"
+lines = 236
+verdict = "generated"
+note = "Generated OpenAPI v2 output from sig-provider.proto, health.proto and api_config_http.yaml through sig-provider-proto/build.rs; route, field and envelope declarations were compared with their source mapping."
+
+[file.211]
+path = "services/explorer/services/sig-provider/sig-provider-server/Cargo.toml"
+lines = 37
+verdict = "clean"
+note = "Server dependency declarations resolve to the service workspace and its declared library/protocol crates."
+
+[file.212]
+path = "services/explorer/services/sig-provider/sig-provider-server/config/base.toml"
+lines = 40
+verdict = "clean"
+note = "Base settings enable the local precompile source and match the server, CORS, metrics and remote source setting names."
+
+[file.213]
+path = "services/explorer/services/sig-provider/sig-provider-server/src/health.rs"
+lines = 18
+verdict = "issues"
+note = "Health implementation ignores the requested service and always reports SERVING."
+
+[file.214]
+path = "services/explorer/services/sig-provider/sig-provider-server/src/lib.rs"
+lines = 9
+verdict = "clean"
+note = "Server library exports the actual startup and setting types used by the binary and tests."
+
+[file.215]
+path = "services/explorer/services/sig-provider/sig-provider-server/src/main.rs"
+lines = 8
+verdict = "clean"
+note = "The binary starts the service through the configured launcher settings."
+
+[file.216]
+path = "services/explorer/services/sig-provider/sig-provider-server/src/metrics.rs"
+lines = 1
+verdict = "clean"
+note = "This module declares no custom metrics; the running server's generic metrics are configured through the shared launcher."
+
+[file.217]
+path = "services/explorer/services/sig-provider/sig-provider-server/src/run.rs"
+lines = 86
+verdict = "clean"
+note = "Startup registers the local precompile source before remote sources and mounts the declared gRPC/HTTP services."
+
+[file.218]
+path = "services/explorer/services/sig-provider/sig-provider-server/src/service.rs"
+lines = 125
+verdict = "issues"
+note = "Import handler acknowledges detached in-memory work before upstream acceptance or durable recovery."
+
+[file.219]
+path = "services/explorer/services/sig-provider/sig-provider-server/src/settings.rs"
+lines = 73
+verdict = "clean"
+note = "Settings structs and defaults agree with the declared configuration/environment names and default-enabled precompiles."
+
+[file.220]
+path = "services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs"
+lines = 311
+verdict = "issues"
+note = "Mounted HTTP tests cover request/response shapes using mocked sources but omit import refusal and restart recovery."
+
+[file.221]
+path = "services/explorer/services/sig-provider/sig-provider-server/tests/settings.rs"
+lines = 30
+verdict = "clean"
+note = "Settings tests check the base configuration and default precompile enablement."
+
+[file.222]
+path = "services/explorer/services/sig-provider/sig-provider/Cargo.toml"
+lines = 29
+verdict = "clean"
+note = "Library manifest declares the ABI, HTTP client and async source dependencies used by its implementation."
+
+[file.223]
+path = "services/explorer/services/sig-provider/sig-provider/src/aggregator.rs"
+lines = 852
+verdict = "issues"
+note = "Aggregator preserves candidate source order but hides source failures and guesses event indexed layouts."
+
+[file.224]
+path = "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs"
+lines = 39
+verdict = "issues"
+note = "Ranking fixture injects a non-colliding canonical signature at the requested selector."
+
+[file.225]
+path = "services/explorer/services/sig-provider/sig-provider/src/lib.rs"
+lines = 7
+verdict = "clean"
+note = "Library exports the aggregator and source traits used by the server."
+
+[file.226]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/eth_bytecode_db.rs"
+lines = 165
+verdict = "clean"
+note = "Bytecode database adapter converts complete event ABIs and retains source argument names and indexed metadata."
+
+[file.227]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/fourbyte.rs"
+lines = 154
+verdict = "issues"
+note = "Fourbyte adapter ignores import refusal and follows unchecked, unbounded pagination."
+
+[file.228]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/mod.rs"
+lines = 69
+verdict = "clean"
+note = "Source traits distinguish text signatures from complete ABIs and supply a ten-second HTTP request timeout."
+
+[file.229]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json"
+lines = 4524
+verdict = "generated"
+note = "Generated embedded ABI union from addr, legacy layerxexchange, layerxbridge and launchpad ABI files. Active inventory omissions are recorded against PrecompileSource and its equality test; this data file receives generated provenance rather than a clean source verdict."
+
+[file.230]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.rs"
+lines = 167
+verdict = "issues"
+note = "Local lookup uses a default-enabled embedded table whose four-source inventory excludes current served precompile ABIs."
+
+[file.231]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_abi_test.rs"
+lines = 72
+verdict = "issues"
+note = "ABI equality check uses the historical four-file inventory instead of the node's active versioned ABI set."
+
+[file.232]
+path = "services/explorer/services/sig-provider/sig-provider/src/sources/sigeth.rs"
+lines = 161
+verdict = "issues"
+note = "Openchain adapter serializes the type=abi import shape but ignores import response acceptance."
+
+[finding.nft-token-revoke]
+line = 34
+class = "interface-mismatch"
+severity = "high"
+interface = "6.sol-erc721-approve-095ea7b3"
+observed = "useRevoke sends setApprovalForAll(spender, false) for every NFT row, including rows carrying tokenId from getApproved. ERC721.sol stores token-specific approve separately from isApprovedForAll, so the receipt can succeed while the spender retains the token approval; the UI then hides the row as revoked."
+expected = "A successful revoke must clear the permission represented by the selected row. A token-specific ERC721 approval is cleared with approve(address(0), tokenId); collection operator revocation clears setApprovalForAll."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useRevoke.tsx select approve(ZERO_ADDRESS, tokenId) for token-specific rows and setApprovalForAll(spender, false) for operator rows. Read back the corresponding permission after the committed receipt and cover both paths against an ERC721 producer."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useRevoke.tsx"
+
+[finding.revoke-rewards-lifecycle]
+line = 47
+class = "runtime-risk"
+severity = "medium"
+observed = "After writeContractAsync returns a transaction hash, trackTransactionConfirm is awaited before waitForTransactionReceipt. A rewards API failure reports a failed revoke and leaves the row visible even when the on-chain permission change commits."
+expected = "The transaction receipt and the resulting permission state determine whether a revoke succeeded. Rewards availability must not change the user's authoritative transaction outcome."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useRevoke.tsx retain the submitted hash, follow the receipt independently of rewards delivery, and report rewards failure separately with a bounded retry that does not resubmit the revoke."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useRevoke.tsx"
+
+[finding.nft-contract-discovery]
+line = 266
+class = "runtime-risk"
+severity = "medium"
+interface = "6.sevt-erc721-approvalforall-17307eab"
+observed = "nftAddresses filters the combined nftEvents array by comparing its index with approvalEvents.findIndex. A contract seen only through ApprovalForAll or Transfer has index -1 in approvalEvents and is always dropped; interleaved ERC20 approvals also shift indexes."
+expected = "Every NFT contract discovered through an owner ApprovalForAll event must be checked for current operator permissions regardless of whether the owner emitted a token-specific Approval."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx deduplicate the combined events by normalized contract address, then query each discovered contract. Cover an ApprovalForAll-only collection and interleaved ERC20 logs."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx"
+
+[finding.nft-token-deduplication]
+line = 24
+class = "runtime-risk"
+severity = "medium"
+interface = "6.sol-erc721-getapproved-081812fc"
+observed = "getLimitedNftAllowancesFromApprovals deduplicates by topics[2], the spender, rather than topics[3], the token id. Approvals for several tokens to the same spender collapse to one result, and repeated approvals of one token to different spenders can produce duplicate current rows."
+expected = "A token-specific permission inventory must contain one current approval per contract and token id, including every token granted to the same spender."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx key token-specific discovery by contract and decoded tokenId, choose the latest block/log position, and read getApproved once per token. Cover multiple tokens approved to one spender."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx"
+
+[finding.nft-current-owner]
+line = 48
+class = "runtime-risk"
+severity = "medium"
+interface = "6.sol-erc721-getapproved-081812fc"
+observed = "getLimitedNftAllowanceFromApproval reads the current getApproved(tokenId) without checking ownerOf(tokenId) against searchQuery. A token once approved by the searched owner, then transferred and reapproved by another owner, appears as a revocable permission of the former owner."
+expected = "The revocation list must describe permissions held on assets currently controlled by the searched owner. Historical Approval logs alone do not establish current ownership."
+proposal = "Pass the searched owner into apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx token checks and require ownerOf(tokenId) to match before displaying getApproved. Cover transfer followed by approval from the new owner."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx"
+
+[finding.nft-scan-errors]
+line = 202
+class = "runtime-risk"
+severity = "medium"
+observed = "useGetNftAllowances converts any token metadata or permission-read failure to an empty NFT result, and useSearchNftAllowances also returns [] after a scan failure. Existing approvals disappear instead of exposing incomplete scan coverage."
+expected = "A failed or partially completed permission scan must remain distinguishable from a successful scan that found no permissions."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx propagate cancellation and terminal errors, retain successful per-contract results with explicit incomplete coverage, and expose retryable failures to the approvals query."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx"
+
+[finding.approvals-false-empty]
+line = 55
+class = "runtime-risk"
+severity = "medium"
+interface = "7.rpc-eth-blocknumber"
+observed = "searchAllowances catches every error, including an unavailable public client, failed eth_blockNumber, failed log scan and abort, and returns [] as successful query data. The user can see no approvals when the account was never scanned successfully."
+expected = "The security permission view must tell users when chain data could not be read and reserve an empty success state for a completed scan."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx propagate scan errors to React Query, preserve cancellation, expose partial coverage explicitly and offer retry with the selected chain and account retained."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx"
+
+[finding.approvals-error-display]
+line = 55
+class = "wiring-gap"
+severity = "medium"
+observed = "Approvals always passes isError=false to DataListDisplay and its props contain no scan error or incomplete flag. The containing Content component cannot present a failed permission scan through this view."
+expected = "A failed approval scan must reach the list's error display, with a distinct state for a genuinely empty permission inventory."
+proposal = "Thread approvalsQuery error and incomplete status through apps/explorer/ui/marketplace/essentialDapps/revoke/components/Content.tsx into Approvals.tsx and DataListDisplay, with a retry action that does not suggest the account has no approvals."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/Approvals.tsx"
+
+[finding.erc20-scan-errors]
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "getERC20AllowanceFromApproval turns failed allowance reads into undefined and silently filters those rows; useGetERC20TokenData similarly drops contracts on metadata failure. A positive permission can vanish because a provider or metadata endpoint failed."
+expected = "The approval inventory must retain or flag contracts whose permission could not be determined; missing metadata must not erase a known candidate approval."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx distinguish zero allowance from failed reads, render address-only rows when metadata is missing, and return retryable incomplete results for failed permission calls."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx"
+
+[finding.erc20-balance-normalization]
+line = 136
+class = "runtime-risk"
+severity = "medium"
+observed = "The balances map uses entry.token.address_hash as received, while tokenAddress is converted with getAddress before balances[tokenAddress] is read. A lower-case API address and its checksum form miss each other, suppressing the displayed value at risk."
+expected = "Addresses naming the same token must resolve to the same balance regardless of hex letter case, so the risk estimate uses the balance emitted by the API."
+proposal = "Normalize API balance keys and log-derived addresses consistently in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx and cover a lower-case producer address paired with checksum-form logs."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx"
+
+[finding.erc20-zero-decimals]
+line = 172
+class = "runtime-risk"
+severity = "medium"
+observed = "The valueAtRiskUsd branch requires tokenData.decimals to be truthy. A valid decimals value of 0 fails that condition, so a priced whole-unit token's positive balance and allowance never contribute to the risk total."
+expected = "Zero-decimal tokens are valid ERC20 assets and must have their allowance and monetary exposure calculated with a zero decimal scale."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx check decimals for presence and a valid numeric range rather than truthiness, and cover a zero-decimal token with positive price, balance and allowance."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx"
+
+[finding.approval-event-recency]
+line = 61
+class = "runtime-risk"
+severity = "medium"
+observed = "ERC20 approvals are reduced to the first event per spender while the permission value is read from current state. The transactionId and timestamp therefore identify the earliest approval instead of the event that established the current allowance; the NFT operator path uses the same first-event pattern."
+expected = "The transaction and timestamp shown for a current permission should identify its latest relevant approval change, with deterministic ordering by block and log position."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx and useSearchNftAllowances.tsx retain the latest relevant event per permission key before joining current contract state, and cover grant-change-revoke-grant sequences."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useSearchErc20Allowances.tsx"
+
+[finding.log-split-termination]
+line = 18
+class = "runtime-risk"
+severity = "medium"
+interface = "7.rpc-eth-getlogs"
+observed = "getLogs splits every failed request into two recursive Promise.all calls without a one-block base case or an inverted-range check. An offline or refusing RPC repeatedly retries the same single block and can fan out indefinitely instead of terminating."
+expected = "A failed eth_getLogs scan must have bounded work, a terminal error for an indivisible failing range and cancellation that reaches in-flight work."
+proposal = "In apps/explorer/ui/marketplace/essentialDapps/revoke/lib/getLogs.ts split only range-limit failures, stop at one block, reject invalid ranges, and bound retries and concurrent chunks. Surface an incomplete scan after the terminal failure."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/getLogs.ts"
+
+[finding.marketplace-card-share-path]
+line = 183
+class = "wiring-gap"
+severity = "medium"
+observed = "MarketplaceAppCard copies window.location.origin + /apps/{id}, while apps/explorer/next.config.js mounts the application at basePath /explorer. Shared links leave the explorer mount and cannot reopen the app through the documented /explorer/apps/[id] route."
+expected = "A copied marketplace link must reopen the selected app at the explorer's deployed base path on the same origin."
+proposal = "Build MarketplaceAppCard share URLs with the configured explorer base path and route helper in apps/explorer/ui/marketplace/MarketplaceAppCard.tsx. Cover an explorer hosted below /explorer as well as an absolute copied URL."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/MarketplaceAppCard.tsx"
+
+[finding.marketplace-modal-share-path]
+line = 195
+class = "wiring-gap"
+severity = "medium"
+observed = "MarketplaceAppModal copies an origin-root /apps/{id} URL even though the explorer is deployed with basePath /explorer. The modal's share action generates a different public path from the mounted application route."
+expected = "The app details modal and card must copy the same valid public explorer URL, including the deployment prefix."
+proposal = "Use a common base-path-aware absolute marketplace URL builder from apps/explorer/ui/marketplace/MarketplaceAppModal.tsx and MarketplaceAppCard.tsx and verify that a copied link reaches /explorer/apps/{id}."
+owner_domain = 14
+file = "apps/explorer/ui/marketplace/MarketplaceAppModal.tsx"
+
+[finding.multichain-parent-feed]
+line = 14
+class = "config-drift"
+severity = "medium"
+interface = "14.cfg-fe-multichain"
+observed = "useFetchParentChainApi always reads https://eth.blockscout.com/api/v2, and the home indicator renders those results as ETH price and market cap. The helper has no network or tenant input, so a Paxeer tenant explorer displays Ethereum market statistics."
+expected = "The merged explorer must show the configured network's native asset statistics and preserve tenant context; an external Ethereum reference feed must be an explicit product choice with a matching label."
+proposal = "In apps/explorer/ui/multichain/home/useFetchParentChainApi.tsx source the market endpoint and asset identity from network configuration, propagate that identity into labels and query keys, and omit unavailable statistics with an explicit unavailable state."
+owner_domain = 14
+file = "apps/explorer/ui/multichain/home/useFetchParentChainApi.tsx"
+
+[finding.multichain-market-label]
+line = 66
+class = "config-drift"
+severity = "medium"
+interface = "14.cfg-fe-chain-id"
+observed = "ChainIndicators hardcodes the labels ETH price and ETH token daily price in USD and uses a global parent_chain cache key. Those labels and cache identity do not follow the configured Paxeer native asset or tenant domain."
+expected = "The market label, icon, feed and cached response must identify the same configured network and currency."
+proposal = "In apps/explorer/ui/multichain/home/ChainIndicators.tsx derive currency labels and the parent-feed query key from the configured network or explicit reference-market identity, coordinated with useFetchParentChainApi.tsx."
+owner_domain = 14
+file = "apps/explorer/ui/multichain/home/ChainIndicators.tsx"
+
+[finding.multichain-short-chart]
+line = 47
+class = "runtime-risk"
+severity = "medium"
+observed = "ChainIndicators reads chart[length - 1].value and chart[length - 2].value whenever new_txns_multichain_window exists, without checking chart length. Empty or one-point histories from a new or recovering tenant cause a render-time exception."
+expected = "A newly launched tenant with fewer than two daily samples must still render its homepage and display unavailable percentage change until a comparison exists."
+proposal = "Guard the two-point requirement in apps/explorer/ui/multichain/home/ChainIndicators.tsx, retain zero transaction values, and cover zero-, one- and two-sample producer histories without synthesizing missing points."
+owner_domain = 14
+file = "apps/explorer/ui/multichain/home/ChainIndicators.tsx"
+
+[finding.search-view-all-context]
+line = 42
+class = "wiring-gap"
+severity = "medium"
+observed = "SearchResultsTabAll constructs View all with only the tab query parameter. nextjs/routes.ts does not merge the current query, so the link discards the search q and chain_id selection and opens an empty or differently scoped search."
+expected = "Changing from grouped search results to one category must preserve the current search term and selected chain filters."
+proposal = "Pass the active search query and chain selection into apps/explorer/ui/multichain/searchResults/SearchResultsTabAll.tsx and include them with tab in the route. Cover clicking View all from a tenant-filtered query."
+owner_domain = 14
+file = "apps/explorer/ui/multichain/searchResults/SearchResultsTabAll.tsx"
+
+[finding.search-failure-empty]
+line = 43
+class = "runtime-risk"
+severity = "medium"
+observed = "SearchResultTabContent decides that no results exist from missing items alone and never checks the underlying queries' errors. A failed selected-category request renders No results found, while failed categories in the all tab disappear."
+expected = "An unavailable search service or partially failed category query must be distinguished from a successful search with zero matching items."
+proposal = "In apps/explorer/ui/multichain/searchResults/SearchResultTabContent.tsx render selected-query errors and partial-category failures with retry while keeping successful results, the search term and chain selection."
+owner_domain = 14
+file = "apps/explorer/ui/multichain/searchResults/SearchResultTabContent.tsx"
+
+[finding.precompile-table-coverage]
+line = 24
+class = "interface-mismatch"
+severity = "high"
+interface = "14.rs-sig-provider-precompile-source-j54"
+observed = "PrecompileSource loads only the addr, legacy layerxexchange, layerxbridge and launchpad ABI union. The current node serves perps at 0x1015 ahead of exchange in node/app.go v6120Contracts, and the merge address table serves new native constructs. For example perps cancelOrder(uint256) is absent while legacy cancelOrder(bytes32) is present; local decoding cannot round-trip the current producer's selector."
+expected = "The served local signature source must decode the active network's precompile functions and events at the audited revision without depending on public directories having private native ABIs. The four-file inventory in requirement 14278.1 no longer describes the whole active producer surface."
+proposal = "In services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.rs and its table generator derive the inventory from the node's versioned active precompile set, including perps and merged constructs. Preserve explicitly historical signatures, update the inventory requirement, and prove current calldata and event decoding through the HTTP consumer."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.rs"
+
+[finding.precompile-inventory-test]
+line = 31
+class = "test-gap"
+severity = "medium"
+interface = "14.rs-sig-provider-precompile-source-j54"
+observed = "embedded_table_matches_abi_files compares the embedded table with a hardcoded four-file list. It excludes current perps and merge construct ABIs, so it can pass while served selectors such as cancelOrder(uint256) remain unavailable to the local decoder."
+expected = "The signature inventory check must catch any drift between the node's served precompile ABI set and the explorer's embedded source, including versioned contracts added after the original four-file requirement."
+proposal = "Replace the fixed inventory in services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_abi_test.rs with the declared active ABI inventory and assert exact selector/signature coverage, then exercise representative current producer calldata through the mounted service and backend adapter."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles_abi_test.rs"
+
+[finding.signature-collision-fixture]
+line = 8
+class = "test-gap"
+severity = "medium"
+interface = "14.rs-sig-provider-precompile-source-j54"
+observed = "precompile_signature_ranks_first labels cancelOrder(uint256) as colliding with cancelOrder(bytes32) but injects it at the latter's selector through a mock. These canonical signatures hash to different four-byte selectors, so the fixture cannot be emitted by a correctly indexed signature producer."
+expected = "Requirement 14279.1 ranking behavior must be demonstrated with candidates that really share the requested selector and with calldata that decodes along the actual source and consumer path."
+proposal = "In services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs use a verified selector collision, assert the canonical hashes agree, and resolve real encoded calldata through PrecompileSource, aggregator and HTTP response before asserting candidate order."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs"
+
+[finding.signature-import-recovery]
+line = 31
+class = "restart-recovery"
+severity = "medium"
+interface = "14.http-sig-provider-post-api-v1-signatures"
+observed = "create_signatures spawns detached in-memory work, discards its result and immediately returns an empty success response. Invalid ABI and upstream refusal are acknowledged as success, and a process restart can discard an acknowledged import before any source accepts it."
+expected = "An acknowledged signature import must either have completed at its destination or be durably accepted with a recoverable status. Malformed ABI and failed delivery must have observable error outcomes."
+proposal = "In services/explorer/services/sig-provider/sig-provider-server/src/service.rs validate the ABI and await confirmed upstream acceptance, or persist an idempotent import job before acknowledging it and expose completion status. Cover restart between acceptance and delivery and upstream failure through POST /api/v1/signatures."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider-server/src/service.rs"
+
+[finding.fourbyte-import-status]
+line = 68
+class = "runtime-risk"
+severity = "medium"
+observed = "fourbyte Source::create_signatures maps every received HTTP response to Ok(()), including 400, 429 and 5xx responses. The transport can refuse the import while the caller records success."
+expected = "A successful import result must mean the upstream accepted the ABI, with refusal, throttling and server failure preserved as typed or contextual errors."
+proposal = "In services/explorer/services/sig-provider/sig-provider/src/sources/fourbyte.rs check HTTP success and the declared import result before returning Ok, use bounded retry only for retryable failures, and verify negative status handling through the service import path."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/sources/fourbyte.rs"
+
+[finding.sigeth-import-status]
+line = 55
+class = "runtime-risk"
+severity = "medium"
+observed = "sigeth Source::create_signatures drops the HTTP status and response body with map(|_| ()). An Openchain refusal or application-level failure is indistinguishable from accepted signature publication."
+expected = "The import adapter must report upstream rejection and confirm the response's acceptance semantics before treating a signature submission as successful."
+proposal = "In services/explorer/services/sig-provider/sig-provider/src/sources/sigeth.rs require a successful status and accepted import response, propagate rejection to the service lifecycle, and cover malformed ABI, throttling and upstream 5xx outcomes."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/sources/sigeth.rs"
+
+[finding.fourbyte-pagination-bound]
+line = 28
+class = "runtime-risk"
+severity = "medium"
+observed = "fourbyte fetch follows every response.next in an unbounded loop, and try_make_request unwraps host.join(path). A repeated next link can keep one request alive indefinitely despite per-request timeouts, and a malformed next URL can panic the task."
+expected = "Lookup of one selector must finish within a bounded total duration and amount of work, even when a signature directory returns malformed or cyclic pagination."
+proposal = "In services/explorer/services/sig-provider/sig-provider/src/sources/fourbyte.rs track visited pages, bound page count and total deadline, reject malformed or unexpected-origin next links without unwrap, and surface an upstream error with retry guidance."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/sources/fourbyte.rs"
+
+[finding.signature-errors-hidden]
+line = 20
+class = "runtime-risk"
+severity = "medium"
+interface = "14.http-sig-provider-get-api-v1-abi-function"
+observed = "The proxy macro discards all source failures. create_signatures always returns Ok and lookup can return an empty successful result when the capable remote sources all failed; the enabled local source also reports successful empty results outside its table."
+expected = "The explorer must distinguish a genuinely unknown signature from an unavailable lookup, and an import failure must not be erased by aggregation. Successful partial results may still be returned with explicit coverage."
+proposal = "In services/explorer/services/sig-provider/sig-provider/src/aggregator.rs retain per-source outcome and coverage, report unavailable when all sources capable of the requested lookup fail, and propagate import refusal. Map those outcomes consistently through the HTTP/gRPC service and backend adapter."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/aggregator.rs"
+
+[finding.event-indexed-layout]
+line = 246
+class = "runtime-risk"
+severity = "medium"
+interface = "14.http-sig-provider-get-api-v1-abi-event"
+observed = "decode_log returns the first indexed-argument permutation that parses. The Swap example at lines 640-665 explicitly places the actual final indexed address into arg1 as uint256. PrecompileSource retains signature text while discarding the ABI's indexed flags, so authoritative local events also enter this guesser."
+expected = "Known precompile events must retain the producer ABI's argument order, types and indexed positions. Ambiguous third-party signatures must not be presented as one authoritative decoded layout."
+proposal = "Carry full event ABI metadata from the embedded precompile source into CompleteSignatureSource and use exact-layout decoding in services/explorer/services/sig-provider/sig-provider/src/aggregator.rs. Mark unknown-layout results as candidates or ambiguous and replace the knowingly misordered Swap expectation with producer-backed assertions."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider/src/aggregator.rs"
+
+[finding.health-service-name]
+line = 12
+class = "interface-mismatch"
+severity = "medium"
+interface = "14.grpcs-sig-provider-health-check"
+observed = "HealthService ignores HealthCheckRequest.service and always returns SERVING. The declared health.proto Check contract requires NOT_FOUND for an unknown service name, so an incorrect service-specific readiness probe receives a healthy result."
+expected = "The health endpoint must distinguish the whole-server probe from registered service probes and reject unknown service names with the declared NOT_FOUND error."
+proposal = "In services/explorer/services/sig-provider/sig-provider-server/src/health.rs register supported service names, honor the empty whole-server probe and return tonic::Status::not_found for others. Assert both names and status codes through the mounted health transport."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider-server/src/health.rs"
+
+[finding.import-restart-test-gap]
+line = 116
+class = "test-gap"
+severity = "medium"
+interface = "14.http-sig-provider-post-api-v1-signatures"
+observed = "The create server test uses successful mocked import sources, sleeps for 100 ms and checks the empty response. It never restarts after acknowledgement or tests upstream refusal, so it does not expose the acknowledged-but-undelivered import lifecycle."
+expected = "An import lifecycle test must prove what an acknowledgement guarantees, including recovery after restart and refusal from the real transport boundary."
+proposal = "Extend services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs with a lifecycle test through the service that persists or confirms accepted work, restarts between acceptance and delivery, and asserts failed upstream acceptance is observable without a fixed timing sleep."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs"
+
+[finding.token-fetcher-test-key]
+line = 105
+class = "test-gap"
+severity = "medium"
+interface = "14.cfg-explorer-explorer-market-fetcher-token"
+observed = "The success fetch test builds token_exchange_rates with string keys ending in _id, then indexes it by the contract_address_hash struct in its final assertion. Every expected lookup is nil, so a correct non-nil fetched fiat value fails and an unfetched token can satisfy the assertion."
+expected = "The positive market fetch test must assert the non-nil USD values that the CoinGecko producer returned for each requested token, while separately asserting the deliberately excluded token remains unset."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs keep an explicit token-to-provider-id mapping, await the actual update event or bounded database condition, and compare each fetched fiat_value with its response USD value while checking the excluded token separately."
+owner_domain = 14
+file = "services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs"
+
+[finding.market-cache-teardown]
+line = 12
+class = "test-gap"
+severity = "medium"
+observed = "MarketHistoryCacheTest restarts MarketHistoryCache in setup but its on_exit callback restarts Explorer.Chain.Cache.Blocks instead. Cached market rows and timestamps can survive this module's final test beyond the database sandbox that produced them."
+expected = "A cache test must restore the cache it mutates so later tests cannot read records from a rolled-back sandbox or depend on execution order."
+proposal = "Restore MarketHistoryCache in the on_exit callback of services/explorer/backend/apps/explorer/test/explorer/market/market_history_cache_test.exs, preserve any original cache state required by the suite, and cover a subsequent caller after sandbox cleanup."
+owner_domain = 14
+file = "services/explorer/backend/apps/explorer/test/explorer/market/market_history_cache_test.exs"
+
+[finding.copy-stage-concurrency]
+line = 392
+class = "restart-recovery"
+severity = "medium"
+observed = "open_stage drops and recreates the global public.paxeer_x_copy_stage table; copy_batch truncates it in separate psql sessions. No destination ownership lock protects the staging or progress tables, so concurrent resume invocations can replace each other's staging schema or rows."
+expected = "Only one migration owner may mutate a destination's staging and progress state at a time, and concurrent invocation must fail clearly before changing another run's state."
+proposal = "In services/explorer/deploy/tools/copy-blockscout-11-to-10.sh acquire and retain a destination-scoped lock across the whole run or use uniquely owned staging with transactional progress ownership. Refuse a competing run and exercise overlap during stage creation, COPY and progress commit."
+owner_domain = 14
+file = "services/explorer/deploy/tools/copy-blockscout-11-to-10.sh"
+
+[finding.copy-content-verification]
+line = 775
+class = "restart-recovery"
+severity = "medium"
+observed = "verify_table accepts equal row counts as a successful copy, while copy_batch uses ON CONFLICT DO NOTHING. A source row changed after its first copy, or a destination row with the same key and different values, is never reconciled; equal-count wrong-key substitutions also pass."
+expected = "A migration reported as verified must preserve the selected source rows' keys and copied values at a defined snapshot, including mutable balances and transaction state across interrupted runs."
+proposal = "In services/explorer/deploy/tools/copy-blockscout-11-to-10.sh define a consistent source snapshot or quiescence boundary, persist its identity with progress, and compare keys plus content digests at the cut. Refuse or explicitly reconcile same-key divergence instead of accepting count equality."
+owner_domain = 14
+file = "services/explorer/deploy/tools/copy-blockscout-11-to-10.sh"
+
+[finding.copy-divergence-test-gap]
+line = 607
+class = "test-gap"
+severity = "medium"
+observed = "The resume and repair scenarios assert counts, progress and selected trace values but never change an already copied source row or substitute a different destination row while preserving the count. The equal-count verification defect therefore remains invisible."
+expected = "Recovery qualification must prove copied values and identity, including divergence beneath the resume mark, rather than only proving that a resumed copy reaches the same row count."
+proposal = "Add same-key source mutation and equal-count wrong-key destination scenarios to services/explorer/deploy/tools/tests/copy-blockscout-test.sh, assert the tool refuses or reconciles divergence under its declared snapshot policy, and verify retained values after interruption."
+owner_domain = 14
+file = "services/explorer/deploy/tools/tests/copy-blockscout-test.sh"
+
+[finding.swagger-retired-description]
+line = 1378
+class = "retired-reference"
+severity = "medium"
+interface = "14.http-get-api-v2-paxeer-x-capabilities"
+observed = "gen-swagger.py describes the paxeer-x tag as capabilities, anchors, kernel receipts, settlement status and sequencer signatures, although the merged explorer capability response and compose checks have retired custody and anchor surfaces."
+expected = "Generated API descriptions must describe the merged node-backed explorer and committed chain receipts without advertising a separate sequencer or retired anchor endpoints."
+proposal = "Update the paxeer-x tag description in services/explorer/deploy/tools/gen-swagger.py to name the retained explorer capabilities and price/native activity surfaces, regenerate its published description, and keep the exact no-custody/no-anchor capability checks."
+owner_domain = 14
+file = "services/explorer/deploy/tools/gen-swagger.py"
+
+[finding.sig-provider-precompile-doc]
+line = 8
+class = "doc-drift"
+severity = "medium"
+interface = "14.cfg-sig-provider-sources-precompiles-j54"
+observed = "The sig-provider README lists only public signature directories and the bytecode database and omits the default-enabled local precompile source and its enabled setting. Operators cannot tell which local ABI inventory supplies Paxeer decoding."
+expected = "Service documentation must identify the local precompile source, its default, its configuration key and the revisioned ABI inventory it uses alongside external sources."
+proposal = "Add PrecompileSource, [sources.precompiles] enabled, its deployment override and active ABI provenance to services/explorer/services/sig-provider/README.md, including the difference between unknown-selector and unavailable-source outcomes."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/README.md"
+
+[finding.sig-provider-launcher-doc]
+line = 40
+class = "doc-drift"
+severity = "low"
+observed = "The README says cargo check builds against shared crates in ../libs, while this service workspace declares blockscout-service-launcher = 0.10.0 from the package registry. The linked local launcher is not the declared dependency."
+expected = "Build instructions must identify the actual dependency source and version used by the service's Cargo workspace."
+proposal = "Correct services/explorer/services/sig-provider/README.md to describe the workspace's registry dependency and point common setting documentation at the matching launcher release, or separately qualify an intentional dependency-source migration."
+owner_domain = 14
+file = "services/explorer/services/sig-provider/README.md"
+
+[finding.routes-merged-topology]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated Router routes page still assigns replay/finality authority to archive and replica-authority, names kernel a Sequencer and paxeer-boundaries LayerX settlement, and lists /rpc/evm/ws. It presents these pre-merge services as the current network route catalogue."
+expected = "The route catalogue must describe one paxd BFT network, node JSON-RPC at the root origin and hosted gateway px methods with their actual service and tenant ownership."
+proposal = "Revise tools/paxeer-x/route-catalogue.json and regenerate docs/system/routes.md from the merged deployment route inventory. Remove retired service authority and router paths, retain supported hosted /v1 and explorer routes, and document node versus hosted RPC authentication separately."
+owner_domain = 17
+
+[finding.beta-site-bringup]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster operator page instructs bring-up around custody precompile 0x1013, a layerxd custody profile, sequencer trust pins and an explorer read principal funded through native custody credit. Those are described as live operator steps."
+expected = "Merged-network bring-up must launch paxd BFT nodes with the in-network kernel, obtain committed receipts from chain state and avoid retired custody, anchor and separate sequencer services."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the current paxd manifests, root RPC, tenant configuration, explorer indexing identity and restart/recovery sequence. Clearly archive the old custody-profile and replica-authority procedure rather than leaving it as current guidance."
+owner_domain = 17
+
+[finding.platform-public-rpc]
+file = "docs/site/docs/platform/index.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The developer platform page advertises POST /rpc, GET /rpc/ws and https://api-mainnet-beta.paxeer.network/rpc as the public router, and identifies a sequencer pod as the hosted node."
+expected = "Public chain JSON-RPC is served at the root of the api-mainnet-beta and api1-api14 node origins; px methods belong to the hosted gateway contract, and no separate sequencer service runs."
+proposal = "Replace the endpoint table and connection instructions in docs/site/docs/platform/index.md with root node RPC and the declared hosted gateway method surface. Describe the single paxd network and current account funding flow with examples that target the correct service."
+owner_domain = 17
+
+[finding.programs-site-deployment-profile]
+file = "docs/site/docs/programs/workspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs workspace page presents a qualification matrix whose differential path compiles cmd/layerxd/lxp_daemon_batch_wal.c, but gives no AI market release guest profile, build-time chain-domain binding or deployment payload limit."
+expected = "Merged Programs guidance must state that the AI market guest is release-built with opt-level z, the chain domain is bound at build time, host and guest ABI versions agree, and payload plus its 104-byte envelope fits 524288 bytes."
+proposal = "Update docs/site/docs/programs/workspace.md with the merged guest build and registration path, release profile, domain input and total encoded deployment-size gate. Distinguish retained historical daemon differential tests from qualification of the in-node runtime."
+owner_domain = 17
+
+[finding.ramps-custody-boundary]
+file = "docs/site/docs/interop/ramps.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The ramps guide says Paxeer remains the sole LayerX custody and guaranteed-withdrawal boundary, implying an external LayerX ledger that settles withdrawals through a separate Paxeer custody system."
+expected = "Ramps operate ordinary accounts on the one merged network; committed chain receipts establish the network leg while external payout settlement and reversals remain separate product states."
+proposal = "Rewrite the custody-boundary paragraph in docs/site/docs/interop/ramps.md for merged accounts and committed receipt finality. Retain the explicit external payout, reversal and provider-authority rules and identify any historical custody flow as retired."
+owner_domain = 17
+
+[finding.beta-wiki-bringup]
+file = "docs/wiki/BetaCluster.md"
+line = 42
+class = "doc-drift"
+severity = "medium"
+observed = "The BetaCluster wiki instructs mounting layerx-node-custody-profile into layerxd and provisioning sequencer-id/batch trust pins; it assigns authorised-batch verification to a separate receipt-authority replica."
+expected = "The wiki must give the same merged paxd BFT topology and recovery instructions as the current operator site, without a running layerxd or separate sequencer authority."
+proposal = "Update docs/wiki/BetaCluster.md with the merged node, explorer and tenant bring-up and recovery flow, archive the old custody profile and sequencer-pin steps, and regenerate or synchronize the paired site guide."
+owner_domain = 17
+
+[finding.programs-wiki-deployment-profile]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "ProgramsWorkspace repeats the daemon batch-WAL qualification path and omits the AI market release guest's domain binding, opt-level z and envelope-inclusive payload limit, leaving the public mirror incomplete for deployment."
+expected = "Programs deployment instructions must agree across wiki and site and describe the actual release guest, ABI version checks and 524288-byte total payload bound."
+proposal = "Revise docs/wiki/ProgramsWorkspace.md together with the site guide to include release guest generation, build-time chain domain, registration ABI checks and the 104-byte envelope size accounting; label retained daemon tests as historical coverage."
+owner_domain = 17
+
+[finding.root-readme-network-model]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README describes layerxd as a separate active kernel daemon settling checkpoints through layerxAnchor; line 181 says the merge remains draft. Its precompile overview also lists 0x1013 custody and 0x1014 anchor alongside the active contracts without retirement status."
+expected = "The project entry point must describe the finished single paxd BFT network with its integrated kernel, committed-block finality, tenant namespaces and retired custody/anchor surfaces."
+proposal = "Rewrite README.md architecture, build guidance and status around the merged network; separate historical upgrade/address inventory from active contracts, remove separate-daemon deployment instructions and link the current node and explorer operations path."
+owner_domain = 17
+
+[finding.monorepo-trust-boundary]
+file = "docs/MONOREPO.md"
+line = 71
+class = "doc-drift"
+severity = "medium"
+observed = "MONOREPO introduces paxd and layerxd as separate systems and says custody, checkpoint registration, guarantor bonds, challenges and emergency exits remain under a distinct settlement boundary."
+expected = "Repository layout guidance must distinguish build and release tooling from the merged network's authority: the kernel is part of paxd consensus and receipt finality comes from committed blocks."
+proposal = "Update docs/MONOREPO.md's introduction and trust-boundary section for the integrated node and tenant domains, retaining accurate directory and artifact ownership while clearly marking any retained pre-merge kernel code as historical."
+owner_domain = 17
+
+[finding.fork-runbook-retired-probes]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 315
+class = "doc-drift"
+severity = "medium"
+observed = "The fork runbook describes the v6.6 custody/anchor upgrade as the operational path and instructs eth_call checks at 0x1013 and 0x1014 that are expected to succeed. These are retired surfaces in the merged upgrade."
+expected = "An upgrade operator must use the current merge plan, validate the active address table and confirm retired addresses refuse, while preserving committed state and a documented recovery boundary."
+proposal = "Archive the v6.6 procedure in docs/runbooks/paxeer-x-fork.md with an explicit historical banner and supply the merged-network halt, upgrade, restart, tenant-state and active-precompile checks. Replace successful custody/anchor probes with the required retirement assertions."
+owner_domain = 17
+
+[finding.docs-entry-network-model]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The documentation entry page says ordinary activity executes inside LayerX and periodic checkpoints settle to Paxeer, where custody, guarantor guarantees, challenges and emergency exits reside. It presents separate settlement authority as the network's current behavior."
+expected = "The entry page must explain one BFT chain, kernel execution in that network, committed receipt finality, root node RPC and tenant subchains as database namespaces."
+proposal = "Rewrite docs/site/docs/index.md's architecture, Paxeer definition and responsibility table for the merged network and link the current operational/RPC guides. Keep historical checkpoint/custody material only in explicitly archived migration context."
+owner_domain = 17
+
+[finding.registry-endpoint-ownership]
+file = "spec/layerx-merge/interfaces.kvx"
+class = "doc-drift"
+severity = "medium"
+interface = "8.http-ai-artifacts-any-v1-import"
+observed = "The registry lists sigeth.rs:48 as a consumer of hosted ai-artifacts /v1/import, although that adapter posts /api/v1/import to its configured Openchain host. The same lexical ownership problem assigns sig-provider's own health mapping to 12.http-att-health and a multichain visual fixture import to benchmark /metrics."
+expected = "An interface caller edge must identify the actual producer host, transport and route contract. Matching a path fragment or generic endpoint name cannot establish a dependency on a different service or its authentication."
+proposal = "Correct the affected caller rows in spec/layerx-merge/interfaces.kvx and the inventory generator to bind routes to their configured service origin and transport. Declare the Openchain import contract separately and retain explorer health under the sig-provider service rather than wallet-attestor mTLS ownership."
+owner_domain = 17
+line = 376028
+
+[doc.001]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Lines 3, 17, 31, 35, 41 and 908 retain a router, relay archive, separate sequencer and settlement boundary model. Explorer /explorer paths are useful, but the service catalogue needs regeneration against merged deployment ownership."
+
+[doc.002]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 5, 40-50, 68 and 88-90 describe replica/sequencer authority, 0x1013 custody and layerxd startup as operational bring-up. Rewrite for one paxd BFT network and its current explorer read principal."
+
+[doc.003]
+path = "docs/site/docs/platform/index.md"
+status = "misleading"
+notes = "Lines 14 and 27-29 instruct integrators to use the retired router /rpc and /rpc/ws; line 19 names a sequencer pod. Publish root node RPC separately from hosted gateway px methods."
+
+[doc.004]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "The gate catalogue at line 156 retains daemon batch-WAL testing and does not state the merged AI market release guest profile, domain binding or deployment envelope limit. Preserve valid ABI and dependency details while adding the actual deployment qualification."
+
+[doc.005]
+path = "docs/site/docs/interop/ramps.md"
+status = "stale"
+notes = "Line 9 presents Paxeer as a separate LayerX custody and guaranteed-withdrawal boundary. Keep the external payout/reversal distinctions, but describe ordinary accounts and committed receipts on the merged network."
+
+[doc.006]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Lines 5, 42 and 60 retain separate receipt authority, layerxd custody-profile startup and sequencer trust pins. Update this mirror with the merged operational topology alongside the site page."
+
+[doc.007]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Line 156 retains daemon-WAL differential qualification and the page omits the release guest deployment profile and size bound. Keep this mirror aligned with the site's revised merged Programs gates."
+
+[doc.008]
+path = "README.md"
+status = "stale"
+notes = "Lines 47, 83, 145 and 181 present a separate layerxd/checkpoint system, custody/anchor precompiles and a still-draft merge as current. The node upgrade inventory also needs explicit historical versus active status."
+
+[doc.009]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 68-72 retain separate chain/kernel deployment and custody/checkpoint trust boundaries. Tree and tag information should remain, with authority described for the merged network."
+
+[doc.010]
+path = "docs/perps-abi-change-history.md"
+status = "accurate"
+notes = "The versioned ABI history correctly distinguishes current cancelOrder(uint256) from the older bytes32 order identifier. It is historical change documentation, not a claim that the old signature is the current perps ABI."
+
+[doc.011]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "misleading"
+notes = "Lines 3-7 and 315-318 present the old v6.6 custody/anchor deployment and successful calls to 0x1013/0x1014 as upgrade checks. Archive that procedure and supply a merged-network upgrade/recovery procedure."
+
+[doc.012]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 11-14, 24-26 and 46 describe periodic LayerX-to-Paxeer checkpoint settlement, custody and guarantor exits. The entry page must describe committed paxd BFT finality and tenant namespaces."
+
+[doc.013]
+path = "spec/layerx-merge/contracts/sig-provider-http.md"
+status = "accurate"
+notes = "Read as the explicitly frozen HTTP route contract. Function/event/batch request field names, comma-separated topic encoding and response envelopes agree with the protobuf mapping and backend adapter; lifecycle defects are recorded against implementation."
+
+[doc.014]
+path = "spec/layerx-merge/contracts/explorer-services.md"
+status = "accurate"
+notes = "This page explicitly freezes revision 2a1033aa2, including planned statuses. Its local source and four-ABI historical acceptance baseline are reproduced accurately; current active ABI coverage drift is recorded separately against the served source."
+
+[doc.015]
+path = "services/explorer/services/sig-provider/README.md"
+status = "stale"
+notes = "Lines 8-12 omit the enabled local precompile source; line 40 describes shared local crates despite the registry launcher workspace dependency. Both gaps have concrete service-owned documentation proposals."
+
+[doc.016]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "misleading"
+notes = "Reviewed the package's 20 produced and 103 consumed rows. Generic path/name matching creates false cross-service caller edges for Openchain import, health and metrics; these do not represent real explorer dependencies. Other findings cite the affected real interfaces."
