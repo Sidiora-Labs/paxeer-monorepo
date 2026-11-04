@@ -8,9 +8,10 @@ const PROGRAMS_WIND_DOWN_ACTIVITY_TYPE: u32 = 0x0009_0007;
 const WIND_DOWN_EXIT_OPERATION: u8 = 4;
 
 use crate::{
-    AccountStateError, AccountStateJournal, JournalAccountStateAuthority, LifecycleReceipt,
-    LifecycleTransition, ProgramLifecycle, Registry, RegistryError, ValueAccount,
-    VerifiedAccountSnapshot, WindDownPolicy, WindDownStateAccess,
+    AccountStateError, AccountStateJournal, ChainAccountStateAuthority,
+    JournalAccountStateAuthority, LifecycleReceipt, LifecycleTransition, ProgramLifecycle,
+    Registry, RegistryError, ValueAccount, VerifiedAccountSnapshot, VerifiedChainProgramAccounts,
+    WindDownPolicy, WindDownStateAccess,
 };
 
 /// Exit-only route retained independently of ordinary program call admission.
@@ -200,6 +201,149 @@ impl Deprecation {
         Self {
             wind_downs: Vec::new(),
         }
+    }
+
+    /// Applies a transition using the same complete chain view as balance discovery.
+    pub fn transition_chain(
+        &mut self,
+        registry: &mut Registry,
+        request: LifecycleTransition,
+        exits: &[ExitRoute],
+        snapshot: &VerifiedChainProgramAccounts,
+        authority: &ChainAccountStateAuthority<'_>,
+    ) -> Result<LifecycleReceipt, DeprecationRefusal> {
+        if !matches!(
+            (request.expected, request.target),
+            (ProgramLifecycle::Active, ProgramLifecycle::Deprecated)
+                | (ProgramLifecycle::Deprecated, ProgramLifecycle::Tombstoned)
+        ) || request.wind_down.exit_program != request.program.bytes()
+        {
+            return Err(DeprecationRefusal::InvalidTransition);
+        }
+        if request.effective_sequence >= request.wind_down.deadline {
+            return Err(DeprecationRefusal::DeadlineElapsed);
+        }
+        let read = registry.read_value_accounts_chain(request.program, snapshot, authority)?;
+        if read.freshness().observed_sequence.checked_add(1) != Some(request.effective_sequence) {
+            return Err(DeprecationRefusal::SnapshotSequenceMismatch);
+        }
+        let exits = validate_exit_routes(
+            request.program,
+            exits,
+            read.bindings(),
+            read.value_accounts(),
+        )?;
+        let live_count = u32::try_from(
+            read.value_accounts()
+                .iter()
+                .filter(|a| a.balance != 0)
+                .count(),
+        )
+        .map_err(|_| DeprecationRefusal::InvalidTransition)?;
+        if request.live_value_accounts != live_count {
+            return Err(DeprecationRefusal::SnapshotSequenceMismatch);
+        }
+        if let Some(prior) = self
+            .wind_downs
+            .iter()
+            .find(|r| r.program == request.program)
+        {
+            if prior.exits != exits || prior.policy != request.wind_down {
+                return Err(DeprecationRefusal::ExitMismatch {
+                    account_id: [0; 32],
+                });
+            }
+        }
+        let mut candidate = registry.clone();
+        let entry = candidate
+            .entries
+            .get_mut(&request.program)
+            .ok_or(RegistryError::UnknownProgram)?;
+        if entry.lifecycle != ProgramLifecycle::Active && entry.value_accounts != read.bindings() {
+            return Err(AccountStateError::BindingConflict.into());
+        }
+        entry.value_accounts = read.bindings().to_vec();
+        entry.exit_routes = exits.clone();
+        let receipt = candidate.transition_lifecycle(request)?;
+        let record = WindDownRecord {
+            program: request.program,
+            policy: request.wind_down,
+            exits,
+        };
+        match self
+            .wind_downs
+            .iter_mut()
+            .find(|r| r.program == request.program)
+        {
+            Some(existing) => *existing = record,
+            None => self.wind_downs.push(record),
+        }
+        *registry = candidate;
+        Ok(receipt)
+    }
+
+    pub fn read_chain(
+        &self,
+        registry: &Registry,
+        program: ProgramId,
+        snapshot: &VerifiedChainProgramAccounts,
+        authority: &ChainAccountStateAuthority<'_>,
+    ) -> Result<WindDownView, DeprecationRefusal> {
+        let record = self
+            .wind_downs
+            .iter()
+            .find(|r| r.program == program)
+            .ok_or(DeprecationRefusal::InvalidTransition)?;
+        let read = registry.read_value_accounts_chain(program, snapshot, authority)?;
+        let entry = registry.entry_for_wind_down(program)?;
+        if read.bindings() != entry.value_accounts {
+            return Err(AccountStateError::BindingConflict.into());
+        }
+        Ok(WindDownView {
+            lifecycle: read.lifecycle(),
+            policy: record.policy,
+            value_accounts: read.value_accounts().to_vec(),
+            transition_history: entry.lifecycle_history.clone(),
+        })
+    }
+
+    pub fn authorize_exit_chain(
+        &self,
+        registry: &Registry,
+        program: ProgramId,
+        account_id: [u8; 32],
+        snapshot: &VerifiedChainProgramAccounts,
+        authority: &ChainAccountStateAuthority<'_>,
+    ) -> Result<AuthorizedExit, DeprecationRefusal> {
+        let view = self.read_chain(registry, program, snapshot, authority)?;
+        if !view.is_wound_down() {
+            return Err(DeprecationRefusal::InvalidTransition);
+        }
+        let account = view
+            .value_accounts
+            .into_iter()
+            .find(|a| a.account_id == account_id)
+            .ok_or(DeprecationRefusal::MissingExit { account_id })?;
+        let route = self
+            .wind_downs
+            .iter()
+            .find(|r| r.program == program)
+            .and_then(|r| r.exits.iter().find(|e| e.account_id == account_id))
+            .ok_or(DeprecationRefusal::MissingExit { account_id })?;
+        if route.asset_id != account.asset_id || route.seed != account.seed {
+            return Err(DeprecationRefusal::ExitMismatch { account_id });
+        }
+        if account.balance == 0 {
+            return Err(DeprecationRefusal::ExitAmountMismatch);
+        }
+        if account.frozen {
+            return Err(DeprecationRefusal::ValueWouldBeStranded { account_id });
+        }
+        Ok(AuthorizedExit {
+            account,
+            destination: route.destination,
+            protocol_activity: WindDownExitActivity::new(program, account_id),
+        })
     }
 
     /// Applies a lifecycle transition atomically after resolving every durable
@@ -687,12 +831,20 @@ fn validate_exits(
     bindings: &[crate::ProgramValueAccountBinding],
     accounts: &[ValueAccount],
 ) -> Result<Vec<ExitRoute>, DeprecationRefusal> {
-    if request.exits.len() != bindings.len() || accounts.len() != bindings.len() {
+    validate_exit_routes(request.program, &request.exits, bindings, accounts)
+}
+
+fn validate_exit_routes(
+    program: ProgramId,
+    requested_exits: &[ExitRoute],
+    bindings: &[crate::ProgramValueAccountBinding],
+    accounts: &[ValueAccount],
+) -> Result<Vec<ExitRoute>, DeprecationRefusal> {
+    if requested_exits.len() != bindings.len() || accounts.len() != bindings.len() {
         let missing = bindings
             .iter()
             .find(|binding| {
-                !request
-                    .exits
+                !requested_exits
                     .iter()
                     .any(|route| route.account_id == binding.account_id)
             })
@@ -701,7 +853,7 @@ fn validate_exits(
             account_id: missing,
         });
     }
-    let mut exits = request.exits.clone();
+    let mut exits = requested_exits.to_vec();
     exits.sort_by_key(|route| route.account_id);
     for pair in exits.windows(2) {
         if pair[0].account_id == pair[1].account_id {
@@ -736,7 +888,7 @@ fn validate_exits(
         }
         let probe_amount = account.balance.max(1);
         ProgramAuthority::validate_owner_frame(
-            request.program,
+            program,
             &route.seed,
             route.account_id,
             route.asset_id,

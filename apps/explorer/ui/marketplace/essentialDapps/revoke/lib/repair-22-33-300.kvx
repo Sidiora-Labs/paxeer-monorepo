@@ -1,0 +1,66 @@
+[repair.22.33.300]
+finding = "log-split-termination"
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/repair-22-33-300.spec.ts"
+tests = ["logSplitTerminationReturnsEveryDecodedApprovalInOrder", "logSplitTerminationRejectsInvalidRangesBeforeRpc", "logSplitTerminationDoesNotSplitOrRetryOtherFailures", "logSplitTerminationStopsAtOneBlockAndDiscardsPartialResults", "logSplitTerminationBoundsTotalRequestsBeforeAnIndivisibleRange", "logSplitTerminationCancelsTheInflightHttpRequest"]
+producer_transport_consumer = "Committed in-memory approval log store served over a loopback JSON-RPC HTTP server, real viem transport and ABI codec, production getLogs scan, decoded approvals and terminal errors asserted by the consumer."
+implementation = "Only explicit RPC range/result-limit errors split; one block is terminal; invalid ranges and blockHash/range combinations are rejected; zero transport retries, one active chunk, 1024 total requests and a 60-second deadline bound the scan; HTTP cancellation aborts in-flight fetches; a terminal failure rejects the entire scan with its original cause."
+baseline = "Not run: do_5 conflicts with the later ordered instructions requiring complete implementation before testing and prohibiting verification outside hf-done; no baseline failures are claimed."
+wiring_requests = []
+consumer_review = "The existing useApprovalsQuery query function awaits getLogs without swallowing terminal scan errors; its query coverage reports an error as incomplete. No out-of-path change is required for this finding."
+evidence = "The bounded hf-build and hf-done wrappers record the verified candidate revision, command, exit and private evidence location in /out/run/gates.jsonl and /out/logs/build-*.log or /out/logs/verify-*.log; the final task response names the verified revision by copying the last gate record."
+continuation = "The inherited six regression functions are named test callbacks registered with string titles and their original assertions inside each body; the blockHash fixture includes its required events field. This continuation requires both gates on the same candidate with all six tests executed."
+
+[limitation.transport]
+observed = "The production revoke client uses HTTP; a non-HTTP client has no AbortSignal transport interface in viem."
+action = "HTTP scans use a dedicated unbatched cancellable transport preserving the endpoint, chain and fetch options; other transports disable retries and cancel the scan promise, while their provider owns physical cancellation."
+
+[gotcha.dependencies]
+observed = "The sandbox installed root dependencies but had no explorer node_modules or local ESLint formatter."
+action = "Restore the explorer's frozen Yarn dependencies before formatting touched TypeScript files; leave manifests, lockfiles and out-of-scope sources unchanged."
+
+[gotcha.formatter]
+observed = "The repository ESLint formatter flags the task-required test(namedFunction) registrations as missing string titles and inline assertions."
+action = "Register each named test function directly with a string title and assertions in its body; run repository ESLint on the task spec before qualification without disabling any rules."
+
+[gotcha.relative-path]
+observed = "An edit command used repository-relative paths while running from the explorer directory and failed before changing any source."
+action = "Use absolute source paths when running formatter commands from a nested working directory."
+
+[gotcha.viem-types]
+observed = "The first build rejected the generic PublicClient request proxy and the test's event filter because GetLogsParameters without ABI generics only admits raw log filters."
+action = "Use the transport's raw request entry point without the client's retry wrapper; test a supported address filter and assert exact decoded approvals through viem parseEventLogs, retaining the original API type and scan bounds."
+
+[gotcha.vitest-registration]
+observed = "Vitest 4 interpreted bare test(namedFunction) calls as TODO registrations, so the first hf-done exited zero with six TODO tests and zero executions; that result does not qualify this repair."
+action = "Pass the string title and named callback directly to Vitest with every original assertion in its test body; no adapter or TODO registration remains."
+
+[gotcha.gate-budget]
+observed = "The gate wrapper computes repair usage as extra build runs plus extra verification runs, so a second build rerun consumes the last credit before another verification can run."
+action = "Keep the corrected test callbacks and unchanged assertions; require build and actual test execution at the same candidate revision, and report a held result if the bounded wrapper refuses verification."
+
+[qualification.continuation]
+revision = "f009ac6f5c1cb20987bc0a2bdfe8160494c11fd8"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "hf-build failed with TS2769 in the out-of-scope components/repair-22-33-299.spec.ts:116 because its query fixture lacks coverage, partialAllowances, scanIssues and retry; hf-done and the six regression tests did not run."
+assumption = "The owning domain must repair the existing component test interface; no task-scoped change can repair that call without widening types or weakening checks, so the unrelated failure is recorded once and not rerun."
+
+[gotcha.fixture-events]
+observed = "The continuation ruling requests an explicit events field; the pinned raw GetLogsParameters type permits undefined rather than an events array."
+action = "Supply the explicit raw-filter events value undefined on the invalid blockHash/range fixture; keep the RangeError assertion and production parameter types unchanged."
+
+[qualification.prerequisite]
+observed = "Task 22.31.474 is done and its receipt is included in this continuation base; the previous out-of-path Content fixture failure remains historical evidence above."
+action = "Require the declared build and verification on the final candidate; do not modify or re-investigate the prerequisite test."
+
+[gotcha.hook-cleanup]
+observed = "vitest-fetch-mock enableMocks and disableMocks return the fetch function; concise lifecycle hooks return it to Vitest as cleanup, which invokes it without a URL and fails the suite after all six tests pass."
+action = "Use block-bodied lifecycle hooks returning void while preserving real loopback HTTP calls and every assertion; qualify the repaired candidate through both bounded gates."
+
+[qualification.cleanup-repair]
+revision = "aaf1329a39991e1225555cf3ad7e2c4e29dec2ea"
+command = "cg spec done 22.33.300 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All six regression tests passed; suite cleanup failed because a lifecycle hook returned the fetch function, so this candidate is not qualified."

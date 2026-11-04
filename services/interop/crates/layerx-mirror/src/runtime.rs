@@ -1,5 +1,6 @@
 //! Deployable independent-worker mirror publisher runtime.
 
+#[cfg(test)]
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Read, Write};
@@ -20,8 +21,12 @@ use crate::ethereum::{
 use crate::rpc::{RpcCluster, RpcQuorumConfig};
 use crate::signer::{RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm};
 use crate::solana::{SolanaArchiveClient, SolanaError, SolanaProductionConfig, SolanaProgress};
-use crate::store::{ArchiveSpool, PublicationPhase};
+use crate::store::{ArchiveSpool, MirrorChain, PublicationPhase};
 use crate::{Archive, ArchiveCommitment, ChainProgress, ProgressGate};
+
+pub const MAX_ACQUIRED_PER_POLL: usize = 16;
+pub const MAX_LANE_ARCHIVES_PER_POLL: usize = 32;
+pub const LANE_RECHECK_WINDOW: u64 = 16;
 
 const MAX_CONFIG_BYTES: usize = 1024 * 1024;
 const MAX_STATUS_REQUEST_BYTES: usize = 4096;
@@ -115,15 +120,24 @@ pub enum SignerTransportFileConfig {
 #[derive(Clone, Debug, Default, Serialize)]
 struct ComponentStatus {
     ready: bool,
+    #[serde(rename = "latest_height_mirrored")]
     latest_batch_mirrored: Option<u64>,
+    #[serde(rename = "latest_height_observed")]
     latest_batch_observed: Option<u64>,
+    #[serde(rename = "latest_committed_height_mirrored")]
     latest_checkpoint_batch_mirrored: Option<u64>,
+    #[serde(rename = "latest_committed_block_hash_mirrored")]
     latest_checkpoint_id_mirrored: Option<String>,
+    #[serde(rename = "latest_height_verified")]
     latest_batch_verified: Option<u64>,
+    #[serde(rename = "latest_committed_height_verified")]
     latest_checkpoint_batch_verified: Option<u64>,
+    #[serde(rename = "committed_block_lag")]
     checkpoint_batch_lag: Option<u64>,
+    #[serde(rename = "freshness_budget_blocks")]
     freshness_budget_batches: u64,
     freshness: Option<&'static str>,
+    #[serde(rename = "committed_within_budget")]
     checkpoint_within_budget: bool,
     phase: Option<&'static str>,
     error_class: Option<&'static str>,
@@ -133,8 +147,8 @@ struct ComponentStatus {
 #[derive(Clone, Debug, Default, Serialize)]
 struct RuntimeStatus {
     source_chain_id: u64,
-    native_network_id: u32,
-    native_protocol_version: u16,
+    status_revision: u16,
+    native_network_id: Option<u32>,
     service_version: String,
     node: ComponentStatus,
     ethereum: ComponentStatus,
@@ -143,6 +157,7 @@ struct RuntimeStatus {
     latest_committed_height: Option<u64>,
     latest_committed_block_hash: Option<String>,
     committed_refusal: Option<&'static str>,
+    #[serde(rename = "committed_freshness_budget_blocks")]
     checkpoint_freshness_budget_batches: u64,
 }
 
@@ -214,6 +229,7 @@ pub fn run(config_path: &Path) -> Result<(), RuntimeError> {
     let next_batch =
         recover_next_batch(&spool, config.first_height).map_err(|_| RuntimeError::State)?;
     let status = Arc::new(Mutex::new(RuntimeStatus {
+        status_revision: 2,
         source_chain_id: config.paxeer.chain_id,
         service_version: env!("CARGO_PKG_VERSION").to_owned(),
         solana: config.solana.as_ref().map(|_| ComponentStatus::default()),
@@ -244,78 +260,169 @@ fn spawn_committed(
     spool: ArchiveSpool,
     status: Arc<Mutex<RuntimeStatus>>,
     poll: Duration,
-    mut next_height: u64,
+    _next_height: u64,
 ) {
     thread::spawn(move || {
-        let Ok(network_id) = config.committed_network_id() else {
+        let Ok(_) = config.committed_network_id() else {
             update_status(&status, |value| {
                 record_committed(value, Err(CommittedRefusal::ChainMismatch));
             });
             return;
         };
-        let mut previous =
-            match recover_committed_coordinate(&spool, config.first_height, next_height) {
-                Ok(coordinate) => coordinate,
-                Err(_) => {
-                    update_status(&status, |value| {
-                        value.node.error_class = Some("archive_spool");
-                    });
-                    return;
-                }
-            };
-        let source = loop {
-            match CommittedBlockSource::open(&config.paxeer) {
-                Ok(source) => break source,
+        let mut acquisition = loop {
+            match CommittedAcquisition::open_with_status(
+                &config.paxeer,
+                spool.clone(),
+                config.first_height,
+                config.freshness_budget_blocks,
+                Arc::clone(&status),
+            ) {
+                Ok(worker) => break worker,
                 Err(error) => {
-                    update_status(&status, |value| {
-                        record_committed(value, Err(error));
-                    });
+                    update_status(&status, |value| record_committed(value, Err(error)));
                     thread::sleep(poll);
                 }
             }
         };
         loop {
-            let acquired = match previous {
-                Some(coordinate) => source.acquire_next(coordinate),
-                None => source.acquire(next_height),
-            };
-            match acquired {
-                Ok(block) => {
-                    update_status(&status, |value| {
-                        value.node.latest_batch_observed = Some(block.header.height);
-                    });
-                    match spool_committed(
-                        &block,
-                        network_id,
-                        &spool,
-                        &status,
-                        next_height,
-                        previous,
-                    ) {
-                        Ok(coordinate) => {
-                            previous = Some(coordinate);
-                            let Some(incremented) = coordinate.height.checked_add(1) else {
-                                update_status(&status, |value| {
-                                    value.node.ready = false;
-                                    value.node.error_class = Some("block_sequence_exhausted");
-                                });
-                                return;
-                            };
-                            next_height = incremented;
-                        }
-                        Err(error) => update_status(&status, |value| {
-                            value.node.ready = false;
-                            value.node.error_class = Some(error);
-                        }),
-                    }
-                }
-                Err(error) => update_status(&status, |value| {
-                    record_committed(value, Err(error));
-                }),
-            }
+            let _ = acquisition.poll();
             thread::sleep(poll);
         }
     });
+}
+
+/// The production acquisition worker, also usable without spawning a daemon.
+/// Each poll observes the finalized head and drains at most a fixed block range.
+pub struct CommittedAcquisition {
+    source: CommittedBlockSource,
+    spool: ArchiveSpool,
+    status: Arc<Mutex<RuntimeStatus>>,
+    network_id: u32,
+    next_height: u64,
+    previous: Option<CommittedCoordinate>,
+    observed: Option<CommittedCoordinate>,
+}
+
+impl CommittedAcquisition {
+    pub fn open(
+        config: &crate::committed::CommittedSourceConfig,
+        spool: ArchiveSpool,
+        first_height: u64,
+        freshness_budget_blocks: u64,
+    ) -> Result<Self, CommittedRefusal> {
+        Self::open_with_status(
+            config,
+            spool,
+            first_height,
+            freshness_budget_blocks,
+            Arc::new(Mutex::new(RuntimeStatus::default())),
+        )
+    }
+
+    fn open_with_status(
+        config: &crate::committed::CommittedSourceConfig,
+        spool: ArchiveSpool,
+        first_height: u64,
+        freshness_budget_blocks: u64,
+        status: Arc<Mutex<RuntimeStatus>>,
+    ) -> Result<Self, CommittedRefusal> {
+        if first_height == 0 || !(1..=1_000_000).contains(&freshness_budget_blocks) {
+            return Err(CommittedRefusal::Malformed);
+        }
+        let network_id = u32::try_from(config.chain_id)
+            .ok()
+            .filter(|id| *id != 0)
+            .ok_or(CommittedRefusal::ChainMismatch)?;
+        let next_height =
+            recover_next_batch(&spool, first_height).map_err(|_| CommittedRefusal::Malformed)?;
+        let previous = recover_committed_coordinate(&spool, first_height, next_height)
+            .map_err(|_| CommittedRefusal::Malformed)?;
+        let source = CommittedBlockSource::open(config)?;
+        update_status(&status, |value| {
+            value.status_revision = 2;
+            value.source_chain_id = config.chain_id;
+            value.native_network_id = Some(network_id);
+            value.service_version = env!("CARGO_PKG_VERSION").to_owned();
+            value.checkpoint_freshness_budget_batches = freshness_budget_blocks;
+            value.node.latest_batch_mirrored = previous.map(|coordinate| coordinate.height);
+        });
+        Ok(Self {
+            source,
+            spool,
+            status,
+            network_id,
+            next_height,
+            previous,
+            observed: None,
+        })
+    }
+
+    pub fn status_json(&self) -> Result<serde_json::Value, RuntimeError> {
+        let status = self.status.lock().map_err(|_| RuntimeError::Status)?;
+        serde_json::to_value(&*status).map_err(|_| RuntimeError::Status)
+    }
+
+    pub fn poll(&mut self) -> Result<usize, CommittedRefusal> {
+        let result = self.poll_inner();
+        if let Err(error) = result {
+            update_status(&self.status, |value| record_committed(value, Err(error)));
+        }
+        result
+    }
+
+    fn poll_inner(&mut self) -> Result<usize, CommittedRefusal> {
+        let head = self
+            .source
+            .latest_committed(self.observed.or(self.previous))?;
+        for previous in [self.observed, self.previous].into_iter().flatten() {
+            if head.height < previous.height {
+                return Err(CommittedRefusal::HeightRegressed);
+            }
+            if head.height == previous.height && head.block_hash != previous.block_hash {
+                return Err(CommittedRefusal::ParentMismatch);
+            }
+        }
+        self.observed = Some(head);
+        update_status(&self.status, |value| {
+            value.node.latest_batch_observed = Some(head.height);
+            record_committed(value, Ok(head));
+        });
+        let mut acquired = 0;
+        while self.next_height <= head.height && acquired < MAX_ACQUIRED_PER_POLL {
+            let block = match self.previous {
+                Some(previous) => self.source.acquire_next(previous)?,
+                None => self.source.acquire(self.next_height)?,
+            };
+            if block.header.height == head.height && block.header.block_hash != head.block_hash {
+                return Err(CommittedRefusal::ParentMismatch);
+            }
+            let coordinate = spool_committed(
+                &block,
+                self.network_id,
+                &self.spool,
+                &self.status,
+                self.next_height,
+                self.previous,
+                head,
+            )
+            .map_err(|_| CommittedRefusal::Malformed)?;
+            self.previous = Some(coordinate);
+            self.next_height = coordinate
+                .height
+                .checked_add(1)
+                .ok_or(CommittedRefusal::Malformed)?;
+            acquired += 1;
+        }
+        update_status(&self.status, |value| {
+            record_committed(value, Ok(head));
+            value.node.phase = Some(if self.next_height > head.height {
+                "caught_up"
+            } else {
+                "backlog"
+            });
+        });
+        Ok(acquired)
+    }
 }
 
 fn recover_committed_coordinate(
@@ -326,10 +433,17 @@ fn recover_committed_coordinate(
     if next_height == first_height {
         return Ok(None);
     }
-    let archive = ordered_archives(spool)
-        .pop()
-        .ok_or(SpoolRecoveryError::Archive)?
-        .map_err(|()| SpoolRecoveryError::Archive)?;
+    let (_, commitment) = spool
+        .ordered_range(next_height - 1, 1)
+        .map_err(|_| SpoolRecoveryError::Store)?
+        .into_iter()
+        .next()
+        .ok_or(SpoolRecoveryError::Archive)?;
+    let stored = spool
+        .get(commitment)
+        .map_err(|_| SpoolRecoveryError::Store)?;
+    let archive = Archive::from_spool(stored.bytes, stored.node_head)
+        .map_err(|_| SpoolRecoveryError::Archive)?;
     if archive.data().batch_number.checked_add(1) != Some(next_height) {
         return Err(SpoolRecoveryError::BatchGap);
     }
@@ -346,6 +460,7 @@ fn spool_committed(
     status: &Arc<Mutex<RuntimeStatus>>,
     next_height: u64,
     previous: Option<CommittedCoordinate>,
+    observed_head: CommittedCoordinate,
 ) -> Result<CommittedCoordinate, &'static str> {
     if block.header.height != next_height {
         return Err("committed_not_committed");
@@ -362,7 +477,7 @@ fn spool_committed(
         height: block.header.height,
         block_hash: block.header.block_hash,
     };
-    let head = crate::NodeHead::new(coordinate.height, Some(coordinate));
+    let head = crate::NodeHead::new(observed_head.height, Some(observed_head));
     let archive =
         Archive::from_committed(block, network_id, head).map_err(|_| "archive_evidence")?;
     spool
@@ -370,11 +485,28 @@ fn spool_committed(
         .map_err(|_| "archive_spool")?;
     update_status(status, |value| {
         value.node.ready = true;
-        value.node.latest_batch_observed = Some(coordinate.height);
+        value.node.latest_batch_observed = Some(
+            value
+                .node
+                .latest_batch_observed
+                .unwrap_or(0)
+                .max(coordinate.height),
+        );
         value.node.latest_batch_mirrored = Some(coordinate.height);
         value.node.error_class = None;
         value.node.phase = Some("spooled_committed_block");
-        record_committed(value, Ok(coordinate));
+        if value
+            .latest_committed_height
+            .is_none_or(|height| height <= coordinate.height)
+        {
+            record_committed(value, Ok(coordinate));
+        } else {
+            let progress = VerifiedProgress::of(value);
+            progress.apply(&mut value.ethereum);
+            if let Some(solana) = value.solana.as_mut() {
+                progress.apply(solana);
+            }
+        }
     });
     Ok(coordinate)
 }
@@ -399,7 +531,12 @@ fn spawn_ethereum(
         };
         let mut gate = ProgressGate::new();
         loop {
-            let ordered = ordered_archives(&spool);
+            let ordered = lane_archives(
+                &spool,
+                MirrorChain::Ethereum,
+                config.first_height,
+                client.cursor(),
+            );
             let mut publication_error = None;
             for archive in &ordered {
                 match archive {
@@ -427,6 +564,9 @@ fn spawn_ethereum(
             let progress = gate.acknowledge(client.cursor(), &archives, |commitment| {
                 client.retrieve_finalized(commitment)
             });
+            let publication_error = save_lane_progress(&spool, MirrorChain::Ethereum, &progress)
+                .err()
+                .or(publication_error);
             apply_ethereum_progress(&status, progress, publication_error);
             thread::sleep(poll);
         }
@@ -454,7 +594,12 @@ fn spawn_solana(
         };
         let mut gate = ProgressGate::new();
         loop {
-            let ordered = ordered_archives(&spool);
+            let ordered = lane_archives(
+                &spool,
+                MirrorChain::Solana,
+                config.first_height,
+                client.cursor(),
+            );
             let mut publication_error = None;
             for archive in &ordered {
                 match archive {
@@ -482,12 +627,80 @@ fn spawn_solana(
             let progress = gate.acknowledge(client.cursor(), &archives, |commitment| {
                 client.retrieve_finalized(commitment)
             });
+            let publication_error = save_lane_progress(&spool, MirrorChain::Solana, &progress)
+                .err()
+                .or(publication_error);
             apply_solana_progress(&status, progress, publication_error);
             thread::sleep(poll);
         }
     });
 }
 
+pub fn save_lane_progress(
+    spool: &ArchiveSpool,
+    lane: MirrorChain,
+    progress: &ChainProgress,
+) -> Result<(), &'static str> {
+    if progress.refusal.is_none() {
+        if let Some(coordinate) = progress.mirrored.latest_committed {
+            spool
+                .save_lane_cursor(lane, coordinate)
+                .map_err(|_| "archive_spool")?;
+        }
+    }
+    Ok(())
+}
+
+/// Selects only the bounded recheck window plus new work; the journal tip is
+/// always included for independent canonical readback, including after restart.
+pub fn lane_archives(
+    spool: &ArchiveSpool,
+    lane: MirrorChain,
+    first: u64,
+    journal: crate::MirrorCursor,
+) -> Vec<Result<Archive, ()>> {
+    let selected = (|| {
+        let saved = spool.lane_cursor(lane).map_err(|_| ())?;
+        let tip = match (
+            saved.map(|coordinate| coordinate.height),
+            journal.latest_batch,
+        ) {
+            (Some(saved), Some(journal)) => saved.min(journal),
+            (_, Some(journal)) => journal,
+            _ => first,
+        };
+        let start = first.max(tip.saturating_sub(LANE_RECHECK_WINDOW - 1));
+        let mut entries = spool
+            .ordered_range(start, MAX_LANE_ARCHIVES_PER_POLL - 1)
+            .map_err(|_| ())?;
+        if let Some(height) = journal.latest_batch {
+            if !entries.iter().any(|(entry, _)| *entry == height) {
+                let entry = spool
+                    .ordered_range(height, 1)
+                    .map_err(|_| ())?
+                    .into_iter()
+                    .next()
+                    .filter(|(entry, _)| *entry == height)
+                    .ok_or(())?;
+                entries.push(entry);
+            }
+        }
+        entries.sort_by_key(|(height, _)| *height);
+        Ok::<_, ()>(entries)
+    })();
+    match selected {
+        Err(()) => vec![Err(())],
+        Ok(entries) => entries
+            .into_iter()
+            .map(|(_, commitment)| {
+                let stored = spool.get(commitment).map_err(|_| ())?;
+                Archive::from_spool(stored.bytes, stored.node_head).map_err(|_| ())
+            })
+            .collect(),
+    }
+}
+
+#[cfg(test)]
 fn ordered_archives(spool: &ArchiveSpool) -> Vec<Result<Archive, ()>> {
     let Ok(commitments) = spool.commitments() else {
         return vec![Err(())];
@@ -508,20 +721,28 @@ fn ordered_archives(spool: &ArchiveSpool) -> Vec<Result<Archive, ()>> {
 }
 
 fn recover_next_batch(spool: &ArchiveSpool, first: u64) -> Result<u64, SpoolRecoveryError> {
-    recover_spool(
-        first,
-        || spool.commitments().map_err(|_| SpoolRecoveryError::Store),
-        |commitment| {
-            let stored = spool
-                .get(commitment)
-                .map_err(|_| SpoolRecoveryError::Store)?;
-            let archive = Archive::from_spool(stored.bytes, stored.node_head)
-                .map_err(|_| SpoolRecoveryError::Archive)?;
-            Ok(archive.data().batch_number)
-        },
-    )
+    match spool.ordered_bounds().map_err(|error| match error {
+        crate::store::StoreError::Corrupt => SpoolRecoveryError::Archive,
+        _ => SpoolRecoveryError::Store,
+    })? {
+        None => Ok(first),
+        Some((start, last, count)) => {
+            if start < first {
+                return Err(SpoolRecoveryError::BatchBeforeFirst);
+            }
+            if start != first
+                || last.checked_sub(first).and_then(|span| span.checked_add(1))
+                    != Some(count as u64)
+            {
+                return Err(SpoolRecoveryError::BatchGap);
+            }
+            last.checked_add(1)
+                .ok_or(SpoolRecoveryError::SequenceExhausted)
+        }
+    }
 }
 
+#[cfg(test)]
 fn recover_spool(
     first: u64,
     inventory: impl FnOnce() -> Result<Vec<ArchiveCommitment>, SpoolRecoveryError>,
@@ -530,6 +751,7 @@ fn recover_spool(
     recover_batch_sequence(first, inventory()?, load_batch)
 }
 
+#[cfg(test)]
 fn recover_batch_sequence(
     first: u64,
     commitments: impl IntoIterator<Item = ArchiveCommitment>,
@@ -1218,9 +1440,9 @@ mod tests {
               "paxeer": {{
                 "rpc": {{
                   "endpoints": [
-                    {{"url":"https://paxeer-a.invalid/rpc","ca_certificate_der":"/run/secrets/a.der","bearer_token_file":"/run/secrets/a.token","independent_backend":"paxeer-a"}},
-                    {{"url":"https://paxeer-b.invalid/rpc","ca_certificate_der":"/run/secrets/b.der","bearer_token_file":"/run/secrets/b.token","independent_backend":"paxeer-b"}},
-                    {{"url":"https://paxeer-c.invalid/rpc","ca_certificate_der":"/run/secrets/c.der","bearer_token_file":"/run/secrets/c.token","independent_backend":"paxeer-c"}}
+                    {{"url":"https://paxeer-a.invalid/","ca_certificate_der":"/run/secrets/a.der","bearer_token_file":"/run/secrets/a.token","independent_backend":"paxeer-a"}},
+                    {{"url":"https://paxeer-b.invalid/","ca_certificate_der":"/run/secrets/b.der","bearer_token_file":"/run/secrets/b.token","independent_backend":"paxeer-b"}},
+                    {{"url":"https://paxeer-c.invalid/","ca_certificate_der":"/run/secrets/c.der","bearer_token_file":"/run/secrets/c.token","independent_backend":"paxeer-c"}}
                   ],
                   "quorum": 2,
                   "connect_timeout_ms": 3000,
@@ -1420,15 +1642,37 @@ mod tests {
             None
         );
         assert_eq!(
-            super::spool_committed(&second, 125, &spool, &status, first_height, None),
+            super::spool_committed(
+                &second,
+                125,
+                &spool,
+                &status,
+                first_height,
+                None,
+                CommittedCoordinate {
+                    height: second.header.height,
+                    block_hash: second.header.block_hash
+                }
+            ),
             Err("committed_not_committed")
         );
         assert!(spool
             .commitments()
             .unwrap_or_else(|e| panic!("inventory: {e:?}"))
             .is_empty());
-        let previous = super::spool_committed(&first, 125, &spool, &status, first_height, None)
-            .unwrap_or_else(|e| panic!("spool first block: {e}"));
+        let previous = super::spool_committed(
+            &first,
+            125,
+            &spool,
+            &status,
+            first_height,
+            None,
+            CommittedCoordinate {
+                height: first.header.height,
+                block_hash: first.header.block_hash,
+            },
+        )
+        .unwrap_or_else(|e| panic!("spool first block: {e}"));
         assert_eq!(
             previous,
             CommittedCoordinate {
@@ -1449,11 +1693,33 @@ mod tests {
         let mut wrong_parent = second.clone();
         wrong_parent.header.parent_hash = [0x77; 32];
         assert_eq!(
-            super::spool_committed(&wrong_parent, 125, &spool, &status, next_height, recovered),
+            super::spool_committed(
+                &wrong_parent,
+                125,
+                &spool,
+                &status,
+                next_height,
+                recovered,
+                CommittedCoordinate {
+                    height: wrong_parent.header.height,
+                    block_hash: wrong_parent.header.block_hash
+                }
+            ),
             Err("committed_parent_mismatch")
         );
-        super::spool_committed(&second, 125, &spool, &status, next_height, recovered)
-            .unwrap_or_else(|e| panic!("spool next block after restart: {e}"));
+        super::spool_committed(
+            &second,
+            125,
+            &spool,
+            &status,
+            next_height,
+            recovered,
+            CommittedCoordinate {
+                height: second.header.height,
+                block_hash: second.header.block_hash,
+            },
+        )
+        .unwrap_or_else(|e| panic!("spool next block after restart: {e}"));
         let archives = super::ordered_archives(&spool)
             .into_iter()
             .map(|archive| archive.unwrap_or_else(|()| panic!("load committed archive")))
@@ -1795,7 +2061,7 @@ mod tests {
         assert!(verified["node"]["error_class"].is_null());
         assert_eq!(verified["latest_committed_height"], 9);
         assert_eq!(verified["latest_committed_block_hash"], "ab".repeat(32));
-        assert_eq!(verified["ethereum"]["latest_checkpoint_batch_verified"], 9);
+        assert_eq!(verified["ethereum"]["latest_committed_height_verified"], 9);
         assert!(verified.get("checkpoint_refusal").is_none());
 
         let shared = Arc::new(Mutex::new(status));

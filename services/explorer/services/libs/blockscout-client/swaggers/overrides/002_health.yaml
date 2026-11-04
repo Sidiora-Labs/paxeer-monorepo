@@ -6,69 +6,123 @@ paths:
       operationId: Health
       responses:
         "200":
-          description: A successful response.
+          description: Block indexing is healthy (or the standalone media worker is running).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheckResponse'
-  /api/v1/health:
-    get:
-      tags:
-        - Health
-      operationId: HealthV1
-      responses:
-        "200":
-          description: A successful response.
+        "500":
+          description: Block indexing is unhealthy; metadata and error describe the failure.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/v1HealthCheckResponse'
+                $ref: '#/components/schemas/UnhealthyHealthCheckResponse'
 components:
   schemas:
     LatestBlock:
       type: object
+      required: [cache, db, node]
       properties:
         cache:
           type: object
+          required: [timestamp, number]
           properties:
             timestamp:
               type: string
-              format: date-time
-            mber:
+              description: UTC timestamp, or an empty string when no cached block exists.
+            number:
               type: string
         db:
           type: object
+          required: [timestamp, number]
           properties:
             timestamp:
               type: string
-              format: date-time
+              description: UTC timestamp, or an empty string when no database block exists.
             number:
               type: string
+        node:
+          type: object
+          required: [number]
+          properties:
+            number:
+              type: string
+    HealthCheckError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          format: int64
+        message:
+          type: string
+    BlockIndexingStatus:
+      type: object
+      required: [healthy, latest_block]
+      properties:
+        healthy:
+          type: boolean
+        latest_block:
+          $ref: '#/components/schemas/LatestBlock'
+        error:
+          $ref: '#/components/schemas/HealthCheckError'
+    BatchIndexingStatus:
+      type: object
+      required: [healthy, latest_batch]
+      properties:
+        healthy:
+          type: boolean
+        latest_batch:
+          type: object
+          required: [db]
+          properties:
+            db:
+              type: object
+              required: [number, timestamp, average_batch_time]
+              properties:
+                number:
+                  type: string
+                timestamp:
+                  type: string
+                average_batch_time:
+                  type: string
+        error:
+          $ref: '#/components/schemas/HealthCheckError'
+    HealthCheckResponseMetadata:
+      type: object
+      required: [blocks]
+      properties:
+        blocks:
+          $ref: '#/components/schemas/BlockIndexingStatus'
+        batches:
+          $ref: '#/components/schemas/BatchIndexingStatus'
+    HealthCheckResponseData:
+      type: object
+      description: Empty object returned in standalone media worker mode.
+      properties: {}
+      additionalProperties: false
+    UnhealthyHealthCheckResponse:
+      type: object
+      required: [healthy, metadata, error]
+      properties:
+        healthy:
+          type: boolean
+          description: False when block indexing is unhealthy.
+        metadata:
+          $ref: '#/components/schemas/HealthCheckResponseMetadata'
+        error:
+          $ref: '#/components/schemas/HealthCheckError'
     HealthCheckResponse:
       type: object
+      required: [healthy]
       properties:
         healthy:
           type: boolean
+        error:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/HealthCheckError'
         metadata:
-          type: object
-          properties:
-            latest_block:
-              $ref: '#/components/schemas/LatestBlock'
-    v1Data:
-      type: object
-      properties:
-        cache_latest_block_inserted_at:
-          type: string
-        cache_latest_block_number:
-          type: string
-        latest_block_inserted_at:
-          type: string
-        latest_block_number:
-          type: string
-    v1HealthCheckResponse:
-      type: object
-      properties:
-        healthy:
-          type: boolean
+          $ref: '#/components/schemas/HealthCheckResponseMetadata'
         data:
-          $ref: '#/components/schemas/v1Data'
+          $ref: '#/components/schemas/HealthCheckResponseData'

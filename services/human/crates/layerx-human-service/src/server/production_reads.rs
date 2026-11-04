@@ -1596,3 +1596,352 @@ mod balance_evidence_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod audit_golden_receipt_tests {
+    use super::*;
+    use crate::activity::{
+        ActivityKind, AgentActivity, EvidenceExport, FilterDraft, PendingStatus, ReceiptExport,
+        VerifiedStatus,
+    };
+    use crate::server::schema::ApiSchema;
+    use crate::store::{
+        AgentTenantId, PrincipalId, PrincipalStore, RetentionPeriod, RetentionPolicy, TenancyMap,
+    };
+    use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
+    use layerx_agent_api::track::ReceiptRef;
+    use layerx_proof::inclusion::SequencerAuthorization;
+    use layerx_proof::receipt::{verify, AuthorizedBatch};
+    use std::path::Path;
+
+    fn golden(name: &str) -> Value {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../schema/human-api/golden")
+            .join(name);
+        serde_json::from_slice(&std::fs::read(path).expect("committed HTTP golden"))
+            .expect("HTTP envelope")
+    }
+
+    fn fixture_bytes(value: &Value) -> Vec<u8> {
+        value
+            .as_str()
+            .expect("hex string")
+            .strip_prefix("0x")
+            .expect("hex prefix")
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| (nibble(pair[0]).expect("hex") << 4) | nibble(pair[1]).expect("hex"))
+            .collect()
+    }
+
+    fn recorded_receipt() -> (VerifiedLegEvidence, Vec<u8>) {
+        let document: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )))
+        .expect("node producer recordings");
+        let case = document["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|case| case["id"] == "V1-pax-transfer")
+            .expect("recorded transfer");
+        let signed = fixture_bytes(&case["signedReceipt"]);
+        let key = ReceiptKeyEntry {
+            key_id: fixture_bytes(&case["pinnedKey"]["keyId"])
+                .try_into()
+                .expect("key id"),
+            public_key: fixture_bytes(&case["pinnedKey"]["publicKey"])
+                .try_into()
+                .expect("key"),
+            first_height: case["pinnedKey"]["firstHeight"]
+                .as_u64()
+                .expect("first height"),
+            last_height: case["pinnedKey"]["lastHeight"]
+                .as_u64()
+                .expect("last height"),
+        };
+        let authorization = SequencerAuthorization::new(
+            key.key_id,
+            key.public_key,
+            key.first_height,
+            key.last_height,
+        );
+        let decoded = layerx_wire::receipt::decode(&signed).expect("recorded canonical receipt");
+        let receipt = decoded.protocol().expect("protocol receipt");
+        let batch = AuthorizedBatch::from_receipt_keys(
+            &signed,
+            &[authorization],
+            receipt.asset(),
+            receipt.previous_state_root(),
+            receipt.resulting_state_root(),
+        )
+        .expect("pinned producer authority");
+        let height = u64::from_str_radix(
+            case["receiptJson"]["height"]
+                .as_str()
+                .expect("height")
+                .strip_prefix("0x")
+                .expect("quantity"),
+            16,
+        )
+        .expect("height quantity");
+        let tx_hash = fixture_bytes(&case["receiptJson"]["txHash"])
+            .try_into()
+            .expect("transaction hash");
+        let evidence = VerifiedLegEvidence {
+            action_key: tx_hash,
+            activity_id: receipt.activity_id(),
+            canonical_receipt: signed.clone(),
+            receipt_digest: Sha256::digest(&signed).into(),
+            authorised_batch: batch,
+            tx_hash,
+            block_height: height,
+            rung: Rung::Receipted,
+            signed_receipt: signed,
+            receipt_key: key,
+            inclusion_height: height,
+        };
+        (evidence, fixture_bytes(&case["rawTransaction"]))
+    }
+
+    #[test]
+    fn golden_evidence_verifier_round_trip() {
+        let (evidence, raw) = recorded_receipt();
+        let id = format!("evd_{}", hex(&evidence.receipt_digest));
+        let material = super::super::ProductionComponents::managed_receipt_material(&id, &evidence)
+            .expect("real evidence producer");
+        assert_eq!(
+            material,
+            golden("evidence.get.response.json")["body"]["result"]
+        );
+        let schema = ApiSchema::v1().expect("schema");
+        schema
+            .encode_response(
+                schema.operation("evidence.get").expect("operation"),
+                &material,
+            )
+            .expect("transport schema");
+        let bytes = STANDARD
+            .decode(material["bytes_base64"].as_str().expect("base64"))
+            .expect("material bytes");
+        let key = &evidence.receipt_key;
+        let pins = [SequencerAuthorization::new(
+            key.key_id,
+            key.public_key,
+            key.first_height,
+            key.last_height,
+        )];
+        let portable = PortableReceiptV2::from_json(&bytes).expect("portable consumer");
+        assert_eq!(portable.to_json().expect("stable codec"), bytes);
+        let verified =
+            PortableReceiptV2::verify_json(&bytes, &pins).expect("real verifier round trip");
+        assert_eq!(verified.signed_receipt(), evidence.signed_receipt);
+        assert_eq!(verified.activity_id(), evidence.tx_hash);
+        assert_eq!(verified.inclusion_height(), evidence.inclusion_height);
+        assert_eq!(verified.receipt_key(), &pins[0]);
+        let bound = PortableReceiptV2::export_with_transaction(
+            &evidence.signed_receipt,
+            &pins[0],
+            evidence.inclusion_height,
+            &raw,
+        )
+        .expect("bind recorded transaction");
+        assert_eq!(
+            bound
+                .verify_v2(&pins)
+                .expect("transaction verifier")
+                .raw_transaction(),
+            Some(raw.as_slice())
+        );
+        let wrong_key = [SequencerAuthorization::new(
+            key.key_id,
+            [0xff; 32],
+            key.first_height,
+            key.last_height,
+        )];
+        assert!(portable.verify_v2(&wrong_key).is_err());
+        assert!(PortableReceiptV2::from_json(b"{").is_err());
+        assert!(STANDARD.decode("not base64!").is_err());
+        let mut tampered = evidence.clone();
+        let last = tampered.signed_receipt.len() - 1;
+        tampered.signed_receipt[last] ^= 1;
+        tampered.canonical_receipt = tampered.signed_receipt.clone();
+        tampered.receipt_digest = Sha256::digest(&tampered.signed_receipt).into();
+        let tampered_id = format!("evd_{}", hex(&tampered.receipt_digest));
+        assert!(
+            super::super::ProductionComponents::managed_receipt_material(&tampered_id, &tampered)
+                .is_err()
+        );
+        assert!(
+            super::super::ProductionComponents::managed_receipt_material(
+                &format!("evd_{}", hex(&[0; 32])),
+                &evidence
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn golden_current_activity_projections() {
+        let (evidence, _) = recorded_receipt();
+        let root =
+            std::env::temp_dir().join(format!("audit-golden-receipt-{}", std::process::id()));
+        let principal = PrincipalId::new("golden-receipt").expect("principal");
+        let tenancy = TenancyMap::new([(
+            principal.clone(),
+            AgentTenantId::new("golden-receipt").expect("tenant"),
+        )])
+        .expect("tenancy");
+        let tenancy_digest = tenancy.install(&root).expect("install tenancy");
+        let period = RetentionPeriod::new(86_400);
+        let retention = RetentionPolicy {
+            journeys: period,
+            notifications: period,
+            audit: period,
+            telemetry: period,
+            cache: period,
+        };
+        let mut store = PrincipalStore::open(&root, retention, tenancy_digest).expect("store");
+        let mut scope = store.principal(&principal).expect("scope");
+        let expected_entry = golden("activity.entry.response.json")["body"]["result"].clone();
+        let expected_export =
+            golden("activity.export.evidence.response.json")["body"]["result"].clone();
+        let occurred_at = crate::time::seconds_from_rfc3339(
+            expected_entry["occurred_at"].as_str().expect("occurred at"),
+        )
+        .expect("timestamp");
+        let now = crate::time::seconds_from_rfc3339(
+            expected_export["created_at"].as_str().expect("created at"),
+        )
+        .expect("timestamp");
+        let id = ActivityEntryId::new("act_receiptgolden").expect("entry id");
+        let descriptor = AgentActivity::new(
+            id.clone(),
+            ActivityKind::Movement,
+            None,
+            occurred_at,
+            PendingStatus::Processing,
+            VerifiedStatus::Done,
+        )
+        .expect("activity");
+        let reference = hex(&evidence.receipt_digest);
+        let delivery = EventDelivery::new(
+            EventIdentity::new([0x29; 32]),
+            evidence.canonical_receipt.clone(),
+            Cursor {
+                block_height: evidence.block_height,
+                tx_index: 0,
+                log_index: 0,
+            },
+            ReceiptReference::Verified {
+                receipt_ref: ReceiptRef::new(reference.as_str()).expect("reference"),
+                rung: evidence.rung,
+            },
+        )
+        .expect("recorded receipt event");
+        Feed::record_agent_event(&mut scope, &descriptor, &delivery, now)
+            .expect("durable feed producer");
+        let entry = Feed::entry(&scope, &id).expect("feed").expect("entry");
+        let verified = verify(&evidence.canonical_receipt, &evidence.authorised_batch)
+            .expect("receipt verifier");
+        let actual =
+            crate::activity::detail::ReceiptActual::from_verified(&verified).expect("actuals");
+        let assets = layerx_network_gateway::decode_assets(&json!({"height":"1000","joined_limit":"16","assets":[{"asset_id":hex(&actual.asset()),"kind":"bank","symbol":"HPX","decimals":"18"}]})).expect("asset catalog");
+        let detail = EntryDetail::assemble(&entry, vec![actual], None).expect("detail assembler");
+        let fact =
+            EvidenceBundle::receipt_fact(&id, evidence.canonical_receipt.clone(), evidence.rung)
+                .expect("receipt fact");
+        let keys = [evidence.receipt_key.clone()];
+        let label = verification_label(&verification_status(EvidenceBundle::verify_receipt(
+            &fact, &keys,
+        )))
+        .expect("verified label");
+        let value = activity_detail_json(
+            &entry,
+            &detail,
+            &BTreeMap::from([(reference, label)]),
+            Some(&assets),
+        )
+        .expect("activity route producer");
+        assert_eq!(value, expected_entry);
+        let (bundle, _) = EvidenceExport::new(Feed::new(60).expect("feed"), 1_048_576)
+            .expect("exporter")
+            .evidence(
+                &scope,
+                &Feed::apply_filters(FilterDraft::new()).expect("filters"),
+                &[id],
+                vec![ReceiptExport {
+                    receipts: vec![fact],
+                    inclusions: Vec::new(),
+                    derived_aggregates: Vec::new(),
+                }],
+                &keys,
+                now,
+                evidence.block_height,
+            )
+            .expect("production export path");
+        let bytes = bundle.encode().expect("production bundle codec");
+        assert_eq!(
+            bytes.as_slice(),
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../schema/human-api/golden/current/activity.evidence.bundle"
+            ))
+            .as_slice()
+        );
+        let digest = Sha256::digest(&bytes).into();
+        let decoded = EvidenceBundle::decode(&bytes).expect("bundle consumer");
+        let verification = verification_label(&verification_status(
+            decoded.verify(digest, &principal, &keys),
+        ))
+        .expect("bundle verifier");
+        let references = vec![
+            json!({"evidence_id":format!("evd_{}", hex(&evidence.receipt_digest)),"class":"layerx-receipt","verification":verification}),
+        ];
+        let export = super::super::production_components::cache_activity_export(
+            &mut scope, bytes, true, references, now,
+        )
+        .expect("export route producer");
+        assert_eq!(export, expected_export);
+        let schema = ApiSchema::v1().expect("schema");
+        for (operation, value) in [
+            ("activity.entry", &value),
+            ("activity.export.evidence", &export),
+        ] {
+            schema
+                .encode_response(schema.operation(operation).expect("operation"), value)
+                .expect("transport schema");
+            let serialized = serde_json::to_vec(value).expect("JSON transport");
+            assert_eq!(
+                serde_json::from_slice::<Value>(&serialized).expect("JSON consumer"),
+                *value
+            );
+            for retired in ["paxeer-finality", "paxeer-finalised"] {
+                assert!(!String::from_utf8_lossy(&serialized).contains(retired));
+            }
+        }
+        drop(scope);
+        drop(store);
+        std::fs::remove_dir_all(root).expect("remove private store");
+    }
+
+    #[test]
+    fn golden_retired_binding_producer_equivalence() {
+        let failure = ApiFailure::operation_retired();
+        for operation in [
+            "binding.rebind.action",
+            "binding.rebind",
+            "binding.statement",
+            "binding.status",
+            "binding.submit",
+        ] {
+            let fixture = golden(&format!("{operation}.failure.json"));
+            assert_eq!(fixture["status"], failure.status);
+            assert_eq!(fixture["body"]["ok"], false);
+            assert_eq!(fixture["body"]["error"], failure.envelope());
+            assert_eq!(failure.retry_after_ms, None);
+            assert_eq!(failure.field, None);
+        }
+    }
+}

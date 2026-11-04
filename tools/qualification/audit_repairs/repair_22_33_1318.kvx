@@ -1,0 +1,38 @@
+[task.22.33.1318]
+base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+seed_revision = "5e7d4aaa3d48cca0326ee1fd40bc4fafa28fc2ec"
+repair = "Preserve the prior README setup and qualification repairs and Node example test. Remove the withdrawn Rust test, replace its obsolete Cargo and Node wiring requests with the corrected offline Python documentation proof, and map the finding to that proof."
+proof = "Read the actual README, all four beta profiles and package scripts, the application manifest, the paid API offer/key consumer, the runtime receipt resolver and the qualification entry point. Compare documented RPC roots, environment-variable names, launch commands, x402 offer, pinned-key fields, receipt states and historical emulator limitations with those committed sources."
+proof_limit = "Source-level doc-drift proof only: Node, Rust and native chain execution, cryptographic verification, loopback transport and deployed economic outcomes are not executed by this gate. The existing Node test is retained unchanged as supplemental coverage; its runtime behavior is not claimed by the Python gate. No restart-recovery or interface-mismatch finding applies. No environment variable, credential, live endpoint, subprocess toolchain, native artifact or device is required."
+baseline = "Attempt 1's recorded Cargo verify exited 101 because the platform manifest is a virtual workspace without the named test target; this pre-existing gate defect is corrected by the supplied attempt-2 ruling. Initial status and diff contained the seeded README, repair record, Node test and Rust test plus runner-owned bookkeeping, which was preserved. This attempt began with zero builds/verifies and no /out/run/gates.jsonl. No unchanged-tree baseline verification was run: the implementation-first and wrapper-only gate order supersedes that older clause, and no pre-change Python test failures are claimed."
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The revision field in the final hf-done JSON and final verify entry in /out/run/gates.jsonl."
+evidence = "The runner records exact revision, command, exit code and private log location; build and verify must pass on the same candidate revision. Finalize this record before the gates: embedding its own content-derived revision would change that revision. The final hf-done JSON names the verified revision and is copied into the final response. No pass is claimed before that result. The runner owns commit/publication."
+wiring_requests = []
+
+[finding.examples-authority-doc]
+audit = "22.30.70"
+file = "services/platform/examples/README.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+acceptance = "22998.1"
+resolution = "Setup lists per-application beta rpcUrl and receiptKeysEnvironment and root-path native JSON-RPC. Paid API guidance covers the eip155:125 x402 offer, independently pinned receipt keys and distinct pending, unknown and refused outcomes. Qualification explicitly selects beta and identifies the retained emulator setup and default as historical."
+tests = ["test_examples_authority_doc_matches_per_application_profiles", "test_examples_authority_doc_matches_paid_offer_and_pinned_key_consumer", "test_examples_authority_doc_distinguishes_receipt_states", "test_examples_authority_doc_separates_beta_qualification_from_history", "test_examples_authority_doc_repair_record_maps_proofs_and_evidence"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Follow repository UTF-8, LF, final-newline and trailing-whitespace conventions for touched files; preserve the supplied README and Node test."
+
+[gotcha.1]
+observed = "The former unchanged-tree verification instruction conflicts with the implementation-first, wrapper-only gate order; the supplied continuation withdraws the Rust proof and its wiring requests."
+resolution = "Use only hf-build followed by hf-done on the finalized candidate; record the supplied prior failure without rerunning it. GOTCHA.kvx and spec files are outside scope, so retain task notes here."
+
+[gotcha.2]
+observed = "Broad ledger/context reads exceed output limits, graph searches returned no source candidates, and this attempt has no earlier gates.jsonl."
+resolution = "Use bounded direct reads of the named task files and rg for source lookup; create no substitute evidence and let the gate wrappers write the ledger."
+
+[gotcha.3]
+observed = "Verify 1 at a79ab33385d5a53956ac917935048b92ab42fe4f exited 1 (/out/logs/verify-1.log): the new launch-script assertion incorrectly assumed --environment beta was the final argument, but marketplace appends --action deploy."
+resolution = "Assert the entire exact Node launch argument list for every application, including marketplace's deploy action; retain all profile and documented-command assertions. Rerun hf-build and hf-done on the repaired candidate."

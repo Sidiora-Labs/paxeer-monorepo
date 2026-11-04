@@ -14,7 +14,10 @@ pub use event::{
     ApprovalOutcome, AuditEvent, AuthMethod, Decision, IdentityEvent, JourneyKind, JourneyState,
     NotificationChannel, NotificationClass, SecurityChangeKind, SigningOperation, StepUpEvidence,
 };
-pub use export::{verify_export, ExportReport};
+pub use export::{
+    verify_export, verify_export_anchored, ExportReport, EXPORT_IMPORT_MAX_BYTES,
+    EXPORT_IMPORT_MAX_ENTRIES, EXPORT_IMPORT_MAX_EVIDENCE_ROWS,
+};
 
 use std::fmt::{Display, Formatter};
 
@@ -280,7 +283,16 @@ fn decode_entry(bytes: &[u8]) -> Result<EntryBody, AuditError> {
     let trace = TraceId::parse(trace_text)?;
     let event = AuditEvent::decode(&mut reader)?;
     let count = reader.length()?;
+    // Each binding needs a table byte, a key frame and a digest.
+    if count > reader.remaining() / (1 + 4 + 32) {
+        return Err(AuditError::Corrupt(
+            "evidence binding count exceeds framed bytes",
+        ));
+    }
     let mut evidence = Vec::new();
+    evidence
+        .try_reserve_exact(count)
+        .map_err(|_| AuditError::SizeOverflow)?;
     for _ in 0..count {
         let table = table_from_code(reader.byte()?)?;
         let key_text = std::str::from_utf8(reader.bytes()?)
@@ -517,8 +529,10 @@ impl AuditChain {
         Ok(entries)
     }
 
-    /// Exports the chain with every referenced evidence row as one bundle
-    /// verifiable by [`verify_export`] independently of this plane.
+    /// Exports the chain with every referenced evidence row as one bundle.
+    /// Use [`verify_export`] for internal consistency, or
+    /// [`verify_export_anchored`] with an independently authenticated principal
+    /// and head for authenticity and completeness.
     ///
     /// # Errors
     ///

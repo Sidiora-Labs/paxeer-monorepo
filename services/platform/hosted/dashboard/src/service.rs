@@ -8,6 +8,7 @@ use crate::gateway::Store;
 use crate::model::{
     DeliverySummary, KeyView, Overview, PaymentView, ReceiptView, RequestRecord, UsageSummary,
 };
+use crate::receipts::ReceiptReader;
 
 pub const MAXIMUM_PAGE: usize = 200;
 pub const OVERVIEW_PAGE: usize = 20;
@@ -15,6 +16,7 @@ pub const OVERVIEW_PAGE: usize = 20;
 pub struct Dashboard {
     gateway: Store,
     webhooks: HostedReader,
+    receipts: ReceiptReader,
 }
 
 impl Dashboard {
@@ -25,6 +27,7 @@ impl Dashboard {
         Ok(Self {
             gateway: Store::from_environment()?,
             webhooks: HostedReader::from_environment()?,
+            receipts: ReceiptReader::from_environment()?,
         })
     }
 
@@ -67,57 +70,9 @@ impl Dashboard {
         &self,
         principal: &Principal,
         activity_id: &str,
-        now: u64,
+        _now: u64,
     ) -> Result<ReceiptView, DashboardError> {
-        if activity_id.len() != 64 || !activity_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-            return Err(DashboardError::InvalidRequest);
-        }
-        let activity_id = activity_id.to_ascii_lowercase();
-        let snapshot = self.webhooks.snapshot(principal, now, MAXIMUM_PAGE)?;
-        let event = snapshot
-            .events
-            .iter()
-            .filter(|event| event.kind() == EventKind::Payment)
-            .find(|event| {
-                event.facts().iter().any(|fact| {
-                    fact.name() == "activity_id"
-                        && fact.value() == activity_id.as_str()
-                        && fact.verification().at_least(
-                            layerx_platform_webhooks::events::Verification::ReceiptVerified,
-                        )
-                        && fact.receipt_digest().is_some()
-                })
-            })
-            .ok_or(DashboardError::UnknownReceipt)?;
-        let payment = PaymentView::of(event);
-        let receipt_digest = payment
-            .receipt_digest
-            .clone()
-            .ok_or(DashboardError::UnknownReceipt)?;
-        let activity = event
-            .facts()
-            .iter()
-            .find(|fact| fact.name() == "activity_id" && fact.value() == activity_id.as_str())
-            .filter(|fact| fact.receipt_digest() == Some(receipt_digest.as_str()))
-            .ok_or(DashboardError::UnknownReceipt)?;
-        if !payment.settled {
-            return Err(DashboardError::UnknownReceipt);
-        }
-        let verification = if activity
-            .verification()
-            .at_least(payment.settlement_verification)
-        {
-            payment.settlement_verification
-        } else {
-            activity.verification()
-        };
-        Ok(ReceiptView {
-            activity_id,
-            event: event.id().as_str().to_owned(),
-            receipt_digest,
-            verification,
-            settled: true,
-        })
+        self.receipts.receipt(principal, activity_id)
     }
 
     /// # Errors

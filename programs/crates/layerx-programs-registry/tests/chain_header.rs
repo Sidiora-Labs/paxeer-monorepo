@@ -228,7 +228,7 @@ fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
         (1, bytes_field(2, b"")),
         (2, vec![0x18, 0]),
         (2, scalar_field(3, u64::MAX)),
-        (10, bytes_field(11, &[0; 31])),
+        (7, bytes_field(8, &[0; 31])),
     ] {
         let mut fields = wire_fields(&header);
         fields[index] = value;
@@ -237,8 +237,8 @@ fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
             Err(ChainProofError::NonCanonical)
         );
     }
-    for number in 6..=13 {
-        for length in [0, 31, 33] {
+    for number in [6, 7, 8, 9, 10, 12, 13] {
+        for length in [31, 33] {
             let mut fields = wire_fields(&header);
             fields[usize::from(number - 1)] = bytes_field(number, &vec![0; length]);
             assert_eq!(
@@ -246,14 +246,43 @@ fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
                 Err(ChainProofError::NonCanonical)
             );
         }
+        let mut fields = wire_fields(&header);
+        fields[usize::from(number - 1)] = bytes_field(number, &[]);
+        let decoded = ChainHeader::decode(&fields.concat());
+        if number == 8 {
+            assert_eq!(decoded, Err(ChainProofError::NonCanonical));
+        } else {
+            let accepted = decoded?;
+            assert_eq!(
+                wire_fields(&accepted)[usize::from(number - 1)],
+                bytes_field(number, &[])
+            );
+        }
+    }
+    // Go consensus treats AppHash as arbitrary bytes, including nil.
+    for length in [0, 31, 33] {
+        let mut fields = wire_fields(&header);
+        fields[10] = bytes_field(11, &vec![0; length]);
+        assert_eq!(
+            ChainHeader::decode(&fields.concat())?.app_hash,
+            vec![0; length]
+        );
     }
     for index in 0..14 {
         let mut fields = wire_fields(&header);
         fields[index].clear();
-        assert_eq!(
-            ChainHeader::decode(&fields.concat()),
-            Err(ChainProofError::NonCanonical)
-        );
+        if [0, 1, 2, 3, 4, 7, 13].contains(&index) {
+            assert_eq!(
+                ChainHeader::decode(&fields.concat()),
+                Err(ChainProofError::NonCanonical)
+            );
+        } else {
+            let decoded = ChainHeader::decode(&fields.concat())?;
+            assert_eq!(
+                wire_fields(&decoded)[index],
+                bytes_field(index as u8 + 1, &[])
+            );
+        }
         let mut fields = wire_fields(&header);
         let duplicate = fields[index].clone();
         fields[index].extend(duplicate);
@@ -335,7 +364,15 @@ fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
     invalid.height = 0;
     assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
     invalid = header.clone();
-    invalid.app_hash.pop();
+    invalid.validators_hash.pop();
     assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
     Ok(())
+}
+
+#[path = "support/repair_22_33_221.rs"]
+mod repair_22_33_221;
+
+#[test]
+fn go_bootstrap_headers_and_field_refusals() {
+    repair_22_33_221::header_bootstrap_test();
 }

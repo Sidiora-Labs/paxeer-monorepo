@@ -1,0 +1,138 @@
+[
+  {
+    "case": "healthy",
+    "status": 200,
+    "body": {
+      "healthy": true,
+      "metadata": {
+        "blocks": {
+          "healthy": true,
+          "latest_block": {
+            "db": {
+              "number": "100",
+              "timestamp": "2025-08-11 09:32:59Z"
+            },
+            "cache": {
+              "number": "101",
+              "timestamp": "2025-08-11 09:32:59Z"
+            },
+            "node": {
+              "number": "150"
+            }
+          }
+        }
+      },
+      "error": null
+    }
+  },
+  {
+    "case": "no_blocks",
+    "status": 500,
+    "body": {
+      "healthy": false,
+      "metadata": {
+        "blocks": {
+          "healthy": false,
+          "latest_block": {
+            "db": {
+              "number": "",
+              "timestamp": ""
+            },
+            "cache": {
+              "number": "",
+              "timestamp": ""
+            },
+            "node": {
+              "number": ""
+            }
+          },
+          "error": {
+            "code": 5002,
+            "message": "There are no blocks in the DB."
+          }
+        }
+      },
+      "error": {
+        "code": 5002,
+        "message": "There are no blocks in the DB."
+      }
+    }
+  },
+  {
+    "case": "stale",
+    "status": 500,
+    "body": {
+      "healthy": false,
+      "metadata": {
+        "blocks": {
+          "healthy": false,
+          "latest_block": {
+            "db": {
+              "number": "100",
+              "timestamp": "2025-08-11 08:32:59Z"
+            },
+            "cache": {
+              "number": "101",
+              "timestamp": "2025-08-11 08:32:59Z"
+            },
+            "node": {
+              "number": "150"
+            }
+          },
+          "error": {
+            "code": 5001,
+            "message": "There are no new blocks in the DB for the last 60 mins. Check the healthiness of the JSON RPC archive node or the DB."
+          }
+        }
+      },
+      "error": {
+        "code": 5001,
+        "message": "There are no new blocks in the DB for the last 60 mins. Check the healthiness of the JSON RPC archive node or the DB."
+      }
+    }
+  },
+  {
+    "case": "rollup",
+    "status": 200,
+    "body": {
+      "healthy": true,
+      "metadata": {
+        "blocks": {
+          "healthy": true,
+          "latest_block": {
+            "db": {
+              "number": "100",
+              "timestamp": "2025-08-11 09:32:59Z"
+            },
+            "cache": {
+              "number": "101",
+              "timestamp": "2025-08-11 09:32:59Z"
+            },
+            "node": {
+              "number": "150"
+            }
+          }
+        },
+        "batches": {
+          "healthy": true,
+          "latest_batch": {
+            "db": {
+              "number": "20",
+              "timestamp": "2025-08-11 09:32:59Z",
+              "average_batch_time": "12"
+            }
+          }
+        }
+      },
+      "error": null
+    }
+  },
+  {
+    "case": "media_worker",
+    "status": 200,
+    "body": {
+      "healthy": true,
+      "data": {}
+    }
+  }
+]

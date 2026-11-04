@@ -1,0 +1,23 @@
+[repair.22.33.294]
+finding = "qr_hash_transition"
+tests = ["repair-22-33-294.spec.ts::qrHashTransition", "repair-22-33-294.spec.ts::qrHashTransitionOnReopen"]
+change = "Bind each generated SVG to its destination hash and show loading until it matches the visible address."
+baseline = "Not run: the explicit implementation-first order and allowed gate sequence prohibit an unchanged-tree verify; no pre-change failure is claimed."
+wiring_requests = []
+prior_wiring = "Task 22.31.474, now done on the current base, repaired the out-of-scope AllowancesResult mismatch in apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:116."
+evidence = "The runner records the candidate revision, command, exit code and private log in its hf-build/hf-done ledger."
+qualification_finding = "The real qrcode Node entry defaults to text output; explicitly request SVG so the production component preserves its SVG contract in both runtimes."
+continuation_repair = "Wait for the real dialog to unmount and restore trigger focus after closing, then await its asynchronous reopen before asserting the loading state; preserve every loading and generated-destination assertion."
+lint_repair = "Decision 2528: register both unchanged assertion bodies as named test functions with literal string titles, satisfying valid-title and expect-expect without disabling either rule."
+
+lint_command = "cd apps/explorer && yarn eslint --fix ui/address/details/AddressQrCode.tsx ui/address/details/repair-22-33-294.spec.ts"
+lint_exit = 0
+lint_log = "/out/logs/repair-22-33-294-eslint.log"
+environment_note = "The sandbox initially has no explorer node_modules, so yarn eslint cannot start until the frozen dependency install completes."
+
+[qualification.22.33.294]
+revision = "f60b6e07f3e63fb6806158409a7d2e78bb9d7fdf"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The unchanged out-of-scope repair-22-33-299.spec.ts:116 fails TS2769 because coverage, partialAllowances, scanIssues and retry are missing; hf-done and the runtime tests did not run, and qualification remains pending the owning domain's repair."
