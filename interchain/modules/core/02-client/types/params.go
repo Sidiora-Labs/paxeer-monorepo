@@ -42,7 +42,7 @@ func (p Params) Validate() error {
 // ParamSetPairs implements params.ParamSet
 func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 	return paramtypes.ParamSetPairs{
-		paramtypes.NewParamSetPair(KeyAllowedClients, p.AllowedClients, validateClients),
+		paramtypes.NewParamSetPair(KeyAllowedClients, &p.AllowedClients, validateClients),
 	}
 }
 

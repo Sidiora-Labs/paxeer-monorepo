@@ -11,7 +11,7 @@
 // Reconnection and backoff are handled centrally inside graphqlClient.ts.
 
 import { useState, useEffect } from "react";
-import { subscribeStream } from "@/core/graphql/client";
+import { subscribeStream, type StreamSubscriptionOptions } from "@/core/graphql/client";
 import { PERFDB_GRAPHQL } from "@/core/perfdb/client";
 
 // ── Interfaces ─────────────────────────────────────────────────────────
@@ -41,26 +41,46 @@ const PRICE_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
-export function usePriceSubscription(marketId?: number) {
-  const [latestUpdate, setLatestUpdate] = useState<PriceUpdate | null>(null);
-  const [connected, setConnected] = useState(false);
+export type PerfdbConnectionStatus = "unavailable" | "connected" | "disconnected";
 
+type ObservableStreamOptions<T> = StreamSubscriptionOptions<T> & {
+  onStatus: (connected: boolean) => void;
+};
+
+function usePerfdbStream<T, P>(marketId: number | undefined, query: string, pick: (data: T) => P) {
+  const [state, setState] = useState<{
+    marketId: number | undefined;
+    payload: P | null;
+    connectionStatus: PerfdbConnectionStatus;
+  }>({ marketId, payload: null, connectionStatus: "unavailable" });
   useEffect(() => {
-    const variables = marketId !== undefined ? { marketId } : undefined;
-    const unsub = subscribeStream<{ priceUpdated: PriceUpdate }>({
+    let active = true;
+    setState({ marketId, payload: null, connectionStatus: "unavailable" });
+    const options: ObservableStreamOptions<T> = {
       endpoint: PERFDB_GRAPHQL,
-      query: PRICE_SUBSCRIPTION,
-      variables,
-      onData: (data) => {
-        setConnected(true);
-        setLatestUpdate(data.priceUpdated);
+      query,
+      variables: marketId !== undefined ? { marketId } : undefined,
+      onData: data => {
+        if (active) setState(previous => ({ ...previous, payload: pick(data) }));
       },
-      onError: () => setConnected(false),
-    });
-    return unsub;
-  }, [marketId]);
+      onStatus: connected => {
+        if (active) setState(previous => ({ ...previous, connectionStatus: connected ? "connected" : "disconnected" }));
+      },
+      onError: () => {
+        if (active) setState(previous => ({ ...previous, connectionStatus: "disconnected" }));
+      },
+    };
+    const unsubscribe = subscribeStream(options);
+    return () => { active = false; unsubscribe(); };
+  }, [marketId, query, pick]);
+  const visible = state.marketId === marketId ? state : { payload: null, connectionStatus: "unavailable" as const };
+  return { ...visible, connected: visible.connectionStatus === "connected" };
+}
 
-  return { latestUpdate, connected };
+const pickPrice = (data: { priceUpdated: PriceUpdate; }) => data.priceUpdated;
+export function usePriceSubscription(marketId?: number) {
+  const { payload, connected, connectionStatus } = usePerfdbStream(marketId, PRICE_SUBSCRIPTION, pickPrice);
+  return { latestUpdate: payload, connected, connectionStatus };
 }
 
 // ── Trade Subscription ─────────────────────────────────────────────────
@@ -77,24 +97,8 @@ const TRADE_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
+const pickTrade = (data: { tradeExecuted: TradeUpdate; }) => data.tradeExecuted;
 export function useTradeSubscription(marketId?: number) {
-  const [latestTrade, setLatestTrade] = useState<TradeUpdate | null>(null);
-  const [connected, setConnected] = useState(false);
-
-  useEffect(() => {
-    const variables = marketId !== undefined ? { marketId } : undefined;
-    const unsub = subscribeStream<{ tradeExecuted: TradeUpdate }>({
-      endpoint: PERFDB_GRAPHQL,
-      query: TRADE_SUBSCRIPTION,
-      variables,
-      onData: (data) => {
-        setConnected(true);
-        setLatestTrade(data.tradeExecuted);
-      },
-      onError: () => setConnected(false),
-    });
-    return unsub;
-  }, [marketId]);
-
-  return { latestTrade, connected };
+  const { payload, connected, connectionStatus } = usePerfdbStream(marketId, TRADE_SUBSCRIPTION, pickTrade);
+  return { latestTrade: payload, connected, connectionStatus };
 }

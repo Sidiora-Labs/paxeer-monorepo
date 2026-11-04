@@ -39,18 +39,43 @@ var (
 )
 
 func getSDKVersion() string {
-	deps, ok := debug.ReadBuildInfo()
+	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return "unable to read deps"
+		return "unavailable"
 	}
-	var sdkVersion string
-	for _, dep := range deps.Deps {
-		if dep.Path == "github.com/Sidiora-Labs/Paxeer-X-Network/sdk" {
-			sdkVersion = dep.Version
+	return sdkVersionFromBuildInfo(info)
+}
+
+func sdkVersionFromBuildInfo(info *debug.BuildInfo) string {
+	const modulePath = "github.com/Sidiora-Labs/Paxeer-X-Network"
+	if info == nil {
+		return "unavailable"
+	}
+	module := &info.Main
+	if module.Path != modulePath {
+		module = nil
+		for _, dep := range info.Deps {
+			if dep.Path == modulePath {
+				module = dep
+				break
+			}
 		}
 	}
-
-	return sdkVersion
+	if module == nil {
+		return "unavailable"
+	}
+	provenance := *module
+	if provenance.Version == "" {
+		provenance.Version = "unavailable"
+	}
+	if module.Replace != nil {
+		replacement := *module.Replace
+		if replacement.Version == "" {
+			replacement.Version = "unavailable"
+		}
+		provenance.Replace = &replacement
+	}
+	return buildDep{&provenance}.String()
 }
 
 // Info defines the application version information.

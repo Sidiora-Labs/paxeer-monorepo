@@ -4,7 +4,7 @@ import React from 'react';
 
 import type { SocketMessage } from 'lib/socket/types';
 import type { AddressFromToFilter, AddressTransactionsResponse } from 'types/api/address';
-import type { Transaction, TransactionsSortingValue } from 'types/api/transaction';
+import type { Transaction, TransactionsSorting, TransactionsSortingField, TransactionsSortingValue } from 'types/api/transaction';
 
 import config from 'configs/app';
 import { getResourceKey } from 'lib/api/useApiQuery';
@@ -12,6 +12,7 @@ import { useMultichainContext } from 'lib/contexts/multichain';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
+import getSortParamsFromValue from 'ui/shared/sort/getSortParamsFromValue';
 import getSortValueFromQuery from 'ui/shared/sort/getSortValueFromQuery';
 
 import { sortTxsFromSocket } from '../sortTxs';
@@ -53,7 +54,10 @@ export default function useTxsSocketTypeAddress({ isLoading }: Params) {
   const handleNewSocketMessage: SocketMessage.AddressTxs['handler'] = React.useCallback((payload) => {
     const queryKey = getResourceKey('general:address_txs', {
       pathParams: { hash: currentAddress },
-      queryParams: filterValue ? { filter: filterValue } : undefined,
+      queryParams: {
+        ...(filterValue ? { filter: filterValue } : {}),
+        ...getSortParamsFromValue<TransactionsSortingValue, TransactionsSortingField, TransactionsSorting['order']>(sort),
+      },
       chainId: chain?.id,
     });
     setShowErrorAlert(false);

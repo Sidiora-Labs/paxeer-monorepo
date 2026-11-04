@@ -46,7 +46,7 @@ export function useAccordion(id: AccordionId): [boolean, (open: boolean) => void
     const next = { ...snapshot(), [id]: open };
     const raw = JSON.stringify(next);
     try { window.localStorage.setItem(accordionStorageKey, raw); } catch { /* storage blocked: in-memory only */ }
-    cache = { raw: readRaw() ?? raw, state: next };
+    cache = { raw: readRaw(), state: next };
     for (const listener of listeners) listener();
   }, [id]);
   return [state[id], set];

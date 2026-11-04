@@ -43,6 +43,9 @@ func NewDecodeStore(cdc codec.BinaryCodec, kvA, kvB kv.Pair) (string, bool) {
 	case bytes.HasPrefix(kvA.Key, []byte(host.KeyPacketAckPrefix)):
 		return fmt.Sprintf("AckHash A: %X\nAckHash B: %X", kvA.Value, kvB.Value), true
 
+	case bytes.HasPrefix(kvA.Key, []byte(host.KeyPacketReceiptPrefix)):
+		return fmt.Sprintf("Receipt A: %X\nReceipt B: %X", kvA.Value, kvB.Value), true
+
 	default:
 		return "", false
 	}

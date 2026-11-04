@@ -16,7 +16,7 @@ from ..._models import BaseModel, construct_type_unchecked
 from ..._types import Headers, Query
 from ..._exceptions import ChainflowDataGatewayError, WebSocketConnectionClosedError
 from ..._send_queue import SendQueue
-from ..._base_client import _merge_mappings
+from ..._base_client import _merge_mappings, _redact_url, _redact_log_data
 from ..._event_handler import EventHandlerRegistry
 from ..._utils import path_template
 from ...types.websocket_connection_options import WebSocketConnectionOptions
@@ -586,9 +586,9 @@ class WebSocketsResourceConnectionManager:
         )
         self.__client._validate_headers(headers, extra_headers, params, cookies)
         url = url.copy_with(params=params)
-        log.debug("Connecting to %s", url)
+        log.debug("Connecting to %s", _redact_url(url))
         if self.__websocket_connection_options:
-            log.debug("Connection options: %s", self.__websocket_connection_options)
+            log.debug("Connection options: %s", _redact_log_data(self.__websocket_connection_options))
 
         return connect(
             str(url),
@@ -740,9 +740,9 @@ class AsyncWebSocketsResourceConnectionManager:
         )
         self.__client._validate_headers(headers, extra_headers, params, cookies)
         url = url.copy_with(params=params)
-        log.debug("Connecting to %s", url)
+        log.debug("Connecting to %s", _redact_url(url))
         if self.__websocket_connection_options:
-            log.debug("Connection options: %s", self.__websocket_connection_options)
+            log.debug("Connection options: %s", _redact_log_data(self.__websocket_connection_options))
 
         return await connect(
             str(url),
