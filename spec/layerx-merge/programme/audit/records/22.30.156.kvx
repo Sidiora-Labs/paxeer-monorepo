@@ -1,0 +1,629 @@
+# Pre-upgrade audit, decision 2515. Product findings and repair proposals only.
+
+[audit.22.30.156]
+task = "22.30.156"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 63
+findings = 15
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["committed_without_inclusion"]
+requirements_reviewed = ["22108.1", "22078.1", "14244.1", "181089.1"]
+interfaces_reviewed = ["4.sevt-erc721base-approval-8c5be1e5", "4.sevt-erc721base-approvalforall-17307eab", "4.sevt-upgradeablebeacon-upgraded-bc7cd75a", "4.sol-erc721base-supportsinterface-01ffc9a7", "4.sol-erc721enumerable-supportsinterface-01ffc9a7", "4.sol-erc721enumerable-tokenbyindex-4f6ccce7", "4.sol-erc721enumerable-tokenofownerbyindex-2f745c59", "4.sol-erc721enumerable-totalsupply-18160ddd", "4.sol-ierc721receiver-onerc721received-150b7a02", "4.sol-sidioranft-supportsinterface-01ffc9a7", "4.sol-upgradeablebeacon-implementation-5c60da1b", "6.err-rev-lxp-insufficient-balance", "6.sevt-erc721-approval-8c5be1e5", "6.sol-cw721erc721pointer-balanceof-70a08231", "6.sol-cw721erc721pointer-supportsinterface-01ffc9a7", "6.sol-cw721erc721pointer-totalsupply-18160ddd", "6.sol-erc721-balanceof-70a08231", "6.sol-erc721-safetransferfrom-42842e0e", "6.sol-erc721-supportsinterface-01ffc9a7", "6.sol-erc721-totalsupply-18160ddd", "6.sol-ierc165-supportsinterface-01ffc9a7", "6.sol-ierc721-balanceof-70a08231", "6.sol-ierc721-safetransferfrom-42842e0e", "6.sol-ierc721receiver-onerc721received-150b7a02", "7.rpc-eth-blocknumber", "7.rpc-eth-getblockbynumber", "7.rpc-eth-getstorageat", "7.rpc-eth-gettransactionbyhash", "7.rpc-eth-gettransactionreceipt", "8.fmt-sdk-fixture-sequencer-receipt-v1"]
+requirement_review = "22078.1/181089.1: sequencer case membership and canonical payload agree, with only a local source provenance property added. 14244.1: three R7/R8 branches are represented but positive finality has a high gap. 22108.1: no manifest/lock belongs to this slice; compiler archives cannot establish alert closure. Audit qualification makes no claim that consuming runtime suites or frozen installs ran."
+interface_review_domain4 = "All 11 domain-4 rows compared with ERC721Base, ERC721Enumerable, SidioraNFT, UpgradeableBeacon and upstream samples. Approval has three indexed fields; ApprovalForAll has two indexed addresses plus bool data; Upgraded has one indexed address. ERC165 is bytes4->bool; enumeration uses uint256 and address/uint256 inputs; receiver is address/address/uint256/bytes->bytes4; beacon returns address. Selectors/encodings agree. Registry matches in flattened samples are independent same-named declarations, not live launchpad calls; their business logic/errors/lifecycle make no launchpad assertion."
+interface_review_domain6 = "All 13 domain-6 rows compared with contracts/src/ERC721.sol, CW721ERC721Pointer.sol and precompiles/common/lxp_errors.go. uint aliases encode uint256; balanceOf, totalSupply, supportsInterface, safeTransferFrom, onERC721Received and NFT Approval use registered ABI widths/indexing/selectors. Flattened samples have no transport to deployed CW721 pointers. V3 refusal spelling LXP_INSUFFICIENT_BALANCE agrees with the -400 kernel code; no encoding disagreement found."
+interface_review_domain7 = "Five RPC rows compared with rpc/info.go, block.go, state.go and tx.go and explorer consumers. Height/status/gas are hex quantities, hashes 32-byte data, fullTx selects objects versus hashes, absent receipts return null, logs are arrays and storage is a 32-byte hex word. Historical Parity extensions are provenance, not node guarantees. The pending archive differs from open-block shape and committed corpus omits inclusion, as recorded. Immutable files own no restart cursor or transport authentication state."
+interface_review_domain8 = "8.fmt-sdk-fixture-sequencer-receipt-v1: embedded name, provenance, chainId, moduleId, feeDenom and 12 cases equal the source; receipt/raw transaction bytes, refusal codes and pin bounds agree. The local source field is provenance. Receipt pinning alone cannot establish validator-history trust or finality."
+lifecycle_review = "Price-feed captures followed into CosmosRest, PriceUpdates refresh/scan paths and PriceFeed persistence tests: null tx results, zero-tx pagination, failed/unavailable scans and refetched-height replacement have distinct representations. Market ABI matches price-feed producer and golden bytes. Committed reconstruction remains subject to the high evidence gap. Static fixture data owns no mutable tenant setting, growth loop, secret, timeout or recovery journal."
+review_basis = "Authored source/data reviewed with explicit generated/vendored exemption for imported genesis allocations, flattened upstream sources, compiler outputs and ExVCR captures. Package documentation read in full; supplemental generated contract pages reviewed at consumed-interface sections with their pinned-revision caveats."
+
+[file.01]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/chain_spec/foundation.json"
+lines = 1533
+verdict = "vendored"
+note = "Historical Foundation/Parity chain-spec snapshot: genesis engine, parameters, nodes and 411 accounts. Imported allocation bytecode is upstream data. Importer regression input, not chain-125 node configuration."
+
+[file.02]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/chain_spec/optimism_genesis.json"
+lines = 39
+verdict = "vendored"
+note = "Upstream Optimism genesis pinned by commit 373e1edbbaa2e2b5e7575eba1d3ac3c3431f5d15, chainId 10 and two allocations. Preserves geth genesis-importer coverage, not a merged-network default."
+
+[file.03]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/chain_spec/polygon_genesis.json"
+lines = 108
+verdict = "vendored"
+note = "Historical Polygon Edge/polybft nested genesis/params with local validator bootnodes and contract allocations. Preserved multi-chain importer snapshot; chainID 0 is fixture data, not live Paxeer configuration."
+
+[file.04]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/chain_spec/qdai_genesis.json"
+lines = 53
+verdict = "vendored"
+note = "Upstream Quorum/IBFT chainId 181 genesis with reward contract and three allocations. Non-Paxeer identities/system addresses belong to historical importer coverage, not live deployment."
+
+[file.05]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/chain_spec/zkatana_genesis.json"
+lines = 102
+verdict = "vendored"
+note = "Upstream zkEVM genesis with bytecode/storage allocations, root, Sepolia l1Config and genesisBlockNumber 4482328. Historical importer data, not an active merged bridge deployment."
+
+[file.06]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/comet_commit.json"
+lines = 227
+verdict = "generated"
+note = "Synthetic Comet crypto corpus: four equal-power Ed25519 signers versus two of four at height 1000, protobuf header/validator hashing and absent signatures. Suitable isolated quorum/encoding input; arbitrary data/app/result roots do not prove transaction inclusion."
+
+[file.07]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json"
+lines = 479
+verdict = "issues"
+note = "All three cases reviewed, including repeated receipt/header/validator payloads. Only ids and eth_receipt.blockNumber 1000/999/1001 differ. Requirement 14244.1 R7/R8 branches are represented, but committed_without_inclusion blocks the positive finality claim."
+
+[file.08]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/price_feed/block_results.json"
+lines = 1
+verdict = "generated"
+note = "Recorded Comet block_results height 37715713: one success with omitted protobuf zero fields and base64 event attributes decoded. Its 18 market observations agree with block_txs and finalize aggregates; decimal/null encodings match CosmosRest consumers."
+
+[file.09]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/price_feed/block_results_empty.json"
+lines = 1
+verdict = "generated"
+note = "Recorded height 37715716 with txs_results null and nonempty finalize_block_events carrying aggregates. Distinguishes zero submitted transactions from end-block output for empty-block and recovery scanning."
+
+[file.10]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/price_feed/block_txs.json"
+lines = 259
+verdict = "generated"
+note = "Recorded Cosmos REST hyperpax_125-1 block 37715713 MsgSubmitPrices: 18 observations, decimal u64/u128 values, signatures and raw transaction framing retained. Values agree with decoded Comet attributes and native price-feed event production."
+
+[file.11]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/price_feed/block_txs_empty.json"
+lines = 6
+verdict = "generated"
+note = "Recorded zero-transaction REST pagination error code 3 and empty details. CosmosRest intentionally distinguishes this empty-block response from transient/unavailable failures; it is not a successful transaction object."
+
+[file.12]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/price_feed/markets.json"
+lines = 23
+verdict = "generated"
+note = "Price-feed 0x1020 ABI captures: uint256 count 18 and dynamic Market(uint64,string,string,uint256,uint256,bool) tuples for ids 0..17. Offsets, symbols, words and flags agree with precompiles/pricefeed/abi/abi.json and PriceUpdates @abi; market 0 equals producer views_golden.json bytes. Perps getMarket is a separate interface."
+
+[file.13]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json"
+lines = 693
+verdict = "generated"
+note = "Embedded layerxproof corpus (three valid and three signature negatives) plus 12 sequencer conformance cases. Apart from the local source provenance key, the sequencer object equals sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, including membership and receipt/raw transaction bytes. Chain 125, hex quantities, pin bounds and V3 LXP_INSUFFICIENT_BALANCE refusal agree. Test keys are fixture identities, not production trust anchors."
+
+[file.14]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/ERC677.sol"
+lines = 1163
+verdict = "vendored"
+note = "Flattened Etherscan sample submitted 2020-04-14, Solidity 0.5.10 token/library verification input. ERC20 Approval indexing/data must not be conflated with three-indexed NFT Approval despite its shared event signature topic."
+
+[file.15]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/compiler_tests.json"
+lines = 24
+verdict = "generated"
+note = "Stored source/compiler/bytecode regression vectors with embedded source and compiled outputs. Generated verification artifacts, not dependency manifests or evidence of a qualified compiler/runtime upgrade."
+
+[file.16]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/contract_from_factory.sol"
+lines = 18
+verdict = "clean"
+note = "Read complete Factory/ContractFromFactory source: Solidity 0.4.26 createContract passes bytes32 name and stores child addresses. Isolated constructor/internal-create verification sample without external transport or retired dependencies."
+
+[file.17]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/contract_with_lib.json"
+lines = 13
+verdict = "generated"
+note = "Compiled library-link/source verification artifact for the Solidity 0.5.11 storage/library sample. Bytecode and link metadata are compiler outputs; historical version fidelity is intentional regression coverage."
+
+[file.18]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/contract_with_lib.sol"
+lines = 25
+verdict = "clean"
+note = "Read complete BadSafeMath/SimpleStorage source. Deliberately named BadSafeMath.add computes a+2*b as linked-library compiler input; getter/setter/increment paths consistently use this sample behavior. This is not a production arithmetic library."
+
+[file.19]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/home_bridge.sol"
+lines = 259
+verdict = "vendored"
+note = "Historical Solidity 0.5.8 ValidatorProxy/HomeBridge verification sample. Legacy system-address, validator and tx.origin behavior is preserved upstream source data, not the merged 0x1016 bridge implementation."
+
+[file.20]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/issue_3082.sol"
+lines = 594
+verdict = "vendored"
+note = "Historical flattened Solidity 0.5.10 distribution/ERC677 verification sample. Token amount events and interfaces describe upstream behavior, not current custody or launchpad deployment wiring."
+
+[file.21]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/issue_4758.sol"
+lines = 1718
+verdict = "vendored"
+note = "Austrian Post Crypto stamp 3.1 shop Etherscan sample submitted 2021-09-03. Flattened ERC165/ERC721 receiver/events retain standard ABI shapes; sale logic and compiler versions are historical verification inputs."
+
+[file.22]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/issue_5114.sol"
+lines = 686
+verdict = "vendored"
+note = "Flattened OpenZeppelin ^0.8.0 proxy/Beacon verification sample. implementation() address and Upgraded(indexed address) match registered beacon ABI; upstream revert/ownership semantics do not assert launchpad lifecycle."
+
+[file.23]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/issue_5127.sol"
+lines = 554
+verdict = "vendored"
+note = "Upstream source explicitly flattened with Hardhat v2.7.0, including pause/contract support. Historical verification input, not a manifest pin or active network dependency."
+
+[file.24]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/issue_5431.sol"
+lines = 28
+verdict = "clean"
+note = "Read complete Owner constructor-argument sample: int/uint256 parameters, deployer ownership, guarded changeOwner and indexed OwnerSet. Isolated verifier input with no external service state or network configuration."
+
+[file.25]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/issue_with_constructor_args.sol"
+lines = 573
+verdict = "vendored"
+note = "Flattened OpenZeppelin ^0.8.2 proxy/storage-slot verification sample. Constructor and delegatecall/storage behavior is retained historical source input, not qualification of a production upgrade."
+
+[file.26]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/large_smart_contract.sol"
+lines = 3874
+verdict = "vendored"
+note = "HomeWork/Home Etherscan sample submitted 2019-06-05, Solidity 0.5.9 optimizer/constantinople settings. Embedded ERC721 enumeration, Approval/ApprovalForAll, ERC165 and receiver declarations have standard registered ABI shapes; repeated names do not wire this application to SidioraNFT or CW721."
+
+[file.27]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/solc_bin.json"
+lines = 6035
+verdict = "vendored"
+note = "Upstream solc release catalog snapshot with binary build hashes, paths and release names. Historical compiler lookup data, not current network compiler selection or dependency-alert closure evidence."
+
+[file.28]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/solidity_0.5.9_smart_contract.sol"
+lines = 76
+verdict = "vendored"
+note = "Historical ^0.5.9 token sample, including intentionally empty Token interface-like bodies. balanceOf/totalSupply use uint256 ABI words; sample stubs are verification data, not active deployed implementations."
+
+[file.29]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/solidity_5.11_new_whisper_metadata.json"
+lines = 8
+verdict = "generated"
+note = "Stored verification artifact containing bytecode, source, compiler version/name and EVM version. Metadata-suffix fidelity is historical compiler matching input, not chain configuration."
+
+[file.30]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/solidity_5.11_new_whisper_metadata.sol"
+lines = 412
+verdict = "vendored"
+note = "Flattened FIXED token Etherscan sample submitted 2019-08-16, Solidity ^0.5.0 metadata regression coverage. Historical token/library source preserved for recompilation/matching rather than deployed network use."
+
+[file.31]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/smart_contract/standard_input.json"
+lines = 33
+verdict = "clean"
+note = "Read all standard JSON compiler input and embedded Owner source: uint112/address/bytes32 constructor, london target, literal-content metadata, optimizer 199 and ABI/bytecode/methodIdentifiers/AST outputs. Intentional compiler-input parser coverage, not network defaults."
+
+[file.32]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/block_importer_download_block_1_downloads_the_block.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: eth_getBlockByNumber returns block 0xc4f0d with 79 transaction hashes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.33]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/block_importer_import_1_duplicate_block.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: eth_getBlockByNumber returns block 0xc4f0d with 79 transaction hashes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.34]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/block_importer_import_1_pending.json"
+lines = 30
+verdict = "issues"
+note = "Generated 2018 Parity pending recording; request/response and seven transactions inspected. Mined hashes/stateRoot differ from merged open-block semantics; historical_pending_shape records the coverage gap without claiming a live cassette caller."
+
+[file.35]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/block_importer_import_1_saves_the_block.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: eth_getBlockByNumber returns block 0xc4f0d with 79 transaction hashes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.36]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/ethereumex_extensions_trace_transaction_1.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: trace_replayTransaction returns Parity action/result trace, 2 entries; trace namespace is not a merged-node RPC namespace. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.37]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_block_perform_1_duplicate.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 18: eth_getBlockByNumber returns block 0x1 with 0 full transaction objects. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.38]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_block_perform_1_earliest.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 17: eth_getBlockByNumber returns block 0x0 with 0 full transaction objects. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.39]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_block_perform_1_integer.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 19: eth_getBlockByNumber returns block 0x1 with 0 full transaction objects. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.40]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_block_perform_1_latest.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 4: eth_blockNumber returns hex height 0xead0d. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.41]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_block_perform_1_string.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 20: eth_getBlockByNumber returns block 0x1 with 0 full transaction objects. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.42]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_block_perform_later_1_latest.json"
+lines = 1
+verdict = "generated"
+note = "Generated ExVCR empty recording ([]), one physical line. No request/response, credential or RPC contract is encoded; it cannot independently prove merged-node behavior or recovery."
+
+[file.43]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_internal_transaction_perform_1.json"
+lines = 1
+verdict = "generated"
+note = "Generated ExVCR empty recording ([]), one physical line. No request/response, credential or RPC contract is encoded; it cannot independently prove merged-node behavior or recovery."
+
+[file.44]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_receipt_perform_1.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 15: eth_getTransactionReceipt returns mined receipt status 0x1, hex gas and 1 logs. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.45]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_skipped_blocks_perform_1.json"
+lines = 1
+verdict = "generated"
+note = "Generated ExVCR empty recording ([]), one physical line. No request/response, credential or RPC contract is encoded; it cannot independently prove merged-node behavior or recovery."
+
+[file.46]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/import_transaction_perform_1.json"
+lines = 1
+verdict = "generated"
+note = "Generated ExVCR empty recording ([]), one physical line. No request/response, credential or RPC contract is encoded; it cannot independently prove merged-node behavior or recovery."
+
+[file.47]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/internal_transaction_importer_import_1.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: trace_replayTransaction returns Parity action/result trace, 2 entries; trace namespace is not a merged-node RPC namespace. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.48]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/internal_transaction_importer_import_1_from_core-trace.json"
+lines = 1
+verdict = "generated"
+note = "Generated ExVCR empty recording ([]), one physical line. No request/response, credential or RPC contract is encoded; it cannot independently prove merged-node behavior or recovery."
+
+[file.49]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/internal_transaction_importer_import_1_with_contract_creation.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: trace_replayTransaction returns Parity action/result trace, 1 entries; trace namespace is not a merged-node RPC namespace. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.50]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_binds_internal_transactions.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: eth_getTransactionByHash returns mined legacy transaction with from/to addresses, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.51]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_creates_a_from_address.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 1: eth_getTransactionByHash returns mined legacy transaction with null to/creates contract address, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.52]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_creates_a_to_address.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 8: eth_getTransactionByHash returns mined legacy transaction with null to/creates contract address, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.53]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_creates_a_to_address_from_creates.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 5: eth_getTransactionByHash returns mined legacy transaction with null to/creates contract address, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.54]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_download_transaction.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 3: eth_getTransactionByHash returns mined legacy transaction with null to/creates contract address, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.55]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_download_transaction_with_a_bad_hash.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 7: eth_getTransactionByHash returns -32602 invalid hash/params error, with historical Parity wording. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.56]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_import_1_failed.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 29: eth_getTransactionReceipt returns mined receipt status 0x0, hex gas and 0 logs. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.57]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_import_1_out_of_gas.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 32: eth_getTransactionReceipt returns mined receipt status 0x0, hex gas and 0 logs. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.58]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_import_1_pending.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 26: eth_getTransactionReceipt returns null receipt for an unmined/pending transaction. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.59]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_import_1_receipt.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 27: eth_getTransactionReceipt returns mined receipt status 0x1, hex gas and 1 logs. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.60]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_import_saves_the_transaction.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 0: eth_getTransactionByHash returns mined legacy transaction with null to/creates contract address, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.61]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_saves_the_association.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 2: eth_getTransactionByHash returns mined legacy transaction with from/to addresses, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.62]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_transaction_without_block.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 4: eth_getTransactionByHash returns mined legacy transaction with null to/creates contract address, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[file.63]
+path = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/transaction_importer_updates_the_association.json"
+lines = 30
+verdict = "generated"
+note = "Generated historical .poa.network/Parity ExVCR HTTP capture, HTTP 200 and matching JSON-RPC id 6: eth_getTransactionByHash returns mined legacy transaction with null to/creates contract address, hex quantities and signature bytes. Recorded origin/expired cookie are upstream metadata, not configured RPC or current credentials. This is not merged transport/finality qualification."
+
+[finding.committed_without_inclusion]
+file = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json"
+line = 40
+class = "test-gap"
+severity = "high"
+observed = "committed-ok combines V1-pax-transfer with a five-field eth_receipt, caller-supplied batch range 1..4 and the independent four_of_four synthetic header at height 1000. Header data_hash, app_hash and last_results_hash contain repeated 04, 06 and 07 bytes; no transaction, batch or execution-result inclusion witness is present. SequencerReceipt.committed/4 and r7/4 compare receipt fields, range and height, while CometCommit.verify/3 authenticates only the supplied header and validator set. committed_vectors_test.exs expects committed, and status_committed_test.exs promotes an unindexed hash even when the indexed committed head is absent. The positive fixture endorses finality without binding this transaction to the committed block."
+expected = "A receipt is final when its own block is committed. Matching a height and an unauthenticated sequence interval does not establish inclusion or independently trusted chain identity. Requirement 14244.1 freezes three R7/R8 outcomes, but brief facts 1 and 7 and docs/site/docs/agents/sdk-verification.md require authenticated execution evidence for the positive outcome."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex and comet_commit.ex, bind the transaction and execution result to its authenticated committed block and trusted validator history before returning committed. Replace the positive committed_vectors.json case with same-execution evidence, using daemon/committed-fixture V4 as a reference, and extend committed_vectors_test.exs and status_committed_test.exs with unrelated valid headers, altered ranges, wrong block identities and reconstruction cases. Preserve R7/R8 rejection coverage and coordinate required node proof transport with domain 7."
+owner_domain = 14
+interface = "7.rpc-eth-gettransactionreceipt"
+
+[finding.historical_pending_shape]
+file = "services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes/block_importer_import_1_pending.json"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "This generated February 2018 Parity capture requests eth_getBlockByNumber(pending,true) but returns non-null hash and stateRoot, a numbered block and seven transactions with mined blockHash/blockNumber/index fields. The declared pending-block contract says an open pending block never claims a hash or stateRoot. No current use_cassette reference to this named recording was found; this is a coverage gap, not demonstrated current runtime corruption."
+expected = "Historical upstream import samples must be distinguishable from merged-node conformance evidence. Fixtures for the declared open-block RPC path must represent the actual producer and exercise the transition to committed state."
+proposal = "In services/explorer/backend/apps/explorer/test/support/fixture/vcr_cassettes, label this capture as historical Parity evidence and preserve its regression purpose. Add separate producer captures from rpc/block.go pendingBlock and consume them through the explorer block decoder, including fullTx selection and commit/restart transition, before relying on cassette coverage to qualify merged pending imports."
+owner_domain = 14
+interface = "7.rpc-eth-getblockbynumber"
+
+[finding.readme_retired_architecture]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The overview says layerxd runs as a separate C17 daemon built from cmd/layerxd and its checkpoints settle through layerxAnchor. Line 145 still advertises make layerxd, while lines 79 and 181 retain draft-merge/separate-kernel descriptions."
+expected = "The network runs one paxd node with an integrated kernel, EVM chain id 125 and finality at block commit. Separate layerxd and layerxAnchor settlement are retired."
+proposal = "Rewrite README.md overview, merge status and launch/build examples around the merged paxd binary, committed-block finality and supported root RPC endpoints. Identify retained receipt-verification interfaces separately and remove separate-daemon/anchor onboarding."
+owner_domain = 17
+
+[finding.monorepo_retired_boundaries]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview identifies a layerxd kernel alongside paxd, line 31 lists relay archive as a platform service and line 73 assigns checkpoint registration, guarantor bonds, challenges and emergency exits to current settlement trust boundaries."
+expected = "The kernel is integrated into the node and finality follows block commit. Independent guarantor/checkpoint settlement and relay-archive architecture are retired from the running merged network."
+proposal = "Update docs/MONOREPO.md subsystem, service and trust-boundary descriptions for the integrated kernel and native bank/bridge operations. Clearly separate historical layout/build recipes from merged deployment and remove retired settlement provisioning guidance."
+owner_domain = 17
+
+[finding.site_cli_endpoint]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc URLs to end in /rpc, repeats that restriction at line 131, describes gateway /rpc at lines 278-279 and sends eth_sendRawTransaction to /rpc at line 298."
+expected = "Public node eth and pax JSON-RPC uses the root of api1 through api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network. px methods belong to the hosted gateway contract; there is no unified router /rpc endpoint."
+proposal = "Rewrite docs/site/docs/platform/cli.md endpoint requirements and transaction examples using root node URLs and the declared namespace ownership. Coordinate tools/platform/cli/src/rpc.rs URL validation and wallet transport with that contract and remove /rpc-only onboarding."
+owner_domain = 8
+
+[finding.wiki_cli_endpoint]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc URLs to end in /rpc, repeats that restriction at line 131, describes gateway /rpc at lines 278-279 and sends eth_sendRawTransaction to /rpc at line 298."
+expected = "Public node eth and pax JSON-RPC uses the root of api1 through api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network. px methods belong to the hosted gateway contract; there is no unified router /rpc endpoint."
+proposal = "Rewrite docs/wiki/Cli.md endpoint requirements and transaction examples using root node URLs and the declared namespace ownership. Coordinate tools/platform/cli/src/rpc.rs URL validation and wallet transport with that contract and remove /rpc-only onboarding."
+owner_domain = 8
+
+[finding.site_cli_availability]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "After the implemented command table, the page says wallet/token groups have no implementation and --json is the only global flag. This contradicts its own wallet/token command rows and opening --rpc documentation, presenting both availability claims as current."
+expected = "Users need one consistent description of shipped command groups and global options; planned or retired native operations must be identified explicitly instead of contradicting supported command tables."
+proposal = "Reconcile the availability paragraphs and wallet/token tables in docs/site/docs/platform/cli.md against tools/platform/cli/src/main.rs declarations and rpc.rs/wallet.rs paths. Document supported merged transaction operations, identify future commands explicitly and synchronize the site/wiki copies."
+owner_domain = 8
+
+[finding.wiki_cli_availability]
+file = "docs/wiki/Cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "After the implemented command table, the page says wallet/token groups have no implementation and --json is the only global flag. This contradicts its own wallet/token command rows and opening --rpc documentation, presenting both availability claims as current."
+expected = "Users need one consistent description of shipped command groups and global options; planned or retired native operations must be identified explicitly instead of contradicting supported command tables."
+proposal = "Reconcile the availability paragraphs and wallet/token tables in docs/wiki/Cli.md against tools/platform/cli/src/main.rs declarations and rpc.rs/wallet.rs paths. Document supported merged transaction operations, identify future commands explicitly and synchronize the site/wiki copies."
+owner_domain = 8
+
+[finding.settlement_retired_publication]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook presents EVIDENCE_VERSION=2 checkpoint publication, guarantor certificates, deposit-root-authority scheduling and publishCheckpointWitnesses as operational requirements. Consumer steps at lines 32-37 and LAYERX_GUARANTOR_PUBLICATION_INPUTS_DIR at line 95 depend on retired checkpoint/guarantor/custody-publication components."
+expected = "After the plan height, finality comes from block commit and state proofs from the committed app hash with per-key ICS23 evidence. Withdrawals use native bank/layerxledger moves and outward transfers use bridgeOut; forced-exit and deposit-root publication are retired."
+proposal = "Replace docs/site/docs/operators/settlement-evidence.md with retirement/migration guidance and current committed-header/ICS23, native funding and bridge procedures. Remove current guarantor-input and authority-secret provisioning instructions; retain old byte formats only in an explicitly historical appendix."
+owner_domain = 6
+
+[finding.boundary_retired_lni]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The page routes signed activities onto node LNI, configures /run/layerx/node/layerxd.lni.sock at line 297, makes readiness depend on the LNI handshake at line 379 and requires real layerxd plus --authority-replica qualification at lines 419-420."
+expected = "The kernel executes inside paxd with no separate layerxd LNI deployment or sequencer service. Hosted authentication/idempotency must connect to merged transaction/precompile submission and reconcile against committed chain state."
+proposal = "Rewrite docs/site/docs/platform/agent-boundary.md transport, configuration, readiness and qualification sections for supported node RPC and EVM transactions. Coordinate services/platform/hosted/agent-boundary adapter and persisted idempotency recovery; retire LNI socket and authority-replica deployment recipes."
+owner_domain = 8
+
+[finding.gateway_unified_router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta the only unified router for eth, lx and px, says sixteen public RPC names serve only the EVM domain, and advertises POST /rpc, /rpc/schema and /rpc/ws at lines 50-51 and 198-200. Later sections retain independent receipt-authority/LNI assumptions."
+expected = "There is no router or unified /rpc interface. Node roots serve debug, echo, eth, net, pax, test and txpool; px names belong to services/platform/hosted/gateway/openrpc.json. Node names are api1 through api14 plus api-mainnet-beta."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md topology, endpoint inventory, transport tables and examples to distinguish root node RPC from the hosted px contract. Remove retired lx/LNI/independent-authority instructions and describe the gateway adapter and recovery against merged chain receipts."
+owner_domain = 8
+
+[finding.site_programs_native_route]
+file = "docs/site/docs/programs/index.md"
+line = 120
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs page presents lxp_daemon_lni_simulate and cmd/layerxd/lxp_daemon_lni.c as simulation paths, directs submission through lx_sendActivity, lists LX_PROGRAMS_FEE_GOVERNANCE and describes replay batch finalization as the current occupancy lifecycle."
+expected = "Programs execute through the merged 0x101D precompile, with EVM transaction submission, eth_call simulation and finality at block commit. Retired LNI, daemon replay and fee-governance interfaces cannot be current integration routes."
+proposal = "Rewrite docs/site/docs/programs/index.md registration, simulation, submission, fee and recovery guidance around the merged Programs precompile and chain receipts. Preserve applicable guest ABI details and matching host/guest versions, document deployment payload limits and synchronize site/wiki examples without retired daemon/LNI instructions."
+owner_domain = 13
+
+[finding.wiki_programs_native_route]
+file = "docs/wiki/Programs.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs page presents lxp_daemon_lni_simulate and cmd/layerxd/lxp_daemon_lni.c as simulation paths, directs submission through lx_sendActivity, lists LX_PROGRAMS_FEE_GOVERNANCE and describes replay batch finalization as the current occupancy lifecycle."
+expected = "Programs execute through the merged 0x101D precompile, with EVM transaction submission, eth_call simulation and finality at block commit. Retired LNI, daemon replay and fee-governance interfaces cannot be current integration routes."
+proposal = "Rewrite docs/wiki/Programs.md registration, simulation, submission, fee and recovery guidance around the merged Programs precompile and chain receipts. Preserve applicable guest ABI details and matching host/guest versions, document deployment payload limits and synchronize site/wiki examples without retired daemon/LNI instructions."
+owner_domain = 13
+
+[finding.workspace_retired_members]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table lists layerx-programs-protocol-adapter as a current crate and the unsafe policy repeats its ffi.rs exception. Lines 151 and 156 reference replay-golden and cmd/layerxd/lxp_daemon_batch_wal.c qualification, although those adapter/daemon paths are retired."
+expected = "Workspace guidance must identify retained crates and executable merged-node qualification paths. Deleted adapters and daemon replay/WAL infrastructure cannot be prerequisites for current Programs qualification."
+proposal = "Regenerate docs/site/docs/programs/workspace.md inventory, unsafe exceptions and build/test recipes from retained programs/Cargo.toml and Makefile targets. Replace separate-daemon recovery recipes with block/state reconstruction checks; link removed crates only in migration history."
+owner_domain = 13
+
+[finding.portable_legacy_wire]
+file = "docs/site/docs/interop/portable-receipts.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "PortableReceipt::verify is presented around caller-supplied AuthorizedBatch and legacy layerx-wire codecs, including snapshot/certificate trust at lines 35-42 and services/agent/crates/layerx-wire source paths. The page correctly limits its old verificationLevel to sequencer-signed but presents the retired codec as the current export integration."
+expected = "The legacy wire codec is deleted and activity transport uses EIP-1559 transactions. Current offline finality evidence needs chain 125, trusted validator history and transaction/result inclusion under a committed block; receipt signature authentication remains a separate claim."
+proposal = "Rewrite docs/site/docs/interop/portable-receipts.md as a migration from historical AuthorizedBatch to the merged evidence export owned by services/interop/crates/layerx-portable. Preserve the signed-versus-committed trust distinction and give a current executable producer/consumer example without deleted layerx-wire paths."
+owner_domain = 11
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Lines 47, 79, 145 and 181 retain separate-daemon/anchor onboarding and draft merge status; readme_retired_architecture proposes the merged-node rewrite."
+
+[doc.02]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Lines 8, 131, 278-279 and 298 require retired /rpc routing; lines 106-138 contradict command/global-option availability. Separate findings cover both issues."
+
+[doc.03]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Repeats the site /rpc and contradictory wallet/token availability claims at the same lines. Reviewed the site text and complete wiki differences."
+
+[doc.04]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3, 31, 61 and 73 retain layerxd, relay archive and guarantor/checkpoint boundaries; deployment/build descriptions need the recorded rewrite."
+
+[doc.05]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3-9, 32-37 and 95 present retired checkpoint/guarantor/deposit publication as current operations; migrate to block/ICS23/native-bank guidance."
+
+[doc.06]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Correctly describes one merged node and chain 125, separates signature authentication from settlement, and requires transaction/batch/result inclusion and trusted validator history. Daemon V1-V4 are identified as reference evidence rather than a separate production service; these rules expose the committed corpus gap."
+
+[doc.07]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Lines 4, 136, 234-253, 297-298, 379 and 419-420 depend on retired LNI/layerxd/authority-replica transport and readiness. Retained TLS/idempotency rules need a merged-node adapter rewrite."
+
+[doc.08]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-51 and 198-200 advertise unified router /rpc paths and incorrect public-node ownership/count; later independent receipt-authority/LNI assumptions also need migration."
+
+[doc.09]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Lines 48, 120-137, 249 and 418-435 retain fee governance, daemon simulation, lx_sendActivity and replay-batch lifecycle. Preserve guest ABI while documenting merged execution."
+
+[doc.10]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 15, 88, 151 and 156 list a deleted protocol adapter and retired daemon/replay qualification dependencies; regenerate retained workspace/gate guidance."
+
+[doc.11]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "stale"
+notes = "Lines 23-42 and 84-103 depend on historical AuthorizedBatch and deleted layerx-wire. The sequencer-signed limitation is sound but current portable evidence migration guidance is missing."
+
+[doc.12]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Lines 47, 119-136, 251 and 459-479 mirror retired native submission and replay-finalizer guidance. Reviewed the complete site page and wiki differences including additional ABI material."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Consumed eth-blocknumber/getblockbynumber/getstorageat/gettransactionbyhash/gettransactionreceipt sections reviewed. Encodings agree with registry; pending-block context refuses hash/stateRoot, unlike the archived capture. Source pin and UNRUN caveats distinguish frozen contract from qualification."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "accurate"
+notes = "Consumed ERC721, IERC165/IERC721/receiver, CW721 and insufficient-balance rows reviewed. ABI widths/selectors/event indexing and -400 code agree with producers. Generated headings normalize spaces to registry anchors; this pinned inventory is not runtime qualification."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/platform-sdk.md"
+status = "accurate"
+notes = "Conformance-vectors section reviewed for the sequencer-receipt-v1 format/source. Explorer payload agrees with canonical source; generated stable/change/retire statuses and UNRUN qualification caveats are reference context, not a claim of gate execution."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Consumed ERC721Base, ERC721Enumerable, IERC721Receiver, SidioraNFT and UpgradeableBeacon sections reviewed. Duplicate sol-/solidity- anchors freeze the same declarations/indexing/selectors. Upstream fixture names do not establish launchpad deployment wiring; pinned tables are not test evidence."
