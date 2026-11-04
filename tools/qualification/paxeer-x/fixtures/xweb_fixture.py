@@ -36,7 +36,7 @@ def load(name, path):
     return loaded
 
 
-evm = load("paxeer_evm", ROOT / "services/platform/hosted/paxeer/evm.py")
+evm = load("xweb_native_evm", Path(__file__).with_name("xweb_native_evm.py"))
 
 
 def require(condition, reason):
