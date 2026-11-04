@@ -40,7 +40,7 @@ test.describe('no url', () => {
 
   test('non-media url and fallback', async({ render, page, mockAssetResponse }) => {
     const ANIMATION_URL = 'https://localhost:3000/my-animation.m3u8';
-    const ANIMATION_MEDIA_TYPE_API_URL = `/node-api/tokens/${ TOKEN_HASH }/instances/${ TOKEN_ID }/media-type?field=animation_url`;
+    const ANIMATION_MEDIA_TYPE_API_URL = `/explorer/node-api/tokens/${ TOKEN_HASH }/instances/${ TOKEN_ID }/media-type?field=animation_url`;
     const IMAGE_URL = 'https://localhost:3000/my-image.jpg';
     const data = {
       id: TOKEN_ID,
@@ -57,7 +57,9 @@ test.describe('no url', () => {
     });
     await mockAssetResponse(IMAGE_URL, './playwright/mocks/image_long.jpg');
 
+    const mediaTypeResponse = page.waitForResponse((response) => response.url().endsWith(ANIMATION_MEDIA_TYPE_API_URL));
     const component = await render(<NftMedia data={ data }/>);
+    expect((await mediaTypeResponse).status()).toBe(200);
     await expect(component).toHaveScreenshot();
   });
 });
@@ -133,7 +135,7 @@ test.describe('page', () => {
   test.use({ viewport: { width: 250, height: 250 } });
 
   const MEDIA_URL = 'https://localhost:3000/page.html';
-  const MEDIA_TYPE_API_URL = `/node-api/tokens/${ TOKEN_HASH }/instances/${ TOKEN_ID }/media-type?field=animation_url`;
+  const MEDIA_TYPE_API_URL = `/explorer/node-api/tokens/${ TOKEN_HASH }/instances/${ TOKEN_ID }/media-type?field=animation_url`;
 
   test.beforeEach(async({ page, mockAssetResponse }) => {
     await mockAssetResponse(MEDIA_URL, './playwright/mocks/page.html');
@@ -143,7 +145,7 @@ test.describe('page', () => {
     }));
   });
 
-  test('preview +@dark-mode', async({ render }) => {
+  test('preview +@dark-mode', async({ render, page }) => {
     const data = {
       id: TOKEN_ID,
       animation_url: MEDIA_URL,
@@ -151,7 +153,9 @@ test.describe('page', () => {
       token: tokenInfoMock.tokenInfoERC721a,
     } as TokenInstance;
 
+    const mediaTypeResponse = page.waitForResponse((response) => response.url().endsWith(MEDIA_TYPE_API_URL));
     const component = await render(<NftMedia data={ data }/>);
+    expect((await mediaTypeResponse).status()).toBe(200);
     await expect(component).toHaveScreenshot();
   });
 });
