@@ -1,6 +1,40 @@
 # PBTS: System Model and Properties (first draft)
 
-This specification is **OUTDATED**. Please refer to the [new version][sysmodel].
+This is the **superseded first upstream PBTS research model**, retained with
+its [paired algorithm](./pbts-algorithm_001_draft.md). Refer to the
+[second research model][sysmodel] for the later design and the
+[current runtime map](../README.md#current-runtime) for Paxeer's implementation.
+The properties below are conditional research statements, not a runtime
+qualification or an Autobahn timing contract.
+
+## Runtime applicability
+
+Paxeer is one network run by `paxd`; its kernel participates and proposes
+blocks. The validators in this model are not separate execution and settlement
+networks. Classic consensus currently puts time in the proposed block and
+retains it on reproposal. The first draft's `(v,t)` pairs, round-dependent
+decision times and assignment of a chosen time to the next height are historical
+model choices, not current block semantics.
+
+The classic implementation uses
+[`Proposal.IsTimely`](../../../../types/proposal.go) and the
+[synchrony parameters](../../../../types/params.go). It accepts an inclusive
+reception window and doubles the delay allowance every ten rounds. Its
+[consensus state](../../../../internal/consensus/state.go) applies that window
+to fresh proposals at unlocked validators. This differs from the superseded
+first-draft filter discussed in the [paired algorithm](./pbts-algorithm_001_draft.md).
+
+Autobahn [proposal verification](../../../../autobahn/types/proposal.go) uses
+monotone certificate-derived timestamps, one-microsecond block offsets, and a
+one-second future-clock bound for fresh proposals. Verified prepared
+reproposals retain the certified time. This model's `PRECISION`, `MSGDELAY` and
+`ACCURACY` are not Autobahn configuration parameters or proven network bounds.
+
+The historical analysis below leaves some assumptions unresolved, marked
+`TODO`. It uses `[PBTS-CLOCK.0]` without defining that label; the explicitly
+stated precision and clock-growth assumptions remain visible below, but must
+not be silently substituted to claim a complete liveness proof. Its comments
+about the Cosmos Hub are historical motivation, not Paxeer deployment facts.
 
 ## System Model
 
@@ -38,7 +72,7 @@ The message end-to-end delay between a correct proposer and a correct validator 
 
 ## Problem Statement
 
-In this section we define the properties of Tendermint consensus (cf. the [arXiv paper][arXiv]) in this new system model.
+In this section the historical draft defines conditional properties of classic Tendermint consensus (cf. the [arXiv paper][arXiv]) in its proposed system model.
 
 #### **[PBTS-PROPOSE.0]**
 
@@ -54,7 +88,7 @@ A proposer proposes a pair `(v,t)` of consensus value `v` and time `t`.
 
 [Time-Validity] If a correct validator decides on `t` then `t` is "OK" (we will formalize this below), even if up to `2f` validators are faulty.
 
-However, the properties of Tendermint consensus are of more interest with respect to the blocks, that is, what is written into a block and when. We therefore, in the following, will give the safety and liveness properties from this block-centric viewpoint.  
+In this first-draft model, the properties of Tendermint consensus are of more interest with respect to the blocks, that is, what is written into a block and when. We therefore, in the following, will give the safety and liveness properties from this block-centric viewpoint.  
 For this, observe that the time `t` decided at consensus height `k` will be written in the block of height `k+1`, and will be supported by `2f + 1` `PRECOMMIT` messages of the same consensus round `r`. The time written in the block, we will denote by `b.time` (to distinguish it from the term `bfttime` used for median-based time). For this, it is important to have the following consensus algorithm property:
 
 #### **[PBTS-INV-TIME-AGR.0]**
@@ -67,7 +101,7 @@ Note that the relation between consensus decisions, on the one hand, and blocks,
 as validators may decide in different rounds, they may decide on different times.
 The proposer of the next block, may pick a commit (at least `2f + 1` `PRECOMMIT` messages from one round), and thus it picks a decision round that is going to become "canonic".
 As a result, the proposer implicitly has a choice of one of the times that belong to rounds in which validators decided. Observe that this choice was implicitly the case already in the median-based `bfttime`.
-However, as most consensus instances terminate within one round on the Cosmos hub, this is hardly ever observed in practice.
+The upstream draft motivated this choice with its observation that most consensus instances on the Cosmos Hub terminated within one round; this is not a claim about Paxeer.
 
 
 
@@ -75,7 +109,7 @@ Finally, observe that the agreement ([Agreement] and [Time-Agreement]) propertie
 
 ### SAFETY
 
-Here we will provide specifications that relate local time to block time. However, since we do not assume (by now) that local time is linked to real-time, these specifications also do not provide a relation between block time and real-time. Such properties are given [later](#REAL-TIME-SAFETY).
+Here we will provide specifications that relate local time to block time. However, since we do not assume (by now) that local time is linked to real-time, these specifications also do not provide a relation between block time and real-time. Such properties are given [later](#real-time-safety).
 
 For a correct validator `V`, let `beginConsensus(V,k)` be the local time when it sets its height to `k`, and let `endConsensus(V,k)` be the time when it sets its height to `k + 1`.
 
@@ -183,7 +217,7 @@ Let `b` be a block with a valid commit that contains at least one `precommit` me
 
 > "triggered the `PRECOMMIT`" implies that the data in `m` and `b` are "matching", that is, `m` proposed the values that are actually stored in `b`.
 
-Back to [main document][main_v1].
+Back to the [historical first design][main_v1] or the [current applicability index](../README.md).
 
 [main_v1]: ./pbts_001_draft.md
 

@@ -1,199 +1,194 @@
 # Evidence
 
-Evidence is an important component of Tendermint's security model. Whilst the core
-consensus protocol provides correctness guarantees for state machine replication
-that can tolerate less than 1/3 failures, the evidence system looks to detect and
-gossip byzantine faults whose combined power is greater than  or equal to 1/3. It is worth noting that
-the evidence system is designed purely to detect possible attacks, gossip them,
-commit them on chain and inform the application running on top of Tendermint.
-Evidence in itself does not punish "bad actors", this is left to the discretion
-of the application. A common form of punishment is slashing where the validators
-that were caught violating the protocol have all or a portion of their voting
-power removed. Evidence, given the assumption that 1/3+ of the network is still
-byzantine, is susceptible to censorship and should therefore be considered added
-security on a "best effort" basis.
+Paxeer is one BFT network, run by `paxd`, with EVM chain ID 125. Its kernel
+is part of the network and proposes blocks. A receipt is final when its block
+is committed. Evidence records validator misbehavior; it does not add another
+finality step.
 
-This document walks through the various forms of evidence, how they are detected,
-gossiped, verified and committed.
+This page describes the classic consensus evidence path in the embedded
+Tendermint-derived engine. The protocol tolerates Byzantine voting power below
+one third. A single validator can equivocate and produce evidence even when
+that threshold is not exceeded. Evidence supports detection, gossip and
+application policy; it does not itself slash validators or guarantee inclusion
+when Byzantine power can censor blocks.
 
-> NOTE: Evidence here is internal to tendermint and should not be confused with
-> application evidence
+## Runtime applicability
+
+The node setting `autobahn-config-file` selects the consensus implementation:
+an empty value selects classic consensus; a nonempty value enables Autobahn.
+See [node assembly](../../node/node.go) and
+[configuration](../../config/config.go).
+
+The detection, verification, gossip and block-inclusion rules below describe
+classic `DuplicateVoteEvidence` and `LightClientAttackEvidence`. Autobahn uses
+its own certificates. Its application execution path currently leaves
+`RequestFinalizeBlock.ByzantineValidators` empty, and the consensus engine's
+`broadcast_evidence` method rejects submissions with
+`coretypes.ErrEvidenceNotAccepted` ("evidence is not accepted under autobahn
+consensus"). See the [submission handler](../../internal/rpc/core/evidence.go)
+and [Autobahn application execution](../../internal/p2p/giga_router.go).
+These classic proofs are not an Autobahn evidence or slashing specification.
+
+Evidence here is consensus evidence, distinct from application-defined proofs.
+The [timestamp applicability map](./proposer-based-timestamp/README.md#current-runtime)
+explains the time rules used by each implementation.
 
 ## Detection
 
 ### Equivocation
 
-Equivocation is the most fundamental of byzantine faults. Simply put, to prevent
-replication of state across all nodes, a validator tries to convince some subset
-of nodes to commit one block whilst convincing another subset to commit a
-different block. This is achieved by double voting (hence
-`DuplicateVoteEvidence`). A successful duplicate vote attack requires greater
-than 1/3 voting power and a (temporary) network partition between the aforementioned
-subsets. This is because in consensus, votes are gossiped around. When a node
-observes two conflicting votes from the same peer, it will use the two votes of
-evidence and begin gossiping this evidence to other nodes. [Verification](#duplicatevoteevidence) is addressed further down.
+A validator equivocates by signing conflicting votes for the same height,
+round and vote type. Classic consensus reports a conflicting pair through
+`ReportConflictingVotes`; the evidence pool buffers the pair and constructs
+`DuplicateVoteEvidence` during its update, when the corresponding block time
+and validator set are available. The votes need not arrive from the same peer.
+See [consensus vote handling](../../internal/consensus/state.go) and the
+[evidence pool](../../internal/evidence/pool.go).
 
-```go
-type DuplicateVoteEvidence struct {
-    VoteA Vote
-    VoteB Vote
-
-    // and abci specific fields
-}
-```
+The proof contains `VoteA` and `VoteB` together with the validator power, total
+voting power and block timestamp needed by the application. Its full Go type
+is defined in [types/evidence.go](../../types/evidence.go).
+[Verification](#duplicatevoteevidence) checks both signatures and their conflict.
 
 ### Light Client Attacks
 
-Light clients also comply with the 1/3+ security model, however, by using a
-different, more lightweight verification method they are subject to a
-different kind of 1/3+ attack whereby the byzantine validators could sign an
-alternative light block that the light client will think is valid. Detection,
-explained in greater detail
-[here](../light-client/detection/detection_003_reviewed.md), involves comparison
-with multiple other nodes in the hope that at least one is "honest". An "honest"
-node will return a challenging light block for the light client to validate. If
-this challenging light block also meets the
-[validation criteria](../light-client/verification/verification_001_published.md)
-then the light client sends the "forged" light block to the node.
-[Verification](#lightclientattackevidence) is addressed further down.
+Classic light clients can detect conflicting signed headers by comparing
+responses from multiple providers. The retained upstream
+[detection design](../light-client/detection/detection_003_reviewed.md) and
+[verification design](../light-client/verification/verification_001_published.md)
+explain that model and its trust assumptions.
 
-```go
-type LightClientAttackEvidence struct {
-    ConflictingBlock LightBlock
-    CommonHeight int64
-
-      // and abci specific fields
-}
-```
+`LightClientAttackEvidence` contains a `ConflictingBlock *LightBlock` and a
+`CommonHeight`, together with the Byzantine validator list, total voting power
+and timestamp for application delivery. A conflicting light block must still
+pass [full-node verification](#lightclientattackevidence); comparison alone
+is not sufficient proof. This classic light-client format does not establish
+validity of Autobahn certificates.
 
 ## Verification
 
-If a node receives evidence, it will first try to verify it, then persist it.
-Evidence of byzantine behavior should only be committed once (uniqueness) and
-should be committed within a certain period from the point that it occurred
-(timely). Timelines is defined by the `EvidenceParams`: `MaxAgeNumBlocks` and
-`MaxAgeDuration`. In Proof of Stake chains where validators are bonded, evidence
-age should be less than the unbonding period so validators still can be
-punished. Given these two propoerties the following initial checks are made.
+The [pool](../../internal/evidence/pool.go) verifies received evidence before
+adding it to its persistent pending store. Inclusion in a proposed block is
+checked by `CheckEvidence`, including rejection of already committed evidence
+and duplicate hashes within the same block. Pending duplicate-vote proofs can
+reuse earlier verification; light-client attack evidence is reverified even
+when pending, because another conflicting block can share its evidence hash.
 
-1. Has the evidence expired? This is done by taking the height of the `Vote`
-   within `DuplicateVoteEvidence` or `CommonHeight` within
-   `LightClientAttakEvidence`. The evidence height is then used to retrieve the
-   header and thus the time of the block that corresponds to the evidence. If
-   `CurrentHeight - MaxAgeNumBlocks > EvidenceHeight` && `CurrentTime -
-   MaxAgeDuration > EvidenceTime`, the evidence is considered expired and
-   ignored.
+Evidence expires only when **both** age limits are exceeded:
 
-2. Has the evidence already been committed? The evidence pool tracks the hash of
-   all committed evidence and uses this to determine uniqueness. If a new
-   evidence has the same hash as a committed one, the new evidence will be
-   ignored.
+```text
+currentHeight - evidenceHeight > EvidenceParams.MaxAgeNumBlocks
+AND
+currentBlockTime - evidenceBlockTime > EvidenceParams.MaxAgeDuration
+```
+
+The evidence height is the vote height for duplicate votes and `CommonHeight`
+for a light-client attack. Verification loads that height's block metadata to
+obtain its time rather than trusting a supplied timestamp. Missing historical
+blocks or validator sets can prevent verification. Applications that use
+bonding and slashing must choose evidence retention and unbonding policies
+that allow valid evidence to remain actionable. See
+[verification](../../internal/evidence/verify.go) and
+[consensus parameters](../../types/params.go).
 
 ### DuplicateVoteEvidence
 
-Valid `DuplicateVoteEvidence` must adhere to the following rules:
+`VerifyDuplicateVote` requires:
 
-- Validator Address, Height, Round and Type must be the same for both votes
+- Equal validator addresses, heights, rounds and vote types.
+- Different block IDs; a vote for a nil block can be part of the conflict.
+- Membership in the historical validator set at the evidence height.
+- Two valid signatures under that validator's public key, using the chain's
+  consensus `ChainID` in the vote sign bytes.
 
-- BlockID must be different for both votes (BlockID can be for a nil block)
-
-- Validator must have been in the validator set at that height
-
-- Vote signature must be correctly signed. This also uses `ChainID` so we know
-  that the fault occurred on this chain
+The consensus `ChainID` used for signing is distinct from the numeric EVM
+chain ID 125.
 
 ### LightClientAttackEvidence
 
-Valid Light Client Attack Evidence must adhere to the following rules:
+`VerifyLightClientAttack` checks the conflicting block against locally trusted
+headers and historical validator sets:
 
-- If the header of the light block is invalid, thus indicating a lunatic attack,
-  the node must check that they can use `verifySkipping` from their header at
-  the common height to the conflicting header
+- When the conflicting height differs from the common height, signatures must
+  satisfy the common validator set's trusting verification threshold.
+- When the heights match, the conflicting header must have the expected
+  deterministic header fields.
+- More than two thirds of the conflicting validator set's voting power must
+  sign its commit; verification checks all supplied signatures.
+- The conflicting and trusted header hashes must differ.
+- For a conflicting block ahead of the local trusted height, its time must
+  not be later than the trusted header's time, demonstrating a violation of
+  monotonic time.
 
-- If the header is valid, then the validator sets are the same and this is
-  either a form of equivocation or amnesia. We therefore check that 2/3 of the
-  validator set also signed the conflicting header.
-
-- The nodes own header at the same height as the conflicting header must have a
-  different hash to the conflicting header.
-
-- If the nodes latest header is less in height to the conflicting header, then
-  the node must check that the conflicting block has a time that is less than
-  this latest header (This is a forward lunatic attack).
+The pool separately validates the application metadata derived from these
+proofs. If the proof is valid but that metadata is inconsistent, it regenerates
+and stores corrected metadata and returns the validation error for the
+submitted form; it does not accept arbitrary validator powers or times.
 
 ## Gossiping
 
-If a node verifies evidence it then broadcasts it to all peers, continously sending
-the same evidence once every 10 seconds until the evidence is seen on chain or
-expires.
+The [evidence reactor](../../internal/evidence/reactor.go) sends pending proofs
+one at a time on the classic evidence channel. Each peer's broadcast loop
+restarts from the beginning of the pending list after the
+`broadcastEvidenceInterval` of 60 seconds, or when its current list element is
+removed. This is a list-rescan interval, not a delivery guarantee for every
+proof. Committed or expired proofs are removed from the pending list.
 
-## Commiting on Chain
+<a id="commiting-on-chain"></a>
 
-Evidence takes strict priority over regular transactions, thus a block is filled
-with evidence first and transactions take up the remainder of the space. To
-mitigate the threat of an already punished node from spamming the network with
-more evidence, the size of the evidence in a block can be capped by
-`EvidenceParams.MaxBytes`. Nodes receiving blocks with evidence will validate
-the evidence before sending `Prevote` and `Precommit` votes. The evidence pool
-will usually cache verifications so that this process is much quicker.
+## Committing on Chain
+
+`BlockExecutor.CreateProposalBlock` requests pending evidence up to
+`EvidenceParams.MaxBytes` before calculating the remaining transaction space.
+The [block executor](../../internal/state/execution.go) reserves that evidence
+space when selecting transactions; the [block validation
+rules](../../internal/state/validation.go) also enforce the evidence byte cap.
+
+Classic validators validate block evidence before voting for the block.
+Pending evidence is only a candidate for inclusion. Once consensus commits a
+block containing it, application processing follows the lifecycle below.
 
 ## Sending Evidence to the Application
 
-After evidence is committed, the block is then processed by the block executor
-which delivers the evidence to the application via `EndBlock`. Evidence is
-stripped of the actual proof, split up per faulty validator and only the
-validator, height, time and evidence type is sent.
+The current in-process [Application interface](../../abci/types/application.go)
+uses `ProcessProposal`, `FinalizeBlock` and `Commit`. The old delivery through
+`EndBlock` is retired. The request field is named `ByzantineValidators`, and
+its element type is `abci.Misbehavior`; there is no request field named
+`Misbehavior` in this tree. See the [request types](../../abci/types/plain_types.go).
 
-```proto
-enum EvidenceType {
-  UNKNOWN             = 0;
-  DUPLICATE_VOTE      = 1;
-  LIGHT_CLIENT_ATTACK = 2;
-}
+1. Before a classic validator prevotes for a valid proposed block,
+   `BlockExecutor.ProcessProposal` supplies
+   `RequestProcessProposal.ByzantineValidators = block.Evidence.ToABCI()` for
+   application validation. This is not committed inclusion.
+2. When applying the consensus-committed block, `BlockExecutor.ApplyBlock`
+   validates the block and calls `FinalizeBlock` with the same conversion in
+   `RequestFinalizeBlock.ByzantineValidators`, alongside the transactions,
+   decided last commit, block hash and header.
+3. After processing and saving the finalization response and updating the
+   consensus state, the executor calls application `Commit`.
+4. After `Commit` succeeds, `evpool.Update` records the included evidence as
+   committed and removes it from pending storage and gossip. The executor then
+   saves the state with the application's committed hash.
 
-message Evidence {
-  EvidenceType type = 1;
-  // The offending validator
-  Validator validator = 2 [(gogoproto.nullable) = false];
-  // The height when the offense occurred
-  int64 height = 3;
-  // The corresponding time where the offense occurred
-  google.protobuf.Timestamp time = 4 [
-    (gogoproto.nullable) = false, (gogoproto.stdtime) = true];
-  // Total voting power of the validator set in case the ABCI application does
-  // not store historical validators.
-  // https://github.com/tendermint/tendermint/issues/4581
-  int64 total_voting_power = 5;
-}
-```
+Application code can apply its misbehavior policy during finalization; the
+application's durable commit follows in step 3. Evidence gossip or proposal
+inspection alone must not be treated as committed punishment.
 
-`DuplicateVoteEvidence` and `LightClientAttackEvidence` are self-contained in
-the sense that the evidence can be used to derive the `abci.Evidence` that is
-sent to the application. Because of this, extra fields are necessary:
+`EvidenceList.ToABCI()` removes the full proof and emits one record for the
+validator in a duplicate vote, or one per identified Byzantine validator in a
+light-client attack:
 
 ```go
-type DuplicateVoteEvidence struct {
-  VoteA *Vote
-  VoteB *Vote
-
-  // abci specific information
+type Misbehavior struct {
+  Type             MisbehaviorType
+  Validator        Validator
+  Height           int64
+  Time             time.Time
   TotalVotingPower int64
-  ValidatorPower   int64
-  Timestamp        time.Time
-}
-
-type LightClientAttackEvidence struct {
-  ConflictingBlock *LightBlock
-  CommonHeight     int64
-
-  // abci specific information
-  ByzantineValidators []*Validator
-  TotalVotingPower    int64       
-  Timestamp           time.Time 
 }
 ```
 
-These ABCI specific fields don't affect validity of the evidence itself but must
-be consistent amongst nodes and agreed upon on chain. If evidence with the
-incorrect abci information is sent, a node will create new evidence from it and
-replace the ABCI fields with the correct information.
+`Validator` contains `Address []byte` and `Power int64`.
+`MisbehaviorType` has `UNKNOWN = 0`, `DUPLICATE_VOTE = 1` and
+`LIGHT_CLIENT_ATTACK = 2`. The conversion and metadata consistency rules are
+implemented in [types/evidence.go](../../types/evidence.go).
