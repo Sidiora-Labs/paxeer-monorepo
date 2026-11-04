@@ -1,33 +1,75 @@
 package app
 
 import (
+	"fmt"
 	"testing"
+	"time"
+
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	"github.com/ethereum/go-ethereum/core/vm"
 
 	gigaprecompiles "github.com/Sidiora-Labs/Paxeer-X-Network/engine/executor/precompiles"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/xweb"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGigaCustomPrecompilesSwitchAtHeight(t *testing.T) {
-	xwebAddr := common.HexToAddress(xweb.XWebAddress)
-	before := gigaCustomPrecompiles(gigaLatePrecompileHeight - 1)
-	require.NotContains(t, before, xwebAddr)
-	require.Len(t, before, len(gigaprecompiles.FailFastPrecompileAddresses))
-	for _, addr := range gigaprecompiles.FailFastPrecompileAddresses {
-		require.Contains(t, before, addr)
+	for _, mergedGenesis := range []bool{false, true} {
+		t.Run(fmt.Sprint("merged-genesis=", mergedGenesis), func(t *testing.T) {
+			w := NewTestWrapperWithSc(t, time.Unix(1_800_000_000, 0).UTC(), secp256k1.GenPrivKey().PubKey(), true)
+			t.Cleanup(func() { require.NoError(t, w.App.Close()) })
+			if !mergedGenesis {
+				w.App.UpgradeKeeper.SetDone(w.Ctx.WithBlockHeight(10), MergeUpgrade)
+			}
+			for _, height := range []int64{1, 9, 10, gigaLatePrecompileHeight - 1, gigaLatePrecompileHeight, gigaLatePrecompileHeight + 1} {
+				ctx := w.Ctx.WithBlockHeight(height)
+				w.App.RefreshPrecompiles(ctx)
+				want := make(map[common.Address]vm.PrecompiledContract)
+				for addr, contract := range gigaV6120FailFast {
+					want[addr] = contract
+				}
+				if height < gigaLatePrecompileHeight {
+					if !mergedGenesis && height < 10 {
+						// Every latest contract carries the future merge version;
+						// only the historical fail-fast set remains below it.
+						want = make(map[common.Address]vm.PrecompiledContract)
+						for _, addr := range gigaprecompiles.FailFastPrecompileAddresses {
+							want[addr] = gigaprecompiles.FailFastSingleton
+						}
+					} else if mergedGenesis {
+						// Fresh genesis activates table entries through their
+						// module versions, including absence of uninitialised modules.
+						versions := w.App.UpgradeKeeper.GetModuleVersionMap(ctx)
+						for _, gate := range []evmkeeper.CustomPrecompileActivation{activationPrecompileGate(), v6120PrecompileGate(), mergePrecompileGate()} {
+							for addr, modules := range gate.Modules {
+								for _, name := range modules {
+									if _, present := versions[name]; !present {
+										delete(want, addr)
+									}
+								}
+							}
+						}
+					}
+				}
+				require.Equal(t, want, w.App.gigaCustomPrecompiles(ctx), "height %d", height)
+				for addr := range mergePrecompileGate().Modules {
+					_, served := w.App.EvmKeeper.CustomPrecompiles(ctx)[addr]
+					expected := height >= 10
+					if mergedGenesis {
+						expected = true
+						versions := w.App.UpgradeKeeper.GetModuleVersionMap(ctx)
+						for _, name := range mergePrecompileGate().Modules[addr] {
+							if _, present := versions[name]; !present {
+								expected = false
+							}
+						}
+					}
+					require.Equal(t, expected, served, "address %s at %d", addr, height)
+				}
+			}
+		})
 	}
-	at := gigaCustomPrecompiles(gigaLatePrecompileHeight)
-	require.Equal(t, gigaV6120FailFast, at)
-	for _, addr := range gigaprecompiles.FailFastPrecompileAddresses {
-		require.Contains(t, at, addr)
-	}
-	for _, addr := range gigaprecompiles.LateFailFastPrecompileAddresses {
-		require.Contains(t, at, addr)
-		require.Same(t, gigaprecompiles.FailFastSingleton, at[addr])
-	}
-	require.Same(t, gigaprecompiles.FailFastSingleton, at[xwebAddr])
-	require.Equal(t, at, gigaCustomPrecompiles(gigaLatePrecompileHeight+1))
 
 	require.Len(t, gigaV6120FailFast, len(gigaprecompiles.AllCustomPrecompilesFailFastMerge)+6)
 	for addr, contract := range gigaprecompiles.AllCustomPrecompilesFailFastMerge {

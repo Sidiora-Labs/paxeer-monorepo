@@ -11,7 +11,8 @@ const vector = vectors[0];
 const bytes = (value) => Buffer.from(value.slice(2), "hex");
 const digest = (value) => Buffer.from(keccak256(bytes(value))).toString("hex");
 const context = (entry) => ({ idempotencyKey: "11".repeat(32), activityId: entry.receiptJson.txHash.slice(2) });
-const status = (level = "SequencerSigned") => ({ state: "achieved", level });
+const status = (rung = "receipted") => ({ state: "achieved", rung });
+const height = (value) => `0x${BigInt(value).toString(16)}`;
 
 function daemonReceipt(entry = vector, level = "SequencerSigned") {
   return {
@@ -46,7 +47,7 @@ async function daemonProviderVerifiesSignedSequencerReceipt() {
       rawTransaction: entry.rawTransaction, signedReceipt: entry.signedReceipt,
       receiptDigest: `0x${receiptDigest}`,
       receiptKey: { keyId: entry.pinnedKey.keyId, publicKey: entry.pinnedKey.publicKey,
-        firstHeight: String(entry.pinnedKey.firstHeight), lastHeight: String(entry.pinnedKey.lastHeight) },
+        firstHeight: height(entry.pinnedKey.firstHeight), lastHeight: height(entry.pinnedKey.lastHeight) },
     });
     assert.equal(Object.hasOwn(verified.evidence, "authorizedBatch"), false);
     assert.equal(Object.hasOwn(verified.evidence, "canonicalReceipt"), false);
@@ -94,19 +95,27 @@ async function daemonProviderVerifiesSignedSequencerReceipt() {
 
 async function daemonFinalityStagesExcludeSettlementAnchored() {
   for (const level of ["SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised"]) {
-    const verified = await verifySequencerReceipt(daemonReceipt(vector, level), status(level), context(vector));
+    const verified = await verifySequencerReceipt(daemonReceipt(vector, level), status(), context(vector));
     assert.equal(verified.evidence.verificationLevel, "receipted");
     assert.equal(verified.receiptDigest, digest(vector.signedReceipt));
   }
   for (const level of ["SettlementAnchored", "Unverified", "Unknown"]) {
-    await assert.rejects(verifySequencerReceipt(daemonReceipt(vector, level), status(level), context(vector)),
+    await assert.rejects(verifySequencerReceipt(daemonReceipt(vector, level), status(), context(vector)),
       refuses("verification-failure"));
   }
   for (const verificationStatus of [
-    status("SettlementAnchored"), status("BatchIncluded"), { state: "pending", level: "SequencerSigned" },
+    status("SettlementAnchored"), status("BatchIncluded"), status("submitted"), status("committed"),
+    { state: "pending", requested: "receipted", achieved: "submitted" },
   ]) {
     await assert.rejects(verifySequencerReceipt(daemonReceipt(), verificationStatus, context(vector)),
       refuses("verification-failure"));
+  }
+  for (const verificationStatus of [
+    { state: "achieved", level: "SequencerSigned" },
+    { state: "achieved", rung: "receipted", level: "SequencerSigned" },
+  ]) {
+    await assert.rejects(verifySequencerReceipt(daemonReceipt(), verificationStatus, context(vector)),
+      refuses("decode-failure"));
   }
 }
 
