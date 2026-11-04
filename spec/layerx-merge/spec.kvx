@@ -146866,7 +146866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.469]
 title = "Declare happy-dom for the web explorer end-to-end test instead of reaching into a nested package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165235,7 +165235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.473]
 title = "Guard the explorer release against function terms in build-time configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -180086,7 +180086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.228]
 title = "Repair audit record 22.30.126 medium findings in programs/crates/layerx-programs-ai-market/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.259", "22.31.260", "22.31.443"]
@@ -185387,7 +185387,7 @@ do_9 = "Attempt 2 (requalify): the receipt decoder repair and the three round-tr
 
 [task.22.31.219]
 title = "Repair audit record 22.30.93 findings in services/agent/crates/layerx-agentd/src: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
@@ -199847,7 +199847,7 @@ do_10 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1277]
 title = "Repair audit record 22.30.64 medium findings in interchain/testing/mock (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -200367,7 +200367,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1242]
 title = "Repair audit record 22.30.60 medium findings in modules/evm/keeper (part 1 of 1): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.179", "22.31.180", "22.31.181", "22.31.463"]
@@ -200598,7 +200598,7 @@ do_12 = "Attempt 4 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1225]
 title = "Repair audit record 22.30.58 medium findings in interchain/modules/core (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.333", "22.31.334", "22.31.335", "22.31.336", "22.31.337", "22.31.463"]
@@ -207024,7 +207024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.965]
 title = "Repair audit record 22.30.29 medium findings in tools/launchpad/production/load (part 1 of 1): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.41"]
@@ -207497,7 +207497,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.944]
 title = "Repair audit record 22.30.24 medium findings in modules/launchpad/client/cli (part 1 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.34", "22.31.35", "22.33.943", "22.31.463"]
@@ -211014,7 +211014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.680]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/feegrant/client/testutil (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -211242,7 +211242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.674]
 title = "Repair audit record 22.30.167 medium findings in sdk/testutil (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -370017,7 +370017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.416]
 title = "Repair audit record 22.30.144 medium findings in services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.396"]
