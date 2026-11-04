@@ -1,0 +1,30 @@
+[task.22.33.1049]
+audit = "22.30.41"
+finding_15 = "TestRepairM_1049_HistoryRetirementAndVersionedMigration"
+finding_13 = "TestRepairM_1049_AppNewRetiresLegacyStreamBeforeUpgrade"
+implementation = "App.New replaces the unavailable unversioned /history handler with HTTP 410 LEGACY_HISTORY_RETIRED, a non-retryable JSON migration and successor Link to /v2/udf/history; other legacy UDF routes retain their behavior. App.New explicitly registers the already-retired legacy /ws handler without unused Redis/channel/connection settings; only the admitted production replay gateway supplies durable delivery."
+migration = "History clients migrate their UDF base to /v2/udf and consume its versioned mode, snapshot, algorithm and provenance envelope; legacy continuation cursors do not migrate. Stream clients obtain a topic snapshot at /v2/snapshots and subscribe/resume through /v2/stream; development has no admitted durable stream and must not promise one."
+proof = "Both findings are driven through App.New and loopback HTTP, with real migrations, pgx, router, native bounded history source and WebSocket handshake. A strict committed PostgreSQL protocol transcript supplies migrated startup state and one stored candle; unknown SQL fails closed. Retirement with valid, invalid and continuation queries never reaches history storage; following the advertised successor reads the bounded stored candle. Socket upgrade and plain HTTP requests are refused before subscription regardless of trusted proxy attribution or limits, without contacting an unavailable Redis peer. Existing application socket tests now assert the retirement contract."
+baseline = "Not run: the explicit ordered gate instructions prohibit tests before complete implementation and reserve verification for hf-done; no pre-change test failure is claimed."
+evidence = "Runner-owned /out/run/gates.jsonl records the exact candidate revision, commands, exits and private logs; the final response copies the last bounded gate evidence."
+qualification_environment = "Continuation runs both prescribed gates in the shared launchpad workspace raised to Go 1.27 by prerequisite 22.31.461, without disabling workspace mode. No test requires an environment variable, database process or external service. The earlier workspace failure below remains historical evidence."
+wiring_request = "Domain 4 (launchpad clients/deployment), services/launchpad/trading-charts/internal/httpapi/ws.go and services/launchpad/api/internal/ws: retain the existing 410 retirement and provision the admitted production replay gateway origin for /v2/snapshots and /v2/stream; migrate consumers off /ws rather than infer decimal/provenance data from raw development events. No out-of-scope code change is required for retirement."
+gotcha = "The shared /ws handler was already retired by the prerequisite HTTP repair, while the application test still expected a connected acknowledgement; verify retirement through App.New with dependency-peer transcripts instead of constructing a hub or requiring a database process."
+transcript_gotcha = "pgx simple protocol quotes int64 arguments and sends comment-only -- ping liveness queries; the committed history SQL preserves those exact quoted bounds, and the peer responds to that exact ping with PostgreSQL EmptyQueryResponse without consuming any expected data query."
+stored_candle_gotcha = "The previous attempt's TestRepairM_1049_HistoryRetirementAndVersionedMigration failed with 503 INTEGRITY_QUARANTINED because the transcript supplied display decimals as numeric fields. migrations/00001_init.sql declares text fields; the development builder persists raw integer prices at 18 decimals and USDL volume at 6. The fixture now supplies PostgreSQL text OID 25 and scaled integer strings, retaining the exact expected displayed prices and volume."
+
+[qualification.repair_1]
+revision = "61f95c9b6fc564d0f98f4e3efa53076a73a3b7db"
+command = "cg spec done 22.33.1049 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "History was refused because the transcript omitted pgx numeric quotes; stream tests reported an unsupported pgconn liveness ping."
+repair = "Match the observed bounded history query exactly and implement the exact comment-only ping response; retain all retirement, migration, SQL-consumption and no-Redis assertions."
+
+[qualification.blocked]
+revision = "144b1f8ee70900b47706cb5ac61b9dc70bb07d89"
+command = "cd services/launchpad/trading-charts && go build ./internal/app/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The pre-existing workspace lists Go 1.25 while ../notifications requires Go 1.27; compilation and verification never ran."
+assumption = "Workspace/toolchain alignment belongs to its owning domain outside this task scope; this unrelated failure is recorded without rerunning or modifying those files."

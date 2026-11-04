@@ -70,6 +70,13 @@ const (
 	rateLimitWindow = 60 * time.Second
 )
 
+func (d developmentChainReceipts) ChainID(ctx context.Context) (*big.Int, error) {
+	if d.client == nil {
+		return nil, metadata.ErrChainUnavailable
+	}
+	return d.client.ChainID(ctx)
+}
+
 // App is a fully-wired, ready-to-serve metadata service.
 type App struct {
 	secretStop              context.CancelFunc
@@ -356,6 +363,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, err
 		}
 		devReads = metadata.NewDevelopmentV2Reads(pool, receipts, time.Now)
+		checks["media_rpc"] = devReads.CheckChain
+		if cfg.RPCURL != "" {
+			if err := devReads.CheckChain(ctx); err != nil {
+				return nil, startupStage("rpc_connect", fmt.Errorf("metadata_chain_authority_unavailable"))
+			}
+		}
 		devMedia, err = newDevelopmentMedia(ctx, cfg, logger, devReads, chain)
 		if err != nil {
 			return nil, err

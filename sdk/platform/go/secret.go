@@ -21,16 +21,28 @@ func NewSecretBytes(value []byte) (*SecretBytes, error) {
 	return secret, nil
 }
 
+// Expose lends an isolated copy for the duration of consumer. The callback may
+// re-enter Expose or call Destroy. Destroy wipes stored material and prevents new
+// borrows immediately; active borrows remain valid until their callbacks return.
+// Mutations affect only the borrow, which is wiped even if the callback panics.
+// Consumers must not retain the slice or access it after returning.
 func (secret *SecretBytes) Expose(consumer func([]byte) error) error {
 	if secret == nil || consumer == nil {
 		return newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	secret.mu.Lock()
-	defer secret.mu.Unlock()
 	if secret.destroyed {
+		secret.mu.Unlock()
 		return newSDKError(ErrorInvalidArgument, RetryNever)
 	}
-	return consumer(secret.value)
+	borrow := append([]byte(nil), secret.value...)
+	secret.mu.Unlock()
+	defer func() {
+		for index := range borrow {
+			borrow[index] = 0
+		}
+	}()
+	return consumer(borrow)
 }
 
 func (secret *SecretBytes) Destroy() {
