@@ -27,35 +27,19 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
-    const service = process.env.LAYERX_HUMAN_SERVICE_URL;
-    if (service === undefined) {
-      return [];
-    }
-    const endpoint = new URL(service);
-    if (
-      endpoint.protocol !== "https:" ||
-      endpoint.username !== "" ||
-      endpoint.password !== "" ||
-      !["/", "/human", "/human/"].includes(endpoint.pathname) ||
-      endpoint.search !== "" ||
-      endpoint.hash !== ""
-    ) {
-      throw new Error("LAYERX_HUMAN_SERVICE_URL must name the HTTPS human service");
-    }
-    const baseUrl = endpoint.origin;
     return [
       {
         source: "/human/v1/:path*",
-        destination: `${baseUrl}/v1/:path*`,
+        destination: "/api/human/v1/:path*",
       },
       {
         source: "/v1/:path*",
-        destination: `${baseUrl}/v1/:path*`,
+        destination: "/api/human/v1/:path*",
       },
       {
         // This is Human readiness; ramp readiness has a separate service URL.
         source: "/readyz",
-        destination: `${baseUrl}/readyz`,
+        destination: "/api/human/readyz",
       },
     ];
   },
