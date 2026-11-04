@@ -43,11 +43,30 @@ func loadDirectRoles() map[string]string {
 	return owners
 }
 
+// gasBudget is shared by batch entries and nested EVM calls of one run.
+type gasBudget struct {
+	left   *uint64
+	charge bool
+}
+
+func (b gasBudget) take(cost uint64) error {
+	if !b.charge {
+		return nil
+	}
+	if *b.left < cost {
+		*b.left = 0
+		return vm.ErrOutOfGas
+	}
+	*b.left -= cost
+	return nil
+}
+
 // call is one resolved launchpad call as its role handler serves it.
 type call struct {
-	ctx   sdk.Context
-	evm   *vm.EVM
-	hooks *tracing.Hooks
+	budget gasBudget
+	ctx    sdk.Context
+	evm    *vm.EVM
+	hooks  *tracing.Hooks
 	// role is the role whose ABI resolved the selector.
 	role string
 	// target is the address the caller called: a surface, or 0x1017.
@@ -132,17 +151,7 @@ func (p *Precompile) run(evm *vm.EVM, caller common.Address, input []byte, value
 			bz, err = runRevert(err), vm.ErrExecutionReverted
 		}
 	}()
-	take := func(cost uint64) error {
-		if !charge {
-			return nil
-		}
-		if *gas < cost {
-			*gas = 0
-			return vm.ErrOutOfGas
-		}
-		*gas -= cost
-		return nil
-	}
+	budget := gasBudget{left: gas, charge: charge}
 	sdb := state.GetDBImpl(evm.StateDB)
 	if sdb == nil {
 		return nil, 0, errors.New("cannot get context from EVM")
@@ -150,7 +159,7 @@ func (p *Precompile) run(evm *vm.EVM, caller common.Address, input []byte, value
 	ctx := sdb.Ctx().WithEVMPrecompileCalledFromDelegateCall(isFromDelegateCall)
 	c, err := p.executor.resolve(ctx, caller, input)
 	if err != nil {
-		if gasErr := take(Gas(uint64(len(input)), 0)); gasErr != nil {
+		if gasErr := budget.take(Gas(uint64(len(input)), 0)); gasErr != nil {
 			return nil, 0, gasErr
 		}
 		return nil, *gas, err
@@ -160,7 +169,7 @@ func (p *Precompile) run(evm *vm.EVM, caller common.Address, input []byte, value
 	if c.target != p.executor.address {
 		sent -= common.AddressLength
 	}
-	if err := take(Gas(sent, Writes(c.method.RawName))); err != nil {
+	if err := budget.take(Gas(sent, Writes(c.method.RawName))); err != nil {
 		return nil, 0, err
 	}
 	if c.nested, err = NewRunCaller(evm, gas); err != nil {
@@ -169,6 +178,7 @@ func (p *Precompile) run(evm *vm.EVM, caller common.Address, input []byte, value
 	em := ctx.EventManager()
 	c.ctx = ctx.WithEventManager(sdk.NewEventManager())
 	c.evm, c.hooks, c.readOnly = evm, hooks, readOnly
+	c.budget = budget
 	bz, err = p.executor.serve(c, value)
 	if err != nil {
 		return nil, *gas, err
