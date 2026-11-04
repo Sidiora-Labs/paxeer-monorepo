@@ -283,6 +283,8 @@ A vault deployed before this rule is not upgradeable and keeps accepting the oth
 
 `services/bridge/deploy/relayer-solana.example.json` is a complete, deliberately non-production configuration instance of this schema. Every `EXAMPLE_ONLY` handle/path/backend name, `.invalid` endpoint, EVM vault, public key, program identity and mint is a fixture value, not an approved deployment. Its program and vault handle are the existing public PDA test vector from `services/interop/crates/layerx-bridge-relayer/src/solana/release.rs`; its mint decodes to 32 bytes of `01`. The public signing keys are test vectors with no provisioned signer handles. Do not fund them or use them as operator identities. The example can pass offline configuration loading without any of those paths or services existing; that is not evidence of signer access, an RPC quorum, custody or outbound readiness.
 
+Replace `paxeer.endpoints[].url` (`https://paxeer.example.invalid/` in the example) with an approved Paxeer node origin using the root path `/`. The relayer passes this URL unchanged to its HTTP transport; do not append `/rpc`. Supply that node's approved DER trust anchor through `trust_anchor_der` and retain TLS verification. Foreign EVM and Solana endpoint paths belong to their respective providers; the Paxeer root-path rule does not change them. Domain 11 owns the relayer loader and transport in `services/interop/crates/layerx-bridge-relayer`.
+
 The optional `solana` object has this contract:
 
 | Field | Operator value |

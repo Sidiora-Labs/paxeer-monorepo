@@ -4,6 +4,7 @@ import {
   Component,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -16,10 +17,8 @@ import { DesktopConfirmation, MobileConfirmation } from "../kit/confirm";
 import { DesktopDetail, MobileDetail } from "../kit/pattern-detail";
 import { InlineNotice, StateFrame } from "../kit/surface";
 import { KitButton } from "../kit/control";
-import {
-  browserSupportReportOutbox,
-  type ErrorReporter,
-} from "./report";
+import type { ErrorReporter } from "./report";
+import { useSupportReportOutbox } from "./report-session.tsx";
 import { supportReportRoute } from "./report-routes.ts";
 
 export interface ErrorPresentation {
@@ -115,7 +114,7 @@ export function ErrorSurface({
   platform,
   onRetry,
   onReload,
-  reporter = browserSupportReportOutbox,
+  reporter,
 }: Readonly<{
   error: ErrorPresentation;
   route: string;
@@ -125,6 +124,13 @@ export function ErrorSurface({
   reporter?: ErrorReporter;
 }>) {
   const resolvedPlatform = useResolvedPlatform(platform);
+  const sessionOutbox = useSupportReportOutbox();
+  const activeReporter = reporter ?? sessionOutbox;
+  const observation = Object.freeze({ traceId: error.traceId, machineCode: error.machineCode, route });
+  const origin = useRef({ observation, reporter: activeReporter });
+  if (origin.current.observation.traceId !== error.traceId) {
+    origin.current = { observation, reporter: activeReporter };
+  }
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const [retryReady, setRetryReady] = useState(error.retryAfterMs === undefined || error.retryAfterMs === 0);
   useEffect(() => {
@@ -155,11 +161,9 @@ export function ErrorSurface({
   const submitReport = async () => {
     setReportStatus("saving");
     try {
-      const receipt = await reporter.submit({
+      const receipt = await origin.current.reporter.submit({
         consented: true,
-        traceId: error.traceId,
-        machineCode: error.machineCode,
-        route,
+        ...origin.current.observation,
         shell: resolvedPlatform,
       });
       setReportStatus(receipt.status);
