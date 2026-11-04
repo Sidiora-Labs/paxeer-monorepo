@@ -64,7 +64,10 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 		if _, _, err := net.SplitHostPort(cfg.StandbyAddress); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrConfigStandbyAddress, err)
 		}
-		dial = DialStandby(cfg.StandbyAddress, cfg.ReplicationTimeout)
+		if _, err := cfg.ReplicationTLS.TLSConfig(false); err != nil {
+			return nil, err
+		}
+		dial = DialStandby(cfg.StandbyAddress, cfg.ReplicationTimeout, cfg.ReplicationTLS)
 	}
 	n.WAL, err = wal.OpenWAL(cfg.WALDir, wal.DefaultConfig())
 	if err != nil {

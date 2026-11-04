@@ -1056,7 +1056,7 @@ fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
     }]);
     value["paxeer"]["endpoints"] = serde_json::json!([
         {
-            "url": "https://paxeer.example.invalid/rpc",
+            "url": "https://paxeer.example.invalid/",
             "trust_anchor_der": anchor,
             "request_timeout_ms": 1234,
         },
@@ -1604,4 +1604,13 @@ fn fixture_directory(_name: &str) -> PathBuf {
         .create(&directory)
         .expect("new private fixture directory");
     directory
+}
+
+#[allow(dead_code)]
+#[path = "support/repair_22_33_68.rs"]
+mod repair_22_33_68_support;
+
+#[test]
+fn repair_22_33_68_configured_root_transport() {
+    repair_22_33_68_support::configured_root_transport();
 }

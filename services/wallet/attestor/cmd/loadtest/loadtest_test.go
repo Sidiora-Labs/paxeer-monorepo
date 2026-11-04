@@ -161,6 +161,7 @@ type network struct {
 	inventory       server.WalletInventory
 	pins            map[string]string
 	sequence        uint64
+	manifestPath    string
 }
 
 func (n *network) publishInventory(t *testing.T) {
@@ -352,46 +353,51 @@ func (n *network) env(token string) map[string]string {
 func runTool(t *testing.T, nw *network, env map[string]string, args ...string) (Summary, []byte) {
 	t.Helper()
 	var out, errs bytes.Buffer
-	cfg, err := load(args, func(k string) string { return env[k] }, &errs)
-	if err != nil {
-		t.Fatal(err)
+	if nw.manifestPath == "" {
+		nw.manifestPath = filepath.Join(t.TempDir(), "run.json")
+		var pins []string
+		for _, ep := range nw.endpoints {
+			id, _, _ := strings.Cut(ep, "=")
+			pins = append(pins, id+"="+nw.pins[id])
+		}
+		stage := func(phase string, extra ...string) (RunManifest, error) {
+			var raw bytes.Buffer
+			stageArgs := append(append([]string{}, args...), "-manifest", nw.manifestPath, "-phase", phase)
+			stageArgs = append(stageArgs, extra...)
+			_, err := run(context.Background(), stageArgs, func(k string) string { return env[k] }, &raw, &errs)
+			if err != nil {
+				return RunManifest{}, err
+			}
+			var m RunManifest
+			err = json.Unmarshal(raw.Bytes(), &m)
+			return m, err
+		}
+		m, err := stage("export", "-pins", strings.Join(pins, ","))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := stage("generate"); err == nil || !strings.Contains(err.Error(), server.CodeKeyInvalidShare) {
+			t.Fatalf("generation before owner admission: %v", err)
+		}
+		nw.inventory.Keys = append(nw.inventory.Keys, m.Inventory...)
+		nw.publishInventory(t)
+		generated, err := stage("generate")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, request := range generated.Inventory {
+			for i := range nw.inventory.Keys {
+				if nw.inventory.Keys[i].KeyID == request.KeyID {
+					nw.inventory.Keys[i] = request
+				}
+			}
+		}
+		nw.publishInventory(t)
 	}
-	client, err := mtlsClient(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(client.CloseIdleConnections)
-	runID, err := randomHex(8)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lt := &loadTester{cfg: cfg, client: client, runID: runID, quorums: quorums(cfg.endpoints, 3)}
-	ctx := context.Background()
-	if err := lt.checkEndpoints(ctx); err != nil {
-		t.Fatal(err)
-	}
-	first := len(nw.inventory.Keys)
-	for _, curve := range []string{store.CurveSecp256k1, store.CurveEd25519} {
-		nw.inventory.Keys = append(nw.inventory.Keys, server.InventoryKey{
-			KeyID: "loadtest-" + runID + "-" + curve, Curve: curve, Owner: cfg.subject, Operations: []string{"generate"},
-		})
-	}
-	nw.publishInventory(t)
-	keys, err := lt.generateKeys(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, key := range keys {
-		nw.inventory.Keys[first+i].PublicKey = key.PublicKey
-		nw.inventory.Keys[first+i].Operations = []string{"sign"}
-	}
-	nw.publishInventory(t)
-	summary, err := lt.measure(ctx, keys)
+	args = append(append([]string{}, args...), "-manifest", nw.manifestPath, "-phase", "sign")
+	summary, err := run(context.Background(), args, func(k string) string { return env[k] }, &out, &errs)
 	if err != nil {
 		t.Fatalf("loadtest: %v (stderr %s)", err, errs.String())
-	}
-	if err := json.NewEncoder(&out).Encode(summary); err != nil {
-		t.Fatal(err)
 	}
 	return summary, out.Bytes()
 }

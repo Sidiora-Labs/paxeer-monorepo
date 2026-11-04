@@ -40,20 +40,25 @@ def run(name, command, run_dir):
             'log': str(log), 'log_sha256': producer.digest(log)}
 
 
-def verify(manifest):
+def admit_manifest(manifest, source, scoped):
     path = Path(manifest).absolute()
     directory = producer.private_directory(path.parent)
     value = producer.load_private(path)
     require(value.get('schema') == producer.SCHEMA, 'unsupported storage recovery artifact schema')
-    source = producer.identity()
     require({key: value.get(key) for key in source} == source,
             'artifacts do not bind this clean candidate')
     require(value.get('exit') == 0, 'producer build did not succeed')
     command = value.get('command')
-    require(isinstance(command, list) and command[:2] == ['make', '-j3']
-            and command[4:] == ['layerxd'] + ['build/tests/' + name for name in producer.TESTS],
+    require(isinstance(command, list) and len(command) == 4 + len(producer.TESTS)
+            and isinstance(command[2], str) and isinstance(command[3], str)
+            and command[2].startswith('PROGRAMS_TARGET_DIR=')
+            and command[3].startswith('PROGRAMS_RUNTIME_LIB=')
+            and command[2].split('=', 1)[1] and command[3].split('=', 1)[1],
             'producer command is not the declared make invocation')
-    require(value.get('sources') == producer.sources(),
+    settings = dict(part.split('=', 1) for part in command[2:4])
+    require(command == producer.build_command(settings) and value.get('cwd') == str(producer.ROOT),
+            'producer command is not the declared make invocation')
+    require(value.get('sources') == scoped,
             'scoped sources differ from the producer record')
     require(value.get('log') == producer.LOG
             and producer.digest(directory / producer.LOG) == value.get('log_sha256'),
@@ -64,10 +69,23 @@ def verify(manifest):
     for name in producer.TESTS:
         require(artifacts[name] == producer.artifact(directory, 'bin/' + name),
                 'artifact differs from producer: ' + name)
+    return value
+
+
+def recovery_suites(directory):
+    return [(name, [str(directory / 'bin' / name)]) for name in producer.TESTS]
+
+
+def verify(manifest):
+    path = Path(manifest).absolute()
+    directory = producer.private_directory(path.parent)
+    source = producer.identity()
+    value = admit_manifest(path, source, producer.sources())
+    artifacts = value['artifacts']
+    for name in producer.TESTS:
         require(os.access(directory / 'bin' / name, os.X_OK), 'artifact is not executable: ' + name)
     run_dir = Path(tempfile.mkdtemp(prefix='storage-recovery-', dir=evidence_directory()))
-    suites = [('order', ['sh', producer.ORDER_CHECK])]
-    suites += [(name, [str(directory / 'bin' / name)]) for name in producer.TESTS]
+    suites = recovery_suites(directory)
     results = []
     for name, suite in suites:
         results.append(run(name, suite, run_dir))

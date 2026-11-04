@@ -1,0 +1,49 @@
+[repair.22.31.131]
+status = "implemented_not_qualified"
+baseline = "No baseline gate ran: the ordered task instructions reserve verification for hf-done after complete implementation; no pre-change test failure is claimed."
+prior_attempt = "The supplied attempt-1 evidence records failures in TestRepair_131_SnapshotGrowth and TestRepair_131_EscrowReceiptBinding; this continuation preserves their contract assertions."
+snapshot-growth = "TestRepair_131_SnapshotGrowth drives 512 real agent streams, proves atomic refusal of the 513th metadata entry, and proves bounded recovery JSON export/import/reopen; its unchanged declared_genesis_contract subtest exercises the application JSON contract with 1034 live kernel records. GenesisState.Validate retains per-record bounds, duplicate checks and gate checks without a lifetime kernel count cap that live writers do not enforce."
+escrow-receipt-binding = "TestRepair_131_EscrowReceiptBinding checks canonical outer and durable result roots, exact transfer effects, replay and reopen; every execution's persisted canonical receipt is decoded and compared with the returned receipt and economic result before and after reopening. Submit invokes the native escrow binder and canonical encoder inside its cache branch, including split and replay receipts."
+unused-budget-revoke = "TestRepair_131_UnusedBudgetRevoke and TestRepair_131_Budget0x101B prove unused and spent refunds, terminal decoding, atomic refusals, repeated revocation and reopen through the real keeper kernel and 0x101B EVM paths."
+
+[wiring.snapshot]
+request = "Domain 2: modules/layerxpay/module.go may adopt keeper.RecoveryGenesis / ExportRecoveryGenesis / InitRecoveryGenesis for bounded-chunk transport with completeness validation; the existing application JSON boundary now admits every live kernel record with its existing per-record bounds."
+
+[wiring.escrow]
+request = "Domain 1: include/layerx/lx_escrow.h must declare lx_escrow_bind_economic_receipt; src/protocol/lxp_kernel.c receipt_bind_ledger_projection should invoke it before hashing/signing for direct kernel consumers; the keeper now binds and persists its unsigned canonical receipts before publishing Submit."
+
+[wiring.proofs]
+request = "Domain 2: modules/layerxpay/types/proof_views_test.go, modules/layerxpay/types/params_test.go and precompiles/layerxpay/proof_layerxpay_0x101b_test.go must replace defect-pinning assertions with matching nonzero escrow roots, per-record genesis validation without a lifetime kernel count cap, and successful unused-budget revocation, respectively; the latter owns the real 0x101B cross-language proof."
+
+[wiring.budget]
+request = "Domain 1: src/modules/budget/lx_budget_create.c retains its nonzero record limit invariant; unused revoked records preserve their historical limit and revoked=true denies all live spending, so no validator relaxation is needed."
+
+[qualification.first]
+revision = "d2b9f6b4d51199888cc7ba84b90d08daf184dc69"
+command = "cg spec done 22.31.131 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Only the declared legacy JSON genesis and outer escrow receipt contract assertions failed; the bounded recovery import/reopen, exact escrow economics/replay/reopen and both real 0x101B budget revocation cases executed without other failures."
+assumption = "The listed out-of-path wiring is required; task scope forbids changing the application/type and kernel receipt consumer. No assertion is weakened."
+
+[evidence]
+record = "/out/run/gates.jsonl records the candidate revision, exact command, exit and private log for every bounded gate."
+
+[continuation.3]
+baseline = "No gate was rerun on unchanged prior work. The supplied attempt-2 ruling reports the split outer receipt root as zero; its test now additionally reads the stored canonical receipt on initial execution, replay and reopened-store replay."
+gotcha = "HostExecute's economic event already carries the split root, but its asset-only ledger projection cannot copy it to the outer escrow receipt; keeper publication must use the native binder and encoder before caching the exact returned bytes durably."
+scope = "Pre-existing .cgignore and spec changes are runner bookkeeping and were left untouched. The previously recorded legacy GenesisState count bound remains an out-of-scope types/application wiring dependency; no assertion or validator was weakened."
+
+[qualification.continuation]
+revision = "0e62d48213303ac013bc9976abc8aee908d6cf4f"
+command = "cg spec done 22.31.131 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The 512-metadata admission boundary, atomic 513th refusal, bounded recovery/reopen and both budget proofs passed their assertions; declared JSON genesis rejects 1034 kernel records and canonical escrow outer roots remain zero in all five settlement cases."
+assumption = "The pre-existing out-of-path types/application and kernel receipt wiring listed above must be authorized before further repair; repeating these recorded failures or weakening their assertions is forbidden."
+
+[continuation.4]
+baseline = "The supplied attempt-3 evidence identifies only the declared-genesis count mismatch; no unchanged gate is rerun. No current gate ledger exists before this continuation's first build."
+repair = "The newly authorized types/params.go validates every kernel record individually without an aggregate count cap, matching the unlimited lifetime records admitted by live family writers. The 512-entry metadata admission limit and recovery chunk bound remain enforced. The declared repair test is unchanged."
+compatibility = "The keeper genesis test now proves atomic refusal of an oversized record beyond the first recovery chunk and imports all 513 valid records, rather than pinning the retired lifetime count defect. Out-of-scope types test reconciliation is requested above."
+evidence = "The final bounded hf-build and hf-done records in /out/run/gates.jsonl name the exact candidate revision and private evidence locations; no passing gate is claimed before it executes."

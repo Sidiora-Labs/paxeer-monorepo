@@ -19,8 +19,17 @@ type LoadConfig struct {
 	MockDeploy bool           `json:"mockDeploy,omitempty"`
 	Settings   *Settings      `json:"settings,omitempty"`
 	Bounds     *BoundsConfig  `json:"bounds,omitempty"`
-	// Path to write a JSON report of the load test.
+	// Path to write a JSON report of the load test. A nonempty settings.reportPath
+	// overrides this path; --report-path overrides both, including an empty flag.
 	ReportPath string `json:"reportPath,omitempty"`
+}
+
+// MergeReportPath supplies the top-level report path when settings has no path.
+// LoadSettings and ResolveSettings subsequently apply --report-path precedence.
+func MergeReportPath(cfg *LoadConfig, s *Settings) {
+	if s.ReportPath == "" {
+		s.ReportPath = cfg.ReportPath
+	}
 }
 
 type BoundsConfig struct {

@@ -1,11 +1,11 @@
-use crate::core::market::{MarketId, MARKET_COUNT};
+use crate::core::market::{MARKET_COUNT, MarketId};
 use crate::core::timeframe::Timeframe;
 use crate::core::types::{CandleRecord, PriceTick};
 
 const TF_COUNT: usize = 16;
 
 /// In-memory OHLCV aggregation state for one (market, timeframe) pair.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct CandleBuffer {
     bucket_start_ns: u64,
     open: f64,
@@ -78,6 +78,7 @@ pub enum CandleOutput {
 /// Persistence strategy:
 /// - `Closed` candles → `CandleStore::append` (finalized, immutable)
 /// - `Live` candles → in memory only (reconstructible from ticks after crash)
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CandleBuilder {
     /// `buffers[market_id * TF_COUNT + tf_index]`
     buffers: Vec<Option<CandleBuffer>>,
@@ -89,6 +90,15 @@ impl CandleBuilder {
         Self {
             buffers: (0..total).map(|_| None).collect(),
         }
+    }
+
+    pub(crate) fn validate_recovery_state(&self) -> Result<(), crate::error::PerfDbError> {
+        if self.buffers.len() != MARKET_COUNT * TF_COUNT {
+            return Err(crate::error::PerfDbError::Corruption(
+                "invalid candle recovery state".into(),
+            ));
+        }
+        Ok(())
     }
 
     /// Process a price tick. Returns candle outputs for all 16 timeframes.
@@ -135,7 +145,10 @@ impl CandleBuilder {
     /// Returns `None` if no ticks have been processed.
     pub fn current(&self, market_id: MarketId, tf: Timeframe) -> Option<CandleRecord> {
         let idx = market_id as usize * TF_COUNT + tf as usize;
-        self.buffers.get(idx)?.as_ref().map(|b| b.to_record(market_id, tf))
+        self.buffers
+            .get(idx)?
+            .as_ref()
+            .map(|b| b.to_record(market_id, tf))
     }
 
     /// Flush all current buffers as finalized candles (for graceful shutdown).
@@ -218,10 +231,13 @@ mod tests {
         builder.on_tick(&make_tick(300_000_000, 0, 66_800.0));
         let output = builder.on_tick(&make_tick(400_000_000, 0, 67_200.0));
 
-        let sec1 = output.iter().find_map(|o| match o {
-            CandleOutput::Live(c) if c.timeframe == Timeframe::Sec1 as u8 => Some(c),
-            _ => None,
-        }).unwrap();
+        let sec1 = output
+            .iter()
+            .find_map(|o| match o {
+                CandleOutput::Live(c) if c.timeframe == Timeframe::Sec1 as u8 => Some(c),
+                _ => None,
+            })
+            .unwrap();
 
         assert_eq!(sec1.open, 67_000.0);
         assert_eq!(sec1.high, 67_500.0);
@@ -237,15 +253,21 @@ mod tests {
 
         let output = builder.on_tick(&make_tick(1_500_000_000, 0, 67_100.0));
 
-        let closed_1s: Vec<_> = output.iter().filter_map(|o| match o {
-            CandleOutput::Closed(c) if c.timeframe == Timeframe::Sec1 as u8 => Some(c),
-            _ => None,
-        }).collect();
+        let closed_1s: Vec<_> = output
+            .iter()
+            .filter_map(|o| match o {
+                CandleOutput::Closed(c) if c.timeframe == Timeframe::Sec1 as u8 => Some(c),
+                _ => None,
+            })
+            .collect();
 
-        let live_1s: Vec<_> = output.iter().filter_map(|o| match o {
-            CandleOutput::Live(c) if c.timeframe == Timeframe::Sec1 as u8 => Some(c),
-            _ => None,
-        }).collect();
+        let live_1s: Vec<_> = output
+            .iter()
+            .filter_map(|o| match o {
+                CandleOutput::Live(c) if c.timeframe == Timeframe::Sec1 as u8 => Some(c),
+                _ => None,
+            })
+            .collect();
 
         assert_eq!(closed_1s.len(), 1);
         assert_eq!(live_1s.len(), 1);
@@ -322,10 +344,13 @@ mod tests {
         builder.on_tick(&make_tick(30_000_000_000, 0, 67_000.0));
         let output = builder.on_tick(&make_tick(90_000_000_000, 0, 67_100.0));
 
-        let closed_1m: Vec<_> = output.iter().filter_map(|o| match o {
-            CandleOutput::Closed(c) if c.timeframe == Timeframe::Min1 as u8 => Some(c),
-            _ => None,
-        }).collect();
+        let closed_1m: Vec<_> = output
+            .iter()
+            .filter_map(|o| match o {
+                CandleOutput::Closed(c) if c.timeframe == Timeframe::Min1 as u8 => Some(c),
+                _ => None,
+            })
+            .collect();
 
         assert_eq!(closed_1m.len(), 1);
         assert_eq!(closed_1m[0].timestamp_ns, 0);

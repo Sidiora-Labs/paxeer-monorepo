@@ -37,7 +37,10 @@ func TestHandoverPlannedSteps(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(w.Close)
 		r, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-			WAL: w, Dial: sequencer.DialStandby(l.Addr().String(), replicationTimeout), ReplicationTimeout: replicationTimeout,
+			WAL: w, Dial: func(ctx context.Context) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "tcp", l.Addr().String())
+			}, ReplicationTimeout: replicationTimeout,
 		})
 		require.NoError(t, err)
 		t.Cleanup(r.Close)

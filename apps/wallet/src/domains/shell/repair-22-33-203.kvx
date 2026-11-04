@@ -1,0 +1,12 @@
+[repair.22.33.203]
+finding = "recipient-roundtrip-coverage"
+audit = "spec/layerx-merge/programme/audit/records/22.30.120.kvx"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+change = "Extend the canonical navigation matrix with recipient-only, native-token-plus-recipient and ERC-20-plus-recipient routes; qualify that matrix and the real useAppRoute history commit, back navigation and remounted URL consumer in the declared repair gate."
+tests = ["recipientOnlyRouteSurvivesHistoryCommitAndReload", "nativeTokenRecipientRouteSurvivesHistoryCommitAndReload", "erc20RecipientRouteSurvivesHistoryCommitAndReload"]
+test_path = "apps/wallet/src/domains/shell/repair-22-33-203.test.ts"
+regression = "Each proving test requires its recipient-bearing fixture in the existing ROUTES matrix before driving parseRouteQuery, serializeRoute, the real deep-link listener, browser history and the remounted route hook; without the matrix additions each fixture assertion fails. The serializer fix is already present from prerequisite 22.31.249."
+baseline = "Not run: the ordered instructions require complete implementation before either gate and prohibit invoking verify_cmd by hand; no previous gate ledger exists, so no pre-change failure is claimed."
+qualification_gotcha = "The first gate found that leaving a forward history entry between cases invalidates the next push-length assertion because pushState truncates that entry; each proof now restores the forward entry and asserts Settings recovery before cleanup, preserving the original length assertion."
+evidence = "The verified candidate revision, exact command, exit code and private evidence location are recorded by hf-done in its final JSON line and /out/run/gates.jsonl; this record belongs to that candidate."
+wiring_requests = []

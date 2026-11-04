@@ -24,7 +24,13 @@ export function importTransferReceipt(chain: BridgeChain | undefined, receipt: T
     throw new Error('Connect the wallet that started this transfer to import it.');
   }
   const existing = listTransfers(address).find((entry) => entry.id === transfer.id);
-  const tracked = existing ?? transfer;
+  const tracked = existing ? {
+    ...existing,
+    vault: existing.vault ?? transfer.vault,
+    logIndex: transfer.logIndex ?? existing.logIndex,
+    nonce: transfer.nonce ?? existing.nonce,
+    bridgeOutNonce: transfer.bridgeOutNonce ?? existing.bridgeOutNonce,
+  } : transfer;
   saveTransfer(tracked);
   return { transfer: tracked, existing: existing !== undefined };
 }

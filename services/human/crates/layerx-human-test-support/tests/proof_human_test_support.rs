@@ -3,6 +3,8 @@
 //! The current consumers in agent parity, boundary and client sequencer tests use
 //! JSON-RPC, replacing the indexed UnixListener/LNI serve interface. This proof
 //! uses that current crossing and its actual decoders, without reviving LNI.
+//! The committed receipt proof below uses the recorded paxd chain and reopens
+//! the human evidence store; the locally constructed proofs cover codecs only.
 //! The journey_faults, move_money and spend consumers construct raw receipt
 //! evidence and verify it under the readiness gate's pinned authority identically.
 //!
@@ -369,4 +371,13 @@ fn proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_
     assert_eq!(gate.status(), &Status::NotReady);
     assert_eq!(gate.guard_write(|| ()), Err(WriteGateError::NotReady));
     server.join().expect("foreign producer must finish");
+}
+
+#[path = "support/committed_evidence.rs"]
+mod committed_evidence;
+
+#[test]
+fn proof_human_test_support_real_committed_receipt_recovers_after_human_restart() {
+    committed_evidence::committed_receipt_crosses_rpc_and_recovers();
+    committed_evidence::recorded_malformed_and_foreign_evidence_is_refused();
 }

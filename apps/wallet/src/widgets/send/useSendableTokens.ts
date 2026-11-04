@@ -29,6 +29,12 @@ export interface UseSendableTokensResult {
   loading: boolean;
 }
 
+export function readTokenPrecision(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 36
+    ? value
+    : null;
+}
+
 export function useSendableTokens(address: string | undefined): UseSendableTokensResult {
   const portfolioQuery = usePortfolioQuery(address);
 
@@ -37,7 +43,14 @@ export function useSendableTokens(address: string | undefined): UseSendableToken
     if (!portfolio) {
       // Empty fallback — orchestrator can still show the native row.
       return [
-        { symbol: 'PAX', name: 'Paxeer', decimals: 18, balance: '0', balanceRaw: '0', iconUrl: PAX_ICON_URL },
+        {
+          symbol: 'PAX',
+          name: 'Paxeer',
+          decimals: 18,
+          balance: '0',
+          balanceRaw: '0',
+          iconUrl: PAX_ICON_URL,
+        },
       ];
     }
 
@@ -54,13 +67,15 @@ export function useSendableTokens(address: string | undefined): UseSendableToken
     });
 
     if (portfolio.token_holdings) {
-      portfolio.token_holdings.forEach((h: any) => {
-        const raw = h.balance_raw || '0';
+      portfolio.token_holdings.forEach((h) => {
+        const decimals = readTokenPrecision(h.decimals ?? null);
+        if (decimals === null) return;
+        const raw = h.balance_raw ?? '0';
         list.push({
           symbol: h.symbol || '???',
           name: h.name || 'Unknown',
-          decimals: h.decimals || 18,
-          balance: formatBalance(raw, h.decimals || 18, 4),
+          decimals,
+          balance: decimals === 0 ? raw : formatBalance(raw, decimals, 4),
           balanceRaw: raw,
           address: h.contract_address,
           iconUrl: h.icon_url || undefined,
@@ -71,5 +86,5 @@ export function useSendableTokens(address: string | undefined): UseSendableToken
     return list;
   }, [portfolioQuery.data]);
 
-  return { tokens, loading: portfolioQuery.isPending };
+  return { tokens, loading: portfolioQuery.isPending || !portfolioQuery.data };
 }

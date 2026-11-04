@@ -1,0 +1,18 @@
+[repair.22.33.364]
+audit = "22.30.14"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+qualification = "The runner hf-build/hf-done ledger and final evidence line identify the exact qualified candidate revision, command, exit code and private log."
+baseline = "Not run: step 6 conflicts with the explicit implementation-first gate order and prohibition on running verify_cmd by hand; no baseline failures are claimed."
+gotcha = "Task records and gotchas stay in this scoped record because the task forbids editing spec/ and GOTCHA.kvx."
+
+[finding.genesis-positive-fixture-shape]
+tests = ["TestRepairM_364_GenesisPositiveFixtureShape"]
+proof = "Real pricefeed submission and aggregation, seeded markets, deposits and a matched partial fill produce the positive export. JSON import and store reopen preserve it; independent OI, account-count and ownership mutations fail types and keeper validation and import without changing pre-existing store contents. All malformed-reference and codec assertions remain in the gate."
+
+[finding.error-proof-pins-loss]
+tests = ["TestRepairM_364_ErrorProofPinsLoss"]
+proof = "Actual GetMarket and ValidateGenesis refusals cross ResponseDeliverTx, ABCI protobuf and ABCIError with perps/3 and perps/39 identities; the shared transport proof retains malformed protobuf, wrong namespace, unknown code and LXP ABI checks. The historical test now requires these registered identities."
+
+[wiring]
+requests = []
+reason = "Prerequisite wrapper repairs in modules/perps/keeper/keeper.go and modules/perps/types/genesis.go are already present; no out-of-path implementation is needed."

@@ -85,14 +85,38 @@ pub(super) fn activity_entry_json(
     }
     let detail = EntryDetail::assemble(&entry, actuals, None)
         .map_err(|_| ApiFailure::upstream_degraded())?;
-    let stages=detail.stages().iter().enumerate().map(|(index,stage)|json!({"stage_id":format!("stg_{}_{index}",id.as_str()),"copy_key":stage.label(),"state":stage_state(stage.state()),"evidence":[]})).collect::<Vec<_>>();
-    let money = detail.actuals().first().map(
-        |actual| json!({"amount":actual.amount().to_string(),"currency":hex(&actual.asset())}),
-    );
-    let fee_money = detail
-        .actuals()
-        .first()
-        .map(|actual| json!({"amount":actual.fee().to_string(),"currency":hex(&actual.asset())}));
+    let assets = if detail.actuals().is_empty() {
+        None
+    } else {
+        Some(
+            layerx_network_gateway::GatewayEndpoint::from_environment()
+                .and_then(|gateway| gateway.list_assets())
+                .map_err(|_| ApiFailure::upstream_degraded())?,
+        )
+    };
+    activity_detail_json(&entry, &detail, &labels, assets.as_ref())
+}
+
+fn activity_detail_json(
+    entry: &crate::activity::ActivityEntry,
+    detail: &EntryDetail,
+    labels: &BTreeMap<String, &str>,
+    assets: Option<&layerx_network_gateway::AssetTable>,
+) -> Result<Value, ApiFailure> {
+    let id = entry.entry_id();
+    let stages = detail
+        .stages()
+        .iter()
+        .enumerate()
+        .map(|(index, stage)| {
+            Ok(json!({
+                "stage_id": format!("stg_{}_{index}", id.as_str()),
+                "copy_key": activity_stage_key(stage.label())?,
+                "state": stage_state(stage.state()),
+                "evidence": [],
+            }))
+        })
+        .collect::<Result<Vec<_>, ApiFailure>>()?;
     let evidence = detail
         .evidence()
         .iter()
@@ -106,9 +130,484 @@ pub(super) fn activity_entry_json(
             )
         })
         .collect::<Result<Vec<_>, ApiFailure>>()?;
-    Ok(
-        json!({"entry_id":id.as_str(),"kind":activity_kind(detail.kind()),"state":activity_status(detail.status()),"state_copy_key":format!("activity.state.{}",activity_status(detail.status())),"summary_copy_key":detail.sentence(),"occurred_at":entry.occurred_at(),"stages":stages,"evidence":evidence,"money":money,"fees":fee_money}),
-    )
+    let timestamp = crate::time::rfc3339(entry.occurred_at());
+    if crate::time::seconds_from_rfc3339(&timestamp) != Some(entry.occurred_at()) {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    let mut result = json!({
+        "entry_id": id.as_str(),
+        "kind": activity_kind(detail.kind()),
+        "state": activity_status(detail.status()),
+        "state_copy_key": activity_state_key(detail.status()),
+        "summary_copy_key": activity_summary_key(detail.kind(), detail.status()),
+        "occurred_at": timestamp,
+        "stages": stages,
+        "evidence": evidence,
+    });
+    if let Some(actual) = detail.actuals().first() {
+        let currency = activity_currency(
+            assets.ok_or_else(ApiFailure::upstream_degraded)?,
+            actual.asset(),
+        )?;
+        result["money"] = json!({"amount": actual.amount().to_string(), "currency": currency});
+        result["fees"] = json!({"amount": actual.fee().to_string(), "currency": currency});
+        match detail.kind() {
+            crate::activity::ActivityKind::Deposit => result["direction"] = json!("in"),
+            crate::activity::ActivityKind::Withdrawal => result["direction"] = json!("out"),
+            _ => {}
+        }
+    }
+    Ok(result)
+}
+
+fn activity_currency(
+    assets: &layerx_network_gateway::AssetTable,
+    asset: [u8; 32],
+) -> Result<&str, ApiFailure> {
+    let encoded = hex(&asset);
+    let mut matching = assets.assets.iter().filter(|entry| {
+        entry.asset_id == encoded
+            || entry.asset_id == format!("0x{encoded}")
+            || entry.denom.as_ref().is_some_and(|denom| {
+                entry.asset_id == format!("denom:{denom}")
+                    && <[u8; 32]>::from(Sha256::digest(denom.as_bytes())) == asset
+            })
+    });
+    let entry = matching.next().ok_or_else(ApiFailure::upstream_degraded)?;
+    if matching.next().is_some() {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    entry
+        .symbol
+        .as_deref()
+        .filter(|symbol| symbol.len() == 3 && symbol.bytes().all(|byte| byte.is_ascii_uppercase()))
+        .ok_or_else(ApiFailure::upstream_degraded)
+}
+
+fn activity_state_key(status: crate::activity::ActivityStatus) -> String {
+    use crate::activity::{ActivityStatus as S, DepositStage as D, WithdrawalStage as W};
+    let key = match status {
+        S::Deposit(D::WaitingForWallet) => "waiting_for_wallet".to_owned(),
+        S::Deposit(D::ConfirmingOnPaxeer) => "confirming_on_paxeer".to_owned(),
+        S::Deposit(D::Crediting) => "crediting".to_owned(),
+        S::Withdrawal(W::WaitingForSettlement) => "waiting_for_settlement".to_owned(),
+        S::Withdrawal(W::ReadyToClaim) => "ready_to_claim".to_owned(),
+        S::Withdrawal(W::PaidOut) => "paid_out".to_owned(),
+        _ => activity_status(status).replace('-', "_"),
+    };
+    format!("status.{key}")
+}
+
+fn activity_summary_key(
+    kind: crate::activity::ActivityKind,
+    status: crate::activity::ActivityStatus,
+) -> String {
+    use crate::activity::{ActivityKind as K, ActivityStatus as S};
+    if let S::DidntGoThrough { money_left } = status {
+        return if money_left {
+            "activity.refused.money_left"
+        } else {
+            "activity.refused.money_kept"
+        }
+        .to_owned();
+    }
+    let kind = match kind {
+        K::Deposit => "deposit",
+        K::Withdrawal => "withdrawal",
+        K::Movement => "move",
+        K::AgentAction => "agent",
+        K::Approval => "approval",
+        K::Security => "security",
+    };
+    let suffix = if matches!(activity_status(status), "done" | "done-finalised") {
+        "summary"
+    } else {
+        "progress"
+    };
+    format!("activity.{kind}.{suffix}")
+}
+
+fn activity_stage_key(label: &str) -> Result<&'static str, ApiFailure> {
+    match label {
+        "Waiting for wallet" => Ok("status.waiting_for_wallet"),
+        "Confirming on Paxeer" => Ok("status.confirming_on_paxeer"),
+        "Crediting" => Ok("status.crediting"),
+        "Done" => Ok("status.done"),
+        "Processing" => Ok("status.processing"),
+        "Waiting for settlement" => Ok("status.waiting_for_settlement"),
+        "Ready to claim" => Ok("status.ready_to_claim"),
+        "Paid out" => Ok("status.paid_out"),
+        "Getting ready" => Ok("status.getting_ready"),
+        "Sending" => Ok("status.sending"),
+        "Waiting for you" => Ok("status.waiting_for_you"),
+        _ => Err(ApiFailure::upstream_degraded()),
+    }
+}
+
+#[cfg(test)]
+mod activity_detail_contract_tests {
+    use super::*;
+    use crate::activity::{ActivityKind, AgentActivity, PendingStatus, VerifiedStatus};
+    use crate::server::schema::ApiSchema;
+    use crate::store::{
+        AgentTenantId, PrincipalId, PrincipalStore, RetentionPeriod, RetentionPolicy, TenancyMap,
+    };
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
+    use layerx_agent_api::track::ReceiptRef;
+    use layerx_proof::inclusion::SequencerAuthorization;
+    use layerx_proof::receipt::{verify, AuthorizedBatch};
+    use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+    use std::net::{TcpListener, TcpStream};
+    use std::time::{Duration, Instant};
+
+    fn pinned_activity_receipt(signature: Option<[u8; 64]>) -> Vec<u8> {
+        let bytes = layerx_intents::vectors::receipt(None).expect("producer receipt");
+        let decoded = layerx_wire::receipt::decode(&bytes).expect("canonical producer receipt");
+        let receipt = decoded.protocol().expect("protocol receipt");
+        let mut batch_id = [0; 32];
+        batch_id[24..].copy_from_slice(&42_u64.to_be_bytes());
+        let mut encoder = layerx_wire::encode::Encoder::new(4096);
+        encoder
+            .structure_header_version(0x5201, receipt.protocol_version())
+            .expect("header");
+        encoder.u16(receipt.protocol_version()).expect("version");
+        encoder.bytes(&receipt.activity_id(), 32).expect("activity");
+        encoder.u64(receipt.global_sequence()).expect("sequence");
+        encoder
+            .bytes(&receipt.previous_state_root(), 32)
+            .expect("previous root");
+        encoder
+            .bytes(&receipt.resulting_state_root(), 32)
+            .expect("resulting root");
+        encoder
+            .bytes(&receipt.activity_root(), 32)
+            .expect("activity root");
+        encoder.i32(receipt.result_code()).expect("result");
+        assert!(receipt.effects().is_empty());
+        encoder.sequence_length(0, 512).expect("effects");
+        encoder.u128(receipt.fee_charged()).expect("fee");
+        encoder.bytes(&batch_id, 32).expect("height-encoded batch");
+        encoder.u16(receipt.module_id()).expect("module");
+        encoder
+            .u32(receipt.module_version())
+            .expect("module version");
+        encoder
+            .u32(receipt.parameter_version())
+            .expect("parameter version");
+        encoder.u8(receipt.operation()).expect("operation");
+        encoder.bytes(&receipt.asset(), 32).expect("asset");
+        encoder.u128(receipt.amount()).expect("amount");
+        encoder.bytes(&receipt.from(), 32).expect("from");
+        encoder
+            .u128(receipt.debit_balance_before())
+            .expect("debit before");
+        encoder
+            .u128(receipt.debit_balance_after())
+            .expect("debit after");
+        encoder
+            .u64(receipt.debit_sequence())
+            .expect("debit sequence");
+        encoder.bytes(&receipt.to(), 32).expect("to");
+        encoder
+            .u128(receipt.credit_balance_before())
+            .expect("credit before");
+        encoder
+            .u128(receipt.credit_balance_after())
+            .expect("credit after");
+        encoder
+            .bytes(&receipt.transfer_set_root(), 32)
+            .expect("transfer root");
+        encoder
+            .bytes(&receipt.authorization_hash(), 32)
+            .expect("authorization");
+        encoder.bytes(&receipt.context_hash(), 32).expect("key id");
+        encoder.u64(receipt.timestamp()).expect("timestamp");
+        encoder
+            .u8(u8::from(signature.is_some()))
+            .expect("signature presence");
+        if let Some(signature) = signature {
+            encoder.bytes(&signature, 64).expect("signature");
+        }
+        encoder.finish()
+    }
+
+    #[test]
+    fn activity_detail_http_contract() {
+        let root =
+            std::env::temp_dir().join(format!("activity-detail-contract-{}", std::process::id()));
+        let principal = PrincipalId::new("activity-contract").expect("principal");
+        let tenant = AgentTenantId::new("activity-contract").expect("tenant");
+        let tenancy = TenancyMap::new([(principal.clone(), tenant)]).expect("tenancy");
+        let digest = tenancy.install(&root).expect("install tenancy");
+        let period = RetentionPeriod::new(86_400);
+        let retention = RetentionPolicy {
+            journeys: period,
+            notifications: period,
+            audit: period,
+            telemetry: period,
+            cache: period,
+        };
+        let mut store = PrincipalStore::open(&root, retention, digest).expect("open store");
+        let mut scope = store.principal(&principal).expect("scope");
+        let signer = SigningKey::from_bytes(&[0x16; 32]);
+        let unsigned = pinned_activity_receipt(None);
+        let signature = signer.sign(
+            &layerx_intents::vectors::receipt_signing_digest(&unsigned).expect("receipt digest"),
+        );
+        let canonical = pinned_activity_receipt(Some(signature.to_bytes()));
+        let keys = [SequencerAuthorization::new(
+            [11; 32],
+            signer.verifying_key().to_bytes(),
+            41,
+            43,
+        )];
+        let authority =
+            AuthorizedBatch::from_receipt_keys(&canonical, &keys, [5; 32], [2; 32], [3; 32])
+                .expect("receipt authority pinned to its key id and height");
+        let verified = verify(&canonical, &authority).expect("verify genuine canonical receipt");
+        assert_eq!(verified.rung(), Rung::Receipted);
+        let actual = crate::activity::detail::ReceiptActual::from_verified(&verified)
+            .expect("verified actuals");
+        assert_eq!(actual.amount(), 25);
+        assert_eq!(actual.fee(), 1);
+        let mut assets = layerx_network_gateway::decode_assets(&json!({
+            "height": "9", "joined_limit": "16", "assets": [{
+                "asset_id": hex(&actual.asset()), "kind": "bank", "symbol": "LXP", "decimals": "18"
+            }]
+        }))
+        .expect("asset catalog codec");
+        assert_eq!(
+            activity_currency(&assets, actual.asset()).expect("display symbol"),
+            "LXP"
+        );
+        let original = assets.assets[0].clone();
+        assets.assets.push(original.clone());
+        assert!(activity_currency(&assets, actual.asset()).is_err());
+        assets.assets.pop();
+        for symbol in [None, Some("lxp".to_owned()), Some(hex(&actual.asset()))] {
+            assets.assets[0].symbol = symbol;
+            assert!(activity_currency(&assets, actual.asset()).is_err());
+        }
+        assets.assets[0] = original;
+        assert!(activity_currency(&assets, [0xff; 32]).is_err());
+        let bank_asset = Sha256::digest(b"alxp").into();
+        assets.assets[0].asset_id = "denom:alxp".to_owned();
+        assets.assets[0].denom = Some("alxp".to_owned());
+        assert_eq!(
+            activity_currency(&assets, bank_asset).expect("bank asset join"),
+            "LXP"
+        );
+        assets.assets[0].asset_id = hex(&actual.asset());
+        assets.assets[0].denom = None;
+
+        let cases = [
+            (
+                "act_repairdeposit",
+                ActivityKind::Deposit,
+                PendingStatus::Processing,
+                VerifiedStatus::DepositDone,
+                true,
+            ),
+            (
+                "act_repairwithdrawal",
+                ActivityKind::Withdrawal,
+                PendingStatus::Processing,
+                VerifiedStatus::WithdrawalPaidOut,
+                true,
+            ),
+            (
+                "act_repairapproval",
+                ActivityKind::Approval,
+                PendingStatus::WaitingForYou,
+                VerifiedStatus::Done,
+                false,
+            ),
+            (
+                "act_repairsecurity",
+                ActivityKind::Security,
+                PendingStatus::Processing,
+                VerifiedStatus::Done,
+                false,
+            ),
+            (
+                "act_repairrefusedkept",
+                ActivityKind::Movement,
+                PendingStatus::DidntGoThrough { money_left: false },
+                VerifiedStatus::Done,
+                false,
+            ),
+            (
+                "act_repairrefusedleft",
+                ActivityKind::Movement,
+                PendingStatus::DidntGoThrough { money_left: true },
+                VerifiedStatus::Done,
+                false,
+            ),
+        ];
+        let schema = ApiSchema::v1().expect("real HTTP schema");
+        let operation = schema
+            .operation("activity.entry")
+            .expect("activity operation");
+        let mut responses = BTreeMap::new();
+        for (index, (name, kind, pending, completed, monetary)) in cases.iter().copied().enumerate()
+        {
+            let id = ActivityEntryId::new(name).expect("entry id");
+            let descriptor =
+                AgentActivity::new(id.clone(), kind, None, 1_786_789_800, pending, completed)
+                    .expect("activity");
+            let reference = if monetary {
+                ReceiptReference::Verified {
+                    receipt_ref: ReceiptRef::new(actual.reference()).expect("receipt reference"),
+                    rung: verified.rung(),
+                }
+            } else {
+                ReceiptReference::None
+            };
+            let sequence = u8::try_from(index + 1).expect("case sequence");
+            let delivery = EventDelivery::new(
+                EventIdentity::new([sequence; 32]),
+                canonical.clone(),
+                Cursor {
+                    block_height: u64::from(sequence),
+                    tx_index: 0,
+                    log_index: 0,
+                },
+                reference,
+            )
+            .expect("delivery");
+            Feed::record_agent_event(&mut scope, &descriptor, &delivery, 1_786_789_801)
+                .expect("durable feed producer");
+            let entry = Feed::entry(&scope, &id)
+                .expect("read feed")
+                .expect("stored entry");
+            let actuals = if monetary {
+                vec![actual.clone()]
+            } else {
+                Vec::new()
+            };
+            let detail =
+                EntryDetail::assemble(&entry, actuals, None).expect("real detail assembly");
+            let receipt_keys = [ReceiptKeyEntry {
+                key_id: [11; 32],
+                public_key: signer.verifying_key().to_bytes(),
+                first_height: 41,
+                last_height: 43,
+            }];
+            let fact = EvidenceBundle::receipt_fact(&id, canonical.clone(), verified.rung())
+                .expect("canonical receipt fact");
+            let verification =
+                verification_status(EvidenceBundle::verify_receipt(&fact, &receipt_keys));
+            let label =
+                verification_label(&verification).expect("independently verified receipt label");
+            assert_eq!(label, "receipt-verified");
+            let labels = BTreeMap::from([(actual.reference().to_owned(), label)]);
+            let value = if monetary {
+                assert!(activity_detail_json(&entry, &detail, &labels, None).is_err());
+                activity_detail_json(&entry, &detail, &labels, Some(&assets))
+                    .expect("production detail codec")
+            } else {
+                // Exercise the actual route projection as well: no metadata or receipt authority is needed.
+                activity_entry_json(&scope, &id).expect("nonmonetary production detail")
+            };
+            schema
+                .encode_response(operation, &value)
+                .expect("actual HTTP response schema");
+            assert_eq!(value.get("money").is_some(), monetary);
+            assert_eq!(value.get("fees").is_some(), monetary);
+            responses.insert(format!("/v1/activity/{name}"), value);
+        }
+        drop(scope);
+        drop(store);
+        std::fs::remove_dir_all(&root).expect("remove private store");
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind HTTP codec host");
+        let address = listener.local_addr().expect("HTTP address");
+        listener.set_nonblocking(true).expect("bounded accept");
+        let internal_client = std::thread::spawn(move || {
+            let mut recordings = BTreeMap::new();
+            for _ in 0..2 {
+                for (name, ..) in cases {
+                    let mut stream = TcpStream::connect(address).expect("connect real HTTP");
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(10)))
+                        .expect("bounded client");
+                    write!(stream, "GET /v1/activity/{name} HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n").expect("HTTP request");
+                    let mut answer = String::new();
+                    stream.read_to_string(&mut answer).expect("HTTP response");
+                    assert!(answer.starts_with("HTTP/1.1 200 OK\r\n"));
+                    let (_, body) = answer.split_once("\r\n\r\n").expect("HTTP body");
+                    let envelope: Value = serde_json::from_str(body).expect("HTTP envelope");
+                    assert_eq!(envelope["ok"], true);
+                    assert_eq!(envelope["result"]["entry_id"], name);
+                    if let Some(previous) =
+                        recordings.insert(format!("/v1/activity/{name}"), answer.clone())
+                    {
+                        assert_eq!(previous, answer, "stable producer response");
+                    }
+                }
+            }
+            recordings
+        });
+        let started = Instant::now();
+        for _ in 0..cases.len() * 2 {
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(
+                            started.elapsed() < Duration::from_secs(60),
+                            "HTTP consumer deadline"
+                        );
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => panic!("HTTP accept: {error}"),
+                }
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(10)))
+                .expect("bounded request");
+            stream
+                .set_write_timeout(Some(Duration::from_secs(10)))
+                .expect("bounded response");
+            let mut reader = BufReader::new(&mut stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).expect("request line");
+            let path = line
+                .split_whitespace()
+                .nth(1)
+                .expect("request path")
+                .to_owned();
+            loop {
+                line.clear();
+                assert_ne!(reader.read_line(&mut line).expect("request headers"), 0);
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            let route = schema
+                .route("GET", &path)
+                .expect("HTTP route")
+                .expect("activity route");
+            assert_eq!(route.operation.name, "activity.entry");
+            let value = responses.get(&path).expect("requested producer output");
+            schema
+                .encode_response(route.operation, value)
+                .expect("HTTP schema encoding");
+            let body = serde_json::to_vec(
+                &json!({"ok": true, "result": value, "trace": "trc_activity_detail_contract"}),
+            )
+            .expect("HTTP envelope");
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).expect("HTTP headers");
+            stream.write_all(&body).expect("HTTP detail output");
+        }
+        let recordings = internal_client.join().expect("HTTP consumer");
+        assert_eq!(recordings.len(), cases.len());
+        println!(
+            "ACTIVITY_DETAIL_FIXTURE {}",
+            serde_json::to_string(&recordings).expect("record genuine HTTP output")
+        );
+    }
 }
 
 fn journey_get(

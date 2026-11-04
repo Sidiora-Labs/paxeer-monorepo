@@ -54,10 +54,13 @@ impl MmapFile {
                 source: e,
             })?;
 
-        let file_len = file.metadata().map_err(|e| PerfDbError::Io {
-            context: "file metadata".into(),
-            source: e,
-        })?.len();
+        let file_len = file
+            .metadata()
+            .map_err(|e| PerfDbError::Io {
+                context: "file metadata".into(),
+                source: e,
+            })?
+            .len();
 
         if file_len == 0 {
             file.set_len(HEADER_SIZE + INITIAL_FILE_SIZE)
@@ -67,10 +70,13 @@ impl MmapFile {
                 })?;
         }
 
-        let total_len = file.metadata().map_err(|e| PerfDbError::Io {
-            context: "file metadata after resize".into(),
-            source: e,
-        })?.len();
+        let total_len = file
+            .metadata()
+            .map_err(|e| PerfDbError::Io {
+                context: "file metadata after resize".into(),
+                source: e,
+            })?
+            .len();
 
         let mmap = unsafe {
             MmapOptions::new()
@@ -108,6 +114,18 @@ impl MmapFile {
     /// Whether the file contains no data.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Rewind an uncommitted suffix to a durably published recovery boundary.
+    pub(crate) fn truncate_to(&mut self, len: u64) -> Result<(), PerfDbError> {
+        if len > self.len() || len > self.capacity {
+            return Err(PerfDbError::Corruption(
+                "mmap shorter than committed recovery boundary".into(),
+            ));
+        }
+        self.mmap[..8].copy_from_slice(&len.to_le_bytes());
+        self.logical_len.store(len, Ordering::Release);
+        self.flush()
     }
 
     /// Append raw bytes. Grows the file if necessary (double-on-resize).
@@ -218,6 +236,10 @@ impl MmapFile {
         self.mmap.flush().map_err(|e| PerfDbError::Io {
             context: "mmap flush".into(),
             source: e,
+        })?;
+        self.file.sync_data().map_err(|e| PerfDbError::Io {
+            context: "sync mmap file".into(),
+            source: e,
         })
     }
 
@@ -248,10 +270,12 @@ impl MmapFile {
             source: e,
         })?;
 
-        self.file.set_len(new_file_size).map_err(|e| PerfDbError::Io {
-            context: format!("grow file to {new_file_size} bytes"),
-            source: e,
-        })?;
+        self.file
+            .set_len(new_file_size)
+            .map_err(|e| PerfDbError::Io {
+                context: format!("grow file to {new_file_size} bytes"),
+                source: e,
+            })?;
 
         self.mmap = unsafe {
             MmapOptions::new()

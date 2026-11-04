@@ -15,7 +15,7 @@ const _: () = assert!(size_of::<PriceTick>() == 24);
 
 /// Pre-computed OHLCV candle. 48 bytes, mmap-appendable. Volume is stored as
 /// `f32` (rather than `f64`) to keep the record at 48 bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable, Serialize, Deserialize)]
 #[repr(C)]
 pub struct CandleRecord {
     pub timestamp_ns: u64,
@@ -427,7 +427,10 @@ mod tests {
 
     #[test]
     fn parse_fixed_basic() {
-        assert_eq!(parse_fixed("1000000000000000000"), 1_000_000_000_000_000_000);
+        assert_eq!(
+            parse_fixed("1000000000000000000"),
+            1_000_000_000_000_000_000
+        );
         assert_eq!(parse_fixed("-500"), -500);
         assert_eq!(parse_fixed("invalid"), 0);
     }

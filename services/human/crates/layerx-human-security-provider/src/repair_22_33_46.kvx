@@ -1,0 +1,12 @@
+[repair.22.33.46]
+audit = "22.30.106"
+finding = "2"
+implementation = "RecoveryReceipt::verify authenticates the selected transaction and execution evidence before requiring the EVM receipt module, successful receipt and committed execution codes, recovery operation and matching nonzero DID/root/threshold policy; ingestion, reveal and journal replay share this verifier."
+principal = "The administrator-selected principal remains explicit and is not inferred from the EVM signer or recovery DID."
+proof = "tests/repair_22_33_46.rs::repair_22_33_46_success_preserves_administrator_principal_through_reveal_and_restart"
+ingestion = "tests/repair_22_33_46.rs::repair_22_33_46_authenticated_failures_non_recovery_and_wrong_policy_are_refused_at_ingestion"
+replay = "tests/repair_22_33_46.rs::repair_22_33_46_authenticated_invalid_receipts_are_refused_at_reveal_and_replay"
+fixtures = "Committed in-process native-policy vectors, production EIP-1559 signing and canonical receipt codecs, signed consensus headers, transaction/result commitments and authenticated IAVL receipt-key proofs feed the production persistent store and Unix-socket server/client; no subprocess or live endpoint is used."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before complete implementation and permit verification only through hf-done after hf-build; no pre-change test failure is claimed. The prerequisite already checked receipt/result codes, operation and policy; this task makes their post-authentication enforcement explicit and also rejects receipts belonging to another module."
+wiring = "None required outside the declared paths for finding 2."
+qualification = "Exact candidate revision, command, exit code and private evidence location are recorded by the runner in /out/run/gates.jsonl and returned in the final evidence line; no gate result is claimed here before execution."

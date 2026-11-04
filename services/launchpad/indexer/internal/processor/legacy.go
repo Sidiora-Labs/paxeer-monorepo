@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/db/sqlcdb"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 // projectQualifiedLegacy writes the typed read tables from a qualified
@@ -25,12 +25,12 @@ import (
 // MarketCreated facts of the same batch, so no chain read happens inside the
 // canonical transaction.
 func (p *Processor) projectQualifiedLegacy(ctx context.Context, st *store.Store, b store.CanonicalBatch, receipts []*receipt.QualifiedReceipt, reserves []reserveSnapshot) error {
-	emitter := strings.ToLower(p.deps.EventEmitterAddress)
-	if st == nil || p.deps.Decoder == nil || !common.IsHexAddress(emitter) {
+	if st == nil {
 		return errors.New("legacy projection dependencies required")
 	}
 	timestamps := make(map[string]int64, len(receipts))
 	senders := make(map[string]string, len(receipts))
+	envelopes := make([]*decode.DecodedEnvelope, 0)
 	for _, q := range receipts {
 		txHash, sender, timestamp, err := q.SourceContext(ctx)
 		if err != nil {
@@ -39,6 +39,11 @@ func (p *Processor) projectQualifiedLegacy(ctx context.Context, st *store.Store,
 		if timestamp <= 0 {
 			return store.ErrIntegrity
 		}
+		qualified, err := q.QualifiedEvents(ctx)
+		if err != nil {
+			return err
+		}
+		envelopes = append(envelopes, qualified...)
 		timestamps[txHash] = timestamp
 		senders[txHash] = sender
 	}
@@ -56,26 +61,44 @@ func (p *Processor) projectQualifiedLegacy(ctx context.Context, st *store.Store,
 		}
 		q.nftCache[strings.ToLower(f.Pool)] = &id
 	}
-	for _, r := range b.Records {
-		if r.Emitter != emitter {
+	return q.projectLegacyEnvelopes(ctx, b, envelopes, timestamps, senders, reserves)
+}
+
+// projectLegacyEnvelopes consumes registry envelopes already authenticated by
+// the receipt authority. Raw records supply canonical order, never ABI or role
+// authority. Historical mirrors and native family events share immutable keys.
+func (p *Processor) projectLegacyEnvelopes(ctx context.Context, b store.CanonicalBatch, envelopes []*decode.DecodedEnvelope, timestamps map[string]int64, senders map[string]string, reserves []reserveSnapshot) error {
+	type key struct {
+		tx    string
+		index uint
+	}
+	events := make(map[key]*decode.Event)
+	for _, envelope := range envelopes {
+		if envelope == nil || envelope.Status != "decoded" || envelope.Event == nil || envelope.Family == nil {
 			continue
 		}
-		timestamp, ok := timestamps[r.TransactionHash]
-		if !ok {
+		if envelope.Family.Authority != "primary" && envelope.Family.Authority != "mirror" {
+			continue
+		}
+		if envelope.EmitterRole != "EventEmitter" && !nativeLegacyRole(envelope) {
+			continue
+		}
+		k := key{envelope.Raw.Identity.TransactionHash, envelope.Raw.Identity.LogIndex}
+		if _, exists := events[k]; exists {
 			return store.ErrIntegrity
 		}
-		topics := make([]common.Hash, len(r.Topics))
-		for i, t := range r.Topics {
-			topics[i] = common.HexToHash(t)
-		}
-		ev, err := p.deps.Decoder.Decode(ethtypes.Log{Address: common.HexToAddress(r.Emitter), Topics: topics, Data: r.Data, BlockNumber: uint64(r.Height), TxHash: common.HexToHash(r.TransactionHash), TxIndex: uint(r.TransactionIndex), BlockHash: common.HexToHash(r.BlockHash), Index: uint(r.LogIndex)})
-		if err != nil {
-			return fmt.Errorf("legacy projection decode: %w", err)
-		}
+		events[k] = envelope.Event
+	}
+	for _, r := range b.Records {
+		ev := events[key{r.TransactionHash, uint(r.LogIndex)}]
 		if ev == nil {
 			continue
 		}
-		if _, err = q.processEvent(ctx, ev, timestamp, senders); err != nil {
+		timestamp, ok := timestamps[r.TransactionHash]
+		if !ok || timestamp <= 0 || ev.TxHash != r.TransactionHash || ev.LogIndex != uint(r.LogIndex) || ev.BlockNumber != uint64(r.Height) {
+			return store.ErrIntegrity
+		}
+		if _, err := p.processEvent(ctx, ev, timestamp, senders); err != nil {
 			return fmt.Errorf("legacy projection %s @ %d: %w", ev.EventName, ev.BlockNumber, err)
 		}
 	}
@@ -84,7 +107,7 @@ func (p *Processor) projectQualifiedLegacy(ctx context.Context, st *store.Store,
 		if !ok {
 			return store.ErrIntegrity
 		}
-		if err = st.InsertPoolStateSnapshot(ctx, sqlcdb.InsertPoolStateSnapshotParams{
+		if err := p.deps.Store.InsertPoolStateSnapshot(ctx, sqlcdb.InsertPoolStateSnapshotParams{
 			ID:             fmt.Sprintf("%s-%d-%d", r.PoolID, r.Height, r.LogIndex),
 			PoolID:         r.PoolID,
 			VirtualReserve: r.Reserves.VirtualUSDL.String(),
@@ -100,6 +123,17 @@ func (p *Processor) projectQualifiedLegacy(ctx context.Context, st *store.Store,
 		}
 	}
 	return nil
+}
+
+func nativeLegacyRole(envelope *decode.DecodedEnvelope) bool {
+	if envelope.Raw.Emitter != strings.ToLower(decode.LaunchpadPrecompileAddress.Hex()) {
+		return false
+	}
+	switch envelope.EmitterRole {
+	case decode.LaunchpadPrecompileRole, "SidioraPool", "SidioraFactory", "SidioraNFT", "PoolRegistry", "Router", "ProtocolConfig", "FeeAccumulator", "FeesRouter":
+		return true
+	}
+	return false
 }
 
 // reserveSnapshot is a pool's pinned post-block reserve state, attributed to
