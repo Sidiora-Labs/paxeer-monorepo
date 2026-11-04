@@ -23,8 +23,6 @@ import (
 // done at the first block, so it serves the v6.12.0 precompile set from that
 // height on.
 var EVMTestApp = v6120Applied(app.SetupWithDefaultHome(false, true, false))
-var mockKeeper *evmkeeper.Keeper
-var mockCtx sdk.Context
 var mtx = &sync.Mutex{}
 
 // v6120Applied records the v6.12.0 plan as done at height 1 in the deliver
@@ -39,11 +37,9 @@ func v6120Applied(a *app.App) *app.App {
 func MockEVMKeeperWithPrecompiles() (*evmkeeper.Keeper, sdk.Context) {
 	mtx.Lock()
 	defer mtx.Unlock()
-	if mockKeeper != nil {
-		return mockKeeper, mockCtx
-	}
-	ctx := EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(8)
-	k := EVMTestApp.EvmKeeper
+	testApp := v6120Applied(app.SetupWithDefaultHome(false, true, false))
+	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(8)
+	k := &testApp.EvmKeeper
 	k.InitGenesis(ctx, *evmtypes.DefaultGenesis())
 
 	// mint some coins to a pax address
@@ -51,17 +47,15 @@ func MockEVMKeeperWithPrecompiles() (*evmkeeper.Keeper, sdk.Context) {
 	if err != nil {
 		panic(err)
 	}
-	err = EVMTestApp.BankKeeper.MintCoins(ctx, "evm", sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(10))))
+	err = testApp.BankKeeper.MintCoins(ctx, "evm", sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(10))))
 	if err != nil {
 		panic(err)
 	}
-	err = EVMTestApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", paxAddr, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(10))))
+	err = testApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", paxAddr, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(10))))
 	if err != nil {
 		panic(err)
 	}
-	mockKeeper = &k
-	mockCtx = ctx
-	return &k, ctx
+	return k, ctx
 }
 
 func MockEVMKeeper(t *testing.T) (*evmkeeper.Keeper, sdk.Context) {

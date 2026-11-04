@@ -109,18 +109,24 @@ func TestPostgresCanonicalSearch(t *testing.T) {
 	if _, e = pool.Exec(ctx, schema); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = pool.Exec(ctx, "INSERT INTO stats_search.generation VALUES(true,'g1',10)"); e != nil {
+	if _, e = pool.Exec(ctx, "INSERT INTO stats_search.generations_v2(generation,state,source_watermark,source_observed_at) VALUES('g1','active',1,clock_timestamp());INSERT INTO stats_search.active_v2 VALUES(true,'g1',nextval('stats_search.revision_v2'),1)"); e != nil {
 		t.Fatal(e)
 	}
 	addr := func(n int) string { return fmt.Sprintf("0x%040x", n) }
 	for i := 1; i <= 6; i++ {
-		_, e = pool.Exec(ctx, `INSERT INTO stats_search.documents VALUES('g1','125',$1,$2,$3,'café','coin','creation',9,9,1,$4,true,$5)`, addr(i), addr(99), fmt.Sprintf("Display %d", i), map[bool]string{true: "paused", false: "active"}[i == 2], i == 3)
-		if e != nil {
-			t.Fatal(e)
+		d := indexedFixture(i)
+		d.Name = fmt.Sprintf("Café Display %d", i)
+		d.NameKey = fmt.Sprintf("café display %d", i)
+		applyFixture(t, pool, Change{Version: 2, Kind: "creation", Revision: 1, PoolAddress: d.PoolAddress, Document: &d})
+		if i == 2 {
+			d.PoolStatus, d.LifecycleRevision = "paused", 2
+			applyFixture(t, pool, Change{Version: 2, Kind: "lifecycle", Revision: 2, PoolAddress: d.PoolAddress, Document: &d})
 		}
-		if _, e = pool.Exec(ctx, `INSERT INTO stats_search.visibility VALUES($1,2,$2,$3)`, addr(i), i != 4, i == 5); e != nil {
-			t.Fatal(e)
-		}
+		applyFixture(t, pool, Change{Version: 2, Kind: "visibility", Revision: 2, PoolAddress: d.PoolAddress, Public: i != 4, Tombstone: i == 3 || i == 5})
+	}
+	var expectedRevision int64
+	if e = pool.QueryRow(ctx, "SELECT revision FROM stats_search.active_v2 WHERE singleton").Scan(&expectedRevision); e != nil {
+		t.Fatal(e)
 	}
 	s := Store{pool}
 	r := Request{Query: "Cafe\u0301", Kind: "pool", Limit: 2}
@@ -142,11 +148,11 @@ func TestPostgresCanonicalSearch(t *testing.T) {
 		t.Fatalf("paused exact missing %+v %v", p, e)
 	}
 	p, e = s.Search(ctx, Request{Query: addr(100), Kind: "pool", Limit: 25})
-	if e != nil || p.Status != "not-indexed" || p.Watermark != 10 {
+	if e != nil || p.Status != "not-indexed" || p.Watermark != expectedRevision {
 		t.Fatal(p, e)
 	}
 	// Current moderation tombstone remains authoritative across generation rollback.
-	if _, e = pool.Exec(ctx, "UPDATE stats_search.visibility SET tombstone=true,revision=3 WHERE pool_address=$1", addr(2)); e != nil {
+	if _, e = pool.Exec(ctx, "UPDATE stats_search.authority_v2 SET tombstone=true,visibility_revision=3 WHERE pool_address=$1", addr(2)); e != nil {
 		t.Fatal(e)
 	}
 	p, e = s.Search(ctx, Request{Query: addr(2), Kind: "pool", Limit: 25})
@@ -158,7 +164,7 @@ func TestPostgresCanonicalSearch(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = blocker.Exec(ctx, "LOCK TABLE stats_search.documents IN ACCESS EXCLUSIVE MODE"); e != nil {
+	if _, e = blocker.Exec(ctx, "LOCK TABLE stats_search.documents_v2 IN ACCESS EXCLUSIVE MODE"); e != nil {
 		t.Fatal(e)
 	}
 	if _, e = s.Search(ctx, Request{Query: "coin", Kind: "pool", Limit: 25}); !errors.Is(e, ErrUnavailable) {
@@ -176,7 +182,7 @@ func TestPostgresCanonicalSearch(t *testing.T) {
 	if _, e = s.Search(canceled, Request{Query: "coin", Kind: "pool", Limit: 25}); !errors.Is(e, ErrUnavailable) {
 		t.Fatal("cancellation returned success", e)
 	}
-	if _, e = pool.Exec(ctx, "UPDATE stats_search.generation SET watermark=11"); e != nil {
+	if _, e = pool.Exec(ctx, "UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2') WHERE singleton"); e != nil {
 		t.Fatal(e)
 	}
 	if _, e = s.Search(ctx, r); !errors.Is(e, ErrInvalid) {

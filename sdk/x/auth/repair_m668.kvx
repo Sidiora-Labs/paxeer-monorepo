@@ -1,0 +1,13 @@
+[repair.22.33.668]
+audit = "22.30.166"
+base = "caa8b41ee668274ee1e5c1df6691288455c46278"
+auth-fee-priority-doc = "TestRepairM_668_FeePriority; TestRepairM_668_AnteOrder: real tx codec, persisted global params, local price merging, rounding, eligible denoms, priority and deferred fee collection."
+auth-account-balances-doc = "TestRepairM_668_AccountBalances: real account/bank keys, transfers and fractional wei, generated HTTP gateways and typed account/balance response decoding."
+ante-order-doc = "TestRepairM_668_AnteOrder: full constructor order, real signed transactions and keeper state prove memo/size/fee/signature ordering, sequence increment, cached rejection and feegrant deduction."
+vesting-genesis-only-doc = "TestRepairM_668_VestingCreationAndGenesis: real creation service funds live continuous/delayed accounts, exports and imports auth Any plus separate bank balances for all four concrete types, and rejects nonzero cancellation markers."
+auth-client-wrong-endpoint = "TestRepairM_668_ClientBindings: registered CLI generates continuous/delayed creation transactions with admin; production JSON decoder and message server consume them, and generated HTTP account binding returns the resulting typed account."
+auth-sequence-parameter-doc = "TestRepairM_668_SequenceParameter: real parameter persistence and gateway query, signed tx codec, SDK decorator and node CheckSignatures prove false-default mismatch rejection, opt-in bypass, retained signature verification and sequence increments."
+baseline = "Not run: task order forbids testing before the full implementation and running verify_cmd directly; no pre-change test failure is claimed. The six guides already contain earlier corrections in the base; this task preserves them and repairs remaining drift with production-path proofs."
+wiring_request = "sdk/proto/cosmos/vesting/v1beta1/vesting.proto, domain 7 (protobuf owner): align Admin/CancelledTime comments and regenerated artifacts with reserved metadata and zero-marker validation, as already requested by repair 22.33.670."
+gotcha = "Root GOTCHA/spec records are outside this task's edit scope; local findings are recorded here. This fork exposes ProtoCodec.MarshalAsJSON/UnmarshalAsJSON, not MarshalJSON/UnmarshalJSON. Bank fixture funding must preserve existing balances and recompute supply when reusing genesis initialization."
+evidence = "The hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence location; the final response copies the last gate line. No gates are claimed before execution."

@@ -1,0 +1,942 @@
+[
+  {
+    "contains": [
+      "begin"
+    ],
+    "tag": "BEGIN",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.processed_swaps",
+      "0xfeed"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'5m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'5m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'5m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'5m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'15m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'15m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'15m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'15m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1h'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1h'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'4h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'4h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'4h'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'4h'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1d'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1d'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1d'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1d'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1w'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1w'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1w'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1w'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "commit"
+    ],
+    "tag": "COMMIT",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "begin"
+    ],
+    "tag": "BEGIN",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.processed_swaps",
+      "0xbeef"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'5m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'5m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'5m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'5m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'15m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'15m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'15m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'15m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1h'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1h'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'4h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'4h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'4h'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'4h'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1d'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1d'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1d'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1d'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1w'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1w'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1w'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1w'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "commit"
+    ],
+    "tag": "COMMIT",
+    "status": "I",
+    "error": "40001"
+  },
+  {
+    "contains": [
+      "begin"
+    ],
+    "tag": "BEGIN",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.processed_swaps",
+      "0xfeed"
+    ],
+    "tag": "INSERT 0 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "rollback"
+    ],
+    "tag": "ROLLBACK",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "begin"
+    ],
+    "tag": "BEGIN",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.processed_swaps",
+      "0xbeef"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'5m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'5m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'5m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'5m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'15m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'15m'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'15m'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'15m'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1h'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1h'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'4h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'4h'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'4h'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'4h'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1d'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1d'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1d'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1d'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT open, high, low, close",
+      "FROM candles.candles",
+      "'1w'"
+    ],
+    "tag": "SELECT 0",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "SELECT pool_address, timeframe, last_close",
+      "FROM candles.candle_cursors",
+      "'1w'"
+    ],
+    "tag": "SELECT 0",
+    "status": "I",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candles",
+      "'1w'",
+      "'100'",
+      "'200'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "INSERT INTO candles.candle_cursors",
+      "'1w'"
+    ],
+    "tag": "INSERT 0 1",
+    "status": "T",
+    "error": ""
+  },
+  {
+    "contains": [
+      "commit"
+    ],
+    "tag": "COMMIT",
+    "status": "I",
+    "error": ""
+  }
+]

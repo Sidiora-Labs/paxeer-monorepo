@@ -22,6 +22,7 @@ USAGE
 
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 TEMPLATES="$ROOT/tools/paxeer-x/gov/templates"
+OUTPUT_GUARD="$ROOT/tools/paxeer-x/gov/output.py"
 GOV_AUTHORITY=pax10d07y265gmmuvt4z0w9aw880jnsr700jxdwa9m
 CHAIN_ID=hyperpax_125-1
 FROM=$GOV_AUTHORITY
@@ -151,7 +152,7 @@ VARS=$(jq -n \
   --arg FIRST_BATCH "$FIRST_BATCH" --arg LAST_BATCH "$LAST_BATCH" --arg ANCHOR_CALLDATA "$ANCHOR_CALLDATA" \
   '$ARGS.named')
 
-mkdir -p "$OUT"
+OUT=$(python3 "$OUTPUT_GUARD" prepare "$OUT")
 HOME_DIR=$(mktemp -d)
 trap 'rm -rf "$HOME_DIR"' EXIT
 
@@ -181,11 +182,12 @@ dry_run "$up" tx gov submit-proposal software-upgrade "$(jq -r .name "$up")" \
 dry_run "$OUT/02-fee-token-params.json" tx gov submit-proposal param-change "$OUT/02-fee-token-params.json"
 dry_run "$OUT/03-xweb-fee.json" tx gov submit-proposal layerx-proposal "$OUT/03-xweb-fee.json" --deposit "$DEPOSIT"
 for config in "${BRIDGE_CONFIGS[@]}"; do
-  name=$(jq -r .name "$config")
-  dir="$OUT/bridge/$name"
-  rm -rf "$dir"
+  dir=$(python3 "$OUTPUT_GUARD" bridge "$OUT" "$config")
+  stage=$(mktemp -d "$OUT/.bridge-render.XXXXXXXX")
   (cd "$ROOT" && go run ./services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals -manifest "$BRIDGE_MANIFEST" \
-    -proposals "$dir/proposals" "$config" "$dir/bodies") >/dev/null
+    -proposals "$stage/proposals" "$config" "$stage/bodies") >/dev/null
+  python3 "$OUTPUT_GUARD" publish "$OUT" "$dir" "$stage"
+  rmdir -- "$stage/bodies" "$stage/proposals" "$stage"
   for file in "$dir"/proposals/04-proposal-open-chain.json "$dir"/proposals/05-proposal-sidiora-cap.json; do
     [ -f "$file" ] || continue
     dry_run "$file" tx gov submit-proposal layerxbridge-proposal "$file" --deposit "$DEPOSIT"

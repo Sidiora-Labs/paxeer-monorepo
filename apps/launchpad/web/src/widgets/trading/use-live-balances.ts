@@ -4,7 +4,7 @@ import type { Address } from 'viem';
 import { failureReason } from './transaction-controls/runtime';
 
 /** The one chain read the panel needs: ERC-20 `balanceOf` at the latest block (ChainTradeProvider.readBalance). */
-export interface BalanceReader { readBalance(token: Address, account: Address): Promise<bigint> }
+export interface BalanceReader { readBalance(token: Address, account: Address, blockNumber?: bigint, signal?: AbortSignal): Promise<bigint> }
 
 /**
  * A wallet balance may be read and shown only for an authenticated account
@@ -46,41 +46,56 @@ export interface LiveBalanceArgs {
  * the session ends or the account changes, held values are dropped at once.
  */
 export function useLiveBalances({ reader, usdl, token, account, enabled, scope = '', intervalMs = BALANCE_POLL_MS }: LiveBalanceArgs): LiveBalances {
-  const [state, setState] = useState<Omit<LiveBalances, 'refresh'>>({ usdl: null, token: null, observedAt: undefined, error: undefined });
-  const [tick, setTick] = useState(0);
-  const generation = useRef(0);
+  const empty = { usdl: null, token: null, observedAt: undefined, error: undefined };
+  const [state, setState] = useState<Omit<LiveBalances, 'refresh'> & { key?: string; reader?: BalanceReader | null }>(empty);
+  const refreshRef = useRef<() => void>(() => {});
   const active = enabled && !!reader && !!usdl && !!token && !!account;
   const key = active ? `${account!.toLowerCase()}|${usdl!.toLowerCase()}|${token!.toLowerCase()}|${scope}` : '';
 
   useEffect(() => {
-    generation.current++;
-    setState({ usdl: null, token: null, observedAt: undefined, error: undefined });
-  }, [key]);
-
-  useEffect(() => {
+    setState(empty);
     if (!active) return;
-    const mine = generation.current;
     let live = true;
-    void Promise.all([reader!.readBalance(usdl!, account!), reader!.readBalance(token!, account!)]).then(([usdlRaw, tokenRaw]) => {
-      if (live && mine === generation.current) setState({ usdl: usdlRaw, token: tokenRaw, observedAt: Date.now(), error: undefined });
-    }).catch((error: unknown) => {
-      if (live && mine === generation.current) setState(previous => ({ ...previous, error: failureReason(error) }));
-    });
-    return () => { live = false; };
-    // `key` covers account/token/scope identity; `reader` identity changes with the wallet client.
-  }, [active, key, reader, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+    let pending = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+    const visible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
+    const poll = async () => {
+      if (!live || pending || !visible()) return;
+      clearTimeout(timer);
+      pending = true;
+      controller = new AbortController();
+      try {
+        const results = await Promise.allSettled([reader!.readBalance(usdl!, account!, undefined, controller.signal), reader!.readBalance(token!, account!, undefined, controller.signal)]);
+        if (!live) return;
+        const [usdlResult, tokenResult] = results;
+        if (usdlResult.status === 'rejected') throw usdlResult.reason;
+        if (tokenResult.status === 'rejected') throw tokenResult.reason;
+        setState({ key, reader, usdl: usdlResult.value, token: tokenResult.value, observedAt: Date.now(), error: undefined });
+      } catch (error) {
+        if (live) setState(previous => ({ ...previous, key, reader, error: failureReason(error) }));
+      } finally {
+        pending = false;
+        controller = undefined;
+        if (live && intervalMs > 0 && visible()) timer = setTimeout(() => void poll(), intervalMs);
+      }
+    };
+    const onVisible = () => {
+      if (visible()) void poll();
+      else { clearTimeout(timer); }
+    };
+    refreshRef.current = () => { void poll(); };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+    void poll();
+    return () => {
+      live = false;
+      clearTimeout(timer);
+      controller?.abort();
+      refreshRef.current = () => {};
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [active, key, reader, intervalMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!active || intervalMs <= 0) return;
-    const timer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-      setTick(value => value + 1);
-    }, intervalMs);
-    const onVisible = () => { if (document.visibilityState === 'visible') setTick(value => value + 1); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
-  }, [active, key, intervalMs]);
-
-  const refresh = useCallback(() => setTick(value => value + 1), []);
-  return active ? { ...state, refresh } : { usdl: null, token: null, observedAt: undefined, error: undefined, refresh };
+  const refresh = useCallback(() => refreshRef.current(), []);
+  return active && state.key === key && state.reader === reader ? { ...state, refresh } : { ...empty, refresh };
 }

@@ -13,13 +13,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/internaltest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -28,7 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
@@ -52,24 +49,7 @@ func v2OwnerFixture(t *testing.T) Store {
 
 func v2OwnerDeletionFixture(t *testing.T) Store {
 	t.Helper()
-	ctx := context.Background()
-	database := internaltest.NewPostgres(t)
-	tx, err := database.Begin(ctx)
-	must(t, err)
-	defer tx.Rollback(ctx)
-	for _, version := range []string{"330000", "330001", "330002"} {
-		migration, err := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/integration/migrations", version+".sql"))
-		must(t, err)
-		_, err = tx.Exec(ctx, string(migration))
-		must(t, err)
-	}
-	must(t, tx.Commit(ctx))
-	cfg := database.Config().Copy()
-	cfg.ConnConfig.RuntimeParams["search_path"] = "public,users"
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	must(t, err)
-	t.Cleanup(pool.Close)
-	return Store{DB: pool}
+	return connectedLegacyFixture(t)
 }
 
 func requireV2OwnerResponse(t *testing.T, response *httptest.ResponseRecorder, status int, schema string) {
@@ -288,9 +268,9 @@ func TestPostgresHTTPV2OwnerExportsAndDeletion(t *testing.T) {
 		}
 		var consumed, revoked bool
 		var epoch int64
-		must(t, s.DB.QueryRow(context.Background(), `SELECT consumed_at IS NOT NULL FROM users.identity_reauth WHERE proof_hash=$1`, reauthHash[:]).Scan(&consumed))
-		must(t, s.DB.QueryRow(context.Background(), `SELECT revoked_at IS NOT NULL FROM users.identity_sessions WHERE session_id=$1`, session).Scan(&revoked))
-		must(t, s.DB.QueryRow(context.Background(), `SELECT auth_epoch FROM users.identity_accounts WHERE account_id=$1`, accountID).Scan(&epoch))
+		must(t, s.DB.QueryRow(context.Background(), `SELECT consumed_at IS NOT NULL FROM identity_reauth WHERE proof_hash=$1`, reauthHash[:]).Scan(&consumed))
+		must(t, s.DB.QueryRow(context.Background(), `SELECT revoked_at IS NOT NULL FROM identity_sessions WHERE session_id=$1`, session).Scan(&revoked))
+		must(t, s.DB.QueryRow(context.Background(), `SELECT auth_epoch FROM identity_accounts WHERE account_id=$1`, accountID).Scan(&epoch))
 		if !consumed || !revoked || epoch != 1 {
 			t.Fatalf("deletion identity transaction: consumed=%t revoked=%t epoch=%d", consumed, revoked, epoch)
 		}

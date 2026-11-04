@@ -1,0 +1,8 @@
+{
+  "sha": "de7f345079e937637ed2b93a5a7f79c8c91ad885",
+  "base": "5160534fe2c56fd3148da61a8c8fdbc9c999af50",
+  "subject": "Add the Jev pr check for pull request and commit message coherence",
+  "message": "Add the Jev pr check for pull request and commit message coherence\n\nCompares the PR body, ticked template checklist items and each commit\nmessage against the diff stat and changed file list, and renders a\nnon-blocking advisory comment block.\n\nVerified: python3 -m unittest tools.jev.tests.test_pr (42 tests, exit 0)\nand a live run over HEAD~3..HEAD.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+  "name_status": "A\ttools/jev/checks/pr.py\nA\ttools/jev/tests/test_pr.py\n",
+  "stat": " tools/jev/checks/pr.py     | 584 +++++++++++++++++++++++++++++++++++\n tools/jev/tests/test_pr.py | 738 +++++++++++++++++++++++++++++++++++++++++++++\n 2 files changed, 1322 insertions(+)\n"
+}

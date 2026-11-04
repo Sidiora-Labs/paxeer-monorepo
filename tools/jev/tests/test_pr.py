@@ -13,7 +13,8 @@ from typing import Mapping, Sequence
 
 from tools.jev.checks import CHECKS, pr
 from tools.jev.cli import main
-from tools.jev.client import API_KEY_ENV, Evaluation, parse_answer, parse_evaluation
+from tools.jev.client import API_KEY_ENV, Evaluation, JevRequestError, parse_answer, parse_evaluation
+from tools.jev.tests.recorded_server import FIXTURES, recorded_client
 from tools.jev.report import Finding, Report
 
 
@@ -71,6 +72,26 @@ def body_for(ticked: Sequence[int], extra: Sequence[str] = ()) -> str:
     lines.extend(extra)
     lines.append("")
     return "\n".join(lines)
+
+
+def recorded_commit() -> pr.CommitSummary:
+    document = json.loads((FIXTURES / "commit.json").read_text(encoding="utf-8"))
+    return pr.CommitSummary(
+        sha=document["sha"],
+        subject=document["subject"],
+        message=document["message"],
+        changes=pr.parse_name_status(document["name_status"]),
+        stat=pr.parse_stat_summary(document["stat"]),
+    )
+
+
+def recorded_body_state(body: str, items: Sequence[pr.ChecklistItem]) -> dict[str, object]:
+    commit = recorded_commit()
+    document = json.loads((FIXTURES / "commit.json").read_text(encoding="utf-8"))
+    diff = pr.DiffSummary(
+        base=document["base"], head=commit.sha, changes=commit.changes, stat=commit.stat
+    )
+    return pr.body_state(diff, body, items)
 
 
 def line_of(body: str, fragment: str) -> int:
@@ -440,9 +461,44 @@ class BodyFindingTests(unittest.TestCase):
         self.assertEqual(accepted["verification"].route, "auto")
         self.assertFalse(accepted["verification"].detail["flagged"])
 
-    def test_missing_answers_produce_no_findings(self) -> None:
-        evaluation = evaluation_for({"unrelated": {"type": "noul", "noul": 0.5}})
-        self.assertEqual(pr.body_findings(evaluation, self.path, self.body, self.items), [])
+    def test_missing_or_unrelated_answers_fail_at_the_request_boundary(self) -> None:
+        for fixture in ("pr-missing.json", "pr-unrelated.json", "pr-partial.json", "pr-extra.json"):
+            with self.subTest(fixture=fixture):
+                self.assert_rejected_response(fixture)
+
+    def assert_rejected_response(self, fixture: str) -> None:
+        questions = pr.body_questions(self.items)
+        state = recorded_body_state(self.body, self.items)
+        with recorded_client(fixture) as exchange:
+            try:
+                with self.assertRaises(JevRequestError) as raised:
+                    exchange.client.evaluate(state, questions)
+                self.assertEqual(raised.exception.status, 0)
+                self.assertTrue(raised.exception.body_excerpt)
+            finally:
+                exchange.assert_request(state, questions)
+
+    def test_complete_valid_response_has_no_review_or_escalation(self) -> None:
+        questions = pr.body_questions(self.items)
+        state = recorded_body_state(self.body, self.items)
+        with recorded_client("pr-valid.json") as exchange:
+            evaluation = exchange.client.evaluate(state, questions)
+            exchange.assert_evaluation(evaluation, state, questions)
+        findings = pr.body_findings(evaluation, self.path, self.body, self.items)
+        self.assertEqual(len(findings), len(questions))
+        self.assertEqual({finding.subject for finding in findings},
+                         {"summary", "verification", "checklist:1", "checklist:3"})
+        self.assertTrue(all(finding.route == "auto" for finding in findings))
+        self.assertTrue(all(finding.anchor.startswith(f"{self.path}:") for finding in findings))
+        verification = next(finding for finding in findings if finding.subject == "verification")
+        self.assertEqual(verification.answer, "local_tests")
+        self.assertFalse(verification.detail["flagged"])
+        report = Report(check="pr", revision=recorded_commit().sha,
+                        model=evaluation.model, findings=findings)
+        self.assertIn("_no review or escalate findings_", pr.render_comment(report))
+        document = json.loads(report.to_json())
+        self.assertEqual(len(document["findings"]), len(questions))
+        self.assertEqual(document["revision"], recorded_commit().sha)
 
 
 class CommitFindingTests(unittest.TestCase):

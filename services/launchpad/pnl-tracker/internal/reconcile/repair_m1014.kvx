@@ -1,0 +1,31 @@
+[repair.22.33.1014]
+audit = "22.30.36"
+accounting = "Legacy Store.FoldTrade only; active l16 accounting is unchanged."
+recovery = "The PostgreSQL keyset cursor checkpoints both accounting and refresh: it never advances beyond an undrained refresh; duplicate folds restore cache invalidation and notification on replay."
+notification = "WATCH and MULTI/EXEC atomically delete both user caches, retain a non-expiring per-trade receipt, and publish the existing userAddress-only pnl:update signal; replay always invalidates and publishes only without a receipt."
+receipt_lifecycle = "Redis receipts intentionally have no expiry because cursor failures can replay old trades; Redis persistence/eviction policies govern receipt retention, and loss of a receipt permits a redundant refresh without changing accounting."
+baseline = "No unchanged-tree verify was run: the explicit ordered implementation/build/hf-done instructions prohibit an earlier verification; no baseline failing-test claim is made."
+evidence = "The runner gate ledger records the exact candidate revision, command, exit code and private log; this record makes no independent gate claim."
+
+[finding.legacy-reconcile-cache-recovery]
+tests = ["TestRepairM_1014_PoisonPrefixRecovery", "TestRepairM_1014_CursorFailureReplayDeduplicates", "TestRepairM_1014_RestartRefreshObligation", "TestRepairM_1014_PoisonCursorFailureRecovery"]
+proof = "Real Store, pgx transactions, pnlmath and Reconciler reopen committed disk-backed storage fixtures after poison rows, cursor errors and ambiguous Redis transaction outcomes; assert one trade, exact keyset cursor and both cache keys."
+
+[finding.legacy-reconcile-push]
+tests = ["TestRepairM_1014_RestartRefreshObligation", "TestRepairM_1014_CursorFailureReplayDeduplicates"]
+proof = "Production Reconciler publishes through real go-redis transactions and pub/sub to a refresh subscriber; the subscriber checks the existing payload and invokes production HTTP positions/portfolio reads, asserting fresh values are cached; receipt deduplication survives worker reopening."
+wiring_request = "Domain 4: services/launchpad/api/internal/broker and apps/launchpad/web portfolio stream subscriber must prove the emitted pnl:update signal through the actual API broker into the web portfolio refresh; those consumers are outside this task's paths and cannot be imported across Go internal package boundaries."
+
+[finding.legacy-reconcile-restart-test]
+tests = ["TestRepairM_1014_RestartRefreshObligation", "TestRepairM_1014_PoisonPrefixRecovery", "TestRepairM_1014_PoisonCursorFailureRecovery"]
+proof = "Fixture-backed gate reopens the database peer, pool, Redis client and Reconciler, redelivers through the real position.Consumer and asserts one trade and one user notification; the existing integration file also covers real PostgreSQL/Redis poison-prefix reopen."
+integration_test = "TestReconcilerPoisonPrefixReopensWithRefresh is an external-infrastructure integration test and is not part of the declared environment-free gate."
+wiring_request = "Domain 4: services/launchpad/indexer legacy producer/transport fixture must drive services/launchpad/pnl-tracker/internal/httpapi/webhook.go and services/launchpad/api/internal/broker across restart; the indexer producer and API broker are outside this task's paths, so the focused gate proves reconciliation against committed storage/RESP fixtures instead."
+
+[gotcha.ordered-baseline]
+observed = "The finding asks for unchanged-tree verification while the task's explicit gate order forbids verification before complete implementation and hf-build."
+resolution = "Follow the explicit gate order and retain the baseline limitation above; never claim a baseline run that did not happen."
+
+[gotcha.subscriber-lifecycle]
+observed = "Closing the worker's go-redis client also closes its pub/sub connections; the initial restart fixture incorrectly shared that client with its surviving subscriber."
+resolution = "Use a dedicated subscriber client, matching the production broker, and retain every restart, cache, accounting and notification assertion."

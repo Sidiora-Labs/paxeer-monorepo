@@ -504,6 +504,23 @@ impl<'text> Scanner<'text> {
     }
 
     fn code_point(&mut self) -> Result<char, PortRefusal> {
+        let high = self.hex_quad()?;
+        let code = if (0xd800..=0xdbff).contains(&high) {
+            if self.take_raw()? != b'\\' || self.take_raw()? != b'u' {
+                return Err(PortRefusal::InvalidJson);
+            }
+            let low = self.hex_quad()?;
+            if !(0xdc00..=0xdfff).contains(&low) {
+                return Err(PortRefusal::InvalidJson);
+            }
+            0x10000 + ((high - 0xd800) << 10) + (low - 0xdc00)
+        } else {
+            high
+        };
+        char::from_u32(code).ok_or(PortRefusal::InvalidJson)
+    }
+
+    fn hex_quad(&mut self) -> Result<u32, PortRefusal> {
         let mut code = 0_u32;
         for _ in 0..4 {
             let digit = char::from(self.take_raw()?)
@@ -511,7 +528,7 @@ impl<'text> Scanner<'text> {
                 .ok_or(PortRefusal::InvalidJson)?;
             code = code.saturating_mul(16).saturating_add(digit);
         }
-        char::from_u32(code).ok_or(PortRefusal::InvalidJson)
+        Ok(code)
     }
 
     fn digits(&mut self) -> Result<u128, PortRefusal> {

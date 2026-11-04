@@ -308,6 +308,10 @@ func validExportAuthorization(token string) bool {
 }
 
 func (h HTTP) DownloadHandler() http.Handler {
+	return h.downloadHandler(h.Store.exportDownloads())
+}
+
+func (h HTTP) downloadHandler(downloads exportDownloads) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -322,13 +326,20 @@ func (h HTTP) DownloadHandler() http.Handler {
 			WriteError(w, ErrDenied, requestID(r))
 			return
 		}
-		metadata, e := h.Store.ConsumeExport(r.Context(), p, job, token)
+		claim, e := downloads.claim(r.Context(), p, job, token)
 		if e != nil {
 			WriteError(w, e, requestID(r))
 			return
 		}
+		// Cleanup has its own bounded context so a cancelled request can release
+		// its claim. A crash or failed cleanup is recovered by lease expiry.
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = downloads.release(ctx, claim)
+		}()
 		var v exportMetadata
-		if e = json.Unmarshal(metadata, &v); e != nil {
+		if e = json.Unmarshal(claim.Payload, &v); e != nil {
 			WriteError(w, e, requestID(r))
 			return
 		}
@@ -338,6 +349,16 @@ func (h HTTP) DownloadHandler() http.Handler {
 			return
 		}
 		plain, e := Open(h.Runtime.ExportKey, sealed, []byte(job.String()))
+		if e != nil {
+			WriteError(w, e, requestID(r))
+			return
+		}
+		// Delivery commits here, after retrieval and authentication of the full
+		// object and before the first response byte. A failed/partial socket
+		// write remains consumed: it must never permit a second delivery.
+		if e = r.Context().Err(); e == nil {
+			e = downloads.consume(r.Context(), claim)
+		}
 		if e != nil {
 			WriteError(w, e, requestID(r))
 			return

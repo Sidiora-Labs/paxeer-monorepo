@@ -34,6 +34,7 @@ import (
 )
 
 const noncePrefix = "gw:nonce:"
+const consumeIssuedMessage = `if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end`
 
 var nonceRe = regexp.MustCompile(`(?m)^Nonce:\s*([0-9a-fA-F]+)\s*$`)
 
@@ -118,13 +119,14 @@ func (a *Auth) nonce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nonce := hex.EncodeToString(raw[:])
-	if err := a.redis.Set(r.Context(), noncePrefix+wallet+":"+nonce, "1", a.nonceTTL).Err(); err != nil {
+	message := a.buildMessage(wallet, nonce)
+	if err := a.redis.Set(r.Context(), noncePrefix+wallet+":"+nonce, message, a.nonceTTL).Err(); err != nil {
 		a.fail(w, "store nonce", err)
 		return
 	}
 	sharedhttp.WriteJSON(w, http.StatusOK, nonceResponse{
 		Nonce:   nonce,
-		Message: a.buildMessage(wallet, nonce),
+		Message: message,
 	})
 }
 
@@ -172,20 +174,31 @@ func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
 	}
 	nonce := strings.ToLower(m[1])
 
-	// Consume the nonce atomically (single-use): GETDEL returns redis.Nil when
-	// it was never issued, already used, or expired.
-	if err := a.redis.GetDel(r.Context(), noncePrefix+wallet+":"+nonce).Err(); err != nil {
-		if errors.Is(err, goredis.Nil) {
-			sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "nonce expired or already used")
-			return
-		}
+	key := noncePrefix + wallet + ":" + nonce
+	issued, err := a.redis.Get(r.Context(), key).Result()
+	if errors.Is(err, goredis.Nil) {
+		sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "nonce expired or already used")
+		return
+	}
+	if err != nil {
+		a.fail(w, "read nonce", err)
+		return
+	}
+	if req.Message != issued || !sharedauth.VerifyWalletSignature(wallet, issued, req.Signature) {
+		sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "invalid challenge or signature")
+		return
+	}
+	// Compare and delete after verification so concurrent valid proofs have one winner.
+	consumed, err := a.redis.Eval(r.Context(), consumeIssuedMessage, []string{key}, issued).Int()
+	if err != nil {
 		a.fail(w, "consume nonce", err)
 		return
 	}
-	if !sharedauth.VerifyWalletSignature(wallet, req.Message, req.Signature) {
-		sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "invalid signature")
+	if consumed != 1 {
+		sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "nonce expired or already used")
 		return
 	}
+
 	token, exp := a.signer.mint(wallet)
 	sharedhttp.WriteJSON(w, http.StatusOK, loginResponse{
 		Token:     token,

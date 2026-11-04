@@ -19,6 +19,7 @@ import (
 	"bufio"
 	"bytes"
 	"embed"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -34,6 +35,7 @@ import (
 	"text/template"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"golang.org/x/mod/semver"
@@ -93,30 +95,30 @@ func run() error {
 		return err
 	}
 
-	// Phase 2: Check if archiving is needed
-	// versionFolder is just dots-stripped (v6.5 -> v65, v6.4.0 -> v640), so
-	// compute the legacy-folder sentinel from whatever form is currently in
-	// node/tags before deciding to sanitize.
+	// Phase 2: Only a validated completion marker permits skipping archival.
 	tagFolder := versionFolder(latestTag)
-	commonLegacyDir := filepath.Join(commonDir, "legacy", tagFolder)
-
-	if dirExists(commonLegacyDir) {
-		fmt.Printf("version %s already archived, skipping to setup.go generation\n", latestTag)
-	} else {
-		// New version being introduced — this is the only moment we're allowed
-		// to rewrite the tags file to the canonical vMajor.Minor form.
+	complete, err := recoverArchive(latestTag, tagFolder)
+	if err != nil {
+		return err
+	}
+	if !complete {
 		sanitized := sanitizeUpgradeName(latestTag)
 		if sanitized != latestTag {
 			tags[len(tags)-1] = sanitized
 			if err := writeLines(tagFile, tags); err != nil {
 				return err
 			}
-			fmt.Printf("rewrote %s in %s -> %s\n", latestTag, tagFile, sanitized)
 			latestTag = sanitized
 			tagFolder = versionFolder(latestTag)
+			complete, err = recoverArchive(latestTag, tagFolder)
+			if err != nil {
+				return err
+			}
 		}
-		if err := archiveNewVersion(tags, latestTag, tagFolder); err != nil {
-			return err
+		if !complete {
+			if err := archiveNewVersion(tags, latestTag, tagFolder); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -153,7 +155,10 @@ func archiveNewVersion(tags []string, newTag, tagFolder string) error {
 	}
 
 	legacyCommonPkgPath := modulePath + "/precompiles/common/legacy/" + tagFolder
-	modules := discoverModules()
+	modules, err := discoverModules()
+	if err != nil {
+		return err
+	}
 
 	// Detect which modules changed using git
 	var changed []string
@@ -178,75 +183,124 @@ func archiveNewVersion(tags []string, newTag, tagFolder string) error {
 		}
 	}
 
-	if len(changed) == 0 {
-		fmt.Println("no precompile changes detected, skipping archival")
-		return nil
-	}
-
 	fmt.Printf("changed modules: %s\n", strings.Join(changed, ", "))
-
-	// Archive common whenever any module is archived; changed modules reference
-	// the legacy common package so it must exist at the same legacy folder.
-	if err := archiveCommon(tagFolder); err != nil {
+	pending, manifest, err := stageArchive(changed, newTag, tagFolder, legacyCommonPkgPath)
+	if err != nil {
 		return err
 	}
-
-	for _, mod := range changed {
-		moduleDir := filepath.Join(precompilesDir, mod)
-		if err := archiveModule(moduleDir, mod, newTag, tagFolder, legacyCommonPkgPath); err != nil {
-			return err
-		}
-	}
-
-	fmt.Println()
-	return nil
+	return publishArchive(pending, manifest)
 }
 
-// gitFindCommit walks the commit log for node/tags and finds the commit that
-// introduced the given version string. Walks newest to oldest; the introducing
-// commit is the oldest one in the contiguous chain whose node/tags contains the
-// version. PathFilter restricts the walk to commits that touch node/tags.
+// gitFindCommit finds the oldest commit in the initial contiguous history
+// containing the exact trimmed tag line. Unreadable objects are never boundaries.
 func gitFindCommit(repo *git.Repository, version string) (*object.Commit, error) {
 	head, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %w", err)
 	}
-
-	iter, err := repo.Log(&git.LogOptions{
-		From:       head.Hash(),
-		PathFilter: func(path string) bool { return path == tagFile },
-	})
+	shallow, err := repo.Storer.Shallow()
+	if err != nil {
+		return nil, fmt.Errorf("reading shallow history: %w", err)
+	}
+	// Do not use PathFilter: it can hide tree/content errors inside the filter.
+	iter, err := repo.Log(&git.LogOptions{From: head.Hash()})
 	if err != nil {
 		return nil, fmt.Errorf("git log failed: %w", err)
 	}
 	defer iter.Close()
-
-	var result, prev *object.Commit
-	_ = iter.ForEach(func(c *object.Commit) error {
-		file, err := c.File(tagFile)
+	var result *object.Commit
+	err = iter.ForEach(func(c *object.Commit) error {
+		tree, err := c.Tree()
 		if err != nil {
-			if prev != nil {
-				result = prev
-			}
+			return fmt.Errorf("reading tree at %s: %w", c.Hash, err)
+		}
+		entry, err := gitEntry(repo, tree, tagFile)
+		if errors.Is(err, object.ErrEntryNotFound) {
 			return storer.ErrStop
 		}
+		if err != nil {
+			return fmt.Errorf("reading %s at %s: %w", tagFile, c.Hash, err)
+		}
+		blob, err := repo.BlobObject(entry.Hash)
+		if err != nil {
+			return fmt.Errorf("reading tag blob at %s: %w", c.Hash, err)
+		}
+		file := object.NewFile(tagFile, entry.Mode, blob)
 		content, err := file.Contents()
-		if err != nil || !strings.Contains(content, version) {
-			if prev != nil {
-				result = prev
+		if err != nil {
+			return fmt.Errorf("reading tag content at %s: %w", c.Hash, err)
+		}
+		lines, err := nonEmptyLines(strings.NewReader(content))
+		if err != nil {
+			return fmt.Errorf("parsing tag content at %s: %w", c.Hash, err)
+		}
+		found := false
+		for _, line := range lines {
+			if line == version {
+				found = true
+				break
 			}
+		}
+		if !found {
 			return storer.ErrStop
 		}
-		prev = c
+		for _, hash := range shallow {
+			if c.Hash == hash && c.NumParents() != 0 {
+				return fmt.Errorf("history for %s is shallow at %s; restore complete history before archiving", version, c.Hash)
+			}
+		}
+		result = c
 		return nil
 	})
-	if result == nil {
-		result = prev
+	if err != nil {
+		return nil, fmt.Errorf("walking tag history: %w", err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("could not find commit that introduced %s in %s; ensure your precompile changes are committed", version, tagFile)
+		return nil, fmt.Errorf("could not find commit that introduced exact tag %s in %s; restore readable history before archiving", version, tagFile)
 	}
 	return result, nil
+}
+
+// gitEntry distinguishes a genuinely absent entry from a missing or unreadable
+// object. go-git's Tree.File/Tree.Tree convert missing objects to "not found",
+// which would silently turn corrupt history into a valid boundary or change.
+func gitEntry(repo *git.Repository, tree *object.Tree, path string) (*object.TreeEntry, error) {
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	for i, name := range parts {
+		var entry *object.TreeEntry
+		for j := range tree.Entries {
+			if tree.Entries[j].Name == name {
+				entry = &tree.Entries[j]
+				break
+			}
+		}
+		if entry == nil {
+			return nil, object.ErrEntryNotFound
+		}
+		if i == len(parts)-1 {
+			return entry, nil
+		}
+		if entry.Mode != filemode.Dir {
+			return nil, fmt.Errorf("%s: %s is not a directory", path, name)
+		}
+		next, err := repo.TreeObject(entry.Hash)
+		if err != nil {
+			return nil, err
+		}
+		tree = next
+	}
+	return nil, object.ErrEntryNotFound
+}
+
+func gitSubtree(repo *git.Repository, tree *object.Tree, path string) (*object.Tree, error) {
+	entry, err := gitEntry(repo, tree, path)
+	if err != nil {
+		return nil, err
+	}
+	if entry.Mode != filemode.Dir {
+		return nil, fmt.Errorf("%s is not a directory", path)
+	}
+	return repo.TreeObject(entry.Hash)
 }
 
 // gitPathHasChanges compares the HEAD tree against a base commit for a given
@@ -259,9 +313,12 @@ func gitPathHasChanges(repo *git.Repository, base *object.Commit, dirPath string
 		return false, fmt.Errorf("reading tree from base commit: %w", err)
 	}
 
-	baseSubtree, err := baseTree.Tree(dirPath)
+	baseSubtree, err := gitSubtree(repo, baseTree, dirPath)
+	if errors.Is(err, object.ErrEntryNotFound) {
+		return true, nil
+	}
 	if err != nil {
-		return true, nil // path didn't exist at base — new module, treat as changed
+		return false, fmt.Errorf("reading base subtree %s: %w", dirPath, err)
 	}
 
 	headRef, err := repo.Head()
@@ -276,90 +333,15 @@ func gitPathHasChanges(repo *git.Repository, base *object.Commit, dirPath string
 	if err != nil {
 		return false, fmt.Errorf("reading HEAD tree: %w", err)
 	}
-	headSubtree, err := headTree.Tree(dirPath)
+	headSubtree, err := gitSubtree(repo, headTree, dirPath)
+	if errors.Is(err, object.ErrEntryNotFound) {
+		return true, nil
+	}
 	if err != nil {
-		return true, nil // path doesn't exist at HEAD — removed module, treat as changed
+		return false, fmt.Errorf("reading HEAD subtree %s: %w", dirPath, err)
 	}
 
 	return baseSubtree.Hash != headSubtree.Hash, nil
-}
-
-func archiveCommon(tagFolder string) error {
-	targetDir := filepath.Join(commonDir, "legacy", tagFolder)
-	if err := os.MkdirAll(targetDir, 0750); err != nil {
-		return fmt.Errorf("creating %s: %w", targetDir, err)
-	}
-
-	for _, name := range []string{"precompiles.go", "evm_events.go"} {
-		src := filepath.Join(commonDir, name)
-		if _, err := os.Stat(src); os.IsNotExist(err) {
-			continue
-		}
-		dst := filepath.Join(targetDir, name)
-		if err := rewriteGoFile(src, dst, tagFolder, "", ""); err != nil {
-			return fmt.Errorf("archiving %s: %w", src, err)
-		}
-	}
-
-	fmt.Printf("archived common -> legacy/%s/\n", tagFolder)
-	return nil
-}
-
-func archiveModule(moduleDir, moduleName, newTag, tagFolder, legacyCommonPkgPath string) error {
-	targetDir := filepath.Join(moduleDir, "legacy", tagFolder)
-	if err := os.MkdirAll(targetDir, 0750); err != nil {
-		return fmt.Errorf("creating %s: %w", targetDir, err)
-	}
-
-	entries, err := os.ReadDir(moduleDir)
-	if err != nil {
-		return fmt.Errorf("reading %s: %w", moduleDir, err)
-	}
-
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == "setup.go" {
-			continue
-		}
-
-		src := filepath.Join(moduleDir, name)
-		dst := filepath.Join(targetDir, name)
-		if err := rewriteGoFile(src, dst, tagFolder, commonPkgPath, legacyCommonPkgPath); err != nil {
-			return fmt.Errorf("archiving %s: %w", src, err)
-		}
-	}
-
-	abiSrc := filepath.Join(moduleDir, "abi.json")
-	if _, err := os.Stat(abiSrc); err == nil {
-		if err := copyFile(abiSrc, filepath.Join(targetDir, "abi.json")); err != nil {
-			return fmt.Errorf("copying abi.json for %s: %w", moduleName, err)
-		}
-	}
-
-	versionsFile := filepath.Join(moduleDir, "versions")
-	existing, err := readNonEmptyLines(versionsFile)
-	switch {
-	case err == nil:
-		if vErr := validateVersions(moduleName, existing); vErr != nil {
-			return vErr
-		}
-		if pos, match := semverIndexOf(existing, newTag); pos != -1 {
-			return fmt.Errorf("%s/versions: %s (semver-equal to %s) already exists at line %d", moduleName, newTag, match, pos+1)
-		}
-	case os.IsNotExist(err):
-		// New module — versions file will be created by appendLine below.
-	default:
-		return fmt.Errorf("reading %s: %w", versionsFile, err)
-	}
-	if err := appendLine(versionsFile, newTag); err != nil {
-		return err
-	}
-
-	fmt.Printf("archived %s -> legacy/%s/\n", moduleName, tagFolder)
-	return nil
 }
 
 func regenerateAllSetup() error {
@@ -515,10 +497,10 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-func discoverModules() []string {
+func discoverModules() ([]string, error) {
 	entries, err := os.ReadDir(precompilesDir)
 	if err != nil {
-		log.Fatalf("reading %s: %v", precompilesDir, err)
+		return nil, fmt.Errorf("reading %s: %w", precompilesDir, err)
 	}
 	var modules []string
 	for _, e := range entries {
@@ -526,7 +508,7 @@ func discoverModules() []string {
 			modules = append(modules, e.Name())
 		}
 	}
-	return modules
+	return modules, nil
 }
 
 // rewriteGoFile parses a Go source file, rewrites the package declaration to
@@ -616,8 +598,12 @@ func readNonEmptyLines(path string) ([]string, error) {
 	}
 	defer func() { _ = f.Close() }()
 
+	return nonEmptyLines(f)
+}
+
+func nonEmptyLines(r io.Reader) ([]string, error) {
 	var lines []string
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {

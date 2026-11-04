@@ -331,16 +331,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB: func(c context.Context) error {
-				if pool == nil {
-					return fmt.Errorf("identity_database_missing")
-				}
-				if cfg.NodeEnv != "production" {
-					return pool.Ping(c)
-				}
-				return cfg.CheckRuntimeSchema(c, pool)
-			},
-			Redis: func(c context.Context) error { return rdb.Ping(c).Err() },
+			DB:     identityDatabaseCheck(cfg, pool),
+			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
 		},
 	})
 
@@ -1207,6 +1199,7 @@ func (r *gatewayConnectedRuntime) close() {
 }
 
 func publicGatewayHandler(next http.Handler, cfg config.Config) http.Handler {
+	next = identityIngressDeadline(next)
 	origins := map[string]bool{}
 	for _, origin := range strings.Split(cfg.CORSAllowedOrigins, ",") {
 		origins[origin] = true

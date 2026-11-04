@@ -1,0 +1,61 @@
+[task]
+id = "22.33.983"
+audit = "22.30.31"
+status = "implementation-record; only hf-done's private ledger establishes qualification"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+baseline = "Not run: ordered implementation-first and hf-done-only gates supersede the contradictory preliminary-verify request; no pre-change failing test is claimed. No earlier gate ledger existed."
+evidence = "The runner records the candidate revision, exact command, exit code and private log in its hf-build/hf-done ledger; these are not inferred from source or a working-tree HEAD."
+test_peer = "Production Store, SQL statements, HTTP handlers, adapters, persisted callout producer and Runtime run against a committed pure-Go SQLite peer with PostgreSQL syntax translation and serialized transactions. Tests close and reopen SQL connections and HTTP servers on the same persisted database. No external binary, environment variable, credential or live service is required."
+proof_limit = "The fixture does not certify PostgreSQL advisory locks, isolation or privileges, or downstream social policy behavior; those explicit out-of-path qualification steps are owner wiring requests below."
+
+[finding.alert-registry-signature]
+test = "TestRepairM_983_alert_registry_signature"
+repair = "Document the exact typed signature and persisted-threshold contract; drive real HTTP creation, reopen the SQL store, invoke the exported typed adapter and validate/decode its result; reject altered ratio and provenance."
+
+[finding.invite-revision-race]
+test = "TestRepairM_983_invite_revision_race"
+repair = "Carry expected into Invite/inviteTx and compare recipient revision under the mutation lock; ChangeMembership delegates the check. Prove one success/one conflict through direct Store, frozen HTTP and connected HTTP; reopen and redeem the winning token."
+
+[finding.join-registry-signature]
+test = "TestRepairM_983_join_registry_signature"
+repair = "Document actual RequestJoin/ApproveRequest signatures and membership-revision semantics; prove typed exported calls, persisted request/approval across reopen and frozen HTTP consumers, including stale/self approval refusal."
+
+[finding.squad-boundary-tests]
+test = "TestRepairM_983_squad_boundary_tests"
+repair = "Retain the already reconciled 500-character production bound and existing invalid assertions; add shared schema/store assertions for the former 281/141 fixtures, ASCII/accented/astral maxima and over-limit cases, plus real HTTP/reopen checks."
+
+[finding.squad-revision-test-fixture]
+test = "TestRepairM_983_squad_revision_test_fixture"
+repair = "Use unequal member/squad revisions in the original adapter test and an assertion helper shared with real-store mutation/reopen proof. Independently check member, envelope and squad identities and retain/add full uint64 precision coverage."
+
+[finding.deleted-actor-outbox]
+test = "TestRepairM_983_deleted_actor_outbox"
+repair = "DeleteAccount writes anonymous removal events and atomically scrubs all queued public Actor fields; the notification worker's discovery Runtime consults the persisted deletion fence before dispatch. Prove unpublished production callout events, already removed targets, deletion, database/worker restart, transport failure/retry and loopback delivery contain no deleted actor; preserve unrelated actors."
+
+[finding.missing-interface-contract-pages]
+test = "TestRepairM_983_missing_interface_contract_pages"
+repair = "Maintain in-scope service/client pages with all four canonical anchors and corrected workflows; check every registry reference to those targets through the explicit local mapping and every produced/consumed link in the maintained pages. Canonical publication is delegated below."
+
+[wiring.alert-registry]
+request = "Domain 4 contract owner: update spec/layerx-merge/interfaces.kvx row 4.go-discovery-adapt-v2-alert-j29 to the exact AdaptV2AlertCreate(AlertRule, string, v2.InputPrice, string, time.Time) (v2.AlertCreateResponse, error) signature and HTTP caller, preserving persisted rule.Price semantics from services/launchpad/discovery/contracts/services.md#launchpad-discovery."
+
+[wiring.join-registry]
+request = "Domain 4 contract owner: update spec/layerx-merge/interfaces.kvx row 4.go-discovery-store-request-join-j29 to RequestJoin(ctx, actor, squadID, expected uint64) (Membership,error) and ApproveRequest(ctx, actor, squadID, account, expected uint64, now time.Time) (Membership,error), using the full signatures in the maintained service page."
+
+[wiring.invite-callers]
+request = "Domain 4 API/SDK owner: reconcile spec/layerx-merge/interfaces.kvx and sdk/launchpad generated invitation callers with Store.Invite's required expected uint64 argument and connected invitation Expected body field; regenerate through the owner."
+
+[wiring.contract-pages]
+request = "Domain 4 contract owner: retarget every discovery/API/web/SDK reference in spec/layerx-merge/interfaces.kvx from contracts/services.md#launchpad-discovery and #launchpad-api and contracts/clients.md#launchpad-web-app and #launchpad-sdk-sdk to services/launchpad/discovery/contracts/services.md and clients.md with the same anchors, or publish these maintained pages at those canonical paths."
+
+[wiring.anonymous-removal-consumer]
+request = "Domain 4 notifications/social owner: update services/launchpad/notifications/wire.go, services/launchpad/social/internal/app/app.go callout-authority and services/launchpad/social/internal/interactions/policy.go ApplyCalloutAuthorityTx to accept Actor-empty Removed events without account/wallet lookup and persist a monotonic deletion fence; qualify delayed creation/removal/replay through the real downstream consumer."
+
+[wiring.postgresql-qualification]
+request = "Domain 4 data owner: qualify the revised exported Invite/RequestJoin/ApproveRequest calls and deletion/outbox transactions against a stopped/reopened production PostgreSQL fixture, including concurrent identical revisions and worker delivery, under the owning integration gate; this task's allowed gate explicitly excludes PostgreSQL and subprocess tools."
+
+[gotcha.scope]
+observed = "The canonical registry/pages and final notification consumer are outside the exact edit scope; requests above preserve ownership and disclose the remaining integration boundary. GOTCHA.kvx and spec records cannot be edited in this task."
+
+[gotcha.predecessor]
+observed = "The predecessor already corrected the 500-code-point squad limit, HTTP ChangeMembership transaction and adapter squad argument; this task retains those corrections and repairs the remaining exported Invite path and distinguishing fixtures."

@@ -152,8 +152,8 @@ func login(t *testing.T, base string) (token, wallet string) {
 }
 
 func TestApp_HealthReady(t *testing.T) {
-	base, _, _, _ := boot(t)
-	resp, err := http.Get(base + "/health/ready")
+	g := bootDevIdentity(t, 1000)
+	resp, err := http.Get(g.base + "/health/ready")
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
