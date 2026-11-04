@@ -1,0 +1,14 @@
+[repair.22.33.560]
+audit_record = "22.30.158"
+finding = "018"
+class = "config-drift"
+severity = "medium"
+test_file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs"
+proving_tests = ["018: recovery preserves token-transfer settings through recorded receipt decoding and import", "recovery exits after committing its last batch before the next configured interval"]
+original_test = "Indexer.Migrator.RecoveryWETHTokenTransfersTest: RecoveryWETHTokenTransfers recovery WETH token transfers"
+implementation = "Merge the filtering override into envs_tt, retain the token-transfer whitelist and other settings, and restore both original application configurations through on_exit. Preserve the existing migrator completion repair and tests unchanged."
+producer_transport_consumer = "The committed geth struct_logger.json receipt passes through Receipts.to_elixir, Receipts.elixir_to_logs, Logs.elixir_to_params, TokenTransfers.parse and Chain.import; assertions check the persisted withdrawal and exact restoration of both configurations. The recovery cases drive the production GenServer, import real log records, and assert its persisted completion marker and normal exit."
+fixture = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/geth/trace/struct_logger.json"
+baseline = "The inherited regression module records the attempt-4 baseline: three tests ran, the original recovery WETH token transfers case failed its 1000ms normal-exit assertion, and the other two passed. The supplied attempt-6 ruling reports three tests passing and only the graph check for this missing task record failing. No unchanged-tree gate was rerun in this continuation."
+wiring_requests = []
+qualification = "Only passing hf-done qualifies this repair. The private /out/run/gates.jsonl ledger names the verified candidate revision with the exact command, exit code and log path; the final JSON evidence line copies that qualification record."
