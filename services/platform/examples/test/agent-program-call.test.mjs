@@ -1,6 +1,7 @@
+import "./support/source-loader.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { createHash, generateKeyPairSync, sign } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -9,7 +10,7 @@ import { delimiter, join } from "node:path";
 import test, { before, after } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { keccak_256 } from "@noble/hashes/sha3.js";
+import { nodeReceipt } from "./support/node-receipts.mjs";
 
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -80,29 +81,18 @@ function decodeRlp(encoded) {
   return value;
 }
 
-function signedReceipt(raw, returnData, pair) {
-  const uint = (value, width) => Buffer.from(BigInt(value).toString(16).padStart(width * 2, "0"), "hex");
-  const bounded = (value) => Buffer.concat([uint(value.length, 4), value]);
-  const sha256 = (value) => createHash("sha256").update(value).digest();
-  const txHash = hex(keccak_256(raw));
-  const publicKey = hex(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32));
-  const keyId = Buffer.alloc(32, 0x55);
-  const zero = Buffer.alloc(32);
-  const prefix = Buffer.concat([
-    uint(2, 2), uint(0x5201, 2), uint(2, 2), bounded(bytes(txHash)), uint(1, 8),
-    bounded(zero), bounded(sha256(raw)), bounded(sha256(bytes(returnData))), uint(0, 4), uint(0, 4),
-    uint(0, 16), bounded(uint(7, 32)), uint(12, 2), uint(1, 4), uint(0, 4), Buffer.of(2),
-    bounded(zero), uint(0, 16), bounded(zero), uint(0, 16), uint(0, 16), uint(0, 8),
-    bounded(zero), uint(0, 16), uint(0, 16), bounded(zero), bounded(zero), bounded(keyId), uint(1, 8),
-  ]);
-  const digest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)]));
-  const receipt = hex(Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, digest, pair.privateKey))]));
-  return { txHash, rung: "receipted", status: "0x1", returnData, vmError: "", receipt, publicKey };
+function signedReceipt(raw, returnData) {
+  const vector = nodeReceipt("V1-layerxprograms-call");
+  assert.deepEqual(raw, Buffer.from(vector.raw), "the walkthrough must submit the transaction the real producer recorded");
+  assert.equal(returnData, vector.receiptJson.returnData, "return data comes from the same execution as the signed receipt");
+  return { ...vector.receiptJson, publicKey: vector.pinnedKey.publicKey };
 }
 
 async function runWalkthrough(t, refused, receiptState = "receipted", unpinned = false) {
-  const signer = generateKeyPairSync("ed25519");
-  const pinnedKey = unpinned ? generateKeyPairSync("ed25519").publicKey : signer.publicKey;
+  const recordedPin = nodeReceipt("V1-layerxprograms-call").pinnedKey;
+  const pinnedKey = unpinned
+    ? hex(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "der" }).subarray(-32))
+    : recordedPin.publicKey;
   const directory = await mkdtemp(join(scratch, "case-"));
   const bin = join(directory, "bin");
   await mkdir(bin);
@@ -141,7 +131,7 @@ async function runWalkthrough(t, refused, receiptState = "receipted", unpinned =
           assert.equal(request.url, `/v1/programs/registry/${programId}`);
           assert.equal(JSON.parse(body).program_id, programId);
           response.end(JSON.stringify({
-            request_id: "walkthrough-discovery", verification_status: { state: "Unverified", reason: "local transport fixture" },
+            request_id: "walkthrough-discovery", verification_status: { state: "Unverified", requested: "SequencerSigned", achieved: "Unverified", reason: "server_side_receipt_verification_only" },
             value: { program_id: programId, lifecycle: "active", interface_status: "absent",
               observed_sequence: 1, state_root: "22".repeat(32) },
           }));
@@ -214,7 +204,7 @@ async function runWalkthrough(t, refused, receiptState = "receipted", unpinned =
           assert.equal(hex(fields[5]), programsAddress);
           assert.equal(hex(fields[7]), estimate);
           assert.ok(fields[10].length > 0 && fields[11].length > 0);
-          receipt = signedReceipt(transaction, abiOutcome(0, 1, "ccdd"), signer);
+          receipt = signedReceipt(transaction, abiOutcome(0, 1, "ccdd"));
           result = receipt.txHash;
           break;
         }
@@ -253,9 +243,9 @@ async function runWalkthrough(t, refused, receiptState = "receipted", unpinned =
       LAYERX_EVM_KEY_FILE: keyFile,
       LAYERX_RPC_URL: `http://127.0.0.1:${server.address().port}/rpc`,
       LAYERX_RECEIPT_KEYS_JSON: JSON.stringify([{
-        keyId: `0x${"55".repeat(32)}`,
-        publicKey: hex(pinnedKey.export({ type: "spki", format: "der" }).subarray(-32)),
-        firstHeight: "0", lastHeight: "10",
+        keyId: recordedPin.keyId,
+        publicKey: pinnedKey,
+        firstHeight: recordedPin.firstHeight, lastHeight: recordedPin.lastHeight,
       }]) },
   });
   assert.deepEqual(errors, []);
