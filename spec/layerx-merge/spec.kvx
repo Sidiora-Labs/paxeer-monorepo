@@ -149957,7 +149957,7 @@ do_16 = "Attempt 10 (continue): all six tests and the done gate passed again, an
 
 [task.22.33.612]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.457", "22.31.479"]
@@ -324979,7 +324979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.864]
 title = "Repair audit record 22.30.182 medium findings in tools/qualification (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -325237,7 +325237,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.853]
 title = "Repair audit record 22.30.181 medium findings in tools/qualification/paxeer-x (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325385,7 +325385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.849]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 3 of 5): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -369886,7 +369886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.461]
 title = "Repair audit record 22.30.148 medium findings in services/explorer/backend/apps/block_scout_web (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276"]
@@ -369921,7 +369921,7 @@ do_8 = "Attempt 2 (continue): all five cases fail because the OpenAPI definition
 
 [task.22.33.457]
 title = "Repair audit record 22.30.148 medium findings in services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276"]

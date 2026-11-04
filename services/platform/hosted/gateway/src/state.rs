@@ -131,7 +131,9 @@ fn document(state: &VerifiedState) -> serde_json::Value {
     })
 }
 
-pub(super) fn read(config: &Config, trace_id: &str) -> OutgoingResponse {
+// Historical batch evidence remains a decoder for archived documents only.
+#[allow(dead_code)]
+fn read_archival(config: &Config, trace_id: &str) -> OutgoingResponse {
     let (component, token) = match config.backend(super::KernelBackend::Component) {
         Ok(target) => target,
         Err(unavailable) => return unavailable.into(),
@@ -188,6 +190,60 @@ pub(super) fn read(config: &Config, trace_id: &str) -> OutgoingResponse {
     json_response(
         200,
         &serde_json::json!({ "ok": true, "result": document(&state), "trace": trace_id }),
+    )
+}
+
+pub(super) fn read(config: &Config, trace_id: &str) -> OutgoingResponse {
+    let Some(authority) = &config.committed_state else {
+        return response(
+            503,
+            "state_authority_not_configured",
+            Some(RETRY_AFTER_SECONDS),
+        );
+    };
+    let id = serde_json::json!("committed-state");
+    let Some(status) = super::chain_reads::consensus(config, "status", &id, serde_json::json!({}))
+    else {
+        return response(503, "state_node_unavailable", Some(5));
+    };
+    let Some(height) = status["sync_info"]["latest_block_height"].as_str() else {
+        return response(502, "state_document_invalid", None);
+    };
+    let Some(proof) =
+        super::chain_reads::consensus(config, "commit", &id, serde_json::json!({"height": height}))
+    else {
+        return response(503, "state_proof_unavailable", Some(5));
+    };
+    let Ok(now) = (config.state_clock)() else {
+        return response(503, "state_clock_unavailable", Some(5));
+    };
+    let verified = match authority.verify(&status, &proof, now) {
+        Ok(state) => state,
+        Err(code) => return response(502, code, None),
+    };
+    match config.store.observe_committed_state(
+        &authority.chain_id,
+        verified.height,
+        &hex(&verified.block_hash),
+    ) {
+        Ok(true) => {}
+        Ok(false) => return response(502, "state_proof_stale", None),
+        Err(_) => return response(503, "persistence_unavailable", Some(5)),
+    }
+    json_response(
+        200,
+        &serde_json::json!({
+            "ok": true, "trace": trace_id, "result": {
+                "network_mode": "hosted",
+                "canonical_state_root": hex(&verified.state_root),
+                "state_root": hex(&verified.state_root),
+                "block_height": verified.height,
+                "block_hash": hex(&verified.block_hash),
+                "timestamp_ms": verified.timestamp_ms,
+                "verification": "bft-signed-committed-header",
+                "commitment_proof": proof["signed_header"]
+            }
+        }),
     )
 }
 

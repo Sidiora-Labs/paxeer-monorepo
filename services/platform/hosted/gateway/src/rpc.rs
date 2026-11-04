@@ -22,7 +22,7 @@ pub(super) fn invalid_request(value: &Value) -> Option<Value> {
 }
 
 fn kernel_backend(method: &str) -> Option<KernelBackend> {
-    (method == crate::rpc_faucet::px_requestFunds).then_some(KernelBackend::Identity)
+    (method == super::rpc_faucet::px_requestFunds).then_some(KernelBackend::Identity)
 }
 
 pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value) -> Option<Value> {
@@ -37,7 +37,7 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
             .map(|_| error(&id, -32601, "Method not found"));
     }
     if method == "px_getRouteCatalogue" {
-        let result = crate::routes::rpc_catalogue(config, request, &id, value.get("params"));
+        let result = super::routes::rpc_catalogue(config, request, &id, value.get("params"));
         return value.get("id").map(|_| result);
     }
     if let Some(unavailable) =
@@ -46,22 +46,22 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
         return value.get("id").map(|_| unavailable.rpc(&id));
     }
     if let Some(result) =
-        crate::rpc_register::dispatch(config, request, method, &id, value.get("params"))
+        super::rpc_register::dispatch(config, request, method, &id, value.get("params"))
     {
         return value.get("id").map(|_| result);
     }
     if let Some(result) =
-        crate::rpc_faucet::dispatch(config, request, method, &id, value.get("params"))
+        super::rpc_faucet::dispatch(config, request, method, &id, value.get("params"))
     {
         return value.get("id").map(|_| result);
     }
-    if let Some(result) = crate::history::dispatch(config, method, &id, value.get("params")) {
+    if let Some(result) = super::history::dispatch(config, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
-    if let Some(result) = crate::chain_reads::dispatch(config, method, &id, value.get("params")) {
+    if let Some(result) = super::chain_reads::dispatch(config, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
-    if let Some(result) = crate::paxeer::dispatch(config, method, &id, value.get("params")) {
+    if let Some(result) = super::paxeer::dispatch(config, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
     value
@@ -149,7 +149,10 @@ mod tests {
             client: crate::Client::without_identity(ca.clone()),
             client_identity: false,
             kernel: None,
+            identity: None,
             receipt_keys: None,
+            committed_state: None,
+            state_clock: crate::now,
             paxeer: None,
             capabilities: crate::capabilities::Cache::new(Duration::from_secs(1)),
             indexer: None,
@@ -204,17 +207,19 @@ mod tests {
         ];
         for configured in [false, true] {
             if configured {
+                config.identity = Some(crate::IdentityTarget {
+                    endpoint: endpoint.clone(),
+                    token: Zeroizing::new("token".into()),
+                    key_provisioning_key: Some(Zeroizing::new([0; 32])),
+                });
                 config.kernel = Some(crate::Kernel {
                     component: endpoint.clone(),
                     component_token: Zeroizing::new("token".into()),
                     public_core: Some(endpoint.clone()),
                     authority: endpoint.clone(),
                     authority_token: Zeroizing::new("token".into()),
-                    identity: endpoint.clone(),
-                    identity_token: Zeroizing::new("token".into()),
                     registry: endpoint.clone(),
                     registry_token: Zeroizing::new("token".into()),
-                    key_provisioning_key: Zeroizing::new([0; 32]),
                     modules: layerx_types::payload::ModuleRegistry::new(&[]).expect("modules"),
                 });
                 config.paxeer = Some(vec![endpoint.clone()]);
