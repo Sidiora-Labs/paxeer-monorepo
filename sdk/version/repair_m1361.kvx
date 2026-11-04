@@ -1,0 +1,15 @@
+[repair.22.33.1361]
+finding = "22.30.74/version-sdk-module-identity"
+tests = ["TestRepairM_1361_ModuleIdentity", "TestRepairM_1361_RuntimeMetadata", "TestRepairM_1361_NativeMetadataCommand"]
+change = "Resolve the actual root main module or root dependency, preserve replacement provenance, and explicitly report unavailable metadata. Prove native build metadata through NewInfo and the JSON/YAML version command."
+baseline = "Not run: the task's ordered gate instructions require complete implementation before hf-build and hf-done; no prior gate ledger or repair tests existed. No baseline failure is claimed."
+wiring_requests = "None; the repair is entirely within sdk/version."
+evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log location."
+
+[qualification.first_attempt]
+revision = "dfc36778159f2bf523e9fdcfad6bb2003e67d564"
+command = "cg spec done 22.33.1361 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Module and runtime provenance tests passed; the command test incorrectly expected JSON null for the YAML codec's existing empty dependency sequence."
+repair = "Assert the exact format-specific empty dependency encoding while retaining full-field equality."

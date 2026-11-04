@@ -141,6 +141,8 @@ func TestProofLayerxauthKeeperSession(t *testing.T) {
 }
 
 func TestProofLayerxauthKeeperCapability(t *testing.T) {
+	t.Run("executable capability receipt endpoint", TestRepairM_1421_AuthProofEndpoint)
+
 	f := newAuthViewFixture(t)
 	actor := authExecuteActor(t, f)
 	az, azKey := capabilityAuthz(t, f)

@@ -264,13 +264,13 @@ func TestFilteredFeeValidAllowance(t *testing.T) {
 					Amount:      tc.fee,
 				},
 			})
+			require.Equal(t, tc.remove, removed)
 			if !tc.accept {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
 
-			require.Equal(t, tc.remove, removed)
 			if !removed {
 				var basicAllowanceLeft feegrant.BasicAllowance
 				app.AppCodec().Unmarshal(tc.allowance.Allowance.Value, &basicAllowanceLeft)

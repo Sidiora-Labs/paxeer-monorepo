@@ -179,6 +179,24 @@ impl Outbox {
         self.enqueue_exact(store, tenant, raw, None, None)
     }
 
+    /// Queues the verifier's exact type-2 bytes through the same origin-aware path
+    /// used by the Human runtime, without an additional preparation authorization.
+    pub fn enqueue_verified(
+        &mut self,
+        store: &mut Store,
+        tenant: TenantId,
+        verified: VerifiedSubmission,
+    ) -> Result<[u8; 32], OutboxError> {
+        self.enqueue_with_origin(
+            store,
+            tenant,
+            verified.idempotency_key(),
+            verified,
+            None,
+            None,
+        )
+    }
+
     /// Durably queues exact verified bytes together with the preparation authorization that
     /// admitted them, so recovery can classify a queued record that carries no authority.
     ///

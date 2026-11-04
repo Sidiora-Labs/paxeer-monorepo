@@ -144,15 +144,19 @@ func runShowCmd(cmd *cobra.Command, args []string) (err error) {
 			return fmt.Errorf("the device flag (-d) can only be used for accounts stored in devices")
 		}
 
-		hdpath, err := info.GetPath()
-		if err != nil {
-			return nil
-		}
-
-		return ledger.ShowAddress(*hdpath, info.GetPubKey(), sdk.GetConfig().GetBech32AccountAddrPrefix())
+		return showAddressOnDevice(info)
 	}
 
 	return nil
+}
+
+func showAddressOnDevice(info keyring.Info) error {
+	hdpath, err := info.GetPath()
+	if err != nil {
+		return fmt.Errorf("failed to get BIP44 path from ledger info: %w", err)
+	}
+
+	return ledger.ShowAddress(*hdpath, info.GetPubKey(), sdk.GetConfig().GetBech32AccountAddrPrefix())
 }
 
 func fetchKey(kb keyring.Keyring, keyref string) (keyring.Info, error) {

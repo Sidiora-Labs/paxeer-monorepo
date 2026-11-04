@@ -1,9 +1,17 @@
 package protocol
 
 import (
+	"encoding/json"
+	"math/big"
+	"reflect"
+	"slices"
 	"testing"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -90,4 +98,128 @@ func TestEventsDeterministicOrder(t *testing.T) {
 			t.Fatalf("Events() order unstable at %d: %s vs %s", i, a[i].Topic0.Hex(), b[i].Topic0.Hex())
 		}
 	}
+}
+
+func TestFeeStrategyChangedRoleSchemaPath(t *testing.T) {
+	testFeeStrategyChangedRoleSchemaPath(t)
+}
+
+// The metadata is the producer for this SDK schema test. Contract execution
+// and the indexer's internal handler belong to the owning-domain wiring proof.
+func testFeeStrategyChangedRoleSchemaPath(t *testing.T) {
+	t.Helper()
+	for _, role := range feeStrategyChangedTestRoles() {
+		t.Run(role.name, func(t *testing.T) {
+			original, err := role.meta.GetAbi()
+			if err != nil {
+				t.Fatal(err)
+			}
+			event := original.Events["FeeStrategyChanged"]
+			if event.Inputs[0].Name != role.identity {
+				t.Fatalf("producer identity name = %q, want %q", event.Inputs[0].Name, role.identity)
+			}
+			for i, id := range []int64{1, 9007199254740993, 9223372036854775807} {
+				old, next := uint8(i), uint8((i+1)%3)
+				log := feeStrategyChangedTestLog(t, role, big.NewInt(id), old, next)
+				def, ok := LookupEvent(log.Topics[0])
+				if !ok || def == nil {
+					t.Fatal("role event absent from exported registry")
+				}
+				if def.Name != "FeeStrategyChanged" || def.Sig != "FeeStrategyChanged(uint256,uint8,uint8)" || def.Event.ID != event.ID || !slices.Equal(def.Contracts, []string{"SidioraNFT", "FeesRouter"}) {
+					t.Fatalf("wrong registry definition: %+v", def)
+				}
+				wantInputs := slices.Clone(event.Inputs)
+				wantInputs[0].Name = "nftId"
+				if !reflect.DeepEqual(def.Event.Inputs, wantInputs) {
+					t.Fatalf("registry changed types, indexing or strategy names: %+v", def.Event.Inputs)
+				}
+				consumer := feeStrategyChangedTestConsumer(log.Address, def)
+				args := make(map[string]any)
+				if err := consumer.UnpackLogIntoMap(args, def.Name, log); err != nil {
+					t.Fatal(err)
+				}
+				want := map[string]any{"nftId": big.NewInt(id), "oldStrategy": old, "newStrategy": next}
+				if !reflect.DeepEqual(args, want) {
+					t.Fatalf("processor field contract = %#v, want %#v", args, want)
+				}
+				// Check the generated role consumer independently; it must retain
+				// its original identity name while the shared registry is canonical.
+				if role.name == "SidioraNFT" {
+					filterer, err := bindings.NewSidioraNFTFilterer(log.Address, nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					got, err := filterer.ParseFeeStrategyChanged(log)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if got.TokenId.Cmp(big.NewInt(id)) != 0 || got.OldStrategy != old || got.NewStrategy != next || !reflect.DeepEqual(got.Raw, log) {
+						t.Fatalf("role parser lost producer values: %+v", got)
+					}
+				} else {
+					filterer, err := bindings.NewFeesRouterFilterer(log.Address, nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					got, err := filterer.ParseFeeStrategyChanged(log)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if got.NftId.Cmp(big.NewInt(id)) != 0 || got.OldStrategy != old || got.NewStrategy != next || !reflect.DeepEqual(got.Raw, log) {
+						t.Fatalf("role parser lost producer values: %+v", got)
+					}
+				}
+			}
+		})
+	}
+}
+
+type feeStrategyChangedTestRole struct {
+	name, identity string
+	address        common.Address
+	meta           *bind.MetaData
+}
+
+func feeStrategyChangedTestRoles() []feeStrategyChangedTestRole {
+	return []feeStrategyChangedTestRole{
+		{"SidioraNFT", "tokenId", common.HexToAddress(SidioraNFTHex), bindings.SidioraNFTMetaData},
+		{"FeesRouter", "nftId", common.HexToAddress(FeesRouterHex), bindings.FeesRouterMetaData},
+	}
+}
+
+func feeStrategyChangedTestLog(t *testing.T, role feeStrategyChangedTestRole, id *big.Int, old, next uint8) types.Log {
+	t.Helper()
+	parsed, err := role.meta.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := parsed.Events["FeeStrategyChanged"]
+	data, err := event.Inputs.NonIndexed().Pack(old, next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexed, err := abi.MakeTopics([]any{id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := types.Log{
+		Address: role.address, Topics: []common.Hash{event.ID, indexed[0][0]}, Data: data,
+		BlockNumber: 42, TxHash: common.HexToHash("0x1234"), BlockHash: common.HexToHash("0x5678"), TxIndex: 3, Index: 7,
+	}
+	wire, err := json.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var received types.Log
+	if err := json.Unmarshal(wire, &received); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(received, original) {
+		t.Fatalf("log JSON transport changed values: %+v vs %+v", received, original)
+	}
+	return received
+}
+
+func feeStrategyChangedTestConsumer(address common.Address, def *EventDef) *bind.BoundContract {
+	return bind.NewBoundContract(address, abi.ABI{Events: map[string]abi.Event{def.Name: def.Event}}, nil, nil, nil)
 }

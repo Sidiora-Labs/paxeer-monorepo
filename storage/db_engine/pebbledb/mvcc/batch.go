@@ -149,7 +149,7 @@ func (b *RawBatch) Write() error {
 // latest-version metadata key).
 func writeBatchOps(storage *pebble.DB, ops []batchOp, beforeCommit func(*pebble.Batch) error) (err error) {
 	startTime := time.Now()
-	batchSize := int64(len(ops))
+	var batchSize int64
 	defer func() {
 		ctx := context.Background()
 		otelMetrics.batchWriteLatency.Record(
@@ -157,7 +157,9 @@ func writeBatchOps(storage *pebble.DB, ops []batchOp, beforeCommit func(*pebble.
 			time.Since(startTime).Seconds(),
 			metric.WithAttributes(attribute.Bool("success", err == nil)),
 		)
-		otelMetrics.batchSize.Record(ctx, batchSize)
+		if err == nil {
+			otelMetrics.batchSize.Record(ctx, batchSize)
+		}
 	}()
 
 	batch := storage.NewBatch()
@@ -181,6 +183,9 @@ func writeBatchOps(storage *pebble.DB, ops []batchOp, beforeCommit func(*pebble.
 			return err
 		}
 	}
+	// Include the Pebble batch header and all encoded operations, including
+	// latest-version metadata when present. Failed commits have no size sample.
+	batchSize = int64(len(batch.Repr()))
 	return batch.Commit(defaultWriteOpts)
 }
 

@@ -606,13 +606,9 @@ def producer_manifest(work_dir, registry_path, journal_path, output):
         recovery_policy(protected_json(path), path)
         return file_digest(path)
 
-    def movement():
-        path = inputs / 'movement-source.json'
-        value = protected_json(path)
-        fields(value, 'LEDGER_ASSET_ID LEDGER_OWNER_ACCOUNT', path, 'merged movement source')
-        for key, item in value.items():
-            require(type(item) is str and re.fullmatch(r'0x[0-9a-fA-F]{64}', item) is not None
-                    and int(item, 16) != 0, path, key)
+    def funding():
+        path = inputs / 'merged-owner-evidence.json'
+        funding_evidence(work_dir)
         return file_digest(path)
 
     def registry():
@@ -665,7 +661,7 @@ def producer_manifest(work_dir, registry_path, journal_path, output):
         ('authority', 'human_owner_provision', relative(binding_path), authority),
         ('principal-policy', 'human_native_provision', relative(registration_path), principal),
         ('recovery-policy', 'human_owner_provision', relative(inputs / 'recovery-policy.json'), recovery),
-        ('movement-policy', 'human_native_owner_prepare', relative(inputs / 'movement-source.json'), movement),
+        ('ledger-funding', 'human_native_provision', relative(inputs / 'merged-owner-evidence.json'), funding),
         ('module-registry', 'registry_deployment_produce', 'secrets:module-registry.json', registry),
         ('admission-journal', 'human_journal_deploy', relative(journal_path), lambda: journal('.admission')),
         ('deployment-journal', 'human_journal_deploy', relative(journal_path), lambda: journal('.deployment')),
@@ -696,6 +692,8 @@ def assemble(work_dir, registry_path, asset, journal_path):
     inputs = work_dir / 'human-evidence-input'
     owner = owner_result(work_dir, work_dir / 'human-owner-result.json')
     registration = owner_registration(work_dir, owner_did=owner['did'])
+    funding = funding_evidence(work_dir)
+    require(funding['asset_id'] == asset, inputs, 'assembled ledger funding asset')
     binding_path = work_dir / 'identity/source-binding.json'
     binding = protected_json(binding_path)
     fields(binding, 'tenant principal', binding_path, 'tenant/principal binding')
@@ -789,15 +787,24 @@ def assemble(work_dir, registry_path, asset, journal_path):
         lock.rmdir()
 
 
-def movement_source(work_dir, secrets_dir):
-    from merged_owner import account_id
+def funding_evidence(work_dir):
+    """Consume the same committed ledger evidence used by retained bundles."""
+    from merged_owner import validate_evidence
     root = Path(work_dir) / 'human-evidence-input'
+    legacy = root / 'movement-source.json'
+    require(not legacy.exists() and not legacy.is_symlink(), legacy,
+            'retained pre-merge funding input requires explicit migration; preserve original material')
     registration = owner_registration(work_dir)
     config = protected_json(root / 'owner-native.json')
-    require(registration['owner_account'] == account_id(registration['authority'], config['asset_id']),
-            root, 'merged owner asset account')
-    write_json(root / 'movement-source.json', dict(
-        LEDGER_ASSET_ID='0x' + config['asset_id'], LEDGER_OWNER_ACCOUNT='0x' + registration['owner_account']))
+    context = protected_json(root / 'native-context.json')
+    ca = protected_bytes(config['rpc_ca_file'], 65536)
+    expected = {key: config[key] for key in ('network_id', 'chain_id', 'rpc_url', 'confirmations')}
+    expected['rpc_ca_sha256'] = hashlib.sha256(ca).hexdigest()
+    require(context == expected, root, 'independently pinned owner RPC context')
+    value = protected_json(root / 'merged-owner-evidence.json')
+    require(value.get('asset_id') == config['asset_id'] and value.get('funding_source') == config['funding_source']
+            and value.get('funding_amount') == config['funding_amount'], root, 'configured ledger funding binding')
+    return validate_evidence(value, context, ca, registration, config['network_id'], config['chain_id'])
 
 
 def qualify_generated_set(work_dir, registry_path, secrets_dir, network, chain):
@@ -841,7 +848,7 @@ def main():
     mode.add_argument('--catalog', action='store_true')
     mode.add_argument('--assemble', action='store_true')
     mode.add_argument('--producer-manifest', action='store_true')
-    mode.add_argument('--movement-source', action='store_true')
+    mode.add_argument('--funding-evidence', action='store_true')
     mode.add_argument('--qualify-generated-set', action='store_true')
     mode.add_argument('--account-requests', action='store_true')
     mode.add_argument('--validate-job-input', action='store_true')
@@ -878,9 +885,8 @@ def main():
     elif args.qualify_generated_set:
         require(all((args.registry, args.secrets_dir, args.network, args.chain)), args.work_dir, 'generated set qualification arguments')
         qualify_generated_set(args.work_dir, args.registry, args.secrets_dir, args.network, args.chain)
-    elif args.movement_source:
-        require(args.secrets_dir is not None, args.work_dir, 'secrets directory')
-        movement_source(args.work_dir, args.secrets_dir)
+    elif args.funding_evidence:
+        funding_evidence(args.work_dir)
     elif args.assemble:
         require(all((args.registry, args.asset)), args.work_dir, 'registry and asset arguments')
         assemble(args.work_dir, args.registry, args.asset, args.journal)

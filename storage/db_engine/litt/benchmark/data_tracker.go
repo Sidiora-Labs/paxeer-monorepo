@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ type WriteInfo struct {
 
 // ReadInfo contains information needed to perform a read operation.
 type ReadInfo struct {
+	ValidUntil time.Time
 	// The key to read.
 	Key []byte
 	// The value we expect to read.
@@ -93,7 +95,8 @@ type DataTracker struct {
 	safeTTL time.Duration
 
 	// The size of the values in bytes for new cohorts.
-	valueSize uint64
+	valueSize                uint64
+	largestReadableValueSize uint64
 
 	// Closed by Close() to signal the data generator goroutine to drain any pending
 	// reports from writtenKeyIndicesChan and then exit. This is what makes Close()
@@ -120,6 +123,10 @@ func NewDataTracker(
 	errorMonitor *util.ErrorMonitor,
 ) (*DataTracker, error) {
 
+	if config.CohortSize == 0 {
+		return nil, fmt.Errorf("CohortSize must be positive")
+	}
+
 	cohortDirectory := path.Join(config.MetadataDirectory, "cohorts")
 
 	// Create the cohort directory if it doesn't exist.
@@ -128,7 +135,7 @@ func NewDataTracker(
 		return nil, fmt.Errorf("failed to create cohort directory: %w", err)
 	}
 
-	lowestCohortIndex, highestCohortIndex, cohorts, err := gatherCohorts(cohortDirectory)
+	lowestCohortIndex, highestCohortIndex, cohorts, err := gatherCohortsWithDurability(cohortDirectory, config.Fsync)
 	if err != nil {
 		return nil, fmt.Errorf("failed to gather cohorts: %w", err)
 	}
@@ -153,7 +160,7 @@ func NewDataTracker(
 			cohortDirectory,
 			0,
 			0,
-			config.CohortSize,
+			config.CohortSize-1,
 			valueSize,
 			config.Fsync)
 		if err != nil {
@@ -203,6 +210,13 @@ func NewDataTracker(
 		errorMonitor:              errorMonitor,
 	}
 
+	tracker.largestReadableValueSize = valueSize
+	for _, cohort := range cohorts {
+		if cohort.IsComplete() && cohort.ValueSize() > tracker.largestReadableValueSize {
+			tracker.largestReadableValueSize = cohort.ValueSize()
+		}
+	}
+
 	go tracker.dataGenerator()
 
 	return tracker, nil
@@ -216,7 +230,11 @@ func gatherCohorts(cohortDirPath string) (
 	cohorts map[uint64]*Cohort,
 	err error) {
 
-	cohorts = make(map[uint64]*Cohort)
+	return gatherCohortsWithDurability(cohortDirPath, false)
+}
+
+func gatherCohortsWithDurability(cohortDirPath string, fsync bool) (uint64, uint64, map[uint64]*Cohort, error) {
+	cohorts := make(map[uint64]*Cohort)
 
 	// walk over files in path
 	// for each file, check if it is a cohort file
@@ -230,19 +248,22 @@ func gatherCohorts(cohortDirPath string) (
 			fmt.Errorf("failed to read directory: %w", err)
 	}
 
-	lowestCohortIndex = math.MaxUint64
-	highestCohortIndex = 0
+	lowestCohortIndex := uint64(math.MaxUint64)
+	highestCohortIndex := uint64(0)
 
 	for _, file := range files {
 		filePath := path.Join(cohortDirPath, file.Name())
 
 		if strings.HasSuffix(filePath, CohortFileExtension) {
-			cohort, err := LoadCohort(filePath)
+			cohort, err := loadCohort(filePath, fsync)
 			if err != nil {
 				return 0,
 					0,
 					nil,
 					fmt.Errorf("failed to load cohort: %w", err)
+			}
+			if _, exists := cohorts[cohort.CohortIndex()]; exists {
+				return 0, 0, nil, fmt.Errorf("duplicate cohort %d in %s", cohort.CohortIndex(), cohortDirPath)
 			}
 			cohorts[cohort.CohortIndex()] = cohort
 
@@ -269,6 +290,27 @@ func gatherCohorts(cohortDirPath string) (
 		return 0, 0, cohorts, nil
 	}
 
+	indices := make([]uint64, 0, len(cohorts))
+	for index := range cohorts {
+		indices = append(indices, index)
+	}
+	sort.Slice(indices, func(i, j int) bool { return indices[i] < indices[j] })
+	for i, index := range indices {
+		cohort := cohorts[index]
+		if index == 0 && cohort.LowKeyIndex() != 0 {
+			return 0, 0, nil, fmt.Errorf("cohort 0 in %s must start at key 0", cohortDirPath)
+		}
+		if i == 0 {
+			continue
+		}
+		previous := cohorts[indices[i-1]]
+		if index != previous.CohortIndex()+1 {
+			return 0, 0, nil, fmt.Errorf("missing cohort %d between %d and %d in %s", previous.CohortIndex()+1, previous.CohortIndex(), index, cohortDirPath)
+		}
+		if previous.HighKeyIndex() == math.MaxUint64 || cohort.LowKeyIndex() != previous.HighKeyIndex()+1 {
+			return 0, 0, nil, fmt.Errorf("inconsistent key ranges for cohorts %d [%d,%d] and %d [%d,%d] in %s", previous.CohortIndex(), previous.LowKeyIndex(), previous.HighKeyIndex(), index, cohort.LowKeyIndex(), cohort.HighKeyIndex(), cohortDirPath)
+		}
+	}
 	return lowestCohortIndex, highestCohortIndex, cohorts, nil
 }
 
@@ -277,20 +319,7 @@ func gatherCohorts(cohortDirPath string) (
 // (possibly with different configurations), and values that may be written in the future with the
 // current configuration.
 func (t *DataTracker) LargestReadableValueSize() uint64 {
-	largestValue := uint64(t.config.ValueSizeMB * float64(unit.MB))
-
-	if len(t.cohorts) > 0 {
-		for i := t.lowestCohortIndex; i <= t.highestCohortIndex; i++ {
-			cohort := t.cohorts[i]
-			if cohort.IsComplete() {
-				if cohort.ValueSize() > largestValue {
-					largestValue = cohort.ValueSize()
-				}
-			}
-		}
-	}
-
-	return largestValue
+	return t.largestReadableValueSize
 }
 
 // GetWriteInfo returns information required to perform a write operation. It returns the key index (which is needed to
@@ -298,7 +327,13 @@ func (t *DataTracker) LargestReadableValueSize() uint64 {
 // make this method very fast. Will not block as long as data can be generated in the background fast enough.
 // May return nil if the context is cancelled.
 func (t *DataTracker) GetWriteInfo() *WriteInfo {
+	return t.getWriteInfo(t.ctx)
+}
+
+func (t *DataTracker) getWriteInfo(ctx context.Context) *WriteInfo {
 	select {
+	case <-ctx.Done():
+		return nil
 	case info := <-t.writeInfoChan:
 		return info
 	case <-t.ctx.Done():
@@ -312,6 +347,8 @@ func (t *DataTracker) GetWriteInfo() *WriteInfo {
 // immediately without queuing the report.
 func (t *DataTracker) ReportWrite(index uint64) {
 	select {
+	case <-t.errorMonitor.ImmediateShutdownRequired():
+		return
 	case t.writtenKeyIndicesChan <- index:
 		return
 	case <-t.ctx.Done():
@@ -323,7 +360,13 @@ func (t *DataTracker) ReportWrite(index uint64) {
 
 // GetReadInfo returns information required to perform a read operation. Blocks until there is data eligible to be read.
 func (t *DataTracker) GetReadInfo() *ReadInfo {
+	return t.getReadInfo(t.ctx)
+}
+
+func (t *DataTracker) getReadInfo(ctx context.Context) *ReadInfo {
 	select {
+	case <-ctx.Done():
+		return nil
 	case info := <-t.readInfoChan:
 		return info
 	case <-t.ctx.Done():
@@ -377,6 +420,9 @@ func (t *DataTracker) dataGenerator() {
 	nextReadInfo := t.generateNextReadInfo()
 
 	for {
+		if nextReadInfo != nil && !time.Now().Before(nextReadInfo.ValidUntil) {
+			nextReadInfo = t.generateNextReadInfo()
+		}
 		if nextReadInfo == nil {
 			// Edge case: when stared up for the first time, there won't be any values eligible to be read.
 			// We have to handle this in a special manner to prevent nil values from being inserted into
@@ -483,13 +529,13 @@ func (t *DataTracker) handleWrittenKey(keyIndex uint64) {
 		nextCohort := t.cohorts[nextCohortIndex]
 		if int64(nextCohort.HighKeyIndex()) <= t.highestWrittenKeyIndex { //nolint:gosec // index fits int64
 			// We've found a cohort that has all keys written.
-			t.highestWrittenCohortIndex = int64(nextCohort.CohortIndex()) //nolint:gosec // index fits int64
-			t.completeCohortSet[nextCohort.CohortIndex()] = struct{}{}
 			err := nextCohort.MarkComplete()
 			if err != nil {
 				t.errorMonitor.Panic(fmt.Errorf("failed to mark cohort as complete: %v", err))
 				return
 			}
+			t.highestWrittenCohortIndex = int64(nextCohort.CohortIndex())
+			t.completeCohortSet[nextCohort.CohortIndex()] = struct{}{}
 		} else {
 			// Once we find the first cohort that does not have all keys written, we can stop checking.
 			break
@@ -531,12 +577,17 @@ func (t *DataTracker) generateNextReadInfo() *ReadInfo {
 		return nil
 	}
 
-	var cohortIndexToRead uint64
-	for cohortIndexToRead = range t.completeCohortSet {
-		// map iteration is random in golang, so this will yield a random complete cohort.
-		break
+	var cohortToRead *Cohort
+	for index := range t.completeCohortSet {
+		candidate := t.cohorts[index]
+		if !candidate.IsExpired(time.Now(), t.safeTTL) {
+			cohortToRead = candidate
+			break
+		}
 	}
-	cohortToRead := t.cohorts[cohortIndexToRead]
+	if cohortToRead == nil {
+		return nil
+	}
 
 	keyIndex, err := cohortToRead.GetKeyIndexForReading(t.rand)
 	if err != nil {
@@ -545,8 +596,9 @@ func (t *DataTracker) generateNextReadInfo() *ReadInfo {
 	}
 
 	return &ReadInfo{
-		Key:   t.generator.Key(keyIndex),
-		Value: t.generator.Value(keyIndex, cohortToRead.ValueSize()),
+		ValidUntil: cohortToRead.FirstValueTimestamp().Add(t.safeTTL),
+		Key:        t.generator.Key(keyIndex),
+		Value:      t.generator.Value(keyIndex, cohortToRead.ValueSize()),
 	}
 }
 

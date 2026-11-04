@@ -157,16 +157,36 @@ func OpenDB(targetVersion int64, opts Options) (database *DB, _err error) {
 		)
 	}()
 	var (
-		err      error
-		fileLock FileLock
+		err           error
+		fileLock      FileLock
+		mtree         *MultiTree
+		streamHandler wal.ChangelogWAL
+		workerPool    *pond.WorkerPool
 	)
+	defer func() {
+		if database != nil {
+			return
+		}
+		if workerPool != nil {
+			workerPool.StopAndWait()
+		}
+		if mtree != nil {
+			_err = errorutils.Join(_err, mtree.Close())
+		}
+		if streamHandler != nil {
+			_err = errorutils.Join(_err, streamHandler.Close())
+		}
+		if fileLock != nil {
+			_err = errorutils.Join(_err, fileLock.Unlock(), fileLock.Destroy())
+		}
+	}()
 	if err := opts.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid commit store options: %w", err)
 	}
 	opts.FillDefaults()
 	if opts.CreateIfMissing {
-		if err := createDBIfNotExist(opts.Dir, opts.InitialVersion); err != nil {
-			return nil, fmt.Errorf("fail to load db: %w", err)
+		if err := os.MkdirAll(opts.Dir, os.ModePerm); err != nil {
+			return nil, err
 		}
 	}
 
@@ -174,6 +194,11 @@ func OpenDB(targetVersion int64, opts Options) (database *DB, _err error) {
 		fileLock, err = LockFile(filepath.Join(opts.Dir, LockFileName))
 		if err != nil {
 			return nil, fmt.Errorf("fail to lock db: %w", err)
+		}
+		if opts.CreateIfMissing {
+			if err := createDBIfNotExist(opts.Dir, opts.InitialVersion); err != nil {
+				return nil, fmt.Errorf("fail to load db: %w", err)
+			}
 		}
 
 		// cleanup any temporary directories left by interrupted snapshot rewrite
@@ -193,7 +218,7 @@ func OpenDB(targetVersion int64, opts Options) (database *DB, _err error) {
 	}
 
 	path := filepath.Join(opts.Dir, snapshot)
-	mtree, err := LoadMultiTree(context.Background(), path, opts)
+	mtree, err = LoadMultiTree(context.Background(), path, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -202,12 +227,13 @@ func OpenDB(targetVersion int64, opts Options) (database *DB, _err error) {
 
 	// MemIAVL owns changelog lifecycle: always open the WAL here.
 	// Even in read-only mode we may need WAL replay to reconstruct non-snapshot versions.
-	streamHandler, err := wal.NewChangelogWAL(utils.GetChangelogPath(opts.Dir), wal.Config{
+	openedWAL, err := wal.NewChangelogWAL(utils.GetChangelogPath(opts.Dir), wal.Config{
 		WriteBufferSize: opts.AsyncCommitBuffer,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open changelog WAL: %w", err)
 	}
+	streamHandler = openedWAL
 
 	// Compute WAL index delta (only needed once per DB open)
 	var walIndexDelta int64
@@ -291,7 +317,7 @@ func OpenDB(targetVersion int64, opts Options) (database *DB, _err error) {
 	}
 
 	// create worker pool. recv tasks to write snapshot
-	workerPool := pond.New(opts.SnapshotWriterLimit, opts.SnapshotWriterLimit*10)
+	workerPool = pond.New(opts.SnapshotWriterLimit, opts.SnapshotWriterLimit*10)
 
 	// Initialize lastSnapshotTime from the current snapshot directory's modification time
 	// This ensures accurate time tracking even after restarts
@@ -396,10 +422,18 @@ func (db *DB) ApplyUpgrades(upgrades []*proto.TreeNameUpgrade) error {
 		return errReadOnly
 	}
 
+	previous := make(map[string]*Tree, len(db.trees))
+	for _, tree := range db.trees {
+		previous[tree.Name] = tree.Tree
+	}
 	if err := db.MultiTree.ApplyUpgrades(upgrades); err != nil {
 		return err
 	}
-	if len(upgrades) > 0 {
+	changed := len(previous) != len(db.trees)
+	for _, tree := range db.trees {
+		changed = changed || previous[tree.Name] != tree.Tree
+	}
+	if changed {
 		db.pendingLogEntry.Upgrades = append(db.pendingLogEntry.Upgrades, upgrades...)
 	}
 	return nil
@@ -1285,12 +1319,29 @@ func initEmptyDB(dir string, initialVersion uint32) error {
 }
 
 // updateCurrentSymlink creates or replace the current symbolic link atomically.
-// it could fail under concurrent usage for tmp file conflicts.
-func updateCurrentSymlink(dir, snapshot string) error {
+// The caller holds the database file lock through publication.
+func updateCurrentSymlink(dir, snapshot string) (returnErr error) {
 	tmpPath := currentTmpPath(dir)
+	if info, err := os.Lstat(tmpPath); err == nil {
+		if info.Mode()&os.ModeSymlink == 0 {
+			return fmt.Errorf("temporary current path is not a symlink: %s", tmpPath)
+		}
+		if err := os.Remove(tmpPath); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
 	if err := os.Symlink(snapshot, tmpPath); err != nil {
 		return err
 	}
+	defer func() {
+		if returnErr != nil {
+			if err := os.Remove(tmpPath); !os.IsNotExist(err) {
+				returnErr = errorutils.Join(returnErr, err)
+			}
+		}
+	}()
 	// assuming file renaming operation is atomic
 	return os.Rename(tmpPath, currentPath(dir))
 }

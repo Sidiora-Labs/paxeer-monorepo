@@ -1,0 +1,6 @@
+[repair.22.33.1220]
+finding = "receipt-diff-decoder"
+tests = ["TestRepairM_1220_UnorderedReceiveReceipts", "TestRepairM_1220_UnknownKey"]
+proof = "Real SendPacket commitments and proofs drive unordered RecvPacket; keeper-store receipt diffs pass the registered aggregate decoder before and after channel genesis JSON export/import into a fresh application. Unknown keys retain the aggregate panic."
+baseline = "Not run: the task's explicit Order forbids verification before implementation and permits verification only through hf-done after hf-build; no baseline failure is claimed."
+wiring_requests = []

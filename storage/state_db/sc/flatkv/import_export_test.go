@@ -563,19 +563,21 @@ func TestImporterHeightNonZeroSkipped(t *testing.T) {
 	imp, err := s.Importer(1)
 	require.NoError(t, err)
 
-	// Non-leaf nodes (Height != 0) are silently skipped.
+	// Non-leaf nodes must reject the entire import instead of dropping data.
 	imp.AddNode(&types.SnapshotNode{
-		Key:    keys.BuildEVMKey(keys.EVMKeyStorage, ktype.StorageKey(addrN(0x01), slotN(0x01))),
-		Value:  padLeft32(0x11),
-		Height: 1, // non-leaf
+		Key:     keys.BuildEVMKey(keys.EVMKeyStorage, ktype.StorageKey(addrN(0x01), slotN(0x01))),
+		Value:   padLeft32(0x11),
+		Height:  1, // non-leaf
+		Version: 1,
 	})
 
-	require.NoError(t, imp.Close())
+	require.ErrorContains(t, imp.Close(), "expected leaf height 0")
+	require.Equal(t, int64(0), s.Version())
 
 	// Data should NOT have been imported.
 	key := keys.BuildEVMKey(keys.EVMKeyStorage, ktype.StorageKey(addrN(0x01), slotN(0x01)))
 	_, found := s.Get(keys.EVMStoreKey, key)
-	require.False(t, found, "height != 0 node should be skipped")
+	require.False(t, found, "rejected non-leaf must not be imported")
 	require.NoError(t, s.Close())
 }
 
@@ -592,15 +594,16 @@ func TestImporterNilKeySkipped(t *testing.T) {
 	imp, err := s.Importer(1)
 	require.NoError(t, err)
 
-	// Nodes with nil key are silently skipped.
+	// Nodes with nil keys must reject the entire import.
 	imp.AddNode(&types.SnapshotNode{
-		Key:    nil,
-		Value:  []byte{0xAA},
-		Height: 0,
+		Key:     nil,
+		Value:   []byte{0xAA},
+		Height:  0,
+		Version: 1,
 	})
 
-	require.NoError(t, imp.Close())
-	require.Equal(t, int64(1), s.Version())
+	require.ErrorContains(t, imp.Close(), "missing physical key")
+	require.Equal(t, int64(0), s.Version())
 	require.NoError(t, s.Close())
 }
 

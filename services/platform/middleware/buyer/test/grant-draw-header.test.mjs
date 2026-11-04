@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import test from "node:test";
+import { buyerDrawFixture } from "./support/grant-draw-walkthrough.mjs";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { ProductionClient, SecretBytes, decodeRawEip1559, encodeUnsignedEip1559, keccak256 } from "@sidiora/layerx-sdk";
 import {
@@ -18,11 +19,12 @@ const bytes = (value) => Buffer.from(value.slice(2), "hex");
 const sha256 = (value) => createHash("sha256").update(value).digest();
 const word = (value) => Buffer.alloc(32, value);
 const draw = {
-  from: word(0x11), assetId: word(0x22), amount: 25n, grantId: word(0x33), receiverSequence: 1n,
+  from: word(0x66), assetId: word(0x22), amount: 25n, grantId: word(0x33), receiverSequence: 1n,
   idempotencyKey: word(0x44), contextHash: word(0x55),
 };
 const asset = word(0x88);
 const payee = word(0x66);
+const payer = word(0x11);
 const keyId = word(0x77);
 const pair = generateKeyPairSync("ed25519");
 const pin = { keyId, publicKey: new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32)),
@@ -32,7 +34,7 @@ const drawnTopic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,byte
 function offer(scheme = "metered") {
   const accepted = {
     scheme, network: "eip155:125", amount: "25", asset: hex(asset), payTo: hex(payee), maxTimeoutSeconds: 120,
-    extra: { layerx: { commitment: "receipted", payer: draw.from.toString("hex"),
+    extra: { layerx: { commitment: "receipted", payer: payer.toString("hex"),
       purposeHash: draw.assetId.toString("hex"), contextHash: draw.contextHash.toString("hex"),
       grant: { grantId: draw.grantId.toString("hex"), asset: hex(asset) },
       ...(scheme === "subscription" ? { windowSeconds: "3600" } : {}) } },
@@ -95,22 +97,22 @@ function effect(ordinal, kind, body) {
 
 function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, address = LAYERX_LEDGER_ADDRESS,
   topic = drawnTopic, amount = draw.amount, resultCode = 0n, recipient = payee, contextHash = draw.contextHash,
-  idempotencyKey = draw.idempotencyKey, from = draw.from, paymentAsset = asset } = {}) {
+  idempotencyKey = draw.idempotencyKey, from = payer, paymentAsset = asset,
+  receiptFrom = Buffer.from("0000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1", "hex"),
+  receiptTo = Buffer.concat([Buffer.alloc(12), bytes(LAYERX_LEDGER_ADDRESS)]) } = {}) {
   const txHash = keccak256(bytes(rawTransaction));
   const logData = Buffer.concat([paymentAsset, uint(amount, 32), idempotencyKey, contextHash]);
   const logBody = Buffer.concat([bytes(address), Buffer.of(4), topic, grantId, from, recipient, sha256(logData)]);
   const summary = Buffer.concat([uint(50000n, 8), uint(50000n, 8), uint(2n, 8), uint(0n, 4), Buffer.alloc(40),
     sha256(Buffer.alloc(0)), uint(0n, 4), uint(BigInt(count), 4), Buffer.of(4), Buffer.from("uhpx")]);
   const effects = [effect(0, 1, summary), ...Array.from({ length: count }, (_, i) => effect(i + 1, 3, logBody))];
-  const sender = Buffer.from("0000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1", "hex");
-  const to = Buffer.concat([Buffer.alloc(12), bytes(LAYERX_LEDGER_ADDRESS)]);
   const prefix = Buffer.concat([
     uint(2n, 2), uint(0x5201n, 2), uint(2n, 2), bounded(txHash), uint(1n, 8),
     bounded(Buffer.alloc(32)), bounded(sha256(Buffer.concat([uint(1n, 8), txHash]))), bounded(sha256(Buffer.alloc(0))),
     uint(resultCode, 4), uint(BigInt(effects.length), 4), ...effects,
     uint(100000n, 16), bounded(uint(7n, 32)), uint(12n, 2), uint(1n, 4), uint(0n, 4), Buffer.of(2),
-    bounded(sha256(Buffer.from("uhpx"))), uint(0n, 16), bounded(sender), uint(1000000n, 16), uint(900000n, 16),
-    uint(0n, 8), bounded(to), uint(0n, 16), uint(0n, 16), bounded(Buffer.alloc(32)), bounded(Buffer.alloc(32)),
+    bounded(sha256(Buffer.from("uhpx"))), uint(0n, 16), bounded(receiptFrom), uint(1000000n, 16), uint(900000n, 16),
+    uint(0n, 8), bounded(receiptTo), uint(0n, 16), uint(0n, 16), bounded(Buffer.alloc(32)), bounded(Buffer.alloc(32)),
     bounded(keyId), uint(1n, 8),
   ]);
   const digest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)]));
@@ -121,7 +123,7 @@ function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, addres
 }
 
 function settlement(proof, changes = {}) {
-  return encodeSettlementHeader({ success: true, network: "eip155:125", amount: "25", payer: draw.from.toString("hex"),
+  return encodeSettlementHeader({ success: true, network: "eip155:125", amount: "25", payer: payer.toString("hex"),
     transaction: hex(keccak256(bytes(proof.rawTransaction))), extensions: { layerx: proof }, ...changes });
 }
 
@@ -134,6 +136,8 @@ async function grantHeaderCarriesRawDrawTransaction() {
   const decoded = decodeRawEip1559(bytes(rawTransaction));
   assert.equal(hex(decoded.to), LAYERX_LEDGER_ADDRESS);
   assert.deepEqual(new Uint8Array(decoded.data), encodeLedgerDraw(draw));
+  assert.notDeepEqual(payer, payee);
+  assert.deepEqual(Buffer.from(decoded.data.subarray(36, 68)), payee);
   const middleware = buyer();
   for (const scheme of ["metered", "subscription"]) {
     const required = offer(scheme);
@@ -208,6 +212,8 @@ async function captureGrantSettlementRequiresDrawHash() {
   const proof = signedProof(rawTransaction);
   const captured = await middleware.captureGrantSettlement(settlement(proof), paymentHeader, txHash);
   assert.equal(captured.txHash, txHash);
+  assert.deepEqual(Buffer.from(captured.verification.payment.from), payer);
+  assert.deepEqual(Buffer.from(captured.verification.payment.to), payee);
   assert.equal(captured.rawTransaction, rawTransaction);
   assert.deepEqual(Buffer.from(captured.verification.payment.grantId), draw.grantId);
   assert.deepEqual(Buffer.from(captured.verification.payment.contextHash), draw.contextHash);
@@ -224,7 +230,9 @@ async function captureGrantSettlementRequiresDrawHash() {
   for (const changes of [{ grantId: word(0xaa) }, { count: 0 }, { count: 2 }, { amount: 24n },
     { address: "0x000000000000000000000000000000000000101b" }, { topic: word(0xbb) },
     { resultCode: 1n }, { recipient: word(0xcc) }, { contextHash: word(0xcc) },
-    { idempotencyKey: word(0xcc) }, { from: word(0xcc) }, { paymentAsset: draw.assetId }]) {
+    { idempotencyKey: word(0xcc) }, { from: word(0xcc) }, { paymentAsset: draw.assetId },
+    { receiptFrom: payer }, { receiptFrom: payee }, { receiptTo: payee },
+    { receiptTo: Buffer.concat([Buffer.alloc(12), bytes("0x000000000000000000000000000000000000101b")]) }]) {
     await assert.rejects(middleware.captureGrantSettlement(settlement(signedProof(rawTransaction, changes)), paymentHeader, txHash),
       refuses("verification-failure"));
   }
@@ -286,3 +294,5 @@ function grantHeaderUsesPrecompileWordOrder() {
 }
 
 test(grantHeaderUsesPrecompileWordOrder);
+
+test(buyerDrawFixture);

@@ -187,7 +187,7 @@ func (cdc *LegacyAmino) RegisterConcrete(o interface{}, name string, copts *amin
 func (cdc *LegacyAmino) MarshalJSONIndent(o interface{}, prefix, indent string) ([]byte, error) {
 	err := cdc.jsonMarshalAnys(o)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return cdc.Amino.MarshalJSONIndent(o, prefix, indent)
 }

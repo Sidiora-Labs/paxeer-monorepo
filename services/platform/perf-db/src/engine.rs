@@ -24,7 +24,8 @@ use crate::state::pubsub::{Channel, PubSubBus, PubSubMessage};
 use crate::storage::candle_store::CandleStore;
 use crate::storage::event_store::EventStore;
 use crate::storage::snapshot::{
-    self, DailyStatsEntry, SnapshotMarketState, SnapshotRecovery, StateSnapshot, TickCheckpoint,
+    self, CompleteStateSnapshot, DailyStatsEntry, RelationalSnapshot, SnapshotMarketState,
+    SnapshotRecovery, StateSnapshot, TickCheckpoint,
 };
 use crate::storage::tick_store::TickStore;
 use crate::storage::wal::{WalConfig, WalEntry, WalPosition, WalWriter};
@@ -76,6 +77,44 @@ impl MutationState {
         );
         self.events.push(event);
     }
+}
+
+const FIXED_SCALE: i128 = 1_000_000_000_000_000_000;
+
+struct EventApplication {
+    market: Option<MarketId>,
+    trader: Option<[u8; 20]>,
+    collateral_usd: FixedI128,
+    open_interest: Option<(MarketId, FixedI128, FixedI128)>,
+}
+
+// Compute floor(size * 1e18 / leverage) without overflowing an intermediate
+// product. All remainders are less than a positive i128 divisor, so doubling
+// and addition fit u128 even at the boundary of the fixed-point domain.
+fn checked_collateral(size: FixedI128, leverage: FixedI128) -> Result<FixedI128, PerfDbError> {
+    let invalid =
+        || PerfDbError::InvalidArgument("invalid or overflowing position collateral".into());
+    if size < 0 || leverage <= 0 {
+        return Err(invalid());
+    }
+    let size = size as u128;
+    let divisor = leverage as u128;
+    let scale = FIXED_SCALE as u128;
+    let whole = (size / divisor).checked_mul(scale).ok_or_else(invalid)?;
+    let input_remainder = size % divisor;
+    let mut remainder = 0u128;
+    let mut fraction = 0u128;
+    for bit in (0..64).rev() {
+        remainder *= 2;
+        fraction = fraction * 2 + remainder / divisor;
+        remainder %= divisor;
+        if scale & (1u128 << bit) != 0 {
+            remainder += input_remainder;
+            fraction += remainder / divisor;
+            remainder %= divisor;
+        }
+    }
+    i128::try_from(whole.checked_add(fraction).ok_or_else(invalid)?).map_err(|_| invalid())
 }
 
 /// Configuration for the PerfDB engine.
@@ -199,7 +238,7 @@ impl PerfDb {
             Some(WriterLease::acquire(&config.data_dir)?)
         };
 
-        let snap = snapshot::load_latest_engine_snapshot(&config.snapshots_dir())?;
+        let snap = snapshot::load_latest_complete_engine_snapshot(&config.snapshots_dir())?;
         let snapshot_position = snap
             .as_ref()
             .map(|(_, recovery)| recovery.position)
@@ -314,20 +353,37 @@ impl PerfDb {
         let pubsub = PubSubBus::with_capacity(config.pubsub_capacity);
 
         let users = UserStore::new();
-        let referrals = ReferralEngine::new();
         let checkpoint = CheckpointStore::empty();
 
         let events = EventStore::new();
         let trader_stats = TraderStatsStore::new();
         let daily_stats = DailyStatsStore::new();
         let leaderboard = Leaderboard::new(config.leaderboard_max);
-        let alerts = AlertStore::new();
-        let api_keys = ApiKeyStore::new();
-        let competitions = CompetitionStore::new();
+        let (alerts, api_keys, competitions, referrals) = match snap
+            .as_ref()
+            .and_then(|(image, _)| image.relational.as_ref())
+        {
+            Some(relational) => {
+                let stores = relational.restore_owned()?;
+                (
+                    stores.alerts,
+                    stores.api_keys,
+                    stores.competitions,
+                    stores.referrals,
+                )
+            }
+            None => (
+                AlertStore::new(),
+                ApiKeyStore::new(),
+                CompetitionStore::new(),
+                ReferralEngine::new(),
+            ),
+        };
 
-        if let Some((snap, _)) = snap {
+        if let Some((image, _)) = snap {
+            let snap = &image.state;
             restore_snapshot(
-                &snap,
+                snap,
                 &market_state,
                 &positions,
                 &orders,
@@ -336,7 +392,7 @@ impl PerfDb {
                 &checkpoint,
                 &trader_stats,
                 &daily_stats,
-            );
+            )?;
             tracing::info!(
                 block = snap.checkpoint.last_block,
                 positions = snap.positions.len(),
@@ -387,7 +443,7 @@ impl PerfDb {
 
         // Snapshot event history and identity share the same durable boundary.
         for event in &db.mutation.lock().events {
-            let (market, trader) = extract_event_keys(&event.event);
+            let (market, trader) = extract_event_keys(&event.event, &db.positions, &db.orders);
             db.events.append(event.clone(), market, trader);
         }
 
@@ -539,6 +595,10 @@ impl PerfDb {
         if mutation.is_duplicate(indexed)? {
             return Ok(());
         }
+        // Validate the complete effect before admitting it to the durable log.
+        // The same mutation boundary covers validation, append, application,
+        // identity recording, cursor advance and snapshot publication.
+        let application = self.prepare_event(indexed)?;
         let position = match self.append_wal(&WalEntry::IndexedEvent(indexed.clone())) {
             Ok(position) => position,
             Err(error) => {
@@ -547,18 +607,202 @@ impl PerfDb {
             }
         };
 
-        self.apply_event(indexed);
+        self.apply_event(indexed, application);
         mutation.record(indexed.clone());
         mutation.position = position;
         Ok(())
     }
 
+    fn prepare_event(&self, indexed: &IndexedEvent) -> Result<EventApplication, PerfDbError> {
+        let invalid = |message: &str| PerfDbError::InvalidArgument(message.into());
+        let (market, trader) = extract_event_keys(&indexed.event, &self.positions, &self.orders);
+        if market.is_some_and(|mid| mid as usize >= crate::core::market::MARKET_COUNT) {
+            return Err(invalid("event market is outside the supported registry"));
+        }
+        let mut application = EventApplication {
+            market,
+            trader,
+            collateral_usd: 0,
+            open_interest: None,
+        };
+        let mut exposure = None;
+        let bound_position = |id: &[u8; 32]| {
+            self.positions
+                .get(id)
+                .ok_or_else(|| invalid("event position is not bound"))
+        };
+        match &indexed.event {
+            Event::PositionOpened {
+                position_id,
+                market_id,
+                is_long,
+                size_usd,
+                leverage,
+                ..
+            } => {
+                if self.positions.get(position_id).is_some() {
+                    return Err(invalid("position already exists"));
+                }
+                application.collateral_usd = checked_collateral(*size_usd, *leverage)?;
+                exposure = Some((*market_id, *is_long, 0, *size_usd));
+            }
+            Event::PositionModified {
+                position_id,
+                new_size_usd,
+                new_collateral_usd,
+                new_collateral_amount,
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status != PositionStatus::Open
+                    || *new_size_usd < 0
+                    || *new_collateral_usd < 0
+                    || *new_collateral_amount < 0
+                {
+                    return Err(invalid("invalid modification of open position"));
+                }
+                exposure = Some((
+                    before.market_id,
+                    before.is_long,
+                    before.size_usd,
+                    *new_size_usd,
+                ));
+            }
+            Event::PositionClosed {
+                position_id,
+                user,
+                market_id,
+                closed_size_usd,
+                is_full_close,
+                ..
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status != PositionStatus::Open
+                    || before.user_address != *user
+                    || before.market_id != *market_id
+                    || *closed_size_usd < 0
+                {
+                    return Err(invalid("close does not match an open position"));
+                }
+                let remaining = if *is_full_close {
+                    0
+                } else {
+                    before
+                        .size_usd
+                        .checked_sub(*closed_size_usd)
+                        .filter(|size| *size >= 0)
+                        .ok_or_else(|| invalid("close exceeds position size"))?
+                };
+                exposure = Some((before.market_id, before.is_long, before.size_usd, remaining));
+            }
+            Event::Liquidation {
+                position_id,
+                user,
+                market_id,
+                penalty,
+                ..
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status == PositionStatus::Liquidated
+                    || before.user_address != *user
+                    || before.market_id != *market_id
+                    || *penalty < 0
+                {
+                    return Err(invalid("liquidation does not match position"));
+                }
+                // The producer may emit PositionClosed immediately before
+                // Liquidation. Only exposure still open is removed here.
+                let size = if before.status == PositionStatus::Open {
+                    before.size_usd
+                } else {
+                    0
+                };
+                exposure = Some((before.market_id, before.is_long, size, 0));
+            }
+            Event::ADLExecuted {
+                position_id,
+                deleveraged_size_usd,
+            } => {
+                let before = bound_position(position_id)?;
+                if before.status != PositionStatus::Open || *deleveraged_size_usd <= 0 {
+                    return Err(invalid("ADL does not match an open position"));
+                }
+                let remaining = before
+                    .size_usd
+                    .checked_sub(*deleveraged_size_usd)
+                    .filter(|size| *size >= 0)
+                    .ok_or_else(|| invalid("ADL exceeds position size"))?;
+                exposure = Some((before.market_id, before.is_long, before.size_usd, remaining));
+            }
+            Event::OrderExecuted { order_id, .. } | Event::OrderCancelled { order_id, .. } => {
+                let order = self
+                    .orders
+                    .get(order_id)
+                    .ok_or_else(|| invalid("event order is not bound"))?;
+                if order.status != OrderStatus::Active {
+                    return Err(invalid("event order is not active"));
+                }
+                if let Event::OrderCancelled { user, .. } = &indexed.event {
+                    if *user != order.user_address {
+                        return Err(invalid("cancellation user does not match order"));
+                    }
+                }
+            }
+            Event::PriceUpdated {
+                price, timestamp, ..
+            } => {
+                if *price <= 0 || timestamp.checked_mul(1_000_000_000).is_none() {
+                    return Err(invalid("invalid oracle price or timestamp"));
+                }
+            }
+            Event::MarketCreated {
+                market_id,
+                name,
+                symbol,
+            } => {
+                let meta = crate::core::market::market_by_id(*market_id).ok_or_else(|| {
+                    invalid("market creation requires an unsupported dynamic registry")
+                })?;
+                if meta.name != name || meta.symbol != symbol {
+                    return Err(invalid(
+                        "market creation conflicts with the supported registry",
+                    ));
+                }
+            }
+            Event::VaultDeficit { deficit, .. } if *deficit < 0 => {
+                return Err(invalid("vault deficit cannot be negative"));
+            }
+            Event::OrderPlaced { .. }
+            | Event::FundingSettled { .. }
+            | Event::FundingRateUpdated { .. }
+            | Event::MarketPaused { .. }
+            | Event::CollateralDeposited { .. }
+            | Event::CollateralWithdrawn { .. }
+            | Event::VaultCreated { .. }
+            | Event::VaultDeficit { .. } => {}
+        }
+        if let Some((mid, is_long, before, after)) = exposure {
+            if before < 0 || after < 0 {
+                return Err(invalid("negative position exposure"));
+            }
+            let delta = after
+                .checked_sub(before)
+                .ok_or_else(|| invalid("position delta overflow"))?;
+            let (mut long, mut short) = self.market_state.open_interest(mid);
+            let current = if is_long { &mut long } else { &mut short };
+            *current = current
+                .checked_add(delta)
+                .filter(|value| *value >= 0)
+                .ok_or_else(|| invalid("market open interest overflow or underflow"))?;
+            application.open_interest = Some((mid, long, short));
+        }
+        Ok(application)
+    }
+
     /// Apply an indexed event to every store. Shared by live processing and
     /// WAL replay so recovery reconstructs exactly the live state.
-    fn apply_event(&self, indexed: &IndexedEvent) {
-        let (market_id, trader) = extract_event_keys(&indexed.event);
-
-        self.events.append(indexed.clone(), market_id, trader);
+    fn apply_event(&self, indexed: &IndexedEvent, application: EventApplication) {
+        self.events
+            .append(indexed.clone(), application.market, application.trader);
 
         match &indexed.event {
             Event::PositionOpened {
@@ -578,7 +822,7 @@ impl PerfDb {
                     market_id: *market_id,
                     is_long: *is_long,
                     size_usd: *size_usd,
-                    collateral_usd: *size_usd / (*leverage).max(1),
+                    collateral_usd: application.collateral_usd,
                     collateral_token: *collateral_token,
                     collateral_amount: *collateral_amount,
                     entry_price: *entry_price,
@@ -598,12 +842,6 @@ impl PerfDb {
                 self.trader_stats.ensure(*user);
                 self.trader_stats.increment_open_positions(user);
 
-                if *is_long {
-                    self.market_state.add_long_oi(*market_id, *size_usd);
-                } else {
-                    self.market_state.add_short_oi(*market_id, *size_usd);
-                }
-
                 self.pubsub.publish(
                     Channel::Positions,
                     PubSubMessage::PositionUpdate(Box::new(pos)),
@@ -613,7 +851,7 @@ impl PerfDb {
             Event::PositionClosed {
                 position_id,
                 user,
-                market_id,
+                market_id: _,
                 closed_size_usd,
                 exit_price,
                 realized_pnl,
@@ -652,12 +890,6 @@ impl PerfDb {
                     .accumulate_trade(*user, date, *closed_size_usd, *realized_pnl, 0);
 
                 if let Some(pos) = self.positions.get(position_id) {
-                    if pos.is_long {
-                        self.market_state.add_long_oi(*market_id, -closed_size_usd);
-                    } else {
-                        self.market_state.add_short_oi(*market_id, -closed_size_usd);
-                    }
-
                     self.pubsub.publish(
                         Channel::Positions,
                         PubSubMessage::PositionUpdate(Box::new(pos)),
@@ -752,6 +984,10 @@ impl PerfDb {
                 penalty,
                 keeper: _,
             } => {
+                let was_open = self
+                    .positions
+                    .get(position_id)
+                    .is_some_and(|p| p.status == PositionStatus::Open);
                 self.positions.update(position_id, |p| {
                     p.status = PositionStatus::Liquidated;
                     p.exit_price = Some(*liquidation_price);
@@ -771,7 +1007,9 @@ impl PerfDb {
                     true,
                     indexed.block_timestamp,
                 );
-                self.trader_stats.decrement_open_positions(user);
+                if was_open {
+                    self.trader_stats.decrement_open_positions(user);
+                }
 
                 self.pubsub.publish(
                     Channel::Liquidations,
@@ -864,13 +1102,55 @@ impl PerfDb {
                 self.market_state.set_paused(*market_id, true);
             }
 
-            Event::PriceUpdated { .. }
-            | Event::FundingSettled { .. }
-            | Event::MarketCreated { .. }
-            | Event::ADLExecuted { .. }
-            | Event::VaultDeficit { .. } => {}
+            Event::PriceUpdated {
+                market_id,
+                price,
+                timestamp,
+            } => {
+                self.market_state.set_price(
+                    *market_id,
+                    *price as f64 / FIXED_SCALE as f64,
+                    *timestamp * 1_000_000_000,
+                );
+            }
+            Event::MarketCreated { market_id, .. } => {
+                self.market_state.set_enabled(*market_id, true);
+                self.market_state.set_paused(*market_id, false);
+            }
+            Event::ADLExecuted {
+                position_id,
+                deleveraged_size_usd,
+            } => {
+                self.positions.update(position_id, |p| {
+                    p.size_usd -= *deleveraged_size_usd;
+                    if p.size_usd == 0 {
+                        p.status = PositionStatus::Closed;
+                        p.close_tx = Some(indexed.tx_hash);
+                        p.close_block = Some(indexed.block_number);
+                        p.closed_at = Some(indexed.block_timestamp);
+                    }
+                });
+                if let Some(pos) = self.positions.get(position_id) {
+                    if pos.status == PositionStatus::Closed {
+                        self.trader_stats
+                            .decrement_open_positions(&pos.user_address);
+                    }
+                    self.pubsub.publish(
+                        Channel::Positions,
+                        PubSubMessage::PositionUpdate(Box::new(pos)),
+                    );
+                }
+            }
+            Event::FundingSettled { .. } | Event::VaultDeficit { .. } => {
+                // append above materializes the signed hourly settlement and
+                // token-unit deficit views in EventStore. These records do not
+                // authorize a per-position funding debit or deficit resolution.
+            }
         }
 
+        if let Some((market, long, short)) = application.open_interest {
+            self.market_state.set_open_interest(market, long, short);
+        }
         self.checkpoint
             .advance_block(self.checkpoint.last_block().max(indexed.block_number));
     }
@@ -926,7 +1206,8 @@ impl PerfDb {
             WalEntry::IndexedEvent(indexed) => {
                 let duplicate = mutation.is_duplicate(indexed)?;
                 if position > snapshot_position && !duplicate {
-                    self.apply_event(indexed);
+                    let application = self.prepare_event(indexed)?;
+                    self.apply_event(indexed, application);
                     mutation.record(indexed.clone());
                 } else if position <= snapshot_position && !duplicate {
                     return Err(PerfDbError::Corruption(
@@ -1055,9 +1336,30 @@ impl PerfDb {
             snapshot_timestamp: self.checkpoint.last_block_timestamp(),
         };
 
-        snapshot::write_engine_snapshot(
+        let referrals = self.referrals.lock();
+        let relational = RelationalSnapshot::capture_stores(
+            0,
+            self.alerts.next_id(),
+            &self.alerts,
+            &self.api_keys,
+            &self.competitions,
+            &referrals,
+        );
+        // Preserve the legacy image for untouched default relational stores.
+        // The allocator remains state even when every alert has been deleted.
+        let has_relational_state = relational.next_alert_id != 1
+            || !relational.alerts.is_empty()
+            || !relational.api_keys.is_empty()
+            || !relational.competitions.is_empty()
+            || !relational.competition_entries.is_empty()
+            || referrals.tiers() != ReferralEngine::new().tiers();
+        snapshot::write_complete_engine_snapshot(
             &self.config.snapshots_dir(),
-            &snap,
+            &CompleteStateSnapshot {
+                version: 1,
+                state: snap,
+                relational: has_relational_state.then_some(relational),
+            },
             SnapshotRecovery {
                 position: mutation.position,
                 events: mutation.events.clone(),
@@ -1109,7 +1411,11 @@ impl PerfDb {
 }
 
 /// Extract routing keys (market_id, trader_address) from an event for EventStore.
-fn extract_event_keys(event: &Event) -> (Option<u16>, Option<[u8; 20]>) {
+fn extract_event_keys(
+    event: &Event,
+    positions: &PositionTable,
+    orders: &OrderTable,
+) -> (Option<u16>, Option<[u8; 20]>) {
     match event {
         Event::PositionOpened {
             market_id, user, ..
@@ -1117,16 +1423,20 @@ fn extract_event_keys(event: &Event) -> (Option<u16>, Option<[u8; 20]>) {
         Event::PositionClosed {
             market_id, user, ..
         } => (Some(*market_id), Some(*user)),
-        Event::PositionModified { .. } => (None, None),
+        Event::PositionModified { position_id, .. } | Event::ADLExecuted { position_id, .. } => {
+            positions
+                .get(position_id)
+                .map_or((None, None), |p| (Some(p.market_id), Some(p.user_address)))
+        }
         Event::OrderPlaced {
             market_id, user, ..
         } => (Some(*market_id), Some(*user)),
-        Event::OrderExecuted { .. } => (None, None),
-        Event::OrderCancelled { user, .. } => (None, Some(*user)),
+        Event::OrderExecuted { order_id, .. } | Event::OrderCancelled { order_id, .. } => orders
+            .get(order_id)
+            .map_or((None, None), |o| (Some(o.market_id), Some(o.user_address))),
         Event::Liquidation {
             market_id, user, ..
         } => (Some(*market_id), Some(*user)),
-        Event::ADLExecuted { .. } => (None, None),
         Event::PriceUpdated { market_id, .. } => (Some(*market_id), None),
         Event::FundingSettled { market_id, .. } => (Some(*market_id), None),
         Event::FundingRateUpdated { market_id, .. } => (Some(*market_id), None),
@@ -1150,7 +1460,7 @@ fn restore_snapshot(
     checkpoint: &CheckpointStore,
     trader_stats: &TraderStatsStore,
     daily_stats: &DailyStatsStore,
-) {
+) -> Result<(), PerfDbError> {
     checkpoint.save(
         snap.checkpoint.last_block,
         snap.checkpoint.last_block_hash.clone(),
@@ -1170,7 +1480,9 @@ fn restore_snapshot(
     }
 
     for user in &snap.users {
-        users.upsert(user.clone());
+        users
+            .upsert(user.clone())
+            .map_err(|error| PerfDbError::Corruption(error.to_string()))?;
     }
 
     for ts in &snap.trader_stats {
@@ -1202,6 +1514,7 @@ fn restore_snapshot(
             ms.price_change_pct_24h,
         );
     }
+    Ok(())
 }
 
 /// Convert a unix timestamp (seconds) to YYYYMMDD u32.

@@ -1,0 +1,8 @@
+[task.22.33.1372]
+finding = "candle-time-rewind"
+tests = ["candle_time_rewind_past_buckets_preserve_published_and_recovered_candles", "candle_time_rewind_active_bucket_keeps_arrival_order_after_reopen", "candle_time_rewind_mixed_timeframes_and_markets_are_independent"]
+test_path = "services/platform/perf-db/tests/repair_22_33_1372.rs"
+policy = "Per timeframe, reject past buckets before candle mutation or output; apply active-bucket ticks in arrival order; finalize only on future buckets."
+baseline = "Not run: the explicit gate order prohibits verification before implementation and requires hf-build before hf-done; no pre-change failure is claimed."
+wiring_request = "Domain 8 owns services/platform/perf-db/src/engine.rs: define and enforce chronological tick admission before WAL, tick-store, market-state and price publication (tracked separately by task 22.33.1371); aggregation currently enforces finalized-bucket immutability independently."
+evidence = "The runner records candidate revision, exact command, exit code and private log through hf-build and hf-done."

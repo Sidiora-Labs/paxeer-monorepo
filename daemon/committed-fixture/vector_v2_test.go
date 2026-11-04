@@ -2,18 +2,21 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"math/big"
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVectorV2ReceiptedRevertVerifies(t *testing.T) {
@@ -139,4 +142,29 @@ func vector_v2_test(t *testing.T, v *vectorV2, digest [32]byte) {
 		return
 	}
 	t.Fatal("conformance source lacks the V2 revert case")
+}
+
+// The embedded executable contains paxd's real command tree. The bounded repair
+// gate exercises the same recorder and strict consumers in process below.
+func TestVectorV2RecordsPrimaryStandby(t *testing.T) {
+	executable, err := os.Executable()
+	require.NoError(t, err)
+	t.Setenv("COMMITTED_FIXTURE_EXEC_PAXD", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	n, err := prepareHome(ctx, executable)
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(n.home) })
+	_, err = n.prepareStandby()
+	require.NoError(t, err)
+	require.NoError(t, n.configureV2Genesis())
+	stop, err := n.start()
+	require.NoError(t, err)
+	t.Cleanup(stop)
+	value, err := recordV2FromHome(n, "4299cb15eced23eb9a839162acd11e9a937edd05")
+	require.NoError(t, err)
+	v := value.(*vectorV2)
+	require.Len(t, v.ReceiptKeys, 2)
+	require.GreaterOrEqual(t, uint64(v.Receipt.Height), uint64(3))
+	repairM1092VerifyV2Copies(t, v)
 }

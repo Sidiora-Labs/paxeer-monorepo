@@ -58,7 +58,7 @@ defmodule Indexer.Block.Realtime.PaxeerBatchCase do
     end
   end
 
-  setup do
+  setup context do
     fixture = __DIR__ |> Path.join("fixtures/chain_125_batch.json") |> File.read!() |> Jason.decode!()
 
     blocks =
@@ -93,7 +93,7 @@ defmodule Indexer.Block.Realtime.PaxeerBatchCase do
         fallback_trace_urls: [],
         method_to_url: [debug_traceTransaction: :trace, debug_traceBlockByNumber: :trace]
       ],
-      variant: EthereumJSONRPC.PaxeerX
+      variant: Map.get(context, :json_rpc_variant, EthereumJSONRPC.PaxeerX)
     ]
 
     TestConfig.preserve_env(

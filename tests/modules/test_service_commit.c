@@ -88,6 +88,109 @@ static size_t progress_payload(uint8_t *out, const uint8_t report_id[32],
     return offset;
 }
 
+static int retry_has_no_effects(void)
+{
+    return event_buffer.count == 0U ? 0 : 1;
+}
+
+static int refused_retry(uint32_t activity_type, const uint8_t *payload,
+                         size_t length,
+                         const lxp_authority_resolved *authority)
+{
+    uint8_t before[32];
+    uint8_t after[32];
+    lxp_result outcome = LXP_OK;
+    lxp_result status;
+
+    if (lxp_state_root(&service_kernel, before) != LXP_OK) return 1;
+    effect_audit_hook = retry_has_no_effects;
+    status = dispatch(activity_type, payload, length, authority, 100U,
+                       30U, 100U, &outcome);
+    effect_audit_hook = NULL;
+    if (status != LXP_OK || outcome != LXP_ERR_AGREEMENT_STATE ||
+        lxp_state_root(&service_kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0)
+        return 1;
+    return 0;
+}
+
+static int test_commit_retry_authorization_and_payload(
+    const lx_service_commitment *commitment,
+    const lxp_authority_resolved *provider,
+    const lxp_authority_resolved *outsider,
+    const uint8_t other_agreement[32])
+{
+    uint8_t payload[LX_SERVICE_COMMIT_TASK_PAYLOAD_BYTES];
+    uint8_t conflicting[sizeof(payload)];
+    const size_t offsets[] = {
+        LX_SERVICE_PAYLOAD_VERSION_BYTES + 64U,
+        LX_SERVICE_PAYLOAD_VERSION_BYTES + 96U,
+        LX_SERVICE_PAYLOAD_VERSION_BYTES + 128U + 7U,
+        LX_SERVICE_PAYLOAD_VERSION_BYTES + 136U + 7U
+    };
+    size_t length;
+    size_t index;
+    lxp_result outcome = LXP_OK;
+
+    length = commit_payload(payload, commitment->commitment_id,
+                             commitment->agreement_id, commitment->task_hash,
+                             commitment->escrow_id, commitment->deadline,
+                             commitment->resource_bound);
+    if (refused_retry(LX_SERVICE_COMMIT_TASK, payload, length, outsider) != 0)
+        return 1;
+    (void)memcpy(conflicting, payload, length);
+    (void)memcpy(conflicting + LX_SERVICE_PAYLOAD_VERSION_BYTES + 32U,
+                 other_agreement, 32U);
+    if (refused_retry(LX_SERVICE_COMMIT_TASK, conflicting, length,
+                       provider) != 0)
+        return 1;
+    for (index = 0U; index < sizeof(offsets) / sizeof(offsets[0]); ++index) {
+        (void)memcpy(conflicting, payload, length);
+        conflicting[offsets[index]] ^= 1U;
+        if (refused_retry(LX_SERVICE_COMMIT_TASK, conflicting, length,
+                           provider) != 0)
+            return 1;
+    }
+    if (dispatch(LX_SERVICE_COMMIT_TASK, payload, length, provider, 100U,
+                 31U, 101U, &outcome) != LXP_OK || outcome != LXP_OK ||
+        event_is((uint16_t)LX_SERVICE_EVENT_TASK_COMMITTED,
+                 commitment->commitment_id, commitment->agreement_id,
+                 commitment->abandoned ? 1U : 0U,
+                 commitment->global_sequence) != 0)
+        return 1;
+    return 0;
+}
+
+static int test_abandon_retry_authorization_and_reason(
+    const lx_service_commitment *commitment,
+    const lxp_authority_resolved *provider,
+    const lxp_authority_resolved *outsider)
+{
+    uint8_t payload[LX_SERVICE_COMMIT_ABANDON_PAYLOAD_BYTES];
+    size_t length;
+    lxp_result outcome = LXP_OK;
+
+    length = abandon_payload(payload, commitment->commitment_id,
+                              commitment->abandon_reason);
+    if (refused_retry(LX_SERVICE_COMMIT_ABANDON, payload, length,
+                       outsider) != 0)
+        return 1;
+    length = abandon_payload(payload, commitment->commitment_id,
+                              (uint16_t)(commitment->abandon_reason + 1U));
+    if (refused_retry(LX_SERVICE_COMMIT_ABANDON, payload, length,
+                       provider) != 0)
+        return 1;
+    length = abandon_payload(payload, commitment->commitment_id,
+                              commitment->abandon_reason);
+    if (dispatch(LX_SERVICE_COMMIT_ABANDON, payload, length, provider, 100U,
+                 32U, 102U, &outcome) != LXP_OK || outcome != LXP_OK ||
+        event_is((uint16_t)LX_SERVICE_EVENT_COMMIT_ABANDONED,
+                 commitment->commitment_id, commitment->agreement_id,
+                 1U, 32U) != 0)
+        return 1;
+    return 0;
+}
+
 int main(void)
 {
     uint8_t payload[LX_SERVICE_OFFER_PUBLISH_PAYLOAD_BYTES];
@@ -219,6 +322,9 @@ int main(void)
                                      &decoded_commitment) !=
             LXP_ERR_NON_CANONICAL)
         return 1;
+    if (test_commit_retry_authorization_and_payload(
+            &commitment, &provider, &outsider, proposed) != 0)
+        return 1;
 
     length = progress_payload(payload, report_one, commitment_id, note_hash,
                               availability, 0U);
@@ -319,6 +425,11 @@ int main(void)
         lx_service_commitment_decode(record, sizeof(record),
                                      &decoded_commitment) != LXP_OK ||
         memcmp(&commitment, &decoded_commitment, sizeof(commitment)) != 0)
+        return 1;
+    if (test_abandon_retry_authorization_and_reason(
+            &commitment, &provider, &outsider) != 0 ||
+        test_commit_retry_authorization_and_payload(
+            &commitment, &provider, &outsider, proposed) != 0)
         return 1;
     length = progress_payload(payload, report_three, commitment_id,
                               note_hash, availability, 5000U);

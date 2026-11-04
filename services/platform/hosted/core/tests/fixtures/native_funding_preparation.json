@@ -1,0 +1,10 @@
+{
+  "provenance": "Deterministic preparation contract inputs for the native transfer in core/src/repair_22_31_354_transcripts.json. Receipt, broadcast hash and committed balance are replayed unmodified from that Anvil capture.",
+  "responses": [
+    {"method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000001004","data":"0xc413bad3abababababababababababababababababababababababababababababababab"},"latest"],"result":"0x0000000000000000000000003939393939393939393939393939393939393939"},
+    {"method":"eth_getTransactionCount","params":["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","pending"],"result":"0x0"},
+    {"method":"eth_gasPrice","params":[],"result":"0x3b9aca00"},
+    {"method":"eth_maxPriorityFeePerGas","params":[],"result":"0x3b9aca00"},
+    {"method":"eth_estimateGas","params":[{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x3939393939393939393939393939393939393939","value":"0x1e240","data":"0x"}],"result":"0x5208"}
+  ]
+}

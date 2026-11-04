@@ -21,70 +21,19 @@ func insertPoolStatsFull(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 	}
 }
 
-func insertTxFull(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, addr string, isBuy bool, amountIn, fee string, ts int64) {
+func insertTxFull(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, addr string, isBuy bool, amountIn, amountOut, fee string, ts int64) {
 	t.Helper()
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO stats.pool_transactions
 			(id, pool_address, sender, is_buy, amount_in, amount_out, price, fee, block_timestamp, tx_hash)
-		VALUES ($1::text,$2,'0xs',$3,$4,'0','1000',$5,$6,$1::varchar(66))`,
-		id, addr, isBuy, amountIn, fee, ts); err != nil {
+		VALUES ($1::text,$2,'0xs',$3,$4,$5,'1000',$6,$7,$1::varchar(66))`,
+		id, addr, isBuy, amountIn, amountOut, fee, ts); err != nil {
 		t.Fatalf("seed tx: %v", err)
 	}
 }
 
 func TestPlatformMetrics(t *testing.T) {
-	ctx := context.Background()
-	pool := internaltest.NewPostgres(t)
-	st := store.New(pool)
-
-	const now int64 = 1_000_000 // cutoff24h=913600, cutoff1h=996400
-
-	insertPoolStatsFull(t, ctx, pool, "0xp1", "100", "40", "1000", 3, 2, now-100)    // new within 24h
-	insertPoolStatsFull(t, ctx, pool, "0xp2", "200", "60", "2000", 1, 4, now-200000) // old
-
-	// Transactions: tx1 within 1h+24h, tx2 within 24h only, tx3 excluded.
-	insertTxFull(t, ctx, pool, "f1", "0xp1", true, "1", "5", now-100)
-	insertTxFull(t, ctx, pool, "f2", "0xp1", false, "1", "3", now-5000)
-	insertTxFull(t, ctx, pool, "f3", "0xp1", true, "1", "99", now-90000)
-
-	// bucket_traders: 2 distinct within 24h, 1 old excluded.
-	insertTrader(t, ctx, pool, "0xp1", now-100, "0xta")
-	insertTrader(t, ctx, pool, "0xp1", now-100, "0xtb")
-	insertTrader(t, ctx, pool, "0xp1", now-90000, "0xtc")
-
-	// cross_token_swaps: 1 within 24h, 1 old.
-	_ = st.InsertCrossTokenSwap(ctx, crossSwap("c1", "0xw", "0xa", "0xb", now-100))
-	_ = st.InsertCrossTokenSwap(ctx, crossSwap("c2", "0xw", "0xa", "0xb", now-90000))
-
-	m, err := st.PlatformMetrics(ctx, now)
-	if err != nil {
-		t.Fatalf("platform metrics: %v", err)
-	}
-
-	checks := []struct {
-		name string
-		got  any
-		want any
-	}{
-		{"totalVolume24h", m.TotalVolume24h, "300"},
-		{"totalVolume1h", m.TotalVolume1h, "100"},
-		{"totalMarketCap", m.TotalMarketCap, "3000"},
-		{"totalFees24h", m.TotalFees24h, "8"},
-		{"totalTransactions24h", m.TotalTransactions24h, 2},
-		{"totalTransactions1h", m.TotalTransactions1h, 1},
-		{"totalBuys24h", m.TotalBuys24h, 4},
-		{"totalSells24h", m.TotalSells24h, 6},
-		{"uniqueTraders24h", m.UniqueTraders24h, 2},
-		{"totalTokensLaunched", m.TotalTokensLaunched, 2},
-		{"newTokens24h", m.NewTokens24h, 1},
-		{"crossTokenSwaps24h", m.CrossTokenSwaps24h, 1},
-		{"updatedAt", m.UpdatedAt, now},
-	}
-	for _, c := range checks {
-		if c.got != c.want {
-			t.Errorf("%s = %v, want %v", c.name, c.got, c.want)
-		}
-	}
+	repairM1041FeeContract(t)
 }
 
 func TestPruneBucketTraders(t *testing.T) {
@@ -112,48 +61,7 @@ func TestPruneBucketTraders(t *testing.T) {
 }
 
 func TestPressureStats(t *testing.T) {
-	ctx := context.Background()
-	pool := internaltest.NewPostgres(t)
-	st := store.New(pool)
-
-	const now int64 = 1_000_000
-	const addr = "0xpressure"
-	insertPoolStatsFull(t, ctx, pool, addr, "500", "120", "1000", 6, 4, now-100)
-
-	// 1h window (>= now-3600): 2 buys (30,20), 1 sell (10). Older excluded.
-	insertTxFull(t, ctx, pool, "p1", addr, true, "30", "1", now-100)
-	insertTxFull(t, ctx, pool, "p2", addr, true, "20", "1", now-200)
-	insertTxFull(t, ctx, pool, "p3", addr, false, "10", "1", now-300)
-	insertTxFull(t, ctx, pool, "p4", addr, true, "999", "1", now-90000)
-
-	t.Run("found with 24h + 1h breakdown", func(t *testing.T) {
-		ps, found, err := st.PressureStats(ctx, addr, now-3600)
-		if err != nil || !found {
-			t.Fatalf("pressure: found=%v err=%v", found, err)
-		}
-		if ps.BuyCount24h != 6 || ps.SellCount24h != 4 {
-			t.Errorf("24h counts: buy=%d sell=%d, want 6/4", ps.BuyCount24h, ps.SellCount24h)
-		}
-		if ps.Volume24h != "500" || ps.Volume1h != "120" {
-			t.Errorf("volumes: 24h=%s 1h=%s, want 500/120", ps.Volume24h, ps.Volume1h)
-		}
-		if ps.BuyVolume1h != "50" || ps.SellVolume1h != "10" {
-			t.Errorf("1h vols: buy=%s sell=%s, want 50/10", ps.BuyVolume1h, ps.SellVolume1h)
-		}
-		if ps.BuyCount1h != 2 || ps.SellCount1h != 1 {
-			t.Errorf("1h counts: buy=%d sell=%d, want 2/1", ps.BuyCount1h, ps.SellCount1h)
-		}
-	})
-
-	t.Run("unknown pool -> found=false", func(t *testing.T) {
-		_, found, err := st.PressureStats(ctx, "0xunknown", now-3600)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		if found {
-			t.Fatal("expected found=false for unknown pool")
-		}
-	})
+	repairM1041PressureContract(t)
 }
 
 func TestSearch(t *testing.T) {

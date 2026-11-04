@@ -179,7 +179,8 @@ func (bA *CompactBitArray) StringIndented(indent string) string {
 }
 
 // MarshalJSON implements json.Marshaler interface by marshaling bit array
-// using a custom format: a string of '-' or 'x' where 'x' denotes the 1 bit.
+// using a custom format: a string of '_' or 'x' where 'x' denotes the 1 bit.
+// Nil arrays encode as null; nonnil empty arrays encode as an empty string.
 func (bA *CompactBitArray) MarshalJSON() ([]byte, error) {
 	if bA == nil {
 		return []byte("null"), nil
@@ -224,6 +225,10 @@ func (bA *CompactBitArray) UnmarshalJSON(bz []byte) error {
 
 	// Construct new CompactBitArray and copy over.
 	numBits := len(bits)
+	if numBits == 0 {
+		*bA = CompactBitArray{}
+		return nil
+	}
 	bA2 := NewCompactBitArray(numBits)
 	for i := 0; i < numBits; i++ {
 		if bits[i] == 'x' {

@@ -1,0 +1,11 @@
+[task.22.33.1207]
+finding = "tokenfactory-genesis-registry"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+tests = ["TestRepairM_1207_TokenfactoryGenesisRegistry", "TestRepairM_1207_AbsentPausedDenoms"]
+signature = "message paxprotocol.paxchain.tokenfactory.GenesisState { Params params = 1; repeated GenesisDenom factory_denoms = 2; repeated string paused_denoms = 3; }"
+current_contract = "Production source, generated descriptor, JSON/protobuf codecs and keeper export/import retain paused_denoms at field 3; absent field 3 decodes as an empty list."
+historical_baseline = "override.J35.1 describes the historical loss of paused keys, resolved by req.6241.1; it is not the current producer/consumer contract."
+preserved_proof = "modules/tokenfactory/keeper/proof_genesis_test.go:TestProofGenesisProducerTransportConsumer retains its real disk restart, codec and mint assertions, with explicit paused/active inventory assertions added."
+baseline_verification = "Not run: the explicit execution order requires complete implementation before any test and permits verification only through hf-done after hf-build; the initial gate ledger had no runs and api/repair_m1207_test.go did not exist, so no pre-change test failures are claimed."
+wiring_request = "Owning domains 6 (tokenfactory contract) and 15 (fm-cosmos-fork audit): update interface.6.proto-tokenfactory-genesisstate in spec/layerx-merge/interfaces.kvx to the signature above, resolve the historical override.J35.1 annotation in spec/layerx-merge/spec.kvx, and regenerate contracts/tokenfactory.md and contracts/address-inventory.md; these paths are outside task scope."
+closure = "In-scope producer/consumer proof and source annotation implemented; registry and generated-view closure requires the owning domains' wiring request. Gate evidence is retained by hf-build/hf-done in the private runner ledger."

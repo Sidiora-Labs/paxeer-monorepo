@@ -21,7 +21,7 @@ pub struct RelationalStores {
 impl From<&ReferralTier> for SnapshotReferralTier {
     fn from(tier: &ReferralTier) -> Self {
         Self {
-            tier: tier.tier.into(),
+            tier: tier.tier.clone(),
             min_referrals: tier.min_referrals,
             min_volume: tier.min_volume,
             reward_bps: tier.reward_bps,
@@ -32,16 +32,33 @@ impl From<&ReferralTier> for SnapshotReferralTier {
 
 impl RelationalSnapshot {
     pub fn capture(sequence: u64, next_alert_id: u64, stores: &RelationalStores) -> Self {
+        Self::capture_stores(
+            sequence,
+            next_alert_id,
+            &stores.alerts,
+            &stores.api_keys,
+            &stores.competitions,
+            &stores.referrals,
+        )
+    }
+
+    pub(crate) fn capture_stores(
+        sequence: u64,
+        next_alert_id: u64,
+        alerts: &AlertStore,
+        api_keys: &ApiKeyStore,
+        competitions: &CompetitionStore,
+        referrals: &ReferralEngine,
+    ) -> Self {
         Self {
             version: 1,
             sequence,
             next_alert_id,
-            alerts: stores.alerts.all(),
-            api_keys: stores.api_keys.all(),
-            competitions: stores.competitions.all_competitions(),
-            competition_entries: stores.competitions.all_entries(),
-            referral_tiers: stores
-                .referrals
+            alerts: alerts.all(),
+            api_keys: api_keys.all(),
+            competitions: competitions.all_competitions(),
+            competition_entries: competitions.all_entries(),
+            referral_tiers: referrals
                 .tiers()
                 .iter()
                 .map(SnapshotReferralTier::from)
@@ -50,6 +67,36 @@ impl RelationalSnapshot {
     }
 
     pub fn restore(&self, tier_names: &[&'static str]) -> Result<RelationalStores, PerfDbError> {
+        self.restore_with_tiers(resolve_tiers(&self.referral_tiers, tier_names)?)
+    }
+
+    pub(crate) fn restore_owned(&self) -> Result<RelationalStores, PerfDbError> {
+        if self.referral_tiers.is_empty() {
+            return Err(PerfDbError::Corruption("empty referral tier table".into()));
+        }
+        let mut names = HashSet::new();
+        let mut tiers = Vec::new();
+        for tier in &self.referral_tiers {
+            if !names.insert(&tier.tier) {
+                return Err(PerfDbError::Corruption(
+                    "duplicate referral tier name".into(),
+                ));
+            }
+            tiers.push(ReferralTier {
+                tier: tier.tier.clone(),
+                min_referrals: tier.min_referrals,
+                min_volume: tier.min_volume,
+                reward_bps: tier.reward_bps,
+                fee_discount_bps: tier.fee_discount_bps,
+            });
+        }
+        self.restore_with_tiers(tiers)
+    }
+
+    fn restore_with_tiers(
+        &self,
+        tiers: Vec<ReferralTier>,
+    ) -> Result<RelationalStores, PerfDbError> {
         if self.version != 1 {
             return Err(PerfDbError::Corruption(
                 "unsupported relational snapshot version".into(),
@@ -59,7 +106,8 @@ impl RelationalSnapshot {
             alerts: AlertStore::new(),
             api_keys: ApiKeyStore::new(),
             competitions: CompetitionStore::new(),
-            referrals: ReferralEngine::with_tiers(resolve_tiers(&self.referral_tiers, tier_names)?),
+            referrals: ReferralEngine::with_tiers(tiers)
+                .map_err(|error| PerfDbError::Corruption(error.to_string()))?,
         };
         let mut ids = HashSet::new();
         for alert in &self.alerts {
@@ -85,7 +133,10 @@ impl RelationalSnapshot {
                     "duplicate API key identity or hash".into(),
                 ));
             }
-            stores.api_keys.insert(key.clone());
+            stores
+                .api_keys
+                .insert(key.clone())
+                .map_err(|error| PerfDbError::Corruption(error.to_string()))?;
         }
         let mut competitions = HashSet::new();
         for competition in &self.competitions {
@@ -128,24 +179,24 @@ fn resolve_tiers(
     tiers
         .iter()
         .map(|tier| {
-            let name = names
-                .iter()
-                .copied()
-                .chain(defaults.tiers().iter().map(|t| t.tier))
-                .find(|name| *name == tier.tier)
-                .ok_or_else(|| {
-                    PerfDbError::InvalidArgument(format!(
-                        "referral tier name requires static registration: {}",
-                        tier.tier
-                    ))
-                })?;
-            if !seen.insert(name) {
+            let registered = names.iter().any(|name| *name == tier.tier)
+                || defaults
+                    .tiers()
+                    .iter()
+                    .any(|default| default.tier == tier.tier);
+            if !registered {
+                return Err(PerfDbError::InvalidArgument(format!(
+                    "referral tier name requires registration: {}",
+                    tier.tier
+                )));
+            }
+            if !seen.insert(tier.tier.as_str()) {
                 return Err(PerfDbError::Corruption(
                     "duplicate referral tier name".into(),
                 ));
             }
             Ok(ReferralTier {
-                tier: name,
+                tier: tier.tier.clone(),
                 min_referrals: tier.min_referrals,
                 min_volume: tier.min_volume,
                 reward_bps: tier.reward_bps,
@@ -310,7 +361,9 @@ impl DurableRelationalStore {
                 }
             }
             RelationalMutation::SetReferralTiers(tiers) => {
-                resolve_tiers(tiers, &self.tier_names)?;
+                let resolved = resolve_tiers(tiers, &self.tier_names)?;
+                ReferralEngine::validate_tiers(&resolved)
+                    .map_err(|error| PerfDbError::InvalidArgument(error.to_string()))?;
             }
             _ => {}
         }
@@ -330,8 +383,10 @@ impl DurableRelationalStore {
                 self.stores.alerts.remove(id);
             }
             RelationalMutation::PutApiKey(key) => {
-                self.stores.api_keys.remove(&key.id);
-                self.stores.api_keys.insert(key);
+                self.stores
+                    .api_keys
+                    .insert(key)
+                    .map_err(|error| PerfDbError::InvalidArgument(error.to_string()))?;
             }
             RelationalMutation::DeleteApiKey(id) => {
                 self.stores.api_keys.remove(&id);
@@ -362,7 +417,8 @@ impl DurableRelationalStore {
             RelationalMutation::SetReferralTiers(tiers) => self
                 .stores
                 .referrals
-                .set_tiers(resolve_tiers(&tiers, &self.tier_names)?),
+                .set_tiers(resolve_tiers(&tiers, &self.tier_names)?)
+                .map_err(|error| PerfDbError::InvalidArgument(error.to_string()))?,
         }
         Ok(())
     }

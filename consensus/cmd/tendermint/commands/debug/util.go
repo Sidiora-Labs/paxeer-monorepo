@@ -2,12 +2,14 @@ package debug
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	rpchttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
@@ -64,18 +66,37 @@ func copyConfig(home, dir string) error {
 	return copyFile(configPath, filepath.Join(dir, configFile))
 }
 
-func dumpProfile(dir, addr, profile string, debug int) error {
+const (
+	profileRequestTimeout = 30 * time.Second
+	maxProfileSize        = 16 << 20
+)
+
+var errProfileTooLarge = errors.New("profile response exceeds size limit")
+
+func dumpProfile(ctx context.Context, dir, addr, profile string, debug int) error {
 	endpoint := fmt.Sprintf("%s/debug/pprof/%s?debug=%d", addr, profile, debug)
 
-	resp, err := http.Get(endpoint) // nolint: gosec
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create %s profile request: %w", profile, err)
+	}
+	client := &http.Client{Timeout: profileRequestTimeout}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to query for %s profile: %w", profile, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to query for %s profile: HTTP %s", profile, resp.Status)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxProfileSize+1))
 	if err != nil {
 		return fmt.Errorf("failed to read %s profile response body: %w", profile, err)
+	}
+	if len(body) > maxProfileSize {
+		return fmt.Errorf("%s: %w (%d bytes)", profile, errProfileTooLarge, maxProfileSize)
 	}
 
 	return os.WriteFile(path.Join(dir, fmt.Sprintf("%s.out", profile)), body, 0600)

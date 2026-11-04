@@ -41,7 +41,7 @@ const recorded = JSON.parse(
   readFileSync(new URL("./fixtures/px-get-unified-history.json", import.meta.url), "utf8"),
 ) as {
   result: {
-    account: { evm_address: string };
+    account: { evm_address: string; };
     items: Record<string, unknown>[];
     next_cursor: string | null;
     indexedHeight: number | null;
@@ -55,19 +55,26 @@ function paxeerRows(): Record<string, unknown>[] {
   return recorded.result.items.map(({ side: _side, ...item }) => item);
 }
 
-async function body(request: IncomingMessage): Promise<{ id: string; method: string; params: unknown[] }> {
+async function body(request: IncomingMessage): Promise<{ id: string; method: string; params: unknown[]; }> {
   let text = "";
   for await (const chunk of request) text += String(chunk);
-  return JSON.parse(text) as { id: string; method: string; params: unknown[] };
+  return JSON.parse(text) as { id: string; method: string; params: unknown[]; };
 }
 
-async function serving(
+export async function serving(
   answer: (method: string) => unknown,
-  run: (calls: { method: string; params: unknown[] }[]) => Promise<void>,
+  run: (calls: { method: string; params: unknown[]; }[], nodeOrigin: string) => Promise<void>,
 ) {
-  const calls: { method: string; params: unknown[] }[] = [];
+  const calls: { method: string; params: unknown[]; }[] = [];
+  const unexpected: string[] = [];
   const server = createServer((request, response) => {
+    if (request.method !== "POST" || request.url !== "/") {
+      unexpected.push(`${request.method} ${request.url}`); response.writeHead(404).end(); return;
+    }
     void body(request).then((call) => {
+      if (!["px_getHistory", "px_getUnifiedHistory"].includes(call.method)) {
+        unexpected.push(call.method); response.writeHead(400).end(); return;
+      }
       calls.push({ method: call.method, params: call.params });
       response.setHeader("content-type", "application/json");
       response.end(
@@ -82,11 +89,40 @@ async function serving(
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   assert.ok(address !== null && typeof address === "object");
-  process.env.LAYERX_GATEWAY_URL = `http://127.0.0.1:${String(address.port)}/rpc`;
+  const previous = process.env.LAYERX_GATEWAY_URL;
+  process.env.LAYERX_GATEWAY_URL = `http://127.0.0.1:${String(address.port)}/`;
+  const native = createServer((request, response) => {
+    if (request.method !== "POST" || request.url !== "/") {
+      unexpected.push(`${request.method} ${request.url}`); response.writeHead(404).end(); return;
+    }
+    void body(request).then((call) => {
+      if (call.method !== "eth_blockNumber" && call.method !== "eth_getTransactionReceipt") {
+        unexpected.push(call.method); response.writeHead(400).end(); return;
+      }
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({
+        jsonrpc: "2.0", id: call.id,
+        result: call.method === "eth_blockNumber" ? "0xc" : {
+          transactionHash: recorded.result.items[0]!.tx_id, blockNumber: "0xa", status: "0x1", logs: [],
+        }
+      }));
+    });
+  });
+  await new Promise<void>((resolve) => native.listen(0, "127.0.0.1", resolve));
+  const nativeAddress = native.address();
+  assert.ok(nativeAddress !== null && typeof nativeAddress === "object");
+  const nodeOrigin = `http://127.0.0.1:${nativeAddress.port}/`;
+  assert.notEqual(nodeOrigin, process.env.LAYERX_GATEWAY_URL);
   try {
-    await run(calls);
+    await run(calls, nodeOrigin);
   } finally {
-    server.close();
+    await Promise.all([server, native].map((peer) => new Promise<void>((resolve, reject) => {
+      peer.close((error) => error === undefined ? resolve() : reject(error));
+      peer.closeAllConnections();
+    })));
+    if (previous === undefined) delete process.env.LAYERX_GATEWAY_URL;
+    else process.env.LAYERX_GATEWAY_URL = previous;
+    assert.deepEqual(unexpected, [], "method ownership and root paths must match each producer");
   }
 }
 
@@ -204,17 +240,17 @@ test("history refuses a non-position cursor, a missing position and a bare nativ
     (method) =>
       method === "px_getUnifiedHistory"
         ? {
-            items: [{ ...recorded.result.items[0], blockHeight: undefined }],
-            next_cursor: null,
-            indexedHeight: null,
-            chainHeight: 4,
-          }
+          items: [{ ...recorded.result.items[0], blockHeight: undefined }],
+          next_cursor: null,
+          indexedHeight: null,
+          chainHeight: 4,
+        }
         : {
-            items: [],
-            next_cursor: "f".repeat(112),
-            indexedHeight: null,
-            chainHeight: 4,
-          },
+          items: [],
+          next_cursor: "f".repeat(112),
+          indexedHeight: null,
+          chainHeight: 4,
+        },
     async (calls) => {
       await assert.rejects(() => gateway.paxeerHistory(ADDRESS), gateway.GatewayUnavailableError);
       await assert.rejects(
@@ -236,3 +272,26 @@ test("the web app names no switched-off history or registration method", () => {
     assert.doesNotMatch(source, /lx_getHistory|lx_register/u, path);
   }
 });
+
+export async function native_history_uses_distinct_root_node_and_hosted_gateway() {
+  await serving(() => recorded.result, async (calls, nodeOrigin) => {
+    const hostedOrigin = process.env.LAYERX_GATEWAY_URL;
+    const history = await gateway.unifiedHistory(ADDRESS);
+    process.env.LAYERX_GATEWAY_URL = nodeOrigin;
+    try {
+      const height = await gateway.ethBlockNumber();
+      assert.equal(height, 12n);
+      const nativeHash = history.items[0]!.txId;
+      assert.match(nativeHash, /^0x[0-9a-f]{64}$/u);
+      const receipt = await gateway.ethTransactionReceipt(nativeHash);
+      assert.ok(receipt);
+      assert.equal(receipt.transactionHash, nativeHash);
+      assert.equal(receipt.blockNumber, BigInt(history.items[0]!.blockHeight));
+      assert.equal(receipt.status, "success");
+      assert.ok(receipt.blockNumber <= height);
+      assert.deepEqual(calls.map((call) => call.method), ["px_getUnifiedHistory"]);
+    } finally { process.env.LAYERX_GATEWAY_URL = hostedOrigin; }
+  });
+}
+
+test(native_history_uses_distinct_root_node_and_hosted_gateway);

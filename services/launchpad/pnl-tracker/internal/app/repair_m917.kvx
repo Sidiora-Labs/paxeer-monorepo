@@ -1,0 +1,46 @@
+[repair.22.33.917]
+finding = "reward-proof-schema"
+status = "implemented-not-qualified; finding remains open until the declared tests execute and pass"
+implementation = "Register 180001 with a source-bound reward approval, frozen reader interface digest, reader minimum, transactional lock ceiling and existing rollback/backfill policies; preserve other migrations' admission requirements. Both retained chain proof and bounded tests provision request/audit storage through production.ApplyCoordinatedMigration, after source-checked coordinator bootstrap of the legacy predecessors."
+tests = "TestRepairM_917_FreshInstallMigrationContract; TestRepairM_917_ExistingSchemaUpgradeMigrationContract; TestRepairM_917_ApprovalBindings"
+proof = "Fresh and reopened existing schemas run the real pgx coordinator, runtime admission, epoch-fenced ledger, committed creator, signed HTTP preparation and v2 decoder against loopback database/RPC peers. Close and reconstruct the database peer from durable bytes and reopen the production service; assert byte-identical replay and unchanged request/audit/outbox identities, deployment digests and legacy business state. Conflicting bodies and changed ownership refuse replay without writes; malformed producer responses are refused by the real decoder."
+fixture = "The pgwire peer is an in-process source-bound catalog and durable row store, not a PostgreSQL engine or a lock-contention qualification. It accepts only registered DDL bytes under the real coordinator's owner transaction/locks/timeout; the existing actual-chain/PostgreSQL proof retains all ownership, damaged-response and reopen assertions and now uses the same migration entry point."
+baseline = "The supplied attempt-1 ruling records TestRepairM_917_FreshInstallMigrationContract and TestRepairM_917_ExistingSchemaUpgradeMigrationContract failing registry admission at candidate 813ceb8b4784ebc9071cd3b48c770446a358a84c. This continuation preserves that evidence; implementation-first and hf-done-only instructions prohibit an extra unchanged verification."
+evidence = "The verified revision, exact command, exit and private log are recorded in /out/run/gates.jsonl by hf-build/hf-done and copied to the final evidence line; this candidate is not edited after qualification."
+approval_scope = "pnl-reward-approval.json admits only 180001; the full registry remains implemented-not-qualified and unrelated registrations still lack their own safety metadata. estimated_lock_ms=2000 is the declared coordinator ceiling, not a claimed PostgreSQL measurement."
+wiring_request = "Domain 4 launchpad / L07 deployment owner: launchpad/spec/production-system/integration/migrations/readiness.json and the operator EXPECTED_SCHEMA attestation must bind migration 180001 and grants.json to the deployed catalog before production reward routes admit traffic; deployed qualification is outside this bounded gate."
+gotcha = "A registry entry and direct DDL are insufficient: the production coordinator also needs migration_control history/attempts and checksum-bound predecessor rows; bootstrap those before applying 180001, and keep SET LOCAL ROLE inside its transaction."
+gotcha_fixture = "Changing registry bytes requires refreshing the bound registry_sha256 of internal/production/l18/testdata/repair_62/catalog.json while preserving all recorded source checksums and catalog objects."
+
+[qualification.build_environment]
+revision = "564cb118ea8ee781cc280efab5b6a4fd3b9fd77c"
+command = "cd services/launchpad/pnl-tracker && go build ./internal/app/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The inherited services/launchpad/go.work declares Go 1.25 but notifications requires Go 1.27, so Go refuses the workspace before compiling this task."
+assumption = "The workspace explicitly documents standalone leaf builds via go.mod replace directives; run both prescribed gates with GOWORK=off, leaving the unrelated workspace files untouched."
+
+[repair.qualification1]
+implementation = "Keep the coordinator lock until the bootstrap ends by deferring the unlock call itself, and admit single-token UNIQUE/CHECK clauses in the source-bound catalog peer before checking column arity."
+
+[qualification.verify_environment]
+revision = "0291959d8ec187a7ddbaee13ea3802e72dd2d440"
+command = "cg spec done 22.33.917 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; underlying Go output /tmp/repair-m917.log"
+observed = "Standalone go test stopped before compilation or test execution with 'updates to go.mod needed; to update it: go mod tidy'; no TestRepairM_917_* pass is claimed."
+assumption = "Existing module dependency metadata requires repair outside this task's paths; record this pre-existing prerequisite without editing manifests or rerunning the unchanged gate."
+
+[qualification.build_standalone]
+revision = "0291959d8ec187a7ddbaee13ea3802e72dd2d440"
+command = "cd services/launchpad/pnl-tracker && go build ./internal/app/..."
+exit = 0
+log = "/out/logs/build-2.log"
+environment = "GOWORK=off; the prescribed command and source files are unchanged by this environment setting."
+wiring_request = "Domain 4 launchpad module owners: services/launchpad/go.work and services/launchpad/pnl-tracker/go.mod must agree with current workspace Go requirements and the existing app test dependency graph before requalification; both manifests are outside this task's scope."
+
+[repair.continuation3]
+implementation = "The continuation ruling brings the pnl-tracker module manifest into scope: run GOWORK=off go mod tidy against the real package and test imports, retain the required fsnotify indirect dependency and regenerated go.sum, then run the prescribed hf-build and hf-done with GOWORK=off. This supersedes the prior go.mod wiring request; no workspace manifest is edited."
+fixture = "Record PostgreSQL text[] OID 1009 in the source-bound catalog peer because registered predecessor 80003 now includes delivery_ordered_quarantine.affected_pools; preserve exact-source DDL admission and every claim, ownership and recovery assertion."
+evidence = "hf-done records the candidate revision, exact command, exit and private evidence log in /out/run/gates.jsonl; the final evidence line copies that record without editing the qualified candidate."
+gotcha = "A standalone build can pass while app test imports still require a missing indirect module dependency; go mod tidy must include the real test dependency graph before the bounded gates."

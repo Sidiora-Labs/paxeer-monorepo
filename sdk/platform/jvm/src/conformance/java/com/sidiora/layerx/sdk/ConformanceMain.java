@@ -3,11 +3,25 @@ package com.sidiora.layerx.sdk;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
+import com.sidiora.layerx.sdk.verify.Committed;
+import com.sidiora.layerx.sdk.verify.ConsensusTrust;
+import com.sidiora.layerx.sdk.verify.PortableReceipt;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sun.net.httpserver.HttpServer;
+import java.math.BigInteger;
+import java.net.InetSocketAddress;
+import java.net.URI;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +44,14 @@ public final class ConformanceMain {
         verifyProtocolIntegers();
         verifyStreamAndSecrets();
         invokeLocalVerification(root);
+        Path recovery = Files.createTempDirectory("layerx-receipt-conformance-");
+        try {
+            verifyRpcReceiptLifecycle(root, recovery);
+        } finally {
+            try (var files = Files.walk(recovery)) {
+                for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.delete(file);
+            }
+        }
         Set<String> sdkCodes = new HashSet<>();
         for (PlatformSdkException.Code code : PlatformSdkException.Code.values()) {
             if (!sdkCodes.add(code.wire())) throw new IllegalStateException("duplicate SDK error code");
@@ -196,6 +218,185 @@ public final class ConformanceMain {
             throw new IllegalStateException("valid sequencer receipt did not verify as receipted success");
         }
         expectVerificationFailure(() -> LocalVerifier.verifySequencerReceipt(new byte[] {0}, rawTransaction, keys));
+        verifyReceiptViews(repositoryRoot);
+    }
+
+    public static int verifyReceiptViews(Path repositoryRoot) throws Exception {
+        JsonNode cases = read(repositoryRoot.resolve(
+            "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json")).required("cases");
+        require(cases.isArray() && cases.size() == 5, "producer receipt corpus changed");
+        int checked = 0;
+        for (JsonNode vector : cases) {
+            var key = receiptKey(vector);
+            var keys = new LocalVerifier.ReceiptKeys(List.of(key));
+            byte[] raw = bytes(vector, "rawTransaction");
+            JsonNode view = vector.required("receiptJson");
+            var verified = ProgramsClient.verifyReceipt(bytes(vector, "signedReceipt"), raw, keys, view);
+            checkReceipt(vector, verified);
+            byte[] portable = PortableReceipt.export(raw, JSON.writeValueAsBytes(view), key);
+            var offline = PortableReceipt.verify(portable, keys);
+            require(offline.verificationLevel().equals("receipted")
+                && JSON.readTree(portable).required("receiptJson").equals(view)
+                && Arrays.equals(portable, PortableReceipt.export(offline)), "full receipt view changed");
+            checked++;
+        }
+        JsonNode fee = read(repositoryRoot.resolve(
+            "sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json")).required("cases").required(0);
+        var feeReceipt = LocalVerifier.verifySequencerReceipt(bytes(fee, "signedReceipt"),
+            bytes(fee, "rawTransaction"), new LocalVerifier.ReceiptKeys(List.of(receiptKey(fee))));
+        checkReceipt(fee, feeReceipt);
+        require(text(fee, "paymentDenom").equals("usid") && text(fee, "feeDenom").equals("uhpx")
+            && Arrays.equals(bytes(fee, "asset"), feeReceipt.receipt().asset()), "payment asset changed");
+        byte[] summary = feeReceipt.receipt().effects().getFirst().body();
+        require(summary.length == 113 && summary[108] == 4
+            && Arrays.equals(Arrays.copyOfRange(summary, 109, 113),
+                "uhpx".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "signed fee denomination changed");
+        return checked;
+    }
+
+    public static JsonNode verifyRpcReceiptLifecycle(Path repositoryRoot, Path recoveryDirectory) throws Exception {
+        JsonNode vector = read(repositoryRoot.resolve(
+            "sdk/platform/conformance/fixtures/vector-v4-committed.json")).required("positive");
+        JsonNode recorded = read(repositoryRoot.resolve(
+            "daemon/committed-fixture/vectors/vector-v4-committed.json")).required("settlement");
+        JsonNode before = vector.required("receiptJson");
+        JsonNode after = recorded.required("receipt");
+        byte[] raw = bytes(vector, "rawTransaction");
+        var key = receiptKey(vector);
+        var keys = new LocalVerifier.ReceiptKeys(List.of(key));
+        require(text(before, "rung").equals("receipted") && text(after, "rung").equals("committed")
+            && before.required("receipt").equals(after.required("receipt"))
+            && Arrays.equals(raw, bytes(recorded, "raw_transaction")), "recorded lifecycle changed");
+        Files.createDirectories(recoveryDirectory);
+        Files.write(recoveryDirectory.resolve("receipt-key.json"), JSON.writeValueAsBytes(vector.required("pinnedKey")));
+        Files.write(recoveryDirectory.resolve("raw-transaction.bin"), raw);
+        byte[] committedBundle;
+        try (var archive = new RecordedReceiptArchive(before)) {
+            try (var connection = new ProgramsClient.Programs(archive.uri())) {
+                var client = receiptClient(connection, key);
+                checkReceipt(vector, client.sequencerReceipt(raw).toCompletableFuture().get(10, TimeUnit.SECONDS));
+                archive.receipt.set(after);
+                var received = client.sequencerReceipt(raw).toCompletableFuture().get(10, TimeUnit.SECONDS);
+                checkReceipt(vector, received);
+                require(received.level() == LocalVerifier.VerificationLevel.RECEIPTED,
+                    "RPC metadata alone must not grant consensus verification");
+                JsonNode delivered = connection.request("pax_sequencerReceipt", JSON.createArrayNode()
+                    .add(after.required("txHash"))).toCompletableFuture().get(10, TimeUnit.SECONDS);
+                require(after.equals(delivered), "RPC changed the node receipt view");
+                committedBundle = PortableReceipt.export(raw, JSON.writeValueAsBytes(delivered), key,
+                    Committed.decodeHeader(vector.required("blockHeader")),
+                    Committed.decodeInclusion(vector.required("receiptInclusion")),
+                    Committed.decodeCommit(vector.required("commit")),
+                    Committed.decodeValidators(vector.required("validatorSet")), consensusTrust());
+                Files.write(recoveryDirectory.resolve("committed-receipt.json"), committedBundle);
+            }
+            byte[] recoveredRaw = Files.readAllBytes(recoveryDirectory.resolve("raw-transaction.bin"));
+            ObjectNode recoveredVector = JSON.createObjectNode();
+            recoveredVector.set("pinnedKey", read(recoveryDirectory.resolve("receipt-key.json")));
+            var recoveredKey = receiptKey(recoveredVector);
+            try (var reopened = new ProgramsClient.Programs(archive.uri())) {
+                var recovered = receiptClient(reopened, recoveredKey).sequencerReceipt(recoveredRaw)
+                    .toCompletableFuture().get(10, TimeUnit.SECONDS);
+                checkReceipt(vector, recovered);
+                require(recovered.level() == LocalVerifier.VerificationLevel.RECEIPTED,
+                    "reopened RPC client overstated verification");
+            }
+            byte[] saved = Files.readAllBytes(recoveryDirectory.resolve("committed-receipt.json"));
+            var recovered = PortableReceipt.verify(saved,
+                new LocalVerifier.ReceiptKeys(List.of(recoveredKey)), consensusTrust());
+            require(recovered.verificationLevel().equals("committed") && recovered.status() == 1
+                && recovered.committed().height() == 10
+                && Arrays.equals(recovered.committed().blockHash(), bytes(after, "blockHash"))
+                && Arrays.equals(recovered.receipted().receiptDigest(), bytes(vector, "receiptDigest"))
+                && JSON.readTree(saved).required("receiptJson").equals(after)
+                && Arrays.equals(saved, PortableReceipt.export(recovered))
+                && Arrays.equals(saved, committedBundle), "committed receipt did not recover");
+            expectVerificationFailure(() -> PortableReceipt.verify(saved, keys));
+            require(archive.reads.get() == 4, "RPC lifecycle did not traverse every read");
+            JsonNode bundles = read(repositoryRoot.resolve(
+                "sdk/platform/conformance/fixtures/vector-v5-portable.json")).required("bundles");
+            JsonNode receiptedVector = read(repositoryRoot.resolve(
+                "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json")).required("cases").required(0);
+            var portableKeys = new LocalVerifier.ReceiptKeys(List.of(key, receiptKey(receiptedVector)));
+            Set<String> levels = new HashSet<>();
+            for (JsonNode bundle : bundles) {
+                byte[] encoded = JSON.writeValueAsBytes(bundle);
+                var verified = PortableReceipt.verify(encoded, portableKeys, consensusTrust());
+                require(levels.add(verified.verificationLevel()) && verified.status() == 1
+                    && Arrays.equals(encoded, PortableReceipt.export(verified)), "published portable bundle changed");
+            }
+            require(levels.equals(Set.of("receipted", "committed")), "portable lifecycle rung missing");
+            return JSON.createObjectNode().put("rpcReads", archive.reads.get()).put("recoveredLevel", "committed")
+                .put("height", recovered.committed().height()).put("portableBundles", bundles.size())
+                .put("receiptDigest", "0x" + HexFormat.of().formatHex(recovered.receipted().receiptDigest()));
+        }
+    }
+
+    private static ConsensusTrust consensusTrust() {
+        return new ConsensusTrust("committed-fixture", 10,
+            Base64.getDecoder().decode("Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI="));
+    }
+
+    private static ProgramsClient receiptClient(ProgramsClient.Programs connection, LocalVerifier.ReceiptKey key) {
+        return new ProgramsClient(connection, "0xc08e711fe101411a75cc8eb8cbb26dd0efac584e",
+            BigInteger.ZERO, BigInteger.ONE, new LocalVerifier.ReceiptKeys(List.of(key)), key.keyId());
+    }
+
+    private static LocalVerifier.ReceiptKey receiptKey(JsonNode vector) {
+        JsonNode pin = vector.required("pinnedKey");
+        return new LocalVerifier.ReceiptKey(bytes(pin, "keyId"), bytes(pin, "publicKey"),
+            pin.required("firstHeight").bigIntegerValue(), pin.required("lastHeight").bigIntegerValue());
+    }
+
+    private static void checkReceipt(JsonNode vector, LocalVerifier.SequencerReceiptVerification verified) {
+        require(verified.level() == LocalVerifier.VerificationLevel.RECEIPTED && verified.status() == 1
+            && Arrays.equals(bytes(vector, "signedReceipt"), verified.canonicalBytes())
+            && Arrays.equals(bytes(vector, "receiptDigest"), verified.receiptDigest()), "receipt verification diverged");
+        verified.requireSuccess();
+    }
+
+    private static byte[] bytes(JsonNode node, String field) {
+        return HexFormat.of().parseHex(text(node, field).substring(2));
+    }
+
+    private static void require(boolean condition, String message) {
+        if (!condition) throw new IllegalStateException(message);
+    }
+
+    private static final class RecordedReceiptArchive implements AutoCloseable {
+        private final HttpServer server;
+        private final AtomicReference<JsonNode> receipt;
+        private final AtomicInteger reads = new AtomicInteger();
+
+        private RecordedReceiptArchive(JsonNode recorded) throws IOException {
+            receipt = new AtomicReference<>(recorded);
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/", exchange -> {
+                try (exchange) {
+                    JsonNode request = JSON.readTree(exchange.getRequestBody());
+                    JsonNode current = receipt.get();
+                    if (!"2.0".equals(request.path("jsonrpc").asText())
+                            || !"pax_sequencerReceipt".equals(request.path("method").asText())
+                            || !request.path("params").isArray() || request.path("params").size() != 1
+                            || !current.required("txHash").equals(request.path("params").path(0))) {
+                        exchange.sendResponseHeaders(400, -1);
+                        return;
+                    }
+                    ObjectNode response = JSON.createObjectNode().put("jsonrpc", "2.0");
+                    response.set("id", request.required("id"));
+                    response.set("result", current);
+                    byte[] body = JSON.writeValueAsBytes(response);
+                    reads.incrementAndGet();
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, body.length);
+                    exchange.getResponseBody().write(body);
+                }
+            });
+            server.start();
+        }
+
+        private URI uri() { return URI.create("http://127.0.0.1:" + server.getAddress().getPort()); }
+        @Override public void close() { server.stop(0); }
     }
 
     private static void expectVerificationFailure(Runnable action) {

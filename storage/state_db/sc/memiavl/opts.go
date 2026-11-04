@@ -67,7 +67,7 @@ func (opts *Options) FillDefaults() {
 		opts.snapshotMinTimeIntervalDuration = 1 * time.Hour
 	}
 
-	if opts.SnapshotWriteRateMBps <= 0 {
+	if opts.SnapshotWriteRateMBps < 0 {
 		opts.SnapshotWriteRateMBps = DefaultSnapshotWriteRateMBps
 	}
 

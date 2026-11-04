@@ -1,0 +1,11 @@
+{
+  "web": "apps/launchpad/web",
+  "entry": "node_modules/vitest/vitest.mjs",
+  "arguments": [
+    "run",
+    "--config",
+    "src/widgets/trading/transaction-controls/vitest.phase2.config.ts",
+    "--reporter=tap",
+    "--reporter=json"
+  ]
+}

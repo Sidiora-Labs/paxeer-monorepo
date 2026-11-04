@@ -324,7 +324,10 @@ func GetCmdParams() *cobra.Command {
 			}
 			queryClient := types.NewQueryClient(clientCtx)
 
-			res, _ := queryClient.ClientParams(cmd.Context(), &types.QueryClientParamsRequest{})
+			res, err := queryClient.ClientParams(cmd.Context(), &types.QueryClientParamsRequest{})
+			if err != nil {
+				return err
+			}
 			return clientCtx.PrintProto(res.Params)
 		},
 	}

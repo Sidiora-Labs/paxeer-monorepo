@@ -1,0 +1,28 @@
+[repair.22.33.1194]
+mode = "BUILD"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+baseline = "Not run: the ordered task instructions prohibit any testing before complete implementation and prohibit a manual verify invocation; no baseline failures are claimed."
+qualification = "hf-build followed by hf-done; the runner records the exact candidate revision, command, exit code and private evidence location, and requires build and verify at the same revision."
+wiring_requests = "None outside scope; backend factory validation and TestScenario.OpenDB configuration were completed by prerequisite repair 22.33.1193."
+
+[finding.benchmark-backend-doc]
+test = "TestRepairM_1194_BackendDocumentation"
+proof = "README describes the real helper/factory configuration, explicit offload requirement, named distributions, aggregate metrics and focused gate; each documented local storage backend commits three generated pairs in one block."
+
+[finding.benchmark-distributions]
+test = "TestRepairM_1194_Distributions"
+proof = "Both named benchmarks use the tested scenario builder; representative counts are asserted before the generated workload is committed and read through real MemIAVL and FlatKV stores."
+
+[finding.benchmark-last-block]
+test = "TestRepairM_1194_LastBlock"
+additional_tests = ["TestRepairM_1194_ProducerCancellation", "TestRepairM_1194_IterationMetrics", "TestRepairM_1194_ProgressCounts"]
+proof = "Consumer drains the stream, counts successful commits and pairs, joins the producer on all exits and aggregates b.N metrics; real stores close/reopen with exact versions and key counts, including one-block, remainder, bursty and empty workloads."
+counts = "For each MemIAVL and FlatKV: 1 block/4 pairs; 3 blocks/12 pairs; 3 blocks/9 pairs for nominal 10; 4 blocks/16 pairs for nominal 8 bursty; 3 empty blocks/0 pairs."
+
+[gotcha.baseline-order]
+observed = "Step 7 requests baseline verification, while the explicit gate order permits only implementation, hf-build, then hf-done."
+resolution = "Follow the bounded ordered gates and record baseline as not run, matching prerequisite repair 22.33.1193; do not claim pre-change failures."
+
+[gotcha.source-path]
+observed = "The MemIAVL commit store implementation is store.go, not commit_store.go."
+resolution = "Read the declared Initialize method from storage/state_db/sc/memiavl/store.go to confirm close/reopen setup."

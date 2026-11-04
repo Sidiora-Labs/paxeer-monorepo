@@ -17,6 +17,13 @@ The executable takes no arguments. Build from the repository root:
 cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms
 ```
 
+The registry file contains this complete chain snapshot (the attestor's
+`network_id` is a separate field, not a replacement registry key):
+
+```json
+{"chain_id":125}
+```
+
 The following variables use the `LAYERX_HUMAN_KMS_` prefix:
 
 | Suffix | Requirement |
@@ -63,8 +70,15 @@ address and EVM key id must each be unique across bindings. `config` is the
 `assertion_file` supplies the owner assertion sent with EVM signing requests.
 The file is read and trimmed when the store opens; the running process does not
 refresh it. Renew the assertion through its issuer and restart the provider to
-load it. An absent binding cannot resolve or sign a wallet; the provider does
-not generate owner assertions or substitute a local EVM key.
+load it. Provision a replacement assertion before its expiry, install it as a
+provider-owned private regular file, then restart with the same state and seal.
+An empty or unreadable assertion, or an invalid configured credential, prevents
+the store from opening. The standalone `EVM_ASSERTION_FILE` variable is not a
+source for this principal-bound store: use each binding's `assertion_file`.
+Without `ATTESTOR_CONFIG_FILE`, custody-only startup is possible, but wallet
+resolution and signing are unavailable; reopening state with a retained wallet
+requires its matching attestor binding. The provider does not generate owner
+assertions or substitute a local EVM key.
 
 ## LXKP versions and operations
 
@@ -104,7 +118,9 @@ register a new signing authorization.
 Responses echo the version and operation, followed by a status byte and any
 success data. Statuses are 0 success, 1 `Refused`, 2 `NotFound`, 3 `Conflict`,
 4 `Unavailable`, 5 `Integrity` and 6 `SelfCustodied`. Framing and TLS failures
-can close the connection before an operation response is available.
+can close the connection before an operation response is available. In
+particular, operation 13 is refused by the decoder before dispatch: callers
+must handle a closed connection rather than expect a status-1 reply.
 
 ## Signing and recovery
 
@@ -134,6 +150,14 @@ a next rotation names the current key. Older expectations conflict. Create is
 idempotent before rotation; rotated or destroyed identities cannot be recreated.
 Destroy clears the seed, wallet and send journal, retaining a tombstone.
 
+Back up the state directory and keep the seal secret separately. Reopening
+requires that seal, the same provider reference and chain snapshot, and matching
+attestor identities for retained wallets. A missing seal or failed state
+authentication is an error, not permission to start with empty state. The
+provider removes a validated leftover `state.next` when reopening and loads the
+committed `state.aead`; do not reset tombstones, nonce reservations or action
+journals to retry a request.
+
 ## Primary-key export
 
 Version-8 export accepts an `ExportCeremony` for a class-1 record and returns an
@@ -143,8 +167,69 @@ The same ceremony can retrieve the exact retained envelope after a lost response
 or restart; a different ceremony conflicts. Acknowledgement proves recovery of
 the envelope and removes the retained envelope. Later custody mutations and
 signing are refused for the self-custodied identity. Raw private-key bytes are
-never returned by LXKP.
+never returned by LXKP. This exports the Ed25519 custody seed, not an attestor
+secp256k1 private key. Preserve the recipient secret and exact ceremony before
+requesting export. Persist the recovered seed at the recipient before sending
+acknowledgement: after acknowledgement, the provider cannot return the envelope.
+Acknowledgement is idempotent, including after restart. Removing a seed from the
+current snapshot does not erase prior backups; protect and retire those under
+the operator's backup policy.
 
 The exported [`attestor`](src/attestor.rs) library also implements pinned-TLS
 quorum signing, generation, wallet lookup and native consent operations. Those
 client APIs are separate from the LXKP version/operation table above.
+
+## Client examples and qualification
+
+These fragments use the Human service's `RemoteKmsProvider` with its service
+mTLS identity, `KmsProvider` in scope, and an existing principal `binding` and
+provider `reference`. Supply a chain-125 `Eip1559Call` and derive its disclosure
+with `layerx_crypto::disclosure::call::bind_call`; never reuse a nonce for a
+different transaction. Version-7 signing returns a detached signature:
+
+```rust
+let wallet = remote.wallet_descriptor(&binding, reference)?;
+let disclosure = bind_call(&call, wallet.evm_secp256k1)?;
+let signature = remote.sign_wallet_call(&binding, reference, &call, &disclosure).await?;
+```
+
+For bank SEND, serialize `SendAuthorization` from [send.rs](src/send.rs):
+`authorization` is the complete `EvmPlanAuthorization`, and `disclosure` contains
+`recipient`, `denom` and the 32-byte big-endian `amount`. Its zero-value bank call
+must encode `send(address,address,string,uint256)` with the wallet as sender.
+The low-level client returns signed transaction bytes; recover the action with
+the same 32-byte action key after a response gap:
+
+```rust
+let payload = serde_json::to_vec(&authorization)?;
+let raw = remote.evm_operation(11, &binding, reference, &payload)?;
+let action_key = serde_json::to_vec(&authorization.authorization.action_key)?;
+let recovered = remote.evm_operation(10, &binding, reference, &action_key)?;
+```
+
+Decode `recovered` as `EvmAction`; its `raw_transaction` equals `raw` and its
+`transaction_hash` is the Keccak hash of those bytes. Use operation 9 only with
+that exact action key and hash.
+
+For handover, create an `ExportRecipient` from a securely generated valid secret
+scalar and retain it at the recipient. Generate a nonzero ceremony id once and
+persist the ceremony. Reuse both on retry, including after provider restart:
+
+```rust
+let envelope = remote.export_envelope(&binding, reference, &ceremony)?;
+let (seed, acknowledgement) = recipient.open(provider, binding.digest(), reference.as_bytes(), &envelope)?;
+```
+
+After securely retaining `seed`, finish with:
+
+```rust
+remote.acknowledge_export(&binding, reference, &acknowledgement)?;
+```
+
+[repair_22_33_31.rs](tests/repair_22_33_31.rs) executes these client sequences
+against the production TLS handler, codec and durable store. It also checks the
+registry and credential lifecycle, retired encodings, signed bank calldata and
+sender, and recovery across store restarts. Its committed loopback signing peers
+use independent fixture keys and the production EIP-1559 encoder; it needs no
+live attestor cluster or external credential. It qualifies the KMS/client
+contract, not deployment of the threshold cluster.

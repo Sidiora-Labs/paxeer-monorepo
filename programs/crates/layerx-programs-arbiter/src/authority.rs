@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::AdmissionEvidence;
-use layerx_programs_runtime::CapabilitySet;
+use layerx_programs_runtime::{
+    abi_policy::{capability_encoding, CapabilityEncoding},
+    CapabilitySet,
+};
 pub use layerx_proof::inclusion::SequencerAuthorization as ReceiptKey;
 use layerx_proof::inclusion::VerifiedBatchHeader;
 use layerx_proof::receipt::VerifiedReceipt;
@@ -13,6 +16,11 @@ use crate::{activity_codec::signed_activity_bytes, ics23, ReplayError};
 
 /// Chain-produced sequencer key table and its IAVL/multistore authentication.
 /// Public fields are untrusted until `receipt_keys` or `verify_receipt` succeeds.
+/// The caller must pin `app_hash` and `height` to a trusted committed block;
+/// these methods authenticate proofs against that input, not chain consensus.
+/// Receipt signatures select a key by sequencer id and the height encoded in
+/// `batch_id` (24 zero bytes followed by a big-endian u64). That height must be
+/// in the key's inclusive validity range and no greater than `height`.
 #[derive(Clone, Debug)]
 pub struct ChainCommitProof {
     pub height: u64,
@@ -102,6 +110,10 @@ pub struct VerifiedReplayAuthority {
 
 impl VerifiedReplayAuthority {
     /// Reconstruct replay authority from authenticated admission facts on each call.
+    /// First reconstruct `admission` with [`AdmissionEvidence::verify_under_app_hash`]
+    /// from transported lxphost record proofs and a trusted app hash. `commit`
+    /// supplies the sequencer key-table ICS23 proof under its trusted app hash;
+    /// it is not a kernel receipt Merkle proof. `header` supplies batch context.
     /// The native authority bytes must still pass `verify_native` before consumption.
     pub fn derive(
         receipt: &VerifiedReceipt,
@@ -114,6 +126,10 @@ impl VerifiedReplayAuthority {
 
     /// Derive authority for an ordinary program call, including Market calldata.
     /// This entry point consumes the ordinary call envelope directly.
+    /// It takes the same verified [`AdmissionEvidence`], signed batch header and
+    /// trusted [`ChainCommitProof`] as [`Self::derive`], with the same receipt-key
+    /// height checks. Reconstruct admission before calling and authenticate the
+    /// resulting native bytes with [`Self::verify_native`] before consumption.
     pub fn derive_program_call(
         receipt: &VerifiedReceipt,
         admission: &AdmissionEvidence,
@@ -970,12 +986,9 @@ fn call_capabilities(call: &[u8]) -> Result<CapabilitySet, ReplayError> {
         return Err(ReplayError::Authority);
     }
     let encoded = call.get(start..end).ok_or(ReplayError::Authority)?;
-    let capabilities = if abi == 1 {
-        CapabilitySet::decode_canonical(encoded)
-    } else if matches!(abi, 2 | 3 | 4) {
-        CapabilitySet::decode_v2_canonical(encoded)
-    } else {
-        return Err(ReplayError::Authority);
+    let capabilities = match capability_encoding(abi).map_err(|_| ReplayError::Authority)? {
+        CapabilityEncoding::V1 => CapabilitySet::decode_canonical(encoded),
+        CapabilityEncoding::V2 => CapabilitySet::decode_v2_canonical(encoded),
     }
     .map_err(|_| ReplayError::Authority)?;
     CapabilitySet::new(capabilities).map_err(|_| ReplayError::Authority)

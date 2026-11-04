@@ -185,9 +185,6 @@ func NewEVMHTTPServer(
 		logger.Info("To enable debug metrics output to stdout, set EVM_DEBUG_METRICS=true")
 	}
 
-	// Initialize RPC tracker
-	stats.InitRPCTracker(ctxProvider(LatestCtxHeight).Context(), config.RPCStatsInterval)
-
 	httpServer := NewHTTPServer(rpc.HTTPTimeouts{
 		ReadTimeout:       config.ReadTimeout,
 		ReadHeaderTimeout: config.ReadHeaderTimeout,
@@ -293,6 +290,7 @@ func NewEVMHTTPServer(
 	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
 	apis := []rpc.API{
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -403,6 +401,9 @@ func NewEVMHTTPServer(
 		return nil, err
 	}
 
+	tracker := stats.InitRPCTracker(ctx.Context(), config.RPCStatsInterval)
+	httpServer.addStopHook(tracker.Stop)
+
 	return httpServer, nil
 }
 
@@ -468,9 +469,6 @@ func NewEVMWebSocketServer(
 	// Initialize global worker pool with configuration (metrics are embedded in pool)
 	// This is idempotent - if HTTP server already initialized it, this is a no-op
 	InitGlobalWorkerPool(config.WorkerPoolSize, config.WorkerQueueSize)
-
-	// Initialize WebSocket tracker.
-	stats.InitWSTracker(ctxProvider(LatestCtxHeight).Context(), config.RPCStatsInterval)
 
 	httpServer := NewHTTPServer(rpc.HTTPTimeouts{
 		ReadTimeout:       config.ReadTimeout,
@@ -541,6 +539,7 @@ func NewEVMWebSocketServer(
 	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
 	apis := []rpc.API{
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -604,6 +603,9 @@ func NewEVMWebSocketServer(
 	if err := httpServer.EnableWS(apis, wsConfig); err != nil {
 		return nil, err
 	}
+
+	tracker := stats.InitWSTracker(ctx.Context(), config.RPCStatsInterval)
+	httpServer.addStopHook(tracker.Stop)
 
 	return httpServer, nil
 }

@@ -282,6 +282,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	// Register routes (NewRouter returns *chi.Mux, which satisfies chi.Router).
 	httpapi.RegisterUDF(router, st)
+	// The unversioned store has no bounded history/cursor authority. Retire
+	// history explicitly instead of advertising a permanently unavailable read.
+	router.Get("/history", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Link", `</v2/udf/history>; rel="successor-version"`)
+		sharedhttp.WriteJSON(w, http.StatusGone, map[string]any{
+			"code": "LEGACY_HISTORY_RETIRED", "message": "Use /v2/udf/history with the versioned UDF contract", "retryable": false,
+		})
+	})
 	if cfg.NodeEnv == "production" {
 		historyCache, e := httpapi.NewHistoryCache(rdb, httpapi.PostgresHistoryRevision{Pool: pool, Schema: "candles"}, features.MaxHistoryOrigins)
 		if e != nil {
@@ -316,12 +325,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Secret:  cfg.WebhookHMACSecret,
 		})
 	}
-	httpapi.RegisterWS(ctx, router, httpapi.WSDeps{
-		RedisURL:       cfg.RedisURL,
-		Logger:         logger,
-		MaxConnections: cfg.WSMaxConnections,
-		MaxPerIP:       cfg.WSMaxPerIP,
-	})
+	// RegisterWS serves the explicit legacy retirement response before upgrade.
+	// Durable delivery is mounted above only through the admitted replay gateway;
+	// the raw development builder cannot supply decimal/provenance authority.
+	httpapi.RegisterWS(ctx, router, httpapi.WSDeps{})
 
 	if metrics != nil {
 		router.Handle("/metrics", metrics)

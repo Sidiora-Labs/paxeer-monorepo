@@ -23,11 +23,10 @@ defmodule Indexer.Logger do
   def process(pid) when is_pid(pid) do
     prefix = [inspect(pid)]
 
-    {:registered_name, registered_name} = Process.info(pid, :registered_name)
-
-    case registered_name do
-      [] -> prefix
-      _ -> [prefix, " (", inspect(registered_name), ")"]
+    case Process.info(pid, :registered_name) do
+      nil -> prefix
+      {:registered_name, []} -> prefix
+      {:registered_name, registered_name} -> [prefix, " (", inspect(registered_name), ")"]
     end
   end
 end

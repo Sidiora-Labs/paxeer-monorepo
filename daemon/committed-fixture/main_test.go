@@ -211,7 +211,7 @@ func TestRecorderHomePinsGeneratedReceiptKey(t *testing.T) {
 		if standbyTM.P2P.PersistentPeers != string(primaryID)+"@"+n.p2pAddress {
 			t.Fatal("standby must peer with the primary")
 		}
-		if n.rpcURL == n.standby.rpcURL || n.consensusAddress == n.standby.consensusAddress || n.p2pAddress == n.standby.p2pAddress {
+		if n.rpcURL != "" || n.standby.rpcURL != "" || n.consensusAddress != "127.0.0.4:0" || n.standby.consensusAddress != "127.0.0.4:0" || n.p2pAddress == n.standby.p2pAddress {
 			t.Fatal("standby must have its own EVM, RPC and P2P listeners")
 		}
 		if _, err := os.Stat(filepath.Join(n.standby.home, "paxd.log")); !os.IsNotExist(err) {

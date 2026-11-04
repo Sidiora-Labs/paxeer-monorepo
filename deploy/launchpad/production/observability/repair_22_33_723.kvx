@@ -1,0 +1,10 @@
+[repair.22.33.723]
+finding = "observability_command_paths"
+audit = "22.30.170"
+source_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+change = "Make every README entry-point reference repository-root relative and document the canonical shared-load source root, preserving arguments and safety conditions."
+baseline = "No pre-change verification run: the gate order prohibits verification before complete implementation; the planned test module was absent and no earlier gate ledger existed. The checker and fenced commands already used canonical paths at the source revision. No baseline test failures are claimed."
+proving_tests = ["test_observability_command_paths_match_real_cli", "test_observability_source_root_and_safety_conditions", "test_documented_measurement_cli_fails_closed_without_private_inputs", "test_documented_collector_imports_real_producer_transport_and_codec"]
+test_module = "deploy/launchpad/production/observability/tests/test_repair_22_33_723.py"
+wiring_requests = []
+qualification = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence log; no pre-qualification pass is claimed here."

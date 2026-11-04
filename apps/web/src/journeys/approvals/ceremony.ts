@@ -1,3 +1,4 @@
+import { performAssertionCeremony } from "../onboarding/ceremony.ts";
 import type {
   HumanApiClient,
   OpaqueCredential,
@@ -37,17 +38,7 @@ export function base64UrlFromText(value: string): string {
 }
 
 export function browserPasskeyAuthenticator(): PasskeyAuthenticator {
-  return async (ceremony) => {
-    const options = JSON.parse(textFromBase64Url(ceremony)) as PublicKeyCredentialRequestOptionsJSON;
-    const credential = await navigator.credentials.get({
-      publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(options),
-    });
-    if (credential === null) {
-      throw new Error("The platform returned no credential for the ceremony");
-    }
-    const serialized: unknown = (credential as PublicKeyCredential).toJSON();
-    return base64UrlFromText(JSON.stringify(serialized));
-  };
+  return performAssertionCeremony;
 }
 
 export async function performStepUp(
@@ -67,9 +58,13 @@ export async function performStepUp(
   const credential = await authenticator(challenge.ceremony);
   const evidence = await client.stepupFinish(challenge.challenge_id, { credential });
   const evidenceExpiry = Date.parse(evidence.expires_at);
+  const completedAt = Date.parse(evidence.completed_at);
   if (
     evidence.challenge_id !== challenge.challenge_id
     || evidence.confirms !== confirms
+    || !Number.isFinite(completedAt)
+    || completedAt > challengeExpiry
+    || completedAt >= evidenceExpiry
     || !Number.isFinite(evidenceExpiry)
     || evidenceExpiry <= Date.now()
   ) {

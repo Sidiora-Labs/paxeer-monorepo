@@ -1,0 +1,23 @@
+[repair.22.33.530]
+audit = "22.30.155"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+evidence = "The hf-build/hf-done private gate ledger records the qualified candidate revision, exact commands, exits and logs."
+registration = "Vitest requires test(name, function) to execute named functions: the first hf-done reported four TODOs and zero executed tests, so that exit-zero result is not qualification; the corrected candidate must execute all four cases."
+baseline = "No baseline gate ran: the explicit gate order requires full implementation before hf-build and forbids running verify_cmd by hand; no pre-change failing test is claimed."
+
+[finding.rows-token]
+test = "rowsTokenPreservesEveryRecord; rowsTokenLargerSelectionKeepsServerRowsReachable"
+repair = "The production paging hook renders all local subpages before consuming the server cursor, returns to the last local subpage on Previous, and resets to the first page on row-size changes; 100 is a maximum per response and never suppresses access to the next server response."
+
+[finding.total-transfer]
+test = "totalTransferLabelsTheFinalPage"
+repair = "Without an authoritative total the production title counts only the current display page, including a short final response after two earlier server pages."
+
+[finding.launchpad-event-proof]
+test = "launchpadEventProofStopsAtTheExplorerApiBoundary"
+status = "wiring_required"
+proof = "The real explorer API client and production paging hook preserve generic transfer fields; this does not prove a launchpad event decoder or emitter-to-indexer agreement."
+wiring_registry = "spec/layerx-merge/interfaces.kvx: launchpad domain 4 must remove the generic TokenTransfer.spec.tsx caller association from 4.sevt-ieventemitter-tokentransfer-d1630e8d and register the actual event consumer."
+wiring_emitter = "contracts/launchpad: launchpad domain 4 must provide a real IEventEmitter.TokenTransfer emission transcript for the value, timestamp and blockNumber producer-to-consumer proof."
+wiring_indexer = "services/launchpad/indexer: launchpad domain 4 must replay that emission through the real event decoder and indexer into the explorer API."
+wiring_explorer = "services/explorer/backend: explorer domain 14 must expose the indexed launchpad transfer in its API and supply the response for an emitter-to-view integration case."

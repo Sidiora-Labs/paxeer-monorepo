@@ -47,6 +47,7 @@ public struct NativeProgramDeploy: NativeProgramLifecycle {
       bytes.append(programInterface)
     }
     bytes.append(wasm)
+    guard bytes.count <= 524_288 else { throw NativeProgramCallError.invalid }
     payload = bytes
   }
   public static func decode(_ payload: Data) throws -> NativeProgramDeploy {

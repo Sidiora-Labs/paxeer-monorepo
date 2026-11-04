@@ -8,7 +8,6 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/pubsub"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/rpc/core"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state/indexer"
@@ -22,10 +21,6 @@ type Server struct {
 	Addr    string // TCP address to listen on, ":http" if empty
 	Handler http.Handler
 	Config  *config.RPCConfig
-}
-
-type eventBusUnsubscriber interface {
-	UnsubscribeAll(ctx context.Context, subscriber string) error
 }
 
 // Routes returns the set of routes used by the Inspector server.
@@ -56,16 +51,7 @@ func Routes(cfg config.RPCConfig, s state.Store, bs state.BlockStore, es []index
 func Handler(rpcConfig *config.RPCConfig, routes core.RoutesMap) http.Handler {
 	mux := http.NewServeMux()
 
-	var eventBus eventBusUnsubscriber
-
-	websocketDisconnectFn := func(remoteAddr string) {
-		err := eventBus.UnsubscribeAll(context.Background(), remoteAddr)
-		if err != nil && err != pubsub.ErrSubscriptionNotFound {
-			logger.Error("Failed to unsubscribe addr from events", "addr", remoteAddr, "err", err)
-		}
-	}
 	wm := server.NewWebsocketManager(routes,
-		server.OnDisconnect(websocketDisconnectFn),
 		server.ReadLimit(rpcConfig.MaxBodyBytes))
 	mux.HandleFunc("/websocket", wm.WebsocketHandler)
 

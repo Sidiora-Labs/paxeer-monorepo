@@ -93,7 +93,7 @@ public sealed class ProgramTransportRetiredTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = new Uri($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/rpc");
+        var endpoint = new Uri($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/");
         using var recording = new RecordingTransport();
         using var http = new HttpClient(recording);
         using var rpc = new Programs(endpoint, http);
@@ -128,7 +128,7 @@ public sealed class ProgramTransportRetiredTests
         Assert.Equal(HttpMethod.Post, recorded.Method);
         Assert.Equal(endpoint, recorded.Uri);
         Assert.False(recorded.Uri.AbsolutePath.StartsWith("/v1/programs", StringComparison.Ordinal));
-        Assert.Equal("POST /rpc HTTP/1.1", requestLine);
+        Assert.Equal("POST / HTTP/1.1", requestLine);
         Assert.Equal(recorded.Body, body);
         using var request = JsonDocument.Parse(body);
         Assert.Equal("2.0", request.RootElement.GetProperty("jsonrpc").GetString());

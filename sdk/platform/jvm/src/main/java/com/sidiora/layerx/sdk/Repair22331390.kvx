@@ -1,0 +1,40 @@
+[repair.22.33.1390]
+base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+acceptance = "22998.1"
+verification = "hf-build then hf-done; the runner's candidate revision, exit and private log qualify this record."
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits one focused verification through hf-done only; no baseline failures are claimed."
+retention = "Caller owns SubmissionJournal.open(directory, maximumEntries, maximumBytes), supplies it to ProgramsClient, closes it, and reopens the same directory after restart. Durable admission precedes broadcast; unresolved and receipted entries never evict. Archive portable proof before explicit releaseCommitted; only locally verified inclusion with pinned consensus trust permits release. Default clients use bounded process-local retention and can export retainedSignedTransaction for explicit import using retainSignedTransaction."
+stream_contract = "The checkpoint carries the current cursor and most recent 65536 event IDs/cursors. Persist it after consumption and reconstruct ResumableStream(checkpoint). Replays within the window and requests from old cursors refuse atomically; older identities outside the window rely on the producer's opaque cursor ordering contract. An empty page must return the requested cursor unchanged; demand remains pending and polling backs off from 100ms to 2s, cancellable by interrupt."
+wiring_request = "sdk/platform/jvm/examples (owner domain 8 / fm-platform): demonstrate opening and closing a durable SubmissionJournal, reopening it for receipt(key, hash), exporting/importing signed bytes, and releasing only after trusted committed portable verification."
+
+[finding.program-rpc-refusals]
+tests = ["programRpcRefusalsPreserveProducerCodesAndMethodAwareRetry", "programRpcHttpFailuresAndLostBroadcastRemainUnknown", "programRestartLookupReopensUnknownBytesAndReconcilesWithoutResubmission"]
+repair = "Decode geth/node JSON-RPC codes and bounded hex data; omit arbitrary server messages, preserve uncertain send outcomes, distinguish revert, unsupported method, transient read failure and rate refusal."
+
+[finding.program-memory-growth]
+tests = ["programMemoryGrowthIsBoundedBeforeBroadcastAndUnresolvedNoncesSurviveRestart", "programRestartLookupFindsRecordedCommittedReceiptAndFinalityReleasesDurably"]
+repair = "Bound count and signed-byte retention, atomically journal nonce reservations before network writes, refuse before broadcast when full, and durably release entries only after verified committed proof."
+
+[finding.program-restart-lookup]
+tests = ["programRestartLookupReopensUnknownBytesAndReconcilesWithoutResubmission", "programRestartLookupFindsRecordedCommittedReceiptAndFinalityReleasesDurably"]
+repair = "Fresh clients resolve retained hashes from reopened storage and verify recorded node receipts without resubmitting; export/import is explicit. Committed journal recovery uses the recorded ledger receipt and trusted portable proof; unknown-outcome recovery uses the recorded Programs receipt."
+
+[finding.stream-lifetime-limit]
+tests = ["streamLifetimeWindowAcceptsMoreThan65536EventsAndRestartsAtPersistedBoundary"]
+repair = "Use a bounded cursor-associated replay window, accept 65538 real typed events over HTTP, refuse boundary replay atomically, and resume a fresh stream from its serialized checkpoint."
+
+[finding.stream-empty-poll]
+tests = ["streamEmptyPollBacksOffRetainsDemandAndDeliversLaterRealPage", "streamEmptyPollCancellationInterruptsIdleWaitWithoutFurtherFetchesOrSignals"]
+repair = "Retain cursor and subscriber demand across empty pages, apply bounded exponential backoff through humanStreamPublisher, and interrupt idle wait on cancellation."
+
+[gotcha.baseline-order]
+observed = "Task step 9 requests an unchanged-tree verification, but the explicit order and gate budget forbid running it."
+resolution = "Honor the explicit gate order and report no baseline result."
+
+[gotcha.recorded-human-page]
+observed = "The stream.next golden contains a historical deposit journey excluded by today's JourneyKind; its notification event remains a valid retained shape."
+resolution = "Serve the recorded notification event and envelope through the real HTTP decoder; leave the out-of-scope golden untouched."
+
+[gotcha.consensus-evidence]
+observed = "The recorded Programs receipt is receipted; the committed portable corpus contains a ledger transaction. RPC committed metadata does not establish trusted finality."
+resolution = "Prove Programs unknown recovery with its recorded receipt and durable committed lookup/release with the recorded ledger transaction and pinned consensus proof; never manufacture or re-sign committed evidence."

@@ -75,16 +75,26 @@ public final class ProgramsClient {
     }
 
     public static final class Programs implements AutoCloseable {
+        static final int MAXIMUM_RESPONSE_BYTES = 8 * 1024 * 1024;
         private final java.net.URI endpoint;
         private final java.net.http.HttpClient http;
+        private final Duration timeout;
         private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
         private final java.util.concurrent.atomic.AtomicLong ids = new java.util.concurrent.atomic.AtomicLong();
 
+        /** Use HTTPS in production; HTTP development origins must explicitly name loopback. */
         public Programs(java.net.URI endpoint) {
-            this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
-            if (!Set.of("http", "https").contains(endpoint.getScheme()) || endpoint.getHost() == null
-                    || endpoint.getUserInfo() != null || endpoint.getFragment() != null) invalid();
-            this.http = java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+            this(HttpProductionTransport.requireHttpUri(endpoint), java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
+                Duration.ofSeconds(30));
+        }
+
+        /** The supplied client defines certificate trust; redirects must remain disabled. */
+        public Programs(java.net.URI endpoint, java.net.http.HttpClient http, Duration timeout) {
+            this.endpoint = HttpProductionTransport.requireHttpUri(endpoint);
+            this.http = Objects.requireNonNull(http, "http");
+            this.timeout = Objects.requireNonNull(timeout, "timeout");
+            if (http.followRedirects() != java.net.http.HttpClient.Redirect.NEVER
+                    || timeout.isZero() || timeout.isNegative()) invalid();
         }
 
         @Override public void close() { http.close(); }
@@ -93,22 +103,68 @@ public final class ProgramsClient {
             long id = ids.incrementAndGet();
             ObjectNode body = object().put("jsonrpc", "2.0").put("id", id).put("method", method);
             body.set("params", params);
-            var request = java.net.http.HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(30))
+            var request = java.net.http.HttpRequest.newBuilder(endpoint).timeout(timeout)
                 .header("Content-Type", "application/json")
                 .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body.toString())).build();
-            return http.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
-                if (response.statusCode() != 200) throw new PlatformSdkException(PlatformSdkException.Code.TRANSPORT_FAILURE,
-                    PlatformSdkException.Retry.SAFE, null, null, null);
+            return BoundedHttpResponse.send(http, request, MAXIMUM_RESPONSE_BYTES, timeout).handle((response, failure) -> {
+                if (failure != null) {
+                    Throwable cause = failure;
+                    while (cause.getCause() != null) cause = cause.getCause();
+                    boolean mutating = "eth_sendRawTransaction".equals(method);
+                    if (cause instanceof BoundedHttpResponse.LimitExceeded && !mutating) throw decodeFailure();
+                    throw new PlatformSdkException(mutating ? PlatformSdkException.Code.UNKNOWN_OUTCOME
+                            : PlatformSdkException.Code.TRANSPORT_FAILURE,
+                        mutating ? PlatformSdkException.Retry.UNKNOWN_OUTCOME : PlatformSdkException.Retry.SAFE,
+                        null, null, null);
+                }
+                if (response.statusCode() != 200) throw transportFailure(method);
                 try {
                     JsonNode value = json.readTree(response.body());
                     if (value == null || !value.isObject() || !"2.0".equals(value.path("jsonrpc").asText())
                             || !value.path("id").isIntegralNumber() || value.path("id").longValue() != id
-                            || value.has("error") == value.has("result")) throw decodeFailure();
-                    if (value.has("error")) throw new PlatformSdkException(PlatformSdkException.Code.CAPABILITY_REFUSAL,
-                        PlatformSdkException.Retry.NEVER, null, null, null);
+                            || !value.path("id").canConvertToLong()
+                            || value.has("error") == value.has("result")) throw malformedResponse(method);
+                    if (value.has("error")) throw rpcFailure(method, value.get("error"));
                     return value.get("result");
-                } catch (java.io.IOException error) { throw decodeFailure(); }
+                } catch (java.io.IOException error) { throw malformedResponse(method); }
             });
+        }
+
+        private static PlatformSdkException malformedResponse(String method) {
+            return "eth_sendRawTransaction".equals(method) ? unknownOutcome() : decodeFailure();
+        }
+        private static PlatformSdkException transportFailure(String method) {
+            return "eth_sendRawTransaction".equals(method) ? unknownOutcome()
+                : new PlatformSdkException(PlatformSdkException.Code.TRANSPORT_FAILURE,
+                    PlatformSdkException.Retry.SAFE, null, null, null);
+        }
+        private static PlatformSdkException rpcFailure(String method, JsonNode error) {
+            if (error == null || !error.isObject() || !error.path("code").isIntegralNumber()
+                    || !error.path("code").canConvertToInt() || !error.path("message").isTextual())
+                return malformedResponse(method);
+            int number = error.path("code").intValue();
+            PlatformSdkException.Code code;
+            PlatformSdkException.Retry retry = PlatformSdkException.Retry.NEVER;
+            switch (number) {
+                case 3 -> code = PlatformSdkException.Code.REVERT;
+                case -32601 -> code = PlatformSdkException.Code.UNAVAILABLE_CAPABILITY;
+                case -32700, -32600, -32602 -> code = PlatformSdkException.Code.INVALID_ARGUMENT;
+                case -32000 -> {
+                    boolean mutation = "eth_sendRawTransaction".equals(method);
+                    code = mutation ? PlatformSdkException.Code.UNKNOWN_OUTCOME : PlatformSdkException.Code.CORE_REJECTION;
+                    retry = mutation ? PlatformSdkException.Retry.UNKNOWN_OUTCOME : PlatformSdkException.Retry.NEVER;
+                }
+                default -> {
+                    boolean mutation = "eth_sendRawTransaction".equals(method);
+                    code = mutation ? PlatformSdkException.Code.UNKNOWN_OUTCOME
+                        : number == -32005 ? PlatformSdkException.Code.RATE_LIMIT
+                        : PlatformSdkException.Code.TRANSPORT_FAILURE;
+                    retry = mutation ? PlatformSdkException.Retry.UNKNOWN_OUTCOME : PlatformSdkException.Retry.SAFE;
+                }
+            }
+            JsonNode data = error.get("data");
+            return PlatformSdkException.rpc(code, retry, number,
+                data != null && data.isTextual() ? data.textValue() : null);
         }
 
         static byte[] word(BigInteger value, int bits) {
@@ -498,8 +554,20 @@ public final class ProgramsClient {
     private BigInteger maximumFee;
     private LocalVerifier.ReceiptKeys receiptKeys;
     private byte[] didId;
-    private final Map<String, byte[]> submittedTransactions = new java.util.concurrent.ConcurrentHashMap<>();
-    private final Map<String, String> submittedNonces = new java.util.concurrent.ConcurrentHashMap<>();
+    private SubmissionJournal submissions = SubmissionJournal.memory(1024, 16 * 1024 * 1024);
+
+    /**
+     * The caller owns and closes the journal. Open the same durable journal after restart before
+     * receipt(key, hash); retained bytes are read without broadcasting. The default constructor
+     * uses a bounded process-local journal. Use retainSignedTransaction to import saved bytes.
+     * Only SubmissionJournal.releaseCommitted with a locally verified portable proof releases
+     * entries, including nonce reservations; a receipted result or RPC rung alone never does.
+     */
+    public ProgramsClient(Programs rpc, String sender, BigInteger priorityFee, BigInteger maximumFee,
+            LocalVerifier.ReceiptKeys receiptKeys, byte[] didId, SubmissionJournal submissions) {
+        this(rpc, sender, priorityFee, maximumFee, receiptKeys, didId);
+        this.submissions = Objects.requireNonNull(submissions, "submissions");
+    }
 
     public ProgramsClient(Programs rpc, String sender, BigInteger priorityFee, BigInteger maximumFee,
                           LocalVerifier.ReceiptKeys receiptKeys, byte[] didId) {
@@ -562,6 +630,15 @@ public final class ProgramsClient {
     }
     private CompletionStage<ProgramSubmission> broadcast(byte[] signedTransaction) {
         byte[] raw = signedTransaction.clone();
+        byte[] hash = retainSignedTransaction(raw);
+        return rpc("eth_sendRawTransaction", string(Programs.hexData(raw))).thenApply(result -> {
+            if (!Arrays.equals(Programs.data(result), hash)) throw unknownOutcome();
+            return new ProgramSubmission(hash, raw, null);
+        });
+    }
+    /** Import signed bytes durably without submitting or replacing an unresolved nonce. */
+    public byte[] retainSignedTransaction(byte[] signedTransaction) {
+        byte[] raw = signedTransaction.clone();
         List<Programs.Rlp> fields = Programs.transactionFields(raw);
         ObjectNode tx = object().put("type", "0x2").put("chainId", "0x7d").put("from", sender)
             .put("to", PROGRAMS_ADDRESS).put("value", "0x0").put("data", Programs.hexData(fields.get(7).value()));
@@ -569,16 +646,18 @@ public final class ProgramsClient {
         for (int i = 0; i < quantities.length; i++) tx.put(quantities[i], Programs.quantity(new BigInteger(1, fields.get(i).value())));
         tx.putArray("accessList");
         Programs.bind(new ProgramCall(tx), raw);
-        byte[] hash = Programs.transactionHash(raw);
-        String nonce = tx.path("nonce").asText();
-        String prior = submittedNonces.putIfAbsent(nonce, hex(hash));
-        if (prior != null && !prior.equals(hex(hash))) invalid();
-        submittedTransactions.put(hex(hash), raw.clone());
-        return rpc("eth_sendRawTransaction", string(Programs.hexData(raw))).thenApply(result -> {
-            if (!Arrays.equals(Programs.data(result), hash)) throw unknownOutcome();
-            return new ProgramSubmission(hash, raw, null);
-        });
+        submissions.retain(sender, tx.path("nonce").asText(), raw);
+        return Programs.transactionHash(raw);
     }
+
+    /** Export a retained signed transaction without resubmission; null means it is not retained. */
+    public byte[] retainedSignedTransaction(byte[] transactionHash) { return submissions.signedTransaction(transactionHash); }
+
+    /** Release a retained entry only after locally verified, trusted committed inclusion. */
+    public boolean releaseCommitted(com.sidiora.layerx.sdk.verify.PortableReceipt.Verification proof) {
+        return submissions.releaseCommitted(proof);
+    }
+
     public CompletionStage<ProgramSubmission> receipt(ProgramSubmission submission) {
         return sequencerReceipt(submission.signedTransaction()).thenApply(receipt ->
             new ProgramSubmission(submission.transactionHash(), submission.signedTransaction(), receipt));
@@ -692,7 +771,7 @@ public final class ProgramsClient {
     public CompletionStage<Submission> receipt(Call call, IdempotencyKey key) {
         byte[] signed = call.signedActivity();
         requireSignedCallData(call, nativeCall(call), signed);
-        submittedTransactions.put(hex(Programs.transactionHash(signed)), signed.clone());
+        retainSignedTransaction(signed);
         return receipt(key, Programs.transactionHash(signed));
     }
     public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedTransactionHash) {
@@ -701,7 +780,7 @@ public final class ProgramsClient {
     public CompletionStage<Submission> receipt(IdempotencyKey key, byte[] expectedTransactionHash, String verificationLevel) {
         if (key == null || !canonicalLowerHex(key.value(), 32) || !"receipted".equals(verificationLevel)) invalid();
         byte[] hash = exactArgument(expectedTransactionHash, 32);
-        byte[] raw = submittedTransactions.get(hex(hash));
+        byte[] raw = submissions.signedTransaction(hash);
         if (raw == null) throw new PlatformSdkException(PlatformSdkException.Code.INVALID_ARGUMENT,
             PlatformSdkException.Retry.NEVER, null, null, null);
         return sequencerReceipt(raw).thenApply(verified -> {

@@ -1,0 +1,46 @@
+[meta]
+task = "22.33.1180"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+status = "implemented-awaiting-bounded-qualification"
+evidence = "Authoritative candidate revision, command, exit and private log are emitted by hf-build and hf-done. No gate result is claimed in this pre-gate record."
+baseline = "Not run: the task's explicit order forbids tests before complete implementation and permits verification only through hf-done. No TestRepairM_1180 function existed in the base tree. No baseline failures are claimed."
+nonexcluded_inventory = "transfer/paxeerTransfer.json/transferValid; Cancun post 0; selected=1 required=1; real V2 and Giga ProcessBlock; explicit state and RLP log oracle."
+qualification_command = "STATE_TEST_ROOT=data/qualification STATE_TEST_DIR=transfer STATE_TEST_NAME=transferValid STATE_TEST_FORK=Cancun STATE_TEST_COUNT=1 IGNORE_SKIP_LIST=true VERIFY_ETHEREUM_SPEC=true USE_REGULAR_STORE=false go test -count=1 -v -run '^TestGigaVsV2_StateTests$' ./engine/tests/"
+qualification_proof = "TestRepairM_1180_RequiredSelection invokes the same test entry point with the documented selection inside the only authorized task verify process; the standalone command is not separately run."
+
+[finding.state-runbook-recommends-exclusion]
+implementation = "AGENTS.md separates diagnostics from qualification, declares a counted oracle-required command, prohibits exclusions as repairs and requires original command/count/revision evidence."
+proving_test = "TestRepairM_1180_Runbook; TestRepairM_1180_RequiredSelection"
+
+[finding.state-skip-inventory-hides-failures]
+implementation = "Qualification never consults diagnostic exclusions; state_repairs.json owns all 101 cases and 23 categories, retaining literal identities and reasons, explicit missing historical evidence, active case replay commands and unresolved status. No exclusion has been removed or represented as repaired."
+proving_test = "TestRepairM_1180_OwnedInventory; TestRepairM_1180_RequiredSelection"
+remaining = "The historical divergences are not all qualified by this bounded transfer gate; unchanged original targets need owner repairs and original private failure evidence before this finding can be fully closed."
+wiring_request = "node/app.go and engine/executor/** — owning domain 5: repair and qualify each unresolved executor divergence in data/state_repairs.json against its unchanged original fixture and command; retain counted candidate-revision evidence before removing any exclusion."
+wiring_evidence_request = "spec/layerx-merge/programme/audit/records/22.30.54.kvx and private qualification evidence — owning domain 5: recover missing original commands, literal category selections and revisions; this task cannot manufacture them or edit spec records."
+
+[finding.state-exception-one-sided-pass]
+implementation = "Both real executors must return exactly one nonnil result; unexpected processing errors or transaction failures fail; expected exceptions need the same known kind on both sides and membership in the fixture's named allowed kinds. Unknown exceptions cannot pass."
+proving_test = "TestRepairM_1180_ExceptionAgreement"
+cases = "Real signed valid, nonce-rejected and funds-rejected transactions through both executors; both one-sided outcomes, different errors, wrong kind, unsupported kind, unexpected common failure and malformed encoded transaction inputs."
+
+[finding.state-suite-zero-execution]
+implementation = "An explicit directory/name/Cancun/count selection is mandatory; absent/empty/unsupported or mismatched selection fails; all selected fixtures execute without exclusions; selected/executed/required/skipped counts and exact identifiers are reported and asserted."
+proving_test = "TestRepairM_1180_RequiredSelection"
+
+[finding.state-oracle-opt-in]
+implementation = "The qualification oracle is mandatory, checks either executor's explicit state differences and receipt-log hash, converts full uhpx plus wei balances correctly, and documents local chain-ID/fork/store-commitment adaptations without changing fixture expectations."
+proving_test = "TestRepairM_1180_IndependentOracle; TestRepairM_1180_RequiredSelection"
+cases = "An unchanged committed transfer expectation passes through both production executors; equal deliberately corrupted real-store nonces still pass the differential check but fail both independent fixture checks."
+
+[gotcha.baseline-order]
+area = "test"
+symptom = "The task asks for an unchanged-tree baseline and separately forbids pre-implementation tests and direct verify invocations."
+cause = "The baseline step conflicts with the explicit bounded gate order."
+do = "Follow the explicit gate order and record that no baseline failure evidence was collected; never claim an unrun baseline."
+
+[gotcha.historical-evidence]
+area = "test"
+symptom = "The historical skip inventory has reasons but no original commands or verified revisions."
+cause = "Diagnostic skip metadata is not a repair evidence ledger."
+do = "Keep unresolved ownership and missing fields explicit; recover private evidence before claiming a historical target is repaired."

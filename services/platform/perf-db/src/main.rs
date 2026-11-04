@@ -3,11 +3,11 @@ use std::process;
 
 use clap::{Parser, Subcommand};
 
-use perfdb::PerfDb;
-use perfdb::core::market::{MARKET_COUNT, MARKETS, MarketId, market_by_id, market_by_symbol};
+use perfdb::core::market::{market_by_id, market_by_symbol, MarketId, MARKETS, MARKET_COUNT};
 use perfdb::core::timeframe::Timeframe;
-use perfdb::core::types::FixedI128;
 use perfdb::engine::PerfDbConfig;
+use perfdb::formatting::format_fixed;
+use perfdb::PerfDb;
 
 #[derive(Parser)]
 #[command(
@@ -246,12 +246,12 @@ fn resolve_timeframe(input: &str) -> Result<Timeframe, String> {
     Timeframe::from_str(input).ok_or_else(|| format!("unknown timeframe: {input}"))
 }
 
-fn parse_addr(input: &str) -> [u8; 20] {
-    perfdb::core::types::parse_address(input)
+fn parse_addr(input: &str) -> Result<[u8; 20], String> {
+    perfdb::core::types::parse_address(input).map_err(|error| format!("invalid address: {error}"))
 }
 
-fn parse_hash(input: &str) -> [u8; 32] {
-    perfdb::core::types::parse_hash(input)
+fn parse_hash(input: &str) -> Result<[u8; 32], String> {
+    perfdb::core::types::parse_hash(input).map_err(|error| format!("invalid hash: {error}"))
 }
 
 fn hex_addr(addr: &[u8; 20]) -> String {
@@ -266,22 +266,6 @@ fn hex_hash(hash: &[u8; 32]) -> String {
         "0x{}",
         hash.iter().map(|b| format!("{b:02x}")).collect::<String>()
     )
-}
-
-fn format_fixed(val: FixedI128) -> String {
-    if val == 0 {
-        return "0".to_string();
-    }
-    let precision: i128 = 1_000_000_000_000_000_000;
-    let whole = val / precision;
-    let frac = (val % precision).unsigned_abs();
-    if frac == 0 {
-        format!("{whole}")
-    } else {
-        let frac_str = format!("{frac:018}");
-        let trimmed = frac_str.trim_end_matches('0');
-        format!("{whole}.{trimmed}")
-    }
 }
 
 fn short_addr(addr: &[u8; 20]) -> String {
@@ -554,10 +538,10 @@ fn cmd_positions(
     json: bool,
 ) -> Result<(), String> {
     let positions = if let Some(id_str) = id {
-        let pid = parse_hash(id_str);
+        let pid = parse_hash(id_str)?;
         db.positions.get(&pid).into_iter().collect::<Vec<_>>()
     } else if let Some(u) = user {
-        let addr = parse_addr(u);
+        let addr = parse_addr(u)?;
         if open_only {
             db.positions.open_by_user(&addr)
         } else {
@@ -637,10 +621,10 @@ fn cmd_orders(
     json: bool,
 ) -> Result<(), String> {
     let orders = if let Some(id_str) = id {
-        let oid = parse_hash(id_str);
+        let oid = parse_hash(id_str)?;
         db.orders.get(&oid).into_iter().collect::<Vec<_>>()
     } else if let Some(u) = user {
-        let addr = parse_addr(u);
+        let addr = parse_addr(u)?;
         if active_only {
             db.orders.active_by_user(&addr)
         } else {
@@ -771,7 +755,7 @@ fn cmd_orderbook(db: &PerfDb, market: &str, levels: usize, json: bool) -> Result
 }
 
 fn cmd_balances(db: &PerfDb, user: &str, json: bool) -> Result<(), String> {
-    let addr = parse_addr(user);
+    let addr = parse_addr(user)?;
     let balances = db.balances.user_balances(&addr);
 
     if json {
@@ -812,7 +796,7 @@ fn cmd_balances(db: &PerfDb, user: &str, json: bool) -> Result<(), String> {
 }
 
 fn cmd_user(db: &PerfDb, address: &str, json: bool) -> Result<(), String> {
-    let addr = parse_addr(address);
+    let addr = parse_addr(address)?;
     let user = db.users.get(&addr).ok_or("user not found")?;
 
     if json {
@@ -859,7 +843,7 @@ fn cmd_user(db: &PerfDb, address: &str, json: bool) -> Result<(), String> {
 }
 
 fn cmd_stats(db: &PerfDb, address: &str, json: bool) -> Result<(), String> {
-    let addr = parse_addr(address);
+    let addr = parse_addr(address)?;
     let stats = db
         .trader_stats
         .get(&addr)
@@ -929,7 +913,7 @@ fn cmd_stats(db: &PerfDb, address: &str, json: bool) -> Result<(), String> {
 }
 
 fn cmd_daily(db: &PerfDb, address: &str, limit: usize, json: bool) -> Result<(), String> {
-    let addr = parse_addr(address);
+    let addr = parse_addr(address)?;
     let history = db.daily_stats.trader_daily_history(&addr, limit);
 
     if json {
@@ -1036,7 +1020,7 @@ fn cmd_events(
         let mid = resolve_market(m)?;
         db.events.latest_by_market(mid, last)
     } else if let Some(t) = trader {
-        let addr = parse_addr(t);
+        let addr = parse_addr(t)?;
         db.events.latest_by_trader(&addr, last)
     } else {
         return Err("specify --market or --trader".to_string());
