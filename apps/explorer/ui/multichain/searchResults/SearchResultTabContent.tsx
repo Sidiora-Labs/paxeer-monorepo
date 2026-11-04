@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { Alert } from 'toolkit/chakra/alert';
+import { Button } from 'toolkit/chakra/button';
 import { EmptyState } from 'toolkit/chakra/empty-state';
 import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 
@@ -17,17 +19,49 @@ const EMPTY_SEARCH_NAME_MAP: Record<QueryType, string> = {
   domains: 'names',
 };
 
+interface SearchQueryErrorProps {
+  query: SearchQueries[QueryType];
+  queryType: QueryType;
+}
+
+const SearchQueryError = ({ query, queryType }: SearchQueryErrorProps) => {
+  const { refetch, isFetching } = query;
+  const handleRetry = React.useCallback(() => {
+    refetch();
+  }, [ refetch ]);
+
+  return (
+    <Alert
+      status="error"
+      role="alert"
+      title={ `Unable to load ${ EMPTY_SEARCH_NAME_MAP[queryType] }. Please try again.` }
+      mb={ 4 }
+      endElement={ (
+        <Button
+          size="sm"
+          aria-label={ `Retry ${ EMPTY_SEARCH_NAME_MAP[queryType] }` }
+          loading={ isFetching }
+          onClick={ handleRetry }
+        >
+          Retry
+        </Button>
+      ) }
+    />
+  );
+};
+
 interface Props {
   isLoading: boolean;
   searchTerm: string;
+  chainId?: string;
   queries: SearchQueries;
   queryType: QueryType | undefined;
   beforeContent?: React.ReactNode;
 }
 
-const SearchResultTabContent = ({ isLoading, searchTerm, queries, queryType, beforeContent }: Props) => {
+const SearchResultTabContent = ({ isLoading, searchTerm, chainId, queries, queryType, beforeContent }: Props) => {
   const content = (() => {
-    if (isLoading) {
+    if (isLoading && !searchTerm) {
       return <ContentLoader maxW="240px"/>;
     }
 
@@ -44,7 +78,15 @@ const SearchResultTabContent = ({ isLoading, searchTerm, queries, queryType, bef
       queries[queryType]?.data?.pages?.[0]?.items && queries[queryType]?.data?.pages?.[0]?.items?.length > 0 :
       Object.values(queries).some((query) => query.data?.pages?.[0]?.items?.length > 0);
 
-    if (!hasResults) {
+    const failedQueryTypes = (queryType ? [ queryType ] : Object.keys(queries) as Array<QueryType>)
+      .filter((type) => queries[type].isError);
+    const isPending = queryType ? queries[queryType].isPending : isLoading;
+
+    if (isPending && !hasResults && failedQueryTypes.length === 0) {
+      return <ContentLoader maxW="240px"/>;
+    }
+
+    if (!hasResults && failedQueryTypes.length === 0) {
       return (
         <EmptyState
           title={ queryType ? `No ${ EMPTY_SEARCH_NAME_MAP[queryType] } found` : 'No results found' }
@@ -53,18 +95,16 @@ const SearchResultTabContent = ({ isLoading, searchTerm, queries, queryType, bef
       );
     }
 
-    switch (queryType) {
-      case 'addresses':
-      case 'blocks':
-      case 'blockNumbers':
-      case 'transactions':
-      case 'tokens':
-      case 'nfts':
-      case 'domains':
-        return <SearchResultsList queryType={ queryType } query={ queries[queryType] }/>;
-      default:
-        return <SearchResultsTabAll queries={ queries }/>;
-    }
+    return (
+      <>
+        { failedQueryTypes.map((type) => (
+          <SearchQueryError key={ type } query={ queries[type] } queryType={ type }/>
+        )) }
+        { hasResults && (queryType ?
+          <SearchResultsList queryType={ queryType } query={ queries[queryType] }/> :
+          <SearchResultsTabAll queries={ queries } searchTerm={ searchTerm } chainId={ chainId }/>) }
+      </>
+    );
   })();
 
   return (

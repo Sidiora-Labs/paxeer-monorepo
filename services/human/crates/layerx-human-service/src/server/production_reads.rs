@@ -1548,22 +1548,42 @@ mod balance_evidence_tests {
 
     #[test]
     fn cached_balance_preserves_achieved_level_and_authenticates_the_label() {
-        for (rank, class, verification) in [
-            (1, "layerx-receipt", "receipt-verified"),
-            (2, "layerx-receipt", "receipt-verified"),
-            (3, "layerx-receipt", "receipt-verified"),
-            (4, "checkpoint-proof", "checkpoint-finalised"),
-            (5, "checkpoint-proof", "settlement-anchored"),
+        use super::super::agent_runtime::VerifiedBalance;
+        use super::super::production_components::AccountBalance;
+        use layerx_types::rung::Rung;
+        for (rung, class, verification) in [
+            (None, "submission-record", "unverified"),
+            (Some(Rung::Submitted), "submission-record", "unverified"),
+            (Some(Rung::Receipted), "layerx-receipt", "receipt-verified"),
+            (
+                Some(Rung::Committed),
+                "checkpoint-proof",
+                "checkpoint-finalised",
+            ),
         ] {
-            let mut bytes = b"LXHB1".to_vec();
-            bytes.push(rank);
-            bytes.extend_from_slice(b"verified balance evidence");
+            let balance = AccountBalance::from_agent(VerifiedBalance {
+                account: [1; 32],
+                asset: [2; 32],
+                currency: "LXP".into(),
+                observed_at: "2023-11-14T22:13:20Z".into(),
+                age_seconds: 0,
+                amount: 123,
+                verification: rung,
+                global_sequence: 10,
+                batch_number: 1,
+                observed_head_sequence: 10,
+                observed_checkpoint: [0; 32],
+                canonical_bytes: 123u128.to_be_bytes().to_vec(),
+                proof_material: vec![1; 32],
+            })
+            .expect("production balance");
+            let mut bytes = balance.evidence_material().expect("production material");
             let digest = Sha256::digest(&bytes).into();
             assert_eq!(
                 cached_balance_verification(&bytes, digest).ok(),
                 Some((class, verification))
             );
-            bytes[5] = if rank == 5 { 4 } else { rank + 1 };
+            bytes[5] ^= 1;
             assert!(cached_balance_verification(&bytes, digest).is_err());
         }
         for bytes in [

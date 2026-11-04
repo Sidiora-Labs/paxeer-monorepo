@@ -7,21 +7,26 @@
  * on these tuples, so consistency matters.
  */
 
+import { selectedWalletChainId } from '../wallet-read-contract';
+
 const lower = (addr: string | undefined | null) => (addr ?? '').toLowerCase();
 
 export const queryKeys = {
-  portfolio: (address: string) => ['portfolio', lower(address)] as const,
-  balance:   (address: string) => ['balance',   lower(address)] as const,
-  paxPrice:  (symbol = 'PAX')  => ['paxPrice',  symbol] as const,
+  portfolio: (address: string) => ['portfolio', lower(address), selectedWalletChainId()] as const,
+  balance: (address: string) => ['balance', lower(address), selectedWalletChainId()] as const,
+  paxPrice: (symbol = 'PAX') => ['paxPrice', symbol, selectedWalletChainId()] as const,
 
-  holdings:        (address: string) => ['holdings',        lower(address)] as const,
-  pnlHistory:      (address: string, days: number) => ['pnlHistory', lower(address), days] as const,
-  portfolioChart:  (address: string, period: string) => ['portfolioChart', lower(address), period] as const,
-  txHistory:       (address: string) => ['txHistory',  lower(address)] as const,
-  transfers:       (address: string) => ['transfers',  lower(address)] as const,
-  txCount:         (address: string) => ['txCount',     lower(address)] as const,
-  txDetail:        (hash: string)    => ['txDetail',    hash.toLowerCase()] as const,
-  rankings:        (category: string) => ['rankings',   category] as const,
+  holdings: (address: string) => ['holdings', lower(address), selectedWalletChainId()] as const,
+  pnlHistory: (address: string, days: number) =>
+    ['pnlHistory', lower(address), days, selectedWalletChainId()] as const,
+  portfolioChart: (address: string, period: string) =>
+    ['portfolioChart', lower(address), period, selectedWalletChainId()] as const,
+  txHistory: (address: string, limit = 50) =>
+    ['txHistory', lower(address), selectedWalletChainId(), limit] as const,
+  transfers: (address: string) => ['transfers', lower(address), selectedWalletChainId()] as const,
+  txCount: (address: string) => ['txCount', lower(address), selectedWalletChainId()] as const,
+  txDetail: (hash: string) => ['txDetail', hash.toLowerCase(), selectedWalletChainId()] as const,
+  rankings: (category: string) => ['rankings', category] as const,
 } as const;
 
 export type WalletQueryKey =

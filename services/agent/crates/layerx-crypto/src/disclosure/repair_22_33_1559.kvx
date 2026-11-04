@@ -1,0 +1,24 @@
+[repair.22.33.1559]
+audit = "22.30.98"
+scope = "disclosure call monetary projection and complete constructor ABI signatures"
+baseline = "No baseline gate ran: the ordered implementation-first and hf-done-only instructions prohibit running the verify command on the unchanged tree; the declared integration test did not exist at task start. No pre-change test failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log for hf-build and hf-done in /out/run/gates.jsonl."
+
+[finding.registry-call-constructors-incomplete]
+test = "registry_call_constructors_cover_every_bound_selector"
+repair = "ConstructMethod::abi_signature exhaustively names all 17 ABI variants, cross-checked against signed transaction decoding and binding for ledger, budget v1/v2, auth session/lifecycle, program, bank and pointer calls."
+wiring = "Domain 9 registry owner: regenerate spec/layerx-merge/interfaces.kvx entry 9.rs-crypto-disclosure-call-constructmethod-j44 from the complete ConstructMethod declaration and abi_signature match in services/agent/crates/layerx-crypto/src/disclosure/call.rs."
+
+[finding.program-execution-fee-projection]
+test = "program_execution_fee_projection_preserves_both_bounds"
+repair = "Disclosure::call_monetary derives a separately named execution_fee_bound in protocol asset base units alongside gas_fee_bound in chain native wei; missing execution asset context is rejected, and both bounds appear in the human-readable view."
+wiring = "Domain 9 daemon owner: services/agent/crates/layerx-agentd/src/prepare/mod.rs, src/ops/program.rs, src/approval/call_bound.rs and src/human_runtime.rs must use Disclosure::call_monetary with a verified schedule asset, retain both bounds in preparation/approval codecs and reserve gas and execution charges separately; the call ABI does not authenticate the schedule asset."
+
+[finding.bank-monetary-projection-empty]
+test = "bank_monetary_projection_reaches_typed_policy_and_human_view"
+repair = "CallMonetaryAmount::Bank carries the exact denomination and uint256 big-endian value through the production bank encoder, signed type-2 codec, binder, typed policy projection and lossless human-readable decimal view. Generic consumers of this enum must handle Bank explicitly."
+wiring = "Domain 9 daemon owner: services/agent/crates/layerx-agentd/src/prepare/mod.rs, src/human_runtime.rs, src/policy/approval.rs and src/approval/call_bound.rs must consume and persist the typed call_monetary view, exhaustively handle Bank denomination/uint256 units in amount policies and approval displays, and stop treating the legacy uint128 amounts list as the complete call monetary view."
+
+[limits]
+legacy = "Disclosure is declared outside scope in services/agent/crates/layerx-crypto/src/disclosure.rs; its public ledger/gas fields retain compatibility. Registry and daemon wiring requests above remain external work and are not claimed as qualified end-to-end daemon integration."
+fixtures = "Payment and send fixtures are committed native producer outputs; budget/lifecycle/pointer ABI transcripts are the existing disclosure_call.rs vectors; session and program fixtures use the production issuers/codecs. The test requires no external service, credential, device, environment variable or subprocess."

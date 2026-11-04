@@ -76,7 +76,8 @@
     190003,
     370002,
     380002,
-    150006
+    150006,
+    160004
   ],
   "registrations": [
     {
@@ -2047,14 +2048,14 @@
       ],
       "legacy_dependencies": [],
       "legacy_predecessors": [],
-      "interface_digest": null,
-      "reader_min_version": null,
-      "estimated_lock_ms": null,
+      "interface_digest": "b8d400593ea9184337a6ab66ae5be49da1676708a4ffcbdb31ce0c4732a0b7e6",
+      "reader_min_version": 1,
+      "estimated_lock_ms": 2000,
       "transaction_mode": "transactional",
       "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
       "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
       "destructive": false,
-      "approval_manifest_digest": null,
+      "approval_manifest_digest": "110858de197f4dfdc519666936dfbebf984a86fa5e076eaa89ea0f91617e173f",
       "source_inputs": [
         {
           "path": "spec/production-system/handoffs/L18/phase2/migration-proposal.sql",
@@ -2558,9 +2559,36 @@
           "sha256": "fbb24dc7f3c0c5e4d98f2d715be8e0889c2d6beec143ae3785616d0463b528a9"
         }
       ]
+    },
+    {
+      "migration_id": 160004,
+      "service": "core/pnl-tracker",
+      "schema": "pnl",
+      "owner_lane": "L16",
+      "path": "spec/production-system/integration/migrations/160004.sql",
+      "sha256": "d12ae78c8afd2e94557641698aef2f35b4c2e15f4c94f71887ecbda897035124",
+      "predecessor_ids": [
+        160002
+      ],
+      "legacy_dependencies": [],
+      "legacy_predecessors": [],
+      "interface_digest": null,
+      "reader_min_version": null,
+      "estimated_lock_ms": null,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
+      "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
+      "destructive": false,
+      "approval_manifest_digest": null,
+      "source_inputs": [
+        {
+          "path": "core/pnl-tracker/internal/production/l16/queries.go",
+          "sha256": "6baff8a48286a7d8dd458998ee8f992600d7d2d6a393171f331430df268dc0a4"
+        }
+      ]
     }
   ],
-  "approval_digest": null,
+  "approval_digest": "110858de197f4dfdc519666936dfbebf984a86fa5e076eaa89ea0f91617e173f",
   "qualification_required": [
     "isolated PostgreSQL measured lock <=2000ms",
     "reviewed deployed reader minimum versions",

@@ -1,0 +1,36 @@
+[repair.22.33.1447]
+source_revision = "117197c811684e097104c96b29e872d45034cebb"
+mode = "BUILD"
+planned_path_mapping = "repair_m1447_test.go maps to test_repair_22_33_1447.py under task step 12 / gotcha 2984; this Python directory has no Go package or Go gate."
+baseline = "Not run: the explicit execution order forbids verification before implementation and permits it only through hf-done; no baseline failures or baseline pass are claimed. The initial ledger has no prior gate runs."
+evidence = "The hf-build / hf-done private gate ledger records the exact candidate revision, command, exit and log; this record does not itself claim qualification."
+
+[finding.smoke-removed-option]
+proof = "test_repair_22_33_1447.py::test_TestRepairM_1447_smoke_removed_option"
+repair = "The smoke caller already omitted --encoder at the supplied base; remove the producer's retired LAYERX_TEST_SEND_ENCODER export. Expand the actual smoke invocation using the actual material producer and pass its arguments into the maintained parser; obsolete options still fail and native denomination assertions still execute."
+
+[finding.journey-router-path]
+proof = "test_repair_22_33_1447.py::test_TestRepairM_1447_journey_router_path; test_TestRepairM_1447_retired_endpoints_are_rejected"
+repair = "JourneyRpc sends its declared node methods to explicit HTTPS node root and hosted funding/balance methods to HTTPS gateway root; independent node authorization is optional and hosted authorization overrides cannot reach the node. The in-process urllib transport records both request and response without requiring curl. Strict loopback TLS peers assert root paths, methods, ids and credentials."
+
+[finding.smoke-signer-asset]
+proof = "test_repair_22_33_1447.py::test_TestRepairM_1447_smoke_signer_asset; test_TestRepairM_1447_funding_assertions_are_enforced"
+repair = "beta-cluster generates separate secp256k1 payment keys beside the existing Ed25519 identities, exports the EVM key and uhpx instead of the legacy asset hash, and publishes an explicit DID/EVM manifest with SDK-produced signed bind calls. The smoke parser and payment preconditions consume those outputs; funding uses the matching DID/public key and identity session, signing recovers the generated EVM address, and the real TLS node transport carries the raw transaction to the SDK decoder. Existing payment fee, balance, nonce, receipt and replay assertions remain intact."
+
+[finding.wallet-router-fixture]
+proof = "test_repair_22_33_1447.py::test_TestRepairM_1447_wallet_router_fixture"
+repair = "The real wallet journey uses a reusable TLS proxy with an explicit root endpoint and incoming/forwarded path assertions. The gate drives the actual proxy and SDK verifier with the committed native receipt transcript, accepts its signature and rejects the actual proxy's corrupted signature twice. The wallet subprocess and its executed/batched success/corruption assertions remain in the external integration; the hermetic gate does not claim to have run that binary."
+
+[wiring.native-bootstrap]
+request = "Domain 8, services/platform/hosted/tests/beta-native.sh: install both DID/EVM bindings from secrets/smoke-accounts.json using its signed bind calls at nonce zero, fund their native addresses, and restore/export the hosted smoke environment only once the real hosted adapters and HTTPS node ingress are maintained; fail on a different existing binding rather than overwrite it."
+
+[wiring.documentation]
+request = "Domain 8, services/platform/hosted/testnet/README.md: document LAYERX_TEST_SOURCE_EVM_KEY_FILE, LAYERX_TEST_ACCOUNTS_FILE and payment --node/--accounts; the existing Rust documentation contract will require these new mandatory smoke inputs to appear there."
+
+[qualification.inherited-interface]
+observed = "At the supplied base payment-journey.py::verify_sequencer_receipt imports _decode_protocol_receipt, absent from services/agent/sdk/python/layerx_sdk/verifier.py; the existing balance/receipt/replay assertions are retained and no full live payment qualification is claimed."
+assumption = "Record rather than repair the inherited receipt-decoder interface under the task rule for pre-existing failures; the declared gate proves these four repairs without substituting or disabling that verifier."
+
+[gotcha.scoped-baseline]
+observed = "The audit's older Go/baseline instructions conflict with the corrected Python gate and explicit implementation-first bounded order."
+action = "Use the corrected Python test only through hf-done; keep this note inside the authorized scope because GOTCHA.kvx and spec records may not be edited."

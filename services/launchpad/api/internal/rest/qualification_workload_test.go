@@ -14,7 +14,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -591,6 +593,9 @@ func restMeasurementReference(ctx context.Context, op restMeasurementOperation, 
 		if err != nil || len(expected) != 1 {
 			return errors.New("reference projection unavailable")
 		}
+		if op.Kind == "v2rankings" {
+			return restMeasurementRankingsReference(op.Path, body, expected[0])
+		}
 		var data map[string]json.RawMessage
 		if json.Unmarshal(actual["data"], &data) != nil || !equal(data[field], expected[0].Payload) {
 			return errors.New("projection differs from PostgreSQL reference")
@@ -627,6 +632,59 @@ func restMeasurementReference(ctx context.Context, op restMeasurementOperation, 
 	}
 	return nil
 }
+
+// restMeasurementRankingsReference derives a first snapshot from the complete
+// PostgreSQL projection. It deliberately uses the generated consumer types and
+// an independent rank ordering, never the REST writer or its limit parser.
+func restMeasurementRankingsReference(path string, body []byte, full store.PublicProjection) error {
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return err
+	}
+	query := parsed.Query()
+	if query.Get("cursor") != "" {
+		return errors.New("rankings reference requires a fresh snapshot")
+	}
+	limit := 50
+	if values, ok := query["limit"]; ok {
+		if len(values) != 1 {
+			return errors.New("rankings reference limit multiplicity")
+		}
+		limit, err = strconv.Atoi(values[0])
+		if err != nil || limit < 1 || limit > 100 {
+			return errors.New("rankings reference limit invalid")
+		}
+	}
+	expected, err := interfaces.DecodeRankingSnapshot(full.Payload)
+	if err != nil {
+		return fmt.Errorf("PostgreSQL ranking snapshot: %w", err)
+	}
+	if parsed.Path != "/v2/rankings/"+expected.Category || full.Topic != "market.rankings."+expected.Category {
+		return errors.New("ranking category differs from PostgreSQL reference")
+	}
+	sort.Slice(expected.Items, func(i, j int) bool { return expected.Items[i].Rank < expected.Items[j].Rank })
+	if len(expected.Items) > limit {
+		expected.Items = expected.Items[:limit]
+		expected.Truncated = true
+	}
+	actual, err := interfaces.DecodeRankingsResponse(body)
+	if err != nil {
+		return err
+	}
+	// Typed values retain every ranking field, including exact decimal scores.
+	if !reflect.DeepEqual(actual.Data.Snapshot, expected) {
+		return errors.New("bounded rankings differ from PostgreSQL reference")
+	}
+	var watermark interfaces.Watermark
+	if err := json.Unmarshal(full.Watermark, &watermark); err != nil {
+		return err
+	}
+	if actual.Revision == nil || string(*actual.Revision) != full.Revision || actual.Watermark == nil || !reflect.DeepEqual(*actual.Watermark, watermark) || actual.NextCursor != nil || actual.GeneratedAt != full.OccurredAt || actual.Quality != "partial" {
+		return errors.New("rankings envelope differs from PostgreSQL reference")
+	}
+	return nil
+}
+
 func restMeasurementGauge(ctx context.Context, c restMeasurementInput, client *http.Client, w *restMeasurementWriter) error {
 	bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
 	live, _, status, err := restMeasurementHTTPBound(bounded, client, c.EnvironmentURL, os.Getenv(c.EnvironmentAuthorizationEnv), 8<<20)

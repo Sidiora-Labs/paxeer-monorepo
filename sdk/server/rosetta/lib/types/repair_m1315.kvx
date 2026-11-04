@@ -1,0 +1,19 @@
+[task.22.33.1315]
+audit = "22.30.70"
+acceptance = "22998.1"
+baseline = "No unchanged-tree verification ran: the explicit implementation-first bounded gate order prohibits it; the initial runner ledger contained no previous build or verification evidence. No pre-change test failure is claimed."
+evidence = "The hf-build and hf-done runner ledger records the exact candidate revision, command, exit and private log; qualification requires hf-done passing at the build revision."
+wiring_requests = []
+
+[finding.rosetta-empty-version]
+test = "TestRepairM_1315_NetworkOptions"
+repair = "Pin SpecVersion to 1.4.10, the Rosetta API specification implemented by the installed rosetta-sdk-go v0.7.0."
+proof = "The production Rosetta client and network service produce network/list and network/options through the SDK HTTP controller, loopback transport and SDK API client; the client asserter validates both responses and explicit assertions bind the advertised specification to the installed SDK and preserve node version and operation capabilities."
+
+[gotcha.baseline-order]
+observed = "The inherited baseline verification step conflicts with the explicit implementation-first gate order."
+action = "Follow the explicit order and do not claim an unrun baseline."
+
+[gotcha.sdk-version-assertion]
+observed = "The installed SDK NetworkOptionsResponse asserter validates NodeVersion and allowed capabilities but does not validate RosettaVersion."
+action = "Assert the transported RosettaVersion equals the installed SDK RosettaAPIVersion in addition to validating the complete response with the client asserter."

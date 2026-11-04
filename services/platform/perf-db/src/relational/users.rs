@@ -1,77 +1,105 @@
-use dashmap::DashMap;
+use std::collections::HashMap;
+
+use parking_lot::RwLock;
+use thiserror::Error;
 
 use crate::core::types::User;
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum UserStoreError {
+    #[error("referral code is already assigned to another user")]
+    DuplicateReferralCode,
+}
 
 /// In-memory user store, replacing PostgreSQL `users` table.
 ///
 /// Primary key: `address: [u8; 20]`.
 /// Secondary index: `referral_code` → `address` (for referral lookups).
 ///
-/// Concurrency: DashMap provides sharded RwLock — concurrent reads/writes
-/// without external synchronization.
+/// A single lock binds each user to its current referral index entry.
 pub struct UserStore {
-    users: DashMap<[u8; 20], User>,
-    by_referral_code: DashMap<String, [u8; 20]>,
+    inner: RwLock<UserIndexes>,
+}
+
+#[derive(Default)]
+struct UserIndexes {
+    users: HashMap<[u8; 20], User>,
+    by_referral_code: HashMap<String, [u8; 20]>,
+}
+
+impl UserIndexes {
+    fn validate(&self, user: &User) -> Result<(), UserStoreError> {
+        if let Some(code) = user.referral_code.as_ref().filter(|code| !code.is_empty()) {
+            if self
+                .by_referral_code
+                .get(code)
+                .is_some_and(|owner| owner != &user.address)
+            {
+                return Err(UserStoreError::DuplicateReferralCode);
+            }
+        }
+        Ok(())
+    }
+
+    fn remove_code(&mut self, user: &User) {
+        if let Some(code) = &user.referral_code {
+            if self.by_referral_code.get(code) == Some(&user.address) {
+                self.by_referral_code.remove(code);
+            }
+        }
+    }
+
+    fn install(&mut self, user: User) {
+        if let Some(old) = self.users.remove(&user.address) {
+            self.remove_code(&old);
+        }
+        if let Some(code) = user.referral_code.as_ref().filter(|code| !code.is_empty()) {
+            self.by_referral_code.insert(code.clone(), user.address);
+        }
+        self.users.insert(user.address, user);
+    }
 }
 
 impl UserStore {
     pub fn new() -> Self {
         Self {
-            users: DashMap::new(),
-            by_referral_code: DashMap::new(),
+            inner: RwLock::new(UserIndexes::default()),
         }
     }
 
-    /// Insert or replace a user. Updates referral code index.
-    pub fn upsert(&self, user: User) {
-        let addr = user.address;
-
-        if let Some(ref code) = user.referral_code {
-            if !code.is_empty() {
-                self.by_referral_code.insert(code.clone(), addr);
-            }
-        }
-
-        self.users.insert(addr, user);
+    /// Insert or replace a user. A collision leaves the existing state intact.
+    pub fn upsert(&self, user: User) -> Result<(), UserStoreError> {
+        let mut inner = self.inner.write();
+        inner.validate(&user)?;
+        inner.install(user);
+        Ok(())
     }
 
     /// Get user by address. O(1).
     pub fn get(&self, address: &[u8; 20]) -> Option<User> {
-        self.users.get(address).map(|r| r.clone())
+        self.inner.read().users.get(address).cloned()
     }
 
-    /// Update a user in place. Returns `true` if the user exists.
-    /// Callback receives a mutable reference under the DashMap shard lock.
+    /// Update a user and its index together. Returns false for a missing user,
+    /// a referral collision or a changed primary address, without installing the update.
+    /// The callback runs under the store's write lock and must not reenter the store.
     pub fn update(&self, address: &[u8; 20], f: impl FnOnce(&mut User)) -> bool {
-        match self.users.get_mut(address) {
-            Some(mut entry) => {
-                let old_code = entry.referral_code.clone();
-                f(entry.value_mut());
-
-                let new_code = entry.referral_code.clone();
-                drop(entry);
-
-                if old_code != new_code {
-                    if let Some(old) = old_code {
-                        if !old.is_empty() {
-                            self.by_referral_code.remove(&old);
-                        }
-                    }
-                    if let Some(ref new) = new_code {
-                        if !new.is_empty() {
-                            self.by_referral_code.insert(new.clone(), *address);
-                        }
-                    }
-                }
-                true
-            }
-            None => false,
+        let mut inner = self.inner.write();
+        let Some(mut user) = inner.users.get(address).cloned() else {
+            return false;
+        };
+        f(&mut user);
+        if user.address != *address || inner.validate(&user).is_err() {
+            return false;
         }
+        inner.install(user);
+        true
     }
 
     /// Ensure a user exists. If not, create with defaults (matching PG upsert_user).
     pub fn ensure(&self, address: [u8; 20], now: u64) {
-        self.users.entry(address).or_insert_with(|| User {
+        let mut inner = self.inner.write();
+        let user = inner.users.entry(address).or_insert_with(|| User {
             address,
             vault_address: None,
             referral_code: None,
@@ -82,36 +110,34 @@ impl UserStore {
             first_trade_at: None,
             last_active_at: Some(now),
         });
-
-        if let Some(mut entry) = self.users.get_mut(&address) {
-            entry.last_active_at = Some(now);
-        }
+        user.last_active_at = Some(now);
     }
 
     /// Look up a user by referral code. O(1).
     pub fn by_referral_code(&self, code: &str) -> Option<User> {
-        let addr = self.by_referral_code.get(code)?;
-        self.get(addr.value())
+        let inner = self.inner.read();
+        let address = inner.by_referral_code.get(code)?;
+        inner.users.get(address).cloned()
     }
 
     /// Set a user's vault address.
     pub fn set_vault(&self, address: &[u8; 20], vault: [u8; 20]) {
-        if let Some(mut entry) = self.users.get_mut(address) {
-            entry.vault_address = Some(vault);
+        if let Some(user) = self.inner.write().users.get_mut(address) {
+            user.vault_address = Some(vault);
         }
     }
 
-    /// Set a user's referral code. Returns `false` if user not found.
+    /// Set a user's referral code. Returns false if missing or already owned.
     pub fn set_referral_code(&self, address: &[u8; 20], code: String) -> bool {
         self.update(address, |u| {
             u.referral_code = Some(code);
         })
     }
 
-    /// Set the referrer (referred_by). Returns `false` if user not found.
+    /// Set the referrer (referred_by). Returns false if user not found.
     pub fn set_referred_by(&self, address: &[u8; 20], referrer: [u8; 20]) -> bool {
-        if let Some(mut entry) = self.users.get_mut(address) {
-            entry.referred_by = Some(referrer);
+        if let Some(user) = self.inner.write().users.get_mut(address) {
+            user.referred_by = Some(referrer);
             true
         } else {
             false
@@ -120,44 +146,45 @@ impl UserStore {
 
     /// Count users referred by a given address.
     pub fn referral_count(&self, referrer: &[u8; 20]) -> u32 {
-        self.users
-            .iter()
-            .filter(|r| r.value().referred_by.as_ref() == Some(referrer))
+        self.inner
+            .read()
+            .users
+            .values()
+            .filter(|user| user.referred_by.as_ref() == Some(referrer))
             .count() as u32
     }
 
-    /// Remove a user. Returns the removed user.
+    /// Remove a user and only its own referral mapping.
     pub fn remove(&self, address: &[u8; 20]) -> Option<User> {
-        let (_, user) = self.users.remove(address)?;
-        if let Some(ref code) = user.referral_code {
-            if !code.is_empty() {
-                self.by_referral_code.remove(code);
-            }
-        }
+        let mut inner = self.inner.write();
+        let user = inner.users.remove(address)?;
+        inner.remove_code(&user);
         Some(user)
     }
 
     /// Total number of users.
     pub fn count(&self) -> usize {
-        self.users.len()
+        self.inner.read().users.len()
     }
 
     /// All users (for snapshots, diagnostics).
     pub fn all(&self) -> Vec<User> {
-        self.users.iter().map(|r| r.value().clone()).collect()
+        self.inner.read().users.values().cloned().collect()
     }
 
     /// Check if a user exists.
     pub fn contains(&self, address: &[u8; 20]) -> bool {
-        self.users.contains_key(address)
+        self.inner.read().users.contains_key(address)
     }
 
     /// Users created within a time range [from, to). For daily stats.
     pub fn created_between(&self, from: u64, to: u64) -> Vec<User> {
-        self.users
-            .iter()
-            .filter(|r| r.value().created_at >= from && r.value().created_at < to)
-            .map(|r| r.value().clone())
+        self.inner
+            .read()
+            .users
+            .values()
+            .filter(|user| user.created_at >= from && user.created_at < to)
+            .cloned()
             .collect()
     }
 }
@@ -195,7 +222,7 @@ mod tests {
     #[test]
     fn upsert_and_get() {
         let store = UserStore::new();
-        store.upsert(make_user(1));
+        store.upsert(make_user(1)).unwrap();
 
         let user = store.get(&addr(1)).unwrap();
         assert_eq!(user.address, addr(1));
@@ -232,7 +259,7 @@ mod tests {
     #[test]
     fn update_user() {
         let store = UserStore::new();
-        store.upsert(make_user(1));
+        store.upsert(make_user(1)).unwrap();
 
         let updated = store.update(&addr(1), |u| {
             u.tier = "silver".to_string();
@@ -256,7 +283,7 @@ mod tests {
         let store = UserStore::new();
         let mut user = make_user(1);
         user.referral_code = Some("ABC123".to_string());
-        store.upsert(user);
+        store.upsert(user).unwrap();
 
         let found = store.by_referral_code("ABC123").unwrap();
         assert_eq!(found.address, addr(1));
@@ -266,7 +293,7 @@ mod tests {
     #[test]
     fn set_referral_code() {
         let store = UserStore::new();
-        store.upsert(make_user(1));
+        store.upsert(make_user(1)).unwrap();
 
         assert!(store.set_referral_code(&addr(1), "CODE1".to_string()));
 
@@ -277,8 +304,8 @@ mod tests {
     #[test]
     fn set_referred_by() {
         let store = UserStore::new();
-        store.upsert(make_user(1));
-        store.upsert(make_user(2));
+        store.upsert(make_user(1)).unwrap();
+        store.upsert(make_user(2)).unwrap();
 
         assert!(store.set_referred_by(&addr(2), addr(1)));
 
@@ -289,19 +316,19 @@ mod tests {
     #[test]
     fn referral_count() {
         let store = UserStore::new();
-        store.upsert(make_user(1));
+        store.upsert(make_user(1)).unwrap();
 
         let mut u2 = make_user(2);
         u2.referred_by = Some(addr(1));
-        store.upsert(u2);
+        store.upsert(u2).unwrap();
 
         let mut u3 = make_user(3);
         u3.referred_by = Some(addr(1));
-        store.upsert(u3);
+        store.upsert(u3).unwrap();
 
         let mut u4 = make_user(4);
         u4.referred_by = Some(addr(2));
-        store.upsert(u4);
+        store.upsert(u4).unwrap();
 
         assert_eq!(store.referral_count(&addr(1)), 2);
         assert_eq!(store.referral_count(&addr(2)), 1);
@@ -311,7 +338,7 @@ mod tests {
     #[test]
     fn set_vault() {
         let store = UserStore::new();
-        store.upsert(make_user(1));
+        store.upsert(make_user(1)).unwrap();
         store.set_vault(&addr(1), addr(99));
 
         let user = store.get(&addr(1)).unwrap();
@@ -323,7 +350,7 @@ mod tests {
         let store = UserStore::new();
         let mut user = make_user(1);
         user.referral_code = Some("DEL1".to_string());
-        store.upsert(user);
+        store.upsert(user).unwrap();
 
         let removed = store.remove(&addr(1)).unwrap();
         assert_eq!(removed.address, addr(1));
@@ -342,16 +369,16 @@ mod tests {
         let store = UserStore::new();
         assert_eq!(store.count(), 0);
 
-        store.upsert(make_user(1));
-        store.upsert(make_user(2));
+        store.upsert(make_user(1)).unwrap();
+        store.upsert(make_user(2)).unwrap();
         assert_eq!(store.count(), 2);
     }
 
     #[test]
     fn all_users() {
         let store = UserStore::new();
-        store.upsert(make_user(1));
-        store.upsert(make_user(2));
+        store.upsert(make_user(1)).unwrap();
+        store.upsert(make_user(2)).unwrap();
         assert_eq!(store.all().len(), 2);
     }
 
@@ -359,7 +386,7 @@ mod tests {
     fn contains() {
         let store = UserStore::new();
         assert!(!store.contains(&addr(1)));
-        store.upsert(make_user(1));
+        store.upsert(make_user(1)).unwrap();
         assert!(store.contains(&addr(1)));
     }
 
@@ -372,9 +399,9 @@ mod tests {
         u2.created_at = 200;
         let mut u3 = make_user(3);
         u3.created_at = 300;
-        store.upsert(u1);
-        store.upsert(u2);
-        store.upsert(u3);
+        store.upsert(u1).unwrap();
+        store.upsert(u2).unwrap();
+        store.upsert(u3).unwrap();
 
         let range = store.created_between(100, 300);
         assert_eq!(range.len(), 2);
@@ -385,7 +412,7 @@ mod tests {
         let store = UserStore::new();
         let mut user = make_user(1);
         user.referral_code = Some("OLD".to_string());
-        store.upsert(user);
+        store.upsert(user).unwrap();
 
         assert!(store.by_referral_code("OLD").is_some());
 

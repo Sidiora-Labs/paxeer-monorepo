@@ -1,0 +1,11 @@
+[repair.22.33.908]
+audit = "22.30.19"
+feesrouter_abi_shape_coverage = "repairFeesRouterAbiShapeCoverage; webFeesRouterAbiMatchesPrecompileRole"
+quoter_abi_shape_coverage = "repairQuoterAbiShapeCoverage; webQuoterAbiMatchesPrecompileRole"
+router_abi_shape_coverage = "repairRouterAbiShapeCoverage; webRouterAbiMatchesPrecompileRole"
+proof = "The declared checks reject mutations of the real imported web ABIs; viem encodes web calls for producer decoding and producer results for web decoding, including Quoter return tuples, Router permit tuples and FeesRouter indexed logs."
+producer_artifacts = "Constructor object keys are reordered only; every ABI entry, duplicate and field value is retained."
+baseline = "Not run: the task's ordered bounded-gate instructions prohibit testing before full implementation and prohibit running verify_cmd directly; no pre-change failure is claimed."
+gotcha = "TypeScript infers absent JSON ABI properties as optional undefined; canonicalization uses the concrete producer ABI types and recursively sorted serialization rather than a handwritten JSON index signature."
+wiring_requests = []
+evidence = "The runner records the exact qualified candidate revision, command, exit and private log in its hf-build/hf-done ledger; the final response copies the last gate evidence."

@@ -18,6 +18,10 @@ import (
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
+// ErrQueryProofVerificationUnavailable refuses proof queries until an independently
+// trusted header can authenticate the response.
+var ErrQueryProofVerificationUnavailable = status.Error(codes.Unimplemented, "store query proof verification is unavailable")
+
 // GetNode returns an RPC client. If the context's client is not defined, an
 // error is returned.
 func (ctx Context) GetNode() (Client, error) {
@@ -53,7 +57,12 @@ func (ctx Context) QueryStore(key tmbytes.HexBytes, storeName string) ([]byte, i
 // the query is the RequestQuery Height if it is non-zero, otherwise the context
 // height is used.
 func (ctx Context) QueryABCI(req abci.RequestQuery) (abci.ResponseQuery, error) {
-	return ctx.queryABCI(req)
+	return ctx.QueryABCIWithContext(context.Background(), req)
+}
+
+// QueryABCIWithContext is QueryABCI with caller cancellation and deadlines.
+func (ctx Context) QueryABCIWithContext(queryCtx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
+	return ctx.queryABCI(queryCtx, req)
 }
 
 // GetFromAddress returns the from address from the context's name.
@@ -71,7 +80,7 @@ func (ctx Context) GetFromName() string {
 	return ctx.FromName
 }
 
-func (ctx Context) queryABCI(req abci.RequestQuery) (abci.ResponseQuery, error) {
+func (ctx Context) queryABCI(queryCtx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
 	node, err := ctx.GetNode()
 	if err != nil {
 		return abci.ResponseQuery{}, err
@@ -90,7 +99,7 @@ func (ctx Context) queryABCI(req abci.RequestQuery) (abci.ResponseQuery, error) 
 		Prove:  req.Prove,
 	}
 
-	result, err := node.ABCIQueryWithOptions(context.Background(), req.Path, req.Data, opts)
+	result, err := node.ABCIQueryWithOptions(queryCtx, req.Path, req.Data, opts)
 	if err != nil {
 		return abci.ResponseQuery{}, err
 	}
@@ -99,12 +108,12 @@ func (ctx Context) queryABCI(req abci.RequestQuery) (abci.ResponseQuery, error) 
 		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
 	}
 
-	// data from trusted node or subspace query doesn't need verification
+	// Queries without store proofs retain the trusted-node behavior.
 	if !opts.Prove || !isQueryStoreWithProof(req.Path) {
 		return result.Response, nil
 	}
 
-	return result.Response, nil
+	return abci.ResponseQuery{}, ErrQueryProofVerificationUnavailable
 }
 
 func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
@@ -124,7 +133,7 @@ func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
 // and path. It returns the result and height of the query upon success
 // or an error if the query fails.
 func (ctx Context) query(path string, key tmbytes.HexBytes) ([]byte, int64, error) {
-	resp, err := ctx.queryABCI(abci.RequestQuery{
+	resp, err := ctx.QueryABCI(abci.RequestQuery{
 		Path:   path,
 		Data:   key,
 		Height: ctx.Height,

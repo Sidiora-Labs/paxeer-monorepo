@@ -31,368 +31,211 @@ API reads from all 4, WebSocket proxies DragonflyDB pub/sub.
 
 ## PerfDB: Unified Architecture
 
-PerfDB replaces all four with a single embedded Rust database engine optimized for this exact workload.
+`PerfDb` in `src/engine.rs` is an embedded library coordinating the stores below.
+`src/main.rs` provides a command-line inspector. The legacy database names above
+explain the workload; the implemented components and formats are described here.
 
-### Design Principles
+### Stores and access paths
 
-1. **Single process, zero network hops** — embedded library, not a separate server
-2. **Hot/warm/cold tiering** — in-memory for real-time, mmap for recent, disk for archive
-3. **Append-only time-series core** — ticks and events are immutable once written
-4. **Pre-computed aggregations** — candles built in-process, not via external SAMPLE BY
-5. **Lock-free hot path** — concurrent readers never block writers
-6. **WAL for durability** — survives crashes without losing acknowledged writes
-7. **Built-in pub/sub** — no external Redis needed for streaming
-8. **Native Rust types** — no JSON serialization on the hot path
-
-### Storage Engines (by access pattern)
-
-```
-PerfDB
-├── TimeSeriesEngine        ← replaces QuestDB
-│   ├── TickStore           (mmap append-only, per-market files)
-│   ├── CandleStore         (fixed-record, per-market-per-timeframe)
-│   └── FundingStore        (append-only funding rate history)
-│
-├── StateEngine             ← replaces DragonflyDB
-│   ├── PositionTable       (in-memory HashMap, WAL-backed)
-│   ├── OrderTable          (in-memory HashMap + sorted sets for orderbook)
-│   ├── MarketState         (prices, funding rates, OI — atomic updates)
-│   ├── BalanceCache        (per-user-per-token balances)
-│   └── PubSubBus           (in-process broadcast channels)
-│
-├── RelationalEngine        ← replaces PostgreSQL
-│   ├── UserStore           (B-tree indexed by address)
-│   ├── TraderStatsStore    (in-memory with periodic flush)
-│   ├── DailyStatsStore     (date-partitioned)
-│   ├── ReferralStore       (relational lookups)
-│   ├── CompetitionStore    (small dataset, in-memory)
-│   └── CheckpointStore     (singleton, WAL-backed)
-│
-└── EventLogEngine          ← replaces ScyllaDB
-    ├── EventsByMarket      (append-only, partitioned by market_id)
-    ├── EventsByTrader      (append-only, partitioned by trader address)
-    └── TradeLog            (append-only, dual-indexed)
-```
-
-### Data Type Mapping
-
-| Current DB | Current Table/Key | PerfDB Engine | Storage |
-|---|---|---|---|
-| QuestDB | `price_ticks` | TimeSeriesEngine::TickStore | mmap append-only, 24B/tick |
-| QuestDB | `candles_history` | TimeSeriesEngine::CandleStore | mmap fixed-record, 48B/candle |
-| QuestDB | `funding_ticks` | TimeSeriesEngine::FundingStore | mmap append-only |
-| QuestDB | `trade_volume` | TimeSeriesEngine (computed) | aggregated from EventLog |
-| Dragonfly | `position:{id}` | StateEngine::PositionTable | in-memory + WAL |
-| Dragonfly | `order:{id}` | StateEngine::OrderTable | in-memory + WAL |
-| Dragonfly | `orderbook:{mid}:{side}` | StateEngine::OrderTable (sorted index) | in-memory |
-| Dragonfly | `price:latest:{mid}` | StateEngine::MarketState | atomic in-memory |
-| Dragonfly | `funding:rate:{mid}` | StateEngine::MarketState | atomic in-memory |
-| Dragonfly | `user:balance:*` | StateEngine::BalanceCache | in-memory + WAL |
-| Dragonfly | `user:positions:*` | StateEngine::PositionTable (index) | in-memory |
-| Dragonfly | `user:orders:*` | StateEngine::OrderTable (index) | in-memory |
-| Dragonfly | `markets:active` | StateEngine::MarketState | in-memory |
-| Dragonfly | pub/sub `stream:*` | StateEngine::PubSubBus | tokio::broadcast |
-| PostgreSQL | `users` | RelationalEngine::UserStore | mmap B-tree |
-| PostgreSQL | `trader_stats` | RelationalEngine::TraderStatsStore | in-memory + periodic flush |
-| PostgreSQL | `trader_daily_stats` | RelationalEngine::DailyStatsStore | date-partitioned files |
-| PostgreSQL | `market_daily_stats` | RelationalEngine::DailyStatsStore | date-partitioned files |
-| PostgreSQL | `protocol_daily_stats` | RelationalEngine::DailyStatsStore | date-partitioned files |
-| PostgreSQL | `positions` | RelationalEngine (+ StateEngine) | WAL-backed + index files |
-| PostgreSQL | `orders` | RelationalEngine (+ StateEngine) | WAL-backed + index files |
-| PostgreSQL | `markets` | StateEngine::MarketState | in-memory + WAL |
-| PostgreSQL | `referral_*` | RelationalEngine::ReferralStore | file-backed |
-| PostgreSQL | `competitions` | RelationalEngine::CompetitionStore | in-memory |
-| PostgreSQL | `indexer_state` | RelationalEngine::CheckpointStore | WAL singleton |
-| PostgreSQL | `mv_leaderboard_*` | Computed in-memory (no mat views) | sorted vec, rebuilt on schedule |
-| ScyllaDB | `events_by_market` | EventLogEngine::EventsByMarket | append-only partitioned files |
-| ScyllaDB | `events_by_trader` | EventLogEngine::EventsByTrader | append-only partitioned files |
-| ScyllaDB | `trades_by_user` | EventLogEngine::TradeLog | append-only, user-indexed |
-| ScyllaDB | `trades_by_market` | EventLogEngine::TradeLog | append-only, market-indexed |
-| ScyllaDB | `funding_history` | TimeSeriesEngine::FundingStore | append-only |
-
-### Record Layouts (binary, no serde overhead on hot path)
-
-```
-PriceTick (24 bytes):
-  timestamp_ns: u64    // nanosecond precision
-  market_id:    u16    // up to 65k markets
-  price:        f64    // IEEE 754
-  _pad:         [u8;6] // alignment
-
-Candle (48 bytes):
-  timestamp_ns: u64
-  market_id:    u16
-  timeframe:    u8     // enum index
-  _pad:         [u8;5]
-  open:         f64
-  high:         f64
-  low:          f64
-  close:        f64
-  volume:       f64    // not available on all sources; 0.0 if unknown
-
-Position (heap, WAL-serialized):
-  position_id:       [u8; 32]   // hex string as bytes
-  user_address:      [u8; 20]   // raw address bytes
-  market_id:         u16
-  is_long:           bool
-  size_usd:          i128       // fixed-point 18 decimals
-  collateral_usd:    i128
-  collateral_token:  [u8; 20]
-  collateral_amount: i128
-  entry_price:       i128
-  exit_price:        Option<i128>
-  realized_pnl:      Option<i128>
-  leverage:          i128
-  status:            u8         // 0=open, 1=closed, 2=liquidated
-  open_tx:           [u8; 32]
-  close_tx:          Option<[u8; 32]>
-  open_block:        u64
-  close_block:       Option<u64>
-  opened_at:         u64        // unix seconds
-  closed_at:         Option<u64>
-```
-
-### Timeframes (15 total, expanded from current 11)
-
-```
-1s, 5s, 15s, 30s       ← new sub-minute (for scalpers)
-1m, 2m, 3m, 5m, 15m, 30m
-1h, 2h, 4h, 8h         ← 2h is new
-1D, 1W
-```
-
-### Memory Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│                   HOT TIER (RAM)                │
-│                                                 │
-│  MarketState[18]     ~2 KB   (prices, OI, etc) │
-│  PositionTable       ~50 KB  (open positions)   │
-│  OrderTable          ~30 KB  (active orders)    │
-│  BalanceCache        ~20 KB  (user balances)    │
-│  TraderStats         ~500 KB (all traders)      │
-│  CandleBuffers       ~150 KB (18 mkts x 15 tf) │
-│  LeaderboardCache    ~50 KB  (top 500)          │
-│  PubSubBus           ~0      (channels only)    │
-├─────────────────────────────────────────────────┤
-│                  WARM TIER (mmap)               │
-│                                                 │
-│  TickStore           OS page cache handles it   │
-│  CandleStore         recent candles stay mapped │
-│  EventLog            recent events              │
-│  WAL                 always mmap'd              │
-├─────────────────────────────────────────────────┤
-│                  COLD TIER (disk)               │
-│                                                 │
-│  Archived ticks      (older than 30 days)       │
-│  Archived events     (older than 90 days)       │
-│  Daily stats files   (all time)                 │
-│  Historical positions/orders (closed)           │
-└─────────────────────────────────────────────────┘
-```
-
-Total hot RAM: **< 1 MB** for current dataset. Scales linearly with active users/markets.
-
-### Concurrency Model
-
-```
-Writers (single logical writer per engine):
-  Indexer   ──> WAL ──> StateEngine + RelationalEngine + EventLog
-  PriceFeed ──> WAL ──> TimeSeriesEngine (lock-free append)
-
-Readers (unlimited concurrent, lock-free):
-  API routes  ──> read snapshots from any engine
-  WebSocket   ──> PubSubBus (tokio::broadcast, zero-copy)
-  Background  ──> DailyStats aggregation, leaderboard rebuild
-```
-
-- **TickStore**: lock-free append via atomic file length counter + mmap
-- **StateEngine**: `DashMap` for concurrent read/write (sharded RwLock)
-- **CandleStore**: single writer (price feed), readers use mmap snapshots
-- **WAL**: single writer, readers never touch it (only for crash recovery)
-
-### Durability & Recovery
-
-```
-Write Path:
-  1. Write to WAL (fsync configurable: every N ms or every write)
-  2. Apply to in-memory state
-  3. Acknowledge to caller
-  4. Background: compact WAL segments periodically
-
-Recovery:
-  1. Load base snapshots from disk
-  2. Replay WAL from last checkpoint
-  3. Rebuild in-memory indexes
-  4. Resume normal operation
-```
-
-### Pub/Sub (replaces DragonflyDB pub/sub)
-
-```rust
-// Channels (matching current DragonflyDB stream:* channels):
-pub enum Channel {
-    Prices,        // stream:prices
-    Positions,     // stream:positions
-    Orders,        // stream:orders
-    Trades,        // stream:trades
-    Liquidations,  // stream:liquidations
-    Funding,       // stream:funding
-    Balances,      // stream:balances
-}
-```
-
-Uses `tokio::broadcast` channels internally. The API WebSocket handler subscribes
-directly — no Redis client needed. Zero serialization on publish (subscribers get
-typed enum variants, serialize to JSON only at the WS boundary).
-
----
-
-## Project Structure
-
-```
-perf-db/
-├── Cargo.toml
-├── ARCHITECTURE.md          ← this file
-├── src/
-│   ├── lib.rs               # PerfDB public API (the crate interface)
-│   ├── main.rs              # Optional standalone server binary
-│   │
-│   ├── core/
-│   │   ├── mod.rs
-│   │   ├── types.rs          # PriceTick, Candle, Position, Order, Trade, Event, User, etc.
-│   │   ├── market.rs         # MarketId, MarketInfo, constants
-│   │   └── timeframe.rs      # Timeframe enum (15 variants) + duration math
-│   │
-│   ├── storage/
-│   │   ├── mod.rs
-│   │   ├── wal.rs            # Write-ahead log (append-only, segment-based)
-│   │   ├── mmap.rs           # Memory-mapped file abstraction (read/append/truncate)
-│   │   ├── tick_store.rs     # Per-market append-only tick files
-│   │   ├── candle_store.rs   # Per-market-per-timeframe fixed-record candle files
-│   │   ├── event_store.rs    # Partitioned append-only event log
-│   │   └── snapshot.rs       # Periodic state snapshots for fast recovery
-│   │
-│   ├── state/
-│   │   ├── mod.rs
-│   │   ├── positions.rs      # In-memory position table with indexes
-│   │   ├── orders.rs         # In-memory order table + orderbook sorted sets
-│   │   ├── market_state.rs   # Latest prices, funding rates, OI (atomic)
-│   │   ├── balances.rs       # Per-user-per-token balance cache
-│   │   └── pubsub.rs         # In-process broadcast pub/sub bus
-│   │
-│   ├── aggregation/
-│   │   ├── mod.rs
-│   │   ├── candle_builder.rs # Real-time tick → candle for all 15 timeframes
-│   │   ├── stats.rs          # Trader stats, daily stats, protocol stats
-│   │   └── leaderboard.rs    # Periodic leaderboard computation (replaces mat views)
-│   │
-│   ├── query/
-│   │   ├── mod.rs
-│   │   ├── time_range.rs     # Tick/candle range queries with binary search
-│   │   ├── position_query.rs # Filter by user/market/status with pagination
-│   │   ├── trade_query.rs    # Trade history by user or market
-│   │   └── event_query.rs    # Event log queries
-│   │
-│   ├── relational/
-│   │   ├── mod.rs
-│   │   ├── users.rs          # User store (address → User)
-│   │   ├── referrals.rs      # Referral code lookups, tier computation
-│   │   ├── competitions.rs   # Competition entries
-│   │   ├── alerts.rs         # User alerts
-│   │   ├── api_keys.rs       # API key store
-│   │   └── checkpoint.rs     # Indexer state (singleton)
-│   │
-│   └── engine.rs             # Top-level PerfDB engine (coordinates all sub-engines)
-│
-├── benches/
-│   ├── tick_ingestion.rs     # Benchmark: tick write throughput
-│   ├── candle_query.rs       # Benchmark: candle range queries
-│   └── position_lookup.rs    # Benchmark: position by user
-│
-└── tests/
-    ├── integration.rs        # Full engine lifecycle tests
-    └── recovery.rs           # WAL crash recovery tests
-```
-
----
-
-## Implementation Plan
-
-### Phase 1: Foundation (core + storage primitives)
-1. `Cargo.toml` with dependencies
-2. `core/types.rs` — all data types (binary-serializable)
-3. `core/timeframe.rs` — 15 timeframes with duration math
-4. `core/market.rs` — market ID constants and metadata
-5. `storage/mmap.rs` — memory-mapped file abstraction
-6. `storage/wal.rs` — write-ahead log with segment rotation
-
-### Phase 2: Time-Series Engine
-7. `storage/tick_store.rs` — per-market append-only tick storage
-8. `storage/candle_store.rs` — pre-computed candle storage
-9. `aggregation/candle_builder.rs` — real-time tick → candle for 15 TFs
-10. `query/time_range.rs` — binary search range queries on ticks and candles
-
-### Phase 3: State Engine (replaces DragonflyDB)
-11. `state/market_state.rs` — atomic price/funding/OI state
-12. `state/positions.rs` — in-memory position table with user/market indexes
-13. `state/orders.rs` — order table + sorted orderbook sets
-14. `state/balances.rs` — user balance cache
-15. `state/pubsub.rs` — broadcast channel bus
-
-### Phase 4: Relational + Event Log (replaces PostgreSQL + ScyllaDB)
-16. `relational/users.rs` — user store with B-tree index
-17. `relational/referrals.rs` — referral logic
-18. `relational/checkpoint.rs` — indexer state
-19. `storage/event_store.rs` — dual-partitioned event log
-20. `aggregation/stats.rs` — trader stats, daily stats
-21. `aggregation/leaderboard.rs` — in-memory leaderboard
-
-### Phase 5: Engine Coordinator + Public API
-22. `engine.rs` — top-level coordinator wiring all engines
-23. `lib.rs` — public `PerfDB` struct with clean API surface
-24. `storage/snapshot.rs` — periodic snapshots for fast recovery
-
-### Phase 6: Integration + Benchmarks
-25. Integration tests: full write/read lifecycle
-26. Recovery tests: WAL replay after simulated crash
-27. Benchmarks: tick ingestion, candle queries, position lookups
-28. Migration guide: how to swap PerfDB into the existing services
-
----
-
-## Performance Targets
-
-| Operation | Target | Current (estimated) |
+| Workload | Component | Representation and persistence |
 |---|---|---|
-| Tick ingestion | > 2M ticks/sec | ~10K/sec (QuestDB ILP over TCP) |
-| Latest price read | < 100ns | ~500us (Redis GET over TCP) |
-| Candle query (1000 bars) | < 50us | ~5ms (QuestDB PG wire) |
-| Position lookup by ID | < 200ns | ~300us (Redis GET over TCP) |
-| Position list by user | < 1us | ~2ms (Redis SMEMBERS + N GETs) |
-| Orderbook snapshot | < 500ns | ~1ms (Redis ZRANGEBYSCORE) |
-| Pub/sub publish | < 100ns | ~200us (Redis PUBLISH over TCP) |
-| WAL write + fsync | < 10us | N/A (no unified WAL currently) |
-| Full recovery (100M ticks) | < 5s | N/A |
+| Price ticks | `TickStore` | Per-market mmap files of `PriceTick`; WAL-backed ingestion |
+| OHLCV candles | `CandleStore`, `CandleBuilder` | Per-market/per-timeframe mmap records; live buckets in memory |
+| Latest prices, funding, open interest | `MarketStateTable` | Atomic price reads and locked market metadata |
+| Positions | `PositionTable` | In-memory records and user/market indexes under a read/write lock |
+| Orders and orderbooks | `OrderTable` | In-memory records, secondary indexes and sorted price levels under a read/write lock |
+| Balances | `BalanceCache` | Sharded concurrent map |
+| Users and indexer progress | `UserStore`, `CheckpointStore` | In-memory state restored by engine snapshots and event replay |
+| Trader and daily statistics | `TraderStatsStore`, `DailyStatsStore` | In-memory aggregates included in engine snapshots |
+| Leaderboards | `Leaderboard` | In-memory ranking rebuilt by `rebuild_leaderboard` |
+| Referrals, competitions, alerts, API keys | `ReferralEngine`, `CompetitionStore`, `AlertStore`, `ApiKeyStore` | In-memory stores captured in engine snapshots; `storage/relational.rs` also exposes a separate durable relational coordinator |
+| Events and funding settlements | `EventStore` | In-memory global log and market/trader indexes rebuilt from snapshot event ledger and WAL; funding settlement records kept by market |
+| Streaming | `PubSubBus` | Typed `tokio::broadcast` messages on Prices, Positions, Orders, Trades, Liquidations, Funding and Balances channels |
 
----
+Applications call `ingest_tick` or `process_event`. The engine appends a WAL
+entry, applies it to the stores, and publishes typed messages. Event identity
+and canonical block-slot checks reject conflicting redelivery; identical
+redelivery is idempotent. Funding history is represented by indexed events and
+funding state in `EventStore` and `MarketStateTable`.
 
-## Migration Strategy
+### Record layouts
 
-PerfDB will be an **embedded library crate**. The existing services link against it:
+`src/core/types.rs` is the source of truth. `PriceTick` and `CandleRecord` are
+`#[repr(C)]` and implement `bytemuck::Pod`; mmap payloads contain their native
+memory representation, including explicit padding. Multi-byte fields use native
+endianness. These records are distinct from the bincode WAL representation.
 
-```rust
-// In services/shared/Cargo.toml:
-[dependencies]
-perfdb = { path = "../perfdb" }
+| Record | Field | Type | Offset | Bytes |
+|---|---|---|---|---|
+| PriceTick | timestamp_ns | u64 | 0 | 8 |
+| PriceTick | market_id | u16 | 8 | 2 |
+| PriceTick | _pad | [u8; 6] | 10 | 6 |
+| PriceTick | price | f64 | 16 | 8 |
+| CandleRecord | timestamp_ns | u64 | 0 | 8 |
+| CandleRecord | open | f64 | 8 | 8 |
+| CandleRecord | high | f64 | 16 | 8 |
+| CandleRecord | low | f64 | 24 | 8 |
+| CandleRecord | close | f64 | 32 | 8 |
+| CandleRecord | volume | f32 | 40 | 4 |
+| CandleRecord | market_id | u16 | 44 | 2 |
+| CandleRecord | timeframe | u8 | 46 | 1 |
+| CandleRecord | _pad | u8 | 47 | 1 |
 
-// In indexer/main.rs — replaces 4 separate DB connections:
-let db = PerfDB::open("/data/perfdb")?;
+`PriceTick` is 24 bytes, aligned to 8 bytes. `CandleRecord` is 48 bytes, aligned
+to 8 bytes. Timestamps are nanoseconds; a candle timestamp is its bucket start.
+`timeframe` is the enum index below. Price-feed candles have zero volume because
+ticks contain only prices. `volume` is `f32` to keep candles at 48 bytes.
+
+Each mmap file starts with an 8-byte little-endian logical payload length.
+Records begin immediately after that header; allocated capacity can exceed the
+logical length. New files initially allocate 4 MiB and grow as needed.
+`TickStore` uses `ticks/market_0000.tick` for BTC (market 0) and
+`ticks/market_0001.tick` for ETH (market 1). `CandleStore` uses
+`candles/m0000_tf00.candle` for BTC/Sec1 and `candles/m0000_tf15.candle` for BTC/Week1.
+
+`Position`, `Order`, `Trade`, `IndexedEvent`, users and statistics are heap
+values serialized with serde/bincode for WAL entries or snapshots, rather than
+fixed mmap record layouts. `FixedI128` is an `i128` with 18 decimal places.
+`Position.status` is `PositionStatus` (Open, Closed, Liquidated), serialized by
+serde; its Rust enum discriminants alone do not specify its bincode encoding.
+
+### Timeframes (16 total)
+
+`src/core/timeframe.rs` declares `Timeframe::ALL` in storage-index order.
+Buckets align to Unix epoch multiples of their duration; weekly buckets start
+on Thursday at 00:00 UTC.
+
+| Index | Variant | Text | Seconds |
+|---|---|---|---|
+| 0 | Sec1 | 1s | 1 |
+| 1 | Sec5 | 5s | 5 |
+| 2 | Sec15 | 15s | 15 |
+| 3 | Sec30 | 30s | 30 |
+| 4 | Min1 | 1m | 60 |
+| 5 | Min2 | 2m | 120 |
+| 6 | Min3 | 3m | 180 |
+| 7 | Min5 | 5m | 300 |
+| 8 | Min15 | 15m | 900 |
+| 9 | Min30 | 30m | 1800 |
+| 10 | Hour1 | 1h | 3600 |
+| 11 | Hour2 | 2h | 7200 |
+| 12 | Hour4 | 4h | 14400 |
+| 13 | Hour8 | 8h | 28800 |
+| 14 | Day1 | 1D | 86400 |
+| 15 | Week1 | 1W | 604800 |
+
+`CandleBuilder` keeps one live bucket per market/timeframe (18 × 16 slots).
+It emits `Live` updates for active buckets and `Closed` records when a later
+bucket starts. The engine upserts closed candles; shutdown also upserts live
+buckets. Earlier buckets cannot be changed by late ticks in the builder.
+The tick store rejects timestamps older than that market's last stored tick;
+equal timestamps preserve arrival order.
+
+### Concurrency and memory
+
+A writable `PerfDb::open` holds a filesystem writer lease for the database
+lifetime. Mutations are serialized by the engine mutation mutex; tick storage,
+candle storage, the candle builder and WAL writer have mutexes. Engine tick and
+candle reads return copied vectors. Position and order tables use read/write
+locks, and other state stores use sharded maps or locks. Latest price reads use
+atomics. Pub/sub receivers can lag and lose older messages when their bounded
+broadcast queue fills.
+
+Tick and candle records are mmap-backed; state tables, event indexes, statistics,
+live candles and broadcast queues occupy RAM. Memory use grows with retained
+records. Archival, retention scheduling and background compaction require an
+embedding application to arrange them.
+
+### WAL, durability and recovery
+
+`storage/wal.rs` implements `WalWriter` with a 64 KiB `BufWriter<File>`.
+Segments are named `wal/wal_00000000.bin`, `wal/wal_00000001.bin`, and so on.
+The default rotation threshold is 64 MiB; rotation syncs the old segment and
+creates the next one.
+
+Each WAL frame is `[len: u32 LE][crc32: u32 LE][payload: len bytes]`.
+The payload is the complete bincode-serialized `WalEntry`, including its enum
+discriminant. CRC32 covers the payload only; there is no separate type byte.
+`WalEntry` variants are IndexedEvent, PriceTick, CandleUpdate, BalanceUpdate,
+Checkpoint and BatchEnd. PriceTick WAL entries contain timestamp, market and
+price, without the mmap record's padding.
+
+`SyncPolicy::EveryWrite` flushes and calls `sync_data` after each append.
+`SyncPolicy::Interval(Duration)` checks elapsed time on append and syncs when
+due; the default interval is 10 ms. `SyncPolicy::None` leaves syncing to explicit
+calls, rotation and the OS. An append acknowledged under Interval or None can be
+lost on a crash before sync; there is no background timer in `WalWriter`.
+Applications can call `sync_wal()` at batch boundaries. It syncs WAL and mmap
+stores and atomically publishes the tick recovery checkpoint.
+
+Writable startup loads the latest usable engine snapshot and recovery cursors,
+opens and validates stores, rewinds uncommitted tick/candle suffixes, restores
+in-memory tables and indexes, validates/repairs a damaged final WAL append, and
+replays entries after the applicable cursors. Snapshot positions use segment and
+byte offset, preserving order within a block. Corruption before a later valid
+record or segment is rejected. Recovery rebuilds event indexes and candle state.
+
+`snapshot()` persists the tick checkpoint and atomically publishes the engine
+snapshot under `snapshots/`. `shutdown()` upserts live candles, flushes candle
+storage, persists the tick checkpoint (including WAL sync), and writes a final
+engine snapshot. The embedding application chooses when to invoke these methods.
+Dropping the `PerfDb` releases the writer lease.
+
+### Executable lifecycle
+
+The `perfdb` binary parses one subcommand, opens the database, executes the
+command, and exits. Query commands call `PerfDb::open_read_only`, which requires
+an existing data directory, reads the committed tick prefix, and recovers
+snapshot/WAL state privately in memory without repairing or creating files.
+It can inspect a database while its writer is active. `snapshot` calls
+`PerfDb::open` and needs the exclusive writer lease. The binary provides these
+commands:
+
+| Command | Purpose |
+|---|---|
+| info | Record counts and storage sizes |
+| markets | Registered markets and status |
+| prices | Latest prices, optionally for one market |
+| ticks | Recent market ticks |
+| candles | Recent candles for a market and timeframe |
+| positions | Positions filtered by user, market, ID or open status |
+| orders | Orders filtered by user, ID or active status |
+| orderbook | Market price levels |
+| balances | User balances |
+| user | User profile and referrals |
+| stats | Trader statistics |
+| daily | Trader daily history |
+| leaderboard | PnL or volume rankings |
+| events | Events filtered by market or trader |
+| checkpoint | Indexer progress |
+| snapshot | Persist a state snapshot |
+
+For example, from this crate directory after an application has created `./data`:
+
+```bash
+cargo run -- --data-dir ./data info
+cargo run -- --data-dir ./data --json candles BTC 15m --last 10
+cargo run -- --data-dir ./data snapshot
 ```
 
-The migration is incremental:
-1. **Phase A**: Add PerfDB as a write-through mirror (writes go to PerfDB + existing DBs)
-2. **Phase B**: Switch reads from existing DBs to PerfDB, one endpoint at a time
-3. **Phase C**: Remove old DB writes once PerfDB reads are validated
-4. **Phase D**: Remove old DB dependencies entirely
+### Source map
+
+| Source | Responsibility |
+|---|---|
+| `src/lib.rs`, `src/engine.rs` | Public `PerfDb` / `PerfDbConfig` API and engine coordination |
+| `src/main.rs`, `src/formatting.rs` | CLI and fixed-point display |
+| `src/core/types.rs`, `src/core/market.rs`, `src/core/timeframe.rs` | Types, 18-market registry and 16 timeframes |
+| `src/storage/mmap.rs`, `src/storage/tick_store.rs`, `src/storage/candle_store.rs` | Mmap records and typed stores |
+| `src/storage/wal.rs`, `src/storage/writer_lease.rs` | WAL codecs, recovery and writer ownership |
+| `src/storage/snapshot.rs`, `src/storage/relational.rs` | Snapshot publication and durable relational coordinator |
+| `src/storage/event_store.rs` | Global, market and trader event indexes |
+| `src/state/positions.rs`, `src/state/orders.rs`, `src/state/market_state.rs`, `src/state/balances.rs`, `src/state/pubsub.rs` | Concurrent state tables and broadcast channels |
+| `src/aggregation/candle_builder.rs`, `src/aggregation/stats.rs`, `src/aggregation/leaderboard.rs` | Candle, statistics and ranking computation |
+| `src/query/time_range.rs` | Binary-search tick and candle ranges |
+| `src/relational/users.rs`, `src/relational/referrals.rs`, `src/relational/competitions.rs`, `src/relational/alerts.rs`, `src/relational/api_keys.rs`, `src/relational/checkpoint.rs` | In-memory relational stores |
+| `tests/integration.rs`, `tests/recovery.rs` | Engine lifecycle and recovery coverage |
+| `benches/tick_ingestion.rs`, `benches/candle_query.rs`, `benches/position_lookup.rs`, `benches/price_read.rs` | Criterion benchmarks |
+
+Embedding services supply ingestion, scheduling and network APIs around `PerfDb`.
+Use `PerfDb::open(PerfDbConfig::new(path))` to open a writer; integration with
+other services remains the responsibility of their owners.

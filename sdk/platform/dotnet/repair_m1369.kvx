@@ -1,0 +1,50 @@
+[task]
+id = "22.33.1369"
+audit = "22.30.75"
+base = "ccd003394e03ec2e54bf3c38d1e6242ca25bd572"
+status = "Implementation recorded before bounded qualification; evidence limits below remain explicit."
+evidence = "The terminating hf-done JSON and private /out/run/gates.jsonl name the exact built and verified candidate revision, command, exit code and log. This record is part of that candidate and makes no claim that a C# runtime or native host gate ran."
+baseline = "Initial git status and diff contained only runner-owned .cgignore and task-start spec changes; /out/run/gates.jsonl did not exist and the runner reported builds_used=0 and verify_runs_used=0. No baseline test failures are claimed: the explicit Order prohibits tests before complete implementation and verification outside hf-done, conflicting with step 7's unchanged-tree run."
+qualification = "The declared Go gate runs the real production EIP-1559 signer/recovery, ABI encoder/decoder, receipt codec and signature verifier against committed node receipt evidence, over actual root-path loopback HTTP, and checks the C# test members that consume the same evidence. Source checks establish C# wiring only; they do not execute the .NET SDK."
+
+[finding.programs-contract-tests-stale]
+test = "TestRepairM_1369_programs_contract_tests_stale"
+repair = "ProgramsContractTests.PendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity uses the recorded EVM transaction hash and public native receipt transport; RecordedProgramsSubmissionAuthenticatesReceiptAndRetainedTransaction submits and reads the real producer's signed transaction and receipt and preserves exact receipt, return-data, digest and retained-transaction bytes. NativeSignedFixturesPreserveCanonicalCallBindings uses a genuine deterministic secp256k1 transaction signer and public SubmitAsync, including pending, expected identity, fee, response-capacity, supported-ABI and legacy-envelope refusals. NativeLifecycleFixturesPreserveSignedBindingAcrossNamedAbiPolicies signs EIP-1559 deploy and upgrade transactions and rejects substituted ABI policies and legacy kernel envelopes."
+legacy = "Historical kernel authorization, occupancy, terminal and signed-discovery codec assertions remain enabled; none is used as evidence for the repaired native producer/transport scenarios. The repaired call and lifecycle scenarios no longer invoke Encode or DecodeSignedCall by reflection."
+evidence-limit = "The Go proof reconstructs the genuine producer transaction through the production ABI and executes a real signer/recovery path, then checks the C# public scenarios and signer wiring. Execution of those C# scenarios remains the explicit runtime wiring request below."
+
+[finding.programs-evm-producer-gap]
+test = "TestRepairM_1369_programs_evm_producer_gap"
+repair = "ProgramsEvmTests uses POST / for simulation, discovery and upgrade submission. ProgramSimulateDecodesRecordedNativeProducerOutput replays the actual Programs call returnData from the node corpus through the native SDK transport and compares status, terminal kind, the full response and original ABI bytes; the original disconnected-request refusal remains. ProgramSimulateRefusesMalformedNativeOutput covers truncation, offsets, lengths, padding, terminal kinds and signed-result widths. Discovery reads three canonical native ABI output vectors and compares lifecycle, program identity, version, ABI, code hash and the honest pending-eth-call verification level, retaining every prior invalid-status and malformed-length refusal. Upgrade submission now signs with real ECDSA and retains its prepared-fee and unknown-outcome assertions."
+provenance = "repair-m1369-recorded-call.json contains only fields extracted from the genuine V1-layerxprograms-call EVM transaction. The Go gate reconstructs and compares every calldata byte with the original signed transaction. repair-m1369-discovery-abi.json contains codec conformance vectors, whose every byte is reproduced by the production ABI encoder during the gate; it is not represented as a recording from a node. The simulation peer reuses actual call output because the producer's call and simulateCall share the terminal ABI; this is consumer decoding evidence, not native simulation execution evidence."
+evidence-limit = "A real native host simulation and stateful lifecycle discovery have not executed in this Go-only gate. Full node/precompile producer closure requires the native transcript wiring request below; codec vectors alone do not close that native-host proof."
+
+[finding.receipt-positive-vector-count]
+test = "TestRepairM_1369_receipt_positive_vector_count"
+repair = "SequencerReceiptTests pins all five names in order and verifies every existing positive case. The Programs case checks its 0x101D ProgramCallOutcome topic, indexed program, full 13-word log shape, nonempty returnData and refusal after outcome-log tampering. Existing key selection, exact-height boundaries, V3 re-signing, V2 revert and every V3 refusal remain enabled. The Go proof authenticates all five producer receipts with the real receipt verifier, binds their actual EVM transaction hashes, rejects modified signatures and substituted pins, and decodes the authenticated Programs outcome with the production event ABI."
+
+[wiring.native-producer]
+request = "precompiles/layerxprograms/{method_simulate.go,view_registry.go,view_winddown.go} and modules/lxphost, owning domain 13 native Programs: publish node-produced root eth_call simulation and active/deprecated/tombstoned discovery transcripts with deployment and lifecycle state provenance so these C# peers can replace codec-only discovery vectors and call-output simulation replay without requiring the native host artifact in the Go gate."
+
+[wiring.dotnet-runtime]
+request = "spec/layerx-merge/spec.kvx, owning domain 8 platform SDK: resolve the task's Go-only/no-subprocess contract versus its requirement to execute production C#; qualify sdk/platform/dotnet/tests/LayerX.Sdk.Tests in an explicitly authorized .NET runtime gate before claiming C# compilation or full repair closure."
+
+[gotcha.scope]
+observed = "The task scope excludes spec/ and GOTCHA.kvx; baseline conflicts, wiring requests and implementation notes are recorded here, preserving runner-owned setup changes."
+
+[gotcha.signatures]
+observed = "A structurally valid EIP-1559 RLP list with r=s=1 does not prove a signer. RepairM1369Native.Sign generates and verifies real low-S ECDSA and recovers the public key to derive its parity; legacy signed_activity_hex encodes a kernel envelope and cannot be used as an EVM signed transaction."
+
+[gotcha.qualification]
+observed = "go build compiles the Go package only. A Go gate with producer-codec execution and C# member checks does not prove C# compilation, .NET consumer execution or native-host simulation; these limits are never promoted to a node or runtime claim."
+
+[gotcha.format]
+observed = "No C# formatter is configured in this repository and dotnet is absent in this Go sandbox. C# changes follow existing four-space source style; the Go proof is formatted with gofmt only after implementation is complete."
+
+[qualification.first-run]
+revision = "fd8bdf067142a6cac69dc5f132d2c72bd291e218"
+command = "cg spec done 22.33.1369 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The contract and EVM proofs passed. The receipt proof incorrectly compared entire corpus files; the node recorder wrapper contains extra summary and provenance fields, while every complete case matches the SDK corpus."
+repair = "Compare all fields of every complete case using lossless JSON numbers and exact embedded byte strings; preserve all five signature, transaction-hash, log, key-height and tampering assertions. No fixture, production code or existing C# assertion changed."

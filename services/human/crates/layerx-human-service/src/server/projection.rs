@@ -18,14 +18,8 @@ impl super::HumanComponentServer {
     }
 }
 
-pub(super) fn verification(rank: u8) -> Result<&'static str, ApiFailure> {
-    let rung = match rank {
-        0..=1 => Rung::Submitted,
-        2..=3 => Rung::Receipted,
-        4 => Rung::Committed,
-        _ => return Err(ApiFailure::upstream_degraded()),
-    };
-    Ok(super::HumanComponentServer::verification_level_name(rung))
+pub(super) fn verification(rung: Rung) -> &'static str {
+    super::HumanComponentServer::verification_level_name(rung)
 }
 
 pub(super) fn hex(bytes: &[u8]) -> String {
@@ -110,7 +104,7 @@ pub(super) fn managed_evidence(value: &ManagedAgentEvidence) -> Result<Value, Ap
         return Err(ApiFailure::upstream_degraded());
     }
     Ok(
-        json!({"evidence_id":format!("evd_{}",hex(&digest)),"class":"layerx-receipt","verification":verification(value.verification)?}),
+        json!({"evidence_id":format!("evd_{}",hex(&digest)),"class":"layerx-receipt","verification":verification(value.verification)}),
     )
 }
 
@@ -127,7 +121,7 @@ pub(super) fn managed_agent(value: &ManagedAgentView) -> Result<Value, ApiFailur
     Ok(
         json!({"agent_id":value.agent_id,"name":value.name,"purpose":value.purpose,"state":state,"state_copy_key":format!("agent.state.{state}"),
         "limit":{"monthly":{"amount":value.monthly_limit.to_string(),"currency":value.currency},"enforcement":enforcement,"enforcement_copy_key":if value.limit_enforcement==0 {"agent.limit.protocol-backed"} else {"agent.limit.app-enforced"}},
-        "spend":{"period_start":native_time(&value.period_start)?,"period_end":native_time(&value.period_end)?,"spent":{"amount":value.spent.to_string(),"currency":value.currency},"remaining":{"amount":value.remaining.to_string(),"currency":value.currency},"verification":verification(value.spend_verification)?},
+        "spend":{"period_start":native_time(&value.period_start)?,"period_end":native_time(&value.period_end)?,"spent":{"amount":value.spent.to_string(),"currency":value.currency},"remaining":{"amount":value.remaining.to_string(),"currency":value.currency},"verification":verification(value.spend_verification)},
         "created_at":native_time(&value.created_at)?,"updated_at":native_time(&value.updated_at)?,"evidence":value.evidence.iter().map(managed_evidence).collect::<Result<Vec<_>,_>>()?}),
     )
 }
@@ -135,7 +129,7 @@ pub(super) fn managed_agent(value: &ManagedAgentView) -> Result<Value, ApiFailur
 pub(super) fn managed_export(value: &ManagedReceiptExport) -> Result<Value, ApiFailure> {
     use base64::Engine as _;
     Ok(
-        json!({"evidence_id":format!("evd_{}",hex(&value.digest)),"class":"layerx-receipt","verification":verification(value.verification)?,"content_type":"application/vnd.layerx.receipt","bytes_base64":base64::engine::general_purpose::STANDARD.encode(&value.canonical_bytes)}),
+        json!({"evidence_id":format!("evd_{}",hex(&value.digest)),"class":"layerx-receipt","verification":verification(value.verification),"content_type":"application/vnd.layerx.receipt","bytes_base64":base64::engine::general_purpose::STANDARD.encode(&value.canonical_bytes)}),
     )
 }
 

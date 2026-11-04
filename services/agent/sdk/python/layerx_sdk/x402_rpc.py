@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from urllib.error import URLError
 
 from .account_derivation import keccak256
-from .evm_transaction import decode_signed
+from .evm_transaction import decode_signed_transaction
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason, raise_for_receipt_status
 from .verifier import ReceiptKey, SequencerReceiptVerificationError
@@ -263,7 +263,7 @@ def verify_rpc_payment(
     expected_hash = _transaction_bytes(expected_tx_hash, 32)
     payer = _transaction_bytes(expected_payer, 32)
     payment_commitment({"layerx": {"commitment": commitment}})
-    decode_signed(raw_transaction)
+    decode_signed_transaction(raw_transaction)
     if expected_hash != keccak256(raw_transaction):
         raise ValueError("transaction-hash-mismatch")
     result = _sequencer_result(result, expected_hash)

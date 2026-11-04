@@ -1,0 +1,70 @@
+[repair.22.33.1008]
+audit = "22.30.35"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+source_attempt_base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+mode = "BUILD"
+initial_state = "Only runner-owned .cgignore and task-start spec changes existed; /out/run/gates.jsonl did not exist and gate.json reported zero build and verify runs."
+baseline = "No TestRepairM_1008_ tests existed on the unchanged tree. No baseline result is claimed: the explicit ordered gate instructions prohibit verification before implementation and prohibit running verify_cmd by hand."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; hf-done supplies the declared graph and focused behavior evidence."
+
+[finding.7]
+test = "TestRepairM_1008_CursorParity"
+repair = "The shared rankings parser rejects nonempty cursors with HTTP 400 CURSOR_INVALID before either profile reads its store; all eight categories preserve the generated Error envelope and headers."
+
+[finding.13]
+test = "TestRepairM_1008_ChainAdmissionAndReadiness"
+supporting_test = "TestRepairM_1008_RealCreationAndRestart"
+repair = "API development startup admits only eth_chainId 0x7d; readiness and reads recheck real RPC identity and invalidate cached positions on refusal. Metadata DevelopmentReceipts requires ChainID, and startup, media_rpc readiness, cached token and published-document reads call CheckChain."
+proof = "Real in-process geth nodes run on 125 and 1337. A loopback hop switches between their unmodified responses; wrong-chain startup, readiness, reads and warm-cache creation reads refuse the mismatched node. Existing simulated producers now execute and sign on 125."
+
+[finding.9]
+test = "TestRepairM_1008_RealCreationAndRestart"
+repair = "dev_market_test.go executes the real archived EventEmitter UUPS proxy and implementation on chain 125, initializes its authority and calls its generated EmitMarketCreated binding. Both code hashes match the reviewed deployment, and the generated event decoder asserts all seven actual event inputs. The production API chain lookup, document renderer, HTTP transport and generated Go PoolListResponse decoder retain exact creation coordinates and raw amounts after a stopped/reopened consumer."
+fixture = "testdata/repair_m1008_emitter.json contains unchanged eth_chainId, proxy code, implementation code and implementation-slot replies from the committed indexer chainfixture archive at its original block hash; no event or receipt is manufactured. The indexed-row peer is a disk fixture; it is not an indexer implementation or a claim of indexer durability."
+
+[finding.10]
+test = "TestRepairM_1008_RankingsReference"
+repair = "The measurement harness passes the complete PostgreSQL PublicProjection into an independent generated-consumer oracle that orders by rank, applies default/custom limits and preserves upstream truncation. It compares every retained ranking field plus watermark, revision, generatedAt, quality and null nextCursor. The bounded proof uses a 75-entry projection, seven limits, exact scores beyond float precision and individual field-corruption refusals."
+proof_limit = "The focused gate supplies a validated in-memory complete projection as the database peer; the existing measurement harness still obtains the complete input from AccountingReadModel.PublicProjections on PostgreSQL. No PostgreSQL process or credentials are required by this gate."
+
+[finding.12]
+test = "TestRepairM_1008_ServiceContracts"
+repair = "contracts/services.md restores maintained launchpad-api and launchpad-metadata anchors, frozen schemas, route/auth/error contracts, search errors, media visibility and publication recovery. The proof resolves authority links and drives a real unavailable search proxy through the generated Error decoder."
+
+[wiring.api-readiness]
+request = "services/launchpad/api/internal/app/app.go, owner domain 4 launchpad API: pass BindChainReadiness when registering development market reads and register its returned check in the application's readiness dependencies; startup and every market read already enforce the binding here."
+
+[wiring.indexer-creation]
+request = "services/launchpad/indexer/internal/processor/creation_test.go and internal/processor/legacy.go, owner domain 22 launchpad indexer: run this authentic EventEmitter creation receipt through the real internal decoder/processor and durable indexed-row store, then reopen it and drive API pool detail/list plus generated SDK consumers; Go internal-package visibility and the API task's scope prevent wiring that processor into this gate."
+
+[wiring.metadata-proof]
+request = "services/launchpad/metadata/internal/metadata/dev_v2_test.go and internal/app/app_test.go, owner domain 4 launchpad metadata: run the same real wrong-node/endpoint-switch proof against DevelopmentV2Reads.CheckChain, cached/published reads and media_rpc readiness; those internal packages cannot be imported from the API test module."
+
+[continuation]
+review = "Preserved the thirteen seeded repair paths and prior qualification evidence; runner-owned .cgignore and spec task-start changes remain untouched."
+repair = "The base now supplies developmentChainReceipts as the metadata receipt peer; app.go forwards its real client's ChainID so it satisfies DevelopmentReceipts without bypassing receipt admission. The authentic EventEmitter proof also checks its seventh input, timestamp, against the mined block header."
+qualification = "Only hf-build and hf-done may run qualification. The recorded workspace manifest mismatch is outside scope; no manifest edit, workspace override or gate bypass is authorized."
+
+[gotcha.graph]
+observed = "The Codify graph is stale and cg files/grep misses present launchpad sources; targeted filesystem reads locate the real packages."
+
+[gotcha.fixture-chain]
+observed = "Existing simulated development producers defaulted to signing domain 1337 while consumer positions claimed 125."
+repair = "Clone the simulated genesis chain configuration, set its actual ChainID to 125 and sign its transactions on 125; never rewrite eth_chainId responses."
+
+[qualification.workspace-blocker]
+revision = "cbce9e326b074d2686ff8cd23f56cc525d3634bd"
+command = "cd services/launchpad/api && go build ./internal/rest/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Before compiling REST, Go refuses the pre-existing workspace: services/launchpad/notifications requires Go 1.27.0 but services/launchpad/go.work declares 1.25.0; both manifests are outside this task's scope."
+assumption = "The launchpad workspace owner repairs the manifest/toolchain agreement; this task does not rerun or bypass the recorded unrelated failure and claims no build or verification pass."
+resolved = "Prerequisite 22.31.461 is done on continuation base 117197c811684e097104c96b29e872d45034cebb; services/launchpad/go.work now declares Go 1.27.0. The current attempt qualifies the preserved repairs with the shared workspace enabled."
+
+[qualification.creation-authority]
+revision = "295d9bcc44021d38a0bff1eb9acf4bc13cfa2855"
+command = "cg spec done 22.33.1008 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four focused cases passed; the creation case reverted because the archived EventEmitter requires selector-specific authority in addition to the generic whitelist."
+repair = "Grant emitMarketCreated permission through the real SetTypedEmitter admin transaction; assert the runtime's exact single four-topic MarketCreated log and emitter, and retain its actual index in the existing REST fixture and restart proof."
