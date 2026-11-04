@@ -3927,6 +3927,7 @@ dependencies = [
  "anyhow",
  "async-recursion",
  "async-trait",
+ "config",
  "ethabi",
  "futures",
  "hex",

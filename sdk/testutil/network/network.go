@@ -2,6 +2,7 @@ package network
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
@@ -20,9 +22,12 @@ import (
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/gofrs/flock"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 	"google.golang.org/grpc"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/tx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
@@ -42,6 +47,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/genutil"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
+	storageconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 )
 
 // package-wide lock (in-process) + file lock (cross-process) so that
@@ -58,7 +64,38 @@ type AppConstructor = func(val Validator) servertypes.Application
 // NewAppConstructor returns a new simapp AppConstructor
 func NewAppConstructor(t *testing.T, encodingCfg params.EncodingConfig) AppConstructor {
 	return func(val Validator) servertypes.Application {
-		return app.Setup(t, false, false, false)
+		t.Helper()
+		tmpl, err := template.New("network-app").Parse(srvconfig.DefaultConfigTemplate +
+			storageconfig.StateCommitConfigTemplate + storageconfig.StateStoreConfigTemplate)
+		require.NoError(t, err)
+		var rendered bytes.Buffer
+		require.NoError(t, tmpl.Execute(&rendered, val.AppConfig))
+		opts := viper.New()
+		opts.SetConfigType("toml")
+		require.NoError(t, opts.ReadConfig(&rendered))
+		opts.Set("home", val.Dir)
+		opts.Set("chain-id", val.ClientCtx.ChainID)
+		opts.Set("evm.http_enabled", false)
+		opts.Set("evm.ws_enabled", false)
+		opts.Set(server.FlagPruning, val.AppConfig.Pruning)
+		opts.Set(server.FlagPruningKeepRecent, val.AppConfig.PruningKeepRecent)
+		opts.Set(server.FlagPruningKeepEvery, val.AppConfig.PruningKeepEvery)
+		opts.Set(server.FlagPruningInterval, val.AppConfig.PruningInterval)
+		pruning, err := server.GetPruningOptionsFromFlags(opts)
+		require.NoError(t, err)
+		db, err := dbm.NewDB("application", dbm.BackendType(val.Ctx.Config.DBBackend), filepath.Join(val.Dir, "data"))
+		require.NoError(t, err)
+		return app.New(db, nil, true, map[int64]bool{}, val.Dir, 0, false,
+			val.Ctx.Config, encodingCfg, nil, opts, app.EmptyWasmOpts, nil,
+			baseapp.SetPruning(pruning),
+			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices),
+			baseapp.SetHaltHeight(val.AppConfig.HaltHeight),
+			baseapp.SetHaltTime(val.AppConfig.HaltTime),
+			baseapp.SetMinRetainBlocks(val.AppConfig.MinRetainBlocks),
+			baseapp.SetIndexEvents(val.AppConfig.IndexEvents),
+			baseapp.SetCompactionInterval(val.AppConfig.CompactionInterval),
+			baseapp.SetConcurrencyWorkers(val.AppConfig.ConcurrencyWorkers),
+			baseapp.SetOccEnabled(val.AppConfig.OccEnabled))
 	}
 }
 
@@ -160,6 +197,7 @@ type (
 		GoCtx      context.Context
 
 		tmNode   tmservice.Service
+		app      servertypes.Application
 		api      *api.Server
 		grpc     *grpc.Server
 		grpcWeb  *http.Server
@@ -501,6 +539,9 @@ func (n *Network) Cleanup() {
 			if v.grpcWeb != nil {
 				_ = v.grpcWeb.Close()
 			}
+		}
+		if v.app != nil {
+			require.NoError(n.T, v.app.Close())
 		}
 	}
 

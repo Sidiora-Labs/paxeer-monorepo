@@ -575,6 +575,8 @@ func TestExpeditedProposalPassAndConvertToRegular(t *testing.T) {
 			require.Equal(t, types.StatusRejected, proposal.Status)
 		})
 	}
+
+	t.Run("minority vote survives committed restart and regular tally", repairM679ConversionRestart)
 }
 
 func TestEndBlockerProposalHandlerFailed(t *testing.T) {

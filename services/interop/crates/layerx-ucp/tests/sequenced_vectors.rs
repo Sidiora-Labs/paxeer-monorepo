@@ -1,4 +1,4 @@
-use ed25519_dalek::{Signer as _, SigningKey};
+use ed25519_dalek::SigningKey;
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
 use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::gateway::TranslationStatus;
@@ -10,15 +10,17 @@ use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_ucp::{
     ucp_adapter_descriptor, CheckoutOutcome, CheckoutStatus, CheckoutSubmission,
-    ExecutedUcpPayment, MerchantProfile, NegotiatedCapabilities, OrderMetadata, PaymentHandler,
-    PlatformProfile, StoredOrder, UcpAdapter, UcpError, UcpIdempotencyKey, UcpOrder,
-    UCP_CHECKOUT_SPEC_SHA256,
+    ExecutedUcpPayment, MerchantCurrencyBinding, MerchantProfile, NegotiatedCapabilities,
+    OrderMetadata, PaymentHandler, PlatformProfile, StoredOrder, UcpAdapter, UcpError,
+    UcpIdempotencyKey, UcpOrder, UcpServiceConfig, UCP_CHECKOUT_SPEC_SHA256,
 };
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 
-const VECTORS: &str = include_str!("../../../specs/conformance/ucp/sequenced-order.json");
+const VECTORS: &str = include_str!("fixtures/sequenced-order.json");
 const RECORDED: &str =
+    include_str!("../../../../../sdk/platform/conformance/fixtures/ucp-checkout-receipt-v1.json");
+const NEGATIVE_RECORDED: &str =
     include_str!("../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
 
 fn string<'a>(value: &'a Value, key: &str) -> &'a str {
@@ -219,78 +221,38 @@ fn payment_exact_words(case: &Value) -> [[u8; 32]; 3] {
 
 fn assert_payment_derivation(vector: &Value, source: &Value, submission: &CheckoutSubmission) {
     let name = string(vector, "name");
-    let mut expected_logs = source["receiptJson"]["logs"].clone();
-    let recorded_topics: Vec<u8> = expected_logs[0]["topics"]
-        .as_array()
-        .unwrap_or_else(|| panic!("{name}: recorded topics"))
-        .iter()
-        .flat_map(hex)
-        .collect();
     let [reference, from, to] = payment_exact_words(source);
-    let topic_hex = |word: [u8; 32]| {
-        format!(
-            "0x{}",
-            word.iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect::<String>()
-        )
-    };
-    expected_logs[0]["topics"] = serde_json::json!([
-        expected_logs[0]["topics"][0],
-        topic_hex(reference),
-        topic_hex(from),
-        topic_hex(to),
-    ]);
-    let gateway_key = submission.idempotency_key.gateway_key();
-    assert_ne!(
-        reference, gateway_key,
-        "{name}: replace the recorded reference"
-    );
-    expected_logs[0]["topics"][1] = Value::String(format!(
-        "0x{}",
-        gateway_key
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    ));
-    assert_eq!(
-        vector["evidence"]["logs"], expected_logs,
-        "{name}: derived logs"
-    );
-
-    let recorded = hex(&source["signedReceipt"]);
-    let mut unsigned = recorded[..recorded.len() - 69].to_vec();
-    let offsets: Vec<usize> = unsigned
-        .windows(recorded_topics.len())
-        .enumerate()
-        .filter_map(|(offset, bytes)| (bytes == recorded_topics).then_some(offset))
-        .collect();
-    assert_eq!(offsets.len(), 1, "{name}: one signed payment log");
-    let native_topics: Vec<u8> = expected_logs[0]["topics"]
-        .as_array()
-        .unwrap_or_else(|| panic!("{name}: native topics"))
-        .iter()
-        .flat_map(hex)
-        .collect();
-    unsigned[offsets[0]..offsets[0] + recorded_topics.len()].copy_from_slice(&native_topics);
-    let mut digest = Sha256::new();
-    digest.update(b"LXP/v1/receipt\0");
-    digest.update(&unsigned);
-    digest.update([0]);
     let signer = SigningKey::from_bytes(&array(&vector["testReceiptKeySeed"]));
     assert_eq!(
         signer.verifying_key().to_bytes(),
         array(&vector["pinnedKey"]["publicKey"]),
         "{name}: published test receipt key"
     );
-    let signature = signer.sign(&digest.finalize()).to_bytes();
-    unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
-    unsigned.extend_from_slice(&signature);
     assert_eq!(
-        hex(&vector["signedReceipt"]),
-        unsigned,
-        "{name}: re-signed receipt"
+        reference,
+        submission.idempotency_key.gateway_key(),
+        "{name}: native transaction must contain the checkout gateway key"
     );
+    assert_eq!(
+        vector["rawTransaction"], source["rawTransaction"],
+        "{name}: unchanged producer transaction"
+    );
+    assert_eq!(
+        vector["evidence"]["logs"], source["receiptJson"]["logs"],
+        "{name}: unchanged producer logs"
+    );
+    assert_eq!(
+        vector["signedReceipt"], source["signedReceipt"],
+        "{name}: unchanged producer receipt and signature"
+    );
+    let topics = &source["receiptJson"]["logs"][0]["topics"];
+    assert_eq!(
+        array::<32>(&topics[1]),
+        reference,
+        "{name}: producer reference"
+    );
+    assert_eq!(array::<32>(&topics[2]), from, "{name}: producer payer");
+    assert_eq!(array::<32>(&topics[3]), to, "{name}: producer recipient");
 }
 
 #[test]
@@ -299,6 +261,8 @@ fn ucp_sequenced_order_vectors_replay() {
         .unwrap_or_else(|error| panic!("sequenced order vectors: {error}"));
     let recorded: Value =
         serde_json::from_str(RECORDED).unwrap_or_else(|error| panic!("recorded receipts: {error}"));
+    let negative_recorded: Value = serde_json::from_str(NEGATIVE_RECORDED)
+        .unwrap_or_else(|error| panic!("negative recorded receipts: {error}"));
     assert_eq!(
         vectors
             .iter()
@@ -312,7 +276,12 @@ fn ucp_sequenced_order_vectors_replay() {
     let mut failures = Vec::new();
     for vector in &vectors {
         let name = string(vector, "name");
-        let source = recorded["cases"]
+        let recording = if name == "tampered_log" {
+            &negative_recorded
+        } else {
+            &recorded
+        };
+        let source = recording["cases"]
             .as_array()
             .unwrap_or_else(|| panic!("missing recorded cases"))
             .iter()
@@ -322,6 +291,10 @@ fn ucp_sequenced_order_vectors_replay() {
             assert_eq!(vector[field], source[field], "{name}: recorded {field}");
         }
         let submission = submission(&vector["checkout"]);
+        let config = UcpServiceConfig::new(
+            MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 6)
+                .unwrap(),
+        );
         if name == "tampered_log" {
             assert_eq!(vector["signedReceipt"], source["signedReceipt"]);
             assert_eq!(vector["evidence"]["logs"], source["receiptJson"]["logs"]);
@@ -378,7 +351,7 @@ fn ucp_sequenced_order_vectors_replay() {
                 &mut gateway,
                 &principal,
                 &submission,
-                &mut payment,
+                &mut config.bind_plane(&mut payment),
                 &keys,
                 &trace,
                 now,
@@ -395,7 +368,10 @@ fn ucp_sequenced_order_vectors_replay() {
             }
             if let Ok(outcome) = &actual {
                 if let Some(stored) = &outcome.stored_order {
-                    assert_eq!(UcpAdapter::read_order(stored, &keys).ok(), outcome.order);
+                    assert_eq!(
+                        UcpAdapter::read_order_with_config(stored, &keys, &config).ok(),
+                        outcome.order
+                    );
                     assert_eq!(
                         gateway.translation(&principal, submission.idempotency_key.gateway_key()),
                         Some(TranslationStatus::ReceiptVerified {

@@ -24,8 +24,10 @@ staking state.
 
 Basic validation requires a proposer, valid non-negative coins, unpackable
 content, a registered proposal type, and successful `Content.ValidateBasic()`.
-An empty initial coin list is valid. Title and description are fields of the
-content, not fields of this message.
+An empty initial coin list is valid. The message's `is_expedited` selects the
+keeper lifecycle independently of an expedited field inside the packed content;
+clients should set both consistently when that content has such a field. Title
+and description are fields of the content, not fields of this message.
 
 `SubmitProposalWithExpedite` checks for a handler for `Content.ProposalRoute()`.
 For `ParameterChangeProposal`, it also checks that the named parameter subspaces
@@ -58,6 +60,13 @@ is not rejected by this validation.
 the depositor to the `gov` module account, increases `TotalDeposit`, and creates
 or increases that account's deposit record. A transfer failure, including
 insufficient funds, returns an error.
+
+Activation uses cumulative contributions from all depositors. With the
+constructor defaults, an expedited submission with no initial coins remains in
+deposit status after a `10000000uhpx` contribution; another `10000000uhpx` starts
+its 24-hour expedited voting period. The first depositor need not contribute the
+whole minimum. Repeated contributions by one depositor accumulate in that
+account's record.
 
 While still in deposit status, meeting `MinDeposit` (or `MinExpeditedDeposit`)
 activates voting. Further deposits during voting do not restart the voting
