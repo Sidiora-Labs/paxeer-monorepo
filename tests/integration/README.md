@@ -1,80 +1,137 @@
 # Integration Test Framework
-YAML-driven integration tests for the Paxeer X chain (`paxd`). Each test case runs shell commands inside
-the local four-node docker cluster and checks their output with simple verifiers.
+
+YAML-driven integration tests for `paxd`. Commands run sequentially in a local
+Docker cluster and verifiers check their captured output. The Python and Go
+drivers consume the same YAML files, but their expression evaluators differ.
+
+Paxeer mainnet-beta is one BFT network, with the kernel participating in block
+proposal. A receipt is final when its block is committed. Its EVM chain ID is
+125 (`0x7d`). Public JSON-RPC uses the root URL of the node hosts
+`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`, for
+example `https://api1.mainnet-beta.paxeer.network/`. The commands below target a
+disposable local cluster; local genesis settings can differ from mainnet.
+
+Related suites:
+
+- [dApp scenarios](dapp_tests/README.md): EVM, CosmWasm and pointer interactions.
+- [EVM RPC fixtures](evm_module/rpc_io_test/RPC_IO_README.md): `.io` / `.iox` response-kind checks.
+- [RPC parity suite](rpc_tests/README.md): TypeScript assertions against a local geth reference.
 
 ## Getting Started
-These instructions will help you set up the integration test framework
-on your local machine for development and testing purposes.
 
 ### Prerequisites
-- An up-to-date Python 3.x
-- Pyyaml install (pip3 install pyyaml)
-- Docker and docker compose installed and running
+
+- Docker and Docker Compose, with the daemon running.
+- Python 3 and PyYAML for the Python driver (`python3 -m pip install pyyaml`).
+- The repository's Go toolchain and native dependencies for the Go driver.
 
 ### Usage
-1. Start the local cluster from the repo root: `make docker-cluster-start` (add `DOCKER_DETACH=true` to run it in the background)
-2. Execute a test by passing the path to a test YAML file (from repo root), e.g.:
-   ```bash
-   python3 tests/integration/scripts/runner.py tests/integration/startup/startup_test.yaml
-   ```
-   To run other tests, use paths under `tests/integration/` such as `tests/integration/bank_module/send_funds_test.yaml`.
 
-## Writing Tests
-Each integration test is defined in a YAML file under its specific module folder under the tests/integration directory
+From the repository root, start the local four-node cluster:
 
-There's a template yaml file which you can copy from to start with: [template](template/template_test.yaml)
-
-A typical yaml test case would look like this:
-```yaml
-- name: <Replace with test description>
-  inputs:
-    # Add comments for what this command is doing
-    - cmd: <Replace with bash command>
-      env: <Add if you want to store the output as an env variable>
-      node: <Optional, default is pax-node-0>
-    # Add comments for what this command is doing
-    - cmd: <Replace with bash command>
-      env: RESULT
-  verifiers:
-    # Add comments for what should the expected result
-    - type: eval
-      expr: <Replace with a valid python eval>
-    - type: regex
-      result: RESULT
-      expr: <Replace with regular expression>
+```bash
+DOCKER_DETACH=true make docker-cluster-start
 ```
 
-One simple example for verify chain is started and running fine:
+Run a YAML file through the [Python driver](scripts/runner.py):
+
+```bash
+python3 tests/integration/scripts/runner.py tests/integration/startup/startup_test.yaml
+```
+
+Or run a registered suite through the [Go driver](runner/runner.go):
+
+```bash
+go test -tags yaml_integration -v ./tests/integration/runner/... -run '^TestBankModule$'
+```
+
+[suites.go](runner/suites.go) lists suite names and YAML files in execution order.
+The Go integration wrappers require the `yaml_integration` build tag. Some
+suites need additional infrastructure: `TestStateSync` requires `pax-rpc-node`,
+provided by `make run-rpc-node-integration-ci`. Upgrade YAML files are driven
+separately through Python by the upgrade workflow.
+
+## Writing Tests
+
+Each file is a YAML list of cases. The [template](template/template_test.yaml)
+shows the field layout; use the common expression subset below rather than its
+unrestricted Python-eval placeholder.
+
 ```yaml
-- name: Test number of validators should be equal to 4
+- name: Validator count is four
   inputs:
-    # Query num of validators
-    - cmd: paxd q tendermint-validator-set |grep address |wc -l
+    - cmd: paxd q tendermint-validator-set | grep address | wc -l
       env: RESULT
   verifiers:
-  - type: eval
-    expr: RESULT == 4
+    - type: eval
+      expr: RESULT == 4
+    - type: regex
+      result: RESULT
+      expr: '^4$'
 ```
 
 ### Explanation
 
-| field_name | required | description                                                                                                                                   |
-|------------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| name       | Yes      | Defines the purpose of the test case .                                                                                                        |
-| inputs     | Yes      | Contains a list of command inputs to run one by one.                                                                                          |
-| cmd        | Yes      | Exact paxd or bash command to run.                                                                                                            |
-| env        | No       | If given, the command output will be persisted to this env variable, which can be referenced by all below commands                            |
-| node       | No       | If given, the command will be executed on a specific container, default to pax-node-0                                                         |
-| verifiers  | Yes      | Contains a list of verify functions to check correctness                                                                                      |
-| type       | Yes      | Currently support either `eval` or `regex`.                                                                                                   |
-| result     | regex    | The env variable whose value the regex is matched against                                                                                     |
-| expr       | Yes      | If type is eval, then the format is `[env] > \| == \| != \| >= \| > \| <= \| < [number]` <br/> If type is regex, then provide a valid regular expression. |
+| Field | Required | Meaning |
+| ----- | -------- | ------- |
+| `name` | Yes | Case name; becomes a named Go subtest. |
+| `inputs` | Yes | Commands executed in list order. |
+| `cmd` | Yes | Shell command inside the chosen container. |
+| `env` | No | Capture trimmed stdout under this name for later inputs and verifiers in this case. |
+| `node` | No | Container name; defaults to `pax-node-0` in both drivers. |
+| `verifiers` | Yes | Checks evaluated after the inputs finish. |
+| `type` | Yes | `eval` or `regex`. |
+| `result` | For `regex` | Captured output name to match. |
+| `expr` | Yes | Comparison expression or regular expression. |
+
+### Expression rules shared by both drivers
+
+For portable `eval` checks, use one comparison per verifier:
+
+```text
+operand operator operand
+```
+
+Separate every token with spaces. Operators are `==`, `!=`, `>`, `<`, `>=`
+and `<=`; operands can be captured names or canonical decimal integers
+(without leading zeroes except `0`). For simple string
+equality, use a captured single-token value and a double-quoted literal, such as
+`STATUS == "ready"`. Keep output containing quotes, backslashes or multiple
+lines out of `eval`; extract a simple value with `jq` or use `regex` instead.
+
+The evaluators are not interchangeable:
+
+- Python substitutes whitespace-delimited captured names and calls Python
+  `eval`. Values parseable as numbers are inserted unquoted; other values are
+  wrapped in double quotes without escaping. Python syntax and precedence apply.
+- Go tokenizes comparisons by whitespace. It compares decimal integers with
+  `big.Int`, then tries floating point, then string comparison. Integer
+  arithmetic supports `+`, `-`, `*`, `/` and evaluates left to right; division
+  is integer division. Python uses normal arithmetic precedence and `/` returns
+  a floating-point value.
+- Go splits on ` and ` before ` or `, giving `or` tighter binding in mixed
+  expressions. Python gives `and` tighter binding. For example,
+  `1 == 1 or 1 == 2 and 1 == 2` evaluates differently. Go does not implement
+  Python calls, indexing, general parentheses or chained comparisons.
+
+Use separate verifiers for conjunctions and compute arithmetic in the command
+when sharing a file between drivers. Avoid relying on either evaluator's wider
+grammar.
+
+For `regex`, Python uses `re.match` (start of output), while Go uses
+`regexp.MatchString` (anywhere in output). Anchor shared patterns with `^` and
+`$` and use syntax supported by both; Go does not support Python lookaround or
+backreferences.
 
 ### Notes & Tips
-There are some tricks and tips you should know when adding a new test case:
-1. Try to avoid using single quote `'` in your command as much as possible, use `"` to replace whenever possible
-2. Sometimes you need to escape `"` and make it `\"`
-3. Use jq expressions to simplify the output and make your verification logic easier
-4. Commands run one by one, each wrapped in `docker exec <node> /bin/bash -c '...'`
-5. The chain keeps running and is stateful, so some tests might not be idempotent which is fine
-6. You can define more than one verifier and each one check a different env
+
+1. Captures are reset for each case and passed to later commands as environment
+   variables; they are not global across cases.
+2. Python builds a shell string with single-quoted command and environment
+   values. Avoid embedded single quotes in commands and captured output. Go
+   passes Docker arguments directly, but the command still runs in a shell.
+3. Both drivers capture stdout and trim surrounding whitespace. A nonzero
+   command exit alone does not fail a case; capture and verify the intended
+   response or exit status explicitly. Go reports command exits in its log.
+4. Tests mutate a running chain and may not be idempotent. Preserve suite order
+   and use fresh local state when a scenario requires it.

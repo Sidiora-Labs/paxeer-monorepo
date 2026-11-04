@@ -192,6 +192,7 @@ impl OnboardingJourney {
         pending.account_sequence = runtime
             .account_sequence(&context.actor, &context.authority)
             .map_err(|_| OnboardingError::InvalidAgentContext)?;
+        pending.pending_nonce = pending.account_sequence;
         self.prepare_agent_action(scope, registry, agent, &pending, now)
     }
 
@@ -497,12 +498,16 @@ fn retain_native_outcome(
     result: i32,
     now: u64,
 ) -> Result<(), OnboardingError> {
+    if evidence.rung != Rung::Committed {
+        return Err(OnboardingError::EvidenceConflict);
+    }
     let digest: [u8; 32] = Sha256::digest(&evidence.receipt_bytes).into();
     if record.receipt_digest.is_some_and(|old| old != digest)
         || record
             .activity_id
             .is_some_and(|old| old != evidence.activity_id)
         || record.state == ProtocolState::Refused && record.refusal_code != Some(result)
+        || record.receipt_digest.is_some() && record.refusal_code != (result != 0).then_some(result)
     {
         return Err(OnboardingError::EvidenceConflict);
     }
@@ -515,10 +520,11 @@ fn retain_native_outcome(
     put_exact(scope, row, now, evidence.receipt_bytes.clone())?;
     record.unavailable = None;
     record.submission_ref = Some(hex(&evidence.activity_id));
+    record.receipt_digest = Some(digest);
+    record.activity_id = Some(evidence.activity_id);
+    record.evidence_rung = Some(evidence.rung.wire_rank());
     if result == 0 {
         record.state = ProtocolState::Verified;
-        record.receipt_digest = Some(digest);
-        record.activity_id = Some(evidence.activity_id);
         record.refusal_code = None;
     } else {
         record.state = ProtocolState::Refused;

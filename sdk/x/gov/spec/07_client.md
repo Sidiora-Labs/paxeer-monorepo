@@ -4,1057 +4,435 @@ order: 7
 
 # Client
 
+Governance queries and transactions use `paxd` and the
+`cosmos.gov.v1beta1` services implemented in this tree. Paxeer accounts use the
+`pax` Bech32 prefix and the base denomination is `uhpx`, as configured in
+[`node/params/config.go`](../../../../node/params/config.go).
+
+Paxeer mainnet-beta is one BFT network whose kernel proposes blocks as part of
+the network. A receipt is final when its block is committed. Its public EVM
+JSON-RPC uses chain ID `125` (`0x7d`) and the root path of
+`https://api1.mainnet-beta.paxeer.network/` through
+`https://api14.mainnet-beta.paxeer.network/`, and
+`https://api-mainnet-beta.paxeer.network/`. The Cosmos CLI, gRPC and REST examples
+below require the corresponding node services; these public EVM URLs do not
+establish that those services are exposed there.
+
 ## CLI
 
-A user can query and interact with the `gov` module using the CLI.
+Use a node configured for the intended network and a local key, here named
+`validator`. Address arguments in the examples come from that key rather than
+an abbreviated, invalid Bech32 string:
+
+```bash
+ACCOUNT=$(paxd keys show validator --address)
+paxd query gov --help
+paxd tx gov --help
+```
+
+The command implementations are in [`client/cli/query.go`](../client/cli/query.go)
+and [`client/cli/tx.go`](../client/cli/tx.go). Deposit amounts below illustrate the
+constructor defaults; query live [parameters](06_params.md) before submitting a
+transaction. Supply the node, chain ID, fees and keyring settings required by
+your deployment through the CLI configuration or transaction flags.
 
 ### Query
 
-The `query` commands allow users to query `gov` state.
-
-```bash
-simd query gov --help
-```
-
 #### deposit
 
-The `deposit` command allows users to query a deposit for a given proposal from a given depositor.
+Query one depositor's stored deposit for a proposal:
 
 ```bash
-simd query gov deposit [proposal-id] [depositer-addr] [flags]
-```
-
-Example:
-
-```bash
-simd query gov deposit 1 cosmos1..
-```
-
-Example Output:
-
-```bash
-amount:
-- amount: "100"
-  denom: stake
-depositor: cosmos1..
-proposal_id: "1"
+paxd query gov deposit 1 "$ACCOUNT"
 ```
 
 #### deposits
 
-The `deposits` command allows users to query all deposits for a given proposal.
+Query the proposal's deposits, with pagination:
 
 ```bash
-simd query gov deposits [proposal-id] [flags]
-```
-
-Example:
-
-```bash
-simd query gov deposits 1
-```
-
-Example Output:
-
-```bash
-deposits:
-- amount:
-  - amount: "100"
-    denom: stake
-  depositor: cosmos1..
-  proposal_id: "1"
-pagination:
-  next_key: null
-  total: "0"
+paxd query gov deposits 1 --limit 20
 ```
 
 #### param
 
-The `param` command allows users to query a given parameter for the `gov` module.
+Query one parameter group. The selectors are exactly `voting`, `tallying` and
+`deposit`:
 
 ```bash
-simd query gov param [param-type] [flags]
-```
-
-Example:
-
-```bash
-simd query gov param voting
-```
-
-Example Output:
-
-```bash
-voting_period: "172800000000000"
+paxd query gov param voting
+paxd query gov param tallying
+paxd query gov param deposit
 ```
 
 #### params
 
-The `params` command allows users to query all parameters for the `gov` module.
+Query all three groups. This CLI command makes three `Query/Params` requests and
+combines their selected results. For the constructor defaults its legacy output
+contains these fields:
 
 ```bash
-simd query gov params [flags]
+paxd query gov params
 ```
 
-Example:
-
-```bash
-simd query gov params
-```
-
-Example Output:
-
-```bash
+```yaml
 deposit_params:
-  max_deposit_period: "172800000000000"
   min_deposit:
-  - amount: "10000000"
-    denom: stake
-tally_params:
-  quorum: "0.334000000000000000"
-  threshold: "0.500000000000000000"
-  veto_threshold: "0.334000000000000000"
+  - denom: uhpx
+    amount: "10000000"
+  min_expedited_deposit:
+  - denom: uhpx
+    amount: "20000000"
+  max_deposit_period: "172800000000000"
 voting_params:
   voting_period: "172800000000000"
+  expedited_voting_period: "86400000000000"
+tally_params:
+  quorum: "0.334000000000000000"
+  expedited_quorum: "0.667000000000000000"
+  threshold: "0.500000000000000000"
+  expedited_threshold: "0.667000000000000000"
+  veto_threshold: "0.334000000000000000"
 ```
+
+Durations here are nanosecond strings. These values illustrate the parameter
+shape; they are not a captured response from mainnet.
 
 #### proposal
 
-The `proposal` command allows users to query a given proposal.
+Query one proposal, including its content, status, tally, deposit, timestamps
+and `is_expedited` flag:
 
 ```bash
-simd query gov proposal [proposal-id] [flags]
-```
-
-Example:
-
-```bash
-simd query gov proposal 1
-```
-
-Example Output:
-
-```bash
-content:
-  '@type': /cosmos.gov.v1beta1.TextProposal
-  description: testing, testing, 1, 2, 3
-  title: Test Proposal
-deposit_end_time: "2021-09-17T23:36:18.254995423Z"
-final_tally_result:
-  abstain: "0"
-  "no": "0"
-  no_with_veto: "0"
-  "yes": "0"
-proposal_id: "1"
-status: PROPOSAL_STATUS_DEPOSIT_PERIOD
-submit_time: "2021-09-15T23:36:18.254995423Z"
-total_deposit:
-- amount: "100"
-  denom: stake
-voting_end_time: "0001-01-01T00:00:00Z"
-voting_start_time: "0001-01-01T00:00:00Z"
+paxd query gov proposal 1
 ```
 
 #### proposals
 
-The `proposals` command allows users to query all proposals with optional filters.
+List proposals, optionally filtering by status, voter or depositor:
 
 ```bash
-simd query gov proposals [flags]
-```
-
-Example:
-
-```bash
-simd query gov proposals
-```
-
-Example Output:
-
-```bash
-pagination:
-  next_key: null
-  total: "1"
-proposals:
-- content:
-    '@type': /cosmos.gov.v1beta1.TextProposal
-    description: testing, testing, 1, 2, 3
-    title: Test Proposal
-  deposit_end_time: "2021-09-17T23:36:18.254995423Z"
-  final_tally_result:
-    abstain: "0"
-    "no": "0"
-    no_with_veto: "0"
-    "yes": "0"
-  proposal_id: "1"
-  status: PROPOSAL_STATUS_DEPOSIT_PERIOD
-  submit_time: "2021-09-15T23:36:18.254995423Z"
-  total_deposit:
-  - amount: "100"
-    denom: stake
-  voting_end_time: "0001-01-01T00:00:00Z"
-  voting_start_time: "0001-01-01T00:00:00Z"
+paxd query gov proposals --status VotingPeriod --limit 20
+paxd query gov proposals --voter "$ACCOUNT"
+paxd query gov proposals --depositor "$ACCOUNT"
 ```
 
 #### proposer
 
-The `proposer` command allows users to query the proposer for a given proposal.
+Find the proposer through indexed submission transactions:
 
 ```bash
-simd query gov proposer [proposal-id] [flags]
+paxd query gov proposer 1
 ```
 
-Example:
-
-```bash
-simd query gov proposer 1
-```
-
-Example Output:
-
-```bash
-proposal_id: "1"
-proposer: cosmos1r0tllwu5c9dtgwg3wr28lpvf76hg85f5zmh9l2
-```
+This command uses transaction search, not a `Query/Proposer` gRPC method. It
+requires the submission transaction to remain available in the node's index.
 
 #### tally
 
-The `tally` command allows users to query the tally of a given proposal vote.
+Query the current or stored tally:
 
 ```bash
-simd query gov tally [proposal-id] [flags]
+paxd query gov tally 1
 ```
 
-Example:
-
-```bash
-simd query gov tally 1
-```
-
-Example Output:
-
-```bash
-abstain: "0"
-"no": "0"
-no_with_veto: "0"
-"yes": "1"
-```
+`TallyResult` returns an empty tally during the deposit period, the stored final
+tally for passed or rejected proposals, and a calculated tally otherwise.
 
 #### vote
 
-The `vote` command allows users to query a vote for a given proposal.
+Query one account's vote:
 
 ```bash
-simd query gov vote [proposal-id] [voter-addr] [flags]
+paxd query gov vote 1 "$ACCOUNT"
 ```
 
-Example:
-
-```bash
-simd query gov vote 1 cosmos1..
-```
-
-Example Output:
-
-```bash
-option: VOTE_OPTION_YES
-options:
-- option: VOTE_OPTION_YES
-  weight: "1.000000000000000000"
-proposal_id: "1"
-voter: cosmos1..
-```
+Prefer the `options` list of weighted choices. The deprecated `option` field
+only represents a single choice of weight one.
 
 #### votes
 
-The `votes` command allows users to query all votes for a given proposal.
+Query votes with pagination:
 
 ```bash
-simd query gov votes [proposal-id] [flags]
+paxd query gov votes 1 --limit 20
 ```
 
-Example:
-
-```bash
-simd query gov votes 1
-```
-
-Example Output:
-
-```bash
-pagination:
-  next_key: null
-  total: "0"
-votes:
-- option: VOTE_OPTION_YES
-  options:
-  - option: VOTE_OPTION_YES
-    weight: "1.000000000000000000"
-  proposal_id: "1"
-  voter: cosmos1r0tllwu5c9dtgwg3wr28lpvf76hg85f5zmh9l2
-```
+The `votes`, `deposit` and `deposits` commands use transaction-search paths when
+the proposal is outside the deposit and voting periods. They require the
+proposal record and retained transaction indexes. An individual `vote` query
+can still return an error when its stored vote no longer exists. The gRPC
+methods below query the store directly.
 
 ### Transactions
 
-The `tx` commands allow users to interact with the `gov` module.
-
-```bash
-simd tx gov --help
-```
-
 #### deposit
 
-The `deposit` command allows users to deposit tokens for a given proposal.
+Add tokens to an active proposal's deposit:
 
 ```bash
-simd tx gov deposit [proposal-id] [deposit] [flags]
+paxd tx gov deposit 1 10000000uhpx --from validator
 ```
 
-Example:
-
-```bash
-simd tx gov deposit 1 10000000stake --from cosmos1..
-```
+The relevant minimum is `min_deposit` or `min_expedited_deposit`, depending on the
+proposal's expedited status.
 
 #### submit-proposal
 
-The `submit-proposal` command allows users to submit a governance proposal and to optionally include an initial deposit.
+Submit a regular text proposal using flags:
 
 ```bash
-simd tx gov submit-proposal [command] [flags]
+paxd tx gov submit-proposal --title="Network discussion" \
+  --description="Describe the proposed policy" --type=Text \
+  --deposit=10000000uhpx --from validator
 ```
 
-Example:
-
-```bash
-simd tx gov submit-proposal --title="Test Proposal" --description="testing, testing, 1, 2, 3" --type="Text" --deposit="10000000uhpx" --from cosmos1..
-```
-
-Example (`cancel-software-upgrade`):
-
-```bash
-simd tx gov submit-proposal cancel-software-upgrade --title="Test Proposal" --description="testing, testing, 1, 2, 3" --deposit="10000000uhpx" --from cosmos1..
-```
-
-Example (`community-pool-spend`):
-
-```bash
-simd tx gov submit-proposal community-pool-spend proposal.json --from cosmos1..
-```
+To request expedited treatment for a text proposal, put `is_expedited` in the
+proposal file. For example, save this as `proposal.json`:
 
 ```json
 {
-  "title": "Test Proposal",
-  "description": "testing, testing, 1, 2, 3",
-  "recipient": "cosmos1..",
-  "amount": "10000000uhpx",
-  "deposit": "10000000uhpx"
+  "title": "Expedited network discussion",
+  "description": "Describe the urgent policy",
+  "type": "Text",
+  "is_expedited": true,
+  "deposit": "20000000uhpx"
 }
 ```
 
-Example (`param-change`):
+```bash
+paxd tx gov submit-proposal --proposal=proposal.json --from validator
+```
+
+The text-proposal command does not register an `--is-expedited` flag in this
+tree. The file form reads that field directly. Do not combine `--proposal` with
+`--title`, `--description`, `--type` or `--deposit`: the parser rejects that
+combination.
+
+Expedited proposals use `min_expedited_deposit`, `expedited_voting_period`,
+`expedited_quorum` and `expedited_threshold`. A failed expedited tally converts
+the proposal to regular voting with the existing votes; see
+[parameters](06_params.md#validation-and-use).
+
+Proposal subcommands are supplied by their owning modules and registered in
+[`node/app.go`](../../../../node/app.go). Useful examples are:
 
 ```bash
-simd tx gov submit-proposal param-change proposal.json --from cosmos1..
+paxd tx gov submit-proposal param-change params.json --from validator
+paxd tx gov submit-proposal community-pool-spend spend.json --from validator
+paxd tx gov submit-proposal software-upgrade v2 --upgrade-height 1000000 \
+  --title="Planned upgrade" --description="Describe the release" \
+  --deposit=10000000uhpx --from validator
+paxd tx gov submit-proposal cancel-software-upgrade \
+  --title="Cancel planned upgrade" --description="Explain the cancellation" \
+  --deposit=10000000uhpx --from validator
 ```
+
+The upgrade height above is illustrative; choose a future height for the
+intended network. The two upgrade subcommands register `--is-expedited`.
+
+For `param-change`, a `params.json` file can update one field of a governance
+parameter object:
 
 ```json
 {
-  "title": "Test Proposal",
-  "description": "testing, testing, 1, 2, 3",
+  "title": "Shorten expedited voting",
+  "description": "Use a twelve-hour expedited voting period",
+  "is_expedited": false,
   "changes": [
     {
-      "subspace": "staking",
-      "key": "MaxValidators",
-      "value": 100
+      "subspace": "gov",
+      "key": "votingparams",
+      "value": {
+        "expedited_voting_period": "43200000000000"
+      }
     }
   ],
   "deposit": "10000000uhpx"
 }
 ```
 
-Example (`software-upgrade`):
+The `param-change` file parser accepts a JSON value and converts it to the
+parameter change's encoded value. The handler loads the existing object and
+validates the merged value when applying the proposal. It requires an exact
+registered key; see [Subspace](../../params/spec/02_subspace.md).
 
-```bash
-simd tx gov submit-proposal software-upgrade v2 --title="Test Proposal" --description="testing, testing, 1, 2, 3" --upgrade-height 1000000 --from cosmos1..
-```
+For `community-pool-spend`, `spend.json` contains `title`, `description`,
+`recipient`, `amount` and `deposit`. Use a complete `pax` account address for
+`recipient` and coin strings such as `10000000uhpx` for both coin fields.
 
 #### vote
 
-The `vote` command allows users to submit a vote for a given governance proposal.
+Submit one of `yes`, `no`, `no_with_veto` or `abstain`:
 
 ```bash
-simd tx gov vote [command] [flags]
-```
-
-Example:
-
-```bash
-simd tx gov vote 1 yes --from cosmos1..
+paxd tx gov vote 1 yes --from validator
 ```
 
 #### weighted-vote
 
-The `weighted-vote` command allows users to submit a weighted vote for a given governance proposal.
+Submit weighted choices whose positive weights sum to one:
 
 ```bash
-simd tx gov weighted-vote [proposal-id] [weighted-options]
-```
-
-Example:
-
-```bash
-simd tx gov weighted-vote 1 yes=0.5,no=0.5 --from cosmos1
+paxd tx gov weighted-vote 1 yes=0.5,no=0.5 --from validator
 ```
 
 ## gRPC
 
-A user can query the `gov` module using gRPC endpoints.
+The service is `cosmos.gov.v1beta1.Query`, declared in the local
+[`query.proto`](../../../proto/cosmos/gov/v1beta1/query.proto) and implemented by
+[`keeper/grpc_query.go`](../keeper/grpc_query.go). The examples assume an enabled
+local gRPC listener at `localhost:9090`; configure `grpc.enable` and
+`grpc.address` in the node's `app.toml` as appropriate.
 
 ### Proposal
 
-The `Proposal` endpoint allows users to query a given proposal.
-
 ```bash
-cosmos.gov.v1beta1.Query/Proposal
-```
-
-Example:
-
-```bash
-grpcurl -plaintext \
-    -d '{"proposal_id":"1"}' \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/Proposal
-```
-
-Example Output:
-
-```bash
-{
-  "proposal": {
-    "proposalId": "1",
-    "content": {"@type":"/cosmos.gov.v1beta1.TextProposal","description":"testing, testing, 1, 2, 3","title":"Test Proposal"},
-    "status": "PROPOSAL_STATUS_VOTING_PERIOD",
-    "finalTallyResult": {
-      "yes": "0",
-      "abstain": "0",
-      "no": "0",
-      "noWithVeto": "0"
-    },
-    "submitTime": "2021-09-16T19:40:08.712440474Z",
-    "depositEndTime": "2021-09-18T19:40:08.712440474Z",
-    "totalDeposit": [
-      {
-        "denom": "uhpx",
-        "amount": "10000000"
-      }
-    ],
-    "votingStartTime": "2021-09-16T19:40:08.712440474Z",
-    "votingEndTime": "2021-09-18T19:40:08.712440474Z"
-  }
-}
+grpcurl -plaintext -d '{"proposal_id":"1"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Proposal
 ```
 
 ### Proposals
 
-The `Proposals` endpoint allows users to query all proposals with optional filters.
-
 ```bash
-cosmos.gov.v1beta1.Query/Proposals
+grpcurl -plaintext -d '{"pagination":{"limit":"20"}}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Proposals
 ```
 
-Example:
-
-```bash
-grpcurl -plaintext \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/Proposals
-```
-
-Example Output:
-
-```bash
-{
-  "proposals": [
-    {
-      "proposalId": "1",
-      "content": {"@type":"/cosmos.gov.v1beta1.TextProposal","description":"testing, testing, 1, 2, 3","title":"Test Proposal"},
-      "status": "PROPOSAL_STATUS_VOTING_PERIOD",
-      "finalTallyResult": {
-        "yes": "0",
-        "abstain": "0",
-        "no": "0",
-        "noWithVeto": "0"
-      },
-      "submitTime": "2021-09-16T19:40:08.712440474Z",
-      "depositEndTime": "2021-09-18T19:40:08.712440474Z",
-      "totalDeposit": [
-        {
-          "denom": "uhpx",
-          "amount": "10000000"
-        }
-      ],
-      "votingStartTime": "2021-09-16T19:40:08.712440474Z",
-      "votingEndTime": "2021-09-18T19:40:08.712440474Z"
-    },
-    {
-      "proposalId": "2",
-      "content": {"@type":"/cosmos.upgrade.v1beta1.CancelSoftwareUpgradeProposal","description":"Test Proposal","title":"testing, testing, 1, 2, 3"},
-      "status": "PROPOSAL_STATUS_DEPOSIT_PERIOD",
-      "finalTallyResult": {
-        "yes": "0",
-        "abstain": "0",
-        "no": "0",
-        "noWithVeto": "0"
-      },
-      "submitTime": "2021-09-17T18:26:57.866854713Z",
-      "depositEndTime": "2021-09-19T18:26:57.866854713Z",
-      "votingStartTime": "0001-01-01T00:00:00Z",
-      "votingEndTime": "0001-01-01T00:00:00Z"
-    }
-  ],
-  "pagination": {
-    "total": "2"
-  }
-}
-```
+The request also accepts `proposal_status`, `voter` and `depositor` filters.
 
 ### Vote
 
-The `Vote` endpoint allows users to query a vote for a given proposal.
+Replace `PAX_ACCOUNT` in the JSON with a complete `pax` account address:
 
 ```bash
-cosmos.gov.v1beta1.Query/Vote
-```
-
-Example:
-
-```bash
-grpcurl -plaintext \
-    -d '{"proposal_id":"1","voter":"cosmos1.."}' \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/Vote
-```
-
-Example Output:
-
-```bash
-{
-  "vote": {
-    "proposalId": "1",
-    "voter": "cosmos1..",
-    "option": "VOTE_OPTION_YES",
-    "options": [
-      {
-        "option": "VOTE_OPTION_YES",
-        "weight": "1000000000000000000"
-      }
-    ]
-  }
-}
+grpcurl -plaintext -d '{"proposal_id":"1","voter":"PAX_ACCOUNT"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Vote
 ```
 
 ### Votes
 
-The `Votes` endpoint allows users to query all votes for a given proposal.
-
 ```bash
-cosmos.gov.v1beta1.Query/Votes
-```
-
-Example:
-
-```bash
-grpcurl -plaintext \
-    -d '{"proposal_id":"1"}' \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/Votes
-```
-
-Example Output:
-
-```bash
-{
-  "votes": [
-    {
-      "proposalId": "1",
-      "voter": "cosmos1..",
-      "option": "VOTE_OPTION_YES",
-      "options": [
-        {
-          "option": "VOTE_OPTION_YES",
-          "weight": "1000000000000000000"
-        }
-      ]
-    }
-  ],
-  "pagination": {
-    "total": "1"
-  }
-}
+grpcurl -plaintext -d '{"proposal_id":"1","pagination":{"limit":"20"}}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Votes
 ```
 
 ### Params
 
-The `Params` endpoint allows users to query all parameters for the `gov` module.
-
-<!-- TODO: #10197 Querying governance params outputs nil values -->
+`Params` selects one group per request, rather than aggregating all groups:
 
 ```bash
-cosmos.gov.v1beta1.Query/Params
+grpcurl -plaintext -d '{"params_type":"voting"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Params
+grpcurl -plaintext -d '{"params_type":"deposit"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Params
+grpcurl -plaintext -d '{"params_type":"tallying"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Params
 ```
 
-Example:
-
-```bash
-grpcurl -plaintext \
-    -d '{"params_type":"voting"}' \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/Params
-```
-
-Example Output:
-
-```bash
-{
-  "votingParams": {
-    "votingPeriod": "172800s"
-  },
-  "depositParams": {
-    "maxDepositPeriod": "0s"
-  },
-  "tallyParams": {
-    "quorum": "MA==",
-    "threshold": "MA==",
-    "vetoThreshold": "MA=="
-  }
-}
-```
+Read only the selected group's fields. Other groups in the response may contain
+zero values because the protobuf response embeds non-nullable parameter
+objects. Those values do not describe the other groups' stored parameters.
+Protobuf JSON durations use seconds strings, for example `"172800s"` and
+`"86400s"` for the default voting periods. Generic protobuf tools render the
+schema's `bytes` tally decimals as base64; the SDK-aware CLI renders decimal
+strings. Use the schema and SDK types when decoding these responses.
 
 ### Deposit
 
-The `Deposit` endpoint allows users to query a deposit for a given proposal from a given depositor.
-
 ```bash
-cosmos.gov.v1beta1.Query/Deposit
-```
-
-Example:
-
-```bash
-grpcurl -plaintext \
-    '{"proposal_id":"1","depositor":"cosmos1.."}' \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/Deposit
-```
-
-Example Output:
-
-```bash
-{
-  "deposit": {
-    "proposalId": "1",
-    "depositor": "cosmos1..",
-    "amount": [
-      {
-        "denom": "uhpx",
-        "amount": "10000000"
-      }
-    ]
-  }
-}
+grpcurl -plaintext -d '{"proposal_id":"1","depositor":"PAX_ACCOUNT"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Deposit
 ```
 
 ### deposits
 
-The `Deposits` endpoint allows users to query all deposits for a given proposal.
-
 ```bash
-cosmos.gov.v1beta1.Query/Deposits
-```
-
-Example:
-
-```bash
-grpcurl -plaintext \
-    -d '{"proposal_id":"1"}' \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/Deposits
-```
-
-Example Output:
-
-```bash
-{
-  "deposits": [
-    {
-      "proposalId": "1",
-      "depositor": "cosmos1..",
-      "amount": [
-        {
-          "denom": "uhpx",
-          "amount": "10000000"
-        }
-      ]
-    }
-  ],
-  "pagination": {
-    "total": "1"
-  }
-}
+grpcurl -plaintext -d '{"proposal_id":"1"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/Deposits
 ```
 
 ### TallyResult
 
-The `TallyResult` endpoint allows users to query the tally of a given proposal.
-
 ```bash
-cosmos.gov.v1beta1.Query/TallyResult
+grpcurl -plaintext -d '{"proposal_id":"1"}' \
+  localhost:9090 cosmos.gov.v1beta1.Query/TallyResult
 ```
 
-Example:
-
-```bash
-grpcurl -plaintext \
-    -d '{"proposal_id":"1"}' \
-    localhost:9090 \
-    cosmos.gov.v1beta1.Query/TallyResult
-```
-
-Example Output:
-
-```bash
-{
-  "tally": {
-    "yes": "1000000",
-    "abstain": "0",
-    "no": "0",
-    "noWithVeto": "0"
-  }
-}
-```
+Proposal IDs must be nonzero for the single-proposal methods. A missing proposal
+in `Proposal` or `TallyResult` returns gRPC `NotFound`. A missing vote or deposit
+in `Vote` or `Deposit` returns `InvalidArgument`. An unsupported parameter
+selector also returns `InvalidArgument`.
 
 ## REST
 
-A user can query the `gov` module using REST endpoints.
+The gRPC gateway exposes HTTP GET queries when the node's API service is
+enabled. These examples assume `api.enable=true` and the local API listener at
+`http://localhost:1317`, configured with `api.address` in `app.toml`. They are
+Cosmos API routes on that listener.
 
 ### proposal
 
-The `proposals` endpoint allows users to query a given proposal.
-
 ```bash
-/cosmos/gov/v1beta1/proposals/{proposal_id}
-```
-
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/proposals/1
-```
-
-Example Output:
-
-```bash
-{
-  "proposal": {
-    "proposal_id": "1",
-    "content": {
-      "@type": "/cosmos.gov.v1beta1.TextProposal",
-      "title": "Test Proposal",
-      "description": "testing, testing, 1, 2, 3"
-    },
-    "status": "PROPOSAL_STATUS_VOTING_PERIOD",
-    "final_tally_result": {
-      "yes": "0",
-      "abstain": "0",
-      "no": "0",
-      "no_with_veto": "0"
-    },
-    "submit_time": "2021-09-16T19:40:08.712440474Z",
-    "deposit_end_time": "2021-09-18T19:40:08.712440474Z",
-    "total_deposit": [
-      {
-        "denom": "uhpx",
-        "amount": "10000000"
-      }
-    ],
-    "voting_start_time": "2021-09-16T19:40:08.712440474Z",
-    "voting_end_time": "2021-09-18T19:40:08.712440474Z"
-  }
-}
+curl http://localhost:1317/cosmos/gov/v1beta1/proposals/1
 ```
 
 ### proposals
 
-The `proposals` endpoint also allows users to query all proposals with optional filters.
-
 ```bash
-/cosmos/gov/v1beta1/proposals
+curl 'http://localhost:1317/cosmos/gov/v1beta1/proposals?pagination.limit=20'
 ```
 
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/proposals
-```
-
-Example Output:
-
-```bash
-{
-  "proposals": [
-    {
-      "proposal_id": "1",
-      "content": {
-        "@type": "/cosmos.gov.v1beta1.TextProposal",
-        "title": "Test Proposal",
-        "description": "testing, testing, 1, 2, 3"
-      },
-      "status": "PROPOSAL_STATUS_VOTING_PERIOD",
-      "final_tally_result": {
-        "yes": "0",
-        "abstain": "0",
-        "no": "0",
-        "no_with_veto": "0"
-      },
-      "submit_time": "2021-09-16T19:40:08.712440474Z",
-      "deposit_end_time": "2021-09-18T19:40:08.712440474Z",
-      "total_deposit": [
-        {
-          "denom": "uhpx",
-          "amount": "10000000"
-        }
-      ],
-      "voting_start_time": "2021-09-16T19:40:08.712440474Z",
-      "voting_end_time": "2021-09-18T19:40:08.712440474Z"
-    },
-    {
-      "proposal_id": "2",
-      "content": {
-        "@type": "/cosmos.upgrade.v1beta1.CancelSoftwareUpgradeProposal",
-        "title": "Test Proposal",
-        "description": "testing, testing, 1, 2, 3"
-      },
-      "status": "PROPOSAL_STATUS_DEPOSIT_PERIOD",
-      "final_tally_result": {
-        "yes": "0",
-        "abstain": "0",
-        "no": "0",
-        "no_with_veto": "0"
-      },
-      "submit_time": "2021-09-17T18:26:57.866854713Z",
-      "deposit_end_time": "2021-09-19T18:26:57.866854713Z",
-      "total_deposit": [
-      ],
-      "voting_start_time": "0001-01-01T00:00:00Z",
-      "voting_end_time": "0001-01-01T00:00:00Z"
-    }
-  ],
-  "pagination": {
-    "next_key": null,
-    "total": "2"
-  }
-}
-```
+Optional filters are `proposal_status`, `voter` and `depositor`.
 
 ### voter vote
 
-The `votes` endpoint allows users to query a vote for a given proposal.
-
 ```bash
-/cosmos/gov/v1beta1/proposals/{proposal_id}/votes/{voter}
-```
-
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/proposals/1/votes/cosmos1..
-```
-
-Example Output:
-
-```bash
-{
-  "vote": {
-    "proposal_id": "1",
-    "voter": "cosmos1..",
-    "option": "VOTE_OPTION_YES",
-    "options": [
-      {
-        "option": "VOTE_OPTION_YES",
-        "weight": "1.000000000000000000"
-      }
-    ]
-  }
-}
+curl "http://localhost:1317/cosmos/gov/v1beta1/proposals/1/votes/$ACCOUNT"
 ```
 
 ### votes
 
-The `votes` endpoint allows users to query all votes for a given proposal.
-
 ```bash
-/cosmos/gov/v1beta1/proposals/{proposal_id}/votes
-```
-
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/proposals/1/votes
-```
-
-Example Output:
-
-```bash
-{
-  "votes": [
-    {
-      "proposal_id": "1",
-      "voter": "cosmos1..",
-      "option": "VOTE_OPTION_YES",
-      "options": [
-        {
-          "option": "VOTE_OPTION_YES",
-          "weight": "1.000000000000000000"
-        }
-      ]
-    }
-  ],
-  "pagination": {
-    "next_key": null,
-    "total": "1"
-  }
-}
+curl 'http://localhost:1317/cosmos/gov/v1beta1/proposals/1/votes?pagination.limit=20'
 ```
 
 ### params
 
-The `params` endpoint allows users to query all parameters for the `gov` module.
-
-<!-- TODO: #10197 Querying governance params outputs nil values -->
-
 ```bash
-/cosmos/gov/v1beta1/params/{params_type}
+curl http://localhost:1317/cosmos/gov/v1beta1/params/voting
+curl http://localhost:1317/cosmos/gov/v1beta1/params/deposit
+curl http://localhost:1317/cosmos/gov/v1beta1/params/tallying
 ```
 
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/params/voting
-```
-
-Example Output:
-
-```bash
-{
-  "voting_params": {
-    "voting_period": "172800s"
-  },
-  "deposit_params": {
-    "min_deposit": [
-    ],
-    "max_deposit_period": "0s"
-  },
-  "tally_params": {
-    "quorum": "0.000000000000000000",
-    "threshold": "0.000000000000000000",
-    "veto_threshold": "0.000000000000000000"
-  }
-}
-```
+As with gRPC, each request selects one group. In the SDK-aware gateway JSON,
+`voting_params` includes `voting_period` and `expedited_voting_period`,
+`deposit_params` includes both minimum deposits and `max_deposit_period`, and
+`tally_params` includes regular and expedited quorum and approval thresholds
+plus `veto_threshold`. Read the selected group and ignore the zero-valued
+unselected groups. See [parameters](06_params.md) for names and encodings.
 
 ### deposits
 
-The `deposits` endpoint allows users to query a deposit for a given proposal from a given depositor.
+Query one depositor:
 
 ```bash
-/cosmos/gov/v1beta1/proposals/{proposal_id}/deposits/{depositor}
-```
-
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/proposals/1/deposits/cosmos1..
-```
-
-Example Output:
-
-```bash
-{
-  "deposit": {
-    "proposal_id": "1",
-    "depositor": "cosmos1..",
-    "amount": [
-      {
-        "denom": "uhpx",
-        "amount": "10000000"
-      }
-    ]
-  }
-}
+curl "http://localhost:1317/cosmos/gov/v1beta1/proposals/1/deposits/$ACCOUNT"
 ```
 
 ### proposal deposits
 
-The `deposits` endpoint allows users to query all deposits for a given proposal.
-
 ```bash
-/cosmos/gov/v1beta1/proposals/{proposal_id}/deposits
-```
-
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/proposals/1/deposits
-```
-
-Example Output:
-
-```bash
-{
-  "deposits": [
-    {
-      "proposal_id": "1",
-      "depositor": "cosmos1..",
-      "amount": [
-        {
-          "denom": "uhpx",
-          "amount": "10000000"
-        }
-      ]
-    }
-  ],
-  "pagination": {
-    "next_key": null,
-    "total": "1"
-  }
-}
+curl 'http://localhost:1317/cosmos/gov/v1beta1/proposals/1/deposits?pagination.limit=20'
 ```
 
 ### tally
 
-The `tally` endpoint allows users to query the tally of a given proposal.
-
 ```bash
-/cosmos/gov/v1beta1/proposals/{proposal_id}/tally
+curl http://localhost:1317/cosmos/gov/v1beta1/proposals/1/tally
 ```
 
-Example:
-
-```bash
-curl localhost:1317/cosmos/gov/v1beta1/proposals/1/tally
-```
-
-Example Output:
-
-```bash
-{
-  "tally": {
-    "yes": "1000000",
-    "abstain": "0",
-    "no": "0",
-    "no_with_veto": "0"
-  }
-}
-```
+List responses contain a `pagination` object. Follow `next_key` with the
+transport's pagination-key field when more results are available. Governance
+vote and deposit records can be removed after tallying; the CLI's indexed
+transaction fallback does not add historical records to these store queries.

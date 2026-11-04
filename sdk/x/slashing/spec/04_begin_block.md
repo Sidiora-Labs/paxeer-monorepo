@@ -6,93 +6,93 @@ order: 4
 
 ## Liveness Tracking
 
-At the beginning of each block, we update the `ValidatorSigningInfo` for each
-validator and check if they've crossed below the liveness threshold over a
-sliding window. This sliding window is defined by `SignedBlocksWindow` and the
-index in this window is determined by `IndexOffset` found in the validator's
-`ValidatorSigningInfo`. For each block processed, the `IndexOffset` is incremented
-regardless if the validator signed or not. Once the index is determined, the
-`MissedBlocksBitArray` and `MissedBlocksCounter` are updated accordingly.
+[`BeginBlocker`](../abci.go) receives the previous commit's `[]abci.VoteInfo`.
+For each vote it calls
+[`HandleValidatorSignatureConcurrent`](../keeper/infractions.go) with the
+validator's consensus address, voting power and `SignedLastBlock` flag. Liveness
+uses the [packed per-validator state](02_state.md), rather than separate
+per-slot store entries.
 
-Finally, in order to determine if a validator crosses below the liveness threshold,
-we fetch the maximum number of blocks missed, `maxMissed`, which is
-`SignedBlocksWindow - (MinSignedPerWindow * SignedBlocksWindow)` and the minimum
-height at which we can determine liveness, `minHeight`. If the current block is
-greater than `minHeight` and the validator's `MissedBlocksCounter` is greater than
-`maxMissed`, they will be slashed by `SlashFractionDowntime`, will be jailed
-for `DowntimeJailDuration`, and have the following values reset:
-`MissedBlocksBitArray`, `MissedBlocksCounter`, and `IndexOffset`.
+The public-key relation and `ValidatorSigningInfo` must already exist. A missing
+record causes a panic. The staking hooks establish these records; the signature
+handler only initializes a missing bitmap, not missing signing info.
 
-**Note**: Liveness slashes do **NOT** lead to a tombstombing.
+### Calculation phase
 
-```go
-height := block.Height
+The implementation starts one goroutine per vote. Each worker reads the current
+records and calculates its `SlashingWriteInfo`; it does not write keeper state.
+Results are placed at the input vote's index in a slice. For a positive
+`SignedBlocksWindow`, each worker performs these steps:
 
-for vote in block.LastCommitInfo.Votes {
-  signInfo := GetValidatorSigningInfo(vote.Validator.Address)
+1. Read signing info and use `IndexOffset` as the next bitmap slot.
+2. Load `ValidatorMissedBlockArray`. If absent, allocate `(window + 63) / 64`
+   zero-filled words and record the consensus address and `WindowSize`.
+3. If `WindowSize` differs from the configured window, call
+   `ResizeMissedBlockArray`. Expansion inserts clear slots at the next write
+   index and preserves every old slot and the missed counter. Shrinkage creates
+   a clear bitmap, resets the counter and offset to zero, and uses slot zero.
+4. Read the previous bit with `GetBooleanFromBitGroups` and set the current slot
+   to `!SignedLastBlock` with `SetBooleanInBitGroups`. Increment the counter only
+   for a clear-to-set transition; decrement it only for a set-to-clear transition.
+5. Advance `IndexOffset = (IndexOffset + 1) % window` after any resizing.
+6. If the current signature is missing, emit a `liveness` event with `address`,
+   `missed_blocks` and `height` attributes.
+7. Calculate the downtime threshold and, if exceeded, check the staking
+   validator before returning a pending penalty.
 
-  // This is a relative index, so we counts blocks the validator SHOULD have
-  // signed. We use the 0-value default signing info if not present, except for
-  // start height.
-  index := signInfo.IndexOffset % SignedBlocksWindow()
-  signInfo.IndexOffset++
+`WindowSize` is compared directly, so changes within the same number of packed
+words still trigger resizing. The preserved counter on expansion and reset
+counter on shrinkage keep it consistent with the active bits.
 
-  // Update MissedBlocksBitArray and MissedBlocksCounter. The MissedBlocksCounter
-  // just tracks the sum of MissedBlocksBitArray. That way we avoid needing to
-  // read/write the whole array each time.
-  missedPrevious := GetValidatorMissedBlockBitArray(vote.Validator.Address, index)
-  missed := !signed
+### Threshold and grace period
 
-  switch {
-  case !missedPrevious && missed:
-    // array index has changed from not missed to missed, increment counter
-    SetValidatorMissedBlockBitArray(vote.Validator.Address, index, true)
-    signInfo.MissedBlocksCounter++
+The parameter `MinSignedPerWindow` is a decimal fraction. The keeper method with
+the same name returns a rounded block count:
 
-  case missedPrevious && !missed:
-    // array index has changed from missed to not missed, decrement counter
-    SetValidatorMissedBlockBitArray(vote.Validator.Address, index, false)
-    signInfo.MissedBlocksCounter--
-
-  default:
-    // array index at this index has not changed; no need to update counter
-  }
-
-  if missed {
-    // emit events...
-  }
-
-  minHeight := signInfo.StartHeight + SignedBlocksWindow()
-  maxMissed := SignedBlocksWindow() - MinSignedPerWindow()
-
-  // If we are past the minimum height and the validator has missed too many
-  // jail and slash them.
-  if height > minHeight && signInfo.MissedBlocksCounter > maxMissed {
-    validator := ValidatorByConsAddr(vote.Validator.Address)
-
-    // emit events...
-
-    // We need to retrieve the stake distribution which signed the block, so we
-    // subtract ValidatorUpdateDelay from the block height, and subtract an
-    // additional 1 since this is the LastCommit.
-    //
-    // Note, that this CAN result in a negative "distributionHeight" up to
-    // -ValidatorUpdateDelay-1, i.e. at the end of the pre-genesis block (none) = at the beginning of the genesis block.
-    // That's fine since this is just used to filter unbonding delegations & redelegations.
-    distributionHeight := height - sdk.ValidatorUpdateDelay - 1
-
-    Slash(vote.Validator.Address, distributionHeight, vote.Validator.Power, SlashFractionDowntime())
-    Jail(vote.Validator.Address)
-
-    signInfo.JailedUntil = block.Time.Add(DowntimeJailDuration())
-
-    // We need to reset the counter & array so that the validator won't be
-    // immediately slashed for downtime upon rebonding.
-    signInfo.MissedBlocksCounter = 0
-    signInfo.IndexOffset = 0
-    ClearValidatorMissedBlockBitArray(vote.Validator.Address)
-  }
-
-  SetValidatorSigningInfo(vote.Validator.Address, signInfo)
-}
+```text
+minSigned = RoundInt64(MinSignedPerWindow * SignedBlocksWindow)
+maxMissed = SignedBlocksWindow - minSigned
+minHeight = signingInfo.StartHeight + SignedBlocksWindow
 ```
+
+A downtime penalty requires both `height > minHeight` and
+`MissedBlocksCounter > maxMissed`. It also requires a staking validator that
+exists and is not already jailed. Otherwise the updated records are returned
+without a penalty. The counter measures misses across the circular window;
+the misses need not be consecutive.
+
+### Ordered mutation phase
+
+After all workers finish, `BeginBlocker` applies their results in the original
+vote order. A missing result is an invariant failure and causes a panic.
+
+For a result marked `ShouldSlash`, it first deletes the validator's bitmap with
+`ClearValidatorMissedBlockBitArray`, then calls
+`SlashJailAndUpdateSigningInfo`. That method:
+
+1. Emits a `slash` event with `address`, `power`, `reason=missing_signature` and
+   `jailed` attributes, and increments `validator_slashed`.
+2. Calls staking `Slash` with the vote's power, `SlashFractionDowntime` and
+   `distributionHeight = height - sdk.ValidatorUpdateDelay - 1`. The extra block
+   accounts for the previous commit. This historical height can be negative
+   near genesis and is used to filter unbonding delegations and redelegations.
+3. Calls staking `Jail` and sets `JailedUntil` to the current block time plus
+   `DowntimeJailDuration`.
+4. Resets `MissedBlocksCounter` and `IndexOffset` to zero. It leaves `StartHeight`
+   and `Tombstoned` unchanged.
+
+For other results, `BeginBlocker` persists the updated bitmap with
+`SetValidatorMissedBlocks`. Both branches finish by storing the returned
+`ValidatorSigningInfo` with `SetValidatorSigningInfo`. A penalty leaves the
+bitmap absent until another signature calculation allocates it again.
+
+Store mutations and downtime slash events occur in vote order. Liveness events
+are emitted inside the concurrent calculation phase, so their order is not
+guaranteed by the ordered write loop.
+
+Downtime does not tombstone the validator. Even with a zero downtime slash
+fraction, the jail and state reset still occur. Expiration of `JailedUntil`
+alone does not unjail a validator: the operator must submit an unjail transaction
+and satisfy [`Keeper.Unjail`](../keeper/unjail.go), including its self-delegation
+and tombstone checks. See the [module overview](../README.md) for parameters and
+metrics.

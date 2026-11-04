@@ -3,37 +3,43 @@ name = "journeys"
 contract_major = 1
 compatibility = "additive_only"
 spine = "Every operation on this contract speaks in journeys, stages, states and evidence references. Raw protocol structures never cross this boundary."
+network = "Journeys describe one merged Paxeer network, whose kernel participates in the network and proposes blocks. A receipt establishes the verified execution outcome; that outcome is final once its block is committed. The rung and verification labels below describe evidence on this same network."
+intent_progress = "Plans and signed submissions are described in intent.kvx. Poll journey.get for the resulting journey_id and use evidence.get to retrieve the material behind its evidence references."
 
 [type.JourneyKind]
 variants = ["onboarding","wallet-binding","deposit","withdraw","exit","move","agent-create","agent-fund","agent-pause","agent-retire"]
 retired_variants = ["wallet-binding","deposit","withdraw","exit"]
-boundary = "deposit, withdraw and exit name custody-boundary journeys exclusively. Every movement inside LayerX is move, resolved to fund, allocate, return or transfer by the route resolver."
+boundary = "Current kinds are onboarding, move, agent-create, agent-fund, agent-pause and agent-retire. wallet-binding, deposit, withdraw and exit are retired kinds retained for decoding stored history; they cannot start new journeys. Current money movements are move on the merged network, including the EVM intent path in intent.kvx."
 
 [type.JourneyState]
-variants = ["getting-ready","sending","processing","done","done-finalised","still-checking","refused","waiting-for-you"]
+variants = ["getting-ready","sending","processing","done","done-finalised","still-checking","refused","waiting-for-you","closed","awaiting-approval"]
 table = "This vocabulary is the normative status translation table. A state outside it on a default surface is a build failure."
-done.semantics = "Rendered only when a verified LayerX receipt or a verified Paxeer finality proof in the journey's evidence backs the exact outcome."
-done-finalised.semantics = "The receipt-backed outcome is additionally covered by a finalised checkpoint proof."
-still-checking.semantics = "The outcome is unknown. It resolves only by receipt lookup under the journey's idempotency key, and every duplicate-capable control stays locked while it lasts."
+done.semantics = "A verified receipt backs the exact outcome of every completed leg. The production EVM intent path requires committed receipt material before rendering done. Other receipt-backed projections may render done at receipted; use evidence verification and rung to distinguish execution evidence from block commitment. No independent settlement step follows a committed block."
+done-finalised.semantics = "The receipt-backed outcome has committed evidence on the same network, represented by checkpoint-finalised verification. This retained status label is not required for every committed journey: the EVM intent and native journey projections render done and expose evidence separately."
+still-checking.semantics = "The outcome is unknown. Reconciliation tracks the original action or transaction and looks up its receipt without creating a second economic effect; every duplicate-capable control stays locked while it lasts."
 refused.semantics = "A typed refusal backs this state and always states whether any money left the account."
 waiting-for-you.semantics = "A policy hold with deterministic expiry awaits the user's approval decision."
+awaiting-approval.semantics = "The native engine's awaiting-approval leg phase is exposed with this stage state while the journey awaits approval; it is not receipt-backed completion."
+closed.semantics = "Retained wallet-binding, deposit, withdraw and exit history is read as closed with state_copy_key journey.state.closed. The native history projection preserves the historical kind and timestamps and returns empty stages and evidence. Closed history cannot resume signing or execution and does not assert a successful movement."
 
 [type.EvidenceClass]
 variants = ["local-journey-state","submission-record","layerx-receipt","checkpoint-proof","paxeer-finality","typed-refusal","approval-hold","wallet-ack"]
 retired_variants = ["paxeer-finality"]
+meaning = "layerx-receipt is the retained wire class for a receipt on the merged network. checkpoint-proof describes commitment evidence on that network. paxeer-finality is retired legacy vocabulary, not another finality source for new journeys."
 
 [type.VerificationLevel]
 variants = ["unverified","receipt-verified","checkpoint-finalised","paxeer-finalised","settlement-anchored"]
 retired_variants = ["paxeer-finalised","settlement-anchored"]
 rung_mapping = ["submitted:unverified","receipted:receipt-verified","committed:checkpoint-finalised"]
 ordering = "declaration_order"
+meaning = "submitted is an acknowledgement, receipted verifies execution, and committed verifies inclusion in a committed block. checkpoint-finalised is the retained verification label for committed. paxeer-finalised and settlement-anchored are retired decoding values and do not define additional current rungs."
 
 [type.EvidenceRef]
 required = ["evidence_id:EvidenceId","class:EvidenceClass","verification:VerificationLevel"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
 settlement_domain.retired = "true"
-export = "Every evidence reference is sufficient to fetch the receipt or proof material for export and independent verification."
+export = "Resolve evidence_id through evidence.get under the authenticated principal to fetch its material. A local state or submission reference is not a verified receipt. The EVM intent journey projection uses receipt-verified references for verified or refused legs; evidence.get reports the receipt's observed rung and corresponding verification."
 
 [type.JourneyStage]
 required = ["stage_id:StageId","copy_key:CopyKey","state:JourneyState","evidence:EvidenceRef[]"]
@@ -52,7 +58,8 @@ required = ["evidence_id:EvidenceId","class:EvidenceClass","verification:Verific
 optional = ["settlement_domain:SettlementDomain","rung:Rung","inclusion_height:integer"]
 settlement_domain = "paxeer"
 settlement_domain.retired = "true"
-material = "The referenced receipt or proof in its canonical bytes, exactly as the protocol produced them, sufficient for export and for verification independent of this plane."
+material = "bytes_base64 encodes the material identified by content_type; it may be a local record, an evidence bundle or a portable receipt proof rather than raw receipt bytes. Current portable receipts use application/vnd.layerx.receipt-proof-v2+json and retain the signed receipt, receipt-key authorization and inclusion height; EVM intent exports also bind the signed transaction. A verifier must check the proof and its trusted key material rather than treating the JSON verification label alone as proof."
+rung = "When present, rung is submitted, receipted or committed. inclusion_height is the height associated with the receipt or its verified committed inclusion. Committed EVM receipt export checks the block hash and the signed transaction at the receipt index."
 
 [operation.evidence.get]
 authorization_class = "read"

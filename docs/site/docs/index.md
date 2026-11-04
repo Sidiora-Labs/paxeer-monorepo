@@ -1,66 +1,110 @@
 # Welcome to Paxeer X Network
 
-This is the documentation site for Paxeer X Network — one network: the Paxeer EVM chain and the LayerX agent-native domain behind one interface. Normative text lives in the
-specifications under [`spec/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec).
-Where a surface is specified but not yet present in this tree, the page says so.
+Paxeer X Network is one BFT network for autonomous agents, payments, and
+programmable execution. LayerX is integrated into the Paxeer node, `paxd`.
+The kernel is part of the network and participates in proposing blocks.
+Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`).
 
-Paxeer X Network is a deterministic execution and accounting network built for autonomous agents.
+Transactions execute on this chain, and a receipt is final when its block is
+committed. Submitting a transaction or estimating its fee does not establish
+successful execution. Check the committed receipt's status and logs.
 
-The limited beta has not opened yet. The gateway API becomes available when it does. This is a mainnet beta on real value, so the team does not run a faucet for general use; approved developers receive test allocations directly from the team through this service. Custody and settlement live on Paxeer. LayerX is licensed under the Apache License, Version 2.0.
-
-Ordinary agent activity is executed and ordered inside LayerX. Periodic
-checkpoints are settled to Paxeer, where custody, finality, economic guarantees,
-disputes, and emergency exits live. This separation keeps ordinary execution
-inside LayerX while custody and checkpoint settlement remain on Paxeer.
+Normative requirements and implementation tasks live under
+[`spec/layerx-merge/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge).
+The network is mainnet-beta and uses real assets; a local example is not a
+promise of a public test allocation. LayerX is licensed under Apache License 2.0.
 
 ## Repository and monorepo structure
 
-This is the canonical Sidiora Labs monorepo for Paxeer X Network and the Paxeer Network. The Paxeer settlement node source lives under the repository root (`go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`) with independent build, release tags (`paxeer-network/vX.Y.Z`), and trust boundaries. Co-location keeps the protocol, settlement network, and their automation auditable in one place while preserving separate deployment authority.
+This is the Sidiora Labs monorepo for the merged network. `node/` wires the
+application, `modules/lxphost/` embeds the native kernel, `modules/` contains
+chain state and business logic, and `precompiles/` exposes EVM-callable entry
+points. `src/` and `include/` contain the C runtime; `programs/` contains the
+Programs runtime and tooling. `rpc/` implements node JSON-RPC.
 
-LayerX Programs is kernel module ID `9` (`LXP_MODULE_PROGRAMS` in `include/layerx/lxp_module.h`). Guest code runs in that module's namespace. Every monetary effect is forced through 402LXP; no program ever holds direct balance-writing authority. See [Programs](programs/index.md). Protocol 3 (`LXP_PROTOCOL_VERSION_STATE_COMMITMENT`) is the beta wire; the C header default `LXP_PROTOCOL_VERSION` remains occupancy protocol 2 (`include/layerx/lxp_protocol.h`).
+`make paxd-build` builds the node with its native libraries and release version;
+`make build` builds the native runtime and supporting tools. These targets cover
+different parts of the same network. See [Qualification](operators/qualification.md)
+for their evidence boundaries and [Monorepo layout](overview/monorepo.md) for
+workspace navigation.
 
 ## What is Paxeer?
 
-Paxeer handles custody, checkpoint registration, guarantor bonds, challenges,
-withdrawals, and emergency exits. LayerX registers periodic checkpoints with
-Paxeer rather than representing each ordinary activity as a Paxeer transaction.
+Paxeer is the chain that executes transactions, maintains balances and application
+state, and commits blocks through BFT consensus. Agent operations enter through
+ordinary chain transactions, including calls to the merged precompiles. Monetary
+effects are applied through the chain's ledger, bank, and EVM state paths.
+
+Sub-chains are tenant domains stored in the database. Creating a tenant domain
+does not require a new validator network or a separate node deployment. Domain
+selection, account authority, fees, and state isolation still need to be checked
+on the appropriate transaction path.
 
 ## Key properties
 
-Three rules sit at the center of LayerX:
+1. **Committed-block finality.** Execution and finality belong to one chain.
+2. **Deterministic execution.** The native runtime uses canonical encoding and
+   checked arithmetic; replay gates exercise reproducibility across compilers
+   and architectures.
+3. **Explicit authority.** Modules and precompiles validate callers and apply
+   state changes through their wired chain keepers.
 
-1. **One canonical history.** Every accepted or failed activity receives a global sequence. State roots are chained per activity, not only per batch.
-2. **One financial doorway.** `402LXP` is the only component allowed to write balances. Protocol modules produce validated transfer sets rather than mutating funds themselves.
-3. **One reproducible result.** Consensus-critical execution excludes floating point, local clock decisions, database iteration order, and other sources of nondeterminism.
+## What the merged network supports
 
-## What LayerX supports
-
-| Area | Responsibilities |
+| Area | Implementation and responsibilities |
 | --- | --- |
-| Identity and authority | Agent DIDs, primary and session keys, scoped capability grants, rotation, recovery, revocation, and expiry |
-| Money movement | Authenticated sends and receives, asset accounts, deposits, withdrawals, and reserve accounting |
-| Spending controls | Holds, escrow, recurring budgets, delegated limits, approvals, and metered streams |
-| Agent commerce | Offers, commitments, tool-execution attestations, delivery, acceptance, and disputes |
-| Markets | Oracle intake, order books, positions, funding, margin, liquidation, and insurance accounting |
-| Network operation | Sequencing, replicas, batch construction, data availability, replay, fees, and metering |
-| Settlement | Guarantor attestations, checkpoint registration, custody reconciliation, claims, and emergency exits |
+| Identity and authority | `modules/layerxauth/`: authority, grants, rotation, recovery, and revocation |
+| Money movement | `modules/layerxledger/`: asset accounts and transfers integrated with native balances |
+| Spending controls and commerce | `modules/layerxpay/`: holds, escrow, budgets, streams, and service operations |
+| Programs | `precompiles/layerxprograms/` and `programs/`: deployment, invocation, and sandboxed guest execution |
+| Markets | `modules/layerxexchange/`: exchange state and execution |
+| Tenant domains | `modules/layerxchains/`: database namespaces and domain lifecycle |
+| Network operation | `node/`, `consensus/`, and `rpc/`: block processing, commit, recovery, and node access |
+
+The merged precompile address table is declared in
+[`precompiles/setup.go`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/precompiles/setup.go).
+For example, Programs uses `0x000000000000000000000000000000000000101D`;
+its ABI is in `precompiles/layerxprograms/abi.json`. See [Programs](programs/index.md).
+
+## Connect to the network
+
+Public node JSON-RPC is served over HTTPS at the root of
+`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`,
+and at `api-mainnet-beta.paxeer.network`.
+
+```sh
+curl --fail --silent --show-error --max-time 30 \
+  https://api-mainnet-beta.paxeer.network \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+```
+
+The expected chain ID result is `"0x7d"`. Node namespaces include `debug`,
+`echo`, `eth`, `net`, `pax`, `test`, and `txpool`; availability also depends on
+node configuration. Hosted `px_` methods are described by
+`services/platform/hosted/gateway/openrpc.json`; they are gateway methods, not a
+promise that every node exposes them. `node.hyperpaxeer.com` is the hpx library mirror
+used by build tooling, not a transaction endpoint.
 
 ## Fees
 
-Fees are computed from the committed canonical schedule.
-Asset fee prices are named for ordinals `1`, `4`, `5`, `6`, `7`, `8`, `10`, and
-`11`; see [Assets and tokens](concepts/assets.md#named-fee-schedule). Public estimation
-returns the schedule and snapshot that produced the value, and does not reserve
-the fee or prove execution.
+Use `eth_estimateGas` and the node's fee methods for an EVM transaction. Estimates
+are advisory: they neither reserve funds nor prove that a transaction will
+succeed. Committed receipt status, gas usage, and logs describe the actual result.
+See [Assets and tokens](concepts/assets.md) for asset-specific material.
 
-See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag conventions.
+## Translated overviews
+
+[Deutsch](overview/i18n/de.md) · [Español](overview/i18n/es.md) ·
+[Français](overview/i18n/fr.md) · [日本語](overview/i18n/ja.md)
 
 ## Resources
 
 - [Quickstart](overview/quickstart.md)
 - [Getting started](overview/getting-started.md)
 - [Payments developer path](overview/payments.md)
-- [Public JSON-RPC](platform/gateway-rpc.md)
+- [Public node JSON-RPC](reference/public-rpc.md)
+- [Hosted gateway API](platform/gateway-rpc.md)
 - [Public payment API transcript](platform/public-api.md)
 - [Assets and tokens](concepts/assets.md)
 - [Commitment levels](protocol/commitment-levels.md)
@@ -68,8 +112,7 @@ See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag convention
 - [Protocol](protocol/index.md)
 - [Modules](protocol/modules.md)
 - [Finality](protocol/finality.md)
-- [Custody](human/custody.md)
-- [Protocol design](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/design.md)
+- [Merged network specification](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx)
 - [Contributing guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md)
 - [Security policy](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)
 - [Qualification documentation](operators/qualification.md)
@@ -100,7 +143,6 @@ See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag convention
 - [Hosted control](operators/beta-control.md)
 - [Hosted node](platform/hosted-node.md)
 - [Hosted agent boundary](platform/agent-boundary.md)
-- [Paxeer boundary](concepts/paxeer-boundary.md)
 
 ---
 

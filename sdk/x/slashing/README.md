@@ -1,148 +1,112 @@
 # x/slashing
 
 ## Overview
-To understand how the slashing module works, refer to the [slashing spec](spec/README.md). This page describes how this fork's implementation differs from it.
 
-The slashing module enables Cosmos SDK-based blockchains to disincentivize any attributable action
-by a protocol-recognized actor with value at stake by penalizing them ("slashing").
+The slashing module tracks validator liveness and applies staking penalties on
+Paxeer's BFT network. Paxeer has one network: its kernel participates in the
+network and proposes blocks, and committed blocks determine finality.
 
-Penalties may include, but are not limited to:
-* Slash some amount of their stake
-* Removing their ability to vote on future blocks for a period of time.
+This fork stores missed signatures in packed arrays and calculates liveness
+updates concurrently before applying store mutations in vote order. Start with
+the [slashing specification](spec/README.md), the
+[current state layout](spec/02_state.md) and the
+[BeginBlock lifecycle](spec/04_begin_block.md).
+
+Penalties can reduce stake according to the configured slash fraction and jail a
+validator, excluding it from the active validator set. Downtime does not
+set the tombstone flag. Unjailing requires a transaction and the checks in
+[`keeper/unjail.go`](keeper/unjail.go), including an expired jail period,
+sufficient self-delegation and no tombstone.
 
 ## State
 
 ### ValidatorSignInfo
-Validators are penalized for failing to be included in the LastCommitInfo for some number of blocks by being automatically jailed, potentially slashed, and unbonded.
 
-Information about validator's liveness activity is tracked through ValidatorSigningInfo.
+`ValidatorSigningInfo` stores the consensus address, `StartHeight`, circular
+`IndexOffset`, `JailedUntil`, `Tombstoned` and `MissedBlocksCounter`. The counter
+tracks the number of missed slots in the active window without scanning every
+bit on each update.
 
-```go
-// ValidatorSigningInfo defines the signing info for a validator
-type ValidatorSigningInfo struct {
-    // validator consensus address
-    Address             string          `json:"address,omitempty"`
-    // height at which validator was first a candidate OR was unjailed
-    StartHeight         int64           `json:"start_height" yaml:"start_height"`   
-    // index offset into signed block bit array
-    IndexOffset         int64           `json:"index_offset" yaml:"index_offset"`
-    // timestamp validator cannot be unjailed until
-    JailedUntil         time.Time       `json:"jailed_until" yaml:"jailed_until"` 
-    // whether or not a validator has been tombstoned (killed out of validator set)
-    Tombstoned          bool            `json:"tombstoned" yaml:"tombstoned"`
-    // missed blocks counter (to avoid scanning the array every time)
-    MissedBlocksCounter int64           `json:"missed_blocks_counter" yaml:"missed_blocks_counter"` 
-}
-```
+[`AfterValidatorCreated`](keeper/hooks.go) adds the consensus public-key relation.
+`AfterValidatorBonded` creates signing info only when none exists; it does not
+reset an existing record's start height on every rebond. Signature handling
+requires both records and panics if either prerequisite is missing.
 
 ### MissedBlocksBitArray
-`MissedBlocksBitArray` acts as a bitpack-array of size SignedBlocksWindow that tells us if the validator missed the block for a given index in the bit-array. 
 
-Unlike upstream Cosmos SDK, which stores one bool per block, the missed blocks are packed into `uint64`s. Each uint64 has 64 bits, and each bit represent a bool value of either 0 or 1, where 0 indicates the validator did not miss (did sign) the corresponding block, and 1 indicates they missed the block (did not sign).
+The keeper stores one protobuf `ValidatorMissedBlockArray` per consensus address,
+containing `Address`, `WindowSize` and `MissedBlocks []uint64`. It allocates the
+whole bitmap on the first signature calculation when no bitmap exists, then
+persists it during BeginBlock's write phase. There are no new per-height keys as
+the window fills.
 
-Note that the `MissedBlocksBitArray` is not explicitly initialized up-front. Keys are added as we progress through the first SignedBlocksWindow blocks for a newly bonded validator. 
+For a positive window `W`, the number of words is `(W + 63) / 64` using integer
+division. A 65-block window needs two words. Slot `i` uses word `i / 64` and mask
+`uint64(1) << (i % 64)`. A set bit means a missed signature; a cleared bit means
+no miss. Bits beyond `WindowSize` in the last word are unused.
 
-The SignedBlocksWindow parameter defines the size (number of blocks) of the sliding window used to track validator liveness.
+`IndexOffset` identifies the next slot to overwrite and advances modulo the
+current window after each vote. `MissedBlocksCounter` increases for a clear-to-set
+transition and decreases for a set-to-clear transition. Fresh slots are clear,
+so the initial bitmap is not a history of signed blocks.
 
-The window size determines how many bits need to be packed into `MissedBlocks`, taking the floor of `WindowSize` divided by 64 determines the size of the `MissedBlocks` array
-```go
-// Stores a sliding window of the last `signed_blocks_window` blocks indicating whether the validator missed the block
-type ValidatorMissedBlockArray struct {
-	// validator address
-	Address string          `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	// store this in case window size changes but doesn't affect number of bit groups
-	WindowSize int64        `protobuf:"varint,2,opt,name=window_size,json=windowSize,proto3" json:"window_size,omitempty"`
-	// Array of contains the missed block bits packed into uint64s
-	MissedBlocks []uint64   `protobuf:"varint,3,rep,packed,name=missed_blocks,json=missedBlocks,proto3" json:"missed_blocks,omitempty" yaml:"missed_blocks"`
-}
-
-Sample MissedBlocks: [1593,2453]
-[0000000000000...0000011000111001,0000000000000000...0000100110010101]
-|-----------64 bits--------------|---------------64 bits--------------|
-
-```
+`WindowSize` detects parameter changes even when the number of words stays the
+same. On expansion, `ResizeMissedBlockArray` inserts clear slots at the next write
+position, retains all existing slots and preserves the missed counter. On
+shrinkage, it clears the bitmap and resets the counter and offset. The
+[state specification](spec/02_state.md) describes persistence and migration.
 
 ### Params
-The slashing module contains the following parameters:
 
-| Key                     | Type           | Example                |
-| ----------------------- | -------------- | ---------------------- |
-| SignedBlocksWindow      | string (int64) | "100"                  |
-| MinSignedPerWindow      | string (dec)   | "0.500000000000000000" |
-| DowntimeJailDuration    | string (ns)    | "600000000000"         |
-| SlashFractionDoubleSign | string (dec)   | "0.050000000000000000" |
-| SlashFractionDowntime   | string (dec)   | "0.010000000000000000" |
+These are the constructor defaults from [`types/params.go`](types/params.go).
+Live network parameters may differ.
 
-Those parameters can be updated with a `param-change` governance proposal on the `slashing` subspace.
+| Parameter-store key | Go type | Constructor default |
+| --- | --- | --- |
+| `SignedBlocksWindow` | `int64` | `108000` blocks |
+| `MinSignedPerWindow` | `sdk.Dec` | `0.050000000000000000` |
+| `DowntimeJailDuration` | `time.Duration` | 10 minutes |
+| `SlashFractionDoubleSign` | `sdk.Dec` | `0.000000000000000000` |
+| `SlashFractionDowntime` | `sdk.Dec` | `0.000000000000000000` |
 
-```go
-// Params - used for initializing default parameter for slashing at genesis
-type Params struct {
-	
-    SignedBlocksWindow      int64         `json:"signed_blocks_window" yaml:"signed_blocks_window"`
-    MinSignedPerWindow      sdk.Dec       `json:"min_signed_per_window" yaml:"min_signed_per_window"`
-    DowntimeJailDuration    time.Duration `json:"downtime_jail_duration" yaml:"downtime_jail_duration"`
-    SlashFractionDoubleSign sdk.Dec       `json:"slash_fraction_double_sign" yaml:"slash_fraction_double_sign"`
-    SlashFractionDowntime   sdk.Dec       `json:"slash_fraction_downtime" yaml:"slash_fraction_downtime"`
-}
+The window and jail duration must be positive. The decimal parameters must lie
+in `[0, 1]`. A zero slash fraction still permits jailing for downtime.
+The keeper converts the minimum signing fraction to a block count with
+`MinSignedPerWindow * SignedBlocksWindow`, rounded using `RoundInt64`.
 
-```
+Parameters can be changed through a `param-change` governance proposal in the
+`slashing` subspace. In that proposal's legacy JSON, integers and durations use
+strings; ten minutes is `"600000000000"` nanoseconds. See the
+[governance client](../gov/spec/07_client.md#submit-proposal) and
+[parameter subspace](../params/spec/02_subspace.md).
 
 ## Begin-Block
-At the beginning of each block, we update the ValidatorSigningInfo for each validator and check if they've crossed below the liveness threshold over a sliding window.
 
-This sliding window is defined by SignedBlocksWindow and the index in this window is determined by IndexOffset found in the validator's ValidatorSigningInfo.
+[`BeginBlocker`](abci.go) takes the previous commit's votes. One worker per vote
+calls `HandleValidatorSignatureConcurrent` to read state and calculate the next
+bitmap, signing info and possible penalty. Workers fill a result slice at the
+original vote indices. After all workers finish, the main loop writes those
+results in the original order.
 
-For each block processed, the IndexOffset is incremented regardless if the validator signed or not. Once the index is determined, the MissedBlocksBitArray and MissedBlocksCounter are updated accordingly.
+A validator is eligible for downtime punishment only when the current height
+strictly exceeds `StartHeight + SignedBlocksWindow`, its missed count strictly
+exceeds the permitted misses, and the staking validator exists and is not
+already jailed. The write phase clears the bitmap, calls
+`SlashJailAndUpdateSigningInfo`, and stores signing info with the counter and
+offset reset. Otherwise it persists the updated bitmap and signing info.
 
-Here we parallelize the logic of fetching the existing validators to gather `ValidatorSigningInfo` and `ValidatorMissedBlockArray`
-```go
-// Iterate over all the validators which *should* have signed this block
-// store whether or not they have actually signed it and slash/unbond any
-// which have missed too many blocks in a row (downtime slashing)
-
-// this allows us to preserve the original ordering for writing purposes
-var wg sync.WaitGroup
-
-slashingWriteInfo := make([]*SlashingWriteInfo, len(votes))
-
-for i := range votes {
-    wg.Add(1)
-    go func(valIndex int) {
-        defer wg.Done()
-        vInfo := votes[valIndex]
-        consAddr, missedInfo, signInfo, shouldSlash, slashInfo := k.HandleValidatorSignatureConcurrent(ctx, vInfo.Validator.Address, vInfo.Validator.Power, vInfo.SignedLastBlock)
-        slashingWriteInfo[valIndex] = &SlashingWriteInfo{
-            ConsAddr:    consAddr,
-            MissedInfo:  missedInfo,
-            SigningInfo: signInfo,
-            ShouldSlash: shouldSlash,
-            SlashInfo:   slashInfo,
-        }
-    }(i)
-}
-wg.Wait()
-```
-
-Then for each validator, we will update its corresponding sign info for the current block.
-```go
-for _, writeInfo := range slashingWriteInfo {
-    if writeInfo == nil {
-        panic("Expected slashing write info to be non-nil")
-    }
-    // Update the validator missed block bit array by index if different from last value at the index
-    if writeInfo.ShouldSlash {
-        k.ClearValidatorMissedBlockBitArray(ctx, writeInfo.ConsAddr)
-        writeInfo.SigningInfo = k.SlashJailAndUpdateSigningInfo(ctx, writeInfo.ConsAddr, writeInfo.SlashInfo, writeInfo.SigningInfo)
-    } else {
-        k.SetValidatorMissedBlocks(ctx, writeInfo.ConsAddr, writeInfo.MissedInfo)
-    }
-    k.SetValidatorSigningInfo(ctx, writeInfo.ConsAddr, writeInfo.SigningInfo)
-}
-```
+The calculation phase also emits liveness events for missed signatures. Store
+write ordering does not establish an ordering for those concurrent events.
+See [BeginBlock](spec/04_begin_block.md) for the exact threshold, resizing and
+penalty sequence.
 
 ## Metrics
-- `validator_slashed` is a counter incremented each time a validator is slashed or jailed, with a `type` attribute of `missing_signature` (too many missed blocks) or `double_sign`, and a `validator` attribute with its consensus address.
-- `slashing_begin_blocker_duration` is a histogram of the module's BeginBlock latency in seconds.
 
-Slashing events carry the same `missing_signature` or `double_sign` value in their `reason` attribute.
+- `validator_slashed` is a counter with `type` and `validator` attributes. The
+  type is `missing_signature` for downtime or `double_sign` for the keeper's
+  double-sign slash path; the validator is its consensus address. It counts
+  penalty calls even when the configured slash fraction is zero.
+- `slashing_begin_blocker_duration` records BeginBlock latency in seconds.
+
+Downtime slash events include `reason=missing_signature`; the keeper's
+double-sign slash event uses `reason=double_sign`.

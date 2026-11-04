@@ -232,6 +232,7 @@ type PreflightRequest struct {
 	AmountIn         string         `json:"amountIn"`
 	IsBuy            bool           `json:"isBuy"`
 	CreationPath     string         `json:"creationPath"`
+	CreationStage    string         `json:"creationStage,omitempty"`
 	Name             string         `json:"name"`
 	Symbol           string         `json:"symbol"`
 	FeeStrategy      uint8          `json:"feeStrategy"`
@@ -257,6 +258,7 @@ type Preflight struct {
 	Pool                   *PoolState          `json:"pool,omitempty"`
 	Quote                  *ContractQuote      `json:"quote,omitempty"`
 	SimulationMode         string              `json:"simulationMode"`
+	CreationStage          string              `json:"creationStage,omitempty"`
 	RequestSHA256          string              `json:"requestSha256"`
 	ObservedRevisionSHA256 string              `json:"observedRevisionSha256"`
 }
@@ -431,6 +433,10 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 	}
 	switch request.Family {
 	case Creation:
+		if request.CreationStage != "" && request.CreationStage != "creation" && request.CreationStage != "approval" {
+			return result, refuse("creation_stage_invalid", "")
+		}
+		result.CreationStage = request.CreationStage
 		cost, err := e.creationCost(ctx, request, attestation)
 		cost.ConfigRevision = result.ObservedRevisionSHA256
 		result.CreationCost = &cost
@@ -441,6 +447,11 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 				return result, nil
 			}
 			return result, err
+		}
+		if request.CreationStage == "approval" {
+			result.SimulationMode = "usdl_approval"
+		} else {
+			result.SimulationMode = "create_market"
 		}
 	case PlainQuote, Trading:
 		native, err := e.nativeDeployment()
@@ -567,6 +578,20 @@ func (e *PreflightEngine) creationCost(ctx context.Context, request PreflightReq
 			return CreationCost{}, refuse("creation_metadata_invalid", "")
 		}
 		return CreationCost{}, err
+	}
+	if request.CreationStage == "approval" {
+		if request.Trader != request.Recipient {
+			return CreationCost{}, refuse("creation_approval_account_invalid", "USDL")
+		}
+		to = common.HexToAddress(e.manifest.Roles["USDL"].Address)
+		data, err = encodeCall("approve(address,uint256)", spender, new(big.Int).SetUint64(1_000_000))
+		if err != nil {
+			return CreationCost{}, err
+		}
+		output, err := e.reader.CallContractAtHash(ctx, ethereum.CallMsg{From: request.Trader, To: &to, Data: data}, request.BlockHash)
+		if err != nil || len(output) != 32 || new(big.Int).SetBytes(output).Cmp(big.NewInt(1)) != 0 {
+			return cost, Unavailable{"core_market", ReasonCode("approval_simulation_unavailable"), "USDL"}
+		}
 	}
 	price, err := gas.SuggestGasPrice(ctx)
 	if err != nil || price == nil || price.Sign() < 0 || price.BitLen() > 256 {

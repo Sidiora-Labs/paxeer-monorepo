@@ -1,0 +1,73 @@
+[repair.22.31.102]
+mode = "BUILD"
+audit = "22.30.50"
+qualification = "The runner records the verified candidate revision, command, exit code and private log; these proofs close findings only when hf-done passes."
+baseline = "No pre-change test gate ran: the task's explicit ordered gate instructions prohibit verification before implementation and allow only hf-build followed by hf-done; repair_102_test.go did not exist in the starting tree."
+
+[qualification.first_attempt]
+revision = "b92c902ee17c643bd632ad14ab668eb9fca9dfd9"
+command = "cg spec done 22.31.102 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The merge-resume fixture scheduled a major upgrade before its predecessor BeginBlock and triggered the genuine early-binary guard; scheduling now occurs after BeginBlock and before commit."
+
+[qualification.carried_attempt]
+revision = "c3a0c09a8b65f806b0fd9fbeaecee4e92a656ff2"
+command = "cg spec done 22.31.102 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "Previous-attempt failure excerpt supplied in the task input; its private log path was not supplied."
+observed = "The carried attempt failed reopening MergeInfoResume because the merge loader added already committed full-genesis trees; the loader now adds only pending trees, and the fixture asserts both an empty initial plan and preservation of every committed store on reopen."
+
+[gotcha.restart_merge_inventory]
+observed = "A supported full-genesis chain already owns the merge trees even before a governed merge plan runs."
+repair = "Resolve store additions from the loaded pending-tree inventory, preserving full-genesis state and adding missing legacy trees."
+
+[qualification.bounded_verify_1]
+revision = "e6f80d3a8cfaf196ee69fe5ec32bb40f9046582e"
+command = "cg spec done 22.31.102 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven repair tests passed; ExecutionFailureAtomic used a timezone the SDK normalizes, and VerifyRetirement viewed historical full-genesis state after adding a future latest-version marker."
+
+[gotcha.utc_context]
+observed = "SDK context constructors normalize header timestamps to UTC, making an invalid timezone unusable for the VM cache error path."
+repair = "Reopen the real keeper, remove its required fee-collector address mapping and assert the producer error before checking ProcessBlock rollback."
+
+[gotcha.retirement_fixture_order]
+observed = "The generated verify version map contains only the latest tag; placing its done marker above the queried height hides the interface before the historical assertion can execute."
+repair = "Exercise the historical calls first, then run the actual merge handler and assert every retirement call with unchanged gas and typed-revert checks."
+
+[finding.gas-wanted-zero]
+test = "TestRepair_102_GasWantedZero"
+proof = "Real Accept, signed receipt, source Seal and ProcessProposal accept full gas with zero/negative/unset bounds and reject the same block above a positive validator bound."
+
+[finding.giga-errors-become-empty-results]
+tests = ["TestRepair_102_ExecutionFailureAtomic", "TestRepair_102_SchedulerFailureAtomic"]
+proof = "Real missing fee-collector/cache failure and a real Cosmos parameter-codec panic after EVM scheduling refuse the block and preserve every store; CompleteBlock rejects incomplete and nil results."
+
+[finding.committed-parent-lost-on-restart]
+test = "TestRepair_102_CommittedParentRestart"
+proof = "Real commit, close, database reopen, loadLatest, Executor.Open and source Seal retain the same committed parent and replay header."
+
+[finding.merge-plan-info-lost-on-resume]
+test = "TestRepair_102_MergeInfoResume"
+proof = "The keeper disk writer, persisted scheduled plan, process close/reopen, store loader and BeginBlock retain governed leaders, receipt pins and activation genesis; operator-only plans use the writer's name/height/string-info JSON format."
+
+[finding.giga-tenant-replay-uses-root-domain]
+test = "TestRepair_102_TenantReplay"
+proof = "A keeper-created tenant survives reload, accepts and receipts legacy and typed transactions, seals and replays through ProcessBlock with matching consensus results, tenant CHAINID/BASEFEE and domain activity."
+
+[finding.verify-retirement-surface-hidden]
+test = "TestRepair_102_VerifyRetirement"
+proof = "Default full genesis without an anchor version or v6.9 marker retains 0x1012; real EVM calls charge RequiredGas before and after the real merge handler and return typed retirement errors at/after merge while raw signatures remain valid below merge."
+
+[finding.merge-fallback-bound-to-unrelated-height]
+test = "TestRepair_102_MergeFallbackActivation"
+proof = "Real ordinary/Giga execution agrees for 0x101A-0x101E and 0x0901-0x0908 at low merged genesis and immediately before/at/after governed merge activation, in synchronous and OCC modes."
+
+[finding.giga-disables-result-proof-validation]
+test = "TestRepair_102_StrictResultCommitment"
+proof = "Giga leaves strict validation enabled; ordinary sequencer and replay consensus encodings agree with non-unit gas normalization; real Merkle proof, light attack-evidence and light RPC consumers reject tampered results and header commitments using a signed trusted block and a loopback JSON-RPC peer."
+
+[wiring.domain6]
+request = "Domain 6: update spec/layerx-merge/contracts/address-inventory.md and its activation registry row for 0x1012 to name the durable upgrade-module retirement gate; node/upgrades.go now uses it."
