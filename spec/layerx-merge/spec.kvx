@@ -209142,7 +209142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.795]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 4 of 7): config-drift, restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.319"]
@@ -325347,7 +325347,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.765]
 title = "Repair audit record 22.30.173 medium findings in tools/qualification/paxeer-x (part 1 of 1): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.316"]
@@ -326206,7 +326206,7 @@ do_11 = "Attempt 3 (requalify): the requalification run passed every test, but t
 
 [task.22.33.726]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/topology/phase2 (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
@@ -326726,7 +326726,7 @@ do_8 = "Attempt 2 (continue): the committed transcript's receipt reference does 
 
 [task.22.33.702]
 title = "Repair audit record 22.30.169 medium findings in tests/agent/sdk/python (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.312"]
