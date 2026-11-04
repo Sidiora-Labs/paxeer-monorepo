@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"sync"
@@ -155,6 +156,23 @@ func (ckv *CommitKVStoreCache) Delete(key []byte) {
 
 	ckv.cache.Remove(string(key))
 	ckv.CommitKVStore.Delete(key)
+}
+
+// DeleteAll removes a range from the parent and invalidates its cached entries.
+func (ckv *CommitKVStoreCache) DeleteAll(start, end []byte) error {
+	ckv.mtx.Lock()
+	defer ckv.mtx.Unlock()
+
+	// Invalidate before delegating so a partial deletion or error cannot leave
+	// stale values (including cached misses) in the affected range.
+	for _, key := range ckv.cache.Keys() {
+		if (start == nil || bytes.Compare([]byte(key), start) >= 0) &&
+			(end == nil || bytes.Compare([]byte(key), end) < 0) {
+			ckv.cache.Remove(key)
+		}
+	}
+
+	return ckv.CommitKVStore.DeleteAll(start, end)
 }
 
 // Reset purges all cached values.

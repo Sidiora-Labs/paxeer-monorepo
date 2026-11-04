@@ -1,0 +1,54 @@
+[repair.22.31.76]
+audit = "22.30.42"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+mode = "BUILD"
+baseline = "Not run: the ordered task instructions require complete implementation before hf-build and hf-done, forbid running verify_cmd directly, and allow only one initial verification; no baseline failures are claimed."
+evidence = "The runner's private gates.jsonl records exact candidate revision, command, exit and log; this record is part of the candidate and makes no unrun gate claim."
+
+[finding.device-token-rotation]
+repair = "Atomically replace all old endpoint rows for an installation under the account mutation lock; count every row the real delivery authority enumerates toward the unchanged 32-target bound."
+test = "TestRepair_76_device_token_rotation"
+proof = "Service-free gate: real signed installation/token proof validation over forty tokens, capacity including historical duplicates at the 32-target bound, persisted encrypted-token codec close/reopen and account-bound decryption."
+integration_test = "TestConnectedRepair76_device_token_rotation retains all prior real registration, uniqueness, capacity, pool-reopen and eligibility assertions; external-service execution is outside this task gate."
+remaining_wiring = "The out-of-scope notification authority and AccountClient integration proof remains with the user/notifications owners; this package test does not claim to execute AccountClient.Targets or ResolveEndpoint."
+
+[finding.backfill-profile-fields]
+repair = "Digest complete legacy profile/image rows and watchlist; preserve validated website/social fields; admit only owned approved UUID assets through Runtime.Assets, otherwise quarantine; block stable cutover on unresolved rows or changed source digests."
+tests = ["TestRepair_76_backfill_profile_fields", "TestRepair_76_backfill_unresolved_fields_and_assets"]
+proof = "Service-free gate: production legacy projection, full profile serialization close/reopen, generated profile decoder, website/social preservation, complete-field/image digest sensitivity and unresolved link/asset rejection."
+integration_tests = ["TestConnectedRepair76_backfill_profile_fields", "TestConnectedRepair76_backfill_unresolved_fields_and_assets"]
+integration_scope = "Prior PostgreSQL migration/outbox, stable-cutover, quarantine and pool-reopen assertions are retained unchanged outside this task gate."
+
+[finding.backfill-provisioning-order]
+repair = "Share the identity provisioning advisory lock, initialize only untouched blank profiles, preserve conflicting user edits, reload and compare every profile field before counting verified or emitting completion."
+test = "TestRepair_76_backfill_provisioning_order"
+proof = "Service-free gate: the reconciliation decision used by transactional backfill, both absent-versus-blank provisioning outcomes, codec close/reopen, revision preservation, idempotent replay and conflict refusal for every public field/socials and explicitly cleared content."
+integration_test = "TestConnectedRepair76_backfill_provisioning_order retains actual ensureIdentityAccount/PostgresIdentityResolver, pool-reopen, replay, edit preservation and completion-event assertions outside this task gate."
+
+[finding.export-sdk-authorization]
+repair = "Carry the same account-bound expiring single-use authorization in the existing typed downloadUrl; download accepts URL or legacy header authorization, rejects ambiguous credentials and retains private no-store responses."
+test = "TestRepair_76_export_sdk_authorization"
+proof = "Service-free gate: actual worker metadata producer, encrypted metadata close/reopen, real status response and v2 adapter over TLS, generated Go decoder, download authorization parser, hash equality with worker credential and actual download-handler missing-auth refusal; expiry, job binding, duplicate/conflicting credentials and unsafe base URLs are checked."
+integration_test = "TestConnectedRepair76_export_sdk_authorization retains worker/S3, status, pool/service-reopen, typed-URL download, cross-account and replay refusal assertions outside this task gate."
+remaining_wiring = "Source contract/SDK regeneration and actual gateway participant proof remain with their owning domains; the account test does not claim to execute the gateway or TypeScript SDK."
+
+[wiring]
+device_uniqueness = "services/launchpad/user/migrations (user domain): reconcile existing duplicate installation rows and add a unique installation binding index; account-local registration serializes and replaces rows without editing migration DDL here."
+notification_proof = "services/launchpad/user/internal/app/app.go and services/launchpad/notifications/consumers.go (user and notifications domains): exercise the real authority through AccountClient.Targets and ResolveEndpoint across rotation/reopen; these modules cannot be imported here without out-of-scope module/API wiring."
+asset_migration = "services/launchpad/user/internal/app/app.go and services/launchpad/metadata (user and metadata domains): provide Runtime.Assets ownership approval and migrate legacy storage objects to approved immutable asset IDs; unresolved mappings remain quarantined."
+contracts = "spec/layerx-merge/spec.kvx and the source contract for sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json (interfaces domain): declare downloadAuthorization and the authorization query parameter on downloadUrl, preserving authenticated account ownership, expiry, single-use and private no-store handling."
+go_sdk = "sdk/launchpad/shared/interfaces/v2/types.gen.go (SDK domain): regenerate AccountJob.downloadAuthorization from the source contract; the current generated downloadUrl already carries a usable authorized URL."
+ts_sdk = "sdk/launchpad/packages/sdk-v2/src/types.gen.ts (SDK domain): regenerate AccountJob.downloadAuthorization from the source contract and prove the typed URL download."
+gateway = "services/launchpad/gateway/internal/proxy/connected.go (gateway domain): prove the status/download participant round trip with the declared URL authorization; RawQuery is already forwarded while X-Export-Authorization is absent from the current forwarding allowlist."
+
+[observations]
+legacy_assets = "Legacy image IDs lacking ownership approval are quarantined rather than treated as approved stable assets."
+preexisting_rows = "Existing duplicate endpoint rows require migration reconciliation; registration repairs the installation it touches."
+
+[continuation]
+previous_revision = "da6bb5146e7edc738737c02ee49c78428f3af173"
+previous_failure = "The previous package-wide verification failed TestConnectedPhase3LiveSocketRevocationAndHTTPWrites because L35_PHASE3_GATEWAY_URL was absent; no focused repair-test baseline failure is claimed."
+gate_dependencies = "TestRepair_76_* uses production functions, actual cryptography, file/JSON codec close-reopen and a local TLS transport; it requires no PostgreSQL, Redis, S3, Anvil or live RPC."
+retained_tests = "All five prior integration test bodies and assertions remain in repair_76_test.go as TestConnectedRepair76_*; the names separate their required external services from the declared focused gate, without skipping or deleting tests."
+proof_boundary = "Codec/file reopen does not qualify PostgreSQL crash recovery, transaction isolation, AccountClient.Targets/ResolveEndpoint, the notification consumer or gateway transport; the retained integration tests and wiring requests explicitly carry those obligations."
+gotcha = "The inherited repair tests used connectedFixture/connectedLegacyFixture and internaltest.NewStore, so filtering only their old TestRepair_76_* names still required forbidden external services."

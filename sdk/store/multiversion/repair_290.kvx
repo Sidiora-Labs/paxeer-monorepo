@@ -1,0 +1,7 @@
+[repair.22.31.290]
+finding = "validation-removed-version"
+tests = ["TestRepair_290_RemovedVersion", "TestRepair_290_VisibleVersionPrecedence"]
+behavior = "A removed snapshotted version exposes the parent value or absence and caches that read; stale consumers fail validation and re-execute before commit."
+baseline = "Not run: the explicit bounded gate order requires complete implementation before hf-build and hf-done and forbids a manual verify run."
+wiring_requests = []
+evidence = "The runner's hf-done record supplies the exact candidate revision, command, exit code and private log location."

@@ -25,9 +25,9 @@ pub use create::{
     AgentCreationContract, AgentCreationError, AgentEvidence, AgentFailure, CapabilityProvision,
     CreateAgentRequest, CreationContext, CreationJourney, CreationProjection, CreationStage,
     CreationState, CreationStatus, NativeAgentCreationContract, NativeFeeConsent,
-    NativeFundingEvidence, NativeFundingRequest, NativeIdentityRevisionRequest,
-    NativeOnboardingRequest, ProtocolAction, ProtocolEvidence, PurposePresetCatalog,
-    ScopedAgentCreationContract, SessionProvision, StageState,
+    NativeFundingEvidence, NativeFundingRequest, NativeIdentityCreationRequest,
+    NativeIdentityRevisionRequest, NativeOnboardingRequest, ProtocolAction, ProtocolEvidence,
+    PurposePresetCatalog, ScopedAgentCreationContract, SessionProvision, StageState,
 };
 pub use reclaim::{
     Reclaim, ReclaimAgentBoundary, ReclaimAgentContext, ReclaimError, ReclaimMechanism,

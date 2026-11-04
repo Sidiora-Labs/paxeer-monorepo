@@ -4,13 +4,16 @@
 //! demonstrating the program-shared namespace. Individual balances remain
 //! principal-scoped through the caller-indexed pattern.
 
-use layerx_programs_runtime::{Capability, CapabilitySet, ABI_MODULE};
+use layerx_programs_runtime::{
+    Capability, CapabilitySet, Deploy, ProgramId, StorageSelector, UpgradePolicy, ABI_V2_MODULE,
+    ABI_V2_VERSION, CALL_RESERVE_EXPORT,
+};
 
 use crate::error::PortRefusal;
 use crate::layout::{caller_indexed_key, shared_key, value_slot};
 use crate::wasm::{
-    Code, ModuleBuilder, I32, I32_LOAD8_U, I32_LT_S, I32_STORE8, I32_WRAP_I64, I64, I64_ADD,
-    I64_EXTEND_I32_U, I64_GT_S, I64_LT_S, I64_OR, I64_SHL, I64_SHR_U, I64_STORE,
+    Code, ModuleBuilder, I32, I32_LOAD8_U, I32_LT_S, I32_NE, I32_STORE8, I32_WRAP_I64, I64,
+    I64_ADD, I64_EXTEND_I32_U, I64_GT_S, I64_LT_S, I64_OR, I64_SHL, I64_SHR_U, I64_STORE,
 };
 
 /// Declaration-order slot of the total supply in shared namespace.
@@ -102,6 +105,22 @@ impl SharedSupplyPort {
         CapabilitySet::new([Capability::SharedStorageRead]).map_err(PortRefusal::from)
     }
 
+    /// Builds a deployment with the scoped-storage ABI required by this port.
+    ///
+    /// # Errors
+    ///
+    /// Refuses an invalid or oversized module construction.
+    pub fn deployment(program: ProgramId) -> Result<Deploy, PortRefusal> {
+        let wasm = Self::code()?;
+        Ok(Deploy {
+            program,
+            code_hash: crate::hash::sha256(&wasm),
+            wasm,
+            abi_version: ABI_V2_VERSION,
+            upgrade_policy: UpgradePolicy::Immutable,
+        })
+    }
+
     /// Emits the WASM module implementing the ported token.
     ///
     /// # Errors
@@ -109,14 +128,18 @@ impl SharedSupplyPort {
     /// Refuses oversized modules and invalid constructions.
     pub fn code() -> Result<Vec<u8>, PortRefusal> {
         let mut builder = ModuleBuilder::new(MEMORY_PAGES);
-        let host_type = builder.signature(&[I32, I32, I32, I32], &[I32]);
+        let host_type = builder.signature(&[I32, I32, I32, I32, I32], &[I32]);
         let load_type = builder.signature(&[I32], &[I64]);
         let store_type = builder.signature(&[I32, I64], &[]);
-        let read_type = builder.signature(&[I32], &[I64]);
+        let read_type = builder.signature(&[I32, I32], &[I64]);
         let mint_type = builder.signature(&[I64], &[I64]);
         let query_type = builder.signature(&[], &[I64]);
-        let storage_read = builder.import(ABI_MODULE, "storage_read", host_type);
-        let storage_write = builder.import(ABI_MODULE, "storage_write", host_type);
+        let entry_type = builder.signature(&[I32, I32], &[I32]);
+        let reserve_type = builder.signature(&[I32], &[I32]);
+        let response_type = builder.signature(&[I32, I32, I32], &[I32]);
+        let storage_read = builder.import(ABI_V2_MODULE, "storage_read_scoped", host_type);
+        let storage_write = builder.import(ABI_V2_MODULE, "storage_write_scoped", host_type);
+        let response_write = builder.import(ABI_V2_MODULE, "response_write", response_type);
         builder.segment(SUPPLY_KEY_POINTER, &Self::total_supply_key());
         builder.segment(BALANCE_KEY_POINTER, &Self::balance_key());
         let load_be64 = emit_load_be64(&mut builder, load_type);
@@ -129,8 +152,37 @@ impl SharedSupplyPort {
             read_word,
             store_word,
         )?;
-        let balance_of = emit_query(&mut builder, query_type, BALANCE_KEY_POINTER, read_word);
-        let total_supply = emit_query(&mut builder, query_type, SUPPLY_KEY_POINTER, read_word);
+        let balance_of = emit_query(
+            &mut builder,
+            query_type,
+            StorageSelector::Principal,
+            BALANCE_KEY_POINTER,
+            read_word,
+        );
+        let total_supply = emit_query(
+            &mut builder,
+            query_type,
+            StorageSelector::Shared,
+            SUPPLY_KEY_POINTER,
+            read_word,
+        );
+        let reserve = emit_reserve(&mut builder, reserve_type);
+        for (name, target, argument) in [
+            (MINT_ENTRY_EXPORT, mint, Some(load_be64)),
+            (BALANCE_OF_ENTRY_EXPORT, balance_of, None),
+            (TOTAL_SUPPLY_ENTRY_EXPORT, total_supply, None),
+        ] {
+            let entry = emit_entry(
+                &mut builder,
+                entry_type,
+                target,
+                argument,
+                store_word,
+                response_write,
+            );
+            builder.export_function(name, entry);
+        }
+        builder.export_function(CALL_RESERVE_EXPORT, reserve);
         builder.export_memory(MEMORY_EXPORT);
         builder.export_function(MINT_EXPORT, mint);
         builder.export_function(BALANCE_OF_EXPORT, balance_of);
@@ -151,6 +203,12 @@ pub const MINT_EXPORT: &str = "mint";
 pub const BALANCE_OF_EXPORT: &str = "balanceOf";
 /// Exported name of the total supply query.
 pub const TOTAL_SUPPLY_EXPORT: &str = "totalSupply";
+/// Byte entry point accepting one big-endian `u64` mint amount and returning a word.
+pub const MINT_ENTRY_EXPORT: &str = "mint_call";
+/// Byte entry point returning the invoking principal's balance as a word.
+pub const BALANCE_OF_ENTRY_EXPORT: &str = "balanceOf_call";
+/// Byte entry point returning the shared total supply as a word.
+pub const TOTAL_SUPPLY_ENTRY_EXPORT: &str = "totalSupply_call";
 /// Exported name of the module's linear memory.
 pub const MEMORY_EXPORT: &str = "memory";
 
@@ -158,6 +216,7 @@ const MEMORY_PAGES: u32 = 1;
 const SUPPLY_KEY_POINTER: u32 = 0;
 const BALANCE_KEY_POINTER: u32 = 32;
 const VALUE_POINTER: u32 = 64;
+const INPUT_POINTER: u32 = 96;
 const KEY_LENGTH: i32 = 32;
 
 fn emit_load_be64(builder: &mut ModuleBuilder, signature: u32) -> u32 {
@@ -211,6 +270,7 @@ fn emit_read_word(
         code.memory(I64_STORE, offset);
     }
     code.local_get(0);
+    code.local_get(1);
     code.i32_const(KEY_LENGTH);
     code.pointer(VALUE_POINTER);
     code.i32_const(KEY_LENGTH);
@@ -236,6 +296,7 @@ fn emit_mint(
     code.i64_const(1);
     code.op(I64_LT_S);
     code.trap_if();
+    code.i32_const(StorageSelector::Shared as i32);
     code.i32_const(i32::try_from(SUPPLY_KEY_POINTER).map_err(|_| PortRefusal::OutOfRange)?);
     code.call(read_word);
     code.local_set(1);
@@ -250,12 +311,14 @@ fn emit_mint(
     code.pointer(VALUE_POINTER);
     code.local_get(2);
     code.call(store_word);
+    code.i32_const(StorageSelector::Shared as i32);
     code.pointer(SUPPLY_KEY_POINTER);
     code.i32_const(KEY_LENGTH);
     code.pointer(VALUE_POINTER);
     code.i32_const(KEY_LENGTH);
     code.call(storage_write);
     code.trap_unless_ok();
+    code.i32_const(StorageSelector::Principal as i32);
     code.i32_const(i32::try_from(BALANCE_KEY_POINTER).map_err(|_| PortRefusal::OutOfRange)?);
     code.call(read_word);
     code.local_set(3);
@@ -266,6 +329,7 @@ fn emit_mint(
     code.pointer(VALUE_POINTER);
     code.local_get(4);
     code.call(store_word);
+    code.i32_const(StorageSelector::Principal as i32);
     code.pointer(BALANCE_KEY_POINTER);
     code.i32_const(KEY_LENGTH);
     code.pointer(VALUE_POINTER);
@@ -280,12 +344,55 @@ fn emit_mint(
 fn emit_query(
     builder: &mut ModuleBuilder,
     signature: u32,
+    selector: StorageSelector,
     key_pointer: u32,
     read_word: u32,
 ) -> u32 {
     let mut code = Code::new();
+    code.i32_const(selector as i32);
     code.pointer(key_pointer);
     code.call(read_word);
+    code.end();
+    builder.function(signature, &[], &code)
+}
+
+fn emit_reserve(builder: &mut ModuleBuilder, signature: u32) -> u32 {
+    let mut code = Code::new();
+    code.local_get(0);
+    code.i32_const(8);
+    code.op(I32_NE);
+    code.trap_if();
+    code.pointer(INPUT_POINTER);
+    code.end();
+    builder.function(signature, &[], &code)
+}
+
+fn emit_entry(
+    builder: &mut ModuleBuilder,
+    signature: u32,
+    target: u32,
+    argument: Option<u32>,
+    store_word: u32,
+    response_write: u32,
+) -> u32 {
+    let mut code = Code::new();
+    code.local_get(1);
+    code.i32_const(if argument.is_some() { 8 } else { 0 });
+    code.op(I32_NE);
+    code.trap_if();
+    code.pointer(VALUE_POINTER);
+    if let Some(load_be64) = argument {
+        code.local_get(0);
+        code.call(load_be64);
+    }
+    code.call(target);
+    code.call(store_word);
+    code.i32_const(0);
+    code.pointer(VALUE_POINTER);
+    code.i32_const(KEY_LENGTH);
+    code.call(response_write);
+    code.trap_unless_ok();
+    code.i32_const(0);
     code.end();
     builder.function(signature, &[], &code)
 }

@@ -91,10 +91,11 @@ func getValueAccountHandler(ctx sdk.Context, p *PrecompileExecutor, call callCon
 	}
 	account, err := p.host.ReadValueAccount(ctx, input.ProgramID, input.AccountID)
 	if errors.Is(err, lxphost.Code(-7)) {
+		// An absent account has zero balance and is not frozen.
 		return call.method.Outputs.Pack(new(big.Int), false)
 	}
 	if err != nil {
 		return nil, accountViewError(err, call.method.Name)
 	}
-	return call.method.Outputs.Pack(account.Balance.BigInt(), true)
+	return call.method.Outputs.Pack(account.Balance.BigInt(), account.Frozen)
 }
