@@ -1,0 +1,24 @@
+[manifest]
+task = "22.32.19"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 1
+
+[page.1]
+path = "docs/site/docs/platform/webhooks.md"
+status = "misleading"
+bytes = 38064
+source_1 = "record 22.30.114 [doc.12] (stale): Read in full. Durable signed delivery description is retained, but retired router dependency and contradictory public/ingress client-auth guidance require correction."
+source_2 = "record 22.30.116 [doc.04] (stale): Read the page and checked its network, endpoint and lifecycle claims. The deployment instructions obtain network identity from router.LAYERX_GATEWAY_NETWORK_ID and retain sequencer-era authority terminology. An operator following the network binding step depends on a service retired by the merged architecture. Rewrite proposal: Update docs/site/docs/platform/webhooks.md to the shared merged-network identity and current authenticated producer/ingress/delivery contract; name the actual manifest inputs and document delivery replay and restart behavior."
+source_3 = "record 22.30.12 [doc.012] (misleading): Lines 45-54 require role-specific ingress mTLS; lines 255-260 instead say inbound TLS has no client authentication. Lines 77-78 also depend on a router service variable. Consolidate current role contracts and merged network identity."
+source_4 = "record 22.30.16 [doc.07] (stale): Read in full; dependency/network-id guidance at 71-80 retains router/separate authority; trusted TLS section contradicts ingress authentication. Durable ordering/retry/redelivery descriptions were also reviewed."
+source_5 = "record 22.30.172 [doc.007] (stale): Complete delivery, persistence, deployment and auth guide read. Trusted-component TLS paragraph contradicts authenticated ingress in role deployment instructions; see the page-specific finding."
+source_6 = "record 22.30.18 [doc.1] (stale): Full page read. Lines 76-78 source network identity from a retired router service; lines 97, 273 and 535 also require trust configuration whose active merged-network ownership must be documented. See its finding for the concrete provisioning rewrite."
+source_7 = "record 22.30.26 [doc.webhooks] (misleading): Read the complete page. Railway ingress mTLS requirements contradict an unqualified TLS statement; router configuration and separate authority evidence remain stale. See webhook_tls_contradiction and webhook_retired_authority. Durable delivery and signature requirements remain relevant."
+source_8 = "record 22.30.27 [doc.007] (misleading): Stale router interpolation at line 77 and sequencer batch trust table at lines 97-100 (site; wiki offset +1); rewrite current network and committed-event authority."
+source_9 = "record 22.30.28 [doc.011] (stale): The production dependency table directs receipt authority and agent boundary to a separate kernel host and derives network identity from router.LAYERX_GATEWAY_NETWORK_ID at lines 69-78; later topology retains a separate checkpoint authority."
+source_10 = "record 22.30.39 [doc.11] (stale): Line 77 references router configuration; lines 249-251 conflict with ingress mTLS requirements at 49-53 and use older TLS names. Finding 31."
+source_11 = "record 22.30.46 [doc.12] (stale): Lines 76-77 bind network identity to a retired router service variable. Preserve role-specific authorization and delivery controls while correcting deployment identity wiring."
+source_12 = "record 22.30.71 [doc.6] (stale): Lines 77-79 depend on a router, 259-280 misstate ingress client authentication, and 403-440 conflate role routes. Lines 302-310 already disclose the deployed network-name mismatch; it remains a live defect. Mirror differences were read."
+source_13 = "record 22.30.92 [doc.06] (stale): Deployment configuration reads its network id from a retired router service interpolation."
+source_14 = "record 22.30.95 [doc.11] (stale): Current role/TLS/delivery sections coexist with router network interpolation and static sequencer/batch key provisioning at lines 77 and 97; receipt authority instructions need the merged lifecycle."

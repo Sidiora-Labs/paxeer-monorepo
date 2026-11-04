@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.172"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "tools/codebase-map/README.md"
+status = "stale"
+bytes = 3050
+source_1 = "record 22.30.178 [doc.13] (stale): The authoritative spec paths are absent; update active-feature and generation prerequisites with the generator migration."

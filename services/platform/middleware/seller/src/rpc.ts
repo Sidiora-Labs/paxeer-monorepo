@@ -50,13 +50,13 @@ export class PaymentRpcError extends Error {
   public constructor(public readonly code: number, public readonly data: unknown) { super(`JSON-RPC error ${code}`); }
 }
 
-export class PaymentRpc {
+class BoundedRpc {
   #id = 0;
   readonly #url: URL;
-  public constructor(endpoint: string, private readonly headers: Readonly<Record<string, string>> = {}) {
+  public constructor(endpoint: string, private readonly headers: Readonly<Record<string, string>>, path: "/" | "/rpc") {
     this.#url = new URL(endpoint);
     if (this.#url.username || this.#url.password || this.#url.hash || this.#url.search
-      || this.#url.pathname !== "/rpc"
+      || this.#url.pathname !== path
       || (this.#url.protocol !== "https:" && !(this.#url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(this.#url.hostname)))) throw new Error("invalid-rpc-endpoint");
   }
   public async call(method: string, params: readonly unknown[]): Promise<unknown> {
@@ -83,6 +83,22 @@ export class PaymentRpc {
       throw new PaymentRpcError(error["code"] as number, error["data"]);
     }
     return body["result"];
+  }
+}
+
+export class HostedGatewayRpc extends BoundedRpc {
+  public constructor(endpoint: string, headers: Readonly<Record<string, string>> = {}) { super(endpoint, headers, "/rpc"); }
+  public override call(method: string, params: readonly unknown[]): Promise<unknown> {
+    if (!/^px_[A-Za-z0-9_]+$/u.test(method)) throw new Error("invalid-gateway-method");
+    return super.call(method, params);
+  }
+}
+
+export class PaymentRpc extends BoundedRpc {
+  public constructor(endpoint: string, headers: Readonly<Record<string, string>> = {}) { super(endpoint, headers, "/"); }
+  public override call(method: string, params: readonly unknown[]): Promise<unknown> {
+    if (!/^(?:eth|pax)_[A-Za-z0-9_]+$/u.test(method)) throw new Error("invalid-node-method");
+    return super.call(method, params);
   }
   public async send(rawTransaction: string, commitment: PaymentCommitment = "receipted"): Promise<string> {
     rawTransactionBytes(rawTransaction);

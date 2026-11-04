@@ -2,11 +2,8 @@
 
 use core::fmt::{self, Display};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
-#[cfg(any(feature = "host-ffi", test))]
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-#[cfg(any(feature = "host-ffi", test))]
 use crate::budget::AdmittedBudget;
 use crate::meter::FeeSchedule;
 use crate::storage::{PrincipalId, ProgramId, Storage, StorageError, StorageNamespace};
@@ -29,7 +26,6 @@ const TRANSFER_INTERNAL_DOMAIN: &[u8] = b"LXP/v1/merkle-internal\0";
 pub const MAX_OCCUPANCY_LEDGER_BYTES: usize = 60_000;
 pub const MAX_OCCUPANCY_EVIDENCE_BYTES: usize = 65_536;
 
-#[cfg(any(feature = "host-ffi", test))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct OccupancyAuthority {
     payer: PrincipalId,
@@ -39,7 +35,6 @@ pub(crate) struct OccupancyAuthority {
     maximum_price: u64,
 }
 
-#[cfg(any(feature = "host-ffi", test))]
 impl OccupancyAuthority {
     pub(crate) fn from_admitted(
         admitted: &AdmittedBudget,
@@ -125,6 +120,23 @@ pub struct OccupancyResponsibility {
 }
 
 impl OccupancyResponsibility {
+    /// Derives a namespace mandate from the transition's admitted payer budget.
+    ///
+    /// # Errors
+    /// Returns a refusal when the signed fee or namespace exceeds that authority.
+    pub fn from_admitted(
+        admitted: &AdmittedBudget,
+        signed_fee_limit: u128,
+        schedule: FeeSchedule,
+        root_program: ProgramId,
+        namespace: StorageNamespace,
+        maximum_bytes: u64,
+        charge_ceiling: u128,
+    ) -> Result<Self, OccupancyError> {
+        OccupancyAuthority::from_admitted(admitted, signed_fee_limit, schedule, root_program)?
+            .authorize(namespace, maximum_bytes, charge_ceiling)
+    }
+
     #[must_use]
     pub const fn namespace(self) -> StorageNamespace {
         self.namespace
@@ -788,11 +800,8 @@ fn transfer_merkle_root(mut level: Vec<[u8; 32]>) -> [u8; 32] {
 #[derive(Clone, Debug)]
 pub struct PreparedOccupancySettlement {
     settlement: OccupancySettlement,
-    #[cfg(any(feature = "host-ffi", test))]
     prior_state: Vec<u8>,
-    #[cfg(any(feature = "host-ffi", test))]
     final_storage_sizes: Vec<u8>,
-    #[cfg(any(feature = "host-ffi", test))]
     next_positions: BTreeMap<StorageNamespace, OccupancyPosition>,
     finalizes_batch: bool,
 }
@@ -803,7 +812,19 @@ impl PreparedOccupancySettlement {
         &self.settlement
     }
 
-    #[cfg(any(feature = "host-ffi", test))]
+    fn authenticate_debits(
+        &mut self,
+        authority: &mut impl OccupancyDebitAuthority,
+    ) -> Result<(), OccupancyError> {
+        let mut unpaid = BTreeSet::new();
+        for (payer, (_, paid, _, _)) in self.settlement.payer_dispositions()? {
+            if paid != 0 && !authority.can_debit(self.settlement.batch, payer, paid)? {
+                unpaid.insert(payer);
+            }
+        }
+        self.defer_unpaid(&unpaid)
+    }
+
     pub(crate) fn defer_unpaid(
         &mut self,
         unpaid: &BTreeSet<PrincipalId>,
@@ -846,6 +867,22 @@ impl PreparedOccupancySettlement {
     }
 }
 
+/// Trusted access to occupancy payment capacity at the pre-debit batch state.
+/// Implementations authenticate the payer's payment account and balance (or a
+/// committed debit outcome) independently of settlement evidence. Unknown accounts,
+/// stale batches and unavailable proofs must return an error, never availability.
+/// A decision covers the payer's aggregate proposed debit, across all namespaces.
+pub trait OccupancyDebitAuthority {
+    /// # Errors
+    /// Returns a refusal unless this batch's payment capacity can be authenticated.
+    fn can_debit(
+        &mut self,
+        batch: u64,
+        payer: PrincipalId,
+        amount: u128,
+    ) -> Result<bool, OccupancyError>;
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OccupancyError {
     AuthorityMismatch { namespace: StorageNamespace },
@@ -861,6 +898,7 @@ pub enum OccupancyError {
     LengthLimit,
     MalformedEvidence,
     UnprovenPaymentAccount,
+    DebitAuthorityRefused(i32),
     TransferRootMismatch,
     Storage(StorageError),
 }
@@ -899,6 +937,9 @@ impl Display for OccupancyError {
             Self::MalformedEvidence => formatter.write_str("malformed occupancy evidence"),
             Self::UnprovenPaymentAccount => {
                 formatter.write_str("occupancy payer has no proven payment account")
+            }
+            Self::DebitAuthorityRefused(code) => {
+                write!(formatter, "occupancy debit authority refused: {code}")
             }
             Self::TransferRootMismatch => {
                 formatter.write_str("occupancy transfer root is not the committed root")
@@ -1169,26 +1210,53 @@ impl OccupancyLedger {
             .get(&namespace)
             .is_some_and(|position| position.legacy)
     }
-    #[cfg(feature = "host-ffi")]
-    pub(crate) fn import_activation_positions(
+    /// Imports the complete occupied storage inventory atomically.
+    ///
+    /// # Errors
+    /// Returns a refusal for missing owners or an inventory exceeding either wire budget.
+    pub fn import_activation_positions(
         &mut self,
         storage: &Storage,
         program_owners: &BTreeMap<ProgramId, PrincipalId>,
     ) -> Result<(), OccupancyError> {
-        for (namespace, bytes) in storage.namespace_sizes()? {
-            let payer = match namespace.principal_scope() {
-                Some(principal) => principal,
-                None => *program_owners
-                    .get(&namespace.program())
-                    .ok_or(OccupancyError::MissingResponsibility { namespace })?,
-            };
-            self.import_activation_position(namespace, payer, bytes)?;
+        let records = storage
+            .namespace_sizes()?
+            .into_iter()
+            .map(|(namespace, bytes)| {
+                let payer = match namespace.principal_scope() {
+                    Some(principal) => principal,
+                    None => *program_owners
+                        .get(&namespace.program())
+                        .ok_or(OccupancyError::MissingResponsibility { namespace })?,
+                };
+                Ok((namespace, payer, bytes))
+            })
+            .collect::<Result<Vec<_>, OccupancyError>>()?;
+        self.import_activation_records(records)
+    }
+
+    /// Preflights all native activation records before admitting any position.
+    ///
+    /// # Errors
+    /// Returns a refusal for invalid records or an unpublishable/unsettleable migration.
+    pub fn import_activation_records(
+        &mut self,
+        records: impl IntoIterator<Item = (StorageNamespace, PrincipalId, u64)>,
+    ) -> Result<(), OccupancyError> {
+        let mut candidate = self.clone();
+        let mut seen = BTreeSet::new();
+        for (namespace, payer, bytes) in records {
+            if !seen.insert(namespace) {
+                return Err(OccupancyError::DuplicateResponsibility { namespace });
+            }
+            candidate.import_activation_position(namespace, payer, bytes)?;
         }
+        validate_position_capacity(&candidate.positions)?;
+        *self = candidate;
         Ok(())
     }
 
-    #[cfg(feature = "host-ffi")]
-    pub(crate) fn import_activation_position(
+    fn import_activation_position(
         &mut self,
         namespace: StorageNamespace,
         payer: PrincipalId,
@@ -1304,6 +1372,7 @@ impl OccupancyLedger {
         if next.len() > MAX_OCCUPANCY_POSITIONS {
             return Err(OccupancyError::LengthLimit);
         }
+        validate_position_capacity(&next)?;
         let price = schedule.occupancy_byte_batch_price();
         let mut usage = OccupancyUsage::default();
         let mut charges = Vec::with_capacity(next.len());
@@ -1331,7 +1400,6 @@ impl OccupancyLedger {
             )?;
             charges.push(charge);
         }
-        next.retain(|_, position| position.bytes != 0 || position.arrears != 0);
         let settlement = OccupancySettlement {
             batch,
             usage,
@@ -1347,17 +1415,13 @@ impl OccupancyLedger {
         }
         Ok(PreparedOccupancySettlement {
             settlement,
-            #[cfg(any(feature = "host-ffi", test))]
             prior_state,
-            #[cfg(any(feature = "host-ffi", test))]
             final_storage_sizes: final_storage_sizes.to_vec(),
-            #[cfg(any(feature = "host-ffi", test))]
             next_positions: next,
             finalizes_batch: false,
         })
     }
 
-    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) fn commit_after_debits(
         &mut self,
         prepared: PreparedOccupancySettlement,
@@ -1369,12 +1433,13 @@ impl OccupancyLedger {
             return Err(OccupancyError::StalePreparation);
         }
         self.positions = prepared.next_positions;
+        self.positions
+            .retain(|_, position| position.bytes != 0 || position.arrears != 0);
         if prepared.finalizes_batch {
             self.last_finalized_batch = prepared.settlement.batch;
         }
         Ok(prepared.settlement)
     }
-    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) fn commit_unchanged_after_debits(
         &mut self,
         prepared: PreparedOccupancySettlement,
@@ -1385,36 +1450,125 @@ impl OccupancyLedger {
             return Err(OccupancyError::StalePreparation);
         }
         self.positions = prepared.next_positions;
+        self.positions
+            .retain(|_, position| position.bytes != 0 || position.arrears != 0);
         if prepared.finalizes_batch {
             self.last_finalized_batch = prepared.settlement.batch;
         }
         Ok(prepared.settlement)
     }
+    /// Settles an activity's final storage using independently authenticated debit decisions.
     ///
     /// # Errors
+    /// Returns a refusal for invalid preparation or unavailable payment authority.
+    pub fn settle_batch(
+        &mut self,
+        batch: u64,
+        final_storage: &Storage,
+        responsibilities: impl IntoIterator<Item = OccupancyResponsibility>,
+        schedule: FeeSchedule,
+        authority: &mut impl OccupancyDebitAuthority,
+    ) -> Result<OccupancySettlement, OccupancyError> {
+        let mut prepared = self.prepare_batch(batch, final_storage, responsibilities, schedule)?;
+        prepared.authenticate_debits(authority)?;
+        self.commit_after_debits(prepared, final_storage)
+    }
+
+    /// Produces the native terminal batch transition, including all-or-nothing payer deferral.
     ///
-    /// Returns a refusal if evidence decoding or replay disagrees with the supplied final state.
+    /// # Errors
+    /// Returns a refusal before changing the ledger if preparation or authentication fails.
+    pub fn finalize_unchanged_batch(
+        &mut self,
+        batch: u64,
+        schedule: FeeSchedule,
+        authority: &mut impl OccupancyDebitAuthority,
+    ) -> Result<OccupancySettlement, OccupancyError> {
+        let mut prepared = self.prepare_unchanged_batch(batch, schedule)?;
+        prepared.authenticate_debits(authority)?;
+        self.commit_unchanged_after_debits(prepared)
+    }
+
+    /// Checks producer evidence using payment authority independent of the evidence.
+    ///
+    /// # Errors
+    /// Returns a refusal if decoding, authenticated debits or final storage disagree.
     pub fn replay_evidence(
         &self,
         evidence: &[u8],
         final_storage: &Storage,
         responsibilities: impl IntoIterator<Item = OccupancyResponsibility>,
+        authority: &mut impl OccupancyDebitAuthority,
     ) -> Result<OccupancySettlement, OccupancyError> {
         let recorded = OccupancySettlement::canonical_decode(evidence)?;
         if evidence.starts_with(EVIDENCE_DOMAIN_V1) || evidence.starts_with(EVIDENCE_DOMAIN_V2) {
             return Ok(recorded);
         }
-        let prepared = self.prepare_batch(
+        let prepared =
+            self.prepare_replay(&recorded, final_storage, responsibilities, authority)?;
+        Ok(prepared.settlement)
+    }
+
+    /// Recovers a finalized batch's complete ledger transition after reopening persisted state.
+    ///
+    /// # Errors
+    /// Refuses legacy or altered evidence and unauthenticated debit outcomes without changing state.
+    pub fn recover_finalized_evidence(
+        &mut self,
+        evidence: &[u8],
+        final_storage: &Storage,
+        responsibilities: impl IntoIterator<Item = OccupancyResponsibility>,
+        authority: &mut impl OccupancyDebitAuthority,
+    ) -> Result<OccupancySettlement, OccupancyError> {
+        if !evidence.starts_with(EVIDENCE_DOMAIN) {
+            return Err(OccupancyError::MalformedEvidence);
+        }
+        let recorded = OccupancySettlement::canonical_decode(evidence)?;
+        let mut prepared =
+            self.prepare_replay(&recorded, final_storage, responsibilities, authority)?;
+        prepared.finalizes_batch = true;
+        self.commit_after_debits(prepared, final_storage)
+    }
+
+    fn prepare_replay(
+        &self,
+        recorded: &OccupancySettlement,
+        final_storage: &Storage,
+        responsibilities: impl IntoIterator<Item = OccupancyResponsibility>,
+        authority: &mut impl OccupancyDebitAuthority,
+    ) -> Result<PreparedOccupancySettlement, OccupancyError> {
+        let mut prepared = self.prepare_batch(
             recorded.batch(),
             final_storage,
             responsibilities,
             recorded.fee_schedule(),
         )?;
-        if prepared.settlement != recorded {
+        prepared.authenticate_debits(authority)?;
+        if prepared.settlement != *recorded {
             return Err(OccupancyError::MalformedEvidence);
         }
-        Ok(recorded)
+        Ok(prepared)
     }
+
+    /// Encodes the exact bounded ledger and evidence bytes published by the native host.
+    ///
+    /// # Errors
+    /// Returns a refusal before publication if either transport budget is exceeded.
+    pub fn canonical_publication(
+        &self,
+        settlement: &OccupancySettlement,
+    ) -> Result<(Vec<u8>, Vec<u8>), OccupancyError> {
+        validate_position_capacity(&self.positions)?;
+        let ledger = self.canonical_state();
+        let evidence = settlement.canonical_evidence();
+        if ledger.len() > MAX_OCCUPANCY_LEDGER_BYTES
+            || evidence.len() > MAX_OCCUPANCY_EVIDENCE_BYTES
+        {
+            return Err(OccupancyError::LengthLimit);
+        }
+        Ok((ledger, evidence))
+    }
+
     #[must_use]
     pub fn canonical_state(&self) -> Vec<u8> {
         let mut out = LEDGER_DOMAIN.to_vec();
@@ -1446,7 +1600,9 @@ impl OccupancyLedger {
             return Err(OccupancyError::LengthLimit);
         }
         if encoded.starts_with(LEDGER_DOMAIN_V1) {
-            return decode_legacy_ledger(encoded);
+            let ledger = decode_legacy_ledger(encoded)?;
+            validate_position_capacity(&ledger.positions)?;
+            return Ok(ledger);
         }
         let mut cursor = Cursor::new(encoded);
         if cursor.take(LEDGER_DOMAIN.len())? != LEDGER_DOMAIN {
@@ -1515,6 +1671,7 @@ impl OccupancyLedger {
         if !cursor.is_empty() {
             return Err(OccupancyError::MalformedEvidence);
         }
+        validate_position_capacity(&positions)?;
         Ok(Self {
             last_finalized_batch,
             positions,
@@ -1526,6 +1683,29 @@ impl OccupancyLedger {
             .get(&namespace)
             .map(|position| position.bytes)
     }
+}
+
+fn validate_position_capacity(
+    positions: &BTreeMap<StorageNamespace, OccupancyPosition>,
+) -> Result<(), OccupancyError> {
+    // Fixed fields in canonical_state and canonical_evidence respectively;
+    // each namespace contributes its actual encoding plus its one-byte length.
+    const POSITION_FIELDS: usize = 3 * 32 + 4 * 8 + 2 * 16 + 32 + 2;
+    const CHARGE_FIELDS: usize = 3 * 32 + 7 * 8 + 7 * 16 + 1 + 32;
+    let mut ledger_bytes = LEDGER_DOMAIN.len() + 8 + 4;
+    let mut evidence_bytes = EVIDENCE_DOMAIN.len() + 8 + 4 + 7 * 8 + 4 * 16 + 4;
+    if positions.len() > MAX_OCCUPANCY_POSITIONS {
+        return Err(OccupancyError::LengthLimit);
+    }
+    for namespace in positions.keys() {
+        let namespace_bytes = 1 + namespace.canonical_bytes().len();
+        ledger_bytes += namespace_bytes + POSITION_FIELDS;
+        evidence_bytes += namespace_bytes + CHARGE_FIELDS;
+    }
+    if ledger_bytes > MAX_OCCUPANCY_LEDGER_BYTES || evidence_bytes > MAX_OCCUPANCY_EVIDENCE_BYTES {
+        return Err(OccupancyError::LengthLimit);
+    }
+    Ok(())
 }
 
 fn checked_add(left: u128, right: u128) -> Result<u128, OccupancyError> {
@@ -1649,7 +1829,6 @@ fn decode_schedule(
         fee_units_per_occupancy_byte_batch: cursor.u64()?,
     }))
 }
-#[cfg(any(feature = "host-ffi", test))]
 fn canonical_storage_sizes(storage: &Storage) -> Result<Vec<u8>, OccupancyError> {
     canonical_sizes(&storage.namespace_sizes()?.into_iter().collect())
 }
@@ -1891,6 +2070,25 @@ mod tests {
                 .unwrap_or_else(|error| panic!("nonzero program: {error:?}")),
             payer,
         )
+    }
+
+    struct ReplayBalances(BTreeMap<PrincipalId, u128>);
+
+    impl OccupancyDebitAuthority for ReplayBalances {
+        fn can_debit(
+            &mut self,
+            batch: u64,
+            payer: PrincipalId,
+            amount: u128,
+        ) -> Result<bool, OccupancyError> {
+            if batch != 2 {
+                return Err(OccupancyError::MalformedEvidence);
+            }
+            self.0
+                .get(&payer)
+                .map(|balance| *balance >= amount)
+                .ok_or(OccupancyError::UnprovenPaymentAccount)
+        }
     }
 
     const fn schedule(version: u32, occupancy_price: u64) -> FeeSchedule {
@@ -2282,7 +2480,12 @@ mod tests {
                     }
                 );
                 assert_eq!(
-                    ledger.replay_evidence(&evidence, &storage, []),
+                    ledger.replay_evidence(
+                        &evidence,
+                        &storage,
+                        [],
+                        &mut ReplayBalances(BTreeMap::from([(payer, 1_000)]))
+                    ),
                     Ok(first.settlement().clone())
                 );
                 let repriced = OccupancySettlement {
@@ -2290,7 +2493,12 @@ mod tests {
                     ..first.settlement().clone()
                 };
                 assert_eq!(
-                    ledger.replay_evidence(&repriced.canonical_evidence(), &storage, []),
+                    ledger.replay_evidence(
+                        &repriced.canonical_evidence(),
+                        &storage,
+                        [],
+                        &mut ReplayBalances(BTreeMap::from([(payer, 1_000)]))
+                    ),
                     Err(OccupancyError::MalformedEvidence)
                 );
                 assert!(!recorded_evidence.contains(&evidence));

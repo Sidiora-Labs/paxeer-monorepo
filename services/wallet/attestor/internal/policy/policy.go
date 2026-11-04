@@ -340,8 +340,10 @@ type Request struct {
 }
 
 type Context struct {
-	ChainID *big.Int
-	Account common.Address
+	ChainID            *big.Int
+	Account            common.Address
+	ConstructState     *ConstructState
+	readConstructState func() (*ConstructState, error)
 }
 
 type Destination struct {
@@ -382,6 +384,7 @@ type Inspection struct {
 	Spends       []Spend
 	// Delegates are the EIP-7702 delegation targets the request signs.
 	Delegates []common.Address
+	Transfers []ConstructTransfer
 }
 
 type Inspector func(ctx Context, view any) (Inspection, error)
@@ -400,8 +403,9 @@ func refuse(code, format string, args ...any) *Refusal {
 type Policy struct {
 	doc *Document
 
-	mu    sync.RWMutex
-	kinds map[string]Inspector
+	mu              sync.RWMutex
+	kinds           map[string]Inspector
+	constructReader func(Context) (*ConstructState, error)
 }
 
 func New(doc *Document) *Policy {
@@ -484,7 +488,20 @@ func (p *Policy) Evaluate(account string, req Request, ledger Ledger) Decision {
 	if ledger == nil {
 		return denied(CodeLedgerError, "no ledger")
 	}
-	inspection, err := inspect(Context{ChainID: new(big.Int).Set(effective.chainID), Account: common.HexToAddress(account)}, req.View)
+	ctx := Context{ChainID: new(big.Int).Set(effective.chainID), Account: common.HexToAddress(account)}
+	p.mu.RLock()
+	reader := p.constructReader
+	p.mu.RUnlock()
+	if reader != nil {
+		var state *ConstructState
+		var readErr error
+		var once sync.Once
+		ctx.readConstructState = func() (*ConstructState, error) {
+			once.Do(func() { state, readErr = reader(ctx) })
+			return state, readErr
+		}
+	}
+	inspection, err := inspect(ctx, req.View)
 	if err != nil {
 		var refusal *Refusal
 		if errors.As(err, &refusal) {
@@ -642,6 +659,10 @@ func sumSpends(spends []Spend) (map[string]*big.Int, []string, error) {
 }
 
 func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, error) {
+	return inspectCallContext(Context{}, to, value, data)
+}
+
+func inspectCallContext(ctx Context, to common.Address, value *big.Int, data []byte) (Inspection, error) {
 	if value == nil {
 		return Inspection{}, refuse(CodeMissingField, "call value to %s is missing", to.Hex())
 	}
@@ -698,7 +719,7 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 			return Inspection{}, refuse(CodeDecodeError, "layerxledger.send: %v", decodeErr)
 		}
 		amount := send.Amount.Bytes()
-		out.Spends = append(out.Spends, Spend{Asset: hex.EncodeToString(send.Asset[:]), Amount: new(big.Int).SetBytes(amount[:])})
+		out.Spends = append(out.Spends, Spend{Asset: ConstructAsset(send.Asset), Amount: new(big.Int).SetBytes(amount[:])})
 	case call.Destination == "layerxauth" && (call.Method == "grantSession" || call.Method == "grantSessionSuccessor" || call.Method == "grantCapability"):
 		grant, ok := call.Args["grant"].([]byte)
 		if !ok {
@@ -709,24 +730,8 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 			return Inspection{}, decodeErr
 		}
 		out.Spends = append(out.Spends, spend)
-	case (call.Destination == "layerxpay" && (call.Method == "budgetFundNative" || call.Method == "budgetFund")) ||
-		(call.Destination == "layerxprograms" && call.Method == "sandboxFund"):
-		amount, ok := call.Args["amount"].(*big.Int)
-		if !ok {
-			return Inspection{}, refuse(CodeDecodeError, "%s.%s amount is malformed", call.Destination, call.Method)
-		}
-		out.Spends = append(out.Spends, Spend{Asset: AssetNative, Amount: amount})
-	case call.Destination == "layerxprograms" && call.Method == "transfer":
-		type transferLeg struct {
-			From   [32]byte
-			Asset  [32]byte
-			To     [32]byte
-			Amount *big.Int
-		}
-		legs := *abi.ConvertType(call.Args["legs"], new([]transferLeg)).(*[]transferLeg)
-		for _, leg := range legs {
-			out.Spends = append(out.Spends, Spend{Asset: AssetNative, Amount: leg.Amount})
-		}
+	case call.Destination == "layerxpay" || call.Destination == "layerxprograms":
+		err = inspectConstruct(ctx, call, value, &out)
 	case call.Destination == "perps" && call.Method == "deposit":
 		err = token("token", "amount")
 	case call.Destination == "perps" && (call.Method == "openPosition" || call.Method == "placeLimitOrder" || call.Method == "placeStopLimitOrder"):
@@ -857,7 +862,7 @@ func grantAllowance(raw []byte) (Spend, error) {
 	if amount.Sign() == 0 && !bytes.Equal(asset, make([]byte, 32)) {
 		return Spend{}, refuse(CodeUnlimitedApproval, "layerxauth grant has no total allowance bound")
 	}
-	return Spend{Asset: hex.EncodeToString(asset), Amount: amount}, nil
+	return Spend{Asset: ConstructAsset([32]byte(asset)), Amount: amount}, nil
 }
 
 func inspectTransaction(ctx Context, view any) (Inspection, error) {
@@ -871,7 +876,7 @@ func inspectTransaction(ctx Context, view any) (Inspection, error) {
 	if tx.To == nil {
 		return Inspection{}, refuse(CodeContractCreation, "contract creation is not signed by the attestors")
 	}
-	out, err := inspectCall(*tx.To, tx.Value, tx.Data)
+	out, err := inspectCallContext(ctx, *tx.To, tx.Value, tx.Data)
 	if err != nil {
 		return Inspection{}, err
 	}
@@ -1060,12 +1065,13 @@ func inspectSponsoredBatch(ctx Context, view any) (Inspection, error) {
 	}
 	var out Inspection
 	for _, call := range claim.Batch.Calls {
-		inspection, err := inspectCall(call.To, call.Value, call.Data)
+		inspection, err := inspectCallContext(ctx, call.To, call.Value, call.Data)
 		if err != nil {
 			return Inspection{}, err
 		}
 		out.Destinations = append(out.Destinations, inspection.Destinations...)
 		out.Spends = append(out.Spends, inspection.Spends...)
+		out.Transfers = append(out.Transfers, inspection.Transfers...)
 	}
 	quote := claim.Batch.Quote
 	out.Destinations = append(out.Destinations, Destination{Address: quote.Sponsor, Precompile: evm.IsPrecompile(quote.Sponsor), Counterparty: true})

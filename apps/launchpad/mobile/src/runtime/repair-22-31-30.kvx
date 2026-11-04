@@ -1,0 +1,66 @@
+[task]
+id = "22.31.30"
+audit = "22.30.22"
+base = "04089978ec116689a0d130e86248bc8e9910b29b"
+qualification = "The verified revision, command, exit and private log are emitted by hf-done and copied verbatim to the final evidence line; this source record claims no gate result."
+baseline = "Not rerun: implementation-first ordering and the prescribed wrappers prohibit invoking verify_cmd by hand; the inherited failing gate below and audit observations are pre-change evidence."
+authentication = "Current identity reads issue no CSRF secret; bootstrap obtains the refresh receipt through the cookie provider before signed owner writes."
+recovery = "An uncertain write retains its signed envelope, nonce, request ID, exact serialized body and idempotency key for retry in the current identity; expired authority is explicitly refused pending reconciliation."
+cache = "Stored format 2 tags contract major 2 for live and major 1 for other public keys; untagged live and unknown versions are refused, validated untagged non-live entries remain readable."
+fixtures = "The production MobileServices, wallet authority, SDK, Operations route and SnapshotCache use in-process loopback gateway and account fixtures; no subprocess, external endpoint, environment variable or native artifact is required. All generated response contracts validate before sending; the internal current principal, which has no generated DTO, uses the production decodeCurrentIdentity validator."
+
+[finding.mobile-watch-write]
+test = "mobileWatchWrite"
+proof = "MobileServices -> SdkClient -> loopback gateway -> signature-validating account fixture -> watchlist read; committed response loss, identical signed retry, unchanged revision and one signature."
+
+[finding.mobile-unwatch-write]
+test = "mobileUnwatchWrite"
+proof = "Same production client path and fixture peers; bodyless DELETE digest, preserved signed delivery, empty read-back and unchanged revision after repeated delivery."
+
+[finding.mobile-profile-write]
+test = "mobileProfileWrite"
+proof = "Owner fixture begins with the recorded Mobile owner display name; exact Unicode JSON patch and read-back, duplicate response recovery and wrong-target refusal."
+
+[finding.mobile-preferences-write]
+test = "mobilePreferencesWrite"
+proof = "Contract-validated preferences include trade and priceAlert categories; preference mutation/read-back, stable signed operation on uncertain-response retry and missing-wallet refusal."
+
+[finding.mobile-device-signature-header]
+test = "mobileDeviceSignatureHeader"
+proof = "Production registration and revocation send X-Kindle-Operation-Signature through the loopback gateway; account fixture verifies the wallet signature and Ed25519 installation/account/session/provider proof; mobile identity and installation disk record are reopened before revocation."
+
+[finding.mobile-live-cache-version]
+test = "TestRepair_30_MobileLive"
+proof = "Generated-contract-validated v2 producer wire fixtures -> loopback HTTP -> Operations IF_STREAM_LIST -> SnapshotCache disk write/close/reopen; null/unavailable and zero/verified remain distinct; legacy/unknown versions are refused."
+
+[boundary]
+tests = ["mobileOperationBoundary", "mobileOperationIdentityChange"]
+proof = "Fixture refuses altered body, route, method, signer, header, operation identity, CSRF, cookie and session; production client refuses identity change during wallet signing and locked authority before transmission."
+
+[wiring]
+custom_wallet = "apps/launchpad/mobile/src/App.tsx (mobile owner): call services.setOperationWallet for custom wallet adapters when no NativeApprovalController is installed; the WalletConnect path is connected by NativeApprovalController."
+public_profile = "services/launchpad/gateway/internal/proxy/connected.go (gateway owner): reconcile authenticated v1 profile inventory with public user GET; this repair uses the declared authenticated SDK request for owner read-back."
+physical_installation = "apps/launchpad/mobile/src/platform/protected-storage.ts and Android/iOS SecureSession modules (native platform owner): qualify installed OS push registration and protected storage on devices; this test proves production client transport and disk reopen with cryptographic loopback fixture peers."
+service_integration = "services/launchpad/gateway/internal/proxy and services/launchpad/user/internal/account (gateway and account owners): retain deployment integration coverage of their Go handlers, mTLS and PostgreSQL separately; this gate starts only in-process fixture services."
+
+[qualification.inherited_attempt_2]
+revision = "16e41ad5fb3ef2ee2154f2dae02691759aadfd91"
+command = "cg spec done 22.31.30 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (private evidence from inherited attempt 2)"
+observed = "Go harness returned HTTP 503, preferences omitted trade and priceAlert, and owner profile was empty; four tests failed and two passed."
+
+[gotcha.continuation]
+fixtures = "Keep every fixture response on its generated contract, include all notification categories and recorded owner name, and start only owned loopback services inside the TypeScript test."
+identity = "GET /v2/auth/session has a strict internal principal decoder and no generated response DTO; use that production decoder instead of inventing a generated identity contract."
+encoding = "Native buffer supports standard base64; operation authority converts explicitly to raw base64url."
+
+[qualification.attempt_3_first_gate]
+revision = "1cc90b3afc9da2b8398cb351781dd09afaf3f291"
+command = "cg spec done 22.31.30 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; watchlist and stream reads failed because fixture routing compared query-bearing URLs with bare paths; the repair parses the pathname and validates the production query parameters."
+
+[gotcha.fixture_routes]
+query = "HTTP route matching uses the parsed pathname; query parameters remain present and are checked independently against the recorded consumer request."

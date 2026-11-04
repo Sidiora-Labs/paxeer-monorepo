@@ -148,7 +148,7 @@ func (s *JourneyService) market(ctx context.Context, id string) (marketSource, e
 		return m, e
 	}
 	defer tx.Rollback(ctx)
-	e = tx.QueryRow(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text FROM indexer.indexer_canonical_creations WHERE nft_id=$1::numeric`, id).Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex)
+	e = tx.QueryRow(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text FROM indexer.indexer_canonical_creations_v1 WHERE nft_id=$1::numeric`, id).Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex)
 	if e != nil {
 		return m, e
 	}
@@ -178,64 +178,101 @@ func (s *JourneyService) Preview(ctx context.Context, actor Actor, id string) (F
 	}
 	return p, nil
 }
+
+// claimedHistory reads the admitted canonical raw-log interface. Completeness is
+// bound to the same source stream and checkpoint as the creation inventory;
+// RPC log windows cannot establish complete history as the chain grows.
 func (s *JourneyService) claimedHistory(ctx context.Context, m marketSource, who string, b Checkpoint) (string, error) {
-	if b.Number < m.Height || b.Number-m.Height > 100000 {
-		return "", fmt.Errorf("%w: canonical claim history exceeds bounded RPC window; indexed history provider required", ErrUnavailable)
+	if b.Number < m.Height || s.sourceStream == "" {
+		return "", ErrUnavailable
 	}
+	tx, e := s.ledger.begin(ctx)
+	if e != nil {
+		return "", e
+	}
+	defer tx.Rollback(ctx)
 	total := new(big.Int)
-	seen := map[string]bool{}
-	for start := m.Height; start <= b.Number; {
-		end := start + 4999
-		if end > b.Number {
-			end = b.Number
+	var height, transactionIndex, logIndex int64 = -1, -1, -1
+	for {
+		rows, err := tx.Query(ctx, `SELECT l.height,l.transaction_index,l.log_index,l.data,l.topics
+   FROM indexer.indexer_raw_logs_v1 l
+   JOIN indexer.indexer_block_completeness_v1 b ON b.chain_id=l.chain_id AND b.stream_id=$1
+    AND b.height=l.height AND b.block_hash=l.block_hash AND b.fetch_complete AND b.required_decode_complete
+   WHERE l.chain_id=125 AND l.emitter=$2 AND l.topics->>0=$3 AND l.topics->>1=$4 AND l.topics->>2=$5
+    AND l.height BETWEEN $6 AND $7
+    AND (l.height,l.transaction_index,l.log_index)>($8,$9,$10)
+   ORDER BY l.height,l.transaction_index,l.log_index LIMIT 500`, s.sourceStream, Accumulator,
+			accumulator.Events["FeesClaimed"].ID.Hex(), addressTopic(m.Pool), addressTopic(who),
+			m.Height, b.Number, height, transactionIndex, logIndex)
+		if err != nil {
+			return "", err
 		}
-		var logs []struct {
-			Address     string         `json:"address"`
-			Topics      []string       `json:"topics"`
-			Data        hexutil.Bytes  `json:"data"`
-			TxHash      string         `json:"transactionHash"`
-			BlockHash   string         `json:"blockHash"`
-			BlockNumber hexutil.Uint64 `json:"blockNumber"`
-			Index       hexutil.Uint64 `json:"logIndex"`
-			Removed     bool           `json:"removed"`
-		}
-		filter := map[string]any{"address": Accumulator, "fromBlock": hexutil.EncodeUint64(start), "toBlock": hexutil.EncodeUint64(end), "topics": []any{accumulator.Events["FeesClaimed"].ID.Hex(), addressTopic(m.Pool), addressTopic(who)}}
-		if e := s.creator.rpc.CallContext(ctx, &logs, "eth_getLogs", filter); e != nil {
-			return "", e
-		}
-		if len(logs) > 2000 {
-			return "", ErrUnavailable
-		}
-		for _, log := range logs {
-			if log.Removed || strings.ToLower(log.Address) != Accumulator || len(log.Topics) != 3 || log.Topics[0] != accumulator.Events["FeesClaimed"].ID.Hex() || log.Topics[1] != addressTopic(m.Pool) || log.Topics[2] != addressTopic(who) || uint64(log.BlockNumber) < start || uint64(log.BlockNumber) > end || !hash.MatchString(log.TxHash) {
-				return "", ErrConflict
-			}
-			id := fmt.Sprintf("125:%s:%d", log.TxHash, log.Index)
-			if seen[id] {
-				return "", ErrConflict
-			}
-			seen[id] = true
-			var header struct {
-				Hash string `json:"hash"`
-			}
-			if e := s.creator.rpc.CallContext(ctx, &header, "eth_getBlockByNumber", hexutil.EncodeUint64(uint64(log.BlockNumber)), false); e != nil {
+		count := 0
+		for rows.Next() {
+			var data, topics []byte
+			if e = rows.Scan(&height, &transactionIndex, &logIndex, &data, &topics); e != nil {
+				rows.Close()
 				return "", e
 			}
-			if header.Hash != log.BlockHash {
+			var decodedTopics []string
+			if json.Unmarshal(topics, &decodedTopics) != nil || len(decodedTopics) != 3 || len(data) != 32 {
+				rows.Close()
 				return "", ErrConflict
 			}
-			values, e := accumulator.Events["FeesClaimed"].Inputs.NonIndexed().Unpack(log.Data)
-			if e != nil || len(values) != 1 {
+			values, err := accumulator.Events["FeesClaimed"].Inputs.NonIndexed().Unpack(data)
+			if err != nil || len(values) != 1 {
+				rows.Close()
 				return "", ErrConflict
 			}
 			total.Add(total, values[0].(*big.Int))
+			count++
 		}
-		if end == b.Number {
+		e = rows.Err()
+		rows.Close()
+		if e != nil {
+			return "", e
+		}
+		if count < 500 {
 			break
 		}
-		start = end + 1
+	}
+	if e = tx.Commit(ctx); e != nil {
+		return "", e
 	}
 	return total.String(), nil
+}
+
+// indexedOwner selects the last canonical NFT transfer at the pinned height,
+// including the mint. The creation's historical creator is not owner authority.
+func (s *JourneyService) indexedOwner(ctx context.Context, m marketSource, b Checkpoint) (string, error) {
+	id, e := amount(m.NFTID)
+	if e != nil {
+		return "", e
+	}
+	tx, e := s.ledger.begin(ctx)
+	if e != nil {
+		return "", e
+	}
+	defer tx.Rollback(ctx)
+	var topic string
+	e = tx.QueryRow(ctx, `SELECT l.topics->>2 FROM indexer.indexer_raw_logs_v1 l
+  JOIN indexer.indexer_block_completeness_v1 b ON b.chain_id=l.chain_id AND b.stream_id=$1
+   AND b.height=l.height AND b.block_hash=l.block_hash AND b.fetch_complete AND b.required_decode_complete
+  WHERE l.chain_id=125 AND l.emitter=$2 AND l.topics->>0=$3 AND l.topics->>3=$4
+   AND jsonb_array_length(l.topics)=4 AND l.height<=$5
+  ORDER BY l.height DESC,l.transaction_index DESC,l.log_index DESC LIMIT 1`, s.sourceStream, NFT,
+		nft.Events["Transfer"].ID.Hex(), common.BigToHash(id).Hex(), b.Number).Scan(&topic)
+	if e == pgx.ErrNoRows {
+		return "", ErrUnavailable
+	}
+	if e != nil {
+		return "", e
+	}
+	if !hash.MatchString(topic) || !strings.HasPrefix(topic, "0x000000000000000000000000") {
+		return "", ErrConflict
+	}
+	owner := "0x" + topic[26:]
+	return owner, tx.Commit(ctx)
 }
 func (s *JourneyService) cursor(c rewardCursor) string {
 	raw, _ := json.Marshal(c)
@@ -298,53 +335,82 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 			return out, ErrUnavailable
 		}
 	}
-	tx, e := s.ledger.begin(ctx)
-	if e != nil {
-		return out, e
+	// Scan creation inventory in bounded pages, but page the wallet's rewards.
+	// Unrelated markets need no live contract read and cannot consume a page slot.
+	type relevantMarket struct {
+		source  marketSource
+		claimed string
+		owner   string
 	}
-	defer tx.Rollback(ctx)
-	rows, e := tx.Query(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text FROM indexer.indexer_canonical_creations WHERE nft_id>$1::numeric AND height<=$2 ORDER BY nft_id LIMIT $3`, after, b.Number, limit+1)
-	if e != nil {
-		return out, e
-	}
-	sources := []marketSource{}
-	for rows.Next() {
-		var m marketSource
-		if e = rows.Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex); e != nil {
-			rows.Close()
+	sources := []relevantMarket{}
+	scanAfter := after
+	for len(sources) <= limit {
+		tx, err := s.ledger.begin(ctx)
+		if err != nil {
+			return out, err
+		}
+		rows, err := tx.Query(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text
+   FROM indexer.indexer_canonical_creations_v1 WHERE nft_id>$1::numeric AND height<=$2 ORDER BY nft_id LIMIT 100`, scanAfter, b.Number)
+		if err != nil {
+			tx.Rollback(ctx)
+			return out, err
+		}
+		batch := []marketSource{}
+		for rows.Next() {
+			var m marketSource
+			if e = rows.Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex); e != nil {
+				rows.Close()
+				tx.Rollback(ctx)
+				return out, e
+			}
+			batch = append(batch, m)
+		}
+		e = rows.Err()
+		rows.Close()
+		if e != nil {
+			tx.Rollback(ctx)
 			return out, e
 		}
-		sources = append(sources, m)
-	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return out, e
-	}
-	if e = tx.Commit(ctx); e != nil {
-		return out, e
+		if e = tx.Commit(ctx); e != nil {
+			return out, e
+		}
+		for _, m := range batch {
+			scanAfter = m.NFTID
+			owner, err := s.indexedOwner(ctx, m, b)
+			if err != nil {
+				return out, err
+			}
+			claimed, err := s.claimedHistory(ctx, m, who, b)
+			if err != nil {
+				return out, err
+			}
+			if owner == who || claimed != "0" {
+				sources = append(sources, relevantMarket{m, claimed, owner})
+			}
+			if len(sources) > limit {
+				break
+			}
+		}
+		if len(batch) < 100 {
+			break
+		}
 	}
 	more := len(sources) > limit
 	if more {
 		sources = sources[:limit]
 	}
-	for _, m := range sources {
+	for _, relevant := range sources {
+		m := relevant.source
 		pinned := *s.creator
 		pinned.committed = func(context.Context) (Checkpoint, error) { return b, nil }
 		p, e := pinned.Preview(ctx, m.NFTID, m.Creator)
 		if e != nil {
 			return out, e
 		}
-		if p.Pool != m.Pool {
+		if p.Pool != m.Pool || p.Owner != relevant.owner {
 			return out, ErrConflict
 		}
-		claimed, e := s.claimedHistory(ctx, m, who, b)
-		if e != nil {
-			return out, e
-		}
-		if p.Owner != who && claimed == "0" {
-			continue
-		}
+		claimed := relevant.claimed
 		claimableRaw := "0"
 		if p.Owner == who {
 			if !p.Capability.Available || p.Capability.Strategy != "CLAIM" {
@@ -359,7 +425,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 	}
 	out.Block = b
 	if more && len(sources) > 0 {
-		token := s.cursor(rewardCursor{Wallet: who, Program: program, After: sources[len(sources)-1].NFTID, Block: b, Expires: s.now().Add(15 * time.Minute).Unix(), Resource: "rewards", SchemaMajor: 2, Interface: s.interfaceDigest})
+		token := s.cursor(rewardCursor{Wallet: who, Program: program, After: sources[len(sources)-1].source.NFTID, Block: b, Expires: s.now().Add(15 * time.Minute).Unix(), Resource: "rewards", SchemaMajor: 2, Interface: s.interfaceDigest})
 		out.NextCursor = &token
 	}
 	return out, nil
@@ -415,7 +481,7 @@ func (s *JourneyService) Prepare(ctx context.Context, actor Actor, key string, r
 			return nil, &CapabilityError{"expired_claim_preparation", "Claim preparation expired or its admitted deployment changed"}
 		}
 		var historical, pool string
-		if e = tx.QueryRow(ctx, `SELECT creator,pool FROM indexer.indexer_canonical_creations WHERE nft_id=$1::numeric`, id).Scan(&historical, &pool); e != nil {
+		if e = tx.QueryRow(ctx, `SELECT creator,pool FROM indexer.indexer_canonical_creations_v1 WHERE nft_id=$1::numeric`, id).Scan(&historical, &pool); e != nil {
 			return nil, e
 		}
 		fresh, err := s.creator.PrepareClaim(ctx, id, who, historical)
@@ -431,7 +497,7 @@ func (s *JourneyService) Prepare(ctx context.Context, actor Actor, key string, r
 		return nil, e
 	}
 	var m marketSource
-	e = tx.QueryRow(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text FROM indexer.indexer_canonical_creations WHERE nft_id=$1::numeric`, id).Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex)
+	e = tx.QueryRow(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text FROM indexer.indexer_canonical_creations_v1 WHERE nft_id=$1::numeric`, id).Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex)
 	if e != nil {
 		return nil, e
 	}
@@ -574,7 +640,7 @@ func (s *JourneyService) sourceCheckpoint(ctx context.Context) (Checkpoint, erro
 	}
 	defer tx.Rollback(ctx)
 	var raw, typed int64
-	e = tx.QueryRow(ctx, `SELECT raw_complete_height,typed_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1`, s.sourceStream).Scan(&raw, &typed)
+	e = tx.QueryRow(ctx, `SELECT raw_complete_height,typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1`, s.sourceStream).Scan(&raw, &typed)
 	if e != nil {
 		return Checkpoint{}, e
 	}
@@ -583,7 +649,7 @@ func (s *JourneyService) sourceCheckpoint(ctx context.Context) (Checkpoint, erro
 	}
 	var blockHash string
 	var fetched, decoded bool
-	e = tx.QueryRow(ctx, `SELECT block_hash,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2`, s.sourceStream, typed).Scan(&blockHash, &fetched, &decoded)
+	e = tx.QueryRow(ctx, `SELECT block_hash,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height=$2`, s.sourceStream, typed).Scan(&blockHash, &fetched, &decoded)
 	if e != nil {
 		return Checkpoint{}, e
 	}
@@ -685,7 +751,7 @@ func (w *CommunityWatcher) Observe(ctx context.Context, request, nftID string) (
 		return CommunityAuthority{}, e
 	}
 	var historical, pool string
-	e = tx.QueryRow(ctx, `SELECT creator,pool FROM indexer.indexer_canonical_creations WHERE nft_id=$1::numeric`, nftID).Scan(&historical, &pool)
+	e = tx.QueryRow(ctx, `SELECT creator,pool FROM indexer.indexer_canonical_creations_v1 WHERE nft_id=$1::numeric`, nftID).Scan(&historical, &pool)
 	if e != nil {
 		return CommunityAuthority{}, e
 	}
@@ -732,7 +798,7 @@ func (w *CommunityWatcher) RunOnce(ctx context.Context) error {
 		return e
 	}
 	defer tx.Rollback(ctx)
-	rows, e := tx.Query(ctx, `SELECT c.nft_id::text,c.creator,c.pool FROM indexer.indexer_canonical_creations c LEFT JOIN l18_community_scan s ON s.nft_id=c.nft_id ORDER BY s.checked_at NULLS FIRST,c.nft_id LIMIT 32`)
+	rows, e := tx.Query(ctx, `SELECT c.nft_id::text,c.creator,c.pool FROM indexer.indexer_canonical_creations_v1 c LEFT JOIN l18_community_scan s ON s.nft_id=c.nft_id ORDER BY s.checked_at NULLS FIRST,c.nft_id LIMIT 32`)
 	if e != nil {
 		return e
 	}

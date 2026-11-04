@@ -6,6 +6,7 @@ import {
   type SupportReportRequest,
 } from "./report-schema.ts";
 import { csrfTokenFromCookie } from "../auth/session.ts";
+import { redactSupportReportRoute } from "./report-routes.ts";
 
 export interface ErrorReportDraft {
   readonly consented: boolean;
@@ -43,7 +44,7 @@ export function redactErrorReport(draft: ErrorReportDraft): SupportReportRequest
   return parseSupportReportRequest({
     traceId: draft.traceId,
     machineCode: draft.machineCode,
-    route: draft.route,
+    route: redactSupportReportRoute(draft.route),
     shell: draft.shell,
   });
 }

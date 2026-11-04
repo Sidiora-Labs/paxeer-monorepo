@@ -1,0 +1,25 @@
+[manifest]
+task = "22.32.9"
+domain = 3
+owner_role = "fm-markets"
+pages = 2
+
+[page.1]
+path = "docs/wiki/HostedWebhooks.md"
+status = "misleading"
+bytes = 38163
+source_1 = "record 22.30.116 [doc.06] (stale): Read the page and checked its network, endpoint and lifecycle claims. The wiki deployment network binding still references router.LAYERX_GATEWAY_NETWORK_ID, repeating the retired-service dependency in the site page. Its operational setup cannot be the merged-network source of truth. Rewrite proposal: Align docs/wiki/HostedWebhooks.md with the current webhook manifests and the corrected site page, naming the shared network identity, live ingress authentication and durable replay/delivery lifecycle."
+source_2 = "record 22.30.16 [doc.09] (stale): Read in full; dependency/network-id guidance at 71-80 retains router/separate authority; trusted TLS section contradicts ingress authentication. Durable ordering/retry/redelivery descriptions were also reviewed."
+source_3 = "record 22.30.172 [doc.009] (stale): Complete delivery, persistence, deployment and auth guide read. Trusted-component TLS paragraph contradicts authenticated ingress in role deployment instructions; see the page-specific finding."
+source_4 = "record 22.30.18 [doc.2] (stale): Full page read, including the wiki introduction and final navigation link. Lines 77-79 repeat the retired router identity reference; the site and wiki operator recipes require the same active producer and verifier binding."
+source_5 = "record 22.30.27 [doc.012] (misleading): Stale router interpolation at line 78 and sequencer batch trust table at lines 97-100 (site; wiki offset +1); rewrite current network and committed-event authority."
+source_6 = "record 22.30.71 [doc.8] (stale): Lines 77-79 depend on a router, 259-280 misstate ingress client authentication, and 403-440 conflate role routes. Lines 302-310 already disclose the deployed network-name mismatch; it remains a live defect. Mirror differences were read."
+source_7 = "record 22.30.92 [doc.07] (stale): Deployment configuration reads its network id from a retired router service interpolation."
+source_8 = "record 22.30.95 [doc.12] (stale): The wiki repeats router-derived network configuration and batch-era sequencer key material; its added dashboard link does not resolve that authority drift."
+
+[page.2]
+path = "docs/wiki/Modules.md"
+status = "misleading"
+bytes = 13862
+source_1 = "record 22.30.17 [doc.04] (stale): Introduction and tail runtime-binding section retain daemon/checkpoint settlement guidance; synchronize with corrected site module page."
+source_2 = "record 22.30.5 [doc.08] (misleading): Read all 131 lines. Lines 20,26,48,74,88-93,118 retain custody/daemon;55/74 misstate account and custody kinds."

@@ -1,0 +1,18 @@
+[manifest]
+task = "22.32.21"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 2
+
+[page.1]
+path = "docs/wiki/Assets.md"
+status = "stale"
+bytes = 8912
+source_1 = "record 22.30.27 [doc.011] (stale): Stale lines 3-7 (balance authority), activity ordinal table beginning at line 40 on site / 44 on wiki, and custody issuance section; show native bank and pointerview paths."
+
+[page.2]
+path = "docs/wiki/HostedAgentBoundary.md"
+status = "stale"
+bytes = 29993
+source_1 = "record 22.30.32 [doc.08] (stale): Read complete page; line 297 in boundary_wiki identifies the stale statements and owning rewrite proposal."
+source_2 = "record 22.30.71 [doc.11] (stale): Lines 3-4, 234-258, 297-299 and 379-420 describe LNI, a layerxd socket and a separate sequencer/replica readiness and test path; replace with chain transaction and receipt behavior."

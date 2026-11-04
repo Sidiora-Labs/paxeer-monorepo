@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.71"
+domain = 7
+owner_role = "fm-rpc-api"
+pages = 1
+
+[page.1]
+path = "api/README.md"
+status = "stale"
+bytes = 1720
+source_1 = "record 22.30.69 [doc.13] (stale): Full page read. Line 3 incorrectly places every go_package under modules; programs types live under precompiles/layerxprograms/types."

@@ -1,0 +1,28 @@
+[manifest]
+task = "22.32.139"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+bytes = 47941
+source_1 = "record 22.30.105 [doc.07] (misleading): Lines 39-42 and 50-52 repeat router and /rpc drift; lines 198-200 list obsolete RPC surfaces; line 51 reports 18 methods instead of the site page 15."
+source_2 = "record 22.30.116 [doc.05] (misleading): Read the page and checked its network, endpoint and lifecycle claims. The wiki repeats the router URL and POST /rpc, /rpc/schema and /rpc/ws endpoints, while claiming 18 methods where the site page claims 15. It conflates hosted gateway methods and public node RPC. Rewrite proposal: Regenerate or rewrite docs/wiki/HostedGateway.md from the same current OpenRPC and deployment source as the site page, documenting hosted px_ methods separately from the node root RPC and current authentication."
+source_3 = "record 22.30.125 [doc.gateway_wiki] (misleading): Read full page. Lines 38-41 describe unified router and EVM-only nodes; 50-52, 198-201 and 609-611 advertise retired /rpc paths. Lines 285-300 retain legacy lx submission and network/authority language. Replace with root node JSON-RPC and hosted px OpenRPC; see gateway_wiki_router."
+source_4 = "record 22.30.131 [doc.10] (stale): Unified router and mixed namespaces at lines 39-42; /rpc family at 50-52 and 198-200; legacy daemon description later. Site/wiki method counts differ (15 versus 18)."
+source_5 = "record 22.30.132 [doc.11] (stale): Finding gateway-router-description-wiki: The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, assigns public nodes to an EVM-only domain and advertises /rpc, /rpc/schema and /rpc/ws. The site says 15 methods and the wiki 18."
+source_6 = "record 22.30.141 [doc.10] (stale): Lines 39-51,107,198-200 and 221 retain a router, unified /rpc routes and receipt-authority service. The site and wiki also disagree on the advertised method count (15 versus 18); both need regeneration from the current gateway contract."
+source_7 = "record 22.30.145 [doc.03] (stale): Read the gateway architecture, endpoint/auth tables, startup and recovery instructions, and compared the site/wiki copies. Lines 39-51, 198-200 and 609-621 retain /rpc routing and daemon custody assumptions; hosted-site/hosted-wiki record the rewrite and differing method counts."
+source_8 = "record 22.30.146 [doc.005] (misleading): Lines 39-52 present a unified router and /rpc, /rpc/schema, /rpc/ws as the network interface; lines 615-632 retain LNI. Site and wiki also disagree on 15 versus 18 methods."
+source_9 = "record 22.30.147 [doc.10] (stale): line 50: wiki-gateway-network — The wiki gateway page repeats /rpc, /rpc/schema and /rpc/ws and the old lx_ and sequencer-authority architecture. It also differs from the site page on the advertised method count, 18 versus 15."
+source_10 = "record 22.30.152 [doc.2] (stale): Lines39-51,198-213,443-470 and617-632 retain unified /rpc, retired authority submission and daemon preparation instructions; see the corresponding hosted documentation finding."
+source_11 = "record 22.30.153 [doc.11] (misleading): Lines 39 onward describe obsolete operating behavior; finding wiki-gateway-unified-router records the exact contradiction and concrete rewrite proposal."
+source_12 = "record 22.30.16 [doc.08] (stale): Read in full; lines 39-51 and route table publish a router and unified /rpc paths. Node root RPC and hosted px_ need distinct accurate descriptions."
+source_13 = "record 22.30.21 [doc.6] (stale): Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in gateway-wiki-rpc."
+source_14 = "record 22.30.23 [doc.5] (stale): Lines 39-51 advertise a unified eth/lx/px router and /rpc, /rpc/schema and /rpc/ws; lines 617-632 still bind daemon LNI and node registry behavior."
+source_15 = "record 22.30.29 [doc.07] (misleading): wiki-gateway: line50 The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws as public JSON-RPC and repeats them in the route table at lines198-200. The site also claims15 methods while the wiki claims18 for that same legacy surface."
+source_16 = "record 22.30.30 [doc.02] (stale): Read in full. finding.gateway-doc-wiki at line 39. Retired topology and endpoint instructions require a coordinated rewrite."
+source_17 = "record 22.30.35 [doc.3] (stale): Lines 39-41, 50-51, 198-200 and 609 retain router endpoints; line 51 differs from the site page on method count. Finding 19."
+source_18 = "record 22.30.43 [doc.010] (misleading): Lines 50-51, 198-200 and 609 expose retired /rpc, /rpc/schema and /rpc/ws routes; the site and wiki also disagree on the method count (15 versus 18)."

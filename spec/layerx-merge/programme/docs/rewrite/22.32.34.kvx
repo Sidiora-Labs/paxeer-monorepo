@@ -1,0 +1,35 @@
+[manifest]
+task = "22.32.34"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 5
+
+[page.1]
+path = "consensus/spec/abci/apps.md"
+status = "stale"
+bytes = 30538
+source_1 = "record 22.30.47 [doc.015] (stale): Vendored upstream ABCI page apps.md. Retained for protocol history; current in-process Application/FinalizeBlock code governs this fork rather than the legacy transport and lifecycle prose. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/abci/client-server.md"
+status = "stale"
+bytes = 4919
+source_1 = "record 22.30.47 [doc.016] (stale): Read complete page; rewrite targets: abci-transports-legacy at line 30; abci-framing-contradiction at line 70. Concrete owning-domain proposals are recorded above."
+
+[page.3]
+path = "consensus/spec/consensus/bft-time.md"
+status = "stale"
+bytes = 3357
+source_1 = "record 22.30.47 [doc.017] (stale): Read complete page; rewrite targets: time-units-and-mode at line 18. Concrete owning-domain proposals are recorded above."
+
+[page.4]
+path = "consensus/spec/consensus/consensus.md"
+status = "stale"
+bytes = 16249
+source_1 = "record 22.30.47 [doc.019] (stale): Vendored upstream Tendermint protocol page consensus.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.5]
+path = "consensus/spec/consensus/creating-proposal.md"
+status = "stale"
+bytes = 1372
+source_1 = "record 22.30.47 [doc.020] (stale): Read complete page; rewrite targets: proposal-sizing-legacy at line 16. Concrete owning-domain proposals are recorded above."

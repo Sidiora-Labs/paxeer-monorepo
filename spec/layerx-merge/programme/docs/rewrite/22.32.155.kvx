@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.155"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 6
+
+[page.1]
+path = "sdk/x/gov/spec/06_params.md"
+status = "stale"
+bytes = 1643
+source_1 = "record 22.30.167 [doc.33] (stale): gov-params-doc at line 11: The parameter page uses uatom and veto, omits min_expedited_deposit, expedited_voting_period, expedited_quorum and expedited_threshold, and therefore does not describe the current parameter producer."
+
+[page.2]
+path = "sdk/x/gov/spec/07_client.md"
+status = "stale"
+bytes = 18394
+source_1 = "record 22.30.167 [doc.34] (stale): gov-client-doc at line 110: CLI and query examples omit expedited parameters, mix stake and uhpx, and retain simd/cosmos account examples even though the Paxeer command and address configuration use paxd and the pax prefix."
+
+[page.3]
+path = "sdk/x/params/spec/02_subspace.md"
+status = "stale"
+bytes = 1481
+source_1 = "record 22.30.163 [doc.015] (stale): Lines 27-28 promise inherited subkey attributes; exact lookup in Subspace.checkType and Update requires every key to be registered. See the member finding."
+
+[page.4]
+path = "sdk/x/slashing/README.md"
+status = "stale"
+bytes = 7796
+source_1 = "record 22.30.162 [doc.027] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-readme-bitmap."
+
+[page.5]
+path = "sdk/x/slashing/spec/02_state.md"
+status = "stale"
+bytes = 2269
+source_1 = "record 22.30.162 [doc.029] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-state-layout."
+
+[page.6]
+path = "sdk/x/slashing/spec/04_begin_block.md"
+status = "stale"
+bytes = 4024
+source_1 = "record 22.30.162 [doc.031] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-beginblock-pseudocode."

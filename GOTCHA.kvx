@@ -14670,3 +14670,8 @@ fix = "Produce fixtures with the production encoder, generator or message constr
 title = "The verify command matches the toolchain of the directory under repair"
 symptom = "Four repairs of Node example packages under services/platform carried a cargo test command naming a test target that no crate owns, so the implementers added bogus Rust test files to the platform workspace; a Next example was installed from the public registry where its private package does not exist; an explorer app pinned to yarn was driven with pnpm."
 fix = "Before writing a repair task read the package manifest of the touched directory and derive the build and verify commands from its own toolchain and scripts; a Rust command never gates a Node package and a registry install never gates a private package."
+
+[gotcha.2970]
+title = "A crate directory under a workspace is not a member until the workspace manifest lists it"
+symptom = "A repair task built a crate with cargo -p by the name of its directory under services/human/crates; the directory held one orphaned test file left behind by the deletion tasks of the crate, no manifest, and no workspace entry, so cargo refused the package id and the task failed at build."
+fix = "Before writing a cargo -p command read the workspace members list and the directory manifest; a directory that has lost its manifest is a deletion leftover and the task removes it instead of building it."

@@ -1,0 +1,38 @@
+[manifest]
+task = "22.32.129"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "misleading"
+bytes = 30559
+source_1 = "record 22.30.115 [doc.12] (stale): Stale custody-boundary description at 7 and deployment/genesis settlement recipe 119-129; merged receipt boundary is missing."
+source_2 = "record 22.30.127 [doc.7] (misleading): Full page read. From line 3 the page treats the retired eth-relay/external settlement topology as the sole chain boundary. Finding 18 replaces deployment, custody and anchor instructions."
+source_3 = "record 22.30.129 [doc.007] (stale): The custody client, hosted/paxeer relay and settlement suite are presented as running infrastructure despite cross-domain custody, anchor and relay retirement."
+source_4 = "record 22.30.132 [doc.04] (stale): Finding boundary-settlement-site: Settlement sections prescribe deploy-contracts.sh, GuarantorBond, CheckpointRegistry and Blueprint activation around standalone node genesis. The site and wiki carry identical instructions apart from their Home link."
+source_5 = "record 22.30.134 [doc.9] (stale): Lines 3-9 and the settlement-suite section treat the retired hosted boundary and custody connector as the required live topology."
+source_6 = "record 22.30.139 [doc.04] (stale): The boundary page describes a separate LayerX runtime, removed layerx-paxeer-client and the old settlement/checkpoint/challenge/exit integration suite, including line 119. Rewrite: Explain the integrated execution and committed-block boundary, current native interfaces and genuine compatibility archives; identify removed client and exit machinery as historical."
+source_7 = "record 22.30.141 [doc.4] (stale): Lines 117-139 retain standalone checkpoint-settlement bootstrap and sidecar-only network topology. Chain id 125 is correct, but the merged-network finality and deployment description needs replacement."
+source_8 = "record 22.30.142 [doc.9] (stale): Lines 119-129 present the guarantor/checkpoint settlement suite as current deployment; the node root RPC and chain-id examples themselves agree with chain 125."
+source_9 = "record 22.30.144 [doc.4] (stale): Stale at lines 7, 19, 50, 119-129 and 145: retired custody client and settlement deployment are described as live."
+source_10 = "record 22.30.146 [doc.007] (stale): Lines 3-50 prescribe the retired TLS eth relay and clients; lines 117-129 prescribe old settlement bootstrap. Replace the page instead of adding relay deployment instructions."
+source_11 = "record 22.30.152 [doc.6] (stale): Lines3-7 and the later settlement stack describe retired paxeer-boundary/layerx-paxeer-client components; native merged-node migration guidance is required."
+source_12 = "record 22.30.154 [doc.4] (stale): Lines 119-129 present the standalone custody and checkpoint bootstrap as operational. TLS, root HTTP and chain-id descriptions remain relevant; finding boundary_settlement_bootstrap."
+source_13 = "record 22.30.159 [doc.12] (stale): All 159 lines read. The relay and client at lines 3-7 and deployment/settlement procedure at lines 117-129 describe components retired by the merged network. See retired-boundary-page; this needs a retirement/migration notice rather than current operator instructions."
+source_14 = "record 22.30.160 [doc.04] (stale): Read the complete page. Line 119: The boundary page instructs deployment of settlement and guarantor contract suites at lines 119-129 and explains the network using separate node, kernel and hosted topology. The root node POST example is valid, but does not make the settlement model current."
+source_15 = "record 22.30.165 [doc.008] (stale): Lines 3 onward document services/platform/hosted/paxeer, standalone node/LNI, settlement suite and boundary credentials as an active topology."
+source_16 = "record 22.30.170 [doc.004] (stale): Lines 3-7 present services/platform/hosted/paxeer as the chain-facing boundary; the page specifies that retired relay's readiness, genesis transport and method allowlist as the running interface. See finding.package_doc_04 for the concrete rewrite."
+source_17 = "record 22.30.20 [doc.03] (stale): Read in full. TLS trust pins and chain-125 boundary behavior remain useful, but lines 119-129 and 155-159 require retired settlement contracts and kernel genesis deployment validation."
+source_18 = "record 22.30.22 [doc.04] (stale): Root POST and chain125 details are useful, but lines 5-7 and settlement sections retain the separate node/custody topology; see boundary-legacy-topology."
+source_19 = "record 22.30.23 [doc.10] (stale): Lines 3-7 describe a separate TLS Paxeer boundary, paxeer-relay and custody-boundary client as the hosted chain interface; lines 117-129 describe the former settlement deployment suite."
+source_20 = "record 22.30.26 [doc.boundary] (stale): Read the complete page. Trust and chain-id checks are documented, but the deleted layerx-paxeer-client and settlement suite remain the advertised current integration path; see boundary_retired_client."
+source_21 = "record 22.30.30 [doc.05] (stale): Read in full. finding.boundary-doc-site at line 3. Retired topology and endpoint instructions require a coordinated rewrite."
+source_22 = "record 22.30.35 [doc.9] (stale): Lines 3-7 and later relay deployment instructions prescribe the retired hosted/paxeer topology; private TLS transport itself remains valid. Finding 24."
+source_23 = "record 22.30.37 [doc.d003] (stale): Lines 3-159 document the retired hosted Paxeer relay as a running component and its deployment/configuration; see docs-boundary-retired-relay."
+source_24 = "record 22.30.42 [doc.1] (stale): Lines 3-7 and relay/bootstrap sections describe the retired hosted/paxeer boundary; see boundary-site."
+source_25 = "record 22.30.49 [doc.001] (stale): Read in full; site/wiki content differs only in the final Home link. Lines 5 onward describe the retired hosted relay; the Settlement suite section instructs retired vault/bond/checkpoint deployment. Replace with integrated paxd and committed-block finality guidance."
+source_26 = "record 22.30.69 [doc.03] (stale): Full page read, including shared site/wiki text and link differences. Lines 3 onward describe retired relay/custody topology and settlement bootstrap as operational prerequisites."
+source_27 = "record 22.30.84 [doc.06] (stale): Read the complete boundary guide, including settlement suite lines 119-129 and deleted client references. Retained hosted responsibilities need current deployment/finality instructions; see boundary-retired-bootstrap."
+source_28 = "record 22.30.85 [doc.08] (stale): Lines 3-7, 13-19, 99-129 and 135-145 describe the retired relay and settlement deployment as current."

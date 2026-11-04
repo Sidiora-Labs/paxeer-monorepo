@@ -7,7 +7,9 @@ import type { ResourceName } from './resources';
 import { RESOURCES } from './resources';
 
 export default function getResourceParams(resourceFullName: ResourceName, chain?: ExternalChainExtended) {
-  const [ apiName, resourceName ] = resourceFullName.split(':') as [ ApiName, string ];
+  const [ namespace, resourceName ] = resourceFullName.split(':') as [ ApiName, string ];
+  const resource = RESOURCES[namespace][resourceName as keyof typeof RESOURCES[ApiName]] as ApiResource;
+  const apiName = resource.api ?? namespace;
 
   const apiConfig = (() => {
     if (chain?.app_config?.apis) {
@@ -24,6 +26,6 @@ export default function getResourceParams(resourceFullName: ResourceName, chain?
   return {
     api: apiConfig,
     apiName,
-    resource: RESOURCES[apiName][resourceName as keyof typeof RESOURCES[ApiName]] as ApiResource,
+    resource,
   };
 }

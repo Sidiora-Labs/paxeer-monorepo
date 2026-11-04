@@ -43,6 +43,20 @@ func (k Keeper) BlockValidatorUpdates(ctx sdk.Context) []abci.ValidatorUpdate {
 
 		balances, err := k.CompleteUnbonding(ctx, delegatorAddress, addr)
 		if err != nil {
+			if ubd, found := k.GetUnbondingDelegation(ctx, delegatorAddress, addr); found {
+				// One durable work item retries all mature entries of this pair.
+				pairs := k.GetUBDQueueTimeSlice(ctx, ctx.BlockTime())
+				queued := false
+				for _, pair := range pairs {
+					if pair == dvPair {
+						queued = true
+						break
+					}
+				}
+				if !queued {
+					k.InsertUBDQueue(ctx, ubd, ctx.BlockTime())
+				}
+			}
 			continue
 		}
 
