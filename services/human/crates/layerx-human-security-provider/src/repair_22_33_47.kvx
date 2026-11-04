@@ -1,0 +1,12 @@
+[repair.22.33.47]
+audit = "22.30.106"
+finding = "3"
+implementation = "tests/support/mod.rs reads unmodified committed paxd recovery evidence recorded through the production RPC client; no receipt-as-transaction fixture, rewritten data hash or consumer-side signing remains in evidence()."
+proof = "tests/repair_22_33_47.rs::repair_22_33_47_committed_recovery_ingest_reveal_restart_and_replay"
+refusal_ingest = "tests/repair_22_33_47.rs::repair_22_33_47_altered_transactions_failed_outcomes_and_mismatched_receipts_refuse_ingest"
+refusal_replay = "tests/repair_22_33_47.rs::repair_22_33_47_invalid_recordings_refuse_reveal_and_reopen"
+baseline = "Not run: ordered gate instructions prohibit tests before implementation and verification by hand; no pre-change failure is claimed. The task-specific integration test was absent on the supplied base."
+provenance = "tests/support/recording/record.py builds the in-repository paxd and native dependencies during implementation, then adds recovery.go to daemon/committed-fixture via a temporary Go overlay. The committed JSON carries actual RPC receipts, signed execution and successor headers, commits, result proofs and a sequencer key query at H paired with H+1. The gate reads JSON only and starts the real provider, store, runtime clock server and socket client in process."
+recorded_source_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+wiring = "22.33.1076, node/sequencer, node domain: retain attempt 7 observation that the recorder's proof root differed from signed AppHash; do not alter recorder hashing to match. This task consumes current-main producer behavior after 22.31.475."
+qualification = "Exact verified revision, command, exit and private log are supplied by the runner hf-done ledger and the final evidence JSON; no unrun gate is claimed."
