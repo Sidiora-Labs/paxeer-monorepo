@@ -1,8 +1,11 @@
 use ed25519_dalek::SigningKey;
 use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind};
-use layerx_crypto::disclosure::{bind, DisclosureError};
+use layerx_crypto::disclosure::call::bind_call;
+use layerx_crypto::disclosure::DisclosureError;
+use layerx_crypto::evm_transaction::{decode_unsigned, Eip1559Call};
+
+mod support;
 use layerx_types::ids::Did;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash;
 use sha2::{Digest as _, Sha256};
@@ -27,14 +30,6 @@ fn owner() -> (Did, [u8; 32]) {
         Did::new(did.as_bytes()).unwrap_or_else(|error| panic!("did: {error:?}")),
         key,
     )
-}
-
-fn registry() -> ModuleRegistry {
-    let kind = ActivityType::new(ModuleId::Governance, 8)
-        .unwrap_or_else(|error| panic!("activity: {error:?}"));
-    let module = ModuleRegistration::new(ModuleId::Governance, &[kind])
-        .unwrap_or_else(|error| panic!("module: {error:?}"));
-    ModuleRegistry::new(&[module]).unwrap_or_else(|error| panic!("registry: {error:?}"))
 }
 
 fn unsigned(payload: &[u8], did: &Did, key: &[u8; 32]) -> Vec<u8> {
@@ -161,12 +156,22 @@ fn signing_disclosure_binds_every_immutable_grant_field() {
         .payload()
         .unwrap_or_else(|error| panic!("payload: {error:?}"));
     let canonical = unsigned(&payload, &did, &owner_key);
-    let disclosure =
-        bind(&canonical, &registry()).unwrap_or_else(|error| panic!("disclosure: {error:?}"));
-    assert_eq!(disclosure.authority_grant, Some(grant));
-    assert_eq!(disclosure.asset, grant.scope.asset);
-    assert_eq!(disclosure.expiry.payload_expires_at, grant.not_after);
-    assert_eq!(disclosure.reencode(), Ok(canonical));
+    let decoded = AuthorityGrant::from_payload(&payload).expect("kernel grant payload");
+    assert_eq!(decoded, grant);
+    assert_eq!(decoded.scope.asset, grant.scope.asset);
+    assert_eq!(decoded.not_after, grant.not_after);
+    assert_eq!(decoded.payload().expect("canonical payload"), payload);
+    assert!(
+        decode_unsigned(&canonical).is_err(),
+        "retired activity is not a transaction"
+    );
+    let call = Eip1559Call {
+        to: [0; 20],
+        data: payload.clone(),
+        ..support::send_call(25, 7).call
+    };
+    assert!(bind_call(&call, support::call_options(7).from).is_err());
+    let disclosure = support::send_call(25, 7).disclosure;
     let mutations: &[fn(&mut AuthorityGrant)] = &[
         |g| g.grantor[0] ^= 1,
         |g| g.grantee[0] ^= 1,
@@ -188,17 +193,25 @@ fn signing_disclosure_binds_every_immutable_grant_field() {
     ];
     for mutate in mutations {
         let mut changed = disclosure.clone();
-        let Some(semantics) = changed.authority_grant.as_mut() else {
-            panic!("missing grant")
-        };
-        mutate(semantics);
+        let mut semantics = grant;
+        mutate(&mut semantics);
+        // Every immutable change either fails the retained codec or produces
+        // different canonical kernel bytes. Neither can be injected into a call.
+        if let Ok(changed_payload) = semantics.payload() {
+            assert_ne!(changed_payload, payload);
+            assert_eq!(
+                AuthorityGrant::from_payload(&changed_payload).expect("changed codec"),
+                semantics
+            );
+        }
+        changed.authority_grant = Some(semantics);
         assert_eq!(
             changed.reencode(),
             Err(DisclosureError::FieldMismatch("authority_grant"))
         );
         assert!(changed.audit_digest().is_err());
     }
-    assert!(bind(&unsigned(&payload, &did, &grant.delegate_key), &registry()).is_err());
+    assert!(decode_unsigned(&unsigned(&payload, &did, &grant.delegate_key)).is_err());
     let different = Did::new(b"did:layerx:other").unwrap_or_else(|error| panic!("did: {error:?}"));
-    assert!(bind(&unsigned(&payload, &different, &owner_key), &registry()).is_err());
+    assert!(decode_unsigned(&unsigned(&payload, &different, &owner_key)).is_err());
 }

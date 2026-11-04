@@ -18,7 +18,8 @@ use codec::{protocol_version_supported, Decoder, Encoder};
 
 pub use crate::disclosure::call::bind_call;
 pub use crate::disclosure::Disclosure;
-pub use crate::onboarding::{OnboardingConsent, OnboardingError, SponsoredRegistration};
+#[deprecated(note = "Use binding::BindAuthorization for EVM identity registration")]
+pub use crate::onboarding::{OnboardingConsent, SponsoredRegistration};
 pub use crate::send::{
     ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition, SendDebit,
 };
