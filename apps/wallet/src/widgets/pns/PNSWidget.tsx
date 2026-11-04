@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useWalletState, useWalletActions } from '@/providers/WalletProvider';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useWallet, useWalletState, useWalletActions } from '@/providers/WalletProvider';
 import {
   ArrowLeft,
   Search,
@@ -17,11 +17,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
-  checkAvailability,
-  getRentPrice,
-  getMinCommitmentAge,
-  commitName,
-  registerName,
   renewName,
   setPrimaryName,
   transferName,
@@ -38,15 +33,18 @@ import {
   websiteUrl,
   PNS_TLD,
   REGISTRATION_DURATION_1Y,
-  type PriceResult,
   type PNSDomain,
   type PNSDetailedDomain,
 } from '@/lib/pns';
 
+import { configuredPnsController } from './pnsRegistration';
+import { usePnsSearch } from './usePnsSearch';
+import { usePnsRegistration } from './usePnsRegistration';
+
 type PNSView = 'main' | 'register' | 'success' | 'detail';
 type MainTab = 'search' | 'mynames';
 type DurationOption = { label: string; seconds: number };
-type RegStep = 'idle' | 'committing' | 'waiting' | 'registering' | 'done' | 'error';
+type RegStep = 'committing' | 'waiting' | 'registering' | 'done' | 'error';
 
 const DURATIONS: DurationOption[] = [
   { label: '1 yr', seconds: REGISTRATION_DURATION_1Y },
@@ -75,20 +73,46 @@ export function PNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
 function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
   const { activeAccount } = useWalletState();
   const { getSigner } = useWalletActions();
+  const { chainId, writeEpoch, isWriteCurrent } = useWallet();
+  const client = useMemo(() => configuredPnsController(), [chainId, writeEpoch]);
+  const registration = usePnsRegistration({
+    account: activeAccount?.address ?? null,
+    chainId,
+    client,
+    getSigner,
+    isCurrent: () =>
+      !!activeAccount &&
+      chainId !== null &&
+      isWriteCurrent(writeEpoch, activeAccount.address, chainId),
+  });
 
   const [view, setView] = useState<PNSView>('main');
   const [tab, setTab] = useState<MainTab>('search');
   const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const [price, setPrice] = useState<PriceResult | null>(null);
-  const [searchedLabel, setSearchedLabel] = useState('');
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
-
   const [duration, setDuration] = useState<DurationOption>(DURATIONS[0]);
-  const [regStep, setRegStep] = useState<RegStep>('idle');
-  const [regError, setRegError] = useState('');
-  const [countdown, setCountdown] = useState(0);
+  const search = usePnsSearch(client, query, duration.seconds);
+  const { searching } = search;
+  const available = search.result?.available ?? null;
+  const price = search.result?.price ?? null;
+  const searchedLabel = registration.intent?.label ?? search.result?.label ?? '';
+  const status = registration.intent?.status;
+  const regError =
+    registration.error ||
+    (status === 'expired'
+      ? 'The original commitment expired.'
+      : status === 'reverted'
+        ? 'The original transaction reverted.'
+        : '');
+  const regStep: RegStep = regError
+    ? 'error'
+    : status === 'done'
+      ? 'done'
+      : status === 'waiting' || status === 'ready'
+        ? 'waiting'
+        : status === 'registering'
+          ? 'registering'
+          : 'committing';
+  const countdown = registration.intent?.countdown ?? 0;
   const [successTxHash, setSuccessTxHash] = useState('');
 
   const [ownedDomains, setOwnedDomains] = useState<PNSDomain[]>([]);
@@ -147,100 +171,29 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
     loadMyNames();
   }, [loadMyNames]);
 
-  const handleSearch = useCallback(
-    async (label: string) => {
-      const clean = label
-        .toLowerCase()
-        .replace(/\.pax$/, '')
-        .trim();
-      if (!isValidLabel(clean)) {
-        setAvailable(null);
-        setPrice(null);
-        setSearchedLabel('');
-        return;
-      }
-      setSearching(true);
-      setSearchedLabel(clean);
-      setAvailable(null);
-      setPrice(null);
-      try {
-        const [isAvail, priceResult] = await Promise.all([
-          checkAvailability(clean),
-          getRentPrice(clean, duration.seconds),
-        ]);
-        setAvailable(isAvail);
-        setPrice(priceResult);
-      } catch (err: unknown) {
-        console.error('PNS search error:', err);
-        setAvailable(null);
-      } finally {
-        setSearching(false);
-      }
-    },
-    [duration.seconds]
-  );
-
   useEffect(() => {
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (!query.trim()) {
-      setAvailable(null);
-      setPrice(null);
-      setSearchedLabel('');
-      return;
+    if (!registration.intent) return;
+    if (registration.intent.status === 'done') {
+      const tx = registration.intent.transactions.find((entry) => entry.kind === 'reveal');
+      setSuccessTxHash(tx?.hash ?? '');
+      setView('success');
+      void loadMyNames();
+    } else {
+      setView('register');
     }
-    searchTimer.current = setTimeout(() => handleSearch(query), 500);
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-    };
-  }, [query, handleSearch]);
-
-  useEffect(() => {
-    if (searchedLabel && available) {
-      getRentPrice(searchedLabel, duration.seconds)
-        .then(setPrice)
-        .catch(() => {});
-    }
-  }, [duration.seconds, searchedLabel, available]);
+  }, [registration.intent, loadMyNames]);
 
   const startRegistration = async () => {
-    if (!activeAccount?.address || !searchedLabel) return;
-    setRegStep('committing');
-    setRegError('');
+    const validated = search.validated();
+    if (
+      !validated?.available ||
+      !activeAccount?.address ||
+      !registration.enabled ||
+      registration.intent
+    )
+      return;
     setView('register');
-    try {
-      const signer = await getSigner();
-      const result = await commitName(signer, {
-        label: searchedLabel,
-        owner: activeAccount.address,
-        durationSeconds: duration.seconds,
-      });
-      setRegStep('waiting');
-      const minAge = await getMinCommitmentAge();
-      const waitSec = minAge + 5;
-      setCountdown(waitSec);
-      await new Promise<void>((resolve) => {
-        let remaining = waitSec;
-        const interval = setInterval(() => {
-          remaining -= 1;
-          setCountdown(remaining);
-          if (remaining <= 0) {
-            clearInterval(interval);
-            resolve();
-          }
-        }, 1000);
-      });
-      setRegStep('registering');
-      const currentPrice = await getRentPrice(searchedLabel, duration.seconds);
-      const txHash = await registerName(signer, result.registration, currentPrice);
-      setSuccessTxHash(txHash);
-      setRegStep('done');
-      setView('success');
-      loadMyNames();
-    } catch (err: unknown) {
-      console.error('PNS registration error:', err);
-      setRegError((err as Error)?.message || 'Registration failed');
-      setRegStep('error');
-    }
+    await registration.start(search.validated);
   };
 
   const openDetail = async (domainName: string) => {
@@ -374,11 +327,9 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
               onClick={() => {
                 setView('main');
                 setTab('mynames');
+                registration.acknowledge();
+                search.invalidate();
                 setQuery('');
-                setAvailable(null);
-                setPrice(null);
-                setSearchedLabel('');
-                setRegStep('idle');
               }}
               className="px-4 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
             >
@@ -404,10 +355,9 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
             onClick={() => {
               if (regStep === 'error') {
                 setView('main');
-                setRegStep('idle');
               }
             }}
-            disabled={regStep !== 'error' && regStep !== 'idle'}
+            disabled={regStep !== 'error'}
             className="p-2 -ml-2 press-scale disabled:opacity-30"
           >
             <ArrowLeft className="w-5 h-5 text-pax-muted" />
@@ -453,6 +403,16 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
               }
             />
           </div>
+          {registration.intent &&
+            !['done', 'expired', 'reverted'].includes(registration.intent.status) && (
+              <button
+                onClick={registration.resume}
+                disabled={registration.busy}
+                className="px-4 py-2.5 rounded-xl bg-pax-accent text-black text-sm disabled:opacity-40"
+              >
+                Resume registration
+              </button>
+            )}
           {regStep === 'error' && (
             <div className="glass-card p-4 w-full max-w-xs">
               <div className="flex items-start gap-2">
@@ -464,8 +424,8 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
               </div>
               <button
                 onClick={() => {
+                  if (status === 'expired' || status === 'reverted') registration.acknowledge();
                   setView('main');
-                  setRegStep('idle');
                 }}
                 className="w-full mt-3 py-2.5 rounded-xl bg-white/5 text-xs font-medium press-scale"
               >
@@ -758,7 +718,13 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                onChange={(e) => {
+                  const next = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                  if (next !== query) {
+                    search.invalidate();
+                    setQuery(next);
+                  }
+                }}
                 placeholder="Search for a name..."
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/20 min-w-0"
                 autoFocus
@@ -769,6 +735,21 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
               <p className="text-[10px] text-red-400/70 mt-1 ml-1">
                 3-64 chars, lowercase alphanumeric and hyphens only
               </p>
+            )}
+            {search.error && (
+              <p role="alert" className="text-xs text-red-400">
+                {search.error}
+              </p>
+            )}
+            {registration.error && view === 'main' && (
+              <p role="alert" className="text-xs text-red-400">
+                {registration.error}
+              </p>
+            )}
+            {registration.intent && (
+              <button onClick={() => setView('register')} className="text-xs text-pax-accent">
+                Resume saved registration
+              </button>
             )}
             {searching && (
               <div className="flex items-center justify-center py-12">
@@ -796,7 +777,12 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                         {DURATIONS.map((d) => (
                           <button
                             key={d.seconds}
-                            onClick={() => setDuration(d)}
+                            onClick={() => {
+                              if (d.seconds !== duration.seconds) {
+                                search.invalidate();
+                                setDuration(d);
+                              }
+                            }}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium press-scale transition-colors ${duration.seconds === d.seconds ? 'bg-pax-accent text-black' : 'bg-white/5 text-pax-muted'}`}
                           >
                             {d.label}
@@ -822,7 +808,13 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                     <div className="px-4 py-3">
                       <button
                         onClick={startRegistration}
-                        disabled={!price || !activeAccount?.address}
+                        disabled={
+                          !price ||
+                          !activeAccount?.address ||
+                          !registration.enabled ||
+                          !!registration.intent ||
+                          registration.busy
+                        }
                         className="w-full py-3 rounded-xl bg-pax-accent text-black font-semibold text-sm press-scale disabled:opacity-40"
                       >
                         Register {searchedLabel}.{PNS_TLD}

@@ -1,0 +1,36 @@
+[repair.22.33.276]
+audit = "22.30.132"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+test_file = "apps/web/e2e/repair-22-33-276.test.ts"
+qualification = "hf-build and hf-done retain the exact candidate revision, command, exit code and private evidence location in the runner gate ledger; no qualification is asserted by this implementation record."
+baseline = "No unchanged-tree verification ran: step 8 conflicts with the explicit implementation-first order and prohibition on manually running verify_cmd; baseline failures are not claimed."
+
+[finding.separate-interface-copy]
+test = "separate_interface_copy_uses_paxeer_x_network"
+repair = "Product metadata, accessible onboarding identity, session device label, explorer heading and summary use Paxeer X Network through the production runtime catalogue."
+
+[finding.split-balances-and-settlement-copy]
+test = "split_balances_and_settlement_copy_distinguishes_native_from_archive"
+repair = "Native copy exposes one total balance per asset and submitted, receipted, committed vocabulary; legacy split values, batch settlement and anchor evidence remain explicitly archive material rather than being relabelled as native facts."
+wiring = "Domain 14 Web/Explorer: update apps/web/src/app/explorer/accounts/[accountId]/page.tsx and apps/web/src/explorer to consume native total balances and committed block inclusion with explorer.account.total_balances.*, explorer.column.total and explorer.commitment.*; never sum former execution sides or treat sealed batches as committed blocks."
+anchor_wiring = "Domain 14 Web/Explorer: remove current anchor navigation from apps/web/src/app/explorer and apps/web/src/explorer; retain historical evidence only as a labelled archive destination."
+
+[finding.retired-deposit-copy]
+test = "retired_deposit_copy_guides_same_network_funding"
+repair = "Funding guidance specifies the native account address and same network; retired signatures are refused and historical stages and activity are labelled archive. The real activity consumer resolves the generated archive summary."
+wiring = "Domain 10 Human movement: retire deposit start and confirm in services/human/schema/human-api/movement.kvx and remove or redirect remaining deposit entry points in apps/web/src/journeys and apps/web/src/app to same-network account funding; deposit journey modules are already absent."
+
+[finding.retired-exit-copy]
+test = "retired_exit_copy_guides_native_account_recovery"
+repair = "Account recovery guidance names passkey sign-in, Account recovery in Security and Support, refuses exit signatures regardless of network health, and makes no promise to bypass network availability. Historical exit stages remain archive material."
+wiring = "Domain 10 Human movement: retire exit start and eligibility in services/human/schema/human-api/movement.kvx and remove or redirect remaining exit entry points in apps/web/src/journeys and apps/web/src/app to native account recovery; exit journey modules are already absent."
+
+[projection]
+test = "repaired_copy_projection_reaches_the_runtime_without_drift"
+producer = "apps/web/copy/catalog.ts"
+transport = "apps/web/copy/generate-runtime.ts serializes the catalogue into messages.generated.ts with its existing generator."
+consumer = "apps/web/copy/runtime.ts, apps/web/copy/format.ts and apps/web/src/journeys/activity/model.ts"
+
+[gotcha.scope]
+observed = "The general workflow asks for edits to GOTCHA.kvx and spec task records, while this task expressly forbids both paths."
+resolution = "Keep this repair record and wiring requests under apps/web/copy; let hf-done own qualification bookkeeping."

@@ -1,0 +1,20 @@
+[repair.22.33.385]
+findings = ["auth-http-unbounded-wait", "auth-fixtures-hide-session-variants"]
+baseline = "Base aefa91aa13a43dff9d0a27098f8280d43fd1ed42 has no repair_22_33_385 test target; the inherited gate ledger has no build or verify runs. No baseline test failure is claimed: the task's ordered qualification instructions forbid pre-implementation verification."
+evidence = "The private runner ledger /out/run/gates.jsonl records the exact candidate revision, command, exit and log. Qualification requires hf-build and hf-done on the unchanged candidate."
+
+[finding.auth-http-unbounded-wait]
+tests = ["auth_http_stalled_headers_are_bounded", "auth_http_stalled_body_is_bounded", "auth_http_existing_entry_points_are_bounded", "auth_http_requires_finite_nonzero_deadlines"]
+repair = "AccountClient injects a pooled reqwest client into token authentication, metadata authentication and user-info calls; it enforces nonzero connect and whole-response deadlines and reports both send and body timeouts as BlockscoutApi errors. Existing free functions share one default transport with a three-second connect deadline and ten-second whole-response deadline. Loopback peers stall before headers or during the body, observe actual cookies/API keys/CSRF/body, and remain open until cancellation; the same injected client then authenticates successfully."
+
+[finding.auth-fixtures-hide-session-variants]
+tests = ["auth_session_optionality_wallet_get_and_post", "auth_session_optionality_unverified_email_get_and_post", "auth_session_optionality_verified_email_get_and_post", "auth_session_optionality_rejects_invalid_credentials", "auth_fixtures_session_variants_through_injected_client"]
+repair = "The declared integration target includes the prerequisite's committed account session transcripts and loopback HTTP account peer, retaining every existing verified-session and malformed/credential assertion. All three session variants traverse GET and POST through the production free and injected client paths; no external runtime, credentials or environment are required. The verified-only MockUser helper is not used as evidence."
+wiring_request = "Domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/auth_controller.ex must admit authenticated unverified-email sessions on GET/POST authenticate while preserving email-verification checks for operations that require them; current_user currently filters those sessions before returning their producer transcript."
+
+[qualification.repair_1]
+revision = "886b7c67ceb8dd54b0a3d9cb85c66298255a0d3d"
+command = "cg spec done 22.33.385 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six tests passed; all timeout-result assertions passed, but synchronous server joins prevented the current-thread runtime from driving socket cancellation, failing three teardown assertions. Async joins now preserve every socket-close and bounded-completion assertion."

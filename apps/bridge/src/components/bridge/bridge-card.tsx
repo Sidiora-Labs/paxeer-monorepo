@@ -109,7 +109,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   const asset = foreign.assets.find((a) => a.key === assetKey) ?? foreign.assets[0];
 
   const paxeerState = usePaxeerPairState(foreign, asset.assetId);
-  const vaultState = useVaultState(foreign, asset.address);
+  const vaultState = useVaultState(foreign, foreign.kind === 'solana' ? asset.assetId : asset.address);
   const foreignBalance = useForeignBalance(foreign, asset.address, asset.isNative);
   const bridgedBalance = useBridgedBalance(paxeerState.denom);
   const allowance = useReadContract({
