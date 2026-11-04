@@ -197663,7 +197663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.483]
 title = "Restore the tracked Paxeer boundary manifest and reconcile the five consumers that still read it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -279636,7 +279636,7 @@ do_10 = "Attempt 2 (requalify): attempt 1 passed its build and verify and was he
 
 [task.22.33.1142]
 title = "Repair audit record 22.30.50 medium findings in node (part 3 of 4): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.102"]
@@ -367579,7 +367579,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.490]
 title = "Fail over on node error envelopes and keep the price-acceptance replay moving past a held block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

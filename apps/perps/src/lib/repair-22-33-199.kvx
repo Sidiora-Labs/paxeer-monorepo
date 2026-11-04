@@ -1,0 +1,7 @@
+[repair.22.33.199]
+finding = "22.30.12/f042"
+implementation = "feedbackWasAccepted validates an explicit accepted result with nonempty error and feedback event IDs; the production FeedbackSubmission uses this predicate before allowing the modal success state."
+tests = ["repair_f042_unreportable_feedback_keeps_editable_draft", "repair_f042_missing_sentry_client_is_not_receipt", "repair_f042_real_capture_and_retry_require_feedback_acknowledgement"]
+record = "apps/perps/src/widgets/errors/repair-22-33-199.kvx"
+wiring_request = "Domain 3, apps/perps/src/core/errors/report.ts: implement the explicit capture outcome documented in the widget repair record; the current void return remains unavailable even when real Sentry envelopes reach the fixture."
+evidence = "The final hf-done ledger entry records the verified candidate revision, command, exit and private evidence location."
