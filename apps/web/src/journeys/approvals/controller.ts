@@ -26,6 +26,7 @@ import {
   validateProgramBudget,
   programDecisionMessage,
   canDecideProgram,
+  canApprove,
   type ApprovalOutcome,
 } from "./model.ts";
 
@@ -146,12 +147,14 @@ export class Approvals {
   }
 
   async detail(approvalId: string): Promise<ApprovalDetail> {
-    return this.#client.approvalGet(approvalId);
+    const detail = await this.#client.approvalGet(approvalId);
+    if (detail.approval_id !== approvalId) throw new TypeError("Approval detail identity mismatch");
+    return detail;
   }
 
   async approve(detail: ApprovalDetail, key: string = decisionKey()): Promise<ApprovalOutcome> {
     const digest = heldDigest(detail);
-    if (digest === undefined) {
+    if (digest === undefined || !canApprove(detail, new Date())) {
       return defectiveOutcome();
     }
     let evidence: StepUpEvidence;
