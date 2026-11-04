@@ -10,20 +10,34 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.Asset do
   OpenApiSpex.schema(%{
     title: "PaxeerXAsset",
     description:
-      "The asset an amount is denominated in: the native coin, a token contract on the chain or a " <>
-        "custody asset of the LayerX kernel. Only a token the explorer has read metadata for carries " <>
-        "a symbol and a decimals count.",
+      "The asset an amount is denominated in: the native coin or an ERC-20 token on the chain. " <>
+        "The native coin uses the configured coin symbol and 18 decimals. Token symbol and decimals " <>
+        "are null when their metadata is unknown.",
     type: :object,
     properties: %{
       id: %Schema{
         type: :string,
         nullable: false,
-        description: "`native` for the coin, the token contract address hash, or the kernel asset id"
+        description: "`native` for the coin, or the checksummed ERC-20 token contract address"
       },
-      denom: %Schema{type: :string, nullable: false, description: "Name the amount is quoted in"},
-      symbol: %Schema{type: :string, nullable: true, description: "Token symbol, null while none is known"},
-      decimals: %Schema{type: :integer, nullable: true, description: "Token decimals, null while none are known"}
+      denom: %Schema{
+        type: :string,
+        nullable: false,
+        description:
+          "Configured coin symbol for native amounts; token symbol when known, otherwise the checksummed token contract address"
+      },
+      symbol: %Schema{
+        type: :string,
+        nullable: true,
+        description: "Configured coin symbol for the native coin; token symbol, or null when unknown"
+      },
+      decimals: %Schema{
+        type: :integer,
+        nullable: true,
+        description: "18 for the native coin; token decimals, or null when unknown"
+      }
     },
+    example: %{id: "native", denom: "PAX", symbol: "PAX", decimals: 18},
     required: [:id, :denom, :symbol, :decimals],
     nullable: false,
     additionalProperties: false
