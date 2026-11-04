@@ -462,15 +462,37 @@ func (s *EVMStateStore) Import(version int64, ch <-chan types.SnapshotNode) erro
 			return nil
 		}
 		filtered := make(chan types.SnapshotNode, 100)
+		stop := make(chan struct{})
+		finished := make(chan struct{})
 		go func() {
+			defer close(finished)
 			defer close(filtered)
-			for node := range ch {
-				if node.StoreKey == EVMStoreKey {
-					filtered <- node
+			for {
+				select {
+				case <-stop:
+					return
+				case node, ok := <-ch:
+					if !ok {
+						return
+					}
+					if node.StoreKey == EVMStoreKey {
+						select {
+						case filtered <- node:
+						case <-stop:
+							return
+						}
+					}
 				}
 			}
 		}()
-		return db.Import(version, filtered)
+		err := db.Import(version, filtered)
+		close(stop)
+		<-finished
+		// Composite import owns the input's close; drain it so an early backend
+		// return cannot block its router before it can finish the snapshot.
+		for range ch {
+		}
+		return err
 	}
 
 	const flushThreshold = 10000

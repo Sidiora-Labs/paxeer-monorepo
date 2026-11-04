@@ -1,0 +1,58 @@
+[repair.22.33.1144]
+audit = "22.30.51"
+mode = "BUILD"
+acceptance = "22998.1"
+verification = "hf-build followed by hf-done; the runner gate ledger and final evidence retain the exact candidate revision, command, exit and private log."
+baseline = "No previous gate ledger or sequencer edits existed at session start. The requested unchanged-tree verification conflicts with the explicit implementation-first order and single-gate budget; no baseline run or pre-existing test failure is claimed."
+
+[finding.governed-pins-not-refreshed]
+test = "TestRepairM_1144_GovernedPinsCommitRefresh"
+repair = "Commit refreshes the signer's immutable validated pin snapshot and lease identity before OPEN. Standby OPEN and replay read committed authorization; the two real apps commit a governed rotation and the next public send verifies under the new key id on both sides."
+
+[finding.microbatch-test-bypasses-live-serialization]
+test = "TestRepairM_1144_MicrobatchLiveSerialization"
+repair = "Concurrent signed sends traverse real SendAPI endpoints into one assembled Node; actual OCC group membership, WAL receipts, sequence order and byte-for-byte equality with independent sequential validator receipts are asserted. Existing scheduler tests remain, and microbatch_test.go calls the same live fixture."
+
+[finding.promotion-runtime-unwired]
+test = "TestRepairM_1144_OperatorPromotionAndRecovery"
+repair = "Node.Promote revalidates governed consensus and receipt keys, fences and drains the selected standby WAL through Failover, stops its listener, reconciles and reopens that WAL, verifies historical receipts without using the old private key, then installs primary RPC, renewal and commit pipelines. Stop/reopen proves old and new receipts and nonce recovery with distinct keys."
+
+[finding.lease-lifecycle-unwired]
+test = "TestRepairM_1144_LeaseLifecycleAndRestart; TestRepairM_1144_LeaseExpiryFencesAdmission"
+repair = "The running node owns a durable LeaseHolder, restores and advances epochs, renews with cancellation, and fences on expiry or renewal failure. Lease metadata remains readable while replication is blocked, so admission can enforce expiry independently. Standalone leases are durable local records; Drain still requires a standby."
+
+[finding.nonce-queue-not-on-send-path]
+test = "TestRepairM_1144_NonceSendAndOpenExpiry; TestRepairM_1144_SendTransport"
+repair = "Startup installs Node.Accept as the RPC adapter; it verifies signatures and transaction-chain authorization before sender/nonce admission. Future sends are visible at submitted through ReceiptSource, gap filling drains in order, and each new OPEN expires held sends. Per-sender ownership permits independent senders to reach the grouped production accepter."
+
+[finding.nonce-drain-error]
+test = "TestRepairM_1144_NonceDrainPublicationFailure"
+repair = "Drain stops on the first acceptance error even if execution already advanced the nonce. The bounded DrainFailure event and receipt-source lookup expose the refusal; the test closes the real WAL after the preceding receipt sync and proves the next nonce remains held."
+
+[finding.microbatch-serialized-before-grouping]
+test = "TestRepairM_1144_MicrobatchLiveSerialization"
+repair = "Ordered groups form before the acceptance lock; one owner reserves capacity, executes and publishes each group in sequence. Validated OCC incarnation write sets are applied per entry with immutable before/after contexts, preserving receipt balances and cumulative gas. Shared-feed RPC grouping requires the out-of-path request below."
+
+[finding.receipt-capacity-after-execution]
+test = "TestRepairM_1144_ReceiptCapacityBeforeExecution"
+repair = "Accepter reserves receipt-source slots before execution, including every grouped entry, and releases reservations on all outcomes. Real SendAPI tests in both execution modes prove a full uncommitted source explicitly refuses without changing balances, nonce or sequence, and committed eviction admits the retry."
+
+[wiring.rpc-grouping]
+request = "rpc/send.go, owning domain 5 (node-runtime): move the shared pending/log-feed receipt mutex after Sequencer.Accept while preserving receipt-ordered publication; the current mutex prevents a single assembled HTTP/WS feed from admitting concurrent requests into any sequencer group."
+
+[wiring.rpc-submitted]
+request = "rpc/send.go and its SequencerAccepter/AcceptedSend contract, owning domain 5 (node-runtime): support an explicit held/submitted acceptance without a signed receipt; until that interface is extended Node.Accept reports ErrNonceHeld and receipt reads expose submitted, rather than pretending a receipt exists."
+
+[wiring.operator-command]
+request = "cmd/sequencer.go (owning domain 5, node-runtime): connect the authenticated operator takeover command to the running Node.Promote lifecycle; command files are outside this task's permitted paths."
+
+[wiring.open-record-contract]
+request = "spec/layerx-merge/contracts/sequencer.md and owning WAL OPEN interface, domain 5: document the optional trailing 20-byte proposer address used to replay a historical primary's exact block header; legacy OPEN encodings remain readable and malformed trailing bytes remain refused."
+
+[gotcha.rpc-boundary]
+observed = "The public SendAPI holds its shared receipt feed mutex across Accept and demands a signed receipt, so these two RPC changes cannot be completed inside node/sequencer."
+resolution = "Keep explicit scoped wiring requests and exercise separate real API feeds for grouped admission; keep ErrNonceHeld observable on the unchanged RPC interface."
+
+[gotcha.standalone-lease]
+observed = "The standalone replicator rejected LEASE records, preventing a configured primary from starting its required lease lifecycle."
+resolution = "Persist local leases through the same WAL sync boundary and update the existing standalone test to assert exact frames, epoch recovery and the continued refusal of standby-only Drain."

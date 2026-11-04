@@ -6,8 +6,8 @@ use clap::{Parser, Subcommand};
 use perfdb::PerfDb;
 use perfdb::core::market::{MARKET_COUNT, MARKETS, MarketId, market_by_id, market_by_symbol};
 use perfdb::core::timeframe::Timeframe;
-use perfdb::core::types::FixedI128;
 use perfdb::engine::PerfDbConfig;
+use perfdb::formatting::format_fixed;
 
 #[derive(Parser)]
 #[command(
@@ -266,22 +266,6 @@ fn hex_hash(hash: &[u8; 32]) -> String {
         "0x{}",
         hash.iter().map(|b| format!("{b:02x}")).collect::<String>()
     )
-}
-
-fn format_fixed(val: FixedI128) -> String {
-    if val == 0 {
-        return "0".to_string();
-    }
-    let precision: i128 = 1_000_000_000_000_000_000;
-    let whole = val / precision;
-    let frac = (val % precision).unsigned_abs();
-    if frac == 0 {
-        format!("{whole}")
-    } else {
-        let frac_str = format!("{frac:018}");
-        let trimmed = frac_str.trim_end_matches('0');
-        format!("{whole}.{trimmed}")
-    }
 }
 
 fn short_addr(addr: &[u8; 20]) -> String {

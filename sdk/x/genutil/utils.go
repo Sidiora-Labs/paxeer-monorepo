@@ -81,7 +81,10 @@ func InitializeNodeValidatorFilesFromMnemonic(config *cfg.Config, mnemonic strin
 
 	var filePV *privval.FilePV
 	if len(mnemonic) == 0 {
-		filePV, _ = privval.LoadOrGenFilePV(pvKeyFile, pvStateFile)
+		filePV, err = privval.LoadOrGenFilePV(pvKeyFile, pvStateFile)
+		if err != nil {
+			return "", nil, err
+		}
 	} else {
 		privKey := tmed25519.TestSecretKey([]byte(mnemonic))
 		_, keyErr := os.Lstat(pvKeyFile)

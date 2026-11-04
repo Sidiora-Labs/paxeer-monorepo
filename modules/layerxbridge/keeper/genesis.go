@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
@@ -21,6 +22,15 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genesis types.GenesisState) {
 	}
 	k.setAttestorSet(ctx, genesis.Attestors)
 	for _, asset := range genesis.Assets {
+		if types.IsSidioraPair(asset.ChainID, asset.Asset) {
+			// Tokenfactory genesis creates default metadata after bank genesis.
+			// Restore the bridge-owned canonical metadata using its imported admin.
+			if _, err := k.tokenFactoryMsg.SetDenomMetadata(sdk.WrapSDKContext(ctx), &tokenfactorytypes.MsgSetDenomMetadata{
+				Sender: k.ModuleAddress().String(), Metadata: SidioraMetadata(),
+			}); err != nil {
+				panic(err)
+			}
+		}
 		k.setAsset(ctx, asset)
 	}
 	for _, c := range genesis.Caps {

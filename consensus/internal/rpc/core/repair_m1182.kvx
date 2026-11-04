@@ -1,0 +1,13 @@
+[repair.22.33.1182]
+acceptance = "22998.1"
+findings = ["autobahn-status-hidden-read-errors", "autobahn-catching-up-stuck"]
+baseline = "Not run: the task's explicit gate order forbids testing before full implementation and forbids running verify_cmd by hand; no pre-change failures are claimed."
+
+[finding.autobahn-status-hidden-read-errors]
+tests = ["TestRepairM_1182_StartupRPC", "TestRepairM_1182_PopulatedHeadRPC", "TestRepairM_1182_MissingLatestBlockRPC", "TestRepairM_1182_AppInfoFailureRPC"]
+repair = "Read ABCI Info once for executed height, app hash and app version; propagate app and latest-block errors through the real JSON-RPC response. Only executed height zero is an empty startup state."
+
+[finding.autobahn-catching-up-stuck]
+tests = ["TestRepairM_1182_StartupRPC", "TestRepairM_1182_PopulatedHeadRPC", "TestRepairM_1182_CatchUpAndRestartRPC"]
+repair = "Use GigaRouter's CommitQC-derived head as the known synchronization target; report catching up at startup or while the executed and committed heads differ. Reopen the persisted app and Autobahn WAL and check the new JSON-RPC client's recovered state."
+wiring = "None: the active GigaRouter already exposes the committed synchronization target through LastCommittedBlockNumber; no out-of-path changes are required."

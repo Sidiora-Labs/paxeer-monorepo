@@ -8,6 +8,7 @@ import { route } from 'nextjs-routes';
 
 import config from 'configs/app';
 
+import useNftMediaIdentity from './useNftMediaIdentity';
 import type { MediaType, Size, TransportType } from './utils';
 import { getPreliminaryMediaType } from './utils';
 
@@ -28,8 +29,12 @@ interface MediaInfo {
 
 export default function useNftMediaInfo({ data, size, allowedTypes, field, isEnabled }: Params): UseQueryResult<Array<MediaInfo> | null> {
   const url = data[field];
+  const identity = useNftMediaIdentity(data);
   const query = useQuery({
-    queryKey: [ 'nft-media-info', data.id, url, size, ...(allowedTypes ? allowedTypes : []) ],
+    queryKey: [
+      'nft-media-info', ...identity, field, url, size, allowedTypes,
+      data.media_url, data.media_type, data.metadata, data.thumbnails, config.UI.views.nft.verifiedFetch.isEnabled,
+    ],
     queryFn: async() => {
       const metadataField = field === 'animation_url' ? 'animation_url' : 'image';
       const mediaType = await getMediaType(data, field);

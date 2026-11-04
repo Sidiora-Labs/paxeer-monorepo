@@ -17,8 +17,7 @@
     "api12",
     "api13",
     "api14",
-    "api15",
-    "api16"
+    "api-mainnet-beta"
   ],
   "preserve_api1_original_host": true,
   "wallet_authentication": "Supabase",

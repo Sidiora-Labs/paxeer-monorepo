@@ -1,0 +1,13 @@
+{
+  "archive_sha256": "4ff3a82cb73ac188d2725659f145f41509d84e561eb90dd080343bff362fb01d",
+  "chain_id": "testing",
+  "address": "cosmos1w537ue6nmewqqdcqfhcn0jsntg8qjpcs4wf75w",
+  "currency": {
+    "symbol": "stake",
+    "decimals": 0
+  },
+  "snapshot_height": 4,
+  "balance": "999989999900",
+  "faucet_amount": "100",
+  "node": "tcp://cosmos:26657"
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/utils/helpers"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -14,23 +15,38 @@ import (
 )
 
 func GetAddresses(V *big.Int, R *big.Int, S *big.Int, data common.Hash) (common.Address, sdk.AccAddress, cryptotypes.PubKey, error) {
+	return GetAddressesForContext(sdk.Context{}, V, R, S, data)
+}
+
+// GetAddressesForContext permits historical conversion only for a replay context
+// selected by the owner. New signature inputs are validated before recovery.
+func GetAddressesForContext(ctx sdk.Context, V *big.Int, R *big.Int, S *big.Int, data common.Hash) (common.Address, sdk.AccAddress, cryptotypes.PubKey, error) {
 	pubkey, err := RecoverPubkey(data, R, S, V, true)
 	if err != nil {
 		return common.Address{}, sdk.AccAddress{}, nil, err
 	}
 
-	evmAddr, err := PubkeyToEVMAddress(pubkey)
+	return GetAddressesFromPubkeyBytes(ctx, pubkey)
+}
+
+// GetAddressesFromPubkeyBytes preserves the unchecked v575 conversion only in
+// its historical tracing range. All new input uses the current validators.
+func GetAddressesFromPubkeyBytes(ctx sdk.Context, pubkey []byte) (common.Address, sdk.AccAddress, cryptotypes.PubKey, error) {
+	if !IsHistoricalReplay(ctx) {
+		return helpers.GetAddressesFromPubkeyBytes(pubkey)
+	}
+	evmAddr, err := historicalPubkeyToEVMAddress(pubkey)
 	if err != nil {
 		return common.Address{}, sdk.AccAddress{}, nil, err
 	}
-	paxPubkey := PubkeyBytesToPaxPubKey(pubkey)
+	paxPubkey := historicalPubkeyBytesToPaxPubKey(pubkey)
 	paxAddr := sdk.AccAddress(paxPubkey.Address())
 	return evmAddr, paxAddr, &paxPubkey, nil
 }
 
 // first half of go-ethereum/core/types/transaction_signing.go:recoverPlain
 func RecoverPubkey(sighash common.Hash, R, S, Vb *big.Int, homestead bool) ([]byte, error) {
-	if Vb.BitLen() > 8 {
+	if Vb == nil || R == nil || S == nil || Vb.Sign() < 0 || Vb.BitLen() > 8 {
 		return []byte{}, ethtypes.ErrInvalidSig
 	}
 	V := byte(Vb.Uint64() - 27)
@@ -48,8 +64,18 @@ func RecoverPubkey(sighash common.Hash, R, S, Vb *big.Int, homestead bool) ([]by
 	return crypto.Ecrecover(sighash[:], sig)
 }
 
-// second half of go-ethereum/core/types/transaction_signing.go:recoverPlain
+// PubkeyToEVMAddress validates new input; replay uses the explicit context API.
 func PubkeyToEVMAddress(pub []byte) (common.Address, error) {
+	return helpers.PubkeyToEVMAddress(pub)
+}
+
+// PubkeyBytesToPaxPubKey returns parser errors for new public input.
+func PubkeyBytesToPaxPubKey(pub []byte) (secp256k1.PubKey, error) {
+	return helpers.PubkeyBytesToPaxPubKey(pub)
+}
+
+// Historical replay retains the original prefix-only check and unchecked parse.
+func historicalPubkeyToEVMAddress(pub []byte) (common.Address, error) {
 	if len(pub) == 0 || pub[0] != 4 {
 		return common.Address{}, errors.New("invalid public key")
 	}
@@ -58,7 +84,7 @@ func PubkeyToEVMAddress(pub []byte) (common.Address, error) {
 	return addr, nil
 }
 
-func PubkeyBytesToPaxPubKey(pub []byte) secp256k1.PubKey {
+func historicalPubkeyBytesToPaxPubKey(pub []byte) secp256k1.PubKey {
 	pubkeyObj, _ := btcec.ParsePubKey(pub)
 	return secp256k1.PubKey{Key: pubkeyObj.SerializeCompressed()}
 }

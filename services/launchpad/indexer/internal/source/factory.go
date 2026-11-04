@@ -2,8 +2,10 @@ package source
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/config"
@@ -46,11 +48,21 @@ func Create(ctx context.Context, cfg config.Config, logger *slog.Logger) (*Bundl
 		return paxscan, nil
 	}
 
-	var evm *EVMSource
+	evms := make(map[string]*EVMSource)
 	evmOrInit := func(urls []string, name string) (*EVMSource, error) {
-		if evm == nil {
+		name = strings.ToLower(strings.TrimSpace(name))
+		normalized := make([]string, len(urls))
+		for i, url := range urls {
+			normalized[i] = strings.TrimSpace(url)
+		}
+		configuration, _ := json.Marshal(struct {
+			Mode string
+			URLs []string
+		}{name, normalized})
+		key := string(configuration)
+		if evms[key] == nil {
 			e, err := NewEVM(ctx, EVMOptions{
-				RPCURLs:            urls,
+				RPCURLs:            normalized,
 				Logger:             logger,
 				Name:               name,
 				Timeout:            time.Duration(cfg.RPCGetLogsTimeoutMS) * time.Millisecond,
@@ -61,10 +73,10 @@ func Create(ctx context.Context, cfg config.Config, logger *slog.Logger) (*Bundl
 			if err != nil {
 				return nil, err
 			}
-			evm = e
+			evms[key] = e
 			b.closers = append(b.closers, e.Close)
 		}
-		return evm, nil
+		return evms[key], nil
 	}
 
 	logSrc, err := resolveLogSource(cfg, cfg.IndexerLogSource, paxscanOrInit, evmOrInit)
@@ -86,7 +98,7 @@ func Create(ctx context.Context, cfg config.Config, logger *slog.Logger) (*Bundl
 }
 
 func resolveLogSource(cfg config.Config, mode string, paxscanOrInit func() (*PaxscanSource, error), evmOrInit func([]string, string) (*EVMSource, error)) (LogSource, error) {
-	switch mode {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case config.SourcePaxscan:
 		return paxscanOrInit()
 	case config.SourceRPCGetLogs:
@@ -99,7 +111,7 @@ func resolveLogSource(cfg config.Config, mode string, paxscanOrInit func() (*Pax
 }
 
 func resolveHeadSource(cfg config.Config, mode string, paxscanOrInit func() (*PaxscanSource, error), evmOrInit func([]string, string) (*EVMSource, error)) (HeadSource, error) {
-	switch mode {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case config.SourcePaxscan:
 		return paxscanOrInit()
 	case config.SourceRPCGetLogs:

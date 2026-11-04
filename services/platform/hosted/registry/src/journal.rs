@@ -258,6 +258,26 @@ impl FileDeploymentJournal {
         Ok(loaded)
     }
 
+    /// Replays complete units in authenticated deployment order, never digest order.
+    pub fn replay_deployments(
+        &self,
+        source: &crate::NodeProgramStateSource,
+        now: u64,
+    ) -> Result<(Vec<VerifiedDeploymentEvidence>, Vec<QuarantinedUnit>), String> {
+        let loaded = self.load()?;
+        let mut evidence = loaded
+            .units
+            .iter()
+            .map(|unit| source.verify_stored_deployment(unit.proof(), now))
+            .collect::<Result<Vec<_>, _>>()?;
+        evidence.sort_by_key(|entry| (entry.record().sequence, entry.program(), entry.version()));
+        for entry in &evidence {
+            self.audit_projection(entry)?;
+            self.export_pair(entry)?;
+        }
+        Ok((evidence, loaded.quarantined))
+    }
+
     /// Reads every untrusted protocol proof for cryptographic replay by the
     /// configured verifier.
     ///

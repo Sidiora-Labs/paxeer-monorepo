@@ -1,0 +1,20 @@
+{
+  "batch_number": "1000",
+  "evidence": {
+    "kind": "committed"
+  },
+  "policy": {
+    "kind": "agreement",
+    "candidates": [
+      {
+        "source": 0,
+        "commitment_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "source": 1,
+        "commitment_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    ],
+    "minimum": 2
+  }
+}

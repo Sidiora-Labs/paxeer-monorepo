@@ -1,0 +1,32 @@
+[task.22.33.81]
+mode = "BUILD"
+base_revision = "4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c"
+verification = "Bounded hf-build and hf-done evidence identifies the verified candidate revision and private logs; no baseline gate was run."
+baseline = "The explicit Order forbids tests before full implementation and permits verification only through hf-done after hf-build; this overrides step 6's conflicting unchanged-tree verification. Before-change failures are inferred, not executed: scaled calldata has zero TP/SL, and position PnL has no accountRisk or estimate label."
+
+[finding.scaled-order-protection]
+test = "scaledOrderProtectionSurvivesPlaceOrderCalldata"
+repair = "Forward TP/SL into every real limit-order builder; validate against every rung and refuse the whole ladder on invalid protection. Encode and decode the actual placeOrder calldata after planOrder for both sides, every supported distribution and price direction."
+
+[finding.cross-margin-health]
+test = "crossMarginRiskUsesAccountSnapshotAcrossPositionsAndCollateral"
+repair = "Derive account risk and display values from getAccount equity and margin, separately expose the position-only estimate, and return explicit unavailable account risk without a snapshot. Drive real viem RPC/ABI reads through committed account snapshots for another position, deposit, withdrawal, maintenance boundary and negative equity."
+closure = "Core repair qualified by the declared test; full visual closure requires the out-of-scope consumer wiring below."
+
+[wiring.requests]
+portfolio = "Domain 3 / fm-markets: apps/perps/src/hooks/perps/usePortfolioStats.ts and apps/perps/src/widgets/portfolio/PortfolioPositionsPanel.tsx must propagate the current accountViewFromState snapshot to computePositionPnl argument 4 and render accountRisk.display; use liquidationPriceLabel for the position-only estimate and show unavailable when account data is missing or stale."
+trading = "Domain 3 / fm-markets: apps/perps/src/widgets/trading/PerpsPositionsPanel.tsx must load the current account view, pass it to computePositionPnl argument 4, and replace account-risk use of liqSafetyBps with accountRisk; label any retained liqPrice with liquidationPriceLabel."
+mobile = "Domain 3 / fm-markets: apps/perps/src/widgets/mobile/MobileSecondaryTabContent.tsx and apps/perps/src/widgets/trading/PnlShareCard.tsx must label retained per-position liquidation estimates and consume accountRisk.display from a current account snapshot for account risk."
+
+[qualification.build-1]
+revision = "f0515b4aa92edc228dc4b8d45d5b7bd18cd8be11"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Task test must narrow planOrder's approval/placeOrder union; unrelated sdk/wallet imports cannot resolve viem, @noble/curves/ed25519.js and @noble/hashes/sha2.js."
+assumption = "Repair the task assertion; wallet SDK dependency provisioning belongs to its owning domain and is not changed here."
+
+[gotcha.plan-order-type]
+area = "test"
+symptom = "The order planner's WritePlan type includes approval calls without an ABI even though planOrder only returns placeOrder calls."
+do = "Assert functionName is placeOrder before encoding calldata; keep the production union strict."

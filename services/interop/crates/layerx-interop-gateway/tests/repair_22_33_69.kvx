@@ -1,0 +1,11 @@
+[task]
+id = "22.33.69"
+audit_record = "22.30.108"
+finding = "evidence-identity-coverage"
+test = "proof_gateway_sequencer_evidence::changed_transaction_hash_is_refused_without_state_or_audit_writes"
+target = "services/interop/crates/layerx-interop-gateway/tests/repair_22_33_69.rs"
+proof = "The committed node recording passes real signature and log verification; only the transport transaction_hash changes, on receipted and committed evidence. The ActivityId refusal retains the trace, pending translation and exact audit bytes, creates no state for an absent principal, and genuine evidence subsequently settles once."
+baseline = "The supplied attempt-1 qualification reported four passing cases and changed_transaction_hash_is_refused_without_state_or_audit_writes failing (exit 101). The current base already checks ActivityId inside settlement; this continuation checks it before mutable principal access. No additional baseline run was made under the numbered gate order."
+repair = "services/interop/crates/layerx-interop-gateway/src/gateway.rs::GatewayCore::settle_with_sequencer_evidence authenticates and binds the transport transaction hash before accessing mutable principal state, returning a traced ReceiptRejected(ActivityId) on mismatch."
+wiring_request = "None outstanding: the continuation explicitly includes the gateway consumer source in scope."
+evidence = "The runner's private gates.jsonl and final JSON evidence bind the tested candidate revision, command, exit code and log; no qualification is claimed before hf-done passes."

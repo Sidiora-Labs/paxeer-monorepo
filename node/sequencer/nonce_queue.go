@@ -63,6 +63,8 @@ type NonceQueue struct {
 	held      map[common.Address]map[uint64]HeldTx
 	total     int
 	receipted map[senderNonce]struct{}
+	gates     map[common.Address]*nonceGate
+	failures  []DrainFailure
 }
 
 // NewNonceQueue builds a queue over the open-state nonce reader and the Accept path.
@@ -85,6 +87,7 @@ func NewNonceQueue(cfg NonceQueueConfig, nonces NextNonceReader, accept AcceptFu
 		accept:    accept,
 		held:      make(map[common.Address]map[uint64]HeldTx),
 		receipted: make(map[senderNonce]struct{}),
+		gates:     make(map[common.Address]*nonceGate),
 	}, nil
 }
 
@@ -93,6 +96,8 @@ func NewNonceQueue(cfg NonceQueueConfig, nonces NextNonceReader, accept AcceptFu
 // A nonce above next waits at rung submitted (held = true). A nonce below next, or a
 // (sender, nonce) already receipted or held, is refused. An Accept refusal is returned as is.
 func (q *NonceQueue) Hold(sender common.Address, nonce uint64, tx []byte) (bool, error) {
+	unlock := q.lockSender(sender)
+	defer unlock()
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -107,7 +112,10 @@ func (q *NonceQueue) Hold(sender common.Address, nonce uint64, tx []byte) (bool,
 	case nonce < next:
 		return false, fmt.Errorf("%w: address %s, tx: %d state: %d", ErrNonceTooLow, sender, nonce, next)
 	case nonce == next:
-		if err := q.accept(sender, nonce, tx); err != nil {
+		q.mu.Unlock()
+		err := q.accept(sender, nonce, tx)
+		q.mu.Lock()
+		if err != nil {
 			return false, err
 		}
 		q.receipted[senderNonce{sender, nonce}] = struct{}{}
@@ -133,13 +141,15 @@ func (q *NonceQueue) Hold(sender common.Address, nonce uint64, tx []byte) (bool,
 // Drain hands the sender's held transactions to Accept in nonce order while the next
 // nonce on the open state matches a held one. A held transaction Accept refuses is
 // dropped with no receipt, and the drain stops at the gap it leaves.
-func (q *NonceQueue) Drain(sender common.Address) {
+func (q *NonceQueue) Drain(sender common.Address) *DrainFailure {
+	unlock := q.lockSender(sender)
+	defer unlock()
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.drain(sender)
+	return q.drain(sender)
 }
 
-func (q *NonceQueue) drain(sender common.Address) {
+func (q *NonceQueue) drain(sender common.Address) *DrainFailure {
 	pending := q.held[sender]
 	for len(pending) > 0 {
 		next := q.nonces.EvmNonce(sender)
@@ -148,10 +158,20 @@ func (q *NonceQueue) drain(sender common.Address) {
 			break
 		}
 		q.remove(sender, next)
-		if q.accept(sender, next, h.Tx) == nil {
-			q.receipted[senderNonce{sender, next}] = struct{}{}
+		q.mu.Unlock()
+		err := q.accept(sender, next, h.Tx)
+		q.mu.Lock()
+		if err != nil {
+			failure := DrainFailure{HeldTx: h, Err: err}
+			q.failures = append(q.failures, failure)
+			if len(q.failures) > q.cfg.Total {
+				q.failures = q.failures[len(q.failures)-q.cfg.Total:]
+			}
+			return &failure
 		}
+		q.receipted[senderNonce{sender, next}] = struct{}{}
 	}
+	return nil
 }
 
 func (q *NonceQueue) remove(sender common.Address, nonce uint64) {
@@ -204,4 +224,56 @@ func (q *NonceQueue) Len() int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return q.total
+}
+
+type DrainFailure struct {
+	HeldTx
+	Err error
+}
+type nonceGate struct {
+	mu    sync.Mutex
+	users int
+}
+
+func (q *NonceQueue) lockSender(sender common.Address) func() {
+	q.mu.Lock()
+	gate := q.gates[sender]
+	if gate == nil {
+		gate = &nonceGate{}
+		q.gates[sender] = gate
+	}
+	gate.users++
+	q.mu.Unlock()
+	gate.mu.Lock()
+	return func() {
+		gate.mu.Unlock()
+		q.mu.Lock()
+		gate.users--
+		if gate.users == 0 {
+			delete(q.gates, sender)
+		}
+		q.mu.Unlock()
+	}
+}
+
+func (q *NonceQueue) Pending() []HeldTx {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	out := make([]HeldTx, 0, q.total)
+	for _, pending := range q.held {
+		for _, h := range pending {
+			h.Tx = append([]byte(nil), h.Tx...)
+			out = append(out, h)
+		}
+	}
+	return out
+}
+func (q *NonceQueue) Failures() []DrainFailure {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	out := append([]DrainFailure(nil), q.failures...)
+	for i := range out {
+		out[i].Tx = append([]byte(nil), out[i].Tx...)
+	}
+	return out
 }

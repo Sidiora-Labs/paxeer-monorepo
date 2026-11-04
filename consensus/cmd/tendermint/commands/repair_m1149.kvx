@@ -1,0 +1,33 @@
+[task.22.33.1149]
+mode = "BUILD"
+acceptance = "22998.1"
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits only hf-done; the contradictory baseline instruction cannot be satisfied within that order. No baseline failures are claimed."
+evidence = "The runner records the qualified candidate revision, exact command, exit code and private log in its hf-build/hf-done ledger; this record does not claim an unrun gate."
+wiring_requests = []
+
+[finding.autobahn-generator-invalid-opt-out]
+tests = ["TestRepairM_1149_AutobahnGeneratorStartupRoundTrip", "TestRepairM_1149_AutobahnGeneratorRejectsEmptyPersistence"]
+repair = "Reject empty and blank production persistence flags before writing; round-trip real key writer output through the generator and node startup loader, close and reopen the node."
+
+[finding.reindex-discards-normalized-heights]
+tests = ["TestRepairM_1149_ReindexNormalizedHeights"]
+repair = "Normalize the interval by pointer and replay that interval; close and reopen real block/state stores and the persistent event index to prove defaults, either omitted bound, clamping and a pruned base."
+
+[finding.reset-root-applied-twice]
+tests = ["TestRepairM_1149_ResetResolvedPaths"]
+repair = "Resolve command paths once in an explicit plan; both unsafe command routes remove the configured data and wasm directories and preserve the configured key while resetting and reopening signer state for absolute and relative homes."
+
+[finding.reset-success-after-delete-failure]
+tests = ["TestRepairM_1149_ResetReportsFilesystemFailures", "TestRepairM_1149_ResetAutobahnPreflightAndFailure"]
+repair = "Propagate removal and recreation errors, retaining the path and underlying filesystem error; stop dependent reset steps and preserve signing state after I/O failure, including when run as root."
+
+[finding.reset-ignores-custom-autobahn-dir]
+tests = ["TestRepairM_1149_ResetConfiguredAutobahnDir", "TestRepairM_1149_ResetAutobahnPreflightAndFailure"]
+repair = "Load and validate the configured Autobahn JSON through consensus/config/autobahn.go before mutation, resolve persistence against the home boundary used at startup, and include it in blockchain and unsafe-all reset plans. Real WALs recover before reset and reopen empty after reset with a nondefault DB directory and default, relative or absolute persistence settings."
+
+[qualification.initial_fixture_repair]
+revision = "65512f2179db2a17dd89b7cf066c14e17affbbfb"
+command = "cg spec done 22.33.1149 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/tmp/repair-m1149-verify-1.log"
+observed = "The new ABCI fixture used RequestFinalizeBlock.Height; this fork carries height in Header. Repaired the fixture to pass the real produced block header and hash."

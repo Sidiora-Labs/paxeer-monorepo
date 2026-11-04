@@ -5,7 +5,7 @@ defmodule BlockScoutWeb.VisualizeSol2umlController do
   alias Explorer.Chain.Address
   alias Explorer.Visualize.Sol2uml
 
-  def index(conn, %{"type" => "JSON", "address" => address_hash_string}) do
+  def index(conn, %{"type" => "JSON", "address" => address_hash_string} = params) do
     address_options = [
       necessity_by_association: %{
         :smart_contract => :optional
@@ -15,6 +15,7 @@ defmodule BlockScoutWeb.VisualizeSol2umlController do
 
     if Sol2uml.enabled?() do
       with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
+           {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
            {:ok, address} <- Address.find_contract_address(address_hash, address_options),
            # check that contract is verified. partial and bytecode twin verification is ok for this case
            false <- is_nil(address.smart_contract) do
@@ -35,6 +36,7 @@ defmodule BlockScoutWeb.VisualizeSol2umlController do
           {:error, error} -> json(conn, %{"address" => address.hash, "contract_svg" => nil, "error" => error})
         end
       else
+        {:restricted_access, _} -> not_found(conn)
         _ -> json(conn, %{error: "contract not found or unverified"})
       end
     else
@@ -42,7 +44,7 @@ defmodule BlockScoutWeb.VisualizeSol2umlController do
     end
   end
 
-  def index(conn, %{"address" => address_hash_string}) do
+  def index(conn, %{"address" => address_hash_string} = params) do
     address_options = [
       necessity_by_association: %{
         :smart_contract => :optional
@@ -52,10 +54,16 @@ defmodule BlockScoutWeb.VisualizeSol2umlController do
 
     with true <- Sol2uml.enabled?(),
          {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
+         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
          {:ok, address} <- Address.find_contract_address(address_hash, address_options) do
       render(conn, "index.html",
         address: address,
-        get_svg_path: visualize_sol2uml_path(conn, :index, %{"type" => "JSON", "address" => address_hash_string})
+        get_svg_path:
+          visualize_sol2uml_path(
+            conn,
+            :index,
+            Map.merge(Map.take(params, ["key"]), %{"type" => "JSON", "address" => address_hash_string})
+          )
       )
     else
       _ -> not_found(conn)
