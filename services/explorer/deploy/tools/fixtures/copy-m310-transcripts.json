@@ -1,0 +1,13 @@
+{
+  "columns": "\"hash\", \"block_number\", \"balance\"",
+  "predicate": "WHERE \"block_number\" <= 6",
+  "fingerprint_sql": "COPY (SELECT row_to_json(c)::text AS row_content FROM (SELECT \"hash\", \"block_number\", \"balance\" FROM public.\"balances\" WHERE \"block_number\" <= 6) AS c ORDER BY row_to_json(c)::text COLLATE \"C\") TO STDOUT",
+  "copy_sql": "COPY (SELECT \"hash\", \"block_number\", \"balance\" FROM public.\"balances\" WHERE \"block_number\" <= 6) TO STDOUT",
+  "copy_from_sql": "COPY public.\"paxeer_x_copy_stage\" (\"hash\", \"block_number\", \"balance\") FROM STDIN",
+  "rows": ["{\"hash\":\"a\",\"block_number\":2,\"balance\":100}\n", "{\"hash\":\"b\",\"block_number\":6,\"balance\":200}\n"],
+  "same_key_changed": ["{\"hash\":\"a\",\"block_number\":2,\"balance\":999}\n", "{\"hash\":\"b\",\"block_number\":6,\"balance\":200}\n"],
+  "wrong_key": ["{\"hash\":\"b\",\"block_number\":6,\"balance\":200}\n", "{\"hash\":\"z\",\"block_number\":2,\"balance\":100}\n"],
+  "copy_rows": ["a\t2\t100\n", "b\t6\t200\n"],
+  "snapshot_first": "00000003-0000001B-1",
+  "snapshot_reopened": "00000003-0000002C-1"
+}

@@ -74,7 +74,8 @@ public sealed class PortableReceiptTests
         using var document = LoadFixture();
         var cases = document.RootElement.GetProperty("cases").EnumerateArray()
             .Where(vector => vector.GetProperty("vector").GetString() == "V1").ToArray();
-        Assert.Equal(4, cases.Length);
+        Assert.Equal(new[] { "V1-pax-transfer", "V1-erc20-approve", "V1-layerxledger-pay-exact", "V1-layerxbridge-bridge-out", "V1-layerxprograms-call" },
+            cases.Select(vector => vector.GetProperty("id").GetString()).ToArray());
         foreach (var vector in cases)
         {
             var keys = Keys(vector);
@@ -226,6 +227,65 @@ public sealed class PortableReceiptTests
         Refused(() => Committed.Verify(signed with { ReceiptDigest = new byte[32] }, header, inclusion, commit, validators));
         Refused(() => Committed.Verify(signed with { Receipt = signed.Receipt with { GlobalSequence = signed.Receipt.GlobalSequence + 1 } },
             header, inclusion, commit, validators));
+    }
+
+    [Fact]
+    public void PortableCommittedRefusesCoherentConsensusReplacement()
+    {
+        using var published = LoadConformance("vector-v5-portable.json");
+        using var source = LoadConformance("vector-v4-committed.json");
+        var vector = source.RootElement.GetProperty("positive");
+        var keys = Keys(vector);
+        var bundle = published.RootElement.GetProperty("bundles").EnumerateArray()
+            .Single(value => value.GetProperty("verificationLevel").GetString() == "committed");
+        var bytes = Encoding.UTF8.GetBytes(bundle.GetRawText());
+        var trust = PublishedTrust();
+        var original = PortableReceipt.verify(bytes, keys, trust);
+        Assert.Equal("committed", original.VerificationLevel);
+        Refused(() => PortableReceipt.verify(bytes, keys));
+        var header = bundle.GetProperty("blockHeader").Deserialize<CometHeader>()!;
+        var inclusion = bundle.GetProperty("receiptInclusion").Deserialize<CommittedReceiptInclusion>()!;
+        var attacker = new Ed25519PrivateKeyParameters(Enumerable.Repeat((byte)0x73, 32).ToArray(), 0);
+        var validators = new[] { new CometValidator(attacker.GeneratePublicKey().GetEncoded(), 100) };
+        var validatorHash = Committed.ValidatorSetHash(validators);
+        var forgedHeader = header with
+        {
+            ValidatorsHash = validatorHash,
+            NextValidatorsHash = validatorHash,
+            ProposerAddress = SHA256.HashData(validators[0].PublicKey)[..20]
+        };
+        var forgedCommit = Sign(forgedHeader, new[] { attacker }, 1);
+        var forgedNext = inclusion.NextHeader with
+        {
+            LastBlockId = forgedCommit.BlockId,
+            ValidatorsHash = validatorHash,
+            NextValidatorsHash = validatorHash,
+            ProposerAddress = forgedHeader.ProposerAddress
+        };
+        var forgedInclusion = inclusion with
+        {
+            NextHeader = forgedNext,
+            NextCommit = Sign(forgedNext, new[] { attacker }, 1),
+            NextValidators = validators
+        };
+        // Establish that the attack is internally valid, then require the independently pinned consumer to refuse it.
+        var receipt = LocalVerifier.VerifySequencerReceipt(bundle.GetProperty("receiptJson"), Hex(bundle, "rawTransaction"), keys);
+        Assert.Equal("committed", Committed.Verify(receipt, forgedHeader, forgedInclusion, forgedCommit, validators).Rung);
+        Assert.NotEqual(Committed.HeaderHash(header), Committed.HeaderHash(forgedHeader));
+        var forged = JsonNode.Parse(bytes)!.AsObject();
+        forged["blockHeader"] = JsonSerializer.SerializeToNode(forgedHeader);
+        forged["commit"] = JsonSerializer.SerializeToNode(forgedCommit);
+        forged["validatorSet"] = JsonSerializer.SerializeToNode(validators);
+        forged["receiptInclusion"] = JsonSerializer.SerializeToNode(forgedInclusion);
+        foreach (var field in new[] { "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey", "receiptJson" })
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(bundle.GetProperty(field).GetRawText()), forged[field]));
+        var forgedBytes = JsonSerializer.SerializeToUtf8Bytes(forged);
+        Refused(() => PortableReceipt.verify(forgedBytes, keys, trust));
+        Refused(() => PortableReceipt.verify(forgedBytes, keys));
+        Refused(() => PortableReceipt.export(bundle.GetProperty("receiptJson"), Hex(bundle, "rawTransaction"), keys,
+            forgedHeader, forgedInclusion, forgedCommit, validators, trust));
+        Assert.Equal("committed", original.VerificationLevel);
+        Assert.Equal(bytes, original.export());
     }
 
     [Fact]

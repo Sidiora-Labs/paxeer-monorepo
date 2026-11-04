@@ -135,13 +135,7 @@ defmodule Indexer.Memory.Monitor do
   end
 
   defp process(pid) do
-    case Process.info(pid, :registered_name) do
-      {:registered_name, registered_name} when is_atom(registered_name) ->
-        [inspect(pid), " (", inspect(registered_name), ")"]
-
-      _ ->
-        inspect(pid)
-    end
+    Indexer.Logger.process(pid)
   end
 
   defp log_memory(%{total: total, limit: limit}) do

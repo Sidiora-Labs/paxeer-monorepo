@@ -33,6 +33,7 @@ var ErrChainUnavailable = errors.New("development chain reference unavailable")
 // the receipt of the pool-creation transaction the development indexer
 // stored. *ethclient.Client satisfies it.
 type DevelopmentReceipts interface {
+	ChainID(ctx context.Context) (*big.Int, error)
 	TransactionReceipt(ctx context.Context, hash common.Hash) (*types.Receipt, error)
 }
 
@@ -66,6 +67,24 @@ func NewDevelopmentV2Reads(pool *pgxpool.Pool, chain DevelopmentReceipts, clock 
 		clock = time.Now
 	}
 	return &DevelopmentV2Reads{Pool: pool, Chain: chain, Clock: clock, mu: &sync.Mutex{}, tokens: map[string]iface.Token{}}
+}
+
+// CheckChain refreshes admission before cached or published development reads.
+// It is also registered as the application's development readiness check.
+func (d *DevelopmentV2Reads) CheckChain(ctx context.Context) error {
+	if d.Chain == nil {
+		return ErrChainUnavailable
+	}
+	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	chainID, err := d.Chain.ChainID(bounded)
+	if err != nil || chainID == nil || chainID.Cmp(big.NewInt(125)) != 0 {
+		d.mu.Lock()
+		d.tokens = map[string]iface.Token{}
+		d.mu.Unlock()
+		return ErrChainUnavailable
+	}
+	return nil
 }
 
 // RegisterRoutes mounts the public v2 GET routes the web client reads.
@@ -170,6 +189,9 @@ func boundedText(t pgtype.Text, max int) *string {
 // factory emits in the pool-creation transaction. Resolved tokens are
 // immutable and cached.
 func (d *DevelopmentV2Reads) chainToken(ctx context.Context, row developmentPoolRow) (iface.Token, error) {
+	if err := d.CheckChain(ctx); err != nil {
+		return iface.Token{}, err
+	}
 	d.mu.Lock()
 	cached, ok := d.tokens[row.Token]
 	d.mu.Unlock()
@@ -271,6 +293,10 @@ func (d *DevelopmentV2Reads) metadata(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, ErrMissing)
 		return
 	}
+	if err := d.CheckChain(r.Context()); err != nil {
+		developmentFailure(w, err)
+		return
+	}
 	if published, err := d.publishedDocument(r.Context(), token); err != nil {
 		developmentFailure(w, err)
 		return
@@ -312,6 +338,10 @@ func (d *DevelopmentV2Reads) media(w http.ResponseWriter, r *http.Request) {
 	token, ok := developmentToken(r)
 	if !ok {
 		v2Failure(w, ErrMissing)
+		return
+	}
+	if err := d.CheckChain(r.Context()); err != nil {
+		developmentFailure(w, err)
 		return
 	}
 	if published, err := d.publishedDocument(r.Context(), token); err != nil {

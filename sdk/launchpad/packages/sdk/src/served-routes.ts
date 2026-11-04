@@ -1,6 +1,8 @@
 import type { OperationName } from './operations.js';
 
-export const ROUTE_STATUS: Readonly<Record<OperationName, 'served' | 'development' | 'unrouted'>> = Object.freeze({
+export type RouteDisposition = 'served' | 'development' | 'unrouted';
+
+export const ROUTE_STATUS = Object.freeze({
   IF_ACCOUNT_DELETE: 'unrouted',
   IF_ACCOUNT_DELETE_STATUS: 'unrouted',
   IF_ACCOUNT_EXPORT: 'unrouted',
@@ -202,7 +204,11 @@ export const ROUTE_STATUS: Readonly<Record<OperationName, 'served' | 'developmen
   IF_WATCHLIST_PUT: 'served',
   IF_WITHDRAW_PREPARE: 'unrouted',
   IF_WITHDRAW_STATUS: 'unrouted',
-});
+} satisfies Record<OperationName, RouteDisposition>);
+
+export type ServedOperationName = {
+  [Name in OperationName]: (typeof ROUTE_STATUS)[Name] extends 'served' ? Name : never;
+}[OperationName];
 
 export function routeStatus(name: OperationName): (typeof ROUTE_STATUS)[OperationName] {
   return ROUTE_STATUS[name];

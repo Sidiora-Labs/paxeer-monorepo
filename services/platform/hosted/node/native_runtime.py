@@ -195,6 +195,10 @@ def generation_binding(data):
 
 
 def publish_generation(data, node, core, ca):
+    from generation_transport import CORE_FIELDS, NODE_FIELDS
+
+    if set(node) != NODE_FIELDS or set(core) != CORE_FIELDS:
+        raise ValueError('native generation requires the closed core schema')
     validate_core_inputs(core)
     for name, value in (('node.env', node), ('core.env', core)):
         if any(not re.fullmatch(r'LAYERX_[A-Z0-9_]+', key)

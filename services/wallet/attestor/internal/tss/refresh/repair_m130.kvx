@@ -1,0 +1,8 @@
+[task.22.33.130]
+finding = "22.30.114:35"
+tests = ["TestRepairM_130_VerificationCleanup", "TestRepairM_130_PeerRefusalCleanup", "TestRepairM_130_ProtocolCancellationCleanup", "TestRepairM_130_SuccessAndResultValidationCleanup"]
+repair = "The owned refresh input is wiped on every exit, is reused as the constructor input, and is retained until cancellation stops the handlers; borrowed result data is validated before the sole returned share copy is allocated, and temporary result Share and unused YSecret are wiped on success and validation failure."
+baseline = "Not run: the required order prohibits testing before full implementation and requires verification exclusively through hf-done after hf-build; no baseline test failures are claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log location."
+wiring_request = "Domain 12: review github.com/getamis/alice/crypto/tss/ecdsa/cggmp/refresh dependency-owned polynomial, Paillier and ephemeral state cleanup on constructor and protocol errors; these unexported dependency internals are outside this task's paths."
+gotcha = "Alice Stop cancels asynchronously; wait for its terminal state notification before wiping the share pointer retained by its handlers."

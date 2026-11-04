@@ -45,6 +45,24 @@ def strict_json(raw):
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise Rejected('invalid JSON') from exc
 
+
+def read_capability_catalog(bundle):
+    bundle = pathlib.Path(bundle)
+    catalog = strict_json((bundle/'capabilities.json').read_bytes())
+    source = bundle/'catalog.json'
+    raw = source.read_bytes()
+    if catalog.get('catalogInputSha256') != hashlib.sha256(raw).hexdigest():
+        raise Rejected('selected catalog source digest mismatch')
+    selected = strict_json(raw)
+    selected = selected.get('sections', selected)
+    require(catalog.get('catalog') == {
+        'endpointCount': len(selected['endpoint']),
+        'schemaCount': len(selected['schema']),
+    }, 'catalog counts differ from explicit selected source')
+    require(bool(selected['endpoint']) and bool(selected['schema']), 'empty selected catalog')
+    return catalog
+
+
 def keys(value, expected, label):
     require(type(value) is dict and set(value) == set(expected), label + ' fields')
 

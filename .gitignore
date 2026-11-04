@@ -109,6 +109,7 @@ sdk/platform/dotnet/tests/*/obj/
 services/platform/docs/samples/*/first-payment-go
 tools/specgen/specgen
 
+# Python bytecode caches
 __pycache__/
 *.pyc
 

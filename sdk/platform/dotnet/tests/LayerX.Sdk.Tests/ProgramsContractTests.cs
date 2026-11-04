@@ -17,50 +17,50 @@ public sealed class ProgramsContractTests
     [Fact]
     public void ProgramsClientRequiresIndependentNonzeroSequencerPin()
     {
-        var client = new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080")));
-        Assert.Throws<PlatformSdkException>(() => new ProgramsClient(client, new byte[32]));
-        _ = new ProgramsClient(client, Enumerable.Repeat((byte)1, 32).ToArray());
+        var client = new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:1/")));
+        using var rpc = new Programs(new Uri("http://127.0.0.1:1/"));
+        Assert.Throws<PlatformSdkException>(() => new ProgramsClient(client, rpc, new byte[32]));
+        _ = new ProgramsClient(client, rpc, Enumerable.Repeat((byte)1, 32).ToArray());
+        var error = Assert.Throws<PlatformSdkException>(() => new ProgramsClient(client, Enumerable.Repeat((byte)1, 32).ToArray()));
+        Assert.Equal(SdkErrorCode.UnavailableCapability, error.Code);
+        Assert.Equal(RetryClass.Never, error.Retry);
     }
 
     [Fact]
     public async Task PendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity()
     {
-        var key = new string('a', 64); var activity = Enumerable.Repeat((byte)0x11, 32).ToArray();
-        var value = JsonValue.Object(new Dictionary<string, JsonValue>
+        var key = new string('a', 64);
+        var activity = Enumerable.Repeat((byte)0x11, 32).ToArray();
+        await using var server = new RepairM1368Http();
+        using var rpc = new Programs(server.Endpoint);
+        var programs = new ProgramsClient(rpc);
+        var pendingTask = programs.ReceiptAsync(new IdempotencyKey(key), activity, "receipted");
+        await server.Exchange(request =>
         {
-            ["state"] = JsonValue.String("unknown"),
-            ["activity_id"] = JsonValue.String(Convert.ToHexString(activity).ToLowerInvariant()),
-            ["idempotency_key"] = JsonValue.String(key),
+            Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
+            Assert.Equal("0x" + Convert.ToHexString(activity).ToLowerInvariant(), request.GetProperty("params")[0].GetString());
+            return (200, JsonSerializer.SerializeToUtf8Bytes(new { jsonrpc = "2.0", id = request.GetProperty("id"), result = (object?)null }));
         });
-        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080"))),
-            Enumerable.Repeat((byte)1, 32).ToArray());
-        var pending = await programs.ReceiptAsync(new IdempotencyKey(key), activity, "sequencer-signed");
-        Assert.True(pending.IsUnknown); Assert.Null(pending.RetainedSignedActivity);
-        var error = await Assert.ThrowsAsync<PlatformSdkException>(() => programs.ReceiptAsync(new IdempotencyKey(key),
-            Enumerable.Repeat((byte)0x12, 32).ToArray(), "sequencer-signed"));
+        var pending = await pendingTask;
+        Assert.True(pending.IsUnknown);
+        Assert.Equal(activity, pending.ActivityId);
+        Assert.Equal(key, pending.IdempotencyKey);
+        Assert.Null(pending.RetainedSignedActivity);
+        var mismatch = programs.ReceiptAsync(new IdempotencyKey(key), Enumerable.Repeat((byte)0x12, 32).ToArray(), "receipted");
+        await server.Exchange(request =>
+        {
+            Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
+            return (200, JsonSerializer.SerializeToUtf8Bytes(new { jsonrpc = "2.0", id = request.GetProperty("id"),
+                result = new { hash = "0x" + Convert.ToHexString(activity).ToLowerInvariant() } }));
+        });
+        var error = await Assert.ThrowsAsync<PlatformSdkException>(() => mismatch);
         Assert.Equal(SdkErrorCode.VerificationFailure, error.Code);
     }
 
     [Fact]
     public async Task DiscoveryClientReturnsBoundedTypedResponseWithHonestVerificationLevel()
     {
-        var program = new string('1', 64); var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var value = JsonValue.Object(new Dictionary<string, JsonValue>
-        {
-            ["program_id"] = JsonValue.String(program), ["lifecycle"] = JsonValue.String("active"),
-            ["version"] = JsonValue.Integer(7), ["code_hash"] = JsonValue.String(new string('2', 64)),
-            ["abi_version"] = JsonValue.Integer(2), ["receipt_digest"] = JsonValue.String(new string('3', 64)),
-            ["state_root"] = JsonValue.String(new string('4', 64)), ["observed_sequence"] = JsonValue.String("9"),
-            ["observed_at"] = JsonValue.String(now.ToString()), ["valid_through"] = JsonValue.String((now + 60_000).ToString()),
-            ["verification"] = JsonValue.String("registry-receipt-and-current-head-verified"),
-        });
-        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080"))),
-            Enumerable.Repeat((byte)1, 32).ToArray());
-
-        var discovered = await programs.DiscoverAsync(Convert.FromHexString(program), "sequencer-signed");
-        Assert.Equal(ProgramLifecycle.Active, discovered.Lifecycle);
-        Assert.Equal((uint)7, discovered.Version); Assert.Equal((ulong)9, discovered.ObservedSequence);
-        Assert.Equal("server-side-receipt-verification-only", discovered.Verification);
+        await new RepairM1368Tests().SupportedProgramsConstructorsUseTheNativeBackend();
     }
 
     [Fact]
@@ -179,7 +179,8 @@ public sealed class ProgramsContractTests
     {
         var signer = new Ed25519PrivateKeyParameters(Enumerable.Repeat((byte)0x42, 32).ToArray(), 0);
         var pin = signer.GeneratePublicKey().GetEncoded();
-        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080"))), pin);
+        using var rpc = new Programs(new Uri("http://127.0.0.1:1/"));
+        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:1/"))), rpc, pin);
         var verify = typeof(ProgramsClient).GetMethod("VerifyDiscovery", BindingFlags.Instance | BindingFlags.NonPublic)!;
         foreach (var abi in new ushort[] { 1, 2, 3, 4 })
         {
