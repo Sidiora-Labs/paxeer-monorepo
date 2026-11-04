@@ -2,6 +2,7 @@ package dbcache
 
 import (
 	"fmt"
+	"sync"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -14,9 +15,10 @@ var _ types.Checkpointable = (*cachedKeyValueDB)(nil)
 
 // A unified interface for a key-value database and its read-through cache.
 type cachedKeyValueDB struct {
-	db    types.KeyValueDB
-	cache Cache
-	read  Reader
+	db      types.KeyValueDB
+	cache   Cache
+	read    Reader
+	writeMu sync.Mutex
 }
 
 // Combine a cache and a key-value database into a unified interface.
@@ -69,6 +71,9 @@ func (c *cachedKeyValueDB) BatchGet(keys map[string]types.BatchGetResult) error 
 //
 // It is not safe to mutate the key or value slices after calling this method.
 func (c *cachedKeyValueDB) Set(key []byte, value []byte, opts types.WriteOptions) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
 	err := c.db.Set(key, value, opts)
 	if err != nil {
 		return fmt.Errorf("failed to set value in database: %w", err)
@@ -81,6 +86,9 @@ func (c *cachedKeyValueDB) Set(key []byte, value []byte, opts types.WriteOptions
 //
 // It is not safe to mutate the key slice after calling this method.
 func (c *cachedKeyValueDB) Delete(key []byte, opts types.WriteOptions) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
 	err := c.db.Delete(key, opts)
 	if err != nil {
 		return fmt.Errorf("failed to delete value in database: %w", err)
@@ -98,7 +106,7 @@ func (c *cachedKeyValueDB) NewIter(opts *types.IterOptions) (dbm.Iterator, error
 // It is not safe to mutate the key/value slices passed to the batch once inserted. This remains true even
 // after the batch is committed.
 func (c *cachedKeyValueDB) NewBatch() types.Batch {
-	return newCachedBatch(c.db.NewBatch(), c.cache)
+	return newCachedBatch(c.db.NewBatch(), c.cache, &c.writeMu)
 }
 
 func (c *cachedKeyValueDB) Flush() error {
