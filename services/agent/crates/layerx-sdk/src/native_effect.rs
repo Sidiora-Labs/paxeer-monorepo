@@ -138,7 +138,7 @@ pub fn encode_native_send_submit(
             .bytes()
             .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
         || reference.bytes().all(|byte| byte == b'0')
-        || request.signature.as_bytes().len() != 64
+        || request.signature.as_bytes().len() != 65
     {
         return Err(EnvelopeError::InvalidRequest);
     }
@@ -658,8 +658,12 @@ mod tests {
     }
 }
 
-pub fn encode_native_disclosure(request: &layerx_agent_api::identity::NativeDisclosureRequestV1) -> Result<Value, EnvelopeError> {
-    if request.canonical_bytes.is_empty() || request.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES {
+pub fn encode_native_disclosure(
+    request: &layerx_agent_api::identity::NativeDisclosureRequestV1,
+) -> Result<Value, EnvelopeError> {
+    if request.canonical_bytes.is_empty()
+        || request.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES
+    {
         return Err(EnvelopeError::InvalidRequest);
     }
     Ok(json!({"variant":"native_disclosure_v1", "canonical_bytes":hex(&request.canonical_bytes)}))
