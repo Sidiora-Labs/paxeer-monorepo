@@ -190,9 +190,13 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	r = r.WithContext(ctx)
 	var principal sharedauth.IdentityPrincipal
-	recovery := p.audience == "user" && selected.Template == "/v1/me/deletion-requests/{jobId}" && r.Method == http.MethodGet && r.Header.Get("X-Recovery-Receipt") != ""
-	if recovery && (len(r.Header.Values("X-Recovery-Receipt")) != 1 || len(r.Header.Get("X-Recovery-Receipt")) > 4096) {
+	recovery := p.audience == "user" && deletionStatusRoute(selected) && len(r.Header.Values("X-Recovery-Receipt")) != 0
+	if recovery && !validRecoveryHeader(r.Header, r.URL.Path[strings.LastIndexByte(r.URL.Path, '/')+1:]) {
 		connectedError(w, 400, "recovery_receipt_invalid")
+		return
+	}
+	if p.audience == "livestream" && selected.Method == http.MethodPost && selected.Template == "/v2/streams/{streamId}/ingest-key" && !sessionCredentials(r) {
+		connectedError(w, http.StatusUnauthorized, "identity_unavailable")
 		return
 	}
 	if (selected.Authenticate || (selected.Optional && sessionCredentials(r))) && !recovery {
@@ -248,6 +252,15 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e != nil {
 		connectedError(w, 503, "upstream_unavailable")
 		return
+	}
+	if p.audience == "user" && selected.Method == http.MethodGet && selected.Template == "/v2/me/exports/{jobId}/download" {
+		if values := r.Header.Values("X-Export-Authorization"); len(values) != 0 {
+			if len(values) != 1 || !validExportAuthorization(values[0]) {
+				connectedError(w, 400, "export_authorization_invalid")
+				return
+			}
+			req.Header.Set("X-Export-Authorization", values[0])
+		}
 	}
 	for _, name := range []string{"Content-Type", "Accept", "If-None-Match", "If-Match", "Idempotency-Key", "X-Action-Signature", "X-Action-Nonce", "X-Action-Expires", "X-Action-Audience", "X-Kindle-Operation", "X-Kindle-Operation-Signature", "X-Kindle-Signature", "X-Request-ID", "Origin", "X-CSRF-Token", "X-Recovery-Receipt"} {
 		if values := r.Header.Values(name); len(values) == 1 {
@@ -350,9 +363,29 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 502, "upstream_response_invalid")
 		return
 	}
-	if containsSecret(result) {
+	privateIngest := p.audience == "livestream" && selected.Method == http.MethodPost && selected.Template == "/v2/streams/{streamId}/ingest-key" && resp.StatusCode == http.StatusOK
+	if privateIngest && !validIngestResponse(result, strings.Split(r.URL.Path, "/")[3], time.Now()) {
+		connectedError(w, 502, "upstream_response_invalid")
+		return
+	}
+	if !privateIngest && containsSecret(result) {
 		connectedError(w, 502, "upstream_response_restricted")
 		return
+	}
+	if p.audience == "user" && deletionCreateRoute(selected) && resp.StatusCode == http.StatusAccepted {
+		var accepted struct {
+			Data struct {
+				Job struct {
+					JobID     string `json:"jobId"`
+					AccountID string `json:"accountId"`
+				} `json:"job"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(result, &accepted) != nil || !validRecoveryHeader(resp.Header, accepted.Data.Job.JobID) || recoveryAccount(resp.Header.Get("X-Recovery-Receipt")) != accepted.Data.Job.AccountID {
+			connectedError(w, 502, "upstream_recovery_receipt_invalid")
+			return
+		}
+		w.Header().Set("X-Recovery-Receipt", resp.Header.Get("X-Recovery-Receipt"))
 	}
 	for _, name := range []string{"ETag", "Retry-After"} {
 		if v := resp.Header.Get(name); len(v) <= 128 && !strings.ContainsAny(v, "\r\n") {
