@@ -1,0 +1,61 @@
+[repair]
+task = "22.33.778"
+audit = "spec/layerx-merge/programme/audit/records/22.30.174.kvx"
+base = "f25ab9129415b70e1e47d668e4d2d04777519969"
+tests = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+verified_revision = "The exact candidate revision is recorded with command, exit and private log in /out/run/gates.jsonl by hf-build and hf-done; only a passing hf-done at the built revision qualifies this repair."
+baseline = "Not run: the explicit implementation-first, hf-done-only gate order overrides the contradictory baseline instruction in step 12; no unchanged-tree failure is claimed."
+proof = "Production qualification clients and Python SDK codecs/signature verifiers traverse real OS pipes or loopback HTTP with committed node/native lifecycle recordings and persistent peer stores; stop/reopen checks retained state and receipt identity."
+boundary = "This focused gate requires no operational credentials, environment, external toolchain, native artifact or live endpoint; it does not claim the live producer assembly was run."
+format = "No repository Python formatter is configured for these paths; existing local formatting conventions are retained."
+
+[finding.agent-rpc-path]
+tests = ["test_agent_rpc_routes_node_root_hosted_root_and_authenticated_gateway", "test_agent_dispatch_producer_recording_uses_authenticated_gateway_route"]
+repair = "Bind node namespaces to root RPC, hosted px_ methods to gateway root and authenticated agent envelopes to /v1/agent/rpc; retain private agent mTLS refusal and bound probes."
+
+[finding.tenant-readiness-transport]
+tests = ["test_tenant_readiness_committed_write_cross_tenant_refusal_and_reopen", "test_committed_receipt_requires_matching_node_block_and_standard_receipt", "test_tenant_receipt_rejects_foreign_payer_and_canonical_receipt"]
+repair = "Keep isolation and owner-recovery checks; require tenant EVM payer, canonical receipt and submission digest to match signed execution and its committed standard receipt/block."
+
+[finding.kms-source-provenance]
+tests = ["test_kms_provenance_binds_real_moved_tree_and_artifact_revision", "test_kms_every_missing_provenance_path_refuses_before_producers"]
+repair = "Require services/platform/crates and every declared producer path, hash their complete regular sources and bind the snapshot to the artifact revision before live producers."
+
+[finding.mcp-write-line-deadline]
+tests = ["test_mcp_partial_line_has_one_deadline_and_terminates_child", "test_mcp_real_json_codec_bounds_and_invocation_identity", "test_mcp_trickle_cannot_reset_the_deadline_and_coalesced_lines_survive"]
+repair = "Use nonblocking bounded reads under a single monotonic response deadline before decoding JSON; preserve invocation identity and content equality."
+
+[finding.mcp-payer-line-deadline]
+tests = ["test_mcp_partial_line_has_one_deadline_and_terminates_child", "test_mcp_real_json_codec_bounds_and_invocation_identity", "test_mcp_trickle_cannot_reset_the_deadline_and_coalesced_lines_survive"]
+repair = "Apply the complete-line deadline and byte/newline bounds to CLI MCP stdout, terminating incomplete-frame children."
+
+[finding.mcp-payer-finality]
+tests = ["test_mcp_payer_exact_offer_committed_evidence_and_deduplicated_reopen", "test_mcp_payer_refuses_changed_offer_or_commitment", "test_mcp_payer_claimed_offer_must_also_match_signed_transaction"]
+repair = "Bind all exact payment terms and actual signed payExact calldata to committed execution and block evidence while retaining delivery, balance debit and replay-deduplication checks."
+
+[finding.programs-winddown-daemon]
+tests = ["test_programs_winddown_merged_send_receipt_conservation_and_restart", "test_programs_all_retained_refusals_keep_exact_state_and_balances", "test_programs_restart_reopens_accounts_and_exit_eligibility", "test_programs_current_evm_lifecycle_matches_committed_native_producer_codec", "test_programs_never_admits_wrong_signed_action_or_chain", "test_programs_case_inventory_keeps_every_historical_invariant"]
+repair = "Own source-bound paxd and its reopened home; use Programs 0x101D ABI calls and committed receipts, exact refusals, account conservation and both retained case inventories."
+
+[finding.programs-source-config]
+tests = ["test_programs_source_config_uses_root_evm_and_preserves_abi_binding", "test_programs_source_archive_and_wasm_negative_cases_still_execute"]
+repair = "Require CHAIN_RPC_URL and current EVM Programs metadata plus committed deployment evidence; preserve source/archive provenance and ABI negative cases."
+
+[wiring]
+platform = "services/platform/crates — platform domain: provide the declared moved producer sources or correct the owning artifact producer contract; this checkout lacks the path and qualification now refuses it."
+registry = "services/platform/hosted/registry/src/main.rs — platform registry domain: remove mandatory legacy node/receipt-authority configuration and publish merged deployment metadata over CHAIN_RPC_URL."
+agent = "services/agent — agent domain: provision source-bound paxd/gateway services, protected root and /v1/agent/rpc endpoint bindings, receipt pins, tenant EVM payers and current raw submit/prepare requests."
+programs = "precompiles/layerxprograms — Programs domain: publish revision-bound signed current lifecycle cases for every retained 6.4/6.6 case and a private hashed paxd seed for the v2 qualification fixture."
+payer = "services/agent — paid-content domain: emit committed settlement rung, transactionHash, blockHash and blockNumber with the unchanged exact offer and canonical receipt digest."
+
+[gotcha.1]
+observed = "Dynamic importlib loads create distinct Python exception classes; tests catch the actual client module's refusal type."
+
+[gotcha.2]
+observed = "The merged daemon entrypoint is daemon/paxd/main.go and its canonical artifact is build/paxd."
+
+[gotcha.3]
+observed = "The private agent mTLS listener still declares /rpc for its own refusal probes; public node and hosted agent transports have separate routes."
+
+[gotcha.4]
+observed = "Task 6.4 retains the full profile-2 inventory as well as the additional account-ABI inventory; neither may be omitted during migration."

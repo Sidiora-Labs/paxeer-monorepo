@@ -1,0 +1,15 @@
+[repair.468]
+task = "22.31.468"
+requirement = "22998.1"
+base_revision = "4b4896072f927b28618921285b3e3ae758bc467e"
+migration = "services/platform/perps-data/migrations/0016_spot_board_omissions.sql"
+numbering = "0016 follows the existing 0015 migration; 0008 is already used by delivery_pending_seq."
+schema = "Exact former 828 definitions, additive only, no backfill or initial generation. The existing wildcard embed applies the migration in production."
+fixture = "services/platform/perps-data/internal/rest/repair_m828_schema.sql now checks required columns after store.Migrate; it no longer defines tables or changes data."
+tests = ["TestRepair468_Migration", "TestRepair468_SpotBoard"]
+coverage = "Fresh provisioned PostgreSQL database, embedded checksums, column types, nullability, primary keys, address length, singleton and omission checks, production WriteBlock and rebuildSpotBoard paths, unchanged migration records and persisted board data on a second migrator run."
+build = "hf-build: go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/internal/store/"
+verify = "hf-done: cg spec done 22.31.468 -f layerx-merge --root $TASK_ROOT"
+verify_cmd = "go test -count=1 -run '^TestRepair468_' ./services/platform/perps-data/internal/store/"
+revision_evidence = "The runner gate ledger and final hf-done JSON bind the verified candidate revision, command, exit code and private log; this record is included in that candidate."
+rollback = "Revert the task commit."

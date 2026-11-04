@@ -13,6 +13,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/codec"
 	tmtime "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/std"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/api"
@@ -33,29 +34,18 @@ func startInProcess(cfg Config, val *Validator) error {
 	}
 
 	app := cfg.AppConstructor(*val)
+	val.app = app
 
-	defaultGensis, err := types.GenesisDocFromFile(tmCfg.GenesisFile())
+	genesis, err := types.GenesisDocFromFile(tmCfg.GenesisFile())
 	if err != nil {
 		return err
-	}
-	tmPubKey, err := codec.ToTmPubKeyInterface(val.PubKey)
-	if err != nil {
-		return err
-	}
-	defaultGensis.Validators = []types.GenesisValidator{
-		{
-			PubKey:  tmPubKey,
-			Address: tmPubKey.Address(),
-			Name:    val.Moniker,
-			Power:   100,
-		},
 	}
 	tmNode, err := node.New(
 		val.GoCtx,
 		tmCfg,
 		func() {},
 		app,
-		defaultGensis,
+		genesis,
 		[]trace.TracerProviderOption{},
 		node.NoOpMetricsProvider(),
 		types.DefaultConsensusPolicy(),
@@ -123,6 +113,19 @@ func startInProcess(cfg Config, val *Validator) error {
 
 func collectGenFiles(cfg Config, vals []*Validator, outputDir string) error {
 	genTime := tmtime.Now()
+	validators := make([]types.GenesisValidator, len(vals))
+	for i, val := range vals {
+		pubKey, err := codec.ToTmPubKeyInterface(val.PubKey)
+		if err != nil {
+			return err
+		}
+		validators[i] = types.GenesisValidator{
+			PubKey:  pubKey,
+			Address: pubKey.Address(),
+			Name:    val.Moniker,
+			Power:   sdk.TokensToConsensusPower(cfg.BondedTokens, sdk.DefaultPowerReduction),
+		}
+	}
 
 	for i := 0; i < cfg.NumValidators; i++ {
 		tmCfg := vals[i].Ctx.Config
@@ -148,7 +151,7 @@ func collectGenFiles(cfg Config, vals []*Validator, outputDir string) error {
 		}
 
 		// overwrite each validator's genesis file to have a canonical genesis time
-		if err := genutil.ExportGenesisFileWithTime(genFile, cfg.ChainID, nil, appState, genTime); err != nil {
+		if err := genutil.ExportGenesisFileWithTime(genFile, cfg.ChainID, validators, appState, genTime); err != nil {
 			return err
 		}
 	}

@@ -98,6 +98,33 @@ events the final interval covers the entire range. Delegations initialized in
 the current block receive no rewards yet. The stake check tolerates at most
 three units of the smallest SDK decimal to account for rounding.
 
+### Worked multi-slash withdrawal
+
+Consider a delegation with initial stake `100000000` (in the staking token's
+smallest units), starting at period `1` and height `1`. Commission is zero.
+All ratios below are cumulative `uhpx` rewards per unit of stake. The example
+uses exact decimals, so truncation introduces no remainder.
+
+| Ended period | Height | Cumulative ratio | Stake earning this interval | Interval reward | Slash after reward allocation | Surviving stake |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 (starting baseline) | 1 | 0 | — | — | — | 100000000 |
+| 2 | 3 | 0.0000001 | 100000000 | 10uhpx | 20% | 80000000 |
+| 3 | 5 | 0.0000003 | 80000000 | 16uhpx | 50% | 40000000 |
+| 4 (withdrawal) | 7 | 0.0000006 | 40000000 | 12uhpx | none | 40000000 |
+
+The slash hooks end periods `2` and `3` before staking burns the corresponding
+tokens. The withdrawal ends period `4`. Rewards accumulate as
+`100000000 * 0.0000001 + 80000000 * 0.0000002 + 40000000 * 0.0000003 = 38uhpx`.
+The second slash removes half of the remaining `80000000`, rather than half
+of the original stake. Replacing accumulated rewards at either slash would
+lose the earlier intervals. Multiplying stake by the removed fraction would
+also give the wrong answer.
+
+With `38uhpx` outstanding and held by the distribution module, withdrawal
+transfers `38uhpx` to the resolved address and leaves zero outstanding rewards
+for this delegation. It reinitializes starting information to period `4`, stake
+`40000000` and height `7`; another calculation at height `7` returns zero.
+
 Response: `MsgWithdrawDelegatorRewardResponse {}`.
 
 ## WithdrawValidatorCommission

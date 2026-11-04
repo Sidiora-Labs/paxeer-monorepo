@@ -1,6 +1,7 @@
 package rosetta
 
 import (
+	"bytes"
 	"encoding/json"
 	"time"
 
@@ -34,7 +35,9 @@ func marshalMetadata(o interface{}) (meta map[string]interface{}, err error) {
 		return nil, crgerrs.WrapError(crgerrs.ErrCodec, err.Error())
 	}
 	meta = make(map[string]interface{})
-	err = json.Unmarshal(b, &meta)
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	err = decoder.Decode(&meta)
 	if err != nil {
 		return nil, err
 	}
