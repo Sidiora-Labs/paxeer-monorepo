@@ -48,7 +48,7 @@ func (g *configBasedGenerator) createScenarios() error {
 	// Create shared account pool if top-level account config exists
 	if g.config.Accounts != nil {
 		accounts := types.GenerateAccounts(g.config.Accounts.Accounts)
-		g.sharedAccounts = types.NewAccountPool(&types.AccountConfig{
+		g.sharedAccounts = newFixedAccountPool(&types.AccountConfig{
 			Accounts:       accounts,
 			NewAccountRate: g.config.Accounts.NewAccountRate,
 		})
@@ -67,7 +67,7 @@ func (g *configBasedGenerator) createScenarios() error {
 			newAccountRate := scenarioCfg.Accounts.NewAccountRate
 
 			accounts := types.GenerateAccounts(accountCount)
-			accountPool = types.NewAccountPool(&types.AccountConfig{
+			accountPool = newFixedAccountPool(&types.AccountConfig{
 				Accounts:       accounts,
 				NewAccountRate: newAccountRate,
 			})
@@ -181,7 +181,7 @@ func (g *configBasedGenerator) createWeightedGenerator() (Generator, error) {
 	}
 
 	// Create and return the weighted scenarioGenerator
-	return NewWeightedGenerator(weightedConfigs...), nil
+	return NewWeightedGenerator(weightedConfigs...)
 }
 
 // GetAccountPools returns all account pools managed by this generator
@@ -197,6 +197,20 @@ func (g *configBasedGenerator) GetAccountPools() []types.AccountPool {
 
 // NewConfigBasedGenerator is a convenience method that combines all steps
 func NewConfigBasedGenerator(cfg *config.LoadConfig) (Generator, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("load config is required")
+	}
+	var total int64
+	for i, scenario := range cfg.Scenarios {
+		var err error
+		total, err = addWeight(total, scenario.Weight)
+		if err != nil {
+			return nil, fmt.Errorf("scenario %d: %w", i, err)
+		}
+	}
+	if total == 0 {
+		return nil, fmt.Errorf("scenario weights must have a positive total")
+	}
 	generator := &configBasedGenerator{
 		config:    cfg,
 		instances: make([]*scenarioInstance, 0),

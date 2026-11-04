@@ -42,61 +42,55 @@ defmodule BlockScoutWeb.AddressController do
   @api_true [api?: true]
 
   def index(conn, %{"type" => "JSON"} = params) do
-    addresses =
-      params
-      |> paging_options()
-      |> Address.list_top_addresses()
+    with {:ok, items_count} <- parse_items_count(Map.get(params, "items_count", "0")) do
+      addresses =
+        params
+        |> paging_options()
+        |> Address.list_top_addresses()
 
-    {addresses_page, next_page} = split_list_by_page(addresses)
+      {addresses_page, next_page} = split_list_by_page(addresses)
 
-    next_page_path =
-      case next_page_params(next_page, addresses_page, params) do
-        nil ->
-          nil
+      next_page_path =
+        case next_page_params(next_page, addresses_page, params) do
+          nil ->
+            nil
 
-        next_page_params ->
-          address_path(
-            conn,
-            :index,
-            Map.delete(next_page_params, "type")
+          next_page_params ->
+            address_path(
+              conn,
+              :index,
+              Map.delete(next_page_params, "type")
+            )
+        end
+
+      exchange_rate = Market.get_coin_exchange_rate()
+      total_supply = Chain.total_supply()
+
+      items =
+        addresses_page
+        |> Enum.with_index(1)
+        |> Enum.map(fn {address, index} ->
+          View.render_to_string(
+            AddressView,
+            "_tile.html",
+            address: address,
+            index: items_count + index,
+            exchange_rate: exchange_rate,
+            total_supply: total_supply,
+            transaction_count: address.transactions_count
           )
-      end
+        end)
 
-    exchange_rate = Market.get_coin_exchange_rate()
-    total_supply = Chain.total_supply()
-
-    items_count_str = Map.get(params, "items_count")
-
-    items_count =
-      if items_count_str do
-        {items_count, _} = Integer.parse(items_count_str)
-        items_count
-      else
-        0
-      end
-
-    items =
-      addresses_page
-      |> Enum.with_index(1)
-      |> Enum.map(fn {address, index} ->
-        View.render_to_string(
-          AddressView,
-          "_tile.html",
-          address: address,
-          index: items_count + index,
-          exchange_rate: exchange_rate,
-          total_supply: total_supply,
-          transaction_count: address.transactions_count
-        )
-      end)
-
-    json(
-      conn,
-      %{
-        items: items,
-        next_page_path: next_page_path
-      }
-    )
+      json(
+        conn,
+        %{
+          items: items,
+          next_page_path: next_page_path
+        }
+      )
+    else
+      {:error, _} -> unprocessable_entity(conn)
+    end
   end
 
   def index(conn, _params) do
@@ -108,6 +102,9 @@ defmodule BlockScoutWeb.AddressController do
       total_supply: total_supply
     )
   end
+
+  defp parse_items_count(value) when is_binary(value), do: Explorer.Helper.safe_parse_non_negative_integer(value)
+  defp parse_items_count(_), do: {:error, :invalid_integer}
 
   def show(conn, %{"id" => address_hash_string, "type" => "JSON"} = params) do
     AddressTransactionController.index(conn, Map.put(params, "address_id", address_hash_string))

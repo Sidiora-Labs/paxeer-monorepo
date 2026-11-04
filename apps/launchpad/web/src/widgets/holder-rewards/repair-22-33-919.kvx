@@ -1,0 +1,33 @@
+[repair]
+task = "22.33.919"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+acceptance = "22998.1"
+qualification = "hf-build and hf-done retain the exact candidate revision, commands, exit codes and private log locations in the runner gate ledger."
+baseline = "Not run: the ordered instructions require complete implementation before testing and allow verification only through hf-done; no pre-change test failure is claimed."
+wiring_requests = "None: loaded-row scope disclosure uses the existing owner-controlled sort contract; grid continuation uses the existing cursor hook."
+
+[finding.reward-sort-scope]
+test = "repair-22-33-919.test.ts::reward_sort_scope"
+repair = "Disclose that sorting, filters and CSV export apply only to loaded coins; show visible and loaded counts in both presentations and explain that further pages can change the order."
+proof = "Real view, providers, cursor hook, SDK codec and loopback HTTP read model: ascending over a full first page, then a second page below the entire first range, grid presentation and filtered versus loaded counts."
+
+[finding.rewards-grid-pagination]
+test = "repair-22-33-919.test.ts::rewards_grid_pagination"
+repair = "Pass the same continuation, loading and error actions to the grid's shared LoadMore primitive, retaining previously loaded rows during failure and retry."
+proof = "Real view and HTTP cursor chain: grid first page, second-page dependency failure, retained rows, explicit retry of the same cursor, disabled retry while loading, second-page success, exhaustion and presentation switching."
+
+[gotcha.baseline-order]
+observed = "Task step 6 requests unchanged-tree verification, while the ordered execution rules forbid testing before complete implementation or invoking verify_cmd outside hf-done."
+resolution = "Follow the explicit ordered bounded gates and record the omitted baseline without claiming red-before evidence."
+
+[gotcha.vitest-registration]
+observed = "Vitest 4.1.12 registers test(function) as TODO instead of executing its body; the initial verify-1.log therefore supplies no behavioral proof despite exit zero."
+resolution = "Register each declared function with its name and callback so every assertion executes; qualify the corrected candidate through hf-build and hf-done."
+
+[gotcha.dom-event-realm]
+observed = "The previous attempt failed both tests before rendering because Node's Event constructor produces events that jsdom's window.dispatchEvent rejects during Wagmi wallet discovery."
+resolution = "Install the real jsdom Event and CustomEvent constructors alongside its window, preserve Node's fetch, and restore the original global property descriptors during teardown."
+
+[gotcha.wagmi-hydration-storage]
+observed = "Candidate 79ad0ea36c4286a8aecd0b7b02229299706919cd passed both behavior tests but hf-done exited 1 with two unhandled rehydrate errors; exact command and evidence are in /out/logs/verify-1.log."
+resolution = "SSR hydration requires Wagmi's persistence middleware; provide createStorage backed by real jsdom localStorage and clear that browser store between tests."

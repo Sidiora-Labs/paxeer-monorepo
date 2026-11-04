@@ -599,6 +599,53 @@ pub struct AbiEffects {
 }
 
 impl AbiEffects {
+    /// Decodes the full guest bytes carried by committed native receipt evidence.
+    pub fn decode_program_event_envelope(encoded: &[u8]) -> Result<Self, AbiError> {
+        use crate::replay::ReplayCursor;
+        let mut cursor = ReplayCursor::new(encoded);
+        let decode = |_: crate::replay::ReplayWitnessError| AbiError::InvalidEncoding;
+        if cursor
+            .take(b"LayerX/programs/events/v1\0".len())
+            .map_err(decode)?
+            != b"LayerX/programs/events/v1\0"
+        {
+            return Err(AbiError::InvalidEncoding);
+        }
+        let count = cursor.count(82).map_err(decode)?;
+        if count > MAX_PROGRAM_EVENT_LOGS {
+            return Err(AbiError::EffectLimit);
+        }
+        let mut events = Vec::with_capacity(count);
+        for _ in 0..count {
+            let program =
+                ProgramId::new(cursor.array().map_err(decode)?).map_err(AbiError::Storage)?;
+            let principal =
+                PrincipalId::new(cursor.array().map_err(decode)?).map_err(AbiError::Storage)?;
+            let path = cursor.array().map_err(decode)?;
+            let depth = cursor.u8().map_err(decode)?;
+            let frame = CallFrameId::from_canonical(path, depth)?;
+            let topic = cursor.owned_field(MAX_EVENT_TOPIC_BYTES).map_err(decode)?;
+            let data = cursor.owned_field(MAX_EVENT_DATA_BYTES).map_err(decode)?;
+            if topic.is_empty() {
+                return Err(AbiError::EventBounds);
+            }
+            events.push(ProgramEvent {
+                program,
+                principal,
+                frame,
+                topic,
+                data,
+            });
+        }
+        if !cursor.done() {
+            return Err(AbiError::InvalidEncoding);
+        }
+        Ok(Self {
+            events,
+            ..Self::default()
+        })
+    }
+
     /// Encodes the ordered guest events as 0x101D logs for the host's call program.
     /// The variable-length guest topic becomes `event_kind = keccak256(topic)`.
     ///

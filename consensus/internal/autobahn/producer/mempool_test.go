@@ -66,8 +66,8 @@ func (tx *txSpec) asResponse() *abci.ResponseCheckTxV2 {
 }
 
 func (env *testEnv) genTx(rng utils.Rng, addr common.Address, nonce uint64) *txSpec {
-	gasBase := int(env.state.cfg.MaxGasWantedPerBlock / env.state.cfg.maxTxsPerBlock())
-	gasJitter := min(gasBase, 10)
+	gasBase := int(max(minTxGas, env.state.cfg.MaxGasWantedPerBlock/env.state.cfg.maxTxsPerBlock()))
+	gasJitter := min(gasBase/4, 10_000)
 	return &txSpec{
 		Address: addr,
 		Nonce:   nonce,
@@ -344,6 +344,11 @@ func (s *blockStats) Push(tx *txSpec, cfg *Config) bool {
 	s.count += 1
 	s.sizeBytes += uint64(len(tx.encode()))
 	s.gasWanted += tx.GasWanted
+	estimate := tx.GasEstimated
+	if estimate < minTxGas || estimate > tx.GasWanted {
+		estimate = tx.GasWanted
+	}
+	s.gasEstimated += estimate
 	return s.count <= cfg.MaxTxsPerBlock &&
 		s.sizeBytes <= types.MaxTxsBytesPerBlock &&
 		s.gasWanted <= cfg.MaxGasWantedPerBlock &&
@@ -356,8 +361,8 @@ func TestMempool_HappyPath(t *testing.T) {
 	app := newTestApp()
 	cfg := app.Cfg()
 	cfg.MaxTxsPerBlock = 20
-	cfg.MaxGasWantedPerBlock = 100
-	cfg.MaxGasEstimatedPerBlock = 100
+	cfg.MaxGasWantedPerBlock = 1_000_000
+	cfg.MaxGasEstimatedPerBlock = 1_000_000
 	cfg.App = proxy.New(app, proxy.NopMetrics())
 	env := newTestEnv(rng, cfg)
 	want := utils.NewMutex(map[common.Address][]*txSpec{})

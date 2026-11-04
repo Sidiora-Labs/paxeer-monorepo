@@ -1,0 +1,14 @@
+[repair.22.33.1093]
+baseline_verify = "Not run: implementation-first ordering and hf-build-before-hf-done prohibit the conflicting unchanged-tree verification step; no baseline test failure is claimed."
+wiring_requests = "None: both repairs and their production consumers are inside daemon/paxd/cmd."
+qualification_evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence log; no gate result is claimed before it runs."
+
+[finding.replay-pprof-public-bind]
+proving_tests = ["TestRepairM_1093_ReplayProfilerLoopbackAndCancellation", "TestRepairM_1093_ReplayProfilerClose"]
+repair = "ReplayCmd starts its profiling server synchronously on IPv4 loopback, returns bind errors, closes it on context cancellation, and defers Close on command return."
+producer_transport_consumer = "The production profiling startup binds an ephemeral loopback port; tests inspect the TCP connection's actual remote address, request the real pprof index and goroutine handler, and prove cancellation closes both the listener and an established connection."
+
+[finding.keyring-stops-before-match]
+proving_test = "TestRepairM_1093_MixedKeyringGenesisAccount"
+repair = "Resolve the selected address through KeyByAddress before validating LocalInfo; unrelated offline entries cannot block a local account."
+producer_transport_consumer = "A real test-backend keyring stores an offline key listed before a mnemonic-derived local key. The genesis command reopens that keyring for address and name selections, decodes the selected private key and persists the independently expected EVM address association, auth account and bank balance; selecting an offline or missing address still fails."

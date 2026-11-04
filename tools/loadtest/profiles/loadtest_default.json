@@ -1,10 +1,10 @@
 {
-    "chainId": 713714,
+    "chainId": 125,
     "bounds": {
       "minAverageTps": 5,
       "maxP99LatencyMs": 5000
     },
-    "paxChainId": "loadtest-default",
+    "paxChainId": "qualification-chain-125-loadtest_default",
     "endpoints": [
       "http://127.0.0.1:8545"
     ],

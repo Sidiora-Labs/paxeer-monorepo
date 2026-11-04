@@ -2,6 +2,7 @@ package sender
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -69,6 +70,9 @@ func (d *Dispatcher) Prewarm(ctx context.Context) error {
 
 		// Send the prewarming transaction
 		if err := d.sender.Send(ctx, tx); err != nil {
+			if errors.Is(err, ErrWriterComplete) {
+				return nil
+			}
 			log.Printf("🔥 Failed to send prewarm transaction for account %s: %v", tx.Scenario.Sender.Address.Hex(), err)
 			continue
 		}
@@ -86,7 +90,8 @@ func (d *Dispatcher) Prewarm(ctx context.Context) error {
 }
 
 // Start begins the dispatcher's transaction generation and sending loop
-func (d *Dispatcher) Run(ctx context.Context) error {
+func (d *Dispatcher) Run(ctx context.Context) (err error) {
+	defer func() { err = errors.Join(err, d.flushSender()) }()
 	for ctx.Err() == nil {
 		// Generate a transaction from main generator
 		tx, ok := d.generator.Generate()
@@ -97,6 +102,9 @@ func (d *Dispatcher) Run(ctx context.Context) error {
 
 		// Send the transaction
 		if err := d.sender.Send(ctx, tx); err != nil {
+			if errors.Is(err, ErrWriterComplete) {
+				return nil
+			}
 			return err
 		}
 		d.mu.Lock()
@@ -107,7 +115,8 @@ func (d *Dispatcher) Run(ctx context.Context) error {
 }
 
 // StartBatch generates and sends a specific number of transactions then stops
-func (d *Dispatcher) RunBatch(ctx context.Context, count int) error {
+func (d *Dispatcher) RunBatch(ctx context.Context, count int) (err error) {
+	defer func() { err = errors.Join(err, d.flushSender()) }()
 	if count <= 0 {
 		return fmt.Errorf("count must be positive")
 	}
@@ -119,6 +128,12 @@ func (d *Dispatcher) RunBatch(ctx context.Context, count int) error {
 		}
 		// Send the transaction
 		if err := d.sender.Send(ctx, tx); err != nil {
+			if errors.Is(err, ErrWriterComplete) {
+				return nil
+			}
+			if _, isWriter := d.sender.(*TxsWriter); isWriter {
+				return err
+			}
 			log.Printf("Dispatcher: Failed to send transaction %d/%d: %v", i+1, count, err)
 			// Continue despite errors
 		} else {
@@ -143,4 +158,11 @@ func (d *Dispatcher) GetStats() DispatcherStats {
 // DispatcherStats contains statistics for the dispatcher
 type DispatcherStats struct {
 	TotalSent uint64
+}
+
+func (d *Dispatcher) flushSender() error {
+	if writer, ok := d.sender.(*TxsWriter); ok {
+		return writer.Flush()
+	}
+	return nil
 }

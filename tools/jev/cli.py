@@ -4,10 +4,11 @@ import argparse
 import importlib
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence
 
 from tools.jev.checks import CHECKS
 from tools.jev.client import DryRunClient, JevClient, JevConfigError, JevDryRun, JevRequestError
+from tools.jev.report import Report
 
 
 USAGE = "usage: python3 -m tools.jev <check> [args] --out DIR [--model M] [--log PATH] [--dry-run]"
@@ -41,8 +42,12 @@ def main(arguments: Sequence[str]) -> int:
     args = parser.parse_args(list(arguments[1:]))
     factory = DryRunClient if args.dry_run else JevClient
     client = factory(model=args.model, log_path=args.log)
+    return evaluate_and_write(lambda: check.run(args, client), args.out)
+
+
+def evaluate_and_write(evaluate: Callable[[], Report], out_dir: Path) -> int:
     try:
-        report = check.run(args, client)
+        report = evaluate()
     except JevDryRun as error:
         print(f"{error}", file=sys.stderr)
         return 0
@@ -52,6 +57,6 @@ def main(arguments: Sequence[str]) -> int:
     except JevRequestError as error:
         print(f"jev call failed: {error}", file=sys.stderr)
         return 1
-    _, md_path = report.write(args.out)
+    _, md_path = report.write(out_dir)
     print(md_path)
     return 0

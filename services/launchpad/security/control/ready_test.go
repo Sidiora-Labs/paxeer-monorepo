@@ -23,6 +23,7 @@ func readySecret(t *testing.T) string {
 
 func readyPool(t *testing.T, ctx context.Context, user, password string) *pgxpool.Pool {
 	t.Helper()
+	ensureControlFixtures(t)
 	config, err := pgxpool.ParseConfig(fixtureDSN)
 	if err != nil {
 		t.Fatal(err)
@@ -46,6 +47,7 @@ func readyPool(t *testing.T, ctx context.Context, user, password string) *pgxpoo
 // holds column-level SELECT on the two identity views and nothing on the
 // authority_credentials base table.
 func TestReadyAcceptsColumnNarrowedViewGrants(t *testing.T) {
+	ensureControlFixtures(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	admin, err := pgxpool.New(ctx, fixtureDSN)

@@ -1,0 +1,14 @@
+[repair.22.33.921]
+audit = "22.30.21"
+callout-pagination = "repair-22-33-921.test.ts: calloutPaginationFeed and calloutPaginationPool drive real hooks, SDK codecs, loopback pages and mounted panel continuation, removal, deduplication, unavailable retry and pool/order resets."
+social-request-deadline = "repair-22-33-921.test.ts: socialRequestDeadline, socialCallerCancellation, socialFollowRetryIdentity and socialFollowDeadlineRetry exercise real SDK fallback, connected stalled HTTP responses, caller cancellation, hook recovery after a deadline and stable retry identity."
+baseline = "Not run: the task's ordered gate instructions require complete implementation before qualification and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = "None: both proposals are implemented within the social widget scope."
+evidence = "The runner's hf-build/hf-done ledger records the candidate revision, exact command, exit code and private evidence location."
+
+[qualification]
+first_verify_revision = "1d4ebdfc5d42c2d6676a67d8f842d0d7dbc6608e"
+first_verify_command = "cg spec done 22.33.921 -f layerx-merge --root /work/paxeer-monorepo"
+first_verify_exit = 1
+first_verify_log = "/out/logs/verify-1.log"
+observed = "All three social deadline/cancellation/retry tests passed; pagination fixtures failed codec UUID/timestamp contracts and caused SDK retries; fixture values were corrected without changing assertions."

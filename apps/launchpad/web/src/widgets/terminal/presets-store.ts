@@ -77,7 +77,7 @@ export function applyPresetUpdate(state: PresetsState, id: PresetId, patch: Part
 }
 
 const listeners = new Set<() => void>();
-let cache: { raw: string | null; state: PresetsState } | null = null;
+let cache: { storageRaw: string | null; state: PresetsState } | null = null;
 const serverState = defaultPresets();
 
 function readRaw(): string | null {
@@ -86,14 +86,18 @@ function readRaw(): string | null {
 
 function snapshot(): PresetsState {
   const raw = readRaw();
-  if (!cache || cache.raw !== raw) cache = { raw, state: parsePresets(raw) };
+  if (!cache || cache.storageRaw !== raw) cache = { storageRaw: raw, state: parsePresets(raw) };
   return cache.state;
 }
 
 function write(state: PresetsState) {
   const raw = JSON.stringify(state);
-  try { window.localStorage.setItem(presetsStorageKey, raw); } catch { /* storage blocked: keep the in-memory value */ }
-  cache = { raw: readRaw() ?? raw, state };
+  let storageRaw = cache ? cache.storageRaw : readRaw();
+  try {
+    window.localStorage.setItem(presetsStorageKey, raw);
+    storageRaw = raw;
+  } catch { /* storage blocked: keep the in-memory value and its storage baseline */ }
+  cache = { storageRaw, state };
   for (const listener of listeners) listener();
 }
 

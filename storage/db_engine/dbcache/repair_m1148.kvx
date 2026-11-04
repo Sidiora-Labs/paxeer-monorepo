@@ -1,0 +1,19 @@
+[task.22.33.1148]
+baseline = "Not run: the explicit gate order requires complete implementation and hf-build before hf-done, and forbids running verify_cmd by hand. No pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done ledger and final task result record the verified candidate revision, command, exit code and private log location."
+
+[finding.cache-constructor-metrics-panic]
+test = "TestRepairM_1148_ConstructorValidation"
+repair = "Validate the complete CacheConfig before shard allocation and metrics setup."
+proof = "Zero and negative named-metrics intervals return the validation error and no cache; goroutine leak detection checks no scrape participant survives, and disabled metrics retain their interval semantics."
+
+[finding.cached-batch-records-failed-mutations]
+test = "TestRepairM_1148_FailedBatchMutations"
+repair = "Record cache updates only after the backing batch accepts Set or Delete, returning the original enqueue error."
+proof = "The real in-memory backend rejects nil values and empty keys; the production cached batch then commits valid Set and Delete operations, and cache reads match stored values without publishing the rejected operations. A lifecycle-only adapter and test export bridge connect the real backend to the production wrapper."
+
+[finding.cached-db-value-ownership]
+test = "TestRepairM_1148_ValueOwnership"
+repair = "Clone Get and BatchGet results at the KeyValueDB wrapper boundary while keeping the Cache immutable-slice contract."
+proof = "Real Pebble reads, wrapper Set and batch Commit feed standard and passthrough caches; cold and warm Get and BatchGet consumers mutate returned buffers while subsequent cached and uncached reads retain identical original values."
