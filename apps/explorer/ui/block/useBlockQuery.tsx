@@ -12,11 +12,12 @@ import { retry } from 'lib/api/useQueryClientConfig';
 import { useMultichainContext } from 'lib/contexts/multichain';
 import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
-import { publicClient } from 'lib/web3/client';
 import formatBlockData from 'lib/web3/rpc/formatBlockData';
 import { BLOCK } from 'stubs/block';
 import { GET_BLOCK } from 'stubs/RPC';
 import { SECOND } from 'toolkit/utils/consts';
+
+import useBlockRpcClient from './useBlockRpcClient';
 
 type RpcResponseType = GetBlockReturnType<Chain, false, 'latest'> | null;
 
@@ -31,6 +32,7 @@ interface Params {
 
 export default function useBlockQuery({ heightOrHash }: Params): BlockQuery {
   const [ isRefetchEnabled, setRefetchEnabled ] = React.useState(false);
+  const { rpcClient, chainId } = useBlockRpcClient();
 
   const apiQuery = useApiQuery<'general:block', { status: number }>('general:block', {
     pathParams: { height_or_hash: heightOrHash },
@@ -52,25 +54,25 @@ export default function useBlockQuery({ heightOrHash }: Params): BlockQuery {
   });
 
   const latestBlockQuery = useQuery({
-    queryKey: [ 'RPC', 'block', 'latest' ],
+    queryKey: [ 'RPC', 'block', chainId, 'latest' ],
     queryFn: async() => {
-      if (!publicClient) {
+      if (!rpcClient) {
         return null;
       }
-      return publicClient.getBlock({ blockTag: 'latest' });
+      return rpcClient.getBlock({ blockTag: 'latest' });
     },
-    enabled: publicClient !== undefined && (apiQuery.isError || apiQuery.errorUpdateCount > 0),
+    enabled: rpcClient !== undefined && (apiQuery.isError || apiQuery.errorUpdateCount > 0),
   });
 
   const rpcQuery = useQuery<RpcResponseType, unknown, Block | null>({
-    queryKey: [ 'RPC', 'block', { heightOrHash } ],
+    queryKey: [ 'RPC', 'block', chainId, { heightOrHash } ],
     queryFn: async() => {
-      if (!publicClient) {
+      if (!rpcClient) {
         return null;
       }
 
       const blockParams = heightOrHash.startsWith('0x') ? { blockHash: heightOrHash as `0x${ string }` } : { blockNumber: BigInt(heightOrHash) };
-      return publicClient.getBlock(blockParams).catch(() => null);
+      return rpcClient.getBlock(blockParams).catch(() => null);
     },
     select: (block) => {
       return formatBlockData(block);
@@ -82,7 +84,7 @@ export default function useBlockQuery({ heightOrHash }: Params): BlockQuery {
   });
 
   React.useEffect(() => {
-    if (apiQuery.isPlaceholderData || !publicClient) {
+    if (apiQuery.isPlaceholderData || !rpcClient) {
       return;
     }
 
@@ -91,7 +93,7 @@ export default function useBlockQuery({ heightOrHash }: Params): BlockQuery {
     } else if (!apiQuery.isError) {
       setRefetchEnabled(false);
     }
-  }, [ apiQuery.errorUpdateCount, apiQuery.isError, apiQuery.isPlaceholderData ]);
+  }, [ apiQuery.errorUpdateCount, apiQuery.isError, apiQuery.isPlaceholderData, rpcClient ]);
 
   React.useEffect(() => {
     if (!rpcQuery.isPlaceholderData && !rpcQuery.data) {
@@ -145,7 +147,7 @@ export default function useBlockQuery({ heightOrHash }: Params): BlockQuery {
     handler: handleNewBlockMessage,
   });
 
-  const isRpcQuery = Boolean(publicClient && (apiQuery.isError || apiQuery.isPlaceholderData) && apiQuery.errorUpdateCount > 0 && rpcQuery.data);
+  const isRpcQuery = Boolean(rpcClient && (apiQuery.isError || apiQuery.isPlaceholderData) && apiQuery.errorUpdateCount > 0 && rpcQuery.data);
   const query = isRpcQuery ? rpcQuery as UseQueryResult<Block, ResourceError<{ status: number }>> : apiQuery;
 
   return {

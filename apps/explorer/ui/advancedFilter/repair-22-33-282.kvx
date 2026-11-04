@@ -1,0 +1,78 @@
+[repair.22.33.282]
+audit = "22.30.133"
+acceptance = "22998.1"
+test_file = "apps/explorer/ui/advancedFilter/repair-22-33-282.spec.ts"
+baseline = "Not run: do_7 requests unchanged-tree verification, but the explicit Order forbids tests before full implementation and forbids running verify_cmd outside hf-done; no pre-change test failure is claimed."
+qualification = "Only hf-build and hf-done; their private evidence records the exact candidate revision, command, exit and log."
+fixtures = "Production controls, Chakra provider, multichain context and API query/fetch/URL codec use committed response fixtures over a loopback HTTP server; the existing layout test wrapper supplies jsdom browser measurement support."
+wiring_requests = ["apps/explorer/toolkit/chakra/popover.tsx — domain 14: preserve the wrapped action button accessible name instead of overriding it with close."]
+
+[finding.filter-interaction-coverage]
+tests = ["customDatesSurviveClosingAndReopeningAndReachTheRequest", "assetSelectionAndDeselectionReachTheRequestAndReopenEmpty", "savedMethodAbsentFromSearchResultsCanBeRemoved"]
+repair = "Keep screenshot cases and add applied-filter and actual request assertions; normalize saved date inputs, support asset deselection and reject unselected response descriptors on reopening, and remove saved methods independently of current results."
+before_change = "Source inspection: ISO timestamps are assigned to date inputs; asset clicks only add; method removal requires a current API match. The new interaction regressions exercise each affected path. No baseline execution is claimed."
+
+[finding.advanced-filter-native-values]
+tests = ["nativeAmountFeeAndAssetUseSelectedChainMetadata"]
+repair = "Use chainConfig currency for native amount/fee decimals and symbol and the native asset label, retaining the existing global configuration when no chain is selected."
+before_change = "Source inspection: amount/fee use default currency decimals and the asset label uses the global symbol. The regression uses six- and three-decimal selected-chain metadata."
+
+[finding.advanced-filter-native-choice]
+tests = ["switchingChainsRefreshesNativeChoicesAndPreservesIncludeExcludeSentinel"]
+repair = "Construct native descriptors from effective currency in FilterByColumn and AssetFilter; refresh native draft metadata on chain switches while preserving native address and include/exclude mode."
+before_change = "Source inspection: NATIVE_TOKEN is a module singleton from the default currency, so selected-chain names and symbols cannot update."
+
+[gotcha.date-comparison]
+observed = "BaseAgeFilter compares a state object containing age with an original-date object missing age, so an unchanged custom range is always marked touched."
+repair = "Compare matching date-state shapes and cover the disabled apply button after reopening an unchanged range."
+
+[qualification.previous-attempt]
+observed = "The previous attempt used pnpm, which refused the explorer packageManager yarn pin with ERR_PNPM_OTHER_PM_EXPECTED before compilation. The current declared gates use the pinned Yarn manager."
+formatting = "The previous attempt could not start the repository ESLint formatter because pnpm rejected the package manager before invoking ESLint. The continued attempt formats touched files with the installed ESLint formatter."
+owner = "Sandbox Node tooling; package-manager configuration is outside apps/explorer/ui/advancedFilter."
+evidence = "hf-build records the exact candidate revision, declared build command, exit code and private log; verification requires a passing build."
+
+[gotcha.test-registration]
+observed = "Named regression functions need both a title and a callback when registered with Vitest; the previous attempt supplied only the function as the title."
+repair = "Register each named regression with a literal matching title and an assertion-requiring callback that calls the real regression; this also satisfies the repository Vitest title and assertion lint rules."
+
+[gotcha.working-directory]
+observed = "A continuation edit used repository-relative paths from the explorer package directory and stopped before modifying any file."
+repair = "Apply continuation edits from the repository root and run package installation from the explorer directory."
+
+[gotcha.test-lint]
+observed = "The formatter reported that the repository Vitest lint rules require literal test titles and assertions in registered callbacks; named callbacks are not followed by the assertion rule."
+repair = "Keep all named regression functions and assertions, and register them with literal titles and callbacks that require assertions to execute."
+
+[qualification.build-repair-1]
+revision = "55899862cd08357ef1abab9f2dfdb11261190d30"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+repair = "Supply complete loopback API metadata and chain names, narrow the serialized fixture state to its production type, and use exact role-name regular expressions supported by Testing Library."
+
+[qualification.build-repair-2]
+revision = "76484ce614f96bcf7aee6052488db45e42fbe379"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-2.log"
+repair = "Capture the guarded loopback TCP address fields as constants before the nested chain factory, preserving the required host and port types across the closure."
+
+[qualification.continued-implementation]
+observed = "Attempt 2 reported four failed cases and one hook error; the continuation preserves its implementation and regression assertions."
+repair = "Import React in AgeFilter, initialize window configuration from the committed explorer test environment before module imports, explicitly pass the loopback chain endpoint into the query fixture, and preserve current MethodFilter selection/removal logic when resolving seed conflicts."
+
+[gotcha.fetch-hook-cleanup]
+observed = "Returning fetchMock.disableMocks() from beforeAll returns a fetch function, which Vitest invokes as hook cleanup without a request."
+repair = "Use block-bodied lifecycle hooks that do not return the fetch function; all requests continue through the real fetch transport to the recorded loopback server."
+
+[qualification.continuation-repair]
+revision = "e88f0b70bb418074982965d8bf80a0a97d7d402e"
+command = "cg spec done 22.33.282 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The shared popover wrapper names its wrapped Filter button close; select the actual accessible action and additionally assert its exact visible Filter text, preserving all state and transport assertions. Match the same production action in Playwright interactions."
+
+[gotcha.package-manager-directory]
+observed = "Invoking yarn with --cwd from the monorepo root triggers Corepack's root npm package-manager check before Yarn can change directories."
+repair = "Invoke the explorer's pinned Yarn command with apps/explorer as the process working directory."

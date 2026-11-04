@@ -216,9 +216,18 @@ amount is one `hpx` (`1000000uhpx`); gas prices are illustrative and must satisf
 the current global and node-local requirements described in
 [Concepts](01_concepts.md#gas--fees). The sender must cover the allocation and fees.
 
-Add `--admin "$ADMIN"` to store an optional administrator, where `ADMIN` is a
+For delayed creation with an administrator, use:
+
+```bash
+paxd tx vesting create-vesting-account "$RECIPIENT" 1000000uhpx "$END_TIME" \
+  --delayed --admin "$ADMIN" --from "$SENDER" --chain-id "$SDK_CHAIN_ID" \
+  --gas auto --gas-adjustment 1.3 --gas-prices 0.02uhpx
+```
+
+The optional `--admin "$ADMIN"` flag stores an administrator, where `ADMIN` is a
 valid address with an existing auth account. This records metadata; the current
 module has no cancellation message or administrator cancellation implementation.
+Account validation requires the reserved `cancelled_time` field to remain zero.
 The transaction cannot convert an already-existing recipient account into a
 vesting account. Bank send-enabled, blocked-address and denomination allowlist
 checks also apply.

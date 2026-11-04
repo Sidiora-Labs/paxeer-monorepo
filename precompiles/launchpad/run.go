@@ -146,6 +146,12 @@ func (p *Precompile) run(evm *vm.EVM, caller common.Address, input []byte, value
 	isFromDelegateCall bool, hooks *tracing.Hooks, gas *uint64, charge bool) (bz []byte, left uint64, err error) {
 	operation := PrecompileName + "_unknown"
 	defer func() {
+		if nestedAborted(err) {
+			var abort vm.AbortError
+			errors.As(err, &abort)
+			bz, err = nil, abort
+			return
+		}
 		pcommon.HandlePrecompileError(err, evm, operation)
 		if err != nil && !errors.Is(err, vm.ErrOutOfGas) {
 			bz, err = runRevert(err), vm.ErrExecutionReverted

@@ -1,0 +1,8 @@
+[repair.22.33.1003]
+audit = "22.30.34"
+finding = "010"
+tests = ["TestRepairM_1003_ProviderFailureClassifications", "TestRepairM_1003_ResponseMediaType", "TestRepairM_1003_RedirectAuthorization", "TestRepairM_1003_Cancellation", "TestRepairM_1003_JSONBodyLimit"]
+change = "JSON payload fixtures reach and assert the size, decode and required-field boundaries; separate checks retain media-type refusal, redirect authorization isolation, secret redaction and cancellation."
+baseline = "Not run: the ordered qualification instructions prohibit testing before implementation and prohibit running verify_cmd by hand; no prior gate ledger or baseline failures were present."
+wiring_requests = "None; the proposal is entirely within the task scope."
+evidence = "The hf-build and hf-done private gate ledger records the exact verified candidate revision, command, exit code and log path."

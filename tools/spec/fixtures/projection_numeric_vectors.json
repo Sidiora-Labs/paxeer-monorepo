@@ -1,0 +1,146 @@
+{
+  "producer": "Node.js v24.22.0 JSON.parse / JSON.stringify / node:crypto SHA-256",
+  "contract": "Sorted-key recursion documented at services/hyperfide/src/spec/import.ts:43-47; importer source is absent from this checkout.",
+  "vectors": [
+    {
+      "name": "zero",
+      "json": "0",
+      "accepted": true,
+      "canonical": "0",
+      "digest": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "name": "negative-zero",
+      "json": "-0",
+      "accepted": true,
+      "canonical": "0",
+      "digest": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "name": "one",
+      "json": "1",
+      "accepted": true,
+      "canonical": "1",
+      "digest": "sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    {
+      "name": "minus-one",
+      "json": "-1",
+      "accepted": true,
+      "canonical": "-1",
+      "digest": "sha256:1bad6b8cf97131fceab8543e81f7757195fbb1d36b376ee994ad1cf17699c464"
+    },
+    {
+      "name": "safe-max",
+      "json": "9007199254740991",
+      "accepted": true,
+      "canonical": "9007199254740991",
+      "digest": "sha256:f40b423c2dd95ff2b2f027e22208f438cf7242862e5e746860e697308c9add26"
+    },
+    {
+      "name": "safe-min",
+      "json": "-9007199254740991",
+      "accepted": true,
+      "canonical": "-9007199254740991",
+      "digest": "sha256:4c933a456bb8f2e9894b2d0b26480439cd72d52fb8a27cbf8fd7f323f22c7815"
+    },
+    {
+      "name": "booleans-null",
+      "json": "[true,false,null]",
+      "accepted": true,
+      "canonical": "[true,false,null]",
+      "digest": "sha256:4d0f18de2133118249c26acc481838d4f6bb6bc1de882d99abbd19ae9397e8df"
+    },
+    {
+      "name": "nested",
+      "json": "{\"z\":[0,1,-1,9007199254740991,-9007199254740991],\"a\":{\"number\":42,\"text\":\"1.0\",\"active\":true}}",
+      "accepted": true,
+      "canonical": "{\"a\":{\"active\":true,\"number\":42,\"text\":\"1.0\"},\"z\":[0,1,-1,9007199254740991,-9007199254740991]}",
+      "digest": "sha256:879ac4fd664070f51fce8205477b476aa7ae267ddb0906380ae6d469e0ac9bef"
+    },
+    {
+      "name": "numeric-strings",
+      "json": "{\"decimal\":\"0.1\",\"exponent\":\"1e+21\",\"unicode\":\"café\"}",
+      "accepted": true,
+      "canonical": "{\"decimal\":\"0.1\",\"exponent\":\"1e+21\",\"unicode\":\"café\"}",
+      "digest": "sha256:311f15109b9877757ea9759c72791b337f5cff0dd23f91c41f06cd09c681478a"
+    },
+    {
+      "name": "integer-valued-float",
+      "json": "1.0",
+      "accepted": false,
+      "canonical": "1",
+      "digest": "sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    {
+      "name": "negative-float-zero",
+      "json": "-0.0",
+      "accepted": false,
+      "canonical": "0",
+      "digest": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "name": "fraction",
+      "json": "0.1",
+      "accepted": false,
+      "canonical": "0.1",
+      "digest": "sha256:14be4b45f18e0d8c67b4f719b5144eee88497e413709d11d85b096d8e2346310"
+    },
+    {
+      "name": "fixed-lower-bound",
+      "json": "0.000001",
+      "accepted": false,
+      "canonical": "0.000001",
+      "digest": "sha256:159fb29a827ad04b260aa6c8ab6d8637f8f2b38af5c4f3cb49d6a21205e040f8"
+    },
+    {
+      "name": "exponent-lower-bound",
+      "json": "0.0000001",
+      "accepted": false,
+      "canonical": "1e-7",
+      "digest": "sha256:5b33e02f2c5103a05d32f6ba9cb058294452bfbf393967f68bb30c1bdcbbab22"
+    },
+    {
+      "name": "exponent",
+      "json": "1e0",
+      "accepted": false,
+      "canonical": "1",
+      "digest": "sha256:6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    {
+      "name": "exponent-large",
+      "json": "1e21",
+      "accepted": false,
+      "canonical": "1e+21",
+      "digest": "sha256:241c4643fa70b1dcde1205b71be4e3bebb17e9f880c8e1a33d0ead6c27271d3c"
+    },
+    {
+      "name": "underflow",
+      "json": "1e-9999",
+      "accepted": false,
+      "canonical": "0",
+      "digest": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "name": "unsafe-positive",
+      "json": "9007199254740993",
+      "accepted": false,
+      "canonical": "9007199254740992",
+      "digest": "sha256:c681da39d7273a6a24c15c9cac3a75526ff2ecf8ba4ee60346a0c70c8163bdb2"
+    },
+    {
+      "name": "unsafe-negative",
+      "json": "-9007199254740993",
+      "accepted": false,
+      "canonical": "-9007199254740992",
+      "digest": "sha256:83e109bfd7fb4984b47a46f363627c18dbbd7e57e36b05a04cd162d304df72e9"
+    },
+    {
+      "name": "nested-float",
+      "json": "{\"checks\":[true,{\"weight\":1.0}]}",
+      "accepted": false,
+      "canonical": "{\"checks\":[true,{\"weight\":1}]}",
+      "digest": "sha256:e7070647c74bd538b2fc86b95ceb14e1391de773381a55e9510bb9ed7a5bb8b6"
+    }
+  ]
+}

@@ -76,8 +76,8 @@ function button(mounted: Mounted, name: string): HTMLButtonElement {
 }
 
 describe('KernelPlan', () => {
-  it('plans, presents, submits with the plan digest and bindings, and tracks the journey', async () => {
-    const mounted = await render('merged');
+  async function kernel_plan_presents_and_submits_the_merged_chain_plan() {
+    const mounted = await render('chain');
     await mounted.until(() => mounted.query('[data-kernel="available"]') !== null, 'kernel state');
     expect(button(mounted, 'plan').disabled).toBe(true);
     await fill(mounted);
@@ -91,23 +91,16 @@ describe('KernelPlan', () => {
     expect(planBody?.body).toEqual(planRequest);
     expect(planBody?.authorization).toBe(`Bearer ${TOKEN}`);
     expect(mounted.query('[data-plan]')?.getAttribute('data-plan')).toBe('4b'.repeat(32));
-    expect(mounted.all('[data-leg]').map((leg) => leg.getAttribute('data-domain'))).toEqual([
-      'paxeer',
-      'layerx',
-    ]);
-    expect(mounted.text('[data-leg="0"]')).toContain('paxeer custody deposit on Paxeer');
+    expect(mounted.all('[data-leg]')).toHaveLength(1);
+    expect(mounted.query('[data-domain]')).toBeNull();
+    expect(mounted.text('[data-leg="0"]')).toContain('send on Paxeer');
     expect(mounted.text('[data-leg="0"]')).toContain(
-      'Paxeer wallet to agent:did:layerx:alice:main'
+      `agent:${OWNER_DID}:main to ${planRequest.destination.account}`
     );
-    expect(mounted.text('[data-leg="1"]')).toContain('transfer on LayerX');
-    expect(mounted.text('[data-leg="1"]')).toContain(
-      'agent:did:layerx:alice:main to agent:did:layerx:bob:main'
-    );
-    expect(mounted.text('[data-fee="0"]')).toBe('Fee 1 LXP');
-    expect(mounted.text('[data-fee="1"]')).toBe('Fee 8 LXP');
-    expect(mounted.text('[data-signer="0"]')).toBe('Signer custody-key');
-    expect(mounted.text('[data-signer="1"]')).toBe('Signer agent-authority');
-    expect(mounted.text('[data-total-fee]')).toBe('Total fee 9 LXP');
+    expect(mounted.text('[data-leg="0"]')).not.toMatch(/custody|on LayerX/);
+    expect(mounted.text('[data-fee="0"]')).toBe('Fee 8 LXP');
+    expect(mounted.text('[data-signer="0"]')).toBe('Signer account-owner');
+    expect(mounted.text('[data-total-fee]')).toBe('Total fee 8 LXP');
 
     await mounted.until(() => !button(mounted, 'submit').disabled, 'submit enabled');
     await mounted.click('button[name="submit"]');
@@ -128,15 +121,14 @@ describe('KernelPlan', () => {
     expect(body.signed_digest).toBe(body.plan_digest);
     expect(body.bindings.map((binding) => binding.account_sequence)).toEqual([
       expectedPendingNonce(),
-      expectedPendingNonce(),
     ]);
     expect(body.bindings.every((binding) => binding.actor === OWNER)).toBe(true);
     expect(
       body.bindings.every((binding) => binding.not_after === Math.floor(DEADLINE_MS / 1000))
     ).toBe(true);
-    expect(endpoint.methods('merged')).not.toContain('lx_getSequence');
+    expect(endpoint.methods('chain')).not.toContain('lx_getSequence');
     const nonceReads = endpoint.seen.filter(
-      (entry) => entry.scope === 'merged' && entry.methods.includes('eth_getTransactionCount')
+      (entry) => entry.scope === 'chain' && entry.methods.includes('eth_getTransactionCount')
     );
     expect(nonceReads).toHaveLength(1);
     expect(nonceReads[0].body).toMatchObject({
@@ -157,15 +149,18 @@ describe('KernelPlan', () => {
       ['committed', 'false'],
     ]);
     expect(mounted.all('[data-stage]').map((stage) => stage.getAttribute('data-state'))).toEqual([
-      'done',
-      'done',
       'processing',
     ]);
     expect(endpoint.unmatched).toEqual([]);
-  });
+  }
+
+  it(
+    kernel_plan_presents_and_submits_the_merged_chain_plan.name,
+    kernel_plan_presents_and_submits_the_merged_chain_plan
+  );
 
   it('shows the service refusal when the plan does not match', async () => {
-    const mounted = await render('available');
+    const mounted = await render('chain');
     await mounted.until(() => mounted.query('[data-kernel="available"]') !== null, 'kernel state');
     await fill(mounted, '400000');
     await mounted.click('button[name="plan"]');
@@ -175,9 +170,11 @@ describe('KernelPlan', () => {
   });
 
   it.each([
-    ['kernel-unreachable', 'The LayerX kernel is unreachable'],
-    ['no-finalised-checkpoint', 'The LayerX kernel has no finalised checkpoint on the chain yet'],
-    ['kernel-not-configured', 'The LayerX kernel is not configured on the endpoint'],
+    ['kernel-unreachable', 'The chain node is catching up or unreachable.'],
+    ['no-finalised-checkpoint', 'The chain node is catching up or unreachable.'],
+    ['kernel-not-configured', 'The chain node is catching up or unreachable.'],
+    ['consensus-unavailable', 'The chain node is catching up or unreachable.'],
+    ['consensus-catching-up', 'The chain node is catching up or unreachable.'],
   ] as const)(
     'disables planning with the reason when the kernel is %s',
     async (scenario, reason) => {
@@ -209,7 +206,7 @@ describe('legBindings', () => {
   const window = { notBefore: 10, notAfter: 20 };
 
   async function kernel_plan_binds_legs_with_the_pending_nonce_of_the_wallet_address() {
-    const mounted = await render('merged');
+    const mounted = await render('chain');
     await mounted.until(() => mounted.query('[data-kernel="available"]') !== null, 'kernel state');
     await fill(mounted);
     await mounted.click('button[name="plan"]');
@@ -225,14 +222,14 @@ describe('legBindings', () => {
     );
 
     const nonceReads = endpoint.seen.filter(
-      (entry) => entry.scope === 'merged' && entry.methods.includes('eth_getTransactionCount')
+      (entry) => entry.scope === 'chain' && entry.methods.includes('eth_getTransactionCount')
     );
     expect(nonceReads).toHaveLength(1);
     expect(nonceReads[0].body).toMatchObject({
       method: 'eth_getTransactionCount',
       params: [OWNER, 'pending'],
     });
-    expect(endpoint.methods('merged')).not.toContain('lx_getSequence');
+    expect(endpoint.methods('chain')).not.toContain('lx_getSequence');
     const submit = endpoint.seen.find(
       (entry) => entry.scope === 'human' && entry.path === '/v1/intents/submit'
     );
@@ -246,40 +243,50 @@ describe('legBindings', () => {
         actor: binding.actor,
         account_sequence: binding.account_sequence,
       }))
-    ).toEqual([
-      { leg_index: 0, actor: OWNER, account_sequence: 4 },
-      { leg_index: 1, actor: OWNER, account_sequence: 4 },
-    ]);
+    ).toEqual([{ leg_index: 0, actor: OWNER, account_sequence: 4 }]);
     expect(endpoint.unmatched).toEqual([]);
   }
 
   test(
-    kernel_plan_binds_legs_with_the_pending_nonce_of_the_wallet_address,
+    kernel_plan_binds_legs_with_the_pending_nonce_of_the_wallet_address.name,
     kernel_plan_binds_legs_with_the_pending_nonce_of_the_wallet_address
   );
 
-  it('consumes an account sequence only after a LayerX leg', () => {
-    const reordered = {
+  it('consumes one pending nonce for every chain transaction independent of the retained domain label', () => {
+    const transactions = {
       ...plan,
-      legs: [...plan.legs].reverse().map((leg, index) => ({ ...leg, index })),
-    };
-    const reorderedPlan = {
-      ...reordered,
-      signing_requirements: plan.signing_requirements.map((requirement, index) => ({
-        ...requirement,
-        leg_index: 1 - index,
-      })),
+      legs: [
+        { ...plan.legs[0], index: 0, domain: 'paxeer' as const },
+        { ...plan.legs[0], index: 1, domain: 'layerx' as const },
+      ],
+      signing_requirements: [
+        { ...plan.signing_requirements[0], leg_index: 0 },
+        { ...plan.signing_requirements[0], leg_index: 1 },
+      ],
     };
     expect(
-      legBindings(plan, document, 8, window, { amount: '250', currency: 'LXP' }).map(
-        (binding) => binding.account_sequence
-      )
-    ).toEqual([8, 8]);
-    expect(
-      legBindings(reorderedPlan, document, 8, window, { amount: '250', currency: 'LXP' }).map(
+      legBindings(transactions, document, 8, window, { amount: '250', currency: 'LXP' }).map(
         (binding) => binding.account_sequence
       )
     ).toEqual([8, 9]);
+    const reversed = {
+      ...transactions,
+      legs: transactions.legs.map((leg) => ({
+        ...leg,
+        domain: leg.domain === 'paxeer' ? ('layerx' as const) : ('paxeer' as const),
+      })),
+    };
+    expect(
+      legBindings(reversed, document, 8, window, { amount: '250', currency: 'LXP' }).map(
+        (binding) => binding.account_sequence
+      )
+    ).toEqual([8, 9]);
+    expect(() =>
+      legBindings(transactions, document, Number.MAX_SAFE_INTEGER, window, {
+        amount: '250',
+        currency: 'LXP',
+      })
+    ).toThrow(/sequence/);
   });
 
   it('refuses an unbound account and a leg fee above the maximum fee', () => {
@@ -290,7 +297,7 @@ describe('legBindings', () => {
       })
     ).toThrow(/not bound/);
     expect(() => legBindings(plan, document, 8, window, { amount: '7', currency: 'LXP' })).toThrow(
-      /leg 1 exceeds the maximum fee/
+      /leg 0 exceeds the maximum fee/
     );
     expect(() =>
       legBindings(plan, document, 8, window, { amount: '250', currency: 'SID' })

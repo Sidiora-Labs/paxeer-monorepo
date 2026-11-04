@@ -28,6 +28,7 @@ type Props = {
 };
 
 const ItemByColumn = ({ item, column, isLoading, chainConfig }: Props) => {
+  const currency = (chainConfig ?? config).chain.currency;
   switch (column) {
     case 'tx_hash':
       return <TxEntity truncation="constant" hash={ item.hash } isLoading={ isLoading } noIcon fontWeight={ 700 }/>;
@@ -86,6 +87,8 @@ const ItemByColumn = ({ item, column, isLoading, chainConfig }: Props) => {
         return (
           <NativeCoinValue
             amount={ item.value }
+            decimals={ currency.decimals }
+            asset={ currency.symbol }
             noSymbol
             loading={ isLoading }
           />
@@ -96,11 +99,13 @@ const ItemByColumn = ({ item, column, isLoading, chainConfig }: Props) => {
     case 'asset':
       return item.token ?
         <TokenEntity token={ item.token } isLoading={ isLoading } fontWeight={ 700 } onlySymbol noCopy/> :
-        <Skeleton loading={ isLoading } fontWeight={ 700 }>{ config.chain.currency.symbol }</Skeleton>;
+        <Skeleton loading={ isLoading } fontWeight={ 700 }>{ currency.symbol }</Skeleton>;
     case 'fee':
       return (
         <NativeCoinValue
           amount={ item.fee }
+          decimals={ currency.decimals }
+          asset={ currency.symbol }
           noSymbol
           loading={ isLoading }
         />

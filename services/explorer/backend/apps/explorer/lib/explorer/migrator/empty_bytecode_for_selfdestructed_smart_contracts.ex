@@ -1,26 +1,25 @@
 defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContracts do
   @moduledoc """
-  Finds all existing selfdestruct internal transactions and empties the contract_code
-  for addresses that still have bytecode, excluding contracts that were created and
-  selfdestructed in the same transaction.
+  Repairs bytecode for canonical SELFDESTRUCT history using the configured Cancun
+  activation and committed chain state. Before Cancun every successful destruction
+  can delete code; after Cancun only transaction-local creations can be deleted.
 
-  This migration processes blocks from the head of the chain down to the first block,
-  identifying selfdestruct operations and clearing the bytecode of affected contracts.
+  Code is reconciled at the newest imported canonical block, so historical
+  destructions cannot erase a later deployment at the same address.
   """
 
   use Explorer.Migrator.FillingMigration
 
   import Ecto.Query
 
-  alias Explorer.Chain.{Address, Data, InternalTransaction}
+  alias Explorer.Chain.{Address, Block, Import, InternalTransaction, Transaction}
+  alias Explorer.Chain.Import.Runner.InternalTransactions
   alias Explorer.Chain.Cache.BlockNumber
+  alias Explorer.ChainSpec.GenesisData
   alias Explorer.Migrator.{FillingMigration, MigrationStatus}
   alias Explorer.Repo
 
-  require Logger
-
   @migration_name "empty_bytecode_for_selfdestructed_smart_contracts"
-  @empty_contract_code %Data{bytes: <<>>}
 
   @impl FillingMigration
   def migration_name, do: @migration_name
@@ -61,91 +60,145 @@ defmodule Explorer.Migrator.EmptyBytecodeForSelfdestructedSmartContracts do
   def unprocessed_data_query, do: nil
 
   @impl FillingMigration
+  def update_batch([]), do: {:ok, []}
+
   def update_batch(block_numbers) do
-    if Enum.empty?(block_numbers) do
-      {:ok, []}
-    else
-      # Find all selfdestruct internal transactions in these blocks
-      selfdestruct_query =
-        from(
-          it in InternalTransaction,
-          where: it.block_number in ^block_numbers,
-          where: it.type == :selfdestruct,
-          select: %{
-            transaction_hash: it.transaction_hash,
-            from_address_hash: it.from_address_hash,
-            block_number: it.block_number
-          }
-        )
+    activation = cancun_activation()
 
-      selfdestruct_transactions = Repo.all(selfdestruct_query, timeout: :infinity)
-
-      if Enum.empty?(selfdestruct_transactions) do
-        {:ok, []}
-      else
-        # Get unique transaction hashes to check for create/create2
-        transaction_hashes =
-          selfdestruct_transactions
-          |> Enum.map(& &1.transaction_hash)
-          |> Enum.uniq()
-
-        # Find all create/create2 internal transactions in the same transactions
-        create_query =
-          from(
-            it in InternalTransaction,
-            where: it.transaction_hash in ^transaction_hashes,
-            where: it.type in [:create, :create2],
-            select: %{
-              transaction_hash: it.transaction_hash,
-              created_contract_address_hash: it.created_contract_address_hash
-            }
-          )
-
-        created_contracts = Repo.all(create_query, timeout: :infinity)
-
-        # Build a set of {transaction_hash, address_hash} for contracts created in same tx
-        created_in_same_tx =
-          created_contracts
-          |> Enum.map(&{&1.transaction_hash, &1.created_contract_address_hash})
-          |> MapSet.new()
-
-        # Filter to find addresses that were selfdestructed but NOT created in the same transaction
-        addresses_to_empty =
-          selfdestruct_transactions
-          |> Enum.reject(fn sd ->
-            MapSet.member?(created_in_same_tx, {sd.transaction_hash, sd.from_address_hash})
-          end)
-          |> Enum.map(& &1.from_address_hash)
-          |> Enum.uniq()
-
-        if Enum.empty?(addresses_to_empty) do
-          {:ok, []}
-        else
-          # Only update addresses that still have non-empty contract_code
-          update_query =
-            from(
-              address in Address,
-              where: address.hash in ^addresses_to_empty,
-              where: not is_nil(address.contract_code),
-              where: fragment("octet_length(?) > 0", address.contract_code),
-              update: [set: [contract_code: ^@empty_contract_code]],
-              select: address.hash
+    result =
+      Repo.transaction(
+        fn ->
+          destructions =
+            Repo.all(
+              from(it in InternalTransaction,
+                join: transaction in Transaction,
+                on: transaction.hash == it.transaction_hash,
+                join: block in Block,
+                on: block.hash == transaction.block_hash and block.number == it.block_number,
+                where: block.consensus == true and it.block_number in ^block_numbers,
+                where: it.type == :selfdestruct and is_nil(it.error),
+                select: %{
+                  transaction_hash: it.transaction_hash,
+                  from_address_hash: it.from_address_hash,
+                  block_number: block.number,
+                  timestamp: block.timestamp
+                }
+              ),
+              timeout: :infinity
             )
 
-          {count, updated_hashes} = Repo.update_all(update_query, [], timeout: :infinity)
+          case destructions do
+            [] ->
+              []
 
-          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
-          if count > 0 do
-            Logger.info(
-              "Emptied contract_code for #{count} selfdestructed contracts in blocks #{inspect(block_numbers)}: #{inspect(updated_hashes, limit: :infinity)}"
-            )
+            _ ->
+              transaction_hashes = Enum.map(destructions, & &1.transaction_hash)
+
+              created_in_same_tx =
+                Repo.all(
+                  from(it in InternalTransaction,
+                    join: transaction in Transaction,
+                    on: transaction.hash == it.transaction_hash,
+                    join: block in Block,
+                    on: block.hash == transaction.block_hash and block.number == it.block_number,
+                    where: block.consensus == true and it.transaction_hash in ^transaction_hashes,
+                    where: it.type in [:create, :create2] and is_nil(it.error),
+                    select: {it.transaction_hash, it.created_contract_address_hash}
+                  ),
+                  timeout: :infinity
+                )
+                |> MapSet.new()
+
+              candidates =
+                destructions
+                |> Enum.filter(fn destruction ->
+                  before_cancun?(activation, destruction) or
+                    MapSet.member?(created_in_same_tx, {destruction.transaction_hash, destruction.from_address_hash})
+                end)
+                |> Enum.map(& &1.from_address_hash)
+                |> Enum.uniq()
+
+              addresses =
+                Repo.all(
+                  from(address in Address,
+                    where: address.hash in ^candidates,
+                    where: not is_nil(address.contract_code),
+                    where: fragment("octet_length(?) > 0", address.contract_code),
+                    select: address.hash
+                  ),
+                  timeout: :infinity
+                )
+
+              case InternalTransactions.reconcile_selfdestructed_contracts_bytecode(
+                     Repo,
+                     addresses,
+                     Import.timestamps()
+                   ) do
+                {:ok, count} -> count
+                {:error, reason} -> Repo.rollback(reason)
+              end
           end
+        end,
+        timeout: :infinity
+      )
 
-          {:ok, count}
-        end
-      end
+    case result do
+      {:ok, _} -> result
+      {:error, reason} -> raise "Cannot reconcile SELFDESTRUCT bytecode: #{inspect(reason)}"
     end
   end
+
+  defp cancun_activation do
+    case Keyword.fetch(Application.get_env(:explorer, __MODULE__, []), :cancun_block) do
+      {:ok, :never} -> :never
+      {:ok, height} when is_integer(height) and height >= 0 -> {:block, height}
+      {:ok, value} -> raise "Invalid SELFDESTRUCT Cancun activation block: #{inspect(value)}"
+      :error -> chain_spec_activation()
+    end
+  end
+
+  defp chain_spec_activation do
+    case Application.get_env(:explorer, GenesisData, [])[:chain_spec_path] do
+      nil ->
+        raise "Missing SELFDESTRUCT fork schedule: configure cancun_block or a chain spec"
+
+      path ->
+        spec = path |> read_chain_spec!() |> Jason.decode!()
+
+        case spec do
+          %{"config" => config} ->
+            activation_timestamp(Map.get(config, "cancunTime"))
+
+          %{"app_state" => %{"evm" => %{"params" => %{"chain_config" => config}}}} ->
+            activation_timestamp(Map.fetch!(config, "cancun_time"))
+
+          _ ->
+            raise "Chain spec does not contain an EVM fork configuration"
+        end
+    end
+  end
+
+  defp read_chain_spec!(path) do
+    if Utils.ConfigHelper.valid_url?(path) do
+      case Explorer.HttpClient.get(path, [], timeout: 60_000, recv_timeout: 60_000) do
+        {:ok, %{status_code: 200, body: body}} -> body
+        error -> raise "Cannot read SELFDESTRUCT fork configuration: #{inspect(error)}"
+      end
+    else
+      File.read!(path)
+    end
+  end
+
+  defp activation_timestamp(nil), do: :never
+  defp activation_timestamp(-1), do: :never
+  defp activation_timestamp(value) when is_integer(value) and value >= 0, do: {:timestamp, value}
+  defp activation_timestamp("-1"), do: :never
+  defp activation_timestamp("0x" <> value), do: value |> String.to_integer(16) |> activation_timestamp()
+  defp activation_timestamp(value) when is_binary(value), do: value |> String.to_integer() |> activation_timestamp()
+
+  defp before_cancun?(:never, _destruction), do: true
+  defp before_cancun?({:block, activation}, destruction), do: destruction.block_number < activation
+  defp before_cancun?({:timestamp, activation}, destruction), do: DateTime.to_unix(destruction.timestamp) < activation
 
   @impl FillingMigration
   def update_cache, do: :ok

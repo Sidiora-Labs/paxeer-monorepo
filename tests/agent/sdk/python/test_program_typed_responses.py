@@ -7,6 +7,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import cast
 
 from layerx_sdk import AgentHttpTransport, ProductionClient
+from layerx_sdk.agent_http import AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential
+from layerx_sdk.production import SecretBytes
 from layerx_sdk.programs import (
     ProgramDiscovery,
     ProgramInterface,
@@ -18,6 +20,61 @@ from layerx_sdk.verifier import LocalSignatureVerifier
 
 
 class TypedProgramResponseTests(unittest.TestCase):
+    def test_current_envelope_preserves_achieved_and_unverified(self) -> None:
+        from test_program_trust import discovery, envelope
+        from layerx_sdk.programs import _discovery
+
+        statuses = []
+        current = discovery(9, 1000, 2000, "44" * 32)
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                statuses.append((self.path, self.headers["Content-Type"], request))
+                body = json.loads(envelope(current, achieved=len(statuses) == 2))
+                body["request_id"] = request["request_id"]
+                encoded = json.dumps(body).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+
+            def log_message(self, _format, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        secret = SecretBytes(b"44" * 32)
+        try:
+            session = AgentSessionCredential("owner", "11" * 32, "22" * 32, 7)
+            client = ProductionClient(AgentEnvelopeTransport(
+                f"http://127.0.0.1:{server.server_port}",
+                gateway_key=LayerXKeyCredential("owner", secret), session=session))
+            expected_statuses = (
+                {"state": "unverified", "requested": "receipted", "achieved": "submitted",
+                 "reason": "server_side_receipt_verification_only"},
+                {"state": "achieved", "rung": "receipted"},
+            )
+            for expected in expected_statuses:
+                response = client.agent("program.discover", {"program_id": current["program_id"]})
+                self.assertEqual(dict(response.verification_status), expected)
+                typed = _discovery(response.value, current["program_id"], 1500)
+                self.assertIsInstance(typed, ProgramDiscovery)
+                self.assertEqual(typed.verification, "server-side-receipt-verification-only")
+                self.assertFalse(typed.sequencer_signature_verified)
+            self.assertEqual(len(statuses), 2)
+            for path, content_type, request in statuses:
+                self.assertEqual((path, content_type), ("/v1/agent/rpc", "application/json"))
+                self.assertEqual(request["credential"], session.coordinates())
+                self.assertIsNone(request["idempotency_key"])
+        finally:
+            secret.destroy()
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
     def test_discovery_and_interface_are_typed_and_honest_about_server_verification(self) -> None:
         program_id = "11" * 32
         common = {
@@ -42,7 +99,7 @@ class TypedProgramResponseTests(unittest.TestCase):
             def do_GET(self) -> None:
                 value = interface if self.path.endswith("/interface") else discovery
                 encoded = json.dumps({"request_id": "1", "value": value,
-                    "verification_status": {"state": "Unverified", "requested": "receipted",
+                    "verification_status": {"state": "unverified", "requested": "receipted",
                         "achieved": "submitted", "reason": "server_side_receipt_verification_only"}},
                     separators=(",", ":")).encode()
                 self.send_response(200); self.send_header("Content-Type", "application/json")

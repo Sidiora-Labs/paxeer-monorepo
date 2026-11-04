@@ -70,7 +70,7 @@ type PublicStatsProjector struct {
 }
 
 func NewPublicStatsProjector(c PublicStatsConfig) (*PublicStatsProjector, error) {
-	if c.Reads == nil || c.Reads.repository == nil || !schemaName.MatchString(c.HolderSchema) || !schemaName.MatchString(c.StreamSchema) || c.Batch < 1 || c.Batch > 100 {
+	if c.Reads == nil || c.Reads.repository == nil || !schemaName.MatchString(c.HolderSchema) || c.StreamSchema != publicStreamSchema || c.Batch < 1 || c.Batch > 100 {
 		return nil, ErrInvalid
 	}
 	return &PublicStatsProjector{reads: c.Reads, holders: c.HolderSchema, stream: c.StreamSchema, batch: c.Batch}, nil
@@ -78,10 +78,11 @@ func NewPublicStatsProjector(c PublicStatsConfig) (*PublicStatsProjector, error)
 
 // PublicStatsResult reports one refresh pass.
 type PublicStatsResult struct {
-	Pools    int
-	Appended int
-	Prices   int
-	Anchor   *Position
+	Pools       int
+	Appended    int
+	Prices      int
+	Anchor      *Position
+	FailedPools []string
 }
 
 // RefreshOnce recomputes every canonical pool's public statistics and appends a
@@ -93,6 +94,7 @@ func (p *PublicStatsProjector) RefreshOnce(ctx context.Context, now time.Time) (
 		return out, ErrInvalid
 	}
 	after := ""
+	var failures error
 	for {
 		if err := ctx.Err(); err != nil {
 			return out, err
@@ -101,6 +103,8 @@ func (p *PublicStatsProjector) RefreshOnce(ctx context.Context, now time.Time) (
 		if err != nil {
 			return out, err
 		}
+		failures = errors.Join(failures, page.failure)
+		out.FailedPools = append(out.FailedPools, page.failedPools...)
 		out.Pools += page.pools
 		out.Appended += page.appended
 		out.Prices += page.prices
@@ -109,7 +113,7 @@ func (p *PublicStatsProjector) RefreshOnce(ctx context.Context, now time.Time) (
 			out.Anchor = &anchor
 		}
 		if !page.more {
-			return out, nil
+			return out, failures
 		}
 		after = page.last
 	}
@@ -120,6 +124,8 @@ type publicStatsPage struct {
 	more                    bool
 	last                    string
 	anchor                  *Position
+	failure                 error
+	failedPools             []string
 }
 
 type publicAnchor struct {
@@ -192,33 +198,57 @@ func (p *PublicStatsProjector) refreshPage(ctx context.Context, after string, no
 		return page, err
 	}
 	for _, c := range pools {
-		doc, last, err := p.poolStatsTx(ctx, tx, anchor, emitters, c.pool, c.token, c.creator, c.created)
+		// A savepoint keeps a failed pool (including a SQL failure) from
+		// rolling back healthy pools or starving later pages. The returned
+		// error keeps the runtime's public-market-stats readiness unhealthy.
+		poolTx, err := tx.Begin(ctx)
 		if err != nil {
-			return page, fmt.Errorf("stats public pool %s: %w", c.pool, err)
+			return page, err
 		}
-		appended, err := p.appendTx(ctx, tx, anchor, doc, observedAt)
-		if err != nil {
-			return page, fmt.Errorf("stats public pool %s: %w", c.pool, err)
-		}
-		if appended {
-			page.appended++
-		}
-		if last != nil {
-			priced, err := p.appendPriceTx(ctx, tx, *last, observedAt)
-			if err != nil {
-				return page, fmt.Errorf("stats public price %s: %w", c.pool, err)
+		appended, priced, poolErr := p.refreshPoolTx(ctx, poolTx, anchor, emitters, c.pool, c.token, c.creator, c.created, observedAt)
+		if poolErr != nil {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+			rollbackErr := poolTx.Rollback(cleanup)
+			cancel()
+			if rollbackErr != nil {
+				return page, errors.Join(poolErr, rollbackErr)
+			}
+			page.failure = errors.Join(page.failure, fmt.Errorf("stats public pool %s: %w", c.pool, poolErr))
+			page.failedPools = append(page.failedPools, c.pool)
+		} else {
+			if err = poolTx.Commit(ctx); err != nil {
+				return page, err
+			}
+			if appended {
+				page.appended++
 			}
 			if priced {
 				page.prices++
 			}
+			page.pools++
 		}
-		page.pools++
 		page.last = c.pool
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return page, err
 	}
 	return page, nil
+}
+
+func (p *PublicStatsProjector) refreshPoolTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool, token, creator string, created int64, observedAt time.Time) (bool, bool, error) {
+	doc, last, err := p.poolStatsTx(ctx, tx, anchor, emitters, pool, token, creator, created)
+	if err != nil {
+		return false, false, err
+	}
+	appended, err := p.appendTx(ctx, tx, anchor, doc, observedAt)
+	if err != nil {
+		return false, false, err
+	}
+	priced := false
+	if last != nil {
+		priced, err = p.appendPriceTx(ctx, tx, *last, observedAt)
+	}
+	return appended, priced, err
 }
 
 // anchorTx selects the latest committed canonical market event (fill or pool
@@ -423,51 +453,116 @@ type syncEvent struct {
 	realReserve *big.Int
 }
 
-// syncEventsTx returns the pool's PoolStateUpdated (syncReserves) events at or
-// below the anchor, oldest first.
-func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool string) ([]syncEvent, error) {
-	if len(emitters) == 0 {
-		return []syncEvent{}, nil
+// PublicStatsDDL is the stats-owned baseline checkpoint migration. It must be
+// registered by the database migration owner before this projector is enabled.
+const PublicStatsDDL = `CREATE TABLE %[1]s.public_stats_sync_baselines (
+ projection_version text NOT NULL,pool text NOT NULL,checkpoint_key text NOT NULL,
+ events jsonb NOT NULL CHECK(jsonb_typeof(events)='array' AND jsonb_array_length(events)<=256),
+ PRIMARY KEY(projection_version,pool));`
+
+type syncRecord struct {
+	Height           string
+	TransactionIndex string
+	LogIndex         string
+	Topics           []byte
+	Data             []byte
+}
+
+func decodeSyncRecords(records []syncRecord, anchor publicAnchor, pool string) ([]syncEvent, error) {
+	if len(records) > publicStatsMaxSyncEvents {
+		return nil, ErrUnavailable
 	}
-	rows, err := tx.Query(ctx, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "+p.reads.source("indexer_raw_logs_v1")+" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) ORDER BY height,transaction_index,log_index LIMIT $7", emitters, poolStateUpdatedTopic, poolTopic(pool), anchor.Height, anchor.TransactionIndex, anchor.LogIndex, publicStatsMaxSyncEvents+1)
+	ah, at, al, err := positionInts(anchor.Height, anchor.TransactionIndex, anchor.LogIndex)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	upper := priceEvent{height: ah, transactionIndex: at, logIndex: al}
 	out := []syncEvent{}
-	for rows.Next() {
-		var height, transactionIndex, logIndex string
-		var topicsRaw, data []byte
-		if err = rows.Scan(&height, &transactionIndex, &logIndex, &topicsRaw, &data); err != nil {
-			return nil, err
-		}
+	for _, r := range records {
 		var topics []string
-		if json.Unmarshal(topicsRaw, &topics) != nil || len(topics) != 2 {
+		if json.Unmarshal(r.Topics, &topics) != nil || len(topics) != 2 || strings.ToLower(topics[0]) != poolStateUpdatedTopic || strings.ToLower(topics[1]) != poolTopic(pool) {
 			return nil, ErrIntegrity
 		}
-		words, err := abiWords(data, 6)
+		words, err := abiWords(r.Data, 6)
 		if err != nil {
 			return nil, err
 		}
 		var e syncEvent
-		if e.height, e.transactionIndex, e.logIndex, err = positionInts(height, transactionIndex, logIndex); err != nil {
+		if e.height, e.transactionIndex, e.logIndex, err = positionInts(r.Height, r.TransactionIndex, r.LogIndex); err != nil {
 			return nil, err
 		}
-		if !words[4].IsInt64() || words[5].Cmp(e.height) != 0 {
+		if !words[4].IsInt64() || words[4].Sign() < 0 || words[4].Int64() > anchor.timestamp || words[5].Cmp(e.height) != 0 || e.after(&upper) {
 			return nil, ErrIntegrity
 		}
-		e.timestamp = words[4].Int64()
-		e.price = words[3]
-		e.realReserve = words[1]
+		e.timestamp, e.price, e.realReserve = words[4].Int64(), words[3], words[1]
 		out = append(out, e)
 	}
-	if err = rows.Err(); err != nil {
+	sort.Slice(out, func(i, j int) bool { return out[j].after(&out[i].priceEvent) })
+	return out, nil
+}
+
+// syncEventsTx checkpoints the last reserve reset and each window's preceding
+// reset, rather than loading the pool's entire lifetime. Raw ABI timestamps are
+// compared as unsigned, fixed-width big-endian words; selected rows are decoded
+// and verified before the checkpoint can be committed with the public frames.
+func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool string) ([]syncEvent, error) {
+	if len(emitters) == 0 {
+		return []syncEvent{}, nil
+	}
+	identity, err := json.Marshal([]any{anchor.Position, anchor.timestamp, emitters, p.reads.config.SourceSchema, p.reads.config.SourceStream})
+	if err != nil {
 		return nil, err
 	}
-	if len(out) > publicStatsMaxSyncEvents {
-		return nil, ErrUnavailable
+	key := digestBytes(identity)
+	table := p.reads.repository.schema + ".public_stats_sync_baselines"
+	var priorKey string
+	var raw []byte
+	err = tx.QueryRow(ctx, "SELECT checkpoint_key,events FROM "+table+" WHERE projection_version=$1 AND pool=$2", p.reads.config.ProjectionVersion, pool).Scan(&priorKey, &raw)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
 	}
-	return out, nil
+	if err == nil && priorKey == key {
+		var records []syncRecord
+		if len(raw) > 256*1024 || json.Unmarshal(raw, &records) != nil {
+			return nil, ErrIntegrity
+		}
+		return decodeSyncRecords(records, anchor, pool)
+	}
+	records := []syncRecord{}
+	// Latest reset for reserves/current price, then the predecessor of every
+	// price window. Each lookup returns at most one event, regardless of age.
+	cutoffs := []int64{anchor.timestamp + 1, anchor.timestamp + 1 - publicStatsWindowSeconds}
+	for _, seconds := range publicChangeWindows {
+		cutoffs = append(cutoffs, anchor.timestamp+1-seconds)
+	}
+	for i, cutoff := range cutoffs {
+		if cutoff <= 0 {
+			continue
+		}
+		var word []byte
+		if i > 0 {
+			word = new(big.Int).SetInt64(cutoff).FillBytes(make([]byte, 32))
+		}
+		var r syncRecord
+		err = tx.QueryRow(ctx, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "+p.reads.source("indexer_raw_logs_v1")+" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1", emitters, poolStateUpdatedTopic, poolTopic(pool), anchor.Height, anchor.TransactionIndex, anchor.LogIndex, word).Scan(&r.Height, &r.TransactionIndex, &r.LogIndex, &r.Topics, &r.Data)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, r)
+	}
+	events, err := decodeSyncRecords(records, anchor, pool)
+	if err != nil {
+		return nil, err
+	}
+	raw, err = json.Marshal(records)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.Exec(ctx, "INSERT INTO "+table+"(projection_version,pool,checkpoint_key,events) VALUES($1,$2,$3,$4) ON CONFLICT(projection_version,pool) DO UPDATE SET checkpoint_key=excluded.checkpoint_key,events=excluded.events", p.reads.config.ProjectionVersion, pool, key, raw)
+	return events, err
 }
 
 // committedFill is a committed market fill with its stats commit identity.

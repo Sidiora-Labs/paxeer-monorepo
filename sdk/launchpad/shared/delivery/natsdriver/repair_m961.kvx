@@ -1,0 +1,9 @@
+[repair.22.33.961]
+findings = ["broker-fence-runtime-wiring", "broker-fence-resume", "broker-fence-crash-tests"]
+broker-fence-runtime-wiring = "TestRepairM_961_RuntimeWiring: admitted actor invokes production FenceAndBind through the NATS client and consumes the verified proof in the durable journal; unauthorized and different-proposal operations are rejected."
+broker-fence-resume = "TestRepairM_961_RestartRecovery: discard controllers and reconnect authorities after publication, reload and between members; reopen the actual durable journal, finish every member and repeat old authentication, publish and original acknowledgement denials."
+broker-fence-crash-tests = "TestRepairM_961_RestartRecovery and TestRepairM_961_RejectChangedAuthorityAndConfig; TestEpochRealBrokerInterruptedMembersResume extends the separately admitted real NATS suite with the same interruption matrix."
+baseline = "Not run: the explicit gate order prohibits verification before complete implementation and prohibits running verify_cmd by hand; no pre-change failing test is claimed."
+fixture = "Committed loopback NATS/JetStream protocol fixture; production controller, NATS client, producer, codec, config publication, reload requests and file journal. No environment variables, external service, binary or subprocess toolchain. The external real-NATS matrix is compiled but is not the bounded gate."
+wiring_request = "Domain 4: deploy/launchpad/production/recovery/phase2/broker/main.go must accept the pinned replacement configuration on restart and call FenceAndBind with a session_user-bound actor; preserve the phase2/operator.py validation and activate_fenced_v3 admission requirements. Existing caller, command and coordinator remain outside this task's scope."
+evidence = "The private hf-build/hf-done ledger binds the exact verified candidate revision, command, exit and log; the runner publishes that revision with this record."
