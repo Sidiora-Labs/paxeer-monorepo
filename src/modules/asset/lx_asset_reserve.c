@@ -1,4 +1,7 @@
-#include "layerx/lx_asset.h"
+#include "lx_asset_history.h"
+#include "lx_asset_native.h"
+
+#include "layerx/lxp_crypto.h"
 
 #include <string.h>
 
@@ -31,7 +34,7 @@ static lxp_u128 *bucket(lx_asset_reserve_report_record *report,
     }
 }
 
-lxp_result lx_asset_reserve_report(
+lxp_result lx_asset_historical_reserve_report_v1(
     const lx_account_registry *accounts,
     const lx_asset_custody_attestation *attestation,
     lx_asset_reserve_report_record *report)
@@ -73,12 +76,12 @@ lxp_result lx_asset_reserve_report(
     return status == LXP_OK ? LXP_OK : LXP_FATAL_SUPPLY_MISMATCH;
 }
 
-lxp_result lx_asset_reserve_reconcile(
+lxp_result lx_asset_historical_reserve_reconcile_v1(
     const lx_account_registry *accounts,
     const lx_asset_custody_attestation *attestation,
     lx_asset_reserve_report_record *report)
 {
-    lxp_result status = lx_asset_reserve_report(accounts, attestation, report);
+    lxp_result status = lx_asset_historical_reserve_report_v1(accounts, attestation, report);
     if (status != LXP_OK ||
         lxp_u128_cmp(report->circulating, report->expected_backing) > 0 ||
         lxp_u128_cmp(report->effective_total, report->expected_backing) != 0)
@@ -86,7 +89,7 @@ lxp_result lx_asset_reserve_reconcile(
     return LXP_OK;
 }
 
-lxp_result lx_asset_reserve_report_encode(
+lxp_result lx_asset_historical_reserve_encode_v1(
     const lx_asset_reserve_report_record *report,
     uint8_t *bytes, size_t capacity, size_t *length)
 {
@@ -134,28 +137,118 @@ lxp_result lx_asset_reserve_report_encode(
     return LXP_OK;
 }
 
-lxp_result lx_asset_supply_check(
-    const lx_asset_registry *assets, const lx_account_registry *accounts,
-    const lx_asset_custody_attestation *attestations,
-    size_t attestation_count)
+lxp_result lx_asset_native_reconcile(const lx_asset_record *asset,
+    const lx_account_registry *accounts, lx_asset_native_supply_report *report)
 {
-    size_t i;
-    if (assets == NULL || accounts == NULL || attestations == NULL ||
+    lx_asset_native_supply_report candidate = {0};
+    uint8_t issuance_name[LX_ASSET_ISSUANCE_NAME_BYTES];
+    uint8_t issuance_id[32];
+    lxp_u128 limit;
+    lxp_u128 total;
+    if (asset == NULL || accounts == NULL || report == NULL ||
+        accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
+        lx_account_registry_index_validate(accounts) != LXP_OK ||
+        lxp_ct_is_zero(asset->asset_id, 32U) ||
+        lx_asset_issuance_name(asset->asset_id, issuance_name, issuance_id) != LXP_OK)
+        return LXP_FATAL_SUPPLY_MISMATCH;
+    memcpy(candidate.asset_id, asset->asset_id, 32U);
+    candidate.registered_units = asset->total_units;
+    limit = lxp_u128_is_zero(asset->supply_cap) ?
+        (lxp_u128){UINT64_MAX, UINT64_MAX} : asset->supply_cap;
+    if (lxp_u128_cmp(asset->total_units, limit) > 0)
+        return LXP_FATAL_SUPPLY_MISMATCH;
+    for (size_t i = 0U; i < accounts->count; ++i) {
+        const lx_account *account = &accounts->accounts[i];
+        if (!account->has_asset ||
+            memcmp(account->asset_id, asset->asset_id, 32U) != 0) continue;
+        if (memcmp(account->id, issuance_id, 32U) == 0) {
+            if (candidate.issuance_present || account->kind != LX_ACCOUNT_MODULE_VALUE ||
+                account->name_length != sizeof(issuance_name) ||
+                memcmp(account->name, issuance_name, sizeof(issuance_name)) != 0)
+                return LXP_FATAL_SUPPLY_MISMATCH;
+            candidate.issuance_present = true;
+            candidate.issuance_remaining = account->balance;
+        } else if (add(&candidate.bank_units, account->balance) != LXP_OK) {
+            return LXP_FATAL_SUPPLY_MISMATCH;
+        }
+    }
+    if ((asset->issuer_kind == 1U && !candidate.issuance_present) ||
+        lxp_u128_cmp(candidate.bank_units, candidate.registered_units) != 0)
+        return LXP_FATAL_SUPPLY_MISMATCH;
+    if (candidate.issuance_present &&
+        (lxp_u128_add(candidate.bank_units, candidate.issuance_remaining, &total) != LXP_OK ||
+         lxp_u128_cmp(total, limit) != 0))
+        return LXP_FATAL_SUPPLY_MISMATCH;
+    *report = candidate;
+    return LXP_OK;
+}
+
+lxp_result lx_asset_native_supply_check(const lx_asset_registry *assets,
+    const lx_account_registry *accounts)
+{
+    if (assets == NULL || accounts == NULL ||
         assets->count > LX_ASSET_REGISTRY_CAPACITY ||
         accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
-        attestation_count > LX_ASSET_REGISTRY_CAPACITY)
+        lx_account_registry_index_validate(accounts) != LXP_OK)
         return LXP_FATAL_SUPPLY_MISMATCH;
-    for (i = 0U; i < assets->count; ++i) {
-        lx_asset_reserve_report_record report;
-        size_t j;
-        for (j = 0U; j < attestation_count; ++j)
-            if (memcmp(assets->assets[i].asset_id,
-                       attestations[j].asset_id, 32U) == 0) break;
-        if (j == attestation_count ||
-            lx_asset_reserve_reconcile(accounts, &attestations[j], &report) !=
-                LXP_OK ||
-            lxp_u128_cmp(assets->assets[i].total_units, report.raw_total) != 0)
+    for (size_t i = 0U; i < assets->count; ++i) {
+        lx_asset_native_supply_report report;
+        for (size_t j = 0U; j < i; ++j)
+            if (memcmp(assets->assets[i].asset_id, assets->assets[j].asset_id, 32U) == 0)
+                return LXP_FATAL_SUPPLY_MISMATCH;
+        if (lx_asset_native_reconcile(&assets->assets[i], accounts, &report) != LXP_OK)
             return LXP_FATAL_SUPPLY_MISMATCH;
     }
+    for (size_t i = 0U; i < accounts->count; ++i) {
+        const lx_account *account = &accounts->accounts[i];
+        size_t asset;
+        if (!account->has_asset) {
+            if (!lxp_u128_is_zero(account->balance)) return LXP_FATAL_SUPPLY_MISMATCH;
+            continue;
+        }
+        for (asset = 0U; asset < assets->count; ++asset)
+            if (memcmp(account->asset_id, assets->assets[asset].asset_id, 32U) == 0) break;
+        if (asset == assets->count) return LXP_FATAL_SUPPLY_MISMATCH;
+    }
     return LXP_OK;
+}
+
+lxp_result lx_asset_supply_check(const lx_asset_registry *assets,
+    const lx_account_registry *accounts,
+    const lx_asset_custody_attestation *attestations, size_t attestation_count)
+{
+    /* Old ABI accepts native reconciliation only; custody callers must migrate. */
+    if (attestations != NULL || attestation_count != 0U)
+        return LXP_FATAL_SUPPLY_MISMATCH;
+    return lx_asset_native_supply_check(assets, accounts);
+}
+
+lxp_result lx_asset_reserve_report(const lx_account_registry *accounts,
+    const lx_asset_custody_attestation *attestation,
+    lx_asset_reserve_report_record *report)
+{
+    (void)accounts;
+    (void)attestation;
+    (void)report;
+    return LXP_ERR_VERSION_UNSUPPORTED;
+}
+
+lxp_result lx_asset_reserve_reconcile(const lx_account_registry *accounts,
+    const lx_asset_custody_attestation *attestation,
+    lx_asset_reserve_report_record *report)
+{
+    (void)accounts;
+    (void)attestation;
+    (void)report;
+    return LXP_ERR_VERSION_UNSUPPORTED;
+}
+
+lxp_result lx_asset_reserve_report_encode(const lx_asset_reserve_report_record *report,
+    uint8_t *bytes, size_t capacity, size_t *length)
+{
+    (void)report;
+    (void)bytes;
+    (void)capacity;
+    (void)length;
+    return LXP_ERR_VERSION_UNSUPPORTED;
 }
