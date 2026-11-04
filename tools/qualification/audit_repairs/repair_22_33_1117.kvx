@@ -1,0 +1,43 @@
+[repair]
+task = "22.33.1117"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+harness_revision = "1b76b8e70549f6cd71a758b4014e7f7682d7fd44"
+implementation = "Replace the private checkout and unstable defaults with explicit installed paths, an immutable apalache-tests revision and a required full Apalache commit; validate clean checkouts, executable and system prerequisites before generation; pass the entire unchanged benchmark CSV through the pinned generator, sequential batch, log parser and strict twelve-result consumer; retain fresh private revision-tagged archives including failures. Document setup, exact paths, pinning and proof limits in Synopsis.md."
+source_proof = "The pytest module parses run.sh with bash -n, asserts guarded prerequisites and immutable revisions before archive creation, parses the generator/parser/consumer command arguments with shlex, and checks the exact CSV transport, sequential runner, revision-tagged output paths, private permissions, traced commands and propagated exit code. It imports the production experiment.py consumer and drives its real argparse entry point in-process with the committed historical producer CSV; it rejects missing, duplicate, extra, wrong-ID, wrong-tool and unsuccessful results, missing status columns and drift in every benchmark field. Hash assertions retain the exact historical inputs, results and report. Synopsis and this record are checked for finding coverage and honest evidence boundaries."
+review_only = "The external harness, generated experiment shells, Java/Apalache execution, ignored artifact-to-source correspondence, actual tool compatibility and new model-checking results are not executed or proven by this Python gate. The harness CLI was reviewed at the recorded upstream commit: mk-run.py takes config/apalacheDir/specDir/outDir and parse-logs.py takes expDir and --output. This revision's Makefile.common still passes obsolete --ini while the generator accepts --iniFile, so the runner uses the scripts directly. The only subprocess in the pytest module is the explicitly required bash -n syntax parser; no model checker, build toolchain, credentials, environment configuration or live endpoint is needed. This config-drift finding changes no persistent production component or runtime protocol interface; restart-recovery and interface-mismatch execution requirements do not apply."
+baseline = "No baseline verification was run and no pre-change failing test is claimed: step 5's unchanged-tree verify conflicts with the explicit implementation-first order and the prohibition on running verify_cmd by hand before hf-done. Initial git status/diff showed only runner-prepared .cgignore and spec task status changes; no scoped implementation or repair files had changed, gate.json showed zero builds/verifications and gates.jsonl did not exist."
+build_cmd = "bash -n consensus/spec/light-client/accountability/run.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1117.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger name the exact verified content-derived revision, command, exit code and log location. Build and verification must pass on the same candidate revision. This record is finalized before gates: inserting its own candidate hash would change that revision. The runner retains evidence and commits; this task performs no manual commit or push."
+wiring_requests = []
+wiring_policy = "The proposal requires no repository edit outside this task's paths. External pinned checkouts and a private archive are explicitly provisioned prerequisites; they are not installed, generated or published by this repair. Any future missing cross-domain source change must be recorded as a one-line request naming its path and owning domain."
+
+[finding.accountability-local-harness]
+audit = "22.30.47"
+file = "consensus/spec/light-client/accountability/run.sh"
+line = 5
+class = "config-drift"
+severity = "medium"
+owner_domain = 5
+tests = ["test_runner_shell_syntax_and_explicit_pinned_locations", "test_prerequisites_guard_generation_and_archive_creation", "test_complete_csv_flows_through_pinned_generator_parser_and_consumer", "test_real_consumer_rejects_incomplete_or_unsuccessful_results", "test_real_consumer_rejects_benchmark_drift", "test_revision_tagged_private_evidence_and_failure_propagation", "test_synopsis_documents_the_runner_contract_and_proof_limits", "test_repair_record_maps_finding_tests_and_declares_evidence_boundary"]
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. After complete implementation, apply repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only; preserve Markdown conventions."
+
+[gotcha.1]
+observed = "The requested baseline run conflicts with the explicit gate order and manual-verify prohibition."
+resolution = "Follow the explicit order and claim no unrun baseline result. GOTCHA.kvx and spec files are outside scope, so task-local notes stay here."
+
+[gotcha.2]
+observed = "Broad context reads exceeded output limits; cached Codify context reports unrelated task/change counts; guessed sibling run.sh and .logs paths do not exist."
+resolution = "Use exact task/finding sections, actual Git status/diff and gate.json/ledger; no unrelated source change or gate is needed."
+
+[gotcha.3]
+observed = "The patch tool rejects deleting and adding the same path in one patch."
+resolution = "Update the existing runner in place; the rejected patch changed no files."
+
+[gotcha.4]
+observed = "The pinned harness's batch scripts can mask earlier failures, generated paths are unquoted, and its Makefile.common passes an obsolete generator option."
+resolution = "Validate shell-safe paths, call the pinned Python CLIs directly and require exactly twelve successful identified results using the real production consumer."
