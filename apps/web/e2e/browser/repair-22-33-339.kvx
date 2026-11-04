@@ -1,0 +1,13 @@
+[repair.22.33.339]
+finding = "settings-http-envelope"
+tests = ["settings_http_envelope_profile_result", "settings_http_envelope_preferences_result", "settings_http_envelope_malformed_profile", "settings_http_envelope_malformed_preferences", "settings_http_envelope_browser_wiring"]
+test_path = "apps/web/e2e/repair-22-33-339.test.ts"
+implementation = "Every direct settings response validates HTTP success and the generated ok/trace/result envelope before decoding its profile or notification preferences result; reload, persistence, privacy and non-suppressible assertions remain."
+proof = "Generated envelope and result encoders produce loopback HTTP fixtures consumed through real cookie-bearing Playwright APIRequestContext responses and the browser suite's shared reader; malformed envelope, result, HTTP and JSON cases must reject."
+baseline = "Not run: the explicit ordered implementation-first and bounded-gate instructions prohibit the audit step's requested unchanged-tree verification; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; task qualification requires hf-done to pass."
+
+[gotcha.1]
+observed = "The audit requests a baseline verify, but this task's explicit gate order prohibits testing before implementation or running verify_cmd by hand."
+resolution = "Follow the ordered gates and record the missing baseline honestly; do not claim an unchanged-tree test result."
