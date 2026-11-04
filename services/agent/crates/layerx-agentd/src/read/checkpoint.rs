@@ -10,7 +10,7 @@ use layerx_types::rung::Rung;
 use crate::receipt::TransactionReceiptEvidence;
 use sha2::{Digest as _, Sha256};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CommitTimestamp {
     pub seconds: i64,
     pub nanos: u32,
@@ -29,7 +29,7 @@ impl CommitTimestamp {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BlockId {
     pub hash: [u8; 32],
     pub part_set_total: u32,
@@ -52,7 +52,7 @@ impl BlockId {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CheckpointHeader {
     pub version_block: u64,
     pub version_app: u64,
