@@ -17,6 +17,8 @@ import {
 } from "@/core/perps/config";
 import { useOiSnapshots } from "@/hooks/perps/useAnalytics";
 
+import type { OiSnapshot } from "@/types/perps";
+
 interface OiChartProps {
   marketId: number | undefined;
   isMobile: boolean;
@@ -35,7 +37,20 @@ function parse18(val: string | null | undefined): number {
 
 export function OiChart({ marketId, isMobile }: OiChartProps) {
   const { data, isLoading } = useOiSnapshots(marketId);
+  return (
+    <OiChartContent data={data} isLoading={isLoading} isMobile={isMobile} />
+  );
+}
 
+export function OiChartContent({
+  data,
+  isLoading,
+  isMobile,
+}: {
+  data: OiSnapshot[] | undefined;
+  isLoading: boolean;
+  isMobile: boolean;
+}) {
   if (isLoading || !data) {
     return (
       <div className="rounded-card bg-surface-1 p-5 shadow-04 transition-colors ease-data duration-200">
@@ -76,7 +91,10 @@ export function OiChart({ marketId, isMobile }: OiChartProps) {
       </h3>
       <div style={{ width: "100%", height: isMobile ? 200 : 300 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <AreaChart
+            data={chartData}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          >
             <XAxis
               dataKey="date"
               tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
@@ -101,7 +119,7 @@ export function OiChart({ marketId, isMobile }: OiChartProps) {
               labelStyle={{ color: "hsl(var(--muted-foreground))" }}
               formatter={(value: number, name: string) => [
                 ANALYTICS_AXIS_FORMATTERS.compactUsd(value),
-                name === "longOi" ? "Long OI" : "Short OI",
+                name,
               ]}
             />
             <Legend />

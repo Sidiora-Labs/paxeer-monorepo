@@ -1,0 +1,33 @@
+[repair.22.33.1469]
+mode = "BUILD"
+audit = "spec/layerx-merge/programme/audit/records/22.30.85.kvx"
+acceptance = "22998.1"
+base = "38471f735e624a7c9ac2f28e4aa811685d7c8ca2"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1469.py"
+baseline = "UNRUN: no earlier gate ledger or scoped implementation existed; the explicit implementation-first order permits only hf-build then hf-done, so the conflicting request for an unchanged-tree verify was not executed and no baseline test failures are claimed."
+revision_evidence = "The final hf-done JSON and runner-owned private gates.jsonl bind this record to the exact candidate revision, command, exit code and log; no source edit is made after the successful build and verification."
+
+[finding.retired-explorer-topology]
+tests = ["test_retired_explorer_topology_removed", "test_maintained_indexer_package_image_and_configuration", "test_indexer_persistent_store_and_native_tls", "test_chain_indexer_service_and_network_transport", "test_native_readiness_and_registry_dependencies_preserved"]
+change = "Replace the retired explorer and socat boundary with the production layerx-indexer executable and published platform-indexer image; use EVM and Comet chain sources, pinned public TLS roots, chain id 125, a separate durable SQLite claim and native TLS readiness. Replace the Service and ingress together, remove retired gateway egress and the LNI bridge policy, and remove all explorer checkpoint, read-key, runtime-clock and observation dependencies."
+package = "Cargo package deployment metadata names deployment.yaml and the maintained companion Cargo manifest; the test resolves both and verifies the actual package, binary and image producer. No unused Rust dependency or retired binary is introduced."
+source_proof = "Pytest parses the complete production YAML and Cargo TOML; it checks unique resources and env keys, the real indexer package/image producer and configuration reader, EVM/Comet input references and TLS roots, persistent database and certificate mounts, native API probes, Service selector/target/listener correspondence, authorized consumer ingress, HTTPS/DNS egress and preservation of registry chain, trust and journal dependencies."
+review_only = "This bounded environment does not compile or execute Rust or run Kubernetes. Real chain ingestion, TLS handshakes, certificate SAN/trust, reachability, cursor recovery on restart, history completeness, scheduling and deployed consumer compatibility require owner qualification; these are not claimed as runtime proofs by this static retired-reference repair."
+
+[wiring.chain-inputs]
+request = "services/platform/hosted/tests/beta-cluster.sh; owner domain 8 (hosted platform): provision layerx-chain-indexer-chain with HTTPS EVM root evm-url and Comet comet-url on TCP 443 authenticated by ISRG Root X1, plus the first retained start-block; provision layerx-chain-indexer-tls with DER certificate and PKCS8 key for layerx-chain-indexer.layerx-testnet.svc.cluster.local and the consumers' trusted internal CA; stop provisioning retired explorer inputs."
+
+[wiring.consumers]
+request = "services/platform/hosted/human/web-deployment.yaml and services/platform/hosted/gateway/deployment.yaml; owner domain 8 (hosted human and gateway): adopt https://layerx-chain-indexer.layerx-testnet.svc.cluster.local:8095 and the maintained indexer API/CA contract, update consumer egress for TCP 8095, and remove retired explorer URL, token and observation configuration rather than aliasing incompatible APIs."
+
+[wiring.rollout]
+request = "services/platform/hosted/tests/beta-cluster.sh; owner domain 8 (hosted platform): coordinate StatefulSet replacement for the added indexer-state volumeClaimTemplate while retaining existing state and journal claims, remove obsolete explorer Service/policies from the cluster, and qualify indexer catch-up from the retained source floor; history before that floor needs the maintained indexer backfill procedure."
+
+[gotcha.workflow]
+observed = "The baseline-run instruction conflicts with the explicit bounded gate order; GOTCHA.kvx and spec files are outside scope, and runner changes to .cgignore and spec.kvx already existed."
+resolution = "Preserve runner setup, document the conflict here, execute only hf-build then hf-done, and leave commit/push to the runner."
+
+[gotcha.indexer-image]
+observed = "The maintained platform-indexer image defaults to an env-init wrapper with Railway backfill and TLS-volume prerequisites; the retired explorer API cannot be transparently served by the maintained indexer."
+resolution = "Override the image command with its real layerx-indexer binary, explicitly configure Kubernetes chain/TLS/persistence, and request consumer migration and any historical backfill from their owning deployment domain."

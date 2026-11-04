@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[package.metadata.layerx.deployment]
+manifest = "deployment.yaml"
+chain-indexer-manifest = "../indexer/Cargo.toml"
+
 [lib]
 name = "layerx_platform_registry"
 path = "src/lib.rs"

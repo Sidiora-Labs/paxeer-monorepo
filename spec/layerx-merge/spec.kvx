@@ -149957,7 +149957,7 @@ do_16 = "Attempt 10 (continue): all six tests and the done gate passed again, an
 
 [task.22.33.612]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.457", "22.31.479"]
@@ -155113,7 +155113,7 @@ do_11 = "Attempt 5 (requalify): attempt 4 passed its build and verify and was he
 
 [task.22.33.199]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/errors (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -155358,7 +155358,7 @@ do_18 = "Attempt 6 (continue): merge current main first (22.31.480 removed the t
 
 [task.22.33.193]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/explorer (part 1 of 1): restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -155399,7 +155399,7 @@ do_14 = "Attempt 5 (continue): merge current main first (22.31.480 removed the t
 
 [task.22.33.192]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/analytics (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -197663,7 +197663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.483]
 title = "Restore the tracked Paxeer boundary manifest and reconcile the five consumers that still read it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -279636,7 +279636,7 @@ do_10 = "Attempt 2 (requalify): attempt 1 passed its build and verify and was he
 
 [task.22.33.1142]
 title = "Repair audit record 22.30.50 medium findings in node (part 3 of 4): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.102"]
@@ -324979,7 +324979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.864]
 title = "Repair audit record 22.30.182 medium findings in tools/qualification (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -325237,7 +325237,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.853]
 title = "Repair audit record 22.30.181 medium findings in tools/qualification/paxeer-x (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -325385,7 +325385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.849]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 3 of 5): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -367579,7 +367579,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.490]
 title = "Fail over on node error envelopes and keep the price-acceptance replay moving past a held block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -367747,7 +367747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.586]
 title = "Repair audit record 22.30.160 medium findings in services/explorer/backend/apps/indexer/lib/indexer/block/catchup (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.280", "22.31.413"]
@@ -369886,7 +369886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.461]
 title = "Repair audit record 22.30.148 medium findings in services/explorer/backend/apps/block_scout_web (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276"]
@@ -369921,7 +369921,7 @@ do_8 = "Attempt 2 (continue): all five cases fail because the OpenAPI definition
 
 [task.22.33.457]
 title = "Repair audit record 22.30.148 medium findings in services/explorer/backend/apps/indexer/lib/indexer/fetcher/scroll (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276"]
@@ -369958,7 +369958,7 @@ do_10 = "Attempt 2 (continue): the test file is now in the paths. 5 of 6 cases p
 
 [task.22.33.456]
 title = "Repair audit record 22.30.148 medium findings in services/explorer/backend/apps/indexer/lib/indexer/fetcher/on_demand (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276"]
