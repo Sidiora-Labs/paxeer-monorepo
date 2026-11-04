@@ -287226,7 +287226,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.80]
 title = "Rewrite the platform documentation pages of sdk/contrib: stale and misleading pages (manifest 22.32.80, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
