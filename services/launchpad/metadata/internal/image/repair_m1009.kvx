@@ -1,0 +1,8 @@
+[task.22.33.1009]
+finding = "22.30.35/8"
+repair = "The existing development worker entry point now uses the current executable as a killable rlimit-isolated codec participant, with two process-wide admission slots and a five-second deadline covering admission and the complete codec/transport operation; parent cancellation is preserved."
+proof = ["TestRepairM_1009_RealCodecRoundTrip", "TestRepairM_1009_DecodeAndEncodeWallDeadline", "TestRepairM_1009_ParentCancellationAndDeadline", "TestRepairM_1009_BoundedAdmission", "TestRepairM_1009_AdmissionAndValidation"]
+wall_proof = "The tests suspend the actual child process on decode-heavy and encode-heavy real PNG fixtures, then require deadline termination, no partial result, reaping, and recovered admission; the same child executes both synchronous codec phases."
+wiring_request = "Domain 4: services/launchpad/metadata/internal/app/development_connected.go may replace the legacy InProcessWorker name with explicit ProcessWorker rlimit wiring; the existing zero-value entry point already enforces isolation without an out-of-scope edit."
+baseline = "Not run: the task's explicit implementation-first order and hf-done-only verification supersede do_5's unchanged-tree verification request; no baseline test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location; no qualification is claimed by this source record."

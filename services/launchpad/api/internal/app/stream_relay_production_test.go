@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
@@ -27,6 +29,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -187,23 +190,53 @@ func TestProductionStreamRelayPublishesCommittedFrames(t *testing.T) {
 		t.Fatal("relay admitted routes that leave committed families unpublished")
 	}
 
-	// The reviewed grants.json gives api_rest_runtime only recovery.current_epoch,
-	// so the restoration fence the relay asserts in every transaction refuses
-	// it: startup fails closed until EXECUTE on recovery.assert_epoch is granted.
-	if _, err = newStreamRelay(ctx, runtimePool, nc, cfg.RuntimeInstanceID, *loaded); err == nil || !strings.Contains(err.Error(), "restoration epoch fence rejected") {
-		t.Fatalf("relay started without the restoration fence grant: %v", err)
+	// The reviewed role already owns the fence grant. Start without changing it.
+	var fenceGranted bool
+	if err = runtimePool.QueryRow(ctx, "SELECT has_function_privilege(current_user, 'recovery.assert_epoch(bigint,text)', 'EXECUTE')").Scan(&fenceGranted); err != nil || !fenceGranted {
+		t.Fatalf("reviewed runtime fence privilege: %t %v", fenceGranted, err)
 	}
-	if _, err = admin.Exec(ctx, "GRANT EXECUTE ON FUNCTION recovery.assert_epoch(bigint,text) TO "+pgx.Identifier{db.RuntimeRole}.Sanitize()); err != nil {
+	relay, err := newStreamRelay(ctx, runtimePool, nc, cfg.RuntimeInstanceID, *loaded)
+	if err != nil {
+		t.Fatalf("relay startup with unchanged reviewed grants: %v", err)
+	}
+
+	// An independent role receives the same planned grants except the fence.
+	// It has no membership in the reviewed role and cannot inherit its EXECUTE.
+	restrictedRole := "relay_no_fence_" + strings.ToLower(suffix)
+	for _, statement := range relayRestrictedRoleStatements(t, restrictedRole) {
+		if _, err = admin.Exec(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	defer func() {
+		if _, err := admin.Exec(context.Background(), "DROP OWNED BY "+pgx.Identifier{restrictedRole}.Sanitize()); err != nil {
+			t.Error(err)
+		}
+		if _, err := admin.Exec(context.Background(), "DROP ROLE "+pgx.Identifier{restrictedRole}.Sanitize()); err != nil {
+			t.Error(err)
+		}
+	}()
+	restrictedConfig, err := pgxpool.ParseConfig(db.AdminDSN)
+	if err != nil {
 		t.Fatal(err)
+	}
+	restrictedConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		_, err := conn.Exec(ctx, "SET ROLE "+pgx.Identifier{restrictedRole}.Sanitize())
+		return err
+	}
+	restrictedPool, err := pgxpool.NewWithConfig(ctx, restrictedConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restrictedPool.Close()
+	var permissionError *pgconn.PgError
+	if _, err = newStreamRelay(ctx, restrictedPool, nc, cfg.RuntimeInstanceID, *loaded); err == nil || !strings.Contains(err.Error(), "restoration epoch fence rejected") || !errors.As(err, &permissionError) || permissionError.Code != "42501" {
+		t.Fatalf("relay started without the restoration fence grant: %v", err)
 	}
 	stale := *loaded
 	stale.Epoch = db.Epoch + 1
 	if _, err = newStreamRelay(ctx, runtimePool, nc, cfg.RuntimeInstanceID, stale); err == nil {
 		t.Fatal("relay started under a stale restoration epoch")
-	}
-	relay, err := newStreamRelay(ctx, runtimePool, nc, cfg.RuntimeInstanceID, *loaded)
-	if err != nil {
-		t.Fatalf("relay startup: %v", err)
 	}
 
 	// Committed frames, as the api_stream.append_* functions leave them.
@@ -239,6 +272,21 @@ func TestProductionStreamRelayPublishesCommittedFrames(t *testing.T) {
 	}
 	if err = relay.Ready(ctx); err != nil {
 		t.Fatalf("relay readiness after drain: %v", err)
+	}
+
+	// Reopen the production relay over the persisted publication ledger. A
+	// completed batch must not publish duplicate messages after restart.
+	stop()
+	<-done
+	recovered, err := newStreamRelay(ctx, runtimePool, nc, cfg.RuntimeInstanceID, *loaded)
+	if err != nil {
+		t.Fatalf("relay restart: %v", err)
+	}
+	if err = recovered.relay.RunOnce(ctx); err != nil {
+		t.Fatalf("publication recovery: %v", err)
+	}
+	if err = recovered.Ready(ctx); err != nil {
+		t.Fatalf("recovered relay readiness: %v", err)
 	}
 
 	// Every frame is on its topic subject in the routed stream, byte-identical,
@@ -474,4 +522,66 @@ func TestStreamRelayInlineDocumentGate(t *testing.T) {
 	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "STREAM_RELAY_CONFIG_DOCUMENT is set without STREAM_RELAY_CONFIG_SHA256") {
 		t.Fatalf("inline stream relay document without a digest accepted: %v", err)
 	}
+}
+
+// reviewedRelayRole is shared by the service-backed qualification and the
+// hermetic repair gate, so neither maintains a second privilege inventory.
+func reviewedRelayRole(t *testing.T) production.RoleManifest {
+	t.Helper()
+	path := filepath.Join(internaltest.RepositoryRoot(t), "launchpad/spec/production-system/integration/migrations/grants.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Roles []production.RoleManifest `json:"roles"`
+	}
+	if err := json.Unmarshal(raw, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range document.Roles {
+		if role.Service == "core/api" && role.RuntimeRole == "api_rest_runtime" {
+			if err := role.Validate(); err != nil {
+				t.Fatal(err)
+			}
+			return role
+		}
+	}
+	t.Fatal("reviewed api_rest_runtime role missing")
+	return production.RoleManifest{}
+}
+
+func relayRestrictedRoleStatements(t *testing.T, name string) []string {
+	t.Helper()
+	role := reviewedRelayRole(t)
+	role.RuntimeRole = name
+	role.OwnerReadGrants = nil
+	role.SchemaCapabilities = nil
+	grants := make([]production.Grant, 0, len(role.Grants))
+	removed := 0
+	for _, grant := range role.Grants {
+		if grant.Schema != "api_stream" && grant.Schema != "recovery" {
+			continue
+		}
+		if grant.Schema == "recovery" && grant.Object == "assert_epoch" {
+			removed++
+			continue
+		}
+		grants = append(grants, grant)
+	}
+	if removed != 1 {
+		t.Fatalf("reviewed fence grant count = %d, want 1", removed)
+	}
+	role.Grants = grants
+	provision, err := role.ProvisionSQL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	statements, err := role.GrantSQL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ProvisionSQL's runtime CREATE ROLE has all reviewed privilege attributes.
+	// The owner and schema already exist; create only the independent runtime.
+	return append([]string{provision[1]}, statements...)
 }

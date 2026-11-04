@@ -1,0 +1,10 @@
+[repair.22.33.1010]
+finding = "creator-wallet-lifecycle"
+proof = "repair-22-33-1010.test.ts: creator_wallet_lifecycle_cancels_obsolete_metadata_and_selects_current_pools"
+implementation = "Key the creator view and metadata queries by wallet, derive selection from current pool identities, reset missing or empty selections, and let consumed query abort signals cancel metadata when wallet or pool observers unmount."
+producer_transport_consumer = "Committed in-memory creator registry encodes real Quoter ABI results through the injected EIP-1193 provider and Wagmi hooks; committed PoolRegistry and metadata recordings travel through real contract decoding and loopback HTTP into MyTokenView under the real query provider."
+coverage = "Two wallets with equal-sized disjoint lists, delayed metadata cancellation on wallet switch, late response rejection, same-wallet same-sized pool replacement, pool-removal cancellation, empty-list selection reset, and pending metadata cancellation on disconnect."
+baseline = "Not executed: the ordered instructions prohibit verification until implementation is complete and require hf-build before hf-done; no unchanged-tree test failure is claimed. The pre-repair selection survives disjoint lists and retains an observer on obsolete metadata."
+evidence = "The runner private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log location."
+wiring_requests = "None; all repairs and proof fixtures are inside the task scope."
+qualification_repair = "revision=7c336f3560d4a55e32bda40f970c4ba1e9094c1e; command=cg spec done 22.33.1010 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log; Next.js empty-state links require the browser self global, so expose and restore the real JSDOM window as self without changing assertions."

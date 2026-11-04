@@ -174,49 +174,7 @@ func (a *Authority) AuthorizeDownload(ctx context.Context, key string, ttl time.
 	return a.Allowed(ctx, key)
 }
 func (a *Authority) ReplayTombstones(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	tx, e := a.Pool.Begin(ctx)
-	if e != nil {
-		return ErrUnavailable
-	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
-	if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("restrictions")+"(hash,revision,state) SELECT hash,revision,'deleted' FROM "+a.table("tombstones")+" ON CONFLICT(hash) DO UPDATE SET state='deleted',initial_visibility=false,revision=GREATEST("+a.table("restrictions")+".revision,EXCLUDED.revision)"); e != nil {
-		return ErrUnavailable
-	}
-	rows, e := tx.Query(ctx, "SELECT t.hash,t.revision FROM "+a.table("tombstones")+" t WHERE NOT EXISTS(SELECT 1 FROM "+a.table("operations")+" o WHERE o.hash=t.hash AND o.revision=t.revision AND o.kind='delete') OR NOT EXISTS(SELECT 1 FROM "+a.table("operations")+" o WHERE o.hash=t.hash AND o.revision=t.revision AND o.kind='purge') ORDER BY t.hash LIMIT 256")
-	if e != nil {
-		return ErrUnavailable
-	}
-	type removed struct {
-		hash     string
-		revision int64
-	}
-	var missing []removed
-	for rows.Next() {
-		var item removed
-		if e = rows.Scan(&item.hash, &item.revision); e != nil {
-			rows.Close()
-			return ErrUnavailable
-		}
-		missing = append(missing, item)
-	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return ErrUnavailable
-	}
-	for _, item := range missing {
-		for _, kind := range []string{"delete", "purge"} {
-			if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("operations")+"(id,hash,revision,kind,state) VALUES($1,$2,$3,$4,'requested') ON CONFLICT(hash,revision,kind) DO NOTHING", uuid.NewString(), item.hash, item.revision, kind); e != nil {
-				return ErrUnavailable
-			}
-		}
-	}
-	if e = tx.Commit(ctx); e != nil {
-		return ErrUnavailable
-	}
-	return nil
+	return ReplayTombstones(ctx, postgresTombstones{authority: a})
 }
 
 func (a *Authority) ImportApprovedLineage(ctx context.Context, assetID string) error {

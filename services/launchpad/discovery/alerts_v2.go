@@ -38,6 +38,8 @@ func RuleFromV2AlertCreate(raw []byte, ownerAccountID string) (AlertRule, error)
 	return rule, nil
 }
 
+// AdaptV2AlertCreate returns the typed frozen response. threshold must equal
+// rule.Price, including persisted asset identity and price provenance.
 func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, requestID string, generatedAt time.Time) (v2.AlertCreateResponse, error) {
 	if err := rule.Validate(); err != nil {
 		return v2.AlertCreateResponse{}, err

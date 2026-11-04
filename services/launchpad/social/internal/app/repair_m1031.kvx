@@ -1,0 +1,28 @@
+[meta]
+task = "22.33.1031"
+audit = "22.30.39"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+evidence = "/out/run/gates.jsonl records the runner-owned candidate revision, exact commands, exit codes and private evidence paths."
+baseline = "Not run: the explicit task order and allowed gates forbid verification before complete implementation; no application changes or earlier gate ledger existed at admission. No pre-change test failures are claimed."
+
+[finding.13]
+tests = ["TestRepairM_1031_BrokerReconnectAndDurableReplay", "TestRepairM_1031_ProbeAndCycleRecoverIndependently", "TestRepairM_1031_TerminalWorkerFailureRequiresRestart"]
+implementation = "Broker disconnects no longer enter the terminal latch; readiness checks the current connection and a bounded PING/PONG probe. The durable coordinator keeps an independent cycle error, aggregates all work and clears it only after a successful whole cycle. Worker exits retain the original terminal latch."
+proof = "The production broker connection, readiness, worker lifecycle and durable-cycle coordinator drive the real delivery.Store enqueue/claim/retry/reopen/persistence-ack path, natsdriver.Publisher and Envelope decoder through committed loopback PostgreSQL and NATS protocol transcripts. Broker stop/reopen and store/pool stop/reopen retain the same runtime through outage, reconnect and immutable replay before readiness recovers. A further runtime/store reopen observes an empty outbox."
+limits = "Protocol transcripts are allowed committed peer fixtures; these tests establish application behavior and production SQL/transport exchanges, not PostgreSQL crash durability, JetStream replication or a full externally deployed service restart."
+wiring = "None: finding 13's implementation is entirely inside internal/app."
+
+[constraint.1]
+observed = "The embedded baseline-verification instruction conflicts with the explicit implementation-first gate order; the latter controls and no preliminary verify is run."
+action = "Only hf-build and hf-done are executed after implementation; spec files and root GOTCHA.kvx are not edited because the explicit scope forbids them."
+
+[gotcha.1]
+observed = "Codify's current graph has no shared-delivery file matches, so exact-path source reads are required for the real peer contracts."
+action = "Read the production relay/store/NATS adapter sources directly without widening the task's changed paths."
+
+[qualification.1]
+revision = "faa1edf018608585b6bf8528e97f67ffba69c21f"
+command = "cg spec done 22.33.1031 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Match pgx simple-protocol quoted numeric/text parameters exactly; delay and later emit every PONG in protocol order instead of dropping a timed-out probe's PONG. Recovery assertions remain intact."

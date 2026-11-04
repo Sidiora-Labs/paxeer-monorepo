@@ -35,7 +35,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -1057,34 +1056,132 @@ func phase4Publish(ctx context.Context, plan phase4Plan, start time.Time, js jet
 	}
 	return errors.Join(firstFailure, logErr)
 }
-func phase4PauseWorker(ctx context.Context, plan phase4Plan, start time.Time, archive *phase4Archive) error {
-	var worker phase4Process
+func phase4BindOrigin(plan phase4Plan) error {
+	origin, err := url.Parse(plan.Origin)
+	if err != nil || origin.Scheme != "http" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+		return errors.New("exact loopback serving origin required")
+	}
+	ip := net.ParseIP(origin.Hostname())
+	port, err := strconv.Atoi(origin.Port())
+	if ip == nil || !ip.IsLoopback() || err != nil || port < 1 || port > 65535 {
+		return errors.New("explicit loopback serving port required")
+	}
+	var pid int
 	for _, process := range plan.Processes {
 		if process.Role == "stats" {
-			worker = process
+			pid = process.PID
 		}
 	}
+	if pid < 1 {
+		return errors.New("pinned stats serving process required")
+	}
+	descriptors, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
+	if err != nil {
+		return err
+	}
+	sockets := map[string]bool{}
+	for _, descriptor := range descriptors {
+		target, e := os.Readlink(fmt.Sprintf("/proc/%d/fd/%s", pid, descriptor.Name()))
+		if e == nil {
+			sockets[target] = true
+		}
+	}
+	for _, family := range []string{"tcp", "tcp6"} {
+		raw, e := os.ReadFile(fmt.Sprintf("/proc/%d/net/%s", pid, family))
+		if e != nil {
+			return e
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) < 10 || fields[3] != "0A" {
+				continue
+			}
+			local := strings.Split(fields[1], ":")
+			if len(local) != 2 {
+				continue
+			}
+			boundPort, e := strconv.ParseUint(local[1], 16, 16)
+			if e != nil || int(boundPort) != port || !sockets["socket:["+fields[9]+"]"] {
+				continue
+			}
+			addressBytes, e := hex.DecodeString(local[0])
+			if e != nil {
+				return e
+			}
+			for i := 0; i+3 < len(addressBytes); i += 4 {
+				addressBytes[i], addressBytes[i+3] = addressBytes[i+3], addressBytes[i]
+				addressBytes[i+1], addressBytes[i+2] = addressBytes[i+2], addressBytes[i+1]
+			}
+			bound := net.IP(addressBytes)
+			if bound.IsUnspecified() || bound.Equal(ip) {
+				return nil
+			}
+		}
+	}
+	return errors.New("origin listener is not owned by the pinned stats serving process")
+}
+
+func phase4SetConsumerPause(ctx context.Context, nc *nats.Conn, config natsdriver.ConsumerConfig, until time.Time) error {
+	token := regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+	if nc == nil || !token.MatchString(config.Stream) || !token.MatchString(config.Durable) {
+		return errors.New("exact measured broker consumer required")
+	}
+	raw, err := json.Marshal(struct {
+		Until time.Time `json:"pause_until"`
+	}{until})
+	if err != nil {
+		return err
+	}
+	bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	message, err := nc.RequestWithContext(bounded, "$JS.API.CONSUMER.PAUSE."+config.Stream+"."+config.Durable, raw)
+	if err != nil {
+		return err
+	}
+	var response struct {
+		Type      string          `json:"type"`
+		Paused    bool            `json:"paused"`
+		Until     time.Time       `json:"pause_until"`
+		Remaining int64           `json:"pause_remaining,omitempty"`
+		Error     json.RawMessage `json:"error,omitempty"`
+	}
+	if err = phase4Strict(message.Data, &response); err != nil {
+		return err
+	}
+	if response.Type != "io.nats.jetstream.api.v1.consumer_pause_response" || len(response.Error) != 0 || response.Paused != !until.IsZero() || !response.Until.Equal(until) {
+		return errors.New("broker did not confirm the exact consumer pause state")
+	}
+	return nil
+}
+
+func phase4PauseWorker(ctx context.Context, plan phase4Plan, start time.Time, archive *phase4Archive, nc *nats.Conn, config natsdriver.ConsumerConfig) (result error) {
 	if err := phase4Wait(ctx, start.Add(time.Duration(plan.WarmupSeconds+10)*time.Second)); err != nil {
 		return err
 	}
 	if _, _, _, err := phase4CaptureProcesses(plan); err != nil {
 		return err
 	}
-	var err error
-	if err = syscall.Kill(worker.PID, syscall.SIGSTOP); err != nil {
+	if err := phase4BindOrigin(plan); err != nil {
 		return err
 	}
-	defer syscall.Kill(worker.PID, syscall.SIGCONT)
-	if err = archive.append("faults.jsonl", map[string]any{"at": time.Now().UTC(), "role": "stats", "pid": worker.PID, "signal": "SIGSTOP"}); err != nil {
+	until := time.Now().UTC().Add(30 * time.Second)
+	// The broker fences only delivery to this durable; the stats HTTP process
+	// stays runnable and the original zero-failure read SLO still applies.
+	if err := phase4SetConsumerPause(ctx, nc, config, until); err != nil {
 		return err
 	}
-	if err = phase4Wait(ctx, time.Now().Add(30*time.Second)); err != nil {
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		defer cancel()
+		result = errors.Join(result, phase4SetConsumerPause(cleanup, nc, config, time.Time{}))
+	}()
+	if err := archive.append("faults.jsonl", map[string]any{"at": time.Now().UTC(), "component": "market accounting delivery", "stream": config.Stream, "durable": config.Durable, "pauseUntil": until, "origin": plan.Origin, "servingProcesses": plan.Processes}); err != nil {
 		return err
 	}
-	if err = syscall.Kill(worker.PID, syscall.SIGCONT); err != nil {
+	if err := phase4Wait(ctx, until); err != nil {
 		return err
 	}
-	return archive.append("faults.jsonl", map[string]any{"at": time.Now().UTC(), "role": "stats", "pid": worker.PID, "signal": "SIGCONT"})
+	return archive.append("faults.jsonl", map[string]any{"at": time.Now().UTC(), "component": "market accounting delivery", "stream": config.Stream, "durable": config.Durable, "state": "resumed"})
 }
 
 func phase4RiskReference(inputs analytics.RiskInputs, now int64, wm analytics.Watermark) risk.V1Result {
@@ -1685,6 +1782,9 @@ func TestPhase4LaneMeasurementHarness(t *testing.T) {
 		fail(errors.New("runtime region differs from approved origin region"))
 		return
 	}
+	if fail(phase4BindOrigin(plan)) {
+		return
+	}
 	if fail(phase4ValidateBudget(plan, archive)) {
 		return
 	}
@@ -1827,7 +1927,7 @@ func TestPhase4LaneMeasurementHarness(t *testing.T) {
 	tasks := make(chan error, 3)
 	go func() { value, err := phase4HTTP(ctx, plan, start, archive); summary = value; tasks <- err }()
 	go func() { tasks <- phase4Publish(ctx, plan, start, js, configuration.Consumers[0].Stream, archive) }()
-	go func() { tasks <- phase4PauseWorker(ctx, plan, start, archive) }()
+	go func() { tasks <- phase4PauseWorker(ctx, plan, start, archive, nc, configuration.Consumers[0]) }()
 	for n := 0; n < 3; n++ {
 		if err := <-tasks; err != nil {
 			runErr = errors.Join(runErr, err)
@@ -1902,6 +2002,9 @@ func TestPhase4LaneMeasurementHarness(t *testing.T) {
 		}
 	}
 	if fail(phase4StorageFits(ctx, pool, stream, plan, archive)) {
+		return
+	}
+	if fail(phase4BindOrigin(plan)) {
 		return
 	}
 	if fail(phase4ValidateBudget(plan, archive)) {

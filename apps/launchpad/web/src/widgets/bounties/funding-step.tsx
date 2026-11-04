@@ -33,11 +33,24 @@ function statusLine(state: SigningState): { tone: 'info' | 'warning' | 'danger' 
     case 'wallet': return { tone: 'info', text: 'Confirm in your wallet' };
     case 'pending': return { tone: 'info', text: 'Sent, waiting for confirmation...' };
     case 'confirmed': return { tone: 'success', text: 'Confirmed!' };
-    case 'reverted': return { tone: 'danger', text: 'Transaction failed, nothing was sent' };
+    case 'reverted': return { tone: 'danger', text: 'Funding or payout reverted. Token principal was not transferred; network gas may have been charged' };
     case 'failed': return { tone: 'danger', text: state.error };
     case 'uncertain': return { tone: 'warning', text: state.error };
     default: return null;
   }
+}
+
+export function BountyTransactionStatus({ state, recoveryHref }: { state: SigningState; recoveryHref: string }) {
+  const status = statusLine(state);
+  const hash = 'hash' in state ? state.hash : null;
+  if (!status) return null;
+  return (
+    <NoticeBar tone={status.tone} announce surface={2}>
+      <span>{status.text}</span>
+      {hash ? <span className="mt-1 block break-all font-mono text-xs text-text-muted">Transaction {hash}</span> : null}
+      {hash ? <a href={recoveryHref}>Open bounty to recover</a> : null}
+    </NoticeBar>
+  );
 }
 
 export interface PreparedTransactionReviewProps {
@@ -61,8 +74,6 @@ export interface PreparedTransactionReviewProps {
 export function PreparedTransactionReview({ title, request, intent, recipient, amount, actionLabel, confirmedAction, className }: PreparedTransactionReviewProps) {
   const { state, sign, retry } = usePreparedTransaction(request, intent);
   const tx = 'tx' in state ? state.tx : null;
-  const status = statusLine(state);
-  const hash = 'hash' in state ? state.hash : null;
   const cost = state.kind === 'review' || state.kind === 'wallet' ? state.costRaw : null;
 
   return (
@@ -79,12 +90,7 @@ export function PreparedTransactionReview({ title, request, intent, recipient, a
           value={cost !== null ? <span data-numeric className="tabular-nums">{paxAmount(cost)}</span> : state.kind === 'estimating' ? <Skeleton width={96} height={16} label="Estimating fee" /> : 'Not estimated yet'}
         />
       </dl>
-      {status ? (
-        <NoticeBar tone={status.tone} announce surface={2}>
-          <span>{status.text}</span>
-          {hash ? <span className="mt-1 block break-all font-mono text-xs text-text-muted">Transaction {hash}</span> : null}
-        </NoticeBar>
-      ) : null}
+      <BountyTransactionStatus state={state} recoveryHref={`/bounties/${encodeURIComponent(intent.bounty.bountyId)}`} />
       <div className="flex flex-wrap items-center gap-2">
         {state.kind === 'review' || state.kind === 'wallet' || state.kind === 'estimating' ? (
           <Button variant="primary" size="md" icon={<Wallet />} loading={state.kind === 'wallet'} disabled={state.kind !== 'review'} onClick={() => void sign()}>
