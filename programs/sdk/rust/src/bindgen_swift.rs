@@ -153,7 +153,7 @@ fn swift_entry(out: &mut String, entry: &Entry) {
         out.push_str("} }\n");
     }
     out.push_str("}\n");
-    let _ = writeln!(out, "public static func call(_ input: Input, deployedCodeHash: [UInt8], publishedDigest: [UInt8]) throws -> LxCall<Output, Failure> {{\ntry lxCheckTarget(deployedCodeHash, publishedDigest)\nvar writer = LxWriter({})\ntry encodeInput(input, &writer)\nreturn LxCall({:?} + writer.bytes)\n}}", swift_convention(&entry.input), entry.discriminator);
+    let _ = writeln!(out, "public static func call(_ input: Input, deployedCodeHash: [UInt8], publishedDigest: [UInt8]) throws -> LxCall<Output, Failure> {{\ntry lxCheckTarget(deployedCodeHash, publishedDigest)\nvar writer = LxWriter({})\ntry encodeInput(input, &writer)\nguard writer.bytes.count <= 1_048_576 - 4 else {{ throw LxBindingRefusal.tooLong }}\nreturn LxCall({:?} + writer.bytes)\n}}", swift_convention(&entry.input), entry.discriminator);
     let _ = writeln!(out, "public static func decodeOutput(_ bytes: [UInt8]) throws -> Output {{\nvar reader = try LxReader(bytes, convention: {})\nlet value = try decodeOutputValue(&reader)\ntry reader.finish()\nreturn value\n}}", swift_convention(&entry.output));
     out.push_str("public static func decodeFailure(code: UInt32, bytes: [UInt8]) throws -> Failure {\nswitch code {\n");
     for failure in &entry.failures {

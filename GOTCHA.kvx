@@ -14630,3 +14630,23 @@ fix = "A repair task's verification runs only its own TestRepair_N_* functions, 
 title = "A durable approval's actor is an EVM address; a DID comparison on it never matches"
 symptom = "The approval budget facts operation compared a managed agent DID with the held activity actor, which the hold validation fixes to the 40-hex address form, and parsed that actor as a DID; the operation refused every real held approval."
 fix = "Resolve the managed agent by its signing address and use its DID afterwards (decision 2517); never parse a durable approval actor as a DID."
+
+[gotcha.2962]
+title = "A repair test that needs environment variables, credentials, a live RPC endpoint, a subprocess toolchain or a device is not a gate"
+symptom = "Repair tests asked for PostgreSQL, Redis and S3 variables, a funded signer, a live RPC endpoint, node or Go subprocesses and a .NET runtime; none exists in the qualification environment, so the tasks failed or refused regardless of the repair."
+fix = "A repair proof runs in-process against the real code path with committed fixtures (recorded transcripts, httptest servers, in-memory stores); an external dependency in a test is a defect of the test, not a reason to qualify elsewhere."
+
+[gotcha.2963]
+title = "A TestMain that executes an external binary makes the whole package gate environment-bound"
+symptom = "services/launchpad/security/control starts an Anvil binary in TestMain, so even a -run pattern selecting only the repair tests fails where the binary is absent."
+fix = "TestMain never executes an external program; a fixture that needs one starts on first use inside the tests that need it, and the repair tests run without it."
+
+[gotcha.2964]
+title = "A repair task takes its toolchain from the directory build manifest, never from a default"
+symptom = "Go gates were generated for a Rust crate (Cargo.toml), a .NET SDK (.cs sources) and a directory holding only deployment manifests; the attempts wrote Go tests that shelled out to cargo or dotnet and failed to compile."
+fix = "Rust crates get a cargo integration test, Python or manifest-only directories a pytest source assertion, and a Go test only where a go.mod governs the directory."
+
+[gotcha.2965]
+title = "go test -run with a pattern that selects no test exits 0"
+symptom = "A repair proof named TestMobileRepairLive was not selected by the gate pattern TestRepair_30_, so the gate would have passed with no test executed."
+fix = "Every Go repair gate runs with -v, keeps its log and requires a PASS line for a TestRepair_N_ function before accepting exit 0."

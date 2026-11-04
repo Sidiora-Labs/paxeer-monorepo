@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "lxp_test_host_bound_migration.h"
+
 static size_t begin_calls;
 static size_t end_calls;
 static uint64_t last_begin_epoch;
@@ -425,5 +427,8 @@ int main(void)
     if (capacity_checks(&kernel, &store, &journal) != 0) return 1;
     if (lxp_state_store_destroy(&store) != LXP_OK) return 1;
     if (prepare_staging_checks() != 0) return 1;
+    if (host_bound_migration_admission() != 0) return 1;
+    if (host_bound_migration_refusals() != 0) return 1;
+    if (host_bound_migration_transport() != 0) return 1;
     return 0;
 }

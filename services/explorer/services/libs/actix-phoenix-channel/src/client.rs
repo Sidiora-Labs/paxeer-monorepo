@@ -64,8 +64,20 @@ impl ChannelClient {
     }
 
     pub async fn reply_error(&self, event: &ChannelEvent, error: &impl Serialize) {
-        self.send_event(event.build_reply("phx_error", &error))
-            .await
+        #[derive(serde::Serialize)]
+        struct Reply<'a, S> {
+            status: &'static str,
+            response: &'a S,
+        }
+
+        self.send_event(event.build_reply(
+            "phx_reply",
+            &Reply {
+                status: "error",
+                response: error,
+            },
+        ))
+        .await
     }
     pub async fn allow_join(&self, event: &ChannelEvent, payload: &impl Serialize) {
         if event.event() != "phx_join" {

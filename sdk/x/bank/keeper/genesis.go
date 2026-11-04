@@ -59,6 +59,14 @@ func (k BaseKeeper) InitGenesis(ctx sdk.Context, genState *types.GenesisState) {
 
 // ExportGenesis returns the bank module's genesis state.
 func (k BaseKeeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
+	genesis := k.ExportGenesisWithAllowLists(ctx)
+	if len(genesis.DenomAllowLists) != 0 {
+		panic("bank genesis contains denom allowlists: use ExportGenesisWithAllowLists and InitGenesisWithAllowLists")
+	}
+	return &genesis.Bank
+}
+
+func (k BaseKeeper) exportGenesisBalances(ctx sdk.Context) *types.GenesisState {
 	totalSupply, err := CollectAllTotalSupply(ctx, k)
 	if err != nil {
 		panic(fmt.Errorf("unable to fetch total supply: %w", err))

@@ -1,0 +1,48 @@
+[meta]
+task = "22.31.66"
+audit = "22.30.39"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+status = "implemented-partially-proven"
+evidence = "/out/run/gates.jsonl (runner-owned candidate revision, exact commands, exits and private log paths)"
+baseline = "Not run: the explicit qualification order forbids verification before complete implementation; no repair_66_test.go or prior gate ledger existed at admission."
+retention = "Moderation is a reversible safety_visibility overlay over the existing source-table retention lifecycle; it creates no archive of originals. Author deletion and account erasure retain their existing destructive semantics and cannot be undone by moderation restoration."
+
+[finding.1]
+tests = ["TestRepair_66_ContainerFrozenRoutes", "TestRepair_66_FrozenProducerCodec"]
+implementation = "Container assembly mounts frozen comments over the bound interaction store, callout creation over bound account/session/pool authority, bounty adapters over canonical production stores, and reports over safety.Store; gateway registration includes the frozen surface."
+proven = "Actual route assembly, bound chat identity sharing, write admission, private mTLS ingress, nested-router parameter preservation, frozen request codec and both comment read paths."
+remaining_proof = "Successful SDK-to-gateway-to-social persistence and component restart require the real PostgreSQL-backed stores and gateway module integration harness; the dependency-free checks do not prove these."
+
+[finding.2]
+tests = ["TestRepair_66_TicketConsumerDelegates"]
+implementation = "Bound authentication delegates to fanout.TicketAuthenticator, which redeems one topic/origin/session-bound ticket, compares separately supplied credentials only when present and supplies continuous session validation."
+proven = "The real app/shared-authenticator path rejects duplicate ticket credentials before authority access; the adapter's delegation is checked."
+remaining_proof = "Successful ticket-only browser upgrade, replay and revoked-session socket shutdown through the actual gateway issuer have not run in this gate."
+
+[finding.3]
+tests = ["TestRepair_66_MessageOverlayCodec", "TestRepair_66_CommentOverlayCodecAndCache"]
+implementation = "Safety consumption retains source content, transactionally advances source/replay revisions and a durable per-target visibility cursor, and publishes sanitized removal or restoration events. Both profiles use the same message projection."
+proven = "Real app projections and production wire codecs preserve originals, sanitize tombstones, restore eligible content with increasing revisions and refuse resurrection after author deletion or erasure; consumed revisions are not counted twice."
+remaining_proof = "A real remove/action/appeal/reversal/restore transaction sequence, stopped/reopened store and history/replay across that restart have not run without PostgreSQL. Previously destroyed originals require independently retained recovery evidence and cannot be reconstructed by this repair."
+
+[finding.4]
+tests = ["TestRepair_66_ContainerFrozenRoutes", "TestRepair_66_CommentOverlayCodecAndCache"]
+implementation = "Platform lifecycle starts the shared durable safety visibility consumer; frozen and interaction comment lists read source rows plus safety_visibility in one repeatable snapshot before pagination and ETag comparison. The consumer needs no UPDATE privilege on safety_outbox."
+proven = "Both served comment-list paths use the common overlay adapter, missing authority fails closed, and visibility changes invalidate comment snapshot identity even when original bodies are retained."
+remaining_proof = "The platform's accepted safety removal/restoration and restart lifecycle against the real coordinator-granted tables has not run in this gate."
+
+[wiring.1]
+request = "Domain 4: services/launchpad/social/internal/fanout/durable.go must share the history transaction with safety projection/cursor versioning and project successful mutation responses against the current overlay; this file is outside this task's scope."
+
+[wiring.2]
+request = "Domain 4: services/launchpad/social/internal/interactions/projection.go must consult authoritative safety visibility during historical public-event replay and projection reads so an older original cannot be exposed before the removal event is consumed."
+
+[wiring.3]
+request = "Domains 11 and 4: services/launchpad/gateway/internal/proxy/connected_ws_test.go and the SDK integration harness must drive the actual browser/SDK producer through bound gateway and social stores, including replay refusal, session revocation and process/store restart; gateway internal packages are not importable by the social test package."
+
+[wiring.4]
+request = "Domain 4: services/launchpad/social/internal/devsocial and the owning stream authority must bind stream report targets to their authoritative owner resolver before frozen stream reports can be accepted by the bound safety store."
+
+[constraint.1]
+observed = "The required full success/restart proof depends on PostgreSQL-only stores, while the declared TestRepair_66 gate explicitly prohibits PostgreSQL and substitute keepers, databases or ticket authorities."
+action = "Keep full integration closure unclaimed; execute only the declared gates and retain their exact private evidence. No spec, root gotcha ledger or out-of-scope file is edited."

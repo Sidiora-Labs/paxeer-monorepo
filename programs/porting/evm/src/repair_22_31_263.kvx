@@ -1,0 +1,11 @@
+[repair.22.31.263]
+audit = "22.30.128"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+finding = "shared-supply-namespace"
+proof = ["shared_supply_namespace_two_principals_native_execution_and_reopen", "shared_supply_namespace_enforces_scope_grants_and_atomic_mint", "shared_supply_namespace_deployment_abi_and_global_bound"]
+tests = "programs/porting/evm/tests/repair_22_31_263.rs"
+implementation = "ABI-v2 scoped host imports select Shared for totalSupply and Principal for balances; the deployment pins ABI v2 and byte entry adapters execute the original typed exports through the authorized native executor."
+recovery = "The real storage replay codec persists native execution state to disk; the module and storage are dropped and reopened before both principals query and mint again."
+baseline = "Not run: the explicit bounded gate order prohibits verification before implementation; this integration target did not exist on the starting tree, and no pre-change test failures are claimed."
+evidence = "The runner's hf-done evidence records the exact verified candidate revision, command, exit code and private log location."
+wiring_requests = []
