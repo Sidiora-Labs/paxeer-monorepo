@@ -1,6 +1,11 @@
-import { copyEntry } from "../../copy/runtime";
+import { copyEntry } from "../../copy/runtime.ts";
 import {
   humanApi,
+  decodeSupportCreateRequest,
+  decodeSupportReplyRequest,
+  type JsonValue,
+  type SupportCreateRequest,
+  type SupportReplyRequest,
   type HumanApiClient,
   type SupportConversation,
   type SupportConversationState,
@@ -8,8 +13,8 @@ import {
   type SupportShell,
   type SupportTopic,
   type TraceId,
-} from "../api";
-import { supportTopic } from "./topics";
+} from "../api/index.ts";
+import { supportTopic } from "./topics.ts";
 
 export type SupportChatDelivery = "sending" | "sent" | "failed";
 export type SupportChatConnection = "online" | "offline";
@@ -35,18 +40,48 @@ export interface SupportChatSnapshot {
   readonly sending: boolean;
 }
 
+type PendingOperation =
+  | Readonly<{ kind: "create"; request: SupportCreateRequest }>
+  | Readonly<{ kind: "reply"; conversationId: string; request: SupportReplyRequest }>;
+
 interface PendingMessage {
   readonly idempotencyKey: string;
   readonly messageId: string;
-  readonly body: string;
-  readonly topic: SupportTopic | undefined;
+  readonly operation: PendingOperation;
   state: "sending" | "failed";
 }
+
+export type SupportPendingStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export interface SupportChatSessionOptions {
   readonly shell: SupportShell;
   readonly traceId?: TraceId;
   readonly client?: HumanApiClient;
+  readonly storage?: SupportPendingStorage;
+}
+
+function restorePending(raw: string): PendingMessage[] {
+  const rows: unknown = JSON.parse(raw);
+  if (!Array.isArray(rows)) throw new Error("Invalid support pending journal");
+  return rows.map((value: unknown) => {
+    if (typeof value !== "object" || value === null) throw new Error("Invalid support attempt");
+    const row = value as Record<string, unknown>;
+    if (typeof row.idempotencyKey !== "string" || typeof row.messageId !== "string"
+      || typeof row.operation !== "object" || row.operation === null) {
+      throw new Error("Invalid support operation identity");
+    }
+    const operation = row.operation as Record<string, unknown>;
+    let decoded: PendingOperation;
+    if (operation.kind === "create") {
+      decoded = { kind: "create", request: decodeSupportCreateRequest(operation.request as JsonValue, "pending create") };
+    } else if (operation.kind === "reply" && typeof operation.conversationId === "string") {
+      decoded = { kind: "reply", conversationId: operation.conversationId,
+        request: decodeSupportReplyRequest(operation.request as JsonValue, "pending reply") };
+    } else {
+      throw new Error("Invalid support operation target");
+    }
+    return { idempotencyKey: row.idempotencyKey, messageId: row.messageId, operation: decoded, state: "failed" };
+  });
 }
 
 function requestIdentity(kind: "create" | "reply"): Readonly<{ key: string; messageId: string }> {
@@ -72,11 +107,23 @@ export class SupportChatSession {
   #load: SupportChatLoad = "loading";
   #feedbackDelivery = new Map<string, SupportFeedbackDelivery>();
   #snapshot: SupportChatSnapshot;
+  readonly #storageOption: SupportPendingStorage | undefined;
+  #principal: string | undefined;
+  #storage: SupportPendingStorage | undefined;
+  #generation = 0;
+  #stopped = false;
+  #polling = false;
+  #controller = new AbortController();
+  #timer: ReturnType<typeof setTimeout> | undefined;
+  #queue: Promise<void> = Promise.resolve();
 
   constructor(options: SupportChatSessionOptions) {
     this.#shell = options.shell;
     this.#traceId = options.traceId;
-    this.#client = options.client ?? humanApi();
+    this.#client = options.client ?? humanApi({
+      fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.any([this.#controller.signal, AbortSignal.timeout(10_000)]) }),
+    });
+    this.#storageOption = options.storage;
     this.#snapshot = this.#buildSnapshot();
   }
 
@@ -89,21 +136,95 @@ export class SupportChatSession {
 
   snapshot = (): SupportChatSnapshot => this.#snapshot;
 
-  async initialize(): Promise<void> {
-    this.#load = "loading";
-    this.#notify();
-    try {
+  start(): void {
+    if (this.#polling) return;
+    this.#polling = true;
+    this.#stopped = false;
+    this.#controller = new AbortController();
+    const generation = this.#generation;
+    const poll = async () => {
+      await this.initialize();
+      if (!this.#stopped && generation === this.#generation) {
+        this.#timer = setTimeout(() => { void poll(); }, 5_000);
+      }
+    };
+    void poll();
+  }
+
+  stop(): void {
+    this.#polling = false;
+    this.#stopped = true;
+    this.#generation += 1;
+    clearTimeout(this.#timer);
+    this.#controller.abort();
+  }
+
+  #enqueue(work: (generation: number) => Promise<void>): Promise<void> {
+    const generation = this.#generation;
+    const next = this.#queue.then(async () => {
+      if (this.#stopped || generation !== this.#generation) return;
+      try {
+        await work(generation);
+      } catch (error) {
+        if (this.#stopped || generation !== this.#generation) return;
+        this.#connection = offlineFailure(error) ? "offline" : "online";
+        this.#load = "failed";
+        this.#notify();
+      }
+    });
+    this.#queue = next;
+    return next;
+  }
+
+  #check(generation: number): void {
+    if (this.#stopped || generation !== this.#generation) throw new Error("Support session ended");
+  }
+
+  async #verifyPrincipal(generation: number): Promise<void> {
+    const account = await this.#client.accountBalance();
+    this.#check(generation);
+    if (this.#principal !== undefined && this.#principal !== account.account_id) {
+      this.#conversation = undefined;
+      this.#pending = [];
+      this.#draft = "";
+      this.#topic = undefined;
+      this.#feedbackDelivery.clear();
+      this.#load = "failed";
+      this.#notify();
+      this.stop();
+      throw new Error("Support principal changed");
+    }
+    if (this.#principal === undefined) {
+      if (account.account_id.length === 0) throw new Error("Support principal is missing");
+      const storage = this.#storageOption ?? window.sessionStorage;
+      const raw = storage.getItem(`layerx.support.pending.v1.${account.account_id}`);
+      const pending = raw === null ? [] : restorePending(raw);
+      this.#principal = account.account_id;
+      this.#storage = storage;
+      this.#pending = pending;
+    }
+  }
+
+  #persist(pending: readonly PendingMessage[]): void {
+    if (this.#storage === undefined || this.#principal === undefined) throw new Error("Support journal unavailable");
+    const key = `layerx.support.pending.v1.${this.#principal}`;
+    if (pending.length === 0) this.#storage.removeItem(key);
+    else this.#storage.setItem(key, JSON.stringify(pending));
+  }
+
+  initialize(): Promise<void> {
+    return this.#enqueue(async (generation) => {
+      await this.#verifyPrincipal(generation);
       const page = await this.#client.supportList();
-      this.#conversation = this.#selectConversation(page.conversations);
+      this.#check(generation);
+      this.#conversation = page.conversations.find((entry) => entry.conversation_id === this.#conversation?.conversation_id)
+        ?? this.#selectConversation(page.conversations);
       this.#connection = "online";
       this.#load = "ready";
       this.#notify();
-      await this.#markVisibleRepliesRead();
-    } catch (error) {
-      this.#connection = offlineFailure(error) ? "offline" : "online";
-      this.#load = "failed";
-      this.#notify();
-    }
+      await this.#recover(generation);
+      await this.#markVisibleRepliesRead(generation);
+    });
   }
 
   setOnline(online: boolean): void {
@@ -123,98 +244,100 @@ export class SupportChatSession {
     this.#notify();
   }
 
-  async send(): Promise<void> {
-    const body = this.#draft.trim();
-    if (body.length === 0 || this.#pending.some((message) => message.state === "sending")) {
-      return;
-    }
-    const identity = requestIdentity(this.#conversation === undefined ? "create" : "reply");
-    const message: PendingMessage = {
-      idempotencyKey: identity.key,
-      messageId: identity.messageId,
-      body,
-      topic: this.#topic,
-      state: "sending",
-    };
-    this.#pending.push(message);
-    this.#draft = "";
-    this.#topic = undefined;
-    this.#notify();
-    await this.#deliver(message);
+  send(): Promise<void> {
+    return this.#enqueue(async (generation) => {
+      if (this.#draft.trim().length === 0) return;
+      if (this.#principal === undefined || this.#connection !== "offline") await this.#verifyPrincipal(generation);
+      if (!await this.#recover(generation)) return;
+      const body = this.#draft.trim();
+      const kind = this.#conversation === undefined ? "create" : "reply";
+      const identity = requestIdentity(kind);
+      const operation: PendingOperation = this.#conversation === undefined
+        ? { kind: "create", request: {
+          body, shell: this.#shell,
+          ...(this.#topic === undefined ? {} : { topic: this.#topic }),
+          ...(this.#traceId === undefined ? {} : { trace_id: this.#traceId }),
+        } }
+        : { kind: "reply", conversationId: this.#conversation.conversation_id, request: { body } };
+      const message: PendingMessage = {
+        idempotencyKey: identity.key, messageId: identity.messageId, operation, state: "sending",
+      };
+      const pending = [...this.#pending, message];
+      this.#persist(pending);
+      this.#pending = pending;
+      this.#draft = "";
+      this.#topic = undefined;
+      this.#notify();
+      await this.#deliver(message, generation);
+    });
   }
 
-  async retry(messageId: string): Promise<void> {
-    const message = this.#pending.find(
-      (candidate) => candidate.messageId === messageId && candidate.state === "failed",
-    );
-    if (message === undefined) {
-      return;
+  retry(messageId: string): Promise<void> {
+    return this.#enqueue(async (generation) => {
+      await this.#verifyPrincipal(generation);
+      if (this.#pending.some((candidate) => candidate.messageId === messageId)) await this.#recover(generation);
+    });
+  }
+
+  retryFailed(): Promise<void> {
+    return this.initialize();
+  }
+
+  async #recover(generation: number): Promise<boolean> {
+    for (const message of [...this.#pending]) {
+      if (!await this.#deliver(message, generation)) return false;
     }
+    return true;
+  }
+
+  sendFeedback(messageId: string, helpful: boolean): Promise<void> {
+    return this.#enqueue(async (generation) => {
+      await this.#verifyPrincipal(generation);
+      if (this.#conversation === undefined) return;
+      this.#feedbackDelivery.set(messageId, "sending");
+      this.#notify();
+      try {
+        const conversation = await this.#client.supportFeedback(
+          this.#conversation.conversation_id, { message_id: messageId, helpful },
+        );
+        this.#check(generation);
+        this.#conversation = conversation;
+        this.#feedbackDelivery.set(messageId, "saved");
+        this.#connection = "online";
+      } catch (error) {
+        this.#check(generation);
+        this.#feedbackDelivery.set(messageId, "failed");
+        if (offlineFailure(error)) this.#connection = "offline";
+      }
+      this.#notify();
+    });
+  }
+
+  async #deliver(message: PendingMessage, generation: number): Promise<boolean> {
     message.state = "sending";
     this.#notify();
-    await this.#deliver(message);
-  }
-
-  async retryFailed(): Promise<void> {
-    const failed = this.#pending.filter((candidate) => candidate.state === "failed");
-    if (failed.length === 0) {
-      await this.initialize();
-      return;
-    }
-    for (const message of failed) {
-      await this.retry(message.messageId);
-    }
-  }
-
-  async sendFeedback(messageId: string, helpful: boolean): Promise<void> {
-    if (this.#conversation === undefined || this.#feedbackDelivery.get(messageId) === "sending") {
-      return;
-    }
-    this.#feedbackDelivery.set(messageId, "sending");
-    this.#notify();
     try {
-      this.#conversation = await this.#client.supportFeedback(
-        this.#conversation.conversation_id,
-        { message_id: messageId, helpful },
-      );
-      this.#feedbackDelivery.set(messageId, "saved");
-      this.#connection = "online";
-    } catch (error) {
-      this.#feedbackDelivery.set(messageId, "failed");
-      if (offlineFailure(error)) {
-        this.#connection = "offline";
-      }
-    }
-    this.#notify();
-  }
-
-  async #deliver(message: PendingMessage): Promise<void> {
-    try {
-      this.#conversation = this.#conversation === undefined
-        ? await this.#client.supportCreate(
-          {
-            body: message.body,
-            shell: this.#shell,
-            ...(message.topic === undefined ? {} : { topic: message.topic }),
-            ...(this.#traceId === undefined ? {} : { trace_id: this.#traceId }),
-          },
-          message.idempotencyKey,
-        )
-        : await this.#client.supportReply(
-          this.#conversation.conversation_id,
-          { body: message.body },
-          message.idempotencyKey,
-        );
-      this.#pending = this.#pending.filter((candidate) => candidate.messageId !== message.messageId);
+      await this.#verifyPrincipal(generation);
+      const operation = message.operation;
+      const conversation = operation.kind === "create"
+        ? await this.#client.supportCreate(operation.request, message.idempotencyKey)
+        : await this.#client.supportReply(operation.conversationId, operation.request, message.idempotencyKey);
+      this.#check(generation);
+      const remaining = this.#pending.filter((candidate) => candidate.messageId !== message.messageId);
+      this.#persist(remaining);
+      this.#conversation = conversation;
+      this.#pending = remaining;
       this.#connection = "online";
       this.#load = "ready";
+      this.#notify();
+      return true;
     } catch (error) {
+      this.#check(generation);
       message.state = "failed";
-      if (offlineFailure(error)) {
-        this.#connection = "offline";
-      }
+      if (offlineFailure(error)) this.#connection = "offline";
+      this.#notify();
+      return false;
     }
-    this.#notify();
   }
 
   #selectConversation(conversations: readonly SupportConversation[]): SupportConversation | undefined {
@@ -224,7 +347,7 @@ export class SupportChatSession {
     return conversations.find((conversation) => conversation.state !== "resolved");
   }
 
-  async #markVisibleRepliesRead(): Promise<void> {
+  async #markVisibleRepliesRead(generation: number): Promise<void> {
     const conversation = this.#conversation;
     const lastUnread = conversation?.messages.findLast(
       (message) => message.author === "support" && !message.read,
@@ -234,10 +357,12 @@ export class SupportChatSession {
     }
     try {
       await this.#client.supportStatus(conversation.conversation_id);
+      this.#check(generation);
       await this.#client.supportRead(
         conversation.conversation_id,
         { through_message_id: lastUnread.message_id },
       );
+      this.#check(generation);
       this.#conversation = {
         ...conversation,
         messages: conversation.messages.map((message) => (
@@ -246,6 +371,7 @@ export class SupportChatSession {
       };
       this.#notify();
     } catch (error) {
+      this.#check(generation);
       if (offlineFailure(error)) {
         this.#connection = "offline";
         this.#notify();
@@ -268,10 +394,11 @@ export class SupportChatSession {
     const pending: SupportChatEntry[] = this.#pending.map((message) => ({
       message_id: message.messageId,
       author: "you" as const,
-      body: message.body,
+      body: message.operation.request.body,
       sent_at: new Date().toISOString(),
       read: true,
-      ...(message.topic === undefined ? {} : { topic: message.topic }),
+      ...(message.operation.kind === "create" && message.operation.request.topic !== undefined
+        ? { topic: message.operation.request.topic } : {}),
       delivery: message.state,
     }));
     const feedback = new Map<string, boolean>(
