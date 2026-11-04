@@ -13,10 +13,12 @@ use crate::policy::approval::{
 };
 use crate::store::{Store, TenantId};
 
+mod call_bound;
 mod events;
 mod expiry;
-pub(crate) mod native_effect;
-pub(crate) mod native_program;
+pub use call_bound::{CallApprovalError, CallApprovalState};
+pub mod native_effect;
+pub mod native_program;
 pub mod native_program_presentation;
 pub(crate) mod program_requirement;
 pub(crate) use expiry::PreparedDecision;
