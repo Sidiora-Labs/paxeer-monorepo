@@ -409,7 +409,7 @@ func DefaultSigVerificationGasConsumer(
 	case multisig.PubKey:
 		multisignature, ok := sig.Data.(*signing.MultiSignatureData)
 		if !ok {
-			return fmt.Errorf("expected %T, got, %T", &signing.MultiSignatureData{}, sig.Data)
+			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", &signing.MultiSignatureData{}, sig.Data)
 		}
 		err := ConsumeMultisignatureVerificationGas(meter, multisignature, pubkey, params, sig.Sequence)
 		if err != nil {
@@ -427,8 +427,28 @@ func ConsumeMultisignatureVerificationGas(
 	meter sdk.GasMeter, sig *signing.MultiSignatureData, pubkey multisig.PubKey,
 	params types.Params, accSeq uint64,
 ) error {
-
-	size := sig.BitArray.Count()
+	if sig == nil || sig.BitArray == nil {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "multisignature and bit array must be nonnil")
+	}
+	if pubkey == nil {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidPubKey, "multisignature public key must be nonnil")
+	}
+	pubKeys := pubkey.GetPubKeys()
+	bits := sig.BitArray
+	if len(pubKeys) == 0 || len(bits.Elems) != (len(pubKeys)+7)/8 || bits.ExtraBitsStored > 7 {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "invalid multisignature bit array shape")
+	}
+	size := bits.Count()
+	if size != len(pubKeys) {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "multisignature bit array size %d does not match public key count %d", size, len(pubKeys))
+	}
+	if bits.ExtraBitsStored != 0 && bits.Elems[len(bits.Elems)-1]&byte((1<<(8-bits.ExtraBitsStored))-1) != 0 {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "multisignature bit array has nonzero padding bits")
+	}
+	setBits := bits.NumTrueBitsBefore(size)
+	if len(sig.Signatures) != setBits {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "multisignature signature count %d does not match set bit count %d", len(sig.Signatures), setBits)
+	}
 	sigIndex := 0
 
 	for i := 0; i < size; i++ {
@@ -436,7 +456,7 @@ func ConsumeMultisignatureVerificationGas(
 			continue
 		}
 		sigV2 := signing.SignatureV2{
-			PubKey:   pubkey.GetPubKeys()[i],
+			PubKey:   pubKeys[i],
 			Data:     sig.Signatures[sigIndex],
 			Sequence: accSeq,
 		}
