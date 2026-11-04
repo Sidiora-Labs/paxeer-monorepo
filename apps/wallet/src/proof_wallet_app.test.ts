@@ -13,6 +13,8 @@ A signed-out provider deliberately proves refusal, not a successful on-chain tra
 The wallet proxy is read-only (app/api/wallet/[...path]/route.ts, POST); it must return 405,
 not manufacture sequencer data. These tests preserve that external-interface limitation.
 All workspace imports resolve to source via the package's Vitest aliases; none use dist.
+The hosted success/reopen case replays bytes captured from the production human
+service fixture; record-22-33-152.py regenerates that recording at implementation time.
 */
 // @vitest-environment jsdom
 import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
@@ -56,6 +58,7 @@ import {
   useModuleSend,
 } from './surfaces/useSurface';
 import { POST as walletPost } from './app/api/wallet/[...path]/route';
+import { proveHostedIntentReopen } from './account/test/hostedIntentRecording';
 
 const ADDRESS = `0x${'11'.repeat(20)}`;
 const ASSET = `0x${'22'.repeat(20)}`;
@@ -269,6 +272,14 @@ async function wallet_app_plan_bindings_and_fees_observe_the_same_producer_twice
   ).toThrow('no signer');
 }
 test(wallet_app_plan_bindings_and_fees_observe_the_same_producer_twice);
+
+async function wallet_app_hosted_intent_plan_survives_producer_store_reopen() {
+  await proveHostedIntentReopen();
+}
+test(
+  wallet_app_hosted_intent_plan_survives_producer_store_reopen.name,
+  wallet_app_hosted_intent_plan_survives_producer_store_reopen
+);
 
 function wallet_app_ladder_and_notice_refuse_malformed_producer_results() {
   for (let observation = 0; observation < 2; observation += 1) {
