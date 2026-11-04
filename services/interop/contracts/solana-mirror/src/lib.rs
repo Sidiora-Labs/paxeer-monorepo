@@ -1,5 +1,40 @@
 #![deny(unsafe_code)]
 
+//! Solana mirror wire contract (v4).
+//!
+//! This program and `services/interop/crates/layerx-mirror/src/solana.rs`
+//! (`stages`, `finalize_stage`, `decode_manifest`, `decode_chunk`) define the
+//! instruction and account formats. All integer fields below are big endian.
+//! Version 3 instructions and account magics are refused; the committed block
+//! identity is a height and block hash.
+//!
+//! `11.fmt-solana-mirror-instruction`: `LXMA | version:u16=4 | op:u8`.
+//! Initialize (op 1) carries `commitment:bytes32 | network_id:u32 | height:u64 |
+//! block_hash:bytes32 | total_bytes:u64 | total_chunks:u32 | archive_digest:bytes32 |
+//! expected_chain:bytes32`; accounts are `[payer signer writable, manifest PDA
+//! writable, system program]`. Append (op 2) carries `commitment:bytes32 |
+//! index:u32 | length:u16 | value[length] | sha256(value):bytes32`; accounts are
+//! `[payer signer writable, manifest PDA writable, chunk PDA writable, system
+//! program]`. Finalize (op 3) carries `commitment:bytes32`; accounts are `[payer
+//! signer writable, manifest PDA writable]`. Trailing bytes are refused.
+//!
+//! `11.fmt-solana-mirror-manifest-account`: PDA seeds are `["manifest",
+//! publisher, commitment]`. The 334-byte account contains `[0..8] LXMMAN04 |
+//! [8..40] commitment | [40..72] publisher | [72..76] network_id:u32 |
+//! [76..84] height:u64 | [84..116] block_hash | [116..124] total_bytes:u64 |
+//! [124..128] total_chunks:u32 | [128..160] archive_digest |
+//! [160..192] expected_chain | [192..224] observed_chain |
+//! [224..232] received_bytes:u64 | [232..236] next_chunk:u32 |
+//! [236] finalized:0/1 | [237..334] streamed SHA-256 state`. The hash state is
+//! eight u32 words, a zero-padded 64-byte tail and its u8 length; it survives
+//! account reloads. Finalization verifies both the chunk chain and archive hash.
+//!
+//! `11.fmt-solana-mirror-chunk-account`: PDA seeds are `["chunk", publisher,
+//! commitment, index:u32]`. The 80-byte header is `LXMCHK04 | commitment:bytes32 |
+//! index:u32 | sha256(value):bytes32 | length:u32`, followed by `value` (1..720
+//! bytes). Archives are limited to 64 MiB and 524288 chunks. Exact retries
+//! preserve state; changed content is refused.
+
 use solana_program::account_info::{next_account_info, AccountInfo};
 use solana_program::entrypoint;
 use solana_program::entrypoint::ProgramResult;

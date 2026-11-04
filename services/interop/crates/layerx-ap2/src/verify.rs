@@ -344,8 +344,14 @@ fn verify_terminal_binding(
 }
 
 fn check_claim_time(value: &Value, context: &VerificationContext<'_>) -> Result<(), Ap2Error> {
-    let iat = value.get("iat").and_then(Value::as_u64);
-    let exp = value.get("exp").and_then(Value::as_u64);
+    let numeric_date = |claim: &str| {
+        value
+            .get(claim)
+            .map(|value| value.as_u64().ok_or(Ap2Error::Malformed("JWT NumericDate")))
+            .transpose()
+    };
+    let iat = numeric_date("iat")?;
+    let exp = numeric_date("exp")?;
     check_time(iat, exp, context.now, context.clock_skew_seconds)
 }
 
@@ -353,7 +359,10 @@ fn check_time(iat: Option<u64>, exp: Option<u64>, now: u64, skew: u64) -> Result
     if iat.is_some_and(|issued| issued > now.saturating_add(skew)) {
         return Err(Ap2Error::NotYetValid);
     }
-    if exp.is_some_and(|expires| expires.saturating_add(skew) < now) {
+    if exp.is_some_and(|expires| {
+        now.checked_sub(skew)
+            .is_some_and(|latest| expires <= latest)
+    }) {
         return Err(Ap2Error::Expired);
     }
     if iat
