@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -36,6 +37,7 @@ type Server struct {
 	handler   http.Handler // mux, possibly wrapped by trustedHeaderMiddleware
 	protected bool
 	configErr error
+	admission *TaskStore
 }
 
 // TaskRequest is the JSON body for POST /v0/tasks. When ID is provided,
@@ -102,6 +104,14 @@ func NewServer(addr string, eng *engine.Engine, homeDir, authnMode string) *Serv
 		configErr: validateListener(addr, authnMode),
 	}
 	s.protected = s.protected && s.configErr == nil
+	if eng != nil && s.protected {
+		if store, ok := eng.Config.Checkpointer.(*TaskStore); ok {
+			s.admission = store
+			if err := store.bindEngine(eng); err != nil {
+				s.configErr = err
+			}
+		}
+	}
 	s.mux.HandleFunc("GET /v0/healthz", s.handleHealthz)
 	s.mux.HandleFunc("GET /v0/startupz", s.handleHealthz)
 	s.mux.HandleFunc("GET /v0/livez", s.handleLivez)
@@ -168,8 +178,20 @@ func (s *Server) handlePostTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "task submission requires an authenticated loopback listener")
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, MaxTaskRequestBytes)
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, "task request exceeds 64 KiB")
+			return
+		}
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 	var req TaskRequest
-	dec := json.NewDecoder(r.Body)
+	dec := json.NewDecoder(bytes.NewReader(body))
 	if err := dec.Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -185,9 +207,24 @@ func (s *Server) handlePostTask(w http.ResponseWriter, r *http.Request) {
 
 	task := engine.Task{ID: req.ID, Type: engine.TaskType(req.Type), Params: req.Params}
 
-	id, err := s.engine.Submit(task)
+	if s.admission == nil {
+		w.Header().Set("Retry-After", "1")
+		writeError(w, http.StatusServiceUnavailable, ErrTaskAdmissionUnavailable.Error())
+		return
+	}
+	id, err := s.admission.SubmitQueued(task)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		status := http.StatusBadRequest
+		if errors.Is(err, ErrTaskOverload) {
+			status = http.StatusTooManyRequests
+		}
+		if errors.Is(err, ErrTaskAdmissionUnavailable) {
+			status = http.StatusServiceUnavailable
+		}
+		if status == http.StatusTooManyRequests || status == http.StatusServiceUnavailable {
+			w.Header().Set("Retry-After", "1")
+		}
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"id": id})
