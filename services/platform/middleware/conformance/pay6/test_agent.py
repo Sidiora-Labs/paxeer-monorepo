@@ -1,5 +1,4 @@
 import concurrent.futures
-import hashlib
 import sqlite3
 import tempfile
 import unittest
@@ -16,6 +15,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 from layerx_sdk.x402_rpc import PaymentRpc
 from layerx_sdk.x402_http import PaymentEvidence
+from recorded_rpc import recorded_rpc, result as rpc_result
+from node_peer import node_peer, exchange
 
 
 class AgentBudgetTests(CommitmentTests):
@@ -31,12 +32,22 @@ class AgentBudgetTests(CommitmentTests):
     def test_budget_receipt_commit_and_replay(self):
         offer = {
             "scheme": "exact",
-            "network": "layerx:beta",
+            "network": "eip155:125",
             "amount": self.offer["amount"],
-            "asset": self.offer["asset"],
-            "payTo": self.offer["pay_to"],
+            "asset": FIXTURE["offer"]["asset"],
+            "payTo": FIXTURE["offer"]["payTo"],
             "maxTimeoutSeconds": 30,
         }
+        endpoint, produced = self.enterContext(node_peer())
+        self.assertEqual(produced["proof"], FIXTURE["receipt"])
+        typescript = exchange(endpoint + "agent", {
+            "proof": produced["proof"], "spend": produced["agentSpend"],
+        })
+        self.assertEqual(typescript["network"], offer["network"])
+        self.assertEqual(typescript["amount"], offer["amount"])
+        self.assertEqual(typescript["asset"], offer["asset"])
+        self.assertEqual(typescript["payTo"], offer["payTo"])
+        self.assertEqual(typescript["receiptDigest"], "0x" + keccak256(self.wire).hex())
         evidence = PaymentEvidence(self.wire, self.raw_transaction)
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "budgets.sqlite")
@@ -79,9 +90,7 @@ class AgentBudgetTests(CommitmentTests):
                         (key,),
                     ).fetchone(),
                     (
-                        hashlib.sha256(
-                            b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt
-                        ).hexdigest(),
+                        typescript["receiptDigest"][2:],
                     ),
                 )
 
@@ -128,10 +137,10 @@ class AgentBudgetTests(CommitmentTests):
         key, digest = words[3].hex(), words[6].hex()
         offer = {
             "scheme": "exact",
-            "network": "layerx:beta",
+            "network": "eip155:125",
             "amount": "40",
-            "asset": "66" * 32,
-            "payTo": signer[2:].rjust(64, "0"),
+            "asset": "0x" + "66" * 32,
+            "payTo": "0x" + "11" * 32,
             "maxTimeoutSeconds": 30,
             "extra": {"layerx": {"commitment": "receipted"}},
         }
@@ -139,16 +148,20 @@ class AgentBudgetTests(CommitmentTests):
             path = str(Path(directory) / "budget.sqlite")
             budget = PaymentBudget(path, "tenant", offer["asset"], 40)
             budget.reserve(key, digest, offer)
-            rpc = PaymentRpc("http://127.0.0.1:1/rpc")
-            with self.assertRaises(PlatformSdkError) as raised:
-                rpc.send("0x" + canonical.hex())
-            self.assertEqual(raised.exception.code, SdkErrorCode.UNKNOWN_OUTCOME)
             transaction_hash = "0x" + keccak256(canonical).hex()
-            for _ in range(2):
-                budget = PaymentBudget(path, "tenant", offer["asset"], 40)
-                budget.reserve(key, digest, offer)
-                with self.assertRaises(URLError):
-                    rpc.receipt(transaction_hash)
+            answers = [None, rpc_result(None), rpc_result(None)]
+            with recorded_rpc(answers) as (endpoint, requests):
+                rpc = PaymentRpc(endpoint)
+                with self.assertRaises(PlatformSdkError) as raised:
+                    rpc.send("0x" + canonical.hex())
+                self.assertEqual(raised.exception.code, SdkErrorCode.UNKNOWN_OUTCOME)
+                for _ in range(2):
+                    budget = PaymentBudget(path, "tenant", offer["asset"], 40)
+                    budget.reserve(key, digest, offer)
+                    self.assertIsNone(rpc.receipt(transaction_hash))
+                self.assertEqual([entry["body"]["method"] for entry in requests],
+                    ["eth_sendRawTransaction", "pax_sequencerReceipt", "pax_sequencerReceipt"])
+                self.assertEqual(requests[0]["body"]["params"], ["0x" + canonical.hex()])
             with self.assertRaises(ValueError):
                 budget.reserve("66" * 32, digest, offer)
             with sqlite3.connect(path) as db:
@@ -162,10 +175,10 @@ class AgentBudgetTests(CommitmentTests):
     def test_budget_requires_requested_commitment(self):
         offer = {
             "scheme": "exact",
-            "network": "layerx:beta",
+            "network": "eip155:125",
             "amount": self.offer["amount"],
-            "asset": self.offer["asset"],
-            "payTo": self.offer["pay_to"],
+            "asset": FIXTURE["offer"]["asset"],
+            "payTo": FIXTURE["offer"]["payTo"],
             "maxTimeoutSeconds": 30,
             "extra": {"layerx": {"commitment": "committed"}},
         }
@@ -189,6 +202,16 @@ class AgentBudgetTests(CommitmentTests):
                     ).fetchone(),
                     (None,),
                 )
+
+    def test_submitted_cannot_reserve_or_commit_a_payment(self):
+        offer = FIXTURE["offer"] | {"extra": {"layerx": {"commitment": "submitted"}}}
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "budget.sqlite")
+            budget = PaymentBudget(path, "tenant", offer["asset"], int(offer["amount"]))
+            with self.assertRaises((ValueError, PlatformSdkError)):
+                budget.reserve("01" * 32, "02" * 32, offer)
+            with sqlite3.connect(path) as db:
+                self.assertEqual(db.execute("SELECT count(*) FROM payment_reservations").fetchone(), (0,))
 
 
 if __name__ == "__main__":

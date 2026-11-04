@@ -9,6 +9,7 @@ mod send;
 mod server;
 mod store;
 mod wire;
+pub use wire::signing_contract;
 
 /// Runs the protected Human LXKP provider using its explicit environment configuration.
 ///

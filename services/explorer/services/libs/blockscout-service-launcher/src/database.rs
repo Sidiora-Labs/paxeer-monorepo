@@ -48,27 +48,32 @@ pub async fn ensure_database_exists_if_configured(
     let db_url = settings.connect.clone().url();
     let (db_base_url, db_name) = {
         let mut db_url: url::Url = db_url.parse().context("invalid database url")?;
-        let db_name = db_url
-            .path_segments()
-            .and_then(|mut segments| segments.next())
-            .ok_or(anyhow::anyhow!("missing database name"))?
-            .to_string();
-        db_url.set_path("");
+        let encoded_name = db_url.path().trim_start_matches('/');
+        // Decode the path as one component without treating literal '+' or '&' as form syntax.
+        let encoded_pair = format!(
+            "dbname={}",
+            encoded_name.replace('+', "%2B").replace('&', "%26")
+        );
+        let db_name = url::form_urlencoded::parse(encoded_pair.as_bytes())
+            .next()
+            .map(|(_, name)| name.into_owned())
+            .ok_or(anyhow::anyhow!("missing database name"))?;
+        db_url.set_path(DEFAULT_DB);
         if db_name.is_empty() {
             Err(anyhow::anyhow!("database name is empty"))?
         }
         (db_url, db_name)
     };
     tracing::info!("creating database '{db_name}'");
-    let db_base_url = format!("{db_base_url}/{DEFAULT_DB}");
-
-    let create_database_options = settings.connect_options.apply_to(db_base_url.into());
+    let create_database_options = settings
+        .connect_options
+        .apply_to(db_base_url.to_string().into());
     let db = Database::connect(create_database_options).await?;
 
     let result = db
         .execute(Statement::from_string(
             DatabaseBackend::Postgres,
-            format!(r#"CREATE DATABASE "{db_name}""#),
+            format!(r#"CREATE DATABASE "{}""#, db_name.replace('"', "\"\"")),
         ))
         .await;
     match result {
@@ -327,18 +332,24 @@ pub struct DatabaseKvConnection {
 
 impl DatabaseKvConnection {
     pub fn url(self) -> String {
-        let dbname = self
-            .dbname
-            .map(|dbname| format!("/{dbname}"))
-            .unwrap_or_default();
-        let options = self
-            .options
-            .map(|options| format!("?{options}"))
-            .unwrap_or_default();
-        format!(
-            "postgresql://{}:{}@{}:{}{}{}",
-            self.user, self.password, self.host, self.port, dbname, options
-        )
+        let mut url =
+            url::Url::parse("postgresql://localhost").expect("the static PostgreSQL URL is valid");
+        url.set_host(Some(&self.host))
+            .expect("PostgreSQL host must be a valid URL host");
+        url.set_port(Some(self.port))
+            .expect("PostgreSQL URLs support a port");
+        // URL setters preserve existing escapes, so literal percent signs must be escaped first.
+        url.set_username(&self.user.replace('%', "%25"))
+            .expect("PostgreSQL URLs support a username");
+        url.set_password(Some(&self.password.replace('%', "%25")))
+            .expect("PostgreSQL URLs support a password");
+        if let Some(dbname) = self.dbname {
+            url.path_segments_mut()
+                .expect("PostgreSQL URLs support path segments")
+                .push(&dbname);
+        }
+        url.set_query(self.options.as_deref());
+        url.into()
     }
 }
 

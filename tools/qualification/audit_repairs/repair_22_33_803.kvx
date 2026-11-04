@@ -1,0 +1,71 @@
+[task.22.33.803]
+audit = "22.30.178"
+base_revision = "19a27bf2d7e3308503bf7adf19e866efefdd5d0f"
+mode = "BUILD"
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit the contradictory unchanged-tree verify requested by step 8. No baseline failures are claimed. Initial status/diff showed only runner-prepared .cgignore and spec task-status changes; /out/run/gates.jsonl did not exist and gate.json recorded zero builds, zero verification runs and two repair cycles remaining."
+build_cmd = "bash -n scripts/run_snapshot.sh scripts/start_faucet.sh scripts/update-swagger-ui-statik.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_803.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact content-derived verified revision is bound to this record by the final hf-done JSON and its private evidence_ledger entry; embedding that revision inside this record would change its own candidate hash."
+qualification = "Only hf-build followed by hf-done qualifies this task, on the same unchanged candidate. The private ledger retains exact revision, command, exit and log. The final response copies the last gate receipt. No manual verification, commit or push is performed; the runner publishes."
+source_proof = "The pytest module parses every changed shell with bash -n, checks strict error handling and guarded command order, checks native snapshot/export/commit/query source contracts, parses actual produced TOML and receipt JSON, checks the real generated Go artifact and its node/app.go namespace consumer, and maps all four findings to declared tests. No assertion is deleted, skipped, ignored or marked expected to fail."
+runtime_proof = "The actual snapshot publication/configuration, faucet authentication/extraction/argument/request/transaction-validation, and Swagger namespace/publication helpers execute in process against real files. A loopback HTTP peer consumes the production faucet request and transports the committed SDK bank-success transcript into the production transaction consumer. A real SQLite storage peer emits opaque snapshot chunks and metadata; the real publication helper publishes them, a fresh module instance reopens the journal, and SQLite reopens the preserved store. No operational code is replaced or mocked."
+review_only = "No native paxd, faucet artifact, Ignite or statik binary is built or executed by pytest. The sole subprocess is the required bash syntax parser. Native signal exit behavior, all-writer exclusion, LevelDB snapshot metadata/encoding, native snapshot restoration, external TLS transfer, the upstream faucet's bank-send/query execution and generator execution remain source/review proofs rather than claimed native integration results."
+
+[finding.22]
+file = "scripts/run_snapshot.sh"
+class = "runtime-risk"
+severity = "medium"
+tests = ["test_finding_22_waits_for_clean_halt_before_export_snapshot_and_restart", "test_finding_22_committed_export_requires_exact_height_chain_and_state", "test_finding_22_configuration_preserves_unrelated_native_toml", "test_finding_22_snapshot_publication_recovers_next_height_after_reopen", "test_finding_22_incomplete_snapshot_never_advances"]
+repair = "Serialize runners with a home lock, stop/check the configured all-writer controller, supervise the one child and wait for zero exit plus the native configured-halt log. Read the latest offline export, requiring chain identity, nonempty application state and initial_height == target + 1; use the native root snapshot --height/--snapshot-dir interface. Require a successful snapshot command, contiguous nonempty chunk files and persisted metadata before hashing/fsync/atomic directory publication. Advance only from that publication receipt. Reopen the latest durable receipt and validate its exact file hashes and sequence before choosing the next height; ignore uncommitted staging directories. Interrupts stop/wait the child and never restart it."
+review_only = "The committed export fixture is node/testdata/v6120-halt-export.json. SQLite peer chunks prove opaque-file publication and recovery, not native LevelDB or native SDK snapshot encoding. Shell source establishes wait/stop/export/snapshot ordering; the native Create path returns errors from saving metadata. If the native node cannot halt cleanly or latest persisted height differs from target, the runner aborts without advancing."
+operation = "run_snapshot.sh INITIAL_HALT_HEIGHT SNAPSHOT_INTERVAL CHAIN_ID; optional PAX_HOME, PAXD_BIN, SNAPSHOT_DIR and PAXD_CONTROLLER. The existing paxd-service.sh is the default controller. A supplied controller receives stop|check-stopped HOME and must own every writer and suppress external restarts. Retain published snapshot directories as the receipt journal."
+
+[finding.23]
+file = "scripts/start_faucet.sh"
+class = "security"
+severity = "medium"
+tests = ["test_finding_23_release_pin_platform_selection_and_guard_order", "test_finding_23_verifies_digest_before_extracting_private_owned_file", "test_finding_23_rejects_unsafe_or_incomplete_archives", "test_finding_23_rejects_linked_and_shared_downloads"]
+repair = "Replace the predictable privileged installer with the maintained Ignite faucet release v0.0.3, independently pinning each supported platform archive SHA-256 in production source. Download only via verified HTTPS into a new owned mode-0700 temporary directory with exclusive no-follow mode-0600 files and a size bound. Check transfer success, digest and ownership before reading the archive; reject links, traversal, special or duplicate executable entries. Extract only the authenticated faucet member without applying archive permissions, require mode 0500 and recheck ownership before launch. No sudo, password prompt, mutable installer or unverified PATH faucet is used. Cleanup supervises the child before removing its private storage."
+provenance = "Pinned release and supported assets were inspected read-only at https://api.github.com/repos/ignite/faucet/releases/latest and https://github.com/ignite/faucet/releases/download/v0.0.3/faucet_0.0.3_checksums.txt. The release repo is unarchived; v0.0.3 is its latest published release. Checksums are checked-in trust anchors, never fetched alongside artifacts at runtime."
+review_only = "Pytest exercises the production digest, safe archive extraction, file type, permissions and hardlink/symlink guards using inert archive bytes which are never executed. Actual release downloading, upstream support policy and native binary execution are not gate claims. TLS uses Python's default certificate and hostname verification; source checks prove all launch prerequisites precede Popen."
+
+[finding.24]
+file = "scripts/start_faucet.sh"
+class = "wiring-gap"
+severity = "medium"
+tests = ["test_finding_24_resolves_one_binary_home_chain_and_native_query_contract", "test_finding_24_real_request_transport_and_committed_response_consumer", "test_finding_24_rejects_uncommitted_failed_or_unrelated_funding"]
+repair = "Resolve one absolute paxd executable and home; parse local client.toml and genesis.json and require matching chain IDs, an explicit loopback node and the disposable test keyring. Require explicit --disposable, funding account and distinct probe recipient. Pass the same binary/home/node and account/denom/amount/fee to the maintained faucet, with stargate SDK compatibility and cleared secret environment defaults. Check native RPC chain/catching-up state and the faucet's own /info chain. Send a real HTTP funding probe, then query native paxd query txs and query tx HASH; require a new positive committed height, code zero, valid matching hash and exact sender/recipient/denomination/amount transfer before reporting ready."
+operation = "start_faucet.sh --disposable --account admin --recipient DISPOSABLE_ADDRESS [--home HOME --paxd BINARY --denom uhpx --amount 10000000 --fee 0 --port 8000]. The default home is PAX_HOME or ~/.pax; default binary is PAXD_BIN or resolved paxd. The pinned faucet detects chain ID from the explicitly passed home/node; it has no chain-id flag, so its /info response is independently checked. Startup intentionally spends one probe amount from the disposable funding account."
+review_only = "Both sides of the HTTP request are driven over loopback; transaction evidence comes unchanged from sdk/contrib/rosetta/configuration/testdata/bank-success.json, projected from its real committed native transaction index. The test resolves the existing Python interpreter only to exercise path resolution, never substituting or running a fake paxd. The native bank-send and transaction-query subprocess paths are source-checked; actual faucet-to-paxd funding belongs to native integration."
+upstream_contract = "https://github.com/ignite/faucet/blob/v0.0.3/cmd/faucet.go declares the launch flags and automatic chain detection. Its go.mod pins github.com/ignite/cli/v28 v28.5.3; cosmosfaucet sends bank transactions and waits for transaction confirmation. The launcher additionally requires its own native committed-query evidence."
+
+[finding.25]
+file = "scripts/update-swagger-ui-statik.sh"
+class = "config-drift"
+severity = "medium"
+tests = ["test_finding_25_portable_namespace_publishes_the_real_generated_payload", "test_finding_25_invalid_generation_preserves_previous_artifact", "test_finding_25_generation_failures_precede_atomic_publish"]
+repair = "Run OpenAPI then statik with strict POSIX-shell failure propagation and stage generated Go output beside the destination. Replace BSD-specific sed with a portable checked Python transformation: require the generated header, swagger package, initializer, embedded data and exactly one recognized registration; emit one swaggerNamespace constant and matching registration, and atomically replace the artifact only after validation. Update the committed generated artifact with exactly that transformation, preserving the entire embedded archive byte literal."
+review_only = "The tests publish the real generated payload through the production helper, compare it byte-for-byte with docs/swagger/statik.go, verify the node/app.go blank import/namespace/file-server consumer and refuse missing, duplicate, wrong-namespace, wrong-package and truncated output without changing the prior artifact. Source order and strict shell mode prove propagation of generation failures. The full Ignite/statik toolchains and regenerated OpenAPI assets are not run or claimed by this Python gate."
+
+[wiring]
+requests = ["Domain 16 (tools/ops) with the native chain/consensus owners: exercise scripts/run_snapshot.sh against daemon/paxd/cmd/snapshot.go, sdk/baseapp/abci.go and consensus durable state in the native integration lane, including signal exit status and reopen/restoration; this Python-only task changes none of those paths.", "Domain 16 (tools/ops/API generation): regenerate docs/swagger-ui OpenAPI assets with the maintained Ignite toolchain and run the pinned faucet v0.0.3 against the real daemon/paxd CLI in the native integration lane; those generated assets and native commands are outside this task's allowed changes/gates."]
+
+[gotcha.1]
+observed = "The step-8 unchanged-tree verify conflicts with the explicit implementation-first order and exclusive hf-done gate, while root GOTCHA/spec edits and commits are outside this task's authority."
+resolution = "Record the unmeasured baseline and gotchas here, preserve runner-owned bookkeeping and use only the declared bounded gates."
+
+[gotcha.2]
+observed = "The old script's tendermint snapshot positional-height invocation is not the current native CLI; the root snapshot command requires --height and accepts --snapshot-dir."
+resolution = "Consume daemon/paxd/cmd/snapshot.go directly and check latest offline export initial_height minus one against the committed target."
+
+[gotcha.3]
+observed = "sdk/server/start.go's descriptive halt text differs from sdk/baseapp/abci.go's actual commit-before-halt order, and application commit alone does not prove every consensus store's recovery."
+resolution = "Require exact committed app export, zero child exit and the native halt log; fail without advancing on any mismatch and retain native consensus restoration as the explicit integration boundary."
+
+[gotcha.4]
+observed = "Broad GOTCHA and generated-stat ik reads exceed output limits because the ledger and generated embedded-data literal are large."
+resolution = "Use bounded section reads and inspect only the generated header and registration; preserve the embedded-data literal byte-for-byte."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. Apply the repository .editorconfig conventions after implementation and use gofmt only on the touched generated Go artifact."

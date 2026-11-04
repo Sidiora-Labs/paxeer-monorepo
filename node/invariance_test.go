@@ -173,7 +173,7 @@ func TestLightInvarianceChecks(t *testing.T) {
 		a.BankKeeper.SetSupply(ctx, uhpxCoin(tt.postSupply))
 		a.SetDeliverStateToCommit()
 		f := func() {
-			a.LightInvarianceChecks(t.Context(), a.WriteState(), app.LightInvarianceConfig{SupplyEnabled: true})
+			require.NoError(t, a.LightInvarianceChecks(t.Context(), a.WriteState(), app.LightInvarianceConfig{SupplyEnabled: true}))
 		}
 		if tt.success {
 			require.NotPanics(t, f)

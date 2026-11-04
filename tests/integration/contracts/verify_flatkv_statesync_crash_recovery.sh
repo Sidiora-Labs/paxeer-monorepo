@@ -22,6 +22,14 @@ IMPORT_HEIGHT_FILE=${FLATKV_IMPORT_HEIGHT_FILE:-$(pwd)/tests/integration/contrac
 MIN_SNAPSHOT_HEIGHT_OVERRIDE=${FLATKV_STATESYNC_MIN_SNAPSHOT_HEIGHT:-}
 SNAPSHOT_WAIT_TIMEOUT=${FLATKV_STATESYNC_SNAPSHOT_WAIT_TIMEOUT:-420}
 
+RECOVERY_LOG="/pax-protocol/pax-chain/build/generated/logs/paxd-${VICTIM_INDEX}.log"
+RECOVERY_CHECKS="/pax-protocol/pax-chain/tests/integration/contracts/flatkv_contract_checks.py"
+RECOVERY_SCENARIO=${FLATKV_STATESYNC_RECOVERY_SCENARIO:-snapshot-import}
+case "$RECOVERY_SCENARIO" in
+  snapshot-import|blocksync-replay) ;;
+  *) echo "ERROR: unknown recovery scenario $RECOVERY_SCENARIO" >&2; exit 1 ;;
+esac
+
 echo "verify_flatkv_statesync_crash_recovery: victim=$VICTIM_NODE donor=$DONOR_NODE"
 
 dump_node_log() {
@@ -345,6 +353,7 @@ configure_statesync() {
       -e '/^\[statesync\]/,/^\[consensus\]/ s|^rpc-servers *=.*|rpc-servers = \"${DONOR_NODE}:26657,${SECOND_RPC_NODE}:26657\"|' \
       -e '/^\[statesync\]/,/^\[consensus\]/ s|^trust-height *=.*|trust-height = ${trust_height}|' \
       -e '/^\[statesync\]/,/^\[consensus\]/ s|^trust-hash *=.*|trust-hash = \"${trust_hash}\"|' \
+      -e '/^\[statesync\]/,/^\[consensus\]/ s|^temp-dir *=.*|temp-dir = \"${CHUNK_ROOT}\"|' \
       /root/.pax/config/config.toml
     sed -i.bak -e \"s|^persistent-peers *=.*|persistent-peers = \\\"\${peers}\\\"|\" /root/.pax/config/config.toml
   "
@@ -362,10 +371,12 @@ assert_statesync_configured() {
       /^rpc-servers[[:space:]]*=/ { rpc=\$0 }
       /^trust-height[[:space:]]*=/ { height=\$3 }
       /^trust-hash[[:space:]]*=/ { hash=\$3; gsub(/\\\"/, \"\", hash) }
+      /^temp-dir[[:space:]]*=/ { section_temp=\$3; gsub(/\\\"/, \"\", section_temp) }
       END {
         if (enable != \"true\") exit 10
         if (height != \"${trust_height}\") exit 11
         if (hash != \"${trust_hash}\") exit 12
+        if (section_temp != \"${CHUNK_ROOT}\") exit 14
         if (rpc !~ /${DONOR_NODE}:26657/ || rpc !~ /${SECOND_RPC_NODE}:26657/) exit 13
       }'
   "; then
@@ -401,30 +412,26 @@ wait_for_statesync_log_and_kill() {
   local node=$1
   local timeout=$2
   local elapsed=0
-  local log_path="/pax-protocol/pax-chain/build/generated/logs/paxd-${VICTIM_INDEX}.log"
-  local regex='This node needs state sync|starting state sync|starting state sync with picked snapshot|Offering snapshot to ABCI app|Snapshot accepted, restoring|Fetching snapshot chunk|Applied snapshot chunk|Start restoring store'
-
   while [ "$elapsed" -lt "$timeout" ]; do
-    if docker exec "$node" bash -lc "grep -Eiq '$regex' '$log_path' 2>/dev/null"; then
-      echo "Detected state-sync activity in $node log; killing mid-flight"
-      docker exec "$node" bash -lc "grep -Ei '$regex' '$log_path' 2>/dev/null | tail -5" || true
-      docker exec "$node" pkill -9 -f "paxd start" >/dev/null 2>&1 || true
-      return 0
+    if docker exec "$node" grep -q 'Applied snapshot chunk to ABCI app' "$RECOVERY_LOG"; then
+      # Freeze the real process so completion cannot race the persisted-progress probe.
+      docker exec "$node" pkill -STOP -x paxd
+      if docker exec "$node" python3 "$RECOVERY_CHECKS" partial "$RECOVERY_LOG" "$CHUNK_ROOT" "$FLATKV_DIR" "$RECOVERY_EVIDENCE/partial.json"; then
+        docker exec "$node" pkill -KILL -x paxd
+        return 0
+      fi
+      docker exec "$node" pkill -CONT -x paxd
     fi
-    if ! docker exec "$node" pgrep -f "paxd start" >/dev/null 2>&1; then
-      echo "ERROR: $node exited before mid-flight kill could be injected" >&2
-      dump_node_log "$node"
+    if ! docker exec "$node" pgrep -x paxd >/dev/null; then
+      echo "ERROR: $node exited before a persisted partial import was observed" >&2
       return 1
     fi
     sleep 1
     elapsed=$((elapsed + 1))
   done
-
-  echo "WARNING: no explicit state-sync restore log detected within ${timeout}s; killing $node anyway and relying on content assertions" >&2
-  docker exec "$node" bash -lc \
-    "grep -E 'state sync|statesync|snapshot|blocks_synced=|state_synced=|switching to consensus reactor|Found local state' '$log_path' 2>/dev/null | tail -40" >&2 \
-    || echo "(no state-sync/blocksync startup lines found before kill)" >&2
-  docker exec "$node" pkill -9 -f "paxd start" >/dev/null 2>&1 || true
+  echo "ERROR: no persisted non-final snapshot chunk within ${timeout}s; crash window unobserved" >&2
+  dump_node_log "$node"
+  return 1
 }
 
 wait_for_catchup() {
@@ -457,57 +464,13 @@ assert_flatkv_dump_contains_fixture() {
   if ! ensure_paxdb "$node"; then
     return 1
   fi
-  # Use `if ! docker exec ...; then return 1; fi` (NOT `... || return 1` and
-  # NOT a bare `docker exec` as the function's last command). When this helper
-  # is invoked from `assert_flatkv_recovered` -- regardless of whether the
-  # caller chains `|| fail` or wraps in `if !` -- bash suspends `set -e`
-  # inside the function body, so any non-trailing failure will not abort
-  # automatically. Capturing the docker exec exit code here is the only way
-  # to propagate the failure reliably.
   if ! docker exec "$node" bash -lc "
     set -euo pipefail
-    out_dir=/tmp/flatkv-statesync-crash-smoke-${node}
+    out_dir=/tmp/flatkv-recovered-fixture-${node}-${COMPARE_VERSION}
     rm -rf \"\$out_dir\" && mkdir -p \"\$out_dir\"
     cd /pax-protocol/pax-chain
-    build/paxdb dump-flatkv \
-      --db-dir $FLATKV_DIR \
-      --output-dir \"\$out_dir\" > /dev/null
-    # NOTE: the native-transfer recipient is intentionally NOT asserted in any
-    # FlatKV bucket -- see the long-form rationale on the 'account' assertion
-    # below. Recipient liveness is verified via the RPC balance query in
-    # assert_evm_fixture_queries instead.
-    contract_hex=\$(tail -1 tests/integration/contracts/flatkv_evm_contract_addr.txt | sed 's/^0x//' | tr '[:lower:]' '[:upper:]')
-    storage_hex=\$(tail -1 tests/integration/contracts/flatkv_evm_storage_expected.txt | sed 's/^0x//' | tr '[:lower:]' '[:upper:]')
-    code_hex=\$(tail -1 tests/integration/contracts/flatkv_evm_code_expected.txt | sed 's/^0x//' | tr '[:lower:]' '[:upper:]')
-    # Use the contract address (not the native-transfer recipient) for the
-    # 'account' bucket assertion. The recipient is a fresh EOA whose
-    # default-value EVM state (nonce=0, codehash=keccak('')) is never
-    # persisted by Pax's EVM keeper, so the recipient never appears in
-    # FlatKV's account bucket on any node, including donors -- diagnostics
-    # confirmed donor itself has 0 hits in account/code/storage/legacy.
-    # The native-transfer balance is held in the bank module, whose
-    # changesets are not routed to FlatKV in dual_write mode at all
-    # (only EVM-named changesets are). Recipient liveness is instead
-    # validated via the RPC balance query in assert_evm_fixture_queries.
-    # The contract address, by contrast, has explicit nonce/codehash
-    # writes from CREATE and is present in the 'account' bucket on every
-    # dual_write validator (diagnostics: 1 hit for the contract here).
-    if [ ! -s \"\$out_dir/account\" ] || ! grep -q \"\$contract_hex\" \"\$out_dir/account\"; then
-      echo \"ERROR: $node FlatKV account dump is missing fixture contract \$contract_hex\" >&2
-      exit 1
-    fi
-    if [ ! -s \"\$out_dir/storage\" ] || ! grep -q \"\$contract_hex\" \"\$out_dir/storage\"; then
-      echo \"ERROR: $node FlatKV storage dump is missing fixture contract \$contract_hex\" >&2
-      exit 1
-    fi
-    if ! grep -q \"\$storage_hex\" \"\$out_dir/storage\"; then
-      echo \"ERROR: $node FlatKV storage dump is missing expected value \$storage_hex\" >&2
-      exit 1
-    fi
-    if [ ! -s \"\$out_dir/code\" ] || ! grep -q \"\$code_hex\" \"\$out_dir/code\"; then
-      echo \"ERROR: $node FlatKV code dump is missing fixture code \$code_hex\" >&2
-      exit 1
-    fi
+    build/paxdb dump-flatkv --db-dir $FLATKV_DIR --height $COMPARE_VERSION --output-dir \"\$out_dir\" >/dev/null
+    python3 '$RECOVERY_CHECKS' fixture \"\$out_dir\" tests/integration/contracts '$COMPARE_VERSION'
   "; then
     return 1
   fi
@@ -581,30 +544,29 @@ assert_evm_fixture_queries() {
   echo "FlatKV EVM fixture queries passed on $node"
 }
 
-# Print which recovery path the victim actually took (state-sync resume vs
-# blocksync fallback) for diagnostic visibility, but DO NOT fail the test
-# either way. Rationale: this test SIGKILL's the victim mid-state-sync, so
-# both outcomes are legitimate -- (a) Tendermint resumes the snapshot apply
-# on restart and emits state_synced=true, or (b) the partial snapshot is
-# abandoned and the node catches up via blocksync replay. The CI run on
-# 2026-05-13T15:53Z confirmed (b) is the typical path here, and that the
-# blocksync-replay path still produces a correct FlatKV (EVM dual_write
-# replay populates account/code/storage buckets at the fixture-deploy
-# heights -- diagnostics: pendingAccount=1 at version=30, pendingAccount=2
-# at version=35, matching the recipient transfer at h=32 and contract
-# create at h=37). The strict "must use state-sync" invariant only belongs
-# to verify_flatkv_total_loss_recovery.sh, where no crash is injected and
-# state-sync is the only intended recovery path.
-log_recovery_path() {
-  local node=$1
-  local node_id=${node#pax-node-}
-  local logfile="/pax-protocol/pax-chain/build/generated/logs/paxd-${node_id}.log"
-  if docker exec "$node" bash -lc "grep -qE 'state_synced=true' '$logfile' 2>/dev/null"; then
-    echo "$node recovery path: STATE-SYNC RESUME (state_synced=true after mid-flight kill)"
-  elif docker exec "$node" bash -lc "grep -qE 'state_synced=false .*blocks_synced=' '$logfile' 2>/dev/null"; then
-    echo "$node recovery path: BLOCKSYNC FALLBACK (mid-flight state-sync abandoned, replayed via blocksync)"
-  else
-    echo "$node recovery path: UNKNOWN (no state_synced= outcome line in log)"
+assert_recovery_path() {
+  local height proof
+  height=$(node_height "$VICTIM_NODE")
+  if [ "$RECOVERY_SCENARIO" = "blocksync-replay" ]; then
+    docker exec "$VICTIM_NODE" python3 "$RECOVERY_CHECKS" replay "$RECOVERY_LOG" "$height" || return 1
+    RECOVERED_SNAPSHOT_HEIGHT=$required_snapshot_height
+    return 0
+  fi
+  proof=$(docker exec "$VICTIM_NODE" python3 "$RECOVERY_CHECKS" imported "$RECOVERY_LOG" "$required_snapshot_height" "$height" "$FLATKV_DIR" "$RECOVERY_EVIDENCE/partial.json") || return 1
+  RECOVERED_SNAPSHOT_HEIGHT=$(printf '%s\n' "$proof" | jq -er '.snapshot_height') || return 1
+  printf '%s\n' "$proof"
+}
+
+select_compare_version() {
+  local donor_height victim_height
+  wait_for_height "$DONOR_NODE" "$((RECOVERED_SNAPSHOT_HEIGHT + 3))" "$CATCHUP_TIMEOUT" || return 1
+  wait_for_height "$VICTIM_NODE" "$((RECOVERED_SNAPSHOT_HEIGHT + 3))" "$CATCHUP_TIMEOUT" || return 1
+  donor_height=$(node_height "$DONOR_NODE")
+  victim_height=$(node_height "$VICTIM_NODE")
+  COMPARE_VERSION=$((donor_height < victim_height ? donor_height - 2 : victim_height - 2))
+  if [ "$COMPARE_VERSION" -lt "$RECOVERED_SNAPSHOT_HEIGHT" ]; then
+    echo "ERROR: selected fixture version predates the required snapshot" >&2
+    return 1
   fi
 }
 
@@ -612,14 +574,16 @@ assert_flatkv_recovered() {
   # FlatKV snapshot export/import is logically lossless for EVM queries, but it
   # can re-serialize rows, so raw byte digests need not match donor validators.
   echo "Verifying restored FlatKV EVM content on $VICTIM_NODE"
-  log_recovery_path "$VICTIM_NODE"
   # Run both content checks unconditionally and aggregate failure: short-circuiting
   # via `&&` / `||` would (a) hide secondary failures behind the first one and
   # (b) re-introduce the bash conditional-context trap (set -e suspended in
   # helpers; trailing `echo "passed"` masking the real exit code). One
-  # explicit failure flag avoids both. Recovery path (state-sync vs blocksync)
-  # is logged for diagnostic visibility only -- see log_recovery_path comment.
+  # explicit failure flag avoids both.
   local failed=0
+  RECOVERED_SNAPSHOT_HEIGHT=$required_snapshot_height
+  assert_recovery_path || failed=1
+  select_compare_version || exit 1
+  assert_flatkv_dump_contains_fixture "$DONOR_NODE" || failed=1
   assert_flatkv_dump_contains_fixture "$VICTIM_NODE" || failed=1
   assert_evm_fixture_queries "$VICTIM_NODE" || failed=1
   if [ "$failed" -ne 0 ]; then
@@ -673,6 +637,15 @@ docker exec "$VICTIM_NODE" bash -lc "
   mv /tmp/flatkv-priv-validator-state.json /root/.pax/data/priv_validator_state.json
   sed -i.bak -e 's|^snapshot-directory *=.*|snapshot-directory = \"./build/generated/node_${VICTIM_INDEX}/snapshots\"|' /root/.pax/config/app.toml
 "
+RECOVERY_EVIDENCE=$(docker exec "$VICTIM_NODE" mktemp -d /tmp/flatkv-recovery-XXXXXX)
+CHUNK_ROOT="$RECOVERY_EVIDENCE/chunks"
+docker exec "$VICTIM_NODE" bash -lc "
+  set -euo pipefail
+  umask 077
+  mkdir -p '$CHUNK_ROOT'
+  if [ -e '$RECOVERY_LOG' ]; then mv '$RECOVERY_LOG' '$RECOVERY_EVIDENCE/before.log'; fi
+"
+
 configure_statesync "$VICTIM_NODE" "$trust_height" "$trust_hash"
 assert_statesync_configured "$VICTIM_NODE" "$trust_height" "$trust_hash"
 
@@ -681,10 +654,25 @@ start_victim
 wait_for_process "$VICTIM_NODE" 20
 wait_for_statesync_log_and_kill "$VICTIM_NODE" "$KILL_WINDOW_SECS"
 sleep 2
-if docker exec "$VICTIM_NODE" pgrep -f "paxd start" >/dev/null 2>&1; then
-  echo "ERROR: $VICTIM_NODE survived the injected state-sync SIGKILL" >&2
+if ! docker exec "$VICTIM_NODE" bash -lc '
+  if pgrep -x paxd >/dev/null; then exit 10; else rc=$?; [ "$rc" -eq 1 ]; fi
+'; then
+  echo "ERROR: $VICTIM_NODE survived the injected state-sync SIGKILL or process absence could not be verified" >&2
   dump_node_log "$VICTIM_NODE"
   exit 1
+fi
+
+docker exec "$VICTIM_NODE" mv "$RECOVERY_LOG" "$RECOVERY_EVIDENCE/interrupted.log"
+if [ "$RECOVERY_SCENARIO" = "blocksync-replay" ]; then
+  # An explicitly selected replay scenario discards the incomplete database while stopped.
+  docker exec "$VICTIM_NODE" bash -lc "
+    set -euo pipefail
+    cp /root/.pax/data/priv_validator_state.json '$RECOVERY_EVIDENCE/priv_validator_state.json'
+    rm -rf /root/.pax/data /root/.pax/wasm
+    mkdir -p /root/.pax/data
+    mv '$RECOVERY_EVIDENCE/priv_validator_state.json' /root/.pax/data/priv_validator_state.json
+    sed -i '/^\[statesync\]/,/^\[consensus\]/ s|^enable *=.*|enable = false|' /root/.pax/config/config.toml
+  "
 fi
 
 echo "Restarting $VICTIM_NODE after mid-state-sync crash"
@@ -693,4 +681,4 @@ wait_for_process "$VICTIM_NODE" 30
 wait_for_catchup "$VICTIM_NODE" "$DONOR_NODE" "$CATCHUP_TIMEOUT"
 assert_flatkv_recovered
 
-echo "PASS: $VICTIM_NODE recovered from a SIGKILL during state-sync and serves restored FlatKV EVM data"
+echo "PASS: $VICTIM_NODE completed $RECOVERY_SCENARIO recovery after persisted partial-import SIGKILL and serves restored FlatKV EVM data"

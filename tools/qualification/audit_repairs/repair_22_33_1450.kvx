@@ -1,0 +1,37 @@
+[task.22.33.1450]
+base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+repair = "Remove the retired /rpc suffix from the merchant-shop emulator rpcUrl, publishing http://127.0.0.1:9402 as the root JSON-RPC origin. Preserve the explicit settlementUrl http://127.0.0.1:9402/v1/settle, chain 125, trust/token bindings and every other configuration value."
+source_proof = "The pytest module parses the production JSON configuration and package manifest, checks exact root RPC and separate settlement paths, and fingerprints every unrelated configuration value against the base. The source assertions trace the actual start script and entrypoint through loadMerchantShopConfig/loadApplicationConfig into TransactionReceipts and SequencerReceiptClient, their direct JSON-RPC POST transport, and the separately authenticated SettlementAuthority URL."
+review_only = "JavaScript and Rust compilation/execution, live JSON-RPC transport, signed receipt verification, settlement availability and checkout recovery are not executed by this Python-only gate. This retired-reference repair proves configuration and source wiring, not runtime emulator readiness; no interface-mismatch or restart-recovery finding is assigned to this task. No shell script, unit file or build file is changed. The gate uses no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No baseline run was performed: the explicit Order requires full implementation before formatting/build/test and forbids running verify_cmd by hand before hf-done, conflicting with step 5's unchanged-tree verification request. No pre-change test failure is claimed. Initial git status/diff showed only runner-prepared .cgignore and task-start spec bookkeeping; gate.json had zero gate runs and gates.jsonl did not exist."
+wiring_request = "tools/platform/emulator/src/main.rs and src/surface.rs plus services/platform/examples/support/runtime.mjs and services/platform/examples/support/merchant-app.mjs; owning domain 8 (platform): provide the local merged-node adapter for POST / JSON-RPC with eth_getRawTransactionByHash and pax_sequencerReceipt, preserving explicit authenticated /v1/settle routing or coordinating its replacement with the merchant settlement consumer; the current emulator has no root RPC route and returns HTTP 410 for /v1/settle, so it cannot provide a working merchant checkout until the owner completes this wiring."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1450.py"
+evidence_ledger = "/out/run/gates.jsonl"
+revision_evidence = "The final hf-done JSON and private evidence ledger record the exact verified content-derived candidate revision, command, exit code and log location; build and verify must name the same candidate. The runner retains that evidence and commits the result. Embedding the candidate hash in this candidate's own record would change its hash."
+
+[finding.merchant-emulator-rpc]
+audit = "22.30.83"
+file = "services/platform/examples/merchant-shop/layerx.example.json"
+class = "retired-reference"
+tests = ["test_merchant_emulator_root_rpc_and_explicit_settlement", "test_production_configuration_rpc_transport_and_settlement_wiring"]
+closure = "The scoped configuration reference is repaired; emulator runtime integration remains the explicit owning-domain wiring request above."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first, wrapper-only qualification order."
+resolution = "Follow the explicit order and claim no baseline result; retain this note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Codify brief reports unrelated stale changes, graph searches omit the owning emulator, and broad file reads exceed the output limit."
+resolution = "Use actual git status/diff, the exact task and finding blocks, private gate configuration and bounded direct source reads; the emulator lives at tools/platform/emulator rather than services/platform/emulator."
+
+[gotcha.3]
+observed = "The out-of-scope emulator has no root JSON-RPC route and explicitly retires merchant settlement with HTTP 410."
+resolution = "Record the source-observed external limitation once in the owning-domain wiring request; preserve settlement routing and avoid claiming runtime readiness or modifying neighboring modules."
+
+[format]
+policy = "JSON follows the existing two-space indentation. No Python or KVX formatter is configured for these paths; touched files follow .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions."
+
+[gotcha.4]
+observed = "First hf-done: revision 77f241ca9a198422ca74315e978f33fb161b728b; command cg spec done 22.33.1450 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log. Two tests passed; the record check required lowercase source but the record said Source assertions."
+resolution = "Correct the record wording to include source without changing any assertion; rerun hf-build and hf-done on the revised candidate."

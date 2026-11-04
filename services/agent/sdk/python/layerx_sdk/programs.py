@@ -223,6 +223,12 @@ def resolve_lifecycle_failure(error: PlatformSdkError, binding: DecodedSignedPro
 
 
 def _verify_lifecycle_submission(result: object, binding: DecodedSignedProgramCall, sequencer: bytes, signatures: LocalSignatureVerifier, *, receipt_keys: tuple[ReceiptKey, ...]) -> Mapping[str, str | int]:
+    if isinstance(result, dict) and result.get("state") == "submitted":
+        if result != {"state": "submitted", "activity_id": binding.activity_id,
+                      "idempotency_key": binding.idempotency_key,
+                      "retained_signed_activity": binding.canonical_bytes.hex()}:
+            raise ValueError("submitted lifecycle binding")
+        return {**result, "state": "pending"}
     if isinstance(result, dict) and result.get("state") == "unknown":
         if set(result) != {"state", "activity_id", "retry", "retry_after_seconds"} or result.get("activity_id") != binding.activity_id or result.get("retry") != "after" or type(result.get("retry_after_seconds")) is not int or result.get("retry_after_seconds") != 2:
             raise ValueError("unknown lifecycle binding")
@@ -246,6 +252,10 @@ class ProgramOperations:
             raise ValueError("lifecycle scope")
         binding = request.bind()
         result = self._client.agent("program.receipt", {"idempotency_key": binding.idempotency_key, "expected_activity_id": binding.activity_id, "requested_verification_level": "sequencer-signed"})
+        if isinstance(result, Mapping) and result.get("rung") in {"receipted", "committed"}:
+            _sequencer_submission(result, binding.canonical_bytes, self._trust,
+                                  program_id=None, activity_id=binding.activity_id)
+            result = {"activity_id": binding.activity_id, "receipt": _rpc_bytes(result["receipt"]).hex()}
         return verify_lifecycle_recovery(result, binding.activity_id, self._trust.sequencer_public_key, self._signatures, signed_activity=binding.canonical_bytes, receipt_keys=self._trust.receipt_keys)
 
     def deploy(self, request: NativeProgramLifecycleRequest, key: IdempotencyKey) -> Mapping[str, str | int]:
@@ -424,14 +434,14 @@ def _submission(
 ) -> Mapping[str, object]:
     result = _mapping(value)
     state = result.get("state")
-    if state == "unknown":
+    if state in {"unknown", "submitted", "pending"}:
         _exact(result, ("state", "activity_id", "idempotency_key"), ("retained_signed_activity",))
         actual_activity = _hex_field(result, "activity_id", 32, exact=True)
         actual_idempotency = _hex_field(result, "idempotency_key", 32, exact=True)
         retained = None if result.get("retained_signed_activity") is None else _hex_field(result, "retained_signed_activity", _MAX_CALLDATA)
         if (activity_id is not None and actual_activity != activity_id) or (idempotency_key is not None and actual_idempotency != idempotency_key) or (retained_signed_activity is not None and retained is not None and retained != retained_signed_activity):
             raise ValueError("program unknown binding failed")
-        bound: dict[str, object] = {"state": "unknown", "activity_id": actual_activity, "idempotency_key": actual_idempotency}
+        bound: dict[str, object] = {"state": "unknown" if state == "unknown" else "pending", "activity_id": actual_activity, "idempotency_key": actual_idempotency}
         if retained is not None or retained_signed_activity is not None:
             bound["retained_signed_activity"] = retained if retained is not None else retained_signed_activity
         return bound
@@ -727,24 +737,25 @@ def _verify_discovery_signature(value: Mapping[str, object], head: ProgramDiscov
 def _interface(value: object, program_id: str, now: int, protocol_version: int = 2) -> ProgramInterface:
     result = _mapping(value)
     _exact(result, ("program_id", "version", "code_hash", "abi_version", "interface", "interface_digest",
-        "receipt_digest", "state_root", "observed_sequence", "observed_at", "valid_through", "source", "verification"))
+        "deployment_receipt_digest", "state_root", "observed_sequence", "observed_at", "valid_through", "source", "verification"))
     if _hex_field(result, "program_id", 32, exact=True) != program_id or result.get("verification") != "deployment-interface-and-current-head-verified":
         raise ValueError("unverified program interface")
     if not _integer(result.get("version"), 1, (1 << 32) - 1) or not native_guest_abi_for_protocol(result.get("abi_version"), protocol_version):
         raise ValueError("invalid program interface")
-    for field in ("code_hash", "interface_digest", "receipt_digest", "state_root"):
+    for field in ("code_hash", "interface_digest", "deployment_receipt_digest", "state_root"):
         _hex_field(result, field, 32, exact=True)
     interface = bytes.fromhex(_hex_field(result, "interface", 952))
     if not interface or sha256(interface).hexdigest() != result.get("interface_digest"):
         raise ValueError("program interface digest mismatch")
     source = _program_source(result.get("source"))
     for field in ("observed_sequence", "observed_at", "valid_through"):
-        _decimal(result.get(field), (1 << 64) - 1)
+        if not _integer(result.get(field), 0, _MAX_U64):
+            raise ValueError("invalid interface freshness")
     documented = ProgramInterface(program_id, cast(int, result["version"]), cast(str, result["code_hash"]),
         cast(int, result["abi_version"]), interface, cast(str, result["interface_digest"]),
-        cast(str, result["receipt_digest"]), cast(str, result["state_root"]),
-        _decimal(result["observed_sequence"], _MAX_U64), _decimal(result["observed_at"], _MAX_U64),
-        _decimal(result["valid_through"], _MAX_U64), _typed_program_source(source))
+        cast(str, result["deployment_receipt_digest"]), cast(str, result["state_root"]),
+        cast(int, result["observed_sequence"]), cast(int, result["observed_at"]),
+        cast(int, result["valid_through"]), _typed_program_source(source))
     _fresh(_head(documented), now)
     return documented
 

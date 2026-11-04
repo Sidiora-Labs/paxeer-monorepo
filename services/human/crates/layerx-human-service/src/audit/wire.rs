@@ -77,4 +77,8 @@ impl<'a> Reader<'a> {
     pub(super) const fn is_empty(&self) -> bool {
         self.offset == self.bytes.len()
     }
+
+    pub(super) const fn remaining(&self) -> usize {
+        self.bytes.len() - self.offset
+    }
 }

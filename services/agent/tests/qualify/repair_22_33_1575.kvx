@@ -1,0 +1,56 @@
+[repair.22.33.1575]
+audit = "22.30.99"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline = "Not run: task Order 1, 3 and 4 require complete implementation before gates and prohibit a manual verify. The declared integration target did not exist on the unchanged tree; no baseline failure is claimed."
+producer = "Recorded node/Comet transcript services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture/committed.json; owner-produced receipt-key corpus sdk/platform/conformance/fixtures/receipt-sequencer-v1.json. Neither requires regeneration or a live producer during the gate."
+transport = "Committed transcript bytes pass through the actual JSON codec, canonical receipt decoder, signature consumer, Comet commit decoder and sequence-batch inclusion verifier before the major-2 SDK read can expose a value."
+trust = "Receipt key id, public key and active heights plus Comet chain id, validator key and power are independently retained pins; served key or validator substitutions confer no trust."
+evidence = "Runner-owned /out/run/gates.jsonl retains the exact candidate revision, command, exit and private log for hf-build and hf-done. The final evidence line identifies the verified revision; completion is not claimed before hf-done passes."
+
+[finding.fabrication-generated-shape]
+proving_tests = ["fabrication_generated_shape_owner_codec_to_major_2_read", "fabrication_generated_shape_rejects_signatures_values_and_block_bindings"]
+implementation = "Use Rung, VerifiedRead and block/value-height Freshness with actual authenticated commit material. Reject altered signed receipt bytes, payment log values, signer substitutions and covering block hash/height before read construction. Language probes use exported major-2 Rung and real receipt verification, including positive controls, malformed signatures, substituted transactions and out-of-range height pins."
+qualification_boundary = "The declared Rust gate executes the in-process production evidence/read path. Node/Python language probes and aggregate fabrication suites remain release-gate paths and are not claimed as executed by this focused gate."
+wiring_request = "services/agent/tools/sdk-gen/templates/{typescript.tpl,python.tpl,python.pyi.tpl} and services/agent/sdk/{typescript/src/generated/client.ts,python/layerx_sdk/generated/client.py,python/layerx_sdk/generated/client.pyi} (agent SDK generator owner, domain 9): replace retired batch/checkpoint freshness fields with the owner block/value-height carrier and regenerate; compatibility fields in these probes stay empty and confer no authority."
+
+[finding.unsafe-policy-contradiction]
+proving_tests = ["unsafe_policy_contradiction_valid_empty_policy_and_real_scanner", "unsafe_policy_contradiction_rejects_invalid_or_unapproved_policy", "boundary_checker_root_runs_actual_scanner_preserving_failure_exit_and_logs"]
+implementation = "Validate the maintained version-1 no-exceptions policy, accepting both its implicit and explicit empty list forms and refusing unsupported versions, duplicate or unknown fields and attempted unsafe grants. A valid empty policy succeeds only when the actual scanner succeeds; an unapproved unsafe function retains the scanner's failure."
+
+[finding.boundary-checker-root]
+proving_tests = ["boundary_checker_root_runs_actual_scanner_preserving_failure_exit_and_logs", "boundary_checker_root_inspects_the_canonical_repository_tree"]
+implementation = "Canonicalize repository/services/agent and call the production boundary scanner compiled from its existing source, avoiding a nested Cargo subprocess. Preserve exact scanner exit, stdout, stderr and log locations, and propagate scanner failure through the sanitizer consumer. A clean decoy at the former repository/agent path proves wrong-root scanning cannot satisfy the refusal case."
+wiring_request = "services/agent/tools/boundary-check/src/main.rs (agent tooling owner, domain 9): expose agent_boundary_purity_check as a library API so qualification can replace its source include with a normal crate dependency; the existing scanner implementation is used unchanged here."
+
+[finding.hostile-certificate-unchecked]
+proving_tests = ["hostile_certificate_unchecked_reaches_real_quorum_consumer", "hostile_certificate_unchecked_resigned_receipt_has_valid_attacker_signature", "hostile_certificate_unchecked_rejects_expired_and_unknown_receipt_authority", "hostile_certificate_unchecked_records_only_independently_rejected_attacks"]
+implementation = "Start every attack from accepted owner receipt/commit evidence. Independently mutate payment values, receipt signatures, a valid attacker re-signature, quorum participation, batch inclusion and event order; add coverage only after the corresponding real consumer refuses. The certificate case requires the exact InsufficientPower refusal, and key rotation/range cases use the producer's signed corpus. Withheld availability still reaches the actual availability verifier."
+
+[gotcha.baseline_order]
+symptom = "Step 8 asks for an unchanged-tree verify while the task's gate order prohibits it."
+action = "Follow the explicit bounded gate order, record that no baseline was run and never invent an unchanged-tree result."
+
+[gotcha.generated_freshness]
+symptom = "Generated major-2 language carriers still expose retired batch/checkpoint freshness fields."
+action = "Keep changes inside scope, exercise the actual exported Rung/receipt consumers, prove block freshness through the current Rust owner interface and record a generator wiring request."
+
+[gotcha.scanner_scope]
+symptom = "The production scanner includes existing crate tests and source text in its ambient-nondeterminism and boundary rules."
+action = "Preserve its exact result and diagnostics against the canonical tree. The focused gate proves propagation; existing out-of-scope violations are not waived or repaired."
+
+[gotcha.dependency_cache]
+symptom = "Offline lockfile preparation cannot resolve ed25519-dalek because this sandbox starts without the registry index."
+action = "Prepare the dependency lock with the registry before the single locked build; dependency resolution is not qualification evidence."
+
+[gotcha.exported_types]
+symptom = "The first locked build rejected layerx_programs_registry imports and CanonicalBytes.as_slice calls."
+cause = "The registry package declares its library as layerx_programs, and the agent contract byte carrier exposes as_bytes."
+action = "Use the declared library and byte accessor; preserve every assertion and rerun the bounded build."
+build_evidence = "8079776a39001871d87bc462c17562dbb8f82280 | cargo build --locked --manifest-path services/agent/tests/qualify/Cargo.toml --tests | 101 | /out/logs/build-1.log"
+
+[gotcha.comet_absent_vote]
+symptom = "The first focused verify passed ten tests but two quorum assertions observed Proof(Mismatch) before threshold verification."
+cause = "Comet's absent-vote Timestamp::ZERO is year 1, not the Unix epoch."
+action = "Encode the canonical year-1 absent-vote timestamp; keep the exact Proof(InsufficientPower) assertion and rerun the bounded gates."
+verify_evidence = "0b367b97a6d69ba0ac52aaeedd8fa7e804dfdfec | cg spec done 22.33.1575 -f layerx-merge --root /work/paxeer-monorepo | 1 | /out/logs/verify-1.log"

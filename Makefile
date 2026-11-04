@@ -2929,25 +2929,29 @@ $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
 paxai-host-boundary: paxai-host-boundary-build
 
 paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
+	@rm -f $(PAXAI_HOST_BOUNDARY_DIR)/manifest
 	@printf '%s\n' '$(PAXAI_CHAIN_DOMAIN)' | LC_ALL=C grep -Eq '^[0-9a-f]{64}$$'
-	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-ai-market
+	@command -v wasm-opt >/dev/null 2>&1 || { printf '%s\n' 'paxai-host-boundary: wasm-opt is required' >&2; exit 1; }
+	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --config 'profile.release.opt-level="z"' --target wasm32-unknown-unknown -p layerx-programs-ai-market
 	@mkdir -p $(PAXAI_HOST_BOUNDARY_DIR)
-	cp $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
+	wasm-opt -Oz --strip-debug --strip-producers $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm -o $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm
+	@test "$$(wc -c < $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)" -le 524184 || { printf '%s\n' 'paxai-host-boundary: guest exceeds 524184 bytes (524288 minus 104-byte deployment envelope)' >&2; exit 1; }
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/paxai_host_boundary $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm < /dev/null
 	printf '%s\n%s\n%s\n' '$(abspath $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm)' '$(abspath $(BUILD_DIR)/tests/paxai_host_boundary)' '$(PAXAI_CHAIN_DOMAIN)' > $(PAXAI_HOST_BOUNDARY_DIR)/manifest
 
 $(BUILD_DIR)/tests/lxp_test_blob_admission: tests/programs/test_blob_admission.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LAYERXD_SOURCES) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
 PAXAI_FUNDED_SCRIPT ?=
 
 $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps: tests/programs/test_paxai_native_gaps.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Icmd/layerxd $(CFLAGS) $< $(LAYERXD_SOURCES) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
@@ -3170,20 +3174,6 @@ test-owner-rotation: $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit
 
 test: test-owner-rotation
-
-ARCHIVE_CODEC_SOURCES := cmd/layerx-archive-codec/main.c
-ARCHIVE_CODEC_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(ARCHIVE_CODEC_SOURCES))
--include $(ARCHIVE_CODEC_OBJECTS:.o=.d)
-
-.PHONY: layerx-archive-codec
-layerx-archive-codec: $(BUILD_DIR)/bin/layerx-archive-codec
-
-$(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
 include tools/paxeer-x/build/6.6.mk

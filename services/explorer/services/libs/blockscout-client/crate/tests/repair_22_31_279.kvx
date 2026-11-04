@@ -1,0 +1,73 @@
+[meta]
+task = "22.31.279"
+audit = "22.30.159"
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+status = "implemented; qualification is recorded by hf-done"
+proof = "The production ApiClient, its reqwest HTTP transport, success-enum decoders and typed consumers run against loopback HTTP peers serving committed explorer recordings and explicit producer-schema branch fixtures; the test joins every peer to enforce its request assertions. No live Elixir backend execution is claimed."
+baseline = "The supplied attempt-1 evidence reports all six original regression tests failing (0 passed, 6 failed, exit 101); they are retained with the same assertions adapted to the current Option types. This attempt does not repeat an unchanged gate or claim a new baseline: its ordered instructions require implementation before hf-build and hf-done."
+qualification = "The runner's /out/run/gates.jsonl and the final evidence line record the exact candidate revision, command, exit and private log location; qualification is not claimed by this static record."
+
+[finding.log-emitter]
+tests = ["log_emitter_preserves_origin_distinct_from_transaction_destination", "recorded_routes_preserve_emitter_holders_totals_and_abi"]
+repair = "Retain the base Log serde address mapping and prove every captured emitter, including an origin distinct from the transaction destination, through AddressesApi HTTP and typed codecs."
+
+[finding.log-nullability]
+tests = ["nullable_logs_preserve_raw_identity_over_addresses_http"]
+repair = "Retain the producer-declared nullable decoded and smart_contract fields; the HTTP page contains both decoded and undecodable logs and preserves raw topics, data, emitter and transaction identity."
+
+[finding.holder-address]
+tests = ["token_holders_preserve_checksum_address_token_id_and_base_units", "instance_holders_preserve_checksum_address_token_id_and_base_units", "recorded_routes_preserve_emitter_holders_totals_and_abi"]
+repair = "Retain the base Holder serde address mapping; both TokensApi holder routes preserve every checksum address, full token ID and exact integer base-unit balance."
+
+[finding.nft-transfer-total]
+tests = ["token_transfers_preserve_erc1155_variant_instance_and_quantity", "address_transfers_preserve_fungible_and_erc1155_variants", "all_transfer_standards_survive_both_http_routes", "nft_totals_reject_incomplete_producer_structures"]
+repair = "The production total discriminator validates all producer-required NFT keys without falling through to ERC-20; nullable values remain distinct from missing properties. Both HTTP routes prove ERC-20, ERC-721 and ERC-1155 variant, token ID, instance ID and quantity preservation."
+
+[finding.pagination-transport]
+tests = ["every_declared_paginated_route_continues_after_client_recreation"]
+repair = "Paginated address, token and transaction parameter types carry a validated PageCursor into the real request. Eleven required route cases forward complete cursor fields, compare exact query vectors, retain filters, read complete nonduplicated identities and resume with a recreated client and HTTP pool. Numeric NFT cursor IDs retain the full recorded uint256 spelling."
+
+[finding.contract-abi]
+tests = ["verified_contract_is_typed_with_structured_abi_and_optimization_runs", "recorded_routes_preserve_emitter_holders_totals_and_abi"]
+repair = "Retain the structured ABI array and producer optimization_runs field; serialize the optimization count as an integer rather than a decimal string. The captured 36-entry ABI remains a typed success containing burn and optimization_runs=800 over both codec and SmartContractsApi HTTP paths."
+
+[finding.internal-create]
+tests = ["internal_creation_and_failed_calls_survive_transactions_http", "every_declared_paginated_route_continues_after_client_recreation"]
+repair = "The producer-declared nullable destination and separate created contract survive creation traces; the real TransactionsApi HTTP path also preserves failed-call error, success flag, identity, value and gas limit."
+
+[finding.transaction-lifecycle]
+tests = ["transactions_pending_to_committed_creation_without_pricing"]
+repair = "Complete the base lifecycle model with producer-declared nullable gas_price, type and actions. Detail and list HTTP reads preserve a pending creation transaction through block commit, retain its hash across client recreation, expose its created contract, and accept unavailable coin pricing in both states."
+
+[wiring.openapi]
+request = "Domain 14 owns services/explorer/services/libs/blockscout-client/swaggers/{blockscout-api-v2.yaml,blockscout-api-final.yaml}: synchronize Log and Holder address mappings, log/trace/transaction lifecycle nullability, structured contract ABI and optimization_runs, required NFT total structures, and per-operation paging cursors before regenerating the repaired crate."
+
+[wiring.backend]
+request = "Domain 14 owns services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/{address_controller_test,token_controller_test,transaction_controller_test,smart_contract_controller_test}.exs: carry these interface cases into full Elixir controller/store qualification; this task's offline gate qualifies the production Rust client using loopback peers."
+
+[constraint.scope]
+observed = "The inherited .cgignore and spec task-status edits are runner bookkeeping and were not edited by this attempt; only allowed crate sources, tests and fixtures were changed. No commit or push is performed by the worker."
+gotcha = "The current base already includes the main address, ABI and lifecycle decoder fixes from earlier repairs. Original regression source must explicitly unwrap nullable transfer totals and compare Option token IDs without weakening its original identity and quantity assertions."
+fixture = "repair_22_31_279_cases.json documents the production views and schemas behind each nullable/lifecycle/standard branch; existing HTTP recordings remain unchanged."
+
+[qualification.seed_build]
+revision = "0a539a6d9a70d3a1b54d3439259fdc934371aaed"
+command = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Carried attempt-3 evidence, not a gate run in this session: pre-existing repair_22_31_273.rs:747,761 matches TransactionFeedItem against the transaction API's FeedItem, causing two E0308 compiler errors; the task's repair_22_31_279 test target compiled."
+assumption = "Task instruction 7 forbids chasing this inherited sibling-test mismatch; hf-done requires a passing build, so verification has not run and no completion is claimed."
+
+[continuation.current_base]
+base_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+observed = "The prerequisite 22.31.445 is published: repair_22_31_273 uses the production FeedItem type. The inherited seed conflicted with the current per-request timeout at 21 paginated request sites."
+repair = "Retain the current request_timeout at every conflict site and integrate the seed per-operation cursor override beside it; retain all inherited decoder repairs and regression assertions."
+qualification = "No baseline or earlier gate is repeated; the current hf-build and hf-done ledger records qualification of the final combined candidate."
+
+[qualification.current_build_repair]
+revision = "25a02e6ceaaa46ef9bdd663941d081297e0ae14f"
+command = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The nullable actions interface requires repair_22_33_428 to explicitly require its populated fixture actions before retaining its exact variant, payload and round-trip assertions."
+assumption = "This consumer is inside the allowed tests scope; adapting it preserves every assertion and qualifies the complete transaction lifecycle interface."

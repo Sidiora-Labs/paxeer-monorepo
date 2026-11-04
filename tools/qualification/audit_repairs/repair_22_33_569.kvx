@@ -1,0 +1,44 @@
+[repair]
+task = "22.33.569"
+audit = "22.30.159"
+inspected_revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+base_revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+readme_owner_task = "22.31.470"
+implementation = "Under decision 2525, consume the README.md rewrite delivered by 22.31.470 without editing the out-of-scope document. All readme-network expected facts are present: one BFT network with the kernel inside paxd, chain 125, api1 through api14 root JSON-RPC, transaction submission and committed receipts, supported native views, retired custody/checkpoint executors, no separate kernel daemon or checkpoint deployment, and merged-node build and upgrade guidance. Add the focused regression module and this finding-to-test record only."
+source_proof = "The module proves actual README source facts against committed production paths: node host construction and consensus source, root-path RPC routing and JSON-parsed curl request, node versus hosted method contracts, local/forwarded transaction acceptance, WAL acknowledgement before receipt publication, receipt rungs and committed coverage. It parses native view ABIs and checks the merge address table, retirement guards, Makefile prerequisites and chain.mk output, paxd command registration and upgrade names. README diagrams preserve the integrated topology and transaction-to-commit ordering. No shell script, unit or manifest changes are required; shell examples are tokenized without executing commands."
+review_only = "Native Go/C/Rust compilation, node startup, actual transaction execution, cryptographic validity, durable WAL restart/recovery, live endpoint availability and BFT consensus are not executed by this documentation gate. Producer, transport and consumer assertions prove source connections, not runtime certification. This doc-drift repair changes no interface or persistent component, so no interface-driving or restart-recovery test is claimed. The whole gate uses Python source reads and parsing, with no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit Order requires complete implementation before formatting/build/testing and hf-build before hf-done, and forbids manual verify_cmd execution. The inherited step 5 baseline instruction conflicts with that order; no already-failed tests or baseline gate results are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec bookkeeping, both scoped files were absent, gate.json recorded zero build and verify runs, and no prior gates.jsonl existed."
+wiring_requests = []
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_569.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger name the exact verified content-derived revision, command, exit code and log path; private gate logs are /out/logs/build-1.log and /out/logs/verify-1.log on the initial pass. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own content-derived candidate hash would change that revision. The runner retains the evidence and publishes the result. The inspected_revision identifies the unchanged production README and source contracts under test, not an unrun verification."
+
+[finding.readme-network]
+audit = "22.30.159"
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+observed = "The audit described two execution domains, a separately running layerxd, current layerxAnchor checkpoint settlement, and daemon build and separate settlement examples."
+expected = "One chain with the kernel inside paxd, EVM chain ID 125 and finality at block commit; the separate daemon and active checkpoint settlement path are retired after the merge."
+tests = ["test_readme_network_one_network_embeds_kernel_and_commits_blocks", "test_readme_network_root_rpc_hosts_and_chain_probe", "test_readme_network_hosted_and_node_method_contracts", "test_readme_network_transaction_to_committed_receipt_path", "test_readme_network_custody_and_checkpoint_executors_are_retired", "test_readme_network_maintained_paxd_build_and_launch", "test_readme_network_supported_native_views", "test_readme_network_record_maps_finding_proofs_and_limits"]
+
+[wiring.readme_network]
+path = "README.md"
+owner_domain = 17
+owner_task = "22.31.470"
+request = "README.md | domain 17 fm-programme | task 22.31.470: maintain the merged paxd architecture, root chain-125 RPC hosts, transaction/committed receipt flows, native views, retirement labels, build examples and upgrade guidance requested by readme-network."
+disposition = "fulfilled by the inherited README; no missing facts"
+
+[gotcha.baseline_order]
+observed = "The inherited pre-change verification clause conflicts with the explicit implementation-first, wrapper-only gate order."
+resolution = "Follow the explicit Order and claim no baseline execution; retain this note in the scoped record because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.context_reads]
+observed = "Combined broad context reads exceeded output limits, and guessed precompile tx.go paths do not exist."
+resolution = "Read bounded finding and task sections and actual precompile implementation paths; do not treat truncated broad output or guessed paths as evidence."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; after the complete implementation apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only."

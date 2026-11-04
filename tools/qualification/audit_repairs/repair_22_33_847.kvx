@@ -1,0 +1,60 @@
+[task.22.33.847]
+audit = "22.30.181"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace retired gate service aliases with current declared producer ids. Resolve the composite Rust workspaces beneath services without changing target selection. Both split-phase gates restore and validate the original finite deadline from their private build manifest before checking or executing artifacts, reject a differing explicit deadline and refuse exhausted budgets. Hosted testnet qualification requires the new private compiler manifest producer in tools/paxeer-x/gates/hosted_testnet_build.py, checks current revision/tree and complete repository source hashes, exact compiler target records and transcript digest, then executable digests before its existing corpus; recheck after execution. Retain counts and zero-skip checks, additionally compare exact executed case names to the inventory."
+source_proof = "hf-build parses all six declared shell scripts with bash -n once. Pytest parses their embedded Python and checks guarded commands, exact workspace paths and target inventory, the entire original 39-case identity roster digest, current service ids from the real catalogue parser and unknown-service refusal in the dispatcher. Parse the current Cargo manifests to validate hosted library and binary target names. Assert compiler invocation, successful build before manifest publication, complete source identity comparison, transcript and executable binding before every corpus and after execution. No shell syntax parser is rerun by pytest."
+runtime_proof = "Fresh Python processes execute the actual production deadline and private save/load declarations, write the build deadline, exit, reopen the manifest in another process and restore the same deadline with a decreasing remaining budget. The tests also refuse changed explicit, malformed, nonfinite and expired deadlines. This proves the split-phase deadline transport independently of compiler availability; full composite and export gate bodies are source-proven. Execute the real hosted build module's private file transport, mode/symlink/hardlink/duplicate-field refusals, source hashing of dependency/build/fixture/extensionless/untracked inputs, exact missing-compiler-target refusal, and executable digest and permission refusals against real temporary files containing committed source bytes. No fixture impersonates a compiler artifact or a successful hosted result."
+review_only = "Rust, Go, Solidity and native compilation and the identity, Redis, TLS and hosted smoke corpora are not executed by this Python qualification. Their real invocations, retained inventory, compiler manifest schema and pre-execution checks are source-proven; successful native compilation, compiler authenticity, external registry integrity and live hosted integration remain review-only. Source hashes cover all tracked and nonignored repository inputs, including workspace manifests, Cargo.lock, fixtures and extensionless files; environment secret files are excluded. Operators must use the same pinned compiler and dependency cache for both phases; a caller with write access to private compiler evidence is part of the trust boundary. Gate 104.17.4's separate compiler-manifest finding f014 belongs to the next repair part and is not claimed here."
+baseline = "Not run: the step requesting pre-change verification conflicts with the explicit order forbidding testing before complete implementation and manual verify_cmd execution. No pre-change failures are claimed. The initial private gate configuration had zero build and verify runs and no gate ledger; only runner-prepared .cgignore and task-start changes existed. Those changes are preserved."
+evidence = "The exact verified content-derived revision, cg spec done command, exit and private log are recorded by the final hf-done JSON and /out/run/gates.jsonl, together with the matching hf-build revision. This record is finalized before the bounded gates, avoiding self-referential revision edits. The runner commits; no task commit or push is performed here."
+formatting = "No Python, Shell or KVX formatter is configured for these paths or installed in the sandbox. Follow existing style and .editorconfig whitespace requirements for touched files only."
+
+[finding.f039]
+file = "tools/paxeer-x/gates/0.4.sh"
+tests = ["test_f039_retained_route_producers_use_declared_service_ids"]
+closure = "Retained route producers are bound to current service ids; no Redis, private profile, UI, archive, kernel or runtime pseudo-service remains. Connected catalogue and private-plan changes are requests below because they are outside scope."
+
+[finding.f010]
+file = "tools/paxeer-x/gates/103.6.11.sh"
+tests = ["test_f010_composite_resolves_real_workspaces_and_preserves_corpus"]
+
+[finding.f011]
+file = "tools/paxeer-x/gates/103.6.11.sh"
+tests = ["test_f011_f012_deadline_survives_two_processes_and_reopen", "test_f011_f012_refuse_invalid_or_exhausted_recorded_deadlines", "test_f011_f012_refuse_extending_explicit_deadline"]
+
+[finding.f012]
+file = "tools/paxeer-x/gates/103.6.13.sh"
+tests = ["test_f011_f012_deadline_survives_two_processes_and_reopen", "test_f011_f012_refuse_invalid_or_exhausted_recorded_deadlines", "test_f011_f012_refuse_extending_explicit_deadline"]
+
+[finding.f040]
+file = "tools/paxeer-x/gates/103.6.5.sh"
+tests = ["test_f040_identity_binding_preserves_full_tenant_restart_refusal_corpus"]
+
+[finding.f041]
+file = "tools/paxeer-x/gates/104.17.3.sh"
+tests = ["test_f041_f042_declared_producers_keep_private_evidence_dimension"]
+
+[finding.f013]
+file = "tools/paxeer-x/gates/104.17.3.sh"
+tests = ["test_f013_consumer_checks_manifest_before_all_existing_corpora", "test_f013_producer_compiles_exact_targets_and_consumer_checks_closure", "test_f013_source_closure_detects_extensionless_fixture_and_dependency_changes", "test_f013_real_private_manifest_transport_and_digest_refusals"]
+producer = "python3 tools/paxeer-x/gates/hosted_testnet_build.py PRIVATE_DIRECTORY"
+transport = "PRIVATE_DIRECTORY/build-manifest.json: schema, task, private evidence dimension, revision/tree/source hashes, build command and zero exit, compiler transcript digest, exact compiler-artifact rows, executable paths and SHA256 digests."
+consumer = "Supply LAYERX_TESTNET_BUILD_MANIFEST to gate 104.17.3; prebuilt binary overrides must match the verified compiler manifest exactly."
+
+[finding.f042]
+file = "tools/paxeer-x/gates/104.17.4.sh"
+tests = ["test_f041_f042_declared_producers_keep_private_evidence_dimension"]
+
+[wiring.route_catalogue]
+request = "tools/paxeer-x/route-catalogue.json — owning domain 16 tools-ops: map retained route producers to the exact gate 0.4 roster, remove retired producers, represent Redis/private-profile as dependencies/evidence dimensions, and refresh the catalogue digest in the private route plan."
+
+[wiring.route_plan]
+request = "$PAXEER_X_ROUTE_CASES (private plan consumed by tools/paxeer-x/tests/routes_test.py) — owning domain 16 tools-ops: reissue current revision/tree/candidate/catalogue bindings for the same producer roster declared in tools/paxeer-x/gates/0.4.sh; retain all required cases and the consumer's complete candidate binding check."
+
+[gotcha.1]
+symptom = "The baseline verification clause conflicts with implementation-first bounded gate ordering."
+resolution = "Follow the explicit order and report no baseline result; keep this gotcha in the in-scope task record because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+symptom = "Combined repository reads exceeded output limits and guessed plan and catalogue paths did not exist."
+resolution = "Use bounded exact-file reads; the catalogue is declared in spec.kvx and the connected route plan is the private PAXEER_X_ROUTE_CASES input. No plan or catalogue is created elsewhere."

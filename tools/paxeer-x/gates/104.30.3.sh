@@ -16,9 +16,15 @@ import time
 ROOT = Path.cwd().resolve()
 NATIVE = (
     "test_accounts", "test_cache_native_equivalence", "test_call_activity",
-    "test_call_builders", "test_interface_protocol", "test_market_attestation",
+    "test_call_builders", "test_market_attestation",
     "test_metered_call", "test_metering_schedule", "test_occupancy_batch",
     "test_winddown",
+)
+INTERFACE_CASES = (
+    "canonical_abi_domains_and_legacy_vectors",
+    "exact_capabilities_exports_and_upgrade_policy",
+    "canonical_encoding_refuses_malformed_bounds",
+    "node_transaction_result_and_interface_transport",
 )
 RUST_CASES = {
     "golden_preimage_layout_is_frozen",
@@ -166,7 +172,7 @@ def build():
                     and entry.get("target", {}).get("name") == "interface_protocol"
                     and entry.get("executable")):
                 interface_executables.append(entry["executable"])
-    require(len(interface_executables) == 1, "exact interface input producer required")
+    require(len(interface_executables) == 1, "exact retained native interface consumer required")
     run([cargo[0], "build", *cargo[1:], "-p", "layerx-programs-market",
          "--target", "wasm32-unknown-unknown", "--release"],
         evidence / "build-market-guest.log", env)
@@ -196,7 +202,7 @@ def build():
                 "native": {name: artifact(native / "tests/task104303" / name)
                            for name in NATIVE},
                 "rust": artifact(executables[0]),
-                "interface_input_producer": artifact(interface_executables[0]),
+                "interface_consumer": artifact(interface_executables[0]),
                 "market_guest": {"path": str(market_guest), "sha256": digest(market_guest)},
                 "sandbox_archive": {"path": str(archive), "sha256": digest(archive)},
                 "core_archive": {"path": str(native / "liblayerx.a"),
@@ -218,7 +224,7 @@ def verify():
     require(manifest.get("source_inputs") == inputs(), "artifact source hash mismatch")
     require(set(manifest.get("native", {})) == set(NATIVE), "incomplete native corpus")
     for entry in [*manifest["native"].values(), manifest["rust"],
-                  manifest["interface_input_producer"]]:
+                  manifest["interface_consumer"]]:
         require(artifact(entry["path"]) == entry, "executable identity mismatch")
     for key in ("sandbox_archive", "core_archive", "market_guest"):
         entry = manifest[key]
@@ -227,8 +233,7 @@ def verify():
         require(stream.read(8) == b"\x00asm\x01\x00\x00\x00", "actual Market Wasm required")
     cache_inputs = evidence / "cache-inputs"
     interface_inputs = evidence / "interface-inputs"
-    interface_output = evidence / "interface-output"
-    for directory in (cache_inputs, interface_inputs, interface_output):
+    for directory in (cache_inputs, interface_inputs):
         require(not directory.exists(), "fresh genuine fixture inputs required")
         directory.mkdir(mode=0o700)
     run([manifest["native"]["test_cache_native_equivalence"]["path"],
@@ -238,7 +243,7 @@ def verify():
             "complete actual cache guest inventory required")
     producer_env = os.environ.copy()
     producer_env["PAXEER_X_INTERFACE_INPUTS"] = str(interface_inputs)
-    produced = run([manifest["interface_input_producer"]["path"], "--exact",
+    produced = run([manifest["interface_consumer"]["path"], "--exact",
                     "emit_native_inputs", "--nocapture", "--test-threads=1"],
                    evidence / "produce-interface-inputs.log", producer_env)
     require(re.search(r"test result: ok\. 1 passed; 0 failed; 0 ignored;", produced),
@@ -247,14 +252,18 @@ def verify():
         "abi1", "abi2", "abi2-dynamic", "abi3", "abi3-dynamic", "abi4",
         "abi4-dynamic", "abi2-widening", "abi2-narrowing"},
         "complete actual interface guest inventory required")
+    for name in INTERFACE_CASES:
+        output = run([manifest["interface_consumer"]["path"], "--exact", name,
+                      "--nocapture", "--test-threads=1"],
+                     evidence / ("verify-interface-" + name + ".log"))
+        require(re.search(r"test result: ok\. 1 passed; 0 failed; 0 ignored;", output),
+                "retained native interface positive/refusal case did not execute")
     guest_inputs = {str(path): digest(path) for directory in (cache_inputs, interface_inputs)
                     for path in directory.rglob("*") if path.is_file()}
     for name in NATIVE:
         command = [manifest["native"][name]["path"]]
         if name == "test_cache_native_equivalence":
             command.extend(["--guest-dir", str(cache_inputs)])
-        elif name == "test_interface_protocol":
-            command.extend(["--input", str(interface_inputs), "--output", str(interface_output)])
         elif name == "test_market_attestation":
             command.append(manifest["market_guest"]["path"])
         run(command, evidence / f"verify-{name}.log")
@@ -270,12 +279,12 @@ def verify():
     require(all(digest(Path(path)) == value for path, value in guest_inputs.items()),
             "actual producer inputs changed during verification")
     for entry in [*manifest["native"].values(), manifest["rust"],
-                  manifest["interface_input_producer"]]:
+                  manifest["interface_consumer"]]:
         require(artifact(entry["path"]) == entry, "artifact changed during verification")
     write_json(evidence / "result.json", {"schema": SCHEMA, **source,
                "commands": records, "producer_inputs": guest_inputs,
-               "tests": len(NATIVE) + len(passed) + 1, "skipped": 0})
-    print(f"PAXEER_X_GATE tests={len(NATIVE) + len(passed) + 1} skipped=0")
+               "tests": len(NATIVE) + len(passed) + len(INTERFACE_CASES) + 1, "skipped": 0})
+    print(f"PAXEER_X_GATE tests={len(NATIVE) + len(passed) + len(INTERFACE_CASES) + 1} skipped=0")
 
 
 records = []

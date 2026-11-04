@@ -5,6 +5,8 @@ use required::Required;
 mod funded_inputs;
 #[path = "funding.rs"]
 mod funding;
+#[path = "tests/support/registered_scenario.rs"]
+mod registered_scenario;
 use funded_inputs::{
     hex_encode, now_ms, random32, sha256, write, Cluster, HttpAnswer, NETWORK_ID, PROTOCOL_VERSION,
 };
@@ -961,6 +963,11 @@ fn pay2_finish(run: &Pay2FundedRun<'_>) {
         evidence["mcp_grant_draw"]["activity_id"],
         output.display()
     );
+}
+
+#[test]
+fn pay2e_signed_payments_survive_restart() {
+    registered_scenario::pay2_signed_payments_survive_restart();
 }
 
 #[test]

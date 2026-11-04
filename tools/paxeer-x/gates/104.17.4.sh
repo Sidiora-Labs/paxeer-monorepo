@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# paxeer-x-services: private-profile
+# paxeer-x-services: platform-gateway
+# paxeer-x-evidence-dimension: private-profile (caller-owned private evidence)
 set -euo pipefail
 exec python3 - <<'PY'
 import json
@@ -12,6 +13,15 @@ import sys
 root = Path.cwd()
 evidence = Path(os.environ['PAXEER_X_EVIDENCE_DIR'])
 tests = 0
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(root / "tools/paxeer-x/gates"))
+from compiler_manifest import require_manifest
+
+binaries = [os.environ.get(name) for name in (
+    "LAYERX_GATEWAY_LIB_TEST_BINARY", "LAYERX_GATEWAY_TEST_BINARY")]
+if not all(binaries):
+    sys.exit("missing genuine gateway compiler outputs")
+require_manifest(root, "104.17.4", binaries)
 
 def execute(argv, name, timeout=180):
     path = evidence / ('104.17.4-' + name + '.log')

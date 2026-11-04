@@ -48,7 +48,7 @@ fn listener(results: Vec<Value>) -> (RpcClient, JoinHandle<Vec<Value>>) {
                 header.push(byte[0]);
             }
             let header = std::str::from_utf8(&header).expect("UTF-8 header");
-            assert!(header.starts_with("POST /rpc HTTP/1.1\r\n"));
+            assert!(header.starts_with("POST / HTTP/1.1\r\n"));
             let length = header
                 .lines()
                 .find_map(|line| {
@@ -74,7 +74,7 @@ fn listener(results: Vec<Value>) -> (RpcClient, JoinHandle<Vec<Value>>) {
         requests
     });
     (
-        RpcClient::connect(&endpoint, None).expect("connect RPC"),
+        RpcClient::connect_node(&endpoint, None).expect("connect RPC"),
         server,
     )
 }
@@ -356,4 +356,13 @@ fn identity_sequence_reads_the_pending_nonce() {
         assert_eq!(request["method"], "eth_getTransactionCount");
         assert_eq!(request["params"], json!([ADDRESS, "pending"]));
     }
+}
+
+#[allow(dead_code)]
+#[path = "support/audit_22_30_99.rs"]
+mod audit;
+
+#[test]
+fn root_node_rpc_preserves_endpoint_framing_and_timeout_refusals() {
+    audit::root_routes_preserve_endpoint_framing_and_timeout_refusals();
 }

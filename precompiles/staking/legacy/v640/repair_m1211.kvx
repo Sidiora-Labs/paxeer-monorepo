@@ -1,0 +1,25 @@
+[repair.22.33.1211]
+audit = "22.30.57"
+findings = ["historical-key-v640", "historical-shares-v640"]
+historical-key-v640 = ["TestRepairM_1211_InvalidKeyBeforePayment", "TestRepairM_1211_ValidKeyCreatesValidator", "TestRepairM_1211_KeyUpgradeReplay", "TestRepairM_1211_EVMTransactionRefusal"]
+historical-shares-v640 = ["TestRepairM_1211_RedelegationShares", "TestRepairM_1211_SharesUpgradeReplay", "TestRepairM_1211_ABICompatibility"]
+implementation = "Preserve v640/staking.go and abi.json byte for byte. Track both findings against the existing active corrections in precompiles/staking/staking.go, and clarify their replay compatibility comments. The applied common.MergeUpgrade marker enables the 32-byte Ed25519 boundary before payment and the decimal RedelegationEntry.SharesDst projection. No selectors, event topics, tuple schemas or registrations change."
+historical_heights = "The version table selects v640 from its recorded applied v6.4.0 height up to the next applied staking version. No absolute mainnet height is assumed. The v640 snapshot retains the panic-prone malformed-key boundary and maps integer token Balance into sharesDst at all heights, including explicit archived calls after activation. The active executor also retains these historical semantics below the applied v7.0 merge height and while that plan is unapplied or merely scheduled."
+activation = "The real upgrade keeper's applied v7.0 marker enables both corrections at and above its recorded height. Tests exercise unscheduled, scheduled-only and applied plans with ordinary execution and historical tracing before, at and after activation."
+key_proof = "Funded ABI calls enter the production wrapper and real staking/bank keepers; invalid decoded lengths leave balances, supply, validators and delegations unchanged. Valid 32-byte input creates the persisted validator and self-delegation. Signed EVM transactions for empty, 31-byte and 33-byte keys revert, produce failed receipts with the exact length refusal, and preserve validator and balance state. Historical selection and explicit archived calls retain the original panic."
+shares_proof = "Real validator creation, Slash and BeginRedelegation produce a destination exchange rate of 0.6 tokens per share and persist 11.666666666666666666 shares. The real Querier, production wrapper and ABI decoder preserve those exact decimal shares independently of integer token balance on delegator and source-index queries. Tests compare every entry field and pagination, byte-identical historical responses, and forward responses differing only in sharesDst."
+baseline = "Not run: the explicit ordered instructions forbid manual verification before hf-build and require full implementation before qualification. No pre-change failing test execution is claimed; both active behavior fixes were already present on the supplied base."
+wiring_requests = []
+evidence = "Closure requires hf-done to pass on the same candidate revision as hf-build. The runner-owned /out/run/gates.jsonl records that exact revision, command, exit code and private log location; no gate is claimed before it runs."
+
+[gotcha.order]
+observed = "Generated step 6 asks for unchanged-tree verification, conflicting with the explicit ordered gate instructions."
+resolution = "Follow the explicit implementation, format, hf-build, hf-done order; record that no baseline ran."
+
+[gotcha.scope]
+observed = "The spec task record and root GOTCHA.kvx are outside the allowed paths."
+resolution = "Keep finding closure, compatibility and gotcha notes in this scoped repair record; do not edit root or spec ledgers."
+
+[gotcha.assertions]
+observed = "The earlier v630 proof expects an older generic key-length error; active staking now reports the actual decoded length too."
+resolution = "The v640 proof asserts the complete current error and checks the failed signed-transaction receipt rather than inheriting that stale expectation."

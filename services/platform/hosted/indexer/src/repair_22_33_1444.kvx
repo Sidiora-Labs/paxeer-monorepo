@@ -1,0 +1,33 @@
+[repair.22.33.1444]
+audit = "22.30.82"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+baseline = "Not run: the explicit qualification order forbids building or testing before the complete implementation and permits verification only through hf-done; no earlier gate ledger exists. No pre-change failure is claimed."
+qualification = "hf-build then hf-done; exact candidate revision, command, exit and private log are emitted by the gate runner."
+abi-bytes24 = "abi_bytes24_function_topics_and_nested_arrays"
+limiter-retention = "limiter_bounds_churn_preserves_permits_and_live_quotas"
+snapshot-archive = "snapshot_archive_recovers_without_caller_bytes_after_reopen; automatic_snapshot_eviction_persists_archive_and_recovers; pre_archive_discarded_snapshot_is_explicitly_pruned_on_upgrade; archive_recovery_refuses_corruption_without_losing_locator"
+authority-regression = "authority_regression_refuses_freshness_and_signing_admission"
+comet-fallback-wiring = "daemon_callback_reaches_evm_fallback_and_keeps_comet_unready"
+ai-runtime-wiring = "ai_runtime_authenticated_publication_and_reads_survive_restart; ai_runtime_rejects_unbound_captures_before_any_publication; ai_runtime_idle_before_first_projection_is_not_ready"
+tenant-query = "tenant_query_authenticates_database_domains_and_falls_back_to_node; unresolved_transaction_domains_refuse_entire_backfill_range"
+legacy-settlement-output = "legacy_settlement_upgrade_preserves_history_without_retired_authority"
+archive_policy = "Archived bodies and digest locators are acknowledged atomically in the FULL-synchronous projection database before cache deletion; legacy discarded bodies migrate to Pruned. Recovery reads the database archive without caller-held bytes."
+runtime_configuration = "LAYERX_INDEXER_AI_CONFIG names a JSON RuntimeConfig with program/chain, consensus_chain_id, pinned validators, source and TLS ca_der; the daemon polls from its durable finalized sequence and publishes only after native membership and block-commit verification."
+consumer_proof = "The gateway delegates per-request authentication and JSON query rendering through the shared AiViews consumer. The integration fixture authenticates reader challenges with real Ed25519 signatures; production Redis authentication and executable dispatch remain owned by the gateway."
+wiring_gateway = "services/platform/hosted/gateway/src/main.rs — domain 8 hosted gateway: construct AiViews::open against the durable projection database with managed cursor keys and mount ai_views::respond from the executable dispatcher using request-time gateway key authentication; qualify Redis key revocation and process-level dispatch there."
+wiring_node = "services/platform/hosted/node/src — domain 8 native program-read producer: expose GET /v1/ai/programs/{program}/committed-read?after={finalized_sequence}, emitting ai_runtime::encode_committed_read with native chunk responses, namespace manifest/membership and signed commit; return empty HTTP 204 only after the consumer reaches the source cursor."
+wiring_existing_test = "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs — domain 8 indexer: incorporate the equivalent lower-authority-height cases supplied in the in-scope authority_regression_refuses_freshness_and_signing_admission test."
+
+[qualification.initial_dependents]
+revision = "63376f96a1f5646b67359f10027036b955ae9d38"
+command = "hf-done dependent-crate qualification"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "The shared gateway error renderer still uses hex0x; restoring its in-scope codec import repairs E0425. The focused verify command had not run."
+
+[qualification.first_verify]
+revision = "0a63e748c8447a2e753da78cd214ff4a724ca5d1"
+command = "cg spec done 22.33.1444 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 14 tests executed; 13 passed. The churn fixture requested admission one millisecond before the idle threshold; the repair adds an explicit pre-expiry refusal assertion and advances subsequent synthetic requests to the exact expiry boundary, preserving all quota and capacity assertions."

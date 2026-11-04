@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 
-# Forcibly remove any stray UNIX sockets left behind from previous runs
-rm -rf /var/run/privval.sock /var/run/app.sock
+set -euo pipefail
 
-/usr/bin/app /tendermint/config/app.toml
+if [[ $# -gt 1 || ( $# -eq 1 && $1 != start ) ]]; then
+    printf 'usage: %s [start]\n' "$0" >&2
+    exit 64
+fi
+
+: "${TMHOME:?TMHOME must name the generated testnet node directory}"
+config="${TMHOME}/config/app.toml"
+if [[ ! -r "$config" ]]; then
+    printf 'generated application configuration is not readable: %s\n' "$config" >&2
+    exit 1
+fi
+
+exec /usr/bin/app "$config"

@@ -1,0 +1,55 @@
+[repair]
+task = "22.33.1395"
+audit = "22.30.77"
+base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+acceptance = "22998.1; preserve existing checks and qualify the declared pytest command through hf-done on the same content-addressed revision as hf-build."
+build_command = "python3 --version"
+verify_command = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1395.py"
+verified_revision = "The runner binds the exact candidate revision, command, exit code and private log to this record in /out/run/gates.jsonl; the final response copies the last hf-done evidence line. No gate result is claimed before execution."
+private_evidence = "/out/logs/build-1.log and /out/logs/verify-1.log, or their numbered task-scoped repair successors; /out/run/gates.jsonl is the authoritative revision ledger."
+baseline = "Not run: the explicit Order forbids testing before complete implementation and permits verification only through hf-done after hf-build. The specified test module did not exist on the unchanged tree. No baseline failures are claimed; source inspection confirmed the retired mounts, origins, batch files and protocol default described by the audit."
+proof = "Pytest parses the production Kubernetes YAML; executes the existing production sequencer-pins.py provision_gateway, gateway_secret and gateway_manifest functions in-process over the committed local-chain pin; reopens a new invocation over retained material; checks exact ID/key byte transport from the recorded pin through base64 exports and Secret serialization, inclusive uint64 heights, mode-0600 atomic publication, replacement, retained reopening and fail-closed invalid inputs; and asserts producer, projection, Rust loader and key-reader source wiring. No external service, credential, environment variable, subprocess toolchain or binary is needed."
+review_only = "The Python gate does not compile or launch the Rust gateway, validate Ed25519 points in the Rust consumer, verify a receipt signature or consensus proof, authenticate an operator's snapshot, pull an image, enforce Kubernetes policy, restart Redis or certify deployment readiness. Native node producer and Rust consumer behavior are source-reviewed contracts; executable fresh/restart evidence is specifically the real production provisioner and retained Secret publisher, not the gateway process. Existing Redis PVC/AOF facts are parsed without claiming Redis recovery execution."
+
+[finding.gateway-retired-dependencies]
+id = "gateway-retired-dependencies"
+file = "services/platform/hosted/gateway/deployment.yaml"
+change = "Remove the optional kernel backend group's origins and client secret requirements, including receipt-authority, pending-core and authorized-batch files; use existing independent service-mTLS variables for the retained client identity. Add the required operator-pinned merged-chain ReceiptKeys Secret projection using the existing provisioner and manifest renderer contract, with read-only gateway delivery to the bounded base64-array consumer. Remove corresponding retired Railway prerequisites and publish every remaining identifier meaning."
+tests = ["test_gateway_retired_dependencies_removed_from_manifest_and_example", "test_receipt_keys_producer_projection_and_real_consumer_contract", "test_fresh_receipt_material_uses_recorded_chain_pin_without_retired_services", "test_retained_material_reopens_without_retired_inputs", "test_invalid_pin_refuses_fresh_and_retained_material", "test_malformed_or_empty_pinned_snapshot_never_publishes", "test_duplicate_key_ids_and_unknown_fields_refuse_without_publication", "test_wrong_shape_and_missing_material_fail_without_retained_fallback", "test_atomic_rotation_keeps_exact_height_windows_and_protected_output", "test_unsafe_retained_output_is_refused", "test_identifier_meanings_and_proof_limits_are_published"]
+source = "rpc/sequencer_receipt.go GetReceiptKeys emits the governed key IDs, public bytes and inclusive height bounds. The platform operator authenticates its result for chain 125 and exports its bytes as canonical base64 before publishing the Secret; no incoming receipt or unauthenticated online discovery can establish these trust pins. The deployment protocol field and namespace label are not cryptographic proofs of source authenticity."
+transport = "Operator-authenticated base64-array export -> existing provision_gateway atomic fsynced mode-0600 receipt-keys.json -> existing gateway_secret base64 serialization -> required Secret layerx-gateway-receipt-keys mode-0440 receipt-keys.json projection -> read-only LAYERX_GATEWAY_RECEIPT_KEYS_FILE -> config() -> ReceiptKeyList::from_config -> px_getReceiptKeys and ReceiptKeys::HeightRanges. The node hex format and Rust loader are source-checked; native execution is not claimed."
+fixture = "services/platform/hosted/gateway/tests/fixtures/repair_22_33_1335_committed.json contains the committed local-chain recording and pinnedKey used for the real provisioner proof; tests neither substitute for the provisioner nor re-sign the recorded receipt."
+retention = "A new program invocation reopens and validates the retained canonical file, serializes an identical Secret and reproduces identical bytes in a replacement material directory without any retired input or original export. Container restart and pod replacement use the retained Secret projection. Invalid replacements raise before publication and cannot silently succeed by substituting older retained bytes. Retain historical governed windows and the existing Redis PVC/AOF."
+identifiers = "EVM chain ID 125 (0x7d); native protocol field 125; hosted identity paxeer-mainnet-beta; retained Kubernetes/DNS namespace layerx-testnet; LXP wire version 3; keyId is a governed 32-byte key identifier; firstHeight/lastHeight are inclusive chain heights, not authority batch allocations or tenant IDs."
+
+[wiring]
+wiring_request_1 = "services/platform/hosted/tests/beta-cluster.sh and services/platform/hosted/tests/sequencer-pins.py (platform domain 8): release-qualify the existing gateway-only authenticated ReceiptKeys export and Secret provisioning path without requiring retired authority/batch material; keep source trust material private and retain historical key windows."
+wiring_request_2 = "docker/platform-gateway/files.tsv (platform domain 8): add an optional ENDPOINT_RECEIPT_KEYS mapping to /run/secrets/receipt-keys.json when Railway enables LAYERX_GATEWAY_RECEIPT_KEYS_FILE, using the converted base64 array; coordinate docker/platform-gateway/entrypoint.sh staging of RECEIPT_KEYS_FILE and the independent SERVICE_CLIENT_IDENTITY_PKCS12/PASSWORD_FILE variables before enabling those optional features, and remove unused retired kernel secret rows."
+wiring_request_3 = "services/platform/hosted/tests/beta-cluster.sh route-binding provisioning (platform domain 8): publish hosted network_id paxeer-mainnet-beta, wire_version 3 and chain_id 125 together, retaining layerx-testnet only as the Kubernetes/DNS namespace."
+wiring_request_4 = "services/platform/hosted/paxeer/deployment.yaml and services/platform/hosted/gateway/tests/repair_22_31_345.rs (platform domain 8): reconcile the controlled RPC topology with the relay's two-to-eight-distinct-URL contract before release; the existing source egress test requires exactly one controlled path, so preserve both current checks until that contract conflict is resolved."
+
+[gotcha.1]
+observed = "The embedded baseline-verification step conflicts with the explicit implementation-first, hf-build then hf-done gate order."
+resolution = "Follow the explicit Order and record source observations without inventing unchanged-tree test evidence."
+
+[gotcha.2]
+observed = "The node's px_getReceiptKeys result uses hex strings in a keys object, while the gateway file loader expects a base64 array; copying the node result directly into the file is invalid."
+resolution = "Reuse the existing bounded base64-array provisioner and Secret publisher instead of introducing a second format; check byte-identical IDs/keys and unchanged integer height bounds through serialization, the real manifest projection and the loader source contract."
+
+[pre_existing.rpc-topology]
+revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+observed = "Source inspection found one configured Kubernetes boundary URL and an earlier source test asserting exactly one URL, while src/paxeer.rs MIN_ENDPOINTS is two."
+qualification = "No runtime command was run to reproduce this unrelated contradiction; no failure exit code or runtime log is claimed. It is recorded once and not investigated further. The allowed materialization gate does not certify full gateway startup."
+resolution = "Preserve the existing egress binding and both assertions; wiring_request_4 assigns the topology and qualification reconciliation to platform domain 8."
+
+[gotcha.3]
+observed = "The Docker gateway entrypoint does not stage the independent service identity variables or receipt-key file before dropping privileges, although the Rust binary supports them."
+resolution = "Keep these optional Railway settings inactive and request the Docker owner wiring; Kubernetes can use the existing readable Secret projection directly. Preserve the repository entrypoint coverage test. Conventionally named environment settings do not establish a supported startup path."
+
+[repair_cycle.1]
+revision = "6a6f3fc33988732cdfbfec612924c0f146b2f00d"
+command = "cg spec done 22.33.1395 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "27 cases passed; the environment-name parser counted only 12 of 13 kernel variables because its character class excluded the digits in PKCS12."
+repair = "Include digits in the name parser, preserving the exact 13-variable count assertion and every absence check; rerun hf-build then hf-done at the same repaired revision."

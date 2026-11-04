@@ -2,7 +2,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from .verifier import AuthorizedReceiptBatch, LocalSignatureVerifier
+from .verifier import ReceiptKey
+from .x402_rpc import PaymentRpc
 
 WEB_CONTENT_DOMAIN: bytes
 WEB_CONTENT_FETCH: int
@@ -51,6 +52,7 @@ class WebSearchMeteredPayment:
 @dataclass(frozen=True)
 class WebSearchExactPayment:
     receipt: bytes
+    raw_transaction: bytes | None = ...
 
 class WebSearchPayer(Protocol):
     @property
@@ -116,12 +118,12 @@ class WebSearchClient:
         native_asset: str,
         assets: Mapping[str, WebSearchAssetTerms],
         payer: WebSearchPayer,
-        authority: Callable[[bytes, WebSearchOffer], AuthorizedReceiptBatch],
-        signatures: LocalSignatureVerifier,
+        receipt_keys: Sequence[ReceiptKey],
         *,
-        protocol_version: int | None = ...,
         now: Callable[[], int] | None = ...,
         pending_attempts: int = ...,
+        payer_rpc: PaymentRpc | None = ...,
+        payer_address: str | None = ...,
     ) -> None: ...
     def search(self, query: str) -> WebSearchResponse: ...
     def fetch(self, url: str) -> WebFetchResponse: ...

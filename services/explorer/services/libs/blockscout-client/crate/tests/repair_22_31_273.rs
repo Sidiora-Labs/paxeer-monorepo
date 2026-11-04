@@ -735,6 +735,7 @@ fn native_feed_item() -> Value {
 fn transaction_feed_native_items() {
     use blockscout_client::apis::feed::{FeedItem, TransactionFeedPage};
     use blockscout_client::apis::transactions_api::GetTxsSuccess;
+
     let evm = recording(TX);
     let native = native_feed_item();
     // PriceUpdateList.paging_params adds its 1_000_000 native index offset.
@@ -831,8 +832,8 @@ fn health_blocks_envelope() {
         let response = response::<HealthSuccess>(wire);
         let model = response.try_parse_as_success_model().unwrap();
         assert!(response.try_as_success().is_some());
-        let blocks = model.metadata.as_ref().unwrap().blocks.as_ref().unwrap();
-        assert_eq!(Some(blocks.healthy), model.healthy);
+        let blocks = &model.metadata.as_ref().unwrap().blocks;
+        assert_eq!(blocks.healthy, model.healthy);
         assert_eq!(
             encoded(&blocks.latest_block)["db"],
             wire["metadata"]["blocks"]["latest_block"]["db"]
@@ -905,22 +906,10 @@ fn health_node_height() {
     latest["cache"]["number"] = json!("102");
     latest["node"]["number"] = json!("110");
     let health: HealthCheckResponse = decode(&wire);
-    let blocks = health.metadata.unwrap().blocks.unwrap();
-    assert_eq!(
-        blocks.latest_block.db.as_ref().unwrap().number.as_deref(),
-        Some("100")
-    );
-    assert_eq!(
-        blocks
-            .latest_block
-            .cache
-            .as_ref()
-            .unwrap()
-            .number
-            .as_deref(),
-        Some("102")
-    );
-    assert_eq!(blocks.latest_block.node.as_ref().unwrap().number, "110");
+    let blocks = health.metadata.unwrap().blocks;
+    assert_eq!(blocks.latest_block.db.number, "100");
+    assert_eq!(blocks.latest_block.cache.number, "102");
+    assert_eq!(blocks.latest_block.node.number, "110");
     assert_eq!(
         encoded(&blocks.latest_block),
         wire["metadata"]["blocks"]["latest_block"]

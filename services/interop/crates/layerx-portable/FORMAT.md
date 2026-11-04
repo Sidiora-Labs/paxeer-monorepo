@@ -2,9 +2,8 @@
 
 The current receipt format is `layerx-receipt-proof-v2`. The public API exports
 `PortableReceiptV2`, `ReceiptKeyEntry`, `PortableVerifiedReceiptV2` and
-`verify_portable_json`. The historical v1/base64 format and `AuthorizedBatch`
-verification path are retired; `verify_portable_json` refuses v1 with
-`PortableReceiptError::UnsupportedFormat`.
+`verify_portable_json`. Historical formats are described only in the
+[retired migration appendix](#retired-v1-migration-appendix).
 
 Paxeer mainnet-beta is one network, chain ID 125 (`0x7d`). The kernel participates
 in that network and proposes blocks; block commit is finality. A portable proof
@@ -85,6 +84,32 @@ receipt only. A signed nonzero result code remains a rejected transaction.
 The shared `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json` vectors
 exercise successful and reverted receipts in both independent harnesses.
 
+### Current importer refusals
+
+`PortableReceiptV2::from_json` checks the wire shape and canonical fields;
+parsing alone establishes no trust. `verify_portable_json` dispatches the
+format and runs the complete v2 verifier against the caller's pinned keys.
+The following are refusals, not requests to downgrade verification:
+
+| Input or condition | Refusal |
+| --- | --- |
+| Retired or unknown `format` at `verify_portable_json` | `UnsupportedFormat` |
+| `verificationLevel` other than `receipted` | `UnsupportedVerificationLevel` |
+| Duplicate, unknown or missing required members | `JsonShape` |
+| Base64url, uppercase or odd-length hex byte strings | `InvalidHex(field)` |
+| Wrong byte-string length | `InvalidLength(field)` |
+| Noncanonical or overflowing height quantity | `InvalidQuantity(field)` |
+| Missing or ambiguous signing key, signed height outside its pinned window, or invalid signature | `Receipt` at `SequencerSignature` |
+| Carried key differs from the full pinned entry | `ReceiptKeyMismatch` |
+| Changed receipt digest | `ReceiptDigestMismatch` |
+| Raw transaction does not hash to signed activity id | `RawTransactionMismatch` |
+| Inclusion height below signed height | `InclusionHeight` |
+
+For RPC acquisition, `PortableReceiptV2::from_sequencer_receipt` refuses a
+`submitted` answer with `NotReceipted`. A `committed` answer still exports
+`verificationLevel: "receipted"`: its carried inclusion height is not a
+portable block-commit proof.
+
 ### External Evidence Portability
 
 External presentations keep their upstream wire formats. The generic
@@ -114,10 +139,22 @@ The domain ends in NUL. Kind tags are one byte (`Mandate` = 1, `Receipt` = 2).
 Lengths and vector count are unsigned 64-bit big-endian; specification and suite
 digests are 32 raw bytes. Context and typed output are not hashed.
 
-This digest identifies bytes and metadata. It does not authenticate the verifier,
-prove that a conformance suite ran, or provide non-repudiation. A downstream
-consumer needs an authenticated verification report from a trusted producer or
-must re-run verification with trusted keys and context. A digest alone also does
+This digest is a content and descriptor binding. It does not authenticate the
+verifier, prove signature validity or that a conformance suite ran, or provide
+non-repudiation. `VerifiedExternalEvidence<T>` contains no authenticated verifier
+attestation. Its private fields protect the local typed API; a transmitted digest
+does not carry that local verification guarantee.
+
+Before claiming externally trusted verification provenance or non-repudiation,
+a downstream consumer must perform actual verification with trusted keys and
+context, or validate a separately authenticated verifier attestation from a
+trusted verifier. Retain audit evidence in either case: the exact presentation
+bytes, descriptor and specification/conformance pins, trust policy, verification
+context (including time, audience, nonce and usage where applicable), outcome,
+and any verifier identity, attestation and its authentication evidence. An
+attestation must bind the digest, context and outcome under the consumer's
+trust policy; this crate defines no such attestation protocol. Protect retained
+presentations and typed results as sensitive data. A digest alone also does
 not guarantee privacy for predictable or linkable payloads.
 
 The concrete generic import in this tree is AP2's
@@ -135,3 +172,14 @@ kind matching, typed results and digest binding. The
 [independent verifier harness](tests/independent_verifier.rs) covers receipt
 portability with the Python implementation and independently supplied fixture
 keys. These sources do not establish live-network settlement or verifier provenance.
+
+## Retired v1 migration appendix
+
+The historical `layerx-receipt-proof-v1` format used base64url byte strings,
+batch authorization and an `AuthorizedBatch` verification path. These are
+retired pre-merge interfaces, not current importer options.
+`verify_portable_json` refuses v1 with `PortableReceiptError::UnsupportedFormat`;
+changing only the format label or re-encoding old fields does not migrate a proof.
+Acquire a current sequencer-signed ProtocolReceipt v2 and independently pinned
+receipt keys, then export and verify it through the v2 path above. Historical
+batch evidence does not establish current Paxeer block-commit finality.

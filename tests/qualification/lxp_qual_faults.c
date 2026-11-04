@@ -7,6 +7,7 @@
 #include "layerx/lxp_snapshot.h"
 
 #include <errno.h>
+#include <dirent.h>
 #include <sqlite3.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -273,7 +274,24 @@ static void fixture_release(const fault_fixture *fixture)
 {
     char wal[160];
     char shm[160];
+    DIR *entries;
     if (fixture == NULL) return;
+    entries = opendir(fixture->checkpoint_directory);
+    if (entries != NULL) {
+        struct dirent *entry;
+        static const char prefix[] = "00000000000000000000.lxs.tmp.";
+        while ((entry = readdir(entries)) != NULL) {
+            char path[512];
+            int length;
+            if (strncmp(entry->d_name, prefix, sizeof(prefix) - 1U) != 0)
+                continue;
+            length = snprintf(path, sizeof(path), "%s/%s",
+                               fixture->checkpoint_directory, entry->d_name);
+            if (length > 0 && (size_t)length < sizeof(path))
+                unlink_if_present(path);
+        }
+        (void)closedir(entries);
+    }
     unlink_if_present(fixture->checkpoint_temporary_path);
     unlink_if_present(fixture->checkpoint_path);
     unlink_if_present(fixture->log_path);
