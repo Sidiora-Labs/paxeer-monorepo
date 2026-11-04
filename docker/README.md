@@ -48,11 +48,46 @@ docker exec -it [container_name] /bin/bash
 
 **Cluster and monitoring together:** from the repo root you can run:
 
+The monitoring overlay requires a file-backed Grafana admin password for both
+local and remote access. Create a private file outside the checkout containing a
+unique password (never `admin`), then export its absolute path. For example,
+generate the file once and retain it for later starts:
+
+```sh
+install -d -m 700 "$HOME/.config/paxeer-monitoring"
+export GRAFANA_ADMIN_PASSWORD_FILE="$HOME/.config/paxeer-monitoring/grafana-admin-password"
+(umask 077; openssl rand -base64 32 > "$GRAFANA_ADMIN_PASSWORD_FILE")
+```
+
+Compose rejects an unset or empty `GRAFANA_ADMIN_PASSWORD_FILE`; there is no
+embedded password fallback. It mounts the file as the `grafana_admin_password`
+secret at `/run/secrets/grafana_admin_password`, which Grafana reads through
+`GF_SECURITY_ADMIN_PASSWORD__FILE`. Keep the file private and do not commit it.
+
 ```sh
 make docker-cluster-start-monitoring
 ```
 
-This stops any existing compose stack, rebuilds the node image, starts the four-node local cluster, and brings up the Prometheus and Grafana containers via the monitoring compose overlay, so you do not need to run the scripts below for that flow. To tear down the cluster and monitoring containers together:
+By default Grafana publishes on `127.0.0.1:3000` and Prometheus on
+`127.0.0.1:9099`. Log in to Grafana as `admin` with the password from your file.
+For deliberate remote Grafana access, keep the same secret file configured and
+set `GRAFANA_BIND_ADDRESS` to the host interface address before starting the stack:
+
+```sh
+export GRAFANA_BIND_ADDRESS=192.0.2.10 # Replace with your host's private interface address.
+make docker-cluster-start-monitoring
+```
+
+Use an interface reachable only by intended clients, or put Grafana behind an
+authenticated TLS proxy; the direct Grafana endpoint is HTTP. Prometheus stays
+on loopback even when Grafana is exposed remotely. An unset or empty
+`GRAFANA_BIND_ADDRESS` selects loopback. The file seeds the initial admin password;
+changing it does not rotate a password already stored in Grafana's database.
+Existing Grafana installations must rotate their admin password through Grafana
+before enabling remote access. Recreate existing containers to apply the new
+port bindings and secret mount; restarting an old container retains its settings.
+
+The make target stops any existing compose stack, rebuilds the node image, starts the four-node local cluster, and brings up the Prometheus and Grafana containers via the monitoring compose overlay, so you do not need to run the scripts below for that flow. To tear down the cluster and monitoring containers together:
 
 ```sh
 make docker-cluster-stop-monitoring
