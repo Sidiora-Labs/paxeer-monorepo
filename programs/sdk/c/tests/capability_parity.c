@@ -1,3 +1,5 @@
+#include "determinism_lint_tests.c"
+
 #include "layerx/program.h"
 
 #include <stdio.h>
@@ -98,6 +100,7 @@ int main(void)
         actual_length != expected_length ||
         memcmp(actual, expected, actual_length) != 0)
         return 1;
+    if (test_repair_245_determinism_lint() != 0) return 1;
     if (test_repair_374_host_status_classification() != 0) return 1;
     return system("python3 programs/sdk/c/tests/signature_status.py") == 0 ? 0 : 1;
 }

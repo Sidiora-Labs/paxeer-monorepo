@@ -4,119 +4,144 @@ order: 4
 
 # Messages
 
+The distribution messages execute in `paxd` on the merged network. The local
+[transaction definitions](../../../proto/cosmos/distribution/v1beta1/tx.proto)
+and [message server](../keeper/msg_server.go) define the four operations below.
+Each successful operation returns its corresponding empty protobuf response;
+withdrawal amounts are reported in [events](06_events.md).
+
 ## MsgSetWithdrawAddress
 
-By default, the withdraw address is the delegator address. To change its withdraw address, a delegator must send a `MsgSetWithdrawAddress` message.
-Changing the withdraw address is possible only if the parameter `WithdrawAddrEnabled` is set to `true`.
+By default, rewards are paid to the delegator's account address. The delegator
+signs `MsgSetWithdrawAddress` with `delegator_address` and `withdraw_address` to
+change that destination. The `WithdrawAddrEnabled` [parameter](07_params.md)
+must be `true`.
 
-The withdraw address cannot be any of the module accounts. These accounts are blocked from being withdraw addresses by being added to the distribution keeper's `blockedAddrs` array at initialization.
+[SetWithdrawAddr](../keeper/keeper.go) checks the following conditions in order:
 
-Response:
+1. An address in the keeper's `blockedAddrs` map is rejected with
+   `sdkerrors.ErrUnauthorized`.
+2. If changing withdrawal addresses is disabled, it returns
+   `ErrSetWithdrawAddrDisabled` (distribution code `8`).
+3. If `bankKeeper.CanSendTo` rejects the recipient, it returns
+   `sdkerrors.ErrInvalidRecipient`.
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto#L29-L37
+On success, the keeper emits `set_withdraw_address` and stores the destination.
+When resolving a stored destination, `GetDelegatorWithdrawAddr` checks the
+blocked-address map and bank recipient policy again. If the stored address is no
+longer allowed, it returns the delegator's own address.
 
-```go
-func (k Keeper) SetWithdrawAddr(ctx sdk.Context, delegatorAddr sdk.AccAddress, withdrawAddr sdk.AccAddress) error
-	if k.blockedAddrs[withdrawAddr.String()] {
-		fail with "`{withdrawAddr}` is not allowed to receive external funds"
-	}
-
-	if !k.GetWithdrawAddrEnabled(ctx) {
-		fail with `ErrSetWithdrawAddrDisabled`
-	}
-
-	k.SetDelegatorWithdrawAddr(ctx, delegatorAddr, withdrawAddr)
-```
+Response: `MsgSetWithdrawAddressResponse {}`.
 
 ## MsgWithdrawDelegatorReward
 
-A delegator can withdraw its rewards.
-Internally in the distribution module, this transaction simultaneously removes the previous delegation with associated rewards, the same as if the delegator simply started a new delegation of the same value.
-The rewards are sent immediately from the distribution `ModuleAccount` to the withdraw address.
-Any remainder (truncated decimals) are sent to the community pool.
-The starting height of the delegation is set to the current validator period, and the reference count for the previous period is decremented.
-The amount withdrawn is deducted from the `ValidatorOutstandingRewards` variable for the validator.
+The delegator signs `MsgWithdrawDelegatorReward` with `delegator_address` and
+`validator_address` to withdraw rewards from one validator. The keeper requires
+both the validator and delegation to exist, returning `ErrNoValidatorDistInfo`
+(distribution code `6`) or `ErrEmptyDelegationDistInfo` (code `5`) otherwise.
+Missing delegation starting information also returns code `5`.
 
-In the F1 distribution, the total rewards are calculated per validator period, and a delegator receives a piece of those rewards in proportion to their stake in the validator.
-In basic F1, the total rewards that all the delegators are entitled to between to periods is calculated the following way.
-Let `R(X)` be the total accumulated rewards up to period `X` divided by the tokens staked at that time. The delegator allocation is `R(X) * delegator_stake`.
-Then the rewards for all the delegators for staking between periods `A` and `B` are `(R(B) - R(A)) * total stake`.
-However, these calculated rewards don't account for slashing.
+The keeper ends the validator's current distribution period and calculates the
+delegation's rewards. It caps the calculated decimal rewards at the validator's
+outstanding rewards, truncates them to integer coins, and transfers nonzero coins
+from the distribution module account to the resolved withdrawal address. Decimal
+remainders go to the community pool. The full decimal amount, including that
+remainder, is deducted from `ValidatorOutstandingRewards`.
 
-Taking the slashes into account requires iteration.
-Let `F(X)` be the fraction a validator is to be slashed for a slashing event that happened at period `X`.
-If the validator was slashed at periods `P1, ..., PN`, where `A < P1`, `PN < B`, the distribution module calculates the individual delegator's rewards, `T(A, B)`, as follows:
+The old starting period's reference count is decremented and its delegation
+starting information is deleted. The keeper then reinitializes the starting
+information for the existing staking delegation; staking shares are unchanged.
+The new `PreviousPeriod` is the period just ended, while `Height` is the current
+block height. See [Initialize delegation](#initialize-delegation) and the
+[staking hooks](05_hooks.md).
 
+### Rewards across slash periods
+
+F1 accounting stores a cumulative reward ratio `R(P)` for each historical
+validator period `P`: the accumulated rewards per staked token, separately for
+each denomination. For stake held constant from period `A` through `B`, rewards
+are `(R(B) - R(A)) * stake`, with the keeper's decimal truncation.
+
+[CalculateDelegationRewards](../keeper/delegation.go) replays slash events between
+the delegation's starting block height and the current block height. A slash
+fraction `F(P)` is the fraction removed from stake, so the surviving stake is
+multiplied by `1 - F(P)`. The following pseudocode shows the accumulation by
+validator period; `mul_truncate` denotes the keeper's truncating multiplication:
+
+```text
+stake := startingInfo.Stake
+previousPeriod := startingInfo.PreviousPeriod
+rewards := zero decimal coins
+if startingInfo.Height == currentBlockHeight:
+    return rewards
+
+for event in slash events between startingInfo.Height and currentBlockHeight:
+    P := event.ValidatorPeriod
+    if P > previousPeriod:
+        rewards += mul_truncate(R(P) - R(previousPeriod), stake)
+        stake = mul_truncate(stake, 1 - event.Fraction)
+        previousPeriod = P
+
+currentStake := validator.TokensFromShares(delegation.Shares)
+if stake > currentStake:
+    if stake <= currentStake + 3 * smallestDecimal:
+        stake = currentStake
+    else:
+        panic
+rewards += mul_truncate(R(B) - R(previousPeriod), stake)
+return rewards
 ```
-stake := initial stake
-rewards := 0
-previous := A
-for P in P1, ..., PN`:
-    rewards = (R(P) - previous) * stake
-    stake = stake * F(P)
-    previous = P
-rewards = rewards + (R(B) - R(PN)) * stake
-```
 
-The historical rewards are calculated retroactively by playing back all the slashes and then attenuating the delegator's stake at each step.
-The final calculated stake is equivalent to the actual staked coins in the delegation with a margin of error due to rounding errors.
+Here `B` is the period ended for this withdrawal. Rewards from every interval
+are added, including the final interval after the last slash. With no slash
+events the final interval covers the entire range. Delegations initialized in
+the current block receive no rewards yet. The stake check tolerates at most
+three units of the smallest SDK decimal to account for rounding.
 
-Response:
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto#L42-L50
+Response: `MsgWithdrawDelegatorRewardResponse {}`.
 
 ## WithdrawValidatorCommission
 
-The validator can send the WithdrawValidatorCommission message to withdraw their accumulated commission.
-The commission is calculated in every block during `BeginBlock`, so no iteration is required to withdraw.
-The amount withdrawn is deducted from the `ValidatorOutstandingRewards` variable for the validator.
-Only integer amounts can be sent. If the accumulated awards have decimals, the amount is truncated before the withdrawal is sent, and the remainder is left to be withdrawn later.
+The message is named `MsgWithdrawValidatorCommission`. The validator's account
+signs it with `validator_address` set to its operator address.
+
+Commission accumulates during allocation in `BeginBlock`. The keeper returns
+`ErrNoValidatorCommission` (distribution code `7`) when accumulated commission is
+zero. Otherwise, it truncates commission to integer coins, keeps the decimal
+remainder in `ValidatorAccumulatedCommission`, and subtracts only the integer
+coins from outstanding rewards. Nonzero coins are sent to the withdrawal
+address resolved for the validator's account address. A positive commission
+smaller than one coin can therefore leave a remainder without sending coins.
+
+Response: `MsgWithdrawValidatorCommissionResponse {}`.
 
 ## FundCommunityPool
 
-This message sends coins directly from the sender to the community pool.
+The message is named `MsgFundCommunityPool`. The depositor signs it with
+`depositor` and an `amount` coin list. The message validates the coin list and
+requires a depositor; the message server parses the account address.
 
-The transaction fails if the amount cannot be transferred from the sender to the distribution module account.
+[FundCommunityPool](../keeper/keeper.go) first transfers the coins from the
+depositor to the distribution module account. If that transfer fails, the error
+is returned. On success, it adds the same amount as decimal coins to
+`FeePool.CommunityPool`.
 
-```go
-func (k Keeper) FundCommunityPool(ctx sdk.Context, amount sdk.Coins, sender sdk.AccAddress) error {
-    if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, sender, types.ModuleName, amount); err != nil {
-        return err
-    }
-
-	feePool := k.GetFeePool(ctx)
-	feePool.CommunityPool = feePool.CommunityPool.Add(sdk.NewDecCoinsFromCoins(amount...)...)
-	k.SetFeePool(ctx, feePool)
-
-	return nil
-}
-```
+Response: `MsgFundCommunityPoolResponse {}`.
 
 ## Common distribution operations
 
-These operations take place during many different messages.
-
 ### Initialize delegation
 
-Each time a delegation is changed, the rewards are withdrawn and the delegation is reinitialized.
-Initializing a delegation increments the validator period and keeps track of the starting period of the delegation.
+[initializeDelegation](../keeper/delegation.go) runs after the validator period
+has already been incremented by a withdrawal or a before-delegation hook. It
+records the period just ended and increments that historical period's reference
+count. It stores:
 
-```go
-// initialize starting info for a new delegation
-func (k Keeper) initializeDelegation(ctx sdk.Context, val sdk.ValAddress, del sdk.AccAddress) {
-    // period has already been incremented - we want to store the period ended by this delegation action
-    previousPeriod := k.GetValidatorCurrentRewards(ctx, val).Period - 1
+| Starting-info field | Value | Purpose |
+| --- | --- | --- |
+| `PreviousPeriod` | `GetValidatorCurrentRewards(ctx, val).Period - 1` | Baseline for historical reward ratios |
+| `Stake` | `validator.TokensFromSharesTruncated(delegation.GetShares())` | Initial token stake for reward and slash calculations |
+| `Height` | `uint64(ctx.BlockHeight())` | Slash-event height range and same-block reward check |
 
-	// increment reference count for the period we're going to track
-	k.incrementReferenceCount(ctx, val, previousPeriod)
-
-	validator := k.stakingKeeper.Validator(ctx, val)
-	delegation := k.stakingKeeper.Delegation(ctx, del, val)
-
-	// calculate delegation stake in tokens
-	// we don't store directly, so multiply delegation shares * (tokens per share)
-	// note: necessary to truncate so we don't allow withdrawing more rewards than owed
-	stake := validator.TokensFromSharesTruncated(delegation.GetShares())
-	k.SetDelegatorStartingInfo(ctx, val, del, types.NewDelegatorStartingInfo(previousPeriod, stake, uint64(ctx.BlockHeight())))
-}
-```
+Initialization does not itself increment the validator period. Validator periods
+and block heights are distinct counters.

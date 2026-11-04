@@ -55,6 +55,9 @@ async function checkRpc(signal: AbortSignal): Promise<void> {
   ) {
     throw new Error('Chain response is invalid');
   }
+  if (BigInt(body.result) !== 125n) {
+    throw new Error('RPC chain is not Paxeer');
+  }
 }
 
 async function checkHttp(url: string, signal: AbortSignal): Promise<void> {

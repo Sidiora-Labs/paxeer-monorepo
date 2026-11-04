@@ -20,6 +20,8 @@ const defaultReceiptSourceCapacity = 65_536
 
 var _ evmrpc.SequencerReceiptSource = (*ReceiptSource)(nil)
 
+type receiptSequenceRange struct{ first, last uint64 }
+
 type receiptSourceEntry struct {
 	height int64
 	send   evmrpc.SequencerSend
@@ -33,6 +35,7 @@ type ReceiptSource struct {
 	entries        map[common.Hash]receiptSourceEntry
 	capacity       int
 	committed      int64
+	evicted        []receiptSequenceRange
 	pendingOrder   []common.Hash
 	committedOrder []common.Hash
 }
@@ -104,7 +107,8 @@ func (s *ReceiptSource) restoreCommitted(ctx context.Context, log *wal.WAL) erro
 // Record stores an owned copy of an accepted, signed send. Invalid input or
 // capacity exhausted before commit panics: this void API cannot report a lost
 // accepted receipt. Retained committed sends are evicted oldest first as needed.
-// Sends recorded at already committed heights are not retained.
+// First publications are retained even if commit advanced before publication.
+// Evicted sequence positions cannot be resurrected by duplicate publication.
 func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
 	s.record(hash, send, false)
 }
@@ -125,7 +129,7 @@ func (s *ReceiptSource) record(hash common.Hash, send evmrpc.SequencerSend, repl
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if int64(height) <= s.committed && !replay {
+	if !replay && s.wasEvicted(receipt.GlobalSequence) {
 		return
 	}
 	capacity := s.capacity
@@ -136,9 +140,19 @@ func (s *ReceiptSource) record(hash common.Hash, send evmrpc.SequencerSend, repl
 	if !exists && len(s.entries) >= capacity {
 		switch {
 		case len(s.committedOrder) > 0:
+			old, err := codec.DecodeReceipt(s.entries[s.committedOrder[0]].send.Receipt)
+			if err != nil {
+				panic(err)
+			}
+			s.rememberEvicted(old.GlobalSequence)
 			delete(s.entries, s.committedOrder[0])
 			s.committedOrder = s.committedOrder[1:]
 		case replay && len(s.pendingOrder) > 0:
+			old, err := codec.DecodeReceipt(s.entries[s.pendingOrder[0]].send.Receipt)
+			if err != nil {
+				panic(err)
+			}
+			s.rememberEvicted(old.GlobalSequence)
 			delete(s.entries, s.pendingOrder[0])
 			s.pendingOrder = s.pendingOrder[1:]
 		default:
@@ -208,6 +222,34 @@ func (s *ReceiptSource) Committed(height int64) {
 		return s.entries[newlyCommitted[i]].height < s.entries[newlyCommitted[j]].height
 	})
 	s.committedOrder = append(s.committedOrder, newlyCommitted...)
+}
+
+// Eviction ranges remember exact positions, so a late first publication is
+// never mistaken for a duplicate merely because a later sequence was evicted.
+// Normal ordered publication coalesces into a single range.
+func (s *ReceiptSource) wasEvicted(seq uint64) bool {
+	i := sort.Search(len(s.evicted), func(i int) bool { return s.evicted[i].last >= seq })
+	return i < len(s.evicted) && s.evicted[i].first <= seq
+}
+
+func (s *ReceiptSource) rememberEvicted(seq uint64) {
+	i := sort.Search(len(s.evicted), func(i int) bool { return s.evicted[i].last >= seq || s.evicted[i].last == seq-1 })
+	if i == len(s.evicted) {
+		s.evicted = append(s.evicted, receiptSequenceRange{seq, seq})
+		return
+	}
+	if s.evicted[i].first > seq && s.evicted[i].first-seq > 1 {
+		s.evicted = append(s.evicted, receiptSequenceRange{})
+		copy(s.evicted[i+1:], s.evicted[i:])
+		s.evicted[i] = receiptSequenceRange{seq, seq}
+	} else {
+		s.evicted[i].first = min(s.evicted[i].first, seq)
+		s.evicted[i].last = max(s.evicted[i].last, seq)
+	}
+	if i+1 < len(s.evicted) && s.evicted[i+1].first-s.evicted[i].last == 1 {
+		s.evicted[i].last = s.evicted[i+1].last
+		s.evicted = append(s.evicted[:i+1], s.evicted[i+2:]...)
+	}
 }
 
 func cloneReceiptSourceSend(send evmrpc.SequencerSend) evmrpc.SequencerSend {

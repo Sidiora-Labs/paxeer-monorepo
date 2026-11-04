@@ -8,10 +8,17 @@ import {
   type ShellRoute,
 } from '.';
 
-const ROUTES: ShellRoute[] = [
+export const ROUTES: ShellRoute[] = [
   { name: 'portfolio' },
   { name: 'send' },
   { name: 'send', token: '0x1111111111111111111111111111111111111111' },
+  { name: 'send', to: '0x2222222222222222222222222222222222222222' },
+  { name: 'send', token: 'pax', to: '0x2222222222222222222222222222222222222222' },
+  {
+    name: 'send',
+    token: '0x1111111111111111111111111111111111111111',
+    to: '0x2222222222222222222222222222222222222222',
+  },
   { name: 'receive' },
   { name: 'transactions' },
   { name: 'swap' },
@@ -32,9 +39,7 @@ const ROUTES: ShellRoute[] = [
 
 describe('canonical shell navigation', () => {
   it('round-trips every user-addressable route through one URL schema', () => {
-    expect(new Set(ROUTES.map((route) => route.name))).toEqual(
-      new Set(SHELL_ROUTE_NAMES),
-    );
+    expect(new Set(ROUTES.map((route) => route.name))).toEqual(new Set(SHELL_ROUTE_NAMES));
     for (const route of ROUTES) {
       const parsed = parseRouteUrl(serializeRoute(route));
       expect(parsed).toEqual({ ok: true, value: route });
@@ -57,14 +62,10 @@ describe('canonical shell navigation', () => {
   });
 
   it('defines complete state behavior and custody guards for every route', () => {
-    expect(Object.keys(ROUTE_POLICIES).sort()).toEqual(
-      [...SHELL_ROUTE_NAMES].sort(),
-    );
+    expect(Object.keys(ROUTE_POLICIES).sort()).toEqual([...SHELL_ROUTE_NAMES].sort());
     for (const policy of Object.values(ROUTE_POLICIES)) {
       expect(Object.keys(policy.states)).toHaveLength(9);
-      expect(Object.values(policy.states).every((state) => state === 'render')).toBe(
-        true,
-      );
+      expect(Object.values(policy.states).every((state) => state === 'render')).toBe(true);
     }
     expect(
       routeGuard(
@@ -73,8 +74,8 @@ describe('canonical shell navigation', () => {
           custody: 'injected',
           unlocked: false,
           hasAccount: true,
-        },
-      ),
+        }
+      )
     ).toEqual({ allowed: false, recovery: { name: 'portfolio' } });
     expect(
       routeGuard(
@@ -83,8 +84,8 @@ describe('canonical shell navigation', () => {
           custody: 'embedded',
           unlocked: true,
           hasAccount: false,
-        },
-      ),
+        }
+      )
     ).toEqual({ allowed: false, recovery: { name: 'settings' } });
     expect(
       routeGuard(
@@ -93,8 +94,8 @@ describe('canonical shell navigation', () => {
           custody: 'injected',
           unlocked: true,
           hasAccount: true,
-        },
-      ),
+        }
+      )
     ).toEqual({ allowed: true });
     expect(
       routeGuard(
@@ -103,8 +104,8 @@ describe('canonical shell navigation', () => {
           custody: 'embedded',
           unlocked: true,
           hasAccount: true,
-        },
-      ),
+        }
+      )
     ).toEqual({ allowed: true });
   });
 });

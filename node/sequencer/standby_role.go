@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/tls"
 	"fmt"
 	"math"
 	"net"
 	"path/filepath"
 	"sync"
+	"time"
 
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	tmed25519 "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
@@ -41,6 +43,13 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 	}
 	if _, _, err := net.SplitHostPort(cfg.StandbyAddress); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrConfigStandbyAddress, err)
+	}
+	tlsConfig, err := cfg.ReplicationTLS.TLSConfig(true)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.ReplicationTimeout <= 0 {
+		return nil, ErrConfigReplicationTimeout
 	}
 	infoPath, err := a.UpgradeKeeper.GetUpgradeInfoPath()
 	if err != nil {
@@ -131,7 +140,7 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 		w.Close()
 		return nil, err
 	}
-	l, err := net.Listen("tcp", cfg.StandbyAddress)
+	l, err := tls.Listen("tcp", cfg.StandbyAddress, tlsConfig)
 	if err != nil {
 		w.Close()
 		return nil, fmt.Errorf("sequencer: standby listen: %w", err)
@@ -140,7 +149,7 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 	a.SetSequencerSource(source)
 	stop := context.AfterFunc(ctx, func() { _ = l.Close() })
 	go func() {
-		err := s.Serve(standbyRoleListener{Listener: l, ctx: ctx})
+		err := s.Serve(standbyRoleListener{Listener: l, ctx: ctx, timeout: cfg.ReplicationTimeout})
 		stop()
 		_ = l.Close()
 		s.mu.Lock()
@@ -158,15 +167,32 @@ func StartStandby(ctx context.Context, cfg Config, a *app.App) (*Standby, error)
 
 type standbyRoleListener struct {
 	net.Listener
-	ctx context.Context
+	ctx     context.Context
+	timeout time.Duration
 }
 
 func (l standbyRoleListener) Accept() (net.Conn, error) {
-	c, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
+	for {
+		c, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		// Authentication finishes before Serve can read even a control frame.
+		secured, ok := c.(*tls.Conn)
+		if !ok {
+			_ = c.Close()
+			continue
+		}
+		ctx, cancel := context.WithTimeout(l.ctx, l.timeout)
+		err = secured.HandshakeContext(ctx)
+		cancel()
+		if err != nil {
+			_ = c.Close()
+			continue
+		}
+		return &standbyRoleConn{Conn: c, stop: context.AfterFunc(l.ctx, func() { _ = c.Close() })}, nil
 	}
-	return &standbyRoleConn{Conn: c, stop: context.AfterFunc(l.ctx, func() { _ = c.Close() })}, nil
+
 }
 
 type standbyRoleConn struct {

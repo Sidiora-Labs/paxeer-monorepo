@@ -3,12 +3,12 @@
 import { motion } from 'framer-motion';
 import { Clock, AlertTriangle, ExternalLink, Fuel } from 'lucide-react';
 import { useWalletState } from '@/providers/WalletProvider';
-import { shortenAddress, formatBalance } from '@/lib/format';
+import { shortenAddress } from '@/lib/format';
 import { PAX_ICON_URL } from '@/lib/constants';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import { useTxDetailQuery } from '@/lib/queries/txDetail';
 import { ethers } from 'ethers';
-import Image from "next/image";
+import Image from 'next/image';
 
 interface TxDetailWidgetProps {
   txHash: string;
@@ -16,16 +16,65 @@ interface TxDetailWidgetProps {
   onPaxscan?: (path?: string) => void;
 }
 
+interface DetailTransfer {
+  from?: { hash?: string } | null;
+  to?: { hash?: string } | null;
+  token?: { symbol?: string; decimals?: unknown; icon_url?: string | null } | null;
+  total?: { value?: string | null } | null;
+}
+
+function tokenPrecision(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) {
+    return null;
+  }
+  const precision = Number(value);
+  // ethers.formatUnits supports integer precisions up to 80.
+  return Number.isInteger(precision) && precision >= 0 && precision <= 80 ? precision : null;
+}
+
+function transferDirection(from: string | undefined, to: string | undefined, address: string) {
+  if (!address) return 'unrelated';
+  const sent = from?.toLowerCase() === address;
+  const received = to?.toLowerCase() === address;
+  return sent && received ? 'self' : sent ? 'sent' : received ? 'received' : 'unrelated';
+}
+
+function transferAmount(raw: string | null | undefined, precision: number | null): string {
+  if (precision === null) return `Amount unavailable (precision unknown; raw: ${raw ?? 'unknown'})`;
+  if (raw == null || !/^\d+$/.test(raw)) return 'Amount unavailable (invalid raw amount)';
+  try {
+    const value = ethers.formatUnits(raw, precision);
+    const n = Number(value);
+    if (n === 0) return '0';
+    if (n < 0.0001) return '< 0.0001';
+    if (n >= 1000000) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    if (n >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+    return n.toFixed(5);
+  } catch {
+    return 'Amount unavailable (invalid raw amount)';
+  }
+}
+
 function fmtUnits(value: string, decimals = 18) {
-  try { return ethers.formatUnits(value || '0', decimals); } catch { return value; }
+  try {
+    return ethers.formatUnits(value || '0', decimals);
+  } catch {
+    return value;
+  }
 }
 
 function fmtDate(ts: string) {
   try {
     const d = new Date(ts);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  } catch { return ts; }
+    return (
+      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' at ' +
+      d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    );
+  } catch {
+    return ts;
+  }
 }
 
 export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProps) {
@@ -33,26 +82,29 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
   const { data, isLoading, error } = useTxDetailQuery(txHash);
 
   const tx = data?.tx as any;
-  const tokenTransfers = (data?.tokenTransfers ?? []) as any[];
+  const tokenTransfers = (data?.tokenTransfers ?? []) as DetailTransfer[];
 
   const addr = activeAccount?.address?.toLowerCase() || '';
-  const isSent = tx?.from?.hash?.toLowerCase() === addr;
-
-  const primaryTransfer = tokenTransfers[0];
-  const isTokenTx = !!primaryTransfer;
-  const symbol = isTokenTx ? (primaryTransfer.token?.symbol || '???') : 'PAX';
-  const decimals = isTokenTx ? Number(primaryTransfer.token?.decimals || 18) : 18;
-  const rawAmount = isTokenTx ? (primaryTransfer.total?.value || '0') : (tx?.value || '0');
-  const iconUrl = isTokenTx ? (primaryTransfer.token?.icon_url || '/wallet/default_icon.webp') : PAX_ICON_URL;
-
-  const fmtAmount = () => {
-    const n = Number(fmtUnits(rawAmount, decimals));
-    if (n === 0) return '0';
-    if (n < 0.0001) return '< 0.0001';
-    if (n >= 1000000) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
-    if (n >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
-    return n.toFixed(5);
-  };
+  const relevantTransfers = tokenTransfers.filter(
+    (transfer) => transferDirection(transfer.from?.hash, transfer.to?.hash, addr) !== 'unrelated'
+  );
+  const primaryTransfer = relevantTransfers.length === 1 ? relevantTransfers[0] : undefined;
+  const multipleTransfers = relevantTransfers.length > 1;
+  const direction = primaryTransfer
+    ? transferDirection(primaryTransfer.from?.hash, primaryTransfer.to?.hash, addr)
+    : transferDirection(tx?.from?.hash, tx?.to?.hash, addr);
+  const isSent = direction === 'sent';
+  const symbol = primaryTransfer ? primaryTransfer.token?.symbol || '???' : 'PAX';
+  const decimals = primaryTransfer ? tokenPrecision(primaryTransfer.token?.decimals) : 18;
+  const rawAmount = primaryTransfer ? primaryTransfer.total?.value : tx?.value;
+  const iconUrl = primaryTransfer
+    ? primaryTransfer.token?.icon_url || '/wallet/default_icon.webp'
+    : PAX_ICON_URL;
+  const amountLabel = multipleTransfers
+    ? `${relevantTransfers.length} token transfers`
+    : direction === 'unrelated'
+      ? 'No wallet transfer'
+      : `${direction === 'self' ? '' : isSent ? '-' : '+'}${transferAmount(rawAmount, decimals)} ${symbol}`;
 
   const fmtFee = () => {
     if (!tx?.fee?.value) return '0 PAX';
@@ -62,24 +114,50 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
     return `-${n.toFixed(6)} PAX`;
   };
 
-  const statusLabel = tx?.status === 'ok' ? 'Succeeded' : tx?.status === 'error' ? 'Failed' : 'Pending';
-  const statusColor = tx?.status === 'ok' ? 'text-green-400' : tx?.status === 'error' ? 'text-red-400' : 'text-amber-400';
-  const directionLabel = isSent ? 'Sent' : 'Received';
-  const directionColor = isSent ? 'text-red-400' : 'text-green-400';
-  const counterparty = isSent ? shortenAddress(tx?.to?.hash || '') : shortenAddress(tx?.from?.hash || '');
+  const statusLabel =
+    tx?.status === 'ok' ? 'Succeeded' : tx?.status === 'error' ? 'Failed' : 'Pending';
+  const statusColor =
+    tx?.status === 'ok'
+      ? 'text-green-400'
+      : tx?.status === 'error'
+        ? 'text-red-400'
+        : 'text-amber-400';
+  const directionLabel = multipleTransfers
+    ? 'Token transfers'
+    : direction === 'self'
+      ? 'Self transfer'
+      : direction === 'unrelated'
+        ? 'Transaction'
+        : isSent
+          ? 'Sent'
+          : 'Received';
+  const directionColor =
+    multipleTransfers || direction === 'self' || direction === 'unrelated'
+      ? 'text-pax-muted'
+      : isSent
+        ? 'text-red-400'
+        : 'text-green-400';
+  const counterparty = primaryTransfer
+    ? shortenAddress(isSent ? primaryTransfer.to?.hash || '' : primaryTransfer.from?.hash || '')
+    : shortenAddress(isSent ? tx?.to?.hash || '' : tx?.from?.hash || '');
   const counterpartyLabel = isSent ? 'To' : 'From';
 
   const isPending = tx?.status === 'pending';
   const isFailed = tx?.status === 'error';
-  const revertReason = tx?.revert_reason
-    ?? tx?.decode?.parameters?.find((p: any) => p.name === 'revert_reason')?.value;
+  const revertReason =
+    tx?.revert_reason ??
+    tx?.decode?.parameters?.find((p: any) => p.name === 'revert_reason')?.value;
 
   const fmtGasUsed = () => {
     if (!tx?.gas_used) return null;
     const used = Number(tx.gas_used);
     const limit = Number(tx.gas_limit || tx.gas || 0);
     const utilPct = limit > 0 ? Math.round((used / limit) * 100) : null;
-    return { used: used.toLocaleString(), limit: limit > 0 ? limit.toLocaleString() : null, utilPct };
+    return {
+      used: used.toLocaleString(),
+      limit: limit > 0 ? limit.toLocaleString() : null,
+      utilPct,
+    };
   };
 
   const fmtGasPrice = () => {
@@ -87,7 +165,9 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
     try {
       const gwei = Number(ethers.formatUnits(tx.gas_price, 'gwei'));
       return gwei < 1 ? `${(gwei * 1000).toFixed(2)} mGwei` : `${gwei.toFixed(2)} Gwei`;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   };
 
   const gasInfo = fmtGasUsed();
@@ -114,7 +194,9 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
             </div>
             <div className="space-y-1">
               <p className="text-base font-semibold text-white/80">Could not load transaction</p>
-              <p className="text-sm text-pax-muted max-w-[260px] leading-relaxed">{(error as Error).message}</p>
+              <p className="text-sm text-pax-muted max-w-[260px] leading-relaxed">
+                {(error as Error).message}
+              </p>
             </div>
             {onPaxscan && (
               <button
@@ -131,14 +213,27 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
             <div className="text-center pt-4 pb-6">
               <p className={`text-lg font-semibold mb-4 ${directionColor}`}>{directionLabel}</p>
               <div className="relative w-16 h-16 mx-auto mb-5">
-                <Image src={iconUrl} alt={symbol} className="w-16 h-16 rounded-full bg-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).src = '/wallet/default_icon.webp'; }} width={64} height={64} />
-                <div className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center ${isSent ? 'bg-red-500' : 'bg-green-500'}`}>
-                  <SvgIcon name={isSent ? 'arrow-up-right' : 'arrow-down-left'} className="w-3.5 h-3.5" style={{ filter: 'brightness(0) invert(1)' }} />
+                <Image
+                  src={iconUrl}
+                  alt={symbol}
+                  className="w-16 h-16 rounded-full bg-white/10 object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/wallet/default_icon.webp';
+                  }}
+                  width={64}
+                  height={64}
+                />
+                <div
+                  className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center ${isSent ? 'bg-red-500' : 'bg-green-500'}`}
+                >
+                  <SvgIcon
+                    name={isSent ? 'arrow-up-right' : 'arrow-down-left'}
+                    className="w-3.5 h-3.5"
+                    style={{ filter: 'brightness(0) invert(1)' }}
+                  />
                 </div>
               </div>
-              <p className={`text-3xl font-bold tracking-tight ${directionColor}`}>
-                {isSent ? '-' : '+'}{fmtAmount()} {symbol}
-              </p>
+              <p className={`text-3xl font-bold tracking-tight ${directionColor}`}>{amountLabel}</p>
             </div>
 
             {/* Pending banner */}
@@ -151,7 +246,9 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                 <Clock className="w-4 h-4 text-amber-400 shrink-0" />
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-amber-400">Transaction Pending</p>
-                  <p className="text-[11px] text-amber-300/70 mt-0.5">Waiting for confirmation on the network</p>
+                  <p className="text-[11px] text-amber-300/70 mt-0.5">
+                    Waiting for confirmation on the network
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -164,17 +261,24 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                 className="mb-4 px-4 py-3 rounded-xl bg-red-500/8  "
               >
                 <p className="text-xs font-semibold text-red-400 mb-1">Revert reason</p>
-                <p className="text-xs text-red-300/80 font-mono break-all leading-relaxed">{revertReason}</p>
+                <p className="text-xs text-red-300/80 font-mono break-all leading-relaxed">
+                  {revertReason}
+                </p>
               </motion.div>
             )}
 
             <div className="glass-card  divide-white/[0.06] overflow-hidden">
               <DetailRow label="Date" value={tx.timestamp ? fmtDate(tx.timestamp) : '—'} />
               <DetailRow label="Status" value={statusLabel} valueClass={statusColor} />
-              <DetailRow label={counterpartyLabel} value={counterparty} mono />
+              {!multipleTransfers && direction !== 'unrelated' && (
+                <DetailRow label={counterpartyLabel} value={counterparty} mono />
+              )}
               <DetailRow label="Network" value="Paxeer" />
               <DetailRow label="Network Fee" value={fmtFee()} />
-              <button onClick={() => onPaxscan?.(`/tx/${tx.hash}`)} className="w-full py-3.5 text-center text-sm font-medium text-pax-accent hover:bg-white/[0.02] transition-colors">
+              <button
+                onClick={() => onPaxscan?.(`/tx/${tx.hash}`)}
+                className="w-full py-3.5 text-center text-sm font-medium text-pax-accent hover:bg-white/[0.02] transition-colors"
+              >
                 View on PaxScan
               </button>
             </div>
@@ -191,7 +295,8 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                     <div className="flex justify-between">
                       <span className="text-xs text-pax-muted">Gas used</span>
                       <span className="text-xs font-medium">
-                        {gasInfo.used}{gasInfo.limit ? ` / ${gasInfo.limit}` : ''}
+                        {gasInfo.used}
+                        {gasInfo.limit ? ` / ${gasInfo.limit}` : ''}
                         {gasInfo.utilPct !== null && (
                           <span className="ml-1 text-pax-muted">({gasInfo.utilPct}%)</span>
                         )}
@@ -201,7 +306,11 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                       <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            gasInfo.utilPct > 90 ? 'bg-red-400' : gasInfo.utilPct > 70 ? 'bg-amber-400' : 'bg-pax-accent'
+                            gasInfo.utilPct > 90
+                              ? 'bg-red-400'
+                              : gasInfo.utilPct > 70
+                                ? 'bg-amber-400'
+                                : 'bg-pax-accent'
                           }`}
                           style={{ width: `${Math.min(gasInfo.utilPct, 100)}%` }}
                         />
@@ -218,29 +327,53 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
               </div>
             )}
 
-            {tokenTransfers.length > 1 && (
-              <div className="glass-card mt-4  divide-white/[0.06] overflow-hidden">
+            {multipleTransfers && (
+              <div
+                aria-label="Token transfers"
+                className="glass-card mt-4  divide-white/[0.06] overflow-hidden"
+              >
                 <div className="px-4 py-3">
-                  <p className="text-xs font-semibold text-pax-muted">Token Transfers ({tokenTransfers.length})</p>
+                  <p className="text-xs font-semibold text-pax-muted">
+                    Token Transfers ({relevantTransfers.length})
+                  </p>
                 </div>
-                {tokenTransfers.map((tt: any, i: number) => {
-                  const ttSent = tt.from?.hash?.toLowerCase() === addr;
+                {relevantTransfers.map((tt, i) => {
+                  const ttDirection = transferDirection(tt.from?.hash, tt.to?.hash, addr);
+                  const ttSent = ttDirection === 'sent';
+                  const ttSelf = ttDirection === 'self';
                   const ttSym = tt.token?.symbol || '???';
-                  const ttDec = Number(tt.token?.decimals || 18);
-                  const ttAmt = formatBalance(tt.total?.value || '0', ttDec, 4);
+                  const ttDec = tokenPrecision(tt.token?.decimals);
+                  const ttAmt = transferAmount(tt.total?.value, ttDec);
                   return (
                     <div key={i} className="flex items-center gap-3 px-4 py-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${ttSent ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
-                        <SvgIcon name={ttSent ? 'arrow-up-right' : 'arrow-down-left'} className="w-3.5 h-3.5" style={{ filter: ttSent ? 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(338deg) brightness(118%) contrast(119%)' : 'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)' }} />
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${ttSent ? 'bg-red-500/10' : 'bg-green-500/10'}`}
+                      >
+                        <SvgIcon
+                          name={ttSent ? 'arrow-up-right' : 'arrow-down-left'}
+                          className="w-3.5 h-3.5"
+                          style={{
+                            filter: ttSent
+                              ? 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(338deg) brightness(118%) contrast(119%)'
+                              : 'invert(69%) sepia(61%) saturate(588%) hue-rotate(88deg) brightness(93%) contrast(93%)',
+                          }}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{ttSent ? 'Sent' : 'Received'} {ttSym}</p>
+                        <p className="text-sm font-medium">
+                          {ttSelf ? 'Self transfer' : ttSent ? 'Sent' : 'Received'} {ttSym}
+                        </p>
                         <p className="text-xs text-pax-muted truncate">
-                          {ttSent ? `To ${shortenAddress(tt.to?.hash || '')}` : `From ${shortenAddress(tt.from?.hash || '')}`}
+                          {ttSent
+                            ? `To ${shortenAddress(tt.to?.hash || '')}`
+                            : `From ${shortenAddress(tt.from?.hash || '')}`}
                         </p>
                       </div>
-                      <p className={`text-sm font-medium shrink-0 ${ttSent ? 'text-red-400' : 'text-green-400'}`}>
-                        {ttSent ? '-' : '+'}{ttAmt} {ttSym}
+                      <p
+                        className={`text-sm font-medium shrink-0 ${ttSent ? 'text-red-400' : 'text-green-400'}`}
+                      >
+                        {ttSelf ? '' : ttSent ? '-' : '+'}
+                        {ttAmt} {ttSym}
                       </p>
                     </div>
                   );
@@ -252,7 +385,10 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
       </div>
 
       <div className="px-4 pb-6 pt-2">
-        <button onClick={onBack} className="w-full py-3.5 rounded-2xl bg-white/[0.08] text-white font-semibold text-sm press-scale hover:bg-white/[0.12] transition-colors">
+        <button
+          onClick={onBack}
+          className="w-full py-3.5 rounded-2xl bg-white/[0.08] text-white font-semibold text-sm press-scale hover:bg-white/[0.12] transition-colors"
+        >
           Close
         </button>
       </div>
@@ -260,11 +396,23 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
   );
 }
 
-function DetailRow({ label, value, valueClass = '', mono = false }: { label: string; value: string; valueClass?: string; mono?: boolean }) {
+function DetailRow({
+  label,
+  value,
+  valueClass = '',
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  mono?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5">
       <span className="text-sm text-pax-muted">{label}</span>
-      <span className={`text-sm font-medium text-right ${mono ? 'font-mono' : ''} ${valueClass}`}>{value}</span>
+      <span className={`text-sm font-medium text-right ${mono ? 'font-mono' : ''} ${valueClass}`}>
+        {value}
+      </span>
     </div>
   );
 }

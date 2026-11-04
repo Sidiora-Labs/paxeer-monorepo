@@ -1,14 +1,26 @@
 defmodule BlockScoutWeb.API.HealthController do
   use Phoenix.Controller, namespace: BlockScoutWeb
+  use OpenApiSpex.ControllerSpecs
 
   import Plug.Conn
 
   alias Explorer.Chain.Health.Helper, as: HealthHelper
   alias Explorer.Migrator.MigrationStatus
+  alias BlockScoutWeb.Schemas.API.Health
 
   @ok_message "OK"
   @backfill_multichain_search_db_migration_name "backfill_multichain_search_db"
   @rollups [:arbitrum, :zksync, :optimism, :polygon_zkevm, :scroll]
+
+  tags(["Health"])
+
+  operation :health,
+    summary: "Check indexing or standalone media worker health",
+    responses: [
+      ok: {"Healthy indexer or standalone media worker", "application/json", Health.Success},
+      internal_server_error:
+        {"Unhealthy indexer, including block progress and errors", "application/json", Health.Unhealthy}
+    ]
 
   @doc """
   Handles health checks for the application.
@@ -28,7 +40,9 @@ defmodule BlockScoutWeb.API.HealthController do
   """
   @spec health(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def health(conn, params) do
-    health(conn, params, Application.get_env(:nft_media_handler, :standalone_media_worker?))
+    conn
+    |> put_resp_content_type("application/json")
+    |> health(params, Application.get_env(:nft_media_handler, :standalone_media_worker?))
   end
 
   defp health(conn, _, false) do
@@ -93,6 +107,10 @@ defmodule BlockScoutWeb.API.HealthController do
     )
   end
 
+  operation :liveness,
+    summary: "Check whether the process is alive",
+    responses: [ok: {"Process is alive", "text/plain", %OpenApiSpex.Schema{type: :string, enum: [@ok_message]}}]
+
   @doc """
   Handles liveness checks for the application.
 
@@ -110,8 +128,12 @@ defmodule BlockScoutWeb.API.HealthController do
   """
   @spec liveness(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def liveness(conn, _) do
-    send_resp(conn, :ok, @ok_message)
+    conn |> put_resp_content_type("text/plain") |> send_resp(:ok, @ok_message)
   end
+
+  operation :readiness,
+    summary: "Check database access, except for standalone media workers",
+    responses: [ok: {"Ready to handle requests", "text/plain", %OpenApiSpex.Schema{type: :string, enum: [@ok_message]}}]
 
   @doc """
   Handles readiness checks for the application.
@@ -136,7 +158,7 @@ defmodule BlockScoutWeb.API.HealthController do
       HealthHelper.last_db_block_status()
     end
 
-    send_resp(conn, :ok, @ok_message)
+    conn |> put_resp_content_type("text/plain") |> send_resp(:ok, @ok_message)
   end
 
   @doc """

@@ -1,3 +1,6 @@
+#[path = "support/active_inputs.rs"]
+mod active_inputs;
+
 use layerx_platform_gateway::http;
 use serde_json::{json, Value};
 use std::fs;
@@ -124,17 +127,6 @@ fn fixture() -> Fixture {
         ("identity-password", "interop-client-identity\n"),
         ("redis-username", "interop\n"),
         ("redis-password", "interop-redis-password\n"),
-        ("authority-token", "interop-authority-token\n"),
-        (
-            "sequencer-public-key",
-            "5866666666666666666666666666666666666666666666666666666666666666\n",
-        ),
-        (
-            "sequencer-id",
-            "1111111111111111111111111111111111111111111111111111111111111111\n",
-        ),
-        ("sequencer-first-batch", "1\n"),
-        ("sequencer-last-batch", "100\n"),
         (
             "registry.json",
             "{\"modules\":[{\"module\":1,\"ordinals\":[1]}]}",
@@ -270,22 +262,6 @@ fn gateway(fixture: &Fixture, extra: &[(&str, String)]) -> Command {
             path(dir, "redis-password"),
         )
         .env(
-            "LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE",
-            path(dir, "sequencer-public-key"),
-        )
-        .env(
-            "LAYERX_INTEROP_SEQUENCER_ID_FILE",
-            path(dir, "sequencer-id"),
-        )
-        .env(
-            "LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE",
-            path(dir, "sequencer-first-batch"),
-        )
-        .env(
-            "LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE",
-            path(dir, "sequencer-last-batch"),
-        )
-        .env(
             "LAYERX_INTEROP_SEQUENCER_URL",
             format!("http://{}", fixture.sequencer),
         )
@@ -302,19 +278,11 @@ fn gateway(fixture: &Fixture, extra: &[(&str, String)]) -> Command {
             "LAYERX_INTEROP_MODULE_REGISTRY_FILE",
             path(dir, "registry.json"),
         )
-        .env("LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS", "60")
-        .env("LAYERX_INTEROP_HOSTED_GATEWAY_URL", "https://localhost:2")
-        .env(
-            "LAYERX_INTEROP_RECEIPT_AUTHORITY_URL",
-            "https://localhost:3",
-        )
-        .env(
-            "LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE",
-            path(dir, "authority-token"),
-        );
+        .env("LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS", "60");
     for (name, value) in extra {
         command.env(name, value);
     }
+    active_inputs::assert_command(&command, dir);
     command
 }
 
