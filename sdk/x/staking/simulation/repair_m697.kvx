@@ -1,0 +1,7 @@
+[repair.22.33.697]
+finding = "simulation-store-shapes"
+tests = ["TestRepairM_697_LastValidatorPowers", "TestRepairM_697_EmptyIndexes", "TestRepairM_697_QueuesHistoricalAndRecords"]
+proof = "Real staking keeper writes two in-memory store contexts; the production decoder consumes their stored KV pairs and preserves both sides of each diagnostic."
+baseline = "Not run: the task's ordered gate instructions prohibit testing before implementation and running verify_cmd outside hf-done; no pre-change failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the verified candidate revision, exact command, exit code and private log location."

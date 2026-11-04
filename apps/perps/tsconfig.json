@@ -48,7 +48,8 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "resolvePackageJsonExports": true
   },
   "include": [
     "**/*.ts",

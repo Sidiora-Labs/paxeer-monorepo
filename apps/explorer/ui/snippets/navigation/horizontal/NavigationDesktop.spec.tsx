@@ -47,7 +47,7 @@ describe('NavigationDesktop', () => {
   it('groups the menu the way the scan layout orders it', () => {
     render(<NavigationDesktop/>);
 
-    expect(menuTexts()).toEqual([ 'Home', 'Blockchain', 'Tokens', 'Kernel', 'Resources', 'API', 'More' ]);
+    expect(menuTexts()).toEqual([ 'Home', 'Blockchain', 'Tokens', 'Resources', 'API', 'More' ]);
   });
 
   it('marks the group the current page belongs to', () => {

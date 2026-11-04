@@ -1,0 +1,10 @@
+[repair.22.33.271]
+audit = "22.30.131"
+directory-read-partial = "directoryReadRejectsAfterFirstPage; directoryReadPartialRefusesSelectionAndPreservesPriorFiles"
+file-entry-error-pending = "fileEntryErrorRejectsRemovedAndDeniedFiles; fileEntryErrorReleasesDropAndShowsAffectedPath"
+regression = "completeNestedSelectionPreservesFilesAndMetadata"
+baseline = "Not run: the task's ordered gate instructions require complete implementation before any test and forbid running verify_cmd by hand; no pre-change test result is claimed."
+wiring_requests = "None; producer errors and consumer refusal are both within the declared directory."
+verification = "hf-done records the verified candidate revision, exact command, exit code and private evidence location in its final JSON line and the runner gate ledger."
+formatting = "Repository ESLint layout formatting applied; non-gating Vitest lint rules cannot resolve the named callbacks' assertions or function.name titles."
+qualification_repair = "Vitest 4 registers test(functionName) as todo rather than executing its assertions; pass each declared function's name and callback explicitly so all five tests execute."

@@ -26,7 +26,7 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait ConfigApi: Send + Sync {
-    /// GET /api/v2/config/json-rpc-url
+    /// Unsupported on the current backend; use the deployment root node origin.
     ///
     ///
     async fn get_json_rpc_url(
@@ -35,12 +35,14 @@ pub trait ConfigApi: Send + Sync {
 }
 
 pub struct ConfigApiClient {
-    configuration: Arc<configuration::Configuration>,
+    _configuration: Arc<configuration::Configuration>,
 }
 
 impl ConfigApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            _configuration: configuration,
+        }
     }
 }
 
@@ -49,47 +51,9 @@ impl ConfigApi for ConfigApiClient {
     async fn get_json_rpc_url(
         &self,
     ) -> Result<ResponseContent<GetJsonRpcUrlSuccess>, Error<GetJsonRpcUrlError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/api/v2/config/json-rpc-url",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetJsonRpcUrlSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetJsonRpcUrlError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        Err(Error::UnsupportedCapability(
+            "RPC discovery is not mounted by this backend; configure Configuration.node_rpc_origin explicitly",
+        ))
     }
 }
 

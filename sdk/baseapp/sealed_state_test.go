@@ -2,6 +2,11 @@ package baseapp
 
 import (
 	"context"
+	"fmt"
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 	"testing"
 	"time"
 
@@ -94,4 +99,69 @@ func TestSetSealedStateToCommitRefusesNilMultiStore(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, value, app.cms.GetKVStore(storeKey).Get(key))
 	require.Equal(t, ctx.BlockHeader(), app.checkState.Context().BlockHeader())
+}
+
+func TestCommitSealedRetention(t *testing.T) {
+	for _, deliverAge := range []int64{0, 1, 10} {
+		t.Run(fmt.Sprintf("deliver-evidence-%d", deliverAge), func(t *testing.T) {
+			app := NewBaseApp(t.Name(), dbm.NewMemDB(), nil, nil, &testutil.TestAppOpts{},
+				SetPruning(sdk.PruningOptions{KeepRecent: 20, KeepEvery: 4, Interval: 1}))
+			key := sdk.NewKVStoreKey("sealed")
+			paramsKey := sdk.NewKVStoreKey("params")
+			transientKey := sdk.NewTransientStoreKey("transient_params")
+			app.MountStores(key, paramsKey, transientKey)
+			amino := codec.NewLegacyAmino()
+			params := paramtypes.NewSubspace(codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), amino,
+				paramsKey, transientKey, Paramspace).WithKeyTable(paramtypes.NewKeyTable(
+				paramtypes.NewParamSetPair(ParamStoreKeyEvidenceParams, &tmproto.EvidenceParams{}, ValidateEvidenceParams)))
+			app.SetParamStore(params)
+			var wantHeader tmproto.Header
+			var wantValue []byte
+			app.SetPreCommitHandler(func(ctx sdk.Context) error {
+				require.Equal(t, wantHeader, ctx.BlockHeader())
+				require.Equal(t, wantValue, ctx.KVStore(key).Get([]byte("block")))
+				require.Equal(t, int64(5), app.GetConsensusParams(ctx).Evidence.MaxAgeNumBlocks)
+				return nil
+			})
+			require.NoError(t, app.LoadLatestVersion())
+			defer func() { require.NoError(t, app.Close()) }()
+			for height := int64(1); height <= 12; height++ {
+				if height == 12 {
+					SetMinRetainBlocks(2)(app)
+				}
+				if deliverAge != 0 {
+					app.setDeliverState(tmproto.Header{Height: height + 100, ChainID: "divergent"})
+					params.Set(app.deliverState.ctx, ParamStoreKeyEvidenceParams, tmproto.EvidenceParams{
+						MaxAgeNumBlocks: deliverAge, MaxAgeDuration: time.Hour})
+					app.deliverState.ctx.KVStore(key).Set([]byte("block"), []byte("deliver"))
+				} else {
+					require.Nil(t, app.deliverState)
+				}
+				wantHeader = tmproto.Header{ChainID: app.ChainID, Height: height, Time: time.Unix(1234+height, 0).UTC()}
+				wantValue = []byte(fmt.Sprintf("sealed-%d", height))
+				ms := app.cms.CacheMultiStore()
+				ctx := sdk.NewContext(ms, wantHeader, false)
+				params.Set(ctx, ParamStoreKeyEvidenceParams, tmproto.EvidenceParams{
+					MaxAgeNumBlocks: 5, MaxAgeDuration: time.Hour})
+				ctx.KVStore(key).Set([]byte("block"), wantValue)
+				require.NoError(t, app.SetSealedStateToCommit(ctx, ms))
+				var res *abci.ResponseCommit
+				var err error
+				require.NotPanics(t, func() { res, err = app.Commit(context.Background()) })
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				wantRetention := int64(0)
+				if height == 12 {
+					wantRetention = 7
+				}
+				require.Equal(t, wantRetention, res.RetainHeight)
+				require.Equal(t, wantHeader, app.checkState.ctx.BlockHeader())
+				require.Equal(t, height, app.LastBlockHeight())
+				require.Equal(t, wantValue, app.cms.GetKVStore(key).Get([]byte("block")))
+				require.Equal(t, int64(5), app.GetConsensusParams(app.checkState.ctx).Evidence.MaxAgeNumBlocks)
+				require.Nil(t, app.stateToCommit)
+				require.Nil(t, app.deliverState)
+			}
+		})
+	}
 }

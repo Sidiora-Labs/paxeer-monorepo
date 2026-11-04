@@ -15,9 +15,10 @@ import { createTestSocket } from 'vitest/utils/socketServer';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsContent from './TxsContent';
 
-const items = [ txMock.base, { ...txMock.base2 }, { ...txMock.base3 } ];
+const items: Array<TransactionFeedItem> = [ txMock.base, { ...txMock.base2 }, { ...txMock.base3 } ];
 
 const paginationParams = (overrides?: Partial<PaginationParams>): PaginationParams => ({
   page: 1,

@@ -283,6 +283,9 @@ func validateMinCommissionRate(i interface{}) error {
 	if !ok {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
+	if v.IsNil() {
+		return fmt.Errorf("minimum commission rate must not be nil")
+	}
 
 	if v.IsNegative() {
 		return fmt.Errorf("minimum commission rate cannot be negative: %s", v)

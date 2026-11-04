@@ -855,11 +855,11 @@ func New(
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
 	transferIBCModule := transfer.NewIBCModule(app.TransferKeeper)
 
-	// Create evidence Keeper for to register the IBC light client misbehaviour evidence route
+	// No evidence submission routes are approved; seal this policy before service registration.
 	evidenceKeeper := evidencekeeper.NewKeeper(
 		appCodec, keys[evidencetypes.StoreKey], &app.StakingKeeper, app.SlashingKeeper,
 	)
-	// If evidence needs to be handled for the app, set routes in router here and seal
+	evidenceKeeper.SetRouter(evidencetypes.NewRouter())
 	app.EvidenceKeeper = *evidenceKeeper
 
 	app.OracleKeeper = oraclekeeper.NewKeeper(
