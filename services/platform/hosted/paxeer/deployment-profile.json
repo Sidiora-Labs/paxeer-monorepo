@@ -5,8 +5,8 @@
     "bootstrap": "../node/bootstrap.sh",
     "chain_id": "hyperpax_125-1",
     "evm_chain_id": 125,
-    "rpc": "http://layerx-native-chain.layerx-testnet.svc.cluster.local:8545/",
-    "consensus_rpc": "http://layerx-native-chain.layerx-testnet.svc.cluster.local:26657/"
+    "rpc": "http://127.0.0.1:8545/",
+    "consensus_rpc": "http://127.0.0.1:26657/"
   },
   "tenant": {
     "gateway_rpc": "https://layerx-gateway.layerx-testnet.svc.cluster.local:9443/"

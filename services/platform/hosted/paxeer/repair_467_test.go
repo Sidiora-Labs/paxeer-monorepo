@@ -10,12 +10,13 @@ import (
 	"testing"
 )
 
-// SHA-256 digests of the exact blobs at 065d0370da^, independent of local Git history.
+// SHA-256 digests of the restored blobs, independent of local Git history.
+// Decision 2533 reconciles deployment.yaml with the maintained native runtime.
 var repair467OriginalSHA256 = map[string]string{
 	"evm.py":                     "7bb0ad0fe92b1cbb0d97ff6a6913a5116943866b5978aae3dbb3827af9d053d7",
 	"custody-genesis.py":         "d83138a70061b0f42f24de9cdcdd882e4dbda9d5cf23284341ecd619d8c227c3",
 	"deploy-contracts.sh":        "b89c6690e1367048c95396e491965b69031e0be245048fc33adac62e34628942",
-	"deployment.yaml":            "f203f0817332d8e26342120260dea823f60adc71529f72abf885d6ddc8c5d6ea",
+	"deployment.yaml":            "7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066",
 	"deployment-input.beta.json": "2c718a52f3d1e6bf1add92ef3ab54389a97c1d294d5a5563ec2649399481463b",
 }
 
@@ -38,7 +39,7 @@ func repair467Restored(t *testing.T, names ...string) {
 			t.Fatal(err)
 		}
 		if got := fmt.Sprintf("%x", sha256.Sum256(raw)); got != want {
-			t.Fatalf("%s differs from 065d0370da^: SHA-256 %s, want %s", name, got, want)
+			t.Fatalf("%s differs from its restored content: SHA-256 %s, want %s", name, got, want)
 		}
 	}
 }
