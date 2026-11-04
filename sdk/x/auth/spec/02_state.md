@@ -75,7 +75,8 @@ The account type URL is `/cosmos.auth.v1beta1.BaseAccount`. A `ModuleAccount`
 embeds a base account and adds `name` and `permissions`. Its coins remain in the
 bank store. Query responses use protobuf `Any` to preserve the concrete account
 type, including vesting types. See [Client](07_client.md) for the account query
-shape and supported routes.
+shape and supported routes. The [auth query schema](../../../proto/cosmos/auth/v1beta1/query.proto)
+defines `QueryAccountResponse.account` as `Any`, without a balance field.
 
 ### Bank Balances
 
