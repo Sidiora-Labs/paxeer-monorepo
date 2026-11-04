@@ -122,6 +122,28 @@ public final class PlatformSdkException extends RuntimeException {
         return new PlatformSdkException(Code.REVERT, Retry.NEVER, null, null, null,
             null, null, null, null, null, reason);
     }
+    private Map<String, Object> rpcDetails = Map.of();
+
+    /** RPC diagnostics omit server messages and expose at most 256 bytes of hexadecimal data. */
+    public static PlatformSdkException rpc(Code code, Retry retry, int rpcCode, String data) {
+        var failure = new PlatformSdkException(code, retry, null, rpcCode, null);
+        var details = new java.util.LinkedHashMap<String, Object>();
+        details.put("rpcCode", rpcCode);
+        if (rpcHexData(data)) {
+            details.put("rpcData", data.substring(0, Math.min(data.length(), 514)));
+            details.put("rpcDataBytes", (data.length() - 2) / 2);
+        }
+        failure.rpcDetails = Map.copyOf(details);
+        return failure;
+    }
+    private static boolean rpcHexData(String data) {
+        if (data == null || data.length() < 2 || (data.length() & 1) != 0 || !data.startsWith("0x")) return false;
+        for (int index = 2; index < data.length(); index++) {
+            char digit = data.charAt(index);
+            if (!(digit >= '0' && digit <= '9' || digit >= 'a' && digit <= 'f' || digit >= 'A' && digit <= 'F')) return false;
+        }
+        return true;
+    }
     public String revertReason() { return revertReason; }
     public Code code() { return code; }
     public Retry retry() { return retry; }
@@ -145,6 +167,7 @@ public final class PlatformSdkException extends RuntimeException {
         if (humanRetriability != null) value.put("humanRetriability", humanRetriability.wire());
         if (receiptCheck != null) value.put("receiptCheck", receiptCheck.wire());
         if (revertReason != null) value.put("revertReason", revertReason);
+        value.putAll(rpcDetails);
         return Map.copyOf(value);
     }
 }
