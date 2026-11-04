@@ -28,7 +28,7 @@ func SimulateParamChangeProposalContent(paramChangePool []simulation.ParamChange
 	}
 
 	return func(r *rand.Rand, _ sdk.Context, _ []simulation.Account) simulation.Content {
-		numChanges := simulation.RandIntBetween(r, 1, maxSimultaneousParamChanges)
+		numChanges := simulation.RandIntBetween(r, 1, maxSimultaneousParamChanges+1)
 		paramChanges := make([]proposal.ParamChange, numChanges)
 
 		// perm here takes at most len(paramChangePool) calls to random

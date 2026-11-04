@@ -1,0 +1,35 @@
+[repair.22.33.265]
+audit = "22.30.131"
+mode = "BUILD"
+scope = "apps/bridge/src/lib/bridge"
+settlement-test-broadcast = "phaseOfSettlesADepositThePrecompileNullified, settlementPatchRecordsAChainObservedClaimOnce, settlementBroadcastReopensRetriesAndRequiresDestinationEvidence"
+submitted-test-vault = "withdrawalRecordKeepsTheTypedDestination, withdrawalRecordReloadResolvesTheAuthoritativeVaultAndBuildsVerifiedRelease, withdrawalReloadPreservesAuthorityDestinationAndSignatureRefusals"
+gate = "repair-22-33-265.spec.ts imports both repaired suites; every original scenario and new proving function executes through an explicit test(function.name, function) registration."
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate budget prohibit step 6's unchanged-tree verify. No pre-change test failure is claimed; the existing settlement suite contains obsolete broadcast-completion and patch-shape expectations and callback-only registrations, while the withdrawal producer/consumer repair is already present in prerequisite 22.31.376."
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl; hf-done is the sole verification gate."
+
+[wiring.submitted-test-vault]
+request = "Domain 14: spec/layerx-merge/spec.kvx req.14492.2 must describe the resolved contract: withdrawalRecord omits vault, and EVM release consumers resolve and validate the authoritative Paxeer registration after reload (already requested by repair 22.31.376)."
+
+[gotcha.test-registration]
+observed = "Vitest 4 treats test(function) as a todo declaration; repaired settlement registrations provide both the function name and callback so retained assertions really execute."
+
+[gotcha.settlement-confirmation]
+observed = "settlementPatch now persists settlementStatus alongside the first confirmed timestamp; an existing timestamp remains unchanged while a legacy row without status receives confirmed status."
+
+[qualification.signature-hex-prefix]
+revision = "9712dff00db0b157c7baec572f79073aa99202a1"
+command = "pnpm --dir apps/bridge run typecheck"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "String slicing lost the Hex prefix type in two malformed-signature fixtures; each now explicitly constructs its 0x prefix without changing the refusal assertions."
+
+[gotcha.wagmi-multicall]
+observed = "The production wagmi client batches Base contract reads through Multicall3 by default; the loopback peer decodes the actual aggregate3 envelope and returns ABI-encoded per-call snapshots."
+
+[qualification.request-union]
+revision = "ceffd19cb45a772384df983806126d47b76602d5"
+command = "pnpm --dir apps/bridge run typecheck"
+exit = 2
+log = "/out/logs/build-2.log"
+observed = "The claim/release request union cannot infer one ABI for encodeFunctionData; narrow by functionName before encoding each unchanged production request."

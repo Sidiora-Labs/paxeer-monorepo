@@ -1,0 +1,25 @@
+- name: declared negative status and captured environment
+  inputs:
+    - cmd: repair-m757:negative
+      env: CAPTURE
+      expected_exit_code: 7
+    - cmd: repair-m757:capture
+      env: FORWARDED
+  verifiers:
+    - type: eval
+      expr: CAPTURE == 7 and FORWARDED == CAPTURE
+    - type: regex
+      result: FORWARDED
+      expr: '[0-9]+'
+- name: prefix regex and mixed expression precedence
+  inputs:
+    - cmd: repair-m757:prefix
+      env: OUTPUT
+  verifiers:
+    - type: regex
+      result: OUTPUT
+      expr: PASS
+    - type: eval
+      expr: 1 == 1 or 2 == 3 and 4 == 5
+    - type: eval
+      expr: 2 + 3 * 4 == 14 and 12 / 3 * 2 == 8

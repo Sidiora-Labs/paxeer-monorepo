@@ -17,7 +17,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum TransactionAction {
     TransactionActionAaveV3LiquidationCall(models::TransactionActionAaveV3LiquidationCall),
@@ -31,6 +31,69 @@ pub enum TransactionAction {
     TransactionActionUniswapV3MintNft(models::TransactionActionUniswapV3MintNft),
 
     TransactionActionUniswapV3Bcs(models::TransactionActionUniswapV3Bcs),
+}
+
+impl<'de> Deserialize<'de> for TransactionAction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Action {
+            data: serde_json::Value,
+            protocol: String,
+            r#type: String,
+        }
+
+        let Action {
+            data,
+            protocol,
+            r#type,
+        } = Action::deserialize(deserializer)?;
+        match (protocol.as_str(), r#type.as_str()) {
+            ("aave_v3", "liquidation_call") => Ok(Self::TransactionActionAaveV3LiquidationCall(
+                models::TransactionActionAaveV3LiquidationCall {
+                    data,
+                    protocol,
+                    r#type,
+                },
+            )),
+            ("aave_v3", "borrow" | "supply" | "withdraw" | "repay" | "flash_loan") => Ok(
+                Self::TransactionActionAaveV3Bswrf(models::TransactionActionAaveV3Bswrf {
+                    data,
+                    protocol,
+                    r#type,
+                }),
+            ),
+            ("aave_v3", "enable_collateral" | "disable_collateral") => {
+                Ok(Self::TransactionActionAaveV3EnableDisableCollateral(
+                    models::TransactionActionAaveV3EnableDisableCollateral {
+                        data,
+                        protocol,
+                        r#type,
+                    },
+                ))
+            }
+            ("uniswap_v3", "mint_nft") => Ok(Self::TransactionActionUniswapV3MintNft(
+                models::TransactionActionUniswapV3MintNft {
+                    data,
+                    protocol,
+                    r#type,
+                },
+            )),
+            ("uniswap_v3", "mint" | "burn" | "collect" | "swap") => Ok(
+                Self::TransactionActionUniswapV3Bcs(models::TransactionActionUniswapV3Bcs {
+                    data,
+                    protocol,
+                    r#type,
+                }),
+            ),
+            _ => Err(serde::de::Error::custom(format!(
+                "unsupported transaction action protocol/type: {protocol}/{}",
+                r#type,
+            ))),
+        }
+    }
 }
 
 impl Default for TransactionAction {

@@ -1,3 +1,5 @@
+//go:build ignore
+
 #include "layerx/lxp_activity.h"
 
 #include <stdint.h>

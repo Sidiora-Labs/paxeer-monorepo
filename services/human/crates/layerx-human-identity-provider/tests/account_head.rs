@@ -272,3 +272,11 @@ fn maintenance_head_refuses_wrong_key_signature_and_proof_encoding() {
         assert!(output.stdout.is_empty());
     }
 }
+
+#[path = "support/producer_path.rs"]
+mod producer_path;
+
+#[test]
+fn merged_account_head_transport_validator_and_reopen() -> producer_path::Result {
+    producer_path::merged_account_head_transport_validator_and_reopen()
+}

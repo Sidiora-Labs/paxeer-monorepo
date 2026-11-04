@@ -1,3 +1,5 @@
+Code.require_file("repair_market.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.MarketEventTest do
   use Explorer.DataCase
 
@@ -63,6 +65,10 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       "TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)"
     ]
   }
+
+  test "market_producer_recovery_proof replays native producer bytes through HTTP and restarts the reader" do
+    Explorer.Chain.PaxeerX.Repair2233523.Market.market_producer_recovery_proof()
+  end
 
   describe "changeset/2" do
     test "accepts an exchange action" do

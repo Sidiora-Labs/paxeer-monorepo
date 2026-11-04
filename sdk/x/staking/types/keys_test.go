@@ -102,6 +102,15 @@ func TestGetValidatorQueueKey(t *testing.T) {
 	require.Equal(t, rHeight, height)
 }
 
+func TestParseValidatorQueueKeyMalformed(t *testing.T) {
+	valid := types.GetValidatorQueueKey(time.Unix(1700000000, 0).UTC(), 1024)
+	for name, key := range repairM688MalformedQueueKeys(valid) {
+		t.Run(name, func(t *testing.T) {
+			repairM688AssertQueueRejected(t, key)
+		})
+	}
+}
+
 func TestTestGetValidatorQueueKeyOrder(t *testing.T) {
 	ts := time.Now().UTC()
 	height := int64(1000)

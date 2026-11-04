@@ -98,8 +98,9 @@ since this CLI uses the first parsed coin for `max_tokens`. See
 [Concepts](01_concepts.md#stakeauthorization) for validator policy semantics.
 
 `--expiration` is an integer Unix timestamp in seconds, not an RFC 3339 string.
-Its default is one year from command construction. The grant handler does not
-reject a past expiration. Reissuing a grant for the same pair and message type
+Its default is one year from command construction. The grant handler rejects an
+expiration at or before chain block time with codespace `authz`, code `3`, without
+storing a grant or emitting `EventGrant`. Reissuing a grant for the same pair and message type
 replaces the prior grant.
 
 For example, a generic grant for the bank send message is:
@@ -160,7 +161,7 @@ grpcurl -plaintext \
 
 A send authorization is encoded with type URL
 `/cosmos.bank.v1beta1.SendAuthorization` and a `spend_limit` coin list (`spendLimit`
-in protobuf JSON). Coin amounts are decimal strings; expiration is a timestamp.
+in some protobuf JSON encoders; the CLI codec below uses `spend_limit`). Coin amounts are decimal strings; expiration is a timestamp.
 
 ## REST
 
@@ -185,3 +186,101 @@ curl --get 'http://localhost:1317/cosmos/authz/v1beta1/grants' \
 
 These are query routes. Submit grant, revoke, and execution transactions through
 the SDK transaction facilities, such as the CLI commands above.
+
+## Reproducible query responses
+
+The following accounts are generated from twenty bytes of `0x01` (granter) and
+`0x02` (grantee) with the configured `pax` Bech32 prefix. They are test fixtures;
+use your funded keyring accounts for transactions. `TestRepairM_691_ClientNetworkDoc`
+creates the `100uhpx` send grant through the real codec and message server at block
+time `2030-01-01T00:00:00Z`, then calls the generated query client through the SDK
+query router into the real keeper. Its logged responses are checked against these
+complete CLI-codec JSON examples. No public endpoint is needed.
+
+```bash
+GRANTER=pax1qyqszqgpqyqszqgpqyqszqgpqyqszqgpwuux75
+GRANTEE=pax1qgpqyqszqgpqyqszqgpqyqszqgpqyqszlc6r4z
+paxd query authz grants "$GRANTER" "$GRANTEE" /cosmos.bank.v1beta1.MsgSend --output=json
+paxd query authz grants-by-granter "$GRANTER" --output=json
+paxd query authz grants-by-grantee "$GRANTEE" --output=json
+```
+
+Pair query:
+
+<!-- repair-m691:pair -->
+```json
+{
+  "grants": [
+    {
+      "authorization": {
+        "@type": "/cosmos.bank.v1beta1.SendAuthorization",
+        "spend_limit": [
+          {
+            "denom": "uhpx",
+            "amount": "100"
+          }
+        ]
+      },
+      "expiration": "2030-01-01T01:00:00Z"
+    }
+  ],
+  "pagination": null
+}
+```
+
+Grants by granter:
+
+<!-- repair-m691:granter -->
+```json
+{
+  "grants": [
+    {
+      "granter": "pax1qyqszqgpqyqszqgpqyqszqgpqyqszqgpwuux75",
+      "grantee": "pax1qgpqyqszqgpqyqszqgpqyqszqgpqyqszlc6r4z",
+      "authorization": {
+        "@type": "/cosmos.bank.v1beta1.SendAuthorization",
+        "spend_limit": [
+          {
+            "denom": "uhpx",
+            "amount": "100"
+          }
+        ]
+      },
+      "expiration": "2030-01-01T01:00:00Z"
+    }
+  ],
+  "pagination": {
+    "next_key": null,
+    "total": "0"
+  }
+}
+```
+
+Grants by grantee:
+
+<!-- repair-m691:grantee -->
+```json
+{
+  "grants": [
+    {
+      "granter": "pax1qyqszqgpqyqszqgpqyqszqgpqyqszqgpwuux75",
+      "grantee": "pax1qgpqyqszqgpqyqszqgpqyqszqgpqyqszlc6r4z",
+      "authorization": {
+        "@type": "/cosmos.bank.v1beta1.SendAuthorization",
+        "spend_limit": [
+          {
+            "denom": "uhpx",
+            "amount": "100"
+          }
+        ]
+      },
+      "expiration": "2030-01-01T01:00:00Z"
+    }
+  ],
+  "pagination": {
+    "next_key": null,
+    "total": "0"
+  }
+}
+```
+
