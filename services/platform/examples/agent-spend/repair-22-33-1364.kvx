@@ -1,0 +1,51 @@
+[repair.22.33.1364]
+audit = "22.30.74"
+base_revision = "13d941baae20489831996ea7db5fde01ad1e253d"
+verification = "hf-build followed by hf-done records the exact candidate revision, command, exit and private log in the runner ledger."
+baseline = "The supplied previous-attempt evidence reports test module loading failed before individual tests ran because copied viem modules could not resolve noble hashes. The continuation runs only hf-build and hf-done after implementation, as required by the explicit gate order."
+
+[finding.agent-spend-dependency]
+test = "agentSpendDependencyClosureLoadsRealTransport"
+repair = "Declare the version-matched integration package and the directly imported viem codec; document the workspace and wallet build closure before launch."
+
+[finding.agent-spend-node-version]
+test = "agentSpendNodeMinimumMatchesSetupAndQualification"
+repair = "Manifest, setup, CLI entry and service qualification use Node >=22.18.0."
+
+[finding.wallet-review-recovery]
+tests = ["walletReviewRecoveryRetainsOriginalAfterLostResponseAndRestart", "walletReviewRecoverySerializesConcurrentRetries", "walletReviewRecoveryRejectsUnboundArtifactsAndUnsupportedLookup"]
+repair = "Look up reviews by the verified signing hash, create with that idempotency key, validate through the real wallet SDK, reconcile pending records and durably retain the original review ID before approval."
+wiring_request = "services/wallet/gateway/src/routes/evmApprovals.ts (wallet domain): add authenticated GET /v1/wallet/evm/reviews/by-signing-hash/:hash returning the original EvmTransactionReview or 404 {error:evm_review_not_found}, and make POST /v1/wallet/evm/review atomically idempotent by principal plus idempotency-key signing hash, rejecting mismatched bytes and retaining the original review ID across retries."
+limitation = "The existing gateway lacks hash lookup and idempotent review creation; this example refuses unsupported lookup responses until the owning domain wires the contract."
+
+[qualification.first_attempt]
+revision = "2585d059773b4a5839887d4f3b6f84a51b062a2e"
+command = "cg spec done 22.33.1364 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The gate helper selected pnpm from a root lockfile for an npm-pinned workspace; pnpm refused installation, leaving the newly declared viem dependency absent before tests ran."
+repair = "Install the declared dependencies with the repository-pinned npm, then rebuild and verify the repaired candidate."
+
+[gotcha.dependency_isolation]
+observed = "Copying dependency modules or redirecting installed JavaScript to TypeScript can break package-local noble hashes resolution."
+repair = "Import the example in place, resolve its declared dependencies from its manifest, use the gate-built SDK and middleware, and restrict TypeScript loading to committed wallet and integration source directories."
+
+[qualification.continuation]
+source_attempt_revision = "079af126c1a2a461d46771489b4ab59f6c084e06"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/agent run build && node --test services/platform/examples/test/repair-22-33-1364.test.mjs"
+evidence = "The final unchanged candidate revision and private build/verify logs are recorded by hf-build and hf-done in the runner ledger. No baseline or manual verification rerun is performed."
+lockfile = "Refresh the root workspace package-lock.json from the updated example manifest before the declared npm ci gate; the prior attempt lock still described the old dependency and engine declarations."
+
+[gotcha.generated_dependency_snapshot]
+observed = "The inherited example-local node_modules tree was being force-added to the candidate; snapshot preparation was interrupted before any build command ran."
+repair = "Move inherited installed dependencies to private temporary storage, retain all source changes, and let the declared root npm workspace install supply dependencies."
+
+[qualification.resumed_attempt]
+source_attempt = 3
+prior_result = "All five declared tests passed in attempt 2; its candidate differed from its recorded revision. Preserve the inherited implementation and requalify the final tree through hf-build and hf-done; the runner snapshots the candidate before verification."
+preparation = "Preserve the inherited example-local node_modules in private temporary storage and refresh the generated root workspace lockfile from the scoped example manifest before qualification."
+evidence = "The runner ledger records the exact matching build and verification candidate revision, command, exit and private log; no source edits follow a passing hf-done."
+
+[gotcha.incremental_lock_hoisting]
+observed = "Updating the inherited root lock retained example-local dependency paths, while npm dedupe --ignore-scripts --no-audit --no-fund exited 1 with ERESOLVE over its optional TypeScript peer despite the compatible pinned workspace version."
+repair = "Preserve the intermediate generated lock privately and resolve a clean root workspace lock with ordinary npm installation; retain all scoped source and test assertions."
