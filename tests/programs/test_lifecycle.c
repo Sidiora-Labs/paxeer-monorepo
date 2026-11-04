@@ -1302,6 +1302,27 @@ static int migration_snapshot(lxp_kernel *kernel, lxp_kernel *restored,
     return 0;
 }
 
+static lxp_result migration_dispatch_receipt(lxp_receipt *receipt,
+    const lxp_activity *activity, const lxp_kernel_execution *execution,
+    const uint8_t before[32], const uint8_t after[32], lxp_result result,
+    const lxp_effect_buffer *effects, lxp_u128 fee, lxp_arena *arena)
+{
+    lxp_byte_span encoded;
+    uint8_t activity_id[32];
+    lxp_result status = lxp_activity_encode(activity, arena, &encoded);
+    if (status == LXP_OK)
+        status = lxp_activity_id(encoded.bytes, encoded.length, activity_id);
+    if (status != LXP_OK) return status;
+    (void)memset(receipt, 0, sizeof(*receipt));
+    receipt->protocol_version = activity->protocol_version;
+    status = lxp_receipt_build(receipt, activity_id, execution->global_sequence,
+        before, after, execution->activity_root, result, effects, fee,
+        execution->batch_id, LXP_MODULE_PROGRAMS,
+        execution->recorded_module_version, execution->parameter_version);
+    if (status == LXP_OK) receipt->timestamp = execution->batch_timestamp_ms;
+    return status;
+}
+
 static int migration_attempt(lxp_kernel *kernel, lxp_identity_store *identities,
                               lxp_identity *identity,
                               const uint8_t seed[32], uint8_t *payload,
@@ -1311,7 +1332,7 @@ static int migration_attempt(lxp_kernel *kernel, lxp_identity_store *identities,
 {
     uint8_t arena_bytes[16384], signature[64];
     static uint8_t receipt_bytes[2U * LXP_MAX_ACTIVITY_BYTES];
-    uint8_t before[32], activity_id[32], public_key[32], zero[32] = {0};
+    uint8_t before[32], public_key[32];
     char before_hex[65], after_hex[65], hash_hex[65], filename[128], row[2048];
     lxp_arena arena, receipt_arena;
     lxp_activity activity;
@@ -1389,17 +1410,20 @@ static int migration_attempt(lxp_kernel *kernel, lxp_identity_store *identities,
         uint16_t wanted_abi = strcmp(name, "downgrade") == 0 && abi == 1U ? 2U : abi;
         if (version != wanted_version || recorded_abi != wanted_abi) return 1;
         if (lxp_arena_init(&receipt_arena, receipt_bytes, sizeof(receipt_bytes)) != LXP_OK ||
-            lxp_activity_encode(&activity, &receipt_arena, &encoded) != LXP_OK ||
-            lxp_activity_id(encoded.bytes, encoded.length, activity_id) != LXP_OK ||
+            migration_dispatch_receipt(&receipt, &activity, &execution,
+                before, result_root, result, &effects, (lxp_u128){0U,0U},
+                &receipt_arena) != LXP_OK ||
             lxp_arena_reset(&receipt_arena, 0U) != LXP_OK ||
-            lxp_receipt_build(&receipt, activity_id, 1U, before, result_root, zero, result,
-                &effects, (lxp_u128){0U,0U}, zero, LXP_MODULE_PROGRAMS,
-                LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION, 1U) != LXP_OK ||
             lxp_receipt_sign(&receipt, seed, &receipt_arena) != LXP_OK ||
             lxp_arena_reset(&receipt_arena, 0U) != LXP_OK ||
             lxp_receipt_encode(&receipt, true, &receipt_arena, &encoded) != LXP_OK ||
             lxp_receipt_decode(encoded.bytes, encoded.length, true, &decoded_receipt) != LXP_OK ||
+            decoded_receipt.protocol_version != activity.protocol_version ||
+            decoded_receipt.timestamp == 0U ||
+            decoded_receipt.timestamp != execution.batch_timestamp_ms ||
+            decoded_receipt.global_sequence != execution.global_sequence ||
             decoded_receipt.result_code != result || decoded_receipt.effects.count != effects.count ||
+            memcmp(decoded_receipt.previous_state_root, before, 32U) != 0 ||
             memcmp(decoded_receipt.resulting_state_root, result_root, 32U) != 0 ||
             public_key_for(seed, public_key) != 0) return 1;
         (void)snprintf(filename, sizeof(filename), "receipt.abi%u.%s.%s.bin", (unsigned)abi, phase, name);
@@ -1496,7 +1520,7 @@ static int migration_accounting(const uint8_t seed[32])
     uint8_t public_key[32], before[32], after[32], record[613], replay_record[613];
     lxp_state_store store, restored_store, restarted_store;
     lxp_state_journal journal, restored_journal, restarted_journal;
-    lxp_identity_store identities, replay_identities;
+    lxp_identity_store identities, replay_identities, restarted_identities;
     lxp_identity *owner, *other, *governor;
     lxp_authority_grant grant;
     lxp_authority_resolved authority;
@@ -1726,20 +1750,43 @@ static int migration_accounting(const uint8_t seed[32])
                         LXP_OK, LXP_OK, (lxp_u128){0U,0U}, true, true, true, after, after) != 0)
                     return 1;
                 ++cases;
-                execution.identities = &identities;
-                execution.global_sequence = restarted.state->next_sequence;
-                execution.sequencer_private_key = seed;
-                execution.replay_receipt = NULL; execution.replay_public_key = NULL;
-                if (lxp_arena_reset(&arena, 0U) != LXP_OK) return 1;
+                restarted_identities = identities;
+                lxp_identity *loaded_owner;
+                const lxp_module_kv_entry *loaded_program = migration_record(&restarted, deploy);
+                const lxp_module_kv_entry *committed_program = migration_record(&kernel, deploy);
+                uint64_t loaded_sequence = restarted.state->next_sequence;
+                if (loaded_program == NULL || committed_program == NULL ||
+                    lxp_identity_resolve(&restarted_identities, activity.actor_did.bytes,
+                        activity.actor_did.length, &loaded_owner) != LXP_OK ||
+                    loaded_owner->next_sequence != activity.account_sequence + 1U ||
+                    loaded_payer->next_sequence != payer->next_sequence ||
+                    loaded_treasury->next_sequence != treasury->next_sequence ||
+                    lxp_authority_resolve_activity(&restarted, loaded_owner, &activity,
+                        true, true, 10U, 100U, loaded_sequence, &grant, &authority) != LXP_OK ||
+                    lxp_arena_reset(&arena, 0U) != LXP_OK) return 1;
+                migration_execution(&restarted, &execution, &restarted_identities,
+                    &authority, &fees, &arena, seed, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION);
+                execution.fee_balance = loaded_payer->balance;
+                execution.recorded_fee_schedule_version = 1U;
+                execution.recorded_metering_schedule_version = 1U;
                 status = lxp_kernel_execute_activity(&restarted, &activity, &execution, &receipt);
-                if (status != LXP_ERR_IDEMPOTENT_REPLAY ||
+                if (status != LXP_ERR_SEQUENCE_REUSED ||
                     lxp_u128_cmp(loaded_payer->balance, payer->balance) != 0 ||
                     lxp_u128_cmp(loaded_treasury->balance, treasury->balance) != 0 ||
+                    loaded_payer->next_sequence != payer->next_sequence ||
+                    loaded_treasury->next_sequence != treasury->next_sequence ||
+                    loaded_owner->next_sequence != activity.account_sequence + 1U ||
+                    restarted.state->next_sequence != loaded_sequence ||
+                    loaded_program->value_length != committed_program->value_length ||
+                    memcmp(loaded_program->value, committed_program->value,
+                        loaded_program->value_length) != 0 ||
+                    restarted.blob_count != kernel.blob_count ||
+                    lxp_state_root(&restarted, before) != LXP_OK || memcmp(before, after, 32U) != 0 ||
                     migration_accounting_record(&restarted, replay_receipt.activity_id, replay_record) != LXP_OK ||
                     memcmp(record, replay_record, sizeof(record)) != 0 ||
                     migration_accounting_row(results, "duplicate_no_second_fee", abi,
-                        status, status, LXP_ERR_IDEMPOTENT_REPLAY, (lxp_u128){0U,0U},
-                        true, true, true, after, after) != 0) return 1;
+                        status, status, LXP_ERR_SEQUENCE_REUSED, (lxp_u128){0U,0U},
+                        true, true, true, after, before) != 0) return 1;
                 ++cases;
                 lxp_programs_occupancy_receipt occupancy;
                 if (lxp_arena_reset(&arena, 0U) != LXP_OK ||
@@ -2104,6 +2151,195 @@ static lxp_result lifecycle_close(lxp_kernel *kernel)
     return migration_destroy(kernel, &lifecycle_fixture.state);
 }
 
+/* 22.30.3: migration-fixture-zero-timestamp and migration-duplicate-retired-result. */
+static int audit_migration_receipt_and_duplicate_recovery(void)
+{
+    audit_fixture *f = &lifecycle_fixture;
+    lxp_kernel *kernel;
+    lxp_authority_grant grant;
+    lxp_authority_resolved authority;
+    lxp_kernel_execution execution;
+    lxp_fee_params fees = {0};
+    lxp_activity activity;
+    lxp_receipt receipt, decoded, fixture_receipt;
+    lxp_identity_store prestate_identities, committed_identities;
+    lxp_identity *loaded_owner;
+    lxp_arena snapshot_arena, receipt_arena;
+    lxp_byte_span snapshot, encoded;
+    lxp_snapshot_manifest_record manifest;
+    uint8_t *snapshot_bytes = malloc(ADMISSION_BUFFER_BYTES);
+    uint8_t *receipt_bytes = malloc(2U * LXP_MAX_ACTIVITY_BYTES);
+    uint8_t old_wasm[512], wasm[512], deploy[1024] = {0xb5U}, upgrade[1024] = {0};
+    uint8_t signature[64], public_key[32], before[32], after[32], recovered_root[32];
+    uint8_t production_digest[32], fixture_digest[32];
+    uint8_t record[613], recovered[613], program_record[71];
+    size_t old_length = audit_migration_guest(old_wasm, false);
+    size_t wasm_length = audit_migration_guest(wasm, true);
+    AUDIT_CHECK(snapshot_bytes != NULL && receipt_bytes != NULL);
+    AUDIT_CHECK(lifecycle_environment(&kernel, &authority) == 0);
+    write_u16(deploy + 32U, 5U); deploy[34U] = 1U;
+    (void)memcpy(deploy + 36U, lifecycle_owner->did_id, 32U);
+    AUDIT_RESULT(lxp_hash_sha256(old_wasm, old_length, deploy + 68U), LXP_OK);
+    write_u32(deploy + 100U, (uint32_t)old_length);
+    (void)memcpy(deploy + 104U, old_wasm, old_length);
+    AUDIT_CHECK(lifecycle_execute(kernel, 1U, deploy, 104U + old_length, LXP_OK) == 0);
+    (void)memcpy(upgrade, deploy, 32U); write_u16(upgrade + 32U, 5U); upgrade[34U] = 1U;
+    (void)memcpy(upgrade + 36U, deploy + 68U, 32U);
+    AUDIT_RESULT(lxp_hash_sha256(wasm, wasm_length, upgrade + 68U), LXP_OK);
+    write_u16(upgrade + 100U, 7U); write_u32(upgrade + 102U, (uint32_t)wasm_length);
+    (void)memcpy(upgrade + 106U, "migrate", 7U);
+    (void)memcpy(upgrade + 113U, wasm, wasm_length);
+    fees.version = 1U; fees.base_fee = (lxp_u128){0U, 1U};
+    fees.multiplier_basis_points = 10000U;
+    AUDIT_RESULT(lxp_arena_reset(&f->arena, 0U), LXP_OK);
+    AUDIT_CHECK(migration_actor(kernel, &activity, lifecycle_owner, audit_owner_seed,
+        signature, LX_PROGRAMS_UPGRADE, upgrade, 113U + wasm_length,
+        100000000U, 0xb6U, &grant, &authority) == 0);
+    migration_execution(kernel, &execution, &f->identities, &authority, &fees,
+        &f->arena, audit_owner_seed, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION);
+    AUDIT_RESULT(lxp_state_root(kernel, before), LXP_OK);
+    (void)memcpy(kernel->current_state_root, before, 32U);
+    AUDIT_RESULT(lxp_arena_init(&snapshot_arena, snapshot_bytes, ADMISSION_BUFFER_BYTES), LXP_OK);
+    uint64_t prestate_sequence = f->state.next_sequence - 1U;
+    AUDIT_RESULT(lxp_snapshot_write(kernel, prestate_sequence, &snapshot_arena, &snapshot), LXP_OK);
+    AUDIT_RESULT(lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length,
+        prestate_sequence, before, before, &manifest), LXP_OK);
+    prestate_identities = f->identities;
+    lx_account *payer = migration_account(kernel, "agent:did:lxp:native-migration-owner:main");
+    lx_account *treasury = migration_account(kernel, "system:fees");
+    AUDIT_CHECK(payer != NULL && treasury != NULL);
+    lx_account payer_before = *payer, treasury_before = *treasury;
+    AUDIT_RESULT(lxp_kernel_execute_activity(kernel, &activity, &execution, &receipt), LXP_OK);
+    AUDIT_CHECK(receipt.result_code == LXP_OK && receipt.effects.count == 1U);
+    AUDIT_CHECK(receipt.effects.effects[0].kind == LXP_EFFECT_EVENT &&
+        receipt.effects.effects[0].event_type == 2U && !receipt.program_outcome.present);
+    AUDIT_RESULT(lxp_state_root(kernel, after), LXP_OK);
+    AUDIT_CHECK(memcmp(receipt.previous_state_root, before, 32U) == 0 &&
+        memcmp(receipt.resulting_state_root, after, 32U) == 0 && memcmp(before, after, 32U) != 0);
+    lxp_u128 debit, credit;
+    AUDIT_RESULT(lxp_u128_sub(payer_before.balance, payer->balance, &debit), LXP_OK);
+    AUDIT_RESULT(lxp_u128_sub(treasury->balance, treasury_before.balance, &credit), LXP_OK);
+    AUDIT_CHECK(!lxp_u128_is_zero(receipt.fee_charged) &&
+        lxp_u128_cmp(debit, receipt.fee_charged) == 0 &&
+        lxp_u128_cmp(credit, receipt.fee_charged) == 0);
+    lx_account committed_payer = *payer, committed_treasury = *treasury;
+    committed_identities = f->identities;
+    uint64_t committed_sequence = f->state.next_sequence;
+    size_t committed_blobs = kernel->blob_count;
+    const lxp_module_kv_entry *program = migration_record(kernel, deploy);
+    AUDIT_CHECK(program != NULL && program->value_length == sizeof(program_record));
+    (void)memcpy(program_record, program->value, sizeof(program_record));
+    AUDIT_CHECK(memcmp(program_record + 33U, upgrade + 68U, 32U) == 0 &&
+        migration_u32(program_record + 67U) == 2U);
+    AUDIT_RESULT(migration_accounting_record(kernel, receipt.activity_id, record), LXP_OK);
+    AUDIT_RESULT(lxp_arena_init(&receipt_arena, receipt_bytes,
+        2U * LXP_MAX_ACTIVITY_BYTES), LXP_OK);
+    AUDIT_RESULT(migration_dispatch_receipt(&fixture_receipt, &activity, &execution,
+        before, after, receipt.result_code, &receipt.effects, receipt.fee_charged,
+        &receipt_arena), LXP_OK);
+    AUDIT_CHECK(fixture_receipt.timestamp != 0U &&
+        fixture_receipt.timestamp == receipt.timestamp &&
+        fixture_receipt.global_sequence == receipt.global_sequence &&
+        fixture_receipt.protocol_version == receipt.protocol_version);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_digest(&receipt, &receipt_arena, production_digest), LXP_OK);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_digest(&fixture_receipt, &receipt_arena, fixture_digest), LXP_OK);
+    AUDIT_CHECK(memcmp(production_digest, fixture_digest, 32U) == 0);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_sign(&fixture_receipt, audit_owner_seed, &receipt_arena), LXP_OK);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_encode(&fixture_receipt, true, &receipt_arena, &encoded), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_decode(encoded.bytes, encoded.length, true, &decoded), LXP_OK);
+    AUDIT_CHECK(decoded.timestamp == execution.batch_timestamp_ms &&
+        decoded.result_code == receipt.result_code && decoded.effects.count == receipt.effects.count &&
+        memcmp(decoded.previous_state_root, before, 32U) == 0 &&
+        memcmp(decoded.resulting_state_root, after, 32U) == 0);
+    AUDIT_CHECK(public_key_for(audit_owner_seed, public_key) == 0);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_verify(&decoded, public_key, &receipt_arena), LXP_OK);
+    decoded.timestamp += 1U;
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_verify(&decoded, public_key, &receipt_arena), LXP_ERR_BAD_SIGNATURE);
+    fixture_receipt.timestamp = 0U;
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_sign(&fixture_receipt, audit_owner_seed, &receipt_arena), LXP_OK);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_encode(&fixture_receipt, true, &receipt_arena, &encoded), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_decode(encoded.bytes, encoded.length, true, &decoded), LXP_ERR_NON_CANONICAL);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_encode(&receipt, true, &receipt_arena, &encoded), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_decode(encoded.bytes, encoded.length, true, &decoded), LXP_OK);
+    AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
+    AUDIT_RESULT(lxp_receipt_verify(&decoded, public_key, &receipt_arena), LXP_OK);
+    AUDIT_CHECK(audit_reopen(f) == 0);
+    AUDIT_RESULT(lxp_identity_resolve(&f->identities, activity.actor_did.bytes,
+        activity.actor_did.length, &loaded_owner), LXP_OK);
+    AUDIT_CHECK(loaded_owner->next_sequence == activity.account_sequence + 1U);
+    AUDIT_RESULT(lxp_authority_resolve_activity(kernel, loaded_owner, &activity,
+        true, true, 10U, 100U, f->state.next_sequence, &grant, &authority), LXP_OK);
+    payer = migration_account(kernel, "agent:did:lxp:native-migration-owner:main");
+    treasury = migration_account(kernel, "system:fees");
+    AUDIT_CHECK(payer != NULL && treasury != NULL);
+    migration_execution(kernel, &execution, &f->identities, &authority, &fees,
+        &f->arena, audit_owner_seed, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION);
+    execution.fee_balance = payer->balance;
+    AUDIT_RESULT(lxp_kernel_execute_activity(kernel, &activity, &execution, &fixture_receipt),
+        LXP_ERR_SEQUENCE_REUSED);
+    AUDIT_CHECK(lxp_u128_cmp(payer->balance, committed_payer.balance) == 0 &&
+        lxp_u128_cmp(treasury->balance, committed_treasury.balance) == 0 &&
+        payer->next_sequence == committed_payer.next_sequence &&
+        treasury->next_sequence == committed_treasury.next_sequence &&
+        loaded_owner->next_sequence == activity.account_sequence + 1U &&
+        f->state.next_sequence == committed_sequence && kernel->blob_count == committed_blobs &&
+        memcmp(&f->identities, &committed_identities, sizeof(committed_identities)) == 0);
+    program = migration_record(kernel, deploy);
+    AUDIT_CHECK(program != NULL && program->value_length == sizeof(program_record) &&
+        memcmp(program->value, program_record, sizeof(program_record)) == 0);
+    AUDIT_RESULT(migration_accounting_record(kernel, receipt.activity_id, recovered), LXP_OK);
+    AUDIT_CHECK(memcmp(record, recovered, sizeof(record)) == 0);
+    AUDIT_RESULT(lxp_state_root(kernel, recovered_root), LXP_OK);
+    AUDIT_CHECK(memcmp(after, recovered_root, 32U) == 0);
+
+    AUDIT_RESULT(migration_destroy(kernel, &f->state), LXP_OK);
+    AUDIT_RESULT(lxp_state_store_init(&f->state, 1U), LXP_OK);
+    AUDIT_RESULT(lxp_kernel_create(kernel, &f->state, &f->journal, &audit_parameters, 0U), LXP_OK);
+    AUDIT_CHECK(audit_register(f) == 0 && migration_runtime(kernel) == 0);
+    AUDIT_RESULT(lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest, kernel), LXP_OK);
+    AUDIT_RESULT(lxp_snapshot_verify_root(kernel, &manifest), LXP_OK);
+    f->identities = prestate_identities;
+    AUDIT_RESULT(lxp_identity_resolve(&f->identities, activity.actor_did.bytes,
+        activity.actor_did.length, &loaded_owner), LXP_OK);
+    AUDIT_CHECK(loaded_owner->next_sequence == activity.account_sequence);
+    AUDIT_RESULT(lxp_authority_resolve_activity(kernel, loaded_owner, &activity,
+        true, true, 10U, 100U, f->state.next_sequence, &grant, &authority), LXP_OK);
+    AUDIT_RESULT(lxp_arena_reset(&f->arena, 0U), LXP_OK);
+    migration_execution(kernel, &execution, &f->identities, &authority, &fees,
+        &f->arena, NULL, LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION);
+    execution.replay_receipt = &decoded;
+    execution.replay_public_key = public_key;
+    AUDIT_RESULT(lxp_kernel_execute_activity(kernel, &activity, &execution, &fixture_receipt), LXP_OK);
+    AUDIT_CHECK(fixture_receipt.result_code == LXP_OK &&
+        lxp_u128_cmp(fixture_receipt.fee_charged, receipt.fee_charged) == 0 &&
+        fixture_receipt.timestamp == receipt.timestamp);
+    AUDIT_RESULT(lxp_state_root(kernel, recovered_root), LXP_OK);
+    AUDIT_CHECK(memcmp(after, recovered_root, 32U) == 0);
+    AUDIT_RESULT(migration_accounting_record(kernel, receipt.activity_id, recovered), LXP_OK);
+    AUDIT_CHECK(memcmp(record, recovered, sizeof(record)) == 0);
+    payer = migration_account(kernel, "agent:did:lxp:native-migration-owner:main");
+    treasury = migration_account(kernel, "system:fees");
+    AUDIT_CHECK(payer != NULL && treasury != NULL &&
+        lxp_u128_cmp(payer->balance, committed_payer.balance) == 0 &&
+        lxp_u128_cmp(treasury->balance, committed_treasury.balance) == 0 &&
+        payer->next_sequence == committed_payer.next_sequence &&
+        treasury->next_sequence == committed_treasury.next_sequence &&
+        memcmp(&f->identities, &committed_identities, sizeof(committed_identities)) == 0);
+    AUDIT_RESULT(migration_destroy(kernel, &f->state), LXP_OK);
+    free(snapshot_bytes); free(receipt_bytes);
+    (void)puts("audit_migration_receipt_and_duplicate_recovery: passed");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 2 && strcmp(argv[1], "--native-migration") == 0)
@@ -2112,6 +2348,7 @@ int main(int argc, char **argv)
         return all_form_validation();
     if (argc != 1) return 2;
     int failed = original_lifecycle();
+    failed |= audit_migration_receipt_and_duplicate_recovery();
     failed |= audit_migration_abi5_bound_authority_recovery();
     failed |= audit_storage_environment_live_blob_references();
     failed |= audit_storage_environment_cleanup_delete_budget();
