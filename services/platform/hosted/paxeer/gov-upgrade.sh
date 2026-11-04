@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Maintained owner: domain 8 paxd operators; relocation target ../node/gov-upgrade.sh.
 # Drives the Paxeer X software-upgrade governance for the fork: computes the halt height from the
 # live block rate, submits the software-upgrade proposal with the minimum deposit, prints the vote
 # command for every validator, waits for the tally and confirms the scheduled plan through the
@@ -265,7 +266,7 @@ SUBMIT=("$PAXD_BIN" tx gov submit-proposal software-upgrade "$UPGRADE_NAME" --up
 [ "$EXPEDITED" -eq 0 ] || SUBMIT+=(--is-expedited)
 
 vote_cmd() {
-    printf '%q tx gov vote %s yes --from %s --chain-id %q --node %q --fees %q -b sync -y\n' \
+    printf '%q tx gov vote %s yes --from %q --chain-id %q --node %q --fees %q -b sync -y\n' \
         "$PAXD_BIN" "$1" "$2" "$COSMOS_CHAIN_ID" "$RPC" "$FEES"
 }
 
@@ -281,7 +282,7 @@ print_votes() {
 
 plan_scheduled() {
     local plan
-    plan=$(paxd_query_optional upgrade-plan upgrade plan)
+    plan=$(paxd_query_optional upgrade-plan upgrade plan) || fail "cannot query the scheduled upgrade plan"
     [ "$(jq -r '.name // empty' <<<"$plan")" = "$UPGRADE_NAME" ] && [ "$(jq -r '.height // empty' <<<"$plan")" = "$HALT_HEIGHT" ]
 }
 

@@ -8,12 +8,42 @@
 #include <openssl/evp.h>
 #include <stdlib.h>
 
+#ifndef LXP_TEST_LIBRARY_PATH
+#error "Makefile must supply LXP_TEST_LIBRARY_PATH from $(abspath $(LIBRARY))"
+#endif
+
+static FILE *retired_archive_symbols(void)
+{
+    static const char prefix[] = "nm -g --defined-only -- '";
+    static const char archive[] = LXP_TEST_LIBRARY_PATH;
+    char command[sizeof(prefix) + 4U * sizeof(archive) + 1U];
+    size_t used = sizeof(prefix) - 1U;
+
+    if (archive[0] == '\0') {
+        (void)fputs("LXP_TEST_LIBRARY_PATH must name the linked archive\n", stderr);
+        return NULL;
+    }
+    (void)memcpy(command, prefix, used);
+    for (size_t i = 0U; archive[i] != '\0'; ++i) {
+        if (archive[i] == '\'') {
+            (void)memcpy(command + used, "'\\''", 4U);
+            used += 4U;
+        } else {
+            command[used++] = archive[i];
+        }
+    }
+    command[used++] = '\'';
+    command[used] = '\0';
+    return popen(command, "r");
+}
+
 extern void lxp_kernel_capacity_observe(void);
 extern void lxp_kernel_capacity_reserve(void);
 extern void lxp_kernel_capacity_reconcile(void);
 extern void lxp_kernel_capacity_cancel(void);
 extern void lxp_capacity_ledger_install(void);
 extern void lxp_kernel_finalize_batch_maintenance(void);
+extern void lxp_kernel_idempotency_receipt_validate(void);
 extern void lxp_kernel_idempotency_state_value(void);
 
 #pragma weak lxp_kernel_capacity_observe
@@ -45,7 +75,7 @@ static int kernel_entry_symbols_absent(void)
         "lxp_kernel_idempotency_receipt_validate",
         "lxp_kernel_idempotency_state_value",
     };
-    FILE *symbols = popen("nm -g --defined-only build/liblayerx.a", "r");
+    FILE *symbols = retired_archive_symbols();
     char line[4096];
     int absent = 1;
     int read_ok;
