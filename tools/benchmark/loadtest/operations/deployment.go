@@ -239,16 +239,6 @@ func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, 
 		return err
 	}
 	options.Root = root
-	names := []string{"jupiter", "mars", "saturn", "venus"}
-	for _, name := range names {
-		root := filepath.Join(options.Root, name)
-		if _, err := commands.Run(ctx, Command{Args: []string{"cargo", "build", "--manifest-path", filepath.Join(root, "Cargo.toml")}}); err != nil {
-			return err
-		}
-		if _, err := commands.Run(ctx, Command{Args: []string{"docker", "run", "--rm", "-v", root + ":/code", "--mount", "type=volume,source=" + name + "_cache,target=/code/target", "--mount", "type=volume,source=registry_cache,target=/usr/local/cargo/registry", "cosmwasm/rust-optimizer:0.12.5"}}); err != nil {
-			return err
-		}
-	}
 	tx := func(kind string, args ...string) (string, error) {
 		argv := append([]string{options.Paxd, "tx"}, args...)
 		argv = append(argv, "-y", "--from="+options.Key, "--chain-id="+options.Chain)
@@ -265,14 +255,16 @@ func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, 
 		}
 		return TransactionIdentifier(raw, kind)
 	}
-	ids, addresses := map[string]string{}, map[string]string{}
-	for _, name := range names {
-		id, err := tx("code_id", "wasm", "store", filepath.Join(options.Root, name, "artifacts", name+".wasm"))
-		if err != nil {
-			return err
-		}
-		ids[name] = id
+	firstID, err := tx("code_id", "wasm", "store", filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm"))
+	if err != nil {
+		return err
 	}
+	secondID, err := tx("code_id", "wasm", "store", filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm"))
+	if err != nil {
+		return err
+	}
+	ids := []string{firstID, secondID}
+	addresses := make([]string, len(ids))
 	raw, err := commands.Run(ctx, Command{Args: []string{options.Paxd, "keys", "show", "node_admin", "--bech=val", "--output=json"}})
 	if err != nil {
 		return err
@@ -289,29 +281,22 @@ func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, 
 	if _, err = tx("success", "staking", "delegate", validator.Address, "1000000000uhpx"); err != nil {
 		return err
 	}
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
-		msg := "{}"
-		if name == "jupiter" {
-			encoded, _ := json.Marshal(map[string]string{"mars_address": addresses["mars"]})
-			msg = string(encoded)
-		}
-		address, err := tx("contract_address", "wasm", "instantiate", ids[name], msg, "--no-admin", "--label=dex")
+	for i, id := range ids {
+		msg := `{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}`
+		address, err := tx("contract_address", "wasm", "instantiate", id, msg, "--no-admin", "--label=dex")
 		if err != nil {
 			return err
 		}
-		addresses[name] = address
+		addresses[i] = address
 	}
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
-		args := []string{"dex", "register-contract", addresses[name], ids[name], "false", "true"}
-		if name == "saturn" || name == "jupiter" {
-			args = append(args, addresses["mars"])
-		}
+	for i, address := range addresses {
+		args := []string{"dex", "register-contract", address, ids[i], "false", "true"}
 		if _, err := tx("success", args...); err != nil {
 			return err
 		}
 	}
-	for _, name := range names {
-		pair := map[string]any{"batch_contract_pair": []any{map[string]any{"contract_addr": addresses[name], "pairs": []any{map[string]string{"price_denom": "PAX", "asset_denom": "ATOM", "tick_size": "0.0000001"}}}}}
+	for _, address := range addresses {
+		pair := map[string]any{"batch_contract_pair": []any{map[string]any{"contract_addr": address, "pairs": []any{map[string]string{"price_denom": "PAX", "asset_denom": "ATOM", "tick_size": "0.0000001"}}}}}
 		file, err := os.CreateTemp(options.Root, ".pairs-*.json")
 		if err != nil {
 			return err
@@ -336,8 +321,8 @@ func DeployWasm(ctx context.Context, commands Commands, options WasmDeployment, 
 	if _, err := tx("success", "staking", "unbond", validator.Address, "1000000000uhpx"); err != nil {
 		return err
 	}
-	for _, name := range names {
-		if _, err := fmt.Fprintln(output, addresses[name]); err != nil {
+	for _, address := range addresses {
+		if _, err := fmt.Fprintln(output, address); err != nil {
 			return err
 		}
 	}
