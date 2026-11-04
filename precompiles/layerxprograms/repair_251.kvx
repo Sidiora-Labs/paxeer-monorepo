@@ -1,0 +1,33 @@
+[repair.22.31.251]
+audit = "22.30.121"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+qualification = "The runner records the verified candidate revision, command, exit and private log in the hf-build/hf-done ledger; this record makes no claim before those gates pass."
+baseline = "Not run: the task's gate order prohibits tests before full implementation and prohibits running verify_cmd by hand; no TestRepair_251_* existed at the base and the initial gate ledger had no runs."
+prior_failures = "Source inspection only: quoteCallFee returned sha256(record), getValueAccount returned existence, and Python bounded the whole terminal frame; none is represented as an executed baseline failure."
+
+[finding.quote-asset]
+test = "TestRepair_251_QuoteAsset"
+repair = "Return the active schedule asset; prove fee quote and getCurrentFeeSchedule agree through the real host and EVM before and after schedule replacement and host reopen, retaining uint128 ceiling bounds."
+
+[finding.value-frozen]
+test = "TestRepair_251_ValueFrozen"
+repair = "Return the real host Frozen flag and document absent (0,false); prove unfrozen, frozen, absent and uint128 maximum balances through host and EVM, including reopen."
+
+[finding.call-response]
+test = "TestRepair_251_CallResponse"
+repair = "Document the unchanged terminal-frame contract and provide the scoped Go execution consumer; round-trip real host/EVM frames after reopen with independently supplied transfer evidence and nested guest capacity, preserving all evidence."
+wiring = "Domain 13 Programs host: modules/lxphost/host.go and modules/lxphost/simulate.go must document ProgramOutcome.Response as the canonical terminal payload and responseCapacity as nested guest bytes."
+
+[finding.simulation-response]
+test = "TestRepair_251_SimulationResponse"
+repair = "Use the same execution consumer and contract for real static EVM simulation, assert parity with call and unchanged persistent/transient stores and logs after reopen."
+wiring = "Domain 9 agent SDK: services/agent/sdk/python/layerx_sdk/ai_market.py decode_programs_call_result must decode canonical terminal/execution/authority/occupancy wrappers for call and simulateCall with independently verified transfer context, guest-only capacity and retained evidence; update tests/agent/sdk/python/test_evm_transaction.py producer/observer proofs to assert successful decoding of real reopened-host outputs."
+typescript_wiring = "Domain 9 agent SDK: services/agent/sdk/typescript/src/ai_market.ts and test/ai-market.test.ts must support canonical transfer-authority/v2 wrappers and update the existing real-output observer to supply independently verified transfer roots for call and simulateCall."
+scope_boundary = "Python and TypeScript consumer changes remain external wiring requests, not completed changes or proof of end-to-end SDK closure."
+
+[qualification.first]
+revision = "714a5cf8daad2b2f651c1e765e34ac4fe2de8d64"
+command = "cg spec done 22.31.251 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new proofs compared nil-backed zero big.Int and event-slice expectations with nonnil empty representations; preserve the exact equality assertions and construct ABI zero values from 16 bytes and event snapshots with slices.Clone."
