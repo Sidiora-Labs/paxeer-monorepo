@@ -13,6 +13,7 @@
 
 pub mod ai_market;
 mod boundary;
+pub mod chain;
 pub mod deliveries;
 pub mod encoding;
 pub mod endpoints;

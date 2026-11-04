@@ -32,6 +32,7 @@ pub(crate) enum Operation {
     /// Returns the signed type-2 transaction bytes.
     AuthorizeSend,
     ExportPrimary,
+    AcknowledgeExport,
     /// The read-only movement executor probe: admitted only for the
     /// restricted executor identity, it echoes the caller's challenge and the
     /// provider network without touching or persisting any record.
@@ -50,13 +51,17 @@ impl Operation {
             (3, 6) => Self::EvmWallet,
             (3, 7..=10 | 12) => Self::Evm,
             (3, 11) => Self::AuthorizeSend,
-            (5, 14) => Self::ExportPrimary,
+            (8, 14) => Self::ExportPrimary,
+            (8, 16) => Self::AcknowledgeExport,
             (6, 15) => Self::ExecutorProbe,
             _ => return Err(Error::Refused),
         })
     }
     const fn carries_payload(self) -> bool {
-        matches!(self, Self::Evm | Self::AuthorizeSend)
+        matches!(
+            self,
+            Self::Evm | Self::AuthorizeSend | Self::ExportPrimary | Self::AcknowledgeExport
+        )
     }
 }
 

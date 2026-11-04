@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// SurfaceRuntime is the 41-byte runtime held by every surface address: it
-// copies the calldata, appends CALLER and CALLs 0x1017 with all gas and no
+// SurfaceRuntime is the 51-byte runtime held by every surface address: it
+// rejects native value, copies calldata, appends CALLER and CALLs 0x1017 with no
 // value, then returns or reverts with the callee's return data.
 // This exported snapshot does not alias the keeper's installation bytecode.
 var SurfaceRuntime = common.CopyBytes(launchpadkeeper.SurfaceRuntime)

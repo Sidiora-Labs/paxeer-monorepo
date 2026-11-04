@@ -293,6 +293,10 @@ func (c *ChainConfig) validateAssets(chain Chain) error {
 }
 
 func (c *ChainConfig) validateCaps(field string, asset Asset) error {
+	bits := 256
+	if c.Kind == KindSolana {
+		bits = 64
+	}
 	perTx, err := asset.PerTx()
 	if err != nil {
 		return c.refuse(field+".per_tx_cap", "%v", err)
@@ -300,12 +304,18 @@ func (c *ChainConfig) validateCaps(field string, asset Asset) error {
 	if perTx.Sign() == 0 {
 		return c.refuse(field+".per_tx_cap", "a per-transaction cap of zero would refuse every deposit of %s", asset.Symbol)
 	}
+	if perTx.BitLen() > bits {
+		return c.refuse(field+".per_tx_cap", "the %s destination cap must fit uint%d", c.Kind, bits)
+	}
 	total, err := asset.Total()
 	if err != nil {
 		return c.refuse(field+".total_cap", "%v", err)
 	}
 	if total.Sign() == 0 {
 		return c.refuse(field+".total_cap", "a total cap of zero leaves %s unregistered", asset.Symbol)
+	}
+	if total.BitLen() > bits {
+		return c.refuse(field+".total_cap", "the %s destination cap must fit uint%d", c.Kind, bits)
 	}
 	if perTx.Cmp(total) > 0 {
 		return c.refuse(field+".per_tx_cap", "%s is above the total cap %s of %s", asset.PerTxCap, asset.TotalCap, asset.Symbol)

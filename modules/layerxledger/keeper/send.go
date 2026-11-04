@@ -18,11 +18,32 @@ func (k *Keeper) Send(ctx sdk.Context, actor Actor, envelope []byte, idempotency
 	if err := types.ValidateSendEnvelope(envelope); err != nil {
 		return Result{}, err
 	}
-	_, main, err := lxphost.MainAccountID(actor.DIDKey)
+	var from, assetID [32]byte
+	copy(from[:], envelope[4:36])
+	copy(assetID[:], envelope[68:100])
+	owner, err := k.host.ReadAccountOwner(ctx, from)
 	if err != nil {
 		return Result{}, ledgerReadError(err)
 	}
-	if !bytes.Equal(envelope[4:36], main[:]) {
+	if owner != actor.Authority.Actor {
+		return Result{}, types.ErrUnauthorizedDebit
+	}
+	source, err := k.accountByID(ctx, from)
+	if err != nil {
+		return Result{}, err
+	}
+	if !source.HasAsset || source.AssetID != assetID {
+		return Result{}, types.ErrAssetMismatch
+	}
+	mainName, _, err := lxphost.MainAccountID(actor.DIDKey)
+	if err != nil {
+		return Result{}, ledgerReadError(err)
+	}
+	assetName, _, err := lxphost.AssetAccountID(actor.DIDKey, assetID)
+	if err != nil {
+		return Result{}, ledgerReadError(err)
+	}
+	if source.Name != mainName && source.Name != assetName {
 		return Result{}, types.ErrUnauthorizedDebit
 	}
 	var zeroAmount [16]byte

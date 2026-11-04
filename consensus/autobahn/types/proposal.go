@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -11,6 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/protoutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
+	"google.golang.org/protobuf/proto"
 )
 
 // LaneRange represents a range [first,next) of blocks of a lane.
@@ -214,6 +216,24 @@ const minTimestampDiff = time.Microsecond
 // FullCommitQC.headers in consensus/internal/autobahn/autobahn.proto.
 const MaxFullCommitQCHeaders = 100
 
+// MaxConsensusReqBytes matches the registered Consensus RPC message budget.
+const MaxConsensusReqBytes = 10 * 1024
+
+// MaxProposalProtoBytes reserves room for two copies of the proposal, all
+// committee signatures and timeout votes in a justified reproposal.
+const MaxProposalProtoBytes = 2500
+
+// MaxFutureProposalDrift assumes honest consensus clocks differ by at most one
+// second after synchrony. Fresh proposals must keep even their last block within
+// this bound. A verified PrepareQC preserves the timestamp across reproposals.
+const MaxFutureProposalDrift = time.Second
+
+var (
+	ErrProposalBudget     = errors.New("proposal exceeds consensus transport or justification budget")
+	ErrFutureProposalTime = errors.New("proposal timestamp exceeds consensus clock drift bound")
+	ErrCarriedAppState    = errors.New("carried AppProposal differs from previous CommitQC")
+)
+
 // Monotone timestamp assigned to each block of the proposal.
 // Returns None, if n doed not belong to the proposal's global range.
 func (m *Proposal) BlockTimestamp(c *Committee, n GlobalBlockNumber) utils.Option[time.Time] {
@@ -247,6 +267,9 @@ func timestampAfter(base time.Time, steps uint64) (time.Time, error) {
 // and is internally valid. Lanes may be omitted — omitted lanes are
 // treated as implicit empty ranges by FullProposal.Verify.
 func (m *Proposal) Verify(c *Committee) error {
+	if proto.Size(ProposalConv.Encode(m)) > MaxProposalProtoBytes {
+		return ErrProposalBudget
+	}
 	gr, err := m.checkedGlobalRange(c)
 	if err != nil {
 		return err
@@ -328,10 +351,15 @@ func NewProposal(
 			if lQC.Header().Lane() != lane {
 				return nil, fmt.Errorf("laneQC %v for lane %v", lQC.Header().Lane(), lane)
 			}
-			laneRanges = append(laneRanges, NewLaneRange(lane, first, utils.Some(lQC.Header())))
-		} else {
-			laneRanges = append(laneRanges, NewLaneRange(lane, first, utils.None[*BlockHeader]()))
+			r := NewLaneRange(lane, first, utils.Some(lQC.Header()))
+			if err := r.Verify(committee); err != nil {
+				return nil, err
+			}
+			if r.Len() > MaxFullCommitQCHeaders {
+				return nil, fmt.Errorf("lane range has %d blocks, maximum is %d", r.Len(), MaxFullCommitQCHeaders)
+			}
 		}
+		laneRanges = append(laneRanges, NewLaneRange(lane, first, utils.None[*BlockHeader]()))
 	}
 	app := ProposalOpt(appQC)
 	// If the new appProposal is not later than the previous one, then clear appQC.
@@ -350,21 +378,78 @@ func NewProposal(
 	if err != nil {
 		return nil, fmt.Errorf("next proposal timestamp: %w", err)
 	}
-	proposal := newProposal(viewSpec.View(), timestamp, laneRanges, app)
-	if err := proposal.Verify(committee); err != nil {
-		return nil, fmt.Errorf("proposal: %w", err)
-	}
 	if timestamp.Before(wantMin) {
 		timestamp = wantMin
-		proposal = newProposal(viewSpec.View(), timestamp, laneRanges, app)
 	}
+	selected := map[LaneID]*LaneQC{}
+	makeCandidate := func() *FullProposal {
+		return &FullProposal{
+			// A zero signature has the same wire size as the final signature.
+			proposal:  &Signed[*Proposal]{hashed: NewHashed(newProposal(viewSpec.View(), timestamp, laneRanges, app)), sig: &Signature{key: key.Public()}},
+			laneQCs:   selected,
+			appQC:     appQC,
+			timeoutQC: viewSpec.TimeoutQC,
+		}
+	}
+	result := makeCandidate()
+	if err := result.proposal.Msg().Verify(committee); err != nil {
+		return nil, fmt.Errorf("proposal: %w", err)
+	}
+	if proto.Size(ConsensusReqConv.Encode(result)) > MaxConsensusReqBytes {
+		return nil, ErrProposalBudget
+	}
+	// Rotate priority every index/view so a permanently busy lane cannot starve
+	// later lanes when either the header or byte budget is exhausted.
+	n := len(laneRanges)
+	start := int((uint64(viewSpec.View().Index)%uint64(n) + uint64(viewSpec.View().Number)%uint64(n)) % uint64(n))
+	remaining := uint64(MaxFullCommitQCHeaders)
+	for offset := range n {
+		i := (start + offset) % n
+		empty := laneRanges[i]
+		qc, ok := laneQCs[empty.Lane()]
+		if !ok {
+			continue
+		}
+		r := NewLaneRange(empty.Lane(), empty.First(), utils.Some(qc.Header()))
+		if r.Len() == 0 || r.Len() > remaining {
+			continue
+		}
+		laneRanges[i] = r
+		selected[r.Lane()] = qc
+		candidate := makeCandidate()
+		if proto.Size(ProposalConv.Encode(candidate.proposal.Msg())) > MaxProposalProtoBytes || proto.Size(ConsensusReqConv.Encode(candidate)) > MaxConsensusReqBytes {
+			laneRanges[i] = empty
+			delete(selected, r.Lane())
+			continue
+		}
+		remaining -= r.Len()
+		result = candidate
+	}
+	// Rebuild after any rejected trial, since the selected map is shared.
+	result = makeCandidate()
+	if err := result.proposal.Msg().Verify(committee); err != nil {
+		return nil, fmt.Errorf("proposal: %w", err)
+	}
+	if err := result.proposal.Msg().verifyTimeliness(time.Now()); err != nil {
+		return nil, err
+	}
+	result.proposal = Sign(key, result.proposal.Msg())
+	return result, nil
+}
 
-	return &FullProposal{
-		proposal:  Sign(key, proposal),
-		laneQCs:   laneQCs,
-		appQC:     appQC,
-		timeoutQC: viewSpec.TimeoutQC,
-	}, nil
+func (m *Proposal) verifyTimeliness(now time.Time) error {
+	steps := m.globalRangeWithoutOffset.Len()
+	if steps > 0 {
+		steps--
+	}
+	last, err := timestampAfter(m.Timestamp(), steps)
+	if err != nil {
+		return err
+	}
+	if last.After(now.Add(MaxFutureProposalDrift)) {
+		return ErrFutureProposalTime
+	}
+	return nil
 }
 
 // Proposal .
@@ -388,6 +473,15 @@ func (m *FullProposal) TimeoutQC() utils.Option[*TimeoutQC] {
 
 // Verify verifies the FullProposal against the current view.
 func (m *FullProposal) Verify(c *Committee, vs ViewSpec) error {
+	return m.VerifyAt(c, vs, time.Now())
+}
+
+// VerifyAt uses the validator's consensus clock for the fresh-proposal time
+// check. Historical QC verification remains independent of the local clock.
+func (m *FullProposal) VerifyAt(c *Committee, vs ViewSpec, now time.Time) error {
+	if proto.Size(ConsensusReqConv.Encode(m)) > MaxConsensusReqBytes {
+		return ErrProposalBudget
+	}
 	return scope.Parallel(func(s scope.ParallelScope) error {
 		proposal := m.proposal.Msg()
 		if err := proposal.Verify(c); err != nil {
@@ -440,6 +534,9 @@ func (m *FullProposal) Verify(c *Committee, vs ViewSpec) error {
 				return nil
 			}
 		}
+		if err := proposal.verifyTimeliness(now); err != nil {
+			return err
+		}
 		// Verify the proposal's lane structure against the committee.
 		// Verify each lane range against the previous commitQC and its laneQC justification.
 		for lane := range c.Lanes().All() {
@@ -472,6 +569,11 @@ func (m *FullProposal) Verify(c *Committee, vs ViewSpec) error {
 		if got, wantMin := NextOpt(m.proposal.Msg().App()), NextOpt(AppOpt(ProposalOpt(vs.CommitQC))); got < wantMin {
 			return errors.New("AppProposal lower than in previous CommitQC")
 		} else if got == wantMin {
+			app, hasApp := proposal.App().Get()
+			old, hadApp := AppOpt(ProposalOpt(vs.CommitQC)).Get()
+			if hasApp != hadApp || (hasApp && (app.RoadIndex() != old.RoadIndex() || app.GlobalNumber() != old.GlobalNumber() || !bytes.Equal(app.AppHash(), old.AppHash()))) {
+				return ErrCarriedAppState
+			}
 			if m.appQC.IsPresent() {
 				return errors.New("unnecessary appQC")
 			}
