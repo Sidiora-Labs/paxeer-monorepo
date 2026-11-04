@@ -1,0 +1,81 @@
+[task.22.33.740]
+audit = "22.30.172"
+requirement = "22998.1"
+input_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+mode = "BUILD"
+scope = ["tests/integration/contracts", "tools/qualification/audit_repairs/repair_22_33_740.kvx", "tools/qualification/audit_repairs/test_repair_22_33_740.py"]
+source_proof = "The declared pytest module parses all seven repaired shell scripts separately with bash -n, checks guarded commands and ordering, checks the embedded constructor/runtime/slot constants, pins physical key and StorageData schemas to their Go producers, and executes the exact Python evidence consumers called by the shell scripts. Storage proof drives the production CLI entry function through actual receipt/fixture files into dump-row decoding. Snapshot proof drives the import-log and restored-fixture files through the production evidence writer, stops that component, creates a fresh consumer, reopens the retained state, and asserts height and restored state, including rejection of regression. Adversarial parser inputs cover wrong rows, slots, tags, heights, values, replay fallback, incomplete import, stale outcomes, and unrelated startup failures. No fake daemon, RPC, docker, cast, paxdb, keyring or transaction helper is substituted."
+review_only = "The gate does not compile Go/Wasm or run paxd, Docker, cast, a keyring, consensus, snapshot import, migration or EVM execution. The node stop/wipe/import/stop/reopen and post-restart fixture/digest assertions are proven as mandatory source paths; the executed restart proof is the real persisted recovery-evidence component, not a live FlatKV database restart. Native node recovery, process signal delivery, signing-key lifecycle integration and consensus progress require the owning integration environment. Log fixtures are explicit parser inputs shaped by the committed producer schemas, not claimed captures of a live run. No changed unit files, manifests or build files exist in these findings."
+baseline = "Initial git status/diff showed only pre-existing runner .cgignore and spec status changes, which were preserved. No task repair files or prior /out/run/gates.jsonl existed. No pre-change verification or baseline failure is claimed: the explicit implementation-first ordering and hf-done-only verification rule supersede the older instruction to run verification on the unchanged tree."
+build_cmd = "bash -n tests/integration/contracts/deploy_dex_contract.sh tests/integration/contracts/deploy_flatkv_evm_fixture.sh tests/integration/contracts/deploy_timelocked_token_contract.sh tests/integration/contracts/verify_flatkv_evm_migrate.sh tests/integration/contracts/verify_flatkv_evm_store.sh tests/integration/contracts/verify_flatkv_only_statesync.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_740.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger name the exact content-derived verified revision, command, exit code and log path. Build and verification must qualify the same candidate. A candidate hash cannot be embedded in its own source record without changing that candidate. No manual commit or push is performed; the runner publishes. Closure is conditional on hf-done passing."
+
+[finding.retired-dex-contracts]
+file = "tests/integration/contracts/deploy_dex_contract.sh"
+repair = "Accept only cw20_base, store contracts/wasm/cw20_base.wasm, instantiate a funded CW20, burn one unit through supported wasm execution, and require committed total supply and owner balance before publishing its address. Retired DEX registrations are replaced by supported CW20 behavior."
+tests = ["test_retired_dex_contracts_use_supported_product_operations", "test_shell_syntax"]
+
+[finding.fixture-self-oracle]
+file = "tests/integration/contracts/deploy_flatkv_evm_fixture.sh"
+repair = "Compare queried runtime and slot zero with independent embedded expectations before writing recovery expectation files. Correct CODECOPY offset to byte 17, the actual start of the ten-byte runtime after the storage constructor."
+tests = ["test_fixture_self_oracle_checks_embedded_runtime_and_slot_before_writing", "test_shell_syntax"]
+
+[finding.timelock-key-output]
+file = "tests/integration/contracts/deploy_timelocked_token_contract.sh"
+repair = "Disable shell tracing before key handling, use a private disposable test keyring and restrictive umask, discard all key-generation stdout/stderr, query only public addresses, and remove the disposable keyring on exit. The existing funded operator is used only as the transaction signer; generated accounts never enter its keyring."
+tests = ["test_timelock_key_output_is_isolated_disposable_and_public_only", "test_shell_syntax"]
+
+[finding.migration-height-boundary]
+file = "tests/integration/contracts/verify_flatkv_evm_migrate.sh"
+repair = "Record a positive committed observation/completion-version upper bound for each validator, retain their maximum, wait for every validator beyond maximum plus two comparison buffers, and reject a selected version at or below maximum plus one buffer. Existing completion, migration-count and cross-validator digest assertions remain mandatory."
+tests = ["test_migration_height_boundary_covers_every_completion_and_buffer", "test_shell_syntax"]
+
+[finding.storage-dump-row-identity]
+file = "tests/integration/contracts/verify_flatkv_evm_store.sh"
+repair = "Decode dump-flatkv physical rows with the production evidence helper and require exactly one evm/ plus 0x03 plus address plus slot key paired with StorageData serialization version zero, exact deployment-receipt block height and exact fixture slot value. The later RPC observation height is not the modification height."
+tests = ["test_storage_dump_row_identity_uses_real_schema_and_receipt", "test_storage_dump_row_identity_rejects_wrong_or_separate_rows", "test_shell_syntax"]
+
+[finding.only-statesync-fallback]
+file = "tests/integration/contracts/verify_flatkv_only_statesync.sh"
+repair = "Preserve the old attempt log, collect a fresh import log, require verified Snapshot restored and subsequent state_synced=true consensus handoff, retain snapshot height/hash/format and observed fixture state in private evidence, compare only at or after the imported height, and stop/reopen the victim without a second wipe before repeating actual fixture and digest assertions. Replay-only and unknown outcomes fail."
+tests = ["test_only_statesync_fallback_requires_completed_import_and_handoff", "test_only_statesync_fallback_rejects_replay_unknown_stale_and_failed_import", "test_only_statesync_restart_reopens_retained_height_and_restored_state", "test_shell_syntax"]
+
+[finding.only-statesync-stop-proof]
+file = "tests/integration/contracts/verify_flatkv_only_statesync.sh"
+repair = "Send TERM to exact paxd process names in the victim container, poll with a finite bound, escalate to KILL with another finite bound, and require final process absence before removing state. Only pgrep exit 1 means absence; Docker/matcher failures abort. Validator signing state is copied before deletion and restored before restart."
+tests = ["test_only_statesync_stop_proof_bounds_escalation_and_guards_wipe", "test_shell_syntax"]
+
+[finding.partial-loss-attribution]
+file = "tests/integration/contracts/verify_flatkv_partial_loss_fails_loudly.sh"
+repair = "Capture the final committed version from the stopped victim log, retain that log separately, inspect only the new startup attempt, and accept only the production FlatKV load/version-mismatch error requesting that exact version and reaching zero. An unrelated fatal/error/panic cannot pass alongside ordinary database diagnostics or even alongside the required error. The existing self-heal/catch-up/digest branch remains required if the node survives."
+tests = ["test_partial_loss_attribution_accepts_exact_missing_state_and_version", "test_partial_loss_attribution_rejects_unrelated_startup_failures", "test_shell_syntax"]
+
+[wiring.timelock_consumers]
+request = "tests/integration/wasm_module/timelocked_token_{admin,delegation,emergency_withdraw,withdraw}_test.yaml -> domain 16 / integration harness: move the generated-account signing scenarios into a suite-owned disposable keyring lifecycle and pass its backend/directory to every consumer; the deployment helper now destroys its private keyring at exit and exports no secrets."
+
+[wiring.blocksync_scenario]
+request = "tests/integration/chain_operation/statesync_operation.yaml -> domain 16 / integration harness: qualify replay/blocksync as a distinct scenario with state_synced=false, committed progress and known-state assertions; replay can no longer satisfy the flatkv_only snapshot-import scenario."
+
+[wiring.missing_state_producer]
+request = "storage/state_db/sc/composite/store.go -> domain 5 / storage: review load-latest partial-loss behavior, which currently seeds a zero-version FlatKV backend and skips zero-version reconciliation, and provide an explicit missing-state/version error if partial loss cannot self-heal; this harness accepts only the existing exact FlatKV load/version-mismatch producer signature and otherwise requires healthy self-heal with digest agreement."
+
+[format]
+policy = "No formatter is configured for Python, shell or KVX in these task paths; apply .editorconfig UTF-8, LF, final newline and removal of trailing whitespace only to touched files after implementation."
+
+[gotcha.1]
+observed = "The baseline-verify clause contradicts the explicit implementation-first ordering and exclusive hf-done gate."
+resolution = "Do not run verification manually or invent baseline failures; retain the actual bounded gate evidence. GOTCHA.kvx and spec qualification files are outside the authorized scope, so task-local notes live here."
+
+[gotcha.2]
+observed = "The original fixture constructor copied its ten-byte runtime starting at byte 15, but its SSTORE and copy/return prologue consume 17 bytes."
+resolution = "Correct the embedded offset to 0x11 and assert both prologue bytes and exact returned runtime, then reject mismatched RPC bytes before recording expectations."
+
+[gotcha.3]
+observed = "bash -n script1 script2 parses script1 and supplies the other names as positional arguments; the declared build alone cannot parse all six scripts."
+resolution = "Keep the build command unchanged and make the declared pytest module invoke bash -n individually for all seven repaired scripts, including partial-loss attribution, plus the changed remote fixture command."
+
+[gotcha.4]
+observed = "The StorageData leading byte is serialization version zero, not an EVM storage-key tag; physical key type 0x03 belongs in evm/ plus address plus slot."
+resolution = "Decode and bind both byte domains independently against the committed Go producers and require the receipt modification height and expected word in that same row."
