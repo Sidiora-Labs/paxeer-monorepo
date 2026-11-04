@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Rehearses the Paxeer X software upgrade ($UPGRADE_NAME, default v6.6) on a disposable
+# Maintained owner: domain 8 paxd operators; relocation target ../node/fork-rehearsal.sh.
+# Rehearses the explicitly selected merged-v7.0 upgrade profile on a disposable
 # single-validator fork of mainnet.
 #
 # State comes from `paxd export` run by the OLD binary over a copy of a stopped, synced node's data
@@ -19,8 +20,8 @@
 # The chain then runs on --old-bin, a $UPGRADE_NAME software-upgrade proposal for current height + N passes,
 # the old binary must halt with the UPGRADE NEEDED log line at exactly that height, and --new-bin must
 # resume it: height advances, `paxd q upgrade applied $UPGRADE_NAME` reports the height, every module added by
-# the $UPGRADE_NAME store upgrade reports a module version, and a view call on each LayerX precompile returns
-# without revert.
+# the $UPGRADE_NAME store upgrade reports a module version. Retired methods must refuse calls;
+# finality is checked against a canonical committed header and again after reopening the node.
 #
 # Every host-specific value (paths, ports) comes from flags or from an untracked env file passed with
 # --env-file (or named by $PAXEER_FORK_ENV); nothing here contacts a remote host. Precedence:
@@ -33,7 +34,8 @@
 # --check validates this file's syntax, the given flags and the required tools, and touches nothing.
 set -euo pipefail
 
-UPGRADE_NAME=v6.6
+PROFILE=""
+UPGRADE_NAME=v7.0
 COSMOS_CHAIN_ID=hyperpax_125-1
 EVM_CHAIN_ID=125
 KEY_NAME=rehearsal
@@ -51,18 +53,16 @@ VOTING_SECONDS=30
 FEES=1000000uhpx
 GAS=2000000
 WAIT_SECONDS=1800
-MODULES=(layerxcustody layerxanchor layerxexchange layerxbridge launchpad)
+MODULES=(sequencer)
 MODULES_SET=0
-declare -A VIEWS=(
+# Custody views are retired at merge; anchor writes are retired at merge while its
+# historical views survive until the separate anchor-store deletion plan.
+declare -A RETIRED_CALLS=(
     [0x0000000000000000000000000000000000001013]=0x2dfdf0b5 # depositCount()
-    [0x0000000000000000000000000000000000001014]=0x42cde4e8 # threshold()
 )
-PRECOMPILES=(
-    0x0000000000000000000000000000000000001013
-    0x0000000000000000000000000000000000001014
-    0x0000000000000000000000000000000000001015
-    0x0000000000000000000000000000000000001016
-    0x0000000000000000000000000000000000001017
+declare -A RETIRED_NAMES=(
+    [0x0000000000000000000000000000000000001013]=layerxCustody
+    [0x0000000000000000000000000000000000001014]=layerxAnchor
 )
 
 NODE_PID=""
@@ -79,7 +79,7 @@ fail() {
 
 usage() {
     cat >&2 <<'USAGE'
-usage: fork-rehearsal.sh --source-data DIR --old-bin PATH --new-bin PATH --work DIR --upgrade-height-offset N [options]
+usage: fork-rehearsal.sh --profile merged-v7.0 --source-data DIR --old-bin PATH --new-bin PATH --work DIR --upgrade-height-offset N [options]
        fork-rehearsal.sh --check [any of the flags above]
 
 required (flag, or the env file key in brackets):
@@ -90,7 +90,8 @@ required (flag, or the env file key in brackets):
   --upgrade-height-offset N   upgrade height = height at proposal submission + N [UPGRADE_HEIGHT_OFFSET]
 options:
   --env-file FILE             untracked KEY=VALUE file supplying any bracketed key (default $PAXEER_FORK_ENV)
-  --upgrade-name NAME         upgrade plan name (default v6.6) [UPGRADE_NAME]
+  --profile merged-v7.0       required versioned paxd profile [PROFILE]
+  --upgrade-name NAME         upgrade plan name (must be v7.0 for this profile) [UPGRADE_NAME]
   --chain-id ID               cosmos chain id of the export (default hyperpax_125-1) [COSMOS_CHAIN_ID]
   --evm-chain-id N            EVM chain id the resumed node must report (default 125) [EVM_CHAIN_ID]
   --source-genesis FILE       mainnet genesis (default: DIR/../config/genesis.json) [SOURCE_GENESIS]
@@ -99,10 +100,9 @@ options:
   --fees COINS                fee per rehearsal transaction (default 1000000uhpx) [FEES]
   --gas N                     gas limit per rehearsal transaction (default 2000000) [GAS]
   --wait-seconds S            limit on each wait for the chain (default 1800) [WAIT_SECONDS]
-  --module NAME               module the store upgrade must add (repeatable; default
-                              layerxcustody layerxanchor layerxexchange layerxbridge launchpad)
-  --view ADDR=CALLDATA        view call for a precompile; defaults exist for 0x...1013 (depositCount())
-                              and 0x...1014 (threshold()); 0x...1015, 0x...1016 and 0x...1017 need one
+  --module NAME               module version required after upgrade (repeatable; default sequencer)
+  --retired-call ADDR=CALLDATA retired-method probe; custody depositCount() is built in;
+                              supply ABI-encoded anchor write calldata for 0x...1014
   --check                     validate syntax, flags and tools, then exit without touching state
 USAGE
 }
@@ -136,6 +136,7 @@ load_env_file() {
             value=${BASH_REMATCH[1]}
         fi
         case "$key" in
+            PROFILE) PROFILE=$value ;;
             UPGRADE_NAME) UPGRADE_NAME=$value ;;
             COSMOS_CHAIN_ID) COSMOS_CHAIN_ID=$value ;;
             EVM_CHAIN_ID) EVM_CHAIN_ID=$value ;;
@@ -159,6 +160,7 @@ load_env_file() {
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --env-file) need_value "$@"; shift 2 ;;
+        --profile) need_value "$@"; PROFILE=$2; shift 2 ;;
         --upgrade-name) need_value "$@"; UPGRADE_NAME=$2; shift 2 ;;
         --chain-id) need_value "$@"; COSMOS_CHAIN_ID=$2; shift 2 ;;
         --evm-chain-id) need_value "$@"; EVM_CHAIN_ID=$2; shift 2 ;;
@@ -177,11 +179,11 @@ while [ "$#" -gt 0 ]; do
             need_value "$@"
             if [ "$MODULES_SET" -eq 0 ]; then MODULES=(); MODULES_SET=1; fi
             MODULES+=("$2"); shift 2 ;;
-        --view)
+        --retired-call)
             need_value "$@"
             [[ "$2" =~ ^(0x[0-9a-fA-F]{40})=(0x[0-9a-fA-F]{8}([0-9a-fA-F]{2})*)$ ]] \
-                || fail "--view takes ADDR=CALLDATA with a 20-byte address and at least a 4-byte selector"
-            VIEWS[$(printf '%s' "${BASH_REMATCH[1]}" | tr 'A-F' 'a-f')]=${BASH_REMATCH[2]}
+                || fail "--retired-call takes ADDR=CALLDATA with a 20-byte address and at least a 4-byte selector"
+            RETIRED_CALLS[$(printf '%s' "${BASH_REMATCH[1]}" | tr 'A-F' 'a-f')]=${BASH_REMATCH[2]}
             shift 2 ;;
         --check) CHECK=1; shift ;;
         -h|--help) usage; exit 0 ;;
@@ -189,6 +191,8 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
+[ "$PROFILE" = merged-v7.0 ] || fail "--profile merged-v7.0 is required; unversioned rehearsals are retired"
+[ "$UPGRADE_NAME" = v7.0 ] || fail "merged-v7.0 requires upgrade v7.0"
 [[ "$UPGRADE_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || fail "--upgrade-name must be letters, digits, '.', '_' or '-'"
 [[ "$COSMOS_CHAIN_ID" =~ ^[a-z][a-z0-9_-]*_[1-9][0-9]*-[1-9][0-9]*$ ]] || fail "--chain-id must look like name_EVMID-VERSION"
 [[ "$EVM_CHAIN_ID" =~ ^[1-9][0-9]{0,17}$ ]] || fail "--evm-chain-id must be a positive integer"
@@ -211,7 +215,7 @@ GRPC_WEB_PORT=$((PORT_BASE + 3091))
 NODE=tcp://127.0.0.1:$RPC_PORT
 
 bash -n "${BASH_SOURCE[0]}" || fail "syntax check of ${BASH_SOURCE[0]} failed"
-for tool in jq curl sha256sum awk sed grep cp; do
+for tool in python3 jq curl sha256sum awk sed grep cp; do
     command -v "$tool" >/dev/null 2>&1 || fail "$tool is not available"
 done
 if [ -n "$OLD_BIN" ]; then
@@ -241,8 +245,11 @@ SOURCE_CONFIG=$(dirname "$SOURCE_DATA")/config
 OLD_BIN=$(command -v "$OLD_BIN")
 NEW_BIN=$(command -v "$NEW_BIN")
 [ "$(sha256sum < "$OLD_BIN")" != "$(sha256sum < "$NEW_BIN")" ] || fail "--old-bin and --new-bin are the same binary"
-for address in "${PRECOMPILES[@]}"; do
-    [ -n "${VIEWS[$address]:-}" ] || fail "no view call for $address; pass --view $address=0x<selector+args> from its ABI"
+for address in "${!RETIRED_NAMES[@]}"; do
+    [ -n "${RETIRED_CALLS[$address]:-}" ] || fail "no retired-method call for $address; pass --retired-call with ABI-encoded write calldata"
+done
+for address in "${!RETIRED_CALLS[@]}"; do
+    [ -n "${RETIRED_NAMES[$address]:-}" ] || fail "no retired-method contract for $address in $PROFILE"
 done
 if [ -e "$WORK" ]; then
     [ -d "$WORK" ] && [ -z "$(ls -A "$WORK")" ] || fail "--work $WORK must be empty or absent"
@@ -550,15 +557,93 @@ for module in "${MODULES[@]}"; do
     log "module $module present (version $(printf '%s\n' "$VERSION" | jq -r '.module_versions[0].version'))"
 done
 
-for address in "${PRECOMPILES[@]}"; do
-    CALL_BODY=$(jq -cn --arg to "$address" --arg data "${VIEWS[$address]}" \
+# Validate the RPC responses in the same parser used by offline qualification.
+rehearsal_json() {
+    python3 -c '
+import json
+import re
+import sys
+
+
+def retired_response(response, name):
+    error = response.get("error")
+    if response.get("result") is not None or not isinstance(error, dict):
+        raise ValueError("retired method did not refuse the call")
+    message = error.get("message", "")
+    if (error.get("code") != 3 or "LXP_MODULE_DISABLED" not in message
+            or name + " retired" not in message):
+        raise ValueError("call failed without the typed module-retirement reason")
+
+
+def committed_header(eth, comet, chain_id, minimum_height):
+    result = comet.get("result", {})
+    signed = result.get("signed_header", {})
+    header, commit = signed.get("header", {}), signed.get("commit", {})
+    height = int(eth["number"], 16)
+    if (height < minimum_height or str(height) != header.get("height")
+            or str(height) != commit.get("height") or header.get("chain_id") != chain_id
+            or result.get("canonical") is not True):
+        raise ValueError("header is not a canonical committed height on the requested chain")
+    for key in ("hash", "stateRoot", "receiptsRoot"):
+        if not re.fullmatch(r"0x[0-9a-fA-F]{64}", eth.get(key, "")):
+            raise ValueError("missing committed header root: " + key)
+    if (eth["hash"][2:].lower() != commit["block_id"]["hash"].lower()
+            or eth["stateRoot"][2:].lower() != header["app_hash"].lower()
+            or not any(s.get("block_id_flag") == 2 and s.get("signature")
+                       for s in commit.get("signatures", []))):
+        raise ValueError("EVM header disagrees with the committed BFT header")
+    return height
+
+
+if __name__ == "__main__":
+    try:
+        body = json.load(sys.stdin)
+        if sys.argv[1] == "retired":
+            retired_response(body, sys.argv[2])
+        elif sys.argv[1] == "committed":
+            print(committed_header(body["eth"], body["comet"], sys.argv[2], int(sys.argv[3])))
+        else:
+            raise ValueError("unsupported rehearsal JSON operation")
+    except (ValueError, TypeError, KeyError) as error:
+        print("rehearsal: " + str(error), file=sys.stderr)
+        sys.exit(1)
+' "$@"
+}
+
+for address in "${!RETIRED_NAMES[@]}"; do
+    CALL_BODY=$(jq -cn --arg to "$address" --arg data "${RETIRED_CALLS[$address]}" \
         '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":$to,"data":$data},"latest"]}')
     RESPONSE=$(curl -sf --max-time 10 -H 'content-type: application/json' --data "$CALL_BODY" "http://127.0.0.1:$EVM_PORT") \
-        || fail "eth_call to $address got no response from the EVM RPC"
-    printf '%s' "$RESPONSE" | jq -e '(.error == null) and (.result | type == "string" and startswith("0x"))' >/dev/null \
-        || fail "eth_call to $address reverted: $RESPONSE"
-    log "eth_call $address ${VIEWS[$address]} -> $(printf '%s' "$RESPONSE" | jq -r '.result' | cut -c 1-66)"
+        || fail "retired-method call to $address got no response"
+    rehearsal_json retired "${RETIRED_NAMES[$address]}" <<<"$RESPONSE"
+    log "retired-method refusal confirmed for ${RETIRED_NAMES[$address]}"
 done
+
+rpc_header() {
+    local tag=$1 request response
+    request=$(jq -cn --arg tag "$tag" '{jsonrpc:"2.0",id:1,method:"eth_getBlockByNumber",params:[$tag,false]}')
+    response=$(curl -sf --max-time 10 -H 'content-type: application/json' --data "$request" "http://127.0.0.1:$EVM_PORT") \
+        || fail "committed header RPC failed"
+    jq -ce '.result | select(type == "object")' <<<"$response" || fail "committed header RPC returned no header"
+}
+
+FINALIZED_HEADER=$(rpc_header finalized)
+PINNED_HEX=$(jq -r .number <<<"$FINALIZED_HEADER")
+[[ "$PINNED_HEX" =~ ^0x[0-9a-fA-F]+$ ]] || fail "finalized header has no height"
+PINNED_HEIGHT=$((PINNED_HEX))
+COMMIT=$(curl -sf --max-time 10 "http://127.0.0.1:$RPC_PORT/commit?height=$PINNED_HEIGHT") \
+    || fail "committed BFT header unavailable"
+jq -cn --argjson eth "$FINALIZED_HEADER" --argjson comet "$COMMIT" '{eth:$eth,comet:$comet}' \
+    | rehearsal_json committed "$COSMOS_CHAIN_ID" "$UPGRADE_HEIGHT" >/dev/null
+# Reopen the real node and require the pinned committed header to survive recovery.
+stop_node
+start_node "$NEW_BIN" "$LOG_DIR/reopened-bin.log"
+wait_height_above "$PINNED_HEIGHT" >/dev/null
+RECOVERED_HEADER=$(rpc_header "$PINNED_HEX")
+[ "$(jq -Sc '{number,hash,stateRoot,receiptsRoot}' <<<"$FINALIZED_HEADER")" = \
+  "$(jq -Sc '{number,hash,stateRoot,receiptsRoot}' <<<"$RECOVERED_HEADER")" ] \
+    || fail "committed header changed after reopening the node"
+
 CHAIN_HEX=$(curl -sf --max-time 10 -H 'content-type: application/json' \
     --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "http://127.0.0.1:$EVM_PORT" | jq -r '.result')
 [ "$((CHAIN_HEX))" = "$EVM_CHAIN_ID" ] || fail "EVM chain id $CHAIN_HEX is not $EVM_CHAIN_ID"
@@ -566,6 +651,8 @@ FINAL=$(wait_height_above "$RESUMED")
 
 stop_node
 {
+    printf 'profile=%s\n' "$PROFILE"
+    printf 'committed_height=%s\n' "$PINNED_HEIGHT"
     printf 'upgrade=%s\n' "$UPGRADE_NAME"
     printf 'upgrade_height=%s\n' "$UPGRADE_HEIGHT"
     printf 'export_height=%s\n' "$EXPORT_HEIGHT"

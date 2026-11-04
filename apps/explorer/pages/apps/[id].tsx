@@ -56,7 +56,7 @@ export const getServerSideProps: GetServerSideProps<Props<typeof pathname>> = as
           }, 1_000);
 
           try {
-            const response = await fetch(feature.configUrl, { signal: controller.signal });
+            const response = await fetch(new URL(feature.configUrl, config.app.origin).href, { signal: controller.signal });
             const appList = await response.json() as Array<MarketplaceApp>;
             clearTimeout(timeout);
 

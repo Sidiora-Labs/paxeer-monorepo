@@ -342,6 +342,7 @@ func (h *HTTPServer) doStop() {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		httpHandler.server.Stop()
 		httpHandler.limiter.stop()
+		closeTestAPIs(h.apis)
 		h.apis = nil
 	}
 	if wsHandler != nil {
@@ -412,6 +413,15 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 	return nil
 }
 
+// closeTestAPIs ends overrides even when a server is stopped before listening.
+func closeTestAPIs(apis []rpc.API) {
+	for _, api := range apis {
+		if test, ok := api.Service.(*TestAPI); ok {
+			test.close()
+		}
+	}
+}
+
 // disableRPC stops the HTTP RPC handler. This is internal, the caller must hold h.mu.
 func (h *HTTPServer) disableRPC() bool {
 	handler := h.httpHandler.Load().(*rpcHandler)
@@ -419,6 +429,7 @@ func (h *HTTPServer) disableRPC() bool {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		handler.server.Stop()
 		handler.limiter.stop()
+		closeTestAPIs(h.apis)
 		h.apis = nil
 	}
 	return handler != nil
@@ -620,9 +631,6 @@ func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
 }
 
 func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
-	if len(config.DenyList) == 0 {
-		return srv.WebsocketHandler(config.Origins)
-	}
 	deniedMethods := make(map[string]string, len(config.DenyList))
 	deniedErrors := make(map[string]string, len(config.DenyList))
 	prefix := "denied:" + string(rpc.NewID()) + ":"
@@ -644,6 +652,8 @@ func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
 		if err != nil {
 			return
 		}
+		// Authentication and origin checks have passed and the upgrade succeeded.
+		recordWebsocketConnect(r.Context())
 		conn.SetReadLimit(config.readLimit)
 		c := &denyListWSConn{Conn: conn, deniedMethods: deniedMethods, deniedErrors: deniedErrors}
 		stopped := make(chan struct{})

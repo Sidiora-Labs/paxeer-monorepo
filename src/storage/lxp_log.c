@@ -251,6 +251,7 @@ lxp_result lxp_log_segment_create(lxp_log *log, const char *directory,
 {
     char path[4096];
     int descriptor;
+    int directory_descriptor;
     int length;
     int allocation;
     if (log == NULL || directory == NULL ||
@@ -285,6 +286,21 @@ lxp_result lxp_log_segment_create(lxp_log *log, const char *directory,
     log->has_fallback_durable_marker = false;
     log->allow_fallback_durable_marker = false;
     if (durable_marker_store(log, 0U) != LXP_OK) {
+        (void)close(descriptor);
+        (void)unlink(path);
+        log->descriptor = -1;
+        return LXP_ERR_IO;
+    }
+    directory_descriptor = open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (directory_descriptor >= 0) {
+        do {
+            allocation = fsync(directory_descriptor);
+        } while (allocation != 0 && errno == EINTR);
+        if (close(directory_descriptor) != 0) allocation = -1;
+    } else {
+        allocation = -1;
+    }
+    if (allocation != 0) {
         (void)close(descriptor);
         (void)unlink(path);
         log->descriptor = -1;

@@ -185,15 +185,6 @@ class _SequencerReceipt:
 
 
 @dataclass(frozen=True)
-class AuthorizedReceiptBatch:
-    batch_id: bytes
-    asset: bytes
-    previous_state_root: bytes
-    resulting_state_root: bytes
-    sequencer_public_key: bytes
-
-
-@dataclass(frozen=True)
 class ReceiptVerification:
     level: Literal["sequencer-signed"]
     receipt: _SequencerReceipt

@@ -1,0 +1,43 @@
+[meta]
+task = "22.33.17"
+audit = "22.30.100"
+acceptance = "22998.1"
+base_revision = "ab6c5b359d4a2db3e459e8f912ad6d2e9947e224"
+qualification = "Only hf-build and hf-done qualify this task. The runner gate ledger records the exact candidate revision, command, exit and private evidence location; the final response copies that evidence. The runner owns spec status and publication."
+baseline = "No earlier gate ledger or task test module existed at inspection. No unchanged-tree baseline ran: explicit order 1 prohibits testing before complete implementation and order 4 permits verification only through hf-done after hf-build. No baseline failure or pass is claimed."
+format = "The repository declares no Python formatter. Apply its trailing-whitespace and final-newline rules to touched files only after all implementation is complete."
+
+[findings]
+program-receipt-key-rotation = "test_program_receipt_key_rotation_and_reopened_lifecycle_recovery; test_discovery_authority_is_separate_from_rotated_receipt_authority"
+retired-batch-authority = "test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_receipts"
+retired-payment-evidence = "test_retired_batch_authority_and_payment_evidence_exports_preserve_signed_receipts; test_live_payment_evidence_flows_through_buyer_seller_and_reopen"
+receive-activity-envelope = "test_receive_binding_uses_signed_evm_hash_and_canonical_ledger_calldata; test_draw_null_receipt_reopens_with_exact_bytes_hash_and_pending_status; test_draw_migration_refuses_unbound_rows_without_partial_rewrite"
+draw-null-recovery = "test_draw_null_receipt_reopens_with_exact_bytes_hash_and_pending_status; test_new_grant_registration_stays_retired_across_reopen"
+payment-rpc-root-endpoint = "test_root_node_and_explicit_hosted_gateway_endpoints; test_rpc_endpoint_protections_apply_to_explicit_gateway_too; test_rpc_refuses_redirect_without_forwarding_credentials"
+retired-rpc-batch-evidence = "test_live_payment_evidence_flows_through_buyer_seller_and_reopen; test_committed_evidence_rejects_untrusted_blocks_and_retired_batch_shapes"
+
+[implementation]
+rotation = "ProgramTrustContext accepts different governed receipt public keys, rejects duplicate key IDs and retains exact key and inclusive height bounds. Lifecycle submission and recovery use the complete caller-pinned table. The RPC signingKey must match the verified receipt's key ID and height, while discovery and simulation signing authority remain independently pinned."
+batch_retirement = "Remove AuthorizedReceiptBatch and the program authority object consumer, including its runtime and stub exports. Program receipts retain signature, raw transaction, key ID/height, state root, sequence, result and receipt digest binding; active node RPC summary/log verification remains enforced."
+payment_evidence = "Remove PaymentCommitmentEvidence and _SequencerAuthorization. PaymentEvidence carries the canonical signed receipt, exact raw transaction and optional independently pinned CommitTrust/block inclusion. Preserve the existing x402_http and package import locations while exposing the live model in x402."
+receive = "bind_receive_activity checks signed EVM sender, chain 125, ledger address, zero value, canonical draw calldata, matching receive/grant fields and receiver authorization context. It returns the same 0x-prefixed keccak hash used by RPC submission and lookup."
+recovery = "Atomically migrate existing activity_id journal columns to transaction_hash after revalidating raw transaction/receive binding and the recorded identity. Recovery retains exact durable bytes, idempotency/principal/request/period identity, attempted flag and timestamp. Null and submitted receipt results remain pending; no recovery path retransmits a monetary transaction. Invalid migrations roll back."
+retired_grants = "Preserve the prerequisite 22.31.147 continuation7 ruling: new registrations and successful grant evidence remain refused with nonretryable LXP_NO_PAYER_GRANT. Existing durable registrations can be inspected and recovered as pending through read-only receipt lookup. No successful draw receipt is fabricated, accepted or emitted, and register never writes or sends."
+endpoints = "Default node endpoints use an empty/root path. A nonroot hosted gateway path is accepted only when it equals the explicitly configured hosted_gateway_endpoint. HTTPS or loopback HTTP, credential/query/fragment rejection, redirect refusal and response envelope validation remain enforced; malformed ports, whitespace, backslashes and empty userinfo are refused."
+rpc_evidence = "Retire rpc_batch_evidence and its stub export. rpc_payment_evidence verifies live receipt/transaction/key/height identity and returns None for pending submissions. rpc_committed_evidence requires committed rung and independent CommitTrust, verifies transaction inclusion and block hash, and is used by verify_rpc_payment and configured receipt resolution for buyer, seller and reopen recovery."
+
+[proof]
+peers = "Loopback HTTP serves committed Go sequencer transcripts and fresh canonical signed lifecycle receipts from an in-process sequencer with two real Ed25519 keys. The committed validator peer is reused from the prerequisite's committed fixture; no test invokes an external binary, toolchain, credential or live endpoint."
+transport = "Production AgentHttpTransport and ProgramOperations consume both rotation heights, including retained transaction reopen and all key-ID/range/signature refusals. Discovery signatures remain tied to their separate pin. Production PaymentRpc drives root/configured gateway requests, redirect refusal and receipt evidence."
+payment = "Production BuyerMiddleware, ConfiguredReceiptAuthority, SellerMiddleware, fulfillment SQLite and PAYMENT headers exercise receipted and committed payments; reopening preserves the one submission and one resource release. Invalid commitment, validator voting power, block identity, transaction inclusion and old batch shapes are refused."
+storage = "Committed legacy SQLite schema fixtures represent crash-before-send and uncertain-send states, with either historical or current transaction identity. Reopen three times against null/submitted node responses and assert every stored byte/identifier/attempt timestamp, with only receipt lookups and zero sends. New retired registrations remain refused and leave the store empty."
+
+[wiring]
+retirement_tests = "services/agent/sdk/python/tests/test_retired_kernel_receipts.py and tests/agent/sdk/python/test_programs.py — SDK domain 9: migrate obsolete batch/evidence/export expectations to ReceiptKey and PaymentEvidence, and remove batch authority from any execution producer projections."
+endpoint_consumers = "services/agent/sdk/python/tests and tests/agent/sdk/python/test_repair_22_31_147.py and test_repair_22_33_16.py — SDK domain 9: configure hosted_gateway_endpoint explicitly for /rpc test peers or serve current root JSON-RPC; preserve all transport and receipt assertions."
+draw_consumers = "services/agent/sdk/python/tests/test_x402_draw_sequencer.py and test_x402_http_sequencer.py — SDK domain 9: migrate retired activity_id SQL lookups to transaction_hash and keep the prerequisite ledger refusal; existing journal recovery now supports null and submitted lookups without sends."
+
+[gotchas]
+ordering = "The audit template requests an unchanged-tree baseline, but explicit task order prohibits it; do not spend an undeclared gate run or claim baseline evidence."
+scope = "Runner-owned initial .cgignore and spec task-status changes are preserved. GOTCHA.kvx and spec files are outside this task's allowed scope, so observations and wiring requests are recorded here."
+retired_registration = "The audit's registration/submission proposal predates prerequisite 22.31.147 continuation7 and decision 2340: register must refuse before persistence/send because the ledger has no authorized payer-grant execution. Apply migration and null recovery only to preexisting durable registrations, keeping every new monetary draw refused."

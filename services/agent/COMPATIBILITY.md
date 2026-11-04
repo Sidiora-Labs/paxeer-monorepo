@@ -22,6 +22,15 @@ historical additive changes to major 1, not alternative supported versions.
 SDKs reject an unsupported contract major. Approval holds are daemon-enforced
 restrictions and confer no protocol authority.
 
+Major 2 signs native EVM transactions. The [write schema](schema/agent-api/write.kvx)
+requires the caller's exact 65-byte secp256k1 signature (`r || s || v`, 130
+lowercase hex characters) bound to the preparation; clients preserve the
+unsigned canonical bytes, signing preimage and disclosure before signing.
+The [error schema](schema/agent-api/errors.kvx) defines `UnavailableCapability`
+when a required capability is absent from the negotiated intersection. Clients
+must report that error explicitly, including for unavailable approval features;
+they must not emulate the capability or fall back to contract 1.0 or 1.1.
+
 Compatibility preserves canonical bytes, result codes, verification rungs and
 freshness; it never authorizes reconstructing protocol facts locally. A
 transaction progresses from `submitted` to `receipted` to `committed` only as
@@ -32,7 +41,8 @@ describes enforcement and portable offline evidence.
 ## Release checks
 
 From the repository root, `make agent-test-agentd-migration` runs the daemon's
-`migration` integration target, including `verify_published`, and then
+[`migration`](crates/layerx-agentd/tests/migration.rs) integration target,
+including `verify_published` and unsupported-tuple refusals, and then
 `agent-test-boundary`. The Makefile passes `AGENT_NODE_RPC_URL` (default
 `http://127.0.0.1:8545`) to the boundary harness as
 `LAYERX_QUALIFY_NODE_RPC_URL`. Use a disposable node with the required boundary

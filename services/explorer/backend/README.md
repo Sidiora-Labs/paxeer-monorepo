@@ -44,7 +44,8 @@ and migrations under `apps/explorer/priv/repo/migrations/`.
 
 The registered read APIs below are relative to `/api/v2` and use `GET`.
 [`api_router.ex`](apps/block_scout_web/lib/block_scout_web/routers/api_router.ex)
-and the linked controllers define their contracts.
+and the linked controllers define their contracts. The first table describes
+the current native account, transaction and feed APIs.
 
 | Path | Purpose |
 | --- | --- |
@@ -56,9 +57,35 @@ and the linked controllers define their contracts.
 | `/paxeer-x/feed/markets/:market_id/updates` | Paginated observations for one market |
 | `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
 | `/paxeer-x/feed/updates/:hash` | One native submission |
+
+Historical archive APIs are separate from current transaction status:
+
+| Path | Purpose |
+| --- | --- |
 | `/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
 | `/paxeer-x/archive/receipts` | Frozen historical receipts |
 | `/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+
+### Frontend integration
+
+The web frontend's
+[`paxeerX.ts`](../../../apps/explorer/lib/api/services/general/paxeerX.ts)
+registers `paxeer_x_unified_account` and `paxeer_x_capabilities` against the
+current routes above. Its `:hash` account parameter corresponds to the
+router's `:address_hash_param`.
+[`paxeerXFeed.ts`](../../../apps/explorer/lib/api/services/general/paxeerXFeed.ts)
+registers `paxeer_x_feed_markets`, `paxeer_x_feed_update` and
+`paxeer_x_feed_market_updates`; its market `:id` corresponds to `:market_id`.
+Market lists return `items` and `chain_head`; market history returns `symbol`,
+`items` and `next_page_params`. A submission detail returns one transaction
+item with `method: "submitPrices"`, `transaction_types: ["price_update"]` and
+the recorded observations under `price_update.observations`.
+
+[`paxeerXLists.ts`](../../../apps/explorer/lib/api/services/general/paxeerXLists.ts)
+registers the transaction status and signature resources alongside explicitly
+archived anchor and receipt resources. Use `/transactions/:transaction_hash_param/status`
+for current transaction observations. Unified accounts and native feeds do
+not require archive records or the retired unprefixed anchor/receipt routes.
 
 ### Native account, status and capabilities
 
@@ -104,7 +131,8 @@ retention limit. The Compose environment example sets it to `30`.
 
 The [archive controller](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex)
 serves frozen history, not current finality evidence. Lists return `items` and
-`next_page_params`; use the returned pagination parameters. An invalid or
+`next_page_params`; each archive item has `frozen: true`. Use the returned
+pagination parameters. An invalid or
 unknown receipt ID returns HTTP `404`. The old unprefixed
 `/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
 and return not-found; use the explicit `/archive/` paths above.
