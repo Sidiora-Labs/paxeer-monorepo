@@ -147049,7 +147049,7 @@ do_8 = "Attempt 2 (continue): the explorer type-check failed on the ganache impo
 
 [task.22.33.284]
 title = "Repair audit record 22.30.133 medium findings in apps/explorer/ui/blocks/flashblocks (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.377", "22.31.378"]
@@ -342925,7 +342925,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.381]
 title = "Repair audit record 22.30.140 medium findings in services/explorer/backend/apps/explorer/lib/explorer/market (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.270"]
@@ -343517,7 +343517,7 @@ do_9 = "Attempt 1: seven tests receive -32000 transaction indexing is in progres
 
 [task.22.31.411]
 title = "Repair audit record 22.30.156 findings in services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x: test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
