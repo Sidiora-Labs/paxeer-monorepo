@@ -14965,3 +14965,23 @@ fix = "A declared path is a commitment: the attempt writes it or the ruling remo
 title = "The approval service refuses every awaiting hold with ClockRequired"
 symptom = "services/agent/crates/layerx-agentd/src/approval/mod.rs ApprovalService::list, get, approve and reject take a current sequence and no time, and reach the policy's validate_for_read in policy/approval.rs with no clock, which refuses with ClockRequired after reserve_and_hold_at has succeeded. 22.33.44 attempt 4 (2026-11-04 18:40Z) hit it in seven of fifteen human-service cases that drive the real service."
 fix = "Task 22.31.495 threads explicit time through the four service entry points into the timed policy functions; 22.33.44 requalifies after it."
+
+[gotcha.3029]
+title = "The current key-rotation lifecycle payload is refused by the disclosure binder and by the auth module"
+symptom = "layerx_intents::compile turns a KeyRotation intent into a 92-byte lifecycle payload with tag bytes 0x71 0x02 and four fields (owner digest, pending key, challenge bounds, effective sequence) under activity type governance/2. services/agent/crates/layerx-crypto/src/disclosure/call.rs binds recordLifecycle payloads only with tag byte 1 or 3 in four fixed shapes and refuses the rotation as MalformedPayload, and modules/layerxauth/keeper/lifecycle.go refuses any payload whose second byte is not 1 or 3 as non-canonical. 22.33.44 attempt 4 of the human service (2026-11-04 18:50Z) failed both rotation cases on the binder before custody."
+fix = "Decision 2540 and task 22.31.496: the binder and the module admit the compiler's rotation payload and forward it as activity type 0x00070002; 22.33.63 requalifies after it."
+
+[gotcha.3030]
+title = "22.33.593's paths named a crate directory that does not exist"
+symptom = "The task's paths placed services/mod.rs, verification_metrics.rs, vyper_verifier.rs, the task record and the test under services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/services, a directory the library crate does not have; the attempts wrote them under the server crate's src/services and were refused twice as outside the paths (attempt 2 at 2026-11-04 18:46Z)."
+fix = "The paths are replaced with the attempt-2 change set under the server crate plus the four files it wrote outside; a repair task's paths are checked against the tree before they are written (gotcha 3021)."
+
+[gotcha.3031]
+title = "A requalify started from an attempt whose result dropped files runs without them"
+symptom = "22.33.810 attempt 3 passed every gate with native_evidence.py, the native EVM fixture and the task record in its tree, but the result recorded them as outside the paths and dropped them (gotcha 3020); attempt 4, requalified from that result, failed at collection on the missing module (2026-11-04 18:47Z). 22.33.449 attempt 3, requalified from attempt 2, carried only the spec file because attempt 2's result had dropped media-type.ts (18:49Z)."
+fix = "A requalify names an attempt whose recorded tree holds every file, or the ruling continues and re-creates the dropped files; the rulings of this batch do the latter for 810 and start 449 from attempt 1, which holds the file."
+
+[gotcha.3032]
+title = "The gate of 22.33.18 ran the whole Python integration suite"
+symptom = "22.33.18 attempt 1 (2026-11-04 19:05Z) verified with the Makefile target that runs every test under tests/ci: 201 cases, eleven failures, of which eight belong to other work (two agent codec corpus cases, the cw20 deploy-script check, two retired-use kernel suite checks and 22.33.727's retained EIP-1559 case) and three are the task's own cases."
+fix = "The verify is narrowed to the task's test file and the five SDK test files in its paths; the eight unrelated failures are a closure-sweep finding, not re-run here."
