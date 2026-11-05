@@ -1,0 +1,39 @@
+[meta]
+task = "22.31.553"
+requirement = "22998.1"
+base_revision = "91fb5b27a85fa2ef8951324a5d04ff1b0a71fb3b"
+
+[diagnosis.register]
+case = "capability::effects::tests::register_is_unsupported_not_empty"
+side = "Stale test expectations; the production refusal is correct."
+cause = "plan already returns Unsupported(Register) and its assertion passes. The later must(derive_native_profile_effects(..., Registration { fee_asset })) panics because native_registration_terms requires a VerifiedLedgerPrincipal, while the fee-asset-only conversion sets principal to None. The old DID envelope also is not a LedgerRegister construct bound to an EVM signing hash."
+repair = "Assert the exact Unsupported(Register) Result for the fee-only registration profile and direct derivation instead of unwrapping a nonexistent authorization plan. Assert the same exact refusal for every legacy commitment input formerly unwrapped. Preserve all original unsupported, invalid-disclosure, unbounded-supply, custody and invalid-domain cases."
+contract = "No production capability check changes. Successful verified EVM registration authority and commitment remain exercised by the existing registration_principal tests in repair_22_33_13.rs."
+
+[diagnosis.historical_deployment]
+cases = ["read::program_node::historical_deployment_tests::historical_deployment_bridges_a_twenty_day_old_admission", "read::program_node::historical_deployment_tests::historical_deployment_bridges_a_full_non_adjacent_validator_rotation"]
+side = "Stale deployment fixture; verifier_for_fixture correctly pins the signing validators."
+cause = "deploy_fixture stores a bare interface descriptor in ChainDeploymentProof.interface. ChainDeploymentProof::verify now decodes that field as an authenticated CommitmentProof and correctly returns StateProof. The fixture also carries a native payload instead of the DeploymentExecutionProof required by ProtocolDeploymentVerifier::bind_chain_deployment."
+repair = "Build the local historical fixture using the existing checksum-pinned node producer recording: real Cosmos EVM deployment transaction, WASM, interface, success response and result leaf. Use its recorded authority policy, authenticate the interface with the existing store proof producer, and bind a signed predecessor proving program absence, transaction inclusion and the successor execution-result proof at heights 100 and 101. Re-sign both headers after binding their roots and links."
+assertions = "Retain exact bridge heights, twenty-day age, full non-adjacent validator rotation, omitted bridge rejection, stale-current rejection, forged-signature rejection and missing-rotation-step rejection. The current-head transaction check receives the enclosed producer transaction rather than the execution-evidence transport."
+contract = "No production verifier check changes. All proofs still pass through the real chain, state, interface, deployment execution and historical trust verifiers."
+
+[gotcha.fixture_contracts]
+observed = "A fee asset is not ledger ownership authority, a bare interface descriptor is not membership evidence, and deployment execution transport is not the transaction committed by a block data root."
+repair = "Keep exact refusals on insufficient authority and carry producer transaction bytes separately from the authenticated deployment execution envelope."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The identical candidate revision in the final passing build and verify ledger entries is the verified revision of this repair."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cg spec done 22.31.553 -f layerx-merge --root /work/paxeer-monorepo"
+test_command = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- capability::effects::tests::register_is_unsupported_not_empty read::program_node::historical_deployment_tests"
+results = "The exit and log fields of the final build and verify entries are authoritative gate results; this pre-gate record does not predict them. hf-done also checks the task graph. No task file is amended after the final gates."
+
+[qualification.build1]
+revision = "fa3d7ac73cbc931e1916f1db035cd8fcdb1964ea"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The local hex name resolves to layerx_programs::hex, whose encode requires a byte slice; the digest assertion passed its array by value."
+repair = "Borrow the digest array at the encoder call without changing its expected checksum."
