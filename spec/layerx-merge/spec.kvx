@@ -147834,7 +147834,7 @@ do_7 = "Attempt 3 (continue): attempt 2 requalified attempt 1's implementation o
 
 [task.22.31.512]
 title = "Restore the explorer frontend production build by keeping node-fetch out of the client and edge compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.503"]
