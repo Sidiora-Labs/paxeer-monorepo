@@ -166616,7 +166616,7 @@ do_5 = "Attempt 2 (after 22.31.497): attempt 1 could not qualify because the dae
 
 [task.22.31.491]
 title = "Add a committed preexecution refusal to the receipt corpus and prove it as the terminal-0 case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.486"]
