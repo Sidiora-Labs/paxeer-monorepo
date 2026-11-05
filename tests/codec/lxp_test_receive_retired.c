@@ -54,6 +54,38 @@ extern void lxp_ctx_asset_grant_state_stage(void);
 #pragma weak lx_asset_payer_grant_encode
 #pragma weak lxp_ctx_asset_grant_state_stage
 
+static const char *retirement_library_path;
+
+static FILE *retirement_archive_symbols(void)
+{
+    static const char prefix[] = "nm -g --defined-only -- ";
+    size_t length = strlen(retirement_library_path);
+    char *command;
+    char *cursor;
+    FILE *symbols;
+
+    if (length == 0U || length > (SIZE_MAX - sizeof(prefix) - 3U) / 4U)
+        return NULL;
+    command = malloc(sizeof(prefix) + 4U * length + 3U);
+    if (command == NULL) return NULL;
+    memcpy(command, prefix, sizeof(prefix) - 1U);
+    cursor = command + sizeof(prefix) - 1U;
+    *cursor++ = '\'';
+    for (size_t i = 0U; i < length; ++i) {
+        if (retirement_library_path[i] == '\'') {
+            memcpy(cursor, "'\\''", 4U);
+            cursor += 4U;
+        } else {
+            *cursor++ = retirement_library_path[i];
+        }
+    }
+    *cursor++ = '\'';
+    *cursor = '\0';
+    symbols = popen(command, "r");
+    free(command);
+    return symbols;
+}
+
 static int sign_activity(lxp_activity *activity, uint8_t public_key[32],
                          uint8_t signature[64])
 {
@@ -210,7 +242,7 @@ static int grant_store_symbols_absent(void)
     LXP_CASE_CHECK(lx_asset_payer_grant_encode == NULL);
     LXP_CASE_CHECK(lxp_ctx_asset_grant_state_stage == NULL);
     LXP_CASE_CHECK(lx_asset_module_iface() != NULL);
-    symbols = popen("nm -g --defined-only build/liblayerx.a", "r");
+    symbols = retirement_archive_symbols();
     LXP_CASE_CHECK(symbols != NULL);
     while (fgets(line, (int)sizeof(line), symbols) != NULL) {
         size_t length = strlen(line);
@@ -239,6 +271,13 @@ static int grant_store_symbols_absent(void)
 
 int main(int argc, char **argv)
 {
+    if (argc < 4 || strcmp(argv[1], "--library") != 0 || argv[2][0] == '\0') {
+        fprintf(stderr, "usage: %s --library <linked archive> <case>...\n", argv[0]);
+        return 2;
+    }
+    retirement_library_path = argv[2];
+    argc -= 2;
+    argv += 2;
     const lxp_kernel_case cases[] = {
         {"receive_and_grant_types_refused", receive_and_grant_types_refused},
         {"grant_store_symbols_absent", grant_store_symbols_absent}

@@ -20,6 +20,7 @@ export interface DaemonReceiptServiceProviders {
   readonly budgets?: AgentBudgetLedger;
   readonly signer: AgentSigner;
   readonly daemonReceiptStorePath: string;
+  readonly daemonReceiptEvidence?: AgentReceiptResolver;
   readonly daemonPreparationStorePath?: string;
   destroy?(): void | Promise<void>;
 }
@@ -45,6 +46,7 @@ export async function loadAgentServiceProviders(environment: Environment): Promi
     return { ...providers, signer, ...(providers.destroy === undefined ? {} : { destroy: providers.destroy.bind(providers) }) };
   }
   if (!("daemonReceiptStorePath" in providers) || typeof providers.daemonReceiptStorePath !== "string"
+    || providers.daemonReceiptEvidence !== undefined && typeof providers.daemonReceiptEvidence.resolve !== "function"
     || providers.daemonPreparationStorePath !== undefined && typeof providers.daemonPreparationStorePath !== "string"
     || (providers.budgets === undefined) === (providers.daemonPreparationStorePath === undefined)) throw new AgentIntegrationError("missing-declared-key");
   const protocolVersion = declaredProtocolVersion(required(environment, "LAYERX_PROTOCOL_VERSION"));
@@ -62,6 +64,7 @@ export async function loadAgentServiceProviders(environment: Environment): Promi
     };
     receipts = new DaemonReceiptResolver({
       transport: authenticated.transport, protocolVersion, storePath: providers.daemonReceiptStorePath, principal,
+      ...(providers.daemonReceiptEvidence === undefined ? {} : { receiptEvidence: providers.daemonReceiptEvidence }),
     });
     if (providers.daemonPreparationStorePath !== undefined) preparationBudgets = new DaemonPreparationBudget({
       transport: authenticated.transport, storePath: providers.daemonPreparationStorePath, principal,

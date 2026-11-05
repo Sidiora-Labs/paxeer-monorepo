@@ -42,7 +42,7 @@ const LEGACY_VERSION: u8 = 3;
 const MAX_AGENTS_PER_PAGE: u8 = 100;
 const MAX_EVIDENCE: usize = 64;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FinalizationEvidence {
     pub action_key: [u8; 32],
     pub activity_id: [u8; 32],
@@ -572,7 +572,33 @@ pub fn evidence_export(
         return Err(HumanOperationError::Refused);
     }
     let agent = decode(value.bytes())?;
-    if agent.agent_id != agent_id || !agent.verified_evidence.contains(&digest) {
+    if agent.agent_id != agent_id {
+        return Err(HumanOperationError::Refused);
+    }
+    if store
+        .get(&finalized_evidence_key(tenant, agent_id, digest)?)
+        .is_some()
+    {
+        let evidence = finalized_evidence(store, tenant, agent_id, digest)?;
+        let decoded = decode_receipt(&evidence.canonical_receipt)
+            .map_err(|_| HumanOperationError::Refused)?;
+        let protocol = decoded.protocol().ok_or(HumanOperationError::Refused)?;
+        return Ok(crate::receipt::ServedReceipt {
+            canonical_bytes: evidence.canonical_receipt.clone(),
+            metadata: crate::receipt::ReceiptMetadata {
+                activity_id: evidence.metadata.transaction_hash,
+                idempotency_key: evidence.metadata.transaction_hash,
+                global_sequence: protocol.global_sequence(),
+                verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+                result: crate::receipt::classify(layerx_types::result::ResultCode::from_raw(
+                    protocol.result_code(),
+                )),
+            },
+        });
+    }
+    if !agent.context.verified_evidence.contains(&digest)
+        && !agent.verified_evidence.contains(&digest)
+    {
         return Err(HumanOperationError::Refused);
     }
     let inventory = crate::receipt::evidence_inventory(store, tenant)
@@ -693,41 +719,21 @@ fn budget_observation(
         .get(&record)
         .ok_or(HumanOperationError::Unavailable)?
         .bytes();
-    if bytes.len() != 209
-        || bytes[..32] != budget
-        || bytes[49..81] != digest
-        || bytes[48] < 4
-        || bytes[48] > 5
-        || bytes[81..113] == [0; 32]
-        || bytes[113..145] == [0; 32]
-        || bytes[177..209] == [0; 32]
+    let (stored_budget, state) = crate::human_runtime::CoreBudgetState::decode_snapshot(bytes)
+        .map_err(|_| HumanOperationError::Refused)?;
+    if stored_budget != budget
+        || state.evidence_digest != digest
+        || state.verification != VerificationLevel::COMMITTED.wire_rank()
+        || state.receipt_digest == [0; 32]
+        || state.checkpoint_digest == [0; 32]
+        || state.asset == [0; 32]
     {
         return Err(HumanOperationError::Refused);
     }
-    let observed = u64::from_be_bytes(
-        bytes[40..48]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let age = u64::from_be_bytes(
-        bytes[145..153]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let maximum = u64::from_be_bytes(
-        bytes[153..161]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let remaining = u128::from_be_bytes(
-        bytes[161..177]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    if observed < minimum_sequence
-        || maximum == 0
-        || age > maximum
-        || (require_zero && remaining != 0)
+    if state.observed_head_sequence < minimum_sequence
+        || state.maximum_age_sequences == 0
+        || state.age_sequences > state.maximum_age_sequences
+        || (require_zero && state.remaining != 0)
     {
         return Err(HumanOperationError::Refused);
     }
@@ -985,7 +991,7 @@ pub fn finalize_journey(
                 _ => return Err(HumanOperationError::Refused),
             },
             match kind {
-                0 => 7,
+                0 => 8,
                 1 | 2 => 2,
                 _ => return Err(HumanOperationError::Refused),
             },
@@ -1516,14 +1522,34 @@ where
     };
     mutate(&mut agent)?;
     agent.updated_at = evidence.finalized_at;
+    if agent.verified_evidence.len() == MAX_EVIDENCE {
+        agent.verified_evidence.remove(0);
+    }
     agent.verified_evidence.push(evidence.receipt_digest);
     agent.validate()?;
     let response = response(&agent)?;
     let mut action = Vec::with_capacity(32 + response.bytes().len());
     action.extend_from_slice(&request_digest);
     action.extend_from_slice(response.bytes());
+    let index = FinalizedAction {
+        agent_id: agent_id.to_owned(),
+        evidence,
+        request_digest,
+    };
+    let index_bytes = serde_json::to_vec(&index).map_err(|_| HumanOperationError::Unavailable)?;
     store
-        .update_local_with_companion(aggregate_key, encode(&agent)?, action_key, action)
+        .commit_local_records(vec![
+            (aggregate_key, encode(&agent)?),
+            (action_key, action),
+            (
+                finalized_evidence_key(tenant, agent_id, evidence.receipt_digest)?,
+                index_bytes.clone(),
+            ),
+            (
+                finalized_transaction_key(tenant, evidence.activity_id)?,
+                index_bytes,
+            ),
+        ])
         .map_err(|_| HumanOperationError::Unavailable)?;
     Ok(response)
 }
@@ -1565,6 +1591,12 @@ fn validate_finalization_source(
                 .map_err(|_| HumanOperationError::Refused)?,
         ));
     }
+    if store
+        .get(&finalized_transaction_key(tenant, evidence.activity_id)?)
+        .is_some()
+    {
+        return Err(HumanOperationError::Refused);
+    }
     let served =
         crate::receipt::serve_committed_evidence(store, tenant.clone(), evidence.activity_id)
             .map_err(|_| HumanOperationError::Refused)?;
@@ -1572,12 +1604,13 @@ fn validate_finalization_source(
         decode_receipt(&served.canonical_receipt).map_err(|_| HumanOperationError::Refused)?;
     let protocol = receipt.protocol().ok_or(HumanOperationError::Refused)?;
     let digest: [u8; 32] = Sha256::digest(&served.canonical_receipt).into();
-    if !matches_finalized_operation(
+    if !(matches_finalized_operation(
         protocol.module_id(),
         protocol.operation(),
         expected_module,
         expected_operation,
-    ) || served.metadata.transaction_hash != evidence.activity_id
+    ) || (protocol.module_id() == 12 && protocol.operation() == 2))
+        || served.metadata.transaction_hash != evidence.activity_id
         || served.metadata.block_height != evidence.observed_sequence
         || !served.metadata.status
         || served.metadata.rung != layerx_types::rung::Rung::Committed
@@ -1596,12 +1629,415 @@ fn validate_finalization_source(
     if evidence.finalized_at < agent.updated_at {
         return Err(HumanOperationError::Refused);
     }
+    validate_projected_effect(store, tenant, &agent, operation, evidence, &receipt)?;
     Ok(FinalizationSource::Pending {
         aggregate_key,
         action_key,
         request_digest,
         agent: Box::new(agent),
     })
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct FinalizedAction {
+    agent_id: String,
+    evidence: FinalizationEvidence,
+    request_digest: [u8; 32],
+}
+
+fn finalized_evidence_key(
+    tenant: &TenantId,
+    agent: &str,
+    digest: [u8; 32],
+) -> Result<crate::store::TenantKey, HumanOperationError> {
+    key(
+        tenant.clone(),
+        ObjectKind::Audit,
+        [
+            b"managed-agent-evidence-v1:".as_slice(),
+            &cursor_for(agent),
+            &digest,
+        ]
+        .concat(),
+    )
+    .map_err(|_| HumanOperationError::Refused)
+}
+fn finalized_transaction_key(
+    tenant: &TenantId,
+    transaction: [u8; 32],
+) -> Result<crate::store::TenantKey, HumanOperationError> {
+    key(
+        tenant.clone(),
+        ObjectKind::Audit,
+        [b"managed-agent-effect-v1:".as_slice(), &transaction].concat(),
+    )
+    .map_err(|_| HumanOperationError::Refused)
+}
+
+/// Serves complete committed evidence even after it leaves the bounded agent view.
+pub fn finalized_evidence(
+    store: &Store,
+    tenant: &TenantId,
+    agent: &str,
+    digest: [u8; 32],
+) -> Result<crate::receipt::TransactionReceiptEvidence, HumanOperationError> {
+    load_agent(store, tenant, agent)?;
+    let record = store
+        .get(&finalized_evidence_key(tenant, agent, digest)?)
+        .ok_or(HumanOperationError::Refused)?;
+    let index: FinalizedAction =
+        serde_json::from_slice(record.bytes()).map_err(|_| HumanOperationError::Refused)?;
+    if record.class() != StorageClass::LocalOnly
+        || index.agent_id != agent
+        || index.evidence.receipt_digest != digest
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let served =
+        crate::receipt::serve_committed_evidence(store, tenant.clone(), index.evidence.activity_id)
+            .map_err(|_| HumanOperationError::Refused)?;
+    if Sha256::digest(&served.canonical_receipt).as_slice() != digest
+        || served.metadata.block_height != index.evidence.observed_sequence
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(served)
+}
+
+fn abi_word(data: &[u8], index: usize) -> Result<[u8; 32], HumanOperationError> {
+    data.get(4 + index * 32..4 + (index + 1) * 32)
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or(HumanOperationError::Refused)
+}
+fn abi_integer(data: &[u8], index: usize, width: usize) -> Result<u128, HumanOperationError> {
+    let word = abi_word(data, index)?;
+    if word[..32 - width].iter().any(|byte| *byte != 0) {
+        return Err(HumanOperationError::Refused);
+    }
+    let mut value = [0; 16];
+    value[16 - width..].copy_from_slice(&word[32 - width..]);
+    Ok(u128::from_be_bytes(value))
+}
+fn abi_dynamic(data: &[u8], words: usize, index: usize) -> Result<Vec<u8>, HumanOperationError> {
+    let offset = abi_integer(data, index, 8)? as usize;
+    if offset != words * 32 {
+        return Err(HumanOperationError::Refused);
+    }
+    let length = abi_integer(data, words, 8)? as usize;
+    if length > 4096 {
+        return Err(HumanOperationError::Refused);
+    }
+    let end = 4 + offset + 32 + length;
+    let padded = (end - 4 + 31) & !31;
+    let bytes = data
+        .get(4 + offset + 32..end)
+        .ok_or(HumanOperationError::Refused)?;
+    if data.len() != 4 + padded || data[end..].iter().any(|byte| *byte != 0) {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(bytes.to_vec())
+}
+
+fn require_committed_log(
+    receipt: &layerx_wire::receipt::Receipt,
+    address: [u8; 20],
+    event: &str,
+    id: [u8; 32],
+    data: &[u8],
+) -> Result<(), HumanOperationError> {
+    use layerx_crypto::evm_transaction::transaction_hash;
+    let protocol = receipt.protocol().ok_or(HumanOperationError::Refused)?;
+    let summary = layerx_proof::sequencer_logs::decode_summary(receipt)
+        .map_err(|_| HumanOperationError::Refused)?;
+    if summary.log_count() as usize + 1 != protocol.effects().len() {
+        return Err(HumanOperationError::Refused);
+    }
+    let mut expected = address.to_vec();
+    expected.push(2);
+    expected.extend_from_slice(&transaction_hash(event.as_bytes()));
+    expected.extend_from_slice(&id);
+    expected.extend_from_slice(&Sha256::digest(data));
+    if !protocol
+        .effects()
+        .iter()
+        .enumerate()
+        .skip(1)
+        .any(|(index, effect)| {
+            effect.module_id() == protocol.module_id()
+                && effect.ordinal() as usize == index
+                && effect.event_type() == 0
+                && effect.kind() == 3
+                && !effect.monetary()
+                && effect.transfer_set_root() == [0; 32]
+                && effect.body() == expected
+        })
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(())
+}
+
+fn validate_projected_effect(
+    store: &Store,
+    tenant: &TenantId,
+    agent: &ManagedAgent,
+    operation: &[u8],
+    evidence: FinalizationEvidence,
+    receipt: &layerx_wire::receipt::Receipt,
+) -> Result<(), HumanOperationError> {
+    use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let mut outbox = crate::outbox::Outbox::default();
+    outbox
+        .restore(store, tenant.clone(), evidence.activity_id)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let raw = outbox
+        .exact_signed_bytes(evidence.activity_id)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let (call, signature) = decode_signed(raw).map_err(|_| HumanOperationError::Refused)?;
+    let sender = recover_sender(&call, &signature).map_err(|_| HumanOperationError::Refused)?;
+    let authority = layerx_agent_api::identity::strict_hex32(
+        &agent.context.primary_authority,
+        "primary_authority",
+    )
+    .map_err(|_| HumanOperationError::Refused)?;
+    let protocol = receipt.protocol().ok_or(HumanOperationError::Refused)?;
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&sender);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&call.to);
+    if authority != from
+        || call.chain_id != u64::from(agent.context.network_id)
+        || protocol.from() != from
+        || protocol.to() != to
+        || agent.context.actor != format!("did:layerx:{}", hex(&agent.context.custody_public_key))
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    match operation.first().copied() {
+        Some(27) => {
+            let amount = u128::from_be_bytes(
+                operation
+                    .get(1..17)
+                    .ok_or(HumanOperationError::Refused)?
+                    .try_into()
+                    .map_err(|_| HumanOperationError::Refused)?,
+            );
+            let budget: [u8; 32] = operation
+                .get(
+                    operation
+                        .len()
+                        .checked_sub(32)
+                        .ok_or(HumanOperationError::Refused)?..,
+                )
+                .ok_or(HumanOperationError::Refused)?
+                .try_into()
+                .map_err(|_| HumanOperationError::Refused)?;
+            let registry = layerx_types::payload::ModuleRegistry::new(&[])
+                .map_err(|_| HumanOperationError::Refused)?;
+            let identity = crate::budget::budget_create_identity(raw, &registry)
+                .map_err(|_| HumanOperationError::Refused)?;
+            let account = layerx_types::account::AccountId::parse(&agent.context.budget_account)
+                .map_err(|_| HumanOperationError::Refused)?;
+            let budget_account = layerx_wire::hash::account_id_for_protocol(&account, 3)
+                .map_err(|_| HumanOperationError::Refused)?;
+            let expected_budget: [u8; 32] = Sha256::new()
+                .chain_update(b"layerx-human/agent-limit-budget/v1")
+                .chain_update(agent.active_budget_id)
+                .chain_update(evidence.action_key)
+                .finalize()
+                .into();
+            if identity.budget_id != budget
+                || budget != expected_budget
+                || identity.budget_account != budget_account
+                || identity.asset != agent.context.budget_asset
+                || identity.purpose != agent.context.purpose_hash
+                || identity.per_period_limit != amount
+                || identity.carry_cap != 0
+                || identity.rollover != 1
+                || identity.period_length_ms
+                    != agent
+                        .context
+                        .budget_period_seconds
+                        .checked_mul(1000)
+                        .ok_or(HumanOperationError::Refused)?
+                || operation.get(17..operation.len() - 32) != Some(agent.currency.as_bytes())
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            let mut data = identity.asset.to_vec();
+            data.extend_from_slice(&[0; 16]);
+            data.extend_from_slice(&identity.initial_amount.to_be_bytes());
+            require_committed_log(
+                receipt,
+                call.to,
+                "BudgetCreated(bytes32,bytes32,uint128)",
+                budget,
+                &data,
+            )
+        }
+        Some(26) if operation.get(1) == Some(&1) => {
+            if call.to != PrecompileTarget::Auth.address()
+                || call.data.get(..4)
+                    != Some(
+                        layerx_crypto::disclosure::call::ledger_selector(
+                            "grantSession(bytes,uint64,bytes32)",
+                        )
+                        .as_slice(),
+                    )
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            let grant_bytes = abi_dynamic(&call.data, 3, 0)?;
+            let grant = layerx_crypto::session::decode_session_key(&grant_bytes)
+                .map_err(|_| HumanOperationError::Refused)?;
+            if grant.grant_id != agent.protocol_grant_id
+                || abi_word(&call.data, 2)? != evidence.action_key
+                || grant.grantor != parse_agent_digest(&agent.agent_id)?
+                || abi_integer(&call.data, 1, 8)? == 0
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            let body = PrecompileCall {
+                target: PrecompileTarget::Auth,
+                selector: [0; 4],
+                arguments: vec![AbiArgument::Bytes(grant_bytes)],
+            }
+            .encode()
+            .map_err(|_| HumanOperationError::Refused)?;
+            require_committed_log(
+                receipt,
+                call.to,
+                "SessionGranted(bytes32,bytes)",
+                grant.grant_id,
+                &body[4..],
+            )
+        }
+        Some(26) | Some(29) => {
+            let reason = if operation[0] == 29 { 2 } else { 1 };
+            if call.to != PrecompileTarget::Auth.address()
+                || call.data.len() != 100
+                || call.data[..4]
+                    != layerx_crypto::disclosure::call::ledger_selector(
+                        "revokeGrant(bytes32,uint8,uint64)",
+                    )
+                || abi_word(&call.data, 0)? != agent.protocol_grant_id
+                || abi_integer(&call.data, 1, 1)? != reason
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            let sequence = abi_integer(&call.data, 2, 8)? as u64;
+            if sequence == 0 || sequence > evidence.observed_sequence {
+                return Err(HumanOperationError::Refused);
+            }
+            let mut revoked = agent.protocol_grant_id.to_vec();
+            revoked.push(reason as u8);
+            revoked.extend_from_slice(&sequence.to_be_bytes());
+            let body = PrecompileCall {
+                target: PrecompileTarget::Auth,
+                selector: [0; 4],
+                arguments: vec![AbiArgument::Bytes(revoked)],
+            }
+            .encode()
+            .map_err(|_| HumanOperationError::Refused)?;
+            require_committed_log(
+                receipt,
+                call.to,
+                "GrantRevoked(bytes32,bytes)",
+                agent.protocol_grant_id,
+                &body[4..],
+            )
+        }
+        Some(28) if operation.get(1) == Some(&0) => {
+            let amount = u128::from_be_bytes(
+                operation
+                    .get(2..18)
+                    .ok_or(HumanOperationError::Refused)?
+                    .try_into()
+                    .map_err(|_| HumanOperationError::Refused)?,
+            );
+            if call.to != PrecompileTarget::Pay.address()
+                || call.data.len() != 68
+                || call.data[..4]
+                    != layerx_crypto::disclosure::call::ledger_selector(
+                        "budgetDefund(bytes32,uint128)",
+                    )
+                || abi_word(&call.data, 0)? != agent.active_budget_id
+                || abi_integer(&call.data, 1, 16)? != amount
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            let remaining_limit = agent
+                .monthly_limit
+                .checked_sub(amount)
+                .ok_or(HumanOperationError::Refused)?;
+            let data = [
+                vec![0; 16],
+                amount.to_be_bytes().to_vec(),
+                vec![0; 16],
+                remaining_limit.to_be_bytes().to_vec(),
+            ]
+            .concat();
+            require_committed_log(
+                receipt,
+                call.to,
+                "BudgetDefunded(bytes32,uint128,uint128)",
+                agent.active_budget_id,
+                &data,
+            )
+        }
+        Some(28) => {
+            // Bind the exact canonical delayed-key payload, including its challenge window.
+            if call.to != PrecompileTarget::Auth.address()
+                || call.data.get(..4)
+                    != Some(
+                        layerx_crypto::disclosure::call::ledger_selector(
+                            "recordLifecycle(bytes,bytes32)",
+                        )
+                        .as_slice(),
+                    )
+                || abi_word(&call.data, 1)? != evidence.action_key
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            let payload = abi_dynamic(&call.data, 2, 0)?;
+            let did = layerx_types::ids::Did::new(agent.context.actor.as_bytes())
+                .map_err(|_| HumanOperationError::Refused)?;
+            let owner = layerx_wire::hash::did_id_for_protocol(&did, 3)
+                .map_err(|_| HumanOperationError::Refused)?;
+            let tail = operation
+                .len()
+                .checked_sub(80)
+                .ok_or(HumanOperationError::Refused)?;
+            let delay = u64::from_be_bytes(
+                operation
+                    .get(tail..tail + 8)
+                    .ok_or(HumanOperationError::Refused)?
+                    .try_into()
+                    .map_err(|_| HumanOperationError::Refused)?,
+            );
+            let ready = u64::from_be_bytes(
+                operation
+                    .get(tail + 8..tail + 16)
+                    .ok_or(HumanOperationError::Refused)?
+                    .try_into()
+                    .map_err(|_| HumanOperationError::Refused)?,
+            );
+            if payload.len() != 92
+                || payload[..4] != [0x71, 2, 0, 4]
+                || payload[4..36] != owner
+                || payload[36..68] == [0; 32]
+                || payload[68..76] != evidence.finalized_at.to_be_bytes()
+                || payload[76..84] != ready.to_be_bytes()
+                || ready.checked_sub(evidence.finalized_at) != Some(delay)
+                || payload[84..92] != evidence.observed_sequence.to_be_bytes()
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            Ok(())
+        }
+        _ => Err(HumanOperationError::Refused),
+    }
 }
 
 fn valid_finalization_shape(evidence: FinalizationEvidence) -> bool {
@@ -2412,19 +2848,10 @@ pub fn record_budget_snapshot(
     budget: [u8; 32],
     state: &crate::human_runtime::CoreBudgetState,
 ) -> Result<HumanResponse, HumanOperationError> {
-    let mut out = Wire::new();
-    out.fixed(&budget);
-    out.u64(state.revocation_sequence);
-    out.u64(state.observed_head_sequence);
-    out.u8(state.verification);
-    out.fixed(&state.evidence_digest);
-    out.fixed(&state.receipt_digest);
-    out.fixed(&state.checkpoint_digest);
-    out.u64(state.age_sequences);
-    out.u64(state.maximum_age_sequences);
-    out.u128(state.remaining);
-    out.fixed(&state.asset);
-    let response = out.finish()?;
+    let bytes = state
+        .encode_snapshot(budget)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let response = HumanResponse::new(bytes).map_err(|_| HumanOperationError::Refused)?;
     record_observation(
         store,
         tenant,

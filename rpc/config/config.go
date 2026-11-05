@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
@@ -10,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/spf13/cast"
 )
+
+var ErrInvalidRPCStatsInterval = errors.New("evm.rpc_stats_interval must be at least 1ns so the metrics ticker interval is positive")
 
 const (
 	// BatchRequestLimit is the default maximum number of requests in an RPC batch.
@@ -44,6 +47,9 @@ const (
 	// goroutine creation on high-core machines. Tasks are primarily I/O bound
 	// (fetching and processing block logs), so 2x CPU cores can be excessive.
 	MaxWorkerPoolSize = 64
+
+	// MinFilterTimeout keeps the half-timeout cleanup ticker positive.
+	MinFilterTimeout = 2 * time.Nanosecond
 )
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
@@ -404,7 +410,7 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 			return cfg, fmt.Errorf("%s: %w", flagFilterTimeout, err)
 		}
 	}
-	if cfg.FilterTimeout < 2*time.Nanosecond {
+	if cfg.FilterTimeout < MinFilterTimeout {
 		return cfg, fmt.Errorf("%s must be at least 2ns so the cleanup ticker interval is positive", flagFilterTimeout)
 	}
 	if v := opts.Get(flagMaxTxPoolTxs); v != nil {
@@ -483,7 +489,7 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 		}
 	}
 	if cfg.RPCStatsInterval < time.Nanosecond {
-		return cfg, fmt.Errorf("%s must be at least 1ns so the metrics ticker interval is positive", flagRPCStatsInterval)
+		return cfg, ErrInvalidRPCStatsInterval
 	}
 	if v := opts.Get(flagWorkerPoolSize); v != nil {
 		if cfg.WorkerPoolSize, err = cast.ToIntE(v); err != nil {

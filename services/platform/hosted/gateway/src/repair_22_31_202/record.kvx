@@ -1,0 +1,117 @@
+[task]
+id = "22.31.202"
+mode = "BUILD"
+base = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+qualification = "Only hf-build then hf-done; exact candidate revision, command, exit and private log are recorded by the runner in /out/run/gates.jsonl. This source record does not assert an unrun gate."
+baseline = "No baseline verification ran: the integration target did not exist on entry, and the explicit gate order forbids running verify_cmd by hand or before the completed implementation."
+
+[finding.node-root]
+proof = "repair_22_31_202_real_producer_paths -> node_root_and_settlement_component_gate"
+asserts = "The real gateway HTTP parser, route, capability admission and node client use loopback TLS peers replaying committed transcripts. Assert root-path reads, all seven probes and recorded signed transaction submission on the wire; repeat reads with an explicit domain path."
+
+[finding.history-schema]
+proof = "repair_22_31_202_real_producer_paths -> history_schema"
+asserts = "Decode committed node block and receipt transcripts with the real indexer codec, commit its in-memory store and serve its original API over loopback. Validate both nonempty gateway answers against every keyword in the closed OpenRPC schemas; reject the old schemas, missing aliases, malformed hashes and extra fields; deserialize the exact answers into a closed Rust consumer DTO and require lossless equality and tx_hash == tx_id."
+
+[finding.settlement-component-gate]
+proof = "repair_22_31_202_real_producer_paths -> node_root_and_settlement_component_gate"
+asserts = "Merchant POST /v1/settle authenticates a rotated Redis key with kernel variables absent; the recorded receipted transaction is pending, the original signed committed payExact recording settles and a corrupt receipt signature is refused."
+
+[finding.identity-config-coupling]
+proof = "repair_22_31_202_real_producer_paths -> identity_config_coupling"
+asserts = "Run the production configuration loader and gateway routes with all kernel variables absent. Replay committed identity/faucet wire transcripts over TLS for signup, verification, introspection and starter-credit pending/success. Issue, list and rotate credentials through the actual RedisStore TLS/RESP client and in-memory Redis peer; verify old-key revocation and a retained faucet claim."
+
+[finding.state-retired-producer]
+proof = "repair_22_31_202_real_producer_paths -> state_retired_producer"
+asserts = "Replay unchanged original node consensus headers, signatures and validators over HTTP. The real state route verifies the BFT quorum and binds root/height/hash using the recorded capture epoch injected into the embeddable server clock. Stop and reopen the gateway and Redis client; require recovered state/key revocation, historical-proof refusal, the original 120-second age bound and persisted rollback/equal-height-fork refusal."
+
+[wiring.sdk]
+request = "sdk/wallet/src/types.ts and sdk/wallet/src/endpoint.ts — SDK domain: expose tx_hash and the gateway position fields in history DTOs while preserving tx_hash == tx_id; run the same closed-schema recording and exact alias-equality cases in the owning TypeScript suite; this Rust gate uses its own strict consumer DTO without invoking another toolchain."
+
+[wiring.web]
+request = "apps/web/src/api/gateway.ts — web domain: expose the declared tx_hash alias in the view DTO while preserving exact tx_id equality; run the same closed-schema recording and exact alias-equality cases in the owning web suite without weakening DTO equality."
+
+[wiring.manifest]
+request = "services/platform/hosted/gateway/Cargo.toml — platform dependency owner: declare layerx-committed-proof directly; the scoped source adapter currently compiles the original shared verifier without copying it or editing its owning module."
+
+[wiring.deployment]
+request = "services/platform/hosted/gateway deployment configuration — platform operations domain: mount LAYERX_GATEWAY_STATE_VALIDATORS_FILE with chain_id and ordered genesis/trusted validator public_key and voting_power pins, configure the node consensus TLS origin, and rotate pins under authenticated validator-set changes."
+
+[wiring.funding]
+request = "services/platform/hosted/testnet — funding domain: qualify the live funding transport separately; this gateway repair consumes explicit pending and successful peer transcripts and makes no live funding claim."
+
+[gotcha.scope]
+observed = "The generated workflow asks for spec/GOTCHA edits and publication; this task's explicit scope and runner ownership prohibit both. Record findings here, leave pre-existing runner bookkeeping intact and do not commit or push."
+
+[gotcha.proof-dependency]
+observed = "The consensus proof implementation already exists in services/interop/crates/layerx-committed-proof, but the gateway manifest is outside the repair scope. Reuse its actual source and root module names; request a manifest edge from its owner instead of duplicating verification code."
+
+[qualification.initial]
+revision = "840da446ec5469d4585edb688fc644e96744d3d0"
+command = "cg spec done 22.31.202 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The integration setup omitted the real node's native dependencies, so Go linking failed before gateway assertions; setup now invokes the existing paxd-native-libs producer target."
+
+[qualification.continuation]
+observed = "The supplied attempt-1 evidence reports the old integration test failed with paxeer_unreachable after 484.42 seconds; no baseline is rerun because the mandated order permits only hf-build then hf-done after complete implementation."
+resolution = "Delete the two added bin targets and foreign-toolchain helpers. All gate inputs now live under gateway/tests/fixtures; peers are in-process loopback TLS/HTTP/RESP servers and an in-memory indexer store. No external process, credential, environment setup or network access is required by the test."
+
+[gotcha.recorded-time]
+observed = "A signed immutable chain recording becomes stale against the live system clock."
+resolution = "The embeddable gateway shares the binary source and accepts a trusted state verification clock; tests inject the original capture epoch and explicitly advance it beyond 120 seconds to prove freshness refusal without altering signed bytes or loosening the bound."
+
+[gotcha.fixture-script]
+observed = "A fixture-copy script shadowed its source document variable and failed before writing consensus.json; the source HTTP path was also initially mistyped during a read."
+resolution = "Reload the committed source document under a distinct name, retain its signatures unchanged and use hosted/internal/src/http.rs for the actual transport definition."
+
+[qualification.repair-1]
+revision = "00ef225f93c2725368eac2734145d46fee20f9b5"
+command = "cg spec done 22.31.202 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The in-process fixture preinstalled the TLS provider and the original gateway initialization rejected the repeated process-wide installation before any request."
+resolution = "Give fixture listeners an explicit ring provider and initialize the production gateway provider once, retaining the original provider-install failure check; rebuilding the server now reuses successful initialization."
+
+[qualification.repair-2]
+revision = "e0ab8a60e5551daea25ad675be0db0fc79666164"
+command = "cg spec done 22.31.202 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "Registration rejected the peer fixture verification token before transport because its required vfy_ prefix was absent."
+resolution = "Correct the fixture token and matching request; align pending and session response fields and session token encoding with the identity producer, preserving exact response assertions."
+
+[qualification.history-contract-conflict]
+observed = "Static inspection of indexer/src/store.rs transfer_document shows final_basis, stability and settlement emitted on every row, while both gateway closed history schemas and the strict consumer DTO omit them."
+assumption = "These existing producer additions are outside the tx_hash proposal; preserve the producer, schema checks and DTO rather than strip fields or widen a type to pass the gate."
+wiring = "services/platform/hosted/indexer/src/store.rs and gateway/openrpc.json — indexer and gateway contract owners: coordinate precise finality and settlement contracts across both closed history schemas and consumers in a separate repair."
+
+[qualification.attempt-3-continuation]
+observed = "The supplied attempt-2 evidence reports Invalid params at the verified signup assertion; OpenRPC describes only two registration parameters although register_step accepts a third email or verification token."
+resolution = "Publish the handler's optional email_or_verification_token parameter and exact signer/signature encodings. Construct both signup requests by schema parameter name, validate required fields and types, and assert acceptance before the original exact identity response equality."
+evidence = "The final hf-build and hf-done entries in /out/run/gates.jsonl name the candidate revision, exact command, exit and private log; no baseline or additional gate is run by hand."
+
+[gotcha.registration-schema]
+observed = "The registration producer accepts signup and verification forms that were absent from its published positional parameter list."
+resolution = "Keep the optional third parameter aligned with register_step and build the integration requests from the declared names and encodings, preserving the original exact response assertion."
+
+[qualification.attempt-5-continuation]
+observed = "Attempt 4 reached the history contract assertion; the actual indexer transfer_document always emits final_basis, stability and settlement, which the closed schemas and closed consumer DTO did not declare."
+resolution = "Both history result schemas now require the exact producer fields, with closed stability and settlement objects and precise scalar types. The strict consumer DTO retains every field and exact equality; capture and decode the real in-memory indexer store projection once, then compare every recorded producer field through both gateway methods. Keep the existing identity, settlement and restart/stale-proof assertion groups."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; no baseline or manual verify run is repeated."
+
+[wiring.node-history]
+request = "Node-root history method (task 22.34.3) — node domain: adopt the same final_basis, stability and settlement shape as the indexer and both gateway history schemas."
+
+[gotcha.seed-conflicts]
+observed = "The seed overlaps later node endpoint and readiness changes in main.rs."
+resolution = "Retain the current node endpoint parser and readiness filtering; add the seed committed-state authority and clock configuration beside them, without reintroducing retired readiness dependencies."
+
+[gotcha.tool-inspection]
+observed = "An executable was read as text while inspecting toolchain setup, producing unusable binary output."
+resolution = "Inspect executable paths with type or file and read only confirmed source scripts."
+
+[qualification.attempt-6-continuation]
+observed = "Attempt 5 could not load the platform workspace because its Paxeer member manifest was missing; the supplied continuation base 71ea2b5cfcf9fa483db0ed65d0630e08bca86d9f contains the restored manifest from 22.31.465."
+resolution = "Retain the attempt-5 implementation, closed history schemas and strict producer-consumer assertions; qualify this unchanged repair on the restored workspace with hf-build then hf-done."
+evidence = "The runner records the exact final candidate revision, command, exit and private log in /out/run/gates.jsonl. No gate is claimed here before it runs, and no source changes follow a passing hf-done."

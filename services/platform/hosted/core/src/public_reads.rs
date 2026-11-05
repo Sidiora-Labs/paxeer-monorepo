@@ -92,8 +92,7 @@ pub(super) fn native_account_result(
     let Some(native) = joined.paxeer else {
         return refusal(503, "account_evidence_unavailable", Some(5));
     };
-    let mut expected_balance = [0; 32];
-    expected_balance[16..].copy_from_slice(&native.balance.to_be_bytes());
+    let expected_balance = native.balance.bytes();
     if height == 0
         || joined.account.evm_address != Some(native.address)
         || committed_balance != expected_balance
@@ -134,62 +133,56 @@ impl AssetSnapshotError {
 
 fn asset_json(asset: &PxAssetEntry) -> Result<serde_json::Value, AssetSnapshotError> {
     let mut metadata = serde_json::Map::new();
-    if let Some(layerx) = &asset.layerx {
-        let symbol = layerx
-            .get("symbol")
-            .and_then(serde_json::Value::as_str)
-            .ok_or(AssetSnapshotError::InvalidSymbol)?;
+    if let Some(symbol) = &asset.symbol {
         if !(1..=16).contains(&symbol.len()) || !symbol.is_ascii() {
             return Err(AssetSnapshotError::InvalidSymbol);
         }
-        for key in [
-            "symbol",
-            "name",
-            "decimals",
-            "custody_kind",
-            "custody_reference",
-            "paused",
-            "supply_cap",
-            "issuer_did",
-            "issuer_kind",
-            "total_units",
-            "salt",
-        ] {
-            if let Some(value) = layerx.get(key) {
-                metadata.insert(key.to_owned(), value.clone());
-            }
-        }
+        metadata.insert("symbol".to_owned(), symbol.clone().into());
     }
-    metadata.insert("asset_id".to_owned(), hex_encode(&asset.asset_id).into());
-    if let Some(custody) = &asset.paxeer {
-        metadata.insert("paused".to_owned(), custody.paused.into());
+    if let Some(name) = &asset.name {
+        metadata.insert("name".to_owned(), name.clone().into());
+    }
+    if let Some(decimals) = asset.decimals {
+        metadata.insert("decimals".to_owned(), decimals.into());
+    }
+    if let Some(supply) = asset.supply {
+        metadata.insert("total_units".to_owned(), supply.to_string().into());
+    }
+    metadata.insert("asset_id".to_owned(), asset.asset_id.clone().into());
+    if let Some(paused) = asset.paused {
+        metadata.insert("paused".to_owned(), paused.into());
     }
     Ok(serde_json::Value::Object(metadata))
 }
 
+pub(super) fn native_asset_result(asset: &PxAssetEntry) -> Response {
+    match asset_json(asset) {
+        Ok(asset) => success(&serde_json::json!({"asset": asset})),
+        Err(error) => error.response(),
+    }
+}
+
+pub(super) fn native_assets_result(table: &layerx_client::px::PxAssetTable) -> Response {
+    match table
+        .assets
+        .iter()
+        .map(asset_json)
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(assets) => success(&serde_json::json!({"assets": assets})),
+        Err(error) => error.response(),
+    }
+}
+
 fn assets(config: &Config, id: Option<[u8; 32]>) -> Response {
     if let Some(id) = id {
-        return match payments::get_asset(&config.network, id) {
-            Ok(asset) => match asset_json(&asset) {
-                Ok(asset) => success(&serde_json::json!({"asset": asset})),
-                Err(error) => error.response(),
-            },
+        return match payments::get_asset(&config.network, hex_encode(&id)) {
+            Ok(asset) => native_asset_result(&asset),
             Err(_) => refusal(503, "asset_evidence_unavailable", Some(5)),
         };
     }
     match payments::list_assets(&config.network) {
-        Ok(table) => {
-            let assets = match table
-                .assets
-                .iter()
-                .map(asset_json)
-                .collect::<Result<Vec<_>, _>>()
-            {
-                Ok(assets) => assets,
-                Err(error) => return error.response(),
-            };
-            success(&serde_json::json!({"assets": assets}))
-        }
+        Ok(table) => native_assets_result(&table),
         Err(_) => refusal(503, "asset_evidence_unavailable", Some(5)),
     }
 }
@@ -374,12 +367,20 @@ fn node_info(config: &Config) -> Response {
     else {
         return refusal(503, "node_unavailable", Some(5));
     };
+    native_node_info_result(head, key, checkpoint.hash)
+}
+
+pub(super) fn native_node_info_result(
+    head: layerx_client::px::PxNetworkHead,
+    key: &layerx_client::sequencer::ReceiptKeyEntry,
+    checkpoint_hash: [u8; 32],
+) -> Response {
     success(&serde_json::json!({
         "protocol_version": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
         "network_id": head.network_id,
         "chain_head_sequence": head.latest_committed_height.to_string(),
         "latest_sealed_batch": head.paxeer.latest_block.to_string(),
-        "latest_finalised_checkpoint": hex_encode(&checkpoint.hash),
+        "latest_finalised_checkpoint": hex_encode(&checkpoint_hash),
         "authorised_sequencer_key": hex_encode(&key.public_key),
         "capabilities": head.layerx.unwrap_or_default()
     }))
@@ -692,18 +693,16 @@ mod tests {
     }
 
     fn asset(symbol: &[u8]) -> super::PxAssetEntry {
-        let symbol = match std::str::from_utf8(symbol) {
-            Ok(symbol) => serde_json::Value::String(symbol.to_owned()),
-            Err(_) => serde_json::json!(symbol),
-        };
         super::PxAssetEntry {
-            asset_id: [1; 32],
-            layerx: Some(serde_json::Map::from_iter([
-                ("symbol".to_owned(), symbol),
-                ("name".to_owned(), "Test asset".into()),
-                ("decimals".to_owned(), 6.into()),
-            ])),
-            paxeer: None,
+            asset_id: "01".repeat(32),
+            kind: "ledger".to_owned(),
+            denom: None,
+            name: Some("Test asset".to_owned()),
+            symbol: Some(String::from_utf8_lossy(symbol).into_owned()),
+            decimals: Some(6),
+            supply: None,
+            paused: None,
+            verification: None,
         }
     }
 

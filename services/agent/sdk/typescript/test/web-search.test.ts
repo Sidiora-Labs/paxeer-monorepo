@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -9,6 +10,7 @@ import { test, type TestContext } from "node:test";
 import { recordedWebRpc, webReceiptKeys, exactRecording, sellerFixture } from "./recorded-web-search.js";
 
 import {
+  JsonRpcClient,
   WebSearchClient,
   WebSearchError,
   contentDigest,
@@ -18,6 +20,8 @@ import {
   webContentBytes,
   type PayerGrant,
   type WebSearchCurrency,
+  type WebSearchClientOptions,
+  type WebSearchExactLogPayment as WebSearchExactPayment,
   type WebSearchOffer,
   type WebSearchPayer,
 } from "../src/index.js";
@@ -162,11 +166,18 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
     };
     const exactIn = (currency: WebSearchCurrency): WebSearchPayer => ({
       preferences: [{ currency, scheme: "exact" }],
-      exact: async () => ({
-        receipt: base64(((settlementOf(exchange[fetchIndex(currency)]!)["extensions"] as Json)["layerx"] as Json)["receipt"] as string),
-        rawTransaction: bytes(exactRecording.payments[currency].rawTransaction.slice(2)),
-        idempotencyKey: exactRecording.payments[currency].idempotencyKey,
-      }),
+      exact: async (): Promise<WebSearchExactPayment> => {
+        const payment = exactRecording.payments[currency];
+        const answer = exactRecording.endpoints.gateway["*"].find(rule => rule.method === "pax_sequencerReceipt" && rule.params[0] === payment.txHash);
+        assert.ok(answer);
+        const result = answer.result as { receipt: string; logs: WebSearchExactPayment["logs"] };
+        const receipt = bytes(result.receipt.slice(2));
+        const digest = createHash("sha256").update("LXP/v1/receipt\0", "ascii")
+          .update(receipt.subarray(0, -69)).update(Uint8Array.of(0)).digest("hex");
+        assert.equal(digest, (payload(exchange[fetchIndex(currency)]!))["receiptDigest"]);
+        return { receipt, txHash: payment.txHash, logs: result.logs,
+          rawTransaction: bytes(payment.rawTransaction.slice(2)), idempotencyKey: payment.idempotencyKey };
+      },
     });
     const exactUsdc = exactIn("USDC");
 
@@ -210,6 +221,45 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
       await sidecar.close();
     }
 
+    for (const alter of [
+      () => [],
+      (logs: WebSearchExactPayment["logs"]) => [...logs, ...logs],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, address: "0x000000000000000000000000000000000000101b" }],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, topics: logs[0]!.topics.slice(0, 3) }],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, topics: logs[0]!.topics.map((topic, index) => index === 0 ? `0x${"11".repeat(32)}` : topic) }],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, topics: logs[0]!.topics.map((topic, index) => index === 3 ? `0x${"11".repeat(32)}` : topic) }],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, data: `0x${"11".repeat(32)}${logs[0]!.data.slice(66)}` }],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, data: `${logs[0]!.data.slice(0, 66)}01${logs[0]!.data.slice(68)}` }],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, data: `${logs[0]!.data.slice(0, 98)}${"00".repeat(16)}` }],
+      (logs: WebSearchExactPayment["logs"]) => [{ ...logs[0]!, data: logs[0]!.data.slice(0, -2) }],
+    ]) {
+      const sidecar = await replay(clone());
+      try {
+        const payer: WebSearchPayer = { ...exactUsdc, exact: async (offer, target) => {
+          const payment = await exactUsdc.exact!(offer, target) as WebSearchExactPayment;
+          return { ...payment, logs: alter(payment.logs) };
+        } };
+        await refused(client(sidecar.endpoint, payer).fetch(fetchUrl("USDC")), "receipt-offer-mismatch");
+        assert.deepEqual(sidecar.served, [usdcPaid - 1]);
+        assert.deepEqual(sidecar.unrecorded, []);
+      } finally { await sidecar.close(); }
+    }
+    for (const address of ["", payerAddress.slice(2), `0X${payerAddress.slice(2)}`, `${payerAddress}00`, payerAddress.slice(0, -1), `0x${"gg".repeat(20)}`, "did:layerx:buyer"]) {
+      assert.throws(() => client("http://127.0.0.1", { ...meteredSid, address }), (error: unknown) => {
+        assert.ok(error instanceof WebSearchError);
+        assert.equal(error.code, "invalid-payer-address");
+        return true;
+      });
+    }
+    {
+      const sidecar = await replay(clone());
+      try {
+        assert.ok((await client(sidecar.endpoint, { ...meteredSid, address: `0x${payerAddress.slice(2).toUpperCase()}` }).search("paxeer")).settlement);
+        assert.deepEqual(sidecar.served, [0, 1]);
+        assert.deepEqual(sidecar.unrecorded, []);
+      } finally { await sidecar.close(); }
+    }
+
     // SID metered: the client's payment is byte-for-byte the recorded one, the settlement repeats the challenge's
     // purposeHash and the search results are released.
     await context.test("metered search accepts the unmodified producer receipt", async () => {
@@ -250,7 +300,8 @@ export async function webSearchClientTests(context: TestContext): Promise<void> 
       [(settlement: Json) => { settlement["amount"] = "1"; }, "settlement-mismatch"],
       [(settlement: Json) => { settlement["transaction"] = `0x${"11".repeat(32)}`; }, "settlement-receipt-mismatch"],
       [(settlement: Json) => {
-        settlement["extensions"] = settlementOf(exchange[fetchIndex("SID")]!)["extensions"];
+        (settlement["extensions"] as { layerx: Json }).layerx["receiptDigest"] =
+          (settlementOf(exchange[fetchIndex("SID")]!)["extensions"] as { layerx: Json }).layerx["receiptDigest"];
         settlement["transaction"] = settlementOf(exchange[fetchIndex("SID")]!)["transaction"];
       }, "settlement-receipt-mismatch"],
     ] as const) {

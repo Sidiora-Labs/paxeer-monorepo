@@ -1,0 +1,28 @@
+[task]
+id = "22.33.190"
+audit = "22.30.12"
+acceptance = "22998.1"
+verified_revision_source = "The bounded runner records the exact candidate revision, command, exit and private evidence log in /out/run/gates.jsonl."
+baseline = "Not run: the explicit implementation-first order and single bounded verification prohibit the contradictory pre-change verification step; no pre-change result is claimed."
+
+[finding.f005]
+tests = ["presenceNewestFiveMinuteSampleAcrossFullHistory"]
+repair = "Select the newest history sample at or before the five-minute cutoff for both delta5m and rising percentages."
+proof = "Real HTTP heartbeats produce sixteen changing minute samples for two markets, retain a complete twelve-slot window and assert both exact and between-sample five-minute comparisons."
+
+[finding.f006]
+tests = ["presenceServerIdentitiesBoundSpoofedRegistrations", "presenceDirectSocketBudgetsIgnoreForwardedHeaders", "presenceCapacityPreservesVisitorsAndExpires"]
+repair = "Issue random 256-bit five-minute HttpOnly SameSite=Strict cookies, bind identities to canonical trusted client IPs, admit at most five identities and five registrations per minute per client, cap client budgets at 5000, preserve existing identities on refusal and count only fifteen-second heartbeats."
+proof = "Real loopback clients traverse Next apiResolver and an ingress fixture that overwrites caller headers; assertions cover 1024 spoofed registrations, body ID rotation, cookie theft, identity and heartbeat expiry, IP aliases, malformed ingress identity, capacity refusal, existing-visitor renewal and capacity recovery."
+deployment_limit = "Presence is process-local; clients behind an unconfigured ingress share its socket budget, and shared NAT clients share the five-identity allowance."
+
+[wiring.deployment-proxy]
+request = "Domain 3 markets deployment owner: in apps/perps/railway.json and the ingress proxy configuration, restrict origin access to ingress, strip caller client-identity headers, overwrite X-Real-IP from the verified connection address, and set PRESENCE_TRUSTED_PROXY_IPS to exact ingress socket peer IPs; coordinate shared admission state or ingress-wide enforcement before horizontally scaling presence."
+
+[qualification.environment]
+revision = "560c25554a32927f16a1435dea3d2b064373a71b"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The existing wallet SDK imports lack the wallet workspace installation, including viem and the linked agent SDK browser module."
+resolution = "Provision committed frozen workspace dependencies without scripts or source changes; retain the unrelated compiler failure as environment evidence."

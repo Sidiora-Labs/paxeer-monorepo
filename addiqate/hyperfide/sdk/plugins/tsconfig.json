@@ -1,0 +1,16 @@
+{
+  "extends": [
+    "@hyperfide/tsconfig/base.json",
+    "@hyperfide/tsconfig/typecheck-overrides.json"
+  ],
+  "compilerOptions": {
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src"
+  ]
+}

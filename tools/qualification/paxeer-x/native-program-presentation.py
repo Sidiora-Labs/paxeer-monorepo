@@ -9,6 +9,11 @@ import sys
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import human_native_custody as build_contract
+
+TARGETS = ('native_program_presentation',)
+BUILD_PROFILE = 'native-program-presentation'
 TEST = "real_program_call_presentation_preserves_limits_and_owned_verified_budget"
 SOURCES = (
     "services/agent/crates/layerx-agentd/src/approval/native_program.rs",
@@ -27,7 +32,25 @@ def require(value, message):
         raise RuntimeError(message)
 
 
+
+def build_manifest_path():
+    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent'))
+    return Path(os.environ.get('PAXEER_X_NATIVE_PROGRAM_PRESENTATION_BUILD_MANIFEST',
+                               str(target / 'paxeer-x' / (BUILD_PROFILE + '.json'))))
+
+
+def admit_build_manifest(path, source=None, root=ROOT):
+    if source is None:
+        source = build_contract.BUILD.source_identity(root)
+    return build_contract.admit_test_manifest(path, source, TARGETS, root)
+
+
 def main():
+    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent'))
+    if sys.argv[1:] == ['--build']:
+        build_contract.build_test_targets(build_manifest_path(), TARGETS, target)
+        return
+    require(not sys.argv[1:], 'unsupported gate arguments')
     path = os.environ.get("PAXEER_X_NATIVE_PROGRAM_PRESENTATION_FIXTURE")
     require(
         path,
@@ -55,19 +78,9 @@ def main():
         ),
         "real fixture does not bind final intake and producer sources",
     )
-    target = Path(os.environ.get("CARGO_TARGET_DIR", "/root/lx-target/agent"))
-    binaries = [
-        binary
-        for binary in (target / "debug/deps").glob("native_program_presentation-*")
-        if binary.is_file()
-        and os.access(binary, os.X_OK)
-        and not binary.name.endswith(".d")
-    ]
-    require(
-        len(binaries) == 1, "exact current prebuilt native intake test binary required"
-    )
+    binaries = admit_build_manifest(build_manifest_path())
     result = subprocess.run(
-        [str(binaries[0]), "--exact", TEST],
+        [str(binaries[TARGETS[0]]), "--exact", TEST],
         cwd=ROOT,
         env=os.environ,
         timeout=480,

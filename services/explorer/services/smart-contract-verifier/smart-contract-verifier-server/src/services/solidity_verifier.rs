@@ -1,5 +1,4 @@
 use crate::{
-    metrics,
     proto::{
         solidity_verifier_server::SolidityVerifier, BatchVerifyResponse,
         BatchVerifySolidityMultiPartRequest, BatchVerifySolidityStandardJsonRequest,
@@ -27,6 +26,12 @@ pub struct SolidityVerifierService {
 }
 
 impl SolidityVerifierService {
+    /// The shared collector for verification boundaries, including embedded services.
+    #[doc(hidden)]
+    pub fn verification_counter() -> &'static prometheus::IntCounterVec {
+        &crate::metrics::VERIFICATION
+    }
+
     pub async fn new(
         settings: SoliditySettings,
         compilers_threads_semaphore: Arc<Semaphore>,
@@ -57,6 +62,13 @@ impl SolidityVerifier for SolidityVerifierService {
         &self,
         request: Request<VerifySolidityMultiPartRequest>,
     ) -> Result<Response<VerifyResponse>, Status> {
+        let chain_ids = vec![request
+            .get_ref()
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.chain_id.clone())];
+        super::verification_metrics::track_verification(
+            chain_ids, "solidity", "multi-part", async {
         let request = request.into_inner();
 
         let chain_id = request
@@ -73,6 +85,8 @@ impl SolidityVerifier for SolidityVerifierService {
             "solidity multi-part verification request received"
         );
 
+        common::validate_source_paths(request.source_files.keys())?;
+
         let maybe_verification_request =
             solidity::multi_part::VerificationRequest::try_from_with_post_actions(request);
         let (verification_request, post_actions) =
@@ -87,19 +101,24 @@ impl SolidityVerifier for SolidityVerifierService {
             Err(error) => types::verification_result::process_error(error)?,
         };
 
-        metrics::count_verify_contract(
-            &chain_id.unwrap_or_default(),
-            "solidity",
-            verify_response.status().as_str_name(),
-            "multi-part",
-        );
+
         Ok(Response::new(verify_response))
+
+            },
+        ).await
     }
 
     async fn verify_standard_json(
         &self,
         request: Request<VerifySolidityStandardJsonRequest>,
     ) -> Result<Response<VerifyResponse>, Status> {
+        let chain_ids = vec![request
+            .get_ref()
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.chain_id.clone())];
+        super::verification_metrics::track_verification(
+            chain_ids, "solidity", "standard-json", async {
         let request = request.into_inner();
 
         let chain_id = request
@@ -116,8 +135,10 @@ impl SolidityVerifier for SolidityVerifierService {
             "solidity standard-json verification request received"
         );
 
-        let maybe_verification_request =
-            solidity::standard_json::VerificationRequest::try_from_with_post_actions(request);
+        let input = serde_json::from_str(&request.input);
+        let maybe_verification_request = common::validate_standard_json_source_paths(input, || {
+            solidity::standard_json::VerificationRequest::try_from_with_post_actions(request)
+        });
         let (verification_request, post_actions) =
             common::process_solo_verification_request_conversion!(maybe_verification_request);
 
@@ -130,57 +151,101 @@ impl SolidityVerifier for SolidityVerifierService {
             Err(error) => types::verification_result::process_error(error)?,
         };
 
-        metrics::count_verify_contract(
-            &chain_id.unwrap_or_default(),
-            "solidity",
-            verify_response.status().as_str_name(),
-            "standard-json",
-        );
+
         Ok(Response::new(verify_response))
+
+            },
+        ).await
     }
 
     async fn batch_verify_multi_part(
         &self,
         request: Request<BatchVerifySolidityMultiPartRequest>,
     ) -> Result<Response<BatchVerifyResponse>, Status> {
-        let request = request.into_inner();
+        let chain_ids = request
+            .get_ref()
+            .contracts
+            .iter()
+            .map(|contract| {
+                contract
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.chain_id.clone())
+            })
+            .collect();
+        super::verification_metrics::track_verification(
+            chain_ids,
+            "solidity",
+            "batch-multi-part",
+            async {
+                let request = request.into_inner();
 
-        let maybe_verification_request =
-            solidity::multi_part::BatchVerificationRequest::try_from(request);
-        let verification_request =
-            common::process_batch_verification_request_conversion!(maybe_verification_request);
+                common::validate_source_paths(request.sources.keys())?;
 
-        let result =
-            solidity::multi_part::batch_verify(&self.compilers, verification_request).await;
+                let maybe_verification_request =
+                    solidity::multi_part::BatchVerificationRequest::try_from(request);
+                let verification_request = common::process_batch_verification_request_conversion!(
+                    maybe_verification_request
+                );
 
-        let verify_response = match result {
-            Ok(value) => types::batch_verification::process_verification_results(value)?,
-            Err(error) => types::batch_verification::process_error(error)?,
-        };
+                let result =
+                    solidity::multi_part::batch_verify(&self.compilers, verification_request).await;
 
-        Ok(Response::new(verify_response))
+                let verify_response = match result {
+                    Ok(value) => types::batch_verification::process_verification_results(value)?,
+                    Err(error) => types::batch_verification::process_error(error)?,
+                };
+
+                Ok(Response::new(verify_response))
+            },
+        )
+        .await
     }
 
     async fn batch_verify_standard_json(
         &self,
         request: Request<BatchVerifySolidityStandardJsonRequest>,
     ) -> Result<Response<BatchVerifyResponse>, Status> {
-        let request = request.into_inner();
+        let chain_ids = request
+            .get_ref()
+            .contracts
+            .iter()
+            .map(|contract| {
+                contract
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.chain_id.clone())
+            })
+            .collect();
+        super::verification_metrics::track_verification(
+            chain_ids,
+            "solidity",
+            "batch-standard-json",
+            async {
+                let request = request.into_inner();
 
-        let maybe_verification_request =
-            solidity::standard_json::BatchVerificationRequest::try_from(request);
-        let verification_request =
-            common::process_batch_verification_request_conversion!(maybe_verification_request);
+                let input = serde_json::from_str(&request.input);
+                let maybe_verification_request =
+                    common::validate_standard_json_source_paths(input, || {
+                        solidity::standard_json::BatchVerificationRequest::try_from(request)
+                    });
+                let verification_request = common::process_batch_verification_request_conversion!(
+                    maybe_verification_request
+                );
 
-        let result =
-            solidity::standard_json::batch_verify(&self.compilers, verification_request).await;
+                let result =
+                    solidity::standard_json::batch_verify(&self.compilers, verification_request)
+                        .await;
 
-        let verify_response = match result {
-            Ok(value) => types::batch_verification::process_verification_results(value)?,
-            Err(error) => types::batch_verification::process_error(error)?,
-        };
+                let verify_response = match result {
+                    Ok(value) => types::batch_verification::process_verification_results(value)?,
+                    Err(error) => types::batch_verification::process_error(error)?,
+                };
 
-        Ok(Response::new(verify_response))
+                Ok(Response::new(verify_response))
+            },
+        )
+        .await
     }
 
     async fn list_compiler_versions(

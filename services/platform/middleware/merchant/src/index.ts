@@ -237,6 +237,9 @@ export class MerchantMiddleware {
       return { kind: "pending", order: opened };
     }
     if (decision.kind === "refused") {
+      if (opened.state !== "awaiting-payment") {
+        return { kind: "refused", order: opened };
+      }
       const refused = await this.#orders.markRefused(opened.orderId, requestDigest);
       requireMatchingOrder(refused, checkoutKey, requestDigest, quote);
       if (refused.state !== "refused") {
@@ -245,12 +248,14 @@ export class MerchantMiddleware {
       return { kind: "refused", order: refused };
     }
     const receiptDigest = layerXReceiptDigest(decision.settlement.extensions);
-    const paid = await this.#orders.markPaid(
-      opened.orderId,
-      requestDigest,
-      receiptDigest,
-      decision.settlement.transaction,
-    );
+    const paid = opened.state === "awaiting-payment"
+      ? await this.#orders.markPaid(
+        opened.orderId,
+        requestDigest,
+        receiptDigest,
+        decision.settlement.transaction,
+      )
+      : opened;
     requireMatchingOrder(paid, checkoutKey, requestDigest, quote);
     if (
       paid.state !== "paid-verified"

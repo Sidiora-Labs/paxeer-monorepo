@@ -21,18 +21,20 @@
     },
     "provider_signature": "0x4f539214d7b75abb4571933556a49abfa33b37f4ac1abf6197a97ff1da2225734e8fb43c0198a3ab8f7b7fdea1bb8538cbaaa1fdb86cfa4c955ad1f5baa2630c",
     "sequencer": {
-      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
-      "case": "V1-layerxledger-pay-exact",
+      "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
+      "case": "card_receipted_credit",
       "rung": "receipted",
-      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
-      "receipt_digest": "0xc7ecf924109be6874db7677301607c6426f74bd1df1b5051726e3d4439b1a138",
-      "source_receipt_digest": "0x3f63045f1bcd3b2eb0fd9de72de19e76de4e509b567212c8645c58a18d2b4bcb",
-      "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
-      "payment_reference": "0x0b5827ae8eac02b6eba77b8b130d6a64e9fe1a8e875256b87bce0d79393227a4"
+      "transaction_hash": "0xc4c00dd7b14a0872c0db8e023ba707bd67076a60ac486609ea8cef04b3d92237",
+      "receipt_digest": "0x550649e68c0d71dfb9ca99efe54b11f13550ed7443f73231934c7f9c18236d06",
+      "idempotency_key": "0x0b5827ae8eac02b6eba77b8b130d6a64e9fe1a8e875256b87bce0d79393227a4",
+      "payment_reference": "0x0b5827ae8eac02b6eba77b8b130d6a64e9fe1a8e875256b87bce0d79393227a4",
+      "payment_calldata": "0x78ea11db1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba44e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f2800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000001977457ca800b5827ae8eac02b6eba77b8b130d6a64e9fe1a8e875256b87bce0d79393227a4",
+      "counterparty": "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769",
+      "expires_at": 1750003600000
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0xc7ecf924109be6874db7677301607c6426f74bd1df1b5051726e3d4439b1a138",
+      "receipt_digest": "0x550649e68c0d71dfb9ca99efe54b11f13550ed7443f73231934c7f9c18236d06",
       "translation": "receipt-verified"
     }
   },
@@ -58,18 +60,20 @@
     },
     "provider_signature": "0x86767f26e0d9d6117b10a01094408345b4475f68467b2f5b95fb967dfccde90f255b1b2629a22d4b3f12fbf4aab91dab14deccb4097d7956d84ba743a1b0010c",
     "sequencer": {
-      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
-      "case": "V1-layerxledger-pay-exact",
+      "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
+      "case": "bank_receipted_credit",
       "rung": "receipted",
-      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
-      "receipt_digest": "0x1cb7fa00962a341065e8f52572bb1c070aea364cc11515d9317a1e5b58985cd9",
-      "source_receipt_digest": "0x3f63045f1bcd3b2eb0fd9de72de19e76de4e509b567212c8645c58a18d2b4bcb",
-      "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
-      "payment_reference": "0xd37ec5ad3fec2fc46907d83e2acbacb9adaffa7372f75ba7df9146d18427bd62"
+      "transaction_hash": "0x6902ecb606f15405558fbbff6f711b55543faceee3c12b8c73665b4ea92b0249",
+      "receipt_digest": "0xbaf9e3384af163515617e36ffaa9a9212c1e2c6b8b76022fbc892b5193785877",
+      "idempotency_key": "0xd37ec5ad3fec2fc46907d83e2acbacb9adaffa7372f75ba7df9146d18427bd62",
+      "payment_reference": "0xd37ec5ad3fec2fc46907d83e2acbacb9adaffa7372f75ba7df9146d18427bd62",
+      "payment_calldata": "0x78ea11db1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba44e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f2800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000001977457ca80d37ec5ad3fec2fc46907d83e2acbacb9adaffa7372f75ba7df9146d18427bd62",
+      "counterparty": "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769",
+      "expires_at": 1750003600000
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0x1cb7fa00962a341065e8f52572bb1c070aea364cc11515d9317a1e5b58985cd9",
+      "receipt_digest": "0xbaf9e3384af163515617e36ffaa9a9212c1e2c6b8b76022fbc892b5193785877",
       "translation": "receipt-verified"
     }
   },
@@ -95,18 +99,20 @@
     },
     "provider_signature": "0xb08ed21a1e6a8ae80e30f981b0f7e46bf30dd8b7d4248c647bf0b2d16699de3ad4afb636164b1bd39420a4b6e549fd251b8044e273ca856e9c6e635d8504060c",
     "sequencer": {
-      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
-      "case": "V1-layerxledger-pay-exact",
+      "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
+      "case": "rtp_receipted_credit",
       "rung": "receipted",
-      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
-      "receipt_digest": "0xdf11a2917424eb597138442b16b045a756ecd60235ae51905955749ace92becb",
-      "source_receipt_digest": "0x3f63045f1bcd3b2eb0fd9de72de19e76de4e509b567212c8645c58a18d2b4bcb",
-      "test_signing_seed": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
-      "payment_reference": "0x682606fee5a23df2e15cabd4baacf2f8342bc7bbe9e381988742f6722a11f103"
+      "transaction_hash": "0x3a8ef2e1cf7d5e504e764a15e4041af8a3d41a9862f97478a7e8139cb7413d7f",
+      "receipt_digest": "0x125b6ee266f7839cf94668d48ca2b83fbb334bc977e15f52b9d0074e473ddf3c",
+      "idempotency_key": "0x682606fee5a23df2e15cabd4baacf2f8342bc7bbe9e381988742f6722a11f103",
+      "payment_reference": "0x682606fee5a23df2e15cabd4baacf2f8342bc7bbe9e381988742f6722a11f103",
+      "payment_calldata": "0x78ea11db1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba44e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f2800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000001977457ca80682606fee5a23df2e15cabd4baacf2f8342bc7bbe9e381988742f6722a11f103",
+      "counterparty": "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769",
+      "expires_at": 1750003600000
     },
     "expect": {
       "state": "credited",
-      "receipt_digest": "0xdf11a2917424eb597138442b16b045a756ecd60235ae51905955749ace92becb",
+      "receipt_digest": "0x125b6ee266f7839cf94668d48ca2b83fbb334bc977e15f52b9d0074e473ddf3c",
       "translation": "receipt-verified"
     }
   },
@@ -132,11 +138,16 @@
     },
     "provider_signature": "0x95b4086a3f68999a83f2f5660addadf340a257a766c6c9afcf5b5fc5e3dab59471d65eafb4cf128201e495209f15ba9409701f4ec5b88aeb8809d35b6b2a960f",
     "sequencer": {
-      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
-      "case": "V1-layerxledger-pay-exact",
+      "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
+      "case": "card_submitted_waits",
       "rung": "submitted",
-      "transaction_hash": "0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1",
-      "receipt_digest": null
+      "transaction_hash": "0x15adb0f079439dfe031c786d7e3489ac626c4541d0ba8e94578cff03dbefe0dc",
+      "receipt_digest": null,
+      "idempotency_key": "0xbea41ee25289480083c4483c255b71ea7992122839f96bf4a46ded7c53421a27",
+      "payment_reference": "0xbea41ee25289480083c4483c255b71ea7992122839f96bf4a46ded7c53421a27",
+      "payment_calldata": "0x78ea11db1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba44e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f2800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000001977457ca80bea41ee25289480083c4483c255b71ea7992122839f96bf4a46ded7c53421a27",
+      "counterparty": "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769",
+      "expires_at": 1750003600000
     },
     "expect": {
       "state": "credit-pending",
@@ -165,11 +176,16 @@
     },
     "provider_signature": "0x635d3719399f448e3cdc99a72d3c68281a5be4510281897b474367b36717980080fc0791a4fb52de0c39e3162b545d3d88c5953474a363b4f6ef22a2a9de0a0e",
     "sequencer": {
-      "fixture": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
-      "case": "V2-layerxledger-revert",
+      "fixture": "sdk/platform/conformance/fixtures/fiat-receipts-v1.json",
+      "case": "card_reverted_never_credits",
       "rung": "receipted",
-      "transaction_hash": "0xd9ea67d1ca9968723dbc84262f2fcf28bd44512b5035a92acb9f417f1c8e1b8e",
-      "receipt_digest": "0x85d1e9aab2f85b7e2b720cc3eaf459e8dcc5e1d6449bba119f3f0c9dd97af943"
+      "transaction_hash": "0x8b7305c84d8c1af87f2c8a139c3c029c4c2766c2e6ce518275a7a25f40f0a504",
+      "receipt_digest": "0x87bdd26cece2e840cfe6d32ce72d84f309aded865b16d38b24164519e8745ca3",
+      "idempotency_key": "0xfa41157cc237de4b2a0f61203a89ee7e273d296a30ace38aa0b6819d3c14582a",
+      "payment_reference": "0xfa41157cc237de4b2a0f61203a89ee7e273d296a30ace38aa0b6819d3c14582a",
+      "payment_calldata": "0x78ea11db1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba44e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f280000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000001977457ca80fa41157cc237de4b2a0f61203a89ee7e273d296a30ace38aa0b6819d3c14582a",
+      "counterparty": "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769",
+      "expires_at": 1750003600000
     },
     "expect": {
       "refusal": "ReceiptMismatch",

@@ -31,6 +31,8 @@ typedef struct signer_fixture {
     lxp_authority_resolved authority;
     lxp_fee_params fees;
     lxp_receipt receipt;
+    size_t initial_state_count;
+    lxp_u128 initial_balances[3];
 } signer_fixture;
 
 static const uint8_t signer_seed[32] = {1U};
@@ -238,6 +240,11 @@ static int signer_fixture_open(signer_fixture *f)
     LXP_CASE_CHECK(signer_activity_sign(f) == 0);
     LXP_CASE_CHECK(lxp_state_root(&f->kernel,
                                   f->kernel.current_state_root) == LXP_OK);
+    f->initial_state_count = f->state.count;
+    LXP_CASE_CHECK(f->accounts.count ==
+        sizeof(f->initial_balances) / sizeof(f->initial_balances[0]));
+    for (size_t i = 0U; i < f->accounts.count; ++i)
+        f->initial_balances[i] = f->accounts.accounts[i].balance;
     return 0;
 }
 
@@ -260,12 +267,48 @@ static int signer_state_unchanged(signer_fixture *f,
     LXP_CASE_CHECK(memcmp(f->kernel.current_state_root,
                          expected_root, 32U) == 0);
     LXP_CASE_CHECK(f->state.next_sequence == 1U);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
+    LXP_CASE_CHECK(f->state.count == f->initial_state_count);
     LXP_CASE_CHECK(!f->journal.open && f->journal.count == 0U);
     LXP_CASE_CHECK(f->identities.count == 1U);
     LXP_CASE_CHECK(f->identities.identities[0].next_sequence == 0U);
-    for (size_t i = 0U; i < f->accounts.count; ++i)
+    LXP_CASE_CHECK(f->accounts.count ==
+        sizeof(f->initial_balances) / sizeof(f->initial_balances[0]));
+    for (size_t i = 0U; i < f->accounts.count; ++i) {
         LXP_CASE_CHECK(f->accounts.accounts[i].next_sequence == 0U);
+        LXP_CASE_CHECK(lxp_u128_cmp(f->accounts.accounts[i].balance,
+                                   f->initial_balances[i]) == 0);
+    }
+    return 0;
+}
+
+static int signer_receipt_absent(const signer_fixture *f)
+{
+    const uint8_t *bytes = (const uint8_t *)&f->receipt;
+
+    for (size_t i = 0U; i < sizeof(f->receipt); ++i)
+        LXP_CASE_CHECK(bytes[i] == 0U);
+    return 0;
+}
+
+static int signer_receipt_roundtrip(signer_fixture *f, uint8_t digest[32])
+{
+    lxp_receipt *decoded = calloc(1U, sizeof(*decoded));
+    lxp_byte_span encoded;
+    uint8_t decoded_digest[32];
+
+    LXP_CASE_CHECK(decoded != NULL);
+    LXP_CASE_CHECK(lxp_receipt_verify(&f->receipt, f->public_key, &f->arena) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_encode(&f->receipt, true, &f->arena, &encoded) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_decode(encoded.bytes, encoded.length, true, decoded) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_verify(decoded, f->public_key, &f->arena) == LXP_OK);
+    LXP_CASE_CHECK(decoded->result_code == LXP_ERR_TRUNCATED);
+    LXP_CASE_CHECK(decoded->global_sequence == 1U);
+    LXP_CASE_CHECK(decoded->module_id == LXP_MODULE_PROGRAMS);
+    LXP_CASE_CHECK(decoded->effects.count == 0U);
+    LXP_CASE_CHECK(lxp_receipt_digest(&f->receipt, &f->arena, digest) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_digest(decoded, &f->arena, decoded_digest) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(digest, decoded_digest, 32U) == 0);
+    free(decoded);
     return 0;
 }
 
@@ -276,6 +319,7 @@ static int signer_prepare_and_apply(bool unsigned_activity)
     lxp_prepared_transition *prepared = NULL;
     lxp_kernel_batch_boundary before, after;
     uint8_t root[32];
+    uint8_t receipt_digest[32];
     LXP_CASE_CHECK(f != NULL);
     LXP_CASE_CHECK(signer_fixture_open(f) == 0);
     if (unsigned_activity) {
@@ -291,11 +335,13 @@ static int signer_prepare_and_apply(bool unsigned_activity)
         &f->execution, &f->arena, &prepared) == LXP_OK);
     LXP_CASE_CHECK(prepared != NULL);
     LXP_CASE_CHECK(signer_state_unchanged(f, root) == 0);
+    LXP_CASE_CHECK(signer_receipt_absent(f) == 0);
     if (unsigned_activity) {
         f->execution.binding_authority = false;
         LXP_CASE_CHECK(lxp_kernel_snapshot_apply_prepared(snapshot, &f->activity,
             &f->execution, prepared, &f->receipt, NULL) == LXP_ERR_CONTEXT_MISMATCH);
         LXP_CASE_CHECK(signer_state_unchanged(f, root) == 0);
+        LXP_CASE_CHECK(signer_receipt_absent(f) == 0);
         LXP_CASE_CHECK(lxp_kernel_batch_snapshot_boundary(snapshot, &after) == LXP_OK);
         LXP_CASE_CHECK(before.next_sequence == after.next_sequence);
         LXP_CASE_CHECK(memcmp(before.receipt_state_root,
@@ -308,6 +354,15 @@ static int signer_prepare_and_apply(bool unsigned_activity)
         &f->execution, prepared, &f->receipt, NULL) == LXP_OK);
     LXP_CASE_CHECK(f->receipt.result_code == LXP_ERR_TRUNCATED);
     LXP_CASE_CHECK(signer_state_unchanged(f, root) == 0);
+    LXP_CASE_CHECK(signer_receipt_roundtrip(f, receipt_digest) == 0);
+    LXP_CASE_CHECK(lxp_kernel_batch_snapshot_boundary(snapshot, &after) == LXP_OK);
+    LXP_CASE_CHECK(after.next_sequence == before.next_sequence + 1U);
+    LXP_CASE_CHECK(memcmp(f->receipt.previous_state_root,
+                          before.receipt_state_root, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(f->receipt.resulting_state_root,
+                          after.receipt_state_root, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(f->receipt.resulting_state_root,
+                          after.canonical_state_root, 32U) == 0);
     lxp_prepared_transition_destroy(prepared);
     lxp_kernel_batch_snapshot_destroy(snapshot);
     LXP_CASE_CHECK(signer_fixture_close(f) == 0);
@@ -315,17 +370,29 @@ static int signer_prepare_and_apply(bool unsigned_activity)
 }
 
 static int signer_execute(bool unsigned_activity, bool binding_authority,
-                          lxp_result *status, lxp_result *result_code)
+                          lxp_result *status, lxp_result *result_code,
+                          uint8_t receipt_digest[32], uint8_t state_root[32])
 {
     signer_fixture *f = calloc(1U, sizeof(*f));
+    uint8_t previous_root[32];
     LXP_CASE_CHECK(f != NULL);
     LXP_CASE_CHECK(signer_fixture_open(f) == 0);
     if (unsigned_activity)
         f->activity.signature = (lxp_byte_span){NULL, 0U};
     f->execution.binding_authority = binding_authority;
+    (void)memcpy(previous_root, f->kernel.current_state_root, 32U);
     *status = lxp_kernel_execute_activity(&f->kernel, &f->activity,
         &f->execution, &f->receipt);
     *result_code = f->receipt.result_code;
+    LXP_CASE_CHECK(*status == LXP_OK);
+    LXP_CASE_CHECK(signer_receipt_roundtrip(f, receipt_digest) == 0);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, state_root) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(previous_root, f->receipt.previous_state_root, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(state_root, f->receipt.resulting_state_root, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(state_root, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(f->state.next_sequence == 2U);
+    LXP_CASE_CHECK(f->identities.count == 1U);
+    LXP_CASE_CHECK(f->identities.identities[0].next_sequence == 1U);
     LXP_CASE_CHECK(signer_fixture_close(f) == 0);
     return 0;
 }
@@ -333,16 +400,22 @@ static int signer_execute(bool unsigned_activity, bool binding_authority,
 static int bound_unsigned_program_passes_signer_binding(void)
 {
     lxp_result signed_status, signed_result, unsigned_status, unsigned_result;
+    uint8_t signed_receipt[32], unsigned_receipt[32];
+    uint8_t signed_root[32], unsigned_root[32];
     LXP_CASE_CHECK(signer_prepare_and_apply(false) == 0);
     LXP_CASE_CHECK(signer_prepare_and_apply(true) == 0);
-    LXP_CASE_CHECK(signer_execute(false, false, &signed_status, &signed_result) == 0);
-    LXP_CASE_CHECK(signer_execute(true, true, &unsigned_status, &unsigned_result) == 0);
+    LXP_CASE_CHECK(signer_execute(false, false, &signed_status, &signed_result,
+                                  signed_receipt, signed_root) == 0);
+    LXP_CASE_CHECK(signer_execute(true, true, &unsigned_status, &unsigned_result,
+                                  unsigned_receipt, unsigned_root) == 0);
     LXP_CASE_CHECK(signed_status == LXP_OK);
     LXP_CASE_CHECK(signed_result == LXP_ERR_TRUNCATED);
     LXP_CASE_CHECK(unsigned_status == signed_status);
     LXP_CASE_CHECK(unsigned_result == signed_result);
     LXP_CASE_CHECK(unsigned_status != LXP_ERR_BAD_SIGNATURE);
     LXP_CASE_CHECK(unsigned_result != LXP_ERR_BAD_SIGNATURE);
+    LXP_CASE_CHECK(memcmp(signed_root, unsigned_root, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(signed_receipt, unsigned_receipt, 32U) != 0);
     (void)puts("bound_unsigned_program_passes_signer_binding passed");
     return 0;
 }
@@ -366,6 +439,7 @@ static int unbound_unsigned_program_refused(void)
         LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
             &f->execution, &f->receipt) == expected);
         LXP_CASE_CHECK(signer_state_unchanged(f, root) == 0);
+        LXP_CASE_CHECK(signer_receipt_absent(f) == 0);
         LXP_CASE_CHECK(lxp_kernel_batch_snapshot_create(&f->kernel, &f->identities,
             NULL, &f->execution, &snapshot) == LXP_OK);
         LXP_CASE_CHECK(lxp_kernel_batch_snapshot_begin_level(snapshot) == LXP_OK);
@@ -374,6 +448,7 @@ static int unbound_unsigned_program_refused(void)
             &f->execution, &f->arena, &prepared) == expected);
         LXP_CASE_CHECK(prepared == NULL);
         LXP_CASE_CHECK(signer_state_unchanged(f, root) == 0);
+        LXP_CASE_CHECK(signer_receipt_absent(f) == 0);
         LXP_CASE_CHECK(lxp_kernel_batch_snapshot_boundary(snapshot, &after) == LXP_OK);
         LXP_CASE_CHECK(before.next_sequence == after.next_sequence);
         LXP_CASE_CHECK(memcmp(before.receipt_state_root,
@@ -390,6 +465,8 @@ static int unbound_unsigned_program_refused(void)
 static int bound_signed_program_still_verified(void)
 {
     lxp_result bound_status, bound_result, unbound_status, unbound_result;
+    uint8_t bound_receipt[32], unbound_receipt[32];
+    uint8_t bound_root[32], unbound_root[32];
     for (size_t variant = 0U; variant < 2U; ++variant) {
         signer_fixture *f = calloc(1U, sizeof(*f));
         uint8_t root[32];
@@ -401,16 +478,47 @@ static int bound_signed_program_still_verified(void)
         LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
             &f->execution, &f->receipt) == LXP_ERR_BAD_SIGNATURE);
         LXP_CASE_CHECK(signer_state_unchanged(f, root) == 0);
+        LXP_CASE_CHECK(signer_receipt_absent(f) == 0);
         LXP_CASE_CHECK(signer_fixture_close(f) == 0);
     }
-    LXP_CASE_CHECK(signer_execute(false, true, &bound_status, &bound_result) == 0);
-    LXP_CASE_CHECK(signer_execute(false, false, &unbound_status, &unbound_result) == 0);
+    LXP_CASE_CHECK(signer_execute(false, true, &bound_status, &bound_result,
+                                  bound_receipt, bound_root) == 0);
+    LXP_CASE_CHECK(signer_execute(false, false, &unbound_status, &unbound_result,
+                                  unbound_receipt, unbound_root) == 0);
     LXP_CASE_CHECK(unbound_status == LXP_OK);
     LXP_CASE_CHECK(unbound_result == LXP_ERR_TRUNCATED);
     LXP_CASE_CHECK(bound_status == unbound_status);
     LXP_CASE_CHECK(bound_result == unbound_result);
+    LXP_CASE_CHECK(memcmp(bound_receipt, unbound_receipt, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(bound_root, unbound_root, 32U) == 0);
     (void)puts("bound_signed_program_still_verified passed");
     return 0;
+}
+
+static int rejected_signer_preserves_committed_receipt(void)
+{
+    signer_fixture *f = calloc(1U, sizeof(*f));
+    uint8_t receipt_before[32], receipt_after[32];
+    uint8_t root_before[32], root_after[32];
+
+    LXP_CASE_CHECK(f != NULL);
+    LXP_CASE_CHECK(signer_fixture_open(f) == 0);
+    LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
+        &f->execution, &f->receipt) == LXP_OK);
+    LXP_CASE_CHECK(signer_receipt_roundtrip(f, receipt_before) == 0);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, root_before) == LXP_OK);
+    f->signature[0] ^= 1U;
+    LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
+        &f->execution, &f->receipt) == LXP_ERR_BAD_SIGNATURE);
+    LXP_CASE_CHECK(signer_receipt_roundtrip(f, receipt_after) == 0);
+    LXP_CASE_CHECK(memcmp(receipt_before, receipt_after, 32U) == 0);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, root_after) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(root_before, root_after, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(root_before, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(f->state.next_sequence == 2U);
+    LXP_CASE_CHECK(f->identities.identities[0].next_sequence == 1U);
+    LXP_CASE_CHECK(!f->journal.open && f->journal.count == 0U);
+    return signer_fixture_close(f);
 }
 
 int main(int argc, char **argv)
@@ -420,7 +528,9 @@ int main(int argc, char **argv)
          bound_unsigned_program_passes_signer_binding},
         {"unbound_unsigned_program_refused", unbound_unsigned_program_refused},
         {"bound_signed_program_still_verified",
-         bound_signed_program_still_verified}
+         bound_signed_program_still_verified},
+        {"rejected_signer_preserves_committed_receipt",
+         rejected_signer_preserves_committed_receipt}
     };
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]), argc, argv);
 }

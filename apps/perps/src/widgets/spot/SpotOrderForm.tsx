@@ -23,7 +23,7 @@ import { useSpotPortfolio } from "@/hooks/spot/useSpotPortfolio";
 import { useSpotTokenState } from "@/hooks/spot/useSpotTokenState";
 import type { SpotTokenState } from "@/core/spot/tokenState";
 import { ERROR_CATALOG } from "@/core/errors/catalog";
-import { dStrToToken } from "@/core/spot/api";
+import { dStrToToken, type SpotHoldingsResponse } from "@/core/spot/api";
 import { erc20Abi } from "@/core/perps/config";
 import { WEI_PER_UHPX } from "@/core/spot/calls";
 import { toPlainDecimal } from "@/ui/utils/format";
@@ -84,8 +84,8 @@ import {
      · stop-limit       → PECORStopOrders.placeStopLimitBuy / Sell
 
    The stable side is chosen by `selectStableForBuy / Sell`:
-     · BUY  → highest user balance ≥ amount
-     · SELL → deepest vault liquidity ≥ expected output
+     · BUY  → USDL balance ≥ amount
+     · SELL → USDL vault liquidity ≥ expected output
    ══════════════════════════════════════════════════════════════════════ */
 
 type SizeMode = "BASE" | "USD";
@@ -247,7 +247,8 @@ export function spotSubmitBlocked(
       : state.tradeable
         ? state.reason !== null
         : state.reason !== "TokenNotRegistered")
-  ) return "TokenStateUnavailable";
+  )
+    return "TokenStateUnavailable";
   if (state.paused) return "TRADE_MARKET_HALTED";
   if (!state.tradeable) return "TokenNotRegistered";
   return null;
@@ -378,18 +379,59 @@ interface SpotOrderFormProps {
 }
 
 export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
-  const registered = SPOT_MARKETS.find((entry) => entry.symbol === market.symbol);
+  const registered = SPOT_MARKETS.find(
+    (entry) => entry.symbol === market.symbol,
+  );
   if (
-    !registered || market.baseAddress !== registered.baseAddress ||
+    !registered ||
+    market.baseAddress !== registered.baseAddress ||
     market.baseDecimals !== registered.baseDecimals ||
-    market.baseToken !== registered.baseToken || market.quoteToken !== registered.quoteToken ||
+    market.baseToken !== registered.baseToken ||
+    market.quoteToken !== registered.quoteToken ||
     market.baseTokenMeta.address !== registered.baseTokenMeta.address ||
     market.baseTokenMeta.isNative !== registered.baseTokenMeta.isNative
-  ) throw new Error("Invalid spot order market");
+  )
+    throw new Error("Invalid spot order market");
   return <ConnectedSpotOrderForm market={market} compact={compact} />;
 }
 
-function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
+export function spotBaseHolding(
+  market: SpotMarket,
+  holdings: SpotHoldingsResponse | null,
+): { raw: string; decimals: number } | null {
+  const row = holdings?.erc20.find(
+    (e) => e.token.toLowerCase() === market.baseAddress.toLowerCase(),
+  );
+  return row ? { raw: row.balance, decimals: market.baseDecimals } : null;
+}
+
+export function spotTimeInForceOptions(
+  orderType: SpotOrderType,
+): readonly TimeInForce[] {
+  return orderType === "stop-limit" ? ["GTC"] : ["GTC", "IOC", "FOK"];
+}
+
+export function spotBuyFunding(
+  holdings: SpotHoldingsResponse | null,
+  amountUsd: bigint,
+) {
+  const balances = buildStableAmountMap(
+    SPOT_STABLECOINS.map((stable) => ({
+      address: stable.address,
+      amount: BigInt(
+        holdings?.erc20.find(
+          (row) => row.token.toLowerCase() === stable.address.toLowerCase(),
+        )?.balance ?? "0",
+      ),
+    })),
+  );
+  return { balances, selection: selectStableForBuy({ amountUsd, balances }) };
+}
+
+function ConnectedSpotOrderForm({
+  market,
+  compact = false,
+}: SpotOrderFormProps) {
   const { isConnected, connect, isCorrectChain, switchToPaxeer, address } =
     usePerpsWallet();
 
@@ -469,40 +511,20 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
         ? null
         : { raw: paxPointerBalance.toString(), decimals: market.baseDecimals };
     }
-    if (!portfolio.holdings) return null;
-    const row = portfolio.holdings.erc20.find((e) => {
-      if (e.symbol && e.symbol.toUpperCase() === market.baseToken.toUpperCase())
-        return true;
-      return false;
-    });
-    if (row) {
-      const dec =
-        typeof row.decimals === "number"
-          ? row.decimals
-          : typeof row.decimals === "string"
-            ? parseInt(row.decimals, 10)
-            : market.baseDecimals;
-      return { raw: row.balance, decimals: dec };
-    }
-    return null;
+    return spotBaseHolding(market, portfolio.holdings);
   }, [portfolio.holdings, market, isNativeBase, paxPointerBalance]);
   const baseBalance = baseHolding
     ? dStrToToken(baseHolding.raw, baseHolding.decimals)
     : 0;
 
-  const quoteBalance = useMemo(() => {
-    if (!portfolio.holdings) return 0;
-    let total = 0;
-    for (const stable of SPOT_STABLECOINS) {
-      const row = portfolio.holdings.erc20.find(
-        (e) => e.token.toLowerCase() === stable.address.toLowerCase(),
-      );
-      if (row) {
-        total += dStrToToken(row.balance, stable.decimals);
-      }
-    }
-    return total;
-  }, [portfolio.holdings]);
+  const funding = useMemo(
+    () => spotBuyFunding(portfolio.holdings, 0n),
+    [portfolio.holdings],
+  );
+  const stableBalanceMap = funding.balances;
+  const quoteBalance = Number(
+    formatUnits(funding.selection.available, funding.selection.stable.decimals),
+  );
 
   const availableBalance = side === "BUY" ? quoteBalance : baseBalance;
 
@@ -576,7 +598,11 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
   // ── Validation ──
   const insufficientBalance =
     side === "BUY"
-      ? quoteAmount > quoteBalance + 1e-9
+      ? orderUnits !== null &&
+        !selectStableForBuy({
+          amountUsd: orderUnits.quoteUnits,
+          balances: stableBalanceMap,
+        }).sufficient
       : orderUnits !== null &&
         spotSellExceedsBalance(
           orderUnits.baseUnits,
@@ -615,10 +641,8 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
       balance:
         side === "BUY"
           ? {
-              raw: Object.values(stableBalanceMap)
-                .reduce((sum, units) => sum + units, 0n)
-                .toString(),
-              decimals: decimalsStable,
+              raw: funding.selection.available.toString(),
+              decimals: funding.selection.stable.decimals,
             }
           : baseHolding,
       pct,
@@ -636,29 +660,11 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
     }
   }, [orderType]);
   useEffect(() => {
-    if (postOnly && tif !== "GTC") setTif("GTC");
-  }, [postOnly, tif]);
+    if ((postOnly || orderType === "stop-limit") && tif !== "GTC")
+      setTif("GTC");
+  }, [postOnly, tif, orderType]);
 
   // ── Submit ──
-
-  /**
-   * Compute the user's stablecoin balances as a lowercased-address →
-   * bigint map, ready to pass into `selectStableForBuy`.
-   */
-  const stableBalanceMap = useMemo(() => {
-    if (!portfolio.holdings) return {};
-    return buildStableAmountMap(
-      SPOT_STABLECOINS.map((s) => {
-        const row = portfolio.holdings!.erc20.find(
-          (e) => e.token.toLowerCase() === s.address.toLowerCase(),
-        );
-        return {
-          address: s.address,
-          amount: row ? BigInt(row.balance) : 0n,
-        };
-      }),
-    );
-  }, [portfolio.holdings]);
 
   const submit = async () => {
     if (submitDisabled) return;
@@ -669,7 +675,11 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
     setSubmitSuccess(null);
 
     const decimalsBase = market.baseDecimals;
-    const rail = spotOrderRail(orderType, tif, postOnly);
+    const rail = spotOrderRail(
+      orderType,
+      orderType === "stop-limit" ? "GTC" : tif,
+      postOnly,
+    );
     const atLimit = orderType === "limit";
     const conversionPrice = conversion.price;
 
@@ -1088,14 +1098,14 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
           <div className="flex items-center justify-between px-1">
             <span style={META_LABEL}>Time in Force</span>
             <div className="flex items-center gap-1">
-              {(["GTC", "IOC", "FOK"] as TimeInForce[]).map((opt) => (
+              {spotTimeInForceOptions(orderType).map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => setTif(opt)}
                   className={cn(
                     "px-2 py-0.5 text-[10px] font-mono rounded-[var(--radius-md)] transition-colors",
-                    tif === opt
+                    (orderType === "stop-limit" ? "GTC" : tif) === opt
                       ? "bg-primary/20 text-primary"
                       : "bg-surface-0 text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
                   )}
@@ -1130,7 +1140,7 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
         </div>
         <div className="flex flex-col items-end">
           <span style={{ ...META_LABEL, textAlign: "right" }}>
-            Wallet (USD)
+            Spendable ({funding.selection.stable.symbol})
           </span>
           <span
             className="tabular-nums text-foreground"
@@ -1147,8 +1157,8 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
           <Info className="w-3 h-3 shrink-0 mt-0.5" />
           <span>
             {side === "BUY"
-              ? "Pooled stablecoin balance (USDL + USDC + USDT) is used to fill spot buys."
-              : `${market.symbol} sells settle to a unified USD stablecoin balance.`}
+              ? `Each buy spends only ${funding.selection.stable.symbol}; balances of other tokens cannot be combined.`
+              : `${market.symbol} sells settle in a single stablecoin: ${funding.selection.stable.symbol}.`}
           </span>
         </div>
       </div>
@@ -1174,7 +1184,7 @@ function ConnectedSpotOrderForm({ market, compact = false }: SpotOrderFormProps)
         <DetailRow
           label="Quote Total"
           value={quoteAmount > 0 ? fmtUsd(quoteAmount) : "—"}
-          tooltip="USD-equivalent total drawn from the pooled stablecoin balance."
+          tooltip={`Total settled in ${funding.selection.stable.symbol} only.`}
         />
         {orderType === "market" && minReceived > 0 ? (
           <DetailRow

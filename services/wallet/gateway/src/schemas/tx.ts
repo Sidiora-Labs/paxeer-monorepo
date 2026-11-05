@@ -28,10 +28,9 @@ import { z } from 'zod';
  *     and the (extremely unlikely) case of someone shipping a future feature
  *     that reads `req.body` directly instead of `parsed.data`.
  *
- *   - The inner `TxRequest` shape uses `.strip()` (Zod default) so that we
- *     remain forward-compatible with new EVM tx fields (accessList, type,
- *     blobVersionedHashes, etc.) that the SDK may emit; only the known fields
- *     are propagated to viem.
+ *   - The inner `TxRequest` shape is also strict: unsupported transaction
+ *     fields must be refused before approval or signing, rather than silently
+ *     discarded and changing the caller's transaction semantics.
  */
 
 // -----------------------------------------------------------------------------
@@ -76,20 +75,21 @@ export const SafeIdentifier = z
  * EVM transaction request — a deliberately small subset of fields. Server
  * fills in nonce / gas / chainId from chain state where the client omits them.
  *
- * Forward-compatible: extra unknown fields are stripped by Zod's default
- * behaviour, so a newer SDK shipping `accessList` etc. won't be rejected;
- * those fields just don't flow into viem until we explicitly extend this.
+ * Extra fields are rejected until their semantics are supported throughout
+ * transaction construction, review and signing.
  */
-export const TxRequest = z.object({
-  to: Address.optional(),
-  value: NumericString.optional(),
-  data: HexString.optional(),
-  gas: NumericString.optional(),
-  maxFeePerGas: NumericString.optional(),
-  maxPriorityFeePerGas: NumericString.optional(),
-  nonce: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
-  chainId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
-});
+export const TxRequest = z
+  .object({
+    to: Address.optional(),
+    value: NumericString.optional(),
+    data: HexString.optional(),
+    gas: NumericString.optional(),
+    maxFeePerGas: NumericString.optional(),
+    maxPriorityFeePerGas: NumericString.optional(),
+    nonce: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+    chainId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+  })
+  .strict();
 export type TxRequest = z.infer<typeof TxRequest>;
 
 // -----------------------------------------------------------------------------

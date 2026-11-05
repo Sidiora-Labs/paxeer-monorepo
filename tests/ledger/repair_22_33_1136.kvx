@@ -1,0 +1,21 @@
+[repair.22.33.1136]
+finding = "22.30.5.20"
+status = "Historical decoding separated; unconditional retirement remains a cross-task contract conflict."
+change = "Identifier derivation and kind decoding use account_name_decode independently of the admission-facing lx_account_name_parse entry point."
+proving_tests = ["historical_namespace_record_recovery", "retired_namespace_compatibility", "retired_namespace_admission"]
+proof = "All six historical names retain their fixed identifiers and kinds; real registry admission, bootstrap funding, account-record encoding, registry release/reinitialization, decoding, insertion and lookup preserve 128-bit balances, sequences, flags and the registry root. Fresh CREDIT opens are refused without mutation, and migrated indexed accounts reopen unchanged."
+conflict = "Decision 2548 and completed task 22.31.505 require GENESIS/GOVERNANCE creation of all six names; unconditional refusal requested by finding 22.30.5.20 contradicts the unchanged retired_namespace_admission assertions. Gotcha 3051 records the live genesis and withdrawal consumers."
+wiring_request = "src/ledger/lx_account_registry.c and include/layerx/lxp_ledger.h, domain 1 (kernel): resolve decision 2548 before separating live creation policy from historical canonical validation and indexed lookup; retain explicit migration of identifiers and balances."
+baseline = "Not run: the execution order forbids tests before the entire implementation and allows verification only through hf-done; no baseline failures are claimed."
+base_revision = "9fd6b2040c6771399dd6d1f912229e9482ca979e"
+build_command = "make -s all"
+verify_command = "make -s test-ledger-accounts test-ledger-receipt test-ledger-receive test-ledger-send test-ledger-send-allowance test-ledger-set test-ledger-transfer"
+revision_evidence = "The immutable candidate revision, command, exit and private log are recorded by hf-build and hf-done in /out/run/gates.jsonl; build and verify must identify the same revision."
+
+[qualification.first_attempt]
+revision = "ca40684cf1755e9c801226b915bd50eec4176e8b"
+command = "cg spec done 22.33.1136 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The accounts test failed to link Programs runtime symbols; its Makefile target links only liblayerx, crypto and pthread."
+repair = "Move the new funded recovery case to test_apply_transfer, whose declared target links the Programs runtime; retain all assertions and the six golden account identifier vectors."

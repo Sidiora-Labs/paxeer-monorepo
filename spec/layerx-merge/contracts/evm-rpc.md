@@ -3682,3 +3682,57 @@ preserves its refusal document as `-32602` data. Local state/binding failures
 retain the account API's `Paxeer read unavailable` errors. These registered
 methods never use `-32601` to represent an unavailable backend. Existing
 `px_register` and `px_requestFunds` hosted-service refusals remain dispatched.
+
+## px-node-root-consensus-and-receipts
+
+Decisions 2514 and 2521 expose this group on the node root `/` over both HTTP
+and WebSocket. These are dispatched methods in `HTTPMethods` and `WSMethods`;
+`pax_sequencerReceipt` retains its compatibility name and bypasses the legacy
+pax allowlist. There is no `px_sequencerReceipt` alias.
+
+| Method | Parameters | Local authority and result |
+|---|---|---|
+| `px_getCommit` | One positive decimal u64 height string | Local consensus Commit; decimal `height`, unmodified consensus `signedHeader.header` and `signedHeader.commit` |
+| `px_getValidators` | One positive decimal u64 height string | Local consensus Validators at that height, every page; `height`, complete `validators` with consensus `address`/`pubKey` and decimal `votingPower`, decimal `total` |
+| `px_getReceiptKeys` | Explicit empty positional array `[]` | Latest committed governed sequencer ReceiptKeys; `keys` with 0x-prefixed 32-byte `keyId`/`publicKey` and inclusive u64 JSON-integer `firstHeight`/`lastHeight` |
+| `px_getSequenceBatch` | One positive decimal u64 height string | Local consensus Block transaction zero decoded with sequencer types; decimal `height`, 0x transaction `tx`, consensus Merkle `proof` with integer `total`/`index=0`, 0x `leafHash`/`aunts` |
+| `pax_sequencerReceipt` | One 0x-prefixed 32-byte transaction hash | Local sequencer send record, governed receipt pins and committed LastSeq/LastSeqHash; null for unknown hashes, otherwise the submitted/receipted/committed rung and signed execution output, with covering block coordinates on committed answers |
+
+Height strings outside the positive u64 domain return `-32602`. Valid u64
+heights beyond the consensus int64 range are unavailable. Missing, pruned,
+unreachable or inconsistent commit/validator state returns `-32003`,
+`Chain read unavailable`, data.code `consensus_unavailable`. Pagination checks
+height, count, stable total, public-key envelopes and duplicate validators.
+
+A batch proof authenticates the consensus transaction hash under
+`header.data_hash`; it is verified before serving and is separate from the
+batch activity `TxRoot`. An absent batch returns `-32602`, `Invalid params`,
+data.code `no_sequence_batch`; malformed batches or inconsistent block/proof
+state return `-32003`, `Chain read unavailable`, data.code
+`invalid_consensus_response`. Unavailable consensus returns data.code
+`consensus_unavailable` with the same `-32003` error.
+
+Receipt keys are read locally on ordinary nodes, without a send-record source
+or forwarding URL. An explicitly configured empty list returns `{"keys":[]}`.
+An absent or invalid governed list returns `-32003`, `Chain read unavailable`,
+data.code `receipt_keys_unavailable`. Each request reads the latest committed
+governed state before validating parameters, including after a server restart;
+unavailable authority takes precedence over parameter errors. When the governed
+list is available, omitted, null, object or nonempty params return `-32602`,
+`Invalid params`, on either transport, including mixed batches.
+Receipt keys beside a receipt never establish authority by themselves.
+
+A node without a local sequencer send record uses only an explicitly configured
+sequencer forwarding path for `pax_sequencerReceipt`; otherwise it returns
+`-32000`, `pax_sequencerReceipt served by sequencer`. The method never constructs
+send records from committed transactions. All seven methods record the existing
+per-method, error and connection metrics. The hosted-operation decisions remain
+`-32004`, `Hosted gateway service operation`, data
+`{code:"hosted_gateway_service_required",method:<requested method>}` for valid
+`px_register`/`px_requestFunds` parameters, and `-32602` for invalid parameters.
+
+Task path mapping: the inventory's `src/kernel` and `src/modules/kernel` paths
+are absent in this revision. The existing sequencer state owner is
+`modules/sequencer`; task 22.34.4 reuses its public reads without changing it.
+The node read adapters are `rpc/px_kernel.go` and `rpc/sequencer_receipt.go`,
+as required by the node-root design, rather than a duplicate kernel tree.

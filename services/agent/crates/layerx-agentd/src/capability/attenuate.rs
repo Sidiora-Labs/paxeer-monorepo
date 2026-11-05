@@ -56,7 +56,11 @@ impl CapabilityGraph {
     pub fn chain(&self, id: CapabilityId) -> Option<Vec<CapabilityId>> {
         let mut current = Some(id);
         let mut chain = Vec::new();
+        let mut visited = BTreeSet::new();
         while let Some(value) = current {
+            if chain.len() >= self.nodes.len() || !visited.insert(value) {
+                return None;
+            }
             let node = self.nodes.get(&value)?;
             chain.push(value);
             current = node.parent;
@@ -67,17 +71,11 @@ impl CapabilityGraph {
 
     #[must_use]
     pub fn is_enabled(&self, id: CapabilityId) -> bool {
-        let mut current = Some(id);
-        while let Some(value) = current {
-            let Some(node) = self.nodes.get(&value) else {
-                return false;
-            };
-            if node.revoked {
-                return false;
-            }
-            current = node.parent;
-        }
-        true
+        self.chain(id).is_some_and(|chain| {
+            chain
+                .iter()
+                .all(|id| self.nodes.get(id).is_some_and(|node| !node.revoked))
+        })
     }
 
     /// Persists the derivation graph as one daemon-local object.
@@ -310,6 +308,12 @@ fn decode_graph(tenant: TenantId, bytes: &[u8]) -> Result<CapabilityGraph, Atten
             _ => return Err(AttenuationError::Corrupt),
         };
         offset += 1;
+        if capability.tenant != graph.tenant {
+            return Err(AttenuationError::Tenant);
+        }
+        if graph.nodes.contains_key(&capability.id) {
+            return Err(AttenuationError::Duplicate);
+        }
         graph.nodes.insert(
             capability.id,
             Node {
@@ -321,6 +325,35 @@ fn decode_graph(tenant: TenantId, bytes: &[u8]) -> Result<CapabilityGraph, Atten
     }
     if offset != bytes.len() {
         return Err(AttenuationError::Corrupt);
+    }
+    for node in graph.nodes.values() {
+        if let Some(parent) = node.parent {
+            let parent = graph
+                .nodes
+                .get(&parent)
+                .ok_or(AttenuationError::MissingParent)?;
+            require_subset(&node.capability, &parent.capability)?;
+        }
+    }
+    // Complete each ancestry once; no recursion or unbounded walk over persisted input.
+    let mut complete = BTreeSet::new();
+    for id in graph.nodes.keys() {
+        let mut path = BTreeSet::new();
+        let mut current = Some(*id);
+        while let Some(id) = current {
+            if complete.contains(&id) {
+                break;
+            }
+            if path.len() >= count || !path.insert(id) {
+                return Err(AttenuationError::Corrupt);
+            }
+            current = graph
+                .nodes
+                .get(&id)
+                .ok_or(AttenuationError::MissingParent)?
+                .parent;
+        }
+        complete.extend(path);
     }
     Ok(graph)
 }
@@ -368,11 +401,17 @@ pub fn require_native_subset(
     if !child.activities.is_subset(&parent.activities) {
         return Err(TimedError::Wider(Dimension::ActivityType));
     }
-    if !child.purpose_commitments.is_subset(&parent.purpose_commitments) {
+    if !child
+        .purpose_commitments
+        .is_subset(&parent.purpose_commitments)
+    {
         return Err(TimedError::Wider(Dimension::Purpose));
     }
     if child.spend_ceilings.iter().any(|(key, amount)| {
-        parent.spend_ceilings.get(key).is_none_or(|limit| amount > limit)
+        parent
+            .spend_ceilings
+            .get(key)
+            .is_none_or(|limit| amount > limit)
     }) {
         return Err(TimedError::Wider(Dimension::Amount));
     }

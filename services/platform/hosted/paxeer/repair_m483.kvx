@@ -1,0 +1,58 @@
+[repair.22.31.483]
+decision = 2533
+base_revision = "039e5adc21d328c5a1b7275e9649076c7d444e31"
+acceptance = "22998.1"
+manifest = "services/platform/hosted/paxeer/deployment.yaml"
+repair = "Restore the tracked paxeer boundary StatefulSet in layerx-testnet with genesis initialization, paxd and boundary. Replace retired genesis mutation and paxd image wiring with the maintained native provisioner and kernel runtime from node/deployment.yaml. Retain the primary HTTPS boundary and add the observer HTTPS listener and Service."
+rendering = "WriteManifest validates and emits the restored boundary file without reserialization. RunDeployment continues to accept manifest PROFILE and profile PROFILE; the profile identifies the native node owner and requires literal loopback node RPC origins. Native node assertions continue reading their canonical node manifest; command output assertions use the restored boundary file."
+observer = "The boundary container supervises two real boundary processes on 9443 and 9444, both using the single local native node; this does not claim an independent observer chain. paxeer-observer-boundary exposes 9443 to observer-https 9444. The tracked manifest includes the node consumer egress policy for both boundary ports and DNS."
+consumers = ["services/platform/hosted/gateway/tests/repair_22_31_345.rs", "services/platform/hosted/human/test_material.py", "services/platform/hosted/node/tests/node-topology-test.py", "services/platform/hosted/tests/topology-check.sh", "services/platform/hosted/testnet/README.md"]
+tests = ["TestRepairM_483_BoundaryManifest", "TestRepairM_483_ManifestCommandBytes", "TestRepairM_483_ManifestValidation", "TestRepairM_1319_ProfileRefusals", "TestRepairM_1319_RelayDeployerRetirement", "TestRepairM_1319_DeploymentPhaseRecovery"]
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+verify_cmd = "go test -count=1 -run '^TestRepairM_(1319|483)_' ./services/platform/hosted/paxeer/ && cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_31_345"
+verified_revision = "The revision field in the final passing hf-done JSON and /out/run/gates.jsonl verify row is the verified candidate; its build row must name the identical revision. This repair record does not claim a passing gate before execution."
+evidence = "Private gate logs are named in /out/run/gates.jsonl and the final hf-done JSON; the runner publishes the qualified task."
+limits = "Only the declared Go and Rust build/verify targets run. No Python, cluster or aggregate topology qualification is claimed."
+
+[gotcha.profile]
+observed = "The existing profile used DNS node origins although the production Rust boundary requires a literal loopback node address."
+resolution = "Use literal loopback RPC and consensus origins and add DNS, localhost and nonloopback refusal cases to the production profile tests."
+
+[gotcha.consumers]
+observed = "The Human observer topology test synthesized observer resources with a retired cluster renderer, and the native node no longer carries the old observer egress policy."
+resolution = "Read the restored observer resources directly and retain all existing ingress, egress and missing-egress assertions against the tracked boundary manifest's node consumer policy."
+
+[gotcha.scope]
+observed = "Root gotcha and spec ledgers are outside the authorized scope, and earlier repair records describe the superseded node-manifest renderer."
+resolution = "Record this decision and task findings here, preserve runner setup changes, and leave unrelated historical records unchanged."
+
+[gotcha.gateway_handler]
+observed = "The restored compile-time manifest exposed a stale two-argument handle_connection call in the scoped gateway integration test; the real handler now requires its capacity permit and absolute deadline."
+resolution = "Acquire the real ConnectionPermit and use Instant::now() plus the production CLIENT_IO_TIMEOUT before invoking the unchanged handler. Preserve all TLS shutdown and RPC assertions."
+
+[gotcha.gateway_identity]
+observed = "The first hf-done passed the Go tests but the existing node transcript expected the forwarded RPC before the boundary's current chain-identity request."
+resolution = "Assert and answer the identity request on the retained TCP connection, then preserve the original forwarded-request and gateway-response assertions."
+
+[gotcha.gate_budget]
+observed = "The gate wrapper counts each repeated build and verification separately, so the second repair's required build exhausts the two-repeat budget before its verification rerun."
+resolution = "Attempt only the authorized wrappers and report their exact bounded result; do not bypass the refusal, alter the budget, or claim the unverified repair qualified."
+
+[gotcha.current_boundary_probe]
+observed = "On the current base the included paxeer/src/main.rs node_chain_id sends numeric ID 1, while gateway/src/paxeer.rs sends route-network for its separate routing probe."
+resolution = "Keep the node transcript faithful to the included production boundary, assert its exact probe bytes and response ID, then assert the separately forwarded client document including its route-network ID."
+
+[gotcha.restoration_digest_conflict]
+observed = "The current-side TestRepairM_1319_NativeDeployment calls repair467Restored on deployment.yaml, requiring the entire file to retain the historical digest before decision 2533 reconciliation."
+resolution = "Re-pin deployment.yaml to SHA-256 7f681de19c1c05401b1b0dfb98fb4ee3611e6e22f3bd3815b0fb1877108d9066 for the decision 2533 restoration, preserving the regular-file and exact-content checks and every companion file's historical digest."
+
+[gotcha.observer_egress]
+observed = "A single node egress rule covering both boundary ports would remove primary access together with observer access in the existing missing-observer-egress assertion."
+resolution = "Keep separate explicit primary and observer egress rules so removing observer permission preserves primary permission."
+
+[gotcha.digest_location]
+observed = "The continuation names node/repair_m1319_test.go line 452, but that file is absent on this base; the failing call is in services/platform/hosted/paxeer/repair_m1319_test.go and its digest is declared in repair_467_test.go."
+resolution = "Update the actual digest declaration within the authorized Paxeer directory and add the declared node-side file with the same regular-file and exact-digest regression check. The allowed verify executes the Paxeer check; no node-package gate is claimed."

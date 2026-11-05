@@ -3,41 +3,22 @@ import { Badge } from "../../kit/collection";
 import {
   GatewayRpcError,
   GatewayUnavailableError,
-  paxeerHistory,
-  unifiedHistory,
   type HistoryPage,
 } from "../../api/gateway";
 import { ExplorerLink, ExplorerPanel, ExplorerTable } from "../../kit/explorer";
 import { StateEmpty } from "../../kit/surface";
 import { MarketUnavailable } from "./frame";
 import { formatUnits, shortId } from "./format";
+import { activityHistory, type ActivitySide } from "./activity-history";
 
-export type ActivitySide = "unified" | "paxeer";
-
-export function activitySide(value: string | undefined): ActivitySide {
-  return value === "paxeer" ? value : "unified";
-}
-
-async function page(
-  side: ActivitySide,
-  account: string,
-  cursor: string | undefined,
-  kind: string | undefined,
-): Promise<HistoryPage> {
-  switch (side) {
-    case "paxeer":
-      return paxeerHistory(account, { cursor, kind });
-    case "unified":
-      return unifiedHistory(account, { cursor, kind });
-  }
-}
+export { activitySide, type ActivitySide } from "./activity-history";
 
 const METHOD: Readonly<Record<ActivitySide, string>> = {
   unified: "px_getUnifiedHistory",
   paxeer: "px_getHistory",
 };
 
-/** The gateway history of `account`, the same rows an agent reads through the SDK history methods. */
+/** The node history of `account`, the same rows an agent reads through the SDK history methods. */
 export async function ActivityFeed({
   route,
   account,
@@ -61,7 +42,7 @@ export async function ActivityFeed({
   }
   let history: HistoryPage;
   try {
-    history = await page(side, account, cursor, kind);
+    history = await activityHistory(side, account, { cursor, kind });
   } catch (error) {
     if (error instanceof GatewayUnavailableError || error instanceof GatewayRpcError) {
       return (

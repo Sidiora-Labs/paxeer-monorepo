@@ -1,0 +1,63 @@
+[repair.22.31.208]
+audit = "22.30.85"
+acceptance = "22998.1"
+baseline = "No additional baseline run: the implementation-first gate order and prohibition on invoking verify by hand take precedence over the contradictory baseline step. The runner supplied attempt 1 at revision 36acca4ef54174428008f1752b150e2993398467: mixed_height_and_sequence_authenticates_multiple_receipts_and_empty_blocks failed with state_evidence_refused; 23 other tests passed."
+evidence = "The private hf-build/hf-done ledger supplies the exact candidate revision, command, exit code and log; only a passing hf-done row qualifies this repair."
+
+[finding.mixed-height-and-sequence]
+test = "mixed_height_and_sequence_authenticates_multiple_receipts_and_empty_blocks"
+repair = "Carry committed height, authenticated state height, block hash and native receipt sequence separately. Authenticate the native last-sequence key with ICS23 under the pinned Comet app hash; compare receipt sequence with receipt sequence and committed block coordinates with committed block coordinates. Bind each genuine signed receipt's committed landing to that block snapshot."
+proof = "Production retain writes both original signed native receipt transcripts, then a reopened authority loads them through Human::evidence. Subject-current and receipt-binding consume native account and sequence membership proofs through the real RPC client. Both receipts land in one block; later blocks without relevant receipts advance committed height while preserving receipt sequence. Missing tail evidence, altered proof/key/value/height/store/app hash, changed receipt landing, uncommitted receipts, same-height block replacement and altered receipt key metadata are refused."
+
+[finding.budget-gateway-wiring]
+test = "budget_gateway_wiring_reads_authenticated_native_state_through_authority_tls"
+repair = "Use the proposal's direct authenticated chain-read alternative: replace unavailable px_getAccount/px_getBalances joins with canonical native account records and ICS23 membership. Pin addr binding and direct budget eth_call reads to the same H-1 state authenticated by Comet header H. Dynamic budget reads reuse the subject session; exports retain native account, balance and receipt-sequence proofs. No gateway response is synthesized."
+proof = "The production authority HTTP parser, bearer authentication, TLS handler, budget route, RPC client, native codec and proof verifier run in-process against a loopback node and a committed in-memory ICS23 store. Assert both budget calls, DID binding and every account proof use state height 8 under committed header 9; native sequence 31 is independent of height. Verify amounts, account identifiers, authenticated TLS and malformed-proof, unbound-address and reorg refusals."
+
+[repair.native-query-route]
+path = "services/platform/hosted/paxeer/src/comet.rs"
+unit_test = "native_store_queries_require_exact_sequence_or_account_keys (relay target; not part of the declared authority gate)"
+implementation = "Admit only the exact native last-sequence key 0x02 and account keys 0x06 followed by 32 bytes through the existing bounded, proof-required abci_query transport. Preserve the existing EVM route and all height, envelope and proof checks. The declared authority cases drive the production native RPC consumer into the committed store; the relay unit case is not claimed as gate evidence."
+
+[wiring.2]
+request = "services/platform/hosted/authority/tests/budget_proof_exports.rs and downstream budget-proof-v2 consumers — platform/domain8 and agent/domain7: consume authenticated native_account_proof, balances, receipt_sequence_proof and explicit finality.state_height in place of retired gateway layerx joins; eth_call height is H-1 and observed_head_sequence is the native receipt sequence."
+
+[repair.native-receipt-authority]
+path = "services/platform/hosted/authority/src/trust.rs and services/platform/hosted/authority/src/chain_receipt.rs"
+test = "native_receipt_authority_requires_pinned_header_key_signature_and_range"
+implementation = "Select native receipt authority from the pinned replica key and authenticate its identity, network, signature and batch range with the signed header. Check chain keyId against SHA256(signingKey), the pinned key and height range, and verify the unchanged native receipt signature. Preserve the canonical native state verifier's zero-context check; non-native receipts still bind context to key identity."
+
+[gotcha.1]
+observed = "Comet header H authenticates native SDK state H-1; budget eth_call, addr lookup and native membership must all read H-1, never mix an H call with an H-1 proof."
+
+[gotcha.2]
+observed = "Native account store values use the snapshot codec with length-prefixed id, name, asset and authority; decode those fields strictly and validate the resulting canonical account with the existing layerx-proof state codec."
+
+[gotcha.3]
+observed = "Including the production authority entrypoint in the focused test also registers its existing readiness test, whose TLS harness invoked OpenSSL; replace only that fixture generation with committed test certificates so the entire gate needs no external binary."
+
+[gotcha.4]
+observed = "The committed native outcome transcripts carry legacy sequencer IDs and raw proof framing; preserve every receipt byte and its original signature while resealing only the header key ID and wire proof framing under current SHA256(public key) pins. Independently verify the complete maintained receipt through the production library before driving subject-current."
+
+[gotcha.5]
+observed = "Attempt 1 rewrote the native receipt context_hash to the key ID, conflicting with the unchanged native state projection check that requires zero; the continuation preserves that check and the original receipt bytes. The out-of-scope trust::replica selector also requires the key ID in context_hash, so canonical native state receipts cannot reach the dynamic consumer until wiring.3 is resolved."
+resolved = "Attempt 3 includes trust.rs, chain_receipt.rs and comet.rs in scope and repairs their production derivation and route. No receipt bytes or state projection checks are changed."
+
+[gotcha.6]
+observed = "A mixed-height proof must exercise the actual state writer and reload path: serializing Record by hand bypasses retain's validation and does not prove recoverable authority evidence."
+
+[gotcha.7]
+observed = "Including the relay entrypoint in the authority test also requires serde_json/raw_value, enabled only by the relay consumers. The authority Cargo.toml is outside scope, so the focused gate uses its production native RPC client and a loopback node peer; no unrun relay test is claimed as gate evidence."
+
+[wiring.4]
+request = "services/platform/hosted/authority/Cargo.toml — platform/domain8: enable serde_json/raw_value for cross-crate inclusion of the complete Comet relay and add that relay-to-native-store proof to the authority integration target; the bounded route carries its own source unit case."
+
+[qualification.repair-1]
+revision = "1d4c9241867d583cba352cd0c5a6021381d8e4bd"
+command = "cg spec done 22.31.208 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three new cases stopped at the fixture-public-key assertion: decimal 61 was the mutation helper's signer, while the committed original fixture uses seed 0x22; correct the fixture seed while retaining the assertion and every production check."
+
+[repair.continued-balance-interface]
+implementation = "Resolve the carried conflict by retaining the current typed committed balance reader and requiring its amount to equal the authenticated native account balance. Both the ledger call and membership proof read H-1 under the same pinned header H; remove only the unavailable gateway join. The TLS integration case exercises both account selectors and refuses inconsistent, overflowing and truncated ledger words."

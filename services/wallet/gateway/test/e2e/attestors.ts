@@ -3,7 +3,11 @@ import { X509Certificate, createHash, generateKeyPairSync, randomBytes, randomUU
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { Agent, request as httpsRequest } from 'node:https';
-import { createServer as createNetServer, type AddressInfo } from 'node:net';
+import {
+  createServer as createNetServer,
+  type AddressInfo,
+  type Server as NetServer,
+} from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -151,15 +155,58 @@ export async function startIdentity(): Promise<Identity> {
   };
 }
 
-function freePort(): Promise<number> {
-  return new Promise((resolvePort, reject) => {
-    const srv = createNetServer();
-    srv.once('error', reject);
-    srv.listen(0, '127.0.0.1', () => {
-      const port = (srv.address() as AddressInfo).port;
-      srv.close(() => resolvePort(port));
-    });
+export async function reserveAttestorPorts(size: number): Promise<
+  Array<{
+    api: number;
+    peer: number;
+    release(): Promise<void>;
+  }>
+> {
+  const servers: NetServer[] = [];
+  const reservations = await Promise.allSettled(
+    Array.from(
+      { length: size * 2 },
+      () =>
+        new Promise<{ port: number; release(): Promise<void> }>((resolvePort, reject) => {
+          const server = createNetServer();
+          servers.push(server);
+          server.once('error', reject);
+          server.listen(0, '127.0.0.1', () => {
+            const port = (server.address() as AddressInfo).port;
+            let released: Promise<void> | undefined;
+            resolvePort({
+              port,
+              release: () =>
+                (released ??= new Promise<void>((resolveRelease, rejectRelease) => {
+                  server.close((error) => (error ? rejectRelease(error) : resolveRelease()));
+                })),
+            });
+          });
+        })
+    )
+  );
+  const failed = reservations.find((reservation) => reservation.status === 'rejected');
+  if (failed) {
+    await Promise.all(
+      servers
+        .filter((server) => server.listening)
+        .map(
+          (server) => new Promise<void>((resolveRelease) => server.close(() => resolveRelease()))
+        )
+    );
+    throw failed.reason;
+  }
+  const listeners = reservations.map((reservation) => {
+    if (reservation.status !== 'fulfilled') throw reservation.reason;
+    return reservation.value;
   });
+  return Array.from({ length: size }, (_, i) => ({
+    api: listeners[i * 2]!.port,
+    peer: listeners[i * 2 + 1]!.port,
+    async release() {
+      await Promise.all([listeners[i * 2]!.release(), listeners[i * 2 + 1]!.release()]);
+    },
+  }));
 }
 
 export function buildAttestor(outDir: string): string {
@@ -276,49 +323,56 @@ export async function startAttestorNetwork(opts: {
   );
   const kernelPolicyFile = join(work, 'kernel-policy.json');
   writeFileSync(kernelPolicyFile, JSON.stringify(KERNEL_POLICY));
-  const ports = await Promise.all(ids.map(async () => ({ api: await freePort(), peer: await freePort() })));
+  const ports = await reserveAttestorPorts(size);
   const nodes: AttestorProcess[] = [];
-  for (const [i, id] of ids.entries()) {
-    const dataDir = join(work, id);
-    mkdirSync(dataDir, { recursive: true });
-    const nodeKeyFile = join(work, `${id}.key`);
-    writeFileSync(nodeKeyFile, randomBytes(32).toString('hex'), { mode: 0o600 });
-    const others = ids.filter((o) => o !== id);
-    const own = pki.node(id);
-    const env: NodeJS.ProcessEnv = {
-      PATH: process.env.PATH,
-      HOME: process.env.HOME,
-      ATTESTOR_NODE_ID: id,
-      ATTESTOR_REGION: `region-${i + 1}`,
-      ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i]!.api}`,
-      ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i]!.peer}`,
-      ATTESTOR_PEERS: others.map((o) => `${o}=127.0.0.1:${ports[ids.indexOf(o)]!.peer}`).join(','),
-      ATTESTOR_PEER_PINS: others.map((o) => `${o}=${pki.node(o).pin}`).join(','),
-      ATTESTOR_NODE_KEY_FILE: nodeKeyFile,
-      ATTESTOR_DATA_DIR: dataDir,
-      ATTESTOR_CHAIN_ID: String(CHAIN_ID),
-      ATTESTOR_JWKS_URL: `${opts.identity.issuer}/.well-known/jwks.json`,
-      ATTESTOR_JWT_ISSUER: opts.identity.issuer,
-      ATTESTOR_JWT_AUDIENCE: 'authenticated',
-      ATTESTOR_POLICY_FILE: policyFile,
-      ATTESTOR_TLS_CERT_FILE: own.cert,
-      ATTESTOR_TLS_KEY_FILE: own.key,
-      ATTESTOR_TLS_CA_FILE: pki.caFile,
-      ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
-      ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: producerPublic,
-      ATTESTOR_AUTHORITY_ISSUER: opts.identity.issuer,
-      ATTESTOR_AUTHORITY_TENANT: 'e2e',
-      ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: inventoryPublic,
-      ATTESTOR_INVENTORY_FILE: inventoryFile,
-      ATTESTOR_KERNEL_POLICY_FILE: kernelPolicyFile,
-      ATTESTOR_RPC_URL: opts.rpcUrl,
-      ATTESTOR_ACTIVITY_TYPES: '0x10005',
-    };
-    const child = spawn(bin, [], { env, stdio: ['ignore', 'pipe', 'pipe'] });
-    const log: string[] = [];
-    child.stdout?.on('data', (c: Buffer) => log.push(c.toString('utf8')));
-    child.stderr?.on('data', (c: Buffer) => log.push(c.toString('utf8')));
-    nodes.push({ nodeId: id, apiUrl: `https://127.0.0.1:${ports[i]!.api}`, child, log });
+  try {
+    for (const [i, id] of ids.entries()) {
+      const dataDir = join(work, id);
+      mkdirSync(dataDir, { recursive: true });
+      const nodeKeyFile = join(work, `${id}.key`);
+      writeFileSync(nodeKeyFile, randomBytes(32).toString('hex'), { mode: 0o600 });
+      const others = ids.filter((o) => o !== id);
+      const own = pki.node(id);
+      const env: NodeJS.ProcessEnv = {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        ATTESTOR_NODE_ID: id,
+        ATTESTOR_REGION: `region-${i + 1}`,
+        ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i]!.api}`,
+        ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i]!.peer}`,
+        ATTESTOR_PEERS: others
+          .map((o) => `${o}=127.0.0.1:${ports[ids.indexOf(o)]!.peer}`)
+          .join(','),
+        ATTESTOR_PEER_PINS: others.map((o) => `${o}=${pki.node(o).pin}`).join(','),
+        ATTESTOR_NODE_KEY_FILE: nodeKeyFile,
+        ATTESTOR_DATA_DIR: dataDir,
+        ATTESTOR_CHAIN_ID: String(CHAIN_ID),
+        ATTESTOR_JWKS_URL: `${opts.identity.issuer}/.well-known/jwks.json`,
+        ATTESTOR_JWT_ISSUER: opts.identity.issuer,
+        ATTESTOR_JWT_AUDIENCE: 'authenticated',
+        ATTESTOR_POLICY_FILE: policyFile,
+        ATTESTOR_TLS_CERT_FILE: own.cert,
+        ATTESTOR_TLS_KEY_FILE: own.key,
+        ATTESTOR_TLS_CA_FILE: pki.caFile,
+        ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
+        ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: producerPublic,
+        ATTESTOR_AUTHORITY_ISSUER: opts.identity.issuer,
+        ATTESTOR_AUTHORITY_TENANT: 'e2e',
+        ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: inventoryPublic,
+        ATTESTOR_INVENTORY_FILE: inventoryFile,
+        ATTESTOR_KERNEL_POLICY_FILE: kernelPolicyFile,
+        ATTESTOR_RPC_URL: opts.rpcUrl,
+        ATTESTOR_ACTIVITY_TYPES: '0x10005',
+      };
+      await ports[i]!.release();
+      const child = spawn(bin, [], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+      const log: string[] = [];
+      child.stdout?.on('data', (c: Buffer) => log.push(c.toString('utf8')));
+      child.stderr?.on('data', (c: Buffer) => log.push(c.toString('utf8')));
+      nodes.push({ nodeId: id, apiUrl: `https://127.0.0.1:${ports[i]!.api}`, child, log });
+    }
+  } finally {
+    await Promise.all(ports.map((port) => port.release()));
   }
 
   const agent = mtlsAgent(pki);

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "variant": "task:17.1",
+  "task": "17.1",
+  "scope": "task-component",
+  "cases": [
+    "V-031"
+  ],
+  "assertion_ids": [
+    "review.policy.ten-distinct-watchers",
+    "review.policy.reject-nine",
+    "review.policy.reject-sixteen",
+    "review.policy.reject-duplicate-session",
+    "review.policy.reject-unapproved-sharding",
+    "review.policy.reject-request-approval",
+    "review.discovery.actual-first-batch",
+    "review.discovery.actual-second-batch",
+    "review.discovery.replay",
+    "review.coverage.every-watcher-per-commit",
+    "review.coverage.no-completion-from-counts",
+    "review.coverage.detect-missing-obligation",
+    "review.coverage.repair-obligation",
+    "review.discovery.history-rewrite",
+    "review.discovery.preserve-history",
+    "review.policy.replacement-generation",
+    "review.coverage.old-policy-stale",
+    "review.discovery.untagged-visible",
+    "review.discovery.empty-commit-covered",
+    "review.api.reject-checkout-path",
+    "review.api.cross-run-refused",
+    "review.audit.closed-run-coverage-read-only",
+    "review.audit.closed-run-review-write-denied"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/17_1.py"
+  ],
+  "timeout_seconds": 300,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/review/coverage.js"
+  ],
+  "resources": [
+    {
+      "id": "hf-review-17.1-database",
+      "kind": "postgresql-database",
+      "scope": "task17.1-disposable"
+    }
+  ],
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/17_1.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "required_artifacts": [
+    "review/database-absence.json",
+    "review/observations.json",
+    "review/closed-run-audit-read.json",
+    "review/closed-run-audit-write.json"
+  ],
+  "source_files": [
+    "tests/hyperfide/cases/tasks/17_1.py",
+    "tests/hyperfide/support/identity_fixture.py",
+    "core/control-plane/src/review/coverage.ts",
+    "core/control-plane/migrations/0017-review.sql",
+    "core/control-plane/components/17.1.json",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/check-evidence.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ]
+}

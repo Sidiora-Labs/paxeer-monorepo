@@ -389,66 +389,73 @@ func TestSubscribeEmptyLogs(t *testing.T) {
 }
 
 func TestSubscribeNewLogs(t *testing.T) {
-	t.Skip()
-	data := map[string]interface{}{
-		"fromBlock": "0x0",
-		"toBlock":   "latest",
-		"address": []common.Address{
-			common.HexToAddress("0x1111111111111111111111111111111111111111"),
-		},
-		"topics": [][]common.Hash{
-			{
-				common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111"),
-				common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111112"),
-			},
-		},
+	repairM1297LogSubscription(t)
+}
+
+func repairM1297LogSubscription(t *testing.T) {
+	t.Helper()
+	sender := occutils.NewSigner()
+	q := newSubscribeSequencer(t, sender)
+	ws, peek := dialWSPipe(t, q.wsServer(t, 0).(http.Handler))
+	address := crypto.CreateAddress(sender.EvmAddress, 0)
+	topic := func(n int64) common.Hash { return common.BigToHash(big.NewInt(n)) }
+	id := wsSubscribe(t, ws, "logs", map[string]any{
+		"address": []common.Address{address, common.HexToAddress("0x1234")},
+		"topics":  [][]common.Hash{{topic(1), topic(3)}},
+	})
+	// LOG1(1), LOG1(2), LOG1(3); the creation emits these logs and
+	// installs the same runtime so a later call can test unsubscribe.
+	runtime := []byte{
+		0x60, 1, 0x60, 0, 0x60, 0, 0xa1,
+		0x60, 2, 0x60, 0, 0x60, 0, 0xa1,
+		0x60, 3, 0x60, 0, 0x60, 0, 0xa1, 0,
 	}
-	recvCh, done := sendWSRequestGood(t, "subscribe", "logs", data)
-	defer func() { done <- struct{}{} }()
+	init := append([]byte{}, runtime[:len(runtime)-1]...)
+	offset := byte(len(init) + 12)
+	init = append(init, 0x60, byte(len(runtime)), 0x60, offset, 0x60, 0, 0x39, 0x60, byte(len(runtime)), 0x60, 0, 0xf3)
+	init = append(init, runtime...)
+	raw, hash := subscribeRawTx(t, sender, 0, nil, big.NewInt(0), subscribeTwoLogsGas, init)
+	acc := q.send(t, raw, hash)
+	execution, err := sendSeqExecutionReceipt(acc)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status)
+	require.Len(t, execution.Logs, 3)
+	open := q.committed + 1
+	require.Equal(t, receiptedLogJSON(address, 1, open, hash, acc.TxIndex, 0, acc.Seq), wsNotification(t, ws, id))
+	require.Equal(t, receiptedLogJSON(address, 3, open, hash, acc.TxIndex, 2, acc.Seq), wsNotification(t, ws, id))
 
-	receivedSubMsg := false
-	receivedEvents := false
-	timer := time.NewTimer(2 * time.Second)
+	raw, hash = subscribeRawTx(t, sender, 1, nil, big.NewInt(0), subscribeTwoLogsGas, init)
+	other := q.send(t, raw, hash)
+	execution, err = sendSeqExecutionReceipt(other)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status)
+	require.Len(t, execution.Logs, 3)
+	require.NotEqual(t, address.Hex(), execution.Logs[0].Address)
+	require.False(t, peek.writing(t, 200*time.Millisecond), "wrong topics and addresses must not notify")
 
-	var subscriptionId string
-
-	for {
-		select {
-		case resObj := <-recvCh:
-			_, ok := resObj["error"]
-			if ok {
-				t.Fatal("Received error:", resObj["error"])
-			}
-			if !receivedSubMsg {
-				// get subscriptionId from first message
-				subscriptionId = resObj["result"].(string)
-				receivedSubMsg = true
-				continue
-			}
-			receivedEvents = true
-			method := resObj["method"].(string)
-			if method != "eth_subscription" {
-				t.Fatal("Method is not eth_subscription")
-			}
-			paramMap := resObj["params"].(map[string]interface{})
-			if paramMap["subscription"] != subscriptionId {
-				t.Fatal("Subscription ID does not match")
-			}
-			resultMap := paramMap["result"].(map[string]interface{})
-			if resultMap["address"] != "0x1111111111111111111111111111111111111111" && resultMap["address"] != "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" {
-				t.Fatalf("Unexpected address, got %v", resultMap["address"])
-			}
-			firstTopic := resultMap["topics"].([]interface{})[0].(string)
-			if firstTopic != "0x1111111111111111111111111111111111111111111111111111111111111111" {
-				t.Fatalf("Unexpected topic, got %v", firstTopic)
-			}
-		case <-timer.C:
-			if !receivedSubMsg || !receivedEvents {
-				t.Fatal("No message received within 5 seconds")
-			}
-			return
-		}
+	require.NoError(t, ws.WriteJSON(map[string]any{"jsonrpc": "2.0", "id": 2, "method": "eth_unsubscribe", "params": []any{id}}))
+	require.NoError(t, ws.SetReadDeadline(time.Now().Add(5*time.Second)))
+	var answer struct {
+		ID     int             `json:"id"`
+		Result bool            `json:"result"`
+		Error  json.RawMessage `json:"error"`
 	}
+	require.NoError(t, ws.ReadJSON(&answer))
+	require.Empty(t, answer.Error)
+	require.Equal(t, 2, answer.ID)
+	require.True(t, answer.Result)
+	raw, hash = subscribeRawTx(t, sender, 2, &address, big.NewInt(0), subscribeTwoLogsGas, nil)
+	after := q.send(t, raw, hash)
+	execution, err = sendSeqExecutionReceipt(after)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status)
+	require.Len(t, execution.Logs, 3)
+	require.Equal(t, address.Hex(), execution.Logs[0].Address)
+	require.False(t, peek.writing(t, 200*time.Millisecond), "unsubscribed matching logs must not notify")
+}
+
+func repairM1297LogSubscriptionProof(t *testing.T) {
+	repairM1297LogSubscription(t)
 }
 
 func TestSubscriptionManager(t *testing.T) {
@@ -1059,3 +1066,5 @@ func TestSubscribeNewPendingTransactions(t *testing.T) {
 		require.FailNow(t, "no reply within 5 seconds")
 	}
 }
+
+func init() { evmrpc.RepairM1297Proofs["log-subscription-skipped"] = repairM1297LogSubscriptionProof }

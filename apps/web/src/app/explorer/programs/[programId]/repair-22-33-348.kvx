@@ -1,0 +1,13 @@
+[repair.22.33.348]
+finding = "program-unearned-finality"
+audit = "spec/layerx-merge/programme/audit/records/22.30.139.kvx"
+test_file = "apps/web/e2e/repair-22-33-348.test.ts"
+proving_tests = ["program_unearned_finality_reports_observations_without_finality", "program_unearned_finality_does_not_infer_currentness_from_age", "program_unearned_finality_future_timestamp_has_unknown_age", "program_unearned_finality_ignores_reported_verification_claims", "program_unearned_finality_missing_native_interface_stays_unavailable"]
+change = "ProgramPage renders the production ProgramDetails component, which labels all program facts and value accounts Reported and shows observation sequence, timestamp and reported age at render without granting finality or currentness; future timestamps explicitly have unknown age."
+unavailable = "ProgramPage renders ProgramUnavailable when programRecord rejects, using explorer.freshness.unavailable and explorer.freshness.unavailable.body from the copy runtime with current=false, no reported observation and no verification marker."
+continuation_baseline = "The supplied attempt-2 evidence reports four tests passing and program_unearned_finality_missing_native_interface_stays_unavailable failing its unavailable-copy assertion; all five tests and the no-native-endpoint requests assertion are preserved."
+proof_path = "Committed in-memory observation store -> loopback HTTP JSON -> production decodeProgramForIdentifier -> production ProgramDetails -> real React server renderer and DOM assertions; the real ProgramPage and programRecord separately prove the existing native interface refusal."
+baseline = "Not run: the explicit gate order prohibits verification before full implementation and permits verification only through hf-done after hf-build; no pre-change test failure is claimed. The pre-change page hardcoded checkpoint-finalised badges and current=true."
+timestamp_basis = "src/modules/programs/accounts.c assigns observed_at from receipt.timestamp; modules/lxphost/ctx.go uses BlockTime().UnixMilli(), and modules/lxphost/host.go assigns receipt.timestamp from timestamp_ms. Age is reported elapsed time, not an authenticated freshness result."
+wiring_request = "apps/web/src/explorer/client.ts and apps/web/src/explorer/model.ts, owner domain 14 (web-explorer-bridge): wire a native program-read interface with authenticated committed evidence bound to the requested program and observation, plus an authenticated observed head, before the page can derive finality or currentness."
+qualification = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; no unrun gate or manual completion is claimed here."

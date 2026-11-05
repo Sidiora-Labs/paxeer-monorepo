@@ -1,0 +1,141 @@
+{
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/2_1.py"
+  ],
+  "assertion_ids": [
+    "spec.service.linked",
+    "spec.schema.applied",
+    "spec.schema.checksum",
+    "spec.import.actual",
+    "spec.storage.exact-bytes",
+    "spec.storage.restart",
+    "spec.storage.unknown-section",
+    "spec.storage.literal-env",
+    "spec.history.declared-done",
+    "spec.history.no-evidence",
+    "spec.intent.repository",
+    "spec.intent.closure",
+    "spec.replay.same",
+    "spec.replay.conflict",
+    "spec.intent.same-source-new-envelope",
+    "spec.replay.concurrent",
+    "spec.scope.programme",
+    "spec.scope.project",
+    "spec.parse.string",
+    "spec.parse.duplicate-key",
+    "spec.parse.duplicate-section",
+    "spec.parse.precision",
+    "spec.parse.utf8",
+    "spec.refuse.digest",
+    "spec.refuse.size",
+    "spec.refuse.traversal",
+    "spec.refuse.numeric-size",
+    "spec.refuse.leading-zero",
+    "spec.refuse.broaden-action",
+    "spec.git-ref.colon",
+    "spec.git-ref.lock",
+    "spec.git-ref.slash",
+    "spec.git-ref.reflog",
+    "spec.git-ref.dot",
+    "spec.git-ref.empty",
+    "spec.source.symlink",
+    "spec.source.symlink-ancestor",
+    "spec.source.nonregular",
+    "spec.source.changed-during-read",
+    "spec.projection.write",
+    "spec.projection.readonly",
+    "spec.projection.stale-spec_generation",
+    "spec.projection.stale-state_version",
+    "spec.export.pages",
+    "spec.export.bounds",
+    "spec.export.types",
+    "spec.export.drift",
+    "spec.transaction.late-rollback",
+    "spec.history.task-revision",
+    "spec.schema.reject-drift",
+    "spec.history.immutable-revision",
+    "spec.isolation.task_revisions",
+    "spec.isolation.spec_amendments",
+    "spec.isolation.spec_amendment_decisions",
+    "spec.isolation.proof_registries",
+    "spec.auth.semantic-read",
+    "spec.auth.semantic-write",
+    "spec.auth.no-startup-fallback",
+    "spec.auth.role-refused",
+    "spec.auth.revoked-refused"
+  ],
+  "cases": [
+    "V-001",
+    "V-024"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/2_1.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "fixtures": [
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/spec/import.js",
+    "core/control-plane/migrations/0002-spec.sql"
+  ],
+  "required_artifacts": [
+    "spec/observations.json",
+    "spec/database-absence.json"
+  ],
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "resources": [
+    {
+      "id": "hf-task-2.1-database",
+      "kind": "postgresql-database",
+      "scope": "task2.1-disposable"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "task-component",
+  "source_files": [
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
+    "core/control-plane/src/spec/import.ts",
+    "core/control-plane/src/storage/schema.ts",
+    "core/control-plane/src/contracts/records.ts",
+    "core/control-plane/src/components/registry.ts",
+    "core/control-plane/src/components/service.ts",
+    "core/control-plane/src/policy/programme.ts",
+    "core/control-plane/components/2.1.json",
+    "core/control-plane/migrations/0001-authority.sql",
+    "core/control-plane/migrations/0002-spec.sql",
+    "tests/hyperfide/cases/tasks/2_1.py",
+    "tests/hyperfide/cases/tasks/4_1.py",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "core/control-plane/src/spec/bootstrap.ts",
+    "core/control-plane/src/storage/dispositions.ts",
+    "core/control-plane/src/storage/durability.ts",
+    "core/control-plane/migrations/0004-durability.sql",
+    "tests/hyperfide/support/identity_fixture.py",
+    "core/control-plane/components/4.2.json",
+    "core/control-plane/components/14.1.json"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "task": "2.1",
+  "timeout_seconds": 600,
+  "variant": "task:2.1"
+}

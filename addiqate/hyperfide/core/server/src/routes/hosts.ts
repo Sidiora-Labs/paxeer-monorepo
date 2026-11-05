@@ -1,0 +1,490 @@
+import { getHyperfideStatus } from "../services/hosts/hyperfide-status.js";
+import { joinHostPathSegments } from "../services/lib/host-path.js";
+import { serverAccess } from "../services/machines/server-access.js";
+import {
+  getLatestSessionForHost,
+  getNonDestroyedHost,
+  getPublicProjectByLocalPathSource,
+  updateHost,
+} from "@hyperfide/db";
+import {
+  publicApiRoutes,
+  typedRoutes,
+  type PublicApiSchema,
+} from "@hyperfide/server-contract";
+import type { Hono } from "hono";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
+import type { AppDeps } from "../types.js";
+import {
+  getProviderInstallations,
+  serializeProviderInstallation,
+} from "../services/system/provider-installations.js";
+import { resolveBridgeLaunchForProviderId } from "../services/system/provider-bridge-launch.js";
+import type { PluginService } from "../services/plugins/plugin-service.js";
+import { COMMAND_TIMEOUT_MS } from "../constants.js";
+import { ApiError } from "../errors.js";
+import {
+  getGateAuthKind,
+  type GateAuthHeaderReader,
+} from "../request-context.js";
+import {
+  listPublicHostsWithStatus,
+  requireNonDestroyedHostWithStatus,
+  requirePublicStandardProject,
+} from "../services/lib/entity-lookup.js";
+import {
+  assertUsableHostId,
+  isServerMachineHost,
+  resolvePrimaryHostId,
+} from "../services/hosts/primary-host.js";
+import { issueHostEnrollKey } from "../services/hosts/host-enrollment.js";
+import {
+  callHostOnlineRpcForWork,
+  callHostRetryableOnlineRpc,
+} from "../services/hosts/online-rpc.js";
+import {
+  handleHostRemoved,
+  settleRemovedHostWork,
+} from "../internal/session-owner-side-effects.js";
+import {
+  submitMachine,
+  requestMachineRemoval,
+  startMachineResume,
+  startMachineSuspension,
+  startMachineReconciliation,
+  forceMachineRemoval,
+  retryMachineCleanup,
+  sweepProviderMachine,
+} from "../services/machines/provider-orchestration.js";
+import { getMachineEnrollmentService } from "../services/machines/machine-services.js";
+import { manualHostCommand } from "../services/machines/manual-provider.js";
+import { prepareReconnect } from "../services/machines/reconnect.js";
+import { emitPluginHostDeleted } from "../services/plugins/plugin-thread-events.js";
+
+const DISCOVERED_REPOS_MAX_DEPTH = 5;
+const DISCOVERED_REPOS_SINCE_DAYS = 30;
+const DISCOVERED_REPOS_LIMIT = 10;
+
+const PROVIDER_CLI_INSTALL_TIMEOUT_MS = 15 * 60 * 1000;
+const FOLDER_PICKER_TIMEOUT_MS = 10 * 60 * 1000;
+
+function providerCliInstallEventsToNdjson(events: readonly unknown[]): string {
+  return events.map((event) => `${JSON.stringify(event)}\n`).join("");
+}
+
+async function requireMutableHost(deps: AppDeps, hostId: string) {
+  const host = await getNonDestroyedHost(deps.db, hostId);
+  if (!host) {
+    throw new ApiError(404, "host_not_found", "Host not found");
+  }
+  return host;
+}
+
+function assertHostManagementAllowed(context: GateAuthHeaderReader): void {
+  if (getGateAuthKind(context) === "machine") {
+    throw new ApiError(
+      403,
+      "machine_host_management_forbidden",
+      "Machine credentials cannot manage hosts",
+    );
+  }
+}
+
+function assertNotServerMachine(deps: AppDeps, hostId: string): void {
+  if (isServerMachineHost(deps, hostId)) {
+    throw new ApiError(
+      400,
+      "server_host_lifecycle_refused",
+      "The server machine can't be suspended or resumed. Move the server to another machine first.",
+    );
+  }
+}
+
+export function registerHostRoutes(
+  app: Hono,
+  deps: AppDeps,
+  plugins: PluginService,
+): void {
+  const { del, get, patch, post } = typedRoutes<PublicApiSchema>(app, {
+    onValidationError: (message) =>
+      new ApiError(400, "invalid_request", message),
+  });
+  const routes = publicApiRoutes.hosts;
+
+  post(routes.create, async (context, payload) => {
+    assertHostManagementAllowed(context);
+    return context.json(await submitMachine(deps, payload), 201);
+  });
+
+  post(routes.createJoinCode, async (context) => {
+    assertHostManagementAllowed(context);
+    const issued = await issueHostEnrollKey(deps, {
+      enrollSource: "public-multi-machine",
+    });
+    return context.json(
+      {
+        joinCode: issued.enrollKey.key,
+        hostId: issued.hostId,
+        expiresAt: issued.enrollKey.expiresAt,
+      },
+      201,
+    );
+  });
+
+  get(routes.list, async (context, query) => {
+    const hosts = await listPublicHostsWithStatus(deps, {
+      includeCreating: query.includeCreating === "true",
+      type: query.type,
+    });
+    return context.json(
+      await Promise.all(
+        hosts.map(async (host) => ({
+          ...host,
+          hyperfide: await getHyperfideStatus(deps.db, host.id),
+        })),
+      ),
+    );
+  });
+
+  get(routes.get, async (context) => {
+    const hostId = context.req.param("id");
+    const host = await requireNonDestroyedHostWithStatus(deps, hostId);
+    const session = await getLatestSessionForHost(deps.db, { hostId });
+    return context.json({
+      ...host,
+      connectMachineId: (await requireMutableHost(deps, hostId))
+        .connectMachineId,
+      threadStorageRootPath:
+        session === null
+          ? null
+          : joinHostPathSegments(session.dataDir, "thread-storage"),
+    });
+  });
+
+  get(routes.enrollmentCommand, async (context) => {
+    assertHostManagementAllowed(context);
+    await requireMutableHost(deps, context.req.param("id"));
+    return context.json(
+      await manualHostCommand(
+        getMachineEnrollmentService(deps),
+        context.req.param("id"),
+      ),
+    );
+  });
+
+  post(routes.reconnect, async (context) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    const host = await requireMutableHost(deps, hostId);
+    if (
+      (await resolvePrimaryHostId(deps)) === hostId ||
+      host.phase !== "active"
+    )
+      throw new ApiError(
+        409,
+        "machine_reconnect_unavailable",
+        "Only active machines other than the server's own can be reconnected",
+      );
+    if (deps.hub.hasDaemonForHost(hostId))
+      throw new ApiError(
+        409,
+        "machine_reconnect_not_needed",
+        "Machine is connected and doesn't need reconnecting",
+      );
+    return context.json(await prepareReconnect(deps, hostId), 201);
+  });
+
+  patch(routes.update, async (context, payload) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    await requireMutableHost(deps, hostId);
+    const updated = await updateHost(deps.db, deps.hub, hostId, {
+      name: payload.name,
+    });
+    if (!updated) {
+      throw new ApiError(404, "host_not_found", "Host not found");
+    }
+    await deps.hub.notifyHost(hostId, ["host-connected"]);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, updated.id),
+    );
+  });
+
+  patch(routes.updatePermissionCeiling, async (context, payload) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    await requireMutableHost(deps, hostId);
+    const updated = await updateHost(deps.db, deps.hub, hostId, {
+      maxPermissionMode: payload.maxPermissionMode,
+    });
+    if (!updated) {
+      throw new ApiError(404, "host_not_found", "Host not found");
+    }
+    await deps.hub.notifyHost(hostId, ["host-connected"]);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, updated.id),
+    );
+  });
+
+  post(routes.retryUpdate, async (context) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    const host = await requireMutableHost(deps, hostId);
+    if (host.lastRejectedProtocolVersion === null) {
+      throw new ApiError(
+        409,
+        "host_update_not_needed",
+        "The machine is not waiting for a protocol update",
+      );
+    }
+    if (host.lastRejectedProtocolVersion >= HOST_DAEMON_PROTOCOL_VERSION) {
+      throw new ApiError(
+        409,
+        "host_cannot_self_update",
+        "The machine daemon is not older than this server",
+      );
+    }
+    deps.hub.requestHostProtocolUpdateRetry(hostId);
+    return context.json({ ok: true as const });
+  });
+
+  post(routes.reconcile, async (context) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    await startMachineReconciliation(deps, hostId);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, hostId),
+      202,
+    );
+  });
+
+  post(routes.suspend, async (context) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    assertNotServerMachine(deps, hostId);
+    await startMachineSuspension(deps, hostId);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, hostId),
+      202,
+    );
+  });
+
+  post(routes.resume, async (context) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    assertNotServerMachine(deps, hostId);
+    await startMachineResume(deps, hostId);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, hostId),
+      202,
+    );
+  });
+
+  post(routes.retryCleanup, async (context) => {
+    assertHostManagementAllowed(context);
+    await retryMachineCleanup(deps, context.req.param("id"));
+    return context.json({ ok: true as const });
+  });
+
+  del(routes.delete, async (context, query) => {
+    assertHostManagementAllowed(context);
+    const hostId = context.req.param("id");
+    if (query.force === "true") {
+      await forceMachineRemoval(deps, hostId);
+      return context.json({ ok: true as const });
+    }
+    const host = await requireMutableHost(deps, hostId);
+    if ((await resolvePrimaryHostId(deps)) === hostId) {
+      throw new ApiError(
+        400,
+        "primary_host_removal_refused",
+        "The primary host cannot be removed",
+      );
+    }
+
+    if (host.machineProviderId !== null) {
+      await requestMachineRemoval(deps, hostId);
+      await settleRemovedHostWork(deps, { hostId });
+      await sweepProviderMachine(deps, hostId);
+      return context.json({ ok: true });
+    }
+
+    await serverAccess.release(deps, { key: hostId, hostId });
+    await deps.machineAuth.revokeHostAuthKeys({
+      hostId,
+    });
+    const sessionId = deps.hub.getDaemonSessionIdForHost(hostId);
+    if (sessionId) {
+      await handleHostRemoved(deps, { hostId, sessionId });
+    }
+    await settleRemovedHostWork(deps, { hostId });
+    const destroyed = await updateHost(deps.db, deps.hub, hostId, {
+      destroyedAt: Date.now(),
+    });
+    await deps.lifecycleDedupers.providerModelCatalogs.forgetHost(deps, hostId);
+    if (destroyed !== null) emitPluginHostDeleted(destroyed);
+    return context.json({ ok: true });
+  });
+
+  get(routes.discoveredRepos, async (context) => {
+    const hostId = context.req.param("id");
+    await assertUsableHostId(deps, { hostId });
+    const result = await callHostRetryableOnlineRpc(deps, {
+      hostId,
+      timeoutMs: COMMAND_TIMEOUT_MS,
+      command: {
+        type: "host.discover_repos",
+        maxDepth: DISCOVERED_REPOS_MAX_DEPTH,
+        sinceDays: DISCOVERED_REPOS_SINCE_DAYS,
+        limit: DISCOVERED_REPOS_LIMIT,
+      },
+    });
+    return context.json({
+      repos: await Promise.all(
+        result.repos.map(async (repo) => ({
+          ...repo,
+          projectId:
+            (
+              await getPublicProjectByLocalPathSource(deps.db, {
+                type: "local_path",
+                hostId,
+                path: repo.path,
+              })
+            )?.id ?? null,
+        })),
+      ),
+      truncated: result.truncated,
+    });
+  });
+
+  get(routes.directory, async (context, query) => {
+    const hostId = context.req.param("id");
+    await assertUsableHostId(deps, { hostId });
+    const result = await callHostRetryableOnlineRpc(deps, {
+      hostId,
+      timeoutMs: COMMAND_TIMEOUT_MS,
+      command: {
+        type: "host.browse_directory",
+        ...(query.path ? { path: query.path } : {}),
+      },
+    });
+    return context.json(result);
+  });
+
+  get(routes.cloneDefaultPath, async (context, query) => {
+    const hostId = context.req.param("id");
+    await assertUsableHostId(deps, { hostId });
+    const project = await requirePublicStandardProject(
+      deps.db,
+      query.projectId,
+    );
+    const result = await callHostRetryableOnlineRpc(deps, {
+      hostId,
+      timeoutMs: COMMAND_TIMEOUT_MS,
+      command: {
+        type: "project.clone_default_path",
+        projectSlug: project.name,
+      },
+    });
+    return context.json(result);
+  });
+
+  post(routes.pathsExist, async (context, payload) => {
+    const hostId = context.req.param("id");
+    await assertUsableHostId(deps, { hostId });
+    const result = await callHostRetryableOnlineRpc(deps, {
+      hostId,
+      timeoutMs: COMMAND_TIMEOUT_MS,
+      command: {
+        type: "host.paths_exist",
+        paths: payload.paths,
+      },
+    });
+    return context.json(result);
+  });
+
+  post(routes.pickFolder, async (context, payload) => {
+    const hostId = context.req.param("id");
+    await assertUsableHostId(deps, { hostId });
+    if (payload.clientHostId !== hostId) {
+      throw new ApiError(
+        409,
+        "native_picker_unavailable",
+        "Native folder picker is only available when the browser helper and work host are on the same machine",
+      );
+    }
+    const result = await callHostOnlineRpcForWork(deps, {
+      hostId,
+      timeoutMs: FOLDER_PICKER_TIMEOUT_MS,
+      command: {
+        type: "host.pick_folder",
+      },
+    });
+    return context.json(result);
+  });
+
+  get(routes.providerCliStatus, async (context) => {
+    const hostId = context.req.param("id");
+    await assertUsableHostId(deps, { hostId });
+    const result = await getProviderInstallations(deps, { hostId });
+    return context.json(result);
+  });
+
+  post(routes.providerCliInstall, async (context, payload) => {
+    const hostId = context.req.param("id");
+    await assertUsableHostId(deps, { hostId });
+    await deps.providerRegistry.whenProviderRegistered(payload.provider);
+    const registration = deps.providerRegistry.get(payload.provider);
+    if (registration === null || !registration.info.maintenance.installation) {
+      throw new ApiError(
+        404,
+        "provider_installation_unavailable",
+        `Provider installation is unavailable for ${payload.provider}`,
+      );
+    }
+    const bridgeLaunch = await resolveBridgeLaunchForProviderId(
+      deps,
+      payload.provider,
+    );
+    if (bridgeLaunch === null) {
+      throw new ApiError(
+        409,
+        "provider_bridge_unavailable",
+        `Provider bridge is unavailable for ${payload.provider}`,
+      );
+    }
+    const result = await serializeProviderInstallation(
+      deps,
+      hostId,
+      async () =>
+        await callHostOnlineRpcForWork(deps, {
+          hostId,
+          timeoutMs: PROVIDER_CLI_INSTALL_TIMEOUT_MS,
+          command: {
+            type: "provider.installation.run",
+            providerId: payload.provider,
+            action: payload.actionKind,
+            bridgeLaunch,
+          },
+        }),
+    );
+    if (
+      result.events.some((event) => event.type === "completed" && event.success)
+    ) {
+      deps.providerRegistry.forgetInstalledKey({
+        hostId,
+        providerId: payload.provider,
+      });
+      deps.lifecycleDedupers.providerModelCatalogs.clearFailure(
+        hostId,
+        payload.provider,
+      );
+    }
+    return new Response(providerCliInstallEventsToNdjson(result.events), {
+      headers: {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    });
+  });
+}

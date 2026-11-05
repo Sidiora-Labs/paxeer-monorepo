@@ -1,0 +1,3427 @@
+#include <stdio.h>
+extern int hf_client_authority_guard(const char *operation, FILE *output);
+extern int hf_decision_advice(int purpose, const char *observation, char **advice); /* 21.3, recap.c */
+/*
+ * Governance: the commands that make Codify present at every step rather than
+ * only at the bookends.
+ *
+ *   cg check   one exit code for CI: render staleness, lint, task evidence
+ *   cg brief   everything a session needs to start, in one call
+ *   cg review  the change paired with the acceptance criteria it claims
+ *   cg guard   edits that fall outside the active task's declared scope
+ *
+ * Everything here advises by default. `cg guard` only fails the process with
+ * --strict, so wiring it into a hook can never break a workflow that was
+ * working before.
+ */
+#include "cg.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fnmatch.h>
+#include <time.h>
+#include <ctype.h>
+
+/* run a cg subcommand in-process and capture its stdout */
+static int run_capture(char **out, int (*fn)(void *), void *ctx) {
+    return cg_capture(out, fn, ctx);
+}
+
+typedef struct { int argc; char **argv; bool json; } SpecCall;
+
+static int call_spec(void *v) {
+    SpecCall *c = v;
+    fflush(stderr);
+    int saved = dup(2);
+    dup2(1, 2);                       /* refusals go to stderr; keep them */
+    int rc = cmd_spec(c->argc, c->argv, c->json);
+    fflush(stdout);
+    fflush(stderr);
+    dup2(saved, 2);
+    close(saved);
+    return rc;
+}
+
+static int spec_sub(char **out, bool json, int argc, ...) {
+    va_list ap;
+    char *argv[8];
+    va_start(ap, argc);
+    for (int i = 0; i < argc && i < 8; i++) argv[i] = va_arg(ap, char *);
+    va_end(ap);
+    SpecCall c = { argc, argv, json };
+    return run_capture(out, call_spec, &c);
+}
+
+static bool has_spec_repo(const char *root) {
+    char p[4600];
+    struct stat st;
+    return config_workflow_path(root, p, sizeof p) && stat(p, &st) == 0;
+}
+
+/* Do two space-joined touch-pattern lists share any pair of patterns that
+ * could cover a common path? Delegates the per-pattern question to
+ * spec_globs_overlap so glob-vs-glob near-misses are caught too. */
+static bool lease_touches_overlap(const char *a, const char *b) {
+    char abuf[2048], bbuf[2048];
+    snprintf(abuf, sizeof abuf, "%s", a);
+    char *sa;
+    for (char *pa = strtok_r(abuf, " ", &sa); pa;
+         pa = strtok_r(NULL, " ", &sa)) {
+        snprintf(bbuf, sizeof bbuf, "%s", b);
+        char *sb;
+        for (char *pb = strtok_r(bbuf, " ", &sb); pb;
+             pb = strtok_r(NULL, " ", &sb))
+            if (spec_globs_overlap(pa, pb)) return true;
+    }
+    return false;
+}
+
+/* One command for CI. Everything Codify can prove about the repository,
+ * gated behind a single exit code so a pipeline needs exactly one step.
+ * Anchor drift is reported here but never gates: warn, don't block. */
+int cmd_check(Cg *cg, bool json, bool strict)
+{
+    int failures = 0, warnings = 0;
+    StrBuf rep; sb_init(&rep);
+
+    if (has_spec_repo(cg->root)) {
+        char *out = NULL;
+        int rc = spec_sub(&out, false, 2, "render", "--check");
+        if (rc != 0) {
+            failures++;
+            sb_puts(&rep, "  FAIL  spec render is stale — run `hyperfide spec render`\n");
+        } else {
+            sb_puts(&rep, "  ok    spec render is current\n");
+        }
+        free(out);
+
+        out = NULL;
+        rc = spec_sub(&out, false, 1, "lint");
+        if (rc == 2) {
+            failures++;
+            sb_puts(&rep, "  FAIL  spec lint found errors:\n");
+            if (out) sb_printf(&rep, "%s", out);
+        } else if (out && strstr(out, "warn")) {
+            warnings++;
+            sb_puts(&rep, "  warn  spec lint found warnings:\n");
+            sb_printf(&rep, "%s", out);
+        } else {
+            sb_puts(&rep, "  ok    spec lint is clean\n");
+        }
+        free(out);
+
+        /* Every task claimed done must still hold its evidence. Pending
+         * tasks legitimately lack theirs, so track which task's trace we are
+         * inside and only count misses under done/implemented status. */
+        out = NULL;
+        spec_sub(&out, true, 1, "trace");
+        if (out) {
+            int bad = 0;
+            char status[32] = "";
+            for (const char *p = out; *p; p++) {
+                if (strncmp(p, "\"status\":\"", 10) == 0) {
+                    const char *s = p + 10;
+                    const char *e = strchr(s, '"');
+                    if (e) snprintf(status, sizeof status, "%.*s",
+                                    (int)(e - s), s);
+                } else if (strncmp(p, "\"found\":false", 13) == 0 ||
+                           strncmp(p, "\"changed\":false", 15) == 0) {
+                    if (strcmp(status, "done") == 0 ||
+                        strcmp(status, "implemented") == 0)
+                        bad++;
+                }
+            }
+            if (bad) {
+                failures++;
+                sb_printf(&rep, "  FAIL  %d task check(s) no longer hold — "
+                          "run `hyperfide spec trace` for detail\n", bad);
+            } else {
+                sb_puts(&rep, "  ok    task evidence holds\n");
+            }
+        }
+        free(out);
+        /* In parallel mode a lease is what keeps two agents off the same
+         * files. An expired lease on a task still in_progress means somebody
+         * died holding it, and the wave is quietly stuck. */
+        sqlite3_stmt *lq = cg_prep(cg,
+            "SELECT COUNT(*) FROM leases WHERE expires <= strftime('%s','now')");
+        int expired = 0;
+        if (sqlite3_step(lq) == SQLITE_ROW) expired = sqlite3_column_int(lq, 0);
+        sqlite3_finalize(lq);
+        if (expired) {
+            warnings++;
+            sb_printf(&rep, "  warn  %d expired task lease(s) — run "
+                      "`hyperfide spec release <id>` or re-claim\n", expired);
+        }
+        /* Two live claims whose touch patterns can cover a common path are a
+         * collision in waiting, whether the patterns are equal or merely
+         * compatible globs — compare them pairwise instead of joining on
+         * string equality. */
+        sqlite3_stmt *dq = cg_prep(cg,
+            "SELECT task, agent, ifnull(touches,'') FROM leases "
+            "WHERE expires > strftime('%s','now') LIMIT 64");
+        enum { MAXL = 64 };
+        char *lt[MAXL], *la[MAXL], *lo[MAXL];
+        bool flagged[MAXL] = { false };
+        int nl = 0;
+        while (nl < MAXL && sqlite3_step(dq) == SQLITE_ROW) {
+            const char *t = (const char *)sqlite3_column_text(dq, 0);
+            const char *a = (const char *)sqlite3_column_text(dq, 1);
+            const char *o = (const char *)sqlite3_column_text(dq, 2);
+            lt[nl] = xstrdup(t ? t : "");
+            la[nl] = xstrdup(a ? a : "");
+            lo[nl] = xstrdup(o ? o : "");
+            nl++;
+        }
+        sqlite3_finalize(dq);
+        int clash = 0;
+        for (int i = 0; i < nl; i++) {
+            for (int j = i + 1; j < nl; j++) {
+                if (!lo[i][0] || !lo[j][0]) continue;
+                if (!lease_touches_overlap(lo[i], lo[j])) continue;
+                if (!clash++) {
+                    failures++;
+                    sb_puts(&rep, "  FAIL  overlapping live claims:\n");
+                }
+                if (!flagged[i]) {
+                    flagged[i] = true;
+                    sb_printf(&rep, "        %s held by %s\n", lt[i], la[i]);
+                }
+                if (!flagged[j]) {
+                    flagged[j] = true;
+                    sb_printf(&rep, "        %s held by %s\n", lt[j], la[j]);
+                }
+            }
+        }
+        for (int i = 0; i < nl; i++) { free(lt[i]); free(la[i]); free(lo[i]); }
+        if (!expired && !clash)
+            sb_puts(&rep, "  ok    task claims are consistent\n");
+    } else {
+        sb_printf(&rep, "  skip  no %s/workflow.kvx — nothing to gate\n",
+                  config_spec_rel(cg->root));
+    }
+
+    /* codify.kvx problems never fail the gate: every command already runs
+     * on the defaults in their place. Silent when there is no file. */
+    int nconfig = 0;
+    if (config_load(cg->root)->present) {
+        StrBuf ct; sb_init(&ct);
+        nconfig = config_check(cg->root, &ct, NULL);
+        if (nconfig) {
+            warnings++;
+            sb_printf(&rep, "  warn  %d %s problem(s) — defaults used "
+                      "(hyperfide config check):\n", nconfig,
+                      config_file_name(cg->root));
+            for (char *line = ct.p, *nl; line && *line; line = nl) {
+                nl = strchr(line, '\n');
+                if (nl) *nl++ = 0;
+                sb_printf(&rep, "        %s\n", line);
+            }
+        } else {
+            sb_printf(&rep, "  ok    %s is valid\n",
+                      config_file_name(cg->root));
+        }
+        sb_free(&ct);
+    }
+
+    /* uncommitted work is a warning, not a failure: CI may legitimately run
+     * against a dirty tree, but an agent should know before it reports done */
+    {
+        char **paths = NULL;
+        int np = vcs_changed_paths(cg, NULL, &paths);
+        if (np > 0) {
+            warnings++;
+            sb_printf(&rep, "  warn  %d uncommitted path(s)\n", np);
+        } else {
+            sb_puts(&rep, "  ok    working tree matches the last snapshot\n");
+        }
+        for (int i = 0; i < np; i++) free(paths[i]);
+        free(paths);
+    }
+
+    /* the intent layer degrades loudly: a stale anchor is a doc comment
+     * outliving the code it describes — a warning, never a gate */
+    int stale = anchor_stale(cg, NULL, NULL);
+    if (stale) {
+        warnings++;
+        sb_printf(&rep, "  warn  %d stale anchor(s) — doc comments whose "
+                  "code has moved on (hyperfide anchors --stale)\n", stale);
+    } else {
+        sb_puts(&rep, "  ok    anchors current\n");
+    }
+
+    /* grounding, contract, and hygiene finding counts */
+    int nfindings = 0;
+    {
+        char **paths = NULL;
+        int np = vcs_changed_paths(cg, NULL, &paths);
+        for (int i = 0; i < np; i++) {
+            GroundFinding *gf = NULL;
+            nfindings += ground_findings(cg, paths[i], &gf);
+            ground_findings_free(gf, 0);
+            ContractFinding *cf = NULL;
+            nfindings += contract_findings(cg, paths[i], &cf);
+            contract_findings_free(cf, 0);
+            HygieneFinding *hf = NULL;
+            nfindings += hygiene_findings(cg, paths[i], &hf);
+            hygiene_findings_free(hf, 0);
+            free(paths[i]);
+        }
+        free(paths);
+    }
+    if (nfindings) {
+        warnings++;
+        sb_printf(&rep, "  warn  %d finding(s) — grounding, contract, or hygiene "
+                  "(hyperfide guard for details)\n", nfindings);
+    } else {
+        sb_puts(&rep, "  ok    no grounding/contract/hygiene findings\n");
+    }
+    /* queued writes are not a defect of the change, so they only warn:
+     * pending ones land with the next command that gets the lock, refused
+     * ones wait for a person (cg journal) */
+    int jfailed = 0;
+    int jpending = journal_pending(cg, &jfailed);
+    if (jpending || jfailed) {
+        warnings++;
+        sb_printf(&rep, "  warn  write journal: %d queued write(s) waiting for "
+                  "the lock, %d refused — hyperfide journal list\n", jpending,
+                  jfailed);
+    }
+
+    if (json) {
+        printf("{\"failures\":%d,\"warnings\":%d,\"stale_anchors\":%d,"
+               "\"findings\":%d,", failures, warnings, stale, nfindings);
+        if (config_load(cg->root)->present)
+            printf("\"config_problems\":%d,", nconfig);
+        if (jpending || jfailed)
+            printf("\"journal\":{\"pending\":%d,\"failed\":%d},", jpending,
+                   jfailed);
+        printf("\"report\":");
+        StrBuf j; sb_init(&j);
+        sb_json_str(&j, rep.p ? rep.p : "");
+        fputs(j.p, stdout);
+        sb_free(&j);
+        printf("}\n");
+    } else {
+        printf("hyperfide check — %s\n", cg->root);
+        fputs(rep.p, stdout);
+        printf("%d failure(s), %d warning(s)\n", failures, warnings);
+    }
+    sb_free(&rep);
+    if (failures) return 1;
+    return (strict && warnings) ? 1 : 0;
+}
+
+/* ---------------- brief ---------------- */
+
+/* Extract the active or next task object from `spec status --json`, so the
+ * governance commands read the same data the agent sees. */
+static char *active_task_json(bool *is_current) {
+    char *out = NULL;
+    spec_sub(&out, true, 1, "status");
+    if (!out) return NULL;
+    char *cur = json_get_object(out, "current");
+    if (cur) { if (is_current) *is_current = true; free(out); return cur; }
+    char *next = json_get_object(out, "next");
+    if (is_current) *is_current = false;
+    free(out);
+    return next;
+}
+
+/* A briefing memory longer than a few lines is a document, not a reminder —
+ * cap bodies at 400 bytes, cutting on a UTF-8 boundary. */
+static void brief_cap_body(Memory *m) {
+    if (!m->body || strlen(m->body) <= 400) return;
+    size_t cut = 400;
+    while (cut > 0 && (m->body[cut] & 0xC0) == 0x80) cut--;
+    char *nb = xmalloc(cut + 4);
+    memcpy(nb, m->body, cut);
+    memcpy(nb + cut, "\xE2\x80\xA6", 4);          /* ellipsis + NUL */
+    free(m->body);
+    m->body = nb;
+}
+
+/* Memories scoped to the active task, then recent ones — deduplicated by id
+ * and by identical body, capped at 6 total. Task context must outrank mere
+ * recency or a busy repository buries the one note that matters. */
+static int brief_memories(Cg *cg, const char *task_json, Memory **out) {
+    Memory *mem = xmalloc(12 * sizeof *mem);
+    int nm = 0;
+
+    Memory *tmem = NULL;
+    int ntm = 0;
+    if (task_json) {
+        char *tid = json_get_string(task_json, "id");
+        if (tid) {
+            char *tag = spec_resolve_task(tid, NULL);
+            if (tag) ntm = spec_task_memories_tag(tag, &tmem);
+            free(tag);
+        }
+        free(tid);
+    }
+    Memory *rmem = NULL;
+    int nrm = memory_query(cg, NULL, NULL, NULL, 6, &rmem);
+
+    for (int pass = 0; pass < 2; pass++) {
+        Memory *src = pass ? rmem : tmem;
+        int n = pass ? nrm : ntm;
+        for (int i = 0; i < n; i++) {
+            bool dup = nm >= 6;
+            for (int k = 0; !dup && k < nm; k++)
+                if (mem[k].id == src[i].id ||
+                    (mem[k].body && src[i].body &&
+                     strcmp(mem[k].body, src[i].body) == 0))
+                    dup = true;
+            if (dup) {
+                memory_clear(&src[i]);
+            } else {
+                mem[nm] = src[i];             /* move; fields now owned here */
+                brief_cap_body(&mem[nm]);
+                nm++;
+            }
+        }
+        free(src);
+    }
+    *out = mem;
+    return nm;
+}
+
+/* Where this session stands in a fleet's branch layout: the branch it is
+ * on, what that branch was cut from, and the other branches the shared
+ * graph is currently holding rows for. An agent that does not know it is
+ * one of several worktrees writes as if it owned the tree. */
+static void brief_branches(Cg *cg, StrBuf *b, bool json) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT b.name,ifnull(b.worktree,''),ifnull(b.base,''),b.id,"
+        "(SELECT count(*) FROM files f WHERE f.branch_id=b.id) "
+        "FROM branches b ORDER BY b.name");
+    char base[256] = "", wt[4096] = "";
+    StrBuf others; sb_init(&others);
+    int nother = 0;
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        const char *name = (const char *)sqlite3_column_text(st, 0);
+        long id = (long)sqlite3_column_int64(st, 3);
+        if (!name) continue;
+        if (id == cg->branch_id) {
+            snprintf(wt, sizeof wt, "%s",
+                     (const char *)sqlite3_column_text(st, 1));
+            snprintf(base, sizeof base, "%s",
+                     (const char *)sqlite3_column_text(st, 2));
+            continue;
+        }
+        if (json) {
+            if (nother) sb_putc(&others, ',');
+            sb_puts(&others, "{\"name\":");
+            sb_json_str(&others, name);
+            sb_puts(&others, ",\"worktree\":");
+            sb_json_str(&others, (const char *)sqlite3_column_text(st, 1));
+            sb_printf(&others, ",\"files\":%ld}",
+                      (long)sqlite3_column_int64(st, 4));
+        } else {
+            sb_printf(&others, "%s%s", nother ? ", " : "", name);
+        }
+        nother++;
+    }
+    sqlite3_finalize(st);
+    if (json) {
+        sb_puts(b, ",\"branch\":");
+        sb_json_str(b, cg->branch);
+        sb_puts(b, ",\"base\":");
+        if (base[0]) sb_json_str(b, base); else sb_puts(b, "null");
+        sb_printf(b, ",\"worktree\":%s", cg->worktree ? "true" : "false");
+        sb_puts(b, ",\"other_branches\":[");
+        if (nother) sb_puts(b, others.p);
+        sb_putc(b, ']');
+    } else {
+        sb_printf(b, "branch: %s", cg->branch);
+        if (base[0]) sb_printf(b, " (from %s)", base);
+        if (cg->worktree && wt[0]) sb_printf(b, " — worktree %s", wt);
+        sb_putc(b, '\n');
+        if (nother)
+            sb_printf(b, "other branches: %s\n", others.p);
+    }
+    sb_free(&others);
+}
+
+/* Everything a session needs before its first real decision, in one call.
+ * Without this an agent spends four or five round trips reassembling state
+ * it had yesterday. In a shared graph the brief also names the branches
+ * indexed beside this one, and inside a fleet who this agent is and whom it
+ * reports to, so a spawned worker never has to guess. */
+/* the feature brief reports on: the task's, else the workflow's active */
+static char *brief_feature(Cg *cg, const char *task_json) {
+    char *f = task_json ? json_get_string(task_json, "feature") : NULL;
+    if (f && f[0]) return f;
+    free(f);
+    char path[4700];
+    config_workflow_path(cg->shared, path, sizeof path);
+    Kvx *k = kvx_parse(path);
+    f = k ? kvx_str(k, "meta", "active_feature") : NULL;
+    kvx_free(k);
+    if (f && !f[0]) { free(f); f = NULL; }
+    return f;
+}
+
+int cmd_brief(Cg *cg, bool json)
+{
+    StrBuf b; sb_init(&b);
+    bool have_spec = has_spec_repo(cg->root);
+    bool is_current = false;
+    char *task = have_spec ? active_task_json(&is_current) : NULL;
+
+    char **paths = NULL;
+    int np = vcs_changed_paths(cg, NULL, &paths);
+
+    Memory *mem = NULL;
+    int nm = brief_memories(cg, task, &mem);
+
+    char cm_path[1024];
+    int cm = codemap_status(cg, cm_path, sizeof cm_path);  /* -1: no map */
+    int jfailed = 0;
+    int jpending = journal_pending(cg, &jfailed);
+
+    if (json) {
+        sb_puts(&b, "{\"root\":");
+        sb_json_str(&b, cg->root);
+        sb_printf(&b, ",\"has_spec\":%s", have_spec ? "true" : "false");
+        sb_printf(&b, ",\"task_is_in_progress\":%s",
+                  is_current ? "true" : "false");
+        if (!config_auto_sync(cg->root)) sb_puts(&b, ",\"auto_sync\":false");
+        sb_puts(&b, ",\"task\":");
+        sb_puts(&b, task ? task : "null");
+        sb_puts(&b, ",\"uncommitted\":[");
+        for (int i = 0; i < np && i < 50; i++) {
+            if (i) sb_putc(&b, ',');
+            sb_json_str(&b, paths[i]);
+        }
+        sb_printf(&b, "],\"uncommitted_count\":%d", np);
+        sb_puts(&b, ",\"memories\":[");
+        for (int i = 0; i < nm; i++) {
+            if (i) sb_putc(&b, ',');
+            memory_json(&mem[i], &b);
+        }
+        sb_puts(&b, "]");
+        if (cm >= 0) {
+            sb_puts(&b, ",\"codemap\":{\"path\":");
+            sb_json_str(&b, cm_path);
+            sb_printf(&b, ",\"generated\":%s,\"stale\":%s}",
+                      cm == 2 ? "false" : "true", cm == 1 ? "true" : "false");
+        }
+        if (jpending || jfailed)
+            sb_printf(&b, ",\"journal\":{\"pending\":%d,\"failed\":%d}",
+                      jpending, jfailed);
+        brief_branches(cg, &b, true);
+        fleet_brief(cg, &b, true);
+        native_summary(cg, &b, true);
+        projection_summary(cg, &b, true);       /* codify-v15 3.3 */
+        {
+            char *feat = brief_feature(cg, task);
+            if (feat) {
+                sb_puts(&b, ",\"drift\":");
+                drift_summary(cg, feat, NULL, &b);
+                free(feat);
+            }
+        }
+        sb_puts(&b, "}\n");
+    } else {
+        sb_printf(&b, "project: %s\n", cg->root);
+        /* nothing refreshes the graph on its own now, so an agent must not
+         * take its answers for the code as it stands */
+        if (!config_auto_sync(cg->root))
+            sb_printf(&b, "sync: auto-sync is off ([sync] auto = false in "
+                      "%s) — the graph may be stale; run `hyperfide sync` after "
+                      "edits\n", config_file_name(cg->root));
+        if (cm >= 0)
+            sb_printf(&b, "codemap: %s (%s)\n", cm_path,
+                      cm == 0 ? "current" : cm == 1
+                      ? "stale — run hyperfide codemap"
+                      : "not generated by hyperfide codemap");
+        if (jpending || jfailed)
+            sb_printf(&b, "journal: %d write(s) queued behind a busy database"
+                      "%s%.0d%s — hyperfide journal list\n", jpending,
+                      jfailed ? ", " : "", jfailed,
+                      jfailed ? " refused" : "");
+        brief_branches(cg, &b, false);
+        fleet_brief(cg, &b, false);
+        native_summary(cg, &b, false);
+        projection_summary(cg, &b, false);      /* codify-v15 3.3 */
+        {
+            /* drift found so far on this feature: what a reader should
+             * know moved outside a declaration or under another branch */
+            char *feat = brief_feature(cg, task);
+            StrBuf dt; sb_init(&dt);
+            int nd = feat ? drift_summary(cg, feat, &dt, NULL) : 0;
+            if (nd) sb_printf(&b, "drift on %s: %d finding(s) — hyperfide drift summary\n%s",
+                              feat, nd, dt.p);
+            sb_free(&dt);
+            free(feat);
+        }
+        if (!have_spec) {
+            sb_puts(&b, "spec: none — `hyperfide spec new <feature>` to start one\n");
+        } else if (task) {
+            char *id = json_get_string(task, "id");
+            char *ti = json_get_string(task, "title");
+            sb_printf(&b, "task: %s — %s  (%s)\n", id ? id : "?",
+                      ti ? ti : "?", is_current ? "in progress" : "next up");
+            free(id); free(ti);
+            char *vc = json_get_string(task, "verify_cmd");
+            if (vc) { sb_printf(&b, "verify: %s\n", vc); free(vc); }
+        } else {
+            sb_puts(&b, "task: none eligible\n");
+        }
+        if (np) {
+            sb_printf(&b, "uncommitted: %d path(s)\n", np);
+            for (int i = 0; i < np && i < 8; i++)
+                sb_printf(&b, "  %s\n", paths[i]);
+            if (np > 8) sb_printf(&b, "  ... and %d more\n", np - 8);
+        } else {
+            sb_puts(&b, "uncommitted: clean\n");
+        }
+        if (nm) {
+            sb_puts(&b, "recent decisions:\n");
+            for (int i = 0; i < nm; i++)
+                sb_printf(&b, "  [%s%s%s] %s\n", mem[i].type,
+                          mem[i].cls ? "/" : "", mem[i].cls ? mem[i].cls : "",
+                          mem[i].body);
+        }
+    }
+    fputs(b.p, stdout);
+    sb_free(&b);
+    for (int i = 0; i < np; i++) free(paths[i]);
+    free(paths);
+    memory_free(mem, nm);
+    free(task);
+    return 0;
+}
+
+/* ---------------- guard ---------------- */
+
+/* Does `path` fall inside the active task's declared touches? */
+static bool path_in_scope(const char *task_json, const char *path) {
+    char *arr = json_get_raw(task_json, "touches");
+    if (!arr) return true;                  /* nothing declared: nothing to say */
+    bool any = false, hit = false;
+    for (const char *p = arr; *p; p++) {
+        if (*p != '"') continue;
+        const char *s = ++p;
+        while (*p && *p != '"') p++;
+        char pat[1024];
+        snprintf(pat, sizeof pat, "%.*s", (int)(p - s), s);
+        if (!pat[0]) continue;
+        any = true;
+        if (fnmatch(pat, path, 0) == 0 || strcmp(pat, path) == 0) {
+            hit = true;
+            break;
+        }
+        /* a declared directory covers everything beneath it */
+        size_t pl = strlen(pat);
+        if (strncmp(path, pat, pl) == 0 && (path[pl] == '/' || path[pl] == 0)) {
+            hit = true;
+            break;
+        }
+    }
+    free(arr);
+    return any ? hit : true;
+}
+
+/* Scope drift is the failure mode nobody notices until review. Given paths
+ * (or the working tree), report the ones the active task never claimed.
+ * Advisory by default so this is safe to wire into a hook. */
+/* stale anchors filtered to the paths guard is looking at */
+typedef struct {
+    char **pathv;
+    int npath;
+    const char *root;
+    StrBuf txt, js;
+    int n;
+} GuardStale;
+
+static void guard_stale_cb(void *u, const char *path, int line,
+                           const char *sym, int sym_line) {
+    GuardStale *g = u;
+    size_t rl = strlen(g->root);
+    bool hit = false;
+    for (int i = 0; i < g->npath && !hit; i++) {
+        const char *rel = g->pathv[i];
+        if (strncmp(rel, g->root, rl) == 0 && rel[rl] == '/') rel += rl + 1;
+        hit = strcmp(rel, path) == 0;
+    }
+    if (!hit) return;
+    sb_printf(&g->txt, "  %s:%d — doc for %s (line %d) predates this "
+              "change\n", path, line, sym, sym_line);
+    if (g->n) sb_putc(&g->js, ',');
+    sb_puts(&g->js, "{\"path\":");
+    sb_json_str(&g->js, path);
+    sb_printf(&g->js, ",\"line\":%d,\"symbol\":", line);
+    sb_json_str(&g->js, sym);
+    sb_putc(&g->js, '}');
+    g->n++;
+}
+
+/* one collected finding, waiting to be ranked */
+static void guard_collect(JevFinding **v, int *n, int *cap, const char *kind,
+                          const char *path, int line, const char *detail) {
+    if (*n == *cap) {
+        *cap = *cap ? *cap * 2 : 8;
+        *v = xrealloc(*v, sizeof **v * (size_t)*cap);
+    }
+    JevFinding *f = &(*v)[(*n)++];
+    memset(f, 0, sizeof *f);
+    snprintf(f->kind, sizeof f->kind, "%s", kind);
+    snprintf(f->path, sizeof f->path, "%s", path);
+    f->line = line;
+    snprintf(f->detail, sizeof f->detail, "%s", detail);
+    f->score = -1;
+}
+
+/* Distributed guard ranking goes through the explicit 21.4 purpose path
+ * (HF_DECISION_GUARD) instead of Jev. Advice is a severity per finding on
+ * Jev's 0-4 scale; anything else leaves the collected order. -1 in local
+ * mode (the caller ranks with Jev as before), 1 when ranked, 0 otherwise.
+ * The rank only orders advisory findings: never pass, fail, or scope. */
+static int guard_decision_rank(JevFinding *v, int n) {
+    StrBuf o; sb_init(&o);
+    sb_puts(&o, "{\"findings\":[");
+    for (int i = 0; i < n; i++) {
+        sb_puts(&o, i ? ",{\"kind\":" : "{\"kind\":"); sb_json_str(&o, v[i].kind);
+        sb_puts(&o, ",\"path\":"); sb_json_str(&o, v[i].path);
+        sb_printf(&o, ",\"line\":%d,\"detail\":", v[i].line);
+        sb_json_str(&o, v[i].detail);
+        sb_putc(&o, '}');
+    }
+    sb_puts(&o, "]}");
+    char *advice = NULL;
+    int routed = hf_decision_advice(1 /* HF_DECISION_GUARD */, o.p, &advice);
+    sb_free(&o);
+    if (routed <= 0) return routed;
+    char *arr = json_get_raw(advice, "scores");
+    char **items = NULL;
+    int ni = arr ? json_array_items(arr, &items) : 0;
+    double *score = xmalloc(sizeof *score * (size_t)n);
+    bool ok = ni == n;
+    for (int i = 0; i < ni; i++) {
+        char *end = NULL;
+        double d = strtod(items[i], &end);
+        if (end == items[i] || *end || !(d >= 0 && d <= 4)) ok = false;
+        else if (i < n) score[i] = d;
+        free(items[i]);
+    }
+    free(items); free(arr); free(advice);
+    if (!ok) {
+        fprintf(stderr, "hyperfide: guard advice was malformed — collected order kept\n");
+        free(score);
+        return 0;
+    }
+    /* stable: equal severities keep the order they were collected in */
+    for (int i = 0; i < n; i++) { v[i].score = score[i]; v[i].level[0] = 0; }
+    free(score);
+    for (int i = 1; i < n; i++) {
+        JevFinding t = v[i];
+        int j = i;
+        for (; j > 0 && v[j - 1].score < t.score; j--) v[j] = v[j - 1];
+        v[j] = t;
+    }
+    return 1;
+}
+
+int cmd_guard(Cg *cg, int npath, char **pathv, bool json, bool strict)
+{
+    bool is_current = false;
+    char *task = has_spec_repo(cg->root) ? active_task_json(&is_current) : NULL;
+    if (!task || !is_current) {
+        if (json) printf("{\"guarded\":false,\"reason\":\"no task in progress\","
+                         "\"out_of_scope\":[]}\n");
+        else printf("guard: no task in progress — nothing to measure against\n");
+        free(task);
+        return 0;
+    }
+    char *id = json_get_string(task, "id");
+
+    char **owned = NULL;
+    int nown = 0;
+    if (npath == 0) {
+        nown = vcs_changed_paths(cg, NULL, &owned);
+        pathv = owned;
+        npath = nown;
+    }
+
+    StrBuf b; sb_init(&b);
+    int bad = 0;
+    for (int i = 0; i < npath; i++) {
+        const char *rel = pathv[i];
+        size_t rl = strlen(cg->root);       /* accept absolute paths too */
+        if (strncmp(rel, cg->root, rl) == 0 && rel[rl] == '/') rel += rl + 1;
+        if (path_in_scope(task, rel)) continue;
+        if (json) {
+            if (bad) sb_putc(&b, ',');
+            sb_json_str(&b, rel);
+        } else {
+            sb_printf(&b, "  %s\n", rel);
+        }
+        bad++;
+    }
+
+    /* anchors this work made stale: advisory always, never part of the
+     * exit code — the warn-dont-block rule is load-bearing here */
+    GuardStale gs = { pathv, npath, cg->root, {0}, {0}, 0 };
+    sb_init(&gs.txt);
+    sb_init(&gs.js);
+    anchor_stale(cg, guard_stale_cb, &gs);
+
+    /* grounding, contract, and hygiene findings for the changed paths,
+       collected before anything is printed so Jev can rank them in one
+       call — the rank is advice about order, never about pass or fail */
+    JevFinding *fv = NULL;
+    int nfindings = 0, fcap = 0;
+    for (int i = 0; i < npath; i++) {
+        const char *rel = pathv[i];
+        size_t rl2 = strlen(cg->root);
+        if (strncmp(rel, cg->root, rl2) == 0 && rel[rl2] == '/') rel += rl2 + 1;
+        GroundFinding *gf = NULL;
+        int ng = ground_findings(cg, rel, &gf);
+        for (int g = 0; g < ng; g++)
+            guard_collect(&fv, &nfindings, &fcap, "grounding", gf[g].path,
+                          gf[g].line, gf[g].detail);
+        ground_findings_free(gf, ng);
+        ContractFinding *cf = NULL;
+        int nc = contract_findings(cg, rel, &cf);
+        for (int c = 0; c < nc; c++)
+            guard_collect(&fv, &nfindings, &fcap, "contract", cf[c].path,
+                          cf[c].line, cf[c].detail);
+        contract_findings_free(cf, nc);
+        HygieneFinding *hf = NULL;
+        int nh = hygiene_findings(cg, rel, &hf);
+        for (int h = 0; h < nh; h++)
+            guard_collect(&fv, &nfindings, &fcap, "hygiene", hf[h].path,
+                          hf[h].line, hf[h].detail);
+        hygiene_findings_free(hf, nh);
+    }
+    bool ranked = false;
+    if (nfindings > 0) {
+        int routed = guard_decision_rank(fv, nfindings);
+        ranked = routed < 0 ? jev_rank_findings(cg, fv, nfindings) == JEV_OK
+                            : routed > 0;
+    }
+
+    if (json) {
+        printf("{\"guarded\":true,\"task\":");
+        StrBuf j; sb_init(&j);
+        sb_json_str(&j, id ? id : "");
+        fputs(j.p, stdout);
+        sb_free(&j);
+        StrBuf fj; sb_init(&fj);
+        for (int i = 0; i < nfindings; i++) {
+            if (i) sb_putc(&fj, ',');
+            sb_puts(&fj, "{\"kind\":");
+            sb_json_str(&fj, fv[i].kind);
+            sb_puts(&fj, ",\"path\":");
+            sb_json_str(&fj, fv[i].path);
+            sb_printf(&fj, ",\"line\":%d,\"detail\":", fv[i].line);
+            sb_json_str(&fj, fv[i].detail);
+            sb_puts(&fj, ",\"jev_score\":");
+            if (fv[i].score >= 0) sb_printf(&fj, "%.10g", fv[i].score);
+            else sb_puts(&fj, "null");
+            sb_puts(&fj, ",\"jev_level\":");
+            if (fv[i].level[0]) sb_json_str(&fj, fv[i].level);
+            else sb_puts(&fj, "null");
+            sb_putc(&fj, '}');
+        }
+        printf(",\"out_of_scope\":[%s],\"count\":%d,"
+               "\"stale_anchors\":[%s],\"strict\":%s,\"findings\":[%s],"
+               "\"jev_ranked\":%s}\n",
+               b.p ? b.p : "", bad, gs.js.p ? gs.js.p : "",
+               strict ? "true" : "false", fj.p ? fj.p : "",
+               ranked ? "true" : "false");
+        sb_free(&fj);
+    } else if (bad) {
+        printf("guard: %d path(s) outside the scope task %s declared:\n", bad,
+               id ? id : "?");
+        fputs(b.p, stdout);
+        printf("%s\n", strict
+               ? "strict mode: failing."
+               : "advisory only — declare them with `hyperfide spec add ... --touches` "
+                 "or use --strict to enforce.");
+    } else {
+        printf("guard: every change is inside task %s's declared scope\n",
+               id ? id : "?");
+    }
+    if (!json && gs.n) {
+        printf("guard: %d anchor(s) went stale in this work (advisory):\n",
+               gs.n);
+        fputs(gs.txt.p, stdout);
+    }
+    if (!json) {
+        for (int i = 0; i < nfindings; i++) {
+            printf("  warn  %s:%d: %s", fv[i].path, fv[i].line, fv[i].detail);
+            if (fv[i].score >= 0) {
+                printf("  [jev %.2f", fv[i].score);
+                if (fv[i].level[0]) printf(" %s", fv[i].level);
+                putchar(']');
+            }
+            putchar('\n');
+        }
+        if (nfindings)
+            printf("guard: %d finding(s) (advisory%s)\n", nfindings,
+                   ranked ? ", most severe first" : "");
+    }
+    free(fv);
+    sb_free(&gs.txt);
+    sb_free(&gs.js);
+    sb_free(&b);
+    for (int i = 0; i < nown; i++) free(owned[i]);
+    free(owned);
+    free(id);
+    free(task);
+    return (strict && bad) ? 1 : 0;
+}
+
+/* ---------------- review ---------------- */
+
+/* The missing step between "implemented" and "done": the change, the criteria
+ * it claims to satisfy, the callers outside it that are now at risk, and the
+ * grounding, contract, and hygiene findings it introduced. One call, over the
+ * branch in front of you, so a reviewing agent never reads the diff twice. */
+int cmd_review(Cg *cg, bool json)
+{
+    bool is_current = false;
+    char *task = has_spec_repo(cg->root) ? active_task_json(&is_current) : NULL;
+    char **paths = NULL;
+    int np = vcs_changed_paths(cg, NULL, &paths);
+
+    StrBuf b; sb_init(&b);
+    if (json) {
+        sb_puts(&b, "{\"task\":");
+        sb_puts(&b, task ? task : "null");
+        sb_puts(&b, ",\"changed\":[");
+    } else {
+        char *id = task ? json_get_string(task, "id") : NULL;
+        char *ti = task ? json_get_string(task, "title") : NULL;
+        if (id) sb_printf(&b, "review of %s — %s\n", id, ti ? ti : "");
+        else    sb_puts(&b, "review (no task in progress)\n");
+        free(id); free(ti);
+        sb_printf(&b, "\nchanged paths (%d):\n", np);
+    }
+
+    int nsym = 0, nrisk = 0;
+    StrBuf risk; sb_init(&risk);
+    for (int i = 0; i < np; i++) {
+        if (json) {
+            if (i) sb_putc(&b, ',');
+            sb_json_str(&b, paths[i]);
+        } else {
+            sb_printf(&b, "  %s%s\n", paths[i],
+                      graph_path_is_test(paths[i]) ? "  (test)" : "");
+        }
+    }
+    if (json) sb_puts(&b, "],\"symbols\":[");
+    else      sb_puts(&b, "\nsymbols you changed:\n");
+
+    for (int i = 0; i < np; i++) {
+        /* this branch's rows only: the same path is indexed once per
+         * worktree, and a review is about the tree in front of you */
+        sqlite3_stmt *st = cg_prep(cg,
+            "SELECT s.name,s.kind,s.line FROM symbols s "
+            "JOIN files f ON f.id=s.file_id WHERE f.path=? AND f.branch_id=?2 "
+            "ORDER BY s.line");
+        sqlite3_bind_text(st, 1, paths[i], -1, SQLITE_STATIC);
+        sqlite3_bind_int64(st, 2, cg->branch_id);
+        while (sqlite3_step(st) == SQLITE_ROW) {
+            const char *nm = (const char *)sqlite3_column_text(st, 0);
+            const char *kd = (const char *)sqlite3_column_text(st, 1);
+            int line = sqlite3_column_int(st, 2);
+            /* header guards and constants are not what a review is about */
+            if (kd && (strcmp(kd, "macro") == 0 || strcmp(kd, "typedef") == 0))
+                continue;
+            char sym[256];
+            snprintf(sym, sizeof sym, "%s", nm);
+
+            /* callers living outside the changed set are the blast radius */
+            sqlite3_stmt *cq = cg_prep(cg,
+                "SELECT DISTINCT c.name, cf.path FROM refs r "
+                "JOIN symbols c ON c.id=r.sym_id "
+                "JOIN files cf ON cf.id=c.file_id "
+                "WHERE r.name=? AND c.name<>? AND cf.branch_id=?3 LIMIT 6");
+            sqlite3_bind_text(cq, 1, sym, -1, SQLITE_STATIC);
+            sqlite3_bind_text(cq, 2, sym, -1, SQLITE_STATIC);
+            sqlite3_bind_int64(cq, 3, cg->branch_id);
+            int ext = 0;
+            while (sqlite3_step(cq) == SQLITE_ROW) {
+                const char *cp = (const char *)sqlite3_column_text(cq, 1);
+                bool internal = false;
+                for (int k = 0; k < np; k++)
+                    if (strcmp(cp, paths[k]) == 0) { internal = true; break; }
+                if (internal) continue;
+                if (!json && ext == 0)
+                    sb_printf(&risk, "  %s is called from:\n", sym);
+                if (!json)
+                    sb_printf(&risk, "      %s (%s)\n",
+                              (const char *)sqlite3_column_text(cq, 0), cp);
+                ext++;
+                nrisk++;
+            }
+            sqlite3_finalize(cq);
+
+            if (json) {
+                if (nsym) sb_putc(&b, ',');
+                sb_puts(&b, "{\"name\":");   sb_json_str(&b, sym);
+                sb_puts(&b, ",\"kind\":");   sb_json_str(&b, kd ? kd : "");
+                sb_puts(&b, ",\"path\":");   sb_json_str(&b, paths[i]);
+                sb_printf(&b, ",\"line\":%d,\"external_callers\":%d}", line,
+                          ext);
+            } else {
+                sb_printf(&b, "  %-28s %s:%d%s\n", sym, paths[i], line,
+                          ext ? "  ← has external callers" : "");
+            }
+            nsym++;
+        }
+        sqlite3_finalize(st);
+    }
+
+    /* findings the change introduced */
+    int nfindings = 0;
+    StrBuf ftxt; sb_init(&ftxt);
+    for (int i = 0; i < np; i++) {
+        GroundFinding *gf = NULL;
+        int ng = ground_findings(cg, paths[i], &gf);
+        for (int g = 0; g < ng; g++) {
+            nfindings++;
+            sb_printf(&ftxt, "  %s:%d: %s\n", gf[g].path, gf[g].line,
+                      gf[g].detail);
+        }
+        ground_findings_free(gf, ng);
+        ContractFinding *cf = NULL;
+        int nc = contract_findings(cg, paths[i], &cf);
+        for (int c = 0; c < nc; c++) {
+            nfindings++;
+            sb_printf(&ftxt, "  %s:%d: %s\n", cf[c].path, cf[c].line,
+                      cf[c].detail);
+        }
+        contract_findings_free(cf, nc);
+        HygieneFinding *hf = NULL;
+        int nh = hygiene_findings(cg, paths[i], &hf);
+        for (int h = 0; h < nh; h++) {
+            nfindings++;
+            sb_printf(&ftxt, "  %s:%d: %s\n", hf[h].path, hf[h].line,
+                      hf[h].detail);
+        }
+        hygiene_findings_free(hf, nh);
+    }
+
+    if (json) {
+        sb_printf(&b, "],\"external_caller_count\":%d,\"findings\":%d}\n",
+                  nrisk, nfindings);
+    } else {
+        if (!nsym) sb_puts(&b, "  (none)\n");
+        if (nrisk) {
+            sb_puts(&b, "\nat risk:\n");
+            sb_puts(&b, risk.p);
+        }
+        if (nfindings) {
+            sb_printf(&b, "\nfindings (%d):\n", nfindings);
+            sb_puts(&b, ftxt.p);
+        }
+        if (task) {
+            char *acs = json_get_raw(task, "acceptance_criteria");
+            if (acs) {
+                sb_puts(&b, "\nacceptance criteria to satisfy:\n");
+                for (const char *p = acs; (p = strstr(p, "\"text\":")); ) {
+                    p += 7;
+                    while (*p && *p != '"') p++;
+                    if (!*p) break;
+                    const char *s2 = ++p;
+                    while (*p && !(*p == '"' && p[-1] != '\\')) p++;
+                    sb_printf(&b, "  - %.*s\n", (int)(p - s2), s2);
+                }
+                free(acs);
+            }
+        }
+    }
+    sb_free(&ftxt);
+    fputs(b.p, stdout);
+    sb_free(&b);
+    sb_free(&risk);
+    for (int i = 0; i < np; i++) free(paths[i]);
+    free(paths);
+    free(task);
+    return 0;
+}
+
+/* ---------------- hook install ---------------- */
+
+/* Governance only becomes ambient when nobody has to invoke it. These hooks
+ * keep the graph fresh after every agent edit and surface scope drift at the
+ * moment it happens — advisory, so a misconfigured hook can never wedge a
+ * workflow that worked before. */
+static int cmd_hook_install_git(Cg *cg, const char *bin);
+
+static int write_exec(const char *path, const char *body) {
+    if (write_entire_file(path, body, strlen(body)) != 0) return -1;
+    return chmod(path, 0755);
+}
+
+/* One command per edit, not two: `hook post-edit` reads the tool payload,
+ * syncs the one file it names, and guards it, in a single process that
+ * coalesces into any index pass already running. Two commands meant two
+ * walkers per edit per agent — the storm the sync gate exists to end. */
+static const char *CLAUDE_SETTINGS_TEMPLATE =
+"{\n"
+"  \"hooks\": {\n"
+"    \"PreToolUse\": [\n"
+"      {\n"
+"        \"matcher\": \"Bash\",\n"
+"        \"hooks\": [\n"
+"          { \"type\": \"command\", \"command\": \"%s hook pre-bash\" }\n"
+"        ]\n"
+"      }\n"
+"    ],\n"
+"    \"PostToolUse\": [\n"
+"      {\n"
+"        \"matcher\": \"Edit|Write|MultiEdit|NotebookEdit\",\n"
+"        \"hooks\": [\n"
+"          { \"type\": \"command\", \"command\": \"%s hook post-edit\" }\n"
+"        ]\n"
+"      }\n"
+"    ]\n"
+"  }\n"
+"}\n";
+
+int cmd_hook_install(Cg *cg)
+{
+    char bin[4096];
+    ssize_t n = readlink("/proc/self/exe", bin, sizeof bin - 1);
+    if (n > 0) bin[n] = 0; else snprintf(bin, sizeof bin, "cg");
+
+    printf("installing Codify hooks in %s:\n", cg->root);
+
+    char dir[4600], path[4700];
+    snprintf(dir, sizeof dir, "%s/.claude", cg->root);
+    snprintf(path, sizeof path, "%s/settings.json", dir);
+    char *existing = read_entire_file(path, NULL);
+    PluginState plugin;
+    plugin_state(&plugin);
+    if (plugin.installed) {
+        /* the plugin's hooks.json already runs post-edit on every edit */
+        printf("  .  claude-code  the Codify plugin (codify@codify %s) is "
+               "installed and registers PostToolUse -> %s hook post-edit\n"
+               "        and PreToolUse Bash -> hook pre-bash;\n"
+               "        %s left alone so no hook fires twice\n",
+               plugin.version, bin, path);
+    } else if (existing && strstr(existing, "\"hooks\"")) {
+        printf("  .  claude-code  %s already defines hooks - add manually:\n"
+               "        PostToolUse Edit|Write -> %s hook post-edit\n"
+               "        PreToolUse Bash -> %s hook pre-bash\n",
+               path, bin, bin);
+    } else if (existing) {
+        printf("  !  claude-code  %s has no hooks block - add manually:\n"
+               "        PostToolUse Edit|Write -> %s hook post-edit\n"
+               "        PreToolUse Bash -> %s hook pre-bash\n", path, bin, bin);
+    } else {
+        mkdirs(dir);
+        StrBuf b; sb_init(&b);
+        sb_printf(&b, CLAUDE_SETTINGS_TEMPLATE, bin, bin);
+        if (write_entire_file(path, b.p, b.len) == 0)
+            printf("  ok claude-code  %s (created)\n", path);
+        else
+            printf("  XX claude-code  cannot write %s\n", path);
+        sb_free(&b);
+    }
+    free(existing);
+    int portable_rc = integrate_apply_portable(cg, false);
+    int git_rc = cmd_hook_install_git(cg, bin);
+    return portable_rc != 0 ? portable_rc : git_rc;
+}
+
+/* Git hooks: refresh the graph in the background after a commit lands, and
+ * report Codify's findings before one does. The pre-commit gate ends in
+ * `|| true` so it can never block a commit until the user decides it should. */
+static int cmd_hook_install_git(Cg *cg, const char *bin)
+{
+    char dir[4600], path[4700];
+    struct stat st;
+    snprintf(dir, sizeof dir, "%s/.git/hooks", cg->root);
+    if (stat(dir, &st) != 0) {
+        printf("  .  git          no .git/hooks here - skipped\n");
+    } else {
+        StrBuf b; sb_init(&b);
+        /* --background: a commit is not the moment to take every core, and
+         * a pass another process is already running is joined, not repeated */
+        sb_printf(&b,
+            "#!/bin/sh\n"
+            "# installed by `hyperfide hook install` - keeps the Codify graph and\n"
+            "# git provenance current after every commit.\n"
+            "%s sync --background --auto >/dev/null 2>&1 || true\n"
+            "%s git-sync -n 200 >/dev/null 2>&1 || true\n", bin, bin);
+        snprintf(path, sizeof path, "%s/post-commit", dir);
+        if (stat(path, &st) == 0)
+            printf("  .  git          %s exists - left alone\n", path);
+        else if (write_exec(path, b.p) == 0)
+            printf("  ok git          %s (created)\n", path);
+        else
+            printf("  XX git          cannot write %s\n", path);
+        sb_free(&b);
+
+        sb_init(&b);
+        sb_printf(&b,
+            "#!/bin/sh\n"
+            "# installed by `hyperfide hook install` - advisory Codify gate.\n"
+            "# Reports problems and still allows the commit; drop the\n"
+            "# `|| true` to make it blocking.\n"
+            "%s check || true\n", bin);
+        snprintf(path, sizeof path, "%s/pre-commit", dir);
+        if (stat(path, &st) == 0)
+            printf("  .  git          %s exists - left alone\n", path);
+        else if (write_exec(path, b.p) == 0)
+            printf("  ok git          %s (created)\n", path);
+        else
+            printf("  XX git          cannot write %s\n", path);
+        sb_free(&b);
+    }
+    printf("\nhooks are advisory: `hyperfide guard` reports scope drift without\n"
+           "failing. Use `hyperfide guard --strict` to enforce.\n");
+    return 0;
+}
+
+/* ---------------- post-edit hook ---------------- */
+
+/* Everything the agent host piped in, or nothing when there is no pipe. */
+static char *hook_read_stdin(void) {
+    if (isatty(STDIN_FILENO)) return NULL;
+    StrBuf b; sb_init(&b);
+    char chunk[4096];
+    size_t n;
+    while ((n = fread(chunk, 1, sizeof chunk, stdin)) > 0)
+        for (size_t i = 0; i < n; i++) sb_putc(&b, chunk[i]);
+    if (b.len == 0) { sb_free(&b); return NULL; }
+    return b.p;
+}
+
+/* The edited path in a Claude Code PostToolUse payload: tool_input.file_path
+ * for the edit tools, notebook_path for notebooks. NULL for anything else. */
+static char *hook_edited_path(const char *payload) {
+    if (!payload) return NULL;
+    char *ti = json_get_object(payload, "tool_input");
+    if (!ti) return NULL;
+    char *p = json_get_string(ti, "file_path");
+    if (!p || !p[0]) { free(p); p = json_get_string(ti, "notebook_path"); }
+    free(ti);
+    if (p && !p[0]) { free(p); p = NULL; }
+    return p;
+}
+
+typedef struct { Cg *cg; char *path; bool json; } HookGuard;
+
+static int hook_guard_call(void *u) {
+    HookGuard *h = u;
+    char *v[1] = { h->path };
+    return cmd_guard(h->cg, 1, v, h->json, false);
+}
+
+#define HOOK_MAX_LINES 24
+
+/* The hook every agent edit fires. One process does what `sync` + `guard`
+ * used to do in two, and only for the file that changed: a targeted pass
+ * on a background budget, coalesced into whichever pass is already running,
+ * then the scope check for that one path. A payload without a path — a
+ * Bash call, a truncated event, an empty pipe — still queues a whole-tree
+ * background sync inside the freshness window. Always exits 0: a hook that
+ * fails wedges the agent's tool loop, and nothing here is worth that. */
+int cmd_hook_post_edit(Cg *cg, const SysInfo *si, bool json) {
+    { int authority_rc = hf_client_authority_guard("hook.post-edit", stderr); if (authority_rc) return authority_rc; }
+    char *payload = hook_read_stdin();
+    char *path = hook_edited_path(payload);
+
+    IndexOpts o = {0};
+    o.background = true;
+    o.lock_wait_ms = 0;
+    o.quiet = true;
+    const char *paths[1] = { path };
+    if (path) { o.paths = paths; o.npaths = 1; }
+    else       o.max_age_ms = 5000;
+    IndexStats st;
+    if (config_auto_sync(cg->root)) cg_index_ex(cg, si, &o, &st);
+    /* codify-v15 3.3: the projection follows the edit, in the background */
+    projection_mark_dirty(cg, "post-edit");
+    projection_auto_build(cg, "post-edit", NULL);
+
+    /* Operator messages for this agent (cg fleet steer) reach a Claude Code
+     * session here, at its next edit: PostToolUse additionalContext is
+     * appended to the tool result the model reads. That channel needs the
+     * whole of stdout to be one JSON object, so the guard report travels
+     * inside it; with nothing queued the output is the plain report. */
+    const char *me = getenv("CG_AGENT");
+    char *steer = !json && me && me[0] ? driver_steer_take(cg, me, "hook")
+                                       : NULL;
+    StrBuf text; sb_init(&text);
+    if (path) {
+        HookGuard hg = { cg, path, json };
+        char *out = NULL;
+        cg_capture(&out, hook_guard_call, &hg);
+        if (out && json) {
+            fputs(out, stdout);
+        } else if (out) {
+            /* the transcript is the agent's working memory: cap what one
+             * edit can push into it, and point at the full report */
+            int lines = 0;
+            const char *p = out;
+            while (*p) {
+                const char *nl = strchr(p, '\n');
+                size_t ll = nl ? (size_t)(nl - p + 1) : strlen(p);
+                if (++lines > HOOK_MAX_LINES) {
+                    int rest = 0;
+                    for (const char *q = p; *q; q++) if (*q == '\n') rest++;
+                    sb_printf(&text, "  … %d more line(s): run `hyperfide guard %s`\n",
+                              rest + 1, path);
+                    break;
+                }
+                for (size_t i = 0; i < ll; i++) sb_putc(&text, p[i]);
+                p += ll;
+            }
+        }
+        free(out);
+    } else if (json) {
+        printf("{\"guarded\":false,\"reason\":\"no edited path in payload\","
+               "\"synced\":%s}\n", st.coalesced ? "\"queued\"" : "true");
+    }
+    if (steer) {
+        StrBuf ctx; sb_init(&ctx);
+        sb_puts(&ctx, "Messages from your operator — take these into account "
+                      "before continuing:\n");
+        sb_puts(&ctx, steer);
+        if (text.len) { sb_putc(&ctx, '\n'); sb_puts(&ctx, text.p); }
+        StrBuf j; sb_init(&j);
+        sb_puts(&j, "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\","
+                    "\"additionalContext\":");
+        sb_json_str(&j, ctx.p);
+        sb_puts(&j, "}}\n");
+        fputs(j.p, stdout);
+        sb_free(&j);
+        sb_free(&ctx);
+    } else {
+        fputs(text.p, stdout);
+    }
+    sb_free(&text);
+    free(steer);
+    free(path);
+    free(payload);
+    return 0;
+}
+
+/* ---------------- pre-bash hook: shell searches pointed at the graph ------ */
+
+/* A shell search an agent is about to run, read the way the shell would
+ * read it, so the advice names the cg command that answers the same
+ * question. Purpose: an indexed tree answers grep/find cheaper and smaller
+ * than the shell does, and an agent learns that best at the moment it
+ * reaches for the shell. Contract: advice only — the command still runs;
+ * a command this parser cannot place inside the tree gets no advice. */
+
+#define SA_MAXTOK 128
+#define SA_MAXSEG 32
+
+typedef struct {
+    char *tok[SA_MAXTOK];
+    bool  dyn[SA_MAXTOK];      /* holds an unquoted $ or ` — not resolvable */
+    int   n;
+    bool  piped;               /* reads the previous segment through | */
+} SaSeg;
+
+typedef struct {
+    const char *root;
+    char cwd[4096];
+    bool outside;              /* a path operand left the tree: say nothing */
+    StrBuf out;                /* suggestions, one per line */
+    int nsug;
+} SaCtx;
+
+/* what a tree lister (find, fd, ls -R, rg --files, git ls-files) names */
+typedef struct {
+    bool lister;
+    char dir[2048];            /* root-relative, "" = the root */
+    char glob[1024];           /* name glob, "" = any */
+    bool dirs;                 /* directories, not files */
+} SaList;
+
+static void sa_seg_free(SaSeg *s) {
+    for (int i = 0; i < s->n; i++) free(s->tok[i]);
+    s->n = 0;
+}
+
+static void sa_flush(SaSeg *s, StrBuf *t, bool *have, bool *dyn) {
+    if (*have && s->n < SA_MAXTOK) {
+        s->dyn[s->n] = *dyn;
+        s->tok[s->n++] = xstrdup(t->p ? t->p : "");
+    }
+    t->len = 0;
+    if (t->p) t->p[0] = 0;
+    *have = false;
+    *dyn = false;
+}
+
+/* Split cmd into segments at |, ||, &&, ;, & and newlines, honouring
+ * quotes and backslashes; each segment is tokenized like the shell. */
+static int sa_split(const char *cmd, SaSeg *seg, int max) {
+    int ns = 0;
+    StrBuf t; sb_init(&t);
+    bool have = false, dyn = false;
+    const char *p = cmd;
+    while (*p) {
+        char c = *p;
+        if (c == '\'') {
+            have = true;
+            for (p++; *p && *p != '\''; p++) sb_putc(&t, *p);
+            if (*p) p++;
+        } else if (c == '"') {
+            have = true;
+            for (p++; *p && *p != '"'; p++) {
+                if (*p == '\\' && p[1] && strchr("\"\\$`", p[1])) p++;
+                else if (*p == '$' || *p == '`') dyn = true;
+                sb_putc(&t, *p);
+            }
+            if (*p) p++;
+        } else if (c == '\\' && p[1]) {
+            have = true;
+            if (p[1] != '\n') sb_putc(&t, p[1]);
+            p += 2;
+        } else if (c == ' ' || c == '\t') {
+            sa_flush(&seg[ns], &t, &have, &dyn);
+            p++;
+        } else if (c == '|' || c == ';' || c == '&' || c == '\n') {
+            /* 2>&1 and &> are redirections, not separators */
+            if (c == '&' && (p[1] == '>' ||
+                (p > cmd && (p[-1] == '>' || p[-1] == '<')))) {
+                have = true; sb_putc(&t, c); p++;
+                continue;
+            }
+            sa_flush(&seg[ns], &t, &have, &dyn);
+            bool pipe = c == '|' && p[1] != '|';
+            p += (p[1] == c && (c == '|' || c == '&')) ? 2 : 1;
+            if (seg[ns].n == 0) continue;
+            if (ns + 1 >= max) break;
+            ns++;
+            seg[ns].piped = pipe;
+        } else {
+            if (c == '$' || c == '`') dyn = true;
+            have = true;
+            sb_putc(&t, c);
+            p++;
+        }
+    }
+    sa_flush(&seg[ns], &t, &have, &dyn);
+    sb_free(&t);
+    if (seg[ns].n) ns++;
+    return ns;
+}
+
+/* Lexically resolve operand against cwd; the root-relative form in rel
+ * ("" for the root itself). False when it lies outside root or cannot be
+ * resolved (a variable, a ~user). */
+static bool sa_rel(SaCtx *x, const char *operand, bool dyn, char *rel,
+                   size_t cap) {
+    if (dyn || !operand[0]) return false;
+    char abs[8192];
+    if (operand[0] == '~') {
+        const char *home = getenv("HOME");
+        if (!home || (operand[1] && operand[1] != '/')) return false;
+        snprintf(abs, sizeof abs, "%s%s", home, operand + 1);
+    } else if (operand[0] == '/') {
+        snprintf(abs, sizeof abs, "%s", operand);
+    } else {
+        snprintf(abs, sizeof abs, "%s/%s", x->cwd, operand);
+    }
+    char norm[8192] = "";
+    size_t nl = 0;
+    char *save = NULL;
+    for (char *c = strtok_r(abs, "/", &save); c;
+         c = strtok_r(NULL, "/", &save)) {
+        if (!strcmp(c, ".")) continue;
+        if (!strcmp(c, "..")) {
+            char *sl = strrchr(norm, '/');
+            nl = sl ? (size_t)(sl - norm) : 0;
+            norm[nl] = 0;
+            continue;
+        }
+        nl += (size_t)snprintf(norm + nl, sizeof norm - nl, "/%s", c);
+        if (nl >= sizeof norm) return false;
+    }
+    size_t rl = strlen(x->root);
+    while (rl > 1 && x->root[rl - 1] == '/') rl--;
+    if (strncmp(norm, x->root, rl) != 0 || (norm[rl] && norm[rl] != '/'))
+        return false;
+    snprintf(rel, cap, "%s", norm[rl] ? norm + rl + 1 : "");
+    return true;
+}
+
+/* a path operand: its root-relative form, or the whole command is outside */
+static bool sa_path(SaCtx *x, const char *operand, bool dyn, char *rel,
+                    size_t cap) {
+    if (sa_rel(x, operand, dyn, rel, cap)) return true;
+    x->outside = true;
+    return false;
+}
+
+static void sa_quote(StrBuf *b, const char *s) {
+    bool plain = s[0] != 0;
+    for (const char *p = s; *p; p++)
+        if (!isalnum((unsigned char)*p) && !strchr("_-./:@,+=", *p))
+            plain = false;
+    if (plain) { sb_puts(b, s); return; }
+    sb_putc(b, '\'');
+    for (const char *p = s; *p; p++) {
+        if (*p == '\'') sb_puts(b, "'\\''");
+        else sb_putc(b, *p);
+    }
+    sb_putc(b, '\'');
+}
+
+static void sa_suggest(SaCtx *x, const char *line) {
+    if (x->out.p && strstr(x->out.p, line)) return;     /* said already */
+    if (x->nsug >= 3) return;
+    sb_printf(&x->out, "  %s\n", line);
+    x->nsug++;
+}
+
+static const char *sa_base(const char *w) {
+    const char *s = strrchr(w, '/');
+    return s ? s + 1 : w;
+}
+
+static int sa_tool(const char *w) {      /* 1 grep-like, 2 find, 3 fd, 4 ls */
+    w = sa_base(w);
+    if (!strcmp(w, "grep") || !strcmp(w, "egrep") || !strcmp(w, "fgrep") ||
+        !strcmp(w, "rg") || !strcmp(w, "ag") || !strcmp(w, "ack"))
+        return 1;
+    if (!strcmp(w, "find")) return 2;
+    if (!strcmp(w, "fd") || !strcmp(w, "fdfind")) return 3;
+    if (!strcmp(w, "ls")) return 4;
+    return 0;
+}
+
+static void sa_find(SaCtx *x, SaSeg *s, int a, SaList *l) {
+    int i = a + 1;
+    bool any = false;
+    for (; i < s->n; i++) {
+        const char *t = s->tok[i];
+        if (t[0] == '-' || t[0] == '(' || t[0] == '!') break;
+        char rel[2048];
+        if (!sa_path(x, t, s->dyn[i], rel, sizeof rel)) return;
+        if (!any) snprintf(l->dir, sizeof l->dir, "%s", rel);
+        any = true;
+    }
+    if (!any && !sa_path(x, ".", false, l->dir, sizeof l->dir)) return;
+    for (; i < s->n; i++) {
+        const char *t = s->tok[i];
+        if ((!strcmp(t, "-name") || !strcmp(t, "-iname") ||
+             !strcmp(t, "-path") || !strcmp(t, "-ipath") ||
+             !strcmp(t, "-wholename")) && i + 1 < s->n) {
+            const char *g = s->tok[++i];
+            while (g[0] == '.' && g[1] == '/') g += 2;
+            if (g[0] == '*' && g[1] == '/') g += 2;
+            if (!l->glob[0]) snprintf(l->glob, sizeof l->glob, "%s", g);
+        } else if (!strcmp(t, "-type") && i + 1 < s->n) {
+            if (!strcmp(s->tok[++i], "d")) l->dirs = true;
+        } else if (!strcmp(t, "-exec") || !strcmp(t, "-execdir")) {
+            break;
+        }
+    }
+    l->lister = true;
+}
+
+static void sa_fd(SaCtx *x, SaSeg *s, int a, SaList *l) {
+    const char *pat = NULL, *ext = NULL;
+    bool any = false;
+    for (int i = a + 1; i < s->n; i++) {
+        const char *t = s->tok[i];
+        if (!strcmp(t, "-x") || !strcmp(t, "--exec") || !strcmp(t, "-X") ||
+            !strcmp(t, "--exec-batch"))
+            break;
+        if (!strcmp(t, "-e") || !strcmp(t, "--extension")) {
+            if (i + 1 < s->n) ext = s->tok[++i];
+        } else if (!strcmp(t, "-t") || !strcmp(t, "--type")) {
+            if (i + 1 < s->n && !strcmp(s->tok[++i], "d")) l->dirs = true;
+        } else if (!strcmp(t, "-E") || !strcmp(t, "--exclude") ||
+                   !strcmp(t, "-d") || !strcmp(t, "--max-depth") ||
+                   !strcmp(t, "-S") || !strcmp(t, "--size") ||
+                   !strcmp(t, "-c") || !strcmp(t, "--color")) {
+            i++;
+        } else if (t[0] == '-') {
+            continue;
+        } else if (!pat) {
+            pat = t;
+        } else {
+            char rel[2048];
+            if (!sa_path(x, t, s->dyn[i], rel, sizeof rel)) return;
+            if (!any) snprintf(l->dir, sizeof l->dir, "%s", rel);
+            any = true;
+        }
+    }
+    if (!any && !sa_path(x, ".", false, l->dir, sizeof l->dir)) return;
+    char g[1024] = "";
+    if (pat) {
+        /* fd takes a regex; anchors and escapes mean nothing to a glob */
+        size_t o = 0;
+        for (const char *p = pat; *p && o + 1 < sizeof g; p++)
+            if (*p != '^' && *p != '$' && *p != '\\') g[o++] = *p;
+        g[o] = 0;
+    }
+    if (g[0] && ext) snprintf(l->glob, sizeof l->glob, "*%s*.%s", g, ext);
+    else if (ext) snprintf(l->glob, sizeof l->glob, "*.%s", ext);
+    else snprintf(l->glob, sizeof l->glob, "%s", g);
+    l->lister = true;
+}
+
+/* the cg files line for what a lister names */
+static void sa_files_line(SaCtx *x, const SaList *l) {
+    StrBuf b; sb_init(&b);
+    sb_puts(&b, "hyperfide files");
+    if (l->dirs && !l->glob[0]) {
+        sb_puts(&b, " --dirs");
+        if (l->dir[0]) { sb_putc(&b, ' '); sa_quote(&b, l->dir); }
+    } else if (l->glob[0]) {
+        sb_putc(&b, ' ');
+        sa_quote(&b, l->glob);
+        if (l->dir[0]) { sb_puts(&b, " --path "); sa_quote(&b, l->dir); }
+    } else if (l->dir[0]) {
+        sb_putc(&b, ' ');
+        sa_quote(&b, l->dir);
+    }
+    sb_puts(&b, "   (MCP find_files)");
+    sa_suggest(x, b.p);
+    sb_free(&b);
+}
+
+/* grep, rg, ag, ack at s->tok[a]. prev: the lister feeding it through a
+ * pipe or xargs (NULL when none); catv: the files a piped cat feeds it. */
+static void sa_grep(SaCtx *x, SaSeg *s, int a, const SaList *prev,
+                    bool xargs, char **catv, int catn) {
+    const char *tool = sa_base(s->tok[a]);
+    bool isgrep = strstr(tool, "grep") != NULL;
+    const char *argshort = isgrep ? "efmABCdD" : "efgtTmABCMjrEG";
+    static const char *ARGLONG[] = { "--regexp", "--file", "--max-count",
+        "--after-context", "--before-context", "--context", "--include",
+        "--exclude", "--exclude-dir", "--glob", "--type", "--type-not",
+        "--replace", "--ignore", "--ignore-dir", "--max-depth", NULL };
+    bool icase = false, regex = !strcmp(tool, "egrep"), fixed = false;
+    bool recursive = !isgrep, files_only = false;
+    const char *pat = NULL;
+    char *paths[SA_MAXTOK];
+    int np = 0;
+    bool opts_done = false;
+    for (int i = a + 1; i < s->n; i++) {
+        const char *t = s->tok[i];
+        if (!opts_done && !strcmp(t, "--")) { opts_done = true; continue; }
+        if (!opts_done && t[0] == '-' && t[1] == '-') {
+            if (!strcmp(t, "--ignore-case")) icase = true;
+            else if (!strcmp(t, "--extended-regexp") ||
+                     !strcmp(t, "--perl-regexp")) regex = true;
+            else if (!strcmp(t, "--fixed-strings") ||
+                     !strcmp(t, "--literal")) fixed = true;
+            else if (!strcmp(t, "--recursive")) recursive = true;
+            else if (!strcmp(t, "--files")) files_only = true;
+            else if (!strncmp(t, "--regexp=", 9)) pat = t + 9;
+            else if (!strchr(t, '='))
+                for (int k = 0; ARGLONG[k]; k++)
+                    if (!strcmp(t, ARGLONG[k])) {
+                        if (k == 0 && i + 1 < s->n) pat = s->tok[i + 1];
+                        i++;
+                        break;
+                    }
+            continue;
+        }
+        if (!opts_done && t[0] == '-' && t[1]) {
+            for (const char *c = t + 1; *c; c++) {
+                if (*c == 'i') icase = true;
+                else if (*c == 'E' && isgrep) regex = true;
+                else if (*c == 'P') regex = true;
+                else if (*c == 'F' || *c == 'Q') fixed = true;
+                else if (*c == 'r' && isgrep) recursive = true;
+                else if (*c == 'R') recursive = true;
+                if (strchr(argshort, *c)) {
+                    const char *v = c[1] ? c + 1
+                                  : (i + 1 < s->n ? s->tok[++i] : NULL);
+                    if (*c == 'e' && v) pat = v;
+                    break;
+                }
+            }
+            continue;
+        }
+        if (!pat) {
+            pat = t;
+        } else if (np < SA_MAXTOK) {
+            char rel[2048];
+            if (!sa_path(x, t, s->dyn[i], rel, sizeof rel)) goto out;
+            paths[np++] = xstrdup(rel);
+        }
+    }
+    if (files_only) {                        /* rg --files is a lister */
+        SaList l;
+        memset(&l, 0, sizeof l);
+        l.lister = true;
+        if (np) snprintf(l.dir, sizeof l.dir, "%s", paths[0]);
+        else if (!sa_path(x, ".", false, l.dir, sizeof l.dir)) goto out;
+        sa_files_line(x, &l);
+        goto out;
+    }
+    if (!pat || !pat[0]) goto out;
+
+    /* where it searches: its own operands, else what feeds it */
+    StrBuf where; sb_init(&where);
+    sb_puts(&where, "");
+    bool advise = true;
+    if (np) {
+        for (int k = 0; k < np; k++)
+            if (paths[k][0]) {
+                sb_puts(&where, " --path ");
+                sa_quote(&where, paths[k]);
+            }
+    } else if (catn) {
+        for (int k = 0; k < catn; k++)
+            if (catv[k][0]) {
+                sb_puts(&where, " --path ");
+                sa_quote(&where, catv[k]);
+            }
+    } else if (prev && prev->lister) {
+        if (!xargs) {                      /* filtering a list of names */
+            SaList l = *prev;
+            snprintf(l.glob, sizeof l.glob, "%s", pat);
+            l.dirs = false;
+            sa_files_line(x, &l);
+            advise = false;
+        } else {
+            char g[3200];
+            if (prev->glob[0] && prev->dir[0])
+                snprintf(g, sizeof g, "%s/**/%s", prev->dir, prev->glob);
+            else
+                snprintf(g, sizeof g, "%s",
+                         prev->glob[0] ? prev->glob : prev->dir);
+            if (g[0]) { sb_puts(&where, " --path "); sa_quote(&where, g); }
+        }
+    } else if (s->piped || xargs) {
+        advise = false;                  /* filtering some command's output */
+    } else if (recursive) {
+        char rel[2048];
+        if (!sa_path(x, ".", false, rel, sizeof rel)) advise = false;
+        else if (rel[0]) { sb_puts(&where, " --path "); sa_quote(&where, rel); }
+    } else {
+        advise = false;                  /* a grep reading its stdin */
+    }
+    if (advise) {
+        StrBuf b; sb_init(&b);
+        sb_puts(&b, "hyperfide grep ");
+        /* cg grep is literal unless -E; a pattern the tool read as a regex
+         * stays one */
+        bool re = !fixed && strpbrk(pat, "\\[]*+?(){}|^$") != NULL &&
+                  (regex || !isgrep || strpbrk(pat, "[]*^$\\"));
+        if (re) sb_puts(&b, "-E ");
+        if (icase) sb_puts(&b, "-i ");
+        sa_quote(&b, pat);
+        sb_puts(&b, where.p);
+        sb_puts(&b, "   (MCP grep_code)");
+        sa_suggest(x, b.p);
+        sb_free(&b);
+    }
+    sb_free(&where);
+out:
+    for (int k = 0; k < np; k++) free(paths[k]);
+}
+
+static bool sa_prefix_word(const char *w) {
+    return !strcmp(w, "sudo") || !strcmp(w, "command") ||
+           !strcmp(w, "time") || !strcmp(w, "nice") || !strcmp(w, "(") ||
+           !strcmp(w, "{") || !strcmp(w, "then") || !strcmp(w, "do");
+}
+
+char *shell_advice_for(const char *root, const char *cwd, const char *cmd) {
+    if (!root || !root[0] || !cmd || !cmd[0]) return NULL;
+    SaCtx x;
+    memset(&x, 0, sizeof x);
+    x.root = root;
+    if (cwd && cwd[0] == '/') snprintf(x.cwd, sizeof x.cwd, "%s", cwd);
+    else if (!getcwd(x.cwd, sizeof x.cwd))
+        snprintf(x.cwd, sizeof x.cwd, "%s", root);
+    sb_init(&x.out);
+    SaSeg *seg = xmalloc(sizeof *seg * SA_MAXSEG);
+    memset(seg, 0, sizeof *seg * SA_MAXSEG);
+    int ns = sa_split(cmd, seg, SA_MAXSEG);
+    SaList prev;
+    memset(&prev, 0, sizeof prev);
+    char *catv[SA_MAXTOK];
+    int catn = 0;
+    for (int si = 0; si < ns && !x.outside; si++) {
+        SaSeg *s = &seg[si];
+        if (!s->piped) {
+            memset(&prev, 0, sizeof prev);
+            for (int k = 0; k < catn; k++) free(catv[k]);
+            catn = 0;
+        }
+        SaList cur;
+        memset(&cur, 0, sizeof cur);
+        char *curcatv[SA_MAXTOK];
+        int curcat = 0;
+        bool catbad = false;
+        int a = 0;
+        /* VAR=value and sudo/command/time in front of the command */
+        while (a < s->n && s->tok[a][0] != '-' && s->tok[a][0] != '=' &&
+               strchr(s->tok[a], '='))
+            a++;
+        while (a < s->n && sa_prefix_word(s->tok[a])) a++;
+        /* drop redirections: >f, 2>/dev/null, < f, and their targets */
+        int w = a;
+        for (int i = a; i < s->n; i++) {
+            const char *r = s->tok[i];
+            while (isdigit((unsigned char)*r)) r++;
+            if (*r == '&' && r[1] == '>') r++;
+            if (*r == '>' || *r == '<') {
+                const char *q = r;
+                while (*q == '>' || *q == '<' || *q == '&') q++;
+                bool bare = !*q;
+                free(s->tok[i]);
+                s->tok[i] = NULL;
+                if (bare && i + 1 < s->n) {   /* the target is the next word */
+                    free(s->tok[i + 1]);
+                    s->tok[++i] = NULL;
+                }
+                continue;
+            }
+            s->tok[w] = s->tok[i];
+            s->dyn[w] = s->dyn[i];
+            if (w != i) s->tok[i] = NULL;
+            w++;
+        }
+        s->n = w;
+        if (a >= s->n) continue;
+        const char *w0 = sa_base(s->tok[a]);
+        if (!strcmp(w0, "cd")) {
+            char rel[2048];
+            if (a + 1 < s->n && sa_rel(&x, s->tok[a + 1], s->dyn[a + 1],
+                                       rel, sizeof rel))
+                snprintf(x.cwd, sizeof x.cwd, "%s%s%s", root,
+                         rel[0] ? "/" : "", rel);
+            else if (a + 1 < s->n)       /* left the tree, or unknowable */
+                snprintf(x.cwd, sizeof x.cwd, "/nonexistent/outside");
+            continue;
+        }
+        bool xargs = false;
+        if (!strcmp(w0, "xargs")) {
+            xargs = true;
+            for (a++; a < s->n && s->tok[a][0] == '-'; a++)
+                if (s->tok[a][1] && !s->tok[a][2] &&
+                    strchr("IdEnLPs", s->tok[a][1]))
+                    a++;
+            if (a >= s->n) continue;
+            w0 = sa_base(s->tok[a]);
+        }
+        int tool = sa_tool(w0);
+        if (tool == 1) {
+            sa_grep(&x, s, a, prev.lister ? &prev : NULL, xargs,
+                    s->piped ? catv : NULL, s->piped ? catn : 0);
+        } else if (tool == 2) {
+            sa_find(&x, s, a, &cur);
+            if (cur.lister) sa_files_line(&x, &cur);
+            /* find ... -exec grep: a grep over what find names */
+            for (int i = a; i < s->n && cur.lister && !x.outside; i++)
+                if ((!strcmp(s->tok[i], "-exec") ||
+                     !strcmp(s->tok[i], "-execdir")) && i + 1 < s->n &&
+                    sa_tool(s->tok[i + 1]) == 1) {
+                    SaSeg sub;
+                    memset(&sub, 0, sizeof sub);
+                    for (int k = i + 1; k < s->n && sub.n < SA_MAXTOK; k++) {
+                        if (!strcmp(s->tok[k], ";") || !strcmp(s->tok[k], "+"))
+                            break;
+                        if (!strcmp(s->tok[k], "{}")) continue;
+                        sub.tok[sub.n] = s->tok[k];
+                        sub.dyn[sub.n++] = s->dyn[k];
+                    }
+                    sa_grep(&x, &sub, 0, &cur, true, NULL, 0);
+                    break;
+                }
+        } else if (tool == 3) {
+            sa_fd(&x, s, a, &cur);
+            if (cur.lister) sa_files_line(&x, &cur);
+        } else if (tool == 4) {
+            bool rec = false;
+            const char *dir = NULL;
+            bool ddyn = false;
+            for (int i = a + 1; i < s->n; i++) {
+                const char *t = s->tok[i];
+                if (!strcmp(t, "--recursive")) rec = true;
+                else if (t[0] == '-' && t[1] != '-' && strchr(t, 'R'))
+                    rec = true;
+                else if (t[0] != '-' && !dir) { dir = t; ddyn = s->dyn[i]; }
+            }
+            if (rec && sa_path(&x, dir ? dir : ".", ddyn, cur.dir,
+                               sizeof cur.dir)) {
+                cur.lister = true;
+                cur.dirs = true;
+                sa_files_line(&x, &cur);
+            }
+        } else if (!strcmp(w0, "cat") && !xargs) {
+            for (int i = a + 1; i < s->n && !catbad; i++) {
+                char rel[2048];
+                if (s->tok[i][0] == '-') continue;
+                if (!sa_rel(&x, s->tok[i], s->dyn[i], rel, sizeof rel))
+                    catbad = true;
+                else if (curcat < SA_MAXTOK)
+                    curcatv[curcat++] = xstrdup(rel);
+            }
+        } else if (!strcmp(w0, "git") && a + 1 < s->n &&
+                   !strcmp(s->tok[a + 1], "ls-files")) {
+            if (sa_rel(&x, ".", false, cur.dir, sizeof cur.dir))
+                cur.lister = true;
+        }
+        for (int k = 0; k < catn; k++) free(catv[k]);
+        catn = 0;
+        if (!catbad) {
+            memcpy(catv, curcatv, sizeof *catv * (size_t)curcat);
+            catn = curcat;
+        } else {
+            for (int k = 0; k < curcat; k++) free(curcatv[k]);
+        }
+        prev = cur;
+    }
+    for (int k = 0; k < catn; k++) free(catv[k]);
+    for (int i = 0; i < ns; i++) sa_seg_free(&seg[i]);
+    free(seg);
+    if (x.outside || x.nsug == 0) { sb_free(&x.out); return NULL; }
+    return x.out.p;
+}
+
+static bool sa_env_off(void) {
+    const char *e = getenv("CG_SHELL_ADVICE");
+    return e && (!strcmp(e, "0") || !strcasecmp(e, "false") ||
+                 !strcasecmp(e, "off") || !strcasecmp(e, "no"));
+}
+
+/* PreToolUse for Bash. Reads the host's payload; when the command is a
+ * shell search over this tree, answers with the cg command that does the
+ * same from the graph, as additionalContext. Never a permissionDecision:
+ * the command runs either way. Once per session per command (a meta cursor
+ * keyed by session and command hash), so a repeated command is not nagged.
+ * Silent for CG_SHELL_ADVICE=0, [hooks] shell_advice = false, a payload
+ * that is not Bash or does not parse, and a command reaching outside the
+ * tree. Always exits 0: a hook that fails wedges the agent's tool loop. */
+int cmd_hook_pre_bash(Cg *cg, bool json) {
+    (void)json;                     /* the host contract is JSON already */
+    char *payload = hook_read_stdin();
+    if (!payload || sa_env_off() || !config_shell_advice(cg->root)) {
+        free(payload);
+        return 0;
+    }
+    char *tool = json_get_string(payload, "tool_name");
+    char *ti = tool && !strcmp(tool, "Bash")
+             ? json_get_object(payload, "tool_input") : NULL;
+    char *command = ti ? json_get_string(ti, "command") : NULL;
+    char *session = json_get_string(payload, "session_id");
+    char *cwd = json_get_string(payload, "cwd");
+    char *advice = command ? shell_advice_for(cg->root, cwd, command) : NULL;
+    if (advice) {
+        char hex[65], key[400];
+        sha256_hex(command, strlen(command), hex);
+        snprintf(key, sizeof key, "shell_advice:%.200s:%.16s",
+                 session && session[0] ? session : "-", hex);
+        char *seen = cg_meta_get(cg, key);
+        if (!seen) {
+            char now[32];
+            snprintf(now, sizeof now, "%ld", (long)time(NULL));
+            cg_meta_set(cg, key, now);
+            StrBuf ctx; sb_init(&ctx);
+            sb_puts(&ctx, "Codify: this tree is indexed; the graph answers "
+                          "that shell search directly:\n");
+            sb_puts(&ctx, advice);
+            sb_puts(&ctx, "Why: hits come back grouped under their enclosing "
+                          "symbol, ranked, and capped to a token budget, so "
+                          "the transcript stays small. Use grep_code, "
+                          "find_files, search_code, and get_context before "
+                          "any shell search. (Advice only: your command "
+                          "still runs.)");
+            StrBuf j; sb_init(&j);
+            sb_puts(&j, "{\"hookSpecificOutput\":{\"hookEventName\":"
+                        "\"PreToolUse\",\"additionalContext\":");
+            sb_json_str(&j, ctx.p);
+            sb_puts(&j, "}}\n");
+            fputs(j.p, stdout);
+            sb_free(&j);
+            sb_free(&ctx);
+        }
+        free(seen);
+    }
+    free(advice);
+    free(cwd);
+    free(session);
+    free(command);
+    free(ti);
+    free(tool);
+    free(payload);
+    return 0;
+}
+
+/* ---------------- handoff / resume ---------------- */
+
+/* A handoff is one structured memory: 'handoff|done:…|next:…|blocked:…|
+ * note:…|files:…'. Each new handoff supersedes the previous live one, so
+ * resume always reads exactly one authoritative note per task. */
+
+static const char *HANDOFF_KEYS[] = { "done", "next", "blocked", "note",
+                                      "files" };
+
+/* extract one field from a handoff body; malloc'd, NULL when absent */
+static char *handoff_field(const char *body, const char *key) {
+    char pat[16];
+    snprintf(pat, sizeof pat, "|%s:", key);
+    const char *p = strstr(body, pat);
+    if (!p) return NULL;
+    p += strlen(pat);
+    const char *end = body + strlen(body);
+    for (size_t i = 0; i < sizeof HANDOFF_KEYS / sizeof *HANDOFF_KEYS; i++) {
+        char q[16];
+        snprintf(q, sizeof q, "|%s:", HANDOFF_KEYS[i]);
+        const char *m = strstr(p, q);
+        if (m && m < end) end = m;
+    }
+    size_t n = (size_t)(end - p);
+    char *v = xmalloc(n + 1);
+    memcpy(v, p, n);
+    v[n] = 0;
+    return v;
+}
+
+/* id of the newest non-superseded handoff memory for a task, or -1 */
+static long handoff_live_id(Cg *cg, const char *tag) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT m.id FROM memories m WHERE m.type='handoff' AND m.task=? "
+        "AND m.id NOT IN (SELECT id FROM memory_superseded) "
+        "ORDER BY m.id DESC LIMIT 1");
+    sqlite3_bind_text(st, 1, tag, -1, SQLITE_TRANSIENT);
+    long id = -1;
+    if (sqlite3_step(st) == SQLITE_ROW) id = sqlite3_column_int64(st, 0);
+    sqlite3_finalize(st);
+    return id;
+}
+
+/* Store a handoff and supersede the live one before it, inside the
+ * caller's transaction; shared by cmd_handoff and the journal replay. */
+static long handoff_store(Cg *cg, const char *tag, const char *body,
+                          const char *files, long created, const char *branch,
+                          long *prev_out) {
+    long prev = handoff_live_id(cg, tag);
+    long id = memory_add_at(cg, created, branch, "handoff", tag, body, NULL,
+                            files, "manual");
+    if (id >= 0 && prev > 0 && prev != id) memory_supersede(cg, prev, id);
+    if (prev_out) *prev_out = prev;
+    return id;
+}
+
+/* uncommitted paths, comma-joined, capped at `cap` entries; malloc'd */
+static char *handoff_files(Cg *cg, int cap, int *count) {
+    char **paths = NULL;
+    int np = vcs_changed_paths(cg, NULL, &paths);
+    StrBuf f; sb_init(&f);
+    for (int i = 0; i < np && i < cap; i++) {
+        if (i) sb_putc(&f, ',');
+        sb_puts(&f, paths[i]);
+    }
+    for (int i = 0; i < np; i++) free(paths[i]);
+    free(paths);
+    if (count) *count = np;
+    if (f.len == 0) { sb_free(&f); return NULL; }
+    return f.p;
+}
+
+/* Session state that survives the session: what got done, what comes next,
+ * what is blocked — stored against the task, not the conversation. */
+int cmd_handoff(Cg *cg, const char *task, const char *done, const char *next,
+                const char *blocked, const char *note, bool json)
+{
+    char *tag = spec_resolve_task(task, cg_agent_name(NULL));
+    if (!tag) {
+        fprintf(stderr, task && task[0]
+                ? "hyperfide handoff: unknown task '%s'\n"
+                : "hyperfide handoff: no task in progress — pass --task <id>\n",
+                task ? task : "");
+        return 1;
+    }
+    char *files = handoff_files(cg, 20, NULL);
+
+    StrBuf body; sb_init(&body);
+    sb_puts(&body, "handoff");
+    if (done && done[0])       sb_printf(&body, "|done:%s", done);
+    if (next && next[0])       sb_printf(&body, "|next:%s", next);
+    if (blocked && blocked[0]) sb_printf(&body, "|blocked:%s", blocked);
+    if (note && note[0])       sb_printf(&body, "|note:%s", note);
+    if (files)                 sb_printf(&body, "|files:%s", files);
+
+    long prev = -1, id = -1;
+    bool queued = false;
+    if (journal_begin(cg) == 0) {
+        id = handoff_store(cg, tag, body.p, files, (long)time(NULL),
+                           cg->branch, &prev);
+        if (id < 0) {
+            sqlite3_exec(cg->db, "ROLLBACK", NULL, NULL, NULL);
+            fprintf(stderr, "hyperfide handoff: cannot store handoff\n");
+            sb_free(&body); free(files); free(tag);
+            return 1;
+        }
+        cg_exec(cg, "COMMIT");
+    } else {
+        /* the handoff is the next session's starting point: queue it with
+         * its time and files rather than lose it to a busy database; which
+         * handoff it supersedes is decided when it is applied */
+        StrBuf a; sb_init(&a);
+        sb_printf(&a, "{\"created\":%ld,\"task\":", (long)time(NULL));
+        sb_json_str(&a, tag);
+        sb_puts(&a, ",\"body\":"); sb_json_str(&a, body.p);
+        sb_puts(&a, ",\"files\":");
+        if (files) sb_json_str(&a, files); else sb_puts(&a, "null");
+        sb_putc(&a, '}');
+        char sum[600];
+        snprintf(sum, sizeof sum, "handoff %s", tag);
+        int arc = journal_append(cg, "handoff.add", a.p, sum);
+        sb_free(&a);
+        if (arc != 0) {
+            cg_busy_why("the journal under .codegraph/ could not be written");
+            cg_busy_report("The handoff");
+            sb_free(&body); free(files); free(tag);
+            return CG_EXIT_BUSY;
+        }
+        journal_announced();
+        queued = true;
+    }
+
+    if (json && queued) {
+        StrBuf j; sb_init(&j);
+        sb_puts(&j, "{\"handoff\":null,\"queued\":true,\"task\":");
+        sb_json_str(&j, tag);
+        sb_puts(&j, ",\"superseded\":null}\n");
+        fputs(j.p, stdout);
+        sb_free(&j);
+    } else if (queued) {
+        printf("handoff queued for %s — the database is busy; the next hyperfide "
+               "command that gets the write lock applies it\n", tag);
+        if (next && next[0]) printf("  next: %s\n", next);
+    } else if (json) {
+        StrBuf j; sb_init(&j);
+        sb_printf(&j, "{\"handoff\":%ld,\"task\":", id);
+        sb_json_str(&j, tag);
+        if (prev > 0) sb_printf(&j, ",\"superseded\":%ld", prev);
+        else          sb_puts(&j, ",\"superseded\":null");
+        sb_puts(&j, "}\n");
+        fputs(j.p, stdout);
+        sb_free(&j);
+    } else {
+        printf("handoff recorded for %s\n", tag);
+        if (prev > 0) printf("  supersedes handoff #%ld\n", prev);
+        if (next && next[0]) printf("  next: %s\n", next);
+    }
+    sb_free(&body);
+    free(files);
+    free(tag);
+    return 0;
+}
+
+/* append one parsed handoff field to a JSON object under construction */
+static void resume_json_field(StrBuf *b, const char *name, const char *v) {
+    sb_printf(b, ",\"%s\":", name);
+    if (v) sb_json_str(b, v);
+    else   sb_puts(b, "null");
+}
+
+/* The other half of handoff: everything a fresh session needs to pick a task
+ * back up — the task packet, the latest live handoff, task-scoped memories,
+ * the dirty paths, and who (if anyone) holds the lease. With prompt, the text
+ * form closes on the commands that finish the work, including the hand-up
+ * this agent's fleet role calls for. */
+int cmd_resume(Cg *cg, const char *task, bool json, bool prompt)
+{
+    char *tag = spec_resolve_task(task, cg_agent_name(NULL));
+    if (!tag) {
+        fprintf(stderr, task && task[0]
+                ? "hyperfide resume: unknown task '%s'\n"
+                : "hyperfide resume: no task in progress — pass --task <id>\n",
+                task ? task : "");
+        return 1;
+    }
+    char *packet = spec_task_packet(tag);
+
+    /* latest live handoff, parsed */
+    char *hdone = NULL, *hnext = NULL, *hblocked = NULL, *hnote = NULL,
+         *hfiles = NULL;
+    bool have_handoff = false;
+    {
+        long hid = handoff_live_id(cg, tag);
+        if (hid > 0) {
+            sqlite3_stmt *st = cg_prep(cg,
+                "SELECT body FROM memories WHERE id=?");
+            sqlite3_bind_int64(st, 1, hid);
+            if (sqlite3_step(st) == SQLITE_ROW) {
+                const char *body = (const char *)sqlite3_column_text(st, 0);
+                if (body) {
+                    have_handoff = true;
+                    hdone    = handoff_field(body, "done");
+                    hnext    = handoff_field(body, "next");
+                    hblocked = handoff_field(body, "blocked");
+                    hnote    = handoff_field(body, "note");
+                    hfiles   = handoff_field(body, "files");
+                }
+            }
+            sqlite3_finalize(st);
+        }
+    }
+
+    /* task-scoped memories, minus raw handoff rows (already parsed above) */
+    Memory *mem = NULL;
+    int nm = spec_task_memories_tag(tag, &mem);
+    char **paths = NULL;
+    int np = vcs_changed_paths(cg, NULL, &paths);
+
+    char *lagent = NULL;
+    long lmin = 0;
+    {
+        sqlite3_stmt *st = cg_prep(cg,
+            "SELECT agent, (expires - strftime('%s','now'))/60 FROM leases "
+            "WHERE task=? AND expires > strftime('%s','now')");
+        sqlite3_bind_text(st, 1, tag, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(st) == SQLITE_ROW) {
+            const char *a = (const char *)sqlite3_column_text(st, 0);
+            lagent = xstrdup(a ? a : "");
+            lmin = sqlite3_column_int64(st, 1);
+        }
+        sqlite3_finalize(st);
+    }
+
+    StrBuf b; sb_init(&b);
+    if (json) {
+        sb_puts(&b, "{\"root\":");
+        sb_json_str(&b, cg->root);
+        sb_puts(&b, ",\"task\":");
+        sb_puts(&b, packet ? packet : "null");
+        if (have_handoff) {
+            sb_puts(&b, ",\"handoff\":{\"done\":");
+            if (hdone) sb_json_str(&b, hdone); else sb_puts(&b, "null");
+            resume_json_field(&b, "next", hnext);
+            resume_json_field(&b, "blocked", hblocked);
+            resume_json_field(&b, "note", hnote);
+            sb_puts(&b, ",\"files\":[");
+            if (hfiles) {
+                char *sav;
+                int i = 0;
+                for (char *f = strtok_r(hfiles, ",", &sav); f;
+                     f = strtok_r(NULL, ",", &sav)) {
+                    if (i++) sb_putc(&b, ',');
+                    sb_json_str(&b, f);
+                }
+            }
+            sb_puts(&b, "]}");
+        } else {
+            sb_puts(&b, ",\"handoff\":null");
+        }
+        sb_puts(&b, ",\"memories\":[");
+        int shown = 0;
+        for (int i = 0; i < nm && shown < 5; i++) {
+            if (strcmp(mem[i].type, "handoff") == 0) continue;
+            if (shown++) sb_putc(&b, ',');
+            memory_json(&mem[i], &b);
+        }
+        sb_puts(&b, "],\"uncommitted\":[");
+        for (int i = 0; i < np && i < 20; i++) {
+            if (i) sb_putc(&b, ',');
+            sb_json_str(&b, paths[i]);
+        }
+        sb_printf(&b, "],\"uncommitted_count\":%d", np);
+        if (lagent) {
+            sb_puts(&b, ",\"lease\":{\"agent\":");
+            sb_json_str(&b, lagent);
+            sb_printf(&b, ",\"expires_in_min\":%ld}", lmin);
+        } else {
+            sb_puts(&b, ",\"lease\":null");
+        }
+        sb_puts(&b, "}\n");
+    } else {
+        char *id = packet ? json_get_string(packet, "id") : NULL;
+        char *ti = packet ? json_get_string(packet, "title") : NULL;
+        char *stt = packet ? json_get_string(packet, "status") : NULL;
+        char *vc = packet ? json_get_string(packet, "verify_cmd") : NULL;
+        if (prompt) sb_printf(&b, "# resume: %s\n", tag);
+        else        sb_printf(&b, "resume — %s\n", tag);
+        sb_printf(&b, "task %s — %s  (%s)\n", id ? id : "?", ti ? ti : "?",
+                  stt ? stt : "?");
+        if (vc) sb_printf(&b, "verify: %s\n", vc);
+        if (have_handoff) {
+            sb_puts(&b, "last handoff:\n");
+            if (hdone)    sb_printf(&b, "  done: %s\n", hdone);
+            if (hnext)    sb_printf(&b, "  next: %s\n", hnext);
+            if (hblocked) sb_printf(&b, "  blocked: %s\n", hblocked);
+            if (hnote)    sb_printf(&b, "  note: %s\n", hnote);
+            if (hfiles)   sb_printf(&b, "  files: %s\n", hfiles);
+        } else {
+            sb_puts(&b, "last handoff: none recorded\n");
+        }
+        int shown = 0;
+        for (int i = 0; i < nm && shown < 5; i++) {
+            if (strcmp(mem[i].type, "handoff") == 0) continue;
+            if (!shown) sb_puts(&b, "task memories:\n");
+            sb_printf(&b, "  [%s] %s\n", mem[i].type, mem[i].body);
+            shown++;
+        }
+        if (np) {
+            sb_printf(&b, "uncommitted (%d):\n", np);
+            for (int i = 0; i < np && i < 20; i++)
+                sb_printf(&b, "  %s\n", paths[i]);
+            if (np > 20) sb_printf(&b, "  ... and %d more\n", np - 20);
+        } else {
+            sb_puts(&b, "uncommitted: clean\n");
+        }
+        if (lagent)
+            sb_printf(&b, "lease: held by %s, expires in %ld min\n",
+                      lagent, lmin);
+        else
+            sb_puts(&b, "lease: none — claim with `hyperfide spec claim <id>`\n");
+        if (prompt) {
+            /* the briefing proper: what the work is judged against, and
+             * the code it lands in, so the agent starts oriented */
+            const char *bs = getenv("CG_PACKET_BUDGET");
+            int budget = bs && atoi(bs) > 0 ? atoi(bs) : 6000;
+            sb_putc(&b, '\n');
+            task_packet_build(cg, tag, budget, &b);
+        }
+        if (prompt) {
+            const char *sid = id ? id : "?";
+            sb_printf(&b,
+                "\nwhen done: run the verify command, then `hyperfide spec done %s`."
+                "\nbefore stopping: `hyperfide handoff --task %s --done ... "
+                "--next ...` to hand off.\n", sid, sid);
+            /* In a fleet the work is not finished where it was written: a
+             * wave worker hands its branch up, a feature manager lands the
+             * feature and opens its pull request. The prompt ends on the
+             * command that does it, so the agent's last instruction is the
+             * one that moves the work upward. Outside a fleet (no CG_ROLE)
+             * nothing is added and the briefing reads as it always did. */
+            const char *role = cg_agent_role(NULL);
+            const char *branch = getenv("CG_BRANCH");
+            const char *parent = cg_agent_parent(NULL);
+            /* codify-v15 4.1: a branch naming the task is a task worker's */
+            bool per_task = branch && strstr(branch, sid);
+            const char *wave_env = getenv("CG_WAVE");
+            if (role && strcmp(role, "worker") == 0) {
+                sb_printf(&b, "\nfleet: you are a %s worker",
+                          per_task ? "task" : "wave");
+                if (branch && branch[0]) sb_printf(&b, " on %s", branch);
+                if (parent) sb_printf(&b, ", reporting to %s", parent);
+                sb_printf(&b, ". Commit on your branch, then hand the %s "
+                          "up to your manager:\n  hyperfide fleet merge-up %s\n",
+                          per_task ? "task" : "wave", sid);
+            } else if (role && strcmp(role, "feature") == 0 && wave_env &&
+                       wave_env[0]) {
+                const char *env = getenv("CG_FEATURE");
+                sb_printf(&b, "\nfleet: you are the wave manager for wave %s "
+                          "of %s. Your subtree is complete only once every "
+                          "task of the wave is qualified and %s is merged:\n"
+                          "  hyperfide fleet land %s -f %s\n", wave_env,
+                          env ? env : "the feature",
+                          branch && branch[0] ? branch : "the wave branch",
+                          wave_env, env ? env : "<feature>");
+            } else if (role && strcmp(role, "feature") == 0) {
+                const char *env = getenv("CG_FEATURE");
+                const char *slash = strchr(tag, '/');
+                char feat[256];
+                if (env && env[0]) snprintf(feat, sizeof feat, "%s", env);
+                else snprintf(feat, sizeof feat, "%.*s",
+                              slash ? (int)(slash - tag) : (int)strlen(tag),
+                              tag);
+                sb_printf(&b, "\nfleet: you are the feature manager for %s. "
+                          "Your subtree is complete only once every task is "
+                          "qualified and %s is merged:\n"
+                          "  hyperfide fleet land %s\n  hyperfide fleet pr %s\n", feat,
+                          branch && branch[0] ? branch : "the feature branch",
+                          feat, feat);
+            }
+        }
+        free(id); free(ti); free(stt); free(vc);
+    }
+    fputs(b.p, stdout);
+    sb_free(&b);
+    memory_free(mem, nm);
+    for (int i = 0; i < np; i++) free(paths[i]);
+    free(paths);
+    free(lagent);
+    free(hdone); free(hnext); free(hblocked); free(hnote); free(hfiles);
+    free(packet);
+    free(tag);
+    return 0;
+}
+
+/* ---------------- revisioned work packets ---------------- */
+
+typedef struct { Cg *cg; const char *query; } WorkCapture;
+static int work_call_state(void *v) {
+    return cmd_state(((WorkCapture *)v)->cg, true);
+}
+static int work_call_progress(void *v) {
+    return runtime_progress(((WorkCapture *)v)->cg, true);
+}
+static int work_call_context(void *v) {
+    WorkCapture *c = v;
+    return cmd_context(c->cg, c->query, 2400, 4, true);
+}
+static int work_call_tests(void *v) {
+    WorkCapture *c = v;
+    return cmd_test_impact(c->cg, c->query, true);
+}
+
+static void work_raw_json(StrBuf *b, const char *raw) {
+    if (!raw) { sb_puts(b, "null"); return; }
+    while (*raw && isspace((unsigned char)*raw)) raw++;
+    size_t n = strlen(raw);
+    while (n && isspace((unsigned char)raw[n - 1])) n--;
+    if (n) sb_printf(b, "%.*s", (int)n, raw);
+    else sb_puts(b, "null");
+}
+
+static long work_last_event(Cg *cg, const char *task) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT ifnull(MAX(id),0) FROM runtime_events WHERE task=?");
+    sqlite3_bind_text(st, 1, task, -1, SQLITE_TRANSIENT);
+    long id = 0;
+    if (sqlite3_step(st) == SQLITE_ROW) id = sqlite3_column_int64(st, 0);
+    sqlite3_finalize(st);
+    return id;
+}
+
+static void work_event_json(Cg *cg, StrBuf *b, const char *task, long after,
+                            bool latest_only) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT id,created,source,kind,session,ifnull(attempt_id,''),"
+        "fingerprint,revision,evidence_delta,output_changed "
+        "FROM runtime_events WHERE task=? AND id>? ORDER BY id DESC LIMIT ?");
+    sqlite3_bind_text(st, 1, task, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(st, 2, after);
+    sqlite3_bind_int(st, 3, latest_only ? 1 : 30);
+    int n = 0;
+    if (!latest_only) sb_putc(b, '[');
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        if (!latest_only && n) sb_putc(b, ',');
+        sb_printf(b, "{\"id\":%ld,\"created\":%ld,\"source\":",
+                  (long)sqlite3_column_int64(st, 0),
+                  (long)sqlite3_column_int64(st, 1));
+        sb_json_str(b, (const char *)sqlite3_column_text(st, 2));
+        sb_puts(b, ",\"kind\":");
+        sb_json_str(b, (const char *)sqlite3_column_text(st, 3));
+        sb_puts(b, ",\"session\":");
+        sb_json_str(b, (const char *)sqlite3_column_text(st, 4));
+        sb_puts(b, ",\"attempt_id\":");
+        const char *attempt = (const char *)sqlite3_column_text(st, 5);
+        if (attempt[0]) sb_json_str(b, attempt); else sb_puts(b, "null");
+        sb_puts(b, ",\"fingerprint\":");
+        sb_json_str(b, (const char *)sqlite3_column_text(st, 6));
+        sb_puts(b, ",\"workspace_revision\":");
+        sb_json_str(b, (const char *)sqlite3_column_text(st, 7));
+        sb_printf(b, ",\"evidence_delta\":%d,\"output_changed\":%s}",
+                  sqlite3_column_int(st, 8),
+                  sqlite3_column_int(st, 9) ? "true" : "false");
+        n++;
+    }
+    sqlite3_finalize(st);
+    if (!latest_only) sb_putc(b, ']');
+    else if (!n) sb_puts(b, "null");
+}
+
+static void work_memories_json(Cg *cg, StrBuf *b, const char *task) {
+    Memory *mem = NULL;
+    int n = spec_task_memories_tag(task, &mem);
+    sb_putc(b, '[');
+    for (int i = 0; i < n; i++) {
+        if (i) sb_putc(b, ',');
+        brief_cap_body(&mem[i]);
+        memory_json(&mem[i], b);
+    }
+    sb_putc(b, ']');
+    memory_free(mem, n);
+    (void)cg;
+}
+
+/* One work packet row and its file snapshot, inside the caller's
+ * transaction. files is a JSON array of {"path","hash"} captured when the
+ * write was journaled; NULL snapshots runtime_files as it is now. */
+static void work_revision_store(Cg *cg, const char *revision, long created,
+                                const char *task, long event_id,
+                                const char *workspace, const char *state_hash,
+                                const char *files) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "INSERT OR IGNORE INTO work_packets(revision,created,task,event_id,"
+        "workspace_revision,state_hash) VALUES(?,?,?,?,?,?)");
+    sqlite3_bind_text(st, 1, revision, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(st, 2, created);
+    sqlite3_bind_text(st, 3, task, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(st, 4, event_id);
+    sqlite3_bind_text(st, 5, workspace, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 6, state_hash, -1, SQLITE_TRANSIENT);
+    sqlite3_step(st); sqlite3_finalize(st);
+    if (!files) {
+        st = cg_prep(cg,
+            "INSERT INTO work_files(revision,path,hash) "
+            "SELECT ?,path,hash FROM runtime_files");
+        sqlite3_bind_text(st, 1, revision, -1, SQLITE_TRANSIENT);
+        sqlite3_step(st); sqlite3_finalize(st);
+        return;
+    }
+    char **items = NULL;
+    int n = json_array_items(files, &items);
+    st = cg_prep(cg, "INSERT INTO work_files(revision,path,hash) VALUES(?,?,?)");
+    for (int i = 0; i < n; i++) {
+        char *path = json_get_string(items[i], "path");
+        char *hash = json_get_string(items[i], "hash");
+        if (path && hash) {
+            sqlite3_reset(st);
+            sqlite3_bind_text(st, 1, revision, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 2, path, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 3, hash, -1, SQLITE_TRANSIENT);
+            sqlite3_step(st);
+        }
+        free(path); free(hash); free(items[i]);
+    }
+    free(items);
+    sqlite3_finalize(st);
+}
+
+/* The revision id is derived here, not by the database, so a busy database
+ * still hands the agent its revision: the packet row is journaled with the
+ * workspace snapshot it was cut from. Returns true when it was queued. */
+static bool work_revision_create(Cg *cg, const char *task, long event_id,
+                                 const char *workspace, const char *state_hash,
+                                 const char *parent, char revision[65]) {
+    char seed[1600];
+    snprintf(seed, sizeof seed, "%s|%ld|%s|%s|%s|%ld|%ld", task, event_id,
+             workspace, state_hash, parent ? parent : "", now_ms(),
+             (long)getpid());
+    sha256_hex(seed, strlen(seed), revision);
+    long created = (long)time(NULL);
+    if (journal_begin(cg) == 0) {
+        work_revision_store(cg, revision, created, task, event_id, workspace,
+                            state_hash, NULL);
+        cg_exec(cg, "COMMIT");
+        return false;
+    }
+    StrBuf a; sb_init(&a);
+    sb_puts(&a, "{\"revision\":"); sb_json_str(&a, revision);
+    sb_printf(&a, ",\"created\":%ld,\"task\":", created);
+    sb_json_str(&a, task);
+    sb_printf(&a, ",\"event_id\":%ld,\"workspace\":", event_id);
+    sb_json_str(&a, workspace);
+    sb_puts(&a, ",\"state_hash\":"); sb_json_str(&a, state_hash);
+    sb_puts(&a, ",\"files\":[");
+    sqlite3_stmt *st = cg_prep(cg, "SELECT path,hash FROM runtime_files "
+                                   "ORDER BY path");
+    int n = 0;
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        if (n++) sb_putc(&a, ',');
+        sb_puts(&a, "{\"path\":");
+        sb_json_str(&a, (const char *)sqlite3_column_text(st, 0));
+        sb_puts(&a, ",\"hash\":");
+        sb_json_str(&a, (const char *)sqlite3_column_text(st, 1));
+        sb_putc(&a, '}');
+    }
+    sqlite3_finalize(st);
+    sb_puts(&a, "]}");
+    char sum[600];
+    snprintf(sum, sizeof sum, "work revision %.12s for %s", revision, task);
+    if (journal_append(cg, "work.update", a.p, sum) != 0) {
+        sb_free(&a);
+        cg_busy_why("the journal under .codegraph/ could not be written");
+        cg_busy_report("The work revision");
+        exit(CG_EXIT_BUSY);
+    }
+    sb_free(&a);
+    return true;
+}
+
+int work_open(Cg *cg, const char *task, bool json) {
+    char *tag = spec_resolve_task(task, cg_agent_name(NULL));
+    if (!tag) {
+        fprintf(stderr, "hyperfide work open: no resolvable task; pass --task <id>\n");
+        return 1;
+    }
+    char *packet = spec_task_packet(tag);
+    if (!packet) { free(tag); return 1; }
+    char *title = json_get_string(packet, "title");
+    char *criteria = json_get_raw(packet, "acceptance_criteria");
+    char *scope = json_get_raw(packet, "touches");
+    char *verify = json_get_string(packet, "verify_cmd");
+    SysInfo si; IndexStats index_stats;
+    sysinfo_detect(&si);
+    if (config_auto_sync(cg->root))
+        cg_index(cg, &si, false, &index_stats, true);
+    char *focus = graph_task_focus(cg, packet);
+
+    WorkCapture call = { cg, focus };
+    char *state = NULL, *context = NULL, *tests = NULL, *progress = NULL;
+    run_capture(&state, work_call_state, &call);
+    run_capture(&context, work_call_context, &call);
+    run_capture(&tests, work_call_tests, &call);
+    run_capture(&progress, work_call_progress, &call);
+    char state_hash[65], workspace[65], revision[65];
+    sha256_hex(state ? state : "", state ? strlen(state) : 0, state_hash);
+    runtime_workspace_revision(cg, workspace);
+    long event_id = work_last_event(cg, tag);
+    bool queued = work_revision_create(cg, tag, event_id, workspace,
+                                       state_hash, NULL, revision);
+
+    if (json) {
+        StrBuf b; sb_init(&b);
+        sb_puts(&b, "{\"revision\":"); sb_json_str(&b, revision);
+        if (queued) sb_puts(&b, ",\"queued\":true");
+        sb_puts(&b, ",\"task_id\":"); sb_json_str(&b, tag);
+        sb_puts(&b, ",\"objective\":");
+        sb_json_str(&b, title ? title : tag);
+        sb_puts(&b, ",\"criteria\":"); work_raw_json(&b, criteria);
+        sb_puts(&b, ",\"allowed_scope\":"); work_raw_json(&b, scope);
+        sb_puts(&b, ",\"state\":"); work_raw_json(&b, state);
+        sb_puts(&b, ",\"memories\":"); work_memories_json(cg, &b, tag);
+        sb_puts(&b, ",\"context\":"); work_raw_json(&b, context);
+        sb_puts(&b, ",\"tests\":{\"verify_command\":");
+        if (verify) sb_json_str(&b, verify); else sb_puts(&b, "null");
+        sb_puts(&b, ",\"impact\":"); work_raw_json(&b, tests);
+        sb_puts(&b, "},\"last_event\":");
+        work_event_json(cg, &b, tag, 0, true);
+        sb_puts(&b, ",\"progress\":"); work_raw_json(&b, progress);
+        sb_puts(&b, "}\n");
+        fputs(b.p, stdout); sb_free(&b);
+    } else {
+        printf("work %.12s — %s\n", revision, title ? title : tag);
+        printf("task: %s\nverify: %s\n", tag, verify ? verify : "not declared");
+        printf("update: hyperfide work update %s\n", revision);
+        if (queued) {
+            journal_announced();
+            printf("queued: the database is busy; the revision is stored by "
+                   "the next hyperfide command that gets the write lock\n");
+        }
+    }
+    free(tag); free(packet); free(title); free(criteria); free(scope);
+    free(verify); free(focus); free(state); free(context); free(tests);
+    free(progress);
+    return 0;
+}
+
+static void work_workspace_delta(Cg *cg, StrBuf *b, const char *revision,
+                                 int *count) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT r.path,CASE WHEN w.path IS NULL THEN 'added' ELSE 'modified' END "
+        "FROM runtime_files r LEFT JOIN work_files w "
+        "ON w.revision=? AND w.path=r.path "
+        "WHERE w.path IS NULL OR w.hash<>r.hash UNION ALL "
+        "SELECT w.path,'deleted' FROM work_files w LEFT JOIN runtime_files r "
+        "ON r.path=w.path WHERE w.revision=? AND r.path IS NULL ORDER BY 1");
+    sqlite3_bind_text(st, 1, revision, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, revision, -1, SQLITE_TRANSIENT);
+    int n = 0; sb_putc(b, '[');
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        if (n++) sb_putc(b, ',');
+        sb_puts(b, "{\"path\":");
+        sb_json_str(b, (const char *)sqlite3_column_text(st, 0));
+        sb_puts(b, ",\"change\":");
+        sb_json_str(b, (const char *)sqlite3_column_text(st, 1));
+        sb_putc(b, '}');
+    }
+    sqlite3_finalize(st); sb_putc(b, ']');
+    *count = n;
+}
+
+static int packet_list(const char *packet, const char *key, char ***out);
+static void list_free(char **v, int n);
+static long packet_scope(Cg *cg);
+
+/* What merged into the branch this agent builds on since its packet was
+ * made: each other task handed up, and its declared symbols as they now
+ * stand — the interfaces a running worker must not code against stale. */
+static int work_upstream_delta(Cg *cg, const char *task, long since_s,
+                               StrBuf *json, StrBuf *text) {
+    const char *slash = strchr(task, '/');
+    char feature[256];
+    snprintf(feature, sizeof feature, "%.*s",
+             slash ? (int)(slash - task) : (int)strlen(task), task);
+    const char *base = getenv("CG_BASE");
+    char like[300];
+    snprintf(like, sizeof like, "%s/%%", feature);
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT subject,payload,at FROM events WHERE kind='fleet.merge' AND "
+        "subject LIKE ? AND subject<>? AND at>=? ORDER BY seq");
+    sqlite3_bind_text(st, 1, like, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, task, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(st, 3, since_s * 1000);
+    long saved = packet_scope(cg);
+    int n = 0;
+    sb_putc(json, '[');
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        const char *subj = (const char *)sqlite3_column_text(st, 0);
+        const char *p = (const char *)sqlite3_column_text(st, 1);
+        char *outcome = json_get_string(p, "outcome");
+        bool merged = outcome && strcmp(outcome, "merged") == 0;
+        free(outcome);
+        if (!merged) continue;
+        char *into = json_get_string(p, "base");
+        if (base && base[0] && into && strcmp(into, base) != 0) {
+            free(into);
+            continue;
+        }
+        char *from = json_get_string(p, "branch");
+        char *head = json_get_string(p, "head");
+        if (n++) sb_putc(json, ',');
+        sb_puts(json, "{\"task\":"); sb_json_str(json, subj);
+        sb_puts(json, ",\"branch\":"); sb_json_str(json, from ? from : "");
+        sb_puts(json, ",\"base\":"); sb_json_str(json, into ? into : "");
+        sb_puts(json, ",\"head\":");
+        if (head) sb_json_str(json, head); else sb_puts(json, "null");
+        sb_printf(json, ",\"at\":%lld,\"symbols\":[",
+                  (long long)sqlite3_column_int64(st, 2));
+        sb_printf(text, "  upstream: %s merged into %s", subj, into ? into : "?");
+        char *pk = spec_task_packet(subj);
+        char **syms = NULL;
+        int ns = packet_list(pk, "symbols", &syms);
+        for (int i = 0; i < ns; i++) {
+            StrBuf one; sb_init(&one);
+            int found = graph_symbol_brief(cg, syms[i], 0, 0, &one);
+            const char *nl = strchr(one.p, '\n');
+            if (i) sb_putc(json, ',');
+            sb_puts(json, "{\"name\":"); sb_json_str(json, syms[i]);
+            sb_puts(json, ",\"definition\":");
+            if (found) {
+                char *line = xmalloc(one.len + 1);
+                snprintf(line, one.len + 1, "%.*s",
+                         nl ? (int)(nl - one.p) : (int)one.len, one.p);
+                sb_json_str(json, line);
+                free(line);
+            } else sb_puts(json, "null");
+            sb_putc(json, '}');
+            sb_printf(text, "%s%s", i ? ", " : " — ", syms[i]);
+            sb_free(&one);
+        }
+        sb_puts(json, "]}");
+        sb_putc(text, '\n');
+        list_free(syms, ns);
+        free(pk); free(into); free(from); free(head);
+    }
+    sqlite3_finalize(st);
+    sb_putc(json, ']');
+    cg->scope_branch = saved;
+    return n;
+}
+
+int work_update(Cg *cg, const char *revision, bool json) {
+    if (!revision || !revision[0]) {
+        fprintf(stderr, "hyperfide work update: revision required\n"); return 1;
+    }
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT task,event_id,workspace_revision,state_hash,created FROM "
+        "work_packets WHERE revision=?");
+    sqlite3_bind_text(st, 1, revision, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(st) != SQLITE_ROW) {
+        sqlite3_finalize(st);
+        if (journal_pending(cg, NULL) > 0)
+            fprintf(stderr, "hyperfide work update: unknown revision '%s' — writes "
+                    "are still queued in the journal (hyperfide journal list); retry "
+                    "once the database is free\n", revision);
+        else
+            fprintf(stderr, "hyperfide work update: unknown revision '%s'\n",
+                    revision);
+        return 1;
+    }
+    char *task = xstrdup((const char *)sqlite3_column_text(st, 0));
+    long prior_event = sqlite3_column_int64(st, 1);
+    char prior_workspace[65], prior_state[65];
+    snprintf(prior_workspace, sizeof prior_workspace, "%s",
+             (const char *)sqlite3_column_text(st, 2));
+    snprintf(prior_state, sizeof prior_state, "%s",
+             (const char *)sqlite3_column_text(st, 3));
+    long prior_created = sqlite3_column_int64(st, 4);
+    sqlite3_finalize(st);
+
+    WorkCapture call = { cg, NULL };
+    char *state = NULL;
+    run_capture(&state, work_call_state, &call);
+    char state_hash[65], workspace[65];
+    sha256_hex(state ? state : "", state ? strlen(state) : 0, state_hash);
+    runtime_workspace_revision(cg, workspace);
+    long event_id = work_last_event(cg, task);
+    bool state_changed = strcmp(prior_state, state_hash) != 0;
+    bool evidence_changed = event_id > prior_event;
+    bool workspace_changed = strcmp(prior_workspace, workspace) != 0;
+
+    StrBuf paths; sb_init(&paths);
+    int npaths = 0;
+    work_workspace_delta(cg, &paths, revision, &npaths);
+    workspace_changed = workspace_changed || npaths > 0;
+    StrBuf up_json, up_text; sb_init(&up_json); sb_init(&up_text);
+    int nup = work_upstream_delta(cg, task, prior_created, &up_json, &up_text);
+    bool unchanged = !state_changed && !evidence_changed && !workspace_changed &&
+                     !nup;
+    char next_revision[65];
+    snprintf(next_revision, sizeof next_revision, "%s", revision);
+    bool queued = false;
+    if (!unchanged)
+        queued = work_revision_create(cg, task, event_id, workspace,
+                                      state_hash, revision, next_revision);
+
+    if (json) {
+        StrBuf b; sb_init(&b);
+        sb_puts(&b, "{\"revision\":"); sb_json_str(&b, next_revision);
+        if (queued) sb_puts(&b, ",\"queued\":true");
+        sb_puts(&b, ",\"since\":"); sb_json_str(&b, revision);
+        sb_printf(&b, ",\"unchanged\":%s,\"deltas\":{\"state\":",
+                  unchanged ? "true" : "false");
+        if (state_changed) work_raw_json(&b, state); else sb_puts(&b, "null");
+        sb_puts(&b, ",\"evidence\":");
+        work_event_json(cg, &b, task, prior_event, false);
+        sb_puts(&b, ",\"workspace\":"); sb_puts(&b, paths.p);
+        /* deltas stay compact: upstream appears only when something merged */
+        if (nup) { sb_puts(&b, ",\"upstream\":"); sb_puts(&b, up_json.p); }
+        sb_puts(&b, "}}\n"); fputs(b.p, stdout); sb_free(&b);
+    } else if (unchanged) {
+        printf("work %.12s: no state, evidence, or workspace changes\n",
+               revision);
+    } else {
+        printf("work %.12s -> %.12s: %d workspace change(s)%s%s%s\n",
+               revision, next_revision, npaths,
+               evidence_changed ? ", new evidence" : "",
+               state_changed ? ", state changed" : "",
+               nup ? ", upstream merges" : "");
+        if (nup) fputs(up_text.p, stdout);
+        if (queued) {
+            journal_announced();
+            printf("queued: the database is busy; the revision is stored by "
+                   "the next hyperfide command that gets the write lock\n");
+        }
+    }
+    sb_free(&up_json); sb_free(&up_text);
+    sb_free(&paths); free(task); free(state);
+    return 0;
+}
+
+static const char *work_supplied_evidence(const char *clause, int n,
+                                          char **evidence) {
+    size_t len = strlen(clause);
+    for (int i = 0; i < n; i++)
+        if (strncmp(evidence[i], clause, len) == 0 && evidence[i][len] == '=')
+            return evidence[i] + len + 1;
+    return NULL;
+}
+
+static char *work_recorded_evidence(Cg *cg, const char *task,
+                                    const char *clause) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT evidence FROM work_evidence WHERE task=? AND criterion=? "
+        "ORDER BY id DESC LIMIT 1");
+    sqlite3_bind_text(st, 1, task, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, clause, -1, SQLITE_TRANSIENT);
+    char *out = NULL;
+    if (sqlite3_step(st) == SQLITE_ROW)
+        out = xstrdup((const char *)sqlite3_column_text(st, 0));
+    sqlite3_finalize(st);
+    if (out) return out;
+
+    /* Native hooks may record criterion coverage before close. Preserve the
+     * durable event identity as the proof rather than trusting an ephemeral
+     * agent summary. */
+    st = cg_prep(cg,
+        "SELECT id,kind,fingerprint,revision,ifnull(payload,'{}') "
+        "FROM runtime_events WHERE task=? ORDER BY id DESC LIMIT 100");
+    sqlite3_bind_text(st, 1, task, -1, SQLITE_TRANSIENT);
+    while (!out && sqlite3_step(st) == SQLITE_ROW) {
+        const char *payload = (const char *)sqlite3_column_text(st, 4);
+        char *covered = json_get_string(payload, "criterion");
+        if (covered && strcmp(covered, clause) == 0) {
+            char proof[512];
+            snprintf(proof, sizeof proof,
+                     "runtime event #%ld %s fingerprint %.12s revision %.12s",
+                     (long)sqlite3_column_int64(st, 0),
+                     (const char *)sqlite3_column_text(st, 1),
+                     (const char *)sqlite3_column_text(st, 2),
+                     (const char *)sqlite3_column_text(st, 3));
+            out = xstrdup(proof);
+        }
+        free(covered);
+    }
+    sqlite3_finalize(st);
+    return out;
+}
+
+int work_close(Cg *cg, const char *requested, int nevidence, char **evidence,
+               bool json) {
+    char *task = spec_resolve_task(requested, cg_agent_name(NULL));
+    if (!task) {
+        fprintf(stderr, "hyperfide work close: no resolvable task; pass --task <id>\n");
+        return 1;
+    }
+    char *packet = spec_task_packet(task);
+    char *criteria = packet ? json_get_raw(packet, "acceptance_criteria") : NULL;
+    StrBuf body; sb_init(&body);
+    if (json) { sb_puts(&body, "{\"task\":"); sb_json_str(&body, task); }
+    else printf("work close — %s\n", task);
+    if (json) sb_puts(&body, ",\"criteria\":[");
+    int count = 0, verified = 0;
+    /* supplied evidence is one batch: written under the lock, or journaled
+     * whole when the database is busy (the verdicts below stand either way;
+     * they come from the evidence, not from the write) */
+    bool locked = nevidence > 0 && journal_begin(cg) == 0;
+    bool queue = nevidence > 0 && !locked;
+    StrBuf items; sb_init(&items);
+    int nitems = 0;
+    const char *p = criteria ? criteria : "";
+    while ((p = strstr(p, "\"clause\":")) != NULL) {
+        char *obj = xstrdup(p - 1);
+        char *clause = json_get_string(obj, "clause");
+        char *text = json_get_string(obj, "text");
+        free(obj);
+        if (!clause) { p += 9; free(text); continue; }
+        const char *given = work_supplied_evidence(clause, nevidence, evidence);
+        char *prior = NULL;
+        if (!given) prior = work_recorded_evidence(cg, task, clause);
+        const char *proof = given ? given : prior;
+        if (given && given[0] && queue) {
+            if (nitems++) sb_putc(&items, ',');
+            sb_puts(&items, "{\"criterion\":"); sb_json_str(&items, clause);
+            sb_puts(&items, ",\"evidence\":"); sb_json_str(&items, given);
+            sb_putc(&items, '}');
+        } else if (given && given[0]) {
+            sqlite3_stmt *ins = cg_prep(cg,
+                "INSERT INTO work_evidence(created,task,criterion,evidence,"
+                "source) VALUES(strftime('%s','now'),?,?,?,'manual')");
+            sqlite3_bind_text(ins, 1, task, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(ins, 2, clause, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(ins, 3, given, -1, SQLITE_TRANSIENT);
+            sqlite3_step(ins); sqlite3_finalize(ins);
+        }
+        bool ok = proof && proof[0];
+        if (ok) verified++;
+        if (json) {
+            if (count) sb_putc(&body, ',');
+            sb_puts(&body, "{\"clause\":"); sb_json_str(&body, clause);
+            sb_puts(&body, ",\"text\":"); sb_json_str(&body, text ? text : "");
+            sb_puts(&body, ",\"result\":");
+            sb_json_str(&body, ok ? "verified" : "unverified");
+            sb_puts(&body, ",\"evidence\":");
+            if (ok) sb_json_str(&body, proof); else sb_puts(&body, "null");
+            sb_putc(&body, '}');
+        } else {
+            printf("  %s  %s — %s\n", ok ? "verified" : "unverified",
+                   clause, proof ? proof : (text ? text : "no evidence"));
+        }
+        count++; free(prior); free(clause); free(text); p += 9;
+    }
+    if (locked) cg_exec(cg, "COMMIT");
+    bool queued = false;
+    if (nitems) {
+        StrBuf a; sb_init(&a);
+        sb_printf(&a, "{\"created\":%ld,\"task\":", (long)time(NULL));
+        sb_json_str(&a, task);
+        sb_puts(&a, ",\"items\":[");
+        sb_puts(&a, items.p);
+        sb_puts(&a, "]}");
+        char sum[600];
+        snprintf(sum, sizeof sum, "work close %s: %d evidence item(s)", task,
+                 nitems);
+        int arc = journal_append(cg, "work.close", a.p, sum);
+        sb_free(&a);
+        if (arc != 0) {
+            sb_free(&items); sb_free(&body);
+            free(criteria); free(packet); free(task);
+            cg_busy_why("the journal under .codegraph/ could not be written");
+            cg_busy_report("The work evidence");
+            return CG_EXIT_BUSY;
+        }
+        queued = true;
+        journal_announced();
+    }
+    sb_free(&items);
+    if (json) {
+        sb_printf(&body, "],\"verified\":%d,\"unverified\":%d%s}\n",
+                  verified, count - verified, queued ? ",\"queued\":true" : "");
+        fputs(body.p, stdout);
+    } else if (queued) {
+        printf("  queued: the database is busy; the evidence is stored by the "
+               "next hyperfide command that gets the write lock\n");
+    }
+    sb_free(&body); free(criteria); free(packet); free(task);
+    return 0;
+}
+
+/* The replay half of the handoff and work writes journaled above; runs in
+ * the replay's transaction, with the time and branch of the original. */
+int govern_journal_apply(Cg *cg, const char *op, const char *args,
+                         const char *branch, long at_ms, char *err,
+                         size_t errcap) {
+    long created = json_get_int(args, "created", at_ms / 1000);
+    char *task = json_get_string(args, "task");
+    int rc = 0;
+    if (!task) {
+        snprintf(err, errcap, "%s without a task", op);
+        return -1;
+    }
+    if (strcmp(op, "handoff.add") == 0) {
+        char *body = json_get_string(args, "body");
+        char *files = json_get_string(args, "files");
+        if (!body) {
+            snprintf(err, errcap, "handoff.add without a body");
+            rc = -1;
+        } else if (handoff_store(cg, task, body, files, created, branch,
+                                 NULL) < 0) {
+            snprintf(err, errcap, "the handoff memory could not be stored");
+            rc = -1;
+        }
+        free(body); free(files);
+    } else if (strcmp(op, "work.update") == 0) {
+        char *rev = json_get_string(args, "revision");
+        char *ws = json_get_string(args, "workspace");
+        char *sh = json_get_string(args, "state_hash");
+        char *files = json_get_raw(args, "files");
+        if (!rev || !ws || !sh || strlen(rev) != 64) {
+            snprintf(err, errcap, "work.update without a revision, workspace "
+                     "or state hash");
+            rc = -1;
+        } else {
+            work_revision_store(cg, rev, created, task,
+                                json_get_int(args, "event_id", 0), ws, sh,
+                                files ? files : "[]");
+        }
+        free(rev); free(ws); free(sh); free(files);
+    } else if (strcmp(op, "work.close") == 0) {
+        char *raw = json_get_raw(args, "items");
+        char **items = NULL;
+        int n = raw ? json_array_items(raw, &items) : 0;
+        sqlite3_stmt *ins = cg_prep(cg,
+            "INSERT INTO work_evidence(created,task,criterion,evidence,"
+            "source) VALUES(?,?,?,?,'manual')");
+        for (int i = 0; i < n; i++) {
+            char *crit = json_get_string(items[i], "criterion");
+            char *ev = json_get_string(items[i], "evidence");
+            if (crit && ev) {
+                sqlite3_reset(ins);
+                sqlite3_bind_int64(ins, 1, created);
+                sqlite3_bind_text(ins, 2, task, -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 3, crit, -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 4, ev, -1, SQLITE_TRANSIENT);
+                sqlite3_step(ins);
+            }
+            free(crit); free(ev); free(items[i]);
+        }
+        sqlite3_finalize(ins);
+        free(items); free(raw);
+    } else {
+        snprintf(err, errcap, "unknown operation '%s'", op);
+        rc = -1;
+    }
+    free(task);
+    return rc;
+}
+
+int cmd_work(Cg *cg, int argc, char **argv, bool json) {
+    const char *sub = argc > 0 ? argv[0] : "open";
+    const char *task = NULL, *revision = NULL;
+    char *evidence[64]; int nevidence = 0;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--task") == 0 && i + 1 < argc) task = argv[++i];
+        else if (strcmp(argv[i], "--evidence") == 0 && i + 1 < argc &&
+                 nevidence < 64) evidence[nevidence++] = argv[++i];
+        else if (argv[i][0] != '-' && !revision) revision = argv[i];
+    }
+    if (strcmp(sub, "open") == 0) return work_open(cg, task, json);
+    if (strcmp(sub, "update") == 0) return work_update(cg, revision, json);
+    if (strcmp(sub, "close") == 0)
+        return work_close(cg, task, nevidence, evidence, json);
+    fprintf(stderr, "usage: hyperfide work [open [--task ID] | update REVISION | "
+                    "close [--task ID] [--evidence CLAUSE=PROOF]]\n");
+    return 1;
+}
+
+/* ---------------- task packets: the briefing an agent starts from ------ */
+
+/* list-valued fields of the spec packet as an array of malloc'd strings */
+static int packet_list(const char *packet, const char *key, char ***out) {
+    *out = NULL;
+    char *raw = packet ? json_get_raw(packet, key) : NULL;
+    char **items = NULL;
+    int n = raw ? json_array_items(raw, &items) : 0;
+    free(raw);
+    for (int i = 0; i < n; i++) {
+        char *v = json_string_value(items[i]);
+        free(items[i]);
+        items[i] = v ? v : xstrdup("");
+    }
+    *out = items;
+    return n;
+}
+
+static void list_free(char **v, int n) {
+    for (int i = 0; i < n; i++) free(v[i]);
+    free(v);
+}
+
+/* Read the packet against the branch the agent builds on: a worker's base
+ * is the feature branch, which holds what earlier waves merged. Only when
+ * that branch has been indexed; otherwise the open branch answers. */
+static long packet_scope(Cg *cg) {
+    long saved = cg->scope_branch;
+    const char *base = getenv("CG_BASE");
+    if (!base || !base[0]) return saved;
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT b.id FROM branches b WHERE b.name=? AND EXISTS("
+        "SELECT 1 FROM files f WHERE f.branch_id=b.id)");
+    sqlite3_bind_text(st, 1, base, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(st) == SQLITE_ROW) cg->scope_branch = sqlite3_column_int64(st, 0);
+    sqlite3_finalize(st);
+    return saved;
+}
+
+int packet_upstream_evidence(Cg *cg, const char *feature, const char *req,
+                             StrBuf *b) {
+    char tag[400];
+    snprintf(tag, sizeof tag, "%s/%s", feature, req);
+    char *pk = spec_task_packet(tag);
+    char *title = pk ? json_get_string(pk, "title") : NULL;
+    char *status = pk ? json_get_string(pk, "status") : NULL;
+    sb_printf(b, "- %s %s (%s)\n", req, title ? title : "", status ? status : "?");
+    char **syms = NULL;
+    int ns = packet_list(pk, "symbols", &syms);
+    int found = 0;
+    for (int i = 0; i < ns; i++) {
+        StrBuf one; sb_init(&one);
+        int n = graph_symbol_brief(cg, syms[i], 0, 0, &one);
+        if (n) {
+            /* the definition line only: an upstream symbol is context,
+             * not work, so its body stays out of the budget */
+            const char *nl = strchr(one.p, '\n');
+            sb_printf(b, "  %.*s\n", nl ? (int)(nl - one.p) : (int)one.len, one.p);
+            found++;
+        } else {
+            sb_printf(b, "  - `%s` — declared but not in the graph yet\n", syms[i]);
+        }
+        sb_free(&one);
+    }
+    /* what the task's commits say it did */
+    char like[420];
+    snprintf(like, sizeof like, "%%[spec:%s]%%", tag);
+    sqlite3_stmt *st = cg_prep(cg, "SELECT substr(hash,1,8),subject FROM "
+                                   "git_commits WHERE subject LIKE ? ORDER BY "
+                                   "date DESC LIMIT 3");
+    sqlite3_bind_text(st, 1, like, -1, SQLITE_TRANSIENT);
+    while (sqlite3_step(st) == SQLITE_ROW)
+        sb_printf(b, "  commit %s %s\n", (const char *)sqlite3_column_text(st, 0),
+                  (const char *)sqlite3_column_text(st, 1));
+    sqlite3_finalize(st);
+    list_free(syms, ns);
+    free(title); free(status); free(pk);
+    return found;
+}
+
+typedef struct { const char *name; StrBuf b; bool must; } PacketPart;
+
+/* budget in tokens, estimated at four bytes each; parts are added in
+ * priority order and a part that no longer fits is named, not dropped
+ * silently */
+static int packet_assemble(PacketPart *parts, int n, int budget, StrBuf *out) {
+    long cap = (long)budget * 4;
+    StrBuf omitted; sb_init(&omitted);
+    for (int i = 0; i < n; i++) {
+        if (!parts[i].b.len) continue;
+        if (parts[i].must || (long)(out->len + parts[i].b.len) <= cap) {
+            sb_puts(out, parts[i].b.p);
+            continue;
+        }
+        /* the lines that still fit, then a marker */
+        long room = cap - (long)out->len;
+        const char *p = parts[i].b.p;
+        const char *cut = NULL;
+        for (const char *q = p; *q && q - p < room - 80; q++)
+            if (*q == '\n') cut = q + 1;
+        if (cut && cut > p + 40) {
+            for (const char *q = p; q < cut; q++) sb_putc(out, *q);
+            sb_printf(out, "  … (%s trimmed to fit the budget)\n\n", parts[i].name);
+        } else {
+            sb_printf(&omitted, "%s%s", omitted.len ? ", " : "", parts[i].name);
+        }
+    }
+    if (omitted.len)
+        sb_printf(out, "(omitted to fit a %d-token budget: %s — ask Codify: "
+                  "hyperfide context, hyperfide recall, hyperfide fleet tree)\n", budget, omitted.p);
+    sb_free(&omitted);
+    return (int)((out->len + 3) / 4);
+}
+
+int task_packet_build(Cg *cg, const char *tag, int budget, StrBuf *out) {
+    char *pk = spec_task_packet(tag);
+    if (!pk) return 0;
+    long saved = packet_scope(cg);
+    const char *slash = strchr(tag, '/');
+    char feature[256];
+    snprintf(feature, sizeof feature, "%.*s",
+             slash ? (int)(slash - tag) : (int)strlen(tag), tag);
+    char *id = json_get_string(pk, "id");
+    char *title = json_get_string(pk, "title");
+    char *verify = json_get_string(pk, "verify_cmd");
+    char **dos = NULL, **syms = NULL, **touches = NULL, **reqs = NULL;
+    int ndo = packet_list(pk, "do", &dos);
+    int nsym = packet_list(pk, "symbols", &syms);
+    int nt = packet_list(pk, "touches", &touches);
+    int nreq = packet_list(pk, "requires", &reqs);
+
+    enum { P_TASK, P_CODE, P_UP, P_SIB, P_MEM, P_MAP, P_N };
+    PacketPart parts[P_N] = {
+        { "task", {0}, true }, { "code", {0}, false },
+        { "prerequisites", {0}, false }, { "siblings", {0}, false },
+        { "decisions", {0}, false }, { "file map", {0}, false },
+    };
+    for (int i = 0; i < P_N; i++) sb_init(&parts[i].b);
+
+    /* the task itself: never trimmed */
+    StrBuf *t = &parts[P_TASK].b;
+    sb_printf(t, "## Task %s — %s\n\n", id ? id : tag, title ? title : "");
+    char *crit = json_get_raw(pk, "acceptance_criteria");
+    char **ci = NULL;
+    int nc = crit ? json_array_items(crit, &ci) : 0;
+    if (nc) sb_puts(t, "Acceptance criteria — the work is judged against these:\n");
+    for (int i = 0; i < nc; i++) {
+        char *cl = json_get_string(ci[i], "clause");
+        char *tx = json_get_string(ci[i], "text");
+        sb_printf(t, "- %s: %s\n", cl ? cl : "?", tx ? tx : "");
+        free(cl); free(tx); free(ci[i]);
+    }
+    free(ci); free(crit);
+    if (ndo) {
+        sb_puts(t, nc ? "\nSteps:\n" : "Steps:\n");
+        for (int i = 0; i < ndo; i++) sb_printf(t, "- %s\n", dos[i]);
+    }
+    sb_puts(t, "\nScope:\n");
+    if (nt) {
+        sb_puts(t, "- edit only:");
+        for (int i = 0; i < nt; i++) sb_printf(t, " %s", touches[i]);
+        sb_puts(t, "  (hyperfide guard reports anything else)\n");
+    }
+    if (nsym) {
+        sb_puts(t, "- symbols to introduce or change:");
+        for (int i = 0; i < nsym; i++) sb_printf(t, " %s", syms[i]);
+        sb_putc(t, '\n');
+    }
+    if (verify) sb_printf(t, "- verified by: %s\n", verify);
+    sb_puts(t, "- done means `hyperfide spec done` passes: verify_cmd, every declared "
+               "symbol in the graph, every declared path touched\n\n");
+
+    /* the code: declared symbols as they stand now */
+    if (nsym) {
+        StrBuf *c = &parts[P_CODE].b;
+        sb_puts(c, "### The code you will touch (from the graph)\n");
+        for (int i = 0; i < nsym; i++) {
+            if (!graph_symbol_brief(cg, syms[i], 12, 5, c))
+                sb_printf(c, "- `%s` — new: not in the graph yet; this task "
+                          "introduces it\n", syms[i]);
+        }
+        sb_putc(c, '\n');
+    }
+
+    /* what the prerequisites produced */
+    if (nreq) {
+        StrBuf *u = &parts[P_UP].b;
+        sb_puts(u, "### What your prerequisites produced\n");
+        for (int i = 0; i < nreq; i++)
+            packet_upstream_evidence(cg, feature, reqs[i], u);
+        sb_putc(u, '\n');
+    }
+
+    /* who else is working, and where */
+    {
+        StrBuf *s = &parts[P_SIB].b;
+        sqlite3_stmt *st = cg_prep(cg,
+            "SELECT a.agent,a.task,ifnull(a.branch,''),ifnull(l.touches,'') "
+            "FROM attempts a LEFT JOIN leases l ON l.task=a.task WHERE "
+            "a.state='running' AND a.expires>strftime('%s','now') AND "
+            "a.task LIKE ?||'/%' AND a.task<>? ORDER BY a.task LIMIT 12");
+        sqlite3_bind_text(st, 1, feature, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 2, tag, -1, SQLITE_TRANSIENT);
+        int n = 0;
+        while (sqlite3_step(st) == SQLITE_ROW) {
+            if (!n++) sb_puts(s, "### Working alongside you — leave their paths alone\n");
+            const char *br = (const char *)sqlite3_column_text(st, 2);
+            const char *tc = (const char *)sqlite3_column_text(st, 3);
+            sb_printf(s, "- %s on %s%s%s", (const char *)sqlite3_column_text(st, 0),
+                      (const char *)sqlite3_column_text(st, 1), br[0] ? " @" : "", br);
+            if (tc[0]) sb_printf(s, ": %s", tc);
+            sb_putc(s, '\n');
+        }
+        sqlite3_finalize(st);
+        if (n) sb_putc(s, '\n');
+    }
+
+    /* decisions: the task's own memories, then the project's on its terms */
+    {
+        StrBuf *m = &parts[P_MEM].b;
+        Memory *mem = NULL;
+        int nm = spec_task_memories_tag(tag, &mem);
+        long seen[16];
+        int nseen = 0, shown = 0;
+        for (int i = 0; i < nm && shown < 5; i++) {
+            if (!strcmp(mem[i].type, "handoff")) continue;
+            if (!shown++) sb_puts(m, "### Decisions and constraints\n");
+            sb_printf(m, "- [%s] %s\n", mem[i].type, mem[i].body);
+            if (nseen < 16) seen[nseen++] = mem[i].id;
+        }
+        memory_free(mem, nm);
+        StrBuf q; sb_init(&q);
+        sb_puts(&q, title ? title : "");
+        for (int i = 0; i < nsym; i++) { sb_putc(&q, ' '); sb_puts(&q, syms[i]); }
+        Memory *rel = NULL;
+        int nr = q.len ? memory_query(cg, q.p, NULL, NULL, 8, &rel) : 0;
+        for (int i = 0; i < nr && shown < 8; i++) {
+            bool dup = false;
+            for (int k = 0; k < nseen; k++) if (seen[k] == rel[i].id) dup = true;
+            if (dup || !strcmp(rel[i].type, "handoff") ||
+                !strcmp(rel[i].type, "outcome")) continue;
+            if (!shown++) sb_puts(m, "### Decisions and constraints\n");
+            sb_printf(m, "- [%s] %s\n", rel[i].type, rel[i].body);
+        }
+        memory_free(rel, nr);
+        sb_free(&q);
+        if (shown) sb_putc(m, '\n');
+    }
+
+    /* the map of the allowed paths */
+    if (nt) {
+        StrBuf *f = &parts[P_MAP].b;
+        sb_puts(f, "### Files in scope\n");
+        for (int i = 0; i < nt; i++)
+            if (!graph_glob_symbols(cg, touches[i], 8, 10, f))
+                sb_printf(f, "  - %s — new: no indexed file matches yet\n",
+                          touches[i]);
+        sb_putc(f, '\n');
+    }
+
+    int tokens = packet_assemble(parts, P_N, budget, out);
+    for (int i = 0; i < P_N; i++) sb_free(&parts[i].b);
+    list_free(dos, ndo); list_free(syms, nsym);
+    list_free(touches, nt); list_free(reqs, nreq);
+    free(id); free(title); free(verify); free(pk);
+    cg->scope_branch = saved;
+    return tokens;
+}
+
+int manager_packet_build(Cg *cg, const char *feature, int budget, StrBuf *out) {
+    enum { M_TASKS, M_LIVE, M_FAIL, M_CONF, M_APPR, M_N };
+    PacketPart parts[M_N] = {
+        { "tasks", {0}, true }, { "live workers", {0}, false },
+        { "failed attempts", {0}, false }, { "conflicts", {0}, false },
+        { "approvals", {0}, true },
+    };
+    for (int i = 0; i < M_N; i++) sb_init(&parts[i].b);
+    char like[300];
+    snprintf(like, sizeof like, "%s/%%", feature);
+
+    /* the subtree, task by task */
+    {
+        StrBuf *t = &parts[M_TASKS].b;
+        char root[4096], path[4700];
+        if (cg_find_root(root, sizeof root) == 0) {
+            config_feature_path(cg->shared, feature, path, sizeof path);
+            Kvx *k = kvx_parse(path);
+            char **ids = NULL;
+            int n = k ? kvx_subsections(k, "task", &ids) : 0;
+            kvx_sort_dotted(ids, n);
+            int done = 0, total = 0;
+            StrBuf rows; sb_init(&rows);
+            for (int i = 0; i < n; i++) {
+                char sec[300];
+                snprintf(sec, sizeof sec, "task.%s", ids[i]);
+                long wave = kvx_long(k, sec, "wave", -1);
+                if (wave < 0) { free(ids[i]); continue; }  /* a section header */
+                char *st = kvx_str(k, sec, "status");
+                char *ti = kvx_str(k, sec, "title");
+                total++;
+                if (st && !strcmp(st, "done")) done++;
+                sb_printf(&rows, "- %s (wave %ld) %s — %s\n", ids[i], wave,
+                          st ? st : "?", ti ? ti : "");
+                free(st); free(ti); free(ids[i]);
+            }
+            free(ids);
+            kvx_free(k);
+            sb_printf(t, "### Your subtree: %d of %d task(s) done\n%s\n", done,
+                      total, rows.p);
+            sb_free(&rows);
+        }
+    }
+    /* live workers */
+    {
+        StrBuf *l = &parts[M_LIVE].b;
+        sqlite3_stmt *st = cg_prep(cg,
+            "SELECT agent,task,ifnull(branch,''),(strftime('%s','now')-heartbeat) "
+            "FROM attempts WHERE state='running' AND task LIKE ? AND "
+            "expires>strftime('%s','now') ORDER BY task");
+        sqlite3_bind_text(st, 1, like, -1, SQLITE_TRANSIENT);
+        int n = 0;
+        while (sqlite3_step(st) == SQLITE_ROW) {
+            if (!n++) sb_puts(l, "### Live workers\n");
+            sb_printf(l, "- %s on %s @%s (heartbeat %llds ago)\n",
+                      (const char *)sqlite3_column_text(st, 0),
+                      (const char *)sqlite3_column_text(st, 1),
+                      (const char *)sqlite3_column_text(st, 2),
+                      (long long)sqlite3_column_int64(st, 3));
+        }
+        sqlite3_finalize(st);
+        if (n) sb_putc(l, '\n');
+    }
+    /* what failed, and what the triage said */
+    {
+        StrBuf *f = &parts[M_FAIL].b;
+        Memory *mem = NULL;
+        char q[300];
+        snprintf(q, sizeof q, "%s", feature);
+        int nm = memory_query(cg, NULL, NULL, "outcome", 40, &mem);
+        int n = 0;
+        for (int i = 0; i < nm && n < 6; i++) {
+            if (!mem[i].task || strncmp(mem[i].task, feature, strlen(feature)) ||
+                mem[i].task[strlen(feature)] != '/') continue;
+            if (!strstr(mem[i].body, "blocked") && !strstr(mem[i].body, "without "
+                "completing") && !strstr(mem[i].body, "failed") &&
+                !strstr(mem[i].body, "triage")) continue;
+            if (!n++) sb_puts(f, "### Failed attempts\n");
+            sb_printf(f, "- %s: %s\n", mem[i].task, mem[i].body);
+        }
+        memory_free(mem, nm);
+        if (n) sb_putc(f, '\n');
+    }
+    /* merges that did not go through */
+    {
+        StrBuf *c = &parts[M_CONF].b;
+        sqlite3_stmt *st = cg_prep(cg,
+            "SELECT subject,payload FROM events WHERE kind='fleet.merge' AND "
+            "subject LIKE ? ORDER BY seq DESC LIMIT 50");
+        sqlite3_bind_text(st, 1, like, -1, SQLITE_TRANSIENT);
+        int n = 0;
+        while (sqlite3_step(st) == SQLITE_ROW && n < 5) {
+            const char *p = (const char *)sqlite3_column_text(st, 1);
+            char *oc = json_get_string(p, "outcome");
+            bool conflict = oc && strcmp(oc, "conflict") == 0;
+            free(oc);
+            if (!conflict) continue;
+            if (!n++) sb_puts(c, "### Merge conflicts to resolve\n");
+            char *confl = json_get_raw(p, "conflicts");
+            char *br = json_get_string(p, "branch");
+            sb_printf(c, "- %s (%s): %s\n", (const char *)sqlite3_column_text(st, 0),
+                      br ? br : "?", confl ? confl : "[]");
+            free(confl); free(br);
+        }
+        sqlite3_finalize(st);
+        if (n) sb_putc(c, '\n');
+    }
+    /* approvals that wait on a person */
+    {
+        StrBuf *a = &parts[M_APPR].b;
+        sqlite3_stmt *st = cg_prep(cg,
+            "SELECT id,gate,state FROM fleet_approvals WHERE subject=? AND "
+            "state IN ('pending','rejected') ORDER BY id");
+        sqlite3_bind_text(st, 1, feature, -1, SQLITE_TRANSIENT);
+        int n = 0;
+        while (sqlite3_step(st) == SQLITE_ROW) {
+            if (!n++) sb_puts(a, "### Approvals\n");
+            sb_printf(a, "- #%lld %s: %s\n", (long long)sqlite3_column_int64(st, 0),
+                      (const char *)sqlite3_column_text(st, 1),
+                      (const char *)sqlite3_column_text(st, 2));
+        }
+        sqlite3_finalize(st);
+        if (n) sb_putc(a, '\n');
+    }
+    int tokens = packet_assemble(parts, M_N, budget, out);
+    for (int i = 0; i < M_N; i++) sb_free(&parts[i].b);
+    return tokens;
+}

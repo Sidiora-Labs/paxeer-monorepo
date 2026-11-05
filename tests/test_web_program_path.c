@@ -3,6 +3,14 @@ int web_program_path_reference_main(int argc, char **argv);
 #include "programs/test_call_activity.c"
 #undef main
 
+#include "lxp_test_harness.c"
+
+/* Task 22.33.892: this suite proves the guest/kernel paid-request boundary
+ * with the current registration and retains ABI-v4 compatibility explicitly.
+ * Native xweb fee escrow, attestation and committed answer consumption require
+ * the Go owner wiring recorded in test_lxgb_producers.py; no kernel web module
+ * is registered here and legacy web_read remains refusal coverage. */
+
 #define PATH_CHECK(condition) do { if (!(condition)) { \
     (void)fprintf(stderr, "web program path check failed at line %d\n", \
                   __LINE__); \
@@ -44,6 +52,149 @@ static int path_read_file(const char *path, uint8_t *out, size_t capacity,
     (void)fclose(file);
     *length = read;
     return read == 0U ? 1 : 0;
+}
+
+static void path_guest_const(uint8_t *out, size_t *cursor, uint32_t value)
+{
+    uint8_t byte;
+    out[(*cursor)++] = 0x41U; /* i32.const, signed LEB128 */
+    do {
+        byte = (uint8_t)(value & 0x7fU);
+        value >>= 7U;
+        out[(*cursor)++] = value != 0U || (byte & 0x40U) != 0U ?
+            (uint8_t)(byte | 0x80U) : byte;
+    } while (value != 0U || (byte & 0x40U) != 0U);
+}
+
+static void path_guest_byte(uint8_t *out, size_t *cursor, uint32_t offset)
+{
+    out[(*cursor)++] = 0x20U; out[(*cursor)++] = 0U;
+    out[(*cursor)++] = 0x2dU; out[(*cursor)++] = 0U;
+    append_u32_leb(out, cursor, offset); /* input[offset] */
+}
+
+static void path_guest_u64(uint8_t *out, size_t *cursor, uint32_t offset)
+{
+    uint32_t index;
+    out[(*cursor)++] = 0x42U; out[(*cursor)++] = 0U;
+    for (index = 0U; index < 8U; ++index) {
+        out[(*cursor)++] = 0x42U; out[(*cursor)++] = 8U;
+        out[(*cursor)++] = 0x86U; /* i64.shl */
+        path_guest_byte(out, cursor, offset + index);
+        out[(*cursor)++] = 0xadU; /* i64.extend_i32_u */
+        out[(*cursor)++] = 0x84U; /* i64.or */
+    }
+}
+
+/* A complete byte-entry guest fixture: calldata supplies both transfer legs
+ * and the request record. The production runtime performs payment and emits
+ * the envelope; this guest has no host replacement or precomputed receipt. */
+static size_t path_guest_module(uint8_t *out)
+{
+    static const uint8_t header[] = {0U, 0x61U, 0x73U, 0x6dU, 1U, 0U, 0U, 0U};
+    static const uint8_t types[] = {
+        4U,
+        0x60U, 6U, 0x7eU, 0x7eU, 0x7fU, 0x7fU, 0x7fU, 0x7fU, 1U, 0x7fU,
+        0x60U, 4U, 0x7fU, 0x7fU, 0x7fU, 0x7fU, 1U, 0x7fU,
+        0x60U, 1U, 0x7fU, 1U, 0x7fU,
+        0x60U, 2U, 0x7fU, 0x7fU, 1U, 0x7fU
+    };
+    static const uint8_t functions[] = {2U, 2U, 3U};
+    static const uint8_t memory[] = {1U, 1U, 1U, 1U};
+    uint8_t section[2048];
+    uint8_t body[1536];
+    size_t cursor = 0U, length = 0U, body_length = 0U;
+    uint32_t index;
+    append_bytes(out, &cursor, header, sizeof(header));
+    append_section(out, &cursor, 1U, types, sizeof(types));
+    section[length++] = 3U;
+    append_name(section, &length, "layerx_v1");
+    append_name(section, &length, "transfer_402");
+    section[length++] = 0U; section[length++] = 0U;
+    append_name(section, &length, "layerx_v1");
+    append_name(section, &length, "event_emit");
+    section[length++] = 0U; section[length++] = 1U;
+    append_name(section, &length, "layerx_v4");
+    append_name(section, &length, "web_read");
+    section[length++] = 0U; section[length++] = 1U;
+    append_section(out, &cursor, 2U, section, length);
+    append_section(out, &cursor, 3U, functions, sizeof(functions));
+    append_section(out, &cursor, 5U, memory, sizeof(memory));
+    length = 0U; section[length++] = 3U;
+    append_name(section, &length, "layerx_reserve");
+    section[length++] = 0U; section[length++] = 3U;
+    append_name(section, &length, "layerx_call");
+    section[length++] = 0U; section[length++] = 4U;
+    append_name(section, &length, "memory");
+    section[length++] = 2U; section[length++] = 0U;
+    append_section(out, &cursor, 7U, section, length);
+
+    /* reserve returns an input buffer at 1024, clear of topic and output. */
+    length = 0U; section[length++] = 2U;
+    section[length++] = 5U; section[length++] = 0U;
+    path_guest_const(section, &length, 1024U); section[length++] = 0x0bU;
+    body[body_length++] = 1U; body[body_length++] = 1U;
+    body[body_length++] = 0x7fU; /* local 2: host status */
+    path_guest_byte(body, &body_length, 1U);
+    path_guest_const(body, &body_length, PATH_OP_READ);
+    body[body_length++] = 0x46U; /* i32.eq */
+    body[body_length++] = 0x04U; body[body_length++] = 0x40U;
+    /* The compatibility read reaches the real disabled web_read import. */
+    path_guest_const(body, &body_length, 0x01020304U);
+    path_guest_const(body, &body_length, 0x05060708U);
+    path_guest_const(body, &body_length, 8192U);
+    path_guest_const(body, &body_length, 4136U);
+    body[body_length++] = 0x10U; body[body_length++] = 2U;
+    body[body_length++] = 0x0fU; body[body_length++] = 0x0bU;
+    path_guest_u64(body, &body_length, 75U);
+    path_guest_u64(body, &body_length, 83U);
+    body[body_length++] = 0x20U; body[body_length++] = 0U;
+    path_guest_const(body, &body_length, 11U); body[body_length++] = 0x6aU;
+    path_guest_const(body, &body_length, 32U);
+    body[body_length++] = 0x20U; body[body_length++] = 0U;
+    path_guest_const(body, &body_length, 43U); body[body_length++] = 0x6aU;
+    path_guest_const(body, &body_length, 32U);
+    body[body_length++] = 0x10U; body[body_length++] = 0U;
+    body[body_length++] = 0x22U; body[body_length++] = 2U;
+    body[body_length++] = 0x04U; body[body_length++] = 0x40U;
+    body[body_length++] = 0x20U; body[body_length++] = 2U;
+    body[body_length++] = 0x0fU; body[body_length++] = 0x0bU;
+    for (index = 0U; index < 9U; ++index) {
+        path_guest_const(body, &body_length, 4096U + index);
+        path_guest_byte(body, &body_length, 2U + index);
+        body[body_length++] = 0x3aU;
+        body[body_length++] = 0U; body[body_length++] = 0U;
+    }
+    for (index = 0U; index < 4U; ++index) {
+        path_guest_const(body, &body_length, 4105U + index);
+        path_guest_const(body, &body_length, PATH_PAYLOAD_BYTES);
+        path_guest_const(body, &body_length, (3U - index) * 8U);
+        body[body_length++] = 0x76U; /* i32.shr_u */
+        body[body_length++] = 0x3aU;
+        body[body_length++] = 0U; body[body_length++] = 0U;
+    }
+    for (index = 0U; index < PATH_PAYLOAD_BYTES; ++index) {
+        path_guest_const(body, &body_length, 4109U + index);
+        path_guest_byte(body, &body_length, 91U + index);
+        body[body_length++] = 0x3aU;
+        body[body_length++] = 0U; body[body_length++] = 0U;
+    }
+    path_guest_const(body, &body_length, 0U);
+    path_guest_const(body, &body_length, sizeof(path_request_topic) - 1U);
+    path_guest_const(body, &body_length, 4096U);
+    path_guest_const(body, &body_length, 13U + PATH_PAYLOAD_BYTES);
+    body[body_length++] = 0x10U; body[body_length++] = 1U;
+    body[body_length++] = 0x0bU;
+    append_u32_leb(section, &length, (uint32_t)body_length);
+    append_bytes(section, &length, body, body_length);
+    append_section(out, &cursor, 10U, section, length);
+    length = 0U; section[length++] = 1U; section[length++] = 0U;
+    path_guest_const(section, &length, 0U); section[length++] = 0x0bU;
+    append_u32_leb(section, &length, sizeof(path_request_topic) - 1U);
+    append_bytes(section, &length, path_request_topic,
+                  sizeof(path_request_topic) - 1U);
+    append_section(out, &cursor, 11U, section, length);
+    return cursor;
 }
 
 static lxp_result path_fee_account(const uint8_t asset[32], uint8_t id[32])
@@ -232,6 +383,7 @@ typedef struct path_chain {
     uint8_t primary_key[32];
     uint8_t payer_id[32];
     uint8_t activity_ordinal;
+    uint16_t guest_abi;
 } path_chain;
 
 static const uint8_t path_did[] = "did:lxp:web-program-path";
@@ -250,7 +402,7 @@ static int path_call(path_chain *chain, const uint8_t program_id[32],
                                            capabilities_length, absent_access,
                                            sizeof(absent_access), calldata,
                                            calldata_length);
-    write_u16(call + 32U, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+    write_u16(call + 32U, chain->guest_abi);
     fill_activity(&activity, LX_PROGRAMS_CALL, call, length, path_did,
                   sizeof(path_did) - 1U, chain->primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -268,7 +420,8 @@ static int path_call(path_chain *chain, const uint8_t program_id[32],
     return 0;
 }
 
-static int web_program_path(const char *wasm_path, bool genesis_fee_account)
+static int web_program_path(const char *wasm_path, bool genesis_fee_account,
+                             uint16_t guest_abi)
 {
     static const uint8_t actor_name[] =
         "agent:did:lxp:web-program-path:main";
@@ -302,10 +455,18 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     size_t wasm_length;
     size_t length;
 
-    PATH_CHECK(path_read_file(wasm_path, wasm, sizeof(wasm),
-                              &wasm_length) == 0);
+    PATH_CHECK(guest_abi == LX_PROGRAMS_GUEST_ABI_V4_VERSION ||
+               guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+    if (wasm_path == NULL) {
+        wasm_length = path_guest_module(wasm);
+        PATH_CHECK(wasm_length != 0U && wasm_length <= sizeof(wasm));
+    } else {
+        PATH_CHECK(path_read_file(wasm_path, wasm, sizeof(wasm),
+                                  &wasm_length) == 0);
+    }
     (void)memset(program_id, 0x71, sizeof(program_id));
     (void)memset(&chain, 0, sizeof(chain));
+    chain.guest_abi = guest_abi;
     PATH_CHECK(path_fee_account(fee_asset, fee_account_id) == LXP_OK);
     PATH_CHECK(lxp_keccak256(path_payload, PATH_PAYLOAD_BYTES,
                              payload_hash) == LXP_OK);
@@ -383,7 +544,10 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
                                  &parameters, 0U) == LXP_OK);
     PATH_CHECK(install_metering_v1(&chain.kernel) == LXP_OK);
     PATH_CHECK(lxp_kernel_register_module(&chain.kernel,
-        programs_module_registration_v4()) == LXP_OK);
+        guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+            programs_module_registration_v5() :
+            programs_module_registration_v4()) == LXP_OK);
+    PATH_CHECK(lxp_programs_module_version(&chain.kernel) == guest_abi);
     PATH_CHECK(lxp_kernel_bind_module_runtime(&chain.kernel,
         LXP_MODULE_PROGRAMS, &chain.runtime) == LXP_OK);
     PATH_CHECK(lxp_programs_bind_fee_transaction(&chain.kernel) == LXP_OK);
@@ -397,8 +561,7 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     chain.execution.batch_number = 1U;
     chain.execution.batch_timestamp_ms = 10U;
     chain.execution.maximum_timestamp_window = 100U;
-    chain.execution.recorded_module_version =
-        LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION;
+    chain.execution.recorded_module_version = guest_abi;
     chain.execution.parameter_version = 1U;
     chain.execution.signature_valid = true;
     chain.execution.identities = &chain.identities;
@@ -407,11 +570,11 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     chain.execution.gas_limit = 1000000U;
     chain.execution.arena = &chain.arena;
 
-    /* Deploy the built web-reader reference program at ABI v4. */
+    /* Deploy the real web-reader guest at the selected registered ABI. */
     length = program_spend_deploy_payload(deploy, program_id,
                                           chain.authority.principal, wasm,
                                           wasm_length, code_hash);
-    write_u16(deploy + 32U, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+    write_u16(deploy + 32U, guest_abi);
     fill_activity(&activity, LX_PROGRAMS_DEPLOY, deploy, length, path_did,
                   sizeof(path_did) - 1U, chain.primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -523,12 +686,53 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
 #ifndef LXP_TEST_WEB_PROGRAM_PATH_MAIN
 #define LXP_TEST_WEB_PROGRAM_PATH_MAIN main
 #endif
+
+static int current_paid_web_request(void)
+{
+    return web_program_path(NULL, true, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+}
+
+static int current_paid_web_request_account_creation(void)
+{
+    return web_program_path(NULL, false, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+}
+
+static int historical_paid_web_request(void)
+{
+    return web_program_path(NULL, true, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+}
+
+static int historical_paid_web_request_account_creation(void)
+{
+    return web_program_path(NULL, false, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+}
+
 int LXP_TEST_WEB_PROGRAM_PATH_MAIN(int argc, char **argv)
 {
+    if (lxp_test_register("current_paid_web_request",
+            current_paid_web_request) != 0 ||
+        lxp_test_register("current_paid_web_request_account_creation",
+            current_paid_web_request_account_creation) != 0 ||
+        lxp_test_register("historical_paid_web_request",
+            historical_paid_web_request) != 0 ||
+        lxp_test_register("historical_paid_web_request_account_creation",
+            historical_paid_web_request_account_creation) != 0)
+        return 1;
+    if (argc == 1 || (argc > 1 && argv[1][0] == '-'))
+        return lxp_test_main(argc, argv);
     if (argc != 2) {
         (void)fprintf(stderr, "usage: %s web-reader.wasm\n", argv[0]);
         return 2;
     }
-    if (web_program_path(argv[1], true) != 0) return 1;
-    return web_program_path(argv[1], false);
+    if (web_program_path(argv[1], true,
+                         LX_PROGRAMS_GUEST_ABI_V5_VERSION) != 0 ||
+        web_program_path(argv[1], false,
+                         LX_PROGRAMS_GUEST_ABI_V5_VERSION) != 0)
+        return 1;
+    /* Explicitly historical ABI-v4 compatibility, with the same assertions. */
+    if (web_program_path(argv[1], true,
+                         LX_PROGRAMS_GUEST_ABI_V4_VERSION) != 0)
+        return 1;
+    return web_program_path(argv[1], false,
+                             LX_PROGRAMS_GUEST_ABI_V4_VERSION);
 }

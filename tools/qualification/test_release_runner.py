@@ -37,20 +37,30 @@ class ReleaseRunnerTests(unittest.TestCase):
             ),
         )
         required = {
+            "real-node/hostile-program-gauntlet",
+            "real-node/isolation",
+            "real-node/determinism-differential",
+            "real-node/metering",
             "real-node/concurrent-same-account-transfers",
             "real-node/duplicate-idempotency-keys",
             "real-node/lost-response-after-successful-commit",
-            "real-node/crash-before-batch-wal",
-            "real-node/crash-after-batch-wal",
+            "real-node/crash-before-node-wal",
+            "real-node/crash-after-node-wal",
             "real-node/crash-before-state-mutation",
             "real-node/crash-after-state-mutation",
+            "real-node/crash-before-block-commit",
+            "real-node/crash-after-block-commit",
             "real-node/crash-before-receipt-publication",
             "real-node/crash-after-receipt-publication",
             "real-node/crash-before-acknowledgement",
             "real-node/crash-after-acknowledgement",
+            "ported-reference-contracts",
             "program-heavy-monetary-law-replay",
         }
-        self.assertTrue(required.issubset(EVIDENCE_SPECS["programs-qualify"].cases))
+        self.assertEqual(required, EVIDENCE_SPECS["programs-qualify"].cases)
+        from tools.qualification.beta_driver import CASES
+
+        self.assertEqual(required, set(CASES["programs-qualify"]))
 
     def test_functional_human_gate_drops_perf_and_has_no_external_gates(self) -> None:
         self.assertEqual(
@@ -242,12 +252,16 @@ class ReleaseRunnerTests(unittest.TestCase):
             self.assertIn(("human-qualify-usability", "not-run"), unmet)
 
     def test_evidence_validation_uses_exact_inventory_and_real_files(self) -> None:
-        gate = "human-qualify-fabrication"
+        self.assert_exact_inventory_and_real_files("human-qualify-fabrication")
+
+    def test_programs_evidence_validation_uses_exact_inventory_and_real_files(self) -> None:
+        self.assert_exact_inventory_and_real_files("programs-qualify")
+
+    def assert_exact_inventory_and_real_files(self, gate: str) -> None:
         components = {
             "node": "https://node.example.test",
             "agentd": "https://agent.example.test",
             "human_service": "https://human.example.test",
-            "paxeer_testnet": "https://paxeer.example.test",
         }
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

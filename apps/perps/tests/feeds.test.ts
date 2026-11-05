@@ -16,9 +16,23 @@ test('all chart reads target gateway directly, never the app-domain candle proxy
   assert.throws(() => candleFeedUrl('symbols', '../admin'));
 });
 
-test('RPC defaults include all 16 owned EVM nodes', () => {
-  assert.equal(getPaxeerRpcUrls().length, 16);
-  assert.equal(getPaxeerRpcUrls()[15], 'https://api16.mainnet-beta.paxeer.network');
+test('RPC defaults use the authoritative inventory at the root path', () => {
+  const previousMulti = process.env.NEXT_PUBLIC_PAXEER_RPC_URLS;
+  const previousSingle = process.env.NEXT_PUBLIC_PAXEER_RPC_URL;
+  delete process.env.NEXT_PUBLIC_PAXEER_RPC_URLS;
+  delete process.env.NEXT_PUBLIC_PAXEER_RPC_URL;
+  try {
+    assert.deepEqual(getPaxeerRpcUrls(), [
+      ...Array.from({ length: 14 }, (_, i) => `https://api${i + 1}.mainnet-beta.paxeer.network`),
+      'https://api-mainnet-beta.paxeer.network',
+    ]);
+    for (const endpoint of getPaxeerRpcUrls()) assert.equal(new URL(endpoint).pathname, '/');
+  } finally {
+    if (previousMulti === undefined) delete process.env.NEXT_PUBLIC_PAXEER_RPC_URLS;
+    else process.env.NEXT_PUBLIC_PAXEER_RPC_URLS = previousMulti;
+    if (previousSingle === undefined) delete process.env.NEXT_PUBLIC_PAXEER_RPC_URL;
+    else process.env.NEXT_PUBLIC_PAXEER_RPC_URL = previousSingle;
+  }
 });
 test('candle relay normalizes symbols and uses keyless gateway origin', async () => {
   const oldFetch = global.fetch;

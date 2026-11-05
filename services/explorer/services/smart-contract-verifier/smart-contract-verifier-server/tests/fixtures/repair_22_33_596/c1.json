@@ -1,0 +1,81 @@
+{
+  "metadata": {
+    "compiler": {
+      "version": "0.8.7+commit.e28d00a7"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "name": "a",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "b",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "c",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "d",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ]
+    },
+    "settings": {
+      "evmVersion": "london",
+      "libraries": {},
+      "metadata": {
+        "bytecodeHash": "ipfs"
+      },
+      "optimizer": {
+        "enabled": false,
+        "runs": 200
+      },
+      "remappings": [],
+      "compilationTarget": {
+        "C1.sol": "C1"
+      }
+    },
+    "version": 1
+  },
+  "source": "// SPDX-License-Identifier: MIT\r\npragma solidity 0.8.7;\r\n\r\ncontract C1 {\r\n    uint256 immutable public a = 0;\r\n    uint256 public b = 1202;\r\n    address public c = 0x9563Fdb01BFbF3D6c548C2C64E446cb5900ACA88;\r\n    address public d = 0x9563Fdb01BFbF3D6c548C2C64E446cb5900ACA88;\r\n}"
+}

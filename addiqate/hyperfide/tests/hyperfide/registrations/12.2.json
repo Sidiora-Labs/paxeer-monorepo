@@ -1,0 +1,132 @@
+{
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/12_2.py"
+  ],
+  "assertion_ids": [
+    "runner.root-fixture",
+    "transport.separate-https-coordinator",
+    "transport.rejects-forged-request-proof",
+    "launch.serve-poll-spawns-agent",
+    "launch.durable-accept-before-spawn",
+    "launch.lost-handoff-redelivered-single-start",
+    "ack.lost-responses-replayed-idempotently",
+    "steer.delivered-once",
+    "steer.redelivery-not-rewritten",
+    "steer.duplicate-frame-not-replayed",
+    "supervisor.kill-leaves-broker-and-agent",
+    "controller.outage-agent-stdin-open",
+    "reconcile.live-broker-adopted",
+    "reconcile.adoption-single-owner",
+    "reconnect.backoff-bounded",
+    "reconnect.steer-after-restart-delivered",
+    "start.no-duplicate-logical-start",
+    "reconcile.accepted-without-broker-not-spawned",
+    "reconcile.unattributed-process-uncertain",
+    "reconcile.dead-broker-lost",
+    "reconcile.reused-pid-not-adopted",
+    "reconcile.orphan-reported-without-stdin",
+    "reconcile.no-blind-relaunch",
+    "cancel.orphan-stopped-without-broker",
+    "steer.before-start-not-written",
+    "cancel.before-start-fences-launch",
+    "cancel.stale-generation-not-applied",
+    "cancel.current-generation-stops",
+    "evidence.spool-digest-uploaded",
+    "broker.retires-after-delivery",
+    "spool.replayed-without-duplicates",
+    "serve.summary-bounded",
+    "dispatch.describe-not-ready",
+    "dispatch.consume-plan-reader-not-ready",
+    "dispatch.consume-rejects-invalid-claim",
+    "dispatch.consume-rejects-unknown-field"
+  ],
+  "cases": [
+    "V-006",
+    "V-041",
+    "V-043"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/12_2.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "fixtures": [
+    "build/hyperfide-native",
+    "core/control-plane/dist/control.js"
+  ],
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "resources": [
+    {
+      "id": "runner-dispatch-database",
+      "kind": "postgresql-database",
+      "scope": "task12.2-disposable"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "task-component",
+  "source_files": [
+    "Makefile",
+    "build/hyperfide-native",
+    "tools/repository/hyperfide-native-components.py",
+    "core/control-plane/components/1.4.json",
+    "core/control-plane/components/12.2.json",
+    "core/control-plane/components/14.1.json",
+    "core/control-plane/components/2.1.json",
+    "core/control-plane/components/2.4.json",
+    "core/control-plane/components/3.1.json",
+    "core/control-plane/components/3.2.json",
+    "core/control-plane/components/4.1.json",
+    "core/control-plane/components/4.2.json",
+    "core/control-plane/components/4.4.json",
+    "core/control-plane/components/5.1.json",
+    "core/control-plane/components/5.2.json",
+    "core/control-plane/components/6.1.json",
+    "core/control-plane/components/6.2.json",
+    "core/control-plane/components/6.3.json",
+    "core/control-plane/components/7.2.json",
+    "core/control-plane/components/7.3.json",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/runner/dispatch.js",
+    "core/control-plane/src/events/instructions.ts",
+    "core/control-plane/src/events/runner_commands.ts",
+    "core/control-plane/src/runner/dispatch.ts",
+    "core/native/src/hyperfide/component_main.c",
+    "core/native/src/hyperfide/components.h",
+    "core/native/src/hyperfide/components/12.1.kvx",
+    "core/native/src/hyperfide/components/12.2.kvx",
+    "core/native/src/hyperfide/components/schema.kvx",
+    "core/native/src/hyperfide/launch.c",
+    "core/native/src/hyperfide/supervisor.c",
+    "core/native/src/hyperfide/supervisor.h",
+    "core/native/src/hyperfide/supervisor_daemon.c",
+    "core/native/src/hyperfide/transport.c",
+    "core/native/src/hyperfide/transport.h",
+    "core/native/src/sha256.c",
+    "tests/hyperfide/cases/tasks/12_2.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "core/native/src/hyperfide",
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "task": "12.2",
+  "timeout_seconds": 300,
+  "variant": "task:12.2"
+}

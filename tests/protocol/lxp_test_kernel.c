@@ -1,5 +1,7 @@
 //go:build ignore
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "layerx/lxp_kernel.h"
 
 #include <stdbool.h>
@@ -373,8 +375,11 @@ done:
     return result;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    if (argc == 5 && strcmp(argv[1], "--build-genesis-artifacts") == 0)
+        return lxp_genesis_builder_cli_main(argc - 1, argv + 1);
+    if (argc != 1) return 2;
     static const uint32_t v1_types[] = { UINT32_C(0x00010001),
                                          UINT32_C(0x00010002) };
     static const uint32_t v2_types[] = { UINT32_C(0x00010001),

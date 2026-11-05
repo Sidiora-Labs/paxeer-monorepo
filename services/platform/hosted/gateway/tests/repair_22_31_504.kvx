@@ -1,0 +1,22 @@
+[repair]
+task = "22.31.504"
+acceptance = "22998.1"
+gotcha = "3047"
+decision = "2545"
+base = "b66a12fbea8d4662e36b70ae3e870d065605b3fd"
+revision_evidence = "The runner's private gates.jsonl and final hf-done JSON name the exact built and verified candidate revision containing this repair record; no verification is claimed before hf-done passes."
+build_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --bin layerx-gateway --no-run"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --bin layerx-gateway -- capabilities_schema_declares_every_surface explorer_query_and_finite_routes"
+
+[repair.capabilities]
+test = "capabilities::tests::capabilities_schema_declares_every_surface"
+broken_by = ["22.33.1443"]
+change = "Preserve the rewritten info.description and restore the -32003 surface_unavailable refusal while px_getCapabilities reports that surface false, naming all seven surfaces and their real precompile addresses."
+criterion = "The unchanged unit test parses the real embedded OpenRPC document, checks every required capability and address against production Surface values, and asserts the refusal wording and every named address."
+
+[repair.routes]
+test = "explorer_proxy::tests::explorer_query_and_finite_routes"
+broken_by = ["22.31.380", "22.31.382"]
+change = "Assert the current exact count of 145 routes and explicitly select the transaction-signature route and all three feed routes, checking their exact templates and session-CSRF flags; retain every existing query and refusal assertion and every production route."
+routes = ["GET /api/v2/transactions/{transaction_hash_param}/signature", "GET /api/v2/paxeer-x/feed/markets", "GET /api/v2/paxeer-x/feed/markets/{market_id}/updates", "GET /api/v2/paxeer-x/feed/updates/{hash}"]
+criterion = "The unit test drives production selected and split_target paths, proving the signature and feed routes are admitted while unlisted methods, malformed paths and invalid query encodings remain refused."
