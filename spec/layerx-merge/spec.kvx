@@ -179420,7 +179420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1498]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/tests/common (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
