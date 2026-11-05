@@ -31123,3 +31123,11 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 3: build exit 0 at 9fa8d29462; the dependent-crate check stopped on services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs line 590, a GrantTerms construction without receiver_did_key, because the attempt was claimed four minutes before 22.31.536 published; verify never ran."
 assumption = "The red target is repaired on main; the attempt's own work is not in question."
 severity = "low"
+
+[finding.22.35.1.2]
+task = "22.35.1"
+file = "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+symbol = "repair-22-35-1.spec.ts"
+observed = "Attempt 2: build exit 0 at 45fa2ccb74; verify 92 of 93 passed; stat.recipe.spec.ts line 22 expected scan valueText to match textStyle heading.sm, which the batch 474 instruction removed in favour of statValue in the compound variant."
+assumption = "The failing assertion pins the look the brief replaces; nothing in the recipe change is in question."
+severity = "low"

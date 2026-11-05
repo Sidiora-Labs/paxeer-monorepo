@@ -8697,6 +8697,12 @@ value = "The spend stored for restart recovery persists the payer DID the disclo
 basis = "Gotcha 3137: the approver must see the agent that acts, and the stored and the presented disclosures must name the same actor."
 affects = ["22.33.1551", "22.31.529"]
 
+[decision.2598]
+title = "A pre-existing explorer theme test that pins a text style the design brief retires moves to the brief style; the brief wins over the test"
+value = "The explorer design brief is the single design source for the restyle tasks and states that where it and an existing component disagree the brief wins. A recipe test written for the previous look that asserts a retired text style, size, weight or colour is amended by the restyle task to assert the brief value at the layer that now states it, and the test title is reworded to match; assertions about structure, ordering and semantic token names are kept."
+basis = "Gotcha 3139: the old assertion encodes the look the programme replaces, not a behaviour to preserve."
+affects = ["22.35.1", "22.35.2", "22.35.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -148043,6 +148049,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue, gotcha 3135, decision 2594): attempt 1 stands in full (the colour, border, shadow and typography foundations, the semantic tokens, the global CSS, the six recipes, the two toolkit components and the spec). In apps/explorer/toolkit/theme/recipes/stat.recipe.ts remove textStyle heading.sm from the valueText of the scan entry on the variant axis (keep its colour and layout properties) and in the scan compound variant state fontWeight 600 beside textStyle statValue on valueText (and fontFamily mono if the resolved styles show the family drifting too); change nothing in repair-22-35-1.spec.ts unless the resolved styles prove the assertion itself wrong, in which case the record says why. Re-run the declared build and verify once; if recipesResolveToTheVisualSystem still fails, write the resolved valueText styles of the three layers into repair-22-35-1.kvx and stop."
+do_6 = "Attempt 3 (continue, gotcha 3139, decision 2598): attempt 2 stands in full (the recipe change, the six repair proofs, the record). One change in apps/explorer/toolkit/theme/recipes/stat.recipe.spec.ts: the scan variant test at line 20 to 23 now asserts the label as before and the value as the brief states it: scan valueText matches color text.primary and names no textStyle, and the scan compound variant (or whichever layer states it) carries textStyle statValue and fontWeight 600; reword the test title to say stat-value sized. Add one line to repair-22-35-1.kvx naming the amended assertion and why. Then run the declared build and verify once and record the result."
 
 [task.22.31.533]
 title = "Re-pin the three committed seller suites to the receipt-signature digest"
