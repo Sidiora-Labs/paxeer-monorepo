@@ -8793,6 +8793,12 @@ value = "The sequence-only hold entries are retired (decision 2560, 22.31.495) a
 basis = "Gotcha 3157: attempt 8 of 22.31.516 ported the call faithfully to the attempt-7 instruction and the legacy expectation at line 231 then failed because the hold had become a timed hold."
 affects = ["22.31.516", "22.31.495", "22.31.219"]
 
+[decision.2614]
+title = "Retiring a shared contract version is complete only when every production producer and consumer has been ported to its replacement in the same repair programme, and the retired version refuses only at wire boundaries that still receive it"
+value = "When a shared crate retires a contract version (here NativeSendPurposeV1 in layerx-agent-api, retired by 22.31.214 with NativeSendPurposeV2 as the replacement), each wiring request the retiring task records becomes a port task in the same programme before the retirement is counted as closed: the daemon (src/human_runtime.rs producers, src/agent_rpc_wire.rs decoders, src/capability/binding.rs verifiers, src/human.rs response types), the schema with its golden copy, the SDK and MCP carriers, and the Human service with the KMS signer and sender recovery each adopt V2, resolve the current stable owner DID, consent key and 20-byte EVM sender, and prove their path with a real producer, transport and consumer test including restart where state is persisted. A test that refused through the retired version (gotcha 3158) is held behind the port task of its own crate and reruns after it. The retired V1 keeps its explicit refusal at the wire boundaries that still receive it."
+basis = "Gotcha 3158: 22.31.214 retired V1 and left four wiring requests that never became tasks, so the whole native send consent path has refused correct requests since 2026-11-01; 22.31.543 attempt 3 pinned the daemon guard."
+affects = ["22.31.214", "22.31.543", "22.31.219"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37683,6 +37689,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.548]
+title = "Port the Human service native send journey, custody provider and KMS attestor to NativeSendPurposeV2"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_548.kvx"]
+tests = ["services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --test native_journey_approval && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib -- attestor"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/human/crates/layerx-human-service/src/journeys/engine.rs (the purpose field near line 268, the signed_purpose builder near line 637 and every NativeSendPurposeV1 or SignedNativeSendPurposeV1 use), src/server/native_send.rs (the purpose field near line 538), src/server/agent_runtime.rs (the signed purpose parameters near lines 4138, 4146 and 5108 and the canonical decode near line 5411) and src/custody/provider.rs (the SendPurpose variant near line 397 and the decode near line 450) adopt layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2: the Human service fills owner_did with the stable owner DID, consent_public_key with the current consent verification key of the held key (KeyDescriptor.public_key), evm_sender with the 20-byte sender of the prepared type-2 transaction on chain 125, and signs SHA256 of the V2 canonical bytes with the current consent key."
+symbols = []
+
+[capability.22.31.547]
+title = "Port the SDK native effect carrier and the MCP catalogue to NativeSendPurposeV2"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk/src/native_effect.rs", "services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx", "services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 -- native && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_224"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-sdk/src/native_effect.rs (the purpose construction near line 475 and the signed purpose near line 496) and services/agent/crates/layerx-sdk/src/agent_envelope.rs build and carry layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2 with the wire field names 22.31.545 defines in the daemon (version 2, consent_public_key, evm_sender, transaction_type, chain_id); the SDK signs SHA256 of the V2 canonical bytes with the consent key it holds and sends the V2 wire body. In services/agent/crates/layerx-mcp/src/catalogue.rs line 1093 the advertised purpose version becomes NativeSendPurposeV2::VERSION."
+symbols = []
+
+[capability.22.31.546]
+title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
+reqs = ["22998.1"]
+touches = ["services/agent/schema/agent-api/v1.kvx", "services/agent/schema/agent-api/golden/v1.kvx", "services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs", "services/agent/crates/layerx-agent-api/tests/repair_22_31_546.kvx"]
+tests = ["services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_rungs.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema --test schema_rungs --test schema_retired"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/schema/agent-api/v1.kvx add record.NativeSendPurposeV2 (rust layerx_agent_api::identity::NativeSendPurposeV2, wire_type NativeSendPurposeV2Wire, the fields in the canonical order of src/native_send.rs: tenant, agent_did, owner_did, consent_public_key hex32, evm_sender hex20, session_id, generation and expires_at_ms decimal strings, capability_id, transaction_type and chain_id decimal strings, activity NativeActivityV1, preparation_id, canonical_digest, economic_action, idempotency_key, commitment hex32; domain LayerX/native/send-purpose/v2, version 2, type 2, chain 125) and record.SignedNativeSendPurposeV2 (purpose:NativeSendPurposeV2, signature:hex64, signature_digest SHA256 of the exact V2 canonical bytes signed by the current consent key, sender recovered from the type-2 transaction compared with evm_sender). The existing record.NativeSendPurposeV1 and record.SignedNativeSendPurposeV1 stay and gain a retired note stating the explicit native_send.legacy_version refusal."
+symbols = []
+
+[capability.22.31.545]
+title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs"]
+verification_contract = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- native_send && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm --test repair_22_31_545"
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-agentd/src/human_runtime.rs the three producers that construct and validate layerx_agent_api::identity::NativeSendPurposeV1 (the owner preview native_send_owner_preview_on_surface near line 6310, mcp_native_web_purpose near line 436 and its wrapper near line 2656) construct layerx_agent_api::identity::NativeSendPurposeV2 instead: owner_did is the stable owner DID of the bound owner, consent_public_key is the current owner verification key the owner resolution returns (owner.public_key()), evm_sender is the 20-byte address the preparation was built for (the address whose pending nonce the prepared type-2 call carries), transaction_type is NativeSendPurposeV2::TRANSACTION_TYPE, chain_id is NativeSendPurposeV2::CHAIN_ID (125), activity stays NativeActivity (1, 5), and the digest fields stay as today; the response type HumanNativeSendOwnerPreviewV1 in src/human.rs carries the V2 purpose and its encoder writes the V2 canonical bytes. Where a function signature names NativeSendPurposeV1 it names NativeSendPurposeV2."
+symbols = []
 
 [capability.22.31.544]
 title = "Port the approval replay-bounds test to the timed approval entries"
@@ -175280,6 +175322,129 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.548]
+title = "Port the Human service native send journey, custody provider and KMS attestor to NativeSendPurposeV2"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.545"]
+reqs = ["22998.1"]
+capabilities = ["22.31.548"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/human/crates/layerx-human-service/src/journeys/engine.rs (the purpose field near line 268, the signed_purpose builder near line 637 and every NativeSendPurposeV1 or SignedNativeSendPurposeV1 use), src/server/native_send.rs (the purpose field near line 538), src/server/agent_runtime.rs (the signed purpose parameters near lines 4138, 4146 and 5108 and the canonical decode near line 5411) and src/custody/provider.rs (the SendPurpose variant near line 397 and the decode near line 450) adopt layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2: the Human service fills owner_did with the stable owner DID, consent_public_key with the current consent verification key of the held key (KeyDescriptor.public_key), evm_sender with the 20-byte sender of the prepared type-2 transaction on chain 125, and signs SHA256 of the V2 canonical bytes with the current consent key."
+do_2 = "do_2 In services/human/crates/layerx-human-kms/src/attestor.rs (the purpose parameter near line 1024 and the decode near line 1030) the attestor decodes the V2 canonical purpose, independently recovers the sender of the signed type-2 transaction and compares it with purpose.evm_sender through NativeSendPurposeV2::check_prepared_transaction before release; a V1 canonical purpose is refused with the existing contract error path."
+do_3 = "do_3 Prove the path with the real producer and consumer: amend services/human/crates/layerx-human-service/tests/native_send_purpose.rs and tests/native_journey_approval.rs to the V2 types and add cases that an owner whose primary key rotated still signs and releases under the same stable owner DID, that a purpose whose consent key or sender differs from the current owner is refused, and that a journey persisted before a process restart revalidates its V2 purpose after reopening; the KMS case lives in the attestor unit tests. Change nothing under services/agent."
+do_4 = "do_4 Record in services/human/crates/layerx-human-service/tests/repair_22_31_548.kvx the sites ported and the three cases; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_548.kvx"]
+tests = ["services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
+planned_paths = ["services/human/crates/layerx-human-service", "services/human/crates/layerx-human-kms"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test native_send_purpose --test native_journey_approval && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --test native_journey_approval && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib -- attestor"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.547]
+title = "Port the SDK native effect carrier and the MCP catalogue to NativeSendPurposeV2"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.545"]
+reqs = ["22998.1"]
+capabilities = ["22.31.547"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-sdk/src/native_effect.rs (the purpose construction near line 475 and the signed purpose near line 496) and services/agent/crates/layerx-sdk/src/agent_envelope.rs build and carry layerx_agent_api::identity::NativeSendPurposeV2 and SignedNativeSendPurposeV2 with the wire field names 22.31.545 defines in the daemon (version 2, consent_public_key, evm_sender, transaction_type, chain_id); the SDK signs SHA256 of the V2 canonical bytes with the consent key it holds and sends the V2 wire body. In services/agent/crates/layerx-mcp/src/catalogue.rs line 1093 the advertised purpose version becomes NativeSendPurposeV2::VERSION."
+do_2 = "do_2 Prove the path end to end against the real daemon: a test services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs starts the daemon the way tests/native_capabilities.rs or tests/sdk.rs do, prepares a native send, carries the V2 signed purpose through the SDK and the daemon RPC and asserts the daemon accepts it and refuses a version 1 body with the malformed rejection; the MCP test services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs is amended where it asserts the advertised version."
+do_3 = "do_3 Change nothing under layerx-agentd or layerx-agent-api. Record in services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx the sites ported and the end-to-end case; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-sdk/src/native_effect.rs", "services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx", "services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
+planned_paths = ["services/agent/crates/layerx-sdk", "services/agent/crates/layerx-mcp"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_224"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 -- native && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_224"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.546]
+title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.214"]
+reqs = ["22998.1"]
+capabilities = ["22.31.546"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/schema/agent-api/v1.kvx add record.NativeSendPurposeV2 (rust layerx_agent_api::identity::NativeSendPurposeV2, wire_type NativeSendPurposeV2Wire, the fields in the canonical order of src/native_send.rs: tenant, agent_did, owner_did, consent_public_key hex32, evm_sender hex20, session_id, generation and expires_at_ms decimal strings, capability_id, transaction_type and chain_id decimal strings, activity NativeActivityV1, preparation_id, canonical_digest, economic_action, idempotency_key, commitment hex32; domain LayerX/native/send-purpose/v2, version 2, type 2, chain 125) and record.SignedNativeSendPurposeV2 (purpose:NativeSendPurposeV2, signature:hex64, signature_digest SHA256 of the exact V2 canonical bytes signed by the current consent key, sender recovered from the type-2 transaction compared with evm_sender). The existing record.NativeSendPurposeV1 and record.SignedNativeSendPurposeV1 stay and gain a retired note stating the explicit native_send.legacy_version refusal."
+do_2 = "do_2 Mirror the same declarations into services/agent/schema/agent-api/golden/v1.kvx so the golden comparison in services/agent/crates/layerx-agent-api/tests/schema_rungs.rs holds; extend tests/schema.rs (or tests/schema_retired.rs where the retired declarations are asserted) with a case that reads both V2 records and the V1 retired note from the schema file. Change nothing under layerx-agent-api/src."
+do_3 = "do_3 Record in services/agent/crates/layerx-agent-api/tests/repair_22_31_546.kvx the records added and the test cases; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/schema/agent-api/v1.kvx", "services/agent/schema/agent-api/golden/v1.kvx", "services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs", "services/agent/crates/layerx-agent-api/tests/repair_22_31_546.kvx"]
+tests = ["services/agent/crates/layerx-agent-api/tests/schema.rs", "services/agent/crates/layerx-agent-api/tests/schema_rungs.rs"]
+planned_paths = ["services/agent/schema/agent-api", "services/agent/crates/layerx-agent-api/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema --test schema_rungs --test schema_retired"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agent-api --test schema --test schema_rungs --test schema_retired"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.545]
+title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.214", "22.31.219"]
+reqs = ["22998.1"]
+capabilities = ["22.31.545"]
+interfaces = []
+do_1 = "do_1 Gotcha 3158, decision 2614. In services/agent/crates/layerx-agentd/src/human_runtime.rs the three producers that construct and validate layerx_agent_api::identity::NativeSendPurposeV1 (the owner preview native_send_owner_preview_on_surface near line 6310, mcp_native_web_purpose near line 436 and its wrapper near line 2656) construct layerx_agent_api::identity::NativeSendPurposeV2 instead: owner_did is the stable owner DID of the bound owner, consent_public_key is the current owner verification key the owner resolution returns (owner.public_key()), evm_sender is the 20-byte address the preparation was built for (the address whose pending nonce the prepared type-2 call carries), transaction_type is NativeSendPurposeV2::TRANSACTION_TYPE, chain_id is NativeSendPurposeV2::CHAIN_ID (125), activity stays NativeActivity (1, 5), and the digest fields stay as today; the response type HumanNativeSendOwnerPreviewV1 in src/human.rs carries the V2 purpose and its encoder writes the V2 canonical bytes. Where a function signature names NativeSendPurposeV1 it names NativeSendPurposeV2."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs add NativeSendPurposeV2Wire and SignedNativeSendPurposeV2Wire (version string 2, the V2 fields with consent_public_key hex32, evm_sender hex20, transaction_type and chain_id decimal strings, no owner_public_key, protocol_version or network_id) with into_request calling validate, and Canonical for both V2 types; the request sites that decode a native send purpose (the native_send_v1 variant parsing and every site the grep for NativeSendPurposeV1Wire finds) accept the V2 wire and keep refusing a version 1 body with the existing malformed rejection; the V1 wire structs stay only for that refusal."
+do_3 = "do_3 In services/agent/crates/layerx-agentd/src/capability/binding.rs port VerifiedNativeSendPurposeV1, verify_native_send_purpose (the function near line 3877), native_send_purpose_digest and the persisted signed-purpose read and write near lines 4041 to 4075 to the V2 types: the verifier compares purpose.owner_did, consent_public_key and evm_sender with the independently resolved current owner through NativeSendPurposeV2::check_current_owner, checks the retained preparation through check_prepared_transaction (type 2, chain 125, the recovered or expected sender, the canonical digest), verifies the Ed25519 signature over SHA256 of the V2 canonical bytes with the consent key, and the persisted record is V2 canonical bytes that a restarted daemon decodes with SignedNativeSendPurposeV2::from_canonical_bytes; a stored V1 record is refused, not migrated."
+do_4 = "do_4 Amend services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs only where it decodes or asserts the purpose: the preview payload decodes with NativeSendPurposeV2::from_canonical_bytes, purpose.chain_id is 125, purpose.transaction_type is 2, purpose.evm_sender equals the fixture account EVM address, purpose.consent_public_key equals the owner public key the fixture sends, and the existing canonical_digest, preparation_id and commitment assertions stay. Write services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs proving the real path: a V2 purpose produced by the owner preview over the real Unix transport is signed by an Ed25519 consent key, verified by the binding verifier, persisted, and still verifies after the store is closed and reopened; a V1 wire body is refused with the malformed rejection; a V2 purpose whose consent key or sender differs from the current owner is refused with the current_owner mismatch."
+do_5 = "do_5 Change nothing in layerx-agent-api. Record in services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx every producer, decoder and verifier ported, the wire field list, and the restart case. The gates need no environment variable, credential or live endpoint beyond the local EVM the test starts (gotcha 2962, decision 2609); build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-agentd/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test repair_22_31_545"
+verify_cmd = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- native_send && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm --test repair_22_31_545"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.544]
 title = "Port the approval replay-bounds test to the timed approval entries"
 status = "pending"
@@ -175316,7 +175481,7 @@ title = "Assert the reason-bearing human refusal frame in the retired-rung and n
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.219"]
+requires = ["22.31.219", "22.31.545"]
 reqs = ["22998.1"]
 capabilities = ["22.31.543"]
 interfaces = []
@@ -175342,6 +175507,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (requalify, gotcha 3152, decision 2609): the attempt-1 tree at d32e243e779d stands unchanged: the full-frame assertions in tests/human_peer_retired.rs and tests/native_send_preview_evm.rs through a field helper and the repair record tests/repair_22_31_543.kvx. The verify command now opens with anvil --version so the qualification environment provides the local EVM binary the native preview test starts at line 161. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 do_5 = "Attempt 3 (continue, gotcha 3155, decision 2611): the attempt-2 tree at 5ce5764e25af stands (both full-frame assertions through the field helper, the record; human_peer_retired passed; the local EVM starts). The native preview case fails before the amended assertion: the first native_send_owner_preview_v1 call at line 900 returns HumanOperationError::Refused, which carries no reason. Before the gates, run that one case once with RUST_BACKTRACE=1 (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm -- --exact native_send_preview_is_an_unsigned_ledger_transfer_call) and read the frame of the refusing guard inside native_send_owner_preview_on_surface of src/human_runtime.rs (the uid and token checks, decode_owner_authority, subject_owner, core_preparation_snapshot, native_fee_policy, the payload hash comparison, agent_rpc_peer::bind, the purpose and capability checks). If the guard refuses because the fixture predates a landed contract (the committed verification rank of 22.31.535 and 22.31.538, the approval time of 22.31.495, the fee policy of 9.25.7, the receipt rank of 22.31.541), amend the fixture in tests/native_send_preview_evm.rs so it emits what the daemon now requires and name the guard and the contract in tests/repair_22_31_543.kvx. If the guard refuses a request the fixture builds correctly, change nothing under src: record the guard by file and line and the reason in tests/repair_22_31_543.kvx, run the declared gates once and end implemented-not-qualified naming it, so a repair task carries the production fix. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_6 = "Attempt 4 (continue after 22.31.545, gotcha 3158, decision 2614): the attempt-3 tree at c1ea1692db67af4e7d13364efe38b93ee817b9a2 stands (both complete refusal-frame assertions, the retired source-name checks, the record with blocker.owner_preview). Once 22.31.545 is on main, rebase onto it keeping its V2 amendments of tests/native_send_preview_evm.rs together with the frame assertions of this task; where both touched the same lines the V2 decode and field assertions of 22.31.545 win and the refusal frame of this task stays. Replace blocker.owner_preview in tests/repair_22_31_543.kvx with a closure note naming 22.31.545 and the guard it removed. Change nothing under src. Run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.542]
 title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"

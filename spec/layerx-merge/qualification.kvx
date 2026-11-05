@@ -31267,3 +31267,11 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 8: build exit 0 and dependent-crate check exit 0 at 533c08cdf4133b226683dd97bd8cd7d78528917a; human_approval_budget_actor passed; human_projection_facts failed only at line 231, operation 47 on the legacy approval returned facts instead of status byte 2."
 assumption = "The port changed the modelled hold from a pre-clock record to a timed record (gotcha 3157); the daemon behaviour is correct and the fixture is corrected to model the pre-clock record directly."
 severity = "low"
+
+[finding.22.31.543.3]
+task = "22.31.543"
+file = "services/agent/crates/layerx-agentd/tests/human_peer_retired.rs"
+symbol = "human_peer_retired.rs"
+observed = "Attempt 3: build exit 0; human_peer_retired passed; native_send_preview_evm refused at line 900 before the amended assertion; the attempt pinned the refusal to the retired NativeSendPurposeV1 validation the owner preview still runs and recorded it."
+assumption = "A production refusal of a correct request (gotcha 3158) that the port task 22.31.545 removes; nothing in this task is at fault."
+severity = "low"
